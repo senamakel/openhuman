@@ -11,29 +11,38 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde_json::{json, Value};
-use tempfile::{tempdir, TempDir};
+use serde_json::{Value, json};
+use tempfile::{TempDir, tempdir};
 
 use openhuman_core::core::all::RegisteredController;
 use openhuman_core::openhuman::agent::agents::BUILTINS;
+use openhuman_core::openhuman::agent::dispatcher::{
+    NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, ToolExecutionResult,
+    XmlToolDispatcher,
+};
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
+use openhuman_core::openhuman::agent::host_runtime::create_runtime;
+use openhuman_core::openhuman::agent::multimodal::{
+    MultimodalError, contains_image_markers, count_image_markers, extract_ollama_image_payload,
+    parse_image_markers, prepare_messages_for_provider,
+};
 use openhuman_core::openhuman::agent::personality_paths::{
-    filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
-    resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
-    HasToolkit, PersonalityContext,
+    HasToolkit, PersonalityContext, filter_integrations, memory_subdir_for_suffix,
+    memory_tree_subdir_for_suffix, resolve_personality_memory_md, resolve_personality_soul,
+    session_raw_subdir_for_suffix,
 };
 use openhuman_core::openhuman::agent::pformat::{
-    build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
-    PFormatParamType, PFormatRegistry, PFormatToolParams,
+    PFormatParamType, PFormatRegistry, PFormatToolParams, build_registry,
+    parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
 };
 use openhuman_core::openhuman::agent::profiles::{
     AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
 };
 use openhuman_core::openhuman::agent::prompts::{
-    render_ambient_environment, render_subagent_system_prompt, render_tools, ConnectedIntegration,
-    GatedIntegrationTool, LearnedContextData, NamespaceSummary, PersonalityRosterEntry,
-    PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat,
-    UserIdentity,
+    ConnectedIntegration, GatedIntegrationTool, LearnedContextData, NamespaceSummary,
+    PersonalityRosterEntry, PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder,
+    ToolCallFormat, UserIdentity, render_ambient_environment, render_subagent_system_prompt,
+    render_tools,
 };
 use openhuman_core::openhuman::agent::task_board::{
     TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
@@ -47,26 +56,32 @@ use openhuman_core::openhuman::agent::tool_policy::{
 use openhuman_core::openhuman::agent::tools::PlanExitTool;
 use openhuman_core::openhuman::agent::triage::envelope::{TriggerEnvelope, TriggerSource};
 use openhuman_core::openhuman::agent::triage::routing::build_local_provider_with_config;
-use openhuman_core::openhuman::agent::triage::{parse_triage_decision, ParseError, TriageAction};
+use openhuman_core::openhuman::agent::triage::{ParseError, TriageAction, parse_triage_decision};
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
 };
+use openhuman_core::openhuman::config::schema::LocalAiConfig;
 use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
-use openhuman_core::openhuman::config::schema::LocalAiConfig;
-use openhuman_core::openhuman::config::{Config, DelegateAgentConfig};
-use openhuman_core::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
+use openhuman_core::openhuman::config::{
+    Config, DelegateAgentConfig, DockerRuntimeConfig, MultimodalConfig, RuntimeConfig,
+};
+use openhuman_core::openhuman::credentials::profiles::{AuthProfile, TokenSet};
+use openhuman_core::openhuman::credentials::{APP_SESSION_PROVIDER, AuthService};
 use openhuman_core::openhuman::inference::context_window_for_model;
+use openhuman_core::openhuman::inference::openai_oauth::{
+    OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY, lookup_openai_bearer_token,
+};
 use openhuman_core::openhuman::inference::presets::{
-    all_presets, apply_preset_to_config, current_tier_from_config, device_supports_local_ai,
-    mvp_presets, preset_for_tier, recommend_tier, should_default_to_cloud_fallback,
-    supports_screen_summary, vision_mode_for_config, vision_mode_for_tier, ModelTier, VisionMode,
-    MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER,
+    MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER, ModelTier, VisionMode, all_presets,
+    apply_preset_to_config, current_tier_from_config, device_supports_local_ai, mvp_presets,
+    preset_for_tier, recommend_tier, should_default_to_cloud_fallback, supports_screen_summary,
+    vision_mode_for_config, vision_mode_for_tier,
 };
 use openhuman_core::openhuman::inference::provider::factory::{
-    auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
-    BYOK_INCOMPLETE_SENTINEL,
+    BYOK_INCOMPLETE_SENTINEL, auth_key_for_slug, create_chat_provider_from_string,
+    provider_for_role,
 };
 use openhuman_core::openhuman::inference::provider::temperature::{
     glob_match, temperature_for_model,
@@ -74,23 +89,25 @@ use openhuman_core::openhuman::inference::provider::temperature::{
 use openhuman_core::openhuman::inference::provider::thread_context::{
     current_thread_id, with_thread_id,
 };
-use openhuman_core::openhuman::inference::provider::UsageInfo;
+use openhuman_core::openhuman::inference::provider::{
+    ChatMessage, ChatResponse, ConversationMessage, ToolCall, ToolResultMessage, UsageInfo,
+};
 use openhuman_core::openhuman::inference::provider::{
     format_anyhow_chain, is_budget_exhausted_message, is_openai_compatible_unknown_model_message,
     is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
 };
 use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
 use openhuman_core::openhuman::inference::voice::hallucination::{
-    is_hallucinated_output, HallucinationMode,
+    HallucinationMode, is_hallucinated_output,
 };
 use openhuman_core::openhuman::inference::voice::postprocess::cleanup_transcription;
 use openhuman_core::openhuman::inference::{
-    all_inference_controller_schemas, all_inference_registered_controllers,
-    all_local_ai_controller_schemas, all_local_ai_registered_controllers, DeviceProfile,
+    DeviceProfile, all_inference_controller_schemas, all_inference_registered_controllers,
+    all_local_ai_controller_schemas, all_local_ai_registered_controllers,
 };
 use openhuman_core::openhuman::security::SecurityPolicy;
 use openhuman_core::openhuman::todos::ops::BoardLocation;
-use openhuman_core::openhuman::tools::Tool;
+use openhuman_core::openhuman::tools::{Tool, ToolSpec};
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -282,9 +299,11 @@ async fn inference_registry_drives_config_oauth_models_and_provider_chat() {
     let schemas = all_inference_controller_schemas();
     let registered = all_inference_registered_controllers();
     assert_eq!(schemas.len(), registered.len());
-    assert!(schemas
-        .iter()
-        .any(|schema| schema.function == "test_provider_model"));
+    assert!(
+        schemas
+            .iter()
+            .any(|schema| schema.function == "test_provider_model")
+    );
     assert!(registered.iter().all(|controller| {
         controller
             .rpc_method_name()
@@ -508,9 +527,11 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     let schemas = all_agent_controller_schemas();
     let registered = all_agent_registered_controllers();
     assert_eq!(schemas.len(), registered.len());
-    assert!(registered
-        .iter()
-        .all(|controller| controller.rpc_method_name().starts_with("openhuman.agent_")));
+    assert!(
+        registered
+            .iter()
+            .all(|controller| controller.rpc_method_name().starts_with("openhuman.agent_"))
+    );
 
     let status = call(controller(&registered, "server_status"), json!({}))
         .await
@@ -525,9 +546,10 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
         .pointer("/definitions")
         .and_then(Value::as_array)
         .expect("definitions array");
-    assert!(defs
-        .iter()
-        .any(|def| def.pointer("/id") == Some(&json!("planner"))));
+    assert!(
+        defs.iter()
+            .any(|def| def.pointer("/id") == Some(&json!("planner")))
+    );
 
     let planner = call(
         controller(&registered, "get_definition"),
@@ -558,12 +580,13 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
         list.pointer("/activeProfileId"),
         Some(&json!(DEFAULT_PROFILE_ID))
     );
-    assert!(list
-        .pointer("/profiles")
-        .and_then(Value::as_array)
-        .expect("profiles")
-        .iter()
-        .any(|profile| profile.pointer("/id") == Some(&json!("research"))));
+    assert!(
+        list.pointer("/profiles")
+            .and_then(Value::as_array)
+            .expect("profiles")
+            .iter()
+            .any(|profile| profile.pointer("/id") == Some(&json!("research")))
+    );
 
     let unknown_agent = call(
         controller(&registered, "profile_upsert"),
@@ -810,10 +833,12 @@ fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes(
     let workspace = tempdir().expect("workspace");
     let store = TaskBoardStore::new(workspace.path().to_path_buf());
     assert!(store.get("thread-1").expect("missing board").is_none());
-    assert!(store
-        .get("   ")
-        .unwrap_err()
-        .contains("invalid task board thread_id"));
+    assert!(
+        store
+            .get("   ")
+            .unwrap_err()
+            .contains("invalid task board thread_id")
+    );
 
     let mut board = TaskBoard::empty("thread-1");
     assert_eq!(board.thread_id, "thread-1");
@@ -1228,10 +1253,12 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
     });
     let denied = revoked_provider.check(&generated).await;
     assert!(matches!(denied, ToolPolicyDecision::Deny { .. }));
-    assert!(denied
-        .blocking_reason()
-        .expect("deny reason")
-        .contains("provider `mail.runtime` is revoked"));
+    assert!(
+        denied
+            .blocking_reason()
+            .expect("deny reason")
+            .contains("provider `mail.runtime` is revoked")
+    );
 
     let revoked_capability = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
         enabled: true,
@@ -1240,10 +1267,12 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
     });
     let denied = revoked_capability.check(&generated).await;
     assert!(matches!(denied, ToolPolicyDecision::Deny { .. }));
-    assert!(denied
-        .blocking_reason()
-        .expect("deny reason")
-        .contains("capability `email.send` is revoked"));
+    assert!(
+        denied
+            .blocking_reason()
+            .expect("deny reason")
+            .contains("capability `email.send` is revoked")
+    );
 
     let capability_over_provider =
         GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
@@ -1263,10 +1292,12 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
         approval,
         ToolPolicyDecision::RequireApproval { .. }
     ));
-    assert!(approval
-        .blocking_reason()
-        .expect("approval reason")
-        .contains("capability `email.send` matched runtime policy"));
+    assert!(
+        approval
+            .blocking_reason()
+            .expect("approval reason")
+            .contains("capability `email.send` matched runtime policy")
+    );
 
     let provider_denial = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
         enabled: true,
@@ -1411,9 +1442,11 @@ async fn inference_local_controllers_and_presets_cover_public_paths() {
     let local_schemas = all_local_ai_controller_schemas();
     let local_registered = all_local_ai_registered_controllers();
     assert_eq!(local_schemas.len(), local_registered.len());
-    assert!(local_registered.iter().all(|controller| controller
-        .rpc_method_name()
-        .starts_with("openhuman.local_ai_")));
+    assert!(local_registered.iter().all(|controller| {
+        controller
+            .rpc_method_name()
+            .starts_with("openhuman.local_ai_")
+    }));
 
     let reachable = call(
         controller(&local_registered, "test_connection"),
@@ -1749,9 +1782,11 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     assert!(native.contains("native tool-calling output"));
     assert!(UserIdentity::default().is_empty());
     assert!(PromptTool::new("x", "desc").parameters_schema.is_none());
-    assert!(PromptTool::with_schema("x", "desc", "{}".into())
-        .parameters_schema
-        .is_some());
+    assert!(
+        PromptTool::with_schema("x", "desc", "{}".into())
+            .parameters_schema
+            .is_some()
+    );
     let options = SubagentRenderOptions::from_definition_flags(false, true, false, true, false);
     assert!(options.include_identity);
     assert!(!options.include_safety_preamble);
@@ -1819,7 +1854,7 @@ fn agent_builtin_prompt_builders_cover_all_registered_archetypes() {
 async fn agent_public_tools_cover_validation_and_metadata_paths() {
     use openhuman_core::openhuman::agent::tools::{
         ArchetypeDelegationTool, AskClarificationTool, DelegateToPersonalityTool, DelegateTool,
-        RunSkillTool, SkillDelegationTool, TodoTool, RUN_SKILL_TOOL_NAME,
+        RUN_SKILL_TOOL_NAME, RunSkillTool, SkillDelegationTool, TodoTool,
     };
 
     let ask = AskClarificationTool::new();
@@ -1862,9 +1897,11 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
         }))
         .await
         .expect("no parent context");
-    assert!(no_parent_context
-        .output()
-        .contains("no parent execution context"));
+    assert!(
+        no_parent_context
+            .output()
+            .contains("no parent execution context")
+    );
 
     let archetype = ArchetypeDelegationTool {
         tool_name: "delegate_researcher".into(),
@@ -1893,9 +1930,11 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
         .await
         .expect("unknown toolkit");
     assert!(unknown_toolkit.is_error);
-    assert!(unknown_toolkit
-        .output()
-        .contains("allowed: [gmail, notion]"));
+    assert!(
+        unknown_toolkit
+            .output()
+            .contains("allowed: [gmail, notion]")
+    );
     let blank_skill_prompt = skill_delegate
         .execute(json!({ "toolkit": "gmail", "prompt": "   " }))
         .await
@@ -1937,9 +1976,404 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
         .execute(json!({ "agent": "worker", "prompt": "do work" }))
         .await
         .expect("depth limit returns tool error");
-    assert!(depth_error
-        .output()
-        .contains("Delegation depth limit reached"));
+    assert!(
+        depth_error
+            .output()
+            .contains("Delegation depth limit reached")
+    );
+}
+
+#[test]
+fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
+    let spec = ToolSpec {
+        name: "search_docs".into(),
+        description: "Search project documentation".into(),
+        parameters: json!({
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"]
+        }),
+    };
+
+    let xml = XmlToolDispatcher;
+    let xml_instructions = xml
+        .prompt_instructions_for_specs(&[spec.clone()])
+        .expect("xml specs");
+    assert!(xml_instructions.contains("search_docs"));
+    assert!(!xml.should_send_tool_specs());
+    let xml_result = xml.format_results(&[ToolExecutionResult {
+        name: "search_docs".into(),
+        output: "found docs".into(),
+        success: true,
+        tool_call_id: None,
+    }]);
+    assert!(matches!(xml_result, ConversationMessage::Chat(_)));
+
+    let mut registry = PFormatRegistry::new();
+    registry.insert(
+        "search_docs".into(),
+        PFormatToolParams {
+            names: vec!["query".into()],
+            types: vec![PFormatParamType::String],
+        },
+    );
+    let pformat = PFormatToolDispatcher::new(registry);
+    let mixed = ChatResponse {
+        text: Some(
+            "first\n<tool_call>search_docs[coverage gaps]</tool_call>\n\
+             <tool_call>unknown_tool[json fallback]</tool_call>"
+                .into(),
+        ),
+        ..Default::default()
+    };
+    let (visible, calls) = pformat.parse_response(&mixed);
+    assert!(visible.contains("first"));
+    assert_eq!(calls.len(), 1);
+    assert_eq!(
+        calls[0].arguments.pointer("/query"),
+        Some(&json!("coverage gaps"))
+    );
+    let json_fallback = ChatResponse {
+        text: Some(
+            "<tool_call>{\"name\":\"search_docs\",\"arguments\":{\"query\":\"json fallback\"}}</tool_call>"
+                .into(),
+        ),
+        ..Default::default()
+    };
+    let (_, fallback_calls) = pformat.parse_response(&json_fallback);
+    assert_eq!(
+        fallback_calls[0].arguments.pointer("/query"),
+        Some(&json!("json fallback"))
+    );
+    assert!(!pformat.should_send_tool_specs());
+    assert_eq!(pformat.tool_call_format(), ToolCallFormat::PFormat);
+    assert!(pformat.prompt_instructions(&[]).contains("P-Format"));
+
+    let native = NativeToolDispatcher;
+    let structured = ChatResponse {
+        text: Some("using a tool".into()),
+        tool_calls: vec![
+            ToolCall {
+                id: "call-ok".into(),
+                name: "search_docs".into(),
+                arguments: "{\"query\":\"native\"}".into(),
+            },
+            ToolCall {
+                id: "call-bad-json".into(),
+                name: "search_docs".into(),
+                arguments: "{not-json".into(),
+            },
+        ],
+        ..Default::default()
+    };
+    let (text, native_calls) = native.parse_response(&structured);
+    assert_eq!(text, "using a tool");
+    assert_eq!(native_calls.len(), 2);
+    assert_eq!(
+        native_calls[0].arguments.pointer("/query"),
+        Some(&json!("native"))
+    );
+    assert_eq!(native_calls[1].arguments, json!({}));
+    assert!(native.should_send_tool_specs());
+    assert_eq!(native.tool_call_format(), ToolCallFormat::Native);
+
+    let fallback = ChatResponse {
+        text: Some(
+            "<tool_call>{\"name\":\"search_docs\",\"arguments\":{\"query\":\"text\"}}</tool_call>"
+                .into(),
+        ),
+        ..Default::default()
+    };
+    assert_eq!(native.parse_response(&fallback).1[0].name, "search_docs");
+
+    let history = vec![
+        ConversationMessage::Chat(ChatMessage::system("sys")),
+        ConversationMessage::AssistantToolCalls {
+            text: Some("paired".into()),
+            tool_calls: vec![ToolCall {
+                id: "call-1".into(),
+                name: "search_docs".into(),
+                arguments: "{\"query\":\"paired\"}".into(),
+            }],
+            reasoning_content: Some("thinking".into()),
+        },
+        ConversationMessage::ToolResults(vec![ToolResultMessage {
+            tool_call_id: "call-1".into(),
+            content: "paired result".into(),
+        }]),
+        ConversationMessage::AssistantToolCalls {
+            text: Some("drop me".into()),
+            tool_calls: vec![ToolCall {
+                id: "missing-result".into(),
+                name: "search_docs".into(),
+                arguments: "{}".into(),
+            }],
+            reasoning_content: None,
+        },
+        ConversationMessage::ToolResults(vec![ToolResultMessage {
+            tool_call_id: "orphan".into(),
+            content: "orphan result".into(),
+        }]),
+        ConversationMessage::Chat(ChatMessage::user("done")),
+    ];
+    let provider_messages = native.to_provider_messages(&history);
+    assert_eq!(provider_messages.len(), 4);
+    assert_eq!(provider_messages[0].role, "system");
+    assert!(provider_messages[1].content.contains("reasoning_content"));
+    assert!(provider_messages[2].content.contains("call-1"));
+    assert_eq!(provider_messages[3].content, "done");
+
+    let native_runtime = create_runtime(&RuntimeConfig {
+        kind: "native".into(),
+        ..Default::default()
+    })
+    .expect("native runtime");
+    assert_eq!(native_runtime.name(), "native");
+    assert!(native_runtime.has_shell_access());
+
+    let docker_runtime = create_runtime(&RuntimeConfig {
+        kind: "docker".into(),
+        docker: DockerRuntimeConfig {
+            image: "alpine:coverage".into(),
+            network: "none".into(),
+            mount_workspace: false,
+            read_only_rootfs: false,
+            memory_limit_mb: Some(128),
+            cpu_limit: None,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .expect("docker runtime");
+    assert_eq!(docker_runtime.name(), "docker");
+    assert!(!docker_runtime.has_filesystem_access());
+    assert_eq!(docker_runtime.memory_budget(), 128);
+
+    let unsupported = match create_runtime(&RuntimeConfig {
+        kind: "wasm".into(),
+        ..Default::default()
+    }) {
+        Ok(runtime) => panic!(
+            "unsupported runtime unexpectedly created: {}",
+            runtime.name()
+        ),
+        Err(error) => error,
+    };
+    assert!(unsupported.to_string().contains("Unsupported runtime kind"));
+}
+
+#[tokio::test]
+async fn agent_multimodal_helpers_cover_normalization_and_error_paths() {
+    let empty = vec![ChatMessage::user("no image markers")];
+    let passthrough = prepare_messages_for_provider(&empty, &MultimodalConfig::default())
+        .await
+        .expect("no image passthrough");
+    assert!(!passthrough.contains_images);
+    assert_eq!(passthrough.messages[0].content, "no image markers");
+
+    let (cleaned, refs) =
+        parse_image_markers("before [IMAGE: data:image/png;base64,iVBORw0KGgo= ] after [IMAGE: ]");
+    assert_eq!(cleaned, "before  after [IMAGE: ]");
+    assert_eq!(refs, vec!["data:image/png;base64,iVBORw0KGgo="]);
+    assert!(contains_image_markers(&[ChatMessage::user(
+        "look [IMAGE:data:image/png;base64,iVBORw0KGgo=]"
+    )]));
+    assert_eq!(
+        count_image_markers(&[
+            ChatMessage::system("[IMAGE:ignored]"),
+            ChatMessage::user("[IMAGE:a][IMAGE:b]")
+        ]),
+        2
+    );
+    assert_eq!(
+        extract_ollama_image_payload("data:image/png;base64, iVBORw0KGgo= "),
+        Some("iVBORw0KGgo=".into())
+    );
+    assert_eq!(extract_ollama_image_payload("   "), None);
+
+    let data_uri = "data:image/png;base64,iVBORw0KGgo=";
+    let normalized = prepare_messages_for_provider(
+        &[ChatMessage::user(format!("inspect [IMAGE:{data_uri}]"))],
+        &MultimodalConfig {
+            max_images: 4,
+            max_image_size_mb: 1,
+            allow_remote_fetch: false,
+        },
+    )
+    .await
+    .expect("valid data uri");
+    assert!(normalized.contains_images);
+    assert!(
+        normalized.messages[0]
+            .content
+            .contains("[IMAGE:data:image/png;base64,iVBORw0KGgo=]")
+    );
+
+    let too_many = prepare_messages_for_provider(
+        &[ChatMessage::user("[IMAGE:a][IMAGE:b]")],
+        &MultimodalConfig {
+            max_images: 1,
+            ..Default::default()
+        },
+    )
+    .await
+    .expect_err("too many images");
+    assert!(matches!(
+        too_many.downcast_ref::<MultimodalError>(),
+        Some(MultimodalError::TooManyImages {
+            max_images: 1,
+            found: 2
+        })
+    ));
+
+    let remote_disabled = prepare_messages_for_provider(
+        &[ChatMessage::user("[IMAGE:https://example.test/image.png]")],
+        &MultimodalConfig::default(),
+    )
+    .await
+    .expect_err("remote disabled");
+    assert!(matches!(
+        remote_disabled.downcast_ref::<MultimodalError>(),
+        Some(MultimodalError::RemoteFetchDisabled { .. })
+    ));
+
+    let unsupported = prepare_messages_for_provider(
+        &[ChatMessage::user("[IMAGE:data:text/plain;base64,aGVsbG8=]")],
+        &MultimodalConfig::default(),
+    )
+    .await
+    .expect_err("unsupported mime");
+    assert!(matches!(
+        unsupported.downcast_ref::<MultimodalError>(),
+        Some(MultimodalError::UnsupportedMime { .. })
+    ));
+
+    let invalid = prepare_messages_for_provider(
+        &[ChatMessage::user("[IMAGE:data:image/png,iVBORw0KGgo=]")],
+        &MultimodalConfig::default(),
+    )
+    .await
+    .expect_err("missing base64 marker");
+    assert!(matches!(
+        invalid.downcast_ref::<MultimodalError>(),
+        Some(MultimodalError::InvalidMarker { .. })
+    ));
+
+    let workspace = tempdir().expect("image workspace");
+    let image_path = workspace.path().join("tiny.png");
+    std::fs::write(
+        &image_path,
+        [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'],
+    )
+    .expect("write png");
+    let local = prepare_messages_for_provider(
+        &[ChatMessage::user(format!(
+            "local [IMAGE:{}]",
+            image_path.display()
+        ))],
+        &MultimodalConfig::default(),
+    )
+    .await
+    .expect("local png");
+    assert!(local.messages[0].content.contains("data:image/png;base64"));
+
+    let missing = prepare_messages_for_provider(
+        &[ChatMessage::user(format!(
+            "[IMAGE:{}]",
+            workspace.path().join("missing.png").display()
+        ))],
+        &MultimodalConfig::default(),
+    )
+    .await
+    .expect_err("missing local image");
+    assert!(matches!(
+        missing.downcast_ref::<MultimodalError>(),
+        Some(MultimodalError::ImageSourceNotFound { .. })
+    ));
+}
+
+#[test]
+fn inference_openai_oauth_store_covers_persist_lookup_and_empty_profiles() {
+    let _lock = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = isolated_env();
+    let mut config = Config::default();
+    config.secrets.encrypt = false;
+
+    assert_eq!(
+        lookup_openai_bearer_token(&config).expect("missing profile lookup"),
+        None
+    );
+
+    let mut profile = AuthProfile::new_oauth(
+        OPENAI_PROVIDER_KEY,
+        OPENAI_OAUTH_PROFILE_NAME,
+        TokenSet {
+            access_token: "eyJhbGciOiJub25lIn0.eyJzdWIiOiJhY2N0X2NvdmVyYWdlIn0.sig".into(),
+            refresh_token: None,
+            id_token: Some("id-token".into()),
+            expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+            token_type: Some("Bearer".into()),
+            scope: None,
+        },
+    );
+    profile
+        .metadata
+        .insert("account_id".into(), "acct_coverage".into());
+    AuthService::from_config(&config)
+        .load_profiles()
+        .expect("profiles load before upsert");
+    openhuman_core::openhuman::credentials::profiles::AuthProfilesStore::new(
+        &openhuman_core::openhuman::credentials::state_dir_from_config(&config),
+        config.secrets.encrypt,
+    )
+    .upsert_profile(profile.clone(), true)
+    .expect("upsert oauth profile");
+
+    let stored = AuthService::from_config(&config)
+        .get_profile(OPENAI_PROVIDER_KEY, Some(OPENAI_OAUTH_PROFILE_NAME))
+        .expect("read stored profile")
+        .expect("stored profile exists");
+    assert_eq!(stored.provider, OPENAI_PROVIDER_KEY);
+    assert_eq!(stored.profile_name, OPENAI_OAUTH_PROFILE_NAME);
+    assert_eq!(
+        stored.metadata.get("account_id").map(String::as_str),
+        Some("acct_coverage")
+    );
+    let access_token = profile
+        .token_set
+        .as_ref()
+        .expect("token set")
+        .access_token
+        .clone();
+    assert_eq!(
+        lookup_openai_bearer_token(&config).expect("stored token lookup"),
+        Some(access_token)
+    );
+
+    let blank = AuthProfile::new_oauth(
+        OPENAI_PROVIDER_KEY,
+        OPENAI_OAUTH_PROFILE_NAME,
+        TokenSet {
+            access_token: "   ".into(),
+            refresh_token: None,
+            id_token: None,
+            expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+            token_type: Some("Bearer".into()),
+            scope: None,
+        },
+    );
+    openhuman_core::openhuman::credentials::profiles::AuthProfilesStore::new(
+        &openhuman_core::openhuman::credentials::state_dir_from_config(&config),
+        config.secrets.encrypt,
+    )
+    .upsert_profile(blank, true)
+    .expect("upsert blank profile");
+    assert_eq!(
+        lookup_openai_bearer_token(&config).expect("blank token lookup"),
+        None
+    );
 }
 
 fn test_device(total_ram_gb: u64) -> DeviceProfile {

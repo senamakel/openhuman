@@ -16,6 +16,7 @@
 
 pub(crate) mod checkpoint;
 pub(crate) mod core;
+pub(crate) mod parser;
 pub(crate) mod progress;
 pub(crate) mod state;
 pub(crate) mod tool_source;
@@ -23,6 +24,7 @@ pub(crate) mod tools;
 
 pub(crate) use checkpoint::{CheckpointOutcome, CheckpointStrategy, ErrorCheckpoint};
 pub(crate) use core::run_turn_engine;
+pub(crate) use parser::{DefaultParser, DispatcherParser, ResponseParser};
 pub(crate) use progress::{
     spawn_delta_forwarder, ProgressReporter, SubagentProgress, TurnProgress,
 };

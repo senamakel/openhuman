@@ -282,6 +282,7 @@ pub(crate) async fn run_tool_call_loop(
     let progress = super::engine::TurnProgress::new(on_progress);
     let mut observer = super::engine::NullObserver;
     let checkpoint = super::engine::ErrorCheckpoint;
+    let parser = super::engine::DefaultParser;
     super::engine::run_turn_engine(
         provider,
         history,
@@ -289,6 +290,7 @@ pub(crate) async fn run_tool_call_loop(
         &progress,
         &mut observer,
         &checkpoint,
+        &parser,
         provider_name,
         model,
         temperature,

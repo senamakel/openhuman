@@ -1334,6 +1334,7 @@ async fn run_inner_loop(
         task_id: task_id.to_string(),
     };
 
+    let parser = super::super::engine::DefaultParser;
     let outcome = super::super::engine::run_turn_engine(
         provider,
         history,
@@ -1341,6 +1342,7 @@ async fn run_inner_loop(
         &progress,
         &mut observer,
         &checkpoint,
+        &parser,
         "subagent",
         model,
         temperature,

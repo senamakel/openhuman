@@ -27,10 +27,11 @@ use crate::openhuman::context::guard::{ContextCheckResult, ContextGuard};
 use crate::openhuman::inference::model_context::context_window_for_model;
 use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, Provider, ProviderCapabilityError};
 
-use super::super::parse::{build_native_assistant_history, parse_structured_tool_calls, parse_tool_calls};
+use super::super::parse::build_native_assistant_history;
 use super::super::token_budget::trim_chat_messages_to_budget;
 use super::super::tool_loop::{RepeatFailureGuard, STREAM_CHUNK_MIN_CHARS};
 use super::checkpoint::CheckpointStrategy;
+use super::parser::ResponseParser;
 use super::progress::ProgressReporter;
 use super::state::TurnObserver;
 use super::tool_source::ToolSource;
@@ -65,6 +66,7 @@ pub(crate) async fn run_turn_engine(
     progress: &dyn ProgressReporter,
     observer: &mut dyn TurnObserver,
     checkpoint: &dyn CheckpointStrategy,
+    parser: &dyn ResponseParser,
     provider_name: &str,
     model: &str,
     temperature: f64,
@@ -232,7 +234,7 @@ pub(crate) async fn run_turn_engine(
             let _ = handle.await;
         }
 
-        let (response_text, parsed_text, tool_calls, assistant_history_content, native_tool_calls) =
+        let (response_text, display_text, tool_calls, assistant_history_content, native_tool_calls) =
             match chat_result {
                 Ok(resp) => {
                     // Update context guard + cost with token usage from this response.
@@ -256,16 +258,7 @@ pub(crate) async fn run_turn_engine(
                     }
 
                     let response_text = resp.text_or_empty().to_string();
-                    let mut calls = parse_structured_tool_calls(&resp.tool_calls);
-                    let mut parsed_text = String::new();
-
-                    if calls.is_empty() {
-                        let (fallback_text, fallback_calls) = parse_tool_calls(&response_text);
-                        if !fallback_text.is_empty() {
-                            parsed_text = fallback_text;
-                        }
-                        calls = fallback_calls;
-                    }
+                    let (display_text, calls) = parser.parse(&resp);
 
                     tracing::debug!(
                         iteration,
@@ -287,7 +280,7 @@ pub(crate) async fn run_turn_engine(
                     let native_calls = resp.tool_calls;
                     (
                         response_text,
-                        parsed_text,
+                        display_text,
                         calls,
                         assistant_history_content,
                         native_calls,
@@ -324,12 +317,6 @@ pub(crate) async fn run_turn_engine(
                     return Err(e);
                 }
             };
-
-        let display_text = if parsed_text.is_empty() {
-            response_text.clone()
-        } else {
-            parsed_text
-        };
 
         if tool_calls.is_empty() {
             tracing::debug!(iteration, "[agent_loop] no tool calls — returning final response");

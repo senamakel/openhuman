@@ -3767,6 +3767,9 @@ const messages: TranslationMap = {
   'walletBalances.providerMissing': '服务商不可用',
   'walletBalances.rawBalance': '原始值：{raw}',
   'walletBalances.errorGeneric': '无法加载钱包余额。请在恢复助记词中设置钱包后重试。',
+  'walletBalances.setupHint': '你的恢复短语尚未设置。设置后即可启用钱包并查看实时余额。',
+  'walletBalances.setupCta': '设置恢复短语',
+  'walletBalances.notSetUp': '未设置',
   'settings.taskSources.title': '任务来源',
   'settings.taskSources.subtitle': '从你的工具拉取任务到智能体待办板',
   'settings.taskSources.description':

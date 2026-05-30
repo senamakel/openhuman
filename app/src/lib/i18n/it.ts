@@ -4025,6 +4025,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Grezzo: {raw}',
   'walletBalances.errorGeneric':
     'Impossibile caricare i saldi del portafoglio. Configura il tuo portafoglio in Frase di recupero e riprova.',
+  'walletBalances.setupHint':
+    'La tua frase di recupero non è ancora configurata. Configurala per attivare il tuo wallet e vedere i saldi in tempo reale.',
+  'walletBalances.setupCta': 'Configura la frase di recupero',
+  'walletBalances.notSetUp': 'Non configurato',
   'settings.taskSources.title': 'Fonti del compito',
   'settings.taskSources.subtitle':
     "Estrai le attività dai tuoi strumenti sulla lavagna delle cose da fare dell'agente",

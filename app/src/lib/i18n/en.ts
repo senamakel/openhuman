@@ -4173,6 +4173,10 @@ const en: TranslationMap = {
   'walletBalances.rawBalance': 'Raw: {raw}',
   'walletBalances.errorGeneric':
     'Unable to load wallet balances. Set up your wallet in Recovery Phrase and try again.',
+  'walletBalances.setupHint':
+    'Your recovery phrase isn’t set up yet. Set it up to enable your wallet and see live balances.',
+  'walletBalances.setupCta': 'Set up recovery phrase',
+  'walletBalances.notSetUp': 'Not set up',
   // Task sources (#task-sources)
   'settings.taskSources.title': 'Task Sources',
   'settings.taskSources.subtitle': 'Pull tasks from your tools onto the agent todo board',

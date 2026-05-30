@@ -3995,6 +3995,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Исходный: {raw}',
   'walletBalances.errorGeneric':
     'Не удалось загрузить балансы кошелька. Настройте кошелёк в разделе «Фраза восстановления» и повторите попытку.',
+  'walletBalances.setupHint':
+    'Ваша фраза восстановления ещё не настроена. Настройте её, чтобы включить кошелёк и видеть актуальные балансы.',
+  'walletBalances.setupCta': 'Настроить фразу восстановления',
+  'walletBalances.notSetUp': 'Не настроено',
   'settings.taskSources.title': 'Источники задач',
   'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов на доску задач агента.',
   'settings.taskSources.description':

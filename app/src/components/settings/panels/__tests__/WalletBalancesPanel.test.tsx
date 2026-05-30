@@ -1,23 +1,63 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { BalanceInfo } from '../../../../services/walletApi';
+import type { BalanceInfo, WalletStatus } from '../../../../services/walletApi';
 import { renderWithProviders } from '../../../../test/test-utils';
 import WalletBalancesPanel from '../WalletBalancesPanel';
 
 // ---------------------------------------------------------------------------
-// Module-level mock: replace fetchWalletBalances before the panel loads.
+// Module-level mock: replace the wallet API before the panel loads. The panel
+// checks `fetchWalletStatus()` first (to detect the not-configured state) and
+// only calls `fetchWalletBalances()` when the wallet is configured.
 // ---------------------------------------------------------------------------
 
 const mockFetchWalletBalances = vi.fn<() => Promise<BalanceInfo[]>>();
+const mockFetchWalletStatus = vi.fn<() => Promise<WalletStatus>>();
 
 vi.mock('../../../../services/walletApi', () => ({
   fetchWalletBalances: (...args: unknown[]) => mockFetchWalletBalances(...(args as [])),
+  fetchWalletStatus: (...args: unknown[]) => mockFetchWalletStatus(...(args as [])),
 }));
 
+const mockNavigateToSettings = vi.fn();
 vi.mock('../../hooks/useSettingsNavigation', () => ({
-  useSettingsNavigation: () => ({ navigateBack: vi.fn(), breadcrumbs: [] }),
+  useSettingsNavigation: () => ({
+    navigateBack: vi.fn(),
+    navigateToSettings: mockNavigateToSettings,
+    breadcrumbs: [],
+  }),
 }));
+
+const CONFIGURED_STATUS: WalletStatus = {
+  configured: true,
+  onboardingCompleted: true,
+  consentGranted: true,
+  secretStored: true,
+  source: 'generated',
+  mnemonicWordCount: 12,
+  accounts: [],
+  updatedAtMs: 1,
+};
+
+const UNCONFIGURED_STATUS: WalletStatus = {
+  configured: false,
+  onboardingCompleted: false,
+  consentGranted: false,
+  secretStored: false,
+  source: null,
+  mnemonicWordCount: null,
+  accounts: [],
+  updatedAtMs: null,
+};
+
+// Default every test to a configured wallet; not-configured tests opt in via
+// `mockFetchWalletStatus.mockResolvedValueOnce(UNCONFIGURED_STATUS)`.
+beforeEach(() => {
+  mockFetchWalletStatus.mockReset();
+  mockFetchWalletStatus.mockResolvedValue(CONFIGURED_STATUS);
+  mockFetchWalletBalances.mockReset();
+  mockNavigateToSettings.mockReset();
+});
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -141,6 +181,37 @@ describe('WalletBalancesPanel — empty state', () => {
       expect(screen.getByText(/No wallet accounts yet/i)).toBeInTheDocument();
       expect(screen.getByText(/Recovery Phrase/i)).toBeInTheDocument();
     });
+  });
+});
+
+describe('WalletBalancesPanel — wallet not configured', () => {
+  it('shows the setup hint + placeholder rows instead of a blocking error', async () => {
+    mockFetchWalletStatus.mockReset();
+    mockFetchWalletStatus.mockResolvedValueOnce(UNCONFIGURED_STATUS);
+
+    renderPanel();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Set it up to enable your wallet/i)).toBeInTheDocument();
+    });
+    // Placeholder rows render for every supported chain (one "Not set up" each).
+    expect(screen.getByText('EVM')).toBeInTheDocument();
+    expect(screen.getAllByText('Not set up')).toHaveLength(4);
+    // No balances fetch, no red error / retry button.
+    expect(mockFetchWalletBalances).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
+  });
+
+  it('routes to the recovery phrase panel from the setup CTA', async () => {
+    mockFetchWalletStatus.mockReset();
+    mockFetchWalletStatus.mockResolvedValueOnce(UNCONFIGURED_STATUS);
+
+    renderPanel();
+
+    const cta = await screen.findByRole('button', { name: /set up recovery phrase/i });
+    fireEvent.click(cta);
+
+    expect(mockNavigateToSettings).toHaveBeenCalledWith('recovery-phrase');
   });
 });
 

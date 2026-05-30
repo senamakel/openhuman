@@ -3973,6 +3973,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Mentah: {raw}',
   'walletBalances.errorGeneric':
     'Tidak dapat memuat saldo dompet. Atur dompet Anda di Frasa Pemulihan dan coba lagi.',
+  'walletBalances.setupHint':
+    'Frasa pemulihan Anda belum disiapkan. Siapkan untuk mengaktifkan dompet Anda dan melihat saldo langsung.',
+  'walletBalances.setupCta': 'Siapkan frasa pemulihan',
+  'walletBalances.notSetUp': 'Belum disiapkan',
   'settings.taskSources.title': 'Sumber Tugas',
   'settings.taskSources.subtitle': 'Tarik tugas dari alat Anda ke papan todo agen',
   'settings.taskSources.description':

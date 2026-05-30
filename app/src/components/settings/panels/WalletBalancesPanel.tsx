@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import { type BalanceInfo, fetchWalletBalances } from '../../../services/walletApi';
+import {
+  type BalanceInfo,
+  fetchWalletBalances,
+  fetchWalletStatus,
+  type WalletChain,
+} from '../../../services/walletApi';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
@@ -20,6 +25,19 @@ const CHAIN_BADGE_CLASS: Record<string, string> = {
 };
 
 const CHAIN_LABEL: Record<string, string> = { evm: 'EVM', btc: 'BTC', solana: 'SOL', tron: 'TRX' };
+
+// Native asset symbol per chain — used for the not-configured placeholder rows
+// where no real BalanceInfo (and therefore no assetSymbol) exists yet.
+const CHAIN_ASSET: Record<WalletChain, string> = {
+  evm: 'ETH',
+  btc: 'BTC',
+  solana: 'SOL',
+  tron: 'TRX',
+};
+
+// The supported chains rendered as placeholders before the wallet is set up,
+// so the panel shows the full wallet layout (one row per chain) regardless.
+const SUPPORTED_CHAINS: WalletChain[] = ['evm', 'btc', 'solana', 'tron'];
 
 /** Shorten an address to first 6 + last 4 characters: `0x1234…abcd`. */
 function truncateAddress(address: string): string {
@@ -145,16 +163,55 @@ const BalanceRow = ({ balance }: BalanceRowProps) => {
 };
 
 // ---------------------------------------------------------------------------
+// ChainPlaceholderRow — shown per chain before the wallet is configured. There
+// is no derived address or balance yet, so we render a muted "not set up" row
+// to convey the wallet layout without fabricating data.
+// ---------------------------------------------------------------------------
+
+const ChainPlaceholderRow = ({ chain }: { chain: WalletChain }) => {
+  const { t } = useT();
+  const badgeClass =
+    CHAIN_BADGE_CLASS[chain] ??
+    'bg-stone-100 text-stone-700 dark:bg-neutral-800 dark:text-neutral-300';
+  const chainLabel = CHAIN_LABEL[chain] ?? chain.toUpperCase();
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 opacity-70">
+      <span
+        className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold font-mono min-w-[3rem] justify-center shrink-0 ${badgeClass}`}>
+        {chainLabel}
+      </span>
+      <span className="font-mono text-xs text-stone-400 dark:text-neutral-500 truncate">
+        {t('walletBalances.notSetUp')}
+      </span>
+      <div className="flex-1" />
+      <div className="text-right shrink-0">
+        {/* Em dash placeholder — punctuation, not translatable copy. */}
+        <span className="text-sm font-medium text-stone-400 dark:text-neutral-500 font-mono">
+          —
+        </span>
+        <span className="ml-1 text-xs text-stone-400 dark:text-neutral-500">
+          {CHAIN_ASSET[chain]}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // WalletBalancesPanel — main panel
 // ---------------------------------------------------------------------------
 
 const WalletBalancesPanel = () => {
   const { t } = useT();
-  const { navigateBack, breadcrumbs } = useSettingsNavigation();
+  const { navigateBack, navigateToSettings, breadcrumbs } = useSettingsNavigation();
 
   const [balances, setBalances] = useState<BalanceInfo[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // null = unknown (not yet loaded); false = wallet has no recovery phrase set
+  // up yet, in which case we show a hint + placeholder rows instead of erroring.
+  const [walletConfigured, setWalletConfigured] = useState<boolean | null>(null);
 
   // Request-sequencing guard: a slower earlier request must not overwrite a
   // newer one. `loadBalances` can fire concurrently (mount + Refresh + Retry),
@@ -167,6 +224,18 @@ const WalletBalancesPanel = () => {
     setLoading(true);
     setError(null);
     try {
+      // Check setup state first: the core errors `wallet_balances` when no
+      // recovery phrase is configured. Rather than blocking the panel on that,
+      // detect it via the structured `configured` flag and fall through to the
+      // hint + placeholder rows.
+      const status = await fetchWalletStatus();
+      if (requestId !== latestRequestIdRef.current) return;
+      if (!status.configured) {
+        setWalletConfigured(false);
+        setBalances([]);
+        return;
+      }
+      setWalletConfigured(true);
       const rows = await fetchWalletBalances();
       if (requestId !== latestRequestIdRef.current) return;
       setBalances(rows);
@@ -240,6 +309,49 @@ const WalletBalancesPanel = () => {
             className="btn-primary w-full py-2.5 text-sm font-medium rounded-xl">
             {t('walletBalances.retry')}
           </button>
+        </div>
+      );
+    }
+
+    // Wallet not set up yet: show a non-blocking hint plus placeholder rows so
+    // the wallet layout is visible even before a recovery phrase exists.
+    if (walletConfigured === false) {
+      return (
+        <div>
+          <div className="px-4 pt-4 pb-3">
+            <div
+              role="status"
+              className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
+              <svg
+                className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                  {t('walletBalances.setupHint')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigateToSettings('recovery-phrase')}
+                  className="mt-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                  {t('walletBalances.setupCta')}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="divide-y divide-stone-100 dark:divide-neutral-800">
+            {SUPPORTED_CHAINS.map(chain => (
+              <ChainPlaceholderRow key={chain} chain={chain} />
+            ))}
+          </div>
         </div>
       );
     }

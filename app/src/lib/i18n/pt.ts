@@ -4026,6 +4026,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Bruto: {raw}',
   'walletBalances.errorGeneric':
     'Não foi possível carregar os saldos da carteira. Configure sua carteira em Frase de Recuperação e tente novamente.',
+  'walletBalances.setupHint':
+    'A sua frase de recuperação ainda não está configurada. Configure-a para ativar a sua carteira e ver os saldos em tempo real.',
+  'walletBalances.setupCta': 'Configurar frase de recuperação',
+  'walletBalances.notSetUp': 'Não configurada',
   'settings.taskSources.title': 'Fontes da Tarefa',
   'settings.taskSources.subtitle':
     'Puxe tarefas de suas ferramentas para o quadro de tarefas do agente',

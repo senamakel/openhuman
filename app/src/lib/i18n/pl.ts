@@ -4028,6 +4028,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Nieprzetworzone: {raw}',
   'walletBalances.errorGeneric':
     'Nie można załadować sald portfela. Skonfiguruj portfel w sekcji Fraza odzyskiwania i spróbuj ponownie.',
+  'walletBalances.setupHint':
+    'Twoja fraza odzyskiwania nie jest jeszcze skonfigurowana. Skonfiguruj ją, aby włączyć portfel i widzieć salda na żywo.',
+  'walletBalances.setupCta': 'Skonfiguruj frazę odzyskiwania',
+  'walletBalances.notSetUp': 'Nie skonfigurowano',
   'settings.taskSources.title': 'Źródła zadań',
   'settings.taskSources.subtitle': 'Pobieraj zadania z narzędzi na tablicę zadań agenta',
   'settings.taskSources.description':

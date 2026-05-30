@@ -3963,6 +3963,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'रॉ: {raw}',
   'walletBalances.errorGeneric':
     'वॉलेट बैलेंस लोड नहीं हो सका। Recovery Phrase में अपना वॉलेट सेटअप करें और पुनः प्रयास करें।',
+  'walletBalances.setupHint':
+    'आपका रिकवरी फ्रेज़ अभी सेटअप नहीं है। अपना वॉलेट सक्रिय करने और लाइव बैलेंस देखने के लिए इसे सेटअप करें।',
+  'walletBalances.setupCta': 'रिकवरी फ्रेज़ सेटअप करें',
+  'walletBalances.notSetUp': 'सेटअप नहीं है',
   'settings.taskSources.title': 'कार्य स्रोत',
   'settings.taskSources.subtitle': 'एजेंट टोडो बोर्ड पर अपने उपकरणों से कार्य खींचें',
   'settings.taskSources.description':

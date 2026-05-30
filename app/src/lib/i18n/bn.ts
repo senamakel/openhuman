@@ -3956,6 +3956,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'কাঁচা: {raw}',
   'walletBalances.errorGeneric':
     'ওয়ালেট ব্যালেন্স লোড করতে অক্ষম। Recovery Phrase-এ আপনার ওয়ালেট সেটআপ করুন এবং আবার চেষ্টা করুন।',
+  'walletBalances.setupHint':
+    'আপনার রিকভারি ফ্রেজ এখনও সেট আপ করা হয়নি। আপনার ওয়ালেট সক্রিয় করতে এবং লাইভ ব্যালেন্স দেখতে এটি সেট আপ করুন।',
+  'walletBalances.setupCta': 'রিকভারি ফ্রেজ সেট আপ করুন',
+  'walletBalances.notSetUp': 'সেট আপ করা হয়নি',
   'settings.taskSources.title': 'কাজের উৎস',
   'settings.taskSources.subtitle': 'আপনার টুল থেকে Tworet পরিচালনা করুন',
   'settings.taskSources.description':

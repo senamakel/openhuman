@@ -3889,6 +3889,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'الخام: {raw}',
   'walletBalances.errorGeneric':
     'تعذّر تحميل أرصدة المحفظة. أعدّ محفظتك في عبارة الاسترداد وحاول مجدداً.',
+  'walletBalances.setupHint':
+    'لم تُعدّ عبارة الاسترداد بعد. أعدّها لتفعيل محفظتك وعرض الأرصدة المباشرة.',
+  'walletBalances.setupCta': 'إعداد عبارة الاسترداد',
+  'walletBalances.notSetUp': 'لم تُعد',
   'settings.taskSources.title': 'المصادر',
   'settings.taskSources.subtitle': 'سحب المهام من أدواتك على لوحة العميل (تود)',
   'settings.taskSources.description':

@@ -3925,6 +3925,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': '원본: {raw}',
   'walletBalances.errorGeneric':
     '지갑 잔액을 불러올 수 없습니다. 복구 문구에서 지갑을 설정하고 다시 시도하세요.',
+  'walletBalances.setupHint':
+    '복구 문구가 아직 설정되지 않았습니다. 지갑을 활성화하고 실시간 잔액을 보려면 설정하세요.',
+  'walletBalances.setupCta': '복구 문구 설정',
+  'walletBalances.notSetUp': '설정 안 됨',
   'settings.taskSources.title': '작업 소스',
   'settings.taskSources.subtitle': '도구의 작업을 에이전트 할 일 보드로 가져옵니다',
   'settings.taskSources.description':

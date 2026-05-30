@@ -4030,6 +4030,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Bruto: {raw}',
   'walletBalances.errorGeneric':
     'No se pueden cargar los saldos de la billetera. Configura tu billetera en Frase de recuperación e inténtalo de nuevo.',
+  'walletBalances.setupHint':
+    'Tu frase de recuperación aún no está configurada. Configúrala para activar tu monedero y ver los saldos en vivo.',
+  'walletBalances.setupCta': 'Configurar frase de recuperación',
+  'walletBalances.notSetUp': 'Sin configurar',
   'settings.taskSources.title': 'Fuentes de tareas',
   'settings.taskSources.subtitle':
     'Extrae tareas de tus herramientas al tablero de tareas del agente',

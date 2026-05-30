@@ -4048,6 +4048,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Brut : {raw}',
   'walletBalances.errorGeneric':
     'Impossible de charger les soldes du portefeuille. Configurez votre portefeuille dans Phrase de récupération et réessayez.',
+  'walletBalances.setupHint':
+    'Votre phrase de récupération n’est pas encore configurée. Configurez-la pour activer votre portefeuille et voir les soldes en direct.',
+  'walletBalances.setupCta': 'Configurer la phrase de récupération',
+  'walletBalances.notSetUp': 'Non configuré',
   'settings.taskSources.title': 'Sources de tâches',
   'settings.taskSources.subtitle':
     "Tirez les tâches de vos outils sur le tableau des tâches de l'agent",

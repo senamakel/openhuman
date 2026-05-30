@@ -4067,6 +4067,10 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Roh: {raw}',
   'walletBalances.errorGeneric':
     "Wallet-Guthaben konnten nicht geladen werden. Richte deine Wallet unter 'Wiederherstellungsphrase' ein und versuche es erneut.",
+  'walletBalances.setupHint':
+    'Deine Wiederherstellungsphrase ist noch nicht eingerichtet. Richte sie ein, um deine Wallet zu aktivieren und Live-Guthaben zu sehen.',
+  'walletBalances.setupCta': 'Wiederherstellungsphrase einrichten',
+  'walletBalances.notSetUp': 'Nicht eingerichtet',
   'settings.taskSources.title': 'Aufgabenquellen',
   'settings.taskSources.subtitle': 'Ziehen Sie Aufgaben aus Ihren Tools auf das Agenten-ToDo-Board',
   'settings.taskSources.description':

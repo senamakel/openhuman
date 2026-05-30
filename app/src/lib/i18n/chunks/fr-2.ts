@@ -481,6 +481,10 @@ const fr2: TranslationMap = {
   'settings.agents.editor.save': 'Save',
   'settings.agents.editor.create': 'Create agent',
   'settings.agents.editor.saving': 'Saving…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Manage your agents, their autonomy, and what they can access on this computer.',
+  'settings.agentsSection.menuDesc': 'Registry, autonomy & OS access',
 };
 
 export default fr2;

@@ -174,6 +174,28 @@ const VoiceIcon = (
   </svg>
 );
 
+const AgentAccessIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+    />
+  </svg>
+);
+
+const PersonaIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+    />
+  </svg>
+);
+
 const WrappedSettingsPage = ({
   children,
   maxWidthClass = 'max-w-lg',
@@ -303,13 +325,6 @@ const Settings = () => {
       icon: LlmIcon,
     },
     {
-      id: 'autonomy',
-      title: t('settings.developerMenu.autonomy.title'),
-      description: t('settings.developerMenu.autonomy.desc'),
-      route: 'autonomy',
-      icon: LlmIcon,
-    },
-    {
       id: 'local-model-debug',
       title: t('settings.developerMenu.localModelDebug.title'),
       description: t('settings.developerMenu.localModelDebug.desc'),
@@ -336,6 +351,37 @@ const Settings = () => {
       description: t('settings.costDashboard.desc'),
       route: 'cost-dashboard',
       icon: LlmIcon,
+    },
+  ];
+
+  const agentsSettingsItems = [
+    {
+      id: 'agents',
+      title: t('settings.agents.title'),
+      description: t('settings.agents.subtitle'),
+      route: 'agents',
+      icon: ToolsIcon,
+    },
+    {
+      id: 'persona',
+      title: t('settings.persona.menuTitle'),
+      description: t('settings.persona.menuDesc'),
+      route: 'persona',
+      icon: PersonaIcon,
+    },
+    {
+      id: 'autonomy',
+      title: t('settings.developerMenu.autonomy.title'),
+      description: t('settings.developerMenu.autonomy.desc'),
+      route: 'autonomy',
+      icon: LlmIcon,
+    },
+    {
+      id: 'agent-access',
+      title: t('settings.agentAccess.title'),
+      description: t('settings.agentAccess.menuDesc'),
+      route: 'agent-access',
+      icon: AgentAccessIcon,
     },
   ];
 
@@ -405,6 +451,16 @@ const Settings = () => {
               title={t('pages.settings.composioSection.title')}
               description={t('pages.settings.composioSection.description')}
               items={composioSettingsItems}
+            />
+          )}
+        />
+        <Route
+          path="agents-settings"
+          element={wrapSettingsPage(
+            <SettingsSectionPage
+              title={t('settings.agentsSection.title')}
+              description={t('settings.agentsSection.description')}
+              items={agentsSettingsItems}
             />
           )}
         />

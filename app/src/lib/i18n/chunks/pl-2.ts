@@ -458,6 +458,10 @@ const pl2: TranslationMap = {
   'devOptions.menuComposioTriggers': 'Wyzwalacze integracji',
   'devOptions.menuComposioTriggersDesc':
     'Konfiguruj ustawienia klasyfikacji AI dla wyzwalaczy integracji Composio',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Manage your agents, their autonomy, and what they can access on this computer.',
+  'settings.agentsSection.menuDesc': 'Registry, autonomy & OS access',
 };
 
 export default pl2;

@@ -38,7 +38,7 @@ function splitLines(value: string): string[] {
 
 const AgentsPanel = () => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
+  const { navigateBack, breadcrumbs } = useSettingsNavigation();
 
   const [agents, setAgents] = useState<AgentRegistryEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,55 +118,62 @@ const AgentsPanel = () => {
   }, []);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <SettingsHeader title={t('settings.agents.title')} onBack={navigateBack} />
+    <div className="z-10 relative">
+      <SettingsHeader
+        title={t('settings.agents.title')}
+        showBackButton
+        onBack={navigateBack}
+        breadcrumbs={breadcrumbs}
+      />
 
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <p className="text-sm text-stone-500 dark:text-neutral-400">
-          {t('settings.agents.subtitle')}
-        </p>
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="inline-flex flex-none items-center gap-1.5 rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700">
-          <LuPlus className="h-3.5 w-3.5" />
-          {t('settings.agents.newAgent')}
-        </button>
+      <div className="p-4">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <p className="text-sm text-stone-500 dark:text-neutral-400">
+            {t('settings.agents.subtitle')}
+          </p>
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="inline-flex flex-none items-center gap-1.5 rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700">
+            <LuPlus className="h-3.5 w-3.5" />
+            {t('settings.agents.newAgent')}
+          </button>
+        </div>
+
+        {actionError && (
+          <div className="mb-3 rounded-lg border border-coral-200 bg-coral-50 px-3 py-2 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+            {actionError}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500">
+            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
+            <span className="text-sm">{t('common.loading')}</span>
+          </div>
+        ) : error ? (
+          <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+            {t('settings.agents.loadError')}: {error}
+          </div>
+        ) : agents.length === 0 ? (
+          <p className="py-12 text-center text-sm text-stone-400 dark:text-neutral-500">
+            {t('settings.agents.empty')}
+          </p>
+        ) : (
+          <ul className="divide-y divide-stone-200 overflow-hidden rounded-xl border border-stone-200 dark:divide-neutral-800 dark:border-neutral-800">
+            {agents.map(agent => (
+              <AgentRow
+                key={agent.id}
+                agent={agent}
+                busy={busyId === agent.id}
+                onToggle={() => handleToggle(agent)}
+                onEdit={() => setEditing(agent)}
+                onRemove={() => handleRemove(agent)}
+              />
+            ))}
+          </ul>
+        )}
       </div>
-
-      {actionError && (
-        <div className="mb-3 rounded-lg border border-coral-200 bg-coral-50 px-3 py-2 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-          {actionError}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500">
-          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
-          <span className="text-sm">{t('common.loading')}</span>
-        </div>
-      ) : error ? (
-        <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-          {t('settings.agents.loadError')}: {error}
-        </div>
-      ) : agents.length === 0 ? (
-        <p className="py-12 text-center text-sm text-stone-400 dark:text-neutral-500">
-          {t('settings.agents.empty')}
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {agents.map(agent => (
-            <AgentRow
-              key={agent.id}
-              agent={agent}
-              busy={busyId === agent.id}
-              onToggle={() => handleToggle(agent)}
-              onEdit={() => setEditing(agent)}
-              onRemove={() => handleRemove(agent)}
-            />
-          ))}
-        </ul>
-      )}
 
       {(editing || creating) && (
         <AgentEditor
@@ -204,60 +211,54 @@ function AgentRow({
     : t('settings.agents.toolsCount').replace('{count}', String(tools.length));
 
   return (
-    <li
-      className={`rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 ${
-        agent.enabled ? '' : 'opacity-70'
-      }`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-sm font-semibold text-stone-800 dark:text-neutral-100">
-              {agent.name}
-            </h3>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                isCustom
-                  ? 'bg-ocean-50 text-ocean-700 dark:bg-ocean-500/10 dark:text-ocean-200'
-                  : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-300'
-              }`}>
-              {isCustom ? t('settings.agents.sourceCustom') : t('settings.agents.sourceDefault')}
-            </span>
-          </div>
-          <p className="mt-1 break-words text-xs leading-snug text-stone-500 dark:text-neutral-400">
-            {agent.description}
-          </p>
-          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone-400 dark:text-neutral-500">
-            <code className="font-mono">{agent.id}</code>
-            {agent.model && (
-              <span>
-                {t('settings.agents.modelLabel')}: {agent.model}
-              </span>
-            )}
-            <span>
-              {t('settings.agents.toolsLabel')}: {toolsLabel}
-            </span>
-          </div>
+    <li className={`bg-white px-4 py-3 dark:bg-neutral-900 ${agent.enabled ? '' : 'opacity-70'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h3 className="truncate text-sm font-semibold text-stone-800 dark:text-neutral-100">
+            {agent.name}
+          </h3>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              isCustom
+                ? 'bg-ocean-50 text-ocean-700 dark:bg-ocean-500/10 dark:text-ocean-200'
+                : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-300'
+            }`}>
+            {isCustom ? t('settings.agents.sourceCustom') : t('settings.agents.sourceDefault')}
+          </span>
         </div>
 
-        <div className="flex flex-none items-center gap-2">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={agent.enabled}
-            aria-label={agent.enabled ? t('settings.agents.disable') : t('settings.agents.enable')}
-            disabled={busy || isOrchestrator}
-            title={isOrchestrator ? t('settings.agents.orchestratorLocked') : undefined}
-            onClick={onToggle}
-            className={`relative h-5 w-9 flex-none rounded-full transition-colors disabled:opacity-40 ${
-              agent.enabled ? 'bg-ocean-600' : 'bg-stone-300 dark:bg-neutral-700'
-            }`}>
-            <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
-                agent.enabled ? 'translate-x-4' : 'translate-x-0.5'
-              }`}
-            />
-          </button>
-        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={agent.enabled}
+          aria-label={agent.enabled ? t('settings.agents.disable') : t('settings.agents.enable')}
+          disabled={busy || isOrchestrator}
+          title={isOrchestrator ? t('settings.agents.orchestratorLocked') : undefined}
+          onClick={onToggle}
+          className={`relative h-5 w-9 flex-none rounded-full transition-colors disabled:opacity-40 ${
+            agent.enabled ? 'bg-ocean-600' : 'bg-stone-300 dark:bg-neutral-700'
+          }`}>
+          <span
+            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform dark:bg-neutral-900 ${
+              agent.enabled ? 'translate-x-4' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </div>
+
+      <p className="mt-1 break-words text-xs leading-snug text-stone-500 dark:text-neutral-400">
+        {agent.description}
+      </p>
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone-400 dark:text-neutral-500">
+        <code className="font-mono">{agent.id}</code>
+        {agent.model && (
+          <span>
+            {t('settings.agents.modelLabel')}: {agent.model}
+          </span>
+        )}
+        <span>
+          {t('settings.agents.toolsLabel')}: {toolsLabel}
+        </span>
       </div>
 
       <div className="mt-2 flex items-center justify-end gap-1">

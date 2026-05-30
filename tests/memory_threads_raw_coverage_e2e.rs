@@ -69,7 +69,9 @@ use openhuman_core::openhuman::memory_store::chunks::types::{
 use openhuman_core::openhuman::memory_store::trees::types::{
     SummaryNode, Tree, TreeKind, TreeStatus as StoredTreeStatus,
 };
-use openhuman_core::openhuman::memory_store::{NamespaceDocumentInput, UnifiedMemory};
+use openhuman_core::openhuman::memory_store::{
+    MemoryClient, NamespaceDocumentInput, UnifiedMemory,
+};
 use openhuman_core::openhuman::memory_sync::canonicalize::chat::{
     canonicalise as canonicalise_chat, ChatBatch, ChatMessage,
 };
@@ -3813,4 +3815,217 @@ async fn tree_summarizer_ops_cover_validation_query_and_local_provider_guards() 
         .await
         .unwrap_err();
     assert!(rebuild_guard.contains("local_ai"));
+}
+
+#[tokio::test]
+async fn memory_sources_types_registry_and_sync_state_cover_public_persistence_edges() {
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _config = Config::load_or_init().await.expect("init isolated config");
+
+    let decoded_default: MemorySourceEntry = serde_json::from_value(json!({
+        "id": "src_default",
+        "kind": "rss_feed",
+        "label": "Default enabled",
+        "url": "https://example.test/feed.xml"
+    }))
+    .expect("deserialize source with default enabled");
+    assert!(decoded_default.enabled);
+
+    let mut invalid = source(SourceKind::Folder, "");
+    assert_eq!(invalid.validate().unwrap_err(), "id is required");
+    invalid.id = "src_missing_label".into();
+    invalid.label.clear();
+    assert_eq!(invalid.validate().unwrap_err(), "label is required");
+    invalid.label = "Missing path".into();
+    assert!(invalid.validate().unwrap_err().contains("path is required"));
+    assert!(source(SourceKind::RssFeed, "rss_missing")
+        .validate()
+        .unwrap_err()
+        .contains("url is required"));
+    assert!(source(SourceKind::WebPage, "web_missing")
+        .validate()
+        .unwrap_err()
+        .contains("url is required"));
+
+    let mut entry = source(SourceKind::GithubRepo, "src_repo");
+    entry.url = Some("https://github.com/tinyhumansai/openhuman".into());
+    let added = registry::add_source(entry.clone())
+        .await
+        .expect("add repo source");
+    assert_eq!(added.kind.as_str(), "github_repo");
+    assert!(registry::add_source(entry)
+        .await
+        .unwrap_err()
+        .contains("already exists"));
+
+    let patch: registry::MemorySourcePatch = serde_json::from_value(json!({
+        "label": "Updated repo",
+        "enabled": false,
+        "toolkit": "github",
+        "connection_id": "conn_repo",
+        "path": "/tmp/repo",
+        "glob": "**/*.md",
+        "url": "https://github.com/tinyhumansai/openhuman-skills",
+        "branch": "main",
+        "paths": ["skills", "README.md"],
+        "query": "is:open",
+        "since_days": 14,
+        "max_items": 9,
+        "selector": "main"
+    }))
+    .expect("patch");
+    let updated = registry::update_source("src_repo", patch)
+        .await
+        .expect("update repo source");
+    assert_eq!(updated.label, "Updated repo");
+    assert!(!updated.enabled);
+    assert_eq!(updated.toolkit.as_deref(), Some("github"));
+    assert_eq!(updated.connection_id.as_deref(), Some("conn_repo"));
+    assert_eq!(updated.path.as_deref(), Some("/tmp/repo"));
+    assert_eq!(updated.glob.as_deref(), Some("**/*.md"));
+    assert_eq!(
+        updated.url.as_deref(),
+        Some("https://github.com/tinyhumansai/openhuman-skills")
+    );
+    assert_eq!(updated.branch.as_deref(), Some("main"));
+    assert_eq!(updated.paths, vec!["skills", "README.md"]);
+    assert_eq!(updated.query.as_deref(), Some("is:open"));
+    assert_eq!(updated.since_days, Some(14));
+    assert_eq!(updated.max_items, Some(9));
+    assert_eq!(updated.selector.as_deref(), Some("main"));
+
+    let memory = Arc::new(
+        MemoryClient::from_workspace_dir(tmp.path().join("memory-sync-state"))
+            .expect("memory client"),
+    );
+    let fresh = SyncState::load(&memory, "gmail", "conn-raw")
+        .await
+        .expect("fresh state");
+    assert_eq!(fresh.toolkit, "gmail");
+    assert_eq!(fresh.connection_id, "conn-raw");
+
+    let mut saved = SyncState::new("gmail", "conn-raw");
+    saved.advance_cursor("cursor-raw");
+    saved.mark_synced("msg-1");
+    saved.daily_budget.date = "2000-01-01".into();
+    saved.daily_budget.requests_used = DEFAULT_DAILY_REQUEST_LIMIT;
+    saved.save(&memory).await.expect("save state");
+
+    let loaded = SyncState::load(&memory, "gmail", "conn-raw")
+        .await
+        .expect("load saved state");
+    assert_eq!(loaded.cursor.as_deref(), Some("cursor-raw"));
+    assert!(loaded.is_synced("msg-1"));
+    assert_eq!(loaded.daily_budget.requests_used, 0);
+    assert_eq!(loaded.budget_remaining(), DEFAULT_DAILY_REQUEST_LIMIT);
+
+    memory
+        .kv_set(
+            Some("composio-sync-state"),
+            "gmail:bad-json",
+            &json!("not a sync state"),
+        )
+        .await
+        .expect("write bad state");
+    assert!(SyncState::load(&memory, "gmail", "bad-json")
+        .await
+        .unwrap_err()
+        .contains("deserialize failed"));
+}
+
+#[test]
+fn email_clean_helpers_cover_reply_footer_truncation_and_date_edges() {
+    assert_eq!(
+        email_clean::drop_reply_chain("Fresh note\n\nOn Tue, 21 Apr 2026, Bob wrote:\n> old")
+            .trim(),
+        "Fresh note"
+    );
+    assert_eq!(
+        email_clean::collapse_blank_runs("a\n\n\n\nb\n\n").as_str(),
+        "a\n\nb"
+    );
+    assert_eq!(email_clean::truncate_body("  short  ", 10), "short");
+    assert_eq!(email_clean::truncate_body("abcdef", 3), "abc…");
+    assert_eq!(
+        email_clean::md_escape("a_b*\nnext|`"),
+        "a\\_b\\* next\\|\\`"
+    );
+    assert_eq!(
+        email_clean::extract_email("Alice <alice@example.com>").as_deref(),
+        Some("alice@example.com")
+    );
+    assert_eq!(
+        email_clean::extract_email("bare@example.com").as_deref(),
+        Some("bare@example.com")
+    );
+    assert!(email_clean::extract_email("Alice Example").is_none());
+
+    assert!(email_clean::parse_message_date(&json!({ "date": "" })).is_none());
+    assert_eq!(
+        email_clean::parse_message_date(&json!({ "date": "1717000000000" }))
+            .unwrap()
+            .timestamp_millis(),
+        1_717_000_000_000
+    );
+    assert_eq!(
+        email_clean::parse_message_date(&json!({ "date": "2026-05-29T12:00:00Z" }))
+            .unwrap()
+            .timestamp(),
+        1_780_056_000
+    );
+    assert_eq!(
+        email_clean::parse_message_date(&json!({ "date": "Fri, 29 May 2026 12:00:00 +0000" }))
+            .unwrap()
+            .timestamp(),
+        1_780_056_000
+    );
+    assert_eq!(
+        email_clean::parse_message_date(&json!({ "date": "Mon, 29 May 2026 12:00:00 +0000" }))
+            .unwrap()
+            .timestamp(),
+        1_780_056_000
+    );
+    assert_eq!(
+        email_clean::parse_message_date(&json!({ "date": "2026-05-29" }))
+            .unwrap()
+            .timestamp(),
+        1_780_012_800
+    );
+    assert!(email_clean::parse_message_date(&json!({ "date": "Nope, 29 May 2026" })).is_none());
+}
+
+#[test]
+fn welcome_migration_public_entrypoint_covers_empty_marker_and_transcript_paths() {
+    let tmp = TempDir::new().expect("tempdir");
+    let workspace = tmp.path();
+
+    let session_raw = workspace.join("session_raw");
+    std::fs::create_dir_all(&session_raw).expect("raw dir");
+    std::fs::write(session_raw.join("skip.txt"), "not jsonl").expect("skip file");
+    std::fs::write(
+        session_raw.join("1715000000_welcome_thread-abc.jsonl"),
+        "{\"_meta\":{\"agent\":\"welcome_thread-abc\",\"thread_id\":\"thread-abc\"}}\n{\"role\":\"user\",\"content\":\"hi\"}\n",
+    )
+    .expect("raw transcript");
+    let markdown = workspace.join("sessions/2026_05_01/1715000000_welcome_thread-abc.md");
+    std::fs::create_dir_all(markdown.parent().unwrap()).expect("markdown dir");
+    std::fs::write(&markdown, "# Session transcript\n").expect("markdown");
+
+    let result = openhuman_core::openhuman::threads::migrate_welcome_agent_artifacts(workspace)
+        .expect("migrate welcome artifacts");
+    assert_eq!(result.threads_updated, 0);
+    assert_eq!(result.transcripts_updated, 1);
+    assert_eq!(result.transcript_files_renamed, 1);
+    assert_eq!(result.markdown_files_renamed, 1);
+    assert!(workspace
+        .join("session_raw/1715000000_orchestrator_thread-abc.jsonl")
+        .exists());
+    assert!(workspace
+        .join("sessions/2026_05_01/1715000000_orchestrator_thread-abc.md")
+        .exists());
+
+    let second = openhuman_core::openhuman::threads::migrate_welcome_agent_artifacts(workspace)
+        .expect("second migration");
+    assert!(second.already_done);
 }

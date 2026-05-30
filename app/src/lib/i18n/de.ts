@@ -714,7 +714,7 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'Verwenden Sie standardmäßig die von OpenHuman verwaltete Suche oder verbinden Sie Ihren eigenen Anbieter mit einem API-Schlüssel.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    'Wählen Sie die Suchmaschine, die der Agent verwendet, oder deaktivieren Sie Suchwerkzeuge vollständig. „Verwaltet“ nutzt das Backend von OpenHuman (keine Einrichtung erforderlich). Parallel, Brave und Querit laufen direkt von Ihrem Gerät aus und verwenden Ihren API-Schlüssel.',
   'settings.search.engineAria': 'Suchmaschine',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
@@ -754,7 +754,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Fragen Sie den API-Schlüssel ab',
   'settings.search.allowedSitesLabel': 'Erlaubte Websites',
   'settings.search.allowedSitesHint':
-    'Websites the assistant may open and read while researching (one host per line, e.g. reuters.com). A host also covers its subdomains. Leave empty to block all web access.',
+    'Hosts, die der Assistent öffnen und lesen darf – per Web-Abruf und Browser-Tool – einer pro Zeile, z. B. reuters.com. Ein Host schließt auch seine Subdomains ein. Die Websuche selbst wird durch diese Liste nicht eingeschränkt.',
   'settings.search.allowedSitesAllOn':
     'Der Assistent kann jede öffentliche Website öffnen. Lokale und private Adressen bleiben gesperrt.',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -945,12 +945,11 @@ const messages: TranslationMap = {
   'mcp.health.disconnectAllAria': 'Trennen Sie alle mit {count} verbundenen MCP-Server',
   'mcp.health.disconnectConfirm.title': 'Alle MCP-Server trennen?',
   'mcp.health.disconnectConfirm.body':
-    'Dadurch werden die aktuell verbundenen {count}-Server getrennt. Installierte Konfigurationen und Geheimnisse bleiben erhalten; Sie können jeden Server später wieder verbinden.',
+    'Dadurch werden {count} aktuell verbundene MCP-Server getrennt. Installierte Konfigurationen und Geheimnisse bleiben erhalten; Sie können jeden Server später wieder verbinden.',
   'mcp.health.disconnectConfirm.cancel': 'Stornieren',
   'mcp.health.disconnectConfirm.confirm': 'Trennen Sie alle',
   'mcp.health.opErrorGeneric': 'Der Massenvorgang ist fehlgeschlagen. Siehe Protokolle.',
-  'mcp.health.bulkPartialFailure':
-    '{failed} von {total}-Servern ist fehlgeschlagen. Siehe Protokolle.',
+  'mcp.health.bulkPartialFailure': '{failed} von {total} Servern fehlgeschlagen. Siehe Protokolle.',
   'mcp.installed.search.landmarkAria': 'Durchsuchen Sie installierte MCP-Server',
   'mcp.installed.search.inputAria': 'Filtern Sie installierte MCP-Server nach Namen',
   'mcp.installed.search.placeholder': 'Server filtern…',
@@ -2124,7 +2123,7 @@ const messages: TranslationMap = {
   'app.connectionBadge.messaging': 'Nachrichten',
   'app.connectionIndicator.connected': 'Verbunden mit OpenHuman AI 🚀',
   'app.connectionIndicator.connecting': 'Verbinden',
-  'app.connectionIndicator.coreOffline': 'Kern offline',
+  'app.connectionIndicator.coreOffline': 'Core offline',
   'app.connectionIndicator.disconnected': 'Nicht verbunden',
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Wieder verbinden…',
@@ -2257,7 +2256,7 @@ const messages: TranslationMap = {
   'channels.discord.fields.bot_token.placeholder': 'Dein Discord-Bot-Token',
   'channels.discord.fields.guild_id.label': 'Server- (Guild-) ID',
   'channels.discord.fields.guild_id.placeholder':
-    'Optional: Auf einen bestimmten Server beschränken',
+    'Optional: auf einen bestimmten Server beschränken',
   'channels.telegram.displayName': 'Telegram',
   'channels.telegram.description': 'Sende und empfange Nachrichten über Telegram.',
   'channels.telegram.authMode.managed_dm.description':
@@ -3264,7 +3263,7 @@ const messages: TranslationMap = {
     'Autonomer Agent, der Ihre GitHub-Probleme auswählt und PRs nach einem Zeitplan einstellt',
   'settings.developerMenu.devWorkflow.panelDesc':
     'Konfigurieren Sie einen autonomen Entwickler-Agenten, der Ihnen zugewiesene GitHub-Probleme auswählt und Pull-Anfragen automatisch nach einem Zeitplan auslöst.',
-  'settings.developerMenu.skillsRunner.title': 'Skills Runner',
+  'settings.developerMenu.skillsRunner.title': 'Skills-Runner',
   'settings.developerMenu.skillsRunner.desc':
     'Führen Sie jede gebündelte Fähigkeit ad-hoc aus — füllen Sie ihre Eingaben aus und feuern Sie einen autonomen Hintergrundlauf ab',
   'settings.developerMenu.skillsRunner.panelDesc':
@@ -3371,7 +3370,7 @@ const messages: TranslationMap = {
   'settings.devWorkflow.errorNotConnected':
     'GitHub ist nicht verbunden. Bitte verbinden Sie GitHub zuerst über Einstellungen > Erweitert > Composio.',
   'settings.devWorkflow.errorToolNotEnabled':
-    'Das GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER-Tool ist in diesem Backend nicht aktiviert. Bitten Sie Ihren Administrator, es in der Composio-Integration (Backend#842) zu aktivieren.',
+    'Das GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER-Tool ist in diesem Backend nicht aktiviert. Bitten Sie Ihren Administrator, es in der Composio-Integration (backend#842) zu aktivieren.',
   'settings.devWorkflow.errorNotAuthenticated':
     'Nicht authentifiziert. Bitte melden Sie sich zuerst an.',
   'settings.devWorkflow.errorNoRepositories':
@@ -4081,7 +4080,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': 'Anbieter',
   'settings.taskSources.name': 'Name (optional)',
   'settings.taskSources.namePlaceholder': 'z.B. Meine offenen Themen',
-  'settings.taskSources.github.repo': 'Repository (Besitzer/Name, optional)',
+  'settings.taskSources.github.repo': 'Repository (Inhaber/Name, optional)',
   'settings.taskSources.github.labels': 'Beschriftungen (durch Kommas getrennt)',
   'settings.taskSources.notion.database': 'Datenbank-(Board-)ID',
   'settings.taskSources.linear.team': 'Team-ID (optional)',

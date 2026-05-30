@@ -549,7 +549,7 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.inventory.jsonRpcTools': 'xqxqx - xx1x2x টুল',
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.title': 'xqxqx সার্ভারে অনুমোদন করে',
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.summary': 'সক্রিয়: xqxqx সার্ভার',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.unnamed': '<nname>',
+  'devOptions.toolPolicyDiagnostics.mcpAllowlists.unnamed': '<নামহীন>',
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.allowDeny': 'xqxqx মোড অগ্রাহ্য করা হবে=x1x1xX1',
   'devOptions.toolPolicyDiagnostics.mcpWriteAudit.title': 'Xqxqx লিখন ব্যবস্থা',
   'devOptions.toolPolicyDiagnostics.mcpWriteAudit.summary': 'সক্রিয়: xqxqx  সর্বশেষ (২৪: xx1x)',
@@ -689,7 +689,7 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'Xqx1q1x - নিজ হাতে অনুসন্ধান অথবা তার নিজের উপলব্ধকারীর সাথে যোগাযোগ স্থাপন করুন। Xqxqxkey কী- র সাথে একযোগে কাজ করার জন্য',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    'এজেন্ট যে সার্চ ইঞ্জিন ব্যবহার করে তা বেছে নিন, অথবা সার্চ টুলগুলো সম্পূর্ণভাবে নিষ্ক্রিয় করুন। Managed OpenHuman-এর ব্যাকএন্ড ব্যবহার করে (কোনো সেটআপ নেই)। Parallel, Brave, এবং Querit আপনার API কী ব্যবহার করে সরাসরি আপনার মেশিন থেকে চলে।',
   'settings.search.engineAria': 'সার্চ ইঞ্জিন',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
@@ -722,13 +722,13 @@ const messages: TranslationMap = {
   'settings.search.parallelKeyLabel': 'Parallel API কী',
   'settings.search.braveKeyLabel': 'Brave অনুসন্ধান API কী',
   'settings.search.queritKeyLabel': 'কিউ- টি xxqx কি',
-  'settings.search.placeholderStored': '(•••stor)',
+  'settings.search.placeholderStored': '•••••••• (সংরক্ষিত)',
   'settings.search.placeholderParallel': 'pk_...',
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'কিউ- টি xxqx কি',
   'settings.search.allowedSitesLabel': 'ওয়েবসাইটের অনুমতি দেওয়া হয়েছে',
   'settings.search.allowedSitesHint':
-    'Websites the assistant may open and read while researching (one host per line, e.g. reuters.com). A host also covers its subdomains. Leave empty to block all web access.',
+    'যেসব হোস্ট অ্যাসিস্ট্যান্ট খুলতে ও পড়তে পারবে — ওয়েব ফেচ এবং ব্রাউজার টুলের মাধ্যমে — প্রতি লাইনে একটি করে, যেমন reuters.com। একটি হোস্ট তার সাবডোমেইনগুলোও অন্তর্ভুক্ত করে। ওয়েব সার্চ নিজে এই তালিকা দ্বারা সীমাবদ্ধ নয়।',
   'settings.search.allowedSitesAllOn':
     'সহকারীটি যেকোন পাবলিক ওয়েবসাইট খুলতে পারে। স্থানীয় এবং ব্যক্তিগত ঠিকানা প্রতিরোধ করা হয়েছে।',
   'settings.search.allowedSitesPlaceholder': 'xqx+x\nএক্স.qx1x\nxqx2x',
@@ -1464,7 +1464,7 @@ const messages: TranslationMap = {
   'screenAwareness.debug.sessionStats': 'সেশন পরিসংখ্যান',
   'screenAwareness.debug.framesEphemeral': 'ফ্রেম (ক্ষণস্থায়ী)',
   'screenAwareness.debug.panicStop': 'প্যানিক স্টপ',
-  'screenAwareness.debug.defaultPanicHotkey': 'Cmd+Shift+।',
+  'screenAwareness.debug.defaultPanicHotkey': 'Cmd+Shift+.',
   'screenAwareness.debug.vision': 'দৃষ্টি',
   'screenAwareness.debug.idle': 'নিষ্ক্রিয়',
   'screenAwareness.debug.visionQueue': 'দৃষ্টি সারি',
@@ -1531,7 +1531,7 @@ const messages: TranslationMap = {
   'webhooks.requestBody': 'রিকোয়েস্ট বডি',
   'webhooks.responseHeaders': 'রেসপন্স হেডার',
   'webhooks.responseBody': 'রেসপন্স বডি',
-  'webhooks.rawPayload': 'Raw Payload',
+  'webhooks.rawPayload': 'কাঁচা পেলোড',
   'webhooks.empty': '[খালি]',
   'providerSetup.error.defaultDetails': 'প্রদানকারী সেটআপ ব্যর্থ হয়েছে৷',
   'providerSetup.error.providerFallback': 'প্রদানকারী',
@@ -2621,7 +2621,7 @@ const messages: TranslationMap = {
   'settings.ai.modelLabel': 'মডেল',
   'settings.ai.noCustomProviders': 'কোনো কাস্টম প্রোভাইডার নেই',
   'settings.ai.openAiCompat.authHeaderExample': 'অনুমোদন: বহনকারী <আপনার কী>',
-  'settings.ai.openAiCompat.authHeaderLabel': '2th head]9',
+  'settings.ai.openAiCompat.authHeaderLabel': 'অথ হেডার',
   'settings.ai.openAiCompat.baseUrlLabel': 'বেস URL',
   'settings.ai.openAiCompat.baseUrlUnavailable': 'অনুপলব্ধ',
   'settings.ai.openAiCompat.clearKey': 'ক্লিয়ার কী',
@@ -2705,7 +2705,7 @@ const messages: TranslationMap = {
   'settings.ai.topHours': 'সেরা ঘন্টা',
   'settings.ai.noHourlySpend': 'এখনও কোন ঘন্টা খরচ নেই.',
   'settings.ai.openhumanDefault': 'OpenHuman (ডিফল্ট)',
-  'settings.ai.localModelResolved': 'xq1x GTK+X+x=xqx',
+  'settings.ai.localModelResolved': 'Ollama · {model}',
   'settings.ai.customRoutingForWorkload': '{label} এর জন্য কাস্টম রাউটিং',
   'settings.ai.loadingModels': 'মডেল লোড হচ্ছে...',
   'settings.ai.enterModelIdManually': 'অথবা ম্যানুয়ালি মডেল লিখুন',
@@ -3178,7 +3178,7 @@ const messages: TranslationMap = {
     'একজন স্বায়ত্তশাসিত এজেন্ট যে আপনার xqxqx বিষয় গ্রহণ করে এবং একটি তালিকাতে জনসংযোগের আয়োজন করে।',
   'settings.developerMenu.devWorkflow.panelDesc':
     'একটি স্বায়ত্তশাসিত ডেভেলপার এজেন্ট আপনার কাছে xqxkx বিষয় নির্বাচন করে এবং একটি সুনির্দিষ্ট সময়ে স্বয়ংক্রিয়ভাবে অনুরোধ জানায়।',
-  'settings.developerMenu.skillsRunner.title': 'দক্ষতার খেলাName',
+  'settings.developerMenu.skillsRunner.title': 'স্কিলস রানার',
   'settings.developerMenu.skillsRunner.desc':
     'যে কোন একটিd-hoc চালান - এর ইনপুট পূর্ণ করুন এবং স্বায়ত্তশাসিত পটভূমি দিয়ে আগুন জমবে',
   'settings.developerMenu.skillsRunner.panelDesc':
@@ -3338,7 +3338,8 @@ const messages: TranslationMap = {
   'settings.developerMenu.integrationTriggers.desc':
     'Composio ইন্টিগ্রেশন ট্রিগারের জন্য AI ট্রায়াজ সেটিংস কনফিগার করুন',
   'settings.developerMenu.mcpServer.title': 'MCP লাইব্রেরি অনুপলব্ধ',
-  'settings.developerMenu.mcpServer.desc': '[[I18N_SEP_92731]] OpenHuman',
+  'settings.developerMenu.mcpServer.desc':
+    'বাহ্যিক MCP ক্লায়েন্টগুলিকে OpenHuman-এ সংযুক্ত করতে কনফিগার করুন',
   'settings.developerMenu.autonomy.title': 'এজেন্ট স্বায়ত্তশাসন',
   'settings.developerMenu.autonomy.desc': 'টুল অ্যাকশনের রেট সীমা এবং নিরাপত্তা থ্রেশহোল্ড',
   'settings.mcpServer.title':
@@ -3684,7 +3685,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.platformHints.gmeet': 'meet.google.com/abc-defg-hij',
   'skills.meetingBots.platformHints.teams': 'teams.microsoft.com/...',
   'skills.meetingBots.platformHints.zoom': 'zoom.us/j/...',
-  'skills.meetingBots.platforms.gmeet': 'zoom.us/j/... [[I18N_SEP_92731]__7]92',
+  'skills.meetingBots.platforms.gmeet': 'Google Meet',
   'skills.meetingBots.platforms.teams': 'মাইক্রোসফট টিম',
   'skills.meetingBots.platforms.zoom': 'জুম',
   'skills.meetingBots.sendTo': 'পাঠান',
@@ -3889,13 +3890,13 @@ const messages: TranslationMap = {
   'vault.createdMessage': 'তৈরি করা হয়েছে "{name}"। ইনজেস্ট করতে {sync} এ ক্লিক করুন।',
   'vault.couldNotAdd': 'ভল্ট যোগ করা যায়নি',
   'vault.syncFailed': 'সিঙ্ক ব্যর্থ হয়েছে',
-  'vault.syncFailedFor': '"{name}"',
+  'vault.syncFailedFor': '"{name}"-এর জন্য সিঙ্ক ব্যর্থ হয়েছে',
   'vault.syncFailedFiles': 'ফাইল __000 এর জন্য সিঙ্ক ব্যর্থ হয়েছে',
-  'vault.syncedTitle': '"{name}"',
+  'vault.syncedTitle': 'সিঙ্ক হয়েছে "{name}"',
   'vault.syncSummary': 'ইনজেস্ট {ingested}, অপরিবর্তিত {unchanged}, সরানো {removed}',
   'vault.syncSummaryFailed': ', ব্যর্থ হয়েছে {count}',
   'vault.syncSummarySkipped': '__PH এড়িয়ে গেছে',
-  'vault.syncSummaryDuration': '· {seconds}s',
+  'vault.syncSummaryDuration': ' · {seconds}s',
   'vault.confirmRemovePurge':
     'ভল্ট "{name}" সরিয়ে দেবেন?\n\nOK ক্লিক করুন এর মেমোরিও মুছে ফেলতে (সমস্ত {count}টি ইনজেস্ট করা ডকুমেন্ট মুছুন)।\nডকুমেন্টগুলি মেমোরিতে রাখতে Cancel ক্লিক করুন।',
   'vault.confirmRemove': 'সত্যিই ভল্ট "{name}" সরান?',
@@ -3952,13 +3953,13 @@ const messages: TranslationMap = {
     'এখনো কোনো ওয়ালেট অ্যাকাউন্ট নেই — Recovery Phrase-এ একটি ওয়ালেট সেটআপ করুন।',
   'walletBalances.copyAddress': 'ঠিকানা কপি করুন',
   'walletBalances.providerMissing': 'প্রোভাইডার অনুপলব্ধ',
-  'walletBalances.rawBalance': 'Raw: {raw}',
+  'walletBalances.rawBalance': 'কাঁচা: {raw}',
   'walletBalances.errorGeneric':
     'ওয়ালেট ব্যালেন্স লোড করতে অক্ষম। Recovery Phrase-এ আপনার ওয়ালেট সেটআপ করুন এবং আবার চেষ্টা করুন।',
   'settings.taskSources.title': 'কাজের উৎস',
   'settings.taskSources.subtitle': 'আপনার টুল থেকে Tworet পরিচালনা করুন',
   'settings.taskSources.description':
-    'xqxqxx, conn, and line, এবং উপর ক্লিক করে সেগুলি সমৃদ্ধ করুন, এবং তাদের পরিচালনা করুন।',
+    'GitHub, Notion, Linear, এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন, এবং এজেন্টের টোডো বোর্ডে রুট করুন।',
   'settings.taskSources.connectHint':
     'আপনার সংযুক্ত অ্যাকাউন্ট ব্যবহার করে কাজের উৎস খুঁজে নিন। প্রথমে তাদের সাথে যোগাযোগ করুন।',
   'settings.taskSources.disabledBanner':

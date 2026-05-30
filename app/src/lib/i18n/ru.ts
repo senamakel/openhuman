@@ -700,7 +700,7 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'По умолчанию используется поиск, управляемый OpenHuman, или подключите собственного провайдера с помощью ключа API.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    'Выберите поисковую систему, которую использует агент, или полностью отключите инструменты поиска. Управляемый режим использует серверную часть OpenHuman (настройка не требуется). Parallel, Brave и Querit работают напрямую с вашего устройства, используя ваш API-ключ.',
   'settings.search.engineAria': 'Поисковая система',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
@@ -740,10 +740,10 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Запросить ключ API',
   'settings.search.allowedSitesLabel': 'Разрешенные веб-сайты',
   'settings.search.allowedSitesHint':
-    'Websites the assistant may open and read while researching (one host per line, e.g. reuters.com). A host also covers its subdomains. Leave empty to block all web access.',
+    'Хосты, которые ассистент может открывать и читать — через веб-запросы и браузерный инструмент — по одному на строку, например reuters.com. Хост также охватывает все его поддомены. Веб-поиск не ограничивается этим списком.',
   'settings.search.allowedSitesAllOn':
     'Помощник может открыть любой общедоступный веб-сайт. Локальные и частные адреса остаются заблокированными.',
-  'settings.search.allowedSitesPlaceholder': 'Reuters.com\napnews.com\ngithub.com',
+  'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
   'settings.search.allowedSitesSave': 'Сохранение веб-сайтов',
   'settings.search.accessModeAria': 'Режим веб-доступа',
   'settings.search.accessAllowAll': 'Разрешить все',
@@ -933,7 +933,7 @@ const messages: TranslationMap = {
   'mcp.health.disconnectConfirm.cancel': 'Отмена',
   'mcp.health.disconnectConfirm.confirm': 'Отключить все',
   'mcp.health.opErrorGeneric': 'Массовая операция не удалась. Смотрите журналы.',
-  'mcp.health.bulkPartialFailure': 'Ошибка {failed} из серверов {total}. Смотрите журналы.',
+  'mcp.health.bulkPartialFailure': '{failed} из {total} серверов дали сбой. Смотрите журналы.',
   'mcp.installed.search.landmarkAria': 'Поиск установленных серверов MCP',
   'mcp.installed.search.inputAria': 'Фильтровать установленные серверы MCP по имени',
   'mcp.installed.search.placeholder': 'Фильтровать серверы…',
@@ -3310,7 +3310,7 @@ const messages: TranslationMap = {
   'settings.devWorkflow.errorNotConnected':
     'GitHub не ​​подключен. Сначала подключите GitHub через «Настройки» > «Дополнительно» > Composio.',
   'settings.devWorkflow.errorToolNotEnabled':
-    'Инструмент GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER не ​​включен на этом сервере. Попросите своего администратора включить его в интеграции Composio (серверная часть № 842).',
+    'Инструмент GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER не включён на этом сервере. Попросите своего администратора включить его в интеграции Composio (backend#842).',
   'settings.devWorkflow.errorNotAuthenticated':
     'Не аутентифицирован. Пожалуйста, сначала войдите в систему.',
   'settings.devWorkflow.errorNoRepositories':
@@ -3842,7 +3842,7 @@ const messages: TranslationMap = {
   'webhooks.tunnels.toggleFailed': 'Не удалось переключить эхо',
   'composio.directModeRequiresKey': 'Не удалось сохранить. Прямой режим требует непустой API-ключ.',
   'composio.integrationSlugsHelp': 'Интеграция через запятую слизни, напр.',
-  'composio.integrationSlugsExample': 'gmail, Slack',
+  'composio.integrationSlugsExample': 'gmail, slack',
   'composio.integrationSlugsCaseInsensitive': 'Регистронезависим.',
   'composio.integrationSlugsPlaceholder': 'gmail, slack, ...',
   'composio.notYetRouted': 'пока не маршрутизируется',
@@ -3935,7 +3935,7 @@ const messages: TranslationMap = {
   'vault.syncSummary': 'Загружен {ingested}, без изменений {unchanged}, удален {removed}',
   'vault.syncSummaryFailed': ', не удалось {count}',
   'vault.syncSummarySkipped': ', пропущен {count}',
-  'vault.syncSummaryDuration': '· {seconds}s',
+  'vault.syncSummaryDuration': ' · {seconds}s',
   'vault.confirmRemovePurge':
     'Удалить хранилище «{name}»?\n\nНажмите OK, чтобы также очистить его память (удалить все {count} загруженных документов).\nНажмите Отмена, чтобы сохранить документы в памяти.',
   'vault.confirmRemove': 'Действительно удалить хранилище «{name}»?',
@@ -4008,7 +4008,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': 'Поставщик',
   'settings.taskSources.name': 'Имя (необязательно)',
   'settings.taskSources.namePlaceholder': 'например Мои открытые вопросы',
-  'settings.taskSources.github.repo': 'Репозиторий (owner/name, необязательно)',
+  'settings.taskSources.github.repo': 'Репозиторий (владелец/имя, необязательно)',
   'settings.taskSources.github.labels': 'Ярлыки (через запятую)',
   'settings.taskSources.notion.database': 'Идентификатор базы данных (доски)',
   'settings.taskSources.linear.team': 'Идентификатор команды (необязательно)',

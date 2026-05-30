@@ -712,7 +712,7 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'Padrão para pesquisa gerenciada por OpenHuman ou conecte seu próprio provedor com uma chave API.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    'Escolha o mecanismo de busca usado pelo agente, ou desative as ferramentas de pesquisa completamente. Gerenciado usa o backend do OpenHuman (sem configuração). Parallel, Brave e Querit funcionam diretamente do seu computador usando sua chave de API.',
   'settings.search.engineAria': 'Mecanismo de pesquisa',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
@@ -752,7 +752,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Chave Querit API',
   'settings.search.allowedSitesLabel': 'Sites permitidos',
   'settings.search.allowedSitesHint':
-    'Websites the assistant may open and read while researching (one host per line, e.g. reuters.com). A host also covers its subdomains. Leave empty to block all web access.',
+    'Hosts que o assistente pode abrir e ler — via busca na web e ferramenta de navegador — um por linha, ex.: reuters.com. Um host também cobre seus subdomínios. A busca na web em si não é restringida por esta lista.',
   'settings.search.allowedSitesAllOn':
     'O assistente pode abrir qualquer site público. Endereços locais e privados permanecem bloqueados.',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -2111,7 +2111,7 @@ const messages: TranslationMap = {
   'app.connectionBadge.messaging': 'Mensagens',
   'app.connectionIndicator.connected': 'Conectado ao OpenHuman AI 🚀',
   'app.connectionIndicator.connecting': 'Conectando',
-  'app.connectionIndicator.coreOffline': 'Core offline',
+  'app.connectionIndicator.coreOffline': 'Núcleo offline',
   'app.connectionIndicator.disconnected': 'Desconectado',
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Reconectando…',
@@ -4040,7 +4040,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': 'Fornecedor',
   'settings.taskSources.name': 'Nome (opcional)',
   'settings.taskSources.namePlaceholder': 'por exemplo, minhas questões abertas',
-  'settings.taskSources.github.repo': 'Repositório (owner/name, opcional)',
+  'settings.taskSources.github.repo': 'Repositório (proprietário/nome, opcional)',
   'settings.taskSources.github.labels': 'Etiquetas (separadas por vírgula)',
   'settings.taskSources.notion.database': 'ID do banco de dados (quadro)',
   'settings.taskSources.linear.team': 'ID da equipe (opcional)',

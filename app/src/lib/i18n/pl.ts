@@ -194,7 +194,7 @@ const messages: TranslationMap = {
   'home.statusBackendOnly':
     'Ponowne łączenie z backendem… Twój agent będzie dostępny ponownie za chwilę.',
   'home.statusCoreUnreachable':
-    "Local core sidecar isn't responding. The OpenHuman background process may have crashed or failed to start.",
+    'Rdzeń OpenHuman nie odpowiada. Proces w tle mógł ulec awarii lub nie uruchomić się.',
   'home.statusInternetOffline':
     'Twoje urządzenie jest teraz offline. Sprawdź sieć lub uruchom ponownie aplikację, aby się połączyć.',
   'home.restartCore': 'Uruchom ponownie rdzeń',
@@ -745,7 +745,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Klucz API Querit',
   'settings.search.allowedSitesLabel': 'Dozwolone witryny',
   'settings.search.allowedSitesHint':
-    'Hosty, które asystent może otwierać i czytać — przez web fetch i narzędzie przeglądarki — po jednym w wierszu, np. reuters.com. Host obejmuje też swoje subdomeny. Samo wyszukiwanie w sieci nie jest ograniczone tą listą.',
+    'Hosty, które asystent może otwierać i odczytywać — poprzez pobieranie stron i narzędzie przeglądarki — jeden na linię, np. reuters.com. Host obejmuje również swoje subdomeny. Samo wyszukiwanie w internecie nie jest ograniczone przez tę listę.',
   'settings.search.allowedSitesAllOn':
     'Asystent może otworzyć dowolną publiczną witrynę. Adresy lokalne i prywatne pozostają zablokowane.',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -935,7 +935,7 @@ const messages: TranslationMap = {
   'mcp.health.disconnectConfirm.cancel': 'Anuluj',
   'mcp.health.disconnectConfirm.confirm': 'Rozłącz wszystko',
   'mcp.health.opErrorGeneric': 'Operacja zbiorcza nie powiodła się. Zobacz logi.',
-  'mcp.health.bulkPartialFailure': 'Niepowodzenie serwerów: {failed} z {total}. Zobacz logi.',
+  'mcp.health.bulkPartialFailure': '{failed} z {total} serwerów nie powiodło się. Sprawdź logi.',
   'mcp.installed.search.landmarkAria': 'Szukaj w zainstalowanych serwerach MCP',
   'mcp.installed.search.inputAria': 'Filtruj zainstalowane serwery MCP według nazwy',
   'mcp.installed.search.placeholder': 'Filtruj serwery…',
@@ -1329,8 +1329,8 @@ const messages: TranslationMap = {
   'voice.providers.whisperModel': 'Model Whisper',
   'voice.providers.whisperModelAria': 'Model Whisper',
   'voice.providers.whisperModelTiny': 'Tiny (39 MB, najszybszy)',
-  'voice.providers.whisperModelBase': 'Base (74 MB)',
-  'voice.providers.whisperModelSmall': 'Small (244 MB)',
+  'voice.providers.whisperModelBase': 'Podstawowy (74 MB)',
+  'voice.providers.whisperModelSmall': 'Mały (244 MB)',
   'voice.providers.whisperModelMedium': 'Medium (769 MB, polecany)',
   'voice.providers.whisperModelLargeTurbo': 'Large v3 Turbo (1.5 GB, najlepsza dokładność)',
   'voice.providers.ttsProvider': 'Dostawca tekstu na mowę',
@@ -2552,7 +2552,7 @@ const messages: TranslationMap = {
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Tryb trasowania, wyzwalacze integracji i archiwum historii wyzwalaczy.',
-  'pages.settings.features.desktopCompanion': 'Desktop Companion',
+  'pages.settings.features.desktopCompanion': 'Towarzysz pulpitu',
   'pages.settings.features.desktopCompanionDesc':
     'Asystent głosowy ze świadomością ekranu — słucha, widzi, mówi, wskazuje',
   'pages.settings.features.messagingChannels': 'Kanały komunikacji',
@@ -4041,7 +4041,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': 'Dostawca',
   'settings.taskSources.name': 'Nazwa (opcjonalnie)',
   'settings.taskSources.namePlaceholder': 'np. Moje otwarte zgłoszenia',
-  'settings.taskSources.github.repo': 'Repozytorium (owner/name, opcjonalnie)',
+  'settings.taskSources.github.repo': 'Repozytorium (właściciel/nazwa, opcjonalnie)',
   'settings.taskSources.github.labels': 'Etykiety (rozdzielone przecinkami)',
   'settings.taskSources.notion.database': 'ID bazy danych (tablicy)',
   'settings.taskSources.linear.team': 'ID zespołu (opcjonalnie)',

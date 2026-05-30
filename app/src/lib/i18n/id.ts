@@ -696,14 +696,14 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'Baku bagi OpenHuman- mengatur pencarian atau menghubungkan penyedia anda sendiri dengan kunci API.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    'Pilih mesin pencari yang digunakan agen, atau nonaktifkan alat pencarian sepenuhnya. Managed menggunakan backend OpenHuman (tanpa pengaturan). Parallel, Brave, dan Querit berjalan langsung dari mesin Anda menggunakan kunci API Anda.',
   'settings.search.engineAria': 'Mesin pencari',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
     'Hapus alat pencarian dari konteks agen dan daftar alat yang tersedia.',
   'settings.search.engineManagedLabel': 'OpenHuman Dikelola',
   'settings.search.engineManagedDesc':
-    'Baku. Routed through the OpenHuman backend - tidak ada API kunci yang diperlukan.',
+    'Baku. Diarahkan melalui backend OpenHuman — tidak diperlukan kunci API.',
   'settings.search.localManagedUnavailable':
     'Pencarian OpenHuman Managed tidak tersedia untuk pengguna lokal. Tambahkan API key Parallel atau Brave Anda sendiri untuk mengaktifkan pencarian web.',
   'settings.search.engineParallelLabel': 'Parallel',
@@ -736,7 +736,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'kunci Querit API',
   'settings.search.allowedSitesLabel': 'Situs yang diijinkan',
   'settings.search.allowedSitesHint':
-    'Websites the assistant may open and read while researching (one host per line, e.g. reuters.com). A host also covers its subdomains. Leave empty to block all web access.',
+    'Host yang boleh dibuka dan dibaca oleh asisten — melalui pengambilan web dan alat browser — satu per baris, mis. reuters.com. Sebuah host juga mencakup subdomain-nya. Penelusuran web itu sendiri tidak dibatasi oleh daftar ini.',
   'settings.search.allowedSitesAllOn':
     'Asisten dapat membuka website publik. Alamat lokal dan pribadi tetap diblokir.',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -789,7 +789,7 @@ const messages: TranslationMap = {
   'pages.settings.ai.embeddingsDesc': 'Model encoding vektor untuk pengambilan memori',
   'mcp.alphaBadge': 'Alfa',
   'mcp.alphaBannerText':
-    'Dukungan server MCP pada awal alpha. The Smithery registry, install flow, dan alat kabel mungkin berperilaku buruk atau perubahan bentuk antara rilis.',
+    'Dukungan server MCP masih dalam tahap alpha awal. Registry Smithery, alur instalasi, dan koneksi alat mungkin berperilaku tidak terduga atau berubah antara rilis.',
   'mcp.toolList.noTools': 'Tidak ada alat yang tersedia.',
   'mcp.setup.secretDialog.title': 'MCP Penyiapan — Masukkan Rahasia',
   'mcp.setup.secretDialog.bodyPrefix': 'Agen penyiapan MCP memerlukan',
@@ -923,11 +923,11 @@ const messages: TranslationMap = {
   'mcp.health.disconnectAllAria': 'Putuskan semua server {count} terhubung dengan server MCP',
   'mcp.health.disconnectConfirm.title': 'Putuskan semua server MCP?',
   'mcp.health.disconnectConfirm.body':
-    'Ini akan memutuskan server {count} yang terhubung dengan MCP. Konfigurasi terpasang dan rahasia disimpan; Anda dapat menyambung ulang server setelahnya.',
+    'Ini akan memutuskan {count} server MCP yang sedang terhubung. Konfigurasi dan rahasia yang terpasang tetap disimpan; Anda dapat menghubungkan kembali server mana saja nanti.',
   'mcp.health.disconnectConfirm.cancel': 'Batal',
   'mcp.health.disconnectConfirm.confirm': 'Putuskan semua',
   'mcp.health.opErrorGeneric': 'Operasi Bulk gagal. Lihat log.',
-  'mcp.health.bulkPartialFailure': '{failed} dari server {total} gagal. Lihat log.',
+  'mcp.health.bulkPartialFailure': '{failed} dari {total} server gagal. Lihat log.',
   'mcp.installed.search.landmarkAria': 'Pencarian terinstal server MCP',
   'mcp.installed.search.inputAria': 'Filter yang terpasang server MCP dengan nama',
   'mcp.installed.search.placeholder': 'Penyaring server...',
@@ -1357,7 +1357,7 @@ const messages: TranslationMap = {
   'voice.providers.chip.disablePiper': 'Nonaktifkan Piper TTS lokal',
   'voice.providers.chip.enableProvider': 'Enable',
   'voice.providers.chip.disableProvider': 'Disable',
-  'voice.providers.chip.apiKeyLabel': 'API Key',
+  'voice.providers.chip.apiKeyLabel': 'Kunci API',
   'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
   'voice.providers.chip.comingSoon': 'segera hadir',
   'voice.modal.title': 'Configure',
@@ -1392,7 +1392,7 @@ const messages: TranslationMap = {
   'voice.externalProviders.remove': 'Remove',
   'voice.externalProviders.provider': 'Provider',
   'voice.externalProviders.selectProvider': 'Pilih penyedia…',
-  'voice.externalProviders.apiKey': 'API Key',
+  'voice.externalProviders.apiKey': 'Kunci API',
   'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
   'voice.externalProviders.add': 'Add',
   'autocomplete.title': 'Pelengkap Otomatis',
@@ -2206,7 +2206,7 @@ const messages: TranslationMap = {
   'channels.discord.fields.bot_token.label': 'Token Bot',
   'channels.discord.fields.bot_token.placeholder': 'Token bot Discord Anda',
   'channels.discord.fields.guild_id.label': 'ID Server (Guild)',
-  'channels.discord.fields.guild_id.placeholder': 'Opsional: membatasi ke server tertentu',
+  'channels.discord.fields.guild_id.placeholder': 'Opsional: batasi ke server tertentu',
   'channels.telegram.displayName': 'Telegram',
   'channels.telegram.description': 'Mengirim dan menerima pesan melalui Telegram.',
   'channels.telegram.authMode.managed_dm.description':
@@ -3300,7 +3300,7 @@ const messages: TranslationMap = {
   'settings.devWorkflow.errorNotConnected':
     'GitHub tidak terhubung. Mohon hubungkan GitHub melalui Settings > Advanced > Composio pertama.',
   'settings.devWorkflow.errorToolNotEnabled':
-    'Alat GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER tidak diaktifkan di backend ini. Mohon minta admin anda untuk mengaktifkannya dalam integrasi Composio (backend # 842).',
+    'Alat GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER tidak diaktifkan di backend ini. Mohon minta admin Anda untuk mengaktifkannya dalam integrasi Composio (backend#842).',
   'settings.devWorkflow.errorNotAuthenticated': 'Tidak dikonfirmasi. Silakan masuk dulu.',
   'settings.devWorkflow.errorNoRepositories':
     'Tidak ada repositori yang ditemukan untuk akun GitHub ini.',
@@ -3974,7 +3974,7 @@ const messages: TranslationMap = {
   'walletBalances.errorGeneric':
     'Tidak dapat memuat saldo dompet. Atur dompet Anda di Frasa Pemulihan dan coba lagi.',
   'settings.taskSources.title': 'Sumber Tugas',
-  'settings.taskSources.subtitle': 'Pull tasks from your tools into the agent todo board',
+  'settings.taskSources.subtitle': 'Tarik tugas dari alat Anda ke papan todo agen',
   'settings.taskSources.description':
     'Kumpulkan item kerja dari GitHub, Notion, Linear, dan ClickUp, perkaya mereka, dan rute mereka ke agen papan todo.',
   'settings.taskSources.connectHint':
@@ -3986,7 +3986,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': 'Penyedia',
   'settings.taskSources.name': 'Nama (opsional)',
   'settings.taskSources.namePlaceholder': 'mis. Masalah terbuka saya',
-  'settings.taskSources.github.repo': 'Repositori (opsional owner/name,)',
+  'settings.taskSources.github.repo': 'Repositori (pemilik/nama, opsional)',
   'settings.taskSources.github.labels': 'Label (koma - dipisahkan)',
   'settings.taskSources.notion.database': 'ID Basis Data (papan)',
   'settings.taskSources.linear.team': 'ID tim (opsional)',

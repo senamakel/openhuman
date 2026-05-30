@@ -712,7 +712,7 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'Par défaut, utilisez la recherche gérée par OpenHuman ou connectez votre propre fournisseur avec une clé API.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    "Choisissez le moteur de recherche utilisé par l'agent, ou désactivez entièrement les outils de recherche. Géré utilise le backend d'OpenHuman (sans configuration). Parallel, Brave et Querit s'exécutent directement depuis votre machine avec votre clé API.",
   'settings.search.engineAria': 'Moteur de recherche',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
@@ -752,7 +752,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Cherche la clé API',
   'settings.search.allowedSitesLabel': 'Sites web autorisés',
   'settings.search.allowedSitesHint':
-    'Websites the assistant may open and read while researching (one host per line, e.g. reuters.com). A host also covers its subdomains. Leave empty to block all web access.',
+    "Hôtes que l'assistant peut ouvrir et lire — via la récupération web et l'outil navigateur — un par ligne, p. ex. reuters.com. Un hôte couvre également ses sous-domaines. La recherche web elle-même n'est pas limitée par cette liste.",
   'settings.search.allowedSitesAllOn':
     "L'assistant peut ouvrir n'importe quel site public. Les adresses locales et privées restent bloquées.",
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -943,11 +943,12 @@ const messages: TranslationMap = {
   'mcp.health.disconnectAllAria': 'Déconnectez tous les serveurs {count} connectés MCP',
   'mcp.health.disconnectConfirm.title': 'Déconnecter tous les serveurs MCP?',
   'mcp.health.disconnectConfirm.body':
-    'Cela déconnectera {count} serveurs MCP actuellement connectés. Les configurations installées et les secrets sont conservés ; vous pourrez reconnecter n’importe quel serveur plus tard.',
+    "Cela déconnectera {count} serveurs MCP actuellement connectés. Les configurations installées et les secrets sont conservés ; vous pourrez reconnecter n'importe quel serveur ultérieurement.",
   'mcp.health.disconnectConfirm.cancel': 'Annuler',
   'mcp.health.disconnectConfirm.confirm': 'Déconnecter tout',
   'mcp.health.opErrorGeneric': "L'opération en masse a échoué. Voir les journaux.",
-  'mcp.health.bulkPartialFailure': '{failed} des serveurs {total} ont échoué. Voir les journaux.',
+  'mcp.health.bulkPartialFailure':
+    '{failed} sur {total} serveurs ont échoué. Consultez les journaux.',
   'mcp.installed.search.landmarkAria': 'Rechercher les serveurs MCP installés',
   'mcp.installed.search.inputAria': 'Filtrer les serveurs MCP installés par nom',
   'mcp.installed.search.placeholder': 'Filtrer les serveurs…',
@@ -3177,7 +3178,7 @@ const messages: TranslationMap = {
   'settings.localModel.status.downloadingUnknown': 'Téléchargement (taille inconnue)',
   'settings.localModel.status.eta': 'ETA',
   'settings.localModel.status.expectedModels': 'Modèles attendus',
-  'settings.localModel.status.expectedChat': 'Chat : {model}',
+  'settings.localModel.status.expectedChat': 'Discussion : {model}',
   'settings.localModel.status.expectedEmbedding': 'Intégration : {model}',
   'settings.localModel.status.expectedVision': 'Vision : {model}',
   'settings.localModel.status.externalProcess': 'Processus externe',
@@ -4061,7 +4062,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': 'Fournisseur',
   'settings.taskSources.name': 'Nom (facultatif)',
   'settings.taskSources.namePlaceholder': 'par exemple, mes problèmes ouverts',
-  'settings.taskSources.github.repo': 'Dépôt (owner/name, facultatif)',
+  'settings.taskSources.github.repo': 'Dépôt (propriétaire/nom, facultatif)',
   'settings.taskSources.github.labels': 'Étiquettes (séparées par des virgules)',
   'settings.taskSources.notion.database': 'ID de la base de données (tableau)',
   'settings.taskSources.linear.team': "ID de l'équipe (facultatif)",

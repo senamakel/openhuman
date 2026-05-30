@@ -712,7 +712,7 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'Por defecto, usa la búsqueda gestionada por OpenHuman o conecta tu propio proveedor con una clave API.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    'Elige el motor de búsqueda que usa el agente, o deshabilita las herramientas de búsqueda por completo. Gestionado usa el backend de OpenHuman (sin configuración). Parallel, Brave y Querit se ejecutan directamente desde tu máquina usando tu clave de API.',
   'settings.search.engineAria': 'motor de búsqueda',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
@@ -752,7 +752,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Querit clave API',
   'settings.search.allowedSitesLabel': 'Sitios web permitidos',
   'settings.search.allowedSitesHint':
-    'Websites the assistant may open and read while researching (one host per line, e.g. reuters.com). A host also covers its subdomains. Leave empty to block all web access.',
+    'Hosts que el asistente puede abrir y leer — mediante recuperación web y la herramienta de navegador — uno por línea, p. ej. reuters.com. Un host también incluye sus subdominios. La búsqueda web en sí no está restringida por esta lista.',
   'settings.search.allowedSitesAllOn':
     'El asistente puede abrir cualquier sitio web público. Las direcciones locales y privadas permanecen bloqueadas.',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -944,7 +944,8 @@ const messages: TranslationMap = {
   'mcp.health.disconnectConfirm.cancel': 'Cancelar',
   'mcp.health.disconnectConfirm.confirm': 'Desconectar todo',
   'mcp.health.opErrorGeneric': 'La operación masiva falló. Ver registros.',
-  'mcp.health.bulkPartialFailure': 'Error en {failed} de los servidores {total}. Ver registros.',
+  'mcp.health.bulkPartialFailure':
+    '{failed} de {total} servidores fallaron. Consulta los registros.',
   'mcp.installed.search.landmarkAria': 'Buscar servidores MCP instalados',
   'mcp.installed.search.inputAria': 'Filtrar servidores MCP instalados por nombre',
   'mcp.installed.search.placeholder': 'Filtrar servidores…',
@@ -3340,7 +3341,7 @@ const messages: TranslationMap = {
   'settings.devWorkflow.errorNotConnected':
     'GitHub no está conectado. Por favor, conecte GitHub a través de Configuración > Avanzado > Composio primero.',
   'settings.devWorkflow.errorToolNotEnabled':
-    'La herramienta GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER no está habilitada en este backend. Por favor, pida a su administrador que la habilite en la integración Composio (backend#842).',
+    'La herramienta GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER no está habilitada en este backend. Por favor, pide a tu administrador que la habilite en la integración de Composio (backend#842).',
   'settings.devWorkflow.errorNotAuthenticated': 'No autenticado. Por favor, inicie sesión primero.',
   'settings.devWorkflow.errorNoRepositories':
     'No se encontraron repositorios para esta cuenta GitHub.',
@@ -4043,7 +4044,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': 'proveedor',
   'settings.taskSources.name': 'Nombre (opcional)',
   'settings.taskSources.namePlaceholder': 'p. ej. Mis asuntos abiertos',
-  'settings.taskSources.github.repo': 'Repositorio (owner/name, opcional)',
+  'settings.taskSources.github.repo': 'Repositorio (propietario/nombre, opcional)',
   'settings.taskSources.github.labels': 'Etiquetas (separadas por comas)',
   'settings.taskSources.notion.database': 'ID de la base de datos (tablero)',
   'settings.taskSources.linear.team': 'ID del equipo (opcional)',

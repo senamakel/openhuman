@@ -708,7 +708,7 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'Imposta come predefinito la ricerca gestita da OpenHuman oppure collega il tuo provider con una chiave API.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    "Scegli il motore di ricerca utilizzato dall'agente oppure disabilita completamente gli strumenti di ricerca. Gestito utilizza il backend di OpenHuman (nessuna configurazione). Parallelo, Brave e Querit vengono eseguiti direttamente dalla tua macchina usando la tua chiave API.",
   'settings.search.engineAria': 'Motore di ricerca',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
@@ -748,7 +748,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Chiave Querit API',
   'settings.search.allowedSitesLabel': 'Siti web consentiti',
   'settings.search.allowedSitesHint':
-    'Websites the assistant may open and read while researching (one host per line, e.g. reuters.com). A host also covers its subdomains. Leave empty to block all web access.',
+    "Host che l'assistente può aprire e leggere — tramite recupero web e lo strumento browser — uno per riga, es. reuters.com. Un host include anche i suoi sottodomini. La ricerca web stessa non è limitata da questo elenco.",
   'settings.search.allowedSitesAllOn':
     "L'assistente può aprire qualsiasi sito web pubblico. Gli indirizzi locali e privati rimangono bloccati.",
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -940,11 +940,11 @@ const messages: TranslationMap = {
   'mcp.health.disconnectAllAria': 'Disconnetti tutti i server {count} collegati a MCP',
   'mcp.health.disconnectConfirm.title': 'Disconnettere tutti i server MCP?',
   'mcp.health.disconnectConfirm.body':
-    'Questo disconnetterà {count} server MCP attualmente connessi. Le configurazioni installate e i segreti vengono mantenuti; potrai riconnettere qualsiasi server in seguito.',
+    'Questa azione disconnetterà {count} server MCP attualmente connessi. Le configurazioni installate e i segreti verranno mantenuti; puoi riconnettere qualsiasi server in seguito.',
   'mcp.health.disconnectConfirm.cancel': 'Annulla',
   'mcp.health.disconnectConfirm.confirm': 'Disconnetti tutto',
   'mcp.health.opErrorGeneric': 'Operazione di massa fallita. Vedere i registri.',
-  'mcp.health.bulkPartialFailure': '{failed} dei server {total} non è riuscito. Vedi i registri.',
+  'mcp.health.bulkPartialFailure': '{failed} di {total} server non riusciti. Controlla i log.',
   'mcp.installed.search.landmarkAria': 'Cerca server MCP installati',
   'mcp.installed.search.inputAria': 'Filtra i server MCP installati per nome',
   'mcp.installed.search.placeholder': 'Filtra server…',
@@ -1891,7 +1891,7 @@ const messages: TranslationMap = {
   'backend.cloud': 'Cloud',
   'backend.recommended': 'Consigliato',
   'backend.cloudDescription':
-    "Modelli veloci e potenti ospitati sui nostri server. Pronti all'uso immediatamente.",
+    "Modelli veloci e potenti instradati attraverso il backend di OpenHuman. Pronti all'uso immediatamente.",
   'backend.privacyNote':
     'Nessun dato personale, messaggio o chiave viene mai inviato ai nostri server.',
   'backend.local': 'Locale',
@@ -2104,7 +2104,7 @@ const messages: TranslationMap = {
   'app.connectionBadge.messaging': 'Messaggistica',
   'app.connectionIndicator.connected': 'Connesso a OpenHuman AI 🚀',
   'app.connectionIndicator.connecting': 'Connessione',
-  'app.connectionIndicator.coreOffline': 'Core offline',
+  'app.connectionIndicator.coreOffline': 'Core non in linea',
   'app.connectionIndicator.disconnected': 'Disconnesso',
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Riconnessione…',
@@ -2233,7 +2233,7 @@ const messages: TranslationMap = {
   'channels.discord.fields.bot_token.label': 'Token bot',
   'channels.discord.fields.bot_token.placeholder': 'Il tuo token bot Discord',
   'channels.discord.fields.guild_id.label': 'ID server (gilda)',
-  'channels.discord.fields.guild_id.placeholder': 'Opzionale: limitare a un server specifico',
+  'channels.discord.fields.guild_id.placeholder': 'Facoltativo: limita a un server specifico',
   'channels.telegram.displayName': 'Telegram',
   'channels.telegram.description': 'Invia e ricevi messaggi tramite Telegram.',
   'channels.telegram.authMode.managed_dm.description':
@@ -3800,7 +3800,7 @@ const messages: TranslationMap = {
   'skills.setup.screenIntel.stepEnable': 'Abilita la skill',
   'skills.setup.screenIntel.stepPermissions': 'Concedi permessi',
   'skills.setup.screenIntel.stepSuccess': 'Pronto',
-  'skills.setup.screenIntel.title': 'Screen Intelligence',
+  'skills.setup.screenIntel.title': 'Intelligenza dello schermo',
   'skills.setup.screenIntel.visionModel': 'Modello vision',
   'skills.setup.voice.activation': 'Attivazione',
   'skills.setup.voice.activeDescPrefix': 'Fn',
@@ -3821,7 +3821,7 @@ const messages: TranslationMap = {
     'Voice Intelligence richiede un modello Whisper locale per la trascrizione. Scaricalo dalle impostazioni Modello locale.',
   'skills.setup.voice.sttReady': 'Modello speech-to-text pronto',
   'skills.setup.voice.sttReturnHint': 'Suggerimento ritorno STT',
-  'skills.setup.voice.title': 'Voice Intelligence',
+  'skills.setup.voice.title': 'Intelligenza vocale',
   'skills.uninstall.couldNotUninstall': 'Impossibile disinstallare',
   'skills.uninstall.description':
     "Questa operazione elimina permanentemente la directory della skill e tutte le sue risorse incluse. L'agente smetterà di vederla al turno successivo.",
@@ -4039,7 +4039,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': 'Fornitore',
   'settings.taskSources.name': 'Nome (opzionale)',
   'settings.taskSources.namePlaceholder': 'ad esempio, i miei problemi aperti',
-  'settings.taskSources.github.repo': 'Repository (owner/name, opzionale)',
+  'settings.taskSources.github.repo': 'Repository (proprietario/nome, facoltativo)',
   'settings.taskSources.github.labels': 'Etichette (separate da virgola)',
   'settings.taskSources.notion.database': 'ID del database (board)',
   'settings.taskSources.linear.team': 'ID del team (opzionale)',

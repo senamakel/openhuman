@@ -691,7 +691,7 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'OpenHuman 관리 검색을 기본값으로 사용하거나 API 키로 자체 제공업체를 연결하세요.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    '에이전트가 사용할 검색 엔진을 선택하거나 검색 도구를 완전히 비활성화합니다. 관리형은 OpenHuman의 백엔드를 사용합니다(설정 불필요). 병렬, Brave, Querit은 API 키를 사용하여 내 컴퓨터에서 직접 실행됩니다.',
   'settings.search.engineAria': '검색 엔진',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
@@ -891,7 +891,7 @@ const messages: TranslationMap = {
   'mobile.nav.ariaLabel': '모바일 탐색',
   'progress.stepsAria': '진행 단계',
   'progress.stepAria': '{total}의 {current} 단계',
-  'workspace.vaultsTitle': 'Knowledge Vault',
+  'workspace.vaultsTitle': '지식 저장소',
   'workspace.vaultsDesc': '로컬 폴더를 가리킵니다. 파일은 청크로 분할되어 메모리에 미러링됩니다.',
   'calls.title': '통화',
   'calls.comingSoonBody': 'AI 지원 통화가 곧 제공될 예정입니다. 계속 지켜봐 주시기 바랍니다.',
@@ -3533,7 +3533,7 @@ const messages: TranslationMap = {
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': '웹',
   'skills.channelIcon.yuanbao': 'Yuanbao',
-  'skills.composio.poweredBy': 'Powered by Composio',
+  'skills.composio.poweredBy': 'Composio 제공',
   'skills.composio.staleStatusTitle': '연결이 오래된 상태를 표시합니다.',
   'skills.create.allowedTools': '허용된 도구',
   'skills.create.allowedToolsHelp': 'SKILL.md 앞부분에 다음과 같이 렌더링됩니다.',
@@ -3938,7 +3938,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': '제공업체',
   'settings.taskSources.name': '이름(선택 사항)',
   'settings.taskSources.namePlaceholder': '예: 내 열린 이슈',
-  'settings.taskSources.github.repo': '리포지토리(owner/name, 선택 사항)',
+  'settings.taskSources.github.repo': '저장소 (소유자/이름, 선택 사항)',
   'settings.taskSources.github.labels': '레이블(쉼표로 구분)',
   'settings.taskSources.notion.database': '데이터베이스(보드) ID',
   'settings.taskSources.linear.team': '팀 ID(선택 사항)',

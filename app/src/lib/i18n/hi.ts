@@ -276,7 +276,7 @@ const messages: TranslationMap = {
   'memory.tab.centrality': 'Centrality',
   'memory.tab.settings': 'सेटिंग्स',
   'memory.analyzeNow': 'अभी एनालाइज़ करें',
-  'graphCentrality.title': 'Graph Centrality',
+  'graphCentrality.title': 'ज्ञान ग्राफ केंद्रीयता',
   'graphCentrality.intro':
     'अपने मेमोरी ग्राफ़ पर पेजरैंक लोड-असर हब सतहों - और कनेक्टर इकाइयां जो अन्यथा अलग-अलग समूहों को जोड़ती हैं, जो एक कच्चे आवृत्ति गिनती प्रकट नहीं हो सकती हैं।',
   'graphCentrality.loading': 'संघटन',
@@ -324,7 +324,7 @@ const messages: TranslationMap = {
   'memoryTree.status.minutesAgo': '{count} min पहले',
   'memoryTree.status.hourAgo': '1 घंटे पहले',
   'memoryTree.status.hoursAgo': '{count} hr पहले',
-  'memoryTree.status.dayAgo': '1 month ago',
+  'memoryTree.status.dayAgo': '1 दिन पहले',
   'memoryTree.status.daysAgo': '{count} दिन पहले',
   'alerts.title': 'अलर्ट',
   'alerts.empty': 'अभी कोई अलर्ट नहीं',
@@ -537,7 +537,7 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.posture.title': 'नीति',
   'devOptions.toolPolicyDiagnostics.posture.autonomy': 'स्वायत्तता:',
   'devOptions.toolPolicyDiagnostics.posture.workspaceOnly': 'केवल कार्यक्षेत्र:',
-  'devOptions.toolPolicyDiagnostics.posture.maxActionsPerHour': 'Max actions/hr:',
+  'devOptions.toolPolicyDiagnostics.posture.maxActionsPerHour': 'अधिकतम क्रियाएँ/घंटा:',
   'devOptions.toolPolicyDiagnostics.posture.approvalMediumRisk': 'स्वीकृति (मध्यम जोखिम):',
   'devOptions.toolPolicyDiagnostics.posture.blockHighRisk': 'ब्लॉक उच्च जोखिम:',
   'devOptions.toolPolicyDiagnostics.inventory.title': 'सूची',
@@ -548,7 +548,7 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.title': 'MCP',
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.summary':
     'सक्षम: {enabled} · सर्वर: {enabledCount} / {totalCount}',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.unnamed': '<unnamed>',
+  'devOptions.toolPolicyDiagnostics.mcpAllowlists.unnamed': '<अनाम>',
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.allowDeny':
     'अनुमति = {allowCount} इनकार = {denyCount}',
   'devOptions.toolPolicyDiagnostics.mcpWriteAudit.title': 'MCP',
@@ -692,7 +692,7 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'डिफ़ॉल्ट to OpenHuman -एक API कुंजी के साथ अपने स्वयं के प्रदाता को प्रबंधित खोज या तार करना।',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+    'एजेंट द्वारा उपयोग किए जाने वाले सर्च इंजन को चुनें, या सर्च टूल्स को पूरी तरह बंद करें। Managed, OpenHuman के बैकएंड का उपयोग करता है (कोई सेटअप नहीं)। Parallel, Brave, और Querit आपकी API key का उपयोग करके सीधे आपकी मशीन से चलते हैं।',
   'settings.search.engineAria': 'खोज इंजन',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc': 'एजेंट संदर्भ और उपलब्ध टूल सूची से खोज टूल हटाएं।',
@@ -729,10 +729,10 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'क्वेरिट API कुंजी',
   'settings.search.allowedSitesLabel': 'अनुमत वेबसाइटों',
   'settings.search.allowedSitesHint':
-    'Websites the assistant may open and read while researching (one host per line, e.g. reuters.com). A host also covers its subdomains. Leave empty to block all web access.',
+    'वे होस्ट जिन्हें असिस्टेंट खोल और पढ़ सकता है — वेब फ़ेच और ब्राउज़र टूल के माध्यम से — प्रति पंक्ति एक, जैसे reuters.com। एक होस्ट में उसके सभी सबडोमेन भी शामिल होते हैं। वेब सर्च स्वयं इस सूची से प्रतिबंधित नहीं है।',
   'settings.search.allowedSitesAllOn':
     'सहायक किसी भी सार्वजनिक वेबसाइट को खोल सकता है। स्थानीय और निजी पते अवरुद्ध रहते हैं।',
-  'settings.search.allowedSitesPlaceholder': 'xqx\napnews.com\nxx2xqx',
+  'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
   'settings.search.allowedSitesSave': 'वेबसाइट सहेजें',
   'settings.search.accessModeAria': 'वेब एक्सेस मोड',
   'settings.search.accessAllowAll': 'सभी को अनुमति दें',
@@ -868,7 +868,7 @@ const messages: TranslationMap = {
   'mcp.playground.argsLabel': 'तर्क (JSON)',
   'mcp.playground.argsHelp':
     'टाइप JSON इनपुट स्कीमा से मेल खाते हैं। खाली इनपुट को {} के रूप में माना जाता है।',
-  'mcp.playground.runShortcut': 'To run or run.',
+  'mcp.playground.runShortcut': '⌘/Ctrl + Enter चलाने के लिए',
   'mcp.playground.format': 'प्रारूप',
   'mcp.playground.invalidJson': 'JSON',
   'mcp.playground.run': 'रन टूल',
@@ -918,7 +918,7 @@ const messages: TranslationMap = {
   'mcp.health.disconnectConfirm.cancel': 'रद्द करना',
   'mcp.health.disconnectConfirm.confirm': 'सभी को अलग करें',
   'mcp.health.opErrorGeneric': 'थोक ऑपरेशन विफल रहा। लॉग देखें',
-  'mcp.health.bulkPartialFailure': '{total} सर्वर के {failed} विफल हो गया। लॉग देखें',
+  'mcp.health.bulkPartialFailure': '{total} में से {failed} सर्वर विफल हुए। लॉग देखें।',
   'mcp.installed.search.landmarkAria': 'खोज स्थापित MCP सर्वर',
   'mcp.installed.search.inputAria': 'नाम से फ़िल्टर स्थापित MCP सर्वर',
   'mcp.installed.search.placeholder': 'फिल्टर सर्वर...',
@@ -945,7 +945,7 @@ const messages: TranslationMap = {
   'mcp.inventory.export.copyAria': 'JSON को क्लिपबोर्ड पर कॉपी करें',
   'mcp.inventory.export.download': 'डाउनलोड',
   'mcp.inventory.export.downloadAria': 'JSON फ़ाइल के रूप में प्रकट होने को डाउनलोड करें',
-  'mcp.inventory.import.trustTitle': 'unt rust ed code',
+  'mcp.inventory.import.trustTitle': 'आयातित मेनिफेस्ट को अविश्वसनीय कोड के रूप में मानें',
   'mcp.inventory.import.trustBody':
     'एक MCP सर्वर एक ऐसा उपकरण है जिसे आप अपना एजेंट देते हैं। केवल आयात उन स्रोतों से प्रकट होता है जिन्हें आप rust कहते हैं। प्रत्येक स्थापना के लिए आपके स्पष्ट क्लिक की आवश्यकता होती है; कोई भी ऑटो-इंस्टॉल नहीं है।',
   'mcp.inventory.import.pasteLabel': 'पेस्ट करें प्रकटन JSON',
@@ -970,7 +970,7 @@ const messages: TranslationMap = {
   'mcp.inventory.import.installAria': 'इस घोषणा से {name} स्थापित करें',
   'mcp.inventory.import.skipped': 'छीनना',
   'mcp.inventory.parseError.empty': 'मैनिफेस्ट खाली है।',
-  'mcp.inventory.parseError.invalidJson': 'Invalid JSON.',
+  'mcp.inventory.parseError.invalidJson': 'अमान्य JSON।',
   'mcp.inventory.parseError.rootNotObject': 'Manifest रूट पर एक JSON वस्तु होना चाहिए।',
   'mcp.inventory.parseError.unsupportedSchema':
     'अनसमर्थित घोषणा स्कीमा - यह फ़ाइल एक संगत निर्यातक द्वारा उत्पादित नहीं की गई थी।',
@@ -1850,7 +1850,7 @@ const messages: TranslationMap = {
   'memorySources.removeFailed': 'असफल',
   'memorySources.folderPath': 'फ़ोल्डर पथ',
   'memorySources.globPattern': 'ग्लोब पैटर्न',
-  'memorySources.repoUrl': 'Repository URL',
+  'memorySources.repoUrl': 'रिपॉजिटरी URL',
   'memorySources.branch': 'शाखा',
   'memorySources.feedUrl': 'URL',
   'memorySources.pageUrl': 'पृष्ठ URL',
@@ -2621,7 +2621,7 @@ const messages: TranslationMap = {
   'settings.ai.discard': 'रद्द करें',
   'settings.ai.editProvider': 'प्रदाता संपादित करें',
   'settings.ai.llmProviders': 'LLM प्रोवाइडर',
-  'settings.ai.llmProvidersDesc': 'LLM providers desc',
+  'settings.ai.llmProvidersDesc': 'भाषा मॉडल प्रदाता जोड़ें और कॉन्फ़िगर करें।',
   'settings.ai.localOllama': 'लोकल (Ollama)',
   'settings.ai.modelLabel': 'मॉडल',
   'settings.ai.noCustomProviders': 'कोई कस्टम प्रोवाइडर नहीं',
@@ -3101,7 +3101,7 @@ const messages: TranslationMap = {
     '{contextLength} ctx - {required} मिनट से नीचे',
   'settings.localModel.status.contextBelowMinimumTitle':
     'अस्वीकृत: संदर्भ विंडो {contextLength} टोकन मेमोरी परत के लिए आवश्यक न्यूनतम {required}-टोकन से नीचे है। मौन काट-छाँट से स्मरण भ्रष्ट हो जाएगा।',
-  'settings.localModel.status.contextOkBadge': '{contextLength} ctx',
+  'settings.localModel.status.contextOkBadge': '{contextLength} ctx ✓',
   'settings.localModel.status.contextOkTitle':
     'संदर्भ विंडो {contextLength} टोकन न्यूनतम {required} टोकन की मेमोरी-लेयर को पूरा करती है।',
   'settings.localModel.status.contextUnknownBadge': 'सीटीएक्स अज्ञात',
@@ -3247,14 +3247,14 @@ const messages: TranslationMap = {
     'कोई प्रस्ताव वापस नहीं आया। इस सूची को पॉप्युलेट करने के लिए Composio के माध्यम से GitHub कनेक्ट करें।',
   'settings.skillsRunner.repoPicker.notConnected':
     'GitHub Composio से जुड़ा नहीं है। इसे पहले कौशल → Composio के तहत कनेक्ट करें।',
-  'settings.skillsRunner.repoPicker.privateTag': '(private)',
+  'settings.skillsRunner.repoPicker.privateTag': '(निजी)',
   'settings.skillsRunner.branchPicker.needRepo': 'पहले एक रेपो चुनें...',
   'settings.skillsRunner.branchPicker.loading': 'लोड हो रहा है...',
   'settings.skillsRunner.branchPicker.select': 'एक शाखा चुनें...',
-  'settings.devWorkflow.githubRepository': 'GitHub Repository',
+  'settings.devWorkflow.githubRepository': 'GitHub रिपॉजिटरी',
   'settings.devWorkflow.loadingRepositories': 'सम्पर्क करने का विवरण',
   'settings.devWorkflow.selectRepository': 'प्रस्तावना का चयन करें',
-  'settings.devWorkflow.privateTag': '(private)',
+  'settings.devWorkflow.privateTag': '(निजी)',
   'settings.devWorkflow.detectingForkInfo': 'फोर्क जानकारी का पता लगाना...',
   'settings.devWorkflow.forkDetected': 'फोर्क का पता लगाना',
   'settings.devWorkflow.upstream': 'अपस्ट्रीम',
@@ -3291,7 +3291,7 @@ const messages: TranslationMap = {
   'settings.devWorkflow.errorNotConnected':
     'GitHub कनेक्ट नहीं है। कृपया सेटिंग्स के माध्यम से GitHub कनेक्ट करें > उन्नत > Composio पहले।',
   'settings.devWorkflow.errorToolNotEnabled':
-    'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER टूल इस बैकएंड पर सक्षम नहीं है। कृपया अपने व्यवस्थापक को Composio एकीकरण (backend #842) में सक्षम करने के लिए कहें।',
+    'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER टूल इस बैकएंड पर सक्षम नहीं है। कृपया अपने व्यवस्थापक से Composio एकीकरण (backend#842) में इसे सक्षम करने के लिए कहें।',
   'settings.devWorkflow.errorNotAuthenticated': 'प्रमाणित नहीं है। कृपया पहले साइन इन करें।',
   'settings.devWorkflow.errorNoRepositories': 'इस GitHub खाते के लिए कोई प्रस्ताव नहीं मिला।',
   'settings.devWorkflow.schedule.every30min': '30 मिनट',
@@ -3488,7 +3488,7 @@ const messages: TranslationMap = {
   'settings.persona.identityDesc':
     'आपके सहायक के लिए एक प्रदर्शन नाम और लघु विवरण। ऐप में दिखाया गया है; यह नहीं बदलता कि कैसे सहायक कारण हैं।',
   'settings.persona.displayNameLabel': 'नाम प्रदर्शित करें',
-  'settings.persona.displayNamePlaceholder': 'e.g. Nova',
+  'settings.persona.displayNamePlaceholder': 'जैसे Nova',
   'settings.persona.descriptionLabel': 'विवरण',
   'settings.persona.descriptionPlaceholder': 'e.g मेरी टीम के लिए एक शांत, संक्षिप्त सहायक।',
   'settings.persona.soul.heading': 'व्यक्तित्व (SOUL)',
@@ -3976,7 +3976,7 @@ const messages: TranslationMap = {
   'settings.taskSources.provider': 'प्रदाता',
   'settings.taskSources.name': 'नाम (वैकल्पिक)',
   'settings.taskSources.namePlaceholder': 'e.g मेरे खुले मुद्दे',
-  'settings.taskSources.github.repo': 'Repository (owner/name, वैकल्पिक)',
+  'settings.taskSources.github.repo': 'रिपॉज़िटरी (owner/name, वैकल्पिक)',
   'settings.taskSources.github.labels': 'लेबल (comma-separated)',
   'settings.taskSources.notion.database': 'डेटाबेस (बोर्ड) ID',
   'settings.taskSources.linear.team': 'टीम आईडी (वैकल्पिक)',

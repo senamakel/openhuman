@@ -63,6 +63,9 @@ use openhuman_core::openhuman::memory_sync::composio::providers::profile_md::{
     block_end, block_start, merge_provider_into_profile_md, remove_provider_from_profile_md,
     replace_managed_block,
 };
+use openhuman_core::openhuman::memory_sync::composio::providers::slack::{
+    post_process as slack_post_process, schemas as slack_memory_schemas,
+};
 use openhuman_core::openhuman::memory_sync::composio::providers::sync_state::{
     extract_item_id, DailyBudget, SyncState, DEFAULT_DAILY_REQUEST_LIMIT,
 };
@@ -72,6 +75,9 @@ use openhuman_core::openhuman::memory_sync::composio::providers::{
     toolkit_has_scope, CuratedTool, NormalizedTask, ProviderUserProfile, SyncOutcome, SyncReason,
     TaskFetchFilter, ToolScope, UserScopePref,
 };
+use openhuman_core::openhuman::memory_sync::sync_status::{
+    rpc as memory_sync_status_rpc, schemas as memory_sync_status_schemas,
+};
 use openhuman_core::openhuman::memory_tree::score::extract::{
     EntityKind, ExtractedEntities, ExtractedEntity, ExtractedTopic,
 };
@@ -80,8 +86,10 @@ use openhuman_core::openhuman::memory_tree::score::signals::{
     interaction, metadata_weight, source_weight, token_count, unique_words, ScoreSignals,
     SignalWeights,
 };
+use openhuman_core::openhuman::memory_tree::score::{resolver, ScoringConfig};
 use openhuman_core::openhuman::memory_tree::tree_runtime::store as tree_runtime_store;
 use openhuman_core::openhuman::memory_tree::tree_runtime::{
+    all_tree_summarizer_controller_schemas, all_tree_summarizer_registered_controllers,
     derive_node_ids, derive_parent_id, estimate_tokens, level_from_node_id, node_id_to_path,
     NodeLevel, TreeNode,
 };
@@ -97,6 +105,9 @@ use openhuman_core::openhuman::threads::turn_state::{
     TurnPhase, TurnState,
 };
 use openhuman_core::openhuman::threads::ThreadsError;
+use openhuman_core::openhuman::threads::{
+    all_threads_controller_schemas, all_threads_registered_controllers,
+};
 
 struct EnvVarGuard {
     key: &'static str,
@@ -523,6 +534,189 @@ async fn memory_source_status_counts_reader_and_composio_prefixes() {
     assert_eq!(composio_status.freshness, FreshnessLabel::Idle);
 }
 
+#[tokio::test]
+async fn memory_thread_tree_and_sync_controller_schemas_execute_public_handlers() {
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let config = Config::load_or_init().await.expect("init isolated config");
+
+    let thread_schemas = all_threads_controller_schemas();
+    let thread_controllers = all_threads_registered_controllers();
+    assert_eq!(thread_schemas.len(), 16);
+    assert_eq!(thread_schemas.len(), thread_controllers.len());
+    assert_eq!(
+        openhuman_core::openhuman::threads::schemas::schemas("missing").function,
+        "unknown"
+    );
+    for function in [
+        "list",
+        "upsert",
+        "create_new",
+        "messages_list",
+        "message_append",
+        "generate_title",
+        "update_labels",
+        "update_title",
+        "message_update",
+        "delete",
+        "purge",
+        "turn_state_get",
+        "turn_state_list",
+        "turn_state_clear",
+        "task_board_get",
+        "task_board_put",
+    ] {
+        assert!(thread_schemas
+            .iter()
+            .any(|schema| schema.namespace == "threads" && schema.function == function));
+    }
+
+    let thread_upsert = thread_controllers
+        .iter()
+        .find(|controller| controller.schema.function == "upsert")
+        .expect("threads upsert controller");
+    assert!((thread_upsert.handler)(Map::new())
+        .await
+        .unwrap_err()
+        .contains("invalid params"));
+
+    let task_board_put = thread_controllers
+        .iter()
+        .find(|controller| controller.schema.function == "task_board_put")
+        .expect("task board put controller");
+    let task_board_get = thread_controllers
+        .iter()
+        .find(|controller| controller.schema.function == "task_board_get")
+        .expect("task board get controller");
+    let mut put_params = Map::new();
+    put_params.insert("thread_id".into(), json!("thread/schema-handlers"));
+    put_params.insert(
+        "cards".into(),
+        json!([
+            {
+                "id": "card-1",
+                "title": "Cover controller schemas",
+                "status": "todo",
+                "plan": ["inspect", "assert"],
+                "order": 1,
+                "updatedAt": "2026-05-29T12:00:00Z"
+            }
+        ]),
+    );
+    let put_json = (task_board_put.handler)(put_params)
+        .await
+        .expect("put task board");
+    assert_eq!(put_json["taskBoard"]["cards"][0]["id"], "card-1");
+
+    let mut get_params = Map::new();
+    get_params.insert("thread_id".into(), json!("thread/schema-handlers"));
+    let get_json = (task_board_get.handler)(get_params)
+        .await
+        .expect("get task board");
+    assert_eq!(
+        get_json["taskBoard"]["cards"][0]["title"],
+        "Cover controller schemas"
+    );
+
+    let tree_schemas = all_tree_summarizer_controller_schemas();
+    let tree_controllers = all_tree_summarizer_registered_controllers();
+    assert_eq!(tree_schemas.len(), 5);
+    assert_eq!(tree_schemas.len(), tree_controllers.len());
+    let ingest_schema = tree_schemas
+        .iter()
+        .find(|schema| schema.function == "ingest")
+        .expect("ingest schema");
+    assert!(ingest_schema
+        .inputs
+        .iter()
+        .any(|field| field.name == "metadata" && !field.required));
+
+    let tree_status = tree_controllers
+        .iter()
+        .find(|controller| controller.schema.function == "status")
+        .expect("tree status controller");
+    let mut tree_params = Map::new();
+    tree_params.insert("namespace".into(), json!("schema_handlers"));
+    let status_json = (tree_status.handler)(tree_params)
+        .await
+        .expect("tree status");
+    assert_eq!(status_json["result"]["total_nodes"], 0);
+    let tree_ingest = tree_controllers
+        .iter()
+        .find(|controller| controller.schema.function == "ingest")
+        .expect("tree ingest controller");
+    let mut bad_ingest = Map::new();
+    bad_ingest.insert("namespace".into(), json!("schema_handlers"));
+    bad_ingest.insert("content".into(), json!("content"));
+    bad_ingest.insert("timestamp".into(), json!(123));
+    assert!((tree_ingest.handler)(bad_ingest)
+        .await
+        .unwrap_err()
+        .contains("expected string"));
+
+    let sync_schemas = memory_sync_status_schemas::all_controller_schemas();
+    let sync_controllers = memory_sync_status_schemas::all_registered_controllers();
+    assert_eq!(sync_schemas.len(), 1);
+    assert_eq!(sync_controllers.len(), 1);
+    assert_eq!(sync_schemas[0].function, "status_list");
+
+    let now = Utc::now().timestamp_millis();
+    let mut first = chunk("slack:team:message-1", 0, now - 1_000);
+    first.id = "sync-status-covered-1".into();
+    let mut second = chunk("slack:team:message-2", 1, now - 2_000);
+    second.id = "sync-status-covered-2".into();
+    upsert_chunks(&config, &[first, second]).expect("upsert sync status chunks");
+    with_connection(&config, |conn| {
+        conn.execute(
+            "INSERT INTO mem_tree_chunk_embeddings \
+               (chunk_id, model_signature, vector, dim, created_at) \
+             VALUES ('sync-status-covered-1', 'test-sig', X'00000000', 1, 0.0)",
+            [],
+        )?;
+        Ok(())
+    })
+    .expect("insert embedding sidecar");
+
+    let status = memory_sync_status_rpc::status_list_rpc(&config)
+        .await
+        .expect("sync status rpc")
+        .value;
+    let slack = status
+        .statuses
+        .iter()
+        .find(|status| status.provider == "slack")
+        .expect("slack sync status");
+    assert_eq!(slack.chunks_synced, 2);
+    assert_eq!(slack.chunks_pending, 1);
+    assert_eq!(slack.batch_total, 2);
+    assert_eq!(slack.batch_processed, 1);
+
+    let status_json = (sync_controllers[0].handler)(Map::new())
+        .await
+        .expect("sync status controller");
+    assert!(status_json["statuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|row| row["provider"] == "slack"));
+
+    let slack_schemas = slack_memory_schemas::all_slack_memory_controller_schemas();
+    let slack_controllers = slack_memory_schemas::all_slack_memory_registered_controllers();
+    assert_eq!(slack_schemas.len(), 2);
+    assert_eq!(slack_schemas.len(), slack_controllers.len());
+    assert_eq!(slack_memory_schemas::schemas("unknown").function, "unknown");
+    let trigger = slack_controllers
+        .iter()
+        .find(|controller| controller.schema.function == "sync_trigger")
+        .expect("slack sync trigger controller");
+    let mut bad_trigger = Map::new();
+    bad_trigger.insert("connection_id".into(), json!(123));
+    assert!((trigger.handler)(bad_trigger)
+        .await
+        .unwrap_err()
+        .contains("invalid params"));
+}
+
 #[test]
 fn memory_tree_policy_and_source_registry_write_metadata_mirror() {
     let tmp = TempDir::new().expect("tempdir");
@@ -765,11 +959,106 @@ fn memory_sync_composio_catalog_scope_and_state_helpers_cover_edge_cases() {
 }
 
 #[test]
+fn slack_memory_schemas_and_post_processors_normalize_composio_shapes() {
+    let schemas = slack_memory_schemas::all_slack_memory_controller_schemas();
+    assert_eq!(schemas.len(), 2);
+    assert_eq!(schemas[0].namespace, "slack_memory");
+    assert!(schemas
+        .iter()
+        .any(|schema| schema.function == "sync_status" && schema.inputs.is_empty()));
+
+    let mut history = json!({
+        "data": {
+            "messages": [
+                {
+                    "ts": "1717000000.000100",
+                    "user": "U001",
+                    "text": " hello ",
+                    "thread_ts": "1717000000.000100",
+                    "permalink": "https://slack.test/archives/C1/p1"
+                },
+                { "ts": "1717000000.000200", "text": "   " },
+                { "user": "U002", "text": "missing timestamp" }
+            ]
+        }
+    });
+    slack_post_process::post_process("SLACK_FETCH_CONVERSATION_HISTORY", None, &mut history);
+    assert_eq!(history["messages"].as_array().unwrap().len(), 1);
+    assert_eq!(history["messages"][0]["text"], "hello");
+    assert_eq!(history["messages"][0]["user"], "U001");
+
+    let mut channels = json!({
+        "data": {
+            "conversations": [
+                { "id": "C001", "name": "engineering", "is_private": true },
+                { "id": " ", "name": "skip" },
+                { "id": "C002" }
+            ]
+        }
+    });
+    slack_post_process::post_process("SLACK_LIST_CONVERSATIONS", None, &mut channels);
+    assert_eq!(channels["channels"].as_array().unwrap().len(), 2);
+    assert_eq!(channels["channels"][0]["is_private"], true);
+    assert_eq!(channels["channels"][1]["name"], "C002");
+
+    let mut search = json!({
+        "messages": {
+            "matches": [
+                {
+                    "ts": "1717000000.000300",
+                    "bot_id": "B001",
+                    "text": "bot update",
+                    "channel": { "id": "C001" },
+                    "permalink": "https://slack.test/search/result"
+                },
+                { "ts": "1717000000.000400", "text": "" }
+            ],
+            "paging": { "pages": 3 }
+        }
+    });
+    slack_post_process::post_process("SLACK_SEARCH_MESSAGES", None, &mut search);
+    assert_eq!(search["pages"], 3);
+    assert_eq!(search["messages"].as_array().unwrap().len(), 1);
+    assert_eq!(search["messages"][0]["channel_id"], "C001");
+    assert_eq!(search["messages"][0]["user"], "B001");
+
+    let mut non_object = json!("replace me");
+    slack_post_process::post_process("SLACK_LIST_CONVERSATIONS", None, &mut non_object);
+    assert!(non_object["channels"].as_array().unwrap().is_empty());
+    let mut passthrough = json!({ "ok": true });
+    slack_post_process::post_process("SLACK_UNKNOWN", None, &mut passthrough);
+    assert_eq!(passthrough, json!({ "ok": true }));
+}
+
+#[test]
 fn memory_tree_scoring_signal_helpers_cover_boundaries_and_serialization() {
     assert_eq!(EntityKind::parse("email").unwrap(), EntityKind::Email);
     assert!(EntityKind::Email.is_mechanical());
     assert!(!EntityKind::Person.is_mechanical());
     assert!(EntityKind::parse("unknown").is_err());
+
+    let regex_entities = openhuman_core::openhuman::memory_tree::score::extract::regex::extract(
+        "Alice emailed bob@example.com from https://example.test and mentioned #coverage.",
+    );
+    assert!(regex_entities
+        .entities
+        .iter()
+        .any(|entity| entity.kind == EntityKind::Email && entity.text == "bob@example.com"));
+    let canonical = resolver::canonicalise(&regex_entities);
+    assert!(canonical
+        .iter()
+        .any(|entity| entity.canonical_id == "email:bob@example.com"));
+    assert_eq!(
+        resolver::canonical_id_for(EntityKind::Url, "https://Example.test/path/"),
+        "url:https://Example.test/path/"
+    );
+    assert_eq!(
+        resolver::canonical_id_for(EntityKind::Hashtag, "#Coverage"),
+        "hashtag:coverage"
+    );
+    let scoring_config = ScoringConfig::default_regex_only();
+    assert!(scoring_config.definite_keep_threshold > scoring_config.definite_drop_threshold);
+    assert!(scoring_config.llm_extractor.is_none());
 
     let mut extracted = ExtractedEntities {
         entities: vec![ExtractedEntity {

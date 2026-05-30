@@ -3,7 +3,7 @@
 //! The suite uses only temp workspaces and loopback HTTP mocks. It avoids live
 //! model/provider calls while still exercising the public controller registry.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use axum::extract::State;
@@ -28,16 +28,25 @@ use openhuman_core::openhuman::agent::task_board::{
     TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
 };
 use openhuman_core::openhuman::agent::task_dispatcher::build_task_prompt;
+use openhuman_core::openhuman::agent::tool_policy::{
+    AllowAllToolPolicy, GeneratedToolRuntimeContext, GeneratedToolRuntimePolicy,
+    GeneratedToolRuntimePolicyConfig, GeneratedToolRuntimeRisk, RuntimeToolPolicyAction,
+    ToolCallContext, ToolPolicy, ToolPolicyDecision, ToolPolicyRequest,
+};
+use openhuman_core::openhuman::agent::triage::envelope::{TriggerEnvelope, TriggerSource};
+use openhuman_core::openhuman::agent::triage::routing::build_local_provider_with_config;
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
 };
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
 use openhuman_core::openhuman::inference::context_window_for_model;
+use openhuman_core::openhuman::inference::provider::UsageInfo;
 use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
 use openhuman_core::openhuman::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
 };
+use openhuman_core::openhuman::todos::ops::BoardLocation;
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -899,4 +908,233 @@ async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks(
     assert_eq!(empty.value.emotion, "neutral");
     assert_eq!(empty.value.valence, "neutral");
     assert_eq!(empty.value.confidence, 1.0);
+}
+
+#[tokio::test]
+async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
+    let request = ToolPolicyRequest::new(
+        "email.send",
+        json!({ "to": "user@example.test", "body": "secret body" }),
+        ToolCallContext::session(
+            "session-secret-123",
+            "private-channel",
+            "orchestrator",
+            "call-1",
+            7,
+        ),
+    );
+    let debug = format!("{request:?}");
+    assert!(debug.contains("sess..."));
+    assert!(debug.contains("priv..."));
+    assert!(!debug.contains("session-secret-123"));
+    assert!(!debug.contains("secret body"));
+
+    let allow_all = AllowAllToolPolicy;
+    assert_eq!(allow_all.name(), "allow_all");
+    assert_eq!(allow_all.check(&request).await, ToolPolicyDecision::Allow);
+    assert_eq!(
+        request.context.source,
+        openhuman_core::openhuman::agent::tool_policy::ToolCallSource::Session
+    );
+
+    let generated = request
+        .clone()
+        .with_generated_tool_context(GeneratedToolRuntimeContext {
+            provider_id: "mail.runtime".to_string(),
+            capability_id: "email.send".to_string(),
+            risk: GeneratedToolRuntimeRisk::ExternalWrite,
+            source_digest: Some("sha256:abc".to_string()),
+            approval_id: Some("approval-1".to_string()),
+        });
+
+    let disabled = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig::default());
+    assert_eq!(disabled.name(), "generated_tool_runtime");
+    assert_eq!(disabled.check(&generated).await, ToolPolicyDecision::Allow);
+
+    let missing_context = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
+        enabled: true,
+        ..Default::default()
+    });
+    assert_eq!(
+        missing_context.check(&request).await,
+        ToolPolicyDecision::Allow
+    );
+
+    let revoked_provider = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
+        enabled: true,
+        revoked_providers: BTreeSet::from(["mail.runtime".to_string()]),
+        ..Default::default()
+    });
+    let denied = revoked_provider.check(&generated).await;
+    assert!(matches!(denied, ToolPolicyDecision::Deny { .. }));
+    assert!(denied
+        .blocking_reason()
+        .expect("deny reason")
+        .contains("provider `mail.runtime` is revoked"));
+
+    let revoked_capability = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
+        enabled: true,
+        revoked_capabilities: BTreeSet::from(["email.send".to_string()]),
+        ..Default::default()
+    });
+    let denied = revoked_capability.check(&generated).await;
+    assert!(matches!(denied, ToolPolicyDecision::Deny { .. }));
+    assert!(denied
+        .blocking_reason()
+        .expect("deny reason")
+        .contains("capability `email.send` is revoked"));
+
+    let capability_over_provider =
+        GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
+            enabled: true,
+            provider_actions: BTreeMap::from([(
+                "mail.runtime".to_string(),
+                RuntimeToolPolicyAction::Allow,
+            )]),
+            capability_actions: BTreeMap::from([(
+                "email.send".to_string(),
+                RuntimeToolPolicyAction::RequireApproval,
+            )]),
+            ..Default::default()
+        });
+    let approval = capability_over_provider.check(&generated).await;
+    assert!(matches!(
+        approval,
+        ToolPolicyDecision::RequireApproval { .. }
+    ));
+    assert!(approval
+        .blocking_reason()
+        .expect("approval reason")
+        .contains("capability `email.send` matched runtime policy"));
+
+    let provider_denial = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
+        enabled: true,
+        provider_actions: BTreeMap::from([(
+            "mail.runtime".to_string(),
+            RuntimeToolPolicyAction::Deny,
+        )]),
+        ..Default::default()
+    });
+    assert!(matches!(
+        provider_denial.check(&generated).await,
+        ToolPolicyDecision::Deny { .. }
+    ));
+
+    let risk_approval = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
+        enabled: true,
+        risk_actions: BTreeMap::from([(
+            GeneratedToolRuntimeRisk::ExternalWrite,
+            RuntimeToolPolicyAction::RequireApproval,
+        )]),
+        ..Default::default()
+    });
+    assert!(matches!(
+        risk_approval.check(&generated).await,
+        ToolPolicyDecision::RequireApproval { .. }
+    ));
+
+    assert_eq!(
+        GeneratedToolRuntimeRisk::Read < GeneratedToolRuntimeRisk::Write,
+        true
+    );
+    assert_eq!(
+        GeneratedToolRuntimeRisk::Execute < GeneratedToolRuntimeRisk::Dangerous,
+        true
+    );
+    assert_eq!(ToolPolicyDecision::Allow.blocking_reason(), None);
+
+    let usage = UsageInfo {
+        input_tokens: 2_000_000,
+        output_tokens: 1_000_000,
+        cached_input_tokens: 1_000_000,
+        charged_amount_usd: 0.0,
+        ..Default::default()
+    };
+    assert_eq!(
+        openhuman_core::openhuman::agent::cost::lookup_pricing("claude-opus-4.7").model,
+        "reasoning-v1"
+    );
+    assert_eq!(
+        openhuman_core::openhuman::agent::cost::lookup_pricing("unknown-model").model,
+        "<fallback>"
+    );
+    let estimated =
+        openhuman_core::openhuman::agent::cost::estimate_call_cost_usd("agentic-v1", &usage);
+    assert!((estimated - 18.3).abs() < 1e-6, "got {estimated}");
+    let charged = UsageInfo {
+        charged_amount_usd: 0.42,
+        ..usage.clone()
+    };
+    assert_eq!(
+        openhuman_core::openhuman::agent::cost::call_cost_usd("reasoning-v1", &charged),
+        0.42
+    );
+    let mut turn_cost = openhuman_core::openhuman::agent::cost::TurnCost::new();
+    turn_cost.add_call("agentic-v1", &usage);
+    turn_cost.add_call("reasoning-v1", &charged);
+    assert_eq!(turn_cost.input_tokens, 4_000_000);
+    assert_eq!(turn_cost.output_tokens, 2_000_000);
+    assert_eq!(turn_cost.cached_input_tokens, 2_000_000);
+    assert_eq!(turn_cost.charged_usd, 0.42);
+    assert_eq!(turn_cost.call_count, 2);
+    assert!(turn_cost.total_usd() > 18.7);
+
+    let composio = TriggerEnvelope::from_composio(
+        "gmail",
+        "GMAIL_NEW_MESSAGE",
+        "metadata-id",
+        "metadata-uuid",
+        json!({ "subject": "coverage" }),
+    );
+    assert_eq!(composio.source.slug(), "composio");
+    assert_eq!(composio.external_id, "metadata-uuid");
+    assert_eq!(composio.display_label, "composio/gmail/GMAIL_NEW_MESSAGE");
+    assert!(matches!(composio.source, TriggerSource::Composio { .. }));
+
+    let fallback_id =
+        TriggerEnvelope::from_composio("notion", "PAGE_UPDATED", "metadata-id", "", json!({}));
+    assert_eq!(fallback_id.external_id, "metadata-id");
+
+    let webhook =
+        TriggerEnvelope::from_webhook("tunnel-1", "POST", "/hooks/coverage", json!({ "ok": true }));
+    assert_eq!(webhook.source.slug(), "webhook");
+    assert_eq!(webhook.external_id, "tunnel-1");
+    assert_eq!(webhook.display_label, "webhook/POST//hooks/coverage");
+
+    let cron = TriggerEnvelope::from_cron("job-1", "daily-summary", "done");
+    assert_eq!(cron.source.slug(), "cron");
+    assert_eq!(cron.payload.pointer("/output"), Some(&json!("done")));
+
+    let external = TriggerEnvelope::from_external("caller-1", "manual", json!({ "x": 1 }))
+        .with_task_card(
+            "card-1".to_string(),
+            BoardLocation::Thread {
+                workspace_dir: tempdir().expect("thread workspace").path().to_path_buf(),
+                thread_id: "thread-1".to_string(),
+            },
+        );
+    assert_eq!(external.source.slug(), "external");
+    let link = external.card_link.expect("task card link");
+    assert_eq!(link.card_id, "card-1");
+    assert_eq!(link.location.thread_id(), Some("thread-1"));
+
+    let webview = TriggerSource::WebviewIntegration {
+        provider: "gmail".to_string(),
+        account_id: "acct-1".to_string(),
+    };
+    assert_eq!(webview.slug(), "webview");
+
+    let mut config = Config::default();
+    assert!(build_local_provider_with_config(&config).is_none());
+    config.local_ai.runtime_enabled = true;
+    config.local_ai.chat_model_id = String::new();
+    assert!(build_local_provider_with_config(&config).is_none());
+    config.local_ai.provider = "custom_openai".to_string();
+    config.local_ai.base_url = Some("http://127.0.0.1:9999/v1".to_string());
+    config.local_ai.api_key = Some("local-key".to_string());
+    config.local_ai.chat_model_id = "local-chat".to_string();
+    let local = build_local_provider_with_config(&config).expect("local provider");
+    assert_eq!(local.provider_name, "custom_openai");
+    assert_eq!(local.model, "local-chat");
+    assert!(local.used_local);
 }

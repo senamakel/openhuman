@@ -16,6 +16,17 @@ use openhuman_core::openhuman::composio::oauth_handoff::{
     is_authorize_rate_limited, is_clearable_oauth_status, is_inflight_oauth_status,
     is_meta_oauth_toolkit, meta_oauth_rate_limit_message, wrap_authorize_rate_limit_error,
 };
+use openhuman_core::openhuman::composio::trigger_history::ComposioTriggerHistoryStore;
+use openhuman_core::openhuman::composio::types::{
+    ComposioActiveTrigger, ComposioActiveTriggersResponse, ComposioAvailableTrigger,
+    ComposioAvailableTriggerRepo, ComposioAvailableTriggersResponse, ComposioCapabilitiesResponse,
+    ComposioCapability, ComposioConnection, ComposioConnectionsResponse,
+    ComposioCreateTriggerResponse, ComposioDeleteResponse, ComposioDisableTriggerResponse,
+    ComposioEnableTriggerResponse, ComposioExecuteResponse, ComposioGithubRepo,
+    ComposioGithubReposResponse, ComposioToolFunction, ComposioToolSchema,
+    ComposioToolkitsResponse, ComposioToolsResponse, ComposioTriggerEvent,
+    ComposioTriggerHistoryEntry, ComposioTriggerMetadata,
+};
 use openhuman_core::openhuman::composio::ComposioActionTool;
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolCategory};
@@ -245,4 +256,261 @@ fn composio_action_tool_metadata_is_stable_without_network_execution() {
         default_schema.parameters_schema(),
         json!({ "type": "object" })
     );
+}
+
+#[test]
+fn composio_types_roundtrip_connection_tool_trigger_and_history_shapes() {
+    let toolkits: ComposioToolkitsResponse = serde_json::from_value(json!({})).unwrap();
+    assert!(toolkits.toolkits.is_empty());
+
+    let capabilities = ComposioCapabilitiesResponse {
+        capabilities: vec![ComposioCapability {
+            toolkit: "gmail".into(),
+            description: "Gmail".into(),
+            native_provider: true,
+            curated_tools: true,
+            curated_tool_count: 3,
+            tool_execution: true,
+            user_profile: true,
+            initial_sync: true,
+            periodic_sync: true,
+            sync_interval_secs: Some(3600),
+            trigger_webhooks: true,
+            memory_ingest: true,
+        }],
+    };
+    assert_eq!(
+        serde_json::to_value(&capabilities).unwrap()["capabilities"][0]["toolkit"],
+        "gmail"
+    );
+
+    let connections: ComposioConnectionsResponse = serde_json::from_value(json!({
+        "connections": [
+            { "id": "c1", "toolkit": " Gmail ", "status": " connected ", "createdAt": "2026-05-29T00:00:00Z" },
+            { "id": "c2", "toolkit": "slack", "status": "PENDING" }
+        ]
+    }))
+    .unwrap();
+    assert_eq!(connections.connections[0].normalized_toolkit(), "gmail");
+    assert!(connections.connections[0].is_active());
+    assert!(!connections.connections[1].is_active());
+    let serialized_connection = serde_json::to_value(&connections.connections[0]).unwrap();
+    assert_eq!(serialized_connection["createdAt"], "2026-05-29T00:00:00Z");
+
+    let default_connection = ComposioConnection {
+        id: "c3".into(),
+        toolkit: "notion".into(),
+        status: "FAILED".into(),
+        created_at: None,
+    };
+    assert!(serde_json::to_value(default_connection)
+        .unwrap()
+        .get("createdAt")
+        .is_none());
+
+    let tools = ComposioToolsResponse {
+        tools: vec![ComposioToolSchema {
+            kind: "function".into(),
+            function: ComposioToolFunction {
+                name: "GMAIL_SEND_EMAIL".into(),
+                description: Some("Send mail".into()),
+                parameters: Some(json!({ "type": "object" })),
+            },
+        }],
+    };
+    assert_eq!(
+        serde_json::to_value(&tools).unwrap()["tools"][0]["type"],
+        "function"
+    );
+    let default_kind: ComposioToolSchema = serde_json::from_value(json!({
+        "function": { "name": "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" }
+    }))
+    .unwrap();
+    assert_eq!(default_kind.kind, "function");
+    assert_eq!(default_kind.function.description, None);
+
+    let execute: ComposioExecuteResponse = serde_json::from_value(json!({
+        "data": { "id": "msg-1" },
+        "successful": true,
+        "costUsd": 0.03,
+        "markdownFormatted": "**sent**"
+    }))
+    .unwrap();
+    assert!(execute.successful);
+    assert_eq!(execute.cost_usd, 0.03);
+    assert_eq!(execute.markdown_formatted.as_deref(), Some("**sent**"));
+
+    let repos = ComposioGithubReposResponse {
+        connection_id: "conn-github".into(),
+        repositories: vec![ComposioGithubRepo {
+            owner: "tinyhumansai".into(),
+            repo: "openhuman".into(),
+            full_name: "tinyhumansai/openhuman".into(),
+            private: Some(false),
+            default_branch: Some("main".into()),
+            html_url: Some("https://github.com/tinyhumansai/openhuman".into()),
+        }],
+    };
+    assert_eq!(
+        serde_json::to_value(&repos).unwrap()["connectionId"],
+        "conn-github"
+    );
+
+    let create = ComposioCreateTriggerResponse {
+        trigger_id: "trig-1".into(),
+        status: Some("enabled".into()),
+    };
+    assert_eq!(
+        serde_json::to_value(&create).unwrap()["triggerId"],
+        "trig-1"
+    );
+    let available = ComposioAvailableTriggersResponse {
+        triggers: vec![ComposioAvailableTrigger {
+            slug: "GITHUB_PULL_REQUEST_EVENT".into(),
+            scope: "github_repo".into(),
+            default_config: Some(json!({ "event": "pull_request" })),
+            required_config_keys: Some(vec!["owner".into(), "repo".into()]),
+            repo: Some(ComposioAvailableTriggerRepo {
+                owner: "tinyhumansai".into(),
+                repo: "openhuman".into(),
+            }),
+        }],
+    };
+    assert_eq!(
+        serde_json::to_value(&available).unwrap()["triggers"][0]["repo"]["repo"],
+        "openhuman"
+    );
+
+    let active: ComposioActiveTriggersResponse = serde_json::from_value(json!({
+        "triggers": [{
+            "id": { "id": "trigger-id" },
+            "slug": { "slug": "GMAIL_NEW_GMAIL_MESSAGE" },
+            "toolkit": { "name": "gmail" },
+            "connectionId": { "key": "conn-1" },
+            "triggerConfig": { "label": "INBOX" },
+            "state": { "state": "enabled" }
+        }]
+    }))
+    .unwrap();
+    let active_trigger: &ComposioActiveTrigger = &active.triggers[0];
+    assert_eq!(active_trigger.id, "trigger-id");
+    assert_eq!(active_trigger.slug, "GMAIL_NEW_GMAIL_MESSAGE");
+    assert_eq!(active_trigger.toolkit, "gmail");
+    assert_eq!(active_trigger.connection_id, "conn-1");
+    assert_eq!(active_trigger.state.as_deref(), Some("enabled"));
+    let active_without_state: ComposioActiveTrigger = serde_json::from_value(json!({
+        "id": "trigger-2",
+        "slug": "SLACK_NEW_MESSAGE",
+        "toolkit": "slack",
+        "connectionId": "conn-2",
+        "state": { "unexpected": true }
+    }))
+    .unwrap();
+    assert_eq!(active_without_state.state, None);
+    assert!(serde_json::from_value::<ComposioActiveTrigger>(json!({
+        "id": ["bad"],
+        "slug": "x",
+        "toolkit": "gmail",
+        "connectionId": "c"
+    }))
+    .is_err());
+
+    let enable = ComposioEnableTriggerResponse {
+        trigger_id: "trig-2".into(),
+        slug: "SLACK_NEW_MESSAGE".into(),
+        connection_id: "conn-2".into(),
+    };
+    assert_eq!(
+        serde_json::to_value(&enable).unwrap()["connectionId"],
+        "conn-2"
+    );
+    assert!(
+        serde_json::to_value(ComposioDisableTriggerResponse { deleted: false })
+            .unwrap()
+            .get("deleted")
+            .is_some()
+    );
+    assert_eq!(
+        serde_json::to_value(ComposioDeleteResponse {
+            deleted: true,
+            memory_chunks_deleted: 4,
+        })
+        .unwrap()["memory_chunks_deleted"],
+        4
+    );
+
+    let event: ComposioTriggerEvent = serde_json::from_value(json!({
+        "toolkit": "gmail",
+        "trigger": "GMAIL_NEW_GMAIL_MESSAGE",
+        "payload": { "subject": "coverage" },
+        "metadata": { "id": "m1", "uuid": "u1" }
+    }))
+    .unwrap();
+    assert_eq!(event.metadata.id, "m1");
+    assert_eq!(event.payload["subject"], "coverage");
+    let default_event: ComposioTriggerEvent = serde_json::from_value(json!({})).unwrap();
+    assert_eq!(default_event.metadata.uuid, "");
+    let metadata = ComposioTriggerMetadata {
+        id: "m2".into(),
+        uuid: "u2".into(),
+    };
+    assert_eq!(serde_json::to_value(metadata).unwrap()["uuid"], "u2");
+    let entry = ComposioTriggerHistoryEntry {
+        received_at_ms: 42,
+        toolkit: "gmail".into(),
+        trigger: "GMAIL_NEW_GMAIL_MESSAGE".into(),
+        metadata_id: "m1".into(),
+        metadata_uuid: "u1".into(),
+        payload: json!({ "subject": "coverage" }),
+    };
+    assert_eq!(serde_json::to_value(entry).unwrap()["received_at_ms"], 42);
+}
+
+#[test]
+fn composio_trigger_history_store_handles_limits_and_bad_archive_lines() {
+    let dir = tempdir().expect("tempdir");
+    let store = ComposioTriggerHistoryStore::new(dir.path()).expect("history store");
+    let empty = store.list_recent(0).expect("empty history");
+    assert!(empty.entries.is_empty());
+    assert!(empty.archive_dir.ends_with("state/triggers"));
+
+    let first = store
+        .record_trigger(
+            "gmail",
+            "GMAIL_NEW_GMAIL_MESSAGE",
+            "metadata-1",
+            "uuid-1",
+            &json!({ "subject": "first" }),
+        )
+        .expect("record first");
+    assert_eq!(first.toolkit, "gmail");
+    let second = store
+        .record_trigger(
+            "slack",
+            "SLACK_NEW_MESSAGE",
+            "metadata-2",
+            "uuid-2",
+            &json!({ "text": "second" }),
+        )
+        .expect("record second");
+    assert!(second.received_at_ms >= first.received_at_ms);
+
+    let one = store.list_recent(1).expect("limited history");
+    assert_eq!(one.entries.len(), 1);
+    assert_eq!(one.entries[0].metadata_id, "metadata-2");
+
+    std::fs::write(
+        dir.path()
+            .join("state")
+            .join("triggers")
+            .join("1999-01-01.jsonl"),
+        "\nnot-json\n{\"received_at_ms\":1,\"toolkit\":\"old\",\"trigger\":\"OLD\",\"metadata_id\":\"m\",\"metadata_uuid\":\"u\",\"payload\":{}}\n",
+    )
+    .expect("write legacy archive");
+    let all = store.list_recent(10).expect("history skips bad lines");
+    assert!(all.entries.iter().any(|entry| entry.toolkit == "old"));
+    assert!(all
+        .entries
+        .iter()
+        .any(|entry| entry.metadata_id == "metadata-1"));
 }

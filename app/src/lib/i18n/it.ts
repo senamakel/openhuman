@@ -284,6 +284,7 @@ const messages: TranslationMap = {
   'memory.tab.calls': 'Chiamate',
   'memory.tab.diagram': 'Diagram',
   'memory.tab.centrality': 'Centrality',
+  'memory.tab.namespaces': 'Spazi dei nomi',
   'memory.tab.timeline': 'Timeline',
   'memory.tab.settings': 'Impostazioni',
   'memory.analyzeNow': 'Analizza ora',
@@ -305,6 +306,24 @@ const messages: TranslationMap = {
   'memoryTimeline.busiestCaption': 'Busiest: {period} ({count})',
   'memoryTimeline.undatedNote': '{count} fact(s) have no recorded date.',
   'memoryTimeline.truncated': 'Showing the {shown} most recent of {total} months.',
+  'namespaceOverview.title': 'Panoramica degli spazi dei nomi',
+  'namespaceOverview.intro':
+    'Come la tua conoscenza è distribuita tra i contesti — il numero di fatti ed entità distinte registrate in ogni spazio dei nomi.',
+  'namespaceOverview.loading': 'Aggregazione degli spazi dei nomi…',
+  'namespaceOverview.errorPrefix': 'Impossibile caricare il grafico:',
+  'namespaceOverview.retry': 'Riprova',
+  'namespaceOverview.empty': 'Ancora nessun knowledge graph.',
+  'namespaceOverview.emptyHint':
+    'Man mano che l’assistente registra fatti tra i contesti, ogni spazio dei nomi apparirà qui.',
+  'namespaceOverview.metricNamespaces': 'Spazi dei nomi',
+  'namespaceOverview.metricFacts': 'Fatti',
+  'namespaceOverview.metricEntities': 'Entità',
+  'namespaceOverview.heading': 'Per spazio dei nomi',
+  'namespaceOverview.unnamespaced': '(senza spazio dei nomi)',
+  'namespaceOverview.factsLabel': '{count} fatti',
+  'namespaceOverview.entitiesLabel': '{count} entità',
+  'namespaceOverview.entitiesShort': '{count} ent.',
+  'namespaceOverview.truncated': 'Mostrando i primi {shown} di {total} spazi dei nomi.',
   'graphCentrality.title': 'Centralità del Grafo della Conoscenza',
   'graphCentrality.intro':
     'PageRank sul tuo grafo della memoria mette in evidenza gli hub portanti — e le entità di collegamento che connettono cluster altrimenti separati, cosa che un semplice conteggio di frequenza non può rivelare.',
@@ -4232,6 +4251,35 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Grezzo: {raw}',
   'walletBalances.errorGeneric':
     'Impossibile caricare i saldi del portafoglio. Configura il tuo portafoglio in Frase di recupero e riprova.',
+  'walletBalances.setupHint':
+    'La tua frase di recupero non è ancora configurata. Configurala per attivare il tuo wallet e vedere i saldi in tempo reale.',
+  'walletBalances.setupCta': 'Configura la frase di recupero',
+  'walletBalances.notSetUp': 'Non configurato',
+  'walletBalances.send': 'Invia',
+  'walletBalances.receive': 'Ricevi',
+  'walletReceive.scanHint':
+    'Scansiona questo codice o copia l’indirizzo qui sotto per ricevere fondi.',
+  'walletReceive.addressLabel': 'Indirizzo {network}',
+  'walletReceive.onlyChainWarning':
+    'Invia solo asset {network} a questo indirizzo. Inviare asset da un’altra rete può causare una perdita permanente.',
+  'walletSend.available': 'Disponibile',
+  'walletSend.recipient': 'Indirizzo del destinatario',
+  'walletSend.recipientPlaceholder': 'Incolla l’indirizzo di destinazione',
+  'walletSend.recipientRequired': 'Inserisci un indirizzo del destinatario',
+  'walletSend.amount': 'Importo',
+  'walletSend.invalidAmount': 'Inserisci un importo valido',
+  'walletSend.review': 'Rivedi',
+  'walletSend.preparing': 'Preparazione…',
+  'walletSend.confirmHint':
+    'Rivedi i dettagli qui sotto. La firma avviene localmente: nulla viene trasmesso finché non confermi.',
+  'walletSend.estimatedFee': 'Commissione di rete stimata',
+  'walletSend.confirmSend': 'Conferma e invia',
+  'walletSend.sending': 'Invio…',
+  'walletSend.sent': 'Transazione inviata',
+  'walletSend.txHash': 'Hash della transazione',
+  'walletSend.viewExplorer': 'Vedi nell’explorer',
+  'walletSend.done': 'Fatto',
+  'walletSend.genericError': 'Impossibile completare il trasferimento. Riprova.',
   'settings.taskSources.title': 'Fonti del compito',
   'settings.taskSources.subtitle':
     "Estrai le attività dai tuoi strumenti sulla lavagna delle cose da fare dell'agente",
@@ -4378,6 +4426,16 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Gestisci i tuoi agenti, la loro autonomia e a cosa possono accedere su questo computer.',
   'settings.agentsSection.menuDesc': 'Registro, autonomia e accesso al sistema operativo',
+  'settings.cryptoSection.title': 'Cripto',
+  'settings.cryptoSection.description':
+    'Gestisci la tua frase di recupero e visualizza i saldi dei tuoi account wallet.',
+  'settings.cryptoSection.menuDesc': 'Frase di recupero e saldi del wallet',
+  'settings.notificationsHub.title': 'Notifiche',
+  'settings.notificationsHub.description':
+    'Visualizza la tua casella degli avvisi e gestisci le preferenze di notifica e l’instradamento.',
+  'settings.notificationsHub.menuDesc': 'Casella degli avvisi e preferenze di notifica',
+  'settings.notificationsHub.settingsItem': 'Impostazioni di notifica',
+  'settings.notificationsHub.settingsItemDesc': 'Preferenze e instradamento',
   'settings.agents.editor.notFound': 'Agente non trovato.',
   'settings.agents.editor.modelInherit': 'Eredita (predefinito della piattaforma)',
   'settings.agents.editor.modelHints': 'Suggerimenti di instradamento',
@@ -4400,6 +4458,34 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsDone': 'Done',
   'settings.agents.editor.builtInReadonly':
     "Gli agenti integrati non possono essere modificati. Puoi abilitarli, disabilitarli o reimpostarli dall'elenco degli agenti.",
+  'autocomplete.debounceMs': 'Debounce (ms)',
+  'autocomplete.maxChars': 'Caratteri massimi di contesto',
+  'autocomplete.overlayTtlMs': 'Timeout overlay (ms)',
+  'graphCohesion.brokerBadge': 'broker',
+  'graphCohesion.brokerTitle':
+    "Buco strutturale: i vicini di questa entità non sono collegati tra loro — essa è l'unico collegamento tra loro.",
+  'graphCohesion.colCohesion': 'Coesione',
+  'graphCohesion.colEntity': 'Entità',
+  'graphCohesion.colLinks': 'Collegamenti',
+  'graphCohesion.colRank': '#',
+  'graphCohesion.empty': 'Ancora nessun grafo della conoscenza.',
+  'graphCohesion.emptyHint':
+    "Man mano che l'assistente registra fatti connessi su di te, qui apparirà la loro struttura di raggruppamento.",
+  'graphCohesion.errorPrefix': 'Impossibile caricare il grafo:',
+  'graphCohesion.intro':
+    'Quanto è fittamente intrecciato il vicinato attorno a ciascuna entità. I broker — entità i cui vicini non sono collegati tra loro — sono i punti singoli che tengono uniti gruppi altrimenti separati, cosa che un ordinamento per frequenza o PageRank non può rivelare.',
+  'graphCohesion.loading': 'Calcolo della coesione…',
+  'graphCohesion.metricConnections': 'Connessioni',
+  'graphCohesion.metricEntities': 'Entità',
+  'graphCohesion.metricTriangles': 'Triangoli',
+  'graphCohesion.namespaceAll': 'Tutti gli spazi dei nomi',
+  'graphCohesion.namespaceLabel': 'Spazio dei nomi',
+  'graphCohesion.noBrokers': 'Ancora nessuna entità con due o più connessioni.',
+  'graphCohesion.rankedHeading': 'Broker — vicinati più radi',
+  'graphCohesion.retry': 'Riprova',
+  'graphCohesion.summaryCaption': 'Raggruppamento medio {avg} · transitività {transitivity}',
+  'graphCohesion.title': 'Coesione del grafo',
+  'memory.tab.cohesion': 'Cohesion',
 };
 
 export default messages;

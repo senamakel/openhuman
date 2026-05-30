@@ -279,6 +279,7 @@ const messages: TranslationMap = {
   'memory.tab.calls': 'Звонки',
   'memory.tab.diagram': 'Diagram',
   'memory.tab.centrality': 'Centrality',
+  'memory.tab.namespaces': 'Пространства имён',
   'memory.tab.timeline': 'Timeline',
   'memory.tab.settings': 'Настройки',
   'memory.analyzeNow': 'Анализировать сейчас',
@@ -300,6 +301,24 @@ const messages: TranslationMap = {
   'memoryTimeline.busiestCaption': 'Busiest: {period} ({count})',
   'memoryTimeline.undatedNote': '{count} fact(s) have no recorded date.',
   'memoryTimeline.truncated': 'Showing the {shown} most recent of {total} months.',
+  'namespaceOverview.title': 'Обзор пространств имён',
+  'namespaceOverview.intro':
+    'Как ваши знания распределены по контекстам — количество фактов и уникальных сущностей, записанных в каждом пространстве имён.',
+  'namespaceOverview.loading': 'Агрегирование пространств имён…',
+  'namespaceOverview.errorPrefix': 'Не удалось загрузить график:',
+  'namespaceOverview.retry': 'Повторить попытку',
+  'namespaceOverview.empty': 'Графа знаний пока нет.',
+  'namespaceOverview.emptyHint':
+    'По мере того как ассистент записывает факты в разных контекстах, каждое пространство имён будет появляться здесь.',
+  'namespaceOverview.metricNamespaces': 'Пространства имён',
+  'namespaceOverview.metricFacts': 'Факты',
+  'namespaceOverview.metricEntities': 'Сущности',
+  'namespaceOverview.heading': 'По пространству имён',
+  'namespaceOverview.unnamespaced': '(без пространства имён)',
+  'namespaceOverview.factsLabel': '{count} фактов',
+  'namespaceOverview.entitiesLabel': '{count} сущностей',
+  'namespaceOverview.entitiesShort': '{count} сущ.',
+  'namespaceOverview.truncated': 'Показаны топ-{shown} из {total} пространств имён.',
   'graphCentrality.title': 'Централизованность графа знаний',
   'graphCentrality.intro':
     'PageRank по вашему графику памяти отображает несущие нагрузку концентраторы — и объекты-соединители, которые связывают отдельные кластеры, которые не может выявить необработанный подсчет частоты.',
@@ -4199,6 +4218,35 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'Исходный: {raw}',
   'walletBalances.errorGeneric':
     'Не удалось загрузить балансы кошелька. Настройте кошелёк в разделе «Фраза восстановления» и повторите попытку.',
+  'walletBalances.setupHint':
+    'Ваша фраза восстановления ещё не настроена. Настройте её, чтобы включить кошелёк и видеть актуальные балансы.',
+  'walletBalances.setupCta': 'Настроить фразу восстановления',
+  'walletBalances.notSetUp': 'Не настроено',
+  'walletBalances.send': 'Отправить',
+  'walletBalances.receive': 'Получить',
+  'walletReceive.scanHint':
+    'Отсканируйте этот код или скопируйте адрес ниже, чтобы получить средства.',
+  'walletReceive.addressLabel': 'Адрес {network}',
+  'walletReceive.onlyChainWarning':
+    'Отправляйте на этот адрес только активы сети {network}. Отправка активов из другой сети может привести к безвозвратной потере.',
+  'walletSend.available': 'Доступно',
+  'walletSend.recipient': 'Адрес получателя',
+  'walletSend.recipientPlaceholder': 'Вставьте адрес назначения',
+  'walletSend.recipientRequired': 'Введите адрес получателя',
+  'walletSend.amount': 'Сумма',
+  'walletSend.invalidAmount': 'Введите корректную сумму',
+  'walletSend.review': 'Проверить',
+  'walletSend.preparing': 'Подготовка…',
+  'walletSend.confirmHint':
+    'Проверьте детали ниже. Подпись выполняется локально — ничего не отправляется, пока вы не подтвердите.',
+  'walletSend.estimatedFee': 'Ориентировочная комиссия сети',
+  'walletSend.confirmSend': 'Подтвердить и отправить',
+  'walletSend.sending': 'Отправка…',
+  'walletSend.sent': 'Транзакция отправлена',
+  'walletSend.txHash': 'Хеш транзакции',
+  'walletSend.viewExplorer': 'Открыть в обозревателе',
+  'walletSend.done': 'Готово',
+  'walletSend.genericError': 'Не удалось выполнить перевод. Повторите попытку.',
   'settings.taskSources.title': 'Источники задач',
   'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов на доску задач агента.',
   'settings.taskSources.description':
@@ -4344,6 +4392,16 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Управляйте агентами, их автономностью и доступом к ресурсам компьютера.',
   'settings.agentsSection.menuDesc': 'Реестр, автономность и доступ к ОС',
+  'settings.cryptoSection.title': 'Крипто',
+  'settings.cryptoSection.description':
+    'Управляйте секретной фразой восстановления и просматривайте балансы своих кошельковых счетов.',
+  'settings.cryptoSection.menuDesc': 'Фраза восстановления и балансы кошелька',
+  'settings.notificationsHub.title': 'Уведомления',
+  'settings.notificationsHub.description':
+    'Просматривайте папку оповещений и управляйте настройками уведомлений и маршрутизацией.',
+  'settings.notificationsHub.menuDesc': 'Папка оповещений и настройки уведомлений',
+  'settings.notificationsHub.settingsItem': 'Настройки уведомлений',
+  'settings.notificationsHub.settingsItemDesc': 'Настройки и маршрутизация',
   'settings.agents.editor.notFound': 'Агент не найден.',
   'settings.agents.editor.modelInherit': 'Унаследовать (системное по умолчанию)',
   'settings.agents.editor.modelHints': 'Подсказки маршрутизации',
@@ -4366,6 +4424,34 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsDone': 'Done',
   'settings.agents.editor.builtInReadonly':
     'Встроенные агенты нельзя редактировать. Вы можете включить, отключить или сбросить их в списке агентов.',
+  'autocomplete.debounceMs': 'Задержка (мс)',
+  'autocomplete.maxChars': 'Макс. символов контекста',
+  'autocomplete.overlayTtlMs': 'Тайм-аут наложения (мс)',
+  'graphCohesion.brokerBadge': 'брокер',
+  'graphCohesion.brokerTitle':
+    'Структурная дыра: соседи этой сущности не связаны друг с другом — она единственная связь между ними.',
+  'graphCohesion.colCohesion': 'Связность',
+  'graphCohesion.colEntity': 'Сущность',
+  'graphCohesion.colLinks': 'Связки',
+  'graphCohesion.colRank': '#',
+  'graphCohesion.empty': 'Пока нет графа знаний.',
+  'graphCohesion.emptyHint':
+    'По мере того как ассистент фиксирует связанные факты о вас, здесь появится их кластерная структура.',
+  'graphCohesion.errorPrefix': 'Не удалось загрузить граф:',
+  'graphCohesion.intro':
+    'Насколько плотно сплетено окружение каждой сущности. Брокеры — сущности, чьи соседи не связаны друг с другом, — это единичные точки, удерживающие вместе иначе разделённые кластеры, чего сортировка по частоте или PageRank не вскроет.',
+  'graphCohesion.loading': 'Вычисление связности…',
+  'graphCohesion.metricConnections': 'Связи',
+  'graphCohesion.metricEntities': 'Сущности',
+  'graphCohesion.metricTriangles': 'Треугольники',
+  'graphCohesion.namespaceAll': 'Все пространства имён',
+  'graphCohesion.namespaceLabel': 'Пространство имён',
+  'graphCohesion.noBrokers': 'Пока нет сущностей с двумя или более связями.',
+  'graphCohesion.rankedHeading': 'Брокеры — самые разреженные окрестности',
+  'graphCohesion.retry': 'Повторить',
+  'graphCohesion.summaryCaption': 'Средняя кластеризация {avg} · транзитивность {transitivity}',
+  'graphCohesion.title': 'Связность графа',
+  'memory.tab.cohesion': 'Cohesion',
 };
 
 export default messages;

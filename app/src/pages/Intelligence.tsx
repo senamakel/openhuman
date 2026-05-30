@@ -5,11 +5,13 @@ import ConnectionPathTab from '../components/intelligence/ConnectionPathTab';
 import DiagramViewerTab from '../components/intelligence/DiagramViewerTab';
 import EntityAssociationsTab from '../components/intelligence/EntityAssociationsTab';
 import GraphCentralityTab from '../components/intelligence/GraphCentralityTab';
+import GraphCohesionTab from '../components/intelligence/GraphCohesionTab';
 import IntelligenceSubconsciousTab from '../components/intelligence/IntelligenceSubconsciousTab';
 import IntelligenceTasksTab from '../components/intelligence/IntelligenceTasksTab';
 import MemoryFreshnessTab from '../components/intelligence/MemoryFreshnessTab';
 import MemoryTimelineTab from '../components/intelligence/MemoryTimelineTab';
 import { MemoryWorkspace } from '../components/intelligence/MemoryWorkspace';
+import NamespaceOverviewTab from '../components/intelligence/NamespaceOverviewTab';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PillTabBar from '../components/PillTabBar';
 import {
@@ -31,10 +33,12 @@ type IntelligenceTab =
   | 'workflows'
   | 'diagram'
   | 'centrality'
+  | 'cohesion'
   | 'associations'
   | 'freshness'
   | 'timeline'
-  | 'path';
+  | 'path'
+  | 'namespaces';
 
 export default function Intelligence() {
   const { t } = useT();
@@ -114,10 +118,12 @@ export default function Intelligence() {
       },
       { id: 'diagram', label: t('memory.tab.diagram') },
       { id: 'centrality', label: t('memory.tab.centrality') },
+      { id: 'cohesion', label: t('memory.tab.cohesion') },
       { id: 'associations', label: t('memory.tab.associations') },
       { id: 'freshness', label: t('memory.tab.freshness') },
       { id: 'timeline', label: t('memory.tab.timeline') },
       { id: 'path', label: t('memory.tab.path') },
+      { id: 'namespaces', label: t('memory.tab.namespaces') },
     ];
   const activeTabDef = tabs.find(tab => tab.id === activeTab);
 
@@ -209,6 +215,8 @@ export default function Intelligence() {
 
             {activeTab === 'centrality' && <GraphCentralityTab />}
 
+            {activeTab === 'cohesion' && <GraphCohesionTab />}
+
             {activeTab === 'associations' && <EntityAssociationsTab />}
 
             {activeTab === 'freshness' && <MemoryFreshnessTab />}
@@ -216,6 +224,8 @@ export default function Intelligence() {
             {activeTab === 'timeline' && <MemoryTimelineTab />}
 
             {activeTab === 'path' && <ConnectionPathTab />}
+
+            {activeTab === 'namespaces' && <NamespaceOverviewTab />}
           </div>
         </div>
       </div>

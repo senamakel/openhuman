@@ -277,6 +277,7 @@ const messages: TranslationMap = {
   'memory.tab.calls': 'कॉल्स',
   'memory.tab.diagram': 'Diagram',
   'memory.tab.centrality': 'Centrality',
+  'memory.tab.namespaces': 'नेमस्पेस',
   'memory.tab.timeline': 'Timeline',
   'memory.tab.settings': 'सेटिंग्स',
   'memory.analyzeNow': 'अभी एनालाइज़ करें',
@@ -298,6 +299,24 @@ const messages: TranslationMap = {
   'memoryTimeline.busiestCaption': 'Busiest: {period} ({count})',
   'memoryTimeline.undatedNote': '{count} fact(s) have no recorded date.',
   'memoryTimeline.truncated': 'Showing the {shown} most recent of {total} months.',
+  'namespaceOverview.title': 'नेमस्पेस अवलोकन',
+  'namespaceOverview.intro':
+    'आपका ज्ञान संदर्भों में कैसे वितरित है — प्रत्येक नेमस्पेस में दर्ज तथ्यों और विशिष्ट इकाइयों की संख्या।',
+  'namespaceOverview.loading': 'नेमस्पेस एकत्र किए जा रहे हैं…',
+  'namespaceOverview.errorPrefix': 'ग्राफ़ लोड नहीं किया जा सका:',
+  'namespaceOverview.retry': 'पुनः प्रयास करें',
+  'namespaceOverview.empty': 'अभी तक कोई ज्ञान ग्राफ़ नहीं है।',
+  'namespaceOverview.emptyHint':
+    'जैसे-जैसे सहायक संदर्भों में तथ्य दर्ज करता है, प्रत्येक नेमस्पेस यहाँ दिखाई देगा।',
+  'namespaceOverview.metricNamespaces': 'नेमस्पेस',
+  'namespaceOverview.metricFacts': 'तथ्य',
+  'namespaceOverview.metricEntities': 'इकाइयाँ',
+  'namespaceOverview.heading': 'नेमस्पेस के अनुसार',
+  'namespaceOverview.unnamespaced': '(बिना नेमस्पेस)',
+  'namespaceOverview.factsLabel': '{count} तथ्य',
+  'namespaceOverview.entitiesLabel': '{count} इकाइयाँ',
+  'namespaceOverview.entitiesShort': '{count} इका.',
+  'namespaceOverview.truncated': '{total} में से शीर्ष {shown} नेमस्पेस दिखाए जा रहे हैं।',
   'graphCentrality.title': 'ज्ञान ग्राफ केंद्रीयता',
   'graphCentrality.intro':
     'अपने मेमोरी ग्राफ़ पर पेजरैंक लोड-असर हब सतहों - और कनेक्टर इकाइयां जो अन्यथा अलग-अलग समूहों को जोड़ती हैं, जो एक कच्चे आवृत्ति गिनती प्रकट नहीं हो सकती हैं।',
@@ -4165,6 +4184,35 @@ const messages: TranslationMap = {
   'walletBalances.rawBalance': 'रॉ: {raw}',
   'walletBalances.errorGeneric':
     'वॉलेट बैलेंस लोड नहीं हो सका। Recovery Phrase में अपना वॉलेट सेटअप करें और पुनः प्रयास करें।',
+  'walletBalances.setupHint':
+    'आपका रिकवरी फ्रेज़ अभी सेटअप नहीं है। अपना वॉलेट सक्रिय करने और लाइव बैलेंस देखने के लिए इसे सेटअप करें।',
+  'walletBalances.setupCta': 'रिकवरी फ्रेज़ सेटअप करें',
+  'walletBalances.notSetUp': 'सेटअप नहीं है',
+  'walletBalances.send': 'भेजें',
+  'walletBalances.receive': 'प्राप्त करें',
+  'walletReceive.scanHint':
+    'फंड प्राप्त करने के लिए इस कोड को स्कैन करें या नीचे दिया पता कॉपी करें।',
+  'walletReceive.addressLabel': '{network} पता',
+  'walletReceive.onlyChainWarning':
+    'इस पते पर केवल {network} एसेट भेजें। किसी अन्य नेटवर्क के एसेट भेजने से स्थायी हानि हो सकती है।',
+  'walletSend.available': 'उपलब्ध',
+  'walletSend.recipient': 'प्राप्तकर्ता का पता',
+  'walletSend.recipientPlaceholder': 'गंतव्य पता पेस्ट करें',
+  'walletSend.recipientRequired': 'प्राप्तकर्ता का पता दर्ज करें',
+  'walletSend.amount': 'राशि',
+  'walletSend.invalidAmount': 'एक मान्य राशि दर्ज करें',
+  'walletSend.review': 'समीक्षा करें',
+  'walletSend.preparing': 'तैयार किया जा रहा है…',
+  'walletSend.confirmHint':
+    'नीचे दिए विवरण की समीक्षा करें। हस्ताक्षर स्थानीय रूप से होता है — जब तक आप पुष्टि नहीं करते, कुछ भी प्रसारित नहीं होता।',
+  'walletSend.estimatedFee': 'अनुमानित नेटवर्क शुल्क',
+  'walletSend.confirmSend': 'पुष्टि करें और भेजें',
+  'walletSend.sending': 'भेजा जा रहा है…',
+  'walletSend.sent': 'लेनदेन भेजा गया',
+  'walletSend.txHash': 'लेनदेन हैश',
+  'walletSend.viewExplorer': 'एक्सप्लोरर में देखें',
+  'walletSend.done': 'हो गया',
+  'walletSend.genericError': 'स्थानांतरण पूरा नहीं हो सका। कृपया पुनः प्रयास करें।',
   'settings.taskSources.title': 'कार्य स्रोत',
   'settings.taskSources.subtitle': 'एजेंट टोडो बोर्ड पर अपने उपकरणों से कार्य खींचें',
   'settings.taskSources.description':
@@ -4309,6 +4357,16 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'अपने एजेंट, उनकी स्वायत्तता और इस कंप्यूटर पर वे क्या एक्सेस कर सकते हैं, यह प्रबंधित करें।',
   'settings.agentsSection.menuDesc': 'रजिस्ट्री, स्वायत्तता और OS एक्सेस',
+  'settings.cryptoSection.title': 'क्रिप्टো',
+  'settings.cryptoSection.description':
+    'अपना रिकवरी फ्रेज़ प्रबंधित करें और अपने वॉलेट खातों के बैलेंस देखें।',
+  'settings.cryptoSection.menuDesc': 'रिकवरी फ्रेज़ और वॉलेट बैलेंस',
+  'settings.notificationsHub.title': 'सूचनाएं',
+  'settings.notificationsHub.description':
+    'अपना अलर्ट इनबॉक्स देखें और सूचना प्राथमिकताएं व रूटिंग प्रबंधित करें।',
+  'settings.notificationsHub.menuDesc': 'अलर्ट इनबॉक्स और सूचना प्राथमिकताएं',
+  'settings.notificationsHub.settingsItem': 'सूचना सेटिंग्स',
+  'settings.notificationsHub.settingsItemDesc': 'प्राथमिकताएं और रूटिंग',
   'settings.agents.editor.notFound': 'एजेंट नहीं मिला।',
   'settings.agents.editor.modelInherit': 'इनहेरिट करें (प्लेटफ़ॉर्म डिफ़ॉल्ट)',
   'settings.agents.editor.modelHints': 'रूट संकेत',
@@ -4330,6 +4388,34 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsDone': 'Done',
   'settings.agents.editor.builtInReadonly':
     'बिल्ट-इन एजेंट संपादित नहीं किए जा सकते। आप एजेंट सूची से उन्हें सक्षम, अक्षम या रीसेट कर सकते हैं।',
+  'autocomplete.debounceMs': 'डिबाउंस (ms)',
+  'autocomplete.maxChars': 'अधिकतम संदर्भ वर्ण',
+  'autocomplete.overlayTtlMs': 'ओवरले समय-समाप्ति (ms)',
+  'graphCohesion.brokerBadge': 'ब्रोकर',
+  'graphCohesion.brokerTitle':
+    'संरचनात्मक छेद: इस इकाई के पड़ोसी आपस में नहीं जुड़े — यह उनके बीच एकमात्र कड़ी है।',
+  'graphCohesion.colCohesion': 'संसक्ति',
+  'graphCohesion.colEntity': 'इकाई',
+  'graphCohesion.colLinks': 'लिंक',
+  'graphCohesion.colRank': '#',
+  'graphCohesion.empty': 'अभी तक कोई नॉलेज ग्राफ नहीं।',
+  'graphCohesion.emptyHint':
+    'जैसे-जैसे सहायक आपके बारे में जुड़े हुए तथ्य दर्ज करता है, उनकी क्लस्टरिंग संरचना यहाँ उभरेगी।',
+  'graphCohesion.errorPrefix': 'ग्राफ लोड नहीं हो सका:',
+  'graphCohesion.intro':
+    'हर इकाई के चारों ओर पड़ोस कितना घनिष्ठ रूप से बुना हुआ है। ब्रोकर — वे इकाइयाँ जिनके पड़ोसी आपस में नहीं जुड़े — एकमात्र बिंदु हैं जो वरना अलग क्लस्टरों को साथ थामे रखते हैं, जिसे आवृत्ति या PageRank-आधारित क्रम नहीं दिखा सकता।',
+  'graphCohesion.loading': 'संसक्ति गणना हो रही है…',
+  'graphCohesion.metricConnections': 'कनेक्शन',
+  'graphCohesion.metricEntities': 'इकाइयाँ',
+  'graphCohesion.metricTriangles': 'त्रिकोण',
+  'graphCohesion.namespaceAll': 'सभी नेमस्पेस',
+  'graphCohesion.namespaceLabel': 'नेमस्पेस',
+  'graphCohesion.noBrokers': 'अभी तक दो या अधिक कनेक्शन वाली कोई इकाई नहीं।',
+  'graphCohesion.rankedHeading': 'ब्रोकर — सबसे ढीले पड़ोस',
+  'graphCohesion.retry': 'पुनः प्रयास',
+  'graphCohesion.summaryCaption': 'औसत क्लस्टरिंग {avg} · सकर्मकता {transitivity}',
+  'graphCohesion.title': 'ग्राफ संसक्ति',
+  'memory.tab.cohesion': 'Cohesion',
 };
 
 export default messages;

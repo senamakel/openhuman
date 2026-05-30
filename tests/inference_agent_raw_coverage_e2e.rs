@@ -15,6 +15,7 @@ use axum::http::{header as http_header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
@@ -160,9 +161,13 @@ use openhuman_core::openhuman::inference::provider::{
     ProviderRuntimeOptions, ToolCall, ToolResultMessage, UsageInfo,
 };
 use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
+use openhuman_core::openhuman::inference::voice::cloud_transcribe::{
+    transcribe_cloud, CloudTranscribeOptions,
+};
 use openhuman_core::openhuman::inference::voice::hallucination::{
     is_hallucinated_output, HallucinationMode,
 };
+use openhuman_core::openhuman::inference::voice::local_speech::{synthesize_piper, PiperOptions};
 use openhuman_core::openhuman::inference::voice::postprocess::cleanup_transcription;
 use openhuman_core::openhuman::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
@@ -594,6 +599,7 @@ async fn serve_provider_mock() -> (String, ProviderMockState) {
         .route("/v1/responses", post(provider_responses))
         .route("/missing/models", get(provider_missing_models))
         .route("/api/tags", get(ollama_tags))
+        .route("/api/show", post(ollama_show))
         .with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
@@ -639,6 +645,88 @@ async fn ollama_tags() -> Response {
         ]
     }))
     .into_response()
+}
+
+async fn ollama_show(Json(body): Json<Value>) -> Response {
+    let model = body
+        .pointer("/model")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let context_length = if model.starts_with("gemma3") {
+        8192
+    } else {
+        4096
+    };
+    Json(json!({
+        "model_info": {
+            "general.architecture": "bert",
+            "bert.context_length": context_length
+        },
+        "capabilities": ["completion", "embedding"]
+    }))
+    .into_response()
+}
+
+fn write_mock_executable(dir: &std::path::Path, name: &str, body: &str) -> PathBuf {
+    let path = dir.join(name);
+    std::fs::write(&path, body).expect("write mock executable");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&path)
+            .expect("mock metadata")
+            .permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&path, perms).expect("chmod mock executable");
+    }
+    path
+}
+
+fn install_mock_local_inference_binaries(bin_dir: &std::path::Path) -> PathBuf {
+    let ollama = write_mock_executable(
+        bin_dir,
+        if cfg!(windows) { "ollama.exe" } else { "ollama" },
+        "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'ollama version 0.0.0-mock'; exit 0; fi\nif [ \"$1\" = \"serve\" ]; then sleep 60; exit 0; fi\necho 'mock ollama'\n",
+    );
+    write_mock_executable(
+        bin_dir,
+        if cfg!(windows) {
+            "mlx_lm.exe"
+        } else {
+            "mlx_lm"
+        },
+        "#!/bin/sh\necho 'mock mlx_lm 0.0.0'\n",
+    );
+    write_mock_executable(
+        bin_dir,
+        if cfg!(windows) {
+            "python.exe"
+        } else {
+            "python"
+        },
+        "#!/bin/sh\necho 'Python 3.12.99'\n",
+    );
+    write_mock_executable(
+        bin_dir,
+        if cfg!(windows) {
+            "python3.exe"
+        } else {
+            "python3"
+        },
+        "#!/bin/sh\necho 'Python 3.12.99'\n",
+    );
+    ollama
+}
+
+fn write_mock_piper(bin_dir: &std::path::Path, name: &str, exit_success: bool) -> PathBuf {
+    let exit_code = if exit_success { 0 } else { 42 };
+    write_mock_executable(
+        bin_dir,
+        name,
+        &format!(
+            "#!/bin/sh\nout=''\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--output_file\" ]; then\n    shift\n    out=\"$1\"\n  fi\n  shift\ndone\ncat >/dev/null\nif [ {exit_code} -ne 0 ]; then\n  echo 'mock piper failure' >&2\n  exit {exit_code}\nfi\nprintf 'RIFFmockWAVEfmt data' > \"$out\"\n"
+        ),
+    )
 }
 
 async fn provider_chat(
@@ -2314,6 +2402,76 @@ fn provider_factory_error(role: &str, provider: &str, config: &Config) -> String
     }
 }
 
+#[tokio::test]
+async fn inference_http_models_router_uses_isolated_config_and_dedupes_entries() {
+    let _lock = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = isolated_env();
+
+    let mut config = Config::load_or_init().await.expect("load isolated config");
+    config.default_model = Some("agentic-v1@0.25".to_string());
+    config.chat_provider = Some("ollama:gemma3:1b-it-qat@0.7".to_string());
+    config.reasoning_provider = Some("openhuman".to_string());
+    config.agentic_provider = Some("mockcloud:agentic-v1@0.2".to_string());
+    config.local_ai.chat_model_id = "gemma3:1b-it-qat".to_string();
+    config.cloud_providers.push(CloudProviderCreds {
+        id: "p_mockcloud_coverage".to_string(),
+        slug: "mockcloud".to_string(),
+        label: "Mock Cloud".to_string(),
+        endpoint: "http://127.0.0.1:9/v1".to_string(),
+        auth_style: CloudAuthStyle::Bearer,
+        legacy_type: None,
+        default_model: Some("agentic-v1@0.4".to_string()),
+    });
+    config.save().await.expect("save isolated config");
+
+    let app = openhuman_core::openhuman::inference::http::router().with_state(
+        openhuman_core::core::types::AppState {
+            core_version: "coverage".to_string(),
+        },
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind inference http router");
+    let addr = listener.local_addr().expect("router addr");
+    tokio::spawn(async move {
+        axum::serve(listener, app)
+            .await
+            .expect("inference http router serve");
+    });
+
+    let response: Value = reqwest::get(format!("http://{addr}/models"))
+        .await
+        .expect("models request")
+        .json()
+        .await
+        .expect("models json");
+    let ids = response
+        .pointer("/data")
+        .and_then(Value::as_array)
+        .expect("model data array")
+        .iter()
+        .filter_map(|entry| entry.pointer("/id").and_then(Value::as_str))
+        .collect::<Vec<_>>();
+
+    assert_eq!(response.pointer("/object"), Some(&json!("list")));
+    assert!(ids.contains(&"openhuman"));
+    assert!(ids.contains(&"agentic-v1"));
+    assert!(ids.contains(&"ollama:gemma3:1b-it-qat"));
+    assert!(ids.contains(&"mockcloud:agentic-v1"));
+    assert_eq!(
+        ids.iter()
+            .filter(|id| **id == "mockcloud:agentic-v1")
+            .count(),
+        1,
+        "cloud default and role provider should dedupe after stripping temperature suffixes"
+    );
+    assert!(ids
+        .iter()
+        .all(|id| !id.ends_with("@0.2") && !id.ends_with("@0.4")));
+}
+
 #[test]
 fn inference_voice_and_triage_parsers_cover_public_error_shapes() {
     assert!(is_hallucinated_output(
@@ -2364,6 +2522,84 @@ fn inference_voice_and_triage_parsers_cover_public_error_shapes() {
         parse_triage_decision("no json here").expect_err("json required"),
         ParseError::NoJsonObject
     ));
+}
+
+#[tokio::test]
+async fn inference_voice_stt_and_tts_frontdoors_cover_validation_and_mocked_runtime_paths() {
+    let _lock = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = isolated_env();
+    let mock_bin_dir = tempdir().expect("mock voice bin dir");
+    let piper_ok = write_mock_piper(mock_bin_dir.path(), "piper-ok", true);
+    let piper_fail = write_mock_piper(mock_bin_dir.path(), "piper-fail", false);
+    install_mock_local_inference_binaries(mock_bin_dir.path());
+    let _path_guard = EnvVarGuard::set("PATH", mock_bin_dir.path());
+
+    let workspace = tempdir().expect("voice workspace");
+    let voice_path = workspace.path().join("mock-voice.onnx");
+    std::fs::write(&voice_path, b"mock voice").expect("write mock voice");
+    let mut config = Config {
+        workspace_dir: workspace.path().to_path_buf(),
+        ..Config::default()
+    };
+    config.local_ai.tts_voice_id = voice_path.display().to_string();
+    let opts = CloudTranscribeOptions::default();
+
+    let empty_audio = transcribe_cloud(&config, "   ", &opts)
+        .await
+        .expect_err("empty audio is rejected before auth lookup");
+    assert!(empty_audio.contains("audio_base64 is required"));
+
+    let invalid_audio = transcribe_cloud(&config, "not base64!", &opts)
+        .await
+        .expect_err("invalid base64 is rejected before auth lookup");
+    assert!(invalid_audio.contains("invalid base64 audio"));
+
+    let missing_session = transcribe_cloud(
+        &config,
+        &BASE64_STANDARD.encode(b"audio"),
+        &CloudTranscribeOptions {
+            model: Some("  whisper-v1  ".to_string()),
+            language: Some(" en ".to_string()),
+            mime_type: Some(" audio/webm ".to_string()),
+            file_name: Some(" sample.webm ".to_string()),
+        },
+    )
+    .await
+    .expect_err("valid audio still requires backend auth");
+    assert!(missing_session.contains("sign in first"));
+
+    let empty_tts = synthesize_piper(&config, "\n\t", &PiperOptions::default())
+        .await
+        .expect_err("empty TTS text is rejected before binary lookup");
+    assert_eq!(empty_tts, "text is required");
+
+    let piper_bin_guard = EnvVarGuard::set("PIPER_BIN", &piper_ok);
+    let spoken = synthesize_piper(
+        &config,
+        "Read this coverage sentence aloud.",
+        &PiperOptions {
+            voice: Some(" en_US-lessac-medium ".to_string()),
+        },
+    )
+    .await
+    .expect("mock piper succeeds");
+    assert_eq!(spoken.value.audio_mime, "audio/wav");
+    assert!(!spoken.value.audio_base64.is_empty());
+    assert!(!spoken.value.visemes.is_empty());
+    drop(piper_bin_guard);
+
+    let _piper_fail_guard = EnvVarGuard::set("PIPER_BIN", &piper_fail);
+    let failed_piper = synthesize_piper(
+        &config,
+        "Read this coverage sentence aloud.",
+        &PiperOptions::default(),
+    )
+    .await
+    .expect_err("mock piper failure is surfaced");
+    assert!(failed_piper.contains("piper failed"));
+    assert!(failed_piper.contains("mock piper failure"));
 }
 
 #[tokio::test]
@@ -2747,6 +2983,27 @@ async fn inference_local_controllers_and_presets_cover_public_paths() {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _env = isolated_env();
     let (provider_base, _provider_state) = serve_provider_mock().await;
+    let mock_bin_dir = tempdir().expect("mock local inference bin dir");
+    let mock_ollama = install_mock_local_inference_binaries(mock_bin_dir.path());
+    assert!(mock_bin_dir
+        .path()
+        .join(if cfg!(windows) {
+            "mlx_lm.exe"
+        } else {
+            "mlx_lm"
+        })
+        .is_file());
+    assert!(mock_bin_dir
+        .path()
+        .join(if cfg!(windows) {
+            "python3.exe"
+        } else {
+            "python3"
+        })
+        .is_file());
+    let _path_guard = EnvVarGuard::set("PATH", mock_bin_dir.path());
+    let _ollama_bin_guard = EnvVarGuard::set("OLLAMA_BIN", &mock_ollama);
+    let _ollama_base_guard = EnvVarGuard::set("OPENHUMAN_OLLAMA_BASE_URL", &provider_base);
 
     let local_schemas = all_local_ai_controller_schemas();
     let local_registered = all_local_ai_registered_controllers();
@@ -2778,6 +3035,14 @@ async fn inference_local_controllers_and_presets_cover_public_paths() {
         .await
         .expect("local assets status");
     assert!(assets.is_object());
+    assert_eq!(
+        assets.pointer("/result/ollama_available"),
+        Some(&json!(true))
+    );
+    assert_eq!(
+        assets.pointer("/result/chat/id"),
+        Some(&json!("gemma3:1b-it-qat"))
+    );
 
     let downloads = call(
         controller(&local_registered, "downloads_progress"),
@@ -2821,6 +3086,20 @@ async fn inference_local_controllers_and_presets_cover_public_paths() {
         .await
         .expect("diagnostics");
     assert!(diagnostics.pointer("/ok").is_some());
+    assert_eq!(diagnostics.pointer("/ollama_running"), Some(&json!(true)));
+    let mock_ollama_path = mock_ollama.to_string_lossy().to_string();
+    assert_eq!(
+        diagnostics
+            .pointer("/ollama_binary_path")
+            .and_then(Value::as_str),
+        Some(mock_ollama_path.as_str())
+    );
+    assert!(diagnostics
+        .pointer("/installed_models")
+        .and_then(Value::as_array)
+        .expect("installed models")
+        .iter()
+        .any(|model| model.pointer("/context_length") == Some(&json!(8192))));
 
     let disabled = call(
         controller(&inference_registered, "apply_preset"),

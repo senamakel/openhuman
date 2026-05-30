@@ -20,8 +20,20 @@ use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
+use openhuman_core::openhuman::channels::email_channel::EmailConfig;
+use openhuman_core::openhuman::channels::traits::ChannelMessage;
+use openhuman_core::openhuman::channels::yuanbao::types::{
+    Account as YuanbaoAccount, ConnFrame as YuanbaoConnFrame,
+    ConnectionState as YuanbaoConnectionState, GroupInfo as YuanbaoGroupInfo,
+    GroupMember as YuanbaoGroupMember, GroupMemberListPage as YuanbaoGroupMemberListPage,
+    ImMsgSeq as YuanbaoImMsgSeq, ImageInfo as YuanbaoImageInfo,
+    InboundMessage as YuanbaoInboundMessage, MessageKind as YuanbaoMessageKind,
+    MsgBodyElement as YuanbaoMsgBodyElement, MsgContent as YuanbaoMsgContent,
+    Source as YuanbaoSource,
+};
 use openhuman_core::openhuman::channels::{
-    Channel, CliChannel, LinqChannel, SendMessage, WhatsAppChannel,
+    Channel, CliChannel, DingTalkChannel, EmailChannel, IMessageChannel, LinqChannel,
+    MattermostChannel, QQChannel, SendMessage, SignalChannel, SlackChannel, WhatsAppChannel,
 };
 use openhuman_core::openhuman::composio::all_composio_agent_tools;
 use openhuman_core::openhuman::config::schema::{
@@ -39,8 +51,9 @@ use openhuman_core::openhuman::tool_registry::ops::diagnostics_for_config;
 use openhuman_core::openhuman::tool_registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
     capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
-    denials, is_capability_provider_trusted_enabled, list_capability_providers,
-    normalize_capability_provider_id, registry_entries, CapabilityProviderRegistryError,
+    denials, get_tool, is_capability_provider_trusted_enabled, list_capability_providers,
+    list_tools, normalize_capability_provider_id, registry_entries,
+    CapabilityProviderRegistryError,
 };
 use openhuman_core::openhuman::tools::generated::{
     admit_generated_tool_definitions, generated_tools_from_definitions, GeneratedToolAdapter,
@@ -1239,6 +1252,32 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert!(registry_entries()
         .iter()
         .any(|entry| entry.tool_id == "tools.web_search"));
+    let listed = list_tools()
+        .into_cli_compatible_json()
+        .expect("list_tools json");
+    let listed_tools = listed
+        .get("tools")
+        .and_then(Value::as_array)
+        .expect("listed tools");
+    let first_tool_id = listed_tools
+        .first()
+        .and_then(|tool| tool.get("tool_id"))
+        .and_then(Value::as_str)
+        .expect("first registry tool id");
+    let found = get_tool(first_tool_id)
+        .expect("get first registry tool")
+        .into_cli_compatible_json()
+        .expect("get_tool json");
+    assert_eq!(
+        found.get("tool_id").and_then(Value::as_str),
+        Some(first_tool_id)
+    );
+    assert!(get_tool("  ")
+        .expect_err("blank registry id should fail")
+        .contains("non-empty"));
+    assert!(get_tool("tools.missing")
+        .expect_err("missing registry id should fail")
+        .contains("tools.missing"));
 
     let dirty_schema = json!({
         "type": "object",
@@ -1426,6 +1465,382 @@ async fn channels_public_helpers_cover_cli_trait_defaults_and_webhook_parsers() 
         .is_empty());
 }
 
+#[tokio::test]
+async fn channel_provider_public_paths_cover_pre_network_errors_and_utilities() {
+    let dingtalk = DingTalkChannel::new("client".into(), "secret".into(), vec!["*".into()]);
+    assert_eq!(dingtalk.name(), "dingtalk");
+    let missing_webhook = dingtalk
+        .send(&SendMessage::new("reply", "chat-without-session"))
+        .await
+        .expect_err("dingtalk send should fail before network without a session webhook");
+    assert!(missing_webhook.to_string().contains("No session webhook"));
+
+    let slack = SlackChannel::new("xoxb-test".into(), None, vec!["U1".into()]);
+    assert_eq!(slack.name(), "slack");
+    let (tx, _rx) = tokio::sync::mpsc::channel::<ChannelMessage>(1);
+    let slack_listen = slack
+        .listen(tx)
+        .await
+        .expect_err("slack listen should require channel_id before polling");
+    assert!(slack_listen.to_string().contains("channel_id required"));
+
+    let mattermost = MattermostChannel::new(
+        "https://mattermost.example.test///".into(),
+        "token".into(),
+        None,
+        vec!["*".into()],
+        true,
+        false,
+    );
+    assert_eq!(mattermost.name(), "mattermost");
+    let (tx, _rx) = tokio::sync::mpsc::channel::<ChannelMessage>(1);
+    let mattermost_listen = mattermost
+        .listen(tx)
+        .await
+        .expect_err("mattermost listen should require channel_id before polling");
+    assert!(mattermost_listen
+        .to_string()
+        .contains("channel_id required"));
+    assert!(mattermost.stop_typing("channel:root").await.is_ok());
+
+    let imessage = IMessageChannel::new(vec!["friend@example.test".into()]);
+    assert_eq!(imessage.name(), "imessage");
+    let invalid_target = imessage
+        .send(&SendMessage::new("hello", "not a valid recipient"))
+        .await
+        .expect_err("invalid iMessage target should be rejected before osascript");
+    assert!(invalid_target
+        .to_string()
+        .contains("Invalid iMessage target"));
+
+    let mut email_config = EmailConfig {
+        allowed_senders: vec![
+            "ALICE@example.test".into(),
+            "@trusted.test".into(),
+            "domain.test".into(),
+        ],
+        ..EmailConfig::default()
+    };
+    assert_eq!(email_config.imap_port, 993);
+    assert_eq!(email_config.smtp_port, 465);
+    assert_eq!(email_config.imap_folder, "INBOX");
+    assert!(email_config.smtp_tls);
+    let email = EmailChannel::new(email_config.clone());
+    assert_eq!(email.name(), "email");
+    assert!(email.is_sender_allowed("alice@example.test"));
+    assert!(email.is_sender_allowed("alerts@trusted.test"));
+    assert!(email.is_sender_allowed("bot@domain.test"));
+    assert!(!email.is_sender_allowed("mallory@example.test"));
+    assert_eq!(
+        EmailChannel::strip_html("<div>Hello<br><strong>friend</strong></div>"),
+        "Hellofriend"
+    );
+    email_config.allowed_senders = vec!["*".into()];
+    assert!(EmailChannel::new(email_config).is_sender_allowed("anyone@elsewhere.test"));
+
+    let qq = QQChannel::new("app".into(), "secret".into(), vec!["*".into()]);
+    assert_eq!(qq.name(), "qq");
+    let signal = SignalChannel::new(
+        "http://127.0.0.1:1///".into(),
+        "+15551234567".into(),
+        Some("dm".into()),
+        vec!["*".into()],
+        true,
+        true,
+    );
+    assert_eq!(signal.name(), "signal");
+}
+
+#[test]
+fn yuanbao_shared_types_cover_message_extractors_and_state_variants() {
+    let frame = YuanbaoConnFrame {
+        cmd_type: 2,
+        cmd: "push".into(),
+        module: "yuanbao_openclaw_proxy".into(),
+        seq_no: 42,
+        msg_id: "frame-1".into(),
+        need_ack: true,
+        status: 0,
+        data: vec![1, 2, 3],
+    };
+    assert_eq!(frame.cmd_type, 2);
+    assert_eq!(frame.cmd, "push");
+    assert_eq!(frame.module, "yuanbao_openclaw_proxy");
+    assert_eq!(frame.seq_no, 42);
+    assert_eq!(frame.msg_id, "frame-1");
+    assert!(frame.need_ack);
+    assert_eq!(frame.status, 0);
+    assert_eq!(frame.data, vec![1, 2, 3]);
+
+    let text = YuanbaoMsgBodyElement {
+        msg_type: "TIMTextElem".into(),
+        msg_content: YuanbaoMsgContent {
+            text: Some("first".into()),
+            ..Default::default()
+        },
+    };
+    let second_text = YuanbaoMsgBodyElement {
+        msg_type: "TIMTextElem".into(),
+        msg_content: YuanbaoMsgContent {
+            text: Some("second".into()),
+            ..Default::default()
+        },
+    };
+    let image = YuanbaoMsgBodyElement {
+        msg_type: "TIMImageElem".into(),
+        msg_content: YuanbaoMsgContent {
+            uuid: Some("uuid".into()),
+            image_format: Some(3),
+            data: Some("inline-data".into()),
+            desc: Some("image desc".into()),
+            ext: Some("{}".into()),
+            sound: Some("sound-id".into()),
+            image_info_array: vec![
+                YuanbaoImageInfo {
+                    image_type: 1,
+                    size: 100,
+                    width: 640,
+                    height: 480,
+                    url: "https://cdn.example.test/original.png".into(),
+                },
+                YuanbaoImageInfo {
+                    image_type: 3,
+                    size: 10,
+                    width: 64,
+                    height: 48,
+                    url: String::new(),
+                },
+            ],
+            index: Some(1),
+            url: Some("https://cdn.example.test/original.png".into()),
+            file_size: Some(100),
+            file_name: Some("photo.png".into()),
+            ..Default::default()
+        },
+    };
+
+    let message = YuanbaoInboundMessage {
+        callback_command: "C2C.Callback".into(),
+        from_account: "sender-1".into(),
+        to_account: "bot-1".into(),
+        sender_nickname: "Alice".into(),
+        group_id: "group-id".into(),
+        group_code: "group-code".into(),
+        group_name: "Coverage Group".into(),
+        msg_seq: 7,
+        msg_random: 9,
+        msg_time: 1_780_000_000,
+        msg_key: "key".into(),
+        msg_id: "msg-1".into(),
+        msg_body: vec![text, image, second_text],
+        cloud_custom_data: "{}".into(),
+        event_time: 1_780_000_001,
+        bot_owner_id: "owner".into(),
+        recall_msg_seq_list: vec![YuanbaoImMsgSeq {
+            msg_seq: 6,
+            msg_id: "old-msg".into(),
+        }],
+        claw_msg_type: 1,
+        private_from_group_code: "private-group".into(),
+        trace_id: "trace".into(),
+    };
+    assert!(message.is_group());
+    assert!(message.is_recall());
+    assert_eq!(message.chat_id(), "group-code");
+    assert_eq!(message.extract_text(), "first\nsecond");
+    assert_eq!(
+        message.extract_image_urls(),
+        vec!["https://cdn.example.test/original.png".to_string()]
+    );
+    assert_eq!(message.callback_command, "C2C.Callback");
+    assert_eq!(message.to_account, "bot-1");
+    assert_eq!(message.sender_nickname, "Alice");
+    assert_eq!(message.group_id, "group-id");
+    assert_eq!(message.group_name, "Coverage Group");
+    assert_eq!(message.msg_seq, 7);
+    assert_eq!(message.msg_random, 9);
+    assert_eq!(message.msg_time, 1_780_000_000);
+    assert_eq!(message.msg_key, "key");
+    assert_eq!(message.cloud_custom_data, "{}");
+    assert_eq!(message.event_time, 1_780_000_001);
+    assert_eq!(message.bot_owner_id, "owner");
+    assert_eq!(message.claw_msg_type, 1);
+    assert_eq!(message.private_from_group_code, "private-group");
+    assert_eq!(message.trace_id, "trace");
+
+    let dm = YuanbaoInboundMessage {
+        from_account: "dm-user".into(),
+        ..Default::default()
+    };
+    assert!(!dm.is_group());
+    assert!(!dm.is_recall());
+    assert_eq!(dm.chat_id(), "dm-user");
+    assert!(dm.extract_text().is_empty());
+    assert!(dm.extract_image_urls().is_empty());
+
+    let group_source = YuanbaoSource {
+        from_account: "sender".into(),
+        sender_nickname: "Alice".into(),
+        group_code: "group-code".into(),
+        is_group: true,
+    };
+    assert_eq!(group_source.reply_target(), "g:group-code");
+    assert_eq!(group_source.sender_nickname, "Alice");
+    let dm_source = YuanbaoSource {
+        from_account: "sender".into(),
+        is_group: false,
+        ..Default::default()
+    };
+    assert_eq!(dm_source.reply_target(), "sender");
+
+    for kind in [
+        YuanbaoMessageKind::Text,
+        YuanbaoMessageKind::Image,
+        YuanbaoMessageKind::File,
+        YuanbaoMessageKind::Voice,
+        YuanbaoMessageKind::Mixed,
+        YuanbaoMessageKind::Recall,
+    ] {
+        assert_eq!(kind, kind);
+    }
+    assert_eq!(YuanbaoMessageKind::default(), YuanbaoMessageKind::Text);
+
+    let group_info = YuanbaoGroupInfo {
+        code: 0,
+        message: "ok".into(),
+        group_name: "Coverage Group".into(),
+        owner_id: "owner".into(),
+        owner_nickname: "Owner".into(),
+        member_count: 2,
+    };
+    assert_eq!(group_info.owner_nickname, "Owner");
+    assert_eq!(group_info.member_count, 2);
+    let member = YuanbaoGroupMember {
+        user_id: "member-1".into(),
+        nickname: "Member".into(),
+        role: 1,
+        join_time: 123,
+        name_card: "Card".into(),
+    };
+    let page = YuanbaoGroupMemberListPage {
+        code: 0,
+        message: "ok".into(),
+        members: vec![member],
+        next_offset: 20,
+        is_complete: false,
+    };
+    assert_eq!(page.members[0].role, 1);
+    assert_eq!(page.next_offset, 20);
+    assert!(!page.is_complete);
+
+    let account = YuanbaoAccount {
+        uid: "bot".into(),
+        nickname: "Coverage Bot".into(),
+        connect_id: "connect".into(),
+    };
+    let account_json = serde_json::to_string(&account).expect("serialize yuanbao account");
+    assert!(account_json.contains("Coverage Bot"));
+    let decoded: YuanbaoAccount =
+        serde_json::from_str(&account_json).expect("deserialize yuanbao account");
+    assert_eq!(decoded.connect_id, "connect");
+
+    assert_ne!(
+        YuanbaoConnectionState::Disconnected,
+        YuanbaoConnectionState::Connecting
+    );
+    assert_eq!(
+        YuanbaoConnectionState::Authenticating,
+        YuanbaoConnectionState::Authenticating
+    );
+    assert_eq!(
+        YuanbaoConnectionState::Connected,
+        YuanbaoConnectionState::Connected
+    );
+    assert_eq!(
+        YuanbaoConnectionState::Reconnecting,
+        YuanbaoConnectionState::Reconnecting
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn tool_registry_rpc_controllers_cover_list_get_diagnostics_and_errors() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let list = rpc(
+        &harness.rpc_base,
+        101,
+        "openhuman.tool_registry_list",
+        json!({}),
+    )
+    .await;
+    let tools = payload(&list, "tool_registry_list")
+        .get("tools")
+        .and_then(Value::as_array)
+        .expect("registry tools");
+    assert!(tools
+        .iter()
+        .any(|tool| tool.get("tool_id").and_then(Value::as_str) == Some("tools.web_search")));
+
+    let found = rpc(
+        &harness.rpc_base,
+        102,
+        "openhuman.tool_registry_get",
+        json!({ "tool_id": " tools.web_search " }),
+    )
+    .await;
+    assert_eq!(
+        payload(&found, "tool_registry_get")
+            .get("tool_id")
+            .and_then(Value::as_str),
+        Some("tools.web_search")
+    );
+
+    let missing_id = rpc(
+        &harness.rpc_base,
+        103,
+        "openhuman.tool_registry_get",
+        json!({ "tool_id": "   " }),
+    )
+    .await;
+    assert!(error_message(&missing_id, "tool_registry_get blank id")
+        .contains("tool_id must be a non-empty string"));
+    let unknown_tool = rpc(
+        &harness.rpc_base,
+        104,
+        "openhuman.tool_registry_get",
+        json!({ "tool_id": "tools.not_real" }),
+    )
+    .await;
+    assert!(
+        error_message(&unknown_tool, "tool_registry_get missing tool").contains("tool not found")
+    );
+
+    let diagnostics = rpc(
+        &harness.rpc_base,
+        105,
+        "openhuman.tool_registry_diagnostics",
+        json!({}),
+    )
+    .await;
+    let diagnostics = payload(&diagnostics, "tool_registry_diagnostics");
+    assert!(diagnostics
+        .get("total_tools")
+        .and_then(Value::as_u64)
+        .is_some_and(|count| count > 0));
+    assert!(diagnostics
+        .pointer("/mcp_allowlists/server_count")
+        .and_then(Value::as_u64)
+        .is_some());
+    assert!(diagnostics
+        .pointer("/mcp_write_audit/enabled")
+        .and_then(Value::as_bool)
+        .is_some());
+
+    harness.rpc_join.abort();
+    harness.backend_join.abort();
+}
+
 #[test]
 fn tool_registry_provider_and_denial_paths_cover_diagnostics() {
     assert_eq!(
@@ -1436,6 +1851,12 @@ fn tool_registry_provider_and_denial_paths_cover_diagnostics() {
         normalize_capability_provider_id("!!!"),
         Err(CapabilityProviderRegistryError::InvalidId { .. })
     ));
+    let empty_provider_id_error =
+        normalize_capability_provider_id("   ").expect_err("empty provider id should fail");
+    assert_eq!(
+        empty_provider_id_error.to_string(),
+        "invalid provider id: \"\""
+    );
     assert!(matches!(
         normalize_capability_provider_id(&"x".repeat(128)),
         Err(CapabilityProviderRegistryError::InvalidId { .. })
@@ -1528,6 +1949,13 @@ fn tool_registry_provider_and_denial_paths_cover_diagnostics() {
     assert_eq!(recent_denials[1].policy, "unknown");
     assert_eq!(recent_denials[1].action, "blocked");
     assert_eq!(recent_denials[1].reason, "<empty>");
+    denials::record("  ", "policy", "deny", "ignored because tool name is blank");
+    assert_eq!(denials::list(1)[0].tool_name, "secret.tool");
+    denials::record("long.tool", "policy", "deny", &"a".repeat(10_000));
+    let long_denial = denials::list(1).into_iter().next().expect("long denial");
+    assert_eq!(long_denial.tool_name, "long.tool");
+    assert!(long_denial.reason.ends_with('…'));
+    assert!(long_denial.reason.chars().count() <= 241);
 
     let diagnostics = diagnostics_for_config(&config).value;
     assert!(diagnostics.total_tools > 0);

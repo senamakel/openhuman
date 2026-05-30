@@ -1,16 +1,17 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { workflowsApi } from '../services/api/workflowsApi';
 import workflowsReducer, {
+  clearSelectedWorkflow,
+  createWorkflow,
   loadWorkflows,
   readWorkflow,
-  createWorkflow,
   removeWorkflow,
-  clearSelectedWorkflow,
-  selectWorkflows,
   selectSelectedWorkflow,
-  selectWorkflowsStatus,
+  selectWorkflows,
   selectWorkflowsError,
+  selectWorkflowsStatus,
   type WorkflowsState,
 } from './workflowsSlice';
 
@@ -24,8 +25,6 @@ vi.mock('../services/api/workflowsApi', () => ({
   },
 }));
 
-import { workflowsApi } from '../services/api/workflowsApi';
-
 const mockWorkflow = {
   name: 'Test Workflow',
   dir_name: 'test-workflow',
@@ -34,12 +33,7 @@ const mockWorkflow = {
   tags: [],
   tools: null,
   phases: {
-    on_pick_up_task: {
-      rules: ['Write tests first'],
-      scripts: [],
-      tools: null,
-      context: [],
-    },
+    on_pick_up_task: { rules: ['Write tests first'], scripts: [], tools: null, context: [] },
   },
   location: null,
   scope: 'user' as const,
@@ -58,9 +52,7 @@ const mockSummary = {
 };
 
 function makeStore() {
-  return configureStore({
-    reducer: { workflows: workflowsReducer },
-  });
+  return configureStore({ reducer: { workflows: workflowsReducer } });
 }
 
 describe('workflowsSlice', () => {
@@ -202,9 +194,7 @@ describe('workflowsSlice', () => {
 
     it('selectSelectedWorkflow returns null initially', () => {
       const store = makeStore();
-      const selected = selectSelectedWorkflow(
-        store.getState() as { workflows: WorkflowsState }
-      );
+      const selected = selectSelectedWorkflow(store.getState() as { workflows: WorkflowsState });
       expect(selected).toBeNull();
     });
 

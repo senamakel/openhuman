@@ -6,12 +6,12 @@
  * phases. Mirrors SkillDetailDrawer — rendered via createPortal, Escape/
  * backdrop click to close, focus capture on open.
  */
+import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import debug from 'debug';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import { workflowsApi, type Workflow, type WorkflowSummary } from '../../services/api/workflowsApi';
+import { type Workflow, workflowsApi, type WorkflowSummary } from '../../services/api/workflowsApi';
 import PhaseEditor from './PhaseEditor';
 
 const log = debug('workflows:drawer');
@@ -96,8 +96,7 @@ export default function WorkflowDetailDrawer({ workflow, onClose }: Props) {
   }, [onClose, workflow.id]);
 
   const pillCls = scopePillCls(workflow.scope);
-  const scopeLabel =
-    workflow.scope === 'user' ? t('scope.user') : t('scope.project');
+  const scopeLabel = workflow.scope === 'user' ? t('scope.user') : t('scope.project');
 
   const phases = fullWorkflow ? Object.entries(fullWorkflow.phases) : [];
 

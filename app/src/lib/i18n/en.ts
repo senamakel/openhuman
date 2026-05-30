@@ -4279,7 +4279,6 @@ const en: TranslationMap = {
   'settings.agents.editor.create': 'Create agent',
   'settings.agents.editor.saving': 'Saving…',
 
-
   // ── Agent Workflows ──────────────────────────────────────────────────────
   'nav.workflows': 'Workflows',
   'workflows.title': 'Agent Workflows',
@@ -4290,7 +4289,8 @@ const en: TranslationMap = {
   'workflows.deleteError': 'Failed to delete workflow',
   'workflows.warnings': '{count} warning(s)',
   'workflows.empty.title': 'No workflows yet',
-  'workflows.empty.body': 'Create a workflow to define rules and scripts for task lifecycle phases.',
+  'workflows.empty.body':
+    'Create a workflow to define rules and scripts for task lifecycle phases.',
   'workflows.create.title': 'New Workflow',
   'workflows.create.subtitle': 'Define a lifecycle-bound rule set for the agent.',
   'workflows.create.name': 'Name',

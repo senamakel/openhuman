@@ -31,8 +31,7 @@ function scopePillCls(scope: WorkflowSummary['scope']): string {
 const WorkflowCard: FC<WorkflowCardProps> = ({ workflow, onView, onDelete, testId }) => {
   const { t } = useT();
   const pillCls = scopePillCls(workflow.scope);
-  const scopeLabel =
-    workflow.scope === 'user' ? t('scope.user') : t('scope.project');
+  const scopeLabel = workflow.scope === 'user' ? t('scope.user') : t('scope.project');
   const canDelete = workflow.scope === 'user';
 
   return (

@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import { workflowsApi, type Workflow } from '../../services/api/workflowsApi';
+import { type Workflow, workflowsApi } from '../../services/api/workflowsApi';
 
 const log = debug('workflows:create-modal');
 

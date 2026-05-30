@@ -10,14 +10,15 @@
  * - Delete workflow success path: confirmation dialog, success toast.
  * - Delete error path: error toast shown.
  */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CoreStateContext } from '../providers/coreStateContext';
 import { getCoreStateSnapshot } from '../lib/coreState/store';
+import { CoreStateContext } from '../providers/coreStateContext';
+import { workflowsApi } from '../services/api/workflowsApi';
 import localeReducer from '../store/localeSlice';
 import workflowsReducer from '../store/workflowsSlice';
 import AgentWorkflows from './AgentWorkflows';
@@ -32,8 +33,6 @@ vi.mock('../services/api/workflowsApi', () => ({
     getWorkflowPhase: vi.fn(),
   },
 }));
-
-import { workflowsApi } from '../services/api/workflowsApi';
 
 const mockSummary = {
   id: 'test-workflow',
@@ -54,12 +53,7 @@ const mockWorkflow = {
   tags: ['test'],
   tools: null,
   phases: {
-    on_pick_up_task: {
-      rules: ['Write tests first'],
-      scripts: [],
-      tools: null,
-      context: [],
-    },
+    on_pick_up_task: { rules: ['Write tests first'], scripts: [], tools: null, context: [] },
   },
   location: null,
   scope: 'user' as const,
@@ -68,10 +62,7 @@ const mockWorkflow = {
 
 function makeStore() {
   return configureStore({
-    reducer: combineReducers({
-      locale: localeReducer,
-      workflows: workflowsReducer,
-    }),
+    reducer: combineReducers({ locale: localeReducer, workflows: workflowsReducer }),
   });
 }
 

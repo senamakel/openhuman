@@ -63,7 +63,8 @@ const messages: TranslationMap = {
   'settings.account': 'Аккаунт',
   'settings.accountDesc': 'Фраза восстановления, команда, подключения и конфиденциальность',
   'settings.notifications': 'Уведомления',
-  'settings.notificationsDesc': 'Режим «Не беспокоить» и настройки уведомлений для каждого аккаунта',
+  'settings.notificationsDesc':
+    'Режим «Не беспокоить» и настройки уведомлений для каждого аккаунта',
   'settings.notifications.tabs.preferences': 'Настройки',
   'settings.notifications.tabs.routing': 'Маршрутизация',
   'settings.features': 'Функции',
@@ -81,7 +82,8 @@ const messages: TranslationMap = {
   'settings.about': 'О приложении',
   'settings.aboutDesc': 'Версия приложения и обновления',
   'settings.developerOptions': 'Дополнительно',
-  'settings.developerOptionsDesc': 'Настройки AI, каналы связи, инструменты, диагностика и панели отладки',
+  'settings.developerOptionsDesc':
+    'Настройки AI, каналы связи, инструменты, диагностика и панели отладки',
   'settings.clearAppData': 'Очистить данные приложения',
   'settings.clearAppDataDesc': 'Выйти из аккаунта и удалить все локальные данные приложения',
   'settings.logOut': 'Выйти',
@@ -102,19 +104,23 @@ const messages: TranslationMap = {
   'settings.account.privacy': 'Конфиденциальность',
   'settings.account.privacyDesc': 'Контролируй, какие данные покидают твой компьютер',
   'migration.title': 'Импорт из другого ассистента',
-  'migration.description': 'Перенесите память и заметки из другого локального ассистента в это рабочее пространство. Сначала запустите «Предпросмотр», чтобы увидеть, что изменится, затем нажмите «Применить», чтобы скопировать данные. Текущая память сохраняется в резервную копию первой.',
+  'migration.description':
+    'Перенесите память и заметки из другого локального ассистента в это рабочее пространство. Сначала запустите «Предпросмотр», чтобы увидеть, что изменится, затем нажмите «Применить», чтобы скопировать данные. Текущая память сохраняется в резервную копию первой.',
   'migration.vendorLabel': 'Источник',
   'migration.vendor.openclaw': 'OpenClaw',
   'migration.vendor.hermes': 'Hermes Agent',
   'migration.sourceLabel': 'Путь к исходному рабочему пространству (необязательно)',
-  'migration.sourcePlaceholder': 'Оставьте пустым для автоопределения (например, ~/.openclaw/workspace)',
+  'migration.sourcePlaceholder':
+    'Оставьте пустым для автоопределения (например, ~/.openclaw/workspace)',
   'migration.sourcePlaceholderHermes': 'Оставьте пустым для автоопределения (например, ~/.hermes)',
-  'migration.sourceHint': 'Если пусто, используется стандартное расположение источника. Укажите явный путь, если вы перенесли рабочее пространство.',
+  'migration.sourceHint':
+    'Если пусто, используется стандартное расположение источника. Укажите явный путь, если вы перенесли рабочее пространство.',
   'migration.previewAction': 'Предпросмотр',
   'migration.previewRunning': 'Предпросмотр…',
   'migration.applyAction': 'Применить импорт',
   'migration.applyRunning': 'Импорт…',
-  'migration.applyDisclaimer': '«Применить» разблокируется только после успешного предпросмотра того же источника. Существующая память сохраняется перед любым импортом.',
+  'migration.applyDisclaimer':
+    '«Применить» разблокируется только после успешного предпросмотра того же источника. Существующая память сохраняется перед любым импортом.',
   'migration.reportTitlePreview': 'Предпросмотр — ничего ещё не импортировано',
   'migration.reportTitleApplied': 'Импорт завершён',
   'migration.report.source': 'Исходное пространство',
@@ -125,10 +131,14 @@ const messages: TranslationMap = {
   'migration.report.skippedUnchanged': 'Пропущено (без изменений)',
   'migration.report.renamedConflicts': 'Переименовано при конфликте',
   'migration.report.warnings': 'Предупреждения',
-  'migration.report.previewHint': 'Данные ещё не импортированы. Нажмите «Применить импорт», чтобы скопировать.',
-  'migration.report.appliedHint': 'Импортированные записи теперь в вашей памяти. Запустите «Предпросмотр» снова для сравнения.',
-  'migration.confirmImport.singular': 'Импортировать {count} запись в текущее рабочее пространство?\n\nИсточник: {source}\nЦель: {target}\n\nПеред импортом будет сохранена резервная копия памяти.',
-  'migration.confirmImport.plural': 'Импортировать {count} записей в текущее рабочее пространство?\n\nИсточник: {source}\nЦель: {target}\n\nПеред импортом будет сохранена резервная копия памяти.',
+  'migration.report.previewHint':
+    'Данные ещё не импортированы. Нажмите «Применить импорт», чтобы скопировать.',
+  'migration.report.appliedHint':
+    'Импортированные записи теперь в вашей памяти. Запустите «Предпросмотр» снова для сравнения.',
+  'migration.confirmImport.singular':
+    'Импортировать {count} запись в текущее рабочее пространство?\n\nИсточник: {source}\nЦель: {target}\n\nПеред импортом будет сохранена резервная копия памяти.',
+  'migration.confirmImport.plural':
+    'Импортировать {count} записей в текущее рабочее пространство?\n\nИсточник: {source}\nЦель: {target}\n\nПеред импортом будет сохранена резервная копия памяти.',
   'settings.notifications.doNotDisturb': 'Не беспокоить',
   'settings.notifications.doNotDisturbDesc': 'Отключить все уведомления на заданный период',
   'settings.notifications.channelControls': 'По каналам',
@@ -160,8 +170,10 @@ const messages: TranslationMap = {
   'welcome.selectRuntime': 'Выбрать среду выполнения',
   'welcome.clearingAppData': 'Очистка данных приложения...',
   'welcome.clearAppDataAndRestart': 'Очистка данных приложения и перезапуск',
-  'welcome.clearAppDataWarning': 'Это удалит локально сохранённые секреты и аккаунты на этом устройстве. Ваш облачный аккаунт не затрагивается — вы можете войти снова сразу после этого.',
-  'welcome.resetErrorFallback': 'Не удалось очистить данные приложения. Закройте и снова откройте OpenHuman, затем повторите попытку.',
+  'welcome.clearAppDataWarning':
+    'Это удалит локально сохранённые секреты и аккаунты на этом устройстве. Ваш облачный аккаунт не затрагивается — вы можете войти снова сразу после этого.',
+  'welcome.resetErrorFallback':
+    'Не удалось очистить данные приложения. Закройте и снова откройте OpenHuman, затем повторите попытку.',
   'welcome.signingIn': 'Выполняете вход...',
   'welcome.termsIntro': 'Продолжая, вы соглашаетесь с',
   'welcome.termsOfUse': 'Условиями',
@@ -176,16 +188,20 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'Добрый день',
   'home.greetingEvening': 'Добрый вечер',
   'home.askAssistant': 'Спроси ассистента о чём угодно...',
-  'home.statusOk': 'Устройство подключено. Не закрывай приложение, чтобы поддерживать соединение. Отправь сообщение агенту с помощью кнопки ниже.',
+  'home.statusOk':
+    'Устройство подключено. Не закрывай приложение, чтобы поддерживать соединение. Отправь сообщение агенту с помощью кнопки ниже.',
   'home.statusBackendOnly': 'Переподключение к серверу… агент скоро снова будет доступен.',
-  'home.statusCoreUnreachable': 'Локальный процесс OpenHuman не отвечает. Возможно, он завис или не запустился.',
-  'home.statusInternetOffline': 'Нет подключения к интернету. Проверь сеть или перезапусти приложение.',
+  'home.statusCoreUnreachable':
+    'Локальный процесс OpenHuman не отвечает. Возможно, он завис или не запустился.',
+  'home.statusInternetOffline':
+    'Нет подключения к интернету. Проверь сеть или перезапусти приложение.',
   'home.restartCore': 'Перезапустить ядро',
   'home.restartingCore': 'Перезапуск ядра…',
   'home.themeToggle.toLight': 'Переключить на светлую тему',
   'home.themeToggle.toDark': 'Переключить на тёмную тему',
   'home.usageExhaustedTitle': 'Вы исчерпали лимит использования',
-  'home.usageExhaustedBody': 'Включённый объём использования пока исчерпан. Оформите подписку, чтобы получить больше постоянной мощности.',
+  'home.usageExhaustedBody':
+    'Включённый объём использования пока исчерпан. Оформите подписку, чтобы получить больше постоянной мощности.',
   'home.usageExhaustedCta': 'Оформить подписку',
   'home.routinesCard': 'Ваши подпрограммы',
   'home.routinesActive': '{count} активных',
@@ -193,7 +209,8 @@ const messages: TranslationMap = {
   'routines.subtitle': 'Что ваш помощник делает автоматически',
   'routines.loading': 'Загрузка процедур…',
   'routines.empty': 'Пока нет процедур',
-  'routines.emptyHint': 'Ваш помощник может выполнять задачи по расписанию — например, утренние брифинги или ежедневные сводки.',
+  'routines.emptyHint':
+    'Ваш помощник может выполнять задачи по расписанию — например, утренние брифинги или ежедневные сводки.',
   'routines.refresh': 'Обновить',
   'routines.nextRun': 'Следующий запуск',
   'routines.lastRunSuccess': 'Последний запуск удался',
@@ -236,9 +253,11 @@ const messages: TranslationMap = {
   'skills.addAccount': 'Добавить аккаунт',
   'skills.channels': 'Каналы',
   'skills.integrations': 'Интеграции',
-  'skills.integrationsSubtitle': 'Облачные OAuth-подключения — войдите в свой аккаунт, и Composio управляет токенами, чтобы агенты могли читать и действовать от вашего имени. Никаких API-ключей для управления.',
+  'skills.integrationsSubtitle':
+    'Облачные OAuth-подключения — войдите в свой аккаунт, и Composio управляет токенами, чтобы агенты могли читать и действовать от вашего имени. Никаких API-ключей для управления.',
   'skills.composio.noApiKeyTitle': 'Ключ API Composio не настроен',
-  'skills.composio.noApiKeyDescription': 'Локальный режим использует ваш собственный ключ API Composio. Откройте Настройки → Дополнительно → Composio, чтобы добавить ключ перед подключением интеграций здесь.',
+  'skills.composio.noApiKeyDescription':
+    'Локальный режим использует ваш собственный ключ API Composio. Откройте Настройки → Дополнительно → Composio, чтобы добавить ключ перед подключением интеграций здесь.',
   'skills.composio.noApiKeyCta': 'Открыть в настройках',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Каналы',
@@ -250,10 +269,12 @@ const messages: TranslationMap = {
   'memory.empty': 'Воспоминаний пока нет. Они создаются автоматически в процессе общения.',
   'memory.tab.memory': 'Память',
   'memory.tab.tasks': 'Задачи агента',
-  'memory.tab.tasksDescription': 'Создавайте и отслеживайте задачи — ваши личные дела и доски, которые агенты формируют в ходе разговоров.',
+  'memory.tab.tasksDescription':
+    'Создавайте и отслеживайте задачи — ваши личные дела и доски, которые агенты формируют в ходе разговоров.',
   'memory.tab.subconscious': 'Подсознание',
   'memory.tab.workflows': 'Workflows',
-  'memory.tab.workflowsDescription': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
+  'memory.tab.workflowsDescription':
+    'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
   'memory.tab.dreams': 'Сны',
   'memory.tab.calls': 'Звонки',
   'memory.tab.diagram': 'Diagram',
@@ -261,12 +282,14 @@ const messages: TranslationMap = {
   'memory.tab.settings': 'Настройки',
   'memory.analyzeNow': 'Анализировать сейчас',
   'graphCentrality.title': 'Централизованность графа знаний',
-  'graphCentrality.intro': 'PageRank по вашему графику памяти отображает несущие нагрузку концентраторы — и объекты-соединители, которые связывают отдельные кластеры, которые не может выявить необработанный подсчет частоты.',
+  'graphCentrality.intro':
+    'PageRank по вашему графику памяти отображает несущие нагрузку концентраторы — и объекты-соединители, которые связывают отдельные кластеры, которые не может выявить необработанный подсчет частоты.',
   'graphCentrality.loading': 'Вычислительная центральность…',
   'graphCentrality.errorPrefix': 'Не удалось загрузить график:',
   'graphCentrality.retry': 'Повторить попытку',
   'graphCentrality.empty': 'Графа знаний пока нет.',
-  'graphCentrality.emptyHint': 'По мере того, как помощник записывает факты о вас, здесь всплывают наиболее связанные между собой сущности.',
+  'graphCentrality.emptyHint':
+    'По мере того, как помощник записывает факты о вас, здесь всплывают наиболее связанные между собой сущности.',
   'graphCentrality.namespaceLabel': 'Пространство имен',
   'graphCentrality.namespaceAll': 'Все пространства имен',
   'graphCentrality.metricEntities': 'Сущности',
@@ -281,11 +304,13 @@ const messages: TranslationMap = {
   'graphCentrality.colInfluence': 'Влияние',
   'graphCentrality.colLinks': 'Ссылки',
   'graphCentrality.bridgeBadge': 'connector',
-  'graphCentrality.bridgeTitle': 'Коннектор — более влиятельный, чем предполагает количество ссылок.',
+  'graphCentrality.bridgeTitle':
+    'Коннектор — более влиятельный, чем предполагает количество ссылок.',
   'graphCentrality.degreeTitle': '{in} вход · {out} выход',
   'memoryTree.status.title': 'Дерево памяти',
   'memoryTree.status.autoSyncLabel': 'Автосинхронизация',
-  'memoryTree.status.autoSyncDescription': 'Пауза, чтобы остановить новый прием. Существующая вики остается доступной для запросов.',
+  'memoryTree.status.autoSyncDescription':
+    'Пауза, чтобы остановить новый прием. Существующая вики остается доступной для запросов.',
   'memoryTree.status.statusTile': 'Статус',
   'memoryTree.status.lastSyncTile': 'Последняя синхронизация',
   'memoryTree.status.totalChunksTile': 'Всего кусков',
@@ -314,14 +339,16 @@ const messages: TranslationMap = {
   'rewards.title': 'Награды',
   'rewards.referrals': 'Рефералы',
   'rewards.coupons': 'Активировать',
-  'rewards.localUnavailable': 'Локальный вход не приносит награды, купоны или реферальный кредит. Выйдите и войдите с аккаунтом OpenHuman, если хотите, чтобы награды начислялись.',
+  'rewards.localUnavailable':
+    'Локальный вход не приносит награды, купоны или реферальный кредит. Выйдите и войдите с аккаунтом OpenHuman, если хотите, чтобы награды начислялись.',
   'rewards.localUnavailableCta': 'Открыть настройки аккаунта',
   'rewards.credits': 'Кредиты',
   'rewards.referralCode': 'Твой реферальный код',
   'rewards.copyCode': 'Скопировать код',
   'rewards.share': 'Поделиться',
   'onboarding.welcome': 'Привет. Я OpenHuman.',
-  'onboarding.welcomeDesc': 'Твой суперинтеллектуальный AI-ассистент, работающий прямо на твоём компьютере. Приватный, простой и невероятно мощный.',
+  'onboarding.welcomeDesc':
+    'Твой суперинтеллектуальный AI-ассистент, работающий прямо на твоём компьютере. Приватный, простой и невероятно мощный.',
   'onboarding.context': 'Сбор контекста',
   'onboarding.contextDesc': 'Подключи инструменты и сервисы, которыми пользуешься каждый день.',
   'onboarding.localAI': 'Локальный AI',
@@ -335,7 +362,8 @@ const messages: TranslationMap = {
   'onboarding.skip': 'Пропустить',
   'onboarding.getStarted': 'Начать',
   'onboarding.runtimeChoice.title': 'Как ты хочешь запустить OpenHuman?',
-  'onboarding.runtimeChoice.subtitle': 'Выбери подходящий вариант. Изменить можно позже в Настройках.',
+  'onboarding.runtimeChoice.subtitle':
+    'Выбери подходящий вариант. Изменить можно позже в Настройках.',
   'onboarding.runtimeChoice.cloud.title': 'Просто',
   'onboarding.runtimeChoice.cloud.tagline': 'Пусть OpenHuman сам обо всём позаботится.',
   'onboarding.runtimeChoice.cloud.f1': 'Встроенная безопасность',
@@ -344,21 +372,25 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f4': 'Никаких API-ключей',
   'onboarding.runtimeChoice.cloud.f5': 'Простая настройка',
   'onboarding.runtimeChoice.custom.title': 'Свои настройки',
-  'onboarding.runtimeChoice.custom.tagline': 'Используй свои ключи. Полный контроль над тем, что используется.',
+  'onboarding.runtimeChoice.custom.tagline':
+    'Используй свои ключи. Полный контроль над тем, что используется.',
   'onboarding.runtimeChoice.custom.f1': 'Для большинства функций потребуются API-ключи',
   'onboarding.runtimeChoice.custom.f2': 'Переиспользует сервисы, за которые ты уже платишь',
   'onboarding.runtimeChoice.custom.f3': 'Может быть бесплатным, если всё запускать локально',
   'onboarding.runtimeChoice.custom.f4': 'Больше настроек и параметров',
-  'onboarding.runtimeChoice.custom.f5': 'Лучший выбор для продвинутых пользователей и разработчиков',
+  'onboarding.runtimeChoice.custom.f5':
+    'Лучший выбор для продвинутых пользователей и разработчиков',
   'onboarding.runtimeChoice.cloud.creditHighlight': '$1 бесплатный кредит для знакомства',
   'onboarding.runtimeChoice.continueCloud': 'Продолжить с простым режимом',
   'onboarding.runtimeChoice.continueCustom': 'Продолжить со своими настройками',
   'onboarding.runtimeChoice.recommended': 'Рекомендуется',
   'onboarding.apiKeys.title': 'Добавь свои API-ключи',
-  'onboarding.apiKeys.subtitle': 'Вставь их сейчас или пропусти и добавь позже в Настройки › AI. Ключи хранятся на этом устройстве в зашифрованном виде.',
+  'onboarding.apiKeys.subtitle':
+    'Вставь их сейчас или пропусти и добавь позже в Настройки › AI. Ключи хранятся на этом устройстве в зашифрованном виде.',
   'onboarding.apiKeys.openaiLabel': 'API-ключ OpenAI',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
-  'onboarding.apiKeys.openaiOauthHint': 'Используйте ChatGPT Plus/Pro (подписка) или ключ OpenAI API — не оба обязательны.',
+  'onboarding.apiKeys.openaiOauthHint':
+    'Используйте ChatGPT Plus/Pro (подписка) или ключ OpenAI API — не оба обязательны.',
   'onboarding.apiKeys.openaiOauthOpening': 'Открытие входа…',
   'onboarding.apiKeys.finishSignIn': 'Завершите вход в ChatGPT',
   'onboarding.apiKeys.orApiKey': 'или ключ API',
@@ -383,32 +415,48 @@ const messages: TranslationMap = {
   'onboarding.custom.continue': 'Продолжить',
   'onboarding.custom.back': 'Назад',
   'onboarding.custom.finish': 'Завершить настройку',
-  'onboarding.custom.configureLater': 'Можно завершить настройку после онбординга. Мы откроем нужную страницу настроек.',
+  'onboarding.custom.configureLater':
+    'Можно завершить настройку после онбординга. Мы откроем нужную страницу настроек.',
   'onboarding.custom.openSettings': 'Открыть в настройках',
   'onboarding.custom.inference.title': 'Инференс (текст)',
-  'onboarding.custom.inference.subtitle': 'Какая языковая модель будет отвечать на вопросы и запускать агентов?',
-  'onboarding.custom.inference.defaultDesc': 'OpenHuman автоматически выбирает подходящую модель. Без ключей и настроек.',
-  'onboarding.custom.inference.configureDesc': 'Используй свой ключ OpenAI или Anthropic для всех текстовых задач.',
+  'onboarding.custom.inference.subtitle':
+    'Какая языковая модель будет отвечать на вопросы и запускать агентов?',
+  'onboarding.custom.inference.defaultDesc':
+    'OpenHuman автоматически выбирает подходящую модель. Без ключей и настроек.',
+  'onboarding.custom.inference.configureDesc':
+    'Используй свой ключ OpenAI или Anthropic для всех текстовых задач.',
   'onboarding.custom.voice.title': 'Голос',
   'onboarding.custom.voice.subtitle': 'Распознавание и синтез речи для голосового режима.',
-  'onboarding.custom.voice.defaultDesc': 'OpenHuman поставляется с управляемым STT/TTS, который работает сразу. Ничего настраивать не нужно.',
-  'onboarding.custom.voice.configureDesc': 'Используй свой ElevenLabs / OpenAI Whisper / другой сервис. Настрой в Настройки › Голос.',
+  'onboarding.custom.voice.defaultDesc':
+    'OpenHuman поставляется с управляемым STT/TTS, который работает сразу. Ничего настраивать не нужно.',
+  'onboarding.custom.voice.configureDesc':
+    'Используй свой ElevenLabs / OpenAI Whisper / другой сервис. Настрой в Настройки › Голос.',
   'onboarding.custom.oauth.title': 'Подключения (OAuth)',
   'onboarding.custom.oauth.subtitle': 'Gmail, Slack, Notion и другие сервисы, требующие OAuth.',
-  'onboarding.custom.oauth.defaultDesc': 'OpenHuman использует управляемое рабочее пространство Composio. Один клик для подключения каждого сервиса.',
-  'onboarding.custom.oauth.configureDesc': 'Используй свой аккаунт Composio / API-ключ. Настрой в Настройки › Подключения.',
+  'onboarding.custom.oauth.defaultDesc':
+    'OpenHuman использует управляемое рабочее пространство Composio. Один клик для подключения каждого сервиса.',
+  'onboarding.custom.oauth.configureDesc':
+    'Используй свой аккаунт Composio / API-ключ. Настрой в Настройки › Подключения.',
   'onboarding.custom.search.title': 'Поиск в интернете',
   'onboarding.custom.search.subtitle': 'Как OpenHuman ищет информацию в интернете.',
-  'onboarding.custom.search.defaultDesc': 'OpenHuman использует управляемый поисковый бэкенд. Ключи не нужны.',
-  'onboarding.custom.search.configureDesc': 'Используй свой ключ поискового провайдера (Tavily, Brave и др.). Настрой в Настройки › Инструменты.',
+  'onboarding.custom.search.defaultDesc':
+    'OpenHuman использует управляемый поисковый бэкенд. Ключи не нужны.',
+  'onboarding.custom.search.configureDesc':
+    'Используй свой ключ поискового провайдера (Tavily, Brave и др.). Настрой в Настройки › Инструменты.',
   'onboarding.custom.embeddings.title': 'Embeddings',
-  'onboarding.custom.embeddings.subtitle': 'Как OpenHuman создаёт векторные эмбеддинги для семантического поиска в памяти.',
-  'onboarding.custom.embeddings.defaultDesc': 'OpenHuman использует управляемый сервис эмбеддингов. API-ключ не требуется.',
-  'onboarding.custom.embeddings.configureDesc': 'Используйте собственного провайдера эмбеддингов (OpenAI, Voyage, Ollama и др.).',
+  'onboarding.custom.embeddings.subtitle':
+    'Как OpenHuman создаёт векторные эмбеддинги для семантического поиска в памяти.',
+  'onboarding.custom.embeddings.defaultDesc':
+    'OpenHuman использует управляемый сервис эмбеддингов. API-ключ не требуется.',
+  'onboarding.custom.embeddings.configureDesc':
+    'Используйте собственного провайдера эмбеддингов (OpenAI, Voyage, Ollama и др.).',
   'onboarding.custom.memory.title': 'Память',
-  'onboarding.custom.memory.subtitle': 'Как OpenHuman запоминает контекст, предпочтения и предыдущие разговоры.',
-  'onboarding.custom.memory.defaultDesc': 'OpenHuman автоматически управляет хранением и извлечением воспоминаний. Ничего настраивать не нужно.',
-  'onboarding.custom.memory.configureDesc': 'Просматривай, экспортируй или очищай память самостоятельно. Настрой в Настройки › Память.',
+  'onboarding.custom.memory.subtitle':
+    'Как OpenHuman запоминает контекст, предпочтения и предыдущие разговоры.',
+  'onboarding.custom.memory.defaultDesc':
+    'OpenHuman автоматически управляет хранением и извлечением воспоминаний. Ничего настраивать не нужно.',
+  'onboarding.custom.memory.configureDesc':
+    'Просматривай, экспортируй или очищай память самостоятельно. Настрой в Настройки › Память.',
   'accounts.addAccount': 'Добавить аккаунт',
   'accounts.manageAccounts': 'Управление аккаунтами',
   'accounts.noAccounts': 'Аккаунты не подключены',
@@ -418,7 +466,8 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'Отключить',
   'accounts.disconnectConfirm': 'Ты уверен, что хочешь отключить этот аккаунт?',
   'accounts.disconnectClearMemory': 'Также удалить память из этого источника',
-  'accounts.disconnectClearMemoryHint': 'Навсегда удаляет локальные фрагменты памяти, связанные с этим подключением.',
+  'accounts.disconnectClearMemoryHint':
+    'Навсегда удаляет локальные фрагменты памяти, связанные с этим подключением.',
   'accounts.searchAccounts': 'Поиск аккаунтов...',
   'channels.title': 'Каналы',
   'channels.configure': 'Настроить канал',
@@ -457,7 +506,8 @@ const messages: TranslationMap = {
   'invites.emptyHint': 'Создайте код приглашения для обмена с другими',
   'invites.revokeTitle': 'Отозвать код приглашения',
   'invites.revokePromptPrefix': 'Вы уверены, что хотите отозвать код приглашения?',
-  'invites.revokeWarning': 'Этот код приглашения станет недействительным и не может быть использован для вступления в команду.',
+  'invites.revokeWarning':
+    'Этот код приглашения станет недействительным и не может быть использован для вступления в команду.',
   'invites.revoking': 'Отзыв...',
   'invites.revokeAction': 'Отозвать приглашение',
   'invites.failedGenerate': 'Не удалось создать приглашение.',
@@ -477,8 +527,10 @@ const messages: TranslationMap = {
   'team.removeAction': 'Удалить участника',
   'team.changeRoleTitle': 'Изменить роль участника',
   'team.changeRolePrompt': 'Изменить роль {name} с {oldRole} на {newRole}?',
-  'team.changeRoleAdminGrant': 'Это предоставит им полные права администратора, включая возможность управлять участниками команды.',
-  'team.changeRoleAdminRemove': 'Это лишит их прав администратора, и они больше не смогут управлять командой.',
+  'team.changeRoleAdminGrant':
+    'Это предоставит им полные права администратора, включая возможность управлять участниками команды.',
+  'team.changeRoleAdminRemove':
+    'Это лишит их прав администратора, и они больше не смогут управлять командой.',
   'team.changing': 'Изменение...',
   'team.changeRoleAction': 'Изменить роль',
   'team.failedChangeRole': 'Не удалось изменить роль.',
@@ -486,7 +538,8 @@ const messages: TranslationMap = {
   'devOptions.title': 'Дополнительно',
   'devOptions.diagnostics': 'Диагностика',
   'devOptions.diagnosticsDesc': 'Состояние системы, логи и метрики производительности',
-  'devOptions.toolPolicyDiagnosticsDesc': 'Инвентаризация инструментов, положение политики, белые списки MCP и недавние блокировки',
+  'devOptions.toolPolicyDiagnosticsDesc':
+    'Инвентаризация инструментов, положение политики, белые списки MCP и недавние блокировки',
   'devOptions.toolPolicyDiagnostics.loading': 'Загрузка…',
   'devOptions.toolPolicyDiagnostics.unavailable': 'Диагностика недоступна',
   'devOptions.toolPolicyDiagnostics.posture.title': 'Политическая позиция',
@@ -501,15 +554,20 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.inventory.mcpStdioTools': 'MCP инструменты stdio',
   'devOptions.toolPolicyDiagnostics.inventory.jsonRpcTools': 'JSON-RPC инструменты',
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.title': 'Белые списки MCP',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.summary': 'Включено: {enabled} · Серверы: ZXHOLD1ZX/ZXHOLD2ZX',
+  'devOptions.toolPolicyDiagnostics.mcpAllowlists.summary':
+    'Включено: {enabled} · Серверы: ZXHOLD1ZX/ZXHOLD2ZX',
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.unnamed': '<без имени>',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.allowDeny': 'разрешить = {allowCount} запретить = {denyCount}',
+  'devOptions.toolPolicyDiagnostics.mcpAllowlists.allowDeny':
+    'разрешить = {allowCount} запретить = {denyCount}',
   'devOptions.toolPolicyDiagnostics.mcpWriteAudit.title': 'MCP аудит записи',
-  'devOptions.toolPolicyDiagnostics.mcpWriteAudit.summary': 'Включено: {enabled} · Последние (24 часа): {recentRows}',
+  'devOptions.toolPolicyDiagnostics.mcpWriteAudit.summary':
+    'Включено: {enabled} · Последние (24 часа): {recentRows}',
   'devOptions.toolPolicyDiagnostics.recentBlocked.title': 'Недавние заблокированные вызовы',
-  'devOptions.toolPolicyDiagnostics.recentBlocked.empty': 'Заблокированных вызовов не зарегистрировано.',
+  'devOptions.toolPolicyDiagnostics.recentBlocked.empty':
+    'Заблокированных вызовов не зарегистрировано.',
   'devOptions.toolPolicyDiagnostics.redactedSurfaces.title': 'Отредактированные поверхности',
-  'devOptions.toolPolicyDiagnostics.redactedSurfaces.summary': 'Возможность записи: {writeCount} · Поверхности политик: {policyCount}',
+  'devOptions.toolPolicyDiagnostics.redactedSurfaces.summary':
+    'Возможность записи: {writeCount} · Поверхности политик: {policyCount}',
   'devOptions.debugPanels': 'Панели отладки',
   'devOptions.debugPanelsDesc': 'Флаги функций, инспекция состояния и инструменты отладки',
   'devOptions.webhooks': 'Вебхуки',
@@ -531,11 +589,13 @@ const messages: TranslationMap = {
   'misc.updateLater': 'Позже',
   'misc.downloading': 'Загрузка...',
   'misc.installing': 'Установка...',
-  'misc.beta': 'OpenHuman находится в стадии раннего бета-тестирования. Делись отзывами и сообщай об ошибках — каждый репорт помогает нам двигаться быстрее.',
+  'misc.beta':
+    'OpenHuman находится в стадии раннего бета-тестирования. Делись отзывами и сообщай об ошибках — каждый репорт помогает нам двигаться быстрее.',
   'misc.betaFeedback': 'Отправить отзыв',
   'mnemonic.title': 'Фраза восстановления',
   'mnemonic.warning': 'Запиши эти слова по порядку и храни в надёжном месте.',
-  'mnemonic.copyWarning': 'Никогда не делись фразой восстановления. Любой, кто её знает, получит доступ к твоему аккаунту.',
+  'mnemonic.copyWarning':
+    'Никогда не делись фразой восстановления. Любой, кто её знает, получит доступ к твоему аккаунту.',
   'mnemonic.copied': 'Фраза восстановления скопирована в буфер обмена',
   'mnemonic.reveal': 'Показать фразу',
   'mnemonic.revealPhrase': 'Показать фразу восстановления',
@@ -545,18 +605,22 @@ const messages: TranslationMap = {
   'privacy.empty': 'Передачи данных во внешние сервисы не обнаружены.',
   'privacy.whatLeavesComputer': 'Что покидает твой компьютер',
   'privacy.loading': 'Загрузка данных о конфиденциальности...',
-  'privacy.loadError': 'Не удалось загрузить список. Настройки аналитики ниже по-прежнему работают.',
+  'privacy.loadError':
+    'Не удалось загрузить список. Настройки аналитики ниже по-прежнему работают.',
   'privacy.noCapabilities': 'Ни одна функция не передаёт данные.',
   'privacy.sentTo': 'Отправляется в',
   'privacy.leavesDevice': 'Покидает устройство',
   'privacy.staysLocal': 'Остаётся локально',
   'privacy.anonymizedAnalytics': 'Анонимная аналитика',
   'privacy.shareAnonymizedData': 'Делиться анонимными данными об использовании',
-  'privacy.shareAnonymizedDataDesc': 'Помоги улучшить OpenHuman, отправляя анонимные отчёты об ошибках и данные об использовании. Все данные полностью анонимизированы — личные данные, сообщения, ключи кошелька и информация о сессии никогда не собираются.',
+  'privacy.shareAnonymizedDataDesc':
+    'Помоги улучшить OpenHuman, отправляя анонимные отчёты об ошибках и данные об использовании. Все данные полностью анонимизированы — личные данные, сообщения, ключи кошелька и информация о сессии никогда не собираются.',
   'privacy.meetingFollowUps': 'Действия после встреч',
   'privacy.autoHandoffMeet': 'Автоматически передавать транскрипты Google Meet оркестратору',
-  'privacy.autoHandoffMeetDesc': 'Когда звонок в Google Meet заканчивается, оркестратор OpenHuman может прочитать транскрипт и выполнить действия: составить сообщения, запланировать задачи или опубликовать итоги в Slack. По умолчанию выключено.',
-  'privacy.analyticsDisclaimer': 'Вся аналитика и отчёты об ошибках полностью анонимизированы. При включении мы собираем только информацию об ошибках, тип устройства и расположение файлов с ошибками. Мы никогда не получаем доступ к твоим сообщениям, данным сессии, ключам кошелька, API-ключам или любой личной информации. Ты можешь изменить этот параметр в любое время.',
+  'privacy.autoHandoffMeetDesc':
+    'Когда звонок в Google Meet заканчивается, оркестратор OpenHuman может прочитать транскрипт и выполнить действия: составить сообщения, запланировать задачи или опубликовать итоги в Slack. По умолчанию выключено.',
+  'privacy.analyticsDisclaimer':
+    'Вся аналитика и отчёты об ошибках полностью анонимизированы. При включении мы собираем только информацию об ошибках, тип устройства и расположение файлов с ошибками. Мы никогда не получаем доступ к твоим сообщениям, данным сессии, ключам кошелька, API-ключам или любой личной информации. Ты можешь изменить этот параметр в любое время.',
   'settings.about.version': 'Версия',
   'settings.about.updateAvailable': 'доступна',
   'settings.about.softwareUpdates': 'Обновления ПО',
@@ -573,14 +637,18 @@ const messages: TranslationMap = {
   'settings.about.connectionModeUnset': 'Не выбран',
   'settings.about.serverUrl': 'Сервер URL',
   'settings.about.serverUrlUnavailable': 'Недоступно',
-  'settings.about.connectionHelperLocal': 'Создается внутри процесса оболочкой Tauri при запуске приложения. Порт выбирается при запуске, поэтому этот URL меняется между запусками.',
-  'settings.about.connectionHelperCloud': 'Подключен к удаленному ядру. Измените это в BootCheck или в средстве выбора облачного режима.',
+  'settings.about.connectionHelperLocal':
+    'Создается внутри процесса оболочкой Tauri при запуске приложения. Порт выбирается при запуске, поэтому этот URL меняется между запусками.',
+  'settings.about.connectionHelperCloud':
+    'Подключен к удаленному ядру. Измените это в BootCheck или в средстве выбора облачного режима.',
   'settings.heartbeat.title': 'Heartbeat и циклы',
   'settings.heartbeat.desc': 'Управляйте частотой фонового планирования и проверяйте карту циклов.',
   'settings.ledgerUsage.title': 'Журнал использования',
-  'settings.ledgerUsage.desc': 'Недавние расходы по кредитам, математические расчеты бюджета и предыстория. API читает бюджет.',
+  'settings.ledgerUsage.desc':
+    'Недавние расходы по кредитам, математические расчеты бюджета и предыстория. API читает бюджет.',
   'settings.costDashboard.title': 'Панель затрат',
-  'settings.costDashboard.desc': '7-дневные расходы и сжигание токенов по всему множеству, с указанием темпа бюджета и разбивки по моделям.',
+  'settings.costDashboard.desc':
+    '7-дневные расходы и сжигание токенов по всему множеству, с указанием темпа бюджета и разбивки по моделям.',
   'settings.costDashboard.sevenDayCost': '7-дневная ежедневная стоимость',
   'settings.costDashboard.sevenDayTokens': '7-дневное использование токена',
   'settings.costDashboard.totalSpend': 'всего 7 дней',
@@ -603,14 +671,18 @@ const messages: TranslationMap = {
   'settings.costDashboard.noData': 'За последние 7 дней стоимость еще не зафиксирована.',
   'settings.costDashboard.noModels': 'Никакой активности модели за последние 7 дней.',
   'settings.costDashboard.loading': 'Загрузка сводки расходов…',
-  'settings.costDashboard.disabledHint': 'Панель затрат отключена в конфигурации. Установите [cost.dashboard] Enabled = True в config.toml, чтобы повторно включить.',
-  'settings.costDashboard.subtitle': 'Расходы в реальном времени и сжигание токенов по всему множеству. Бары автоматически обновляются каждые несколько секунд — перезагрузка страницы не требуется.',
+  'settings.costDashboard.disabledHint':
+    'Панель затрат отключена в конфигурации. Установите [cost.dashboard] Enabled = True в config.toml, чтобы повторно включить.',
+  'settings.costDashboard.subtitle':
+    'Расходы в реальном времени и сжигание токенов по всему множеству. Бары автоматически обновляются каждые несколько секунд — перезагрузка страницы не требуется.',
   'settings.costDashboard.summaryAriaLabel': 'Сводные показатели затрат',
   'settings.costDashboard.lastSevenDays': 'последние 7 дней',
   'settings.costDashboard.utilizationOf': 'из',
   'settings.costDashboard.thisMonth': 'в этом месяце',
-  'settings.costDashboard.monthlyPaceHint': 'Прогнозируемые ежемесячные расходы при текущем ежедневном расходе (в среднем × 30).',
-  'settings.costDashboard.budgetLimitHint': 'Ежемесячный бюджет считывается из Cost.monthly_limit_usd в config.toml.',
+  'settings.costDashboard.monthlyPaceHint':
+    'Прогнозируемые ежемесячные расходы при текущем ежедневном расходе (в среднем × 30).',
+  'settings.costDashboard.budgetLimitHint':
+    'Ежемесячный бюджет считывается из Cost.monthly_limit_usd в config.toml.',
   'settings.costDashboard.dailyTarget': 'Ежедневная цель',
   'settings.costDashboard.today': 'Сегодня',
   'settings.costDashboard.todayBadge': 'TODAY',
@@ -625,25 +697,35 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': 'Дни, разбитые по UTC',
   'settings.costDashboard.stackedNote': 'Вход + выход сложены',
   'settings.costDashboard.modelBreakdownHint': 'Совокупно за последние 7 дней.',
-  'settings.costDashboard.noDataHint': 'Отправьте сообщение агенту — использование токена при следующем вызове провайдера заполнит диаграмму в течение примерно 10 секунд.',
+  'settings.costDashboard.noDataHint':
+    'Отправьте сообщение агенту — использование токена при следующем вызове провайдера заполнит диаграмму в течение примерно 10 секунд.',
   'settings.search.title': 'Поисковая система',
-  'settings.search.menuDesc': 'По умолчанию используется поиск, управляемый OpenHuman, или подключите собственного провайдера с помощью ключа API.',
-  'settings.search.description': 'Выберите поисковую систему, которую использует агент, или полностью отключите инструменты поиска. Управляемый режим использует серверную часть OpenHuman (настройка не требуется). Parallel, Brave и Querit работают напрямую с вашего устройства, используя ваш API-ключ.',
+  'settings.search.menuDesc':
+    'По умолчанию используется поиск, управляемый OpenHuman, или подключите собственного провайдера с помощью ключа API.',
+  'settings.search.description':
+    'Выберите поисковую систему, которую использует агент, или полностью отключите инструменты поиска. Управляемый режим использует серверную часть OpenHuman (настройка не требуется). Parallel, Brave и Querit работают напрямую с вашего устройства, используя ваш API-ключ.',
   'settings.search.engineAria': 'Поисковая система',
   'settings.search.engineDisabledLabel': 'Disabled',
-  'settings.search.engineDisabledDesc': 'Удалить инструменты поиска из контекста агента и списка доступных инструментов.',
+  'settings.search.engineDisabledDesc':
+    'Удалить инструменты поиска из контекста агента и списка доступных инструментов.',
   'settings.search.engineManagedLabel': 'OpenHuman Управляемый',
-  'settings.search.engineManagedDesc': 'По умолчанию. Маршрутизируется через серверную часть OpenHuman — ключ API не ​​требуется.',
-  'settings.search.localManagedUnavailable': 'Поиск OpenHuman Managed недоступен для локальных пользователей. Добавьте свой ключ API Parallel или Brave, чтобы включить веб-поиск.',
+  'settings.search.engineManagedDesc':
+    'По умолчанию. Маршрутизируется через серверную часть OpenHuman — ключ API не ​​требуется.',
+  'settings.search.localManagedUnavailable':
+    'Поиск OpenHuman Managed недоступен для локальных пользователей. Добавьте свой ключ API Parallel или Brave, чтобы включить веб-поиск.',
   'settings.search.engineParallelLabel': 'Параллельно',
-  'settings.search.engineParallelDesc': 'Direct Parallel API: инструменты поиска, извлечения, общения, исследования, обогащения и набора данных.',
+  'settings.search.engineParallelDesc':
+    'Direct Parallel API: инструменты поиска, извлечения, общения, исследования, обогащения и набора данных.',
   'settings.search.engineBraveLabel': 'Brave Поиск',
-  'settings.search.engineBraveDesc': 'Прямой поиск Brave API: инструменты для Интернета, новостей, изображений и видео.',
+  'settings.search.engineBraveDesc':
+    'Прямой поиск Brave API: инструменты для Интернета, новостей, изображений и видео.',
   'settings.search.engineQueritLabel': 'Керит',
-  'settings.search.engineQueritDesc': 'Direct Querit API: поиск в Интернете с фильтрами по сайту, временному диапазону, стране и языку.',
+  'settings.search.engineQueritDesc':
+    'Direct Querit API: поиск в Интернете с фильтрами по сайту, временному диапазону, стране и языку.',
   'settings.search.statusConfigured': 'Настроено',
   'settings.search.statusNeedsKey': 'Требуется ключ API',
-  'settings.search.fallbackToManaged': 'Ключ не настроен — поиск будет переведен в режим «Управляемый», пока ключ не будет сохранен.',
+  'settings.search.fallbackToManaged':
+    'Ключ не настроен — поиск будет переведен в режим «Управляемый», пока ключ не будет сохранен.',
   'settings.search.getApiKey': 'Получите ключ API',
   'settings.search.save': 'Сохранить',
   'settings.search.clear': 'Очистить',
@@ -660,24 +742,29 @@ const messages: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'Запросить ключ API',
   'settings.search.allowedSitesLabel': 'Разрешенные веб-сайты',
-  'settings.search.allowedSitesHint': 'Хосты, которые ассистент может открывать и читать — через веб-запросы и браузерный инструмент — по одному на строку, например reuters.com. Хост также охватывает все его поддомены. Веб-поиск не ограничивается этим списком.',
-  'settings.search.allowedSitesAllOn': 'Помощник может открыть любой общедоступный веб-сайт. Локальные и частные адреса остаются заблокированными.',
+  'settings.search.allowedSitesHint':
+    'Хосты, которые ассистент может открывать и читать — через веб-запросы и браузерный инструмент — по одному на строку, например reuters.com. Хост также охватывает все его поддомены. Веб-поиск не ограничивается этим списком.',
+  'settings.search.allowedSitesAllOn':
+    'Помощник может открыть любой общедоступный веб-сайт. Локальные и частные адреса остаются заблокированными.',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
   'settings.search.allowedSitesSave': 'Сохранение веб-сайтов',
   'settings.search.accessModeAria': 'Режим веб-доступа',
   'settings.search.accessAllowAll': 'Разрешить все',
   'settings.search.accessCustom': 'Обычай',
   'settings.search.accessBlockAll': 'Блокировать все',
-  'settings.search.accessBlockAllHint': 'Весь веб-доступ заблокирован — помощник не может открыть или прочитать какой-либо веб-сайт.',
+  'settings.search.accessBlockAllHint':
+    'Весь веб-доступ заблокирован — помощник не может открыть или прочитать какой-либо веб-сайт.',
   'settings.embeddings.title': 'Эмбеддинги',
-  'settings.embeddings.description': 'Выберите провайдера эмбеддингов, который преобразует память в векторы для семантического поиска. Изменение провайдера, модели или размерности делает сохранённые векторы недействительными и требует полного сброса памяти.',
+  'settings.embeddings.description':
+    'Выберите провайдера эмбеддингов, который преобразует память в векторы для семантического поиска. Изменение провайдера, модели или размерности делает сохранённые векторы недействительными и требует полного сброса памяти.',
   'settings.embeddings.providerAria': 'Провайдер эмбеддингов',
   'settings.embeddings.statusConfigured': 'Настроено',
   'settings.embeddings.statusNeedsKey': 'Нужен API-ключ',
   'settings.embeddings.apiKeyLabel': 'API-ключ {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (сохранено)',
   'settings.embeddings.placeholderKey': 'Вставьте API-ключ…',
-  'settings.embeddings.keyStoredEncrypted': 'Ваш API-ключ хранится в зашифрованном виде на этом устройстве.',
+  'settings.embeddings.keyStoredEncrypted':
+    'Ваш API-ключ хранится в зашифрованном виде на этом устройстве.',
   'settings.embeddings.show': 'Показать',
   'settings.embeddings.hide': 'Скрыть',
   'settings.embeddings.save': 'Сохранить',
@@ -696,22 +783,26 @@ const messages: TranslationMap = {
   'settings.embeddings.saved': 'Сохранено.',
   'settings.embeddings.errorPrefix': 'Ошибка',
   'settings.embeddings.wipeTitle': 'Сбросить векторы памяти?',
-  'settings.embeddings.wipeBody': 'Изменение провайдера эмбеддингов, модели или размерности удалит все сохранённые векторы памяти. Память должна быть перестроена, прежде чем поиск снова заработает. Это действие нельзя отменить.',
+  'settings.embeddings.wipeBody':
+    'Изменение провайдера эмбеддингов, модели или размерности удалит все сохранённые векторы памяти. Память должна быть перестроена, прежде чем поиск снова заработает. Это действие нельзя отменить.',
   'settings.embeddings.cancel': 'Отмена',
   'settings.embeddings.confirmWipe': 'Очистить и применить',
   'settings.embeddings.setupTitle': 'Настройка {provider}',
   'settings.embeddings.saveAndSwitch': 'Сохранить и переключить',
   'settings.embeddings.optional': 'необязательно',
-  'settings.embeddings.vectorSearchDisabled': 'Векторный поиск отключен. При вызове из памяти будут использоваться только сопоставление ключевых слов и актуальность — без семантического ранжирования.',
+  'settings.embeddings.vectorSearchDisabled':
+    'Векторный поиск отключен. При вызове из памяти будут использоваться только сопоставление ключевых слов и актуальность — без семантического ранжирования.',
   'settings.embeddings.clearKey': 'Удалить API-ключ',
   'pages.settings.ai.embeddings': 'Эмбеддинги',
   'pages.settings.ai.embeddingsDesc': 'Модель векторного кодирования для извлечения из памяти',
   'mcp.alphaBadge': 'Альфа',
-  'mcp.alphaBannerText': 'Поддержка сервера MCP находится в ранней альфа-версии. Реестр Smithery, процесс установки и подключение инструментов могут работать неправильно или изменять форму между выпусками.',
+  'mcp.alphaBannerText':
+    'Поддержка сервера MCP находится в ранней альфа-версии. Реестр Smithery, процесс установки и подключение инструментов могут работать неправильно или изменять форму между выпусками.',
   'mcp.toolList.noTools': 'Инструменты недоступны.',
   'mcp.setup.secretDialog.title': 'MCP Настройка — введите секретный код',
   'mcp.setup.secretDialog.bodyPrefix': 'Агенту установки MCP требуется',
-  'mcp.setup.secretDialog.bodySuffix': '. Ваше значение отправляется непосредственно в основной процесс и никогда не попадает в диалог AI.',
+  'mcp.setup.secretDialog.bodySuffix':
+    '. Ваше значение отправляется непосредственно в основной процесс и никогда не попадает в диалог AI.',
   'mcp.setup.secretDialog.inputLabel': 'Значение',
   'mcp.setup.secretDialog.inputPlaceholder': 'Вставить сюда',
   'mcp.setup.secretDialog.show': 'Показать',
@@ -720,14 +811,18 @@ const messages: TranslationMap = {
   'mcp.setup.secretDialog.cancel': 'Отмена',
   'mcp.setup.secretDialog.submitting': 'Отправка…',
   'mcp.setup.secretDialog.errorPrefix': 'Не удалось отправить:',
-  'mcp.setup.secretDialog.privacyNote': 'Хранится в зашифрованном виде в локальной таблице секретов MCP. Никогда не регистрировался и не отправлялся модели.',
+  'mcp.setup.secretDialog.privacyNote':
+    'Хранится в зашифрованном виде в локальной таблице секретов MCP. Никогда не регистрировался и не отправлялся модели.',
   'devices.betaBadge': 'Бета-версия',
-  'devices.betaText': 'Эта функция находится в стадии бета-тестирования. Подключите iPhone к этому OpenHuman для использования в качестве удалённого клиента.',
-  'devices.comingSoonDescription': 'Сопряжение устройств скоро появится. Эта страница будет местом для подключения iPhone и управления подключёнными устройствами.',
+  'devices.betaText':
+    'Эта функция находится в стадии бета-тестирования. Подключите iPhone к этому OpenHuman для использования в качестве удалённого клиента.',
+  'devices.comingSoonDescription':
+    'Сопряжение устройств скоро появится. Эта страница будет местом для подключения iPhone и управления подключёнными устройствами.',
   'devices.title': 'Устройства',
   'devices.pairIphone': 'Сопряжение с iPhone',
   'devices.noPaired': 'Нет сопряженных устройств',
-  'devices.emptyState': 'Отсканируйте QR-код на своём iPhone, чтобы подключить его к текущей сессии OpenHuman.',
+  'devices.emptyState':
+    'Отсканируйте QR-код на своём iPhone, чтобы подключить его к текущей сессии OpenHuman.',
   'devices.devicePairedTitle': 'Устройство сопряжено.',
   'devices.devicePairedMessage': 'iPhone успешно подключен.',
   'devices.deviceRevokedTitle': 'Устройство отозвано.',
@@ -747,7 +842,8 @@ const messages: TranslationMap = {
   'devices.loadFailed': 'Не удалось загрузить устройства: {message}',
   'devices.pairModal.title': 'Сопряжение с iPhone',
   'devices.pairModal.loading': 'Генерация кода сопряжения…',
-  'devices.pairModal.instructions': 'Откройте приложение OpenHuman на iPhone и отсканируйте этот код.',
+  'devices.pairModal.instructions':
+    'Откройте приложение OpenHuman на iPhone и отсканируйте этот код.',
   'devices.pairModal.expiresIn': 'Срок действия кода истекает через ~{count} минуту.',
   'devices.pairModal.expiresInPlural': 'Срок действия кода истекает через ~{count} минут.',
   'devices.pairModal.showDetails': 'Показать подробности',
@@ -769,13 +865,15 @@ const messages: TranslationMap = {
   'mcp.catalog.noResultsFor': 'Серверы для «{query}» не найдены.',
   'mcp.catalog.loadMore': 'Загрузить больше',
   'mcp.configAssistant.title': 'Помощник по настройке',
-  'mcp.configAssistant.empty': 'Спросите о конфигурации, необходимых переменных окружения или этапах настройки.',
+  'mcp.configAssistant.empty':
+    'Спросите о конфигурации, необходимых переменных окружения или этапах настройки.',
   'mcp.configAssistant.suggestedValues': 'Рекомендуемые значения:',
   'mcp.configAssistant.valueHidden': '(значение скрыто)',
   'mcp.configAssistant.applySuggested': 'Примените предложенные значения.',
   'mcp.configAssistant.reinstallHint': 'Переустановите с этими значениями, чтобы применить их.',
   'mcp.configAssistant.thinking': 'Думаю...',
-  'mcp.configAssistant.inputPlaceholder': 'Задайте вопрос (Enter для отправки, Shift+Enter для перевода строки)',
+  'mcp.configAssistant.inputPlaceholder':
+    'Задайте вопрос (Enter для отправки, Shift+Enter для перевода строки)',
   'mcp.configAssistant.send': 'Отправить',
   'mcp.configAssistant.failedResponse': 'Не удалось получить ответ',
   'mcp.toolList.availableSingular': 'Доступен инструмент {count}',
@@ -786,7 +884,8 @@ const messages: TranslationMap = {
   'mcp.playground.close': 'Закрыть игровую площадку',
   'mcp.playground.inputSchema': 'Входная схема',
   'mcp.playground.argsLabel': 'Аргументы (JSON)',
-  'mcp.playground.argsHelp': 'Введите JSON, соответствующий входной схеме. Пустой ввод рассматривается как {}.',
+  'mcp.playground.argsHelp':
+    'Введите JSON, соответствующий входной схеме. Пустой ввод рассматривается как {}.',
   'mcp.playground.runShortcut': '⌘/Ctrl + Enter для запуска',
   'mcp.playground.format': 'Формат',
   'mcp.playground.invalidJson': 'Неверный JSON',
@@ -811,7 +910,8 @@ const messages: TranslationMap = {
   'progress.stepsAria': 'Шаги выполнения',
   'progress.stepAria': 'Шаг {current} из {total}',
   'workspace.vaultsTitle': 'Хранилища знаний',
-  'workspace.vaultsDesc': 'Укажите локальную папку; файлы разбиваются на части и зеркально отображаются в памяти.',
+  'workspace.vaultsDesc':
+    'Укажите локальную папку; файлы разбиваются на части и зеркально отображаются в памяти.',
   'calls.title': 'Звонки',
   'calls.comingSoonBody': 'Скоро появятся звонки с помощью ИИ. Следите за обновлениями.',
   'art.rotatingTetrahedronAria': 'Вращающийся космический корабль в виде перевернутого тетраэдра',
@@ -831,7 +931,8 @@ const messages: TranslationMap = {
   'mcp.health.disconnectAll': 'Отключить все ({count})',
   'mcp.health.disconnectAllAria': 'Отключите все подключенные к {count} серверы MCP.',
   'mcp.health.disconnectConfirm.title': 'Отключить все серверы MCP?',
-  'mcp.health.disconnectConfirm.body': 'Это отключит {count}, подключенные в данный момент серверы MCP. Установленные конфигурации и секреты сохраняются; вы можете повторно подключить любой сервер позже.',
+  'mcp.health.disconnectConfirm.body':
+    'Это отключит {count}, подключенные в данный момент серверы MCP. Установленные конфигурации и секреты сохраняются; вы можете повторно подключить любой сервер позже.',
   'mcp.health.disconnectConfirm.cancel': 'Отмена',
   'mcp.health.disconnectConfirm.confirm': 'Отключить все',
   'mcp.health.opErrorGeneric': 'Массовая операция не удалась. Смотрите журналы.',
@@ -845,14 +946,17 @@ const messages: TranslationMap = {
   'mcp.inventory.openButton': 'Инвентарь',
   'mcp.inventory.openAria': 'Откройте общую панель инвентаря MCP.',
   'mcp.inventory.title': 'Общий инвентарь MCP',
-  'mcp.inventory.subtitle': 'Экспортируйте установленные серверы MCP в виде переносимого, несекретного манифеста или импортируйте его у товарища по команде. Секретные значения env никогда не включаются и не импортируются.',
+  'mcp.inventory.subtitle':
+    'Экспортируйте установленные серверы MCP в виде переносимого, несекретного манифеста или импортируйте его у товарища по команде. Секретные значения env никогда не включаются и не импортируются.',
   'mcp.inventory.close': 'Закрыть панель инвентаря',
   'mcp.inventory.tablistAria': 'Разделы инвентаря',
   'mcp.inventory.tab.export': 'Экспорт',
   'mcp.inventory.tab.import': 'Импорт',
-  'mcp.inventory.export.empty': 'Серверы MCP пока не установлены — экспортировать нечего. Сначала установите один из каталога.',
+  'mcp.inventory.export.empty':
+    'Серверы MCP пока не установлены — экспортировать нечего. Сначала установите один из каталога.',
   'mcp.inventory.export.privacyTitle': 'Что в этом манифесте',
-  'mcp.inventory.export.privacyBody': 'Только имена серверов, полные имена, ИМЕНА КЛЮЧЕЙ переменных env и несекретная конфигурация. Секретные значения, идентификаторы вашего компьютера и временные метки каждой установки намеренно удаляются.',
+  'mcp.inventory.export.privacyBody':
+    'Только имена серверов, полные имена, ИМЕНА КЛЮЧЕЙ переменных env и несекретная конфигурация. Секретные значения, идентификаторы вашего компьютера и временные метки каждой установки намеренно удаляются.',
   'mcp.inventory.export.serverCount': 'Серверы {count} в этом манифесте',
   'mcp.inventory.export.copy': 'Копировать',
   'mcp.inventory.export.copied': 'Скопировано',
@@ -860,7 +964,8 @@ const messages: TranslationMap = {
   'mcp.inventory.export.download': 'Скачать',
   'mcp.inventory.export.downloadAria': 'Загрузите манифест в виде файла JSON.',
   'mcp.inventory.import.trustTitle': 'Считайте импортированные манифесты ненадежным кодом.',
-  'mcp.inventory.import.trustBody': 'Сервер MCP — это инструмент, который вы предоставляете своему агенту. Импортируйте манифесты только из источников, которым вы доверяете. Каждая установка требует вашего явного щелчка мышью; ничего не устанавливается автоматически.',
+  'mcp.inventory.import.trustBody':
+    'Сервер MCP — это инструмент, который вы предоставляете своему агенту. Импортируйте манифесты только из источников, которым вы доверяете. Каждая установка требует вашего явного щелчка мышью; ничего не устанавливается автоматически.',
   'mcp.inventory.import.pasteLabel': 'Вставить манифест JSON',
   'mcp.inventory.import.pastePlaceholder': 'Вставьте манифест сюда или загрузите файл.json ниже.',
   'mcp.inventory.import.preview': 'Предварительный просмотр',
@@ -884,16 +989,22 @@ const messages: TranslationMap = {
   'mcp.inventory.parseError.empty': 'Манифест пуст.',
   'mcp.inventory.parseError.invalidJson': 'Неверный JSON.',
   'mcp.inventory.parseError.rootNotObject': 'Манифест должен быть объектом JSON в корне.',
-  'mcp.inventory.parseError.unsupportedSchema': 'Неподдерживаемая схема манифеста — этот файл не был создан совместимым экспортером.',
+  'mcp.inventory.parseError.unsupportedSchema':
+    'Неподдерживаемая схема манифеста — этот файл не был создан совместимым экспортером.',
   'mcp.inventory.parseError.missingExportedAt': 'Поле `exported_at` отсутствует или неверно.',
   'mcp.inventory.parseError.missingExportedBy': 'Поле `exported_by` отсутствует или неверно.',
   'mcp.inventory.parseError.invalidServers': 'Массив `servers` отсутствует или недействителен.',
   'mcp.inventory.parseError.serverNotObject': 'Запись сервера не является объектом.',
-  'mcp.inventory.parseError.serverMissingQualifiedName': 'В записи сервера отсутствует квалифицированное_имя.',
-  'mcp.inventory.parseError.serverMissingDisplayName': 'В записи сервера отсутствует отображаемое_имя.',
-  'mcp.inventory.parseError.serverEnvKeysNotArray': 'Запись сервера имеет поле env_keys, которое не является массивом строк.',
-  'mcp.inventory.parseError.serverContainsEnv': 'Запись сервера содержит карту значений `env`. Отказ от импорта — манифесты должны содержать только env_keys (имена), а не секретные значения.',
-  'mcp.inventory.parseError.duplicateQualifiedName': 'В манифесте найдено повторяющееся квалифицированное_имя. Каждый сервер должен появиться не более одного раза.',
+  'mcp.inventory.parseError.serverMissingQualifiedName':
+    'В записи сервера отсутствует квалифицированное_имя.',
+  'mcp.inventory.parseError.serverMissingDisplayName':
+    'В записи сервера отсутствует отображаемое_имя.',
+  'mcp.inventory.parseError.serverEnvKeysNotArray':
+    'Запись сервера имеет поле env_keys, которое не является массивом строк.',
+  'mcp.inventory.parseError.serverContainsEnv':
+    'Запись сервера содержит карту значений `env`. Отказ от импорта — манифесты должны содержать только env_keys (имена), а не секретные значения.',
+  'mcp.inventory.parseError.duplicateQualifiedName':
+    'В манифесте найдено повторяющееся квалифицированное_имя. Каждый сервер должен появиться не более одного раза.',
   'mcp.tab.loading': 'Загрузка серверов MCP...',
   'mcp.tab.emptyDetail': 'Выберите сервер или просмотрите каталог.',
   'mcp.install.loadingDetail': 'Загрузка сведений о сервере...',
@@ -912,7 +1023,8 @@ const messages: TranslationMap = {
   'mcp.install.button': 'Установить',
   'mcp.install.installing': 'Установка...',
   'mcp.detail.suggestedEnvReady': 'Рекомендуемые значения среды готовы',
-  'mcp.detail.suggestedEnvBody': 'Чтобы применить их, переустановите этот сервер с предложенными значениями: {keys}.',
+  'mcp.detail.suggestedEnvBody':
+    'Чтобы применить их, переустановите этот сервер с предложенными значениями: {keys}.',
   'mcp.detail.connect': 'Подключитесь',
   'mcp.detail.connecting': 'Подключение...',
   'mcp.detail.disconnect': 'Отключите',
@@ -925,17 +1037,20 @@ const messages: TranslationMap = {
   'mcp.detail.tools': 'Инструменты',
   'onboarding.skipForNow': 'Пропустить сейчас',
   'onboarding.localAI.continueWithCloud': 'Продолжить с Облако',
-  'onboarding.localAI.useLocalAnyway': 'Всё равно использовать локальный ИИ (не рекомендуется для вашего устройства)',
+  'onboarding.localAI.useLocalAnyway':
+    'Всё равно использовать локальный ИИ (не рекомендуется для вашего устройства)',
   'onboarding.localAI.useLocalInstead': 'Использовать локальный ИИ (подключить Ollama сейчас)',
   'onboarding.localAI.setupIssue': 'При настройке локального AI возникла проблема',
   'autonomy.title': 'Автономия агента.',
   'autonomy.maxActionsLabel': 'Максимальное количество действий в час.',
-  'autonomy.maxActionsHelp': 'Максимальное количество действий инструментов, которое агент может выполнить за скользящий час. Новое значение применяется к следующему чату. Задания cron и слушатели каналов сохраняют текущий лимит до перезапуска OpenHuman.',
+  'autonomy.maxActionsHelp':
+    'Максимальное количество действий инструментов, которое агент может выполнить за скользящий час. Новое значение применяется к следующему чату. Задания cron и слушатели каналов сохраняют текущий лимит до перезапуска OpenHuman.',
   'autonomy.statusSaving': 'Сохранение…',
   'autonomy.statusSaved': 'Сохранено.',
   'autonomy.statusFailed': 'Ошибка',
   'autonomy.unlimitedNote': 'Unlimited — ограничение скорости отключено.',
-  'autonomy.invalidIntegerMsg': 'Должно быть положительным целым числом (используйте пресет «Без ограничений» для отключения лимита).',
+  'autonomy.invalidIntegerMsg':
+    'Должно быть положительным целым числом (используйте пресет «Без ограничений» для отключения лимита).',
   'autonomy.presetUnlimited': 'Неограниченно (по умолчанию)',
   'triggers.toggleFailed': '{action} не удалось для {trigger}: {message}',
   'settings.ai.overview': 'Обзор AI-системы',
@@ -969,18 +1084,22 @@ const messages: TranslationMap = {
   'settings.ai.refreshingAll': 'Обновление всего...',
   'settings.ai.refreshAll': 'Обновить всю конфигурацию AI',
   'settings.notifications.suppressAll': 'Отключить все уведомления',
-  'settings.notifications.suppressAllDesc': 'Блокировать все всплывающие уведомления ОС из встроенных приложений независимо от фокуса.',
+  'settings.notifications.suppressAllDesc':
+    'Блокировать все всплывающие уведомления ОС из встроенных приложений независимо от фокуса.',
   'settings.notifications.toggleDnd': 'Включить/выключить «Не беспокоить»',
   'settings.notifications.categories': 'Категории',
-  'settings.notifications.categoryFooter': 'Отключение категории останавливает появление новых уведомлений этого типа в центре уведомлений. Существующие уведомления остаются до их очистки.',
+  'settings.notifications.categoryFooter':
+    'Отключение категории останавливает появление новых уведомлений этого типа в центре уведомлений. Существующие уведомления остаются до их очистки.',
   'settings.billing.movedToWeb': 'Оплата перенесена на сайт',
   'settings.billing.openDashboard': 'Открыть панель оплаты',
-  'settings.billing.movedToWebDesc': 'Изменение подписки, способы оплаты, кредиты и счета теперь управляются в TinyHumans на сайте.',
+  'settings.billing.movedToWebDesc':
+    'Изменение подписки, способы оплаты, кредиты и счета теперь управляются в TinyHumans на сайте.',
   'settings.billing.backToSettings': 'Назад к настройкам',
   'settings.billing.openingBrowser': 'Открытие браузера...',
   'settings.billing.browserNotOpen': 'Если браузер не открылся, используй кнопку выше.',
   'settings.billing.browserOpenFailed': 'Браузер не открылся автоматически. Используй кнопку выше.',
-  'settings.tools.chooseCapabilities': 'Выбери, какие возможности OpenHuman может использовать от твоего имени.',
+  'settings.tools.chooseCapabilities':
+    'Выбери, какие возможности OpenHuman может использовать от твоего имени.',
   'settings.tools.saveChanges': 'Сохранить изменения',
   'settings.tools.preferencesSaved': 'Настройки сохранены',
   'settings.tools.saveFailed': 'Не удалось сохранить настройки. Попробуй ещё раз.',
@@ -997,20 +1116,26 @@ const messages: TranslationMap = {
   'settings.screenAwareness.startSession': 'Начать сессию',
   'settings.screenAwareness.stopSession': 'Завершить сессию',
   'settings.screenAwareness.analyzeNow': 'Анализировать сейчас',
-  'settings.screenAwareness.macosOnly': 'Захват экрана и управление разрешениями поддерживаются только на macOS.',
+  'settings.screenAwareness.macosOnly':
+    'Захват экрана и управление разрешениями поддерживаются только на macOS.',
   'connections.comingSoon': 'Скоро',
   'connections.setUp': 'Настроить',
   'connections.configured': 'Настроено',
   'connections.unavailable': 'Недоступно',
   'connections.checking': 'Проверка…',
-  'connections.walletConfigured': 'Локальные идентификаторы EVM, BTC, Solana и Tron настроены на основе твоей фразы восстановления.',
-  'connections.walletReady': 'Настрой локальные идентификаторы EVM, BTC, Solana и Tron из одной фразы восстановления.',
-  'connections.walletError': 'Не удалось проверить статус кошелька. Нажми, чтобы повторить в панели фразы восстановления.',
+  'connections.walletConfigured':
+    'Локальные идентификаторы EVM, BTC, Solana и Tron настроены на основе твоей фразы восстановления.',
+  'connections.walletReady':
+    'Настрой локальные идентификаторы EVM, BTC, Solana и Tron из одной фразы восстановления.',
+  'connections.walletError':
+    'Не удалось проверить статус кошелька. Нажми, чтобы повторить в панели фразы восстановления.',
   'connections.walletChecking': 'Проверка статуса кошелька...',
   'connections.walletIdentities': 'Идентификаторы кошелька',
-  'connections.walletDerived': 'Вычислено локально из фразы восстановления и хранится только как безопасные метаданные.',
+  'connections.walletDerived':
+    'Вычислено локально из фразы восстановления и хранится только как безопасные метаданные.',
   'connections.privacySecurity': 'Конфиденциальность и безопасность',
-  'connections.privacySecurityDesc': 'Все данные и учётные данные хранятся локально по политике нулевого хранения. Информация зашифрована и никогда не передаётся третьим лицам.',
+  'connections.privacySecurityDesc':
+    'Все данные и учётные данные хранятся локально по политике нулевого хранения. Информация зашифрована и никогда не передаётся третьим лицам.',
   'channels.status.connecting': 'Подключение',
   'channels.status.notConfigured': 'Не настроено',
   'channels.noActiveRoute': 'Нет активного маршрута',
@@ -1021,7 +1146,8 @@ const messages: TranslationMap = {
   'channels.configNotAvailable': 'Конфигурация для',
   'channels.channel': 'канал',
   'devOptions.coreModeNotSet': 'Режим ядра: не задан',
-  'devOptions.coreModeNotSetDesc': 'Выбор в загрузочном экране ещё не подтверждён. Используй «Сменить режим» для выбора между «Локальный» и «Облако».',
+  'devOptions.coreModeNotSetDesc':
+    'Выбор в загрузочном экране ещё не подтверждён. Используй «Сменить режим» для выбора между «Локальный» и «Облако».',
   'devOptions.local': 'Локальный',
   'devOptions.embeddedCoreSidecar': 'Встроенный процесс ядра',
   'devOptions.sidecarSpawned': 'Запущен внутри процесса Tauri при старте приложения.',
@@ -1030,24 +1156,30 @@ const messages: TranslationMap = {
   'devOptions.token': 'Токен',
   'devOptions.tokenNotSet': 'не задан — RPC вернёт 401',
   'devOptions.triggerSentryTest': 'Тест Sentry (staging)',
-  'devOptions.triggerSentryTestDesc': 'Отправляет тегированную ошибку для проверки пайплайна Sentry. Issue #1072 — удалить после проверки.',
+  'devOptions.triggerSentryTestDesc':
+    'Отправляет тегированную ошибку для проверки пайплайна Sentry. Issue #1072 — удалить после проверки.',
   'devOptions.sendTestEvent': 'Отправить тестовое событие',
   'devOptions.sending': 'Отправка…',
   'devOptions.eventSent': 'Событие отправлено',
   'devOptions.sentryDisabled': '(идентификатор отсутствует — охрана отключена в этой сборке)',
   'devOptions.failed': 'Ошибка',
   'devOptions.appLogs': 'Логи приложения',
-  'devOptions.appLogsDesc': 'Открыть папку с ежедневными лог-файлами. Прикрепляй последний файл при сообщении об ошибке.',
+  'devOptions.appLogsDesc':
+    'Открыть папку с ежедневными лог-файлами. Прикрепляй последний файл при сообщении об ошибке.',
   'devOptions.openLogsFolder': 'Открыть папку с логами',
   'mnemonic.phraseSaved': 'Фраза восстановления сохранена',
   'mnemonic.walletReady': 'Мультичейн-идентификаторы готовы. Возврат к настройкам...',
   'mnemonic.writeDownWords': 'Запиши эти',
-  'mnemonic.wordsInOrder': 'слова по порядку и храни в надёжном месте. Эта фраза защищает твой локальный ключ шифрования и идентификаторы кошельков EVM, BTC, Solana и Tron.',
-  'mnemonic.cannotRecover': 'Эту фразу невозможно восстановить при потере — она должна оставаться только на твоём устройстве.',
+  'mnemonic.wordsInOrder':
+    'слова по порядку и храни в надёжном месте. Эта фраза защищает твой локальный ключ шифрования и идентификаторы кошельков EVM, BTC, Solana и Tron.',
+  'mnemonic.cannotRecover':
+    'Эту фразу невозможно восстановить при потере — она должна оставаться только на твоём устройстве.',
   'mnemonic.copyToClipboard': 'Скопировать в буфер обмена',
   'mnemonic.alreadyHavePhrase': 'У меня уже есть фраза восстановления',
-  'mnemonic.consentSaved': 'Я сохранил эту фразу и соглашаюсь использовать её для настройки локального кошелька',
-  'mnemonic.enterPhraseToRestore': 'Введи фразу восстановления ниже для восстановления идентификаторов кошелька, или вставь полную фразу в любое поле (12 слов для новых бэкапов; фразы из 24 слов от старых версий тоже работают).',
+  'mnemonic.consentSaved':
+    'Я сохранил эту фразу и соглашаюсь использовать её для настройки локального кошелька',
+  'mnemonic.enterPhraseToRestore':
+    'Введи фразу восстановления ниже для восстановления идентификаторов кошелька, или вставь полную фразу в любое поле (12 слов для новых бэкапов; фразы из 24 слов от старых версий тоже работают).',
   'mnemonic.words': 'Слова',
   'mnemonic.validPhrase': 'Верная фраза восстановления',
   'mnemonic.generateNewPhrase': 'Сгенерировать новую фразу восстановления',
@@ -1081,7 +1213,8 @@ const messages: TranslationMap = {
   'team.join': 'Вступить',
   'team.leaveTeam': 'Покинуть команду',
   'team.confirmLeave': 'Ты уверен, что хочешь покинуть',
-  'team.leaveWarning': 'Ты потеряешь доступ к команде и всем её ресурсам. Для повторного входа потребуется новое приглашение.',
+  'team.leaveWarning':
+    'Ты потеряешь доступ к команде и всем её ресурсам. Для повторного входа потребуется новое приглашение.',
   'team.management': 'Управление командой',
   'team.notFound': 'Команда не найдена',
   'team.accessDenied': 'Доступ запрещён',
@@ -1115,9 +1248,11 @@ const messages: TranslationMap = {
   'voice.naturalCleanup': 'Естественная обработка',
   'voice.autoStart': 'Запускать голосовой сервер автоматически вместе с ядром',
   'voice.customDictionary': 'Пользовательский словарь',
-  'voice.customDictionaryDesc': 'Добавляй имена, технические термины и специальные слова для улучшения точности распознавания.',
+  'voice.customDictionaryDesc':
+    'Добавляй имена, технические термины и специальные слова для улучшения точности распознавания.',
   'voice.addWord': 'Добавить слово...',
-  'voice.sttDisabled': 'Голосовой ввод отключён, пока локальная STT-модель не загружена и не готова.',
+  'voice.sttDisabled':
+    'Голосовой ввод отключён, пока локальная STT-модель не загружена и не готова.',
   'voice.openLocalAiModel': 'Открыть локальную AI-модель',
   'voice.serverRestarted': 'Голосовой сервер перезапущен с новыми настройками.',
   'voice.settingsSaved': 'Настройки голоса сохранены.',
@@ -1131,13 +1266,15 @@ const messages: TranslationMap = {
   'voice.failedToSaveSettings': 'Не удалось сохранить голосовые настройки.',
   'voice.failedToStartServer': 'Не удалось запустить голосовой сервер.',
   'voice.failedToStopServer': 'Не удалось остановить голосовой сервер.',
-  'voice.sttDisabledPrefix': 'Голосовой ввод отключён, пока не загружена локальная модель STT. Используйте',
+  'voice.sttDisabledPrefix':
+    'Голосовой ввод отключён, пока не загружена локальная модель STT. Используйте',
   'voice.sttDisabledSuffix': 'выше, чтобы установить Whisper.',
   'voice.debug.failedToLoadVoiceDebugData': 'Не удалось загрузить данные голосовой отладки.',
   'voice.debug.settingsSaved': 'Настройки отладки сохранены.',
   'voice.debug.failedToSaveSettings': 'Не удалось сохранить голосовые настройки.',
   'voice.debug.runtimeStatus': 'Статус выполнения.',
-  'voice.debug.runtimeStatusDesc': 'Живая диагностика голосового сервера и движка преобразования речи в текст.',
+  'voice.debug.runtimeStatusDesc':
+    'Живая диагностика голосового сервера и движка преобразования речи в текст.',
   'voice.debug.server': 'Сервер',
   'voice.debug.unavailable': 'Недоступно',
   'voice.debug.ready': 'Готов',
@@ -1148,10 +1285,12 @@ const messages: TranslationMap = {
   'voice.debug.transcriptions': 'Транскрипции',
   'voice.debug.serverError': 'Ошибка сервера',
   'voice.debug.advancedSettings': 'Расширенные настройки',
-  'voice.debug.advancedSettingsDesc': 'Низкоуровневые параметры настройки записи и определения тишины.',
+  'voice.debug.advancedSettingsDesc':
+    'Низкоуровневые параметры настройки записи и определения тишины.',
   'voice.debug.minimumRecordingSeconds': 'Минимальное количество секунд записи',
   'voice.debug.silenceThreshold': 'Порог тишины (RMS)',
-  'voice.debug.silenceThresholdDesc': 'Записи с энергией ниже этого значения считаются тишиной и пропускаются. Меньше = чувствительнее.',
+  'voice.debug.silenceThresholdDesc':
+    'Записи с энергией ниже этого значения считаются тишиной и пропускаются. Меньше = чувствительнее.',
   'voice.providers.saved': 'Поставщики голосовой связи сохранены.',
   'voice.providers.failedToSave': 'Не удалось сохранить поставщиков голосовой связи.',
   'voice.providers.ellipsis': '…',
@@ -1169,14 +1308,16 @@ const messages: TranslationMap = {
   'voice.providers.piperInstallStarted': 'Началась установка Piper.',
   'voice.providers.failedToInstallPiper': 'Не удалось установить Piper.',
   'voice.providers.title': 'Поставщики голоса.',
-  'voice.providers.desc': 'Выберите, где выполняется транскрипция и синтез речи. Используйте кнопки «Установить локально» для загрузки бинарных файлов и моделей в вашу рабочую область. Локальные провайдеры можно сохранить до завершения установки — ручная настройка WHISPER_BIN или PIPER_BIN не требуется.',
+  'voice.providers.desc':
+    'Выберите, где выполняется транскрипция и синтез речи. Используйте кнопки «Установить локально» для загрузки бинарных файлов и моделей в вашу рабочую область. Локальные провайдеры можно сохранить до завершения установки — ручная настройка WHISPER_BIN или PIPER_BIN не требуется.',
   'voice.providers.sttProvider': 'Поставщик преобразования речи в текст',
   'voice.providers.sttProviderAria': 'Поставщик STT',
   'voice.providers.cloudWhisperProxy': 'Облако (прокси-сервер Whisper)',
   'voice.providers.localWhisper': 'Локальный Whisper',
   'voice.providers.installRequired': '(требуется установка)',
   'voice.providers.whisperInstalledTitle': 'Whisper установлен. Нажмите, чтобы переустановить.',
-  'voice.providers.whisperDownloadTitle': 'Загрузить whisper.cpp и модель GGML в вашу рабочую область.',
+  'voice.providers.whisperDownloadTitle':
+    'Загрузить whisper.cpp и модель GGML в вашу рабочую область.',
   'voice.providers.installed': 'Установлено',
   'voice.providers.installFailed': 'Не удалось установить',
   'voice.providers.notInstalled': 'Не установлено',
@@ -1192,15 +1333,18 @@ const messages: TranslationMap = {
   'voice.providers.cloudElevenLabsProxy': 'Облако (прокси-сервер ElevenLabs)',
   'voice.providers.localPiper': 'Локальный Piper',
   'voice.providers.piperInstalledTitle': 'Piper установлен. Нажмите, чтобы переустановить.',
-  'voice.providers.piperDownloadTitle': 'Загрузить Piper и встроенный голос en_US-lessac-medium в вашу рабочую область.',
+  'voice.providers.piperDownloadTitle':
+    'Загрузить Piper и встроенный голос en_US-lessac-medium в вашу рабочую область.',
   'voice.providers.piperVoice': 'Голос Пайпера',
   'voice.providers.piperVoiceAria': 'Голос Пайпера',
   'voice.providers.customVoiceOption': 'Другое (введите ниже)…',
   'voice.providers.customVoiceAria': 'Идентификатор голоса Пайпера (пользовательский)',
   'voice.providers.customVoicePlaceholder': 'en_US-lessac-medium',
-  'voice.providers.piperVoicesDesc': 'Голоса поставляются с huggingface.co/rhasspy/piper-voices. Переключение голосов может потребовать нажатия «Установить/Переустановить» для загрузки нового файла .onnx.',
+  'voice.providers.piperVoicesDesc':
+    'Голоса поставляются с huggingface.co/rhasspy/piper-voices. Переключение голосов может потребовать нажатия «Установить/Переустановить» для загрузки нового файла .onnx.',
   'voice.providers.mascotVoice': 'Голос талисмана',
-  'voice.providers.mascotVoiceDescPrefix': 'Голос ElevenLabs, используемый маскотом для устных ответов, настраивается в разделе',
+  'voice.providers.mascotVoiceDescPrefix':
+    'Голос ElevenLabs, используемый маскотом для устных ответов, настраивается в разделе',
   'voice.providers.mascotSettings': 'Настройки талисмана',
   'voice.providers.mascotVoiceDescSuffix': '.',
   'voice.providers.hotkeyPlaceholder': 'Fn',
@@ -1226,24 +1370,30 @@ const messages: TranslationMap = {
   'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
   'voice.providers.chip.comingSoon': 'скоро',
   'voice.modal.title': 'Configure',
-  'voice.modal.desc': 'Введите API-ключ для активации этого провайдера. Можно проверить подключение перед сохранением.',
+  'voice.modal.desc':
+    'Введите API-ключ для активации этого провайдера. Можно проверить подключение перед сохранением.',
   'voice.modal.testKey': 'Проверить ключ',
   'voice.modal.testing': 'Тестирование…',
   'voice.modal.saveAndEnable': 'Сохранить и включить',
   'voice.modal.enable': 'Enable',
-  'voice.modal.whisperDesc': 'Выберите размер модели и установите бинарный файл Whisper и модель GGML в вашу рабочую область. Более крупные модели точнее, но медленнее.',
-  'voice.modal.piperDesc': 'Выберите голос и установите бинарный файл Piper и модель ONNX в вашу рабочую область. Piper работает полностью офлайн с низкой задержкой.',
+  'voice.modal.whisperDesc':
+    'Выберите размер модели и установите бинарный файл Whisper и модель GGML в вашу рабочую область. Более крупные модели точнее, но медленнее.',
+  'voice.modal.piperDesc':
+    'Выберите голос и установите бинарный файл Piper и модель ONNX в вашу рабочую область. Piper работает полностью офлайн с низкой задержкой.',
   'voice.routing.title': 'Маршрутизация голоса',
-  'voice.routing.desc': 'Выберите, какие включённые провайдеры обрабатывают преобразование речи в текст и текста в речь.',
+  'voice.routing.desc':
+    'Выберите, какие включённые провайдеры обрабатывают преобразование речи в текст и текста в речь.',
   'voice.routing.save': 'Save',
   'voice.routing.testStt': 'Тест STT',
   'voice.routing.testTts': 'Тест TTS',
   'voice.routing.elevenlabsVoice': 'Голос ElevenLabs',
   'voice.routing.elevenlabsVoiceAria': 'Выбор голоса ElevenLabs',
   'voice.routing.elevenlabsVoiceIdAria': 'ID голоса ElevenLabs (пользовательский)',
-  'voice.routing.elevenlabsVoiceDesc': 'Выберите подобранный голос или вставьте пользовательский ID голоса из вашей панели ElevenLabs.',
+  'voice.routing.elevenlabsVoiceDesc':
+    'Выберите подобранный голос или вставьте пользовательский ID голоса из вашей панели ElevenLabs.',
   'voice.externalProviders.title': 'Внешние голосовые провайдеры',
-  'voice.externalProviders.desc': 'Подключайте сторонние STT/TTS API, такие как Deepgram, ElevenLabs или OpenAI, напрямую.',
+  'voice.externalProviders.desc':
+    'Подключайте сторонние STT/TTS API, такие как Deepgram, ElevenLabs или OpenAI, напрямую.',
   'voice.externalProviders.keySet': 'Ключ установлен',
   'voice.externalProviders.noKey': 'Нет API-ключа',
   'voice.externalProviders.test': 'Test',
@@ -1287,9 +1437,11 @@ const messages: TranslationMap = {
   'chat.askAgent': 'Спроси агента о чём угодно...',
   'chat.sendMessage': 'Отправить сообщение',
   'composio.triageTitle': 'Триггеры интеграций',
-  'composio.triageDesc': 'Когда активно, каждый входящий триггер Composio проходит через шаг AI-сортировки, который классифицирует событие и может запустить автоматические действия — один локальный LLM-запрос на триггер. Отключи глобально или для конкретных интеграций, если предпочитаешь ручной просмотр. Если переменная окружения',
+  'composio.triageDesc':
+    'Когда активно, каждый входящий триггер Composio проходит через шаг AI-сортировки, который классифицирует событие и может запустить автоматические действия — один локальный LLM-запрос на триггер. Отключи глобально или для конкретных интеграций, если предпочитаешь ручной просмотр. Если переменная окружения',
   'composio.disableAllTriage': 'Отключить AI-сортировку для всех триггеров',
-  'composio.triggersStillRecorded': 'Триггеры по-прежнему записываются в историю — LLM-запросы не выполняются.',
+  'composio.triggersStillRecorded':
+    'Триггеры по-прежнему записываются в историю — LLM-запросы не выполняются.',
   'composio.disableSpecificIntegrations': 'Отключить AI-сортировку для конкретных интеграций',
   'composio.settingsSaved': 'Настройки сохранены',
   'composio.saveFailed': 'Не удалось сохранить. Попробуй ещё раз.',
@@ -1300,9 +1452,11 @@ const messages: TranslationMap = {
   'localModel.modelStatus': 'Статус модели',
   'localModel.downloadModels': 'Скачать модели',
   'localModel.usage': 'Использование',
-  'localModel.usageDesc': 'Выбери, какие подсистемы используют локальную модель. Остальное использует облако.',
+  'localModel.usageDesc':
+    'Выбери, какие подсистемы используют локальную модель. Остальное использует облако.',
   'localModel.enableRuntime': 'Включить локальную AI-среду',
-  'localModel.enableRuntimeDesc': 'Главный переключатель. По умолчанию выключен — Ollama простаивает. При включении суммаризатор деревьев, интеллект экрана и автодополнение всегда используют локальную модель.',
+  'localModel.enableRuntimeDesc':
+    'Главный переключатель. По умолчанию выключен — Ollama простаивает. При включении суммаризатор деревьев, интеллект экрана и автодополнение всегда используют локальную модель.',
   'localModel.advancedSettings': 'Дополнительные настройки',
   'localModel.debugTitle': 'Отладка локальной модели',
   'screenAwareness.debugTitle': 'Отладка слежения за экраном',
@@ -1313,9 +1467,11 @@ const messages: TranslationMap = {
   'screenAwareness.debug.policyTitle': 'Политика интеллекта экрана',
   'screenAwareness.debug.baselineFps': 'Базовый показатель FPS',
   'screenAwareness.debug.useVisionModel': 'Использовать модель концепции.',
-  'screenAwareness.debug.useVisionModelDesc': 'Отправлять снимки экрана в визуальную языковую модель для более богатого контекста. Если отключено, используется только OCR-текст с текстовой моделью — быстрее и без требований к визуальной модели.',
+  'screenAwareness.debug.useVisionModelDesc':
+    'Отправлять снимки экрана в визуальную языковую модель для более богатого контекста. Если отключено, используется только OCR-текст с текстовой моделью — быстрее и без требований к визуальной модели.',
   'screenAwareness.debug.keepScreenshots': 'Сохранять снимки экрана.',
-  'screenAwareness.debug.keepScreenshotsDesc': 'Сохранять снимки экрана в рабочей области вместо удаления после обработки',
+  'screenAwareness.debug.keepScreenshotsDesc':
+    'Сохранять снимки экрана в рабочей области вместо удаления после обработки',
   'screenAwareness.debug.allowlist': 'Список разрешенных (одно правило в строке)',
   'screenAwareness.debug.denylist': 'Список запрещенных (одно правило в строке)',
   'screenAwareness.debug.saveSettings': 'Сохранить настройки интеллекта экрана',
@@ -1332,7 +1488,8 @@ const messages: TranslationMap = {
   'screenAwareness.debug.refreshing': 'Обновление…',
   'screenAwareness.debug.noSummaries': 'Сводок пока нет.',
   'screenAwareness.debug.unknownApp': 'Неизвестное приложение.',
-  'screenAwareness.debug.macosOnly': 'Screen Intelligence V1 в настоящее время поддерживается только на macOS.',
+  'screenAwareness.debug.macosOnly':
+    'Screen Intelligence V1 в настоящее время поддерживается только на macOS.',
   'memory.debugTitle': 'Отладка памяти',
   'memory.documents': 'Документы',
   'memory.filterByNamespace': 'Фильтровать по пространству имен...',
@@ -1359,7 +1516,8 @@ const messages: TranslationMap = {
   'memory.exampleNamespace': 'например. навык:gmail:user@example.com',
   'memory.clear': 'Очистить',
   'memory.deleteConfirm': 'Удалить документ «{documentId}» в пространстве имен «{namespace}»?',
-  'memory.clearNamespaceConfirm': 'Это навсегда удалит ВСЕ документы в пространстве имён «{namespace}». Продолжить?',
+  'memory.clearNamespaceConfirm':
+    'Это навсегда удалит ВСЕ документы в пространстве имён «{namespace}». Продолжить?',
   'memory.clearNamespaceSuccess': 'Пространство имен «{namespace}» очищено.',
   'memory.clearNamespaceEmpty': 'В «{namespace}» нечего очищать.',
   'webhooks.debugTitle': 'Отладка вебхуков',
@@ -1392,10 +1550,14 @@ const messages: TranslationMap = {
   'webhooks.empty': '[пусто]',
   'providerSetup.error.defaultDetails': 'Не удалось настроить поставщика.',
   'providerSetup.error.providerFallback': 'Поставщик',
-  'providerSetup.error.credentialsRejected': '{provider} отклонил учётные данные. Проверьте API-ключ и повторите попытку.',
-  'providerSetup.error.endpointNotRecognized': '{provider} не распознал конечную точку. Проверьте базовый URL и повторите попытку.',
-  'providerSetup.error.providerUnavailable': '{provider} временно недоступен. Повторите попытку или проверьте статус провайдера.',
-  'providerSetup.error.unreachable': 'Не удалось подключиться к {provider}. Проверьте URL конечной точки и сетевое подключение, затем повторите попытку.',
+  'providerSetup.error.credentialsRejected':
+    '{provider} отклонил учётные данные. Проверьте API-ключ и повторите попытку.',
+  'providerSetup.error.endpointNotRecognized':
+    '{provider} не распознал конечную точку. Проверьте базовый URL и повторите попытку.',
+  'providerSetup.error.providerUnavailable':
+    '{provider} временно недоступен. Повторите попытку или проверьте статус провайдера.',
+  'providerSetup.error.unreachable':
+    'Не удалось подключиться к {provider}. Проверьте URL конечной точки и сетевое подключение, затем повторите попытку.',
   'providerSetup.error.couldNotReachWithMessage': 'Не удалось связаться с {provider}: {message}',
   'providerSetup.error.technicalDetails': 'Технические подробности',
   'notifications.routingTitle': 'Маршрутизация уведомлений',
@@ -1404,25 +1566,30 @@ const messages: TranslationMap = {
   'notifications.routing.unread': 'Непрочитано',
   'notifications.routing.unscored': 'Без оценок',
   'notifications.routing.intelligenceTitle': 'Аналитика уведомлений',
-  'notifications.routing.intelligenceDesc': 'Каждое уведомление из подключённых аккаунтов оценивается локальной моделью ИИ. Важные уведомления автоматически передаются агенту-оркестратору, чтобы ничто критическое не осталось незамеченным.',
+  'notifications.routing.intelligenceDesc':
+    'Каждое уведомление из подключённых аккаунтов оценивается локальной моделью ИИ. Важные уведомления автоматически передаются агенту-оркестратору, чтобы ничто критическое не осталось незамеченным.',
   'notifications.routing.howItWorks': 'Как это работает',
   'notifications.routing.level.drop': 'Удаление',
   'notifications.routing.level.dropDesc': 'Шум/спам — сохраняется, но не отображается',
   'notifications.routing.level.acknowledge': 'Подтверждение',
-  'notifications.routing.level.acknowledgeDesc': 'Низкий приоритет — отображается в центре уведомлений',
+  'notifications.routing.level.acknowledgeDesc':
+    'Низкий приоритет — отображается в центре уведомлений',
   'notifications.routing.level.react': 'Реагировать',
-  'notifications.routing.level.reactDesc': 'Средний приоритет — запускает сфокусированный ответ агента',
+  'notifications.routing.level.reactDesc':
+    'Средний приоритет — запускает сфокусированный ответ агента',
   'notifications.routing.level.escalate': 'Эскалация',
   'notifications.routing.level.escalateDesc': 'Высокий приоритет — передаётся агенту-оркестратору',
   'notifications.routing.perProvider': 'Маршрутизация для каждого поставщика',
   'notifications.routing.threshold': 'Порог',
   'notifications.routing.routeToOrchestrator': 'Маршрут к оркестратору',
-  'notifications.routing.loadSettingsError': 'Не удалось загрузить настройки. Закройте и повторно откройте эту панель.',
+  'notifications.routing.loadSettingsError':
+    'Не удалось загрузить настройки. Закройте и повторно откройте эту панель.',
   'common.reload': 'Перезагрузить',
   'common.skip': 'Пропустить',
   'common.disable': 'Отключить',
   'common.enable': 'Включить',
-  'chat.safetyTimeout': 'Агент не ответил в течение 2 минут. Попробуй снова или проверь соединение.',
+  'chat.safetyTimeout':
+    'Агент не ответил в течение 2 минут. Попробуй снова или проверь соединение.',
   'chat.filter.all': 'Все',
   'chat.filter.work': 'Работа',
   'chat.filter.briefing': 'Брифинг',
@@ -1450,7 +1617,8 @@ const messages: TranslationMap = {
   'chat.weeklyLimitHit': 'Ты достиг еженедельного лимита.',
   'chat.resets': 'Сбросится',
   'chat.topUpToContinue': 'Пополни баланс для продолжения.',
-  'chat.budgetComplete': 'Включённый бюджет исчерпан. Добавь кредиты или улучши план для продолжения.',
+  'chat.budgetComplete':
+    'Включённый бюджет исчерпан. Добавь кредиты или улучши план для продолжения.',
   'chat.topUp': 'Пополнить',
   'chat.cycle': 'Цикл',
   'chat.cycleSpent': 'Потрачено за цикл',
@@ -1471,7 +1639,8 @@ const messages: TranslationMap = {
   'chat.attachment.remove': 'Удалить {name}',
   'chat.attachment.tooMany': 'Максимум {max} изображений на сообщение',
   'chat.attachment.tooLarge': 'Изображение превышает ограничение размера {max}',
-  'chat.attachment.unsupportedType': 'Неподдерживаемый тип файла. Используйте PNG, JPEG, WebP, GIF или BMP.',
+  'chat.attachment.unsupportedType':
+    'Неподдерживаемый тип файла. Используйте PNG, JPEG, WebP, GIF или BMP.',
   'chat.attachment.readFailed': 'Не удалось прочитать файл',
   'memory.searchAria': 'Поиск в памяти',
   'memory.searchPlaceholder': 'Поиск записей памяти...',
@@ -1539,7 +1708,8 @@ const messages: TranslationMap = {
   'navigator.documents': 'Документы',
   'navigator.people': 'Люди',
   'navigator.topics': 'Темы',
-  'dreams.description': 'Сны — это AI-отражения, которые синтезируют закономерности из твоих воспоминаний.',
+  'dreams.description':
+    'Сны — это AI-отражения, которые синтезируют закономерности из твоих воспоминаний.',
   'dreams.comingSoon': 'Скоро',
   'assignment.memoryLlm': 'LLM памяти',
   'assignment.memoryLlmAria': 'Выбор Memory LLM',
@@ -1584,19 +1754,24 @@ const messages: TranslationMap = {
   'workspace.buildSummaryTrees': 'Построить деревья суммаризации',
   'workspace.viewVault': 'Открыть хранилище',
   'workspace.openingVaultTitle': 'Открытие хранилища в Obsidian',
-  'workspace.openingVaultMessage': 'Если Obsidian не открывается, установите его с obsidian.md или используйте «Показать папку». Путь к хранилищу:',
+  'workspace.openingVaultMessage':
+    'Если Obsidian не открывается, установите его с obsidian.md или используйте «Показать папку». Путь к хранилищу:',
   'workspace.openVaultFailedTitle': 'Не удалось открыть хранилище в Obsidian',
-  'workspace.openVaultFailedMessage': 'Используйте Reveal Folder, чтобы напрямую открыть каталог хранилища. Путь к хранилищу:',
+  'workspace.openVaultFailedMessage':
+    'Используйте Reveal Folder, чтобы напрямую открыть каталог хранилища. Путь к хранилищу:',
   'workspace.revealVaultFailed': 'Не удалось показать папку хранилища',
   'workspace.revealFolder': 'Показать папку',
   'workspace.checkingVault': 'Проверка…',
-  'workspace.vaultNotRegisteredHelp': 'Obsidian открывает только папки, добавленные как хранилище. В Obsidian выберите «Открыть папку как хранилище» и укажите папку ниже — это нужно сделать только один раз. Затем нажмите «Просмотр хранилища» снова.',
-  'workspace.obsidianNotFoundHelp': 'Obsidian не найден на этом устройстве. Установите его или — если он установлен в нестандартном месте — укажите папку конфигурации в разделе «Дополнительно».',
+  'workspace.vaultNotRegisteredHelp':
+    'Obsidian открывает только папки, добавленные как хранилище. В Obsidian выберите «Открыть папку как хранилище» и укажите папку ниже — это нужно сделать только один раз. Затем нажмите «Просмотр хранилища» снова.',
+  'workspace.obsidianNotFoundHelp':
+    'Obsidian не найден на этом устройстве. Установите его или — если он установлен в нестандартном месте — укажите папку конфигурации в разделе «Дополнительно».',
   'workspace.openAnyway': 'Всё равно открыть в Obsidian',
   'workspace.installObsidian': 'Установить Obsidian',
   'workspace.obsidianAdvanced': 'Obsidian установлен в другом месте?',
   'workspace.obsidianConfigDirLabel': 'Папка конфигурации Obsidian',
-  'workspace.obsidianConfigDirHint': 'Путь к папке, содержащей obsidian.json (например, ~/.config/obsidian). Оставьте пустым для автоопределения.',
+  'workspace.obsidianConfigDirHint':
+    'Путь к папке, содержащей obsidian.json (например, ~/.config/obsidian). Оставьте пустым для автоопределения.',
   'workspace.obsidianConfigDirPlaceholder': '~/.config/obsidian',
   'workspace.graphLoadFailed': 'Не удалось загрузить граф памяти',
   'workspace.loadingGraph': 'Загрузка графа памяти...',
@@ -1644,9 +1819,11 @@ const messages: TranslationMap = {
   'memorySources.empty': 'Источников памяти пока нет. Добавьте один, чтобы начать кормить память.',
   'memorySources.customSources': 'Пользовательские источники',
   'memorySources.addSource': 'Добавить источник',
-  'memorySources.noCustomSources': 'Пользовательских источников пока нет. Для начала добавьте папку, репозиторий GitHub, канал RSS или веб-страницу.',
+  'memorySources.noCustomSources':
+    'Пользовательских источников пока нет. Для начала добавьте папку, репозиторий GitHub, канал RSS или веб-страницу.',
   'memorySources.loadingConnections': 'Загрузка подключений…',
-  'memorySources.noConnections': 'Активных соединений Composio не ​​найдено. Сначала подключите интеграцию.',
+  'memorySources.noConnections':
+    'Активных соединений Composio не ​​найдено. Сначала подключите интеграцию.',
   'memorySources.pickConnection': 'Выберите соединение',
   'memorySources.selectConnection': '— Выберите соединение —',
   'memorySources.composioListFailed': 'Не удалось загрузить соединения Composio.',
@@ -1697,11 +1874,14 @@ const messages: TranslationMap = {
   'backend.aiBackend': 'AI-бэкенд',
   'backend.cloud': 'Облако',
   'backend.recommended': 'Рекомендуется',
-  'backend.cloudDescription': 'Быстрые и мощные модели на наших серверах. Готовы к использованию сразу.',
-  'backend.privacyNote': 'Личные данные, сообщения и ключи никогда не отправляются на наши серверы.',
+  'backend.cloudDescription':
+    'Быстрые и мощные модели на наших серверах. Готовы к использованию сразу.',
+  'backend.privacyNote':
+    'Личные данные, сообщения и ключи никогда не отправляются на наши серверы.',
   'backend.local': 'Локально',
   'backend.advanced': 'Дополнительно',
-  'backend.localDescription': 'Запускай модели на своём устройстве с помощью Ollama. Полная приватность, требует настройки.',
+  'backend.localDescription':
+    'Запускай модели на своём устройстве с помощью Ollama. Полная приватность, требует настройки.',
   'backend.ramRecommended': 'Рекомендуется 16 ГБ+ RAM',
   'subconscious.tasks': 'задач',
   'subconscious.ticks': 'тиков',
@@ -1744,18 +1924,23 @@ const messages: TranslationMap = {
   'stats.tokens': 'токенов',
   'bootCheck.invalidUrl': 'Введи URL среды выполнения.',
   'bootCheck.urlMustStartWith': 'URL должен начинаться с http:// или https://',
-  'bootCheck.validUrlRequired': 'Похоже, это не корректный URL (попробуй https://core.example.com/rpc)',
+  'bootCheck.validUrlRequired':
+    'Похоже, это не корректный URL (попробуй https://core.example.com/rpc)',
   'bootCheck.tokenRequired': 'Для подключения нужен токен авторизации.',
   'bootCheck.chooseCoreMode': 'Выбрать среду выполнения',
   'bootCheck.connectToCore': 'Подключиться к среде выполнения',
-  'bootCheck.desktopDescription': 'OpenHuman нужна среда выполнения для работы. Выбери, где она должна находиться.',
-  'bootCheck.webDescription': 'В браузере OpenHuman подключается к среде выполнения под твоим управлением. Введи URL и токен авторизации, или скачай настольное приложение для локального запуска.',
+  'bootCheck.desktopDescription':
+    'OpenHuman нужна среда выполнения для работы. Выбери, где она должна находиться.',
+  'bootCheck.webDescription':
+    'В браузере OpenHuman подключается к среде выполнения под твоим управлением. Введи URL и токен авторизации, или скачай настольное приложение для локального запуска.',
   'bootCheck.preferDesktop': 'Хочешь держать всё на своём устройстве?',
   'bootCheck.downloadDesktop': 'Скачать настольное приложение',
   'bootCheck.localRecommended': 'Запустить локально (рекомендуется)',
-  'bootCheck.localDescription': 'Работает прямо на твоём компьютере. Быстро, полностью приватно, ничего настраивать не нужно.',
+  'bootCheck.localDescription':
+    'Работает прямо на твоём компьютере. Быстро, полностью приватно, ничего настраивать не нужно.',
   'bootCheck.cloudMode': 'Запустить в облаке (сложно)',
-  'bootCheck.cloudDescription': 'Подключись к среде выполнения, которую ты размещаешь в другом месте. Работает 24×7, не нужно держать это устройство включённым.',
+  'bootCheck.cloudDescription':
+    'Подключись к среде выполнения, которую ты размещаешь в другом месте. Работает 24×7, не нужно держать это устройство включённым.',
   'bootCheck.coreRpcUrl': 'URL среды выполнения',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'Токен авторизации',
@@ -1772,28 +1957,34 @@ const messages: TranslationMap = {
   'bootCheck.switchMode': 'Выбрать другую среду',
   'bootCheck.quit': 'Выйти',
   'bootCheck.legacyDetected': 'Обнаружена устаревшая фоновая среда',
-  'bootCheck.legacyDescription': 'На этом устройстве уже запущен отдельно установленный демон OpenHuman. Нужно его убрать, прежде чем встроенная среда сможет взять управление.',
+  'bootCheck.legacyDescription':
+    'На этом устройстве уже запущен отдельно установленный демон OpenHuman. Нужно его убрать, прежде чем встроенная среда сможет взять управление.',
   'bootCheck.removing': 'Удаление…',
   'bootCheck.removeContinue': 'Удалить и продолжить',
   'bootCheck.localNeedsRestart': 'Требуется перезапуск локальной среды',
-  'bootCheck.localNeedsRestartDesc': 'Локальная среда выполнения и приложение используют разные версии. Быстрый перезапуск синхронизирует их.',
+  'bootCheck.localNeedsRestartDesc':
+    'Локальная среда выполнения и приложение используют разные версии. Быстрый перезапуск синхронизирует их.',
   'bootCheck.restarting': 'Перезапуск…',
   'bootCheck.restartCore': 'Перезапустить среду',
   'bootCheck.cloudNeedsUpdate': 'Требуется обновление облачной среды',
-  'bootCheck.cloudNeedsUpdateDesc': 'Облачная среда и приложение используют разные версии. Запусти обновление для синхронизации.',
+  'bootCheck.cloudNeedsUpdateDesc':
+    'Облачная среда и приложение используют разные версии. Запусти обновление для синхронизации.',
   'bootCheck.updating': 'Обновление…',
   'bootCheck.updateCloudCore': 'Обновить облачную среду',
   'bootCheck.versionCheckFailed': 'Проверка версии среды не удалась',
-  'bootCheck.versionCheckFailedDesc': 'Среда работает, но не сообщает свою версию. Возможно, она устарела. Перезапусти или обнови её для продолжения.',
+  'bootCheck.versionCheckFailedDesc':
+    'Среда работает, но не сообщает свою версию. Возможно, она устарела. Перезапусти или обнови её для продолжения.',
   'bootCheck.working': 'Работаю…',
   'bootCheck.restartUpdateCore': 'Перезапустить / обновить среду',
   'bootCheck.unexpectedError': 'Неожиданная ошибка при загрузке',
   'bootCheck.actionFailed': 'Что-то пошло не так. Попробуй ещё раз.',
   'bootCheck.portConflictTitle': 'Не удалось запустить движок приложения',
-  'bootCheck.portConflictBody': 'Другой процесс использует сетевой порт, необходимый OpenHuman. Попробуем устранить это автоматически.',
+  'bootCheck.portConflictBody':
+    'Другой процесс использует сетевой порт, необходимый OpenHuman. Попробуем устранить это автоматически.',
   'bootCheck.portConflictFixButton': 'Исправить автоматически',
   'bootCheck.portConflictFixing': 'Исправление…',
-  'bootCheck.portConflictFixFailed': 'Автоматическое исправление не сработало. Перезагрузите компьютер и попробуйте снова.',
+  'bootCheck.portConflictFixFailed':
+    'Автоматическое исправление не сработало. Перезагрузите компьютер и попробуйте снова.',
   'notifications.justNow': 'только что',
   'notifications.minAgo': '{n} мин назад',
   'notifications.hrAgo': '{n} ч назад',
@@ -1810,7 +2001,8 @@ const messages: TranslationMap = {
   'about.update.status.availableNoVersion': 'Доступно обновление',
   'about.update.status.downloading': 'Загрузка...',
   'about.update.status.readyToInstall': 'v{version} готова к установке',
-  'about.update.status.readyToInstallNoVersion': 'Новая версия загружена и готова. Перезапусти для применения.',
+  'about.update.status.readyToInstallNoVersion':
+    'Новая версия загружена и готова. Перезапусти для применения.',
   'about.update.status.installing': 'Установка...',
   'about.update.status.restarting': 'Перезапуск...',
   'about.update.status.upToDate': 'У тебя установлена последняя версия.',
@@ -1821,7 +2013,8 @@ const messages: TranslationMap = {
   'welcome.continueLocally': 'Продолжить локально',
   'welcome.continueLocallyExperimental': 'Продолжить локально (Экспериментально)',
   'welcome.localSessionStarting': 'Запуск локального сеанса...',
-  'welcome.localSessionDesc': 'Использует автономный локальный профиль и пропускает TinyHumans OAuth.',
+  'welcome.localSessionDesc':
+    'Использует автономный локальный профиль и пропускает TinyHumans OAuth.',
   'chat.agentChatDesc': 'Открыть прямой чат с агентом.',
   'chat.modelPlaceholder': 'gpt-4o',
   'channels.activeRouteValue': '{channel} через {authMode}',
@@ -1842,10 +2035,12 @@ const messages: TranslationMap = {
   'composio.authExpired': 'Срок авторизации истёк',
   'composio.reconnect': 'Переподключить',
   'composio.expiredAuthorization': 'Срок действия авторизации {name} истек',
-  'composio.expiredDescription': 'Повторно подключитесь, чтобы повторно включить инструменты {name}. OpenHuman будет держать эту интеграцию недоступной, пока вы не обновите доступ к OAuth.',
+  'composio.expiredDescription':
+    'Повторно подключитесь, чтобы повторно включить инструменты {name}. OpenHuman будет держать эту интеграцию недоступной, пока вы не обновите доступ к OAuth.',
   'composio.envVarOverrides': 'задана, она переопределяет этот параметр.',
   'composio.previewBadge': 'Предварительный просмотр',
-  'composio.previewTooltip': 'Скоро интеграция агента — вы можете подключиться, но агент пока не может использовать этот набор инструментов.',
+  'composio.previewTooltip':
+    'Скоро интеграция агента — вы можете подключиться, но агент пока не может использовать этот набор инструментов.',
   'memory.day.sun': 'Вс',
   'memory.day.mon': 'Пн',
   'memory.day.tue': 'Вт',
@@ -1915,7 +2110,8 @@ const messages: TranslationMap = {
   'app.openhumanLink.billing.stayOnTrial': 'Остаться на пробном периоде',
   'app.openhumanLink.billing.trialCredit': 'Пробный кредит',
   'app.openhumanLink.billing.trialDesc': 'Описание пробного периода',
-  'app.openhumanLink.defaultBody': 'Ещё не готово во всплывающем окне. Откройте полную страницу настроек, когда понадобится.',
+  'app.openhumanLink.defaultBody':
+    'Ещё не готово во всплывающем окне. Откройте полную страницу настроек, когда понадобится.',
   'app.openhumanLink.discord.intro': 'Введение',
   'app.openhumanLink.discord.openInvite': 'Открыть приглашение',
   'app.openhumanLink.discord.perk1': 'Преимущество 1',
@@ -1935,7 +2131,8 @@ const messages: TranslationMap = {
   'app.openhumanLink.notifications.retry': 'Повторить тестовое уведомление',
   'app.openhumanLink.notifications.send': 'Отправить тестовое уведомление',
   'app.openhumanLink.notifications.sendFailed': 'Не удалось отправить: {error}',
-  'app.openhumanLink.notifications.sent': 'Тестовое уведомление отправлено. Если вы его не получили, откройте «Системные настройки» → «Уведомления» → OpenHuman, включите «Разрешить уведомления» и установите стиль баннера «Постоянный».',
+  'app.openhumanLink.notifications.sent':
+    'Тестовое уведомление отправлено. Если вы его не получили, откройте «Системные настройки» → «Уведомления» → OpenHuman, включите «Разрешить уведомления» и установите стиль баннера «Постоянный».',
   'app.openhumanLink.skipForNow': 'Пропустить',
   'app.openhumanLink.telegramUnavailable': 'Telegram недоступен',
   'app.openhumanLink.title.accounts': 'Подключи свои приложения',
@@ -1993,7 +2190,8 @@ const messages: TranslationMap = {
   'channels.web.alwaysAvailable': 'Всегда доступно',
   'chat.approval.approve': 'Утвердить',
   'chat.approval.alwaysAllow': 'Всегда разрешать',
-  'chat.approval.alwaysAllowHint': 'Перестаньте запрашивать этот инструмент — добавьте его в свой список «Всегда разрешено».',
+  'chat.approval.alwaysAllowHint':
+    'Перестаньте запрашивать этот инструмент — добавьте его в свой список «Всегда разрешено».',
   'chat.approval.deciding': 'Работающий…',
   'chat.approval.deny': 'Отрицать',
   'chat.approval.error': 'Не удалось записать свое решение — попробуйте еще раз.',
@@ -2006,34 +2204,44 @@ const messages: TranslationMap = {
   'channels.authMode.api_key': 'Используйте свой собственный ключ API',
   'channels.fieldRequired': 'Требуется {field}',
   'channels.mcp.title': 'MCP Серверы',
-  'channels.mcp.description': 'Просматривайте серверы протокола контекста модели и управляйте ими — они расширяют возможности ИИ новыми инструментами.',
+  'channels.mcp.description':
+    'Просматривайте серверы протокола контекста модели и управляйте ими — они расширяют возможности ИИ новыми инструментами.',
   'channels.discord.displayName': 'Discord',
   'channels.discord.description': 'Отправляйте и получайте сообщения через Discord.',
-  'channels.discord.authMode.bot_token.description': 'Предоставьте свой собственный токен бота Discord.',
-  'channels.discord.authMode.oauth.description': 'Установите бот OpenHuman на свой сервер Discord через OAuth.',
-  'channels.discord.authMode.managed_dm.description': 'Свяжите свою личную учетную запись Discord с ботом OpenHuman.',
+  'channels.discord.authMode.bot_token.description':
+    'Предоставьте свой собственный токен бота Discord.',
+  'channels.discord.authMode.oauth.description':
+    'Установите бот OpenHuman на свой сервер Discord через OAuth.',
+  'channels.discord.authMode.managed_dm.description':
+    'Свяжите свою личную учетную запись Discord с ботом OpenHuman.',
   'channels.discord.fields.bot_token.label': 'Токен бота',
   'channels.discord.fields.bot_token.placeholder': 'Ваш токен бота Discord',
   'channels.discord.fields.guild_id.label': 'Идентификатор сервера (гильдии)',
   'channels.discord.fields.guild_id.placeholder': 'Необязательно: ограничить конкретным сервером',
   'channels.telegram.displayName': 'Telegram',
   'channels.telegram.description': 'Отправка и получение сообщений через Telegram.',
-  'channels.telegram.authMode.managed_dm.description': 'Отправьте сообщение боту OpenHuman Telegram напрямую.',
-  'channels.telegram.authMode.bot_token.description': 'Предоставьте свой собственный токен бота Telegram от @BotFather.',
+  'channels.telegram.authMode.managed_dm.description':
+    'Отправьте сообщение боту OpenHuman Telegram напрямую.',
+  'channels.telegram.authMode.bot_token.description':
+    'Предоставьте свой собственный токен бота Telegram от @BotFather.',
   'channels.telegram.fields.bot_token.label': 'Токен бота',
   'channels.telegram.fields.bot_token.placeholder': '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
   'channels.telegram.fields.allowed_users.label': 'Разрешенные пользователи',
-  'channels.telegram.fields.allowed_users.placeholder': 'Имена пользователей Telegram, разделенные запятыми',
+  'channels.telegram.fields.allowed_users.placeholder':
+    'Имена пользователей Telegram, разделенные запятыми',
   'channels.telegram.remoteControlTitle': 'Удаленное управление (Telegram)',
-  'channels.telegram.remoteControlBody': 'Из разрешенного чата Telegram отправьте /status, /sessions, /new или /help. В маршрутизации моделей по-прежнему используются /model и /models.',
+  'channels.telegram.remoteControlBody':
+    'Из разрешенного чата Telegram отправьте /status, /sessions, /new или /help. В маршрутизации моделей по-прежнему используются /model и /models.',
   'channels.web.displayName': 'Интернет',
   'channels.web.description': 'Общайтесь через встроенный веб-интерфейс.',
-  'channels.web.authMode.managed_dm.description': 'Используйте встроенный веб-чат — настройка не требуется.',
+  'channels.web.authMode.managed_dm.description':
+    'Используйте встроенный веб-чат — настройка не требуется.',
   'channels.yuanbao.connect': 'Connect',
   'channels.yuanbao.connecting': 'Подключение…',
   'channels.yuanbao.fieldRequired': '{field} обязателен',
   'channels.yuanbao.reconnect': 'Reconnect',
-  'channels.yuanbao.savedRestartRequired': 'Канал сохранён. Перезапустите приложение для его активации.',
+  'channels.yuanbao.savedRestartRequired':
+    'Канал сохранён. Перезапустите приложение для его активации.',
   'channels.yuanbao.unexpectedStatus': 'Неожиданный статус подключения: {status}',
   'chat.unsubscribeApproval.approve': 'Подтвердить и отписаться',
   'chat.unsubscribeApproval.approved': '✓ Подписка успешно отменена.',
@@ -2062,12 +2270,17 @@ const messages: TranslationMap = {
   'iosPair.connectedLoading': 'Подключено! Загрузка... Срок действия',
   'iosPair.connecting': 'Подключение к рабочему столу...',
   'iosPair.desktopLabel': 'Рабочий стол',
-  'iosPair.error.camera': 'Сканирование камерой не удалось. Проверьте разрешения камеры и повторите попытку.',
-  'iosPair.error.connectionFailed': 'Не удалось подключиться. Убедитесь, что десктопное приложение запущено, и повторите попытку.',
-  'iosPair.error.invalidQr': 'Неверный QR-код. Убедитесь, что вы сканируете код сопряжения OpenHuman.',
-  'iosPair.error.unreachableDesktop': 'Не удалось подключиться к рабочему столу. Убедитесь, что оба устройства в сети, и повторите попытку.',
+  'iosPair.error.camera':
+    'Сканирование камерой не удалось. Проверьте разрешения камеры и повторите попытку.',
+  'iosPair.error.connectionFailed':
+    'Не удалось подключиться. Убедитесь, что десктопное приложение запущено, и повторите попытку.',
+  'iosPair.error.invalidQr':
+    'Неверный QR-код. Убедитесь, что вы сканируете код сопряжения OpenHuman.',
+  'iosPair.error.unreachableDesktop':
+    'Не удалось подключиться к рабочему столу. Убедитесь, что оба устройства в сети, и повторите попытку.',
   'iosPair.expired': 'QR code истек. Попросите рабочий стол повторно сгенерировать код.',
-  'iosPair.instructions': 'Откройте OpenHuman на рабочем столе, перейдите в Настройки > Устройства и нажмите «Привязать телефон», чтобы показать QR-код.',
+  'iosPair.instructions':
+    'Откройте OpenHuman на рабочем столе, перейдите в Настройки > Устройства и нажмите «Привязать телефон», чтобы показать QR-код.',
   'iosPair.retryScan': 'Повторить сканирование',
   'iosPair.scanQrCode': 'Сканирование QR code',
   'iosPair.scannerOpening': 'Открытие сканера...',
@@ -2079,25 +2292,30 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Поддомен Atlassian',
   'composio.connect.connect': 'Подключить',
-  'composio.connect.dynamicsOrgNameHint': 'Например, "myorg" для myorg.crm.dynamics.com. Введите только короткое название организации, а не полный URL.',
+  'composio.connect.dynamicsOrgNameHint':
+    'Например, "myorg" для myorg.crm.dynamics.com. Введите только короткое название организации, а не полный URL.',
   'composio.connect.dynamicsOrgNameLabel': 'Название организации Dynamics 365',
   'composio.connect.connectionFailed': 'Не удалось подключиться (статус: {status}).',
   'composio.connect.disconnectFailed': 'Ошибка отключения: {msg}',
   'composio.connect.disconnecting': 'Отключение…',
   'composio.connect.idleDescription': 'Подключите свой',
-  'composio.connect.idleDescriptionSuffix': 'аккаунт. Мы откроем окно браузера, вы предоставите доступ там, и приложение автоматически обнаружит подключение.',
+  'composio.connect.idleDescriptionSuffix':
+    'аккаунт. Мы откроем окно браузера, вы предоставите доступ там, и приложение автоматически обнаружит подключение.',
   'composio.connect.isConnected': 'подключён.',
   'composio.connect.manage': 'Управлять',
   'composio.connect.needsFieldsPrefix': 'Чтобы подключить',
-  'composio.connect.needsFieldsSuffix': 'нам нужно немного больше информации. Заполните недостающие поля ниже и повторите попытку.',
+  'composio.connect.needsFieldsSuffix':
+    'нам нужно немного больше информации. Заполните недостающие поля ниже и повторите попытку.',
   'composio.connect.needsSubdomain': 'Чтобы подключить',
-  'composio.connect.needsSubdomainSuffix': 'введите ваш поддомен Atlassian (например, acme для acme.atlassian.net) и попробуйте снова.',
+  'composio.connect.needsSubdomainSuffix':
+    'введите ваш поддомен Atlassian (например, acme для acme.atlassian.net) и попробуйте снова.',
   'composio.connect.oauthComplete': 'Ожидание завершения OAuth…',
   'composio.connect.oauthTimeout': 'Таймаут OAuth',
   'composio.connect.permissions': 'Разрешения',
   'composio.connect.permissionsDefault': 'Чтение + запись включены по умолчанию',
   'composio.connect.permissionsNote': 'может раскрыть',
-  'composio.connect.permissionsNoteSuffix': 'Собственные права агента OpenHuman настраиваются ниже переключателями чтения, записи и администратора.',
+  'composio.connect.permissionsNoteSuffix':
+    'Собственные права агента OpenHuman настраиваются ниже переключателями чтения, записи и администратора.',
   'composio.connect.reopenBrowser': 'Открыть браузер снова',
   'composio.connect.requestingUrl': 'Запрос URL подключения…',
   'composio.connect.requiredFieldEmpty': 'Это поле обязательно для заполнения.',
@@ -2107,14 +2325,19 @@ const messages: TranslationMap = {
   'composio.connect.scope.read': 'Чтение',
   'composio.connect.scope.readHint': 'Разрешить агенту читать данные из этого соединения.',
   'composio.connect.scope.write': 'Запись',
-  'composio.connect.scope.writeHint': 'Разрешить агенту создавать или изменять данные через это соединение.',
+  'composio.connect.scope.writeHint':
+    'Разрешить агенту создавать или изменять данные через это соединение.',
   'composio.connect.scope.admin': 'Администратор',
-  'composio.connect.scope.adminHint': 'Разрешить агенту управлять настройками, разрешениями или деструктивными действиями.',
-  'composio.connect.subdomainInvalid': 'Введите только короткий поддомен (например, "acme"), а не полный URL. Допустимы только буквы, цифры и дефисы.',
+  'composio.connect.scope.adminHint':
+    'Разрешить агенту управлять настройками, разрешениями или деструктивными действиями.',
+  'composio.connect.subdomainInvalid':
+    'Введите только короткий поддомен (например, "acme"), а не полный URL. Допустимы только буквы, цифры и дефисы.',
   'composio.connect.subdomainRequired': 'Введи свой поддомен Atlassian для продолжения.',
-  'composio.connect.wabaIdHint': 'Найдите его через GET /me/businesses, затем GET /{business_id}/owned_whatsapp_business_accounts, используя ваш токен доступа Meta.',
+  'composio.connect.wabaIdHint':
+    'Найдите его через GET /me/businesses, затем GET /{business_id}/owned_whatsapp_business_accounts, используя ваш токен доступа Meta.',
   'composio.connect.wabaIdLabel': 'ID аккаунта WhatsApp Business',
-  'composio.connect.wabaIdRequired': 'Введи ID аккаунта WhatsApp Business (WABA ID) для продолжения.',
+  'composio.connect.wabaIdRequired':
+    'Введи ID аккаунта WhatsApp Business (WABA ID) для продолжения.',
   'composio.connect.waitingFor': 'Ожидание',
   'composio.connect.waitingHint': 'Подсказка ожидания',
   'composio.triggers.heading': 'Триггеры',
@@ -2154,7 +2377,8 @@ const messages: TranslationMap = {
   'daemon.serviceBlockingGate.downloadHint': 'Подсказка по загрузке',
   'daemon.serviceBlockingGate.downloadLatest': 'Скачать последнюю версию',
   'daemon.serviceBlockingGate.retryCore': 'Повторить запуск Core',
-  'daemon.serviceBlockingGate.retryFailed': 'Повтор не удался. Скачай последнюю версию и попробуй снова.',
+  'daemon.serviceBlockingGate.retryFailed':
+    'Повтор не удался. Скачай последнюю версию и попробуй снова.',
   'daemon.serviceBlockingGate.retrying': 'Повтор...',
   'daemon.serviceBlockingGate.title': 'Ядро OpenHuman недоступно',
   'home.banners.discordSubtitle': 'Подзаголовок Discord',
@@ -2183,13 +2407,16 @@ const messages: TranslationMap = {
   'intelligence.memoryChunk.scoreBars.heading': 'п о ч е м у   с о х р а н е н о',
   'intelligence.memoryChunk.scoreBars.kept': 'сохранено',
   'intelligence.diagram.title': 'Архитектурная диаграмма',
-  'intelligence.diagram.description': 'Последний локальный результат архитектуры с настроенного конечного точки диаграммы.',
+  'intelligence.diagram.description':
+    'Последний локальный результат архитектуры с настроенного конечного точки диаграммы.',
   'intelligence.diagram.refresh': 'Refresh',
   'intelligence.diagram.refreshAria': 'Обновить диаграмму',
   'intelligence.diagram.emptyTitle': 'Диаграмма пока недоступна',
-  'intelligence.diagram.emptyDescription': 'Создайте архитектурную диаграмму из оркестратора, и эта панель обновится с настроенной локальной конечной точки.',
+  'intelligence.diagram.emptyDescription':
+    'Создайте архитектурную диаграмму из оркестратора, и эта панель обновится с настроенной локальной конечной точки.',
   'intelligence.diagram.skillInstallCommand': 'npx skills add yizhiyanhua-ai/fireworks-tech-graph',
-  'intelligence.diagram.promptExample': 'Создай архитектурную диаграмму текущего роя в тёмном терминальном стиле',
+  'intelligence.diagram.promptExample':
+    'Создай архитектурную диаграмму текущего роя в тёмном терминальном стиле',
   'intelligence.diagram.imageAlt': 'Последняя сгенерированная архитектурная диаграмма OpenHuman',
   'intelligence.diagram.refreshesEvery': 'Обновляется каждые {seconds} с',
   'intelligence.memoryText.entityTypePrefix': 'Тип сущности',
@@ -2253,16 +2480,20 @@ const messages: TranslationMap = {
   'notifications.center.markAllRead': 'Отметить всё прочитанным',
   'notifications.center.title': 'Уведомления',
   'oauth.button.connecting': 'Подключение...',
-  'oauth.button.loopbackTimeout': 'Время входа истекло — браузер не завершил перенаправление OAuth. Пожалуйста, попробуйте снова.',
+  'oauth.button.loopbackTimeout':
+    'Время входа истекло — браузер не завершил перенаправление OAuth. Пожалуйста, попробуйте снова.',
   'oauth.login.continueWith': 'Продолжить через',
   'onboarding.contextGathering.buildingDesc': 'Сборка профиля',
   'onboarding.contextGathering.buildingProfile': 'Составление профиля...',
   'onboarding.contextGathering.continueToChat': 'Перейти в чат',
   'onboarding.contextGathering.coreAlive': 'Ядро доступно — первый запуск может занять минуту.',
   'onboarding.contextGathering.coreAliveProbing': 'Проверка соединения с ядром…',
-  'onboarding.contextGathering.coreUnreachable': 'Ядро не отвечает. Можно продолжить и попробовать позже.',
-  'onboarding.contextGathering.errorDesc': 'Мы не смогли построить ваш полный профиль прямо сейчас, но это нормально — вы можете продолжить, и профиль будет дополняться со временем.',
-  'onboarding.contextGathering.stillWorkingDesc': 'Первый запуск может занять 30–60 секунд, пока мы прогреваем локальную модель и инструменты. Вы можете перейти в чат в любой момент — построение профиля продолжится в фоне.',
+  'onboarding.contextGathering.coreUnreachable':
+    'Ядро не отвечает. Можно продолжить и попробовать позже.',
+  'onboarding.contextGathering.errorDesc':
+    'Мы не смогли построить ваш полный профиль прямо сейчас, но это нормально — вы можете продолжить, и профиль будет дополняться со временем.',
+  'onboarding.contextGathering.stillWorkingDesc':
+    'Первый запуск может занять 30–60 секунд, пока мы прогреваем локальную модель и инструменты. Вы можете перейти в чат в любой момент — построение профиля продолжится в фоне.',
   'onboarding.contextGathering.stillWorkingTitle': 'Профиль ещё составляется…',
   'onboarding.contextGathering.title': 'Сбор контекста',
   'openhuman.team_list_teams': 'Список команд',
@@ -2279,14 +2510,16 @@ const messages: TranslationMap = {
   'pages.settings.account.connections': 'Подключения',
   'pages.settings.account.connectionsDesc': 'Описание подключений',
   'pages.settings.account.migration': 'Импорт из другого ассистента',
-  'pages.settings.account.migrationDesc': 'Перенесите память и заметки из OpenClaw (а вскоре и Hermes) в это рабочее пространство.',
+  'pages.settings.account.migrationDesc':
+    'Перенесите память и заметки из OpenClaw (а вскоре и Hermes) в это рабочее пространство.',
   'pages.settings.account.privacy': 'Конфиденциальность',
   'pages.settings.account.privacyDesc': 'Описание конфиденциальности',
   'pages.settings.account.recoveryPhrase': 'Фраза восстановления',
   'pages.settings.account.recoveryPhraseDesc': 'Описание фразы восстановления',
   'pages.settings.account.team': 'Команда',
   'pages.settings.account.teamDesc': 'Описание команды',
-  'pages.settings.accountSection.description': 'Фраза восстановления, команда, подключения и настройки конфиденциальности.',
+  'pages.settings.accountSection.description':
+    'Фраза восстановления, команда, подключения и настройки конфиденциальности.',
   'pages.settings.accountSection.title': 'Аккаунт',
   'pages.settings.ai.llm': 'LLM',
   'pages.settings.ai.llmDesc': 'Описание LLM',
@@ -2295,11 +2528,14 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description': 'Языковые модели, локальный Ollama и голос (STT / TTS).',
   'pages.settings.aiSection.title': 'ИИ',
   'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description': 'Маршрутизация, триггеры и история интеграций на базе Composio.',
+  'pages.settings.composioSection.description':
+    'Маршрутизация, триггеры и история интеграций на базе Composio.',
   'settings.developerMenu.composio.title': 'Composio',
-  'settings.developerMenu.composio.desc': 'Режим маршрутизации, триггеры интеграции и архив истории триггеров.',
+  'settings.developerMenu.composio.desc':
+    'Режим маршрутизации, триггеры интеграции и архив истории триггеров.',
   'pages.settings.features.desktopCompanion': 'Десктоп-спутник',
-  'pages.settings.features.desktopCompanionDesc': 'Голосовой ассистент с распознаванием экрана — слушает, видит, говорит, указывает',
+  'pages.settings.features.desktopCompanionDesc':
+    'Голосовой ассистент с распознаванием экрана — слушает, видит, говорит, указывает',
   'pages.settings.features.messagingChannels': 'Каналы мессенджеров',
   'pages.settings.features.messagingChannelsDesc': 'Описание каналов сообщений',
   'pages.settings.features.notifications': 'Уведомления',
@@ -2351,7 +2587,8 @@ const messages: TranslationMap = {
   'rewards.coupon.placeholder': 'Промокод',
   'rewards.coupon.promoCredits': 'Промокредиты',
   'rewards.coupon.recentRedemptions': 'Недавние активации',
-  'rewards.coupon.redeemAccepted': '{code} принят. {amount} разблокируется после выполнения требуемого действия.',
+  'rewards.coupon.redeemAccepted':
+    '{code} принят. {amount} разблокируется после выполнения требуемого действия.',
   'rewards.coupon.redeemButton': 'Использовать код',
   'rewards.coupon.redeemSuccess': '{code} применён. {amount} добавлено к вашим кредитам.',
   'rewards.coupon.redeemedCodes': 'Активированные коды',
@@ -2410,7 +2647,8 @@ const messages: TranslationMap = {
   'settings.ai.openAiCompat.baseUrlLabel': 'База URL',
   'settings.ai.openAiCompat.baseUrlUnavailable': 'Недоступно',
   'settings.ai.openAiCompat.clearKey': 'Очистить ключ',
-  'settings.ai.openAiCompat.description': 'Направьте локальные жгуты на этот сервер /v1 для маршрутизации через поставщиков, настроенных ниже. Для аутентификации используется стабильный ключ, который вы здесь установили, а не внутренний основной носитель приложения.',
+  'settings.ai.openAiCompat.description':
+    'Направьте локальные жгуты на этот сервер /v1 для маршрутизации через поставщиков, настроенных ниже. Для аутентификации используется стабильный ключ, который вы здесь установили, а не внутренний основной носитель приложения.',
   'settings.ai.openAiCompat.keyConfigured': 'Ключ настроен',
   'settings.ai.openAiCompat.keyRequired': 'Требуется ключ',
   'settings.ai.openAiCompat.rotateKey': 'Повернуть ключ',
@@ -2418,7 +2656,8 @@ const messages: TranslationMap = {
   'settings.ai.openAiCompat.title': 'OpenAI-совместимая конечная точка',
   'settings.ai.providerLabel': 'Провайдер',
   'skills.mcpComingSoon.title': 'MCP Серверы',
-  'skills.mcpComingSoon.description': 'Управление MCP-серверами скоро появится. Этот раздел станет центром для обнаружения, подключения и мониторинга интеграций с MCP-серверами.',
+  'skills.mcpComingSoon.description':
+    'Управление MCP-серверами скоро появится. Этот раздел станет центром для обнаружения, подключения и мониторинга интеграций с MCP-серверами.',
   'settings.ai.routing': 'Маршрутизация',
   'settings.ai.routingCustom': 'Пользовательская маршрутизация',
   'settings.ai.routingDefault': 'По умолчанию',
@@ -2433,46 +2672,59 @@ const messages: TranslationMap = {
   'settings.ai.connectProviderLabel': 'Подключить {label}',
   'settings.ai.defaultLocalEndpoint': 'http://localhost:11434/v1',
   'settings.ai.endpointUrlLabel': 'Конечная точка URL',
-  'settings.ai.localRuntimeHelper': 'Где доступен {label}. По умолчанию используется локальный хост; укажите это на удаленном хосте (например, http://10.0.0.4:11434/v1), чтобы использовать общий экземпляр.',
+  'settings.ai.localRuntimeHelper':
+    'Где доступен {label}. По умолчанию используется локальный хост; укажите это на удаленном хосте (например, http://10.0.0.4:11434/v1), чтобы использовать общий экземпляр.',
   'settings.ai.endpointUrlRequired': 'Требуется конечная точка URL.',
-  'settings.ai.endpointProtocolRequired': 'Конечная точка должна начинаться с http:// или https://..',
+  'settings.ai.endpointProtocolRequired':
+    'Конечная точка должна начинаться с http:// или https://..',
   'settings.ai.connectProviderDialog': 'Подключиться {label}',
   'settings.ai.or': 'Или',
-  'settings.ai.openRouterOauthDescription': 'Войдите в систему с помощью OpenRouter и импортируйте управляемый пользователем ключ API с помощью PKCE.',
+  'settings.ai.openRouterOauthDescription':
+    'Войдите в систему с помощью OpenRouter и импортируйте управляемый пользователем ключ API с помощью PKCE.',
   'settings.ai.connecting': 'Подключение...',
   'settings.ai.backgroundLoops': 'Фоновые циклы',
-  'settings.ai.backgroundLoopsDesc': 'Посмотрите, что выполняется без сообщения чата, приостановите работу Heartbeat и проверьте последние строки кредитной книги.',
+  'settings.ai.backgroundLoopsDesc':
+    'Посмотрите, что выполняется без сообщения чата, приостановите работу Heartbeat и проверьте последние строки кредитной книги.',
   'settings.ai.heartbeatControls': 'Управление пульсом.',
-  'settings.ai.heartbeatControlsDesc': 'По умолчанию выключено. Включение запускает цикл; отключение прерывает выполняемую задачу.',
+  'settings.ai.heartbeatControlsDesc':
+    'По умолчанию выключено. Включение запускает цикл; отключение прерывает выполняемую задачу.',
   'settings.ai.heartbeatLoop': 'Цикл Heartbeat',
-  'settings.ai.heartbeatLoopDesc': 'Главный планировщик для планировщика + дополнительный подсознательный вывод.',
+  'settings.ai.heartbeatLoopDesc':
+    'Главный планировщик для планировщика + дополнительный подсознательный вывод.',
   'settings.ai.subconsciousInference': 'Подсознательный вывод.',
-  'settings.ai.subconsciousInferenceDesc': 'Выполняет оценку task/reflection на основе модели по тактам пульса.',
+  'settings.ai.subconsciousInferenceDesc':
+    'Выполняет оценку task/reflection на основе модели по тактам пульса.',
   'settings.ai.calendarMeetingChecks': 'Проверка собраний в календаре.',
-  'settings.ai.calendarMeetingChecksDesc': 'Вызывает список событий календаря для активных соединений календаря Google.',
+  'settings.ai.calendarMeetingChecksDesc':
+    'Вызывает список событий календаря для активных соединений календаря Google.',
   'settings.ai.calendarCap': 'Окончание календаря',
   'settings.ai.connectionsPerTick': '{count} подкл./тик',
   'settings.ai.meetingLookahead': 'Предварительный просмотр собрания',
   'settings.ai.minutesShort': '{count} мин',
   'settings.ai.reminderLookahead': 'Предварительный просмотр напоминания',
   'settings.ai.cronReminderChecks': 'Проверка напоминаний Cron.',
-  'settings.ai.cronReminderChecksDesc': 'Сканирование включает задания cron для предстоящих элементов, похожих на напоминания.',
+  'settings.ai.cronReminderChecksDesc':
+    'Сканирование включает задания cron для предстоящих элементов, похожих на напоминания.',
   'settings.ai.relevantNotificationChecks': 'Соответствующие проверки уведомлений.',
-  'settings.ai.relevantNotificationChecksDesc': 'Превращает срочные локальные уведомления в упреждающие оповещения.',
+  'settings.ai.relevantNotificationChecksDesc':
+    'Превращает срочные локальные уведомления в упреждающие оповещения.',
   'settings.ai.externalDelivery': 'Внешняя доставка.',
-  'settings.ai.externalDeliveryDesc': 'Позволяет оповещениям о пульсе отправлять упреждающие сообщения во внешние каналы.',
+  'settings.ai.externalDeliveryDesc':
+    'Позволяет оповещениям о пульсе отправлять упреждающие сообщения во внешние каналы.',
   'settings.ai.interval': 'Интервал',
   'settings.ai.running': 'Выполняется...',
   'settings.ai.plannerTickNow': 'Планировщик отметьте сейчас',
   'settings.ai.loadingHeartbeatControls': 'Загрузка элементов управления пульсом...',
   'settings.ai.heartbeatControlsUnavailable': 'Элементы управления пульсом недоступны.',
   'settings.ai.loopMap': 'Карта цикла',
-  'settings.ai.plannerSummary': 'Планировщик: исходные события {sourceEvents}, отправлено {sent}, дедуплицировано {deduped}.',
+  'settings.ai.plannerSummary':
+    'Планировщик: исходные события {sourceEvents}, отправлено {sent}, дедуплицировано {deduped}.',
   'settings.ai.routeLabel': 'маршрут: {route}',
   'settings.ai.on': 'на',
   'settings.ai.off': 'выкл.',
   'settings.ai.recentUsageLedger': 'Журнал недавнего использования',
-  'settings.ai.recentUsageLedgerDesc': 'Внутренние строки сегодня предоставляют доступ к action/time; исходные теги нуждаются в внутренней поддержке.',
+  'settings.ai.recentUsageLedgerDesc':
+    'Внутренние строки сегодня предоставляют доступ к action/time; исходные теги нуждаются в внутренней поддержке.',
   'settings.ai.latestSpend': 'Последние расходы: {amount} в {time} ({action})',
   'settings.ai.topActions': 'Популярные действия',
   'settings.ai.noSpendRows': 'Строки расходов не загружены.',
@@ -2489,7 +2741,8 @@ const messages: TranslationMap = {
   'settings.ai.temperatureOverride': 'Переопределение температуры',
   'settings.ai.temperatureOverrideSlider': 'Переопределение температуры (ползунок)',
   'settings.ai.temperatureOverrideValue': 'Переопределение температуры (значение)',
-  'settings.ai.temperatureOverrideDesc': 'Ниже = более детерминированно. Оставьте флажок неактивным, чтобы использовать поставщика по умолчанию.',
+  'settings.ai.temperatureOverrideDesc':
+    'Ниже = более детерминированно. Оставьте флажок неактивным, чтобы использовать поставщика по умолчанию.',
   'settings.ai.testFailed': 'Тест не пройден.',
   'settings.ai.testingModel': 'Модель тестирования...',
   'settings.ai.modelResponse': 'Ответ модели',
@@ -2510,7 +2763,8 @@ const messages: TranslationMap = {
   'settings.ai.openAiUrlPlaceholder': 'https://api.openai.com/v1',
   'settings.ai.keepExistingKeyPlaceholder': 'Оставьте пустым, чтобы сохранить существующий ключ.',
   'settings.ai.reindexingMemory': 'Переиндексация памяти',
-  'settings.ai.reindexingMemoryMessage': 'Вложения перерабатываются. Элементы памяти {pending} повторно встраиваются в текущую модель — семантический вызов снижается до тех пор, пока это не завершится. Поиск по ключевым словам продолжает работать, и повторное встраивание продолжается в фоновом режиме, если вы закроете это.',
+  'settings.ai.reindexingMemoryMessage':
+    'Вложения перерабатываются. Элементы памяти {pending} повторно встраиваются в текущую модель — семантический вызов снижается до тех пор, пока это не завершится. Поиск по ключевым словам продолжает работать, и повторное встраивание продолжается в фоновом режиме, если вы закроете это.',
   'settings.ai.signInWithOpenRouter': 'Войдите с помощью OpenRouter',
   'settings.ai.weekBudget': 'Недельный бюджет',
   'settings.ai.cycleRemaining': 'Оставшийся цикл',
@@ -2534,26 +2788,36 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Опросы работников памяти',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Управляемый',
-  'settings.ai.routing.managedDesc': 'OpenHuman выполнит все логические выводы в облаке, выберет лучшую модель для задачи, оптимизирует затраты и сохранит самые безопасные настройки маршрутизации по умолчанию.',
-  'settings.ai.routing.managedMsg': 'OpenHuman будет обрабатывать все выводы для каждой рабочей нагрузки и автоматически выбирать лучший маршрут с точки зрения стоимости, качества и безопасности.',
+  'settings.ai.routing.managedDesc':
+    'OpenHuman выполнит все логические выводы в облаке, выберет лучшую модель для задачи, оптимизирует затраты и сохранит самые безопасные настройки маршрутизации по умолчанию.',
+  'settings.ai.routing.managedMsg':
+    'OpenHuman будет обрабатывать все выводы для каждой рабочей нагрузки и автоматически выбирать лучший маршрут с точки зрения стоимости, качества и безопасности.',
   'settings.ai.routing.useYourOwn': 'Используйте свои собственные модели',
-  'settings.ai.routing.useYourOwnDesc': 'Выберите одного поставщика + модель и направляйте через него всю рабочую нагрузку. Это просто, но может быть неэффективно, поскольку легкий и тяжелый вывод используют один и тот же маршрут.',
+  'settings.ai.routing.useYourOwnDesc':
+    'Выберите одного поставщика + модель и направляйте через него всю рабочую нагрузку. Это просто, но может быть неэффективно, поскольку легкий и тяжелый вывод используют один и тот же маршрут.',
   'settings.ai.routing.advanced': 'Расширенный',
-  'settings.ai.routing.advancedDesc': 'Выбирайте разные модели для разных задач. Это лучший вариант для жесткой оптимизации затрат и максимального контроля.',
-  'settings.ai.routing.customDesc': 'Детальная маршрутизация обеспечивает наилучшую оптимизацию затрат и максимальный контроль. Используйте строки ниже, чтобы решить, какие рабочие нагрузки остаются управляемыми, какие используют общие настройки по умолчанию и какие привязываются к конкретной модели.',
+  'settings.ai.routing.advancedDesc':
+    'Выбирайте разные модели для разных задач. Это лучший вариант для жесткой оптимизации затрат и максимального контроля.',
+  'settings.ai.routing.customDesc':
+    'Детальная маршрутизация обеспечивает наилучшую оптимизацию затрат и максимальный контроль. Используйте строки ниже, чтобы решить, какие рабочие нагрузки остаются управляемыми, какие используют общие настройки по умолчанию и какие привязываются к конкретной модели.',
   'settings.ai.routing.chatAndConversations': 'Чат и беседы',
-  'settings.ai.routing.chatDesc': 'Модели, используемые во время прямого взаимодействия с пользователем, ответов, рассуждений, циклов агента и помощи в кодировании.',
+  'settings.ai.routing.chatDesc':
+    'Модели, используемые во время прямого взаимодействия с пользователем, ответов, рассуждений, циклов агента и помощи в кодировании.',
   'settings.ai.routing.backgroundTasks': 'Фоновые задачи',
-  'settings.ai.routing.bgTasksDesc': 'Модели, используемые вне основного потока разговора для подведения итогов, сердцебиения, обучения и подсознательной оценки.',
+  'settings.ai.routing.bgTasksDesc':
+    'Модели, используемые вне основного потока разговора для подведения итогов, сердцебиения, обучения и подсознательной оценки.',
   'settings.ai.routing.addCustomProvider': 'Добавить специального поставщика.',
   'settings.ai.globalModel.title': 'Выберите одну модель для всего.',
-  'settings.ai.globalModel.desc': 'Это направляет все выводы через одну модель. Это проще, но может оказаться неэффективным с точки зрения стоимости и качества, поскольку легкие и тяжелые задачи будут использовать один и тот же маршрут.',
-  'settings.ai.globalModel.noProviders': 'Сначала добавьте или подключите провайдера. Тогда вы сможете маршрутизировать каждую рабочую нагрузку через одну модель здесь.',
+  'settings.ai.globalModel.desc':
+    'Это направляет все выводы через одну модель. Это проще, но может оказаться неэффективным с точки зрения стоимости и качества, поскольку легкие и тяжелые задачи будут использовать один и тот же маршрут.',
+  'settings.ai.globalModel.noProviders':
+    'Сначала добавьте или подключите провайдера. Тогда вы сможете маршрутизировать каждую рабочую нагрузку через одну модель здесь.',
   'settings.ai.globalModel.provider': 'Поставщик',
   'settings.ai.globalModel.model': 'Модель',
   'settings.ai.globalModel.loadingModels': 'Загрузка моделей…',
   'settings.ai.globalModel.enterModelId': 'Введите идентификатор модели',
-  'settings.ai.globalModel.appliesToAll': 'Применяет один и тот же поставщик + модель к чату, рассуждениям, кодированию, памяти, сердцебиению, обучению и подсознанию. Вложения настраиваются отдельно. Изменения сохраняются при нажатии кнопки «Сохранить».',
+  'settings.ai.globalModel.appliesToAll':
+    'Применяет один и тот же поставщик + модель к чату, рассуждениям, кодированию, памяти, сердцебиению, обучению и подсознанию. Вложения настраиваются отдельно. Изменения сохраняются при нажатии кнопки «Сохранить».',
   'settings.ai.globalModel.saving': 'Сохранение…',
   'settings.ai.globalModel.saved': 'Сохранено',
   'settings.ai.workload.noModel': 'Модель не выбрана',
@@ -2579,14 +2843,17 @@ const messages: TranslationMap = {
   'settings.autocomplete.appFilter.running': 'Выполняется',
   'settings.autocomplete.appFilter.runtime': 'Среда выполнения',
   'settings.autocomplete.appFilter.test': 'Тест',
-  'settings.autocomplete.completionStyle.acceptedCompletion': 'Сохранено {count} принятое автозаполнение — используется для персонализации будущих подсказок.',
-  'settings.autocomplete.completionStyle.acceptedCompletions': 'Сохранено {count} принятых автозаполнений — используется для персонализации будущих подсказок.',
+  'settings.autocomplete.completionStyle.acceptedCompletion':
+    'Сохранено {count} принятое автозаполнение — используется для персонализации будущих подсказок.',
+  'settings.autocomplete.completionStyle.acceptedCompletions':
+    'Сохранено {count} принятых автозаполнений — используется для персонализации будущих подсказок.',
   'settings.autocomplete.completionStyle.clearHistory': 'Очистка…',
   'settings.autocomplete.completionStyle.clearing': 'Очистка…',
   'settings.autocomplete.completionStyle.debounce': 'Задержка (ms)',
   'settings.autocomplete.completionStyle.enabled': 'Включено',
   'settings.autocomplete.completionStyle.maxChars': 'Макс. символов',
-  'settings.autocomplete.completionStyle.noHistory': 'Принятых предложений пока нет. Принимай предложения с помощью Tab, чтобы начать персонализацию.',
+  'settings.autocomplete.completionStyle.noHistory':
+    'Принятых предложений пока нет. Принимай предложения с помощью Tab, чтобы начать персонализацию.',
   'settings.autocomplete.completionStyle.overlayTtl': 'Время отображения (ms)',
   'settings.autocomplete.completionStyle.personalizationHistory': 'История персонализации',
   'settings.autocomplete.completionStyle.styleExamples': 'Примеры стиля (по одному на строку)',
@@ -2596,14 +2863,18 @@ const messages: TranslationMap = {
   'settings.autocomplete.debug.alreadyRunning': 'Автозаполнение уже запущено.',
   'settings.autocomplete.debug.clearHistoryFailed': 'Не удалось очистить историю.',
   'settings.autocomplete.debug.didNotStart': 'Автозаполнение не запустилось.',
-  'settings.autocomplete.debug.disabledInSettings': 'Автозаполнение отключено в настройках. Включите его и сначала сохраните.',
+  'settings.autocomplete.debug.disabledInSettings':
+    'Автозаполнение отключено в настройках. Включите его и сначала сохраните.',
   'settings.autocomplete.debug.fetchSuggestionFailed': 'Не удалось получить текущее предложение.',
-  'settings.autocomplete.debug.inspectFocusedElementFailed': 'Не удалось проверить элемент в фокусе.',
-  'settings.autocomplete.debug.loadSettingsFailed': 'Не удалось загрузить настройки автозаполнения.',
+  'settings.autocomplete.debug.inspectFocusedElementFailed':
+    'Не удалось проверить элемент в фокусе.',
+  'settings.autocomplete.debug.loadSettingsFailed':
+    'Не удалось загрузить настройки автозаполнения.',
   'settings.autocomplete.debug.noSuggestionApplied': 'Предложение не было применено.',
   'settings.autocomplete.debug.noSuggestionReturned': 'Ни одно предложение не вернулось.',
   'settings.autocomplete.debug.refreshStatusFailed': 'Не удалось обновить статус автозаполнения.',
-  'settings.autocomplete.debug.saveAdvancedSettingsFailed': 'Не удалось сохранить дополнительные настройки.',
+  'settings.autocomplete.debug.saveAdvancedSettingsFailed':
+    'Не удалось сохранить дополнительные настройки.',
   'settings.autocomplete.debug.startFailed': 'Не удалось запустить автозаполнение.',
   'settings.autocomplete.debug.stopFailed': 'Не удалось остановить автозаполнение.',
   'settings.autocomplete.debug.suggestionPrefix': 'Предложение: {value}',
@@ -2620,7 +2891,8 @@ const messages: TranslationMap = {
   'settings.billing.autoRecharge.noCards': 'Нет карт',
   'settings.billing.autoRecharge.paymentMethods': 'Способы оплаты',
   'settings.billing.autoRecharge.rechargeInProgress': 'Пополнение в процессе',
-  'settings.billing.autoRecharge.spentThisWeek': '${spent} из ${limit}, использовано на этой неделе',
+  'settings.billing.autoRecharge.spentThisWeek':
+    '${spent} из ${limit}, использовано на этой неделе',
   'settings.billing.autoRecharge.rechargeWhen': 'Пополнять, когда баланс ниже',
   'settings.billing.autoRecharge.saveSettings': 'Сохранение…',
   'settings.billing.autoRecharge.saving': 'Сохранение…',
@@ -2640,13 +2912,16 @@ const messages: TranslationMap = {
   'settings.billing.inferenceBudget.noBudgetDesc': 'Бюджет не задан',
   'settings.billing.inferenceBudget.noRecurringBudget': 'Нет регулярного бюджета',
   'settings.billing.inferenceBudget.noRecurringPlanBudget': 'Нет повторяющегося бюджета плана.',
-  'settings.billing.inferenceBudget.noRecurringWeeklyDesc': 'Ваш текущий план не включает повторяющийся еженедельный бюджет вывода. Вместо этого использование оплачивается из имеющихся кредитов.',
+  'settings.billing.inferenceBudget.noRecurringWeeklyDesc':
+    'Ваш текущий план не включает повторяющийся еженедельный бюджет вывода. Вместо этого использование оплачивается из имеющихся кредитов.',
   'settings.billing.inferenceBudget.remaining': 'Осталось',
   'settings.billing.inferenceBudget.remainingSummary': 'Осталось {remaining} / {budget}',
   'settings.billing.inferenceBudget.spentThisCycle': 'В этом цикле потрачено {amount}',
   'settings.billing.inferenceBudget.cycleEndsOn': 'Цикл заканчивается {date}',
-  'settings.billing.inferenceBudget.exhaustedDesc': 'Использование включенной подписки исчерпано. Пополняйте кредиты, чтобы продолжать использовать AI, не дожидаясь следующего цикла.',
-  'settings.billing.inferenceBudget.discountVsPayg': '{pct}% дешевле за звонок, чем при оплате по мере использования.',
+  'settings.billing.inferenceBudget.exhaustedDesc':
+    'Использование включенной подписки исчерпано. Пополняйте кредиты, чтобы продолжать использовать AI, не дожидаясь следующего цикла.',
+  'settings.billing.inferenceBudget.discountVsPayg':
+    '{pct}% дешевле за звонок, чем при оплате по мере использования.',
   'settings.billing.inferenceBudget.cycleSpend': 'Циклические расходы',
   'settings.billing.inferenceBudget.totalAmount': '{amount} всего',
   'settings.billing.inferenceBudget.inference': 'Вывод',
@@ -2698,20 +2973,27 @@ const messages: TranslationMap = {
   'settings.composio.apiKeyStoredPlaceholder': '•••••••••••••••',
   'settings.composio.clearedToBackend': 'Переключено в режим Backend',
   'settings.composio.confirmItem1': 'Аккаунт на app.composio.dev с API-ключом',
-  'settings.composio.confirmItem2': 'Заново привязать каждую интеграцию через ваш личный аккаунт Composio',
-  'settings.composio.confirmItem3': 'Примечание: триггеры Composio (вебхуки в реальном времени) пока не работают в прямом режиме — только синхронные вызовы инструментов',
+  'settings.composio.confirmItem2':
+    'Заново привязать каждую интеграцию через ваш личный аккаунт Composio',
+  'settings.composio.confirmItem3':
+    'Примечание: триггеры Composio (вебхуки в реальном времени) пока не работают в прямом режиме — только синхронные вызовы инструментов',
   'settings.composio.confirmNeedItems': 'Вам понадобится:',
   'settings.composio.confirmSwitch': 'Понятно, переключить на «Прямой»',
   'settings.composio.confirmTitle': '⚠️ Переключение на прямой режим',
-  'settings.composio.confirmWarning': 'Ваши существующие интеграции (Gmail, Slack, GitHub и т. д., привязанные через OpenHuman) не будут видны — они находятся в управляемом OpenHuman тенанте Composio.',
-  'settings.composio.intro': 'Composio интегрирует 250+ внешних приложений как инструменты, которые может вызывать ваш агент. Выберите способ маршрутизации этих вызовов.',
+  'settings.composio.confirmWarning':
+    'Ваши существующие интеграции (Gmail, Slack, GitHub и т. д., привязанные через OpenHuman) не будут видны — они находятся в управляемом OpenHuman тенанте Composio.',
+  'settings.composio.intro':
+    'Composio интегрирует 250+ внешних приложений как инструменты, которые может вызывать ваш агент. Выберите способ маршрутизации этих вызовов.',
   'settings.composio.title': 'Composio',
   'settings.composio.modeDirect': 'Прямой (собственный API-ключ)',
-  'settings.composio.modeDirectDesc': 'Вызовы идут напрямую на backend.composio.dev. Суверенно и подходит для офлайн. Выполнение инструментов работает синхронно; вебхуки триггеров в реальном времени пока не маршрутизируются в прямом режиме (см. отдельную задачу).',
+  'settings.composio.modeDirectDesc':
+    'Вызовы идут напрямую на backend.composio.dev. Суверенно и подходит для офлайн. Выполнение инструментов работает синхронно; вебхуки триггеров в реальном времени пока не маршрутизируются в прямом режиме (см. отдельную задачу).',
   'settings.composio.modeManaged': 'Управляемый (OpenHuman управляет за тебя)',
-  'settings.composio.modeManagedDesc': 'OpenHuman проксирует вызовы инструментов через наш бэкенд (рекомендуется). Авторизация брокеруется; вам не нужно вставлять API-ключ Composio. Вебхуки полностью маршрутизируются.',
+  'settings.composio.modeManagedDesc':
+    'OpenHuman проксирует вызовы инструментов через наш бэкенд (рекомендуется). Авторизация брокеруется; вам не нужно вставлять API-ключ Composio. Вебхуки полностью маршрутизируются.',
   'settings.composio.routingMode': 'Режим маршрутизации',
-  'settings.composio.saveErrorNoKey': 'Не удалось сохранить. Прямой режим требует непустой API-ключ.',
+  'settings.composio.saveErrorNoKey':
+    'Не удалось сохранить. Прямой режим требует непустой API-ключ.',
   'settings.composio.saving': 'Сохранение…',
   'settings.composio.switching': 'Переключение…',
   'settings.companion.title': 'Настольный компаньон',
@@ -2758,22 +3040,28 @@ const messages: TranslationMap = {
   'settings.localModel.deviceCapability.disabled': 'Отключено',
   'settings.localModel.deviceCapability.disabledDesc': 'Отключено',
   'settings.localModel.deviceCapability.downloadingModels': '(загрузка моделей)',
-  'settings.localModel.deviceCapability.downloadingSetupDesc': 'Загрузка установщика OllamaSetup (~2 ГБ) и распаковка. При первой установке это может занять минуту.',
+  'settings.localModel.deviceCapability.downloadingSetupDesc':
+    'Загрузка установщика OllamaSetup (~2 ГБ) и распаковка. При первой установке это может занять минуту.',
   'settings.localModel.deviceCapability.failedToApplyPreset': 'Не удалось применить пресет',
   'settings.localModel.deviceCapability.gpu': 'GPU',
   'settings.localModel.deviceCapability.installFailed': 'Установка Ollama не удалась',
-  'settings.localModel.deviceCapability.installFailedDesc': 'Установщик завершил работу до того, как Ollama стала готова к использованию. Нажми «Повторить» или установи вручную с ollama.com.',
+  'settings.localModel.deviceCapability.installFailedDesc':
+    'Установщик завершил работу до того, как Ollama стала готова к использованию. Нажми «Повторить» или установи вручную с ollama.com.',
   'settings.localModel.deviceCapability.installFirst': 'Сначала запустите Ollama.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'Локальные уровни зависят от внешне управляемого эндпоинта Ollama. Запустите его самостоятельно, загрузите нужные модели и используйте «Отключено (облачный fallback)», пока среда выполнения недоступна.',
-  'settings.localModel.deviceCapability.installOllamaFirst': 'Сначала запустите Ollama, чтобы использовать этот уровень',
+  'settings.localModel.deviceCapability.installFirstDesc':
+    'Локальные уровни зависят от внешне управляемого эндпоинта Ollama. Запустите его самостоятельно, загрузите нужные модели и используйте «Отключено (облачный fallback)», пока среда выполнения недоступна.',
+  'settings.localModel.deviceCapability.installOllamaFirst':
+    'Сначала запустите Ollama, чтобы использовать этот уровень',
   'settings.localModel.deviceCapability.installingOllama': 'Установка Ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'Загрузка информации об устройстве',
-  'settings.localModel.deviceCapability.localAiDisabled': 'Локальный AI отключён — используется облачный резерв.',
+  'settings.localModel.deviceCapability.localAiDisabled':
+    'Локальный AI отключён — используется облачный резерв.',
   'settings.localModel.deviceCapability.modelTier': 'Уровень модели',
   'settings.localModel.deviceCapability.needsOllama': 'Требуется Ollama',
   'settings.localModel.deviceCapability.notDetected': 'Не обнаружено',
   'settings.localModel.deviceCapability.disabledLowercase': 'отключен',
-  'settings.localModel.deviceCapability.presetDetails': 'Чат: {chatModel} · Vision: {visionModel} · Целевая оперативная память: {targetRamGb} ГБ',
+  'settings.localModel.deviceCapability.presetDetails':
+    'Чат: {chatModel} · Vision: {visionModel} · Целевая оперативная память: {targetRamGb} ГБ',
   'settings.localModel.deviceCapability.ram': 'RAM',
   'settings.localModel.deviceCapability.recommended': 'Рекомендуется',
   'settings.localModel.deviceCapability.retryInstall': 'Повтор…',
@@ -2793,7 +3081,8 @@ const messages: TranslationMap = {
   'settings.localModel.download.embeddingVectors': 'Векторы: {count}',
   'settings.localModel.download.noThinkMode': 'Без режима обдумывания',
   'settings.localModel.download.notAvailable': 'н/д',
-  'settings.localModel.download.promptPlaceholder': 'Введи любой запрос для тестирования локальной модели...',
+  'settings.localModel.download.promptPlaceholder':
+    'Введи любой запрос для тестирования локальной модели...',
   'settings.localModel.download.quantizationPref': 'Предпочтения квантизации',
   'settings.localModel.download.runEmbeddingTest': 'Выполнение...',
   'settings.localModel.download.runPromptTest': 'Запустить тест промпта',
@@ -2803,8 +3092,10 @@ const messages: TranslationMap = {
   'settings.localModel.download.runVisionTest': 'Выполнение...',
   'settings.localModel.download.running': 'Выполнение...',
   'settings.localModel.download.runningPrompt': 'Выполнение запроса',
-  'settings.localModel.download.summaryHelper': 'Вызовы `openhuman.inference_summarize` через ядро Rust',
-  'settings.localModel.download.summarizePlaceholder': 'Вставь текст для суммаризации локальной моделью...',
+  'settings.localModel.download.summaryHelper':
+    'Вызовы `openhuman.inference_summarize` через ядро Rust',
+  'settings.localModel.download.summarizePlaceholder':
+    'Вставь текст для суммаризации локальной моделью...',
   'settings.localModel.download.testCustomPrompt': 'Тест произвольного запроса',
   'settings.localModel.download.testEmbeddings': 'Тест векторных вложений',
   'settings.localModel.download.testSummarization': 'Тест суммаризации',
@@ -2816,7 +3107,8 @@ const messages: TranslationMap = {
   'settings.localModel.download.ttsOutputPlaceholder': 'Необязательный путь к выходному WAV-файлу',
   'settings.localModel.download.ttsPlaceholder': 'Введи текст для синтеза...',
   'settings.localModel.download.ttsVoice': 'Голос: {voiceId}',
-  'settings.localModel.download.visionImagePlaceholder': 'По одной ссылке на изображение на строку (data URI, URL или локальный маркер пути)',
+  'settings.localModel.download.visionImagePlaceholder':
+    'По одной ссылке на изображение на строку (data URI, URL или локальный маркер пути)',
   'settings.localModel.download.visionPromptPlaceholder': 'Введи запрос для визуальной модели...',
   'settings.localModel.status.allChecksPassed': 'Все проверки пройдены',
   'settings.localModel.status.artifact': 'Артефакт',
@@ -2825,15 +3117,20 @@ const messages: TranslationMap = {
   'settings.localModel.status.bootstrapResume': 'Инициализация / возобновление',
   'settings.localModel.status.checking': 'Проверка...',
   'settings.localModel.status.checkingOllama': 'Проверка Ollama',
-  'settings.localModel.status.contextBelowMinimumBadge': '{contextLength} ctx - ниже {required} мин.',
-  'settings.localModel.status.contextBelowMinimumTitle': 'Отклонено: количество токенов {contextLength} контекстного окна ниже минимального значения токена {required}, требуемого для уровня памяти. Напоминание будет повреждено молчаливым усечением.',
+  'settings.localModel.status.contextBelowMinimumBadge':
+    '{contextLength} ctx - ниже {required} мин.',
+  'settings.localModel.status.contextBelowMinimumTitle':
+    'Отклонено: количество токенов {contextLength} контекстного окна ниже минимального значения токена {required}, требуемого для уровня памяти. Напоминание будет повреждено молчаливым усечением.',
   'settings.localModel.status.contextOkBadge': '{contextLength} контекст ✓',
-  'settings.localModel.status.contextOkTitle': 'Токены контекстного окна {contextLength} соответствуют минимуму уровня памяти для токенов {required}.',
+  'settings.localModel.status.contextOkTitle':
+    'Токены контекстного окна {contextLength} соответствуют минимуму уровня памяти для токенов {required}.',
   'settings.localModel.status.contextUnknownBadge': 'ctx неизвестно',
-  'settings.localModel.status.contextUnknownTitle': 'Контекстное окно неизвестно; не удалось подтвердить, что он соответствует минимуму уровня памяти токена {required}.',
+  'settings.localModel.status.contextUnknownTitle':
+    'Контекстное окно неизвестно; не удалось подтвердить, что он соответствует минимуму уровня памяти токена {required}.',
   'settings.localModel.status.customLocation': 'Пользовательский путь',
   'settings.localModel.status.customLocationDesc': 'Описание пользовательского расположения',
-  'settings.localModel.status.diagnosticsHint': 'Нажмите «Запустить диагностику», чтобы убедиться, что Ollama запущен и модели установлены.',
+  'settings.localModel.status.diagnosticsHint':
+    'Нажмите «Запустить диагностику», чтобы убедиться, что Ollama запущен и модели установлены.',
   'settings.localModel.status.downloadingUnknown': 'Загрузка (размер неизвестен)',
   'settings.localModel.status.eta': 'ETA',
   'settings.localModel.status.expectedModels': 'Ожидаемые модели',
@@ -2867,10 +3164,12 @@ const messages: TranslationMap = {
   'localModel.ollamaServer.saveButton': 'Сохранить',
   'localModel.ollamaServer.testButton': 'Проверить соединение',
   'localModel.ollamaServer.unreachable': 'Недоступен',
-  'localModel.ollamaServer.validationError': 'Должен быть допустимым URL с протоколом http:// или https://',
+  'localModel.ollamaServer.validationError':
+    'Должен быть допустимым URL с протоколом http:// или https://',
   'settings.localModel.status.ollamaDiagnostics': 'Диагностика Ollama',
   'settings.localModel.status.ollamaNotInstalled': 'Среда выполнения Ollama недоступна',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman теперь рассматривает Ollama как внешнюю среду инференса. Запустите собственный сервер Ollama, загрузите нужные модели и направьте маршрутизацию нагрузки на него.',
+  'settings.localModel.status.ollamaNotInstalledDesc':
+    'OpenHuman теперь рассматривает Ollama как внешнюю среду инференса. Запустите собственный сервер Ollama, загрузите нужные модели и направьте маршрутизацию нагрузки на него.',
   'settings.localModel.status.progress': 'Прогресс',
   'settings.localModel.status.provider': 'Провайдер',
   'settings.localModel.status.retryBootstrap': 'Повторить Bootstrap',
@@ -2889,21 +3188,30 @@ const messages: TranslationMap = {
   'settings.localModel.status.unavailable': 'Недоступно',
   'settings.localModel.status.working': 'Работаю...',
   'settings.developerMenu.ai.title': 'Конфигурация ИИ',
-  'settings.developerMenu.ai.desc': 'Облачные провайдеры, локальные модели Ollama и маршрутизация по типам нагрузки',
+  'settings.developerMenu.ai.desc':
+    'Облачные провайдеры, локальные модели Ollama и маршрутизация по типам нагрузки',
   'settings.developerMenu.screenAwareness.title': 'Осведомленность об экране',
-  'settings.developerMenu.screenAwareness.desc': 'Разрешения на захват экрана, политика мониторинга и управление сессиями',
+  'settings.developerMenu.screenAwareness.desc':
+    'Разрешения на захват экрана, политика мониторинга и управление сессиями',
   'settings.developerMenu.messagingChannels.title': 'Каналы сообщений',
-  'settings.developerMenu.messagingChannels.desc': 'Настройка режимов аутентификации Telegram/Discord и маршрутизации канала по умолчанию',
+  'settings.developerMenu.messagingChannels.desc':
+    'Настройка режимов аутентификации Telegram/Discord и маршрутизации канала по умолчанию',
   'settings.developerMenu.tools.title': 'Инструменты',
-  'settings.developerMenu.tools.desc': 'Включайте или отключайте возможности, которые OpenHuman может использовать от вашего имени',
+  'settings.developerMenu.tools.desc':
+    'Включайте или отключайте возможности, которые OpenHuman может использовать от вашего имени',
   'settings.developerMenu.agentChat.title': 'Чат агента',
-  'settings.developerMenu.agentChat.desc': 'Тестируйте разговор агента с переопределениями модели и температуры',
+  'settings.developerMenu.agentChat.desc':
+    'Тестируйте разговор агента с переопределениями модели и температуры',
   'settings.developerMenu.devWorkflow.title': 'Рабочий процесс разработки',
-  'settings.developerMenu.devWorkflow.desc': 'Автономный агент, который выбирает ваши проблемы с GitHub и поднимает PR по расписанию.',
-  'settings.developerMenu.devWorkflow.panelDesc': 'Настройте автономный агент разработчика, который выбирает назначенные вам проблемы GitHub и автоматически отправляет запросы на включение по расписанию.',
+  'settings.developerMenu.devWorkflow.desc':
+    'Автономный агент, который выбирает ваши проблемы с GitHub и поднимает PR по расписанию.',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Настройте автономный агент разработчика, который выбирает назначенные вам проблемы GitHub и автоматически отправляет запросы на включение по расписанию.',
   'settings.developerMenu.skillsRunner.title': 'Навыки бегуна',
-  'settings.developerMenu.skillsRunner.desc': 'Запустите любой связанный навык в произвольном порядке — заполните его входные данные и запустите фоновый автономный запуск.',
-  'settings.developerMenu.skillsRunner.panelDesc': 'Выберите связанный навык, заполните его заявленные входные данные и запустите фоновый прогон по принципу «выстрелил и забыл». Вместо этого используйте Dev Workflow, если вам нужно повторяющееся задание, запланированное cron.',
+  'settings.developerMenu.skillsRunner.desc':
+    'Запустите любой связанный навык в произвольном порядке — заполните его входные данные и запустите фоновый автономный запуск.',
+  'settings.developerMenu.skillsRunner.panelDesc':
+    'Выберите связанный навык, заполните его заявленные входные данные и запустите фоновый прогон по принципу «выстрелил и забыл». Вместо этого используйте Dev Workflow, если вам нужно повторяющееся задание, запланированное cron.',
   'settings.skillsRunner.skill': 'Навык',
   'settings.skillsRunner.selectSkill': 'Выберите навык…',
   'settings.skillsRunner.loadingSkills': 'Загрузка навыков…',
@@ -2920,7 +3228,8 @@ const messages: TranslationMap = {
   'settings.skillsRunner.error.run': 'Не удалось запустить запуск:',
   'settings.skillsRunner.error.preflightGate': 'Предполетный шлюз вышел из строя',
   'settings.skillsRunner.schedule.heading': 'Расписание (повторяющееся)',
-  'settings.skillsRunner.schedule.help': 'Сохраните этот навык + входные данные как повторяющееся задание cron. Агент будет вызывать run_skill при каждом тике.',
+  'settings.skillsRunner.schedule.help':
+    'Сохраните этот навык + входные данные как повторяющееся задание cron. Агент будет вызывать run_skill при каждом тике.',
   'settings.skillsRunner.schedule.frequency': 'Частота',
   'settings.skillsRunner.schedule.every30min': 'Каждые 30 минут',
   'settings.skillsRunner.schedule.everyHour': 'Каждый час',
@@ -2956,8 +3265,10 @@ const messages: TranslationMap = {
   'settings.skillsRunner.viewer.error': 'Не удалось прочитать журнал:',
   'settings.skillsRunner.repoPicker.loading': 'Загрузка репозиториев…',
   'settings.skillsRunner.repoPicker.select': 'Выберите репозиторий…',
-  'settings.skillsRunner.repoPicker.empty': 'Ни один репозиторий не вернулся. Подключите GitHub через Composio, чтобы заполнить этот список.',
-  'settings.skillsRunner.repoPicker.notConnected': 'GitHub не ​​подключен через Composio. Сначала подключите его в разделе «Навыки» → Composio.',
+  'settings.skillsRunner.repoPicker.empty':
+    'Ни один репозиторий не вернулся. Подключите GitHub через Composio, чтобы заполнить этот список.',
+  'settings.skillsRunner.repoPicker.notConnected':
+    'GitHub не ​​подключен через Composio. Сначала подключите его в разделе «Навыки» → Composio.',
   'settings.skillsRunner.repoPicker.privateTag': '(частный)',
   'settings.skillsRunner.branchPicker.needRepo': 'Сначала выберите репозиторий…',
   'settings.skillsRunner.branchPicker.loading': 'Загрузка веток…',
@@ -2970,12 +3281,14 @@ const messages: TranslationMap = {
   'settings.devWorkflow.forkDetected': 'Обнаружена вилка',
   'settings.devWorkflow.upstream': 'Вверх по течению:',
   'settings.devWorkflow.forkPrNote': 'ОР будут выдвинуты против вышестоящего хранилища.',
-  'settings.devWorkflow.notForkNote': 'Не вилка. PR будут выдвинуты непосредственно против этого хранилища.',
+  'settings.devWorkflow.notForkNote':
+    'Не вилка. PR будут выдвинуты непосредственно против этого хранилища.',
   'settings.devWorkflow.targetBranch': 'Целевой филиал',
   'settings.devWorkflow.targetBranchNote': 'Против этой ветки будут подняты ПР',
   'settings.devWorkflow.loadingBranches': 'Загрузка веток...',
   'settings.devWorkflow.runFrequency': 'Частота запуска',
-  'settings.devWorkflow.runFrequencyNote': 'Как часто агент должен проверять наличие проблем и поднимать PR.',
+  'settings.devWorkflow.runFrequencyNote':
+    'Как часто агент должен проверять наличие проблем и поднимать PR.',
   'settings.devWorkflow.updateConfiguration': 'Обновить конфигурацию',
   'settings.devWorkflow.saveConfiguration': 'Сохранить конфигурацию',
   'settings.devWorkflow.remove': 'Удалять',
@@ -2995,24 +3308,33 @@ const messages: TranslationMap = {
   'settings.devWorkflow.cronSaveError': 'Не удалось сохранить конфигурацию.',
   'settings.devWorkflow.lastOutput': 'Последний вывод',
   'settings.devWorkflow.noOutput': 'Выходные данные не зафиксированы',
-  'settings.devWorkflow.runningStatus': 'Агент работает — выбирает проблему и работает над ее исправлением...',
-  'settings.devWorkflow.errorNotConnected': 'GitHub не ​​подключен. Сначала подключите GitHub через «Настройки» > «Дополнительно» > Composio.',
-  'settings.devWorkflow.errorToolNotEnabled': 'Инструмент GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER не включён на этом сервере. Попросите своего администратора включить его в интеграции Composio (backend#842).',
-  'settings.devWorkflow.errorNotAuthenticated': 'Не аутентифицирован. Пожалуйста, сначала войдите в систему.',
-  'settings.devWorkflow.errorNoRepositories': 'Для этой учетной записи GitHub не ​​найдено репозиториев.',
+  'settings.devWorkflow.runningStatus':
+    'Агент работает — выбирает проблему и работает над ее исправлением...',
+  'settings.devWorkflow.errorNotConnected':
+    'GitHub не ​​подключен. Сначала подключите GitHub через «Настройки» > «Дополнительно» > Composio.',
+  'settings.devWorkflow.errorToolNotEnabled':
+    'Инструмент GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER не включён на этом сервере. Попросите своего администратора включить его в интеграции Composio (backend#842).',
+  'settings.devWorkflow.errorNotAuthenticated':
+    'Не аутентифицирован. Пожалуйста, сначала войдите в систему.',
+  'settings.devWorkflow.errorNoRepositories':
+    'Для этой учетной записи GitHub не ​​найдено репозиториев.',
   'settings.devWorkflow.schedule.every30min': 'Каждые 30 минут',
   'settings.devWorkflow.schedule.everyHour': 'Каждый час',
   'settings.devWorkflow.schedule.every2hours': 'Каждые 2 часа',
   'settings.devWorkflow.schedule.every6hours': 'Каждые 6 часов',
   'settings.devWorkflow.schedule.onceDaily': 'Один раз в день (9 утра)',
   'settings.developerMenu.cronJobs.title': 'Задачи cron',
-  'settings.developerMenu.cronJobs.desc': 'Просмотр и настройка запланированных задач для runtime-навыков',
+  'settings.developerMenu.cronJobs.desc':
+    'Просмотр и настройка запланированных задач для runtime-навыков',
   'settings.developerMenu.localModelDebug.title': 'Отладка локальной модели',
-  'settings.developerMenu.localModelDebug.desc': 'Конфигурация Ollama, загрузка ресурсов, тесты модели и диагностика',
+  'settings.developerMenu.localModelDebug.desc':
+    'Конфигурация Ollama, загрузка ресурсов, тесты модели и диагностика',
   'settings.developerMenu.webhooks.title': 'Вебхуки',
-  'settings.developerMenu.webhooks.desc': 'Проверяйте регистрации runtime-вебхуков и журналы захваченных запросов',
+  'settings.developerMenu.webhooks.desc':
+    'Проверяйте регистрации runtime-вебхуков и журналы захваченных запросов',
   'settings.developerMenu.eventLog.title': 'Журнал событий',
-  'settings.developerMenu.eventLog.desc': 'Живой поток с цветовой кодировкой обо всех событиях агента, инструмента и системы.',
+  'settings.developerMenu.eventLog.desc':
+    'Живой поток с цветовой кодировкой обо всех событиях агента, инструмента и системы.',
   'settings.developerMenu.eventLog.allTypes': 'Все типы',
   'settings.developerMenu.eventLog.filterAgent': 'Фильтр...',
   'settings.developerMenu.eventLog.download': 'Скачать',
@@ -3034,28 +3356,37 @@ const messages: TranslationMap = {
   'settings.developerMenu.eventLog.badge.comp': 'COMP',
   'settings.developerMenu.eventLog.badge.mcp': 'MCP',
   'settings.developerMenu.intelligence.title': 'Интеллект',
-  'settings.developerMenu.intelligence.desc': 'Рабочая область памяти, подсознательный движок, сны и настройки',
+  'settings.developerMenu.intelligence.desc':
+    'Рабочая область памяти, подсознательный движок, сны и настройки',
   'settings.developerMenu.notificationRouting.title': 'Маршрутизация уведомлений',
-  'settings.developerMenu.notificationRouting.desc': 'Оценка важности ИИ и эскалация оркестратору для интеграционных оповещений',
+  'settings.developerMenu.notificationRouting.desc':
+    'Оценка важности ИИ и эскалация оркестратору для интеграционных оповещений',
   'settings.developerMenu.composeioTriggers.title': 'Триггеры ComposeIO',
   'settings.developerMenu.composeioTriggers.desc': 'Просмотр истории и архива триггеров ComposeIO',
   'settings.developerMenu.composioRouting.title': 'Маршрутизация Composio (прямой режим)',
-  'settings.developerMenu.composioRouting.desc': 'Используйте собственный API-ключ Composio и направляйте вызовы напрямую в backend.composio.dev',
+  'settings.developerMenu.composioRouting.desc':
+    'Используйте собственный API-ключ Composio и направляйте вызовы напрямую в backend.composio.dev',
   'settings.developerMenu.integrationTriggers.title': 'Триггеры интеграций',
-  'settings.developerMenu.integrationTriggers.desc': 'Настройка параметров AI-триажа для триггеров интеграций Composio',
+  'settings.developerMenu.integrationTriggers.desc':
+    'Настройка параметров AI-триажа для триггеров интеграций Composio',
   'settings.developerMenu.mcpServer.title': 'MCP Сервер',
-  'settings.developerMenu.mcpServer.desc': 'Настройка внешних клиентов MCP для подключения к серверу OpenHuman',
+  'settings.developerMenu.mcpServer.desc':
+    'Настройка внешних клиентов MCP для подключения к серверу OpenHuman',
   'settings.developerMenu.autonomy.title': 'Автономия агента',
-  'settings.developerMenu.autonomy.desc': 'Ограничения частоты действий инструментов и пороги безопасности',
+  'settings.developerMenu.autonomy.desc':
+    'Ограничения частоты действий инструментов и пороги безопасности',
   'settings.mcpServer.title': 'MCP',
   'settings.mcpServer.toolsSectionTitle': 'Доступные инструменты',
-  'settings.mcpServer.toolsSectionDesc': 'Инструменты, предоставляемые через сервер MCP stdio при запуске openhuman-core mcp',
+  'settings.mcpServer.toolsSectionDesc':
+    'Инструменты, предоставляемые через сервер MCP stdio при запуске openhuman-core mcp',
   'settings.mcpServer.configSectionTitle': 'Конфигурация клиента',
-  'settings.mcpServer.configSectionDesc': 'Выберите клиент MCP для создания правильного фрагмента конфигурации.',
+  'settings.mcpServer.configSectionDesc':
+    'Выберите клиент MCP для создания правильного фрагмента конфигурации.',
   'settings.mcpServer.copySnippet': 'Копировать в буфер обмена',
   'settings.mcpServer.copied': 'Скопировано!',
   'settings.mcpServer.openConfigFile': 'Открыть файл конфигурации.',
-  'settings.mcpServer.binaryPathNotFound': 'Двоичный файл OpenHuman не найден. При запуске из исходного кода выполните сборку с помощью: Cargo build --bin openhuman-core',
+  'settings.mcpServer.binaryPathNotFound':
+    'Двоичный файл OpenHuman не найден. При запуске из исходного кода выполните сборку с помощью: Cargo build --bin openhuman-core',
   'settings.mcpServer.openConfigError': 'Не удалось открыть файл конфигурации',
   'settings.mcpServer.clientClaudeDesktop': 'Claude Рабочий стол',
   'settings.mcpServer.clientCursor': 'Курсор',
@@ -3065,7 +3396,8 @@ const messages: TranslationMap = {
   'settings.mcpServer.clientSelectorAriaLabel': 'MCP селектор клиента',
   'settings.appearance.menuDesc': 'Выберите светлую, темную или системную тему',
   'settings.agentAccess.title': 'Доступ агента к ОС',
-  'settings.agentAccess.menuDesc': 'Контролируйте, где агент может использовать read/write и может ли он использовать оболочку.',
+  'settings.agentAccess.menuDesc':
+    'Контролируйте, где агент может использовать read/write и может ли он использовать оболочку.',
   'settings.agentAccess.loadError': 'Не удалось загрузить настройки доступа.',
   'settings.agentAccess.saveError': 'Не удалось сохранить настройки доступа.',
   'settings.agentAccess.saved': 'Сохранено — применяется к следующему сообщению.',
@@ -3073,22 +3405,30 @@ const messages: TranslationMap = {
   'settings.agentAccess.loading': 'Загрузка…',
   'settings.agentAccess.accessMode': 'Режим доступа',
   'settings.agentAccess.tier.readonly.title': 'Только чтение',
-  'settings.agentAccess.tier.readonly.desc': 'Читает файлы и запускает команды только для чтения для изучения, но никогда не записывает, не редактирует и не запускает ничего, что меняет состояние.',
+  'settings.agentAccess.tier.readonly.desc':
+    'Читает файлы и запускает команды только для чтения для изучения, но никогда не записывает, не редактирует и не запускает ничего, что меняет состояние.',
   'settings.agentAccess.tier.supervised.title': 'Спросить перед редактированием',
-  'settings.agentAccess.tier.supervised.desc': 'Свободно создает новые файлы, но запрашивает ваше одобрение перед редактированием существующего файла, запуском команды, подключением к сети или установкой чего-либо.',
+  'settings.agentAccess.tier.supervised.desc':
+    'Свободно создает новые файлы, но запрашивает ваше одобрение перед редактированием существующего файла, запуском команды, подключением к сети или установкой чего-либо.',
   'settings.agentAccess.tier.full.title': 'Полный доступ',
-  'settings.agentAccess.tier.full.desc': 'Выполняет команды с полным доступом к вашей учетной записи пользователя — read/write может работать где угодно, кроме учетных данных и системных хранилищ. Деструктивные команды, доступ к сети и установки по-прежнему требуют одобрения.',
+  'settings.agentAccess.tier.full.desc':
+    'Выполняет команды с полным доступом к вашей учетной записи пользователя — read/write может работать где угодно, кроме учетных данных и системных хранилищ. Деструктивные команды, доступ к сети и установки по-прежнему требуют одобрения.',
   'settings.agentAccess.defaultTag': '(по умолчанию)',
-  'settings.agentAccess.fullWarning': '⚠ Полный доступ запускает команды с полным доступом к вашей учетной записи и не находится в изолированной программной среде. Включайте его только в том случае, если вы доверяете агенту эту машину. Каталоги учетных данных и системные каталоги остаются заблокированными, а деструктивные, сетевые действия и действия по установке по-прежнему требуют одобрения.',
+  'settings.agentAccess.fullWarning':
+    '⚠ Полный доступ запускает команды с полным доступом к вашей учетной записи и не находится в изолированной программной среде. Включайте его только в том случае, если вы доверяете агенту эту машину. Каталоги учетных данных и системные каталоги остаются заблокированными, а деструктивные, сетевые действия и действия по установке по-прежнему требуют одобрения.',
   'settings.agentAccess.confine.label': 'Ограничить рабочее пространство',
-  'settings.agentAccess.confine.desc': 'Ограничьте агента каталогом рабочей области (плюс всеми предоставленными папками), независимо от выбранного режима доступа. Когда этот параметр отключен, он может получить доступ к любому месту, доступному вашему пользователю, за исключением всегда блокируемых учетных данных и системных каталогов.',
+  'settings.agentAccess.confine.desc':
+    'Ограничьте агента каталогом рабочей области (плюс всеми предоставленными папками), независимо от выбранного режима доступа. Когда этот параметр отключен, он может получить доступ к любому месту, доступному вашему пользователю, за исключением всегда блокируемых учетных данных и системных каталогов.',
   'settings.agentAccess.requireTaskPlanApproval.label': 'Требовать утверждения плана задач',
-  'settings.agentAccess.requireTaskPlanApproval.desc': 'Сделайте паузу перед тем, как назначенный агент выполнит задание, созданное агентом.',
+  'settings.agentAccess.requireTaskPlanApproval.desc':
+    'Сделайте паузу перед тем, как назначенный агент выполнит задание, созданное агентом.',
   'settings.agentAccess.grantedFolders': 'Предоставленные папки',
   'settings.agentAccess.alwaysAllow': 'Всегда разрешенные инструменты',
-  'settings.agentAccess.alwaysAllowDesc': 'Инструменты, которые вы отметили в чате как «Всегда разрешать», запускаются без запроса. Удалите один, чтобы запрос появился снова.',
+  'settings.agentAccess.alwaysAllowDesc':
+    'Инструменты, которые вы отметили в чате как «Всегда разрешать», запускаются без запроса. Удалите один, чтобы запрос появился снова.',
   'settings.agentAccess.alwaysAllowNone': 'Всегда разрешенных инструментов пока нет.',
-  'settings.agentAccess.grantedDesc': 'Папки, которые агент может читать и записывать, помимо рабочей области. Хранилища учетных данных (~/.ssh, ~/.gnupg, ~/.aws, цепочки для ключей) и системные каталоги (/etc, /System, C:\\Windows,…) всегда блокируются, даже внутри предоставленной папки.',
+  'settings.agentAccess.grantedDesc':
+    'Папки, которые агент может читать и записывать, помимо рабочей области. Хранилища учетных данных (~/.ssh, ~/.gnupg, ~/.aws, цепочки для ключей) и системные каталоги (/etc, /System, C:\\Windows,…) всегда блокируются, даже внутри предоставленной папки.',
   'settings.agentAccess.noneGranted': 'Папки не предоставлены.',
   'settings.agentAccess.readWrite': 'читать + писать',
   'settings.agentAccess.readOnly': 'read-only',
@@ -3104,17 +3444,21 @@ const messages: TranslationMap = {
   'settings.appearance.modeLight': 'Светлая',
   'settings.appearance.modeLightDesc': 'Яркие поверхности, темный текст.',
   'settings.appearance.modeDark': 'Темный',
-  'settings.appearance.modeDarkDesc': 'Тусклые поверхности, меньше раздражают глаза после наступления сумерек.',
+  'settings.appearance.modeDarkDesc':
+    'Тусклые поверхности, меньше раздражают глаза после наступления сумерек.',
   'settings.appearance.modeSystem': 'Система соответствия',
   'settings.appearance.modeSystemDesc': 'Следуйте настройкам внешнего вида вашей ОС.',
-  'settings.appearance.helperText': 'Темный режим переключает все приложение — чат, настройки, панели — на тусклую палитру. «Система сопоставления» следит за внешним видом вашей ОС и обновляет ее в реальном времени.',
+  'settings.appearance.helperText':
+    'Темный режим переключает все приложение — чат, настройки, панели — на тусклую палитру. «Система сопоставления» следит за внешним видом вашей ОС и обновляет ее в реальном времени.',
   'settings.appearance.tabBarHeading': 'Нижняя панель вкладок',
   'settings.appearance.tabBarAlwaysShowLabels': 'Всегда показывать метки',
-  'settings.appearance.tabBarAlwaysShowLabelsDesc': 'Если этот параметр отключен, метки отображаются только при наведении курсора мыши или на активной вкладке.',
+  'settings.appearance.tabBarAlwaysShowLabelsDesc':
+    'Если этот параметр отключен, метки отображаются только при наведении курсора мыши или на активной вкладке.',
   'settings.mascot.active': 'Активно',
   'settings.mascot.characterDesc': 'Описание персонажа',
   'settings.mascot.characterHeading': 'Персонаж',
-  'settings.mascot.customGifError': 'Введите HTTPS .gif URL, петлевой путь HTTP .gif URL, file:// .gif URL или локальный путь .gif.',
+  'settings.mascot.customGifError':
+    'Введите HTTPS .gif URL, петлевой путь HTTP .gif URL, file:// .gif URL или локальный путь .gif.',
   'settings.mascot.customGifHeading': 'Пользовательский аватар GIF',
   'settings.mascot.customGifLabel': 'Пользовательский аватар GIF URL',
   'settings.mascot.customGifPlaceholder': 'https://example.com/avatar.gif',
@@ -3142,11 +3486,13 @@ const messages: TranslationMap = {
   'settings.mascot.noCharacters': 'Персонажи OpenHuman пока недоступны',
   'settings.mascot.noColorVariants': 'Нет цветовых вариантов',
   'settings.mascot.voice.current': 'текущий',
-  'settings.mascot.voice.customDesc': 'Идентификаторы голосов можно найти на api.elevenlabs.io/v1/voices или в вашей панели ElevenLabs. Сохраняется только идентификатор — ваш API-ключ остаётся на бэкенде.',
+  'settings.mascot.voice.customDesc':
+    'Идентификаторы голосов можно найти на api.elevenlabs.io/v1/voices или в вашей панели ElevenLabs. Сохраняется только идентификатор — ваш API-ключ остаётся на бэкенде.',
   'settings.mascot.voice.customHeading': 'Пользовательский идентификатор голоса',
   'settings.mascot.voice.customOption': 'Другое (вставить идентификатор голоса)…',
   'settings.mascot.voice.customPlaceholder': 'например. 21m00Tcm4TlvDq8ikWAM',
-  'settings.mascot.voice.desc': 'Выберите голос ElevenLabs, который маскот использует для устных ответов. Фильтруйте по полу, выбирайте из подобранного списка, вставьте свой идентификатор или позвольте приложению выбрать голос, соответствующий языку интерфейса.',
+  'settings.mascot.voice.desc':
+    'Выберите голос ElevenLabs, который маскот использует для устных ответов. Фильтруйте по полу, выбирайте из подобранного списка, вставьте свой идентификатор или позвольте приложению выбрать голос, соответствующий языку интерфейса.',
   'settings.mascot.voice.genderFemale': 'Женский',
   'settings.mascot.voice.genderHeading': 'Пол голоса',
   'settings.mascot.voice.genderMale': 'Мужской',
@@ -3155,22 +3501,27 @@ const messages: TranslationMap = {
   'settings.mascot.voice.presetHeading': 'Предустановка голоса',
   'settings.mascot.voice.preview': 'Предпросмотр голоса',
   'settings.mascot.voice.previewError': 'Не удалось воспроизвести предпросмотр голоса',
-  'settings.mascot.voice.previewText': 'Привет, я твой помощник. Это голосовой предварительный просмотр.',
+  'settings.mascot.voice.previewText':
+    'Привет, я твой помощник. Это голосовой предварительный просмотр.',
   'settings.mascot.voice.previewing': 'Воспроизведение предпросмотра…',
   'settings.mascot.voice.reset': 'Сбросить к значениям по умолчанию',
   'settings.mascot.voice.useLocaleDefault': 'Соответствовать языку приложения',
-  'settings.mascot.voice.useLocaleDefaultDesc': 'Автоматически выбрать голос для текущего языка интерфейса.',
+  'settings.mascot.voice.useLocaleDefaultDesc':
+    'Автоматически выбрать голос для текущего языка интерфейса.',
   'settings.persona.title': 'Персона',
   'settings.persona.menuTitle': 'Персона',
   'settings.persona.menuDesc': 'Имя, личность, аватар и голос — ваш помощник как одна личность',
   'settings.persona.identityHeading': 'Личность',
-  'settings.persona.identityDesc': 'Отображаемое имя и краткое описание вашего помощника. Отображается в приложении; не меняет того, как рассуждает помощник.',
+  'settings.persona.identityDesc':
+    'Отображаемое имя и краткое описание вашего помощника. Отображается в приложении; не меняет того, как рассуждает помощник.',
   'settings.persona.displayNameLabel': 'Отображаемое имя',
   'settings.persona.displayNamePlaceholder': 'например Новая звезда',
   'settings.persona.descriptionLabel': 'Описание',
-  'settings.persona.descriptionPlaceholder': 'например Спокойный, лаконичный помощник для моей команды.',
+  'settings.persona.descriptionPlaceholder':
+    'например Спокойный, лаконичный помощник для моей команды.',
   'settings.persona.soul.heading': 'Личность (SOUL.md)',
-  'settings.persona.soul.desc': 'Личностные подсказки помощника следует в каждом разговоре. Изменения сохраняются в вашем рабочем пространстве и вступают в силу при следующем ответе.',
+  'settings.persona.soul.desc':
+    'Личностные подсказки помощника следует в каждом разговоре. Изменения сохраняются в вашем рабочем пространстве и вступают в силу при следующем ответе.',
   'settings.persona.soul.editorLabel': 'Содержимое SOUL.md',
   'settings.persona.soul.reset': 'Сбросить настройки по умолчанию',
   'settings.persona.soul.usingDefault': 'Использование встроенного по умолчанию',
@@ -3178,24 +3529,31 @@ const messages: TranslationMap = {
   'settings.persona.soul.saveError': 'Не удалось сохранить SOUL.md.',
   'settings.persona.soul.resetError': 'Не удалось сбросить SOUL.md.',
   'settings.persona.appearanceHeading': 'Аватар и голос',
-  'settings.persona.appearanceDesc': 'Цвет талисмана, пользовательский аватар GIF и голос ответа настраиваются в настройках талисмана.',
+  'settings.persona.appearanceDesc':
+    'Цвет талисмана, пользовательский аватар GIF и голос ответа настраиваются в настройках талисмана.',
   'settings.persona.openMascotSettings': 'Открыть настройки талисмана',
   'settings.memoryWindow.balanced.badge': 'Рекомендуется',
-  'settings.memoryWindow.balanced.hint': 'Разумное значение по умолчанию — хорошая непрерывность без лишних трат токенов на каждом запуске.',
+  'settings.memoryWindow.balanced.hint':
+    'Разумное значение по умолчанию — хорошая непрерывность без лишних трат токенов на каждом запуске.',
   'settings.memoryWindow.balanced.label': 'Сбалансированный',
-  'settings.memoryWindow.description': 'Сколько запомненного контекста OpenHuman добавляет в каждый новый запуск агента. Более широкие окна дают ощущение лучшей памяти о прошлых разговорах, но используют больше токенов — и стоят дороже — на каждом запуске.',
+  'settings.memoryWindow.description':
+    'Сколько запомненного контекста OpenHuman добавляет в каждый новый запуск агента. Более широкие окна дают ощущение лучшей памяти о прошлых разговорах, но используют больше токенов — и стоят дороже — на каждом запуске.',
   'settings.memoryWindow.extended.badge': 'Больше контекста',
-  'settings.memoryWindow.extended.hint': 'Больше долгосрочной памяти на каждый запуск. Выше расход токенов за ход.',
+  'settings.memoryWindow.extended.hint':
+    'Больше долгосрочной памяти на каждый запуск. Выше расход токенов за ход.',
   'settings.memoryWindow.extended.label': 'Расширенный',
   'settings.memoryWindow.maximum.badge': 'Самый дорогой',
-  'settings.memoryWindow.maximum.hint': 'Самое большое безопасное окно. Лучшая непрерывность, заметно выше расход токенов на каждом запуске.',
+  'settings.memoryWindow.maximum.hint':
+    'Самое большое безопасное окно. Лучшая непрерывность, заметно выше расход токенов на каждом запуске.',
   'settings.memoryWindow.maximum.label': 'Максимум',
   'settings.memoryWindow.minimal.badge': 'Самый дешёвый',
-  'settings.memoryWindow.minimal.hint': 'Самое маленькое окно памяти. Дешевле, быстрее, минимальная непрерывность между запусками.',
+  'settings.memoryWindow.minimal.hint':
+    'Самое маленькое окно памяти. Дешевле, быстрее, минимальная непрерывность между запусками.',
   'settings.memoryWindow.minimal.label': 'Минимальный',
   'settings.memoryWindow.title': 'Окно долгосрочной памяти',
   'settings.modelHealth.title': 'Модель здоровья',
-  'settings.modelHealth.desc': 'Качество каждой модели, уровень галлюцинаций и сравнение стоимости активных моделей.',
+  'settings.modelHealth.desc':
+    'Качество каждой модели, уровень галлюцинаций и сравнение стоимости активных моделей.',
   'settings.modelHealth.allStatuses': 'Все статусы',
   'settings.modelHealth.models': 'models',
   'settings.modelHealth.loading': 'Загрузка данных модели...',
@@ -3252,11 +3610,13 @@ const messages: TranslationMap = {
   'skills.create.descriptionPlaceholder': 'Что делает этот навык?',
   'skills.create.optional': '(необязательно)',
   'skills.create.inputs.heading': 'Inputs',
-  'skills.create.inputs.help': 'Объявите параметры, необходимые навыку. Skills Runner сформирует форму для них во время выполнения.',
+  'skills.create.inputs.help':
+    'Объявите параметры, необходимые навыку. Skills Runner сформирует форму для них во время выполнения.',
   'skills.create.inputs.add': 'Добавить входной параметр',
   'skills.create.inputs.row.name': 'Имя входного параметра',
   'skills.create.inputs.row.namePlaceholder': 'например, repo',
-  'skills.create.inputs.row.nameError': 'Только буквы, цифры, подчёркивания и дефисы; должно начинаться с буквы.',
+  'skills.create.inputs.row.nameError':
+    'Только буквы, цифры, подчёркивания и дефисы; должно начинаться с буквы.',
   'skills.create.inputs.row.description': 'Описание входного параметра',
   'skills.create.inputs.row.descriptionPlaceholder': 'Что вводится в это поле?',
   'skills.create.inputs.row.type': 'Type',
@@ -3271,7 +3631,8 @@ const messages: TranslationMap = {
   'skills.create.namePlaceholder': 'напр. Trade Journal',
   'skills.create.scope': 'Область',
   'skills.create.scopeProjectHint': '/.openhuman/skills/',
-  'skills.create.scopeUserHint': 'Записывается в ~/.openhuman/skills/<slug>/SKILL.md — доступно во всех рабочих пространствах.',
+  'skills.create.scopeUserHint':
+    'Записывается в ~/.openhuman/skills/<slug>/SKILL.md — доступно во всех рабочих пространствах.',
   'skills.create.slugLabel': 'Slug',
   'skills.create.subtitle': 'SKILL.md',
   'skills.create.tags': 'Теги',
@@ -3285,23 +3646,32 @@ const messages: TranslationMap = {
   'skills.detail.noBundledResources': 'Встроенных ресурсов нет.',
   'skills.detail.tags': 'Теги',
   'skills.detail.warnings': 'Предупреждения',
-  'skills.install.errors.alreadyInstalledHint': 'Навык работы с этим пулеметом уже существует в рабочей области. Сначала удалите его или измените заголовок `metadata.id`/`name`.',
+  'skills.install.errors.alreadyInstalledHint':
+    'Навык работы с этим пулеметом уже существует в рабочей области. Сначала удалите его или измените заголовок `metadata.id`/`name`.',
   'skills.install.errors.alreadyInstalledTitle': 'Навык уже установлен.',
-  'skills.install.errors.fetchFailedHint': 'Запрос не выполнен успешно. Проверьте, что URL указывает на доступный общедоступный файл и что хост вернул ответ 2xx.',
+  'skills.install.errors.fetchFailedHint':
+    'Запрос не выполнен успешно. Проверьте, что URL указывает на доступный общедоступный файл и что хост вернул ответ 2xx.',
   'skills.install.errors.fetchFailedTitle': 'Ошибка получения.',
-  'skills.install.errors.fetchTimedOutHint': 'Удаленный хост не ответил вовремя. Попробуйте еще раз или увеличьте таймаут (1–600 с).',
+  'skills.install.errors.fetchTimedOutHint':
+    'Удаленный хост не ответил вовремя. Попробуйте еще раз или увеличьте таймаут (1–600 с).',
   'skills.install.errors.fetchTimedOutTitle': 'Время ожидания получения истекло',
-  'skills.install.errors.fetchTooLargeHint': 'Размер файла SKILL.md не должен превышать 1 МБ. Разделите связанные ресурсы на файлы `references/` или `scripts/` вместо их встраивания.',
+  'skills.install.errors.fetchTooLargeHint':
+    'Размер файла SKILL.md не должен превышать 1 МБ. Разделите связанные ресурсы на файлы `references/` или `scripts/` вместо их встраивания.',
   'skills.install.errors.fetchTooLargeTitle': 'SKILL.md слишком велик.',
-  'skills.install.errors.genericHint': 'Серверная часть вернула ошибку. Необработанное сообщение показано ниже.',
+  'skills.install.errors.genericHint':
+    'Серверная часть вернула ошибку. Необработанное сообщение показано ниже.',
   'skills.install.errors.genericTitle': 'Не удалось установить навык.',
-  'skills.install.errors.invalidSkillHint': 'Вводный заголовок должен быть допустимым YAML с непустыми полями `name` и `description`, заканчивающимися `---`.',
+  'skills.install.errors.invalidSkillHint':
+    'Вводный заголовок должен быть допустимым YAML с непустыми полями `name` и `description`, заканчивающимися `---`.',
   'skills.install.errors.invalidSkillTitle': 'SKILL.md не анализировал',
-  'skills.install.errors.invalidUrlHint': 'Разрешены только общедоступные HTTPS URL. Частные узлы, узлы обратной связи и узлы метаданных блокируются.',
+  'skills.install.errors.invalidUrlHint':
+    'Разрешены только общедоступные HTTPS URL. Частные узлы, узлы обратной связи и узлы метаданных блокируются.',
   'skills.install.errors.invalidUrlTitle': 'URL отклонено',
-  'skills.install.errors.unsupportedUrlHint': 'Работают только прямые ссылки `.md`. Для GitHub ссылка на файл (github.com/owner/repo/blob/.../SKILL.md) — корни дерева и репо не установлены.',
+  'skills.install.errors.unsupportedUrlHint':
+    'Работают только прямые ссылки `.md`. Для GitHub ссылка на файл (github.com/owner/repo/blob/.../SKILL.md) — корни дерева и репо не установлены.',
   'skills.install.errors.unsupportedUrlTitle': 'Форма URL не поддерживается.',
-  'skills.install.errors.writeFailedHint': 'Каталог навыков рабочей области не был доступен для записи. Проверьте разрешения файловой системы для `<workspace>/.openhuman/skills/`.',
+  'skills.install.errors.writeFailedHint':
+    'Каталог навыков рабочей области не был доступен для записи. Проверьте разрешения файловой системы для `<workspace>/.openhuman/skills/`.',
   'skills.install.errors.writeFailedTitle': 'Не удалось записать SKILL.md.',
   'skills.install.fetchLog': 'Получить лог',
   'skills.install.fetchingPrefix': 'Получение',
@@ -3315,9 +3685,11 @@ const messages: TranslationMap = {
   'skills.install.subtitlePrefix': 'Выбирает только один',
   'skills.install.subtitleSuffix': 'HTTPS; частные хосты и хосты обратной связи заблокированы.',
   'skills.install.successDiscovered': 'Обнаружил {count} новых навыков.',
-  'skills.install.successNoNewIds': 'Навык установлен, но новые идентификаторы навыков не появились — возможно, в каталоге уже есть навык с таким же ярлыком.',
+  'skills.install.successNoNewIds':
+    'Навык установлен, но новые идентификаторы навыков не появились — возможно, в каталоге уже есть навык с таким же ярлыком.',
   'skills.install.timeoutHint': '(секунды, необязательно)',
-  'skills.install.timeoutHelp': 'По умолчанию — 60 секунд. Значения за пределами 1–600 фиксируются на стороне сервера.',
+  'skills.install.timeoutHelp':
+    'По умолчанию — 60 секунд. Значения за пределами 1–600 фиксируются на стороне сервера.',
   'skills.install.timeoutInvalid': 'Должно быть целым числом от 1 до 600.',
   'skills.install.timeoutLabel': 'Таймаут',
   'skills.install.timeoutPlaceholder': '60',
@@ -3379,9 +3751,11 @@ const messages: TranslationMap = {
   'skills.setup.screenIntel.allGranted': 'Все разрешения предоставлены',
   'skills.setup.screenIntel.captureMode': 'Режим захвата',
   'skills.setup.screenIntel.captureModeValue': 'Все окна (можно изменить позже)',
-  'skills.setup.screenIntel.deniedHint': 'После предоставления разрешений в Системных настройках нажми ниже для перезапуска и применения изменений.',
+  'skills.setup.screenIntel.deniedHint':
+    'После предоставления разрешений в Системных настройках нажми ниже для перезапуска и применения изменений.',
   'skills.setup.screenIntel.enableBtn': 'Включение...',
-  'skills.setup.screenIntel.enableDesc': 'Видеть, что происходит на вашем экране, и передавать полезный контекст вашему агенту',
+  'skills.setup.screenIntel.enableDesc':
+    'Видеть, что происходит на вашем экране, и передавать полезный контекст вашему агенту',
   'skills.setup.screenIntel.enableError': 'Не удалось включить интеллект экрана',
   'skills.setup.screenIntel.enabling': 'Включение...',
   'skills.setup.screenIntel.grant': 'Открытие...',
@@ -3417,21 +3791,26 @@ const messages: TranslationMap = {
   'skills.setup.voice.stepSetup': 'Требуется загрузка модели',
   'skills.setup.voice.stepSuccess': 'Готово к работе',
   'skills.setup.voice.sttNotReady': 'Модель распознавания речи не готова',
-  'skills.setup.voice.sttNotReadyDesc': 'Голосовой интеллект требует локальной модели Whisper для транскрипции. Скачай её в настройках локальной модели.',
+  'skills.setup.voice.sttNotReadyDesc':
+    'Голосовой интеллект требует локальной модели Whisper для транскрипции. Скачай её в настройках локальной модели.',
   'skills.setup.voice.sttReady': 'Модель распознавания речи готова',
   'skills.setup.voice.sttReturnHint': 'Подсказка возврата STT',
   'skills.setup.voice.title': 'Голосовой интеллект',
   'skills.uninstall.couldNotUninstall': 'Не удалось удалить',
-  'skills.uninstall.description': 'Это навсегда удалит каталог навыка и все его ресурсы. Агент перестанет видеть его на следующем ходу.',
+  'skills.uninstall.description':
+    'Это навсегда удалит каталог навыка и все его ресурсы. Агент перестанет видеть его на следующем ходу.',
   'skills.uninstall.title': 'Удалить',
   'skills.uninstall.uninstallBtn': 'Удалить',
   'skills.uninstall.uninstalling': 'Удаление…',
   'upsell.global.limitMessage': 'Улучши план или пополни кредиты для продолжения',
   'upsell.global.limitTitle': 'Ты',
-  'upsell.global.nearLimitMessage': 'Ты использовал {pct}% лимита. Улучши план для увеличения лимитов.',
+  'upsell.global.nearLimitMessage':
+    'Ты использовал {pct}% лимита. Улучши план для увеличения лимитов.',
   'upsell.global.nearLimitTitle': 'Лимит использования близко',
-  'upsell.usageLimit.bodyBudget': 'Вы достигли недельного лимита.{reset} Обновите план или пополните кредиты, чтобы избежать ограничений.',
-  'upsell.usageLimit.bodyRate': 'Вы достигли 10-часового лимита частоты инференса.{reset} Обновите план для более высоких лимитов.',
+  'upsell.usageLimit.bodyBudget':
+    'Вы достигли недельного лимита.{reset} Обновите план или пополните кредиты, чтобы избежать ограничений.',
+  'upsell.usageLimit.bodyRate':
+    'Вы достигли 10-часового лимита частоты инференса.{reset} Обновите план для более высоких лимитов.',
   'upsell.usageLimit.heading': 'Лимит использования достигнут',
   'upsell.usageLimit.notNow': 'Не сейчас',
   'upsell.usageLimit.perWindow': '{amount}',
@@ -3498,40 +3877,56 @@ const messages: TranslationMap = {
   'conversations.taskKanban.inProgress': 'В работе',
   'intelligence.memoryChunk.detail.copiedHint': 'скопировано',
   'settings.composio.notYetRouted': 'пока не маршрутизируется',
-  'settings.localModel.download.manageExternal': 'Управляйте этой моделью во внешней среде выполнения.',
-  'settings.localModel.status.manageOllamaExternal': 'Управляйте процессом Ollama и загрузкой моделей вне OpenHuman, затем повторите диагностику.',
+  'settings.localModel.download.manageExternal':
+    'Управляйте этой моделью во внешней среде выполнения.',
+  'settings.localModel.status.manageOllamaExternal':
+    'Управляйте процессом Ollama и загрузкой моделей вне OpenHuman, затем повторите диагностику.',
   'settings.localModel.status.ollamaDocs': 'Документация Ollama',
-  'settings.localModel.status.thenRetry': 'для инструкций по настройке, затем повторите, когда среда выполнения станет доступна.',
+  'settings.localModel.status.thenRetry':
+    'для инструкций по настройке, затем повторите, когда среда выполнения станет доступна.',
   'devOptions.menuAi': 'Конфигурация AI',
-  'devOptions.menuAiDesc': 'Облачные поставщики, локальные модели Ollama и маршрутизация для каждой рабочей нагрузки',
+  'devOptions.menuAiDesc':
+    'Облачные поставщики, локальные модели Ollama и маршрутизация для каждой рабочей нагрузки',
   'devOptions.menuScreenAware': 'Функция Screen Aware',
-  'devOptions.menuScreenAwareDesc': 'Разрешения на захват экрана, мониторинг политика и элементы управления сеансом',
+  'devOptions.menuScreenAwareDesc':
+    'Разрешения на захват экрана, мониторинг политика и элементы управления сеансом',
   'devOptions.menuMessaging': 'Каналы обмена сообщениями',
-  'devOptions.menuMessagingDesc': 'Настройка режимов аутентификации Telegram/Discord и маршрутизации каналов по умолчанию',
+  'devOptions.menuMessagingDesc':
+    'Настройка режимов аутентификации Telegram/Discord и маршрутизации каналов по умолчанию',
   'devOptions.menuTools': 'Инструменты',
-  'devOptions.menuToolsDesc': 'Включение или отключение возможностей, которые OpenHuman может использовать от вашего имени',
+  'devOptions.menuToolsDesc':
+    'Включение или отключение возможностей, которые OpenHuman может использовать от вашего имени',
   'devOptions.menuAgentChat': 'Чат агента',
-  'devOptions.menuAgentChatDesc': 'Диалог агента тестирования с переопределением модели и температуры',
+  'devOptions.menuAgentChatDesc':
+    'Диалог агента тестирования с переопределением модели и температуры',
   'devOptions.menuCronJobs': 'Задания Cron',
-  'devOptions.menuCronJobsDesc': 'Просмотр и настройка запланированных заданий для навыков выполнения',
+  'devOptions.menuCronJobsDesc':
+    'Просмотр и настройка запланированных заданий для навыков выполнения',
   'devOptions.menuLocalModelDebug': 'Отладка локальной модели',
-  'devOptions.menuLocalModelDebugDesc': 'Конфигурация Ollama, загрузка ресурсов, тесты моделей и диагностика',
+  'devOptions.menuLocalModelDebugDesc':
+    'Конфигурация Ollama, загрузка ресурсов, тесты моделей и диагностика',
   'devOptions.menuWebhooksDebug': 'Веб-перехватчики',
-  'devOptions.menuWebhooksDebugDesc': 'Проверка регистрации веб-перехватчиков во время выполнения и записанные журналы запросов',
+  'devOptions.menuWebhooksDebugDesc':
+    'Проверка регистрации веб-перехватчиков во время выполнения и записанные журналы запросов',
   'devOptions.menuIntelligence': 'Аналитика',
-  'devOptions.menuIntelligenceDesc': 'Рабочая область памяти, механизм подсознания, сны и настройки',
+  'devOptions.menuIntelligenceDesc':
+    'Рабочая область памяти, механизм подсознания, сны и настройки',
   'devOptions.menuNotificationRouting': 'Маршрутизация уведомлений',
-  'devOptions.menuNotificationRoutingDesc': 'Оценка важности ИИ и эскалация оркестратора для предупреждений интеграции',
+  'devOptions.menuNotificationRoutingDesc':
+    'Оценка важности ИИ и эскалация оркестратора для предупреждений интеграции',
   'devOptions.menuComposeIOTriggers': 'Триггеры ComposeIO',
   'devOptions.menuComposeIOTriggersDesc': 'Просмотр истории и архива триггеров ComposeIO.',
   'devOptions.menuComposioRouting': 'Composio Маршрутизация (прямой режим)',
-  'devOptions.menuComposioRoutingDesc': 'Используйте свой собственный ключ Composio API и направляйте вызовы непосредственно на backend.composio.dev',
+  'devOptions.menuComposioRoutingDesc':
+    'Используйте свой собственный ключ Composio API и направляйте вызовы непосредственно на backend.composio.dev',
   'devOptions.menuComposioTriggers': 'Интеграция Триггеры',
-  'devOptions.menuComposioTriggersDesc': 'Настройка параметров сортировки AI для триггеров интеграции Composio',
+  'devOptions.menuComposioTriggersDesc':
+    'Настройка параметров сортировки AI для триггеров интеграции Composio',
   'memory.sourceFilterAria': 'Фильтровать по источнику',
   'calls.comingSoonDescription': 'Звонки с поддержкой ИИ скоро появятся. Следите за обновлениями.',
   'vault.title': 'Хранилища знаний.',
-  'vault.description': 'Укажите локальную папку; файлы разбиваются на части и зеркалируются в память.',
+  'vault.description':
+    'Укажите локальную папку; файлы разбиваются на части и зеркалируются в память.',
   'vault.add': 'Добавить хранилище.',
   'vault.added': 'Хранилище добавлено.',
   'vault.createdMessage': 'Создано «{name}». Нажмите {sync}, чтобы принять.',
@@ -3544,7 +3939,8 @@ const messages: TranslationMap = {
   'vault.syncSummaryFailed': ', не удалось {count}',
   'vault.syncSummarySkipped': ', пропущен {count}',
   'vault.syncSummaryDuration': ' · {seconds}s',
-  'vault.confirmRemovePurge': 'Удалить хранилище «{name}»?\n\nНажмите OK, чтобы также очистить его память (удалить все {count} загруженных документов).\nНажмите Отмена, чтобы сохранить документы в памяти.',
+  'vault.confirmRemovePurge':
+    'Удалить хранилище «{name}»?\n\nНажмите OK, чтобы также очистить его память (удалить все {count} загруженных документов).\nНажмите Отмена, чтобы сохранить документы в памяти.',
   'vault.confirmRemove': 'Действительно удалить хранилище «{name}»?',
   'vault.removed': 'Хранилище удалено.',
   'vault.removedPurgedMessage': 'Удален «{name}» и очищена его память.',
@@ -3589,21 +3985,27 @@ const messages: TranslationMap = {
   'settings.mascot': 'Талисман',
   'settings.mascotDesc': 'Выберите цвет талисмана, используемый в приложении.',
   'pages.settings.account.walletBalances': 'Баланс кошелька',
-  'pages.settings.account.walletBalancesDesc': 'Просмотр мультичейн-балансов вашего локального кошелька',
+  'pages.settings.account.walletBalancesDesc':
+    'Просмотр мультичейн-балансов вашего локального кошелька',
   'walletBalances.title': 'Баланс кошелька',
   'walletBalances.refresh': 'Refresh',
   'walletBalances.loading': 'Загрузка балансов…',
   'walletBalances.retry': 'Retry',
-  'walletBalances.emptyState': 'Аккаунтов кошелька пока нет — настройте кошелёк в разделе «Фраза восстановления».',
+  'walletBalances.emptyState':
+    'Аккаунтов кошелька пока нет — настройте кошелёк в разделе «Фраза восстановления».',
   'walletBalances.copyAddress': 'Копировать адрес',
   'walletBalances.providerMissing': 'провайдер недоступен',
   'walletBalances.rawBalance': 'Исходный: {raw}',
-  'walletBalances.errorGeneric': 'Не удалось загрузить балансы кошелька. Настройте кошелёк в разделе «Фраза восстановления» и повторите попытку.',
+  'walletBalances.errorGeneric':
+    'Не удалось загрузить балансы кошелька. Настройте кошелёк в разделе «Фраза восстановления» и повторите попытку.',
   'settings.taskSources.title': 'Источники задач',
   'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов на доску задач агента.',
-  'settings.taskSources.description': 'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и направляйте на доску задач агента.',
-  'settings.taskSources.connectHint': 'Источники задач используют ваши подключенные учетные записи. Сначала подключите их в разделе «Интеграции».',
-  'settings.taskSources.disabledBanner': 'Источники задач отключены в настройках. Разрешите им автоматически проводить опросы.',
+  'settings.taskSources.description':
+    'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и направляйте на доску задач агента.',
+  'settings.taskSources.connectHint':
+    'Источники задач используют ваши подключенные учетные записи. Сначала подключите их в разделе «Интеграции».',
+  'settings.taskSources.disabledBanner':
+    'Источники задач отключены в настройках. Разрешите им автоматически проводить опросы.',
   'settings.taskSources.loadError': 'Не удалось загрузить источники задач.',
   'settings.taskSources.addTitle': 'Добавить источник задачи',
   'settings.taskSources.provider': 'Поставщик',
@@ -3632,7 +4034,8 @@ const messages: TranslationMap = {
   'settings.taskSources.enable': 'Давать возможность',
   'settings.taskSources.disable': 'Запрещать',
   'settings.taskSources.remove': 'Удалять',
-  'settings.taskSources.removeConfirm': 'Удалить этот источник задачи? Вся загруженная история задач будет удалена, и ее нельзя будет отменить.',
+  'settings.taskSources.removeConfirm':
+    'Удалить этот источник задачи? Вся загруженная история задач будет удалена, и ее нельзя будет отменить.',
   'settings.taskSources.refresh': 'Обновить',
   'settings.taskSources.providers.github': 'GitHub',
   'settings.taskSources.providers.notion': 'Понятие',
@@ -3641,7 +4044,8 @@ const messages: TranslationMap = {
   'skills.dashboard.title': 'Skills',
   'skills.dashboard.scheduledHeading': 'Запланированные навыки',
   'skills.dashboard.emptyTitle': 'Нет запланированных навыков',
-  'skills.dashboard.emptyBody': 'Запустите встроенный навык однократно или сохраните расписание, чтобы увидеть его здесь.',
+  'skills.dashboard.emptyBody':
+    'Запустите встроенный навык однократно или сохраните расписание, чтобы увидеть его здесь.',
   'skills.dashboard.create': 'Создать навык',
   'skills.dashboard.run': 'Запустить навык',
   'skills.dashboard.enable': 'Включить запланированный навык',
@@ -3651,9 +4055,11 @@ const messages: TranslationMap = {
   'skills.dashboard.cardOpenRunner': 'Открыть в исполнителе',
   'skills.dashboard.loadError': 'Не удалось загрузить запланированные навыки',
   'skills.new.title': 'Создать навык',
-  'skills.new.placeholderBody': 'Форма создания скоро появится. Пока используйте кнопку «Новый навык» на странице исполнителя.',
+  'skills.new.placeholderBody':
+    'Форма создания скоро появится. Пока используйте кнопку «Новый навык» на странице исполнителя.',
   'settings.agents.title': 'Агенты',
-  'settings.agents.subtitle': 'Управляйте агентами, доступными для делегирования — встроенными агентами по умолчанию и вашими собственными агентами.',
+  'settings.agents.subtitle':
+    'Управляйте агентами, доступными для делегирования — встроенными агентами по умолчанию и вашими собственными агентами.',
   'settings.agents.menuDesc': 'Управление встроенными и пользовательскими агентами',
   'settings.agents.newAgent': 'Новый агент',
   'settings.agents.loadError': 'Не удалось загрузить агенты',
@@ -3678,11 +4084,14 @@ const messages: TranslationMap = {
   'settings.agents.editor.name': 'Имя',
   'settings.agents.editor.description': 'Описание',
   'settings.agents.editor.model': 'Модель (необязательно)',
-  'settings.agents.editor.modelPlaceholder': 'например наследовать, подсказку: быстро или идентификатор модели',
+  'settings.agents.editor.modelPlaceholder':
+    'например наследовать, подсказку: быстро или идентификатор модели',
   'settings.agents.editor.systemPrompt': 'Системное приглашение (необязательно)',
   'settings.agents.editor.tools': 'Разрешенные инструменты',
-  'settings.agents.editor.toolsHint': 'Одно имя инструмента в строке. Используйте * для всех инструментов.',
-  'settings.agents.editor.defaultsNote': 'При редактировании встроенного агента сохраняется переопределение, которое можно сбросить позже.',
+  'settings.agents.editor.toolsHint':
+    'Одно имя инструмента в строке. Используйте * для всех инструментов.',
+  'settings.agents.editor.defaultsNote':
+    'При редактировании встроенного агента сохраняется переопределение, которое можно сбросить позже.',
   'settings.agents.editor.save': 'Сохранять',
   'settings.agents.editor.create': 'Создать агента',
   'settings.agents.editor.saving': 'Сохранение…',
@@ -3695,7 +4104,8 @@ const messages: TranslationMap = {
   'workflows.deleteError': 'Failed to delete workflow',
   'workflows.warnings': '{count} warning(s)',
   'workflows.empty.title': 'No workflows yet',
-  'workflows.empty.body': 'Create a workflow to define rules and scripts for task lifecycle phases.',
+  'workflows.empty.body':
+    'Create a workflow to define rules and scripts for task lifecycle phases.',
   'workflows.create.title': 'New Workflow',
   'workflows.create.subtitle': 'Define a lifecycle-bound rule set for the agent.',
   'workflows.create.name': 'Name',
@@ -3730,7 +4140,8 @@ const messages: TranslationMap = {
   'workflows.phase.context': 'Context',
   'workflows.phase.context.empty': 'No context providers.',
   'settings.agentsSection.title': 'Agents',
-  'settings.agentsSection.description': 'Управляйте агентами, их автономностью и доступом к ресурсам компьютера.',
+  'settings.agentsSection.description':
+    'Управляйте агентами, их автономностью и доступом к ресурсам компьютера.',
   'settings.agentsSection.menuDesc': 'Реестр, автономность и доступ к ОС',
   'settings.agents.editor.notFound': 'Агент не найден.',
   'settings.agents.editor.modelInherit': 'Унаследовать (системное по умолчанию)',
@@ -3746,12 +4157,14 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsSelectedCount': 'Выбрано: {count}',
   'settings.agents.editor.toolsSearchPlaceholder': 'Поиск инструментов…',
   'settings.agents.editor.toolsAllowAll': 'Разрешить все инструменты (*)',
-  'settings.agents.editor.toolsAllowAllHint': 'Этот агент может использовать любой доступный инструмент.',
+  'settings.agents.editor.toolsAllowAllHint':
+    'Этот агент может использовать любой доступный инструмент.',
   'settings.agents.editor.toolsLoading': 'Загрузка инструментов…',
   'settings.agents.editor.toolsLoadError': 'Не удалось загрузить инструменты',
   'settings.agents.editor.toolsEmpty': 'Инструменты по вашему запросу не найдены.',
   'settings.agents.editor.toolsDone': 'Done',
-  'settings.agents.editor.builtInReadonly': 'Встроенные агенты нельзя редактировать. Вы можете включить, отключить или сбросить их в списке агентов.',
+  'settings.agents.editor.builtInReadonly':
+    'Встроенные агенты нельзя редактировать. Вы можете включить, отключить или сбросить их в списке агентов.',
 };
 
 export default messages;

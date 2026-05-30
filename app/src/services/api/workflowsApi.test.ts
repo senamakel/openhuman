@@ -3,9 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { workflowsApi } from './workflowsApi';
 
 const mockCallCoreRpc = vi.fn();
-vi.mock('../coreRpcClient', () => ({
-  callCoreRpc: (...a: unknown[]) => mockCallCoreRpc(...a),
-}));
+vi.mock('../coreRpcClient', () => ({ callCoreRpc: (...a: unknown[]) => mockCallCoreRpc(...a) }));
 
 const mockWorkflow = {
   name: 'Test Workflow',
@@ -14,14 +12,7 @@ const mockWorkflow = {
   when_to_use: 'When testing',
   tags: ['test'],
   tools: null,
-  phases: {
-    on_pick_up_task: {
-      rules: ['Follow TDD'],
-      scripts: [],
-      tools: null,
-      context: [],
-    },
-  },
+  phases: { on_pick_up_task: { rules: ['Follow TDD'], scripts: [], tools: null, context: [] } },
   location: '/home/user/.openhuman/workflows/test-workflow',
   scope: 'user' as const,
   warnings: [],
@@ -102,17 +93,10 @@ describe('workflowsApi', () => {
 
     it('includes optional description and when_to_use when provided', async () => {
       mockCallCoreRpc.mockResolvedValue({ workflow: mockWorkflow });
-      await workflowsApi.createWorkflow({
-        name: 'Test',
-        description: 'desc',
-        when_to_use: 'when',
-      });
+      await workflowsApi.createWorkflow({ name: 'Test', description: 'desc', when_to_use: 'when' });
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
-          params: expect.objectContaining({
-            description: 'desc',
-            when_to_use: 'when',
-          }),
+          params: expect.objectContaining({ description: 'desc', when_to_use: 'when' }),
         })
       );
     });
@@ -140,9 +124,7 @@ describe('workflowsApi', () => {
     });
 
     it('unwraps data-envelope shape', async () => {
-      mockCallCoreRpc.mockResolvedValue({
-        data: { id: 'test-workflow', removed: true },
-      });
+      mockCallCoreRpc.mockResolvedValue({ data: { id: 'test-workflow', removed: true } });
       const result = await workflowsApi.uninstallWorkflow('test-workflow');
       expect(result.id).toBe('test-workflow');
     });

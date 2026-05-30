@@ -8,7 +8,7 @@
 import { type FC } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import type { WorkflowPhase, ToolScope } from '../../services/api/workflowsApi';
+import type { ToolScope, WorkflowPhase } from '../../services/api/workflowsApi';
 
 interface PhaseEditorProps {
   phaseName: string;
@@ -18,9 +18,7 @@ interface PhaseEditorProps {
 function StringList({ items, emptyKey }: { items: string[]; emptyKey: string }) {
   const { t } = useT();
   if (items.length === 0) {
-    return (
-      <p className="text-xs italic text-stone-400 dark:text-neutral-500">{t(emptyKey)}</p>
-    );
+    return <p className="text-xs italic text-stone-400 dark:text-neutral-500">{t(emptyKey)}</p>;
   }
   return (
     <ul className="mt-1 space-y-1">

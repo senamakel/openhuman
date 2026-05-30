@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import debug from 'debug';
 
-import { workflowsApi, type Workflow, type WorkflowSummary } from '../services/api/workflowsApi';
+import { type Workflow, workflowsApi, type WorkflowSummary } from '../services/api/workflowsApi';
 import { resetUserScopedState } from './resetActions';
 
 const log = debug('workflows');
@@ -146,8 +146,7 @@ const workflowsSlice = createSlice({
 
 export const { clearSelectedWorkflow } = workflowsSlice.actions;
 
-export const selectWorkflows = (state: { workflows: WorkflowsState }) =>
-  state.workflows.workflows;
+export const selectWorkflows = (state: { workflows: WorkflowsState }) => state.workflows.workflows;
 
 export const selectSelectedWorkflow = (state: { workflows: WorkflowsState }) =>
   state.workflows.selectedWorkflow;
@@ -155,7 +154,6 @@ export const selectSelectedWorkflow = (state: { workflows: WorkflowsState }) =>
 export const selectWorkflowsStatus = (state: { workflows: WorkflowsState }) =>
   state.workflows.status;
 
-export const selectWorkflowsError = (state: { workflows: WorkflowsState }) =>
-  state.workflows.error;
+export const selectWorkflowsError = (state: { workflows: WorkflowsState }) => state.workflows.error;
 
 export default workflowsSlice.reducer;

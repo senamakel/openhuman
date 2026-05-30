@@ -111,9 +111,7 @@ export const workflowsApi = {
    */
   listWorkflows: async (): Promise<WorkflowSummary[]> => {
     log('listWorkflows: request');
-    const response = await callCoreRpc<
-      Envelope<WorkflowsListResult> | WorkflowsListResult
-    >({
+    const response = await callCoreRpc<Envelope<WorkflowsListResult> | WorkflowsListResult>({
       method: 'openhuman.workflows_list',
     });
     const result = unwrapEnvelope(response);
@@ -127,9 +125,7 @@ export const workflowsApi = {
    */
   readWorkflow: async (id: string): Promise<Workflow> => {
     log('readWorkflow: request id=%s', id);
-    const response = await callCoreRpc<
-      Envelope<WorkflowsReadResult> | WorkflowsReadResult
-    >({
+    const response = await callCoreRpc<Envelope<WorkflowsReadResult> | WorkflowsReadResult>({
       method: 'openhuman.workflows_read',
       params: { id },
     });
@@ -151,9 +147,7 @@ export const workflowsApi = {
     when_to_use?: string;
   }): Promise<Workflow> => {
     log('createWorkflow: request name=%s', params.name);
-    const response = await callCoreRpc<
-      Envelope<WorkflowsCreateResult> | WorkflowsCreateResult
-    >({
+    const response = await callCoreRpc<Envelope<WorkflowsCreateResult> | WorkflowsCreateResult>({
       method: 'openhuman.workflows_create',
       params: {
         name: params.name,
@@ -177,10 +171,7 @@ export const workflowsApi = {
     log('uninstallWorkflow: request id=%s', id);
     const response = await callCoreRpc<
       Envelope<WorkflowsUninstallResult> | WorkflowsUninstallResult
-    >({
-      method: 'openhuman.workflows_uninstall',
-      params: { id },
-    });
+    >({ method: 'openhuman.workflows_uninstall', params: { id } });
     const result = unwrapEnvelope(response);
     log('uninstallWorkflow: response id=%s removed=%s', result.id, result.removed);
     return result;
@@ -192,9 +183,7 @@ export const workflowsApi = {
    */
   getWorkflowPhase: async (id: string, phase: string): Promise<WorkflowPhaseResult> => {
     log('getWorkflowPhase: request id=%s phase=%s', id, phase);
-    const response = await callCoreRpc<
-      Envelope<WorkflowPhaseResult> | WorkflowPhaseResult
-    >({
+    const response = await callCoreRpc<Envelope<WorkflowPhaseResult> | WorkflowPhaseResult>({
       method: 'openhuman.workflows_phase',
       params: { id, phase },
     });

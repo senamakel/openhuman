@@ -7,8 +7,8 @@
  * modal, and delete confirmation. Workflow data is loaded via the Redux
  * `workflows` slice backed by `workflowsApi`.
  */
-import { useCallback, useEffect, useState } from 'react';
 import debug from 'debug';
+import { useCallback, useEffect, useState } from 'react';
 
 import { ToastContainer } from '../components/intelligence/Toast';
 import CreateWorkflowModal from '../components/workflows/CreateWorkflowModal';
@@ -42,10 +42,7 @@ export default function AgentWorkflows() {
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
-    const newToast: ToastNotification = {
-      ...toast,
-      id: `toast-${Date.now()}-${Math.random()}`,
-    };
+    const newToast: ToastNotification = { ...toast, id: `toast-${Date.now()}-${Math.random()}` };
     setToasts(prev => [...prev, newToast]);
   }, []);
 
@@ -82,9 +79,7 @@ export default function AgentWorkflows() {
       await dispatch(removeWorkflow(deleteCandidate.id)).unwrap();
       log('deleted workflow id=%s', deleteCandidate.id);
       // Close the drawer if it was showing the deleted workflow.
-      setSelectedWorkflow(prev =>
-        prev && prev.id === deleteCandidate.id ? null : prev
-      );
+      setSelectedWorkflow(prev => (prev && prev.id === deleteCandidate.id ? null : prev));
       addToast({
         type: 'success',
         title: t('workflows.delete'),
@@ -93,11 +88,7 @@ export default function AgentWorkflows() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log('delete error id=%s %s', deleteCandidate.id, msg);
-      addToast({
-        type: 'error',
-        title: t('workflows.deleteError'),
-        message: msg,
-      });
+      addToast({ type: 'error', title: t('workflows.deleteError'), message: msg });
     } finally {
       setDeleting(false);
       setDeleteCandidate(null);
@@ -150,10 +141,7 @@ export default function AgentWorkflows() {
             {isLoading && workflows.length === 0 ? (
               <div className="space-y-2 animate-pulse">
                 {[1, 2, 3].map(i => (
-                  <div
-                    key={i}
-                    className="h-20 rounded-2xl bg-stone-100 dark:bg-neutral-800"
-                  />
+                  <div key={i} className="h-20 rounded-2xl bg-stone-100 dark:bg-neutral-800" />
                 ))}
               </div>
             ) : null}
@@ -233,10 +221,7 @@ export default function AgentWorkflows() {
 
       {/* Create modal */}
       {createModalOpen ? (
-        <CreateWorkflowModal
-          onClose={() => setCreateModalOpen(false)}
-          onCreated={handleCreated}
-        />
+        <CreateWorkflowModal onClose={() => setCreateModalOpen(false)} onCreated={handleCreated} />
       ) : null}
 
       {/* Delete confirmation dialog */}

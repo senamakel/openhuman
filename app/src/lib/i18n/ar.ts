@@ -81,7 +81,8 @@ const messages: TranslationMap = {
   'settings.about': 'حول',
   'settings.aboutDesc': 'إصدار التطبيق وتحديثات البرنامج',
   'settings.developerOptions': 'متقدم',
-  'settings.developerOptionsDesc': 'إعداد الذكاء الاصطناعي وقنوات المراسلة والأدوات والتشخيص ولوحات التصحيح',
+  'settings.developerOptionsDesc':
+    'إعداد الذكاء الاصطناعي وقنوات المراسلة والأدوات والتشخيص ولوحات التصحيح',
   'settings.clearAppData': 'مسح بيانات التطبيق',
   'settings.clearAppDataDesc': 'تسجيل الخروج وحذف جميع البيانات المحلية للتطبيق نهائيًا',
   'settings.logOut': 'تسجيل الخروج',
@@ -102,19 +103,22 @@ const messages: TranslationMap = {
   'settings.account.privacy': 'الخصوصية',
   'settings.account.privacyDesc': 'التحكم في البيانات التي تغادر جهازك',
   'migration.title': 'استيراد من مساعد آخر',
-  'migration.description': 'انقل الذاكرة والملاحظات من مساعد محلي آخر إلى مساحة العمل هذه. ابدأ بـ«معاينة» لرؤية ما سيتغير، ثم اضغط «تطبيق» لنسخ البيانات. يتم نسخ ذاكرتك الحالية احتياطيًا أولًا.',
+  'migration.description':
+    'انقل الذاكرة والملاحظات من مساعد محلي آخر إلى مساحة العمل هذه. ابدأ بـ«معاينة» لرؤية ما سيتغير، ثم اضغط «تطبيق» لنسخ البيانات. يتم نسخ ذاكرتك الحالية احتياطيًا أولًا.',
   'migration.vendorLabel': 'المصدر',
   'migration.vendor.openclaw': 'OpenClaw',
   'migration.vendor.hermes': 'Hermes Agent',
   'migration.sourceLabel': 'مسار مساحة العمل المصدر (اختياري)',
   'migration.sourcePlaceholder': 'اتركه فارغًا للاكتشاف التلقائي (مثال: ~/.openclaw/workspace)',
   'migration.sourcePlaceholderHermes': 'اتركه فارغاً للاكتشاف التلقائي (مثال: ~/.hermes)',
-  'migration.sourceHint': 'يستخدم الموقع الافتراضي للمصدر عند تركه فارغًا. حدد مسارًا صريحًا إذا نقلت مساحة العمل إلى مكان آخر.',
+  'migration.sourceHint':
+    'يستخدم الموقع الافتراضي للمصدر عند تركه فارغًا. حدد مسارًا صريحًا إذا نقلت مساحة العمل إلى مكان آخر.',
   'migration.previewAction': 'معاينة',
   'migration.previewRunning': 'جاري المعاينة…',
   'migration.applyAction': 'تطبيق الاستيراد',
   'migration.applyRunning': 'جاري الاستيراد…',
-  'migration.applyDisclaimer': 'يُفتح التطبيق فقط بعد معاينة ناجحة لنفس المصدر. يتم نسخ الذاكرة الحالية احتياطيًا قبل أي استيراد.',
+  'migration.applyDisclaimer':
+    'يُفتح التطبيق فقط بعد معاينة ناجحة لنفس المصدر. يتم نسخ الذاكرة الحالية احتياطيًا قبل أي استيراد.',
   'migration.reportTitlePreview': 'معاينة — لم يُستورد شيء بعد',
   'migration.reportTitleApplied': 'اكتمل الاستيراد',
   'migration.report.source': 'مساحة العمل المصدر',
@@ -126,9 +130,12 @@ const messages: TranslationMap = {
   'migration.report.renamedConflicts': 'تمت إعادة التسمية عند التعارض',
   'migration.report.warnings': 'تحذيرات',
   'migration.report.previewHint': 'لم تُستورد أي بيانات بعد. اضغط «تطبيق الاستيراد» للنسخ.',
-  'migration.report.appliedHint': 'العناصر المستوردة أصبحت الآن في ذاكرتك. أعد تشغيل «المعاينة» للمقارنة مرة أخرى.',
-  'migration.confirmImport.singular': 'استيراد {count} عنصر إلى مساحة العمل الحالية؟\n\nالمصدر: {source}\nالهدف: {target}\n\nسيتم نسخ الذاكرة الحالية احتياطيًا قبل بدء الاستيراد.',
-  'migration.confirmImport.plural': 'استيراد {count} عنصر إلى مساحة العمل الحالية؟\n\nالمصدر: {source}\nالهدف: {target}\n\nسيتم نسخ الذاكرة الحالية احتياطيًا قبل بدء الاستيراد.',
+  'migration.report.appliedHint':
+    'العناصر المستوردة أصبحت الآن في ذاكرتك. أعد تشغيل «المعاينة» للمقارنة مرة أخرى.',
+  'migration.confirmImport.singular':
+    'استيراد {count} عنصر إلى مساحة العمل الحالية؟\n\nالمصدر: {source}\nالهدف: {target}\n\nسيتم نسخ الذاكرة الحالية احتياطيًا قبل بدء الاستيراد.',
+  'migration.confirmImport.plural':
+    'استيراد {count} عنصر إلى مساحة العمل الحالية؟\n\nالمصدر: {source}\nالهدف: {target}\n\nسيتم نسخ الذاكرة الحالية احتياطيًا قبل بدء الاستيراد.',
   'settings.notifications.doNotDisturb': 'عدم الإزعاج',
   'settings.notifications.doNotDisturbDesc': 'إيقاف جميع الإشعارات مؤقتًا لفترة محددة',
   'settings.notifications.channelControls': 'ضوابط لكل قناة',
@@ -160,8 +167,10 @@ const messages: TranslationMap = {
   'welcome.selectRuntime': 'اختر بيئة التشغيل',
   'welcome.clearingAppData': 'مسح بيانات التطبيق...',
   'welcome.clearAppDataAndRestart': 'مسح بيانات التطبيق وإعادة تشغيله',
-  'welcome.clearAppDataWarning': 'سيؤدي هذا إلى مسح الأسرار والحسابات المخزنة محلياً على هذا الجهاز. حسابك السحابي غير متأثر — يمكنك تسجيل الدخول مجدداً فوراً بعد ذلك.',
-  'welcome.resetErrorFallback': 'تعذّر مسح بيانات التطبيق. يرجى إنهاء OpenHuman وإعادة فتحه، ثم حاول مجدداً.',
+  'welcome.clearAppDataWarning':
+    'سيؤدي هذا إلى مسح الأسرار والحسابات المخزنة محلياً على هذا الجهاز. حسابك السحابي غير متأثر — يمكنك تسجيل الدخول مجدداً فوراً بعد ذلك.',
+  'welcome.resetErrorFallback':
+    'تعذّر مسح بيانات التطبيق. يرجى إنهاء OpenHuman وإعادة فتحه، ثم حاول مجدداً.',
   'welcome.signingIn': 'تسجيل دخولك...',
   'welcome.termsIntro': 'من خلال المتابعة، فإنك توافق على',
   'welcome.termsOfUse': 'الشروط',
@@ -176,10 +185,13 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'مساء الخير',
   'home.greetingEvening': 'مساء النور',
   'home.askAssistant': 'اسأل مساعدك أي شيء...',
-  'home.statusOk': 'جهازك متصل. احتفظ بالتطبيق مفتوحًا للحفاظ على الاتصال. راسل وكيلك باستخدام الزر أدناه.',
+  'home.statusOk':
+    'جهازك متصل. احتفظ بالتطبيق مفتوحًا للحفاظ على الاتصال. راسل وكيلك باستخدام الزر أدناه.',
   'home.statusBackendOnly': 'جارٍ إعادة الاتصال بالخادم… سيتوفر وكيلك قريبًا.',
-  'home.statusCoreUnreachable': 'العملية الأساسية المحلية لا تستجيب. قد تكون عملية OpenHuman في الخلفية قد تعطلت أو فشلت في البدء.',
-  'home.statusInternetOffline': 'جهازك غير متصل بالإنترنت حاليًا. تحقق من شبكتك أو أعد تشغيل التطبيق لإعادة الاتصال.',
+  'home.statusCoreUnreachable':
+    'العملية الأساسية المحلية لا تستجيب. قد تكون عملية OpenHuman في الخلفية قد تعطلت أو فشلت في البدء.',
+  'home.statusInternetOffline':
+    'جهازك غير متصل بالإنترنت حاليًا. تحقق من شبكتك أو أعد تشغيل التطبيق لإعادة الاتصال.',
   'home.restartCore': 'إعادة تشغيل النواة',
   'home.restartingCore': 'جارٍ إعادة تشغيل النواة…',
   'home.themeToggle.toLight': 'التبديل إلى الوضع الفاتح',
@@ -193,7 +205,8 @@ const messages: TranslationMap = {
   'routines.subtitle': 'الأشياء التي يقوم بها مساعدك تلقائياً',
   'routines.loading': 'روتينات تحميل...',
   'routines.empty': 'لا روتينات بعد',
-  'routines.emptyHint': 'ويمكن لمساعدكم أن يدير مهامه على جدول زمني - مثل جلسات الإحاطة الصباحية أو الملخصات اليومية.',
+  'routines.emptyHint':
+    'ويمكن لمساعدكم أن يدير مهامه على جدول زمني - مثل جلسات الإحاطة الصباحية أو الملخصات اليومية.',
   'routines.refresh': 'التجديد',
   'routines.nextRun': 'الجولة التالية',
   'routines.lastRunSuccess': 'آخر مرة نجحت',
@@ -236,9 +249,11 @@ const messages: TranslationMap = {
   'skills.addAccount': 'إضافة حساب',
   'skills.channels': 'القنوات',
   'skills.integrations': 'التكاملات',
-  'skills.integrationsSubtitle': 'اتصالات OAuth السحابية — سجّل الدخول بحسابك ويتولى Composio إدارة الرموز حتى يتمكن الوكلاء من القراءة والتصرف نيابةً عنك. لا حاجة لإدارة مفاتيح API.',
+  'skills.integrationsSubtitle':
+    'اتصالات OAuth السحابية — سجّل الدخول بحسابك ويتولى Composio إدارة الرموز حتى يتمكن الوكلاء من القراءة والتصرف نيابةً عنك. لا حاجة لإدارة مفاتيح API.',
   'skills.composio.noApiKeyTitle': 'لم يتم إعداد مفتاح Composio API',
-  'skills.composio.noApiKeyDescription': 'يستخدم الوضع المحلي مفتاح Composio API الخاص بك. افتح الإعدادات ← الخيارات المتقدمة ← Composio لإضافته قبل توصيل التكاملات هنا.',
+  'skills.composio.noApiKeyDescription':
+    'يستخدم الوضع المحلي مفتاح Composio API الخاص بك. افتح الإعدادات ← الخيارات المتقدمة ← Composio لإضافته قبل توصيل التكاملات هنا.',
   'skills.composio.noApiKeyCta': 'افتح في الإعدادات',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'القنوات',
@@ -250,10 +265,12 @@ const messages: TranslationMap = {
   'memory.empty': 'لا توجد ذكريات بعد. تُنشأ الذكريات تلقائيًا أثناء تفاعلك.',
   'memory.tab.memory': 'الذاكرة',
   'memory.tab.tasks': 'مهام الوكيل',
-  'memory.tab.tasksDescription': 'أنشئ المهام وتتبعها — مهامك الخاصة بالإضافة إلى اللوحات التي يبنيها وكلاؤك عبر المحادثات.',
+  'memory.tab.tasksDescription':
+    'أنشئ المهام وتتبعها — مهامك الخاصة بالإضافة إلى اللوحات التي يبنيها وكلاؤك عبر المحادثات.',
   'memory.tab.subconscious': 'اللاوعي',
   'memory.tab.workflows': 'Workflows',
-  'memory.tab.workflowsDescription': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
+  'memory.tab.workflowsDescription':
+    'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
   'memory.tab.dreams': 'الأحلام',
   'memory.tab.calls': 'المكالمات',
   'memory.tab.diagram': 'Diagram',
@@ -261,7 +278,8 @@ const messages: TranslationMap = {
   'memory.tab.settings': 'الإعدادات',
   'memory.analyzeNow': 'تحليل الآن',
   'graphCentrality.title': 'مركز المعرفة',
-  'graphCentrality.intro': 'ويظهر الإرسال على صور ذاكرتك مراكز الحمل - والكيانات الموصلة التي تربط المجموعات المنفصلة عن بعضها البعض، والتي لا يمكن لإحصاء الترددات الخام أن يكشف عنها.',
+  'graphCentrality.intro':
+    'ويظهر الإرسال على صور ذاكرتك مراكز الحمل - والكيانات الموصلة التي تربط المجموعات المنفصلة عن بعضها البعض، والتي لا يمكن لإحصاء الترددات الخام أن يكشف عنها.',
   'graphCentrality.loading': 'مركزية الكمبيوتر...',
   'graphCentrality.errorPrefix': 'لا يمكن تحميل الرسم البياني:',
   'graphCentrality.retry': 'Retry',
@@ -314,7 +332,8 @@ const messages: TranslationMap = {
   'rewards.title': 'المكافآت',
   'rewards.referrals': 'الإحالات',
   'rewards.coupons': 'استرداد',
-  'rewards.localUnavailable': 'تسجيل الدخول المحلي لا يمنح مكافآت أو قسائم أو رصيد إحالة. لكسب المكافآت، سجّل الخروج ثم تابِع بتسجيل الدخول باستخدام حساب OpenHuman.',
+  'rewards.localUnavailable':
+    'تسجيل الدخول المحلي لا يمنح مكافآت أو قسائم أو رصيد إحالة. لكسب المكافآت، سجّل الخروج ثم تابِع بتسجيل الدخول باستخدام حساب OpenHuman.',
   'rewards.localUnavailableCta': 'افتح إعدادات الحساب',
   'rewards.credits': 'الرصيد',
   'rewards.referralCode': 'رمز الإحالة الخاص بك',
@@ -335,7 +354,8 @@ const messages: TranslationMap = {
   'onboarding.skip': 'تخطي',
   'onboarding.getStarted': 'ابدأ الآن',
   'onboarding.runtimeChoice.title': 'كيف تريد تشغيل OpenHuman؟',
-  'onboarding.runtimeChoice.subtitle': 'اختر الإعداد الأنسب لك. يمكنك تغيير هذا لاحقًا في الإعدادات.',
+  'onboarding.runtimeChoice.subtitle':
+    'اختر الإعداد الأنسب لك. يمكنك تغيير هذا لاحقًا في الإعدادات.',
   'onboarding.runtimeChoice.cloud.title': 'بسيط',
   'onboarding.runtimeChoice.cloud.tagline': 'دع OpenHuman يدير كل شيء نيابةً عنك.',
   'onboarding.runtimeChoice.cloud.f1': 'أمان مدمج',
@@ -355,10 +375,12 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.continueCustom': 'المتابعة بالخيار المخصص',
   'onboarding.runtimeChoice.recommended': 'موصى به',
   'onboarding.apiKeys.title': 'لنضف مفاتيح API الخاصة بك',
-  'onboarding.apiKeys.subtitle': 'يمكنك لصقها الآن أو تخطيها وإضافتها لاحقًا من الإعدادات › الذكاء الاصطناعي. تُحفظ المفاتيح على هذا الجهاز مشفرةً.',
+  'onboarding.apiKeys.subtitle':
+    'يمكنك لصقها الآن أو تخطيها وإضافتها لاحقًا من الإعدادات › الذكاء الاصطناعي. تُحفظ المفاتيح على هذا الجهاز مشفرةً.',
   'onboarding.apiKeys.openaiLabel': 'مفتاح OpenAI API',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
-  'onboarding.apiKeys.openaiOauthHint': 'استخدم ChatGPT Plus/Pro (اشتراك) أو مفتاح OpenAI API - ليس كلاهما مطلوبًا.',
+  'onboarding.apiKeys.openaiOauthHint':
+    'استخدم ChatGPT Plus/Pro (اشتراك) أو مفتاح OpenAI API - ليس كلاهما مطلوبًا.',
   'onboarding.apiKeys.openaiOauthOpening': 'فتح تسجيل الدخول...',
   'onboarding.apiKeys.finishSignIn': 'إنهاء تسجيل الدخول إلى ChatGPT',
   'onboarding.apiKeys.orApiKey': 'أو مفتاح API',
@@ -383,32 +405,45 @@ const messages: TranslationMap = {
   'onboarding.custom.continue': 'متابعة',
   'onboarding.custom.back': 'رجوع',
   'onboarding.custom.finish': 'إتمام الإعداد',
-  'onboarding.custom.configureLater': 'يمكنك إكمال الإعداد بعد انتهاء الإعداد الأولي. سننقلك إلى صفحة الإعدادات المناسبة عند الانتهاء.',
+  'onboarding.custom.configureLater':
+    'يمكنك إكمال الإعداد بعد انتهاء الإعداد الأولي. سننقلك إلى صفحة الإعدادات المناسبة عند الانتهاء.',
   'onboarding.custom.openSettings': 'فتح في الإعدادات',
   'onboarding.custom.inference.title': 'الاستدلال (النص)',
   'onboarding.custom.inference.subtitle': 'أي نموذج لغوي يجب أن يُجيب على أسئلتك ويشغّل وكلاءك؟',
-  'onboarding.custom.inference.defaultDesc': 'يُوجّه OpenHuman كل عبء عمل إلى نموذج افتراضي مناسب. بدون مفاتيح أو إعداد.',
-  'onboarding.custom.inference.configureDesc': 'استخدم مفتاحك الخاص من OpenAI أو Anthropic. سنستخدمه لجميع أعباء العمل النصية.',
+  'onboarding.custom.inference.defaultDesc':
+    'يُوجّه OpenHuman كل عبء عمل إلى نموذج افتراضي مناسب. بدون مفاتيح أو إعداد.',
+  'onboarding.custom.inference.configureDesc':
+    'استخدم مفتاحك الخاص من OpenAI أو Anthropic. سنستخدمه لجميع أعباء العمل النصية.',
   'onboarding.custom.voice.title': 'الصوت',
   'onboarding.custom.voice.subtitle': 'تحويل الكلام إلى نص والنص إلى كلام لوضع الصوت.',
-  'onboarding.custom.voice.defaultDesc': 'يأتي OpenHuman مع STT/TTS مُدار يعمل تلقائيًا. لا شيء يحتاج إلى إعداد.',
-  'onboarding.custom.voice.configureDesc': 'استخدم ElevenLabs / OpenAI Whisper / إلخ. اضبطه من الإعدادات › الصوت.',
+  'onboarding.custom.voice.defaultDesc':
+    'يأتي OpenHuman مع STT/TTS مُدار يعمل تلقائيًا. لا شيء يحتاج إلى إعداد.',
+  'onboarding.custom.voice.configureDesc':
+    'استخدم ElevenLabs / OpenAI Whisper / إلخ. اضبطه من الإعدادات › الصوت.',
   'onboarding.custom.oauth.title': 'الاتصالات (OAuth)',
   'onboarding.custom.oauth.subtitle': 'Gmail وSlack وNotion وخدمات أخرى متصلة تحتاج إلى OAuth.',
-  'onboarding.custom.oauth.defaultDesc': 'يشغّل OpenHuman مساحة عمل Composio مُدارة. نقرة واحدة لتوصيل كل خدمة لاحقًا.',
-  'onboarding.custom.oauth.configureDesc': 'استخدم حساب Composio الخاص بك / مفتاح API. اضبطه من الإعدادات › الاتصالات.',
+  'onboarding.custom.oauth.defaultDesc':
+    'يشغّل OpenHuman مساحة عمل Composio مُدارة. نقرة واحدة لتوصيل كل خدمة لاحقًا.',
+  'onboarding.custom.oauth.configureDesc':
+    'استخدم حساب Composio الخاص بك / مفتاح API. اضبطه من الإعدادات › الاتصالات.',
   'onboarding.custom.search.title': 'البحث على الويب',
   'onboarding.custom.search.subtitle': 'كيف يبحث OpenHuman على الويب نيابةً عنك.',
   'onboarding.custom.search.defaultDesc': 'يستخدم OpenHuman خادم بحث مُدار. لا حاجة لمفاتيح.',
-  'onboarding.custom.search.configureDesc': 'استخدم مفتاح مزود البحث الخاص بك (Tavily أو Brave إلخ). اضبطه من الإعدادات › الأدوات.',
+  'onboarding.custom.search.configureDesc':
+    'استخدم مفتاح مزود البحث الخاص بك (Tavily أو Brave إلخ). اضبطه من الإعدادات › الأدوات.',
   'onboarding.custom.embeddings.title': 'Embeddings',
-  'onboarding.custom.embeddings.subtitle': 'كيف يُولِّد OpenHuman تضمينات المتجهات للبحث الدلالي في الذاكرة.',
-  'onboarding.custom.embeddings.defaultDesc': 'يستخدم OpenHuman خدمة تضمين مُدارة. لا حاجة لمفتاح API.',
-  'onboarding.custom.embeddings.configureDesc': 'استخدم موفر التضمين الخاص بك (OpenAI أو Voyage أو Ollama وغيرها).',
+  'onboarding.custom.embeddings.subtitle':
+    'كيف يُولِّد OpenHuman تضمينات المتجهات للبحث الدلالي في الذاكرة.',
+  'onboarding.custom.embeddings.defaultDesc':
+    'يستخدم OpenHuman خدمة تضمين مُدارة. لا حاجة لمفتاح API.',
+  'onboarding.custom.embeddings.configureDesc':
+    'استخدم موفر التضمين الخاص بك (OpenAI أو Voyage أو Ollama وغيرها).',
   'onboarding.custom.memory.title': 'الذاكرة',
   'onboarding.custom.memory.subtitle': 'كيف يتذكر OpenHuman سياقك وتفضيلاتك ومحادثاتك السابقة.',
-  'onboarding.custom.memory.defaultDesc': 'يدير OpenHuman تخزين الذاكرة واسترجاعها تلقائيًا. لا شيء يحتاج إلى إعداد.',
-  'onboarding.custom.memory.configureDesc': 'افحص الذاكرة أو صدّرها أو امسحها بنفسك. اضبطها من الإعدادات › الذاكرة.',
+  'onboarding.custom.memory.defaultDesc':
+    'يدير OpenHuman تخزين الذاكرة واسترجاعها تلقائيًا. لا شيء يحتاج إلى إعداد.',
+  'onboarding.custom.memory.configureDesc':
+    'افحص الذاكرة أو صدّرها أو امسحها بنفسك. اضبطها من الإعدادات › الذاكرة.',
   'accounts.addAccount': 'إضافة حساب',
   'accounts.manageAccounts': 'إدارة الحسابات',
   'accounts.noAccounts': 'لا توجد حسابات متصلة',
@@ -418,7 +453,8 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'قطع الاتصال',
   'accounts.disconnectConfirm': 'هل أنت متأكد من أنك تريد قطع الاتصال بهذا الحساب؟',
   'accounts.disconnectClearMemory': 'حذف الذاكرة من هذا المصدر أيضاً',
-  'accounts.disconnectClearMemoryHint': 'يُزيل نهائياً مقاطع الذاكرة المحلية المرتبطة بهذا الاتصال.',
+  'accounts.disconnectClearMemoryHint':
+    'يُزيل نهائياً مقاطع الذاكرة المحلية المرتبطة بهذا الاتصال.',
   'accounts.searchAccounts': 'البحث في الحسابات...',
   'channels.title': 'القنوات',
   'channels.configure': 'ضبط القناة',
@@ -457,7 +493,8 @@ const messages: TranslationMap = {
   'invites.emptyHint': 'إنشاء رمز دعوة للمشاركة مع الآخرين',
   'invites.revokeTitle': 'إلغاء رمز الدعوة',
   'invites.revokePromptPrefix': 'هل أنت متأكد من رغبتك في إلغاء رمز الدعوة',
-  'invites.revokeWarning': 'لن يكون رمز الدعوة هذا صالحاً بعد الآن ولا يمكن استخدامه للانضمام إلى الفريق.',
+  'invites.revokeWarning':
+    'لن يكون رمز الدعوة هذا صالحاً بعد الآن ولا يمكن استخدامه للانضمام إلى الفريق.',
   'invites.revoking': 'إلغاء...',
   'invites.revokeAction': 'إلغاء الدعوة',
   'invites.failedGenerate': 'فشل إنشاء الدعوة',
@@ -477,8 +514,10 @@ const messages: TranslationMap = {
   'team.removeAction': 'إزالة العضو',
   'team.changeRoleTitle': 'تغيير دور العضو',
   'team.changeRolePrompt': 'تغيير دور {name} من {oldRole} إلى {newRole}؟',
-  'team.changeRoleAdminGrant': 'سيمنحهم ذلك صلاحيات إدارية كاملة تشمل القدرة على إدارة أعضاء الفريق.',
-  'team.changeRoleAdminRemove': 'سيُزيل ذلك صلاحياتهم الإدارية ولن يتمكنوا بعد الآن من إدارة الفريق.',
+  'team.changeRoleAdminGrant':
+    'سيمنحهم ذلك صلاحيات إدارية كاملة تشمل القدرة على إدارة أعضاء الفريق.',
+  'team.changeRoleAdminRemove':
+    'سيُزيل ذلك صلاحياتهم الإدارية ولن يتمكنوا بعد الآن من إدارة الفريق.',
   'team.changing': 'جارٍ التغيير...',
   'team.changeRoleAction': 'تغيير الدور',
   'team.failedChangeRole': 'فشل تغيير الدور',
@@ -486,7 +525,8 @@ const messages: TranslationMap = {
   'devOptions.title': 'متقدم',
   'devOptions.diagnostics': 'التشخيص',
   'devOptions.diagnosticsDesc': 'صحة النظام والسجلات ومقاييس الأداء',
-  'devOptions.toolPolicyDiagnosticsDesc': 'قوائم جرد المواد، ووضع السياسات، والقوائم المسموح بها بx0xx، والوحدات الأخيرة',
+  'devOptions.toolPolicyDiagnosticsDesc':
+    'قوائم جرد المواد، ووضع السياسات، والقوائم المسموح بها بx0xx، والوحدات الأخيرة',
   'devOptions.toolPolicyDiagnostics.loading': 'التعبئة...',
   'devOptions.toolPolicyDiagnostics.unavailable': 'التشخيص غير متاح',
   'devOptions.toolPolicyDiagnostics.posture.title': 'وضع السياسات',
@@ -499,17 +539,22 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.inventory.totalTools': 'مجموع الأدوات',
   'devOptions.toolPolicyDiagnostics.inventory.enabledTools': 'الأدوات التمكينية',
   'devOptions.toolPolicyDiagnostics.inventory.mcpStdioTools': 'أجهزة الاستديو',
-  'devOptions.toolPolicyDiagnostics.inventory.jsonRpcTools': 'xx0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  'devOptions.toolPolicyDiagnostics.inventory.jsonRpcTools':
+    'xx0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.title': 'القائمة المسموح بها',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.summary': 'مُفعَّل: {enabled} · الخوادم: {enabledCount}/{totalCount}',
+  'devOptions.toolPolicyDiagnostics.mcpAllowlists.summary':
+    'مُفعَّل: {enabled} · الخوادم: {enabledCount}/{totalCount}',
   'devOptions.toolPolicyDiagnostics.mcpAllowlists.unnamed': 'اسم مستعار',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.allowDeny': 'السماح = xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  'devOptions.toolPolicyDiagnostics.mcpAllowlists.allowDeny':
+    'السماح = xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   'devOptions.toolPolicyDiagnostics.mcpWriteAudit.title': 'Xqx0xx',
-  'devOptions.toolPolicyDiagnostics.mcpWriteAudit.summary': 'مُفعَّل: {enabled} · الأخيرة (24 ساعة): {recentRows}',
+  'devOptions.toolPolicyDiagnostics.mcpWriteAudit.summary':
+    'مُفعَّل: {enabled} · الأخيرة (24 ساعة): {recentRows}',
   'devOptions.toolPolicyDiagnostics.recentBlocked.title': 'النداءات الأخيرة المغلقة',
   'devOptions.toolPolicyDiagnostics.recentBlocked.empty': 'لم تسجل أي مكالمات',
   'devOptions.toolPolicyDiagnostics.redactedSurfaces.title': 'أسطح متفاعلة',
-  'devOptions.toolPolicyDiagnostics.redactedSurfaces.summary': 'القدرة على الشطب: Xqx0xx: مساحات السياسة العامة: Xqx1xx',
+  'devOptions.toolPolicyDiagnostics.redactedSurfaces.summary':
+    'القدرة على الشطب: Xqx0xx: مساحات السياسة العامة: Xqx1xx',
   'devOptions.debugPanels': 'لوحات التصحيح',
   'devOptions.debugPanelsDesc': 'أعلام الميزات وفحص الحالة وأدوات التصحيح',
   'devOptions.webhooks': 'الـ Webhooks',
@@ -531,11 +576,13 @@ const messages: TranslationMap = {
   'misc.updateLater': 'لاحقًا',
   'misc.downloading': 'جارٍ التنزيل...',
   'misc.installing': 'جارٍ التثبيت...',
-  'misc.beta': 'OpenHuman في مرحلة تجريبية مبكرة. لا تتردد في مشاركة ملاحظاتك أو الإبلاغ عن أي أخطاء تواجهها — كل تقرير يساعدنا على الإنجاز بشكل أسرع.',
+  'misc.beta':
+    'OpenHuman في مرحلة تجريبية مبكرة. لا تتردد في مشاركة ملاحظاتك أو الإبلاغ عن أي أخطاء تواجهها — كل تقرير يساعدنا على الإنجاز بشكل أسرع.',
   'misc.betaFeedback': 'إرسال ملاحظات',
   'mnemonic.title': 'عبارة الاسترداد',
   'mnemonic.warning': 'اكتب هذه الكلمات بالترتيب واحفظها في مكان آمن.',
-  'mnemonic.copyWarning': 'لا تشارك عبارة الاسترداد أبدًا. أي شخص يمتلك هذه الكلمات يمكنه الوصول إلى حسابك.',
+  'mnemonic.copyWarning':
+    'لا تشارك عبارة الاسترداد أبدًا. أي شخص يمتلك هذه الكلمات يمكنه الوصول إلى حسابك.',
   'mnemonic.copied': 'تم نسخ عبارة الاسترداد إلى الحافظة',
   'mnemonic.reveal': 'الكشف عن العبارة',
   'mnemonic.revealPhrase': 'إظهار عبارة الاسترداد',
@@ -552,11 +599,14 @@ const messages: TranslationMap = {
   'privacy.staysLocal': 'يبقى محليًا',
   'privacy.anonymizedAnalytics': 'تحليلات مجهولة الهوية',
   'privacy.shareAnonymizedData': 'مشاركة بيانات الاستخدام المجهولة',
-  'privacy.shareAnonymizedDataDesc': 'ساعد في تحسين OpenHuman من خلال مشاركة تقارير الأعطال وتحليلات الاستخدام المجهولة. جميع البيانات مجهولة الهوية تمامًا — لا يُجمع أي بيانات شخصية أو رسائل أو مفاتيح محفظة أو معلومات جلسة.',
+  'privacy.shareAnonymizedDataDesc':
+    'ساعد في تحسين OpenHuman من خلال مشاركة تقارير الأعطال وتحليلات الاستخدام المجهولة. جميع البيانات مجهولة الهوية تمامًا — لا يُجمع أي بيانات شخصية أو رسائل أو مفاتيح محفظة أو معلومات جلسة.',
   'privacy.meetingFollowUps': 'متابعات الاجتماعات',
   'privacy.autoHandoffMeet': 'تسليم نسخ Google Meet تلقائيًا إلى المنسق',
-  'privacy.autoHandoffMeetDesc': 'عند انتهاء مكالمة Google Meet، يمكن لمنسق OpenHuman قراءة النسخة المكتوبة واتخاذ إجراءات كصياغة الرسائل أو جدولة المتابعات أو نشر الملخصات في مساحة عمل Slack المتصلة. معطّل افتراضيًا.',
-  'privacy.analyticsDisclaimer': 'جميع التحليلات وتقارير الأخطاء مجهولة الهوية تمامًا. عند التفعيل، نجمع فقط معلومات الأعطال ونوع الجهاز وموقع الخطأ في الملف. لا نصل أبدًا إلى رسائلك أو بيانات جلستك أو مفاتيح المحفظة أو مفاتيح API أو أي معلومات شخصية. يمكنك تغيير هذا الإعداد في أي وقت.',
+  'privacy.autoHandoffMeetDesc':
+    'عند انتهاء مكالمة Google Meet، يمكن لمنسق OpenHuman قراءة النسخة المكتوبة واتخاذ إجراءات كصياغة الرسائل أو جدولة المتابعات أو نشر الملخصات في مساحة عمل Slack المتصلة. معطّل افتراضيًا.',
+  'privacy.analyticsDisclaimer':
+    'جميع التحليلات وتقارير الأخطاء مجهولة الهوية تمامًا. عند التفعيل، نجمع فقط معلومات الأعطال ونوع الجهاز وموقع الخطأ في الملف. لا نصل أبدًا إلى رسائلك أو بيانات جلستك أو مفاتيح المحفظة أو مفاتيح API أو أي معلومات شخصية. يمكنك تغيير هذا الإعداد في أي وقت.',
   'settings.about.version': 'الإصدار',
   'settings.about.updateAvailable': 'متاح',
   'settings.about.softwareUpdates': 'تحديثات البرنامج',
@@ -573,14 +623,18 @@ const messages: TranslationMap = {
   'settings.about.connectionModeUnset': 'لم يتم التحديد',
   'settings.about.serverUrl': 'الخادم URL',
   'settings.about.serverUrlUnavailable': 'غير متاح',
-  'settings.about.connectionHelperLocal': 'مأخوذة في العملية من قذيفة Xqx1x على عملية الإطلاق يتم اختيار المرفأ في البداية لذا تغيرت هذه الـ (إكسكساكس) بين الإطلاقات',
-  'settings.about.connectionHelperCloud': 'متصلة بقاعدة نائية غيّر هذا في (بوتشيك) أو مُخلّق السحابة.',
+  'settings.about.connectionHelperLocal':
+    'مأخوذة في العملية من قذيفة Xqx1x على عملية الإطلاق يتم اختيار المرفأ في البداية لذا تغيرت هذه الـ (إكسكساكس) بين الإطلاقات',
+  'settings.about.connectionHelperCloud':
+    'متصلة بقاعدة نائية غيّر هذا في (بوتشيك) أو مُخلّق السحابة.',
   'settings.heartbeat.title': 'نبضات القلب والحلقات',
   'settings.heartbeat.desc': 'التحكم في إيقاعات جدولة الخلفية وفحص خريطة الحلقة.',
   'settings.ledgerUsage.title': 'دفتر الأستاذ الاستخدام',
-  'settings.ledgerUsage.desc': 'وتُقرأ الميزانية في الآونة الأخيرة، وحسابات الميزانية، والخلفية Xqx0xx.',
+  'settings.ledgerUsage.desc':
+    'وتُقرأ الميزانية في الآونة الأخيرة، وحسابات الميزانية، والخلفية Xqx0xx.',
   'settings.costDashboard.title': 'لوحة بيانات التكاليف',
-  'settings.costDashboard.desc': 'قضاء سبعة أيام والحرق عبر الحزام، مع سرعة الميزانية وانهيار كل نموذج.',
+  'settings.costDashboard.desc':
+    'قضاء سبعة أيام والحرق عبر الحزام، مع سرعة الميزانية وانهيار كل نموذج.',
   'settings.costDashboard.sevenDayCost': 'التكلفة اليومية',
   'settings.costDashboard.sevenDayTokens': '7 أيام',
   'settings.costDashboard.totalSpend': 'المجموع 7 أيام',
@@ -603,13 +657,16 @@ const messages: TranslationMap = {
   'settings.costDashboard.noData': 'لم تسجل أي تكلفة حتى الآن في الأيام السبعة الماضية.',
   'settings.costDashboard.noModels': 'لا نشاط نموذجي في الأيام السبعة الماضية.',
   'settings.costDashboard.loading': 'لوح التعبئة',
-  'settings.costDashboard.disabledHint': 'خزانة التكاليف معطلة في الدير مجموعة [xx0xx] مُمَكَّنَة = حقيقي في Xqx1x إلى re-enable.',
-  'settings.costDashboard.subtitle': 'نقضي حياتنا ونحترق عبر الحزام ولا حاجة إلى إعادة تحميل الصفحات.',
+  'settings.costDashboard.disabledHint':
+    'خزانة التكاليف معطلة في الدير مجموعة [xx0xx] مُمَكَّنَة = حقيقي في Xqx1x إلى re-enable.',
+  'settings.costDashboard.subtitle':
+    'نقضي حياتنا ونحترق عبر الحزام ولا حاجة إلى إعادة تحميل الصفحات.',
   'settings.costDashboard.summaryAriaLabel': 'القياسات الموجزة للتكاليف',
   'settings.costDashboard.lastSevenDays': '7 أيام',
   'settings.costDashboard.utilizationOf': 'من',
   'settings.costDashboard.thisMonth': 'هذا الشهر',
-  'settings.costDashboard.monthlyPaceHint': 'الإنفاق الشهري المتوقع في المعدل اليومي الحالي (الساعة × 30).',
+  'settings.costDashboard.monthlyPaceHint':
+    'الإنفاق الشهري المتوقع في المعدل اليومي الحالي (الساعة × 30).',
   'settings.costDashboard.budgetLimitHint': 'قراءة الميزانية الشهرية من Xqx0xx في Xqx1x.',
   'settings.costDashboard.dailyTarget': 'الهدف اليومي',
   'settings.costDashboard.today': 'اليوم',
@@ -625,25 +682,32 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': '"يوماً مربوطاً في "إكسكساكس',
   'settings.costDashboard.stackedNote': 'الناتج + الناتج',
   'settings.costDashboard.modelBreakdownHint': 'تم تجميعها خلال السبعة أيام الماضية',
-  'settings.costDashboard.noDataHint': 'إرسال رسالة وكيل - الاستخدام المكسور من النداء القادم للمزود سينشر المخطط في غضون حوالي 10 ثوان.',
+  'settings.costDashboard.noDataHint':
+    'إرسال رسالة وكيل - الاستخدام المكسور من النداء القادم للمزود سينشر المخطط في غضون حوالي 10 ثوان.',
   'settings.search.title': 'محرك البحث',
   'settings.search.menuDesc': 'تخلف عن البحث أو التنصت على مزودك الخاص بمفتاح اكسوكس',
-  'settings.search.description': 'اختر محرك البحث الذي يستخدمه الوكيل، أو عطّل أدوات البحث بالكامل. يستخدم الوضع المُدار واجهة خلفية OpenHuman (بدون إعداد). تعمل محركات Parallel وBrave وQuerit مباشرةً من جهازك باستخدام مفتاح API الخاص بك.',
+  'settings.search.description':
+    'اختر محرك البحث الذي يستخدمه الوكيل، أو عطّل أدوات البحث بالكامل. يستخدم الوضع المُدار واجهة خلفية OpenHuman (بدون إعداد). تعمل محركات Parallel وBrave وQuerit مباشرةً من جهازك باستخدام مفتاح API الخاص بك.',
   'settings.search.engineAria': 'محرك البحث',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc': 'أزل أدوات البحث من سياق الوكيل وقائمة الأدوات المتاحة.',
   'settings.search.engineManagedLabel': 'OpenHuman مُدار',
-  'settings.search.engineManagedDesc': 'خطأ تم سحبها من خلال الركيزة الخلفية - لا حاجة لمفتاح Xqx0xx.',
-  'settings.search.localManagedUnavailable': 'بحث OpenHuman المُدار غير متاح للمستخدمين المحليين. أضف مفتاح Parallel أو Brave الخاص بك لتفعيل البحث على الويب.',
+  'settings.search.engineManagedDesc':
+    'خطأ تم سحبها من خلال الركيزة الخلفية - لا حاجة لمفتاح Xqx0xx.',
+  'settings.search.localManagedUnavailable':
+    'بحث OpenHuman المُدار غير متاح للمستخدمين المحليين. أضف مفتاح Parallel أو Brave الخاص بك لتفعيل البحث على الويب.',
   'settings.search.engineParallelLabel': 'Parallel',
-  'settings.search.engineParallelDesc': 'واجهة برمجية متوازية مباشرة: أدوات البحث والاستخراج والمحادثة والبحث المتعمق والإثراء ومجموعات البيانات.',
+  'settings.search.engineParallelDesc':
+    'واجهة برمجية متوازية مباشرة: أدوات البحث والاستخراج والمحادثة والبحث المتعمق والإثراء ومجموعات البيانات.',
   'settings.search.engineBraveLabel': 'Brave بحث',
   'settings.search.engineBraveDesc': 'مباشر Brave بحث API: أدوات الويب والأخبار والصور والفيديو.',
   'settings.search.engineQueritLabel': 'Querit',
-  'settings.search.engineQueritDesc': 'واجهة Querit API المباشرة: بحث على الويب مع فلاتر الموقع والنطاق الزمني والبلد واللغة.',
+  'settings.search.engineQueritDesc':
+    'واجهة Querit API المباشرة: بحث على الويب مع فلاتر الموقع والنطاق الزمني والبلد واللغة.',
   'settings.search.statusConfigured': 'تم تكوينه',
   'settings.search.statusNeedsKey': 'يحتاج إلى مفتاح API',
-  'settings.search.fallbackToManaged': 'ولن يتم تشكيل أي مفتاح - سوف يعود البحث إلى إدارة حتى يتم توفير المفتاح.',
+  'settings.search.fallbackToManaged':
+    'ولن يتم تشكيل أي مفتاح - سوف يعود البحث إلى إدارة حتى يتم توفير المفتاح.',
   'settings.search.getApiKey': 'احصل على مفتاح API',
   'settings.search.save': 'احفظ',
   'settings.search.clear': 'مسح',
@@ -660,17 +724,21 @@ const messages: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'مفتاح API الخاص بـ Querit',
   'settings.search.allowedSitesLabel': 'المواقع الشبكية المسموح بها',
-  'settings.search.allowedSitesHint': 'المضيفون الذين يُسمح للمساعد بفتحهم وقراءتهم — عبر جلب الويب وأداة المتصفح — مضيف واحد في كل سطر، مثل reuters.com. يشمل المضيف نطاقاته الفرعية أيضًا. البحث على الويب نفسه لا يتقيّد بهذه القائمة.',
-  'settings.search.allowedSitesAllOn': 'يمكن للمساعد فتح أي موقع علني العناوين المحلية والخاصة تبقى مغلقة',
+  'settings.search.allowedSitesHint':
+    'المضيفون الذين يُسمح للمساعد بفتحهم وقراءتهم — عبر جلب الويب وأداة المتصفح — مضيف واحد في كل سطر، مثل reuters.com. يشمل المضيف نطاقاته الفرعية أيضًا. البحث على الويب نفسه لا يتقيّد بهذه القائمة.',
+  'settings.search.allowedSitesAllOn':
+    'يمكن للمساعد فتح أي موقع علني العناوين المحلية والخاصة تبقى مغلقة',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
   'settings.search.allowedSitesSave': 'توفير المواقع الشبكية',
   'settings.search.accessModeAria': 'شبكة الإنترنت',
   'settings.search.accessAllowAll': 'السماح للجميع',
   'settings.search.accessCustom': 'العرف',
   'settings.search.accessBlockAll': 'كل شيء',
-  'settings.search.accessBlockAllHint': 'وكل الوصول إلى شبكة الإنترنت مغلق - لا يمكن للمساعد فتح أو قراءة أي موقع على شبكة الإنترنت.',
+  'settings.search.accessBlockAllHint':
+    'وكل الوصول إلى شبكة الإنترنت مغلق - لا يمكن للمساعد فتح أو قراءة أي موقع على شبكة الإنترنت.',
   'settings.embeddings.title': 'التضمينات',
-  'settings.embeddings.description': 'اختر مزود التضمينات الذي يحول الذاكرة إلى متجهات للبحث الدلالي. تغيير المزود أو النموذج أو الأبعاد يبطل المتجهات المخزنة ويتطلب إعادة تعيين كاملة للذاكرة.',
+  'settings.embeddings.description':
+    'اختر مزود التضمينات الذي يحول الذاكرة إلى متجهات للبحث الدلالي. تغيير المزود أو النموذج أو الأبعاد يبطل المتجهات المخزنة ويتطلب إعادة تعيين كاملة للذاكرة.',
   'settings.embeddings.providerAria': 'مزود التضمينات',
   'settings.embeddings.statusConfigured': 'تم التهيئة',
   'settings.embeddings.statusNeedsKey': 'يحتاج مفتاح API',
@@ -696,22 +764,26 @@ const messages: TranslationMap = {
   'settings.embeddings.saved': 'تم الحفظ.',
   'settings.embeddings.errorPrefix': 'فشل',
   'settings.embeddings.wipeTitle': 'إعادة تعيين متجهات الذاكرة؟',
-  'settings.embeddings.wipeBody': 'سيؤدي تغيير مزود التضمينات أو النموذج أو الأبعاد إلى مسح جميع متجهات الذاكرة المخزنة. يجب إعادة بناء الذاكرة قبل أن يعمل الاسترجاع مرة أخرى. لا يمكن التراجع عن هذا.',
+  'settings.embeddings.wipeBody':
+    'سيؤدي تغيير مزود التضمينات أو النموذج أو الأبعاد إلى مسح جميع متجهات الذاكرة المخزنة. يجب إعادة بناء الذاكرة قبل أن يعمل الاسترجاع مرة أخرى. لا يمكن التراجع عن هذا.',
   'settings.embeddings.cancel': 'إلغاء',
   'settings.embeddings.confirmWipe': 'مسح وتطبيق',
   'settings.embeddings.setupTitle': 'إعداد {provider}',
   'settings.embeddings.saveAndSwitch': 'حفظ والتبديل',
   'settings.embeddings.optional': 'اختياري',
-  'settings.embeddings.vectorSearchDisabled': 'تم تعطيل البحث والتذكير بالذاكرة سيستخدم مضاهاة الكلمات الرئيسية والراحة فقط - لا ترتيب ساكن.',
+  'settings.embeddings.vectorSearchDisabled':
+    'تم تعطيل البحث والتذكير بالذاكرة سيستخدم مضاهاة الكلمات الرئيسية والراحة فقط - لا ترتيب ساكن.',
   'settings.embeddings.clearKey': 'مسح مفتاح API',
   'pages.settings.ai.embeddings': 'التضمينات',
   'pages.settings.ai.embeddingsDesc': 'نموذج ترميز المتجهات لاسترجاع الذاكرة',
   'mcp.alphaBadge': 'ألفا',
-  'mcp.alphaBannerText': 'دعم خادم MCP في مرحلة ألفا المبكرة. قد يتصرف سجل Smithery وتدفق التثبيت وربط الأدوات بشكل غير متوقع أو يتغير شكله بين الإصدارات.',
+  'mcp.alphaBannerText':
+    'دعم خادم MCP في مرحلة ألفا المبكرة. قد يتصرف سجل Smithery وتدفق التثبيت وربط الأدوات بشكل غير متوقع أو يتغير شكله بين الإصدارات.',
   'mcp.toolList.noTools': 'لا توجد أدوات متاحة.',
   'mcp.setup.secretDialog.title': 'MCP الإعداد - أدخل السر',
   'mcp.setup.secretDialog.bodyPrefix': 'يحتاج وكيل الإعداد MCP',
-  'mcp.setup.secretDialog.bodySuffix': '. تُرسَل قيمتك مباشرةً إلى العملية الأساسية ولا تدخل محادثة الذكاء الاصطناعي أبداً.',
+  'mcp.setup.secretDialog.bodySuffix':
+    '. تُرسَل قيمتك مباشرةً إلى العملية الأساسية ولا تدخل محادثة الذكاء الاصطناعي أبداً.',
   'mcp.setup.secretDialog.inputLabel': 'القيمة',
   'mcp.setup.secretDialog.inputPlaceholder': 'الصق هنا',
   'mcp.setup.secretDialog.show': 'عرض',
@@ -722,8 +794,10 @@ const messages: TranslationMap = {
   'mcp.setup.secretDialog.errorPrefix': 'فشل الإرسال:',
   'mcp.setup.secretDialog.privacyNote': 'مسروقة في طاولة الأسرار لم أسجل أو أرسل إلى نموذج',
   'devices.betaBadge': 'تجريبي',
-  'devices.betaText': 'هذه الميزة في مرحلة تجريبية حالياً. اربط هواتف iOS بـ OpenHuman لاستخدامها كعميل بعيد.',
-  'devices.comingSoonDescription': 'إقران الأجهزة قريبًا. ستكون هذه الصفحة مخصصة لإقران أجهزة iPhone وإدارة الأجهزة المتصلة.',
+  'devices.betaText':
+    'هذه الميزة في مرحلة تجريبية حالياً. اربط هواتف iOS بـ OpenHuman لاستخدامها كعميل بعيد.',
+  'devices.comingSoonDescription':
+    'إقران الأجهزة قريبًا. ستكون هذه الصفحة مخصصة لإقران أجهزة iPhone وإدارة الأجهزة المتصلة.',
   'devices.title': 'الأجهزة',
   'devices.pairIphone': 'إقران iPhone',
   'devices.noPaired': 'لا توجد أجهزة مقترنة',
@@ -743,7 +817,8 @@ const messages: TranslationMap = {
   'devices.revoke': 'إبطال',
   'devices.revokeAria': 'إبطال {label}',
   'devices.confirmRevokeTitle': 'إلغاء الجهاز؟',
-  'devices.confirmRevokeBody': 'لن يتمكن {label} من الاتصال بعد الآن. لا يمكن التراجع عن هذا الإجراء.',
+  'devices.confirmRevokeBody':
+    'لن يتمكن {label} من الاتصال بعد الآن. لا يمكن التراجع عن هذا الإجراء.',
   'devices.loadFailed': 'فشل تحميل الأجهزة: {message}',
   'devices.pairModal.title': 'إقران iPhone',
   'devices.pairModal.loading': 'إنشاء رمز الاقتران...',
@@ -831,7 +906,8 @@ const messages: TranslationMap = {
   'mcp.health.disconnectAll': 'قطع كل شيء (xx0xxx)',
   'mcp.health.disconnectAllAria': 'فصل جميع الخواديم متصلة بـ Xqx1xx',
   'mcp.health.disconnectConfirm.title': 'قطع كل خوادم الـ (إكساكس) ؟',
-  'mcp.health.disconnectConfirm.body': 'وسيقطع هذا الربط بين خوادم مكعبة من طراز Xqx0xx. تركيبات وأسرار مثبتة يتم حفظها، يمكنك إعادة ربط أي خادم في وقت لاحق.',
+  'mcp.health.disconnectConfirm.body':
+    'وسيقطع هذا الربط بين خوادم مكعبة من طراز Xqx0xx. تركيبات وأسرار مثبتة يتم حفظها، يمكنك إعادة ربط أي خادم في وقت لاحق.',
   'mcp.health.disconnectConfirm.cancel': 'إلغاء',
   'mcp.health.disconnectConfirm.confirm': 'انفصال كل شيء',
   'mcp.health.opErrorGeneric': 'عملية الشعب فشلت انظر السجلات',
@@ -845,14 +921,17 @@ const messages: TranslationMap = {
   'mcp.inventory.openButton': 'المخزون',
   'mcp.inventory.openAria': '(أفتح فريق جرد (إكساكسوكساكس',
   'mcp.inventory.title': 'قائمة MCP القابلة للمشاركة',
-  'mcp.inventory.subtitle': 'تصدير خوادم الـ (إكسكساكس) التي تم تركيبها كبيان محمول خال من السرية أو استيراد واحد من زميل الفريق ولا تُدرَج أو تستورد أبداً قيم الحراسة السرية.',
+  'mcp.inventory.subtitle':
+    'تصدير خوادم الـ (إكسكساكس) التي تم تركيبها كبيان محمول خال من السرية أو استيراد واحد من زميل الفريق ولا تُدرَج أو تستورد أبداً قيم الحراسة السرية.',
   'mcp.inventory.close': 'فريق الجرد المغلق',
   'mcp.inventory.tablistAria': 'أبواب المخزون',
   'mcp.inventory.tab.export': 'الصادرات',
   'mcp.inventory.tab.import': 'الواردات',
-  'mcp.inventory.export.empty': 'لا يوجد خوادم مكعبة بعد - لا شيء للتصدير. ضع واحداً من الكاتالوج أولاً',
+  'mcp.inventory.export.empty':
+    'لا يوجد خوادم مكعبة بعد - لا شيء للتصدير. ضع واحداً من الكاتالوج أولاً',
   'mcp.inventory.export.privacyTitle': 'ما في هذا البيان',
-  'mcp.inventory.export.privacyBody': 'أسماء الخادم، أسماء مؤهلة، × ×xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx القيم السرية، أجهزة تحديد الآلات الخاصة بك، والمصابيح المحيطة بالتركيب يتم جردها عمدا.',
+  'mcp.inventory.export.privacyBody':
+    'أسماء الخادم، أسماء مؤهلة، × ×xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx القيم السرية، أجهزة تحديد الآلات الخاصة بك، والمصابيح المحيطة بالتركيب يتم جردها عمدا.',
   'mcp.inventory.export.serverCount': '{count} خوادم في هذا البيان',
   'mcp.inventory.export.copy': 'نسخ',
   'mcp.inventory.export.copied': 'Copied',
@@ -860,7 +939,8 @@ const messages: TranslationMap = {
   'mcp.inventory.export.download': 'تحميل',
   'mcp.inventory.export.downloadAria': 'تحميل البيان كملف JSON',
   'mcp.inventory.import.trustTitle': 'التعامل مع البيانات المستوردة كرمز غير موثوق',
-  'mcp.inventory.import.trustBody': 'خادم (إكسكساكس) هو أداة تمنحها لوكيلك فقط بيانات الاستيراد من المصادر التي قمت بها كل تركيبة تتطلب نقرتك الصريحة لا يوجد شيء آلي',
+  'mcp.inventory.import.trustBody':
+    'خادم (إكسكساكس) هو أداة تمنحها لوكيلك فقط بيانات الاستيراد من المصادر التي قمت بها كل تركيبة تتطلب نقرتك الصريحة لا يوجد شيء آلي',
   'mcp.inventory.import.pasteLabel': 'لصق JSON الخاص بالبيان',
   'mcp.inventory.import.pastePlaceholder': 'قدمي بيان هنا أو ارفعي ملف (جيسون)',
   'mcp.inventory.import.preview': 'Preview',
@@ -891,9 +971,12 @@ const messages: TranslationMap = {
   'mcp.inventory.parseError.serverNotObject': 'دخول الخادم ليس شيئاً',
   'mcp.inventory.parseError.serverMissingQualifiedName': 'دخول الخادم مفقود لقبه المؤهل',
   'mcp.inventory.parseError.serverMissingDisplayName': 'دخول الخادم يفتقد لقبه',
-  'mcp.inventory.parseError.serverEnvKeysNotArray': 'مدخل الخادم لديه حقل للمفاتيح ليس مجموعة من الخيوط',
-  'mcp.inventory.parseError.serverContainsEnv': 'ويحتوي دخول الخادم على خريطة قيمة Xqx0xx. والرفض للواردات - يجب أن لا تحمل البيانات سوى المحركات &quot; المحركات &quot; ، ولا تحمل أبدا قيما سرية.',
-  'mcp.inventory.parseError.duplicateQualifiedName': 'ازدواجية الإسم المؤهل وجد في البيان يجب أن يظهر كل خادم مرة واحدة',
+  'mcp.inventory.parseError.serverEnvKeysNotArray':
+    'مدخل الخادم لديه حقل للمفاتيح ليس مجموعة من الخيوط',
+  'mcp.inventory.parseError.serverContainsEnv':
+    'ويحتوي دخول الخادم على خريطة قيمة Xqx0xx. والرفض للواردات - يجب أن لا تحمل البيانات سوى المحركات &quot; المحركات &quot; ، ولا تحمل أبدا قيما سرية.',
+  'mcp.inventory.parseError.duplicateQualifiedName':
+    'ازدواجية الإسم المؤهل وجد في البيان يجب أن يظهر كل خادم مرة واحدة',
   'mcp.tab.loading': 'جارٍ تحميل خوادم MCP...',
   'mcp.tab.emptyDetail': 'حدد خادمًا أو تصفح الكتالوج.',
   'mcp.install.loadingDetail': 'جارٍ تحميل تفاصيل الخادم...',
@@ -925,17 +1008,21 @@ const messages: TranslationMap = {
   'mcp.detail.tools': 'الأدوات',
   'onboarding.skipForNow': 'التخطي الآن',
   'onboarding.localAI.continueWithCloud': 'متابعة مع السحابة',
-  'onboarding.localAI.useLocalAnyway': 'استخدم الذكاء الاصطناعي المحلي على أي حال (غير موصى به لجهازك)',
-  'onboarding.localAI.useLocalInstead': 'استخدم الذكاء الاصطناعي المحلي بدلاً من ذلك (اربط Ollama الآن)',
+  'onboarding.localAI.useLocalAnyway':
+    'استخدم الذكاء الاصطناعي المحلي على أي حال (غير موصى به لجهازك)',
+  'onboarding.localAI.useLocalInstead':
+    'استخدم الذكاء الاصطناعي المحلي بدلاً من ذلك (اربط Ollama الآن)',
   'onboarding.localAI.setupIssue': 'واجه إعداد الذكاء الاصطناعي المحلي مشكلة',
   'autonomy.title': 'استقلالية الوكيل',
   'autonomy.maxActionsLabel': 'الحد الأقصى للإجراءات في الساعة',
-  'autonomy.maxActionsHelp': 'الحد الأقصى لإجراءات الأداة التي يمكن للوكيل تنفيذها في كل ساعة متجددة. تسري القيمة الجديدة على محادثتك التالية. تحتفظ المهام المجدولة ومستمعو القنوات بحدودهم الحالية حتى تعيد تشغيل OpenHuman.',
+  'autonomy.maxActionsHelp':
+    'الحد الأقصى لإجراءات الأداة التي يمكن للوكيل تنفيذها في كل ساعة متجددة. تسري القيمة الجديدة على محادثتك التالية. تحتفظ المهام المجدولة ومستمعو القنوات بحدودهم الحالية حتى تعيد تشغيل OpenHuman.',
   'autonomy.statusSaving': 'جارٍ الحفظ...',
   'autonomy.statusSaved': 'تم الحفظ.',
   'autonomy.statusFailed': 'فشل',
   'autonomy.unlimitedNote': 'غير محدود — تم تعطيل تحديد المعدل.',
-  'autonomy.invalidIntegerMsg': 'يجب أن يكون عدداً صحيحاً موجباً (استخدم الإعداد المسبق «غير محدود» لرفع القيد).',
+  'autonomy.invalidIntegerMsg':
+    'يجب أن يكون عدداً صحيحاً موجباً (استخدم الإعداد المسبق «غير محدود» لرفع القيد).',
   'autonomy.presetUnlimited': 'غير محدود (افتراضي)',
   'triggers.toggleFailed': '{action} فشل لـ {trigger}: {message}',
   'settings.ai.overview': 'نظرة عامة على نظام الذكاء الاصطناعي',
@@ -969,18 +1056,22 @@ const messages: TranslationMap = {
   'settings.ai.refreshingAll': 'جارٍ تحديث الكل...',
   'settings.ai.refreshAll': 'تحديث جميع إعدادات الذكاء الاصطناعي',
   'settings.notifications.suppressAll': 'كتم جميع الإشعارات',
-  'settings.notifications.suppressAllDesc': 'حظر جميع إشعارات نظام التشغيل من التطبيقات المدمجة بغض النظر عن حالة التركيز.',
+  'settings.notifications.suppressAllDesc':
+    'حظر جميع إشعارات نظام التشغيل من التطبيقات المدمجة بغض النظر عن حالة التركيز.',
   'settings.notifications.toggleDnd': 'تفعيل/تعطيل عدم الإزعاج',
   'settings.notifications.categories': 'الفئات',
-  'settings.notifications.categoryFooter': 'يؤدي تعطيل فئة إلى إيقاف ظهور الإشعارات الجديدة من هذا النوع في مركز الإشعارات. تبقى الإشعارات الموجودة حتى مسحها.',
+  'settings.notifications.categoryFooter':
+    'يؤدي تعطيل فئة إلى إيقاف ظهور الإشعارات الجديدة من هذا النوع في مركز الإشعارات. تبقى الإشعارات الموجودة حتى مسحها.',
   'settings.billing.movedToWeb': 'انتقلت الفوترة إلى الويب',
   'settings.billing.openDashboard': 'فتح لوحة الفوترة',
-  'settings.billing.movedToWebDesc': 'تغييرات الاشتراك وطرق الدفع والرصيد والفواتير تُدار الآن من TinyHumans على الويب.',
+  'settings.billing.movedToWebDesc':
+    'تغييرات الاشتراك وطرق الدفع والرصيد والفواتير تُدار الآن من TinyHumans على الويب.',
   'settings.billing.backToSettings': 'العودة إلى الإعدادات',
   'settings.billing.openingBrowser': 'جارٍ فتح المتصفح...',
   'settings.billing.browserNotOpen': 'إذا لم يفتح متصفحك، استخدم الزر أعلاه.',
   'settings.billing.browserOpenFailed': 'تعذّر فتح المتصفح تلقائيًا. استخدم الزر أعلاه.',
-  'settings.tools.chooseCapabilities': 'اختر الإمكانات التي يمكن لـ OpenHuman استخدامها نيابةً عنك.',
+  'settings.tools.chooseCapabilities':
+    'اختر الإمكانات التي يمكن لـ OpenHuman استخدامها نيابةً عنك.',
   'settings.tools.saveChanges': 'حفظ التغييرات',
   'settings.tools.preferencesSaved': 'تم حفظ التفضيلات',
   'settings.tools.saveFailed': 'فشل حفظ التفضيلات. حاول مرة أخرى.',
@@ -997,7 +1088,8 @@ const messages: TranslationMap = {
   'settings.screenAwareness.startSession': 'بدء الجلسة',
   'settings.screenAwareness.stopSession': 'إيقاف الجلسة',
   'settings.screenAwareness.analyzeNow': 'تحليل الآن',
-  'settings.screenAwareness.macosOnly': 'التقاط سطح المكتب لوعي الشاشة وضوابط الأذونات مدعومة حاليًا على macOS فقط.',
+  'settings.screenAwareness.macosOnly':
+    'التقاط سطح المكتب لوعي الشاشة وضوابط الأذونات مدعومة حاليًا على macOS فقط.',
   'connections.comingSoon': 'قريبًا',
   'connections.setUp': 'إعداد',
   'connections.configured': 'مضبوط',
@@ -1005,12 +1097,14 @@ const messages: TranslationMap = {
   'connections.checking': 'جارٍ التحقق…',
   'connections.walletConfigured': 'تم ضبط هويات EVM وBTC وSolana وTron المحلية من عبارة الاسترداد.',
   'connections.walletReady': 'إعداد هويات EVM وBTC وSolana وTron المحلية من عبارة استرداد واحدة.',
-  'connections.walletError': 'تعذّر التحقق من حالة المحفظة. انقر للمحاولة مرة أخرى من لوحة عبارة الاسترداد.',
+  'connections.walletError':
+    'تعذّر التحقق من حالة المحفظة. انقر للمحاولة مرة أخرى من لوحة عبارة الاسترداد.',
   'connections.walletChecking': 'جارٍ التحقق من حالة المحفظة...',
   'connections.walletIdentities': 'هويات المحفظة',
   'connections.walletDerived': 'مشتقة محليًا من عبارة الاسترداد ومحفوظة كبيانات وصفية آمنة فقط.',
   'connections.privacySecurity': 'الخصوصية والأمان',
-  'connections.privacySecurityDesc': 'جميع البيانات والاعتمادات مُخزَّنة محليًا بسياسة عدم الاحتفاظ بالبيانات. معلوماتك مشفرة ولا تُشارك مع أطراف ثالثة.',
+  'connections.privacySecurityDesc':
+    'جميع البيانات والاعتمادات مُخزَّنة محليًا بسياسة عدم الاحتفاظ بالبيانات. معلوماتك مشفرة ولا تُشارك مع أطراف ثالثة.',
   'channels.status.connecting': 'جارٍ الاتصال',
   'channels.status.notConfigured': 'غير مضبوط',
   'channels.noActiveRoute': 'لا يوجد مسار نشط',
@@ -1021,7 +1115,8 @@ const messages: TranslationMap = {
   'channels.configNotAvailable': 'الإعداد غير متاح لـ',
   'channels.channel': 'قناة',
   'devOptions.coreModeNotSet': 'وضع النواة: غير محدد',
-  'devOptions.coreModeNotSetDesc': 'لم يتم تأكيد محدد بدء التشغيل بعد. استخدم تبديل الوضع في المحدد للاختيار بين المحلي أو السحابي.',
+  'devOptions.coreModeNotSetDesc':
+    'لم يتم تأكيد محدد بدء التشغيل بعد. استخدم تبديل الوضع في المحدد للاختيار بين المحلي أو السحابي.',
   'devOptions.local': 'محلي',
   'devOptions.embeddedCoreSidecar': 'النواة المدمجة',
   'devOptions.sidecarSpawned': 'تم تشغيله داخل العملية بواسطة غلاف Tauri عند تشغيل التطبيق.',
@@ -1030,24 +1125,29 @@ const messages: TranslationMap = {
   'devOptions.token': 'الرمز',
   'devOptions.tokenNotSet': 'غير محدد — سيُعيد RPC خطأ 401',
   'devOptions.triggerSentryTest': 'تشغيل اختبار Sentry (تجريبي)',
-  'devOptions.triggerSentryTestDesc': 'يُطلق خطأ مُعلَّمًا للتحقق من خط أنابيب Sentry. المشكلة #1072 — احذف بعد التحقق.',
+  'devOptions.triggerSentryTestDesc':
+    'يُطلق خطأ مُعلَّمًا للتحقق من خط أنابيب Sentry. المشكلة #1072 — احذف بعد التحقق.',
   'devOptions.sendTestEvent': 'إرسال حدث اختبار',
   'devOptions.sending': 'جارٍ الإرسال…',
   'devOptions.eventSent': 'تم إرسال الحدث',
   'devOptions.sentryDisabled': '(بدون معرف - تم تعطيل الحراسة في هذا الإصدار)',
   'devOptions.failed': 'فشل',
   'devOptions.appLogs': 'سجلات التطبيق',
-  'devOptions.appLogsDesc': 'فتح المجلد الذي يحتوي على ملفات السجل اليومية المتداولة. أرفق الملف الأحدث عند الإبلاغ عن مشكلة.',
+  'devOptions.appLogsDesc':
+    'فتح المجلد الذي يحتوي على ملفات السجل اليومية المتداولة. أرفق الملف الأحدث عند الإبلاغ عن مشكلة.',
   'devOptions.openLogsFolder': 'فتح مجلد السجلات',
   'mnemonic.phraseSaved': 'تم حفظ عبارة الاسترداد',
   'mnemonic.walletReady': 'هويات المحفظة متعددة السلاسل جاهزة. جارٍ العودة إلى الإعدادات...',
   'mnemonic.writeDownWords': 'اكتب هذه',
-  'mnemonic.wordsInOrder': 'كلمات بالترتيب واحفظها في مكان آمن. تُؤمِّن هذه العبارة مفتاح التشفير المحلي وهويات محافظ EVM وBTC وSolana وTron.',
-  'mnemonic.cannotRecover': 'لا يمكن استرداد هذه العبارة إذا فُقدت ويجب أن تبقى محلية على جهازك تمامًا.',
+  'mnemonic.wordsInOrder':
+    'كلمات بالترتيب واحفظها في مكان آمن. تُؤمِّن هذه العبارة مفتاح التشفير المحلي وهويات محافظ EVM وBTC وSolana وTron.',
+  'mnemonic.cannotRecover':
+    'لا يمكن استرداد هذه العبارة إذا فُقدت ويجب أن تبقى محلية على جهازك تمامًا.',
   'mnemonic.copyToClipboard': 'نسخ إلى الحافظة',
   'mnemonic.alreadyHavePhrase': 'لدي بالفعل عبارة استرداد',
   'mnemonic.consentSaved': 'حفظت هذه العبارة وأوافق على استخدامها لإعداد المحفظة المحلية',
-  'mnemonic.enterPhraseToRestore': 'أدخل عبارة الاسترداد أدناه لاستعادة هويات محفظتك المحلية، أو الصق العبارة الكاملة في أي حقل (12 كلمة للنسخ الاحتياطية الجديدة؛ عبارات 24 كلمة من الإصدارات القديمة لا تزال تعمل).',
+  'mnemonic.enterPhraseToRestore':
+    'أدخل عبارة الاسترداد أدناه لاستعادة هويات محفظتك المحلية، أو الصق العبارة الكاملة في أي حقل (12 كلمة للنسخ الاحتياطية الجديدة؛ عبارات 24 كلمة من الإصدارات القديمة لا تزال تعمل).',
   'mnemonic.words': 'الكلمات',
   'mnemonic.validPhrase': 'عبارة استرداد صالحة',
   'mnemonic.generateNewPhrase': 'توليد عبارة استرداد جديدة بدلاً من ذلك',
@@ -1081,7 +1181,8 @@ const messages: TranslationMap = {
   'team.join': 'انضمام',
   'team.leaveTeam': 'مغادرة الفريق',
   'team.confirmLeave': 'هل أنت متأكد من أنك تريد مغادرة',
-  'team.leaveWarning': 'ستفقد الوصول إلى الفريق وجميع موارده. ستحتاج إلى دعوة جديدة للانضمام مجددًا.',
+  'team.leaveWarning':
+    'ستفقد الوصول إلى الفريق وجميع موارده. ستحتاج إلى دعوة جديدة للانضمام مجددًا.',
   'team.management': 'إدارة الفريق',
   'team.notFound': 'الفريق غير موجود',
   'team.accessDenied': 'الوصول مرفوض',
@@ -1151,7 +1252,8 @@ const messages: TranslationMap = {
   'voice.debug.advancedSettingsDesc': 'معاملات ضبط منخفضة المستوى للتسجيل واكتشاف الصمت.',
   'voice.debug.minimumRecordingSeconds': 'الحد الأدنى لثواني التسجيل',
   'voice.debug.silenceThreshold': 'عتبة الصمت (RMS)',
-  'voice.debug.silenceThresholdDesc': 'تُعامَل التسجيلات ذات الطاقة الأدنى من هذا الحد كصمت ويُتخطى فيها. كلما كانت القيمة أصغر، كان النظام أكثر حساسية.',
+  'voice.debug.silenceThresholdDesc':
+    'تُعامَل التسجيلات ذات الطاقة الأدنى من هذا الحد كصمت ويُتخطى فيها. كلما كانت القيمة أصغر، كان النظام أكثر حساسية.',
   'voice.providers.saved': 'تم حفظ موفري الصوت.',
   'voice.providers.failedToSave': 'فشل في حفظ موفري الصوت',
   'voice.providers.ellipsis': '…',
@@ -1169,7 +1271,8 @@ const messages: TranslationMap = {
   'voice.providers.piperInstallStarted': 'بدأ تثبيت Piper',
   'voice.providers.failedToInstallPiper': 'فشل تثبيت Piper',
   'voice.providers.title': 'موفري الصوت',
-  'voice.providers.desc': 'اختر مكان تشغيل النسخ والتوليف. استخدم أزرار «التثبيت محلياً» لتنزيل الملفات الثنائية والنماذج في مساحة عملك. يمكن حفظ الموفرين المحليين قبل اكتمال التثبيت — لا حاجة لإعداد WHISPER_BIN أو PIPER_BIN يدوياً.',
+  'voice.providers.desc':
+    'اختر مكان تشغيل النسخ والتوليف. استخدم أزرار «التثبيت محلياً» لتنزيل الملفات الثنائية والنماذج في مساحة عملك. يمكن حفظ الموفرين المحليين قبل اكتمال التثبيت — لا حاجة لإعداد WHISPER_BIN أو PIPER_BIN يدوياً.',
   'voice.providers.sttProvider': 'موفر تحويل الكلام إلى نص',
   'voice.providers.sttProviderAria': 'موفر STT',
   'voice.providers.cloudWhisperProxy': 'السحابة (وكيل الهمس)',
@@ -1192,15 +1295,18 @@ const messages: TranslationMap = {
   'voice.providers.cloudElevenLabsProxy': 'السحابة (وكيل ElevenLabs)',
   'voice.providers.localPiper': 'تم تثبيت مزمار محلي',
   'voice.providers.piperInstalledTitle': 'مزمار. انقر لإعادة التثبيت.',
-  'voice.providers.piperDownloadTitle': 'تنزيل Piper وصوت en_US-lessac-medium المُجمَّع في مساحة عملك.',
+  'voice.providers.piperDownloadTitle':
+    'تنزيل Piper وصوت en_US-lessac-medium المُجمَّع في مساحة عملك.',
   'voice.providers.piperVoice': 'صوت المزمار',
   'voice.providers.piperVoiceAria': 'صوت المزمار',
   'voice.providers.customVoiceOption': 'أخرى (اكتب أدناه)...',
   'voice.providers.customVoiceAria': 'معرف صوت المزمار (مخصص)',
   'voice.providers.customVoicePlaceholder': 'en_US-lessac-medium',
-  'voice.providers.piperVoicesDesc': 'تأتي الأصوات من huggingface.co/rhasspy/piper-voices. قد يتطلب تبديل الأصوات نقرة تثبيت/إعادة تثبيت لتنزيل ملف .onnx الجديد.',
+  'voice.providers.piperVoicesDesc':
+    'تأتي الأصوات من huggingface.co/rhasspy/piper-voices. قد يتطلب تبديل الأصوات نقرة تثبيت/إعادة تثبيت لتنزيل ملف .onnx الجديد.',
   'voice.providers.mascotVoice': 'تم تكوين صوت التميمة',
-  'voice.providers.mascotVoiceDescPrefix': 'صوت ElevenLabs الذي تستخدمه الشخصية في الردود الصوتية مُهيَّأ ضمن',
+  'voice.providers.mascotVoiceDescPrefix':
+    'صوت ElevenLabs الذي تستخدمه الشخصية في الردود الصوتية مُهيَّأ ضمن',
   'voice.providers.mascotSettings': 'إعدادات التميمة',
   'voice.providers.mascotVoiceDescSuffix': '.',
   'voice.providers.hotkeyPlaceholder': 'Fn',
@@ -1231,19 +1337,24 @@ const messages: TranslationMap = {
   'voice.modal.testing': 'جارٍ الاختبار…',
   'voice.modal.saveAndEnable': 'حفظ وتفعيل',
   'voice.modal.enable': 'Enable',
-  'voice.modal.whisperDesc': 'اختر حجم النموذج وثبّت ملف Whisper الثنائي ونموذج GGML في مساحة عملك. النماذج الأكبر أكثر دقة لكنها أبطأ.',
-  'voice.modal.piperDesc': 'اختر صوتاً وثبّت ملف Piper الثنائي ونموذج ONNX في مساحة عملك. يعمل Piper بالكامل دون اتصال بالإنترنت وبزمن استجابة منخفض.',
+  'voice.modal.whisperDesc':
+    'اختر حجم النموذج وثبّت ملف Whisper الثنائي ونموذج GGML في مساحة عملك. النماذج الأكبر أكثر دقة لكنها أبطأ.',
+  'voice.modal.piperDesc':
+    'اختر صوتاً وثبّت ملف Piper الثنائي ونموذج ONNX في مساحة عملك. يعمل Piper بالكامل دون اتصال بالإنترنت وبزمن استجابة منخفض.',
   'voice.routing.title': 'توجيه الصوت',
-  'voice.routing.desc': 'اختر الموفرين المُفعَّلين الذين يتولون تحويل الكلام إلى نص والنص إلى كلام.',
+  'voice.routing.desc':
+    'اختر الموفرين المُفعَّلين الذين يتولون تحويل الكلام إلى نص والنص إلى كلام.',
   'voice.routing.save': 'Save',
   'voice.routing.testStt': 'اختبار STT',
   'voice.routing.testTts': 'اختبار TTS',
   'voice.routing.elevenlabsVoice': 'صوت ElevenLabs',
   'voice.routing.elevenlabsVoiceAria': 'اختيار صوت ElevenLabs',
   'voice.routing.elevenlabsVoiceIdAria': 'معرف صوت ElevenLabs (مخصص)',
-  'voice.routing.elevenlabsVoiceDesc': 'اختر صوتاً منتقىً أو الصق معرف صوت مخصص من لوحة تحكم ElevenLabs.',
+  'voice.routing.elevenlabsVoiceDesc':
+    'اختر صوتاً منتقىً أو الصق معرف صوت مخصص من لوحة تحكم ElevenLabs.',
   'voice.externalProviders.title': 'موفرو الصوت الخارجيون',
-  'voice.externalProviders.desc': 'اربط واجهات API صوتية تابعة لجهات خارجية مثل Deepgram أو ElevenLabs أو OpenAI مباشرةً.',
+  'voice.externalProviders.desc':
+    'اربط واجهات API صوتية تابعة لجهات خارجية مثل Deepgram أو ElevenLabs أو OpenAI مباشرةً.',
   'voice.externalProviders.keySet': 'المفتاح مُعيَّن',
   'voice.externalProviders.noKey': 'لا يوجد مفتاح API',
   'voice.externalProviders.test': 'Test',
@@ -1287,7 +1398,8 @@ const messages: TranslationMap = {
   'chat.askAgent': 'اسأل الوكيل أي شيء...',
   'chat.sendMessage': 'إرسال الرسالة',
   'composio.triageTitle': 'مشغّلات التكامل',
-  'composio.triageDesc': 'عند التفعيل، يمر كل مشغّل Composio وارد عبر خطوة فرز بالذكاء الاصطناعي تُصنّف الحدث وقد تبدأ إجراءات آلية — دورة LLM محلية واحدة لكل مشغّل. عطّله عالميًا أو لكل تكامل إذا كنت تفضل المراجعة اليدوية. إذا كان متغير البيئة',
+  'composio.triageDesc':
+    'عند التفعيل، يمر كل مشغّل Composio وارد عبر خطوة فرز بالذكاء الاصطناعي تُصنّف الحدث وقد تبدأ إجراءات آلية — دورة LLM محلية واحدة لكل مشغّل. عطّله عالميًا أو لكل تكامل إذا كنت تفضل المراجعة اليدوية. إذا كان متغير البيئة',
   'composio.disableAllTriage': 'تعطيل فرز الذكاء الاصطناعي لجميع المشغّلات',
   'composio.triggersStillRecorded': 'تُسجَّل المشغّلات في السجل — لا تُشغَّل دورة LLM.',
   'composio.disableSpecificIntegrations': 'تعطيل فرز الذكاء الاصطناعي لتكاملات محددة',
@@ -1300,9 +1412,11 @@ const messages: TranslationMap = {
   'localModel.modelStatus': 'حالة النموذج',
   'localModel.downloadModels': 'تنزيل النماذج',
   'localModel.usage': 'الاستخدام',
-  'localModel.usageDesc': 'اختر الأنظمة الفرعية التي تعمل على النموذج المحلي. ما هو معطّل يستخدم السحابة.',
+  'localModel.usageDesc':
+    'اختر الأنظمة الفرعية التي تعمل على النموذج المحلي. ما هو معطّل يستخدم السحابة.',
   'localModel.enableRuntime': 'تفعيل بيئة الذكاء الاصطناعي المحلي',
-  'localModel.enableRuntimeDesc': 'مفتاح رئيسي. معطّل افتراضيًا — Ollama يبقى خاملاً. عند التشغيل، يستخدم ملخّص الشجرة وذكاء الشاشة والإكمال التلقائي النموذجَ المحلي دائمًا.',
+  'localModel.enableRuntimeDesc':
+    'مفتاح رئيسي. معطّل افتراضيًا — Ollama يبقى خاملاً. عند التشغيل، يستخدم ملخّص الشجرة وذكاء الشاشة والإكمال التلقائي النموذجَ المحلي دائمًا.',
   'localModel.advancedSettings': 'إعدادات متقدمة',
   'localModel.debugTitle': 'تصحيح النموذج المحلي',
   'screenAwareness.debugTitle': 'تصحيح وعي الشاشة',
@@ -1313,9 +1427,11 @@ const messages: TranslationMap = {
   'screenAwareness.debug.policyTitle': 'سياسة ذكاء الشاشة',
   'screenAwareness.debug.baselineFps': 'FPS الأساسي',
   'screenAwareness.debug.useVisionModel': 'استخدام نموذج الرؤية',
-  'screenAwareness.debug.useVisionModelDesc': 'أرسل لقطات الشاشة إلى نموذج رؤية LLM للحصول على سياق أغنى. عند التعطيل، يُستخدم نص OCR فقط مع نموذج نصي — أسرع ولا يتطلب نموذج رؤية.',
+  'screenAwareness.debug.useVisionModelDesc':
+    'أرسل لقطات الشاشة إلى نموذج رؤية LLM للحصول على سياق أغنى. عند التعطيل، يُستخدم نص OCR فقط مع نموذج نصي — أسرع ولا يتطلب نموذج رؤية.',
   'screenAwareness.debug.keepScreenshots': 'الاحتفاظ بلقطات الشاشة',
-  'screenAwareness.debug.keepScreenshotsDesc': 'احفظ لقطات الشاشة الملتقطة في مساحة العمل بدلاً من حذفها بعد المعالجة',
+  'screenAwareness.debug.keepScreenshotsDesc':
+    'احفظ لقطات الشاشة الملتقطة في مساحة العمل بدلاً من حذفها بعد المعالجة',
   'screenAwareness.debug.allowlist': 'القائمة المسموح بها (قاعدة واحدة لكل سطر)',
   'screenAwareness.debug.denylist': 'قائمة الرفض (قاعدة واحدة لكل سطر)',
   'screenAwareness.debug.saveSettings': 'حفظ إعدادات ذكاء الشاشة',
@@ -1359,7 +1475,8 @@ const messages: TranslationMap = {
   'memory.exampleNamespace': 'على سبيل المثال. Skill:gmail:user@example.com',
   'memory.clear': 'مسح',
   'memory.deleteConfirm': 'هل تريد حذف المستند "{documentId}" في مساحة الاسم "{namespace}"؟',
-  'memory.clearNamespaceConfirm': 'سيُحذف جميع المستندات في نطاق الاسم "{namespace}" نهائياً. هل تريد المتابعة؟',
+  'memory.clearNamespaceConfirm':
+    'سيُحذف جميع المستندات في نطاق الاسم "{namespace}" نهائياً. هل تريد المتابعة؟',
   'memory.clearNamespaceSuccess': 'تم مسح مساحة الاسم "{namespace}".',
   'memory.clearNamespaceEmpty': 'لا يوجد شيء يجب مسحه في "{namespace}".',
   'webhooks.debugTitle': 'تصحيح الـ Webhooks',
@@ -1392,10 +1509,14 @@ const messages: TranslationMap = {
   'webhooks.empty': '[فارغة]',
   'providerSetup.error.defaultDetails': 'فشل إعداد الموفر.',
   'providerSetup.error.providerFallback': 'رفض الموفر',
-  'providerSetup.error.credentialsRejected': 'رفض {provider} بيانات الاعتماد. تحقق من مفتاح API وحاول مجدداً.',
-  'providerSetup.error.endpointNotRecognized': 'لم يتعرف {provider} على نقطة النهاية. تحقق من عنوان URL الأساسي وحاول مجدداً.',
-  'providerSetup.error.providerUnavailable': '{provider} غير متاح حالياً. حاول مجدداً أو تحقق من حالة الموفر.',
-  'providerSetup.error.unreachable': 'تعذّر الوصول إلى {provider}. تحقق من عنوان URL لنقطة النهاية واتصال الشبكة، ثم حاول مجدداً.',
+  'providerSetup.error.credentialsRejected':
+    'رفض {provider} بيانات الاعتماد. تحقق من مفتاح API وحاول مجدداً.',
+  'providerSetup.error.endpointNotRecognized':
+    'لم يتعرف {provider} على نقطة النهاية. تحقق من عنوان URL الأساسي وحاول مجدداً.',
+  'providerSetup.error.providerUnavailable':
+    '{provider} غير متاح حالياً. حاول مجدداً أو تحقق من حالة الموفر.',
+  'providerSetup.error.unreachable':
+    'تعذّر الوصول إلى {provider}. تحقق من عنوان URL لنقطة النهاية واتصال الشبكة، ثم حاول مجدداً.',
   'providerSetup.error.couldNotReachWithMessage': 'تعذر الوصول إلى {provider}: {message}',
   'providerSetup.error.technicalDetails': 'التفاصيل الفنية',
   'notifications.routingTitle': 'توجيه الإشعارات',
@@ -1404,7 +1525,8 @@ const messages: TranslationMap = {
   'notifications.routing.unread': 'غير مقروء',
   'notifications.routing.unscored': 'غير مسجل',
   'notifications.routing.intelligenceTitle': 'ذكاء الإشعارات',
-  'notifications.routing.intelligenceDesc': 'يُصنَّف كل إشعار من حساباتك المتصلة بواسطة نموذج ذكاء اصطناعي محلي. تُوجَّه الإشعارات عالية الأهمية تلقائياً إلى وكيل المنسق حتى لا يفوتك شيء حرج.',
+  'notifications.routing.intelligenceDesc':
+    'يُصنَّف كل إشعار من حساباتك المتصلة بواسطة نموذج ذكاء اصطناعي محلي. تُوجَّه الإشعارات عالية الأهمية تلقائياً إلى وكيل المنسق حتى لا يفوتك شيء حرج.',
   'notifications.routing.howItWorks': 'كيف يعمل',
   'notifications.routing.level.drop': 'إسقاط',
   'notifications.routing.level.dropDesc': 'تشويش / بريد عشوائي - تم تخزينه ولكن لم يتم عرضه',
@@ -1417,7 +1539,8 @@ const messages: TranslationMap = {
   'notifications.routing.perProvider': 'التوجيه لكل موفر',
   'notifications.routing.threshold': 'العتبة',
   'notifications.routing.routeToOrchestrator': 'فشل التوجيه إلى المنسق',
-  'notifications.routing.loadSettingsError': 'فشل تحميل الإعدادات. أعد فتح هذا اللوح للمحاولة مجدداً.',
+  'notifications.routing.loadSettingsError':
+    'فشل تحميل الإعدادات. أعد فتح هذا اللوح للمحاولة مجدداً.',
   'common.reload': 'إعادة تحميل',
   'common.skip': 'تخطي',
   'common.disable': 'تعطيل',
@@ -1584,19 +1707,23 @@ const messages: TranslationMap = {
   'workspace.buildSummaryTrees': 'بناء أشجار الملخصات',
   'workspace.viewVault': 'عرض الخزينة',
   'workspace.openingVaultTitle': 'فتح المخزن في Obsidian',
-  'workspace.openingVaultMessage': 'إذا لم يفتح Obsidian، ثبّته من obsidian.md أو استخدم «إظهار المجلد». مسار الخزنة:',
+  'workspace.openingVaultMessage':
+    'إذا لم يفتح Obsidian، ثبّته من obsidian.md أو استخدم «إظهار المجلد». مسار الخزنة:',
   'workspace.openVaultFailedTitle': 'تعذّر فتح الخزنة في Obsidian',
   'workspace.openVaultFailedMessage': 'استخدم Reveal Folder لفتح دليل المخزن مباشرة. مسار المدفن:',
   'workspace.revealVaultFailed': 'تعذّر إظهار مجلد الخزنة',
   'workspace.revealFolder': 'كشف المجلد',
   'workspace.checkingVault': 'جارٍ التحقق…',
-  'workspace.vaultNotRegisteredHelp': 'يفتح Obsidian فقط المجلدات التي أضفتها كخزنة. في Obsidian، اختر «فتح المجلد كخزنة» واختر المجلد أدناه — تحتاج إلى القيام بذلك مرة واحدة فقط. ثم انقر «عرض الخزنة» مجدداً.',
-  'workspace.obsidianNotFoundHelp': 'لم نتمكن من العثور على Obsidian على هذا الجهاز. ثبّته، أو — إذا كان مثبتاً في مكان غير قياسي — حدد مجلد إعداداته ضمن خيارات متقدمة.',
+  'workspace.vaultNotRegisteredHelp':
+    'يفتح Obsidian فقط المجلدات التي أضفتها كخزنة. في Obsidian، اختر «فتح المجلد كخزنة» واختر المجلد أدناه — تحتاج إلى القيام بذلك مرة واحدة فقط. ثم انقر «عرض الخزنة» مجدداً.',
+  'workspace.obsidianNotFoundHelp':
+    'لم نتمكن من العثور على Obsidian على هذا الجهاز. ثبّته، أو — إذا كان مثبتاً في مكان غير قياسي — حدد مجلد إعداداته ضمن خيارات متقدمة.',
   'workspace.openAnyway': 'فتح في Obsidian على أي حال',
   'workspace.installObsidian': 'تثبيت Obsidian',
   'workspace.obsidianAdvanced': 'هل Obsidian مثبّت في مكان آخر؟',
   'workspace.obsidianConfigDirLabel': 'مجلد إعدادات Obsidian',
-  'workspace.obsidianConfigDirHint': 'المسار إلى المجلد الذي يحتوي على obsidian.json (مثال: ~/.config/obsidian). اتركه فارغاً للاكتشاف التلقائي.',
+  'workspace.obsidianConfigDirHint':
+    'المسار إلى المجلد الذي يحتوي على obsidian.json (مثال: ~/.config/obsidian). اتركه فارغاً للاكتشاف التلقائي.',
   'workspace.obsidianConfigDirPlaceholder': '~/.config/obsidian',
   'workspace.graphLoadFailed': 'فشل تحميل الرسم البياني للذاكرة',
   'workspace.loadingGraph': 'جارٍ تحميل الرسم البياني للذاكرة...',
@@ -1644,7 +1771,8 @@ const messages: TranslationMap = {
   'memorySources.empty': 'لا توجد مصادر للذاكرة بعد أضف واحدة لبدء تغذية الذاكرة.',
   'memorySources.customSources': 'المصادر العرفية',
   'memorySources.addSource': 'المصدر',
-  'memorySources.noCustomSources': 'لا توجد مصادر عرفية بعد أضف ملفاً، ×1xx repo، ×x0x مكعب، أو صفحة على الشبكة للبدء.',
+  'memorySources.noCustomSources':
+    'لا توجد مصادر عرفية بعد أضف ملفاً، ×1xx repo، ×x0x مكعب، أو صفحة على الشبكة للبدء.',
   'memorySources.loadingConnections': 'علاقات الحب...',
   'memorySources.noConnections': 'لم يتم العثور على أي وصلات اكسكساكسية نشطة. إجمع التكامل أولاً',
   'memorySources.pickConnection': 'اختر اتصال',
@@ -1701,7 +1829,8 @@ const messages: TranslationMap = {
   'backend.privacyNote': 'لا تُرسَل أي بيانات شخصية أو رسائل أو مفاتيح إلى خوادمنا.',
   'backend.local': 'محلي',
   'backend.advanced': 'متقدم',
-  'backend.localDescription': 'تشغيل النماذج على جهازك باستخدام Ollama. خصوصية كاملة، يتطلب إعدادًا.',
+  'backend.localDescription':
+    'تشغيل النماذج على جهازك باستخدام Ollama. خصوصية كاملة، يتطلب إعدادًا.',
   'backend.ramRecommended': '16 جيجابايت+ RAM موصى به',
   'subconscious.tasks': 'مهام',
   'subconscious.ticks': 'دورات',
@@ -1749,13 +1878,16 @@ const messages: TranslationMap = {
   'bootCheck.chooseCoreMode': 'اختر بيئة التشغيل',
   'bootCheck.connectToCore': 'اتصل ببيئة تشغيلك',
   'bootCheck.desktopDescription': 'يحتاج OpenHuman إلى بيئة تشغيل للعمل. اختر مكانها.',
-  'bootCheck.webDescription': 'على الويب، يتصل OpenHuman ببيئة تشغيل تتحكم فيها. أدخل عنوان URL الخاص بها ورمز المصادقة أدناه، أو احصل على تطبيق سطح المكتب لتشغيلها مباشرة على جهازك.',
+  'bootCheck.webDescription':
+    'على الويب، يتصل OpenHuman ببيئة تشغيل تتحكم فيها. أدخل عنوان URL الخاص بها ورمز المصادقة أدناه، أو احصل على تطبيق سطح المكتب لتشغيلها مباشرة على جهازك.',
   'bootCheck.preferDesktop': 'تفضّل إبقاء كل شيء على جهازك؟',
   'bootCheck.downloadDesktop': 'احصل على تطبيق سطح المكتب',
   'bootCheck.localRecommended': 'التشغيل محليًا (موصى به)',
-  'bootCheck.localDescription': 'يعمل مباشرة على جهازك. الأسرع، خصوصي تمامًا، لا شيء يحتاج إلى إعداد.',
+  'bootCheck.localDescription':
+    'يعمل مباشرة على جهازك. الأسرع، خصوصي تمامًا، لا شيء يحتاج إلى إعداد.',
   'bootCheck.cloudMode': 'التشغيل على السحابة (معقد)',
-  'bootCheck.cloudDescription': 'الاتصال ببيئة تشغيل تستضيفها في مكان آخر. تبقى متصلة 24×7 حتى لا تحتاج إلى إبقاء هذا الجهاز يعمل.',
+  'bootCheck.cloudDescription':
+    'الاتصال ببيئة تشغيل تستضيفها في مكان آخر. تبقى متصلة 24×7 حتى لا تحتاج إلى إبقاء هذا الجهاز يعمل.',
   'bootCheck.coreRpcUrl': 'عنوان URL لبيئة التشغيل',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'رمز المصادقة',
@@ -1772,28 +1904,34 @@ const messages: TranslationMap = {
   'bootCheck.switchMode': 'اختر بيئة تشغيل مختلفة',
   'bootCheck.quit': 'خروج',
   'bootCheck.legacyDetected': 'تم اكتشاف بيئة تشغيل خلفية قديمة',
-  'bootCheck.legacyDescription': 'خدمة OpenHuman مثبّتة بشكل منفصل تعمل بالفعل على هذا الجهاز. نحتاج إلى إزالتها قبل أن تتولى بيئة التشغيل المدمجة.',
+  'bootCheck.legacyDescription':
+    'خدمة OpenHuman مثبّتة بشكل منفصل تعمل بالفعل على هذا الجهاز. نحتاج إلى إزالتها قبل أن تتولى بيئة التشغيل المدمجة.',
   'bootCheck.removing': 'جارٍ الإزالة…',
   'bootCheck.removeContinue': 'إزالة ومتابعة',
   'bootCheck.localNeedsRestart': 'بيئة التشغيل المحلية تحتاج إلى إعادة تشغيل',
-  'bootCheck.localNeedsRestartDesc': 'بيئة تشغيلك المحلية على إصدار مختلف عن هذا التطبيق. ستعيد إعادة التشغيل السريعة مزامنتهما.',
+  'bootCheck.localNeedsRestartDesc':
+    'بيئة تشغيلك المحلية على إصدار مختلف عن هذا التطبيق. ستعيد إعادة التشغيل السريعة مزامنتهما.',
   'bootCheck.restarting': 'جارٍ إعادة التشغيل…',
   'bootCheck.restartCore': 'إعادة تشغيل بيئة التشغيل',
   'bootCheck.cloudNeedsUpdate': 'بيئة التشغيل السحابية تحتاج إلى تحديث',
-  'bootCheck.cloudNeedsUpdateDesc': 'بيئة تشغيلك السحابية على إصدار مختلف عن هذا التطبيق. شغّل المحدّث لإعادة مزامنتهما.',
+  'bootCheck.cloudNeedsUpdateDesc':
+    'بيئة تشغيلك السحابية على إصدار مختلف عن هذا التطبيق. شغّل المحدّث لإعادة مزامنتهما.',
   'bootCheck.updating': 'جارٍ التحديث…',
   'bootCheck.updateCloudCore': 'تحديث بيئة التشغيل السحابية',
   'bootCheck.versionCheckFailed': 'فشل التحقق من إصدار بيئة التشغيل',
-  'bootCheck.versionCheckFailedDesc': 'بيئة تشغيلك تعمل لكنها لا تُبلّغ عن إصدارها. قد تكون قديمة. أعد تشغيلها أو حدّثها للمتابعة.',
+  'bootCheck.versionCheckFailedDesc':
+    'بيئة تشغيلك تعمل لكنها لا تُبلّغ عن إصدارها. قد تكون قديمة. أعد تشغيلها أو حدّثها للمتابعة.',
   'bootCheck.working': 'جارٍ العمل…',
   'bootCheck.restartUpdateCore': 'إعادة تشغيل / تحديث بيئة التشغيل',
   'bootCheck.unexpectedError': 'خطأ غير متوقع في فحص بدء التشغيل',
   'bootCheck.actionFailed': 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
   'bootCheck.portConflictTitle': 'تعذّر تشغيل محرّك التطبيق',
-  'bootCheck.portConflictBody': 'هناك عملية أخرى تستخدم منفذ الشبكة الذي يحتاجه OpenHuman. سنحاول إصلاح ذلك تلقائيًا.',
+  'bootCheck.portConflictBody':
+    'هناك عملية أخرى تستخدم منفذ الشبكة الذي يحتاجه OpenHuman. سنحاول إصلاح ذلك تلقائيًا.',
   'bootCheck.portConflictFixButton': 'إصلاح تلقائي',
   'bootCheck.portConflictFixing': 'جارٍ الإصلاح…',
-  'bootCheck.portConflictFixFailed': 'لم ينجح الإصلاح التلقائي. يُرجى إعادة تشغيل الكمبيوتر والمحاولة مجددًا.',
+  'bootCheck.portConflictFixFailed':
+    'لم ينجح الإصلاح التلقائي. يُرجى إعادة تشغيل الكمبيوتر والمحاولة مجددًا.',
   'notifications.justNow': 'الآن',
   'notifications.minAgo': 'منذ {n} د',
   'notifications.hrAgo': 'منذ {n} س',
@@ -1810,7 +1948,8 @@ const messages: TranslationMap = {
   'about.update.status.availableNoVersion': 'تحديث متاح',
   'about.update.status.downloading': 'جارٍ التنزيل...',
   'about.update.status.readyToInstall': 'v{version} جاهز للتثبيت',
-  'about.update.status.readyToInstallNoVersion': 'تم تنزيل إصدار جديد وهو جاهز. أعد التشغيل للتطبيق.',
+  'about.update.status.readyToInstallNoVersion':
+    'تم تنزيل إصدار جديد وهو جاهز. أعد التشغيل للتطبيق.',
   'about.update.status.installing': 'جارٍ التثبيت...',
   'about.update.status.restarting': 'جارٍ إعادة التشغيل...',
   'about.update.status.upToDate': 'أنت تستخدم أحدث إصدار.',
@@ -1842,10 +1981,12 @@ const messages: TranslationMap = {
   'composio.authExpired': 'انتهت صلاحية المصادقة',
   'composio.reconnect': 'إعادة الاتصال',
   'composio.expiredAuthorization': '{name} انتهت صلاحية الترخيص',
-  'composio.expiredDescription': 'أعد الاتصال لإعادة تمكين أدوات {name}. OpenHuman سيبقي هذا التكامل غير متاح حتى تقوم بتحديث وصول OAuth.',
+  'composio.expiredDescription':
+    'أعد الاتصال لإعادة تمكين أدوات {name}. OpenHuman سيبقي هذا التكامل غير متاح حتى تقوم بتحديث وصول OAuth.',
   'composio.envVarOverrides': 'محدد، فإنه يتجاوز هذا الإعداد.',
   'composio.previewBadge': 'معاينة',
-  'composio.previewTooltip': 'سيتم دمج الوكيل قريبًا - يمكنك الاتصال، ولكن لا يمكن للوكيل استخدام مجموعة الأدوات هذه بعد.',
+  'composio.previewTooltip':
+    'سيتم دمج الوكيل قريبًا - يمكنك الاتصال، ولكن لا يمكن للوكيل استخدام مجموعة الأدوات هذه بعد.',
   'memory.day.sun': 'أحد',
   'memory.day.mon': 'إثن',
   'memory.day.tue': 'ثلا',
@@ -1915,7 +2056,8 @@ const messages: TranslationMap = {
   'app.openhumanLink.billing.stayOnTrial': 'البقاء في النسخة التجريبية',
   'app.openhumanLink.billing.trialCredit': 'رصيد تجريبي',
   'app.openhumanLink.billing.trialDesc': 'وصف تجريبي',
-  'app.openhumanLink.defaultBody': 'غير جاهز في النافذة المنبثقة بعد. افتح صفحة الإعدادات الكاملة عند الحاجة',
+  'app.openhumanLink.defaultBody':
+    'غير جاهز في النافذة المنبثقة بعد. افتح صفحة الإعدادات الكاملة عند الحاجة',
   'app.openhumanLink.discord.intro': 'مقدمة',
   'app.openhumanLink.discord.openInvite': 'فتح الدعوة',
   'app.openhumanLink.discord.perk1': 'ميزة 1',
@@ -1935,7 +2077,8 @@ const messages: TranslationMap = {
   'app.openhumanLink.notifications.retry': 'إعادة إرسال إشعار اختبار',
   'app.openhumanLink.notifications.send': 'إرسال إشعار اختبار',
   'app.openhumanLink.notifications.sendFailed': 'تعذّر الإرسال: {error}',
-  'app.openhumanLink.notifications.sent': 'تم إرسال إشعار اختباري. إذا لم تستلمه، انتقل إلى إعدادات النظام ← الإشعارات ← OpenHuman، فعّل "السماح بالإشعارات"، واضبط نمط الشعار على "مستمر".',
+  'app.openhumanLink.notifications.sent':
+    'تم إرسال إشعار اختباري. إذا لم تستلمه، انتقل إلى إعدادات النظام ← الإشعارات ← OpenHuman، فعّل "السماح بالإشعارات"، واضبط نمط الشعار على "مستمر".',
   'app.openhumanLink.skipForNow': 'تخطي في الوقت الحالي',
   'app.openhumanLink.telegramUnavailable': 'Telegram غير متاح',
   'app.openhumanLink.title.accounts': 'ربط تطبيقاتك',
@@ -2006,26 +2149,33 @@ const messages: TranslationMap = {
   'channels.authMode.api_key': 'استخدم مفتاح API الخاص بك',
   'channels.fieldRequired': '{field} مطلوب',
   'channels.mcp.title': 'MCP الخوادم',
-  'channels.mcp.description': 'تصفح وأدر خوادم Model Context Protocol التي توسّع قدرات الذكاء الاصطناعي بأدوات جديدة.',
+  'channels.mcp.description':
+    'تصفح وأدر خوادم Model Context Protocol التي توسّع قدرات الذكاء الاصطناعي بأدوات جديدة.',
   'channels.discord.displayName': 'Discord',
   'channels.discord.description': 'إرسال واستقبال الرسائل عبر Discord.',
-  'channels.discord.authMode.bot_token.description': 'قم بتوفير رمز الروبوت المميز Discord الخاص بك.',
-  'channels.discord.authMode.oauth.description': 'قم بتثبيت الروبوت OpenHuman على خادم Discord الخاص بك عبر OAuth.',
-  'channels.discord.authMode.managed_dm.description': 'اربط حسابك الشخصي في Discord بالروبوت OpenHuman.',
+  'channels.discord.authMode.bot_token.description':
+    'قم بتوفير رمز الروبوت المميز Discord الخاص بك.',
+  'channels.discord.authMode.oauth.description':
+    'قم بتثبيت الروبوت OpenHuman على خادم Discord الخاص بك عبر OAuth.',
+  'channels.discord.authMode.managed_dm.description':
+    'اربط حسابك الشخصي في Discord بالروبوت OpenHuman.',
   'channels.discord.fields.bot_token.label': 'رمز الروبوت',
   'channels.discord.fields.bot_token.placeholder': 'رمز الروبوت Discord الخاص بك',
   'channels.discord.fields.guild_id.label': 'معرف الخادم (الرابطة)',
   'channels.discord.fields.guild_id.placeholder': 'اختياري: يقتصر على خادم معين',
   'channels.telegram.displayName': 'Telegram',
   'channels.telegram.description': 'إرسال واستقبال الرسائل عبر Telegram.',
-  'channels.telegram.authMode.managed_dm.description': 'أرسل رسالة إلى الروبوت OpenHuman Telegram مباشرة.',
-  'channels.telegram.authMode.bot_token.description': 'قم بتوفير رمز الروبوت Telegram الخاص بك من @BotFather.',
+  'channels.telegram.authMode.managed_dm.description':
+    'أرسل رسالة إلى الروبوت OpenHuman Telegram مباشرة.',
+  'channels.telegram.authMode.bot_token.description':
+    'قم بتوفير رمز الروبوت Telegram الخاص بك من @BotFather.',
   'channels.telegram.fields.bot_token.label': 'رمز الروبوت',
   'channels.telegram.fields.bot_token.placeholder': '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
   'channels.telegram.fields.allowed_users.label': 'المستخدمون المسموح لهم',
   'channels.telegram.fields.allowed_users.placeholder': 'أسماء المستخدمين Telegram مفصولة بفواصل',
   'channels.telegram.remoteControlTitle': 'جهاز التحكم عن بعد (Telegram)',
-  'channels.telegram.remoteControlBody': 'من دردشة Telegram المسموح بها، أرسل /الحالة، /الجلسات، /جديد، أو /مساعدة. لا يزال توجيه النموذج يستخدم /model و /models.',
+  'channels.telegram.remoteControlBody':
+    'من دردشة Telegram المسموح بها، أرسل /الحالة، /الجلسات، /جديد، أو /مساعدة. لا يزال توجيه النموذج يستخدم /model و /models.',
   'channels.web.displayName': 'الويب',
   'channels.web.description': 'الدردشة عبر واجهة مستخدم الويب المضمنة.',
   'channels.web.authMode.managed_dm.description': 'استخدم دردشة الويب المضمنة - لا يلزم الإعداد.',
@@ -2065,9 +2215,11 @@ const messages: TranslationMap = {
   'iosPair.error.camera': 'فشل فحص الكاميرا. تحقق من أذونات الكاميرا وحاول مرة أخرى.',
   'iosPair.error.connectionFailed': 'فشل الاتصال. تأكد من تشغيل تطبيق سطح المكتب وحاول مجدداً.',
   'iosPair.error.invalidQr': 'رمز QR غير صالح. تأكد من مسح رمز إقران OpenHuman.',
-  'iosPair.error.unreachableDesktop': 'تعذّر الوصول إلى سطح المكتب. تأكد من اتصال كلا الجهازين بالإنترنت وحاول مجدداً.',
+  'iosPair.error.unreachableDesktop':
+    'تعذّر الوصول إلى سطح المكتب. تأكد من اتصال كلا الجهازين بالإنترنت وحاول مجدداً.',
   'iosPair.expired': 'QR code انتهت صلاحيته. اطلب من سطح المكتب إعادة إنشاء الرمز.',
-  'iosPair.instructions': 'افتح OpenHuman على سطح المكتب، اذهب إلى الإعدادات > الأجهزة، واضغط «إقران الهاتف» لعرض رمز QR.',
+  'iosPair.instructions':
+    'افتح OpenHuman على سطح المكتب، اذهب إلى الإعدادات > الأجهزة، واضغط «إقران الهاتف» لعرض رمز QR.',
   'iosPair.retryScan': 'أعد محاولة المسح',
   'iosPair.scanQrCode': 'المسح الضوئي QR code',
   'iosPair.scannerOpening': 'فتح الماسح الضوئي...',
@@ -2079,25 +2231,30 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'تسمية النطاق الفرعي لـ Atlassian',
   'composio.connect.connect': 'اتصال',
-  'composio.connect.dynamicsOrgNameHint': 'على سبيل المثال، "myorg" لـ myorg.crm.dynamics.com. أدخل اسم المؤسسة المختصر فقط، وليس الرابط الكامل.',
+  'composio.connect.dynamicsOrgNameHint':
+    'على سبيل المثال، "myorg" لـ myorg.crm.dynamics.com. أدخل اسم المؤسسة المختصر فقط، وليس الرابط الكامل.',
   'composio.connect.dynamicsOrgNameLabel': 'اسم مؤسسة Dynamics 365',
   'composio.connect.connectionFailed': 'فشل الاتصال (الحالة: {status}).',
   'composio.connect.disconnectFailed': 'فشل قطع الاتصال: {msg}',
   'composio.connect.disconnecting': 'جارٍ قطع الاتصال…',
   'composio.connect.idleDescription': 'اربط حساب',
-  'composio.connect.idleDescriptionSuffix': 'الخاص بك. سنفتح نافذة متصفح، توافق فيها على الوصول، وسيكتشف هذا التطبيق الاتصال تلقائيًا.',
+  'composio.connect.idleDescriptionSuffix':
+    'الخاص بك. سنفتح نافذة متصفح، توافق فيها على الوصول، وسيكتشف هذا التطبيق الاتصال تلقائيًا.',
   'composio.connect.isConnected': 'متصل.',
   'composio.connect.manage': 'إدارة',
   'composio.connect.needsFieldsPrefix': 'للاتصال',
-  'composio.connect.needsFieldsSuffix': 'نحتاج إلى مزيد من المعلومات. املأ الحقول الناقصة أدناه وحاول مرة أخرى.',
+  'composio.connect.needsFieldsSuffix':
+    'نحتاج إلى مزيد من المعلومات. املأ الحقول الناقصة أدناه وحاول مرة أخرى.',
   'composio.connect.needsSubdomain': 'للاتصال بـ',
-  'composio.connect.needsSubdomainSuffix': 'أدخل النطاق الفرعي لـ Atlassian (مثل acme لـ acme.atlassian.net) ثم أعد المحاولة.',
+  'composio.connect.needsSubdomainSuffix':
+    'أدخل النطاق الفرعي لـ Atlassian (مثل acme لـ acme.atlassian.net) ثم أعد المحاولة.',
   'composio.connect.oauthComplete': 'بانتظار إكمال OAuth…',
   'composio.connect.oauthTimeout': 'انتهت مهلة OAuth',
   'composio.connect.permissions': 'الأذونات',
   'composio.connect.permissionsDefault': 'القراءة والكتابة مفعّلتان افتراضيًا',
   'composio.connect.permissionsNote': 'قد يكشف',
-  'composio.connect.permissionsNoteSuffix': 'أذونات وكيل OpenHuman الخاصة يتم التحكم بها أدناه عبر مفاتيح القراءة والكتابة والإدارة.',
+  'composio.connect.permissionsNoteSuffix':
+    'أذونات وكيل OpenHuman الخاصة يتم التحكم بها أدناه عبر مفاتيح القراءة والكتابة والإدارة.',
   'composio.connect.reopenBrowser': 'إعادة فتح المتصفح',
   'composio.connect.requestingUrl': 'جارٍ طلب عنوان URL للاتصال…',
   'composio.connect.requiredFieldEmpty': 'هذا الحقل مطلوب.',
@@ -2109,10 +2266,13 @@ const messages: TranslationMap = {
   'composio.connect.scope.write': 'اكتب',
   'composio.connect.scope.writeHint': 'اسمح للوكيل بإنشاء البيانات أو تعديلها من خلال هذا الاتصال.',
   'composio.connect.scope.admin': 'المسؤول',
-  'composio.connect.scope.adminHint': 'السماح للوكيل بإدارة الإعدادات أو الأذونات أو الإجراءات المدمرة.',
-  'composio.connect.subdomainInvalid': 'أدخل النطاق الفرعي القصير فقط (مثل "acme")، وليس الرابط الكامل. يجب أن يحتوي فقط على أحرف وأرقام وشُرَط.',
+  'composio.connect.scope.adminHint':
+    'السماح للوكيل بإدارة الإعدادات أو الأذونات أو الإجراءات المدمرة.',
+  'composio.connect.subdomainInvalid':
+    'أدخل النطاق الفرعي القصير فقط (مثل "acme")، وليس الرابط الكامل. يجب أن يحتوي فقط على أحرف وأرقام وشُرَط.',
   'composio.connect.subdomainRequired': 'يرجى إدخال نطاقك الفرعي في Atlassian للمتابعة.',
-  'composio.connect.wabaIdHint': 'احصل عليه عبر GET /me/businesses ثم GET /{business_id}/owned_whatsapp_business_accounts باستخدام رمز وصول Meta الخاص بك.',
+  'composio.connect.wabaIdHint':
+    'احصل عليه عبر GET /me/businesses ثم GET /{business_id}/owned_whatsapp_business_accounts باستخدام رمز وصول Meta الخاص بك.',
   'composio.connect.wabaIdLabel': 'تسمية معرف WABA',
   'composio.connect.wabaIdRequired': 'يرجى إدخال معرف حساب WhatsApp Business (WABA ID) للمتابعة.',
   'composio.connect.waitingFor': 'بانتظار',
@@ -2154,7 +2314,8 @@ const messages: TranslationMap = {
   'daemon.serviceBlockingGate.downloadHint': 'تلميح التنزيل',
   'daemon.serviceBlockingGate.downloadLatest': 'تنزيل أحدث إصدار',
   'daemon.serviceBlockingGate.retryCore': 'إعادة محاولة Core',
-  'daemon.serviceBlockingGate.retryFailed': 'فشلت إعادة المحاولة. نزّل أحدث إصدار للتطبيق وحاول مرة أخرى.',
+  'daemon.serviceBlockingGate.retryFailed':
+    'فشلت إعادة المحاولة. نزّل أحدث إصدار للتطبيق وحاول مرة أخرى.',
   'daemon.serviceBlockingGate.retrying': 'جارٍ إعادة المحاولة...',
   'daemon.serviceBlockingGate.title': 'نواة OpenHuman غير متاحة',
   'home.banners.discordSubtitle': 'وصف Discord',
@@ -2187,7 +2348,8 @@ const messages: TranslationMap = {
   'intelligence.diagram.refresh': 'Refresh',
   'intelligence.diagram.refreshAria': 'تحديث المخطط',
   'intelligence.diagram.emptyTitle': 'لا يوجد مخطط بعد',
-  'intelligence.diagram.emptyDescription': 'أنشئ مخطط بنية من المنسق وسيتجدد هذا اللوح تلقائياً من نقطة النهاية المحلية المُهيأة.',
+  'intelligence.diagram.emptyDescription':
+    'أنشئ مخطط بنية من المنسق وسيتجدد هذا اللوح تلقائياً من نقطة النهاية المحلية المُهيأة.',
   'intelligence.diagram.skillInstallCommand': 'npx skills add yizhiyanhua-ai/fireworks-tech-graph',
   'intelligence.diagram.promptExample': 'أنشئ مخطط بنية للسرب الحالي بأسلوب المحطة الداكنة',
   'intelligence.diagram.imageAlt': 'أحدث مخطط بنية OpenHuman المُولَّد',
@@ -2253,16 +2415,20 @@ const messages: TranslationMap = {
   'notifications.center.markAllRead': 'تحديد الكل كمقروء',
   'notifications.center.title': 'الإشعارات',
   'oauth.button.connecting': 'جارٍ الاتصال...',
-  'oauth.button.loopbackTimeout': 'انتهت مهلة تسجيل الدخول — لم يكتمل المتصفح إعادة توجيه OAuth. يرجى المحاولة مرة أخرى.',
+  'oauth.button.loopbackTimeout':
+    'انتهت مهلة تسجيل الدخول — لم يكتمل المتصفح إعادة توجيه OAuth. يرجى المحاولة مرة أخرى.',
   'oauth.login.continueWith': 'المتابعة مع',
   'onboarding.contextGathering.buildingDesc': 'وصف البناء',
   'onboarding.contextGathering.buildingProfile': 'جارٍ بناء ملفك الشخصي...',
   'onboarding.contextGathering.continueToChat': 'المتابعة إلى المحادثة',
   'onboarding.contextGathering.coreAlive': 'النواة متاحة — قد يستغرق التشغيل الأول دقيقة.',
   'onboarding.contextGathering.coreAliveProbing': 'يجري التحقق من اتصال النواة…',
-  'onboarding.contextGathering.coreUnreachable': 'النواة لا تستجيب. يمكنك المتابعة والمحاولة لاحقًا.',
-  'onboarding.contextGathering.errorDesc': 'تعذّر إنشاء ملفك الكامل الآن، لكن لا بأس — يمكنك المتابعة وسيُبنى ملفك مع الوقت.',
-  'onboarding.contextGathering.stillWorkingDesc': 'قد يستغرق التشغيل الأول 30–60 ثانية أثناء تهيئة نموذجك المحلي والأدوات. يمكنك المتابعة إلى المحادثة في أي وقت — يستمر بناء الملف الشخصي في الخلفية.',
+  'onboarding.contextGathering.coreUnreachable':
+    'النواة لا تستجيب. يمكنك المتابعة والمحاولة لاحقًا.',
+  'onboarding.contextGathering.errorDesc':
+    'تعذّر إنشاء ملفك الكامل الآن، لكن لا بأس — يمكنك المتابعة وسيُبنى ملفك مع الوقت.',
+  'onboarding.contextGathering.stillWorkingDesc':
+    'قد يستغرق التشغيل الأول 30–60 ثانية أثناء تهيئة نموذجك المحلي والأدوات. يمكنك المتابعة إلى المحادثة في أي وقت — يستمر بناء الملف الشخصي في الخلفية.',
   'onboarding.contextGathering.stillWorkingTitle': 'لا يزال العمل جاريًا على ملفك الشخصي…',
   'onboarding.contextGathering.title': 'جمع السياق',
   'openhuman.team_list_teams': 'قائمة الفرق',
@@ -2279,14 +2445,16 @@ const messages: TranslationMap = {
   'pages.settings.account.connections': 'الاتصالات',
   'pages.settings.account.connectionsDesc': 'وصف الاتصالات',
   'pages.settings.account.migration': 'استيراد من مساعد آخر',
-  'pages.settings.account.migrationDesc': 'انقل الذاكرة والملاحظات من OpenClaw (وقريبًا Hermes) إلى مساحة العمل هذه.',
+  'pages.settings.account.migrationDesc':
+    'انقل الذاكرة والملاحظات من OpenClaw (وقريبًا Hermes) إلى مساحة العمل هذه.',
   'pages.settings.account.privacy': 'الخصوصية',
   'pages.settings.account.privacyDesc': 'وصف الخصوصية',
   'pages.settings.account.recoveryPhrase': 'عبارة الاسترداد',
   'pages.settings.account.recoveryPhraseDesc': 'وصف عبارة الاسترداد',
   'pages.settings.account.team': 'الفريق',
   'pages.settings.account.teamDesc': 'وصف الفريق',
-  'pages.settings.accountSection.description': 'عبارة الاسترداد والفريق والاتصالات وإعدادات الخصوصية.',
+  'pages.settings.accountSection.description':
+    'عبارة الاسترداد والفريق والاتصالات وإعدادات الخصوصية.',
   'pages.settings.accountSection.title': 'الحساب',
   'pages.settings.ai.llm': 'LLM',
   'pages.settings.ai.llmDesc': 'وصف LLM',
@@ -2295,11 +2463,13 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description': 'مزودو نماذج اللغة وOllama المحلي والصوت (STT / TTS).',
   'pages.settings.aiSection.title': 'الذكاء الاصطناعي',
   'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description': 'التوجيه والمشغلات وسجل عمليات التكامل المدعومة بواسطة Composio.',
+  'pages.settings.composioSection.description':
+    'التوجيه والمشغلات وسجل عمليات التكامل المدعومة بواسطة Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc': 'وضع التوجيه ومشغلات التكامل وأرشيف محفوظات التشغيل.',
   'pages.settings.features.desktopCompanion': 'الرفيق المكتبي',
-  'pages.settings.features.desktopCompanionDesc': 'مساعد صوتي يدرك الشاشة — يستمع ويرى ويتحدث ويشير',
+  'pages.settings.features.desktopCompanionDesc':
+    'مساعد صوتي يدرك الشاشة — يستمع ويرى ويتحدث ويشير',
   'pages.settings.features.messagingChannels': 'قنوات المراسلة',
   'pages.settings.features.messagingChannelsDesc': 'وصف قنوات المراسلة',
   'pages.settings.features.notifications': 'الإشعارات',
@@ -2410,7 +2580,8 @@ const messages: TranslationMap = {
   'settings.ai.openAiCompat.baseUrlLabel': 'القاعدة URL',
   'settings.ai.openAiCompat.baseUrlUnavailable': 'غير متاح',
   'settings.ai.openAiCompat.clearKey': 'مسح المفتاح',
-  'settings.ai.openAiCompat.description': 'توجيه العبوات المحلية في هذا الخادم / v1 إلى الطريق عبر مقدمي الخدمات المشكلين أدناه. التوثيق يستخدم مفتاحاً مستقراً وضعته هنا، وليس حامل اللب الداخلي للطلب.',
+  'settings.ai.openAiCompat.description':
+    'توجيه العبوات المحلية في هذا الخادم / v1 إلى الطريق عبر مقدمي الخدمات المشكلين أدناه. التوثيق يستخدم مفتاحاً مستقراً وضعته هنا، وليس حامل اللب الداخلي للطلب.',
   'settings.ai.openAiCompat.keyConfigured': 'تم تكوين المفتاح',
   'settings.ai.openAiCompat.keyRequired': 'المفتاح مطلوب',
   'settings.ai.openAiCompat.rotateKey': 'مفتاح التدوير',
@@ -2418,7 +2589,8 @@ const messages: TranslationMap = {
   'settings.ai.openAiCompat.title': 'OpenAI نقطة النهاية المتوافقة',
   'settings.ai.providerLabel': 'المزود',
   'skills.mcpComingSoon.title': 'MCP الخوادم',
-  'skills.mcpComingSoon.description': 'إدارة خادم MCP قادمة قريباً. ستكون هذه التبويبة المكان المخصص لاكتشاف خوادم MCP وتوصيلها ومراقبتها.',
+  'skills.mcpComingSoon.description':
+    'إدارة خادم MCP قادمة قريباً. ستكون هذه التبويبة المكان المخصص لاكتشاف خوادم MCP وتوصيلها ومراقبتها.',
   'settings.ai.routing': 'التوجيه',
   'settings.ai.routingCustom': 'توجيه مخصص',
   'settings.ai.routingDefault': 'افتراضي',
@@ -2433,32 +2605,39 @@ const messages: TranslationMap = {
   'settings.ai.connectProviderLabel': 'الاتصال {label}',
   'settings.ai.defaultLocalEndpoint': 'http://localhost:11434/v1',
   'settings.ai.endpointUrlLabel': 'نقطة النهاية URL',
-  'settings.ai.localRuntimeHelper': 'حيث يمكن الوصول إلى {label}. الإعداد الافتراضي هو المضيف المحلي؛ وجّه هذا إلى مضيف بعيد (مثلًا http://10.0.0.4:11434/v1) لاستخدام نسخة مشتركة.',
+  'settings.ai.localRuntimeHelper':
+    'حيث يمكن الوصول إلى {label}. الإعداد الافتراضي هو المضيف المحلي؛ وجّه هذا إلى مضيف بعيد (مثلًا http://10.0.0.4:11434/v1) لاستخدام نسخة مشتركة.',
   'settings.ai.endpointUrlRequired': 'نقطة النهاية URL مطلوبة.',
   'settings.ai.endpointProtocolRequired': 'يجب أن تبدأ نقطة النهاية بـ http:// أو https://.',
   'settings.ai.connectProviderDialog': 'الاتصال {label}',
   'settings.ai.or': 'أو',
-  'settings.ai.openRouterOauthDescription': 'وقع مع OpenRouter وإستيراد مفتاح ×xxxxx متحكم به مستخدماً',
+  'settings.ai.openRouterOauthDescription':
+    'وقع مع OpenRouter وإستيراد مفتاح ×xxxxx متحكم به مستخدماً',
   'settings.ai.connecting': 'جارٍ الاتصال...',
   'settings.ai.backgroundLoops': 'حلقات الخلفية',
-  'settings.ai.backgroundLoopsDesc': 'شاهدْ ما يَعْملُ بدون رسالةِ دردشةِ، يَتوقّفُ عملَ نبضات القلب، ويَتفحصُ مؤخراً دفترِ دفاترِ الإئتمانِ.',
+  'settings.ai.backgroundLoopsDesc':
+    'شاهدْ ما يَعْملُ بدون رسالةِ دردشةِ، يَتوقّفُ عملَ نبضات القلب، ويَتفحصُ مؤخراً دفترِ دفاترِ الإئتمانِ.',
   'settings.ai.heartbeatControls': 'التحكم في نبضات القلب',
-  'settings.ai.heartbeatControlsDesc': 'تعطل ويؤدي التمكين إلى بدء الحلقة؛ ويؤدي إلى إجهاض المهمة الجارية.',
+  'settings.ai.heartbeatControlsDesc':
+    'تعطل ويؤدي التمكين إلى بدء الحلقة؛ ويؤدي إلى إجهاض المهمة الجارية.',
   'settings.ai.heartbeatLoop': 'حلقة نبضات القلب',
   'settings.ai.heartbeatLoopDesc': 'الجدول الزمني الرئيسي للمخطط + الإستنتاجات الخفية الاختيارية',
   'settings.ai.subconsciousInference': 'الاستدلال اللاواعي',
   'settings.ai.subconsciousInferenceDesc': 'يُجري تقييماً مُدعماً بنموذج (Xqx0x) على دقات القلب',
   'settings.ai.calendarMeetingChecks': 'يتحقق اجتماع التقويم',
-  'settings.ai.calendarMeetingChecksDesc': '(د) قائمة بالأحداث التقويمية للوصلات الناشطة من طراز Xqx0xx Calendar.',
+  'settings.ai.calendarMeetingChecksDesc':
+    '(د) قائمة بالأحداث التقويمية للوصلات الناشطة من طراز Xqx0xx Calendar.',
   'settings.ai.calendarCap': 'غطاء التقويم',
   'settings.ai.connectionsPerTick': 'xxxxxxxxxxxxx',
   'settings.ai.meetingLookahead': 'نظرة أمامية للاجتماع',
   'settings.ai.minutesShort': '{count} دقيقة',
   'settings.ai.reminderLookahead': 'نظرة أمامية للتذكير',
   'settings.ai.cronReminderChecks': 'التحقق من تذكير Cron',
-  'settings.ai.cronReminderChecksDesc': 'وقد مكّنت الفحوصات من توفير فرص عمل للتذكير بالبنود المقبلة.',
+  'settings.ai.cronReminderChecksDesc':
+    'وقد مكّنت الفحوصات من توفير فرص عمل للتذكير بالبنود المقبلة.',
   'settings.ai.relevantNotificationChecks': 'عمليات التحقق من الإشعارات ذات الصلة',
-  'settings.ai.relevantNotificationChecksDesc': ':: تشجيع الإخطارات المحلية العاجلة إلى تنبيهات استباقية.',
+  'settings.ai.relevantNotificationChecksDesc':
+    ':: تشجيع الإخطارات المحلية العاجلة إلى تنبيهات استباقية.',
   'settings.ai.externalDelivery': 'التسليم الخارجي',
   'settings.ai.externalDeliveryDesc': 'دعونا نرسل رسائل استباقية إلى القنوات الخارجية.',
   'settings.ai.interval': 'الفاصل الزمني',
@@ -2467,12 +2646,14 @@ const messages: TranslationMap = {
   'settings.ai.loadingHeartbeatControls': 'جارٍ تحميل عناصر التحكم في نبضات القلب...',
   'settings.ai.heartbeatControlsUnavailable': 'عناصر التحكم في نبضات القلب غير متاحة.',
   'settings.ai.loopMap': 'خريطة حلقة',
-  'settings.ai.plannerSummary': 'المخطط: {sourceEvents} أحداث المصدر، {sent} تم إرسالها، {deduped} تم حذفها.',
+  'settings.ai.plannerSummary':
+    'المخطط: {sourceEvents} أحداث المصدر، {sent} تم إرسالها، {deduped} تم حذفها.',
   'settings.ai.routeLabel': 'المسار: {route}',
   'settings.ai.on': 'على',
   'settings.ai.off': 'إيقاف',
   'settings.ai.recentUsageLedger': 'دفتر أستاذ الاستخدام الأخير',
-  'settings.ai.recentUsageLedgerDesc': 'وتكشف الصفوف الخلفية ×xxxxxxxxxxx اليوم؛ وتحتاج بطاقات المصدر إلى دعم احتياطي.',
+  'settings.ai.recentUsageLedgerDesc':
+    'وتكشف الصفوف الخلفية ×xxxxxxxxxxx اليوم؛ وتحتاج بطاقات المصدر إلى دعم احتياطي.',
   'settings.ai.latestSpend': 'آخر إنفاق: {amount} في {time} ({action})',
   'settings.ai.topActions': 'أهم الإجراءات',
   'settings.ai.noSpendRows': 'لم يتم تحميل صفوف إنفاق.',
@@ -2489,7 +2670,8 @@ const messages: TranslationMap = {
   'settings.ai.temperatureOverride': 'تجاوز درجة الحرارة',
   'settings.ai.temperatureOverrideSlider': 'تجاوز درجة الحرارة (شريط التمرير)',
   'settings.ai.temperatureOverrideValue': 'تجاوز درجة الحرارة (القيمة)',
-  'settings.ai.temperatureOverrideDesc': 'أقل = أكثر تحديدا. إتركْ غير مُمْكَنَّلَ لإسْتِعْمال قَبْل المُقدّمِ.',
+  'settings.ai.temperatureOverrideDesc':
+    'أقل = أكثر تحديدا. إتركْ غير مُمْكَنَّلَ لإسْتِعْمال قَبْل المُقدّمِ.',
   'settings.ai.testFailed': 'فشل الاختبار',
   'settings.ai.testingModel': 'نموذج الاختبار...',
   'settings.ai.modelResponse': 'استجابة النموذج',
@@ -2510,7 +2692,8 @@ const messages: TranslationMap = {
   'settings.ai.openAiUrlPlaceholder': 'https://api.openai.com/v1',
   'settings.ai.keepExistingKeyPlaceholder': 'اتركه فارغًا للاحتفاظ بالمفتاح الموجود',
   'settings.ai.reindexingMemory': 'إعادة فهرسة الذاكرة',
-  'settings.ai.reindexingMemoryMessage': 'يتم إعادة تجهيز الامتصاصات ويعاد إدراج مادة (أدوات) ذاكرة &quot; Xqx0xxx &quot; في إطار النموذج الحالي - يخفض التذكر العلماني إلى حين الانتهاء من ذلك. البحث عن الكلمات الرئيسية يستمر في العمل، ويستمر إعادة التفكير في الخلفية إذا أغلقت هذا.',
+  'settings.ai.reindexingMemoryMessage':
+    'يتم إعادة تجهيز الامتصاصات ويعاد إدراج مادة (أدوات) ذاكرة &quot; Xqx0xxx &quot; في إطار النموذج الحالي - يخفض التذكر العلماني إلى حين الانتهاء من ذلك. البحث عن الكلمات الرئيسية يستمر في العمل، ويستمر إعادة التفكير في الخلفية إذا أغلقت هذا.',
   'settings.ai.signInWithOpenRouter': 'قم بتسجيل الدخول باستخدام OpenRouter',
   'settings.ai.weekBudget': 'ميزانية الأسبوع',
   'settings.ai.cycleRemaining': 'الدورة المتبقية',
@@ -2534,26 +2717,36 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'استطلاعات عاملي الذاكرة',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'المُدارة',
-  'settings.ai.routing.managedDesc': '(Xqx0xx) سيحقق كل شيء في السحابة، ويختار أفضل نموذج للمهمة، ويرفع التكاليف إلى أقصى حد، ويحتفظ بأمن التخلف عن الدفع.',
-  'settings.ai.routing.managedMsg': 'وسيتولى Xqx0xx معالجة جميع الإفادات المتعلقة بكل عبء عمل، ويختار تلقائيا أفضل طريق للتكاليف والجودة والأمن.',
+  'settings.ai.routing.managedDesc':
+    '(Xqx0xx) سيحقق كل شيء في السحابة، ويختار أفضل نموذج للمهمة، ويرفع التكاليف إلى أقصى حد، ويحتفظ بأمن التخلف عن الدفع.',
+  'settings.ai.routing.managedMsg':
+    'وسيتولى Xqx0xx معالجة جميع الإفادات المتعلقة بكل عبء عمل، ويختار تلقائيا أفضل طريق للتكاليف والجودة والأمن.',
   'settings.ai.routing.useYourOwn': 'استخدم النماذج الخاصة بك',
-  'settings.ai.routing.useYourOwnDesc': 'اختيار مقدم واحد + نموذج ودفع كل عبء عمل من خلاله. وهذا أمر بسيط، ولكن يمكن أن يكون غير فعال لأن الوزن الخفيف والوزن الثقيل يتقاسمان نفس الطريق.',
+  'settings.ai.routing.useYourOwnDesc':
+    'اختيار مقدم واحد + نموذج ودفع كل عبء عمل من خلاله. وهذا أمر بسيط، ولكن يمكن أن يكون غير فعال لأن الوزن الخفيف والوزن الثقيل يتقاسمان نفس الطريق.',
   'settings.ai.routing.advanced': 'متقدم',
-  'settings.ai.routing.advancedDesc': 'اختر نماذج مختلفة لمهام مختلفة وهذا هو أفضل خيار لتحقيق أقصى قدر من التكاليف والتحكم فيها.',
-  'settings.ai.routing.customDesc': 'التمرين الجيد يعطيك أفضل تكلفة و التحكم استخدم الصفوف الواردة أدناه لتحديد حجم العمل الذي يبقى جاهزاً والذي يستخدم عجزك المشترك والذي يلصق بنموذج محدد',
+  'settings.ai.routing.advancedDesc':
+    'اختر نماذج مختلفة لمهام مختلفة وهذا هو أفضل خيار لتحقيق أقصى قدر من التكاليف والتحكم فيها.',
+  'settings.ai.routing.customDesc':
+    'التمرين الجيد يعطيك أفضل تكلفة و التحكم استخدم الصفوف الواردة أدناه لتحديد حجم العمل الذي يبقى جاهزاً والذي يستخدم عجزك المشترك والذي يلصق بنموذج محدد',
   'settings.ai.routing.chatAndConversations': 'الدردشة والمحادثات',
-  'settings.ai.routing.chatDesc': 'النماذج المستخدمة أثناء التفاعل المباشر للمستعملين، والردود، والتفسير، وحلقات العملاء، والمساعدة في التدوين.',
+  'settings.ai.routing.chatDesc':
+    'النماذج المستخدمة أثناء التفاعل المباشر للمستعملين، والردود، والتفسير، وحلقات العملاء، والمساعدة في التدوين.',
   'settings.ai.routing.backgroundTasks': 'مهام الخلفية',
-  'settings.ai.routing.bgTasksDesc': 'النماذج المستخدمة خارج التدفق الرئيسي للمحادثات للتلخيص والقلب والتعلم والتقييم اللاوعي.',
+  'settings.ai.routing.bgTasksDesc':
+    'النماذج المستخدمة خارج التدفق الرئيسي للمحادثات للتلخيص والقلب والتعلم والتقييم اللاوعي.',
   'settings.ai.routing.addCustomProvider': 'إضافة موفر مخصص',
   'settings.ai.globalModel.title': 'اختر نموذجًا واحدًا لكل شيء',
-  'settings.ai.globalModel.desc': 'هذا يَسْحبُ كُلّ الإطلاع خلال نموذجِ واحد. وهي أبسط، ولكنها يمكن أن تكون غير فعالة من حيث التكلفة والجودة لأن الوزن الخفيف والمهام الثقيلة ستستخدم جميعها نفس الطريق.',
-  'settings.ai.globalModel.noProviders': 'أضف أو أربط المزود أولاً ثم يمكنك توجيه كل عبء عمل من خلال نموذج واحد هنا.',
+  'settings.ai.globalModel.desc':
+    'هذا يَسْحبُ كُلّ الإطلاع خلال نموذجِ واحد. وهي أبسط، ولكنها يمكن أن تكون غير فعالة من حيث التكلفة والجودة لأن الوزن الخفيف والمهام الثقيلة ستستخدم جميعها نفس الطريق.',
+  'settings.ai.globalModel.noProviders':
+    'أضف أو أربط المزود أولاً ثم يمكنك توجيه كل عبء عمل من خلال نموذج واحد هنا.',
   'settings.ai.globalModel.provider': 'الموفر',
   'settings.ai.globalModel.model': 'الموديل',
   'settings.ai.globalModel.loadingModels': 'جارٍ تحميل النماذج...',
   'settings.ai.globalModel.enterModelId': 'أدخل معرف النموذج',
-  'settings.ai.globalModel.appliesToAll': 'ينطبق على نفس المزود + النموذج للدردشة والتفكير والترميز والذاكرة و نبضات القلب والتعلم و اللاوعي تم تشكيل الخلايا بشكل منفصل التغييرات تنقذ عندما تنقر',
+  'settings.ai.globalModel.appliesToAll':
+    'ينطبق على نفس المزود + النموذج للدردشة والتفكير والترميز والذاكرة و نبضات القلب والتعلم و اللاوعي تم تشكيل الخلايا بشكل منفصل التغييرات تنقذ عندما تنقر',
   'settings.ai.globalModel.saving': 'جاري الحفظ...',
   'settings.ai.globalModel.saved': 'تم الحفظ',
   'settings.ai.workload.noModel': 'لم يتم تحديد نموذج',
@@ -2579,14 +2772,17 @@ const messages: TranslationMap = {
   'settings.autocomplete.appFilter.running': 'قيد التشغيل',
   'settings.autocomplete.appFilter.runtime': 'بيئة التشغيل',
   'settings.autocomplete.appFilter.test': 'اختبار',
-  'settings.autocomplete.completionStyle.acceptedCompletion': 'تم تخزين {count} إكمال مقبول — يُستخدم لتخصيص الاقتراحات المستقبلية.',
-  'settings.autocomplete.completionStyle.acceptedCompletions': 'تم تخزين {count} إكمالات مقبولة — تُستخدم لتخصيص الاقتراحات المستقبلية.',
+  'settings.autocomplete.completionStyle.acceptedCompletion':
+    'تم تخزين {count} إكمال مقبول — يُستخدم لتخصيص الاقتراحات المستقبلية.',
+  'settings.autocomplete.completionStyle.acceptedCompletions':
+    'تم تخزين {count} إكمالات مقبولة — تُستخدم لتخصيص الاقتراحات المستقبلية.',
   'settings.autocomplete.completionStyle.clearHistory': 'جارٍ المسح…',
   'settings.autocomplete.completionStyle.clearing': 'جارٍ المسح…',
   'settings.autocomplete.completionStyle.debounce': 'تأخير (ms)',
   'settings.autocomplete.completionStyle.enabled': 'مفعّل',
   'settings.autocomplete.completionStyle.maxChars': 'الحد الأقصى للأحرف',
-  'settings.autocomplete.completionStyle.noHistory': 'لا توجد إكمالات مقبولة بعد. اقبل الاقتراحات بـ Tab للبدء بالتخصيص.',
+  'settings.autocomplete.completionStyle.noHistory':
+    'لا توجد إكمالات مقبولة بعد. اقبل الاقتراحات بـ Tab للبدء بالتخصيص.',
   'settings.autocomplete.completionStyle.overlayTtl': 'مدة ظهور التراكب (ms)',
   'settings.autocomplete.completionStyle.personalizationHistory': 'سجل التخصيص',
   'settings.autocomplete.completionStyle.styleExamples': 'أمثلة الأسلوب (مثال لكل سطر)',
@@ -2596,7 +2792,8 @@ const messages: TranslationMap = {
   'settings.autocomplete.debug.alreadyRunning': 'الإكمال التلقائي قيد التشغيل بالفعل.',
   'settings.autocomplete.debug.clearHistoryFailed': 'فشل في مسح السجل',
   'settings.autocomplete.debug.didNotStart': 'لم يبدأ الإكمال التلقائي.',
-  'settings.autocomplete.debug.disabledInSettings': 'تم تعطيل الإكمال التلقائي في الإعدادات. تمكينه وحفظه أولا.',
+  'settings.autocomplete.debug.disabledInSettings':
+    'تم تعطيل الإكمال التلقائي في الإعدادات. تمكينه وحفظه أولا.',
   'settings.autocomplete.debug.fetchSuggestionFailed': 'فشل جلب الاقتراح الحالي',
   'settings.autocomplete.debug.inspectFocusedElementFailed': 'فشل فحص العنصر الذي تم التركيز عليه',
   'settings.autocomplete.debug.loadSettingsFailed': 'فشل تحميل إعدادات الإكمال التلقائي',
@@ -2640,12 +2837,14 @@ const messages: TranslationMap = {
   'settings.billing.inferenceBudget.noBudgetDesc': 'وصف عدم وجود ميزانية',
   'settings.billing.inferenceBudget.noRecurringBudget': 'لا توجد ميزانية متكررة',
   'settings.billing.inferenceBudget.noRecurringPlanBudget': 'لا توجد ميزانية خطة متكررة',
-  'settings.billing.inferenceBudget.noRecurringWeeklyDesc': 'خطتك الحالية لا تتضمن ميزانية إسبوالية متكررة وبدلاً من ذلك، يدفع الاستخدام من الائتمانات المتاحة.',
+  'settings.billing.inferenceBudget.noRecurringWeeklyDesc':
+    'خطتك الحالية لا تتضمن ميزانية إسبوالية متكررة وبدلاً من ذلك، يدفع الاستخدام من الائتمانات المتاحة.',
   'settings.billing.inferenceBudget.remaining': 'المتبقي',
   'settings.billing.inferenceBudget.remainingSummary': '{remaining} / {budget} المتبقي',
   'settings.billing.inferenceBudget.spentThisCycle': 'تم إنفاق {amount} هذه الدورة',
   'settings.billing.inferenceBudget.cycleEndsOn': 'تنتهي الدورة {date}',
-  'settings.billing.inferenceBudget.exhaustedDesc': 'واستُنفد استخدام الاشتراك المشمول. تقدم الائتمانات لتستمر في استخدام "آي آي" بدون انتظار الدورة القادمة',
+  'settings.billing.inferenceBudget.exhaustedDesc':
+    'واستُنفد استخدام الاشتراك المشمول. تقدم الائتمانات لتستمر في استخدام "آي آي" بدون انتظار الدورة القادمة',
   'settings.billing.inferenceBudget.discountVsPayg': '{pct}% أرخص لكل مكالمة من الدفع أولاً بأول.',
   'settings.billing.inferenceBudget.cycleSpend': 'الإنفاق الدوري',
   'settings.billing.inferenceBudget.totalAmount': '{amount} الإجمالي',
@@ -2695,21 +2894,27 @@ const messages: TranslationMap = {
   'settings.composio.apiKeyExamplePlaceholder': 'ck_live_xxxxxxxxxxxxxxxxxx',
   'settings.composio.apiKeyLabel': 'مفتاح Composio API',
   'settings.composio.apiKeyStored': 'تم تخزين مفتاح API',
-  'settings.composio.apiKeyStoredPlaceholder': '• ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ●',
+  'settings.composio.apiKeyStoredPlaceholder':
+    '• ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ●',
   'settings.composio.clearedToBackend': 'تم التبديل إلى وضع الخلفية',
   'settings.composio.confirmItem1': 'حساب على app.composio.dev مع مفتاح API',
   'settings.composio.confirmItem2': 'لإعادة ربط كل تكامل عبر حساب Composio الشخصي الخاص بك',
-  'settings.composio.confirmItem3': 'ملاحظة: مشغّلات Composio (الـ webhooks الفورية) لا تعمل في الوضع المباشر بعد — فقط استدعاءات الأدوات المتزامنة',
+  'settings.composio.confirmItem3':
+    'ملاحظة: مشغّلات Composio (الـ webhooks الفورية) لا تعمل في الوضع المباشر بعد — فقط استدعاءات الأدوات المتزامنة',
   'settings.composio.confirmNeedItems': 'ستحتاج إلى:',
   'settings.composio.confirmSwitch': 'أفهم، التبديل إلى المباشر',
   'settings.composio.confirmTitle': '⚠️ التبديل إلى الوضع المباشر',
-  'settings.composio.confirmWarning': 'تكاملاتك الحالية (Gmail، Slack، GitHub، إلخ المرتبطة عبر OpenHuman) لن تكون مرئية — فهي موجودة في مستأجر Composio المُدار من OpenHuman.',
-  'settings.composio.intro': 'يُدمج Composio أكثر من 250 تطبيقًا خارجيًا كأدوات يمكن للوكيل استدعاؤها. اختر كيفية توجيه هذه الاستدعاءات.',
+  'settings.composio.confirmWarning':
+    'تكاملاتك الحالية (Gmail، Slack، GitHub، إلخ المرتبطة عبر OpenHuman) لن تكون مرئية — فهي موجودة في مستأجر Composio المُدار من OpenHuman.',
+  'settings.composio.intro':
+    'يُدمج Composio أكثر من 250 تطبيقًا خارجيًا كأدوات يمكن للوكيل استدعاؤها. اختر كيفية توجيه هذه الاستدعاءات.',
   'settings.composio.title': 'Composio',
   'settings.composio.modeDirect': 'مباشر (استخدم مفتاح API الخاص بك)',
-  'settings.composio.modeDirectDesc': 'تذهب الاستدعاءات إلى backend.composio.dev مباشرةً. سيادي / مناسب للعمل دون اتصال. تنفيذ الأدوات يعمل بشكل متزامن؛ مشغّلات الـ webhooks الفورية لم تُوجَّه بعد في الوضع المباشر (مشكلة متابعة).',
+  'settings.composio.modeDirectDesc':
+    'تذهب الاستدعاءات إلى backend.composio.dev مباشرةً. سيادي / مناسب للعمل دون اتصال. تنفيذ الأدوات يعمل بشكل متزامن؛ مشغّلات الـ webhooks الفورية لم تُوجَّه بعد في الوضع المباشر (مشكلة متابعة).',
   'settings.composio.modeManaged': 'مُدار (OpenHuman يتولى الأمر نيابةً عنك)',
-  'settings.composio.modeManagedDesc': 'يقوم OpenHuman بتمرير استدعاءات الأدوات عبر خادمنا الخلفي (موصى به). تتم وساطة المصادقة؛ لن تلصق مفتاح Composio API. الـ webhooks مُوجَّهة بالكامل.',
+  'settings.composio.modeManagedDesc':
+    'يقوم OpenHuman بتمرير استدعاءات الأدوات عبر خادمنا الخلفي (موصى به). تتم وساطة المصادقة؛ لن تلصق مفتاح Composio API. الـ webhooks مُوجَّهة بالكامل.',
   'settings.composio.routingMode': 'وضع التوجيه',
   'settings.composio.saveErrorNoKey': 'فشل الحفظ. الوضع المباشر يتطلب مفتاح API غير فارغ.',
   'settings.composio.saving': 'جارٍ الحفظ…',
@@ -2758,22 +2963,28 @@ const messages: TranslationMap = {
   'settings.localModel.deviceCapability.disabled': 'معطّل',
   'settings.localModel.deviceCapability.disabledDesc': 'وصف التعطيل',
   'settings.localModel.deviceCapability.downloadingModels': '(جارٍ تنزيل النماذج)',
-  'settings.localModel.deviceCapability.downloadingSetupDesc': 'جارٍ تنزيل مثبّت OllamaSetup (~2 GB) وفكّه. قد يستغرق هذا دقيقة عند التثبيت الأول.',
+  'settings.localModel.deviceCapability.downloadingSetupDesc':
+    'جارٍ تنزيل مثبّت OllamaSetup (~2 GB) وفكّه. قد يستغرق هذا دقيقة عند التثبيت الأول.',
   'settings.localModel.deviceCapability.failedToApplyPreset': 'فشل تطبيق الإعداد المسبق',
   'settings.localModel.deviceCapability.gpu': 'GPU',
   'settings.localModel.deviceCapability.installFailed': 'فشل تثبيت Ollama',
-  'settings.localModel.deviceCapability.installFailedDesc': 'خرج المثبّت قبل أن يصبح Ollama قابلاً للاستخدام. انقر إعادة المحاولة، أو ثبّته يدويًا من ollama.com.',
+  'settings.localModel.deviceCapability.installFailedDesc':
+    'خرج المثبّت قبل أن يصبح Ollama قابلاً للاستخدام. انقر إعادة المحاولة، أو ثبّته يدويًا من ollama.com.',
   'settings.localModel.deviceCapability.installFirst': 'شغّل Ollama أولاً.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'تعتمد المستويات المحلية على نقطة نهاية Ollama مُدارة خارجيًا. شغّلها بنفسك، وحمّل النماذج التي تريدها، واستمر في استخدام "معطّل (التراجع السحابي)" حتى يصبح وقت التشغيل قابلاً للوصول.',
-  'settings.localModel.deviceCapability.installOllamaFirst': 'شغّل Ollama أولاً لاستخدام هذا المستوى',
+  'settings.localModel.deviceCapability.installFirstDesc':
+    'تعتمد المستويات المحلية على نقطة نهاية Ollama مُدارة خارجيًا. شغّلها بنفسك، وحمّل النماذج التي تريدها، واستمر في استخدام "معطّل (التراجع السحابي)" حتى يصبح وقت التشغيل قابلاً للوصول.',
+  'settings.localModel.deviceCapability.installOllamaFirst':
+    'شغّل Ollama أولاً لاستخدام هذا المستوى',
   'settings.localModel.deviceCapability.installingOllama': 'جارٍ تثبيت Ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'جارٍ تحميل معلومات الجهاز',
-  'settings.localModel.deviceCapability.localAiDisabled': 'الذكاء الاصطناعي المحلي معطّل — يُستخدم الاحتياط السحابي.',
+  'settings.localModel.deviceCapability.localAiDisabled':
+    'الذكاء الاصطناعي المحلي معطّل — يُستخدم الاحتياط السحابي.',
   'settings.localModel.deviceCapability.modelTier': 'مستوى النموذج',
   'settings.localModel.deviceCapability.needsOllama': 'يحتاج إلى Ollama',
   'settings.localModel.deviceCapability.notDetected': 'لم يُكتشف',
   'settings.localModel.deviceCapability.disabledLowercase': 'معطل',
-  'settings.localModel.deviceCapability.presetDetails': 'الدردشة: {chatModel} · الرؤية: {visionModel} · ذاكرة الوصول العشوائي المستهدفة: {targetRamGb} جيجابايت',
+  'settings.localModel.deviceCapability.presetDetails':
+    'الدردشة: {chatModel} · الرؤية: {visionModel} · ذاكرة الوصول العشوائي المستهدفة: {targetRamGb} جيجابايت',
   'settings.localModel.deviceCapability.ram': 'RAM',
   'settings.localModel.deviceCapability.recommended': 'موصى به',
   'settings.localModel.deviceCapability.retryInstall': 'جارٍ إعادة المحاولة…',
@@ -2803,7 +3014,8 @@ const messages: TranslationMap = {
   'settings.localModel.download.runVisionTest': 'جارٍ التشغيل...',
   'settings.localModel.download.running': 'جارٍ التشغيل...',
   'settings.localModel.download.runningPrompt': 'جارٍ تشغيل الطلب',
-  'settings.localModel.download.summaryHelper': 'يستدعي `openhuman.inference_summarize` عبر Rust core',
+  'settings.localModel.download.summaryHelper':
+    'يستدعي `openhuman.inference_summarize` عبر Rust core',
   'settings.localModel.download.summarizePlaceholder': 'الصق النص لتلخيصه بالنموذج المحلي...',
   'settings.localModel.download.testCustomPrompt': 'اختبار طلب مخصص',
   'settings.localModel.download.testEmbeddings': 'اختبار التضمينات',
@@ -2816,7 +3028,8 @@ const messages: TranslationMap = {
   'settings.localModel.download.ttsOutputPlaceholder': 'مسار WAV للإخراج (اختياري)',
   'settings.localModel.download.ttsPlaceholder': 'أدخل النص للتحويل إلى كلام...',
   'settings.localModel.download.ttsVoice': 'الصوت: {voiceId}',
-  'settings.localModel.download.visionImagePlaceholder': 'مرجع صورة واحد في كل سطر (URI للبيانات أو URL أو مسار محلي)',
+  'settings.localModel.download.visionImagePlaceholder':
+    'مرجع صورة واحد في كل سطر (URI للبيانات أو URL أو مسار محلي)',
   'settings.localModel.download.visionPromptPlaceholder': 'أدخل طلبًا لنموذج الرؤية...',
   'settings.localModel.status.allChecksPassed': 'اجتازت جميع الفحوصات',
   'settings.localModel.status.artifact': 'المنتج',
@@ -2825,15 +3038,20 @@ const messages: TranslationMap = {
   'settings.localModel.status.bootstrapResume': 'تمهيد / استئناف',
   'settings.localModel.status.checking': 'جارٍ التحقق...',
   'settings.localModel.status.checkingOllama': 'جارٍ التحقق من Ollama',
-  'settings.localModel.status.contextBelowMinimumBadge': '{contextLength} ctx - أقل من {required} دقيقة',
-  'settings.localModel.status.contextBelowMinimumTitle': 'مرفوض: الرموز المميزة لنافذة السياق {contextLength} أقل من الحد الأدنى للرمز المميز {required} الذي تتطلبه طبقة الذاكرة. سيتم إتلاف الاستدعاء عن طريق الاقتطاع الصامت.',
+  'settings.localModel.status.contextBelowMinimumBadge':
+    '{contextLength} ctx - أقل من {required} دقيقة',
+  'settings.localModel.status.contextBelowMinimumTitle':
+    'مرفوض: الرموز المميزة لنافذة السياق {contextLength} أقل من الحد الأدنى للرمز المميز {required} الذي تتطلبه طبقة الذاكرة. سيتم إتلاف الاستدعاء عن طريق الاقتطاع الصامت.',
   'settings.localModel.status.contextOkBadge': '{contextLength} ctx ✓',
-  'settings.localModel.status.contextOkTitle': 'تتوافق الرموز المميزة لنافذة السياق {contextLength} مع الحد الأدنى لطبقة الذاكرة وهو {required} من الرموز المميزة.',
+  'settings.localModel.status.contextOkTitle':
+    'تتوافق الرموز المميزة لنافذة السياق {contextLength} مع الحد الأدنى لطبقة الذاكرة وهو {required} من الرموز المميزة.',
   'settings.localModel.status.contextUnknownBadge': 'ctx غير معروف',
-  'settings.localModel.status.contextUnknownTitle': 'نافذة السياق غير معروفة؛ لا يمكن التأكد من أنه يلبي الحد الأدنى لطبقة الذاكرة {required}-token.',
+  'settings.localModel.status.contextUnknownTitle':
+    'نافذة السياق غير معروفة؛ لا يمكن التأكد من أنه يلبي الحد الأدنى لطبقة الذاكرة {required}-token.',
   'settings.localModel.status.customLocation': 'موقع مخصص',
   'settings.localModel.status.customLocationDesc': 'وصف الموقع المخصص',
-  'settings.localModel.status.diagnosticsHint': 'انقر "تشغيل التشخيصات" للتحقق من أن Ollama يعمل وأن النماذج مثبتة.',
+  'settings.localModel.status.diagnosticsHint':
+    'انقر "تشغيل التشخيصات" للتحقق من أن Ollama يعمل وأن النماذج مثبتة.',
   'settings.localModel.status.downloadingUnknown': 'جارٍ التنزيل (الحجم غير معروف)',
   'settings.localModel.status.eta': 'الوقت المتوقع',
   'settings.localModel.status.expectedModels': 'النماذج المتوقعة',
@@ -2867,10 +3085,12 @@ const messages: TranslationMap = {
   'localModel.ollamaServer.saveButton': 'حفظ',
   'localModel.ollamaServer.testButton': 'اختبار الاتصال',
   'localModel.ollamaServer.unreachable': 'غير قابل للوصول',
-  'localModel.ollamaServer.validationError': 'يجب أن يكون عنوان URL صالحاً يبدأ بـ http:// أو https://',
+  'localModel.ollamaServer.validationError':
+    'يجب أن يكون عنوان URL صالحاً يبدأ بـ http:// أو https://',
   'settings.localModel.status.ollamaDiagnostics': 'تشخيص Ollama',
   'settings.localModel.status.ollamaNotInstalled': 'وقت تشغيل Ollama غير متاح',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'يعامل OpenHuman الآن Ollama كوقت تشغيل استدلال خارجي. شغّل خادم Ollama الخاص بك، وحمّل النماذج التي تريدها، ووجّه توجيه الأحمال إليه.',
+  'settings.localModel.status.ollamaNotInstalledDesc':
+    'يعامل OpenHuman الآن Ollama كوقت تشغيل استدلال خارجي. شغّل خادم Ollama الخاص بك، وحمّل النماذج التي تريدها، ووجّه توجيه الأحمال إليه.',
   'settings.localModel.status.progress': 'التقدم',
   'settings.localModel.status.provider': 'المزود',
   'settings.localModel.status.retryBootstrap': 'إعادة محاولة التمهيد',
@@ -2891,19 +3111,26 @@ const messages: TranslationMap = {
   'settings.developerMenu.ai.title': 'إعدادات الذكاء الاصطناعي',
   'settings.developerMenu.ai.desc': 'مزودو السحابة، ونماذج Ollama المحلية، والتوجيه لكل عبء عمل',
   'settings.developerMenu.screenAwareness.title': 'الوعي بالشاشة',
-  'settings.developerMenu.screenAwareness.desc': 'أذونات التقاط الشاشة، وسياسة المراقبة، وعناصر التحكم في الجلسة',
+  'settings.developerMenu.screenAwareness.desc':
+    'أذونات التقاط الشاشة، وسياسة المراقبة، وعناصر التحكم في الجلسة',
   'settings.developerMenu.messagingChannels.title': 'قنوات المراسلة',
-  'settings.developerMenu.messagingChannels.desc': 'تكوين أوضاع مصادقة Telegram/Discord وتوجيه القناة الافتراضي',
+  'settings.developerMenu.messagingChannels.desc':
+    'تكوين أوضاع مصادقة Telegram/Discord وتوجيه القناة الافتراضي',
   'settings.developerMenu.tools.title': 'الأدوات',
-  'settings.developerMenu.tools.desc': 'تفعيل أو تعطيل الإمكانات التي يمكن لـ OpenHuman استخدامها نيابةً عنك',
+  'settings.developerMenu.tools.desc':
+    'تفعيل أو تعطيل الإمكانات التي يمكن لـ OpenHuman استخدامها نيابةً عنك',
   'settings.developerMenu.agentChat.title': 'دردشة الوكيل',
   'settings.developerMenu.agentChat.desc': 'اختبار محادثة الوكيل مع تجاوزات النموذج ودرجة الحرارة',
   'settings.developerMenu.devWorkflow.title': 'سير عمل المطور',
-  'settings.developerMenu.devWorkflow.desc': 'عميلة ذاتية تلتقط مشاكلك في الاكسكسكساكس وتثير العلاقات العامة في الجدول الزمني',
-  'settings.developerMenu.devWorkflow.panelDesc': 'نؤمن بعميل مطور مستقل يلتقط القضايا التي تخصك و يجلب طلبات سحب تلقائياً على جدول زمني',
+  'settings.developerMenu.devWorkflow.desc':
+    'عميلة ذاتية تلتقط مشاكلك في الاكسكسكساكس وتثير العلاقات العامة في الجدول الزمني',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'نؤمن بعميل مطور مستقل يلتقط القضايا التي تخصك و يجلب طلبات سحب تلقائياً على جدول زمني',
   'settings.developerMenu.skillsRunner.title': 'سكايل رانر',
-  'settings.developerMenu.skillsRunner.desc': 'تشغيل أي مهارة معبأة - ملء مدخلاته وإطلاق النار على خلفية مستقلة',
-  'settings.developerMenu.skillsRunner.panelDesc': 'اختر مهارة معبأة، واملأ مدخلاتها المعلنة، وأطلق النار ونبات الخلفية. استخدم (ديف) بدلاً من ذلك إذا أردت وظيفة متكررة',
+  'settings.developerMenu.skillsRunner.desc':
+    'تشغيل أي مهارة معبأة - ملء مدخلاته وإطلاق النار على خلفية مستقلة',
+  'settings.developerMenu.skillsRunner.panelDesc':
+    'اختر مهارة معبأة، واملأ مدخلاتها المعلنة، وأطلق النار ونبات الخلفية. استخدم (ديف) بدلاً من ذلك إذا أردت وظيفة متكررة',
   'settings.skillsRunner.skill': 'Skill',
   'settings.skillsRunner.selectSkill': 'اختيار مهارة...',
   'settings.skillsRunner.loadingSkills': 'مهارات التعبئة',
@@ -2920,7 +3147,8 @@ const messages: TranslationMap = {
   'settings.skillsRunner.error.run': 'لم يبدأ التشغيل:',
   'settings.skillsRunner.error.preflightGate': 'البوابة الأمامية فشلت',
   'settings.skillsRunner.schedule.heading': 'الجدول (المتكرر)',
-  'settings.skillsRunner.schedule.help': 'وفر هذه المهارة + المدخلات كعمل كرتوني متكرر. العميل سيتصل بـ "هريب" في كل مرة',
+  'settings.skillsRunner.schedule.help':
+    'وفر هذه المهارة + المدخلات كعمل كرتوني متكرر. العميل سيتصل بـ "هريب" في كل مرة',
   'settings.skillsRunner.schedule.frequency': 'التردد',
   'settings.skillsRunner.schedule.every30min': 'كل 30 دقيقة',
   'settings.skillsRunner.schedule.everyHour': 'كل ساعة',
@@ -2956,8 +3184,10 @@ const messages: TranslationMap = {
   'settings.skillsRunner.viewer.error': 'يُستعاض عن العنوان بالفشل:',
   'settings.skillsRunner.repoPicker.loading': 'مستودعات التعبئة...',
   'settings.skillsRunner.repoPicker.select': 'اختيار مستودع...',
-  'settings.skillsRunner.repoPicker.empty': 'لم تُعاد أي مستودعات Connect GitHub via xqx1x to populate this list.',
-  'settings.skillsRunner.repoPicker.notConnected': 'GitHub غير متصل عبر Composio. قم بتوصيله من خلال المهارات ← Composio أولًا.',
+  'settings.skillsRunner.repoPicker.empty':
+    'لم تُعاد أي مستودعات Connect GitHub via xqx1x to populate this list.',
+  'settings.skillsRunner.repoPicker.notConnected':
+    'GitHub غير متصل عبر Composio. قم بتوصيله من خلال المهارات ← Composio أولًا.',
   'settings.skillsRunner.repoPicker.privateTag': '(خاص)',
   'settings.skillsRunner.branchPicker.needRepo': 'اختر مذكرة أولاً',
   'settings.skillsRunner.branchPicker.loading': 'فروع التعبئة...',
@@ -2975,7 +3205,8 @@ const messages: TranslationMap = {
   'settings.devWorkflow.targetBranchNote': 'ستُرفع أسعار الصرف ضد هذا الفرع',
   'settings.devWorkflow.loadingBranches': 'فروع التعبئة...',
   'settings.devWorkflow.runFrequency': 'تشغيل التردد',
-  'settings.devWorkflow.runFrequencyNote': 'كم من الأحيان يجب على الوكيل أن يفحص القضايا ويرفع الحد من الفقر',
+  'settings.devWorkflow.runFrequencyNote':
+    'كم من الأحيان يجب على الوكيل أن يفحص القضايا ويرفع الحد من الفقر',
   'settings.devWorkflow.updateConfiguration': 'تحديث النظام',
   'settings.devWorkflow.saveConfiguration': 'إنقاذ المفاوضة',
   'settings.devWorkflow.remove': 'إزالة الألغام',
@@ -2996,8 +3227,10 @@ const messages: TranslationMap = {
   'settings.devWorkflow.lastOutput': 'الناتج الأخير',
   'settings.devWorkflow.noOutput': 'لم يسجل أي ناتج',
   'settings.devWorkflow.runningStatus': 'الوكيل يَرْكضُ - يَلتقطُ a مشكلة ويَعْملُ على a إصلاح...',
-  'settings.devWorkflow.errorNotConnected': 'اكساكسوكس ليس متصلاً يرجى ربط Xqx1xx عبر ستينغز تقدمت أولاً',
-  'settings.devWorkflow.errorToolNotEnabled': 'أداة (إكسكساكس) غير مُمكّنة من هذه المساندة. أرجو أن تطلبوا من أمينكم أن يسمح بذلك في دمج الـ (إكسكس 1 xx) (النسخة رقم 842).',
+  'settings.devWorkflow.errorNotConnected':
+    'اكساكسوكس ليس متصلاً يرجى ربط Xqx1xx عبر ستينغز تقدمت أولاً',
+  'settings.devWorkflow.errorToolNotEnabled':
+    'أداة (إكسكساكس) غير مُمكّنة من هذه المساندة. أرجو أن تطلبوا من أمينكم أن يسمح بذلك في دمج الـ (إكسكس 1 xx) (النسخة رقم 842).',
   'settings.devWorkflow.errorNotAuthenticated': 'غير موثق يرجى التوقيع في البداية.',
   'settings.devWorkflow.errorNoRepositories': 'لا توجد مستودعات لهذا الحساب',
   'settings.devWorkflow.schedule.every30min': 'كل 30 دقيقة',
@@ -3008,11 +3241,14 @@ const messages: TranslationMap = {
   'settings.developerMenu.cronJobs.title': 'مهام Cron',
   'settings.developerMenu.cronJobs.desc': 'عرض وتكوين المهام المجدولة لمهارات وقت التشغيل',
   'settings.developerMenu.localModelDebug.title': 'تصحيح النموذج المحلي',
-  'settings.developerMenu.localModelDebug.desc': 'إعدادات Ollama، وتنزيلات الأصول، واختبارات النموذج، والتشخيصات',
+  'settings.developerMenu.localModelDebug.desc':
+    'إعدادات Ollama، وتنزيلات الأصول، واختبارات النموذج، والتشخيصات',
   'settings.developerMenu.webhooks.title': 'خطافات الويب',
-  'settings.developerMenu.webhooks.desc': 'فحص تسجيلات خطافات الويب وقت التشغيل وسجلات الطلبات الملتقطة',
+  'settings.developerMenu.webhooks.desc':
+    'فحص تسجيلات خطافات الويب وقت التشغيل وسجلات الطلبات الملتقطة',
   'settings.developerMenu.eventLog.title': 'الحدث',
-  'settings.developerMenu.eventLog.desc': 'تيار ملون مباشر لجميع العناصر والأدوات والأحداث النظامية',
+  'settings.developerMenu.eventLog.desc':
+    'تيار ملون مباشر لجميع العناصر والأدوات والأحداث النظامية',
   'settings.developerMenu.eventLog.allTypes': 'جميع الأنواع',
   'settings.developerMenu.eventLog.filterAgent': '(فيلتر)',
   'settings.developerMenu.eventLog.download': 'تحميل',
@@ -3034,28 +3270,34 @@ const messages: TranslationMap = {
   'settings.developerMenu.eventLog.badge.comp': 'COMP',
   'settings.developerMenu.eventLog.badge.mcp': 'MCP',
   'settings.developerMenu.intelligence.title': 'الذكاء',
-  'settings.developerMenu.intelligence.desc': 'مساحة عمل الذاكرة، ومحرك اللاوعي، والأحلام، والإعدادات',
+  'settings.developerMenu.intelligence.desc':
+    'مساحة عمل الذاكرة، ومحرك اللاوعي، والأحلام، والإعدادات',
   'settings.developerMenu.notificationRouting.title': 'توجيه الإشعارات',
-  'settings.developerMenu.notificationRouting.desc': 'تقييم الأهمية بالذكاء الاصطناعي وتصعيد المنسق لتنبيهات التكامل',
+  'settings.developerMenu.notificationRouting.desc':
+    'تقييم الأهمية بالذكاء الاصطناعي وتصعيد المنسق لتنبيهات التكامل',
   'settings.developerMenu.composeioTriggers.title': 'مشغلات ComposeIO',
   'settings.developerMenu.composeioTriggers.desc': 'عرض سجل مشغلات ComposeIO والأرشيف',
   'settings.developerMenu.composioRouting.title': 'توجيه Composio (الوضع المباشر)',
-  'settings.developerMenu.composioRouting.desc': 'استخدم مفتاح Composio API الخاص بك ووجّه الاستدعاءات مباشرةً إلى backend.composio.dev',
+  'settings.developerMenu.composioRouting.desc':
+    'استخدم مفتاح Composio API الخاص بك ووجّه الاستدعاءات مباشرةً إلى backend.composio.dev',
   'settings.developerMenu.integrationTriggers.title': 'مشغلات التكامل',
-  'settings.developerMenu.integrationTriggers.desc': 'تكوين إعدادات فرز الذكاء الاصطناعي لمشغلات تكامل Composio',
+  'settings.developerMenu.integrationTriggers.desc':
+    'تكوين إعدادات فرز الذكاء الاصطناعي لمشغلات تكامل Composio',
   'settings.developerMenu.mcpServer.title': 'MCP الخادم',
   'settings.developerMenu.mcpServer.desc': 'تكوين عملاء MCP الخارجيين للاتصال بـ OpenHuman',
   'settings.developerMenu.autonomy.title': 'استقلالية الوكيل',
   'settings.developerMenu.autonomy.desc': 'حدود معدل إجراءات الأدوات وعتبات الأمان',
   'settings.mcpServer.title': 'Xqx0x',
   'settings.mcpServer.toolsSectionTitle': 'الأدوات المتاحة',
-  'settings.mcpServer.toolsSectionDesc': 'الأدوات التي يتم كشفها عبر خادم MCP stdio عند تشغيل mcp openhuman-core',
+  'settings.mcpServer.toolsSectionDesc':
+    'الأدوات التي يتم كشفها عبر خادم MCP stdio عند تشغيل mcp openhuman-core',
   'settings.mcpServer.configSectionTitle': 'تكوين العميل',
   'settings.mcpServer.configSectionDesc': 'حدد عميل MCP الخاص بك لإنشاء مقتطف التكوين الصحيح',
   'settings.mcpServer.copySnippet': 'انسخ إلى الحافظة',
   'settings.mcpServer.copied': 'تم النسخ!',
   'settings.mcpServer.openConfigFile': 'فتح ملف التكوين',
-  'settings.mcpServer.binaryPathNotFound': 'OpenHuman لم يتم العثور على الثنائي. في حالة التشغيل من المصدر، قم بالإنشاء باستخدام: cargo build --bin openhuman-core',
+  'settings.mcpServer.binaryPathNotFound':
+    'OpenHuman لم يتم العثور على الثنائي. في حالة التشغيل من المصدر، قم بالإنشاء باستخدام: cargo build --bin openhuman-core',
   'settings.mcpServer.openConfigError': 'فشل في فتح ملف التكوين',
   'settings.mcpServer.clientClaudeDesktop': 'Claude Desktop',
   'settings.mcpServer.clientCursor': 'المؤشر',
@@ -3073,22 +3315,30 @@ const messages: TranslationMap = {
   'settings.agentAccess.loading': 'التعبئة...',
   'settings.agentAccess.accessMode': 'طريقة الوصول',
   'settings.agentAccess.tier.readonly.title': 'القراءة فقط',
-  'settings.agentAccess.tier.readonly.desc': 'ويقرأ الملفات ويدير الأوامر فقط للاستكشاف - ولكن لا يكتب أبدا، أو يحرر، أو يدير أي شيء يغير الدولة.',
+  'settings.agentAccess.tier.readonly.desc':
+    'ويقرأ الملفات ويدير الأوامر فقط للاستكشاف - ولكن لا يكتب أبدا، أو يحرر، أو يدير أي شيء يغير الدولة.',
   'settings.agentAccess.tier.supervised.title': 'اسأل قبل التحرير',
-  'settings.agentAccess.tier.supervised.desc': 'يخلق ملفات جديدة بحرية، ولكن يطلب موافقتك قبل تحرير ملف قائم، إدارة القيادة، الوصول إلى الشبكة، أو تركيب أي شيء.',
+  'settings.agentAccess.tier.supervised.desc':
+    'يخلق ملفات جديدة بحرية، ولكن يطلب موافقتك قبل تحرير ملف قائم، إدارة القيادة، الوصول إلى الشبكة، أو تركيب أي شيء.',
   'settings.agentAccess.tier.full.title': 'الوصول الكامل',
-  'settings.agentAccess.tier.full.desc': 'ويدير أوامره بوصول حسابك الكامل للمستعملين - ويمكنه أن يكون مكعبا في أي مكان مسموح به، باستثناء مخازن الإبداع والنظام. الأوامر المدمرة، الوصول إلى الشبكة، والتركات لا تزال تطلب الموافقة.',
+  'settings.agentAccess.tier.full.desc':
+    'ويدير أوامره بوصول حسابك الكامل للمستعملين - ويمكنه أن يكون مكعبا في أي مكان مسموح به، باستثناء مخازن الإبداع والنظام. الأوامر المدمرة، الوصول إلى الشبكة، والتركات لا تزال تطلب الموافقة.',
   'settings.agentAccess.defaultTag': '(عجز)',
-  'settings.agentAccess.fullWarning': 'الدخول الكامل يُديرُ الأوامرَ بوصولِ حسابِكَ الكاملِ وهو لَيسَ مُربّطَ رملَ. فقط قم بتمكينها عندما تضغطين على العميل بهذه الآلة ولا تزال الأدلة الإبداعية والنظامية مجمدة، وما زالت أعمال التدمير والشبكات والتركيب تتطلب الموافقة.',
+  'settings.agentAccess.fullWarning':
+    'الدخول الكامل يُديرُ الأوامرَ بوصولِ حسابِكَ الكاملِ وهو لَيسَ مُربّطَ رملَ. فقط قم بتمكينها عندما تضغطين على العميل بهذه الآلة ولا تزال الأدلة الإبداعية والنظامية مجمدة، وما زالت أعمال التدمير والشبكات والتركيب تتطلب الموافقة.',
   'settings.agentAccess.confine.label': 'مقصورة على مكان العمل',
-  'settings.agentAccess.confine.desc': 'قيّد الوكيل بدليل مساحة العمل (بالإضافة إلى أي مجلدات ممنوحة)، بصرف النظر عن وضع الوصول المحدد. عند إيقاف التشغيل، يمكنه الوصول إلى أي مكان يمكن لمستخدمك الوصول إليه — باستثناء أدلة بيانات الاعتماد والنظام المحظورة دائمًا.',
+  'settings.agentAccess.confine.desc':
+    'قيّد الوكيل بدليل مساحة العمل (بالإضافة إلى أي مجلدات ممنوحة)، بصرف النظر عن وضع الوصول المحدد. عند إيقاف التشغيل، يمكنه الوصول إلى أي مكان يمكن لمستخدمك الوصول إليه — باستثناء أدلة بيانات الاعتماد والنظام المحظورة دائمًا.',
   'settings.agentAccess.requireTaskPlanApproval.label': 'الموافقة على خطة العمل المطلوبة',
-  'settings.agentAccess.requireTaskPlanApproval.desc': 'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
+  'settings.agentAccess.requireTaskPlanApproval.desc':
+    'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
   'settings.agentAccess.grantedFolders': 'الملفات الممنوحة',
   'settings.agentAccess.alwaysAllow': 'الأدوات المتدنية دائما',
-  'settings.agentAccess.alwaysAllowDesc': 'الأدوات التي وضعت علامة "الطرق تسمح" في الدردشة دون أن تسأل. أزيلي واحدة ليتم دفعها مجدداً',
+  'settings.agentAccess.alwaysAllowDesc':
+    'الأدوات التي وضعت علامة "الطرق تسمح" في الدردشة دون أن تسأل. أزيلي واحدة ليتم دفعها مجدداً',
   'settings.agentAccess.alwaysAllowNone': 'لا أدوات متدنية دائماً حتى الآن',
-  'settings.agentAccess.grantedDesc': 'يُرجى من العميل القراءة والكتابة، بالإضافة إلى مكان العمل. وتُحجب دائماً المخازن الإبداعية (Assh و///.gnupg و/.aws, keychains) ودليل النظام (/etc, /System, C:/ xqx0xx,...) حتى داخل ملف مُنح.',
+  'settings.agentAccess.grantedDesc':
+    'يُرجى من العميل القراءة والكتابة، بالإضافة إلى مكان العمل. وتُحجب دائماً المخازن الإبداعية (Assh و///.gnupg و/.aws, keychains) ودليل النظام (/etc, /System, C:/ xqx0xx,...) حتى داخل ملف مُنح.',
   'settings.agentAccess.noneGranted': 'لم تُمنح الملفات',
   'settings.agentAccess.readWrite': 'يصبح نصها كما يلي:',
   'settings.agentAccess.readOnly': 'القراءة فقط',
@@ -3107,14 +3357,17 @@ const messages: TranslationMap = {
   'settings.appearance.modeDarkDesc': 'الأسطح المعتمة، تكون أسهل على العيون بعد الغسق.',
   'settings.appearance.modeSystem': 'نظام المطابقة',
   'settings.appearance.modeSystemDesc': 'اتبع إعداد مظهر نظام التشغيل لديك.',
-  'settings.appearance.helperText': 'يعمل الوضع الداكن على تحويل التطبيق بأكمله - الدردشة والإعدادات واللوحات - إلى لوحة معتمة. "نظام المطابقة" يتتبع مظهر نظام التشغيل الخاص بك وتحديثاته مباشرة.',
+  'settings.appearance.helperText':
+    'يعمل الوضع الداكن على تحويل التطبيق بأكمله - الدردشة والإعدادات واللوحات - إلى لوحة معتمة. "نظام المطابقة" يتتبع مظهر نظام التشغيل الخاص بك وتحديثاته مباشرة.',
   'settings.appearance.tabBarHeading': 'شريط علامات التبويب السفلي',
   'settings.appearance.tabBarAlwaysShowLabels': 'إظهار التسميات دائمًا',
-  'settings.appearance.tabBarAlwaysShowLabelsDesc': 'عند إيقاف التشغيل، تظهر التسميات فقط عند التمرير أو لعلامة التبويب النشطة.',
+  'settings.appearance.tabBarAlwaysShowLabelsDesc':
+    'عند إيقاف التشغيل، تظهر التسميات فقط عند التمرير أو لعلامة التبويب النشطة.',
   'settings.mascot.active': 'نشط',
   'settings.mascot.characterDesc': 'وصف الشخصية',
   'settings.mascot.characterHeading': 'عنوان الشخصية',
-  'settings.mascot.customGifError': 'أدخل HTTPS .gif URL، أو الاسترجاع HTTP .gif URL، أو file:// .gif URL، أو مسار .gif المحلي.',
+  'settings.mascot.customGifError':
+    'أدخل HTTPS .gif URL، أو الاسترجاع HTTP .gif URL، أو file:// .gif URL، أو مسار .gif المحلي.',
   'settings.mascot.customGifHeading': 'الصورة الرمزية GIF المخصصة',
   'settings.mascot.customGifLabel': 'الصورة الرمزية GIF المخصصة URL',
   'settings.mascot.customGifPlaceholder': 'https://example.com/avatar.gif',
@@ -3142,11 +3395,13 @@ const messages: TranslationMap = {
   'settings.mascot.noCharacters': 'لا توجد شخصيات OpenHuman متاحة بعد',
   'settings.mascot.noColorVariants': 'لا توجد ألوان متاحة',
   'settings.mascot.voice.current': 'الحالي',
-  'settings.mascot.voice.customDesc': 'ابحث عن معرّفات الصوت في api.elevenlabs.io/v1/voices أو لوحة تحكم ElevenLabs الخاصة بك. يُخزَّن المعرّف فقط — يبقى مفتاح API الخاص بك على الخادم.',
+  'settings.mascot.voice.customDesc':
+    'ابحث عن معرّفات الصوت في api.elevenlabs.io/v1/voices أو لوحة تحكم ElevenLabs الخاصة بك. يُخزَّن المعرّف فقط — يبقى مفتاح API الخاص بك على الخادم.',
   'settings.mascot.voice.customHeading': 'معرّف صوت مخصص',
   'settings.mascot.voice.customOption': 'آخر (لصق معرّف الصوت)…',
   'settings.mascot.voice.customPlaceholder': 'على سبيل المثال. 21m00Tcm4TlvDq8ikWAM',
-  'settings.mascot.voice.desc': 'اختر صوت ElevenLabs الذي تستخدمه الشخصية للردود المنطوقة. صفِّ حسب الجنس، اختر من القائمة المنسّقة، الصق معرّفاً مخصصاً، أو دع التطبيق يختار صوتاً يطابق لغة الواجهة.',
+  'settings.mascot.voice.desc':
+    'اختر صوت ElevenLabs الذي تستخدمه الشخصية للردود المنطوقة. صفِّ حسب الجنس، اختر من القائمة المنسّقة، الصق معرّفاً مخصصاً، أو دع التطبيق يختار صوتاً يطابق لغة الواجهة.',
   'settings.mascot.voice.genderFemale': 'أنثى',
   'settings.mascot.voice.genderHeading': 'جنس الصوت',
   'settings.mascot.voice.genderMale': 'ذكر',
@@ -3164,13 +3419,15 @@ const messages: TranslationMap = {
   'settings.persona.menuTitle': 'Persona',
   'settings.persona.menuDesc': 'الاسم، الشخصية، الأفاتار، والصوت - مساعدك كهوية واحدة',
   'settings.persona.identityHeading': 'الهوية',
-  'settings.persona.identityDesc': 'اسم عرض ووصف قصير لمساعدك تظهر في التطبيق، ولا تغير كيفية تغيير أسباب المساعد.',
+  'settings.persona.identityDesc':
+    'اسم عرض ووصف قصير لمساعدك تظهر في التطبيق، ولا تغير كيفية تغيير أسباب المساعد.',
   'settings.persona.displayNameLabel': 'اسم التلاعب',
   'settings.persona.displayNamePlaceholder': 'e.g',
   'settings.persona.descriptionLabel': 'الوصف',
   'settings.persona.descriptionPlaceholder': 'Xqx0xx. مساعد هادئ ومختصر لفريقي',
   'settings.persona.soul.heading': 'الشخصية (x0x.md)',
-  'settings.persona.soul.desc': 'الشخصية تدفع المساعد يتبع في كل محادثة تم إنقاذ (إيديتس) إلى مكان عملك ويبدأ العمل على الرد التالي',
+  'settings.persona.soul.desc':
+    'الشخصية تدفع المساعد يتبع في كل محادثة تم إنقاذ (إيديتس) إلى مكان عملك ويبدأ العمل على الرد التالي',
   'settings.persona.soul.editorLabel': 'SOUL',
   'settings.persona.soul.reset': 'إعادة إلى الافتراضي',
   'settings.persona.soul.usingDefault': 'باستخدام الخزنة',
@@ -3178,24 +3435,31 @@ const messages: TranslationMap = {
   'settings.persona.soul.saveError': 'لا يُمكنُ أَنْ يَوفّرَ Xqx0xxx',
   'settings.persona.soul.resetError': 'لا يمكن إعادة تشغيل Xqx0xx',
   'settings.persona.appearanceHeading': 'صوت الأفاتار',
-  'settings.persona.appearanceDesc': 'لون الماسكوت، العرف Xqx0x avatar، وصوت الرد مصمم في أماكن مكوت.',
+  'settings.persona.appearanceDesc':
+    'لون الماسكوت، العرف Xqx0x avatar، وصوت الرد مصمم في أماكن مكوت.',
   'settings.persona.openMascotSettings': 'فتح الماسكوت',
   'settings.memoryWindow.balanced.badge': 'موصى به',
-  'settings.memoryWindow.balanced.hint': 'افتراضي معقول — استمرارية جيدة دون استهلاك رموز إضافية في كل تشغيل.',
+  'settings.memoryWindow.balanced.hint':
+    'افتراضي معقول — استمرارية جيدة دون استهلاك رموز إضافية في كل تشغيل.',
   'settings.memoryWindow.balanced.label': 'متوازن',
-  'settings.memoryWindow.description': 'مقدار السياق المحفوظ الذي يحقنه OpenHuman في كل تشغيل وكيل جديد. النوافذ الأكبر تشعر بإدراك أكثر للمحادثات السابقة لكنها تستخدم رموزًا أكثر — وتكلّف أكثر — في كل تشغيل.',
+  'settings.memoryWindow.description':
+    'مقدار السياق المحفوظ الذي يحقنه OpenHuman في كل تشغيل وكيل جديد. النوافذ الأكبر تشعر بإدراك أكثر للمحادثات السابقة لكنها تستخدم رموزًا أكثر — وتكلّف أكثر — في كل تشغيل.',
   'settings.memoryWindow.extended.badge': 'سياق أكثر',
-  'settings.memoryWindow.extended.hint': 'حقن ذاكرة طويلة المدى أكثر في كل تشغيل. تكلفة رموز أعلى لكل دور.',
+  'settings.memoryWindow.extended.hint':
+    'حقن ذاكرة طويلة المدى أكثر في كل تشغيل. تكلفة رموز أعلى لكل دور.',
   'settings.memoryWindow.extended.label': 'موسّع',
   'settings.memoryWindow.maximum.badge': 'الأعلى تكلفة',
-  'settings.memoryWindow.maximum.hint': 'أكبر نافذة آمنة. أفضل استمرارية، مع فاتورة رموز أعلى بشكل ملحوظ في كل تشغيل.',
+  'settings.memoryWindow.maximum.hint':
+    'أكبر نافذة آمنة. أفضل استمرارية، مع فاتورة رموز أعلى بشكل ملحوظ في كل تشغيل.',
   'settings.memoryWindow.maximum.label': 'أقصى',
   'settings.memoryWindow.minimal.badge': 'الأرخص',
-  'settings.memoryWindow.minimal.hint': 'أصغر نافذة ذاكرة. الأرخص والأسرع وأقل استمرارية بين عمليات التشغيل.',
+  'settings.memoryWindow.minimal.hint':
+    'أصغر نافذة ذاكرة. الأرخص والأسرع وأقل استمرارية بين عمليات التشغيل.',
   'settings.memoryWindow.minimal.label': 'الحد الأدنى',
   'settings.memoryWindow.title': 'نافذة الذاكرة طويلة الأمد',
   'settings.modelHealth.title': 'نموذج الصحة',
-  'settings.modelHealth.desc': 'الجودة حسب النموذج، ومعدل الهلوسة، ومقارنة التكاليف بين النماذج النشطة',
+  'settings.modelHealth.desc':
+    'الجودة حسب النموذج، ومعدل الهلوسة، ومقارنة التكاليف بين النماذج النشطة',
   'settings.modelHealth.allStatuses': 'جميع الحالات',
   'settings.modelHealth.models': 'النماذج',
   'settings.modelHealth.loading': 'بيانات نموذجية لتحديد الموقع',
@@ -3252,11 +3516,13 @@ const messages: TranslationMap = {
   'skills.create.descriptionPlaceholder': 'ما الذي تفعله هذه المهارة؟',
   'skills.create.optional': '(اختياري)',
   'skills.create.inputs.heading': 'Inputs',
-  'skills.create.inputs.help': 'أعلن عن المعاملات التي تحتاجها المهارة. سيعرض تشغيل المهارات نموذجاً لهذه المعاملات عند التشغيل.',
+  'skills.create.inputs.help':
+    'أعلن عن المعاملات التي تحتاجها المهارة. سيعرض تشغيل المهارات نموذجاً لهذه المعاملات عند التشغيل.',
   'skills.create.inputs.add': 'إضافة إدخال',
   'skills.create.inputs.row.name': 'اسم الإدخال',
   'skills.create.inputs.row.namePlaceholder': 'مثال: repo',
-  'skills.create.inputs.row.nameError': 'الأحرف والأرقام والشرطات السفلية والشرطات فقط؛ يجب أن يبدأ بحرف.',
+  'skills.create.inputs.row.nameError':
+    'الأحرف والأرقام والشرطات السفلية والشرطات فقط؛ يجب أن يبدأ بحرف.',
   'skills.create.inputs.row.description': 'وصف الإدخال',
   'skills.create.inputs.row.descriptionPlaceholder': 'ما الذي يذهب في هذا الحقل؟',
   'skills.create.inputs.row.type': 'Type',
@@ -3271,7 +3537,8 @@ const messages: TranslationMap = {
   'skills.create.namePlaceholder': 'مثال: يومية التداول',
   'skills.create.scope': 'النطاق',
   'skills.create.scopeProjectHint': '/.openhuman/skills/',
-  'skills.create.scopeUserHint': 'مكتوب في ~/.openhuman/skills/<slug>/SKILL.md — متاح في جميع مساحات العمل.',
+  'skills.create.scopeUserHint':
+    'مكتوب في ~/.openhuman/skills/<slug>/SKILL.md — متاح في جميع مساحات العمل.',
   'skills.create.slugLabel': 'تسمية المعرف',
   'skills.create.subtitle': 'SKILL.md',
   'skills.create.tags': 'الوسوم',
@@ -3285,23 +3552,31 @@ const messages: TranslationMap = {
   'skills.detail.noBundledResources': 'لا توجد موارد مجمّعة.',
   'skills.detail.tags': 'العلامات',
   'skills.detail.warnings': 'التحذيرات',
-  'skills.install.errors.alreadyInstalledHint': 'توجد بالفعل مهارة بهذه البزاقة في مساحة العمل. قم بإزالته أولاً أو قم بتغيير المادة الأمامية `metadata.id` / `name`.',
+  'skills.install.errors.alreadyInstalledHint':
+    'توجد بالفعل مهارة بهذه البزاقة في مساحة العمل. قم بإزالته أولاً أو قم بتغيير المادة الأمامية `metadata.id` / `name`.',
   'skills.install.errors.alreadyInstalledTitle': 'تم تثبيت المهارة بالفعل',
-  'skills.install.errors.fetchFailedHint': 'لم يكتمل الطلب بنجاح. تحقق من نقاط URL في ملف عام يمكن الوصول إليه، ومن أن المضيف قد قام بإرجاع استجابة 2xx.',
+  'skills.install.errors.fetchFailedHint':
+    'لم يكتمل الطلب بنجاح. تحقق من نقاط URL في ملف عام يمكن الوصول إليه، ومن أن المضيف قد قام بإرجاع استجابة 2xx.',
   'skills.install.errors.fetchFailedTitle': 'فشل الجلب',
-  'skills.install.errors.fetchTimedOutHint': 'لم يستجب المضيف البعيد في الوقت المناسب. حاول مرة أخرى أو ارفع المهلة (1-600 ثانية).',
+  'skills.install.errors.fetchTimedOutHint':
+    'لم يستجب المضيف البعيد في الوقت المناسب. حاول مرة أخرى أو ارفع المهلة (1-600 ثانية).',
   'skills.install.errors.fetchTimedOutTitle': 'انتهت مهلة الجلب',
-  'skills.install.errors.fetchTooLargeHint': 'يجب أن يكون حجم SKILL.md أقل من 1 ميجابايت. قم بتقسيم الموارد المجمعة إلى ملفات "مراجع/" أو "نصوص برمجية/" بدلاً من تضمينها.',
+  'skills.install.errors.fetchTooLargeHint':
+    'يجب أن يكون حجم SKILL.md أقل من 1 ميجابايت. قم بتقسيم الموارد المجمعة إلى ملفات "مراجع/" أو "نصوص برمجية/" بدلاً من تضمينها.',
   'skills.install.errors.fetchTooLargeTitle': 'SKILL.md كبير جدًا',
   'skills.install.errors.genericHint': 'أرجعت الواجهة الخلفية خطأً. يتم عرض الرسالة الأولية أدناه.',
   'skills.install.errors.genericTitle': 'تعذر تثبيت المهارة',
-  'skills.install.errors.invalidSkillHint': 'يجب أن تكون المادة الأمامية YAML صالحة مع حقول `اسم` و`وصف` غير فارغة، ومنتهية بـ `---`.',
+  'skills.install.errors.invalidSkillHint':
+    'يجب أن تكون المادة الأمامية YAML صالحة مع حقول `اسم` و`وصف` غير فارغة، ومنتهية بـ `---`.',
   'skills.install.errors.invalidSkillTitle': 'لم يقم SKILL.md بتحليل',
-  'skills.install.errors.invalidUrlHint': 'يُسمح فقط بـ HTTPS URLs العامة. يتم حظر مضيفي البيانات الخاصة والاسترجاعية والبيانات التعريفية.',
+  'skills.install.errors.invalidUrlHint':
+    'يُسمح فقط بـ HTTPS URLs العامة. يتم حظر مضيفي البيانات الخاصة والاسترجاعية والبيانات التعريفية.',
   'skills.install.errors.invalidUrlTitle': 'URL مرفوض',
-  'skills.install.errors.unsupportedUrlHint': 'تعمل فقط الروابط المباشرة `.md`. بالنسبة إلى GitHub، قم بالارتباط بملف (github.com/owner/repo/blob/.../SKILL.md) - لم يتم تثبيت جذور الشجرة والريبو.',
+  'skills.install.errors.unsupportedUrlHint':
+    'تعمل فقط الروابط المباشرة `.md`. بالنسبة إلى GitHub، قم بالارتباط بملف (github.com/owner/repo/blob/.../SKILL.md) - لم يتم تثبيت جذور الشجرة والريبو.',
   'skills.install.errors.unsupportedUrlTitle': 'URL النموذج غير مدعوم',
-  'skills.install.errors.writeFailedHint': 'دليل مهارات مساحة العمل غير قابل للكتابة. تحقق من أذونات نظام الملفات لـ `<workspace>/.openhuman/skills/`.',
+  'skills.install.errors.writeFailedHint':
+    'دليل مهارات مساحة العمل غير قابل للكتابة. تحقق من أذونات نظام الملفات لـ `<workspace>/.openhuman/skills/`.',
   'skills.install.errors.writeFailedTitle': 'تعذر كتابة SKILL.md',
   'skills.install.fetchLog': 'جلب السجل',
   'skills.install.fetchingPrefix': 'جلب',
@@ -3313,9 +3588,11 @@ const messages: TranslationMap = {
   'skills.install.rawError': 'خطأ خام',
   'skills.install.subtitleMiddle': 'عبر HTTPS وتثبيته ضمن',
   'skills.install.subtitlePrefix': 'جلب',
-  'skills.install.subtitleSuffix': 'HTTPS واحد فقط؛ تم حظر المضيفين الخاصين والمضيفين الاسترجاعيين.',
+  'skills.install.subtitleSuffix':
+    'HTTPS واحد فقط؛ تم حظر المضيفين الخاصين والمضيفين الاسترجاعيين.',
   'skills.install.successDiscovered': 'تم اكتشاف {count} مهارات جديدة.',
-  'skills.install.successNoNewIds': 'تم تثبيت المهارة، ولكن لم تظهر معرفات مهارة جديدة - قد يحتوي الكتالوج بالفعل على مهارة بنفس البزاقة.',
+  'skills.install.successNoNewIds':
+    'تم تثبيت المهارة، ولكن لم تظهر معرفات مهارة جديدة - قد يحتوي الكتالوج بالفعل على مهارة بنفس البزاقة.',
   'skills.install.timeoutHint': '(ثوانٍ، اختياري)',
   'skills.install.timeoutHelp': 'الافتراضي هو 60 ثانية. يتم تثبيت القيم خارج 1-600 من جانب الخادم.',
   'skills.install.timeoutInvalid': 'يجب أن يكون عددًا صحيحًا بين 1 و600.',
@@ -3379,7 +3656,8 @@ const messages: TranslationMap = {
   'skills.setup.screenIntel.allGranted': 'تم منح جميع الأذونات',
   'skills.setup.screenIntel.captureMode': 'وضع الالتقاط',
   'skills.setup.screenIntel.captureModeValue': 'جميع النوافذ (قابل للضبط لاحقًا)',
-  'skills.setup.screenIntel.deniedHint': 'بعد منح الأذونات في إعدادات النظام، انقر أدناه لإعادة التشغيل وتطبيق التغييرات.',
+  'skills.setup.screenIntel.deniedHint':
+    'بعد منح الأذونات في إعدادات النظام، انقر أدناه لإعادة التشغيل وتطبيق التغييرات.',
   'skills.setup.screenIntel.enableBtn': 'جارٍ التفعيل...',
   'skills.setup.screenIntel.enableDesc': 'على شاشتك وتغذية سياق مفيد في وكيلك',
   'skills.setup.screenIntel.enableError': 'فشل تفعيل ذكاء الشاشة',
@@ -3417,21 +3695,26 @@ const messages: TranslationMap = {
   'skills.setup.voice.stepSetup': 'يلزم تنزيل النموذج',
   'skills.setup.voice.stepSuccess': 'جاهز للانطلاق',
   'skills.setup.voice.sttNotReady': 'نموذج تحويل الكلام إلى نص غير جاهز',
-  'skills.setup.voice.sttNotReadyDesc': 'يتطلب ذكاء الصوت نموذج Whisper محليًا للنسخ. نزّله من إعدادات النموذج المحلي.',
+  'skills.setup.voice.sttNotReadyDesc':
+    'يتطلب ذكاء الصوت نموذج Whisper محليًا للنسخ. نزّله من إعدادات النموذج المحلي.',
   'skills.setup.voice.sttReady': 'نموذج تحويل الكلام إلى نص جاهز',
   'skills.setup.voice.sttReturnHint': 'تلميح العودة لـ STT',
   'skills.setup.voice.title': 'ذكاء الصوت',
   'skills.uninstall.couldNotUninstall': 'تعذّر إلغاء التثبيت',
-  'skills.uninstall.description': 'هذا يحذف دليل المهارة نهائيًا وجميع موارده المرفقة. سيتوقف الوكيل عن رؤيتها في الدور التالي.',
+  'skills.uninstall.description':
+    'هذا يحذف دليل المهارة نهائيًا وجميع موارده المرفقة. سيتوقف الوكيل عن رؤيتها في الدور التالي.',
   'skills.uninstall.title': 'إلغاء التثبيت',
   'skills.uninstall.uninstallBtn': 'إلغاء التثبيت',
   'skills.uninstall.uninstalling': 'جارٍ إلغاء التثبيت…',
   'upsell.global.limitMessage': 'قم بترقية خطتك أو أضف رصيدًا للمتابعة',
   'upsell.global.limitTitle': 'أنت',
-  'upsell.global.nearLimitMessage': 'لقد استخدمت {pct}% من حد الاستخدام. قم بالترقية للحصول على حدود أعلى.',
+  'upsell.global.nearLimitMessage':
+    'لقد استخدمت {pct}% من حد الاستخدام. قم بالترقية للحصول على حدود أعلى.',
   'upsell.global.nearLimitTitle': 'الاقتراب من حد الاستخدام',
-  'upsell.usageLimit.bodyBudget': 'لقد وصلت إلى حدّك الأسبوعي.{reset} قم بترقية خطتك أو شحن الرصيد لتجنّب الحدود.',
-  'upsell.usageLimit.bodyRate': 'لقد وصلت إلى حدّ معدّل الاستدلال لـ 10 ساعات.{reset} قم بالترقية للحصول على حدود أعلى.',
+  'upsell.usageLimit.bodyBudget':
+    'لقد وصلت إلى حدّك الأسبوعي.{reset} قم بترقية خطتك أو شحن الرصيد لتجنّب الحدود.',
+  'upsell.usageLimit.bodyRate':
+    'لقد وصلت إلى حدّ معدّل الاستدلال لـ 10 ساعات.{reset} قم بالترقية للحصول على حدود أعلى.',
   'upsell.usageLimit.heading': 'تم الوصول إلى حد الاستخدام',
   'upsell.usageLimit.notNow': 'ليس الآن',
   'upsell.usageLimit.perWindow': '{amount}',
@@ -3498,14 +3781,18 @@ const messages: TranslationMap = {
   'conversations.taskKanban.inProgress': 'قيد التنفيذ',
   'intelligence.memoryChunk.detail.copiedHint': 'تم النسخ',
   'settings.composio.notYetRouted': 'لم يتم توجيهه بعد',
-  'settings.localModel.download.manageExternal': 'إدارة هذا النموذج في وقت التشغيل الخارجي الخاص بك.',
-  'settings.localModel.status.manageOllamaExternal': 'أدِر عملية Ollama وعمليات تحميل النماذج خارج OpenHuman، ثم أعد تشغيل التشخيصات.',
+  'settings.localModel.download.manageExternal':
+    'إدارة هذا النموذج في وقت التشغيل الخارجي الخاص بك.',
+  'settings.localModel.status.manageOllamaExternal':
+    'أدِر عملية Ollama وعمليات تحميل النماذج خارج OpenHuman، ثم أعد تشغيل التشخيصات.',
   'settings.localModel.status.ollamaDocs': 'وثائق Ollama',
-  'settings.localModel.status.thenRetry': 'للحصول على تعليمات الإعداد، ثم أعد المحاولة عندما يصبح وقت التشغيل قابلاً للوصول.',
+  'settings.localModel.status.thenRetry':
+    'للحصول على تعليمات الإعداد، ثم أعد المحاولة عندما يصبح وقت التشغيل قابلاً للوصول.',
   'devOptions.menuAi': 'تكوين الذكاء الاصطناعي',
   'devOptions.menuAiDesc': 'موفرو السحابة، ونماذج Ollama المحلية، والتوجيه لكل حمل عمل',
   'devOptions.menuScreenAware': 'التعرف على الشاشة',
-  'devOptions.menuScreenAwareDesc': 'أذونات التقاط الشاشة، وسياسة المراقبة، وعناصر التحكم في الجلسة',
+  'devOptions.menuScreenAwareDesc':
+    'أذونات التقاط الشاشة، وسياسة المراقبة، وعناصر التحكم في الجلسة',
   'devOptions.menuMessaging': 'قنوات المراسلة',
   'devOptions.menuMessagingDesc': 'تكوين أوضاع المصادقة Telegram/Discord وتوجيه القناة الافتراضية',
   'devOptions.menuTools': 'الأدوات',
@@ -3515,19 +3802,23 @@ const messages: TranslationMap = {
   'devOptions.menuCronJobs': 'وظائف Cron',
   'devOptions.menuCronJobsDesc': 'عرض المهام المجدولة وتكوينها لمهارات وقت التشغيل',
   'devOptions.menuLocalModelDebug': 'تصحيح أخطاء النموذج المحلي',
-  'devOptions.menuLocalModelDebugDesc': 'Ollama التكوين وتنزيلات الأصول واختبارات النماذج والتشخيصات',
+  'devOptions.menuLocalModelDebugDesc':
+    'Ollama التكوين وتنزيلات الأصول واختبارات النماذج والتشخيصات',
   'devOptions.menuWebhooksDebug': 'خطافات الويب',
   'devOptions.menuWebhooksDebugDesc': 'فحص تسجيلات خطاف الويب لوقت التشغيل وسجلات الطلبات الملتقطة',
   'devOptions.menuIntelligence': 'الذكاء',
   'devOptions.menuIntelligenceDesc': 'مساحة عمل الذاكرة ومحرك العقل الباطن والأحلام والإعدادات',
   'devOptions.menuNotificationRouting': 'توجيه الإشعارات',
-  'devOptions.menuNotificationRoutingDesc': 'تسجيل أهمية الذكاء الاصطناعي وتصعيد المنسق لتنبيهات التكامل',
+  'devOptions.menuNotificationRoutingDesc':
+    'تسجيل أهمية الذكاء الاصطناعي وتصعيد المنسق لتنبيهات التكامل',
   'devOptions.menuComposeIOTriggers': 'مشغلات ComposeIO',
   'devOptions.menuComposeIOTriggersDesc': 'عرض سجل وأرشيف مشغلات ComposeIO',
   'devOptions.menuComposioRouting': 'Composio التوجيه (الوضع المباشر)',
-  'devOptions.menuComposioRoutingDesc': 'أحضر مفتاح Composio API الخاص بك وقم بتوجيه المكالمات مباشرة إلى backend.composio.dev',
+  'devOptions.menuComposioRoutingDesc':
+    'أحضر مفتاح Composio API الخاص بك وقم بتوجيه المكالمات مباشرة إلى backend.composio.dev',
   'devOptions.menuComposioTriggers': 'مشغلات التكامل',
-  'devOptions.menuComposioTriggersDesc': 'تكوين إعدادات فرز الذكاء الاصطناعي لمشغلات التكامل Composio',
+  'devOptions.menuComposioTriggersDesc':
+    'تكوين إعدادات فرز الذكاء الاصطناعي لمشغلات التكامل Composio',
   'memory.sourceFilterAria': 'التصفية حسب المصدر',
   'calls.comingSoonDescription': 'المكالمات بمساعدة الذكاء الاصطناعي قادمة قريباً. ابقَ على اطلاع.',
   'vault.title': 'خزائن المعرفة',
@@ -3544,7 +3835,8 @@ const messages: TranslationMap = {
   'vault.syncSummaryFailed': ', فشل {count}',
   'vault.syncSummarySkipped': '، تم تخطي {count}',
   'vault.syncSummaryDuration': ' · {seconds}s',
-  'vault.confirmRemovePurge': 'إزالة الخزنة "{name}"؟\n\nانقر «موافق» لحذف ذاكرتها أيضاً (حذف جميع {count} مستند/مستندات مستوعبة).\nانقر «إلغاء» للاحتفاظ بالمستندات في الذاكرة.',
+  'vault.confirmRemovePurge':
+    'إزالة الخزنة "{name}"؟\n\nانقر «موافق» لحذف ذاكرتها أيضاً (حذف جميع {count} مستند/مستندات مستوعبة).\nانقر «إلغاء» للاحتفاظ بالمستندات في الذاكرة.',
   'vault.confirmRemove': 'هل تريد حقًا إزالة المخزن "{name}"؟',
   'vault.removed': 'تمت إزالة المخزن',
   'vault.removedPurgedMessage': 'تمت إزالة "{name}" وتطهير ذاكرته.',
@@ -3598,12 +3890,15 @@ const messages: TranslationMap = {
   'walletBalances.copyAddress': 'نسخ العنوان',
   'walletBalances.providerMissing': 'الموفر غير متاح',
   'walletBalances.rawBalance': 'الخام: {raw}',
-  'walletBalances.errorGeneric': 'تعذّر تحميل أرصدة المحفظة. أعدّ محفظتك في عبارة الاسترداد وحاول مجدداً.',
+  'walletBalances.errorGeneric':
+    'تعذّر تحميل أرصدة المحفظة. أعدّ محفظتك في عبارة الاسترداد وحاول مجدداً.',
   'settings.taskSources.title': 'المصادر',
   'settings.taskSources.subtitle': 'سحب المهام من أدواتك على لوحة العميل (تود)',
-  'settings.taskSources.description': 'اجمع عناصر العمل من GitHub وNotion وLinear وClickUp، وأثرها، وقم بتوجيهها إلى لوحة مهام الوكيل.',
+  'settings.taskSources.description':
+    'اجمع عناصر العمل من GitHub وNotion وLinear وClickUp، وأثرها، وقم بتوجيهها إلى لوحة مهام الوكيل.',
   'settings.taskSources.connectHint': 'مصادر المهمة تستخدم حساباتك المرتبطة إربطهم تحت الدمج أولاً',
-  'settings.taskSources.disabledBanner': 'وتُعوق مصادر المهام في البيئات. تمكنهم من الاقتراع تلقائياً',
+  'settings.taskSources.disabledBanner':
+    'وتُعوق مصادر المهام في البيئات. تمكنهم من الاقتراع تلقائياً',
   'settings.taskSources.loadError': 'عدم تحميل مصادر المهام',
   'settings.taskSources.addTitle': 'يضاف مصدر مهمة',
   'settings.taskSources.provider': 'Provider',
@@ -3632,7 +3927,8 @@ const messages: TranslationMap = {
   'settings.taskSources.enable': 'التمكين',
   'settings.taskSources.disable': 'العجز',
   'settings.taskSources.remove': 'إزالة الألغام',
-  'settings.taskSources.removeConfirm': 'إزالة مصدر المهمة هذا؟ وسيتم حذف كل تاريخ المهمة المستغل ولا يمكن التخلي عنه.',
+  'settings.taskSources.removeConfirm':
+    'إزالة مصدر المهمة هذا؟ وسيتم حذف كل تاريخ المهمة المستغل ولا يمكن التخلي عنه.',
   'settings.taskSources.refresh': 'التجديد',
   'settings.taskSources.providers.github': 'GitHub',
   'settings.taskSources.providers.notion': 'Notion',
@@ -3651,7 +3947,8 @@ const messages: TranslationMap = {
   'skills.dashboard.cardOpenRunner': 'فتح في المشغّل',
   'skills.dashboard.loadError': 'فشل تحميل المهارات المجدولة',
   'skills.new.title': 'إنشاء مهارة',
-  'skills.new.placeholderBody': 'نموذج التأليف قادم قريباً. في الوقت الحالي، استخدم زر «مهارة جديدة» في صفحة المشغّل.',
+  'skills.new.placeholderBody':
+    'نموذج التأليف قادم قريباً. في الوقت الحالي، استخدم زر «مهارة جديدة» في صفحة المشغّل.',
   'settings.agents.title': 'العملاء',
   'settings.agents.subtitle': 'إدارة الوكلاء المتاحين للوفد - الفشل المبنية ووكلاء العرف الخاص بك.',
   'settings.agents.menuDesc': 'إدارة الوكلاء المضمنين والمخصصين',
@@ -3695,7 +3992,8 @@ const messages: TranslationMap = {
   'workflows.deleteError': 'Failed to delete workflow',
   'workflows.warnings': '{count} warning(s)',
   'workflows.empty.title': 'No workflows yet',
-  'workflows.empty.body': 'Create a workflow to define rules and scripts for task lifecycle phases.',
+  'workflows.empty.body':
+    'Create a workflow to define rules and scripts for task lifecycle phases.',
   'workflows.create.title': 'New Workflow',
   'workflows.create.subtitle': 'Define a lifecycle-bound rule set for the agent.',
   'workflows.create.name': 'Name',
@@ -3730,7 +4028,8 @@ const messages: TranslationMap = {
   'workflows.phase.context': 'Context',
   'workflows.phase.context.empty': 'No context providers.',
   'settings.agentsSection.title': 'Agents',
-  'settings.agentsSection.description': 'إدارة عواملك واستقلاليتها وما يمكنها الوصول إليه على هذا الجهاز.',
+  'settings.agentsSection.description':
+    'إدارة عواملك واستقلاليتها وما يمكنها الوصول إليه على هذا الجهاز.',
   'settings.agentsSection.menuDesc': 'السجل، الاستقلالية ووصول نظام التشغيل',
   'settings.agents.editor.notFound': 'العامل غير موجود.',
   'settings.agents.editor.modelInherit': 'موروث (الافتراضي للمنصة)',
@@ -3751,7 +4050,8 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsLoadError': 'تعذّر تحميل الأدوات',
   'settings.agents.editor.toolsEmpty': 'لا توجد أدوات تطابق بحثك.',
   'settings.agents.editor.toolsDone': 'Done',
-  'settings.agents.editor.builtInReadonly': 'لا يمكن تعديل العوامل المدمجة. يمكنك تفعيلها أو تعطيلها أو إعادة ضبطها من قائمة العوامل.',
+  'settings.agents.editor.builtInReadonly':
+    'لا يمكن تعديل العوامل المدمجة. يمكنك تفعيلها أو تعطيلها أو إعادة ضبطها من قائمة العوامل.',
 };
 
 export default messages;

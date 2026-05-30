@@ -5289,6 +5289,184 @@ fn credentials_profile_store_round_trips_oauth_secret_fields_after_backend_selec
 }
 
 #[test]
+fn credentials_profile_store_keychain_migration_and_fallback_paths_are_deterministic() {
+    let _lock = env_lock();
+    let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
+    let tmp = tempdir().expect("tempdir");
+
+    let hit_dir = tmp.path().join("keychain-hit");
+    std::fs::create_dir_all(&hit_dir).expect("create keychain hit dir");
+    let hit_profile_id = "github:main";
+    openhuman_core::openhuman::keyring::set(
+        "keychain-hit",
+        &format!("auth:{hit_profile_id}"),
+        &json!({
+            "access_token": "kc-access",
+            "refresh_token": "kc-refresh",
+            "id_token": "kc-id",
+            "token": null
+        })
+        .to_string(),
+    )
+    .expect("seed file-backed keyring secret");
+    std::fs::write(
+        hit_dir.join("auth-profiles.json"),
+        json!({
+            "schema_version": 1,
+            "updated_at": "2026-01-01T00:00:00Z",
+            "active_profiles": {
+                "github": hit_profile_id
+            },
+            "profiles": {
+                "github:main": {
+                    "provider": "github",
+                    "profile_name": "main",
+                    "kind": "oauth",
+                    "access_token": "legacy-access",
+                    "refresh_token": "legacy-refresh",
+                    "id_token": "legacy-id",
+                    "expires_at": "2026-01-01T00:00:00Z",
+                    "token_type": "Bearer",
+                    "scope": "repo",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z"
+                }
+            }
+        })
+        .to_string(),
+    )
+    .expect("write keychain hit fixture");
+    let hit_store = AuthProfilesStore::new(&hit_dir, true);
+    let hit_loaded = hit_store.load().expect("keychain hit should load");
+    let hit_tokens = hit_loaded
+        .profiles
+        .get(hit_profile_id)
+        .and_then(|profile| profile.token_set.as_ref())
+        .expect("keychain hit token set");
+    assert_eq!(hit_tokens.access_token, "kc-access");
+    assert_eq!(hit_tokens.refresh_token.as_deref(), Some("kc-refresh"));
+    let hit_rewritten: Value = serde_json::from_str(
+        &std::fs::read_to_string(hit_dir.join("auth-profiles.json"))
+            .expect("read rewritten keychain hit profile store"),
+    )
+    .expect("rewritten keychain hit json");
+    assert!(
+        hit_rewritten
+            .get("profiles")
+            .and_then(Value::as_object)
+            .and_then(|profiles| profiles.get(hit_profile_id))
+            .and_then(|profile| profile.get("access_token"))
+            .is_none_or(Value::is_null),
+        "legacy JSON secret fields should be cleared after keychain hit: {hit_rewritten}"
+    );
+
+    let migrate_dir = tmp.path().join("keychain-migrate");
+    std::fs::create_dir_all(&migrate_dir).expect("create keychain migrate dir");
+    let migrate_profile_id = "gitlab:work";
+    std::fs::write(
+        migrate_dir.join("auth-profiles.json"),
+        json!({
+            "schema_version": 1,
+            "updated_at": "2026-01-01T00:00:00Z",
+            "active_profiles": {
+                "gitlab": migrate_profile_id
+            },
+            "profiles": {
+                "gitlab:work": {
+                    "provider": "gitlab",
+                    "profile_name": "work",
+                    "kind": "token",
+                    "token": "plain-token-for-migration",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z"
+                }
+            }
+        })
+        .to_string(),
+    )
+    .expect("write keychain migration fixture");
+    let migrate_store = AuthProfilesStore::new(&migrate_dir, true);
+    let migrated = migrate_store
+        .load()
+        .expect("plaintext JSON token should migrate to keychain");
+    assert_eq!(
+        migrated
+            .profiles
+            .get(migrate_profile_id)
+            .and_then(|profile| profile.token.as_deref()),
+        Some("plain-token-for-migration")
+    );
+    let migrated_keychain = openhuman_core::openhuman::keyring::get(
+        "keychain-migrate",
+        &format!("auth:{migrate_profile_id}"),
+    )
+    .expect("read migrated keychain token")
+    .expect("migrated keychain token should exist");
+    assert!(
+        migrated_keychain.contains("plain-token-for-migration"),
+        "migrated keychain payload should contain redacted fixture token"
+    );
+
+    let fallback_dir = tmp.path().join("keychain-fallback");
+    std::fs::create_dir_all(&fallback_dir).expect("create keychain fallback dir");
+    let fallback_profile_id = "slack:bot";
+    openhuman_core::openhuman::keyring::set(
+        "keychain-fallback",
+        &format!("auth:{fallback_profile_id}"),
+        "not-json",
+    )
+    .expect("seed malformed keychain payload");
+    std::fs::write(
+        fallback_dir.join("auth-profiles.json"),
+        json!({
+            "schema_version": 1,
+            "updated_at": "2026-01-01T00:00:00Z",
+            "active_profiles": {
+                "slack": fallback_profile_id
+            },
+            "profiles": {
+                "slack:bot": {
+                    "provider": "slack",
+                    "profile_name": "bot",
+                    "kind": "token",
+                    "token": "json-fallback-token",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z"
+                }
+            }
+        })
+        .to_string(),
+    )
+    .expect("write keychain fallback fixture");
+    let fallback = AuthProfilesStore::new(&fallback_dir, true)
+        .load()
+        .expect("malformed keychain payload should fall back to JSON");
+    assert_eq!(
+        fallback
+            .profiles
+            .get(fallback_profile_id)
+            .and_then(|profile| profile.token.as_deref()),
+        Some("json-fallback-token")
+    );
+
+    assert!(
+        AuthProfilesStore::new(&migrate_dir, true)
+            .remove_profile(migrate_profile_id)
+            .expect("remove migrated profile"),
+        "migrated profile should be removable"
+    );
+    assert!(
+        openhuman_core::openhuman::keyring::get(
+            "keychain-migrate",
+            &format!("auth:{migrate_profile_id}"),
+        )
+        .expect("read deleted migrated keychain token")
+        .is_none(),
+        "removing a profile should delete its keychain payload"
+    );
+}
+
+#[test]
 fn credentials_profile_store_reclaims_stale_dead_pid_lock() {
     let _lock = env_lock();
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");

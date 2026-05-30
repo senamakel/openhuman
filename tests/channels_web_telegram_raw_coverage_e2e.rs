@@ -252,7 +252,6 @@ async fn web_channel_approval_bridge_forced_errors_and_newer_request_cancellatio
         tool_name: "filesystem.write".to_string(),
         action_summary: "write a test artifact".to_string(),
         args_redacted: json!({ "path": "target/channels-web-telegram-round18-artifact" }),
-        session_id: "round18-session".to_string(),
         thread_id: Some("round18-thread".to_string()),
         client_id: Some("round18-client".to_string()),
     });
@@ -284,7 +283,6 @@ async fn web_channel_approval_bridge_forced_errors_and_newer_request_cancellatio
         tool_name: "filesystem.write".to_string(),
         action_summary: "missing chat routing".to_string(),
         args_redacted: json!({}),
-        session_id: "round18-session".to_string(),
         thread_id: None,
         client_id: Some("round18-client".to_string()),
     });

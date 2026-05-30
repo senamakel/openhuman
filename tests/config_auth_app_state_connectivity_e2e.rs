@@ -35,18 +35,22 @@ use openhuman_core::openhuman::config::schema::{
     OrchestratorModelConfig, ProxyConfig, ProxyScope, ResourceLimitsConfig, SandboxConfig,
     SecurityConfig, TelegramConfig, VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
 };
+use openhuman_core::openhuman::config::settings_cli::{
+    settings_section_json, ConfigSnapshotFields,
+};
 use openhuman_core::openhuman::config::{
-    clear_active_user, output_language_directive, write_active_user_id, AgentConfig,
-    ChannelsConfig, Config, DictationActivationMode, LlmBackend, ReflectionSource, TeamModelConfig,
-    UpdateRestartStrategy,
+    clear_active_user, output_language_directive, pre_login_user_dir, read_active_user_id,
+    user_openhuman_dir, write_active_user_id, AgentConfig, ChannelsConfig, Config, DaemonConfig,
+    DictationActivationMode, LlmBackend, ReflectionSource, TeamModelConfig, UpdateRestartStrategy,
 };
 use openhuman_core::openhuman::credentials::cli::{
     cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
 };
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
 use openhuman_core::openhuman::credentials::{
-    clear_composio_api_key, get_composio_api_key, normalize_provider, rpc_store_composio_api_key,
-    store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
+    clear_composio_api_key, get_composio_api_key, list_provider_credentials_by_prefix,
+    normalize_provider, rpc_store_composio_api_key, store_composio_api_key, AuthService,
+    APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
 };
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
@@ -819,6 +823,123 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
     let audit = AuditConfig::default();
     assert_eq!(audit.log_path, "audit.log");
     assert_eq!(audit.max_size_mb, 100);
+
+    let meet: openhuman_core::openhuman::config::schema::MeetConfig =
+        serde_json::from_value(json!({})).expect("meet defaults");
+    assert!(!meet.auto_orchestrator_handoff);
+    let observability: openhuman_core::openhuman::config::schema::ObservabilityConfig =
+        serde_json::from_value(json!({})).expect("observability defaults");
+    assert!(observability.analytics_enabled);
+    assert!(observability.sentry_dsn.is_none());
+    let scheduler_gate: openhuman_core::openhuman::config::schema::SchedulerGateConfig =
+        serde_json::from_value(json!({})).expect("scheduler gate defaults");
+    assert_eq!(
+        scheduler_gate.mode,
+        openhuman_core::openhuman::config::schema::SchedulerGateMode::Auto
+    );
+    assert_eq!(
+        openhuman_core::openhuman::config::schema::SchedulerGateMode::AlwaysOn.as_str(),
+        "always_on"
+    );
+    assert_eq!(
+        openhuman_core::openhuman::config::schema::SchedulerGateMode::Off.as_str(),
+        "off"
+    );
+}
+
+#[test]
+fn config_active_user_and_daemon_public_helpers_cover_path_branches() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join(".openhuman");
+
+    assert_eq!(read_active_user_id(&root), None);
+    std::fs::create_dir_all(&root).expect("create root");
+    std::fs::write(root.join("active_user.toml"), "user_id = \"   \"\n")
+        .expect("write blank active user");
+    assert_eq!(read_active_user_id(&root), None);
+    std::fs::write(root.join("active_user.toml"), "not = [toml\n")
+        .expect("write malformed active user");
+    assert_eq!(read_active_user_id(&root), None);
+
+    write_active_user_id(&root, "user-77").expect("write active user");
+    assert_eq!(read_active_user_id(&root).as_deref(), Some("user-77"));
+    assert_eq!(
+        user_openhuman_dir(&root, "user-77"),
+        root.join("users").join("user-77")
+    );
+    assert_eq!(pre_login_user_dir(&root), root.join("users").join("local"));
+
+    clear_active_user(&root).expect("clear active user");
+    clear_active_user(&root).expect("clearing missing active user is idempotent");
+    assert_eq!(read_active_user_id(&root), None);
+
+    let daemon = DaemonConfig::from_app_data_dir(tmp.path());
+    assert_eq!(daemon.data_dir, tmp.path().join("openhuman"));
+    assert_eq!(
+        daemon.workspace_dir,
+        tmp.path().join("openhuman").join("workspace")
+    );
+    assert!(daemon.security.audit.enabled);
+}
+
+#[test]
+fn config_settings_cli_sections_project_snapshots_and_missing_fields() {
+    let snap = ConfigSnapshotFields {
+        config: json!({
+            "api_url": "https://api.example.test",
+            "default_model": "worker-a-model",
+            "default_temperature": 0.42,
+            "memory": { "provider": "sqlite", "auto_save": true },
+            "runtime": { "kind": "native", "reasoning_enabled": true },
+            "browser": { "allow_all": false }
+        }),
+        workspace_dir: "/tmp/openhuman-worker-a/workspace".to_string(),
+        config_path: "/tmp/openhuman-worker-a/config.toml".to_string(),
+    };
+
+    let model = settings_section_json("model", &snap, vec!["loaded".to_string()]);
+    assert_eq!(model.pointer("/result/section"), Some(&json!("model")));
+    assert_eq!(
+        model.pointer("/result/settings/default_model"),
+        Some(&json!("worker-a-model"))
+    );
+    assert_eq!(
+        model.pointer("/result/workspace_dir"),
+        Some(&json!("/tmp/openhuman-worker-a/workspace"))
+    );
+    assert_eq!(model.pointer("/logs/0"), Some(&json!("loaded")));
+
+    for (section, pointer, expected) in [
+        ("memory", "/result/settings/provider", json!("sqlite")),
+        ("runtime", "/result/settings/kind", json!("native")),
+        ("browser", "/result/settings/allow_all", json!(false)),
+    ] {
+        let value = settings_section_json(section, &snap, vec![]);
+        assert_eq!(value.pointer(pointer), Some(&expected), "{section}");
+    }
+
+    let unknown = settings_section_json("unknown", &snap, vec![]);
+    assert!(unknown
+        .pointer("/result/settings")
+        .is_some_and(Value::is_null));
+
+    let missing = ConfigSnapshotFields {
+        config: json!({ "default_model": "partial-model" }),
+        workspace_dir: "/tmp/ws".to_string(),
+        config_path: "/tmp/cfg.toml".to_string(),
+    };
+    let missing_model = settings_section_json("model", &missing, vec![]);
+    assert_eq!(
+        missing_model.pointer("/result/settings/default_model"),
+        Some(&json!("partial-model"))
+    );
+    assert!(missing_model
+        .pointer("/result/settings/api_url")
+        .is_some_and(Value::is_null));
+    let missing_memory = settings_section_json("memory", &missing, vec![]);
+    assert!(missing_memory
+        .pointer("/result/settings")
+        .is_some_and(Value::is_null));
 }
 
 #[test]
@@ -977,9 +1098,16 @@ fn api_config_url_resolution_classifies_backend_and_inference_paths() {
     assert!(looks_like_local_ai_endpoint(
         "https://api.openai.com/v1/completions"
     ));
+    assert!(looks_like_local_ai_endpoint("http://0.0.0.0:8000"));
+    assert!(looks_like_local_ai_endpoint("http://service.localhost/v1"));
+    assert!(looks_like_local_ai_endpoint("http://192.168.1.7:9000/v1"));
     assert!(!looks_like_local_ai_endpoint("http://127.0.0.1:45678"));
+    assert!(!looks_like_local_ai_endpoint(
+        "https://api.example.test/audit/v1/chat/completions-logs"
+    ));
     assert!(!looks_like_local_ai_endpoint("not a url"));
 
+    assert_eq!(effective_api_url(&Some("   ".into())), DEFAULT_API_BASE_URL);
     assert_eq!(
         effective_api_url(&Some(" http://127.0.0.1:11434/ ".into())),
         "http://127.0.0.1:11434"
@@ -1004,6 +1132,10 @@ fn api_config_url_resolution_classifies_backend_and_inference_paths() {
         effective_backend_api_url(&Some(
             " https://api.tinyhumans.ai/openai/v1/chat/completions?x=1#frag ".into()
         )),
+        "https://api.tinyhumans.ai"
+    );
+    assert_eq!(
+        effective_backend_api_url(&Some("api.tinyhumans.ai/openai/v1/chat/completions".into())),
         "https://api.tinyhumans.ai"
     );
 
@@ -1431,6 +1563,75 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
     assert!(!auth
         .remove_profile("GitHub", "personal")
         .expect("remove missing profile"));
+}
+
+#[tokio::test]
+async fn auth_provider_prefix_listing_sorts_filters_and_excludes_app_session() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    config.secrets.encrypt = false;
+    std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
+        .expect("create config parent");
+
+    let auth = AuthService::from_config(&config);
+    auth.store_provider_token(
+        "channel:slack:bot",
+        "default",
+        "slack-token",
+        [("team".to_string(), "T1".to_string())]
+            .into_iter()
+            .collect(),
+        true,
+    )
+    .expect("store slack channel token");
+    auth.store_provider_token(
+        "channel:telegram:managed_dm",
+        "default",
+        "telegram-token",
+        [("chat_id".to_string(), "42".to_string())]
+            .into_iter()
+            .collect(),
+        false,
+    )
+    .expect("store telegram channel token");
+    auth.store_provider_token(
+        "github",
+        "default",
+        "github-token",
+        Default::default(),
+        true,
+    )
+    .expect("store non-channel token");
+    auth.store_provider_token(
+        APP_SESSION_PROVIDER,
+        "default",
+        "session-token",
+        Default::default(),
+        true,
+    )
+    .expect("store app session token");
+
+    let channels = list_provider_credentials_by_prefix(&config, "channel:")
+        .await
+        .expect("list channel credentials by prefix");
+    let providers = channels
+        .iter()
+        .map(|profile| profile.provider.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        providers,
+        vec!["channel:slack:bot", "channel:telegram:managed_dm"]
+    );
+    assert!(channels.iter().all(|profile| profile.has_token));
+    assert!(channels.iter().all(|profile| !profile.has_token_set));
+
+    let missing = list_provider_credentials_by_prefix(&config, "calendar:")
+        .await
+        .expect("missing prefix listing should succeed");
+    assert!(missing.is_empty());
 }
 
 #[tokio::test]

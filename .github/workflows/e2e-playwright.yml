@@ -58,7 +58,7 @@ jobs:
       - name: Install Playwright Chromium headless shell
         run: bash scripts/ci-cancel-aware.sh pnpm --filter openhuman-app exec playwright install chromium-headless-shell
 
-      - name: Run Playwright Gmail connector E2E suite
+      - name: Run Playwright web E2E suite
         env:
           OPENHUMAN_WORKSPACE: ${{ runner.temp }}/openhuman-playwright-workspace
         run: |

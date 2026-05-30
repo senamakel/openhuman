@@ -42,11 +42,44 @@ describe('subagent transcript reducers', () => {
     );
     state = reducer(
       state,
-      appendSubagentStreamDelta({ threadId: THREAD, rowId: ROW_ID, kind: 'text', delta: 'world' })
+      appendSubagentStreamDelta({
+        threadId: THREAD,
+        rowId: ROW_ID,
+        kind: 'text',
+        delta: 'world',
+        iteration: 1,
+      })
     );
     const t = transcriptOf(state);
     expect(t).toHaveLength(1);
     expect(t[0]).toMatchObject({ kind: 'text', text: 'Hello world', iteration: 1 });
+  });
+
+  it('does not merge same-kind deltas from different iterations', () => {
+    let state = withSubagentRow();
+    state = reducer(
+      state,
+      appendSubagentStreamDelta({
+        threadId: THREAD,
+        rowId: ROW_ID,
+        kind: 'text',
+        delta: 'turn one',
+        iteration: 1,
+      })
+    );
+    state = reducer(
+      state,
+      appendSubagentStreamDelta({
+        threadId: THREAD,
+        rowId: ROW_ID,
+        kind: 'text',
+        delta: 'turn two',
+        iteration: 2,
+      })
+    );
+    const t = transcriptOf(state);
+    expect(t).toHaveLength(2);
+    expect(t.map(i => (i.kind === 'text' ? i.iteration : null))).toEqual([1, 2]);
   });
 
   it('interleaves thinking, text, and tool calls in arrival order', () => {

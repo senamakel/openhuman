@@ -118,7 +118,11 @@ export function SubagentDrawer({
   // ended) but a worker sub-thread backs it, load that thread's persisted
   // messages and render them as the conversation. Failures fall back to the
   // empty/working placeholder rather than blocking the drawer.
+  // Tagged with the worker thread it was fetched for, so a pending request
+  // for a previous thread can't paint the wrong conversation after the user
+  // switches subagents.
   const [fetched, setFetched] = useState<{
+    workerThreadId: string;
     prompt?: string;
     items: SubagentTranscriptItem[];
   } | null>(null);
@@ -131,11 +135,14 @@ export function SubagentDrawer({
       setFetched(null);
       return;
     }
+    // Clear any prior thread's transcript up front so it can't linger while
+    // the new request is in flight.
+    setFetched(null);
     let cancelled = false;
     void threadApi
       .getThreadMessages(workerThreadId)
       .then(data => {
-        if (!cancelled) setFetched(transcriptFromMessages(data.messages));
+        if (!cancelled) setFetched({ workerThreadId, ...transcriptFromMessages(data.messages) });
       })
       .catch(() => {
         if (!cancelled) setFetched(null);
@@ -149,8 +156,11 @@ export function SubagentDrawer({
 
   const tone = statusTone(status);
   const isRunning = status !== 'success' && status !== 'error';
-  const transcript = liveTranscript.length > 0 ? liveTranscript : (fetched?.items ?? []);
-  const promptText = subagent.prompt ?? fetched?.prompt;
+  // Only trust the fetched transcript when it belongs to the current worker.
+  const fetchedForCurrent =
+    fetched && workerThreadId && fetched.workerThreadId === workerThreadId ? fetched : null;
+  const transcript = liveTranscript.length > 0 ? liveTranscript : (fetchedForCurrent?.items ?? []);
+  const promptText = subagent.prompt ?? fetchedForCurrent?.prompt;
   // The last visible-text item gets the live cursor while the run is in
   // flight (the model is mid-sentence on its final/visible output).
   let lastTextIdx = -1;
@@ -293,6 +303,12 @@ export function SubagentDrawer({
                     : item.status === 'success'
                       ? 'text-sage-700 dark:text-sage-300'
                       : 'text-coral-700 dark:text-coral-300';
+                const statusLabel =
+                  item.status === 'running'
+                    ? t('conversations.subagent.statusRunning')
+                    : item.status === 'success'
+                      ? t('conversations.subagent.statusCompleted')
+                      : t('conversations.subagent.statusFailed');
                 return (
                   <ItemWrapper key={`tl-${item.callId}`} divider={turnDivider}>
                     <div
@@ -302,7 +318,7 @@ export function SubagentDrawer({
                       <span className="font-mono text-stone-700 dark:text-neutral-200">
                         {item.toolName}
                       </span>
-                      <span className={`ml-auto ${callTone}`}>{item.status}</span>
+                      <span className={`ml-auto ${callTone}`}>{statusLabel}</span>
                       {item.elapsedMs != null && item.status !== 'running' ? (
                         <span className="text-[10px] text-stone-400 dark:text-neutral-500">
                           {formatElapsed(item.elapsedMs)}

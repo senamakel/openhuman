@@ -1500,7 +1500,7 @@ async fn run_inner_loop(
             (None, None)
         };
 
-        let resp = provider
+        let chat_result = provider
             .chat(
                 ChatRequest {
                     messages: history.as_slice(),
@@ -1510,14 +1510,17 @@ async fn run_inner_loop(
                 model,
                 temperature,
             )
-            .await?;
+            .await;
 
         // Drop the sender so the forwarder task observes channel close and
-        // terminates instead of leaking once this iteration's stream ends.
+        // terminates instead of leaking. This must run on BOTH the success
+        // and error paths — propagating the provider error with `?` before
+        // joining the forwarder would orphan the task and leak the sender.
         drop(delta_tx_opt);
         if let Some(forwarder) = delta_forwarder {
             let _ = forwarder.await;
         }
+        let resp = chat_result?;
 
         if let Some(ref u) = resp.usage {
             usage.input_tokens += u.input_tokens;

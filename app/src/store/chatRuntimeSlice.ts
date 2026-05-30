@@ -322,7 +322,15 @@ const chatRuntimeSlice = createSlice({
       if (!entry?.subagent) return;
       const transcript = (entry.subagent.transcript ??= []);
       const last = transcript[transcript.length - 1];
-      if (last && (last.kind === 'text' || last.kind === 'thinking') && last.kind === kind) {
+      // Extend the trailing item only when it's the same kind AND the same
+      // iteration — otherwise two same-kind chunks from different turns (with
+      // no tool call between them) would fuse into one transcript entry.
+      if (
+        last &&
+        (last.kind === 'text' || last.kind === 'thinking') &&
+        last.kind === kind &&
+        last.iteration === iteration
+      ) {
         last.text += delta;
       } else {
         transcript.push({ kind, iteration, text: delta });

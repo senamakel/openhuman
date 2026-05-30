@@ -252,6 +252,8 @@ const messages: TranslationMap = {
   'memory.tab.tasks': 'এজেন্ট টাস্ক',
   'memory.tab.tasksDescription': 'টাস্ক তৈরি করুন এবং ট্র্যাক করুন — আপনার নিজের কাজের তালিকা এবং এজেন্টরা কথোপকথন জুড়ে যে বোর্ডগুলি তৈরি করে।',
   'memory.tab.subconscious': 'সাবকনশাস',
+  'memory.tab.workflows': 'Workflows',
+  'memory.tab.workflowsDescription': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
   'memory.tab.dreams': 'স্বপ্ন',
   'memory.tab.calls': 'কল',
   'memory.tab.diagram': 'Diagram',

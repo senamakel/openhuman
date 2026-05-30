@@ -252,6 +252,8 @@ const messages: TranslationMap = {
   'memory.tab.tasks': 'Tugas Agen',
   'memory.tab.tasksDescription': 'Buat dan lacak tugas — to-do Anda sendiri beserta papan yang dibangun agen Anda di berbagai percakapan.',
   'memory.tab.subconscious': 'Bawah sadar',
+  'memory.tab.workflows': 'Workflows',
+  'memory.tab.workflowsDescription': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
   'memory.tab.dreams': 'Mimpi',
   'memory.tab.calls': 'Panggilan',
   'memory.tab.diagram': 'Diagram',

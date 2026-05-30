@@ -252,6 +252,8 @@ const messages: TranslationMap = {
   'memory.tab.tasks': 'Agent-Aufgaben',
   'memory.tab.tasksDescription': 'Aufgaben erstellen und verfolgen – eigene To-dos sowie die Boards, die Agenten in Gesprächen anlegen.',
   'memory.tab.subconscious': 'Unterbewusstsein',
+  'memory.tab.workflows': 'Workflows',
+  'memory.tab.workflowsDescription': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
   'memory.tab.dreams': 'Träume',
   'memory.tab.calls': 'Anrufe',
   'memory.tab.diagram': 'Diagram',

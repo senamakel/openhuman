@@ -252,6 +252,8 @@ const messages: TranslationMap = {
   'memory.tab.tasks': '에이전트 작업',
   'memory.tab.tasksDescription': '작업을 만들고 추적하세요 — 본인의 할 일 목록과 에이전트가 대화를 통해 구성한 보드가 모두 포함됩니다.',
   'memory.tab.subconscious': '잠재의식',
+  'memory.tab.workflows': 'Workflows',
+  'memory.tab.workflowsDescription': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
   'memory.tab.dreams': '꿈',
   'memory.tab.calls': '통화',
   'memory.tab.diagram': 'Diagram',

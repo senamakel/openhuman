@@ -252,6 +252,8 @@ const messages: TranslationMap = {
   'memory.tab.tasks': 'مهام الوكيل',
   'memory.tab.tasksDescription': 'أنشئ المهام وتتبعها — مهامك الخاصة بالإضافة إلى اللوحات التي يبنيها وكلاؤك عبر المحادثات.',
   'memory.tab.subconscious': 'اللاوعي',
+  'memory.tab.workflows': 'Workflows',
+  'memory.tab.workflowsDescription': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
   'memory.tab.dreams': 'الأحلام',
   'memory.tab.calls': 'المكالمات',
   'memory.tab.diagram': 'Diagram',

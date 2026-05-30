@@ -252,6 +252,8 @@ const messages: TranslationMap = {
   'memory.tab.tasks': '智能体任务',
   'memory.tab.tasksDescription': '创建并跟踪任务——包括您自己的待办事项以及智能体在对话中创建的看板。',
   'memory.tab.subconscious': '潜意识',
+  'memory.tab.workflows': 'Workflows',
+  'memory.tab.workflowsDescription': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
   'memory.tab.dreams': '梦境',
   'memory.tab.calls': '调用记录',
   'memory.tab.diagram': 'Diagram',

@@ -898,3 +898,28 @@ fn should_respond_in_group(mentions: &[serde_json::Value]) -> bool {
 #[cfg(test)]
 #[path = "lark_tests.rs"]
 mod tests;
+
+#[cfg(any(test, debug_assertions))]
+pub mod test_support {
+    //! Debug-build helpers for raw integration tests. These expose pure parser
+    //! seams without widening the production API surface.
+
+    use super::*;
+    use tokio_tungstenite::tungstenite::Message as WsMsg;
+
+    pub fn parse_post_content_for_test(content: &str) -> Option<String> {
+        parse_post_content(content)
+    }
+
+    pub fn strip_at_placeholders_for_test(text: &str) -> String {
+        strip_at_placeholders(text)
+    }
+
+    pub fn should_respond_in_group_for_test(mentions: &[serde_json::Value]) -> bool {
+        should_respond_in_group(mentions)
+    }
+
+    pub fn should_refresh_last_recv_for_test(msg: &WsMsg) -> bool {
+        should_refresh_last_recv(msg)
+    }
+}

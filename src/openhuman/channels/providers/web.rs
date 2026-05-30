@@ -283,6 +283,14 @@ pub mod test_support {
         super::is_non_retryable_rate_limit_text(lower)
     }
 
+    pub fn key_for_test(thread_id: &str) -> String {
+        super::key_for(thread_id)
+    }
+
+    pub fn event_session_id_for_test(client_id: &str, thread_id: &str) -> String {
+        super::event_session_id_for(client_id, thread_id)
+    }
+
     pub async fn set_forced_run_chat_task_error_for_test(message: Option<&str>) {
         super::set_test_forced_run_chat_task_error(message).await;
     }

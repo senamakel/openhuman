@@ -21,9 +21,15 @@ use openhuman_core::openhuman::agent::progress::AgentProgress;
 use openhuman_core::openhuman::agent::task_board::{TaskBoard, TaskBoardCard, TaskCardStatus};
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::embeddings::NoopEmbedding;
+use openhuman_core::openhuman::memory::query::{
+    MemoryQueryTool, MemoryTreeDrillDownTool, MemoryTreeFetchLeavesTool,
+    MemoryTreeIngestDocumentTool, MemoryTreeQueryGlobalTool, MemoryTreeQuerySourceTool,
+    MemoryTreeQueryTopicTool, MemoryTreeSearchEntitiesTool, MemoryTreeWalkTool,
+};
 use openhuman_core::openhuman::memory::tree_policy::TreePolicy;
 use openhuman_core::openhuman::memory::tree_source;
 use openhuman_core::openhuman::memory::{
+    all_memory_controller_schemas, all_memory_registered_controllers,
     preferences::{
         load_general_preferences, recall_related_preferences, recall_situational_preferences,
         USER_PREF_GENERAL_NAMESPACE, USER_PREF_SITUATIONAL_NAMESPACE,
@@ -137,6 +143,7 @@ use openhuman_core::openhuman::threads::ThreadsError;
 use openhuman_core::openhuman::threads::{
     all_threads_controller_schemas, all_threads_registered_controllers,
 };
+use openhuman_core::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory};
 
 struct EnvVarGuard {
     key: &'static str,
@@ -869,6 +876,129 @@ async fn memory_thread_tree_and_sync_controller_schemas_execute_public_handlers(
         .await
         .unwrap_err()
         .contains("invalid params"));
+}
+
+#[test]
+fn memory_schema_registries_and_query_tool_metadata_cover_public_surfaces() {
+    let memory_schemas = all_memory_controller_schemas();
+    let memory_controllers = all_memory_registered_controllers();
+    assert_eq!(memory_schemas.len(), 34);
+    assert_eq!(memory_schemas.len(), memory_controllers.len());
+    for function in [
+        "init",
+        "list_documents",
+        "list_namespaces",
+        "delete_document",
+        "query_namespace",
+        "recall_context",
+        "recall_memories",
+        "namespace_list",
+        "doc_put",
+        "doc_ingest",
+        "doc_list",
+        "doc_delete",
+        "context_query",
+        "context_recall",
+        "clear_namespace",
+        "list_files",
+        "read_file",
+        "write_file",
+        "kv_set",
+        "kv_get",
+        "kv_delete",
+        "kv_list_namespace",
+        "graph_upsert",
+        "graph_query",
+        "sync_channel",
+        "sync_all",
+        "ingestion_status",
+        "learn_all",
+        "tool_rule_put",
+        "tool_rule_get",
+        "tool_rule_list",
+        "tool_rule_delete",
+        "tool_rules_for_prompt",
+        "tool_rules_json",
+    ] {
+        let schema = openhuman_core::openhuman::memory::schemas::schemas(function);
+        assert_eq!(schema.namespace, "memory");
+        assert_eq!(schema.function, function);
+        assert!(memory_schemas
+            .iter()
+            .any(|candidate| candidate.function == function));
+    }
+    assert_eq!(
+        openhuman_core::openhuman::memory::schemas::schemas("missing").function,
+        "unknown"
+    );
+
+    let legacy_tree_schemas = openhuman_core::openhuman::memory::schema::all_controller_schemas();
+    let legacy_tree_controllers =
+        openhuman_core::openhuman::memory::schema::all_registered_controllers();
+    assert_eq!(legacy_tree_schemas.len(), 20);
+    assert_eq!(legacy_tree_schemas.len(), legacy_tree_controllers.len());
+    for function in [
+        "ingest",
+        "list_chunks",
+        "get_chunk",
+        "trigger_digest",
+        "memory_backfill_status",
+        "list_sources",
+        "search",
+        "recall",
+        "entity_index_for",
+        "chunks_for_entity",
+        "top_entities",
+        "chunk_score",
+        "delete_chunk",
+        "graph_export",
+        "obsidian_vault_status",
+        "flush_now",
+        "wipe_all",
+        "reset_tree",
+        "pipeline_status",
+        "set_enabled",
+    ] {
+        let schema = openhuman_core::openhuman::memory::schema::schemas(function);
+        assert_eq!(schema.namespace, "memory_tree");
+        assert_eq!(schema.function, function);
+        assert!(legacy_tree_schemas
+            .iter()
+            .any(|candidate| candidate.function == function));
+    }
+    assert_eq!(
+        openhuman_core::openhuman::memory::schema::schemas("missing").function,
+        "unknown"
+    );
+
+    let consolidated = MemoryQueryTool;
+    let schema = consolidated.parameters_schema();
+    assert_eq!(consolidated.name(), "memory_tree");
+    assert_eq!(consolidated.category(), ToolCategory::System);
+    assert_eq!(consolidated.permission_level(), PermissionLevel::ReadOnly);
+    assert!(schema["properties"]["mode"]["enum"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|mode| mode == "walk"));
+
+    for tool in [
+        &MemoryTreeSearchEntitiesTool as &dyn Tool,
+        &MemoryTreeQueryTopicTool,
+        &MemoryTreeQuerySourceTool,
+        &MemoryTreeQueryGlobalTool,
+        &MemoryTreeDrillDownTool,
+        &MemoryTreeFetchLeavesTool,
+        &MemoryTreeIngestDocumentTool,
+        &MemoryTreeWalkTool,
+    ] {
+        assert!(!tool.name().is_empty());
+        assert!(!tool.description().is_empty());
+        assert_eq!(tool.category(), ToolCategory::System);
+        assert_eq!(tool.permission_level(), PermissionLevel::ReadOnly);
+        assert_eq!(tool.parameters_schema()["type"], "object");
+        let _ = tool.is_concurrency_safe(&json!({}));
+    }
 }
 
 #[test]

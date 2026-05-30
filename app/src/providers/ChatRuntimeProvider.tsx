@@ -10,6 +10,8 @@ import {
   type ChatIterationStartEvent,
   type ChatSegmentEvent,
   type ChatSubagentDoneEvent,
+  type ChatSubagentTextDeltaEvent,
+  type ChatSubagentThinkingDeltaEvent,
   type ChatTaskBoardUpdatedEvent,
   type ChatToolCallEvent,
   type ChatToolResultEvent,
@@ -19,6 +21,7 @@ import {
 } from '../services/chatService';
 import { store } from '../store';
 import {
+  appendSubagentStreamDelta,
   clearInferenceStatusForThread,
   clearPendingApprovalForThread,
   clearStreamingAssistantForThread,
@@ -474,6 +477,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                   mode: event.subagent?.mode,
                   dedicatedThread: event.subagent?.dedicated_thread,
                   toolCalls: [],
+                  streamingText: '',
+                  streamingThinking: '',
                 },
               }),
             ],
@@ -585,6 +590,32 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         const next = [...existing];
         next[idx] = { ...entry, subagent: { ...entry.subagent, toolCalls: updatedCalls } };
         dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries: next }));
+      },
+      onSubagentTextDelta: (event: ChatSubagentTextDeltaEvent) => {
+        const taskId = event.subagent?.task_id;
+        const agentId = event.subagent?.agent_id;
+        if (!taskId || !agentId || !event.delta) return;
+        dispatch(
+          appendSubagentStreamDelta({
+            threadId: event.thread_id,
+            rowId: `${event.thread_id}:subagent:${taskId}:${agentId}`,
+            kind: 'text',
+            delta: event.delta,
+          })
+        );
+      },
+      onSubagentThinkingDelta: (event: ChatSubagentThinkingDeltaEvent) => {
+        const taskId = event.subagent?.task_id;
+        const agentId = event.subagent?.agent_id;
+        if (!taskId || !agentId || !event.delta) return;
+        dispatch(
+          appendSubagentStreamDelta({
+            threadId: event.thread_id,
+            rowId: `${event.thread_id}:subagent:${taskId}:${agentId}`,
+            kind: 'thinking',
+            delta: event.delta,
+          })
+        );
       },
       onSegment: (event: ChatSegmentEvent) => {
         const eventKey = `segment:${event.thread_id}:${event.request_id}:${event.segment_index}`;

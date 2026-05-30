@@ -35,7 +35,18 @@ function workerStatusFromEntry(
  * present on the entry, which is true for any row produced by the
  * `subagent_*` socket events from a current core.
  */
-export function SubagentActivityBlock({ subagent }: { subagent: SubagentActivity }) {
+/** Chars of streamed subagent text/thinking shown in the inline card tail. */
+const SUBAGENT_PREVIEW_CHARS = 140;
+
+export function SubagentActivityBlock({
+  subagent,
+  onView,
+}: {
+  subagent: SubagentActivity;
+  /** Opens the full-transcript drawer for this subagent. Omitted in
+   * read-only contexts (e.g. a completed snapshot with no live driver). */
+  onView?: () => void;
+}) {
   const { t } = useT();
   const headerBits: string[] = [];
   if (subagent.mode) headerBits.push(subagent.mode);
@@ -58,6 +69,20 @@ export function SubagentActivityBlock({ subagent }: { subagent: SubagentActivity
         : `${subagent.elapsedMs}ms`
     );
   }
+
+  // Live one-line preview of the subagent's streamed processing: prefer the
+  // visible output tail; fall back to the reasoning tail while the child is
+  // still thinking and hasn't emitted visible text yet. Drives the
+  // at-a-glance "what is it doing right now" affordance on the card.
+  const streamingText = subagent.streamingText ?? '';
+  const streamingThinking = subagent.streamingThinking ?? '';
+  const previewSource = streamingText.length > 0 ? streamingText : streamingThinking;
+  const previewIcon = streamingText.length > 0 ? '📝' : '💭';
+  const preview =
+    previewSource.length > 0
+      ? previewSource.replace(/\s+/g, ' ').trim().slice(-SUBAGENT_PREVIEW_CHARS)
+      : '';
+
   return (
     <div
       className="mt-1 space-y-0.5 text-[10px] text-stone-500 dark:text-neutral-400"
@@ -109,11 +134,37 @@ export function SubagentActivityBlock({ subagent }: { subagent: SubagentActivity
           })}
         </ul>
       ) : null}
+      {preview ? (
+        <div
+          className="flex items-start gap-1 text-[10px] text-stone-500 dark:text-neutral-400"
+          data-testid="subagent-preview">
+          <span aria-hidden>{previewIcon}</span>
+          <span className="line-clamp-2 break-words italic">{preview}</span>
+        </div>
+      ) : null}
+      {onView ? (
+        <button
+          type="button"
+          onClick={onView}
+          data-testid="subagent-view-processing"
+          className="mt-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-ocean-600 hover:bg-ocean-50 dark:text-ocean-300 dark:hover:bg-ocean-500/15">
+          {t('conversations.subagent.viewProcessing')} →
+        </button>
+      ) : null}
     </div>
   );
 }
 
-export function ToolTimelineBlock({ entries }: { entries: ToolTimelineEntry[] }) {
+export function ToolTimelineBlock({
+  entries,
+  onViewSubagent,
+}: {
+  entries: ToolTimelineEntry[];
+  /** Opens the full-transcript drawer for a subagent row. When omitted,
+   * subagent cards render without the "view full processing" affordance
+   * (e.g. interrupted-snapshot rendering with no live driver). */
+  onViewSubagent?: (subagent: SubagentActivity) => void;
+}) {
   const latestRunningEntryId = [...entries].reverse().find(entry => entry.status === 'running')?.id;
 
   const normalizeToolBody = (value?: string): string | undefined => {
@@ -199,7 +250,12 @@ export function ToolTimelineBlock({ entries }: { entries: ToolTimelineEntry[] })
                     {detailContent}
                   </pre>
                 ) : null}
-                {subagent ? <SubagentActivityBlock subagent={subagent} /> : null}
+                {subagent ? (
+                  <SubagentActivityBlock
+                    subagent={subagent}
+                    onView={onViewSubagent ? () => onViewSubagent(subagent) : undefined}
+                  />
+                ) : null}
               </details>
             ) : (
               <div className="ml-1 flex items-center gap-2">

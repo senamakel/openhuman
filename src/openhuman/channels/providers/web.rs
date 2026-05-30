@@ -1252,6 +1252,54 @@ fn spawn_progress_bridge(
                         ..Default::default()
                     });
                 }
+                AgentProgress::SubagentTextDelta {
+                    agent_id,
+                    task_id,
+                    delta,
+                    iteration,
+                } => {
+                    publish_web_channel_event(WebChannelEvent {
+                        event: "subagent_text_delta".to_string(),
+                        client_id: client_id.clone(),
+                        thread_id: thread_id.clone(),
+                        request_id: request_id.clone(),
+                        round: Some(round),
+                        delta: Some(delta),
+                        delta_kind: Some("text".to_string()),
+                        skill_id: Some(task_id.clone()),
+                        subagent: Some(SubagentProgressDetail {
+                            child_iteration: Some(iteration),
+                            agent_id: Some(agent_id),
+                            task_id: Some(task_id),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    });
+                }
+                AgentProgress::SubagentThinkingDelta {
+                    agent_id,
+                    task_id,
+                    delta,
+                    iteration,
+                } => {
+                    publish_web_channel_event(WebChannelEvent {
+                        event: "subagent_thinking_delta".to_string(),
+                        client_id: client_id.clone(),
+                        thread_id: thread_id.clone(),
+                        request_id: request_id.clone(),
+                        round: Some(round),
+                        delta: Some(delta),
+                        delta_kind: Some("thinking".to_string()),
+                        skill_id: Some(task_id.clone()),
+                        subagent: Some(SubagentProgressDetail {
+                            child_iteration: Some(iteration),
+                            agent_id: Some(agent_id),
+                            task_id: Some(task_id),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    });
+                }
                 AgentProgress::TaskBoardUpdated { board } => {
                     log::debug!(
                         "[web_channel][bridge] task_board_updated client_id={} thread_id={} request_id={} cards={}",

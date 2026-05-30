@@ -2555,6 +2555,16 @@ const en: TranslationMap = {
   'conversations.taskKanban.updateFailed': 'Could not update task; changes were not saved.',
   'conversations.toolTimeline.turn': 'turn',
   'conversations.toolTimeline.workerThread': 'worker thread',
+  'conversations.subagent.viewProcessing': 'View full processing',
+  'conversations.subagent.thinking': 'Thinking',
+  'conversations.subagent.response': 'Response',
+  'conversations.subagent.toolCalls': 'Tool calls',
+  'conversations.subagent.working': 'Working…',
+  'conversations.subagent.noOutputYet': 'No output yet',
+  'conversations.subagent.close': 'Close',
+  'conversations.subagent.statusRunning': 'running',
+  'conversations.subagent.statusCompleted': 'completed',
+  'conversations.subagent.statusFailed': 'failed',
   'daemon.serviceBlockingGate.body':
     'Retrying in the background. This usually resolves in a few seconds.',
   'daemon.serviceBlockingGate.downloadHint':

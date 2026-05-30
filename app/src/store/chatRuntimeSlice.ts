@@ -54,6 +54,20 @@ export interface SubagentActivity {
   outputChars?: number;
   /** Child tool calls executed inside the sub-agent, in arrival order. */
   toolCalls: SubagentToolCallEntry[];
+  /**
+   * Live, display-only accumulation of the sub-agent's streamed visible
+   * text, built up from `subagent_text_delta` socket events. Powers the
+   * inline card preview and the full-transcript drawer. Intentionally
+   * **not** persisted to the turn-state snapshot (see the core
+   * `turn_state::mirror` SubagentTextDelta arm) — the child's final
+   * answer lands in the thread on completion, so this is reset to `''`
+   * on rehydration of an older snapshot. Optional so legacy/test
+   * fixtures that predate streaming stay assignable — absent means
+   * "nothing streamed yet".
+   */
+  streamingText?: string;
+  /** Live, display-only accumulation of streamed reasoning. See `streamingText`. */
+  streamingThinking?: string;
 }
 
 /** One child tool call performed by a running sub-agent. */
@@ -182,6 +196,11 @@ function subagentActivityFromPersisted(activity: PersistedSubagentActivity): Sub
     elapsedMs: activity.elapsedMs,
     outputChars: activity.outputChars,
     toolCalls: activity.toolCalls.map(subagentToolCallFromPersisted),
+    // Streaming text/thinking is live-only and never persisted; a
+    // rehydrated subagent row starts with empty buffers (the final
+    // answer already lives in the thread history).
+    streamingText: '',
+    streamingThinking: '',
   };
 }
 
@@ -229,6 +248,35 @@ const chatRuntimeSlice = createSlice({
     },
     clearToolTimelineForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.toolTimelineByThread[action.payload.threadId];
+    },
+    /**
+     * Append a streamed `subagent_text_delta` / `subagent_thinking_delta`
+     * chunk to the live transcript of the matching subagent row. The row
+     * is located by its synthetic id (`<thread>:subagent:<taskId>:<agentId>`)
+     * built from the event's subagent detail — the same id the
+     * `subagent_spawned` handler created. No-ops if the row isn't present
+     * yet (a delta racing ahead of its spawn event is dropped rather than
+     * resurrecting a row with no lifecycle context).
+     */
+    appendSubagentStreamDelta: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        rowId: string;
+        kind: 'text' | 'thinking';
+        delta: string;
+      }>
+    ) => {
+      const { threadId, rowId, kind, delta } = action.payload;
+      const entries = state.toolTimelineByThread[threadId];
+      if (!entries) return;
+      const entry = entries.find(e => e.id === rowId);
+      if (!entry?.subagent) return;
+      if (kind === 'text') {
+        entry.subagent.streamingText = (entry.subagent.streamingText ?? '') + delta;
+      } else {
+        entry.subagent.streamingThinking = (entry.subagent.streamingThinking ?? '') + delta;
+      }
     },
     setTaskBoardForThread: (
       state,
@@ -356,6 +404,7 @@ export const {
   clearStreamingAssistantForThread,
   setToolTimelineForThread,
   clearToolTimelineForThread,
+  appendSubagentStreamDelta,
   setTaskBoardForThread,
   clearTaskBoardForThread,
   setPendingApprovalForThread,

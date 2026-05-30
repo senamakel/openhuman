@@ -265,6 +265,17 @@ impl TurnStateMirror {
                 }
                 false
             }
+            AgentProgress::SubagentTextDelta { .. }
+            | AgentProgress::SubagentThinkingDelta { .. } => {
+                // Sub-agent streaming text/thinking is display-only: it is
+                // rendered live in the parent thread's subagent transcript
+                // but intentionally **not** persisted to the turn-state
+                // snapshot. The child's final assistant text lands in the
+                // thread on completion, so replaying partial deltas after a
+                // reconnect would add weight without value. Acknowledge
+                // without mutating the snapshot or flushing.
+                false
+            }
             AgentProgress::TaskBoardUpdated { board } => {
                 self.state.task_board = Some(board.clone());
                 self.flush();

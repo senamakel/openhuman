@@ -86,6 +86,16 @@ const pl4: TranslationMap = {
   'conversations.taskKanban.title': 'Zadania',
   'conversations.toolTimeline.turn': 'tura',
   'conversations.toolTimeline.workerThread': 'wątek workera',
+  'conversations.subagent.viewProcessing': 'View full processing',
+  'conversations.subagent.thinking': 'Thinking',
+  'conversations.subagent.response': 'Response',
+  'conversations.subagent.toolCalls': 'Tool calls',
+  'conversations.subagent.working': 'Working…',
+  'conversations.subagent.noOutputYet': 'No output yet',
+  'conversations.subagent.close': 'Close',
+  'conversations.subagent.statusRunning': 'running',
+  'conversations.subagent.statusCompleted': 'completed',
+  'conversations.subagent.statusFailed': 'failed',
   // daemon
   'daemon.serviceBlockingGate.body':
     'Rdzeń OpenHuman nie odpowiada. Spróbuj ponownie lub pobierz najnowszą wersję aplikacji.',

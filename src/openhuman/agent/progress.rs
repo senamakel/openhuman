@@ -132,6 +132,34 @@ pub enum AgentProgress {
         iteration: u32,
     },
 
+    /// A chunk of a sub-agent's visible assistant text arrived from the
+    /// provider while the child iteration is still in flight. Distinct
+    /// from [`Self::TextDelta`] so the parent thread can attribute the
+    /// streamed token to a specific live subagent row (via `task_id`)
+    /// and render it inside that row's transcript instead of merging it
+    /// into the parent's own streaming buffer. Emitted **only from
+    /// inside [`crate::openhuman::agent::harness::subagent_runner`]** when
+    /// the parent context carries an `on_progress` sink.
+    SubagentTextDelta {
+        agent_id: String,
+        task_id: String,
+        delta: String,
+        /// 1-based child iteration index this delta belongs to.
+        iteration: u32,
+    },
+
+    /// A chunk of a sub-agent's model reasoning / thinking output
+    /// arrived (for models that emit `reasoning_content`). Counterpart
+    /// to [`Self::ThinkingDelta`] scoped to a child run — see
+    /// [`Self::SubagentTextDelta`] for the attribution rationale.
+    SubagentThinkingDelta {
+        agent_id: String,
+        task_id: String,
+        delta: String,
+        /// 1-based child iteration index.
+        iteration: u32,
+    },
+
     /// The agent rewrote the per-thread task board. Emitted by the
     /// `todo` tool (or `openhuman.todos_*` RPC) after the board has been persisted.
     TaskBoardUpdated {

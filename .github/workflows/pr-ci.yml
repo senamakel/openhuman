@@ -493,6 +493,31 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  playwright-e2e-gate:
+    name: Playwright E2E Gate
+    # Fixed-name aggregator over the 4 dynamic shard checks. Branch protection
+    # can require this single job instead of the per-shard matrix names (which
+    # change if the shard count changes). if: always() so it runs even when a
+    # shard is failed/skipped and can report the real aggregate result.
+    needs: [playwright-e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all Playwright shards to pass
+        run: |
+          result="${{ needs.playwright-e2e.result }}"
+          echo "Playwright web lane aggregate result: ${result}"
+          # NOTE: the shards currently carry continue-on-error: true, so this
+          # aggregate is 'success' even when a shard hit a known flake — the
+          # gate passes today. Once continue-on-error is removed from the shards
+          # (after the flakes are fixed) this same check enforces a real pass.
+          if [ "${result}" = "success" ]; then
+            echo "Playwright shards passed."
+            exit 0
+          fi
+          echo "::error::Playwright web lane did not succeed (result=${result})."
+          exit 1
+
   coverage-gate:
     name: Coverage Gate (diff-cover >= 80%)
     needs: [frontend-coverage, rust-core-coverage, rust-tauri-coverage]

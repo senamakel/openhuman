@@ -32,9 +32,10 @@ use openhuman_core::openhuman::config::schema::{
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
     migrate_legacy_fields, AuditConfig, AuthStyle, CapabilityProviderConfig,
     CapabilityProviderTrustState, CloudProviderCreds, CloudProviderType, DashboardConfig,
-    EventStreamConfig, MemoryConfig, MemoryContextWindow, ModelHealthConfig,
-    OrchestratorModelConfig, ProxyConfig, ProxyScope, ResourceLimitsConfig, SandboxConfig,
-    SecurityConfig, SttApiStyle, TelegramConfig, TtsApiStyle, VoiceCapability, VoiceProviderCreds,
+    DingTalkConfig, DiscordConfig, EventStreamConfig, IrcConfig, LarkConfig, MatrixConfig,
+    MemoryConfig, MemoryContextWindow, ModelHealthConfig, OrchestratorModelConfig, ProxyConfig,
+    ProxyScope, QQConfig, ResourceLimitsConfig, SandboxConfig, SecurityConfig, SlackConfig,
+    SttApiStyle, TelegramConfig, TtsApiStyle, VoiceCapability, VoiceProviderCreds, WebhookConfig,
     WhatsAppConfig,
 };
 use openhuman_core::openhuman::config::settings_cli::{
@@ -1956,6 +1957,182 @@ async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
     assert_eq!(
         config.context.summarizer_model.as_deref(),
         Some("summary-env")
+    );
+}
+
+#[tokio::test]
+async fn config_save_and_load_encrypts_channel_secret_fields() {
+    let _lock = env_lock();
+    let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path().join("home");
+    let _guards = vec![
+        EnvVarGuard::set_to_path("HOME", &home),
+        EnvVarGuard::unset("OPENHUMAN_WORKSPACE"),
+        EnvVarGuard::unset(APP_ENV_VAR),
+        EnvVarGuard::unset(VITE_APP_ENV_VAR),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_STRICT", "false"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_ENDPOINT", ""),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_MODEL", ""),
+    ];
+    let config_path = home
+        .join(".openhuman")
+        .join("users")
+        .join("local")
+        .join("config.toml");
+    let workspace_dir = config_path
+        .parent()
+        .expect("config parent")
+        .join("workspace");
+
+    let mut config = Config::default();
+    config.config_path = config_path.clone();
+    config.workspace_dir = workspace_dir.clone();
+    config.secrets.encrypt = true;
+    config.api_key = Some("api-secret".into());
+    config.search.parallel.api_key = Some("parallel-secret".into());
+    config.search.brave.api_key = Some("brave-secret".into());
+    config.search.querit.api_key = Some("querit-secret".into());
+    config.channels_config.telegram = Some(TelegramConfig {
+        bot_token: "telegram-secret".into(),
+        allowed_users: vec!["alice".into()],
+        stream_mode: Default::default(),
+        draft_update_interval_ms: 1000,
+        silent_streaming: true,
+        mention_only: false,
+    });
+    config.channels_config.discord = Some(DiscordConfig {
+        bot_token: "discord-secret".into(),
+        guild_id: Some("guild".into()),
+        channel_id: Some("channel".into()),
+        allowed_users: vec![],
+        listen_to_bots: false,
+        mention_only: false,
+    });
+    config.channels_config.slack = Some(SlackConfig {
+        bot_token: "slack-bot-secret".into(),
+        app_token: Some("slack-app-secret".into()),
+        channel_id: Some("C123".into()),
+        allowed_users: vec![],
+    });
+    config.channels_config.matrix = Some(MatrixConfig {
+        homeserver: "https://matrix.example.test".into(),
+        access_token: "matrix-secret".into(),
+        user_id: Some("@worker:example.test".into()),
+        device_id: None,
+        room_id: "!room:example.test".into(),
+        allowed_users: vec![],
+    });
+    config.channels_config.whatsapp = Some(WhatsAppConfig {
+        access_token: Some("whatsapp-access-secret".into()),
+        phone_number_id: Some("phone".into()),
+        verify_token: Some("whatsapp-verify-secret".into()),
+        app_secret: Some("whatsapp-app-secret".into()),
+        session_path: None,
+        pair_phone: None,
+        pair_code: None,
+        allowed_numbers: vec![],
+    });
+    config.channels_config.webhook = Some(WebhookConfig {
+        port: 0,
+        secret: Some("webhook-secret".into()),
+    });
+    config.channels_config.irc = Some(IrcConfig {
+        server: "irc.example.test".into(),
+        port: 6697,
+        nickname: "worker".into(),
+        username: Some("worker".into()),
+        channels: vec!["#openhuman".into()],
+        allowed_users: vec![],
+        server_password: Some("irc-server-secret".into()),
+        nickserv_password: Some("irc-nickserv-secret".into()),
+        sasl_password: Some("irc-sasl-secret".into()),
+        verify_tls: Some(true),
+    });
+    config.channels_config.lark = Some(LarkConfig {
+        app_id: "lark-app".into(),
+        app_secret: "lark-app-secret".into(),
+        encrypt_key: Some("lark-encrypt-secret".into()),
+        verification_token: Some("lark-verify-secret".into()),
+        allowed_users: vec![],
+        use_feishu: false,
+        receive_mode: Default::default(),
+        port: None,
+    });
+    config.channels_config.dingtalk = Some(DingTalkConfig {
+        client_id: "dingtalk-client".into(),
+        client_secret: "dingtalk-secret".into(),
+        allowed_users: vec![],
+    });
+    config.channels_config.qq = Some(QQConfig {
+        app_id: "qq-app".into(),
+        app_secret: "qq-secret".into(),
+        allowed_users: vec![],
+    });
+
+    config.save().await.expect("save encrypted config");
+    let raw = std::fs::read_to_string(&config_path).expect("read saved encrypted config");
+    for secret in [
+        "api-secret",
+        "parallel-secret",
+        "telegram-secret",
+        "discord-secret",
+        "slack-bot-secret",
+        "slack-app-secret",
+        "matrix-secret",
+        "whatsapp-access-secret",
+        "webhook-secret",
+        "irc-server-secret",
+        "lark-app-secret",
+        "dingtalk-secret",
+        "qq-secret",
+    ] {
+        assert!(
+            !raw.contains(secret),
+            "saved encrypted config should not contain plaintext {secret}: {raw}"
+        );
+    }
+
+    let loaded = Config::load_or_init()
+        .await
+        .expect("load encrypted config from default path");
+    assert_eq!(loaded.config_path, config_path);
+    assert_eq!(loaded.api_key.as_deref(), Some("api-secret"));
+    assert_eq!(
+        loaded.search.parallel.api_key.as_deref(),
+        Some("parallel-secret")
+    );
+    assert_eq!(
+        loaded
+            .channels_config
+            .telegram
+            .as_ref()
+            .map(|telegram| telegram.bot_token.as_str()),
+        Some("telegram-secret")
+    );
+    assert_eq!(
+        loaded
+            .channels_config
+            .slack
+            .as_ref()
+            .and_then(|slack| slack.app_token.as_deref()),
+        Some("slack-app-secret")
+    );
+    assert_eq!(
+        loaded
+            .channels_config
+            .lark
+            .as_ref()
+            .map(|lark| lark.app_secret.as_str()),
+        Some("lark-app-secret")
+    );
+    assert_eq!(
+        loaded
+            .channels_config
+            .qq
+            .as_ref()
+            .map(|qq| qq.app_secret.as_str()),
+        Some("qq-secret")
     );
 }
 
@@ -4999,6 +5176,87 @@ async fn connectivity_pick_listen_port_uses_fallback_when_preferred_is_busy() {
 }
 
 #[tokio::test]
+async fn connectivity_pick_listen_port_covers_direct_bind_and_exhausted_fallbacks() {
+    let _lock = env_lock();
+
+    let direct =
+        openhuman_core::openhuman::connectivity::rpc::pick_listen_port_for_host("127.0.0.1", 0)
+            .await
+            .expect("port 0 should bind directly");
+    assert_eq!(direct.fallback_from, None);
+    drop(direct.listener);
+
+    let mut held_listeners = Vec::new();
+    let mut preferred = None;
+    for _ in 0..50 {
+        held_listeners.clear();
+        let base_listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind base listener");
+        let base = base_listener.local_addr().expect("base addr").port();
+        if base > u16::MAX - 10 {
+            continue;
+        }
+        held_listeners.push(base_listener);
+        let mut complete_range = true;
+        for port in (base + 1)..=(base + 10) {
+            match std::net::TcpListener::bind(("127.0.0.1", port)) {
+                Ok(listener) => held_listeners.push(listener),
+                Err(_) => {
+                    complete_range = false;
+                    break;
+                }
+            }
+        }
+        if complete_range {
+            preferred = Some(base);
+            break;
+        }
+    }
+    let preferred = preferred.expect("reserve preferred port and fallback range");
+    let exhausted = openhuman_core::openhuman::connectivity::rpc::pick_listen_port_for_host(
+        "127.0.0.1",
+        preferred,
+    )
+    .await
+    .expect_err("busy preferred and fallback range should fail");
+    match &exhausted {
+        openhuman_core::openhuman::connectivity::rpc::PickListenPortError::NoAvailablePort {
+            preferred: err_preferred,
+            attempted,
+            fingerprint,
+        } => {
+            assert_eq!(*err_preferred, preferred);
+            assert_eq!(attempted.len(), 10);
+            assert!(
+                fingerprint.contains("probe"),
+                "non-OpenHuman listeners should be identified by probe details: {fingerprint}"
+            );
+        }
+        other => panic!("unexpected exhausted port error: {other:?}"),
+    }
+    assert!(
+        exhausted
+            .to_string()
+            .contains("no fallback ports available"),
+        "Display should explain exhausted fallbacks: {exhausted}"
+    );
+
+    let takeover =
+        openhuman_core::openhuman::connectivity::rpc::PickListenPortError::WouldTakeOver {
+            preferred,
+            fingerprint: "openhuman-core".into(),
+        };
+    assert!(takeover
+        .to_string()
+        .contains("stale-listener takeover required"));
+    let bind_failed =
+        openhuman_core::openhuman::connectivity::rpc::PickListenPortError::BindFailed {
+            port: preferred,
+            reason: "synthetic bind failure".into(),
+        };
+    assert!(bind_failed.to_string().contains("synthetic bind failure"));
+}
+
+#[tokio::test]
 async fn connectivity_diag_reports_runtime_port_sources() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -5034,6 +5292,25 @@ async fn connectivity_diag_reports_runtime_port_sources() {
             .is_some(),
         "diag should expose listen_port_in_use: {diag_payload}"
     );
+
+    {
+        let _rpc_url = EnvVarGuard::set("OPENHUMAN_CORE_RPC_URL", "http://127.0.0.1:4567/rpc");
+        let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", "7788");
+        let snapshot = openhuman_core::openhuman::connectivity::rpc::snapshot();
+        assert_eq!(snapshot.listen_port, 4567);
+    }
+    {
+        let _rpc_url = EnvVarGuard::set("OPENHUMAN_CORE_RPC_URL", "not a url");
+        let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", "4568");
+        let snapshot = openhuman_core::openhuman::connectivity::rpc::snapshot();
+        assert_eq!(snapshot.listen_port, 4568);
+    }
+    {
+        let _rpc_url = EnvVarGuard::unset("OPENHUMAN_CORE_RPC_URL");
+        let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", "not-a-port");
+        let snapshot = openhuman_core::openhuman::connectivity::rpc::snapshot();
+        assert_eq!(snapshot.listen_port, 7788);
+    }
 
     harness.join.abort();
 }

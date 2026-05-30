@@ -81,8 +81,7 @@ const messages: TranslationMap = {
   'settings.about': 'সম্পর্কে',
   'settings.aboutDesc': 'অ্যাপ ভার্সন এবং সফটওয়্যার আপডেট',
   'settings.developerOptions': 'অ্যাডভান্সড',
-  'settings.developerOptionsDesc':
-    'AI কনফিগারেশন, মেসেজিং চ্যানেল, টুলস, ডায়াগনস্টিক্স এবং ডিবাগ প্যানেল',
+  'settings.developerOptionsDesc': 'AI কনফিগারেশন, মেসেজিং চ্যানেল, টুলস, ডায়াগনস্টিক্স এবং ডিবাগ প্যানেল',
   'settings.clearAppData': 'অ্যাপ ডেটা মুছুন',
   'settings.clearAppDataDesc': 'সাইন আউট করুন এবং সব লোকাল ডেটা স্থায়ীভাবে মুছুন',
   'settings.logOut': 'লগ আউট',
@@ -103,22 +102,19 @@ const messages: TranslationMap = {
   'settings.account.privacy': 'গোপনীয়তা',
   'settings.account.privacyDesc': 'আপনার কম্পিউটার থেকে কোন ডেটা বাইরে যাচ্ছে তা নিয়ন্ত্রণ করুন',
   'migration.title': 'অন্য সহকারী থেকে আমদানি করুন',
-  'migration.description':
-    'অন্য একটি লোকাল সহকারী থেকে মেমরি ও নোট এই ওয়ার্কস্পেসে স্থানান্তর করুন। প্রথমে Preview চালিয়ে দেখুন ঠিক কী বদলাবে, তারপর Apply চাপলে ডেটা কপি হবে। আপনার বর্তমান মেমরি আগে ব্যাকআপ নেওয়া হবে।',
+  'migration.description': 'অন্য একটি লোকাল সহকারী থেকে মেমরি ও নোট এই ওয়ার্কস্পেসে স্থানান্তর করুন। প্রথমে Preview চালিয়ে দেখুন ঠিক কী বদলাবে, তারপর Apply চাপলে ডেটা কপি হবে। আপনার বর্তমান মেমরি আগে ব্যাকআপ নেওয়া হবে।',
   'migration.vendorLabel': 'উৎস',
   'migration.vendor.openclaw': 'OpenClaw',
   'migration.vendor.hermes': 'Hermes Agent',
   'migration.sourceLabel': 'উৎস ওয়ার্কস্পেসের পাথ (ঐচ্ছিক)',
   'migration.sourcePlaceholder': 'অটো-ডিটেক্টের জন্য খালি রাখুন (যেমন ~/.openclaw/workspace)',
   'migration.sourcePlaceholderHermes': 'স্বয়ংক্রিয়ভাবে সনাক্ত করতে খালি রাখুন (যেমন ~/.hermes)',
-  'migration.sourceHint':
-    'খালি রাখলে উৎসের ডিফল্ট লোকেশন ব্যবহার হবে। ওয়ার্কস্পেস সরিয়ে থাকলে স্পষ্ট পাথ দিন।',
+  'migration.sourceHint': 'খালি রাখলে উৎসের ডিফল্ট লোকেশন ব্যবহার হবে। ওয়ার্কস্পেস সরিয়ে থাকলে স্পষ্ট পাথ দিন।',
   'migration.previewAction': 'প্রিভিউ',
   'migration.previewRunning': 'প্রিভিউ চলছে…',
   'migration.applyAction': 'আমদানি প্রয়োগ করুন',
   'migration.applyRunning': 'আমদানি হচ্ছে…',
-  'migration.applyDisclaimer':
-    'একই উৎসের সফল Preview হলেই Apply খুলবে। যে কোনো আমদানির আগে বর্তমান মেমরির ব্যাকআপ নেওয়া হয়।',
+  'migration.applyDisclaimer': 'একই উৎসের সফল Preview হলেই Apply খুলবে। যে কোনো আমদানির আগে বর্তমান মেমরির ব্যাকআপ নেওয়া হয়।',
   'migration.reportTitlePreview': 'প্রিভিউ — এখনো কিছু আমদানি হয়নি',
   'migration.reportTitleApplied': 'আমদানি সম্পন্ন',
   'migration.report.source': 'উৎস ওয়ার্কস্পেস',
@@ -130,12 +126,9 @@ const messages: TranslationMap = {
   'migration.report.renamedConflicts': 'দ্বন্দ্বে নাম বদলানো হয়েছে',
   'migration.report.warnings': 'সতর্কতা',
   'migration.report.previewHint': 'এখনো কোনো ডেটা আমদানি হয়নি। কপি করতে Apply চাপুন।',
-  'migration.report.appliedHint':
-    'আমদানিকৃত এন্ট্রি এখন আপনার মেমরিতে আছে। তুলনা করতে আবার Preview চালান।',
-  'migration.confirmImport.singular':
-    'বর্তমান ওয়ার্কস্পেসে {count}টি এন্ট্রি আমদানি করবেন?\n\nউৎস: {source}\nলক্ষ্য: {target}\n\nআমদানির আগে বর্তমান মেমরির ব্যাকআপ নেওয়া হবে।',
-  'migration.confirmImport.plural':
-    'বর্তমান ওয়ার্কস্পেসে {count}টি এন্ট্রি আমদানি করবেন?\n\nউৎস: {source}\nলক্ষ্য: {target}\n\nআমদানির আগে বর্তমান মেমরির ব্যাকআপ নেওয়া হবে।',
+  'migration.report.appliedHint': 'আমদানিকৃত এন্ট্রি এখন আপনার মেমরিতে আছে। তুলনা করতে আবার Preview চালান।',
+  'migration.confirmImport.singular': 'বর্তমান ওয়ার্কস্পেসে {count}টি এন্ট্রি আমদানি করবেন?\n\nউৎস: {source}\nলক্ষ্য: {target}\n\nআমদানির আগে বর্তমান মেমরির ব্যাকআপ নেওয়া হবে।',
+  'migration.confirmImport.plural': 'বর্তমান ওয়ার্কস্পেসে {count}টি এন্ট্রি আমদানি করবেন?\n\nউৎস: {source}\nলক্ষ্য: {target}\n\nআমদানির আগে বর্তমান মেমরির ব্যাকআপ নেওয়া হবে।',
   'settings.notifications.doNotDisturb': 'ডু নট ডিস্টার্ব',
   'settings.notifications.doNotDisturbDesc': 'নির্দিষ্ট সময়ের জন্য সব বিজ্ঞপ্তি বন্ধ রাখুন',
   'settings.notifications.channelControls': 'চ্যানেল-ভিত্তিক নিয়ন্ত্রণ',
@@ -162,16 +155,13 @@ const messages: TranslationMap = {
   'clearData.failedLogout': 'লগ আউট করতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
   'clearData.failedPersist': 'অ্যাপ স্টেট মুছতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
   'welcome.title': 'OpenHuman-এ স্বাগতম',
-  'welcome.subtitle':
-    'আপনার ব্যক্তিগত AI সুপার ইন্টেলিজেন্স। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
+  'welcome.subtitle': 'আপনার ব্যক্তিগত AI সুপার ইন্টেলিজেন্স। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
   'welcome.connectPrompt': 'RPC URL কনফিগার করুন (অ্যাডভান্সড)',
   'welcome.selectRuntime': 'একটি রানটাইম বেছে নিন',
   'welcome.clearingAppData': 'অ্যাপ ডেটা সাফ করা হচ্ছে...',
   'welcome.clearAppDataAndRestart': 'অ্যাপ ডেটা সাফ করুন এবং পুনরায় চালু করুন',
-  'welcome.clearAppDataWarning':
-    'এটি এই ডিভাইসে স্থানীয়ভাবে সংরক্ষিত সিক্রেট এবং অ্যাকাউন্ট মুছে দেয়। আপনার ক্লাউড অ্যাকাউন্ট প্রভাবিত হয় না — আপনি এরপরই আবার সাইন ইন করতে পারবেন।',
-  'welcome.resetErrorFallback':
-    'অ্যাপ ডেটা মুছতে পারেনি। OpenHuman বন্ধ করে আবার খুলুন, তারপর আবার চেষ্টা করুন।',
+  'welcome.clearAppDataWarning': 'এটি এই ডিভাইসে স্থানীয়ভাবে সংরক্ষিত সিক্রেট এবং অ্যাকাউন্ট মুছে দেয়। আপনার ক্লাউড অ্যাকাউন্ট প্রভাবিত হয় না — আপনি এরপরই আবার সাইন ইন করতে পারবেন।',
+  'welcome.resetErrorFallback': 'অ্যাপ ডেটা মুছতে পারেনি। OpenHuman বন্ধ করে আবার খুলুন, তারপর আবার চেষ্টা করুন।',
   'welcome.signingIn': 'আপনাকে সাইন ইন করা হচ্ছে...',
   'welcome.termsIntro': 'চালিয়ে যাওয়ার মাধ্যমে, আপনি',
   'welcome.termsOfUse': 'শর্তাবলীতে সম্মত হন',
@@ -186,20 +176,16 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'শুভ বিকেল',
   'home.greetingEvening': 'শুভ সন্ধ্যা',
   'home.askAssistant': 'আপনার অ্যাসিস্ট্যান্টকে যেকোনো কিছু জিজ্ঞেস করুন...',
-  'home.statusOk':
-    'আপনার ডিভাইস সংযুক্ত। সংযোগ সক্রিয় রাখতে অ্যাপটি চালু রাখুন। নিচের বাটন দিয়ে এজেন্টকে মেসেজ করুন।',
+  'home.statusOk': 'আপনার ডিভাইস সংযুক্ত। সংযোগ সক্রিয় রাখতে অ্যাপটি চালু রাখুন। নিচের বাটন দিয়ে এজেন্টকে মেসেজ করুন।',
   'home.statusBackendOnly': 'ব্যাকএন্ডে পুনরায় সংযোগ হচ্ছে… আপনার এজেন্ট শীঘ্রই আবার পাওয়া যাবে।',
-  'home.statusCoreUnreachable':
-    'লোকাল কোর সাইডকার সাড়া দিচ্ছে না। OpenHuman ব্যাকগ্রাউন্ড প্রসেস ক্র্যাশ হয়েছে বা শুরু হয়নি।',
-  'home.statusInternetOffline':
-    'আপনার ডিভাইস এখন অফলাইনে। নেটওয়ার্ক পরীক্ষা করুন বা অ্যাপ রিস্টার্ট করুন।',
+  'home.statusCoreUnreachable': 'লোকাল কোর সাইডকার সাড়া দিচ্ছে না। OpenHuman ব্যাকগ্রাউন্ড প্রসেস ক্র্যাশ হয়েছে বা শুরু হয়নি।',
+  'home.statusInternetOffline': 'আপনার ডিভাইস এখন অফলাইনে। নেটওয়ার্ক পরীক্ষা করুন বা অ্যাপ রিস্টার্ট করুন।',
   'home.restartCore': 'কোর রিস্টার্ট',
   'home.restartingCore': 'কোর রিস্টার্ট হচ্ছে…',
   'home.themeToggle.toLight': 'লাইট মোডে স্যুইচ করুন',
   'home.themeToggle.toDark': 'ডার্ক মোডে স্যুইচ করুন',
   'home.usageExhaustedTitle': 'আপনার ব্যবহার শেষ হয়ে গেছে',
-  'home.usageExhaustedBody':
-    'আপাতত আপনার অন্তর্ভুক্ত ব্যবহার শেষ। আরও ধারাবাহিক সক্ষমতা আনলক করতে একটি সাবস্ক্রিপশন শুরু করুন।',
+  'home.usageExhaustedBody': 'আপাতত আপনার অন্তর্ভুক্ত ব্যবহার শেষ। আরও ধারাবাহিক সক্ষমতা আনলক করতে একটি সাবস্ক্রিপশন শুরু করুন।',
   'home.usageExhaustedCta': 'সাবস্ক্রিপশন শুরু করুন',
   'home.routinesCard': 'আপনার রুটিন',
   'home.routinesActive': '{count}টি সক্রিয়',
@@ -207,8 +193,7 @@ const messages: TranslationMap = {
   'routines.subtitle': 'আপনার সহকারী স্বয়ংক্রিয়ভাবে যা কিছু করেন',
   'routines.loading': 'তালিকা লোড করা হচ্ছে...',
   'routines.empty': 'এখনই নেই',
-  'routines.emptyHint':
-    'আপনার সহকারী কোনো তালিকাতে কাজ করতে পারে — যেমন সকালের সংক্ষিপ্ত বিবরণ অথবা রোজকার তালিকা ।',
+  'routines.emptyHint': 'আপনার সহকারী কোনো তালিকাতে কাজ করতে পারে — যেমন সকালের সংক্ষিপ্ত বিবরণ অথবা রোজকার তালিকা ।',
   'routines.refresh': 'নতুন করে প্রদর্শন',
   'routines.nextRun': 'পরবর্তী চালনা',
   'routines.lastRunSuccess': 'সর্বশেষ সঞ্চালিত হয়েছে',
@@ -251,11 +236,9 @@ const messages: TranslationMap = {
   'skills.addAccount': 'অ্যাকাউন্ট যোগ করুন',
   'skills.channels': 'চ্যানেল',
   'skills.integrations': 'ইন্টিগ্রেশন',
-  'skills.integrationsSubtitle':
-    'ক্লাউড-ভিত্তিক OAuth সংযোগ — আপনার অ্যাকাউন্ট দিয়ে সাইন ইন করুন এবং Composio টোকেন পরিচালনা করে যাতে এজেন্টরা আপনার পক্ষে পড়তে এবং কাজ করতে পারে। কোনো API কী পরিচালনা করতে হবে না।',
+  'skills.integrationsSubtitle': 'ক্লাউড-ভিত্তিক OAuth সংযোগ — আপনার অ্যাকাউন্ট দিয়ে সাইন ইন করুন এবং Composio টোকেন পরিচালনা করে যাতে এজেন্টরা আপনার পক্ষে পড়তে এবং কাজ করতে পারে। কোনো API কী পরিচালনা করতে হবে না।',
   'skills.composio.noApiKeyTitle': 'কোনো Composio API Key কনফিগার করা নেই',
-  'skills.composio.noApiKeyDescription':
-    'লোকাল মোডে আপনার নিজের Composio API key ব্যবহার হয়। এখানে ইন্টিগ্রেশন যুক্ত করার আগে Settings → Advanced → Composio খুলে একটি key যোগ করুন।',
+  'skills.composio.noApiKeyDescription': 'লোকাল মোডে আপনার নিজের Composio API key ব্যবহার হয়। এখানে ইন্টিগ্রেশন যুক্ত করার আগে Settings → Advanced → Composio খুলে একটি key যোগ করুন।',
   'skills.composio.noApiKeyCta': 'সেটিংসে খুলুন',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'চ্যানেল',
@@ -264,12 +247,10 @@ const messages: TranslationMap = {
   'memory.title': 'মেমোরি',
   'memory.search': 'মেমোরি খুঁজুন...',
   'memory.noResults': 'কোনো মেমোরি পাওয়া যায়নি',
-  'memory.empty':
-    'এখনো কোনো মেমোরি নেই। আপনি যত ইন্টারঅ্যাক্ট করবেন, মেমোরি স্বয়ংক্রিয়ভাবে তৈরি হবে।',
+  'memory.empty': 'এখনো কোনো মেমোরি নেই। আপনি যত ইন্টারঅ্যাক্ট করবেন, মেমোরি স্বয়ংক্রিয়ভাবে তৈরি হবে।',
   'memory.tab.memory': 'মেমোরি',
   'memory.tab.tasks': 'এজেন্ট টাস্ক',
-  'memory.tab.tasksDescription':
-    'টাস্ক তৈরি করুন এবং ট্র্যাক করুন — আপনার নিজের কাজের তালিকা এবং এজেন্টরা কথোপকথন জুড়ে যে বোর্ডগুলি তৈরি করে।',
+  'memory.tab.tasksDescription': 'টাস্ক তৈরি করুন এবং ট্র্যাক করুন — আপনার নিজের কাজের তালিকা এবং এজেন্টরা কথোপকথন জুড়ে যে বোর্ডগুলি তৈরি করে।',
   'memory.tab.subconscious': 'সাবকনশাস',
   'memory.tab.dreams': 'স্বপ্ন',
   'memory.tab.calls': 'কল',
@@ -278,14 +259,12 @@ const messages: TranslationMap = {
   'memory.tab.settings': 'সেটিংস',
   'memory.analyzeNow': 'এখনই বিশ্লেষণ করুন',
   'graphCentrality.title': 'জ্ঞান গ্রাফ',
-  'graphCentrality.intro':
-    'আপনার মেমরি গ্রাফের উপর প্রদর্শিত পেজের ছবি- এবং সংযোগকারী সত্তার সাথে সংযুক্ত একটি সংযুক্ত চক্রের সংযোগ রয়েছে, যা একটি raw ফ্রিকোয়েন্সি গণনা প্রকাশ করতে পারে না।',
+  'graphCentrality.intro': 'আপনার মেমরি গ্রাফের উপর প্রদর্শিত পেজের ছবি- এবং সংযোগকারী সত্তার সাথে সংযুক্ত একটি সংযুক্ত চক্রের সংযোগ রয়েছে, যা একটি raw ফ্রিকোয়েন্সি গণনা প্রকাশ করতে পারে না।',
   'graphCentrality.loading': 'কেন্দ্রীয় অবস্থা...',
   'graphCentrality.errorPrefix': 'রেখাচিত্র লোড করতে ব্যর্থ:%s',
   'graphCentrality.retry': 'পুনরায় চেষ্টা করুন',
   'graphCentrality.empty': 'কোনো জ্ঞান নেই এখনো গ্রাফ।',
-  'graphCentrality.emptyHint':
-    'সহকারী রেকর্ড আপনার সম্পর্কে তথ্য হিসাবে, সবচেয়ে সংযুক্ত সত্ত্বা এখানে থাকবে।',
+  'graphCentrality.emptyHint': 'সহকারী রেকর্ড আপনার সম্পর্কে তথ্য হিসাবে, সবচেয়ে সংযুক্ত সত্ত্বা এখানে থাকবে।',
   'graphCentrality.namespaceLabel': 'নেম-স্পেস',
   'graphCentrality.namespaceAll': 'সমস্ত নেমস্পেস',
   'graphCentrality.metricEntities': 'কর্ম',
@@ -304,8 +283,7 @@ const messages: TranslationMap = {
   'graphCentrality.degreeTitle': 'xqxqx × xx11x এর জন্য',
   'memoryTree.status.title': 'মেমরি ট্রি',
   'memoryTree.status.autoSyncLabel': 'স্বয়ংক্রিয়-sync',
-  'memoryTree.status.autoSyncDescription':
-    'নতুন অভিযান থামাতে বিরতি দাও। এখানে বিদ্যমান উইকি অনুসন্ধানের জন্য অপেক্ষা করছে।',
+  'memoryTree.status.autoSyncDescription': 'নতুন অভিযান থামাতে বিরতি দাও। এখানে বিদ্যমান উইকি অনুসন্ধানের জন্য অপেক্ষা করছে।',
   'memoryTree.status.statusTile': 'অবস্থা',
   'memoryTree.status.lastSyncTile': 'সর্বশেষ সুসংগতি',
   'memoryTree.status.totalChunksTile': 'সর্বমোট',
@@ -334,16 +312,14 @@ const messages: TranslationMap = {
   'rewards.title': 'পুরস্কার',
   'rewards.referrals': 'রেফারেল',
   'rewards.coupons': 'রিডিম',
-  'rewards.localUnavailable':
-    'লোকাল লগইনে কোনো রিওয়ার্ড, কুপন বা রেফারেল ক্রেডিট মেলে না। রিওয়ার্ড পেতে লগ আউট করে একটি OpenHuman অ্যাকাউন্ট দিয়ে সাইন ইন করুন।',
+  'rewards.localUnavailable': 'লোকাল লগইনে কোনো রিওয়ার্ড, কুপন বা রেফারেল ক্রেডিট মেলে না। রিওয়ার্ড পেতে লগ আউট করে একটি OpenHuman অ্যাকাউন্ট দিয়ে সাইন ইন করুন।',
   'rewards.localUnavailableCta': 'অ্যাকাউন্ট সেটিংস খুলুন',
   'rewards.credits': 'ক্রেডিট',
   'rewards.referralCode': 'আপনার রেফারেল কোড',
   'rewards.copyCode': 'কোড কপি করুন',
   'rewards.share': 'শেয়ার',
   'onboarding.welcome': 'হ্যালো। আমি OpenHuman।',
-  'onboarding.welcomeDesc':
-    'আপনার সুপার-ইন্টেলিজেন্ট AI অ্যাসিস্ট্যান্ট যা আপনার কম্পিউটারে চলে। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
+  'onboarding.welcomeDesc': 'আপনার সুপার-ইন্টেলিজেন্ট AI অ্যাসিস্ট্যান্ট যা আপনার কম্পিউটারে চলে। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
   'onboarding.context': 'কন্টেক্সট সংগ্রহ',
   'onboarding.contextDesc': 'প্রতিদিন ব্যবহার করা টুলস ও সার্ভিস সংযুক্ত করুন।',
   'onboarding.localAI': 'লোকাল AI',
@@ -357,8 +333,7 @@ const messages: TranslationMap = {
   'onboarding.skip': 'এড়িয়ে যান',
   'onboarding.getStarted': 'শুরু করুন',
   'onboarding.runtimeChoice.title': 'আপনি কীভাবে OpenHuman চালাতে চান?',
-  'onboarding.runtimeChoice.subtitle':
-    'আপনার জন্য উপযুক্ত সেটআপ বেছে নিন। পরে সেটিংসে পরিবর্তন করা যাবে।',
+  'onboarding.runtimeChoice.subtitle': 'আপনার জন্য উপযুক্ত সেটআপ বেছে নিন। পরে সেটিংসে পরিবর্তন করা যাবে।',
   'onboarding.runtimeChoice.cloud.title': 'সহজ',
   'onboarding.runtimeChoice.cloud.tagline': 'OpenHuman সব কিছু পরিচালনা করবে।',
   'onboarding.runtimeChoice.cloud.f1': 'বিল্ট-ইন নিরাপত্তা',
@@ -378,12 +353,10 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.continueCustom': 'কাস্টম দিয়ে চালিয়ে যান',
   'onboarding.runtimeChoice.recommended': 'প্রস্তাবিত',
   'onboarding.apiKeys.title': 'আপনার API কী যোগ করুন',
-  'onboarding.apiKeys.subtitle':
-    'এখনই পেস্ট করুন বা এড়িয়ে গিয়ে পরে Settings › AI-এ যোগ করুন। কীগুলো এই ডিভাইসে এনক্রিপ্ট করে সংরক্ষিত থাকে।',
+  'onboarding.apiKeys.subtitle': 'এখনই পেস্ট করুন বা এড়িয়ে গিয়ে পরে Settings › AI-এ যোগ করুন। কীগুলো এই ডিভাইসে এনক্রিপ্ট করে সংরক্ষিত থাকে।',
   'onboarding.apiKeys.openaiLabel': 'OpenAI API কী',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
-  'onboarding.apiKeys.openaiOauthHint':
-    'ChatGPT Plus/Pro (সাবস্ক্রিপশন) বা একটি OpenAI API কী ব্যবহার করুন — উভয়ের প্রয়োজন নেই।',
+  'onboarding.apiKeys.openaiOauthHint': 'ChatGPT Plus/Pro (সাবস্ক্রিপশন) বা একটি OpenAI API কী ব্যবহার করুন — উভয়ের প্রয়োজন নেই।',
   'onboarding.apiKeys.openaiOauthOpening': 'সাইন-ইন খোলা হচ্ছে...',
   'onboarding.apiKeys.finishSignIn': 'ChatGPT সাইন-ইন শেষ করুন',
   'onboarding.apiKeys.orApiKey': 'বা API কী',
@@ -408,49 +381,32 @@ const messages: TranslationMap = {
   'onboarding.custom.continue': 'চালিয়ে যান',
   'onboarding.custom.back': 'পেছনে',
   'onboarding.custom.finish': 'সেটআপ সম্পন্ন',
-  'onboarding.custom.configureLater':
-    'অনবোর্ডিং শেষে এটি কনফিগার করতে পারবেন। সম্পন্ন হলে সংশ্লিষ্ট সেটিংস পেজে নিয়ে যাওয়া হবে।',
+  'onboarding.custom.configureLater': 'অনবোর্ডিং শেষে এটি কনফিগার করতে পারবেন। সম্পন্ন হলে সংশ্লিষ্ট সেটিংস পেজে নিয়ে যাওয়া হবে।',
   'onboarding.custom.openSettings': 'সেটিংসে খুলুন',
   'onboarding.custom.inference.title': 'ইনফারেন্স (টেক্সট)',
-  'onboarding.custom.inference.subtitle':
-    'কোন ল্যাঙ্গুয়েজ মডেল আপনার প্রশ্নের উত্তর দেবে এবং এজেন্ট চালাবে?',
-  'onboarding.custom.inference.defaultDesc':
-    'OpenHuman প্রতিটি ওয়ার্কলোড একটি সেন্সিবল ডিফল্ট মডেলে রুট করে। কোনো কী বা সেটআপ নেই।',
-  'onboarding.custom.inference.configureDesc':
-    'নিজের OpenAI বা Anthropic কী আনুন। আমরা সব টেক্সট-ভিত্তিক কাজে এটি ব্যবহার করি।',
+  'onboarding.custom.inference.subtitle': 'কোন ল্যাঙ্গুয়েজ মডেল আপনার প্রশ্নের উত্তর দেবে এবং এজেন্ট চালাবে?',
+  'onboarding.custom.inference.defaultDesc': 'OpenHuman প্রতিটি ওয়ার্কলোড একটি সেন্সিবল ডিফল্ট মডেলে রুট করে। কোনো কী বা সেটআপ নেই।',
+  'onboarding.custom.inference.configureDesc': 'নিজের OpenAI বা Anthropic কী আনুন। আমরা সব টেক্সট-ভিত্তিক কাজে এটি ব্যবহার করি।',
   'onboarding.custom.voice.title': 'ভয়েস',
   'onboarding.custom.voice.subtitle': 'ভয়েস মোডের জন্য স্পিচ-টু-টেক্সট এবং টেক্সট-টু-স্পিচ।',
-  'onboarding.custom.voice.defaultDesc':
-    'OpenHuman ম্যানেজড STT/TTS সহ আসে যা সরাসরি কাজ করে। কিছু সেটআপ করতে হবে না।',
-  'onboarding.custom.voice.configureDesc':
-    'নিজের ElevenLabs / OpenAI Whisper / ইত্যাদি ব্যবহার করুন। Settings › Voice-এ কনফিগার করুন।',
+  'onboarding.custom.voice.defaultDesc': 'OpenHuman ম্যানেজড STT/TTS সহ আসে যা সরাসরি কাজ করে। কিছু সেটআপ করতে হবে না।',
+  'onboarding.custom.voice.configureDesc': 'নিজের ElevenLabs / OpenAI Whisper / ইত্যাদি ব্যবহার করুন। Settings › Voice-এ কনফিগার করুন।',
   'onboarding.custom.oauth.title': 'সংযোগ (OAuth)',
-  'onboarding.custom.oauth.subtitle':
-    'Gmail, Slack, Notion এবং OAuth প্রয়োজন এমন অন্যান্য সংযুক্ত সার্ভিস।',
-  'onboarding.custom.oauth.defaultDesc':
-    'OpenHuman একটি ম্যানেজড Composio ওয়ার্কস্পেস চালায়। পরে প্রতিটি সার্ভিস সংযুক্ত করতে এক ক্লিক।',
-  'onboarding.custom.oauth.configureDesc':
-    'নিজের Composio অ্যাকাউন্ট / API কী আনুন। Settings › Connections-এ কনফিগার করুন।',
+  'onboarding.custom.oauth.subtitle': 'Gmail, Slack, Notion এবং OAuth প্রয়োজন এমন অন্যান্য সংযুক্ত সার্ভিস।',
+  'onboarding.custom.oauth.defaultDesc': 'OpenHuman একটি ম্যানেজড Composio ওয়ার্কস্পেস চালায়। পরে প্রতিটি সার্ভিস সংযুক্ত করতে এক ক্লিক।',
+  'onboarding.custom.oauth.configureDesc': 'নিজের Composio অ্যাকাউন্ট / API কী আনুন। Settings › Connections-এ কনফিগার করুন।',
   'onboarding.custom.search.title': 'ওয়েব সার্চ',
   'onboarding.custom.search.subtitle': 'OpenHuman আপনার হয়ে কীভাবে ওয়েব সার্চ করে।',
-  'onboarding.custom.search.defaultDesc':
-    'OpenHuman ম্যানেজড সার্চ ব্যাকএন্ড ব্যবহার করে। কোনো কী লাগে না।',
-  'onboarding.custom.search.configureDesc':
-    'নিজের সার্চ প্রোভাইডার কী আনুন (Tavily, Brave ইত্যাদি)। Settings › Tools-এ কনফিগার করুন।',
+  'onboarding.custom.search.defaultDesc': 'OpenHuman ম্যানেজড সার্চ ব্যাকএন্ড ব্যবহার করে। কোনো কী লাগে না।',
+  'onboarding.custom.search.configureDesc': 'নিজের সার্চ প্রোভাইডার কী আনুন (Tavily, Brave ইত্যাদি)। Settings › Tools-এ কনফিগার করুন।',
   'onboarding.custom.embeddings.title': 'Embeddings',
-  'onboarding.custom.embeddings.subtitle':
-    'OpenHuman কীভাবে সিমান্টিক মেমোরি অনুসন্ধানের জন্য ভেক্টর এম্বেডিং তৈরি করে।',
-  'onboarding.custom.embeddings.defaultDesc':
-    'OpenHuman একটি পরিচালিত এম্বেডিং সেবা ব্যবহার করে। কোনো API কী প্রয়োজন নেই।',
-  'onboarding.custom.embeddings.configureDesc':
-    'আপনার নিজস্ব এম্বেডিং প্রোভাইডার ব্যবহার করুন (OpenAI, Voyage, Ollama, ইত্যাদি)।',
+  'onboarding.custom.embeddings.subtitle': 'OpenHuman কীভাবে সিমান্টিক মেমোরি অনুসন্ধানের জন্য ভেক্টর এম্বেডিং তৈরি করে।',
+  'onboarding.custom.embeddings.defaultDesc': 'OpenHuman একটি পরিচালিত এম্বেডিং সেবা ব্যবহার করে। কোনো API কী প্রয়োজন নেই।',
+  'onboarding.custom.embeddings.configureDesc': 'আপনার নিজস্ব এম্বেডিং প্রোভাইডার ব্যবহার করুন (OpenAI, Voyage, Ollama, ইত্যাদি)।',
   'onboarding.custom.memory.title': 'মেমোরি',
-  'onboarding.custom.memory.subtitle':
-    'OpenHuman কীভাবে আপনার কন্টেক্সট, পছন্দ ও পূর্ববর্তী কথোপকথন মনে রাখে।',
-  'onboarding.custom.memory.defaultDesc':
-    'OpenHuman স্বয়ংক্রিয়ভাবে মেমোরি স্টোরেজ ও রিট্রিভাল পরিচালনা করে। কিছু সেটআপ করতে হবে না।',
-  'onboarding.custom.memory.configureDesc':
-    'মেমোরি নিজে পরীক্ষা, এক্সপোর্ট বা মুছুন। Settings › Memory-এ কনফিগার করুন।',
+  'onboarding.custom.memory.subtitle': 'OpenHuman কীভাবে আপনার কন্টেক্সট, পছন্দ ও পূর্ববর্তী কথোপকথন মনে রাখে।',
+  'onboarding.custom.memory.defaultDesc': 'OpenHuman স্বয়ংক্রিয়ভাবে মেমোরি স্টোরেজ ও রিট্রিভাল পরিচালনা করে। কিছু সেটআপ করতে হবে না।',
+  'onboarding.custom.memory.configureDesc': 'মেমোরি নিজে পরীক্ষা, এক্সপোর্ট বা মুছুন। Settings › Memory-এ কনফিগার করুন।',
   'accounts.addAccount': 'অ্যাকাউন্ট যোগ করুন',
   'accounts.manageAccounts': 'অ্যাকাউন্ট পরিচালনা',
   'accounts.noAccounts': 'কোনো অ্যাকাউন্ট সংযুক্ত নেই',
@@ -460,8 +416,7 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'সংযোগ বিচ্ছিন্ন',
   'accounts.disconnectConfirm': 'আপনি কি এই অ্যাকাউন্ট সংযোগ বিচ্ছিন্ন করতে চান?',
   'accounts.disconnectClearMemory': 'এই উৎস থেকে মেমোরিও মুছুন',
-  'accounts.disconnectClearMemoryHint':
-    'এই সংযোগের সাথে যুক্ত স্থানীয় মেমোরি চিরতরে মুছে ফেলা হবে।',
+  'accounts.disconnectClearMemoryHint': 'এই সংযোগের সাথে যুক্ত স্থানীয় মেমোরি চিরতরে মুছে ফেলা হবে।',
   'accounts.searchAccounts': 'অ্যাকাউন্ট খুঁজুন...',
   'channels.title': 'চ্যানেল',
   'channels.configure': 'চ্যানেল কনফিগার করুন',
@@ -500,8 +455,7 @@ const messages: TranslationMap = {
   'invites.emptyHint': 'অন্যদের সাথে শেয়ার করার জন্য একটি আমন্ত্রণ কোড তৈরি করুন',
   'invites.revokeTitle': 'আমন্ত্রণ কোড প্রত্যাহার করুন',
   'invites.revokePromptPrefix': 'আপনি কি নিশ্চিত যে আপনি আমন্ত্রণ কোড প্রত্যাহার করতে চান',
-  'invites.revokeWarning':
-    'এই আমন্ত্রণ কোডটি আর বৈধ থাকবে না এবং দলে যোগ দিতে ব্যবহার করা যাবে না।',
+  'invites.revokeWarning': 'এই আমন্ত্রণ কোডটি আর বৈধ থাকবে না এবং দলে যোগ দিতে ব্যবহার করা যাবে না।',
   'invites.revoking': 'প্রত্যাহার করা হচ্ছে...',
   'invites.revokeAction': 'আমন্ত্রণ প্রত্যাহার করুন',
   'invites.failedGenerate': 'আমন্ত্রণ তৈরি করতে ব্যর্থ হয়েছে',
@@ -521,10 +475,8 @@ const messages: TranslationMap = {
   'team.removeAction': 'সদস্য সরান',
   'team.changeRoleTitle': 'সদস্যের ভূমিকা পরিবর্তন করুন',
   'team.changeRolePrompt': '{name}-এর ভূমিকা {oldRole} থেকে {newRole}-এ পরিবর্তন করবেন?',
-  'team.changeRoleAdminGrant':
-    'এটি তাদের দলের সদস্যদের পরিচালনা করার ক্ষমতাসহ সম্পূর্ণ অ্যাডমিন অনুমতি দেবে।',
-  'team.changeRoleAdminRemove':
-    'এটি তাদের অ্যাডমিন অনুমতি সরিয়ে দেবে এবং তারা আর দল পরিচালনা করতে পারবে না।',
+  'team.changeRoleAdminGrant': 'এটি তাদের দলের সদস্যদের পরিচালনা করার ক্ষমতাসহ সম্পূর্ণ অ্যাডমিন অনুমতি দেবে।',
+  'team.changeRoleAdminRemove': 'এটি তাদের অ্যাডমিন অনুমতি সরিয়ে দেবে এবং তারা আর দল পরিচালনা করতে পারবে না।',
   'team.changing': 'পরিবর্তন হচ্ছে...',
   'team.changeRoleAction': 'ভূমিকা পরিবর্তন করুন',
   'team.failedChangeRole': 'ভূমিকা পরিবর্তন করতে ব্যর্থ হয়েছে',
@@ -538,8 +490,7 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.posture.title': 'পলিসি পোস্টিং',
   'devOptions.toolPolicyDiagnostics.posture.autonomy': 'স্বয়ংক্রিয়রূপে ব্যবহৃত:',
   'devOptions.toolPolicyDiagnostics.posture.workspaceOnly': 'শুধুমাত্র কর্মক্ষেত্র:',
-  'devOptions.toolPolicyDiagnostics.posture.maxActionsPerHour':
-    'ম্যাক্স এক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সক্সক্সক্স:',
+  'devOptions.toolPolicyDiagnostics.posture.maxActionsPerHour': 'ম্যাক্স এক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সক্সক্সক্স:',
   'devOptions.toolPolicyDiagnostics.posture.approvalMediumRisk': 'উপস্থিত ঝুঁকি:',
   'devOptions.toolPolicyDiagnostics.posture.blockHighRisk': 'সর্বাধিক গুরুত্বের মাত্রা:',
   'devOptions.toolPolicyDiagnostics.inventory.title': 'আরম্ভ',
@@ -556,8 +507,7 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.recentBlocked.title': 'সম্প্রতি ব্যবহৃত কল',
   'devOptions.toolPolicyDiagnostics.recentBlocked.empty': 'সংযোগ বিচ্ছিন্ন করা হয়েছে',
   'devOptions.toolPolicyDiagnostics.redactedSurfaces.title': 'পুনরাবৃত্তিমূলক পৃষ্ঠ',
-  'devOptions.toolPolicyDiagnostics.redactedSurfaces.summary':
-    'লেখার সময় মাপ: xqxqxqx নিয়ন্ত্রণ প্রক্রিয়া: xqx1x1xkx2x',
+  'devOptions.toolPolicyDiagnostics.redactedSurfaces.summary': 'লেখার সময় মাপ: xqxqxqx নিয়ন্ত্রণ প্রক্রিয়া: xqx1x1xkx2x',
   'devOptions.debugPanels': 'ডিবাগ প্যানেল',
   'devOptions.debugPanelsDesc': 'ফিচার ফ্ল্যাগ, স্টেট ইন্সপেকশন এবং ডিবাগিং টুলস',
   'devOptions.webhooks': 'ওয়েবহুকগুলি',
@@ -579,13 +529,11 @@ const messages: TranslationMap = {
   'misc.updateLater': 'পরে',
   'misc.downloading': 'ডাউনলোড হচ্ছে...',
   'misc.installing': 'ইনস্টল হচ্ছে...',
-  'misc.beta':
-    'OpenHuman এখন আর্লি বেটায় আছে। যেকোনো মতামত বা বাগ রিপোর্ট করুন — প্রতিটি রিপোর্ট আমাদের দ্রুত এগিয়ে যেতে সাহায্য করে।',
+  'misc.beta': 'OpenHuman এখন আর্লি বেটায় আছে। যেকোনো মতামত বা বাগ রিপোর্ট করুন — প্রতিটি রিপোর্ট আমাদের দ্রুত এগিয়ে যেতে সাহায্য করে।',
   'misc.betaFeedback': 'ফিডব্যাক পাঠান',
   'mnemonic.title': 'রিকভারি ফ্রেজ',
   'mnemonic.warning': 'এই শব্দগুলো ক্রমানুসারে লিখে নিরাপদ স্থানে সংরক্ষণ করুন।',
-  'mnemonic.copyWarning':
-    'আপনার রিকভারি ফ্রেজ কখনো শেয়ার করবেন না। এই শব্দগুলো দিয়ে যে কেউ আপনার অ্যাকাউন্টে প্রবেশ করতে পারবে।',
+  'mnemonic.copyWarning': 'আপনার রিকভারি ফ্রেজ কখনো শেয়ার করবেন না। এই শব্দগুলো দিয়ে যে কেউ আপনার অ্যাকাউন্টে প্রবেশ করতে পারবে।',
   'mnemonic.copied': 'রিকভারি ফ্রেজ ক্লিপবোর্ডে কপি হয়েছে',
   'mnemonic.reveal': 'ফ্রেজ দেখুন',
   'mnemonic.revealPhrase': 'পুনরুদ্ধার বাক্যাংশ দেখান',
@@ -595,22 +543,18 @@ const messages: TranslationMap = {
   'privacy.empty': 'কোনো বাহ্যিক ডেটা স্থানান্তর শনাক্ত হয়নি।',
   'privacy.whatLeavesComputer': 'আপনার কম্পিউটার থেকে কী বাইরে যায়',
   'privacy.loading': 'গোপনীয়তার বিবরণ লোড হচ্ছে...',
-  'privacy.loadError':
-    'লাইভ গোপনীয়তা তালিকা লোড করা যায়নি। নিচের অ্যানালিটিক্স নিয়ন্ত্রণ এখনো কাজ করছে।',
+  'privacy.loadError': 'লাইভ গোপনীয়তা তালিকা লোড করা যায়নি। নিচের অ্যানালিটিক্স নিয়ন্ত্রণ এখনো কাজ করছে।',
   'privacy.noCapabilities': 'বর্তমানে কোনো ক্যাপাবিলিটি ডেটা মুভমেন্ট প্রকাশ করে না।',
   'privacy.sentTo': 'পাঠানো হয়েছে',
   'privacy.leavesDevice': 'ডিভাইস ছেড়ে যায়',
   'privacy.staysLocal': 'লোকালে থাকে',
   'privacy.anonymizedAnalytics': 'অ্যানোনিমাইজড অ্যানালিটিক্স',
   'privacy.shareAnonymizedData': 'অ্যানোনিমাইজড ব্যবহার ডেটা শেয়ার করুন',
-  'privacy.shareAnonymizedDataDesc':
-    'বেনামী ক্র্যাশ রিপোর্ট ও ব্যবহার অ্যানালিটিক্স শেয়ার করে OpenHuman উন্নত করতে সাহায্য করুন। সব ডেটা সম্পূর্ণ বেনামী — কোনো ব্যক্তিগত তথ্য, বার্তা, ওয়ালেট কী বা সেশন তথ্য কখনো সংগ্রহ করা হয় না।',
+  'privacy.shareAnonymizedDataDesc': 'বেনামী ক্র্যাশ রিপোর্ট ও ব্যবহার অ্যানালিটিক্স শেয়ার করে OpenHuman উন্নত করতে সাহায্য করুন। সব ডেটা সম্পূর্ণ বেনামী — কোনো ব্যক্তিগত তথ্য, বার্তা, ওয়ালেট কী বা সেশন তথ্য কখনো সংগ্রহ করা হয় না।',
   'privacy.meetingFollowUps': 'মিটিং ফলো-আপ',
   'privacy.autoHandoffMeet': 'Google Meet ট্রান্সক্রিপ্ট স্বয়ংক্রিয়ভাবে অর্কেস্ট্রেটরে পাঠান',
-  'privacy.autoHandoffMeetDesc':
-    'Google Meet কল শেষ হলে, OpenHuman-এর অর্কেস্ট্রেটর ট্রান্সক্রিপ্ট পড়তে এবং বার্তা ড্রাফট করা, ফলো-আপ নির্ধারণ করা বা সংযুক্ত Slack ওয়ার্কস্পেসে সারসংক্ষেপ পোস্ট করার মতো কাজ করতে পারে। ডিফল্টে বন্ধ।',
-  'privacy.analyticsDisclaimer':
-    'সব অ্যানালিটিক্স ও বাগ রিপোর্ট সম্পূর্ণ বেনামী। সক্রিয় থাকলে, আমরা শুধু ক্র্যাশ তথ্য, ডিভাইসের ধরন এবং ত্রুটির ফাইল লোকেশন সংগ্রহ করি। আমরা কখনো আপনার বার্তা, সেশন ডেটা, ওয়ালেট কী, API কী বা ব্যক্তিগত তথ্য অ্যাক্সেস করি না। যেকোনো সময় এই সেটিং পরিবর্তন করা যাবে।',
+  'privacy.autoHandoffMeetDesc': 'Google Meet কল শেষ হলে, OpenHuman-এর অর্কেস্ট্রেটর ট্রান্সক্রিপ্ট পড়তে এবং বার্তা ড্রাফট করা, ফলো-আপ নির্ধারণ করা বা সংযুক্ত Slack ওয়ার্কস্পেসে সারসংক্ষেপ পোস্ট করার মতো কাজ করতে পারে। ডিফল্টে বন্ধ।',
+  'privacy.analyticsDisclaimer': 'সব অ্যানালিটিক্স ও বাগ রিপোর্ট সম্পূর্ণ বেনামী। সক্রিয় থাকলে, আমরা শুধু ক্র্যাশ তথ্য, ডিভাইসের ধরন এবং ত্রুটির ফাইল লোকেশন সংগ্রহ করি। আমরা কখনো আপনার বার্তা, সেশন ডেটা, ওয়ালেট কী, API কী বা ব্যক্তিগত তথ্য অ্যাক্সেস করি না। যেকোনো সময় এই সেটিং পরিবর্তন করা যাবে।',
   'settings.about.version': 'ভার্সন',
   'settings.about.updateAvailable': 'পাওয়া গেছে',
   'settings.about.softwareUpdates': 'সফটওয়্যার আপডেট',
@@ -627,10 +571,8 @@ const messages: TranslationMap = {
   'settings.about.connectionModeUnset': 'নির্বাচিত হয়নি',
   'settings.about.serverUrl': 'সার্ভার URL',
   'settings.about.serverUrlUnavailable': 'অনুপলব্ধ',
-  'settings.about.connectionHelperLocal':
-    'অ্যাপ্লিকেশন চালুর সময় xqx1qx শেল-এ null র‍্যাপেড হয়। প্রারম্ভ হওয়া অবধি এই পোর্টটি নির্বাচন করা হয়েছে, তাই এই xqxqxqx সহযোগে আরম্ভ করা হয় ।',
-  'settings.about.connectionHelperCloud':
-    'রিমোটের সাথে সংযুক্ত। এটি বুট করা অথবা মেঘের মোড দ্বারা পরিবর্তন করা হবে।',
+  'settings.about.connectionHelperLocal': 'অ্যাপ্লিকেশন চালুর সময় xqx1qx শেল-এ null র‍্যাপেড হয়। প্রারম্ভ হওয়া অবধি এই পোর্টটি নির্বাচন করা হয়েছে, তাই এই xqxqxqx সহযোগে আরম্ভ করা হয় ।',
+  'settings.about.connectionHelperCloud': 'রিমোটের সাথে সংযুক্ত। এটি বুট করা অথবা মেঘের মোড দ্বারা পরিবর্তন করা হবে।',
   'settings.heartbeat.title': 'হার্টবিট এবং লুপস',
   'settings.heartbeat.desc': 'ব্যাকরণ কালের সিডিউলিং এবং লুপ ম্যাপ পরীক্ষা করে দেখুন ।',
   'settings.ledgerUsage.title': 'ইউসেজ লেজার',
@@ -659,16 +601,13 @@ const messages: TranslationMap = {
   'settings.costDashboard.noData': 'গত ৭ দিন ধরে কোন খরচ রেকর্ড করা হয়নি।',
   'settings.costDashboard.noModels': 'গত ৭ দিনে কোনো মডেল কর্ম হয়নি।',
   'settings.costDashboard.loading': 'ড্যাশবোর্ড লোড করা হচ্ছে...',
-  'settings.costDashboard.disabledHint':
-    'কনফিগ- এর ড্যাশবোর্ড নিষ্ক্রিয় করা হয়েছে। এক্স- অক্ষের সাথে ( xxxqx) সক্রিয় করুন = xx1xqxXqx সক্রিয় করুন।',
-  'settings.costDashboard.subtitle':
-    'লাইভ সময় কাটান আর গোছগাছে পুড়ে যায়। কয়েক সেকেন্ডের মধ্যে বার নতুন করে নতুন করে তৈরি করা হয় — কোনো পৃষ্ঠা পুনরায় লোড করার প্রয়োজন নেই ।',
+  'settings.costDashboard.disabledHint': 'কনফিগ- এর ড্যাশবোর্ড নিষ্ক্রিয় করা হয়েছে। এক্স- অক্ষের সাথে ( xxxqx) সক্রিয় করুন = xx1xqxXqx সক্রিয় করুন।',
+  'settings.costDashboard.subtitle': 'লাইভ সময় কাটান আর গোছগাছে পুড়ে যায়। কয়েক সেকেন্ডের মধ্যে বার নতুন করে নতুন করে তৈরি করা হয় — কোনো পৃষ্ঠা পুনরায় লোড করার প্রয়োজন নেই ।',
   'settings.costDashboard.summaryAriaLabel': 'অবস্থানের সংক্ষিপ্ত তথ্য',
   'settings.costDashboard.lastSevenDays': 'গত ৭ দিন',
   'settings.costDashboard.utilizationOf': 'এর',
   'settings.costDashboard.thisMonth': 'এই মাসে',
-  'settings.costDashboard.monthlyPaceHint':
-    'বর্তমানে প্রতিদিনের রানটাইমে (ভলডেক্স ৩০) মাসিক খরচ হয়।',
+  'settings.costDashboard.monthlyPaceHint': 'বর্তমানে প্রতিদিনের রানটাইমে (ভলডেক্স ৩০) মাসিক খরচ হয়।',
   'settings.costDashboard.budgetLimitHint': 'মাসিক বাজেট এক্সqxxxxx থেকে পাঠ করা হয়েছে।',
   'settings.costDashboard.dailyTarget': 'দৈনিক লক্ষ্য',
   'settings.costDashboard.today': 'আজ',
@@ -686,31 +625,23 @@ const messages: TranslationMap = {
   'settings.costDashboard.modelBreakdownHint': 'গত ৭ দিনে পৃথকীকরণ।',
   'settings.costDashboard.noDataHint': 'এর ফলে, আপনার সঙ্গে যোগাযোগ করুন ।',
   'settings.search.title': 'সার্চ ইঞ্জিন',
-  'settings.search.menuDesc':
-    'Xqx1q1x - নিজ হাতে অনুসন্ধান অথবা তার নিজের উপলব্ধকারীর সাথে যোগাযোগ স্থাপন করুন। Xqxqxkey কী- র সাথে একযোগে কাজ করার জন্য',
-  'settings.search.description':
-    'এজেন্ট যে সার্চ ইঞ্জিন ব্যবহার করে তা বেছে নিন, অথবা সার্চ টুলগুলো সম্পূর্ণভাবে নিষ্ক্রিয় করুন। Managed OpenHuman-এর ব্যাকএন্ড ব্যবহার করে (কোনো সেটআপ নেই)। Parallel, Brave, এবং Querit আপনার API কী ব্যবহার করে সরাসরি আপনার মেশিন থেকে চলে।',
+  'settings.search.menuDesc': 'Xqx1q1x - নিজ হাতে অনুসন্ধান অথবা তার নিজের উপলব্ধকারীর সাথে যোগাযোগ স্থাপন করুন। Xqxqxkey কী- র সাথে একযোগে কাজ করার জন্য',
+  'settings.search.description': 'এজেন্ট যে সার্চ ইঞ্জিন ব্যবহার করে তা বেছে নিন, অথবা সার্চ টুলগুলো সম্পূর্ণভাবে নিষ্ক্রিয় করুন। Managed OpenHuman-এর ব্যাকএন্ড ব্যবহার করে (কোনো সেটআপ নেই)। Parallel, Brave, এবং Querit আপনার API কী ব্যবহার করে সরাসরি আপনার মেশিন থেকে চলে।',
   'settings.search.engineAria': 'সার্চ ইঞ্জিন',
   'settings.search.engineDisabledLabel': 'Disabled',
-  'settings.search.engineDisabledDesc':
-    'এজেন্ট প্রেক্ষাপট এবং উপলব্ধ টুল তালিকা থেকে সার্চ টুলগুলি সরিয়ে দিন।',
+  'settings.search.engineDisabledDesc': 'এজেন্ট প্রেক্ষাপট এবং উপলব্ধ টুল তালিকা থেকে সার্চ টুলগুলি সরিয়ে দিন।',
   'settings.search.engineManagedLabel': 'OpenHuman পরিচালিত',
   'settings.search.engineManagedDesc': 'ডিফল্ট xqx1x ব্যাক-এন্ড দ্বারা রুট',
-  'settings.search.localManagedUnavailable':
-    'লোকাল ব্যবহারকারীদের জন্য OpenHuman Managed সার্চ উপলভ্য নয়। ওয়েব সার্চ চালু করতে আপনার নিজের Parallel বা Brave API key যোগ করুন।',
+  'settings.search.localManagedUnavailable': 'লোকাল ব্যবহারকারীদের জন্য OpenHuman Managed সার্চ উপলভ্য নয়। ওয়েব সার্চ চালু করতে আপনার নিজের Parallel বা Brave API key যোগ করুন।',
   'settings.search.engineParallelLabel': 'Parallel',
-  'settings.search.engineParallelDesc':
-    'সরাসরি xqxxxxxxxxxxxxqx; অনুসন্ধান, চ্যাট, গবেষণা, সমৃদ্ধ টুল।',
+  'settings.search.engineParallelDesc': 'সরাসরি xqxxxxxxxxxxxxqx; অনুসন্ধান, চ্যাট, গবেষণা, সমৃদ্ধ টুল।',
   'settings.search.engineBraveLabel': 'Brave অনুসন্ধান',
-  'settings.search.engineBraveDesc':
-    'সরাসরি Xqx1xxxxyxxxxxqxxxxxxxxx;: ওয়েব, সংবাদ, ছবি এবং ভিডিও টুল',
+  'settings.search.engineBraveDesc': 'সরাসরি Xqx1xxxxyxxxxxqxxxxxxxxx;: ওয়েব, সংবাদ, ছবি এবং ভিডিও টুল',
   'settings.search.engineQueritLabel': 'প্রতিদ্বন্ধিতা',
-  'settings.search.engineQueritDesc':
-    'সরাসরি কিউআরটিএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সক্স: সাইট, টাইম সীমা, এবং ভাষা ফিল্টার।',
+  'settings.search.engineQueritDesc': 'সরাসরি কিউআরটিএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সএক্সক্স: সাইট, টাইম সীমা, এবং ভাষা ফিল্টার।',
   'settings.search.statusConfigured': 'কনফিগার করা',
   'settings.search.statusNeedsKey': 'API কী প্রয়োজন',
-  'settings.search.fallbackToManaged':
-    'কোনো কি কনফিগার করা হয়নি — অনুসন্ধান করা হবে একটি কি সংরক্ষণের পূর্বে এই কি দ্বারা নির্ধারিত হয়নি।',
+  'settings.search.fallbackToManaged': 'কোনো কি কনফিগার করা হয়নি — অনুসন্ধান করা হবে একটি কি সংরক্ষণের পূর্বে এই কি দ্বারা নির্ধারিত হয়নি।',
   'settings.search.getApiKey': 'API কী পান',
   'settings.search.save': 'সংরক্ষণ করুন',
   'settings.search.clear': 'সাফ',
@@ -727,21 +658,17 @@ const messages: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'কিউ- টি xxqx কি',
   'settings.search.allowedSitesLabel': 'ওয়েবসাইটের অনুমতি দেওয়া হয়েছে',
-  'settings.search.allowedSitesHint':
-    'যেসব হোস্ট অ্যাসিস্ট্যান্ট খুলতে ও পড়তে পারবে — ওয়েব ফেচ এবং ব্রাউজার টুলের মাধ্যমে — প্রতি লাইনে একটি করে, যেমন reuters.com। একটি হোস্ট তার সাবডোমেইনগুলোও অন্তর্ভুক্ত করে। ওয়েব সার্চ নিজে এই তালিকা দ্বারা সীমাবদ্ধ নয়।',
-  'settings.search.allowedSitesAllOn':
-    'সহকারীটি যেকোন পাবলিক ওয়েবসাইট খুলতে পারে। স্থানীয় এবং ব্যক্তিগত ঠিকানা প্রতিরোধ করা হয়েছে।',
+  'settings.search.allowedSitesHint': 'যেসব হোস্ট অ্যাসিস্ট্যান্ট খুলতে ও পড়তে পারবে — ওয়েব ফেচ এবং ব্রাউজার টুলের মাধ্যমে — প্রতি লাইনে একটি করে, যেমন reuters.com। একটি হোস্ট তার সাবডোমেইনগুলোও অন্তর্ভুক্ত করে। ওয়েব সার্চ নিজে এই তালিকা দ্বারা সীমাবদ্ধ নয়।',
+  'settings.search.allowedSitesAllOn': 'সহকারীটি যেকোন পাবলিক ওয়েবসাইট খুলতে পারে। স্থানীয় এবং ব্যক্তিগত ঠিকানা প্রতিরোধ করা হয়েছে।',
   'settings.search.allowedSitesPlaceholder': 'xqx+x\nএক্স.qx1x\nxqx2x',
   'settings.search.allowedSitesSave': 'ওয়েবসাইট সংরক্ষণ করো',
   'settings.search.accessModeAria': 'ওয়েব মোড',
   'settings.search.accessAllowAll': 'সকল অনুমোদন করা হবে',
   'settings.search.accessCustom': 'স্বনির্ধারিত',
   'settings.search.accessBlockAll': 'প্রতিরোধ করো',
-  'settings.search.accessBlockAllHint':
-    'সকল ওয়েব প্রবেশাধিকার ব্লক করা হয়েছে- সহকারী কোন ওয়েবসাইট খুলতে বা পড়তে পারে না।',
+  'settings.search.accessBlockAllHint': 'সকল ওয়েব প্রবেশাধিকার ব্লক করা হয়েছে- সহকারী কোন ওয়েবসাইট খুলতে বা পড়তে পারে না।',
   'settings.embeddings.title': 'এমবেডিংস',
-  'settings.embeddings.description':
-    'কোন এমবেডিং প্রদানকারী মেমরিকে সিমান্টিক সার্চের জন্য ভেক্টরে রূপান্তর করে তা চয়ন করুন। প্রদানকারী, মডেল বা মাত্রা পরিবর্তন করলে সংরক্ষিত ভেক্টর অবৈধ হয়ে যায় এবং সম্পূর্ণ মেমরি রিসেট প্রয়োজন।',
+  'settings.embeddings.description': 'কোন এমবেডিং প্রদানকারী মেমরিকে সিমান্টিক সার্চের জন্য ভেক্টরে রূপান্তর করে তা চয়ন করুন। প্রদানকারী, মডেল বা মাত্রা পরিবর্তন করলে সংরক্ষিত ভেক্টর অবৈধ হয়ে যায় এবং সম্পূর্ণ মেমরি রিসেট প্রয়োজন।',
   'settings.embeddings.providerAria': 'এমবেডিং প্রদানকারী',
   'settings.embeddings.statusConfigured': 'কনফিগার করা হয়েছে',
   'settings.embeddings.statusNeedsKey': 'API কী প্রয়োজন',
@@ -767,26 +694,22 @@ const messages: TranslationMap = {
   'settings.embeddings.saved': 'সংরক্ষিত।',
   'settings.embeddings.errorPrefix': 'ব্যর্থ',
   'settings.embeddings.wipeTitle': 'মেমরি ভেক্টর রিসেট করবেন?',
-  'settings.embeddings.wipeBody':
-    'এমবেডিং প্রদানকারী, মডেল বা মাত্রা পরিবর্তন করলে সমস্ত সংরক্ষিত মেমরি ভেক্টর মুছে যাবে। পুনরুদ্ধার কাজ করার আগে মেমরি পুনর্নির্মাণ করতে হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।',
+  'settings.embeddings.wipeBody': 'এমবেডিং প্রদানকারী, মডেল বা মাত্রা পরিবর্তন করলে সমস্ত সংরক্ষিত মেমরি ভেক্টর মুছে যাবে। পুনরুদ্ধার কাজ করার আগে মেমরি পুনর্নির্মাণ করতে হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।',
   'settings.embeddings.cancel': 'বাতিল',
   'settings.embeddings.confirmWipe': 'মুছুন এবং প্রয়োগ করুন',
   'settings.embeddings.setupTitle': '{provider} সেটআপ',
   'settings.embeddings.saveAndSwitch': 'সংরক্ষণ এবং স্যুইচ',
   'settings.embeddings.optional': 'ঐচ্ছিক',
-  'settings.embeddings.vectorSearchDisabled':
-    'ভেক্টর অনুসন্ধান নিষ্ক্রিয় করা হয়েছে । মনে রাখবেন যে, শুধু শব্দ ও ছাদের সঙ্গে মিল রেখে শব্দ ব্যবহার করা হবে ।',
+  'settings.embeddings.vectorSearchDisabled': 'ভেক্টর অনুসন্ধান নিষ্ক্রিয় করা হয়েছে । মনে রাখবেন যে, শুধু শব্দ ও ছাদের সঙ্গে মিল রেখে শব্দ ব্যবহার করা হবে ।',
   'settings.embeddings.clearKey': 'API কী মুছুন',
   'pages.settings.ai.embeddings': 'এমবেডিংস',
   'pages.settings.ai.embeddingsDesc': 'মেমরি পুনরুদ্ধারের জন্য ভেক্টর এনকোডিং মডেল',
   'mcp.alphaBadge': 'আলফা',
-  'mcp.alphaBannerText':
-    'Xqxqx সার্ভার চালু হয়েছে। স্মিথারি রেজিস্ট্রি, প্রবাহ ইনস্টল, এবং টুলগুলো হয়তো মুক্ত হওয়ার ক্ষেত্রে ভুল অবস্থা অথবা পরিবর্তন করতে পারে ।',
+  'mcp.alphaBannerText': 'Xqxqx সার্ভার চালু হয়েছে। স্মিথারি রেজিস্ট্রি, প্রবাহ ইনস্টল, এবং টুলগুলো হয়তো মুক্ত হওয়ার ক্ষেত্রে ভুল অবস্থা অথবা পরিবর্তন করতে পারে ।',
   'mcp.toolList.noTools': 'কোনো টুল উপলব্ধ নেই৷',
   'mcp.setup.secretDialog.title': 'MCP সেটআপ — এন্টার সিক্রেট',
   'mcp.setup.secretDialog.bodyPrefix': 'MCP সেটআপ এজেন্ট প্রয়োজন',
-  'mcp.setup.secretDialog.bodySuffix':
-    '। আপনার মান সরাসরি কোর প্রসেসে পাঠানো হয় এবং AI কথোপকথনে কখনো প্রবেশ করে না।',
+  'mcp.setup.secretDialog.bodySuffix': '। আপনার মান সরাসরি কোর প্রসেসে পাঠানো হয় এবং AI কথোপকথনে কখনো প্রবেশ করে না।',
   'mcp.setup.secretDialog.inputLabel': 'মান',
   'mcp.setup.secretDialog.inputPlaceholder': 'এখানে আটকে দিন',
   'mcp.setup.secretDialog.show': 'দেখান',
@@ -795,13 +718,10 @@ const messages: TranslationMap = {
   'mcp.setup.secretDialog.cancel': 'বাতিল',
   'mcp.setup.secretDialog.submitting': 'জমা দেওয়া হচ্ছে',
   'mcp.setup.secretDialog.errorPrefix': '18_18 জমা দিতে ব্যর্থ হয়েছে:',
-  'mcp.setup.secretDialog.privacyNote':
-    'স্থানীয় xqxqx গোপন টেবিলের মধ্যে সংরক্ষণ করা হয়েছে। কোনো অস্বীকৃত অথবা কোনো মডেল পাঠানো হয়নি।',
+  'mcp.setup.secretDialog.privacyNote': 'স্থানীয় xqxqx গোপন টেবিলের মধ্যে সংরক্ষণ করা হয়েছে। কোনো অস্বীকৃত অথবা কোনো মডেল পাঠানো হয়নি।',
   'devices.betaBadge': 'বিটা',
-  'devices.betaText':
-    'এই ফিচারটি এখন বেটায় আছে। iOS ফোনকে রিমোট ক্লায়েন্ট হিসেবে ব্যবহার করতে এই OpenHuman-এর সাথে পেয়ার করুন।',
-  'devices.comingSoonDescription':
-    'ডিভাইস পেয়ারিং শীঘ্রই আসছে। এই পেজে iPhone পেয়ারিং এবং সংযুক্ত ডিভাইস ম্যানেজ করা যাবে।',
+  'devices.betaText': 'এই ফিচারটি এখন বেটায় আছে। iOS ফোনকে রিমোট ক্লায়েন্ট হিসেবে ব্যবহার করতে এই OpenHuman-এর সাথে পেয়ার করুন।',
+  'devices.comingSoonDescription': 'ডিভাইস পেয়ারিং শীঘ্রই আসছে। এই পেজে iPhone পেয়ারিং এবং সংযুক্ত ডিভাইস ম্যানেজ করা যাবে।',
   'devices.title': 'ডিভাইস',
   'devices.pairIphone': 'পেয়ার iPhone',
   'devices.noPaired': 'কোনো পেয়ার করা ডিভাইস নেই',
@@ -825,8 +745,7 @@ const messages: TranslationMap = {
   'devices.loadFailed': 'ডিভাইসগুলি লোড করতে ব্যর্থ হয়েছে: {message}',
   'devices.pairModal.title': 'পেয়ার iPhone',
   'devices.pairModal.loading': 'পেয়ারিং কোড তৈরি করা হচ্ছে...',
-  'devices.pairModal.instructions':
-    'আপনার iPhone-এ OpenHuman অ্যাপ খুলুন এবং এই কোডটি স্ক্যান করুন।',
+  'devices.pairModal.instructions': 'আপনার iPhone-এ OpenHuman অ্যাপ খুলুন এবং এই কোডটি স্ক্যান করুন।',
   'devices.pairModal.expiresIn': 'কোডের মেয়াদ ~{count} মিনিটে শেষ হবে',
   'devices.pairModal.expiresInPlural': 'কোডের মেয়াদ ~{count} মিনিটে শেষ হবে',
   'devices.pairModal.showDetails': 'বিবরণ দেখান',
@@ -854,8 +773,7 @@ const messages: TranslationMap = {
   'mcp.configAssistant.applySuggested': 'প্রস্তাবিত মান প্রয়োগ করুন',
   'mcp.configAssistant.reinstallHint': 'এই মানগুলি প্রয়োগ করতে পুনরায় ইনস্টল করুন।',
   'mcp.configAssistant.thinking': 'ভাবছি...',
-  'mcp.configAssistant.inputPlaceholder':
-    'একটি প্রশ্ন জিজ্ঞাসা করা হবে (আমি যদি এর জন্য জিজ্ঞাসা করি)',
+  'mcp.configAssistant.inputPlaceholder': 'একটি প্রশ্ন জিজ্ঞাসা করা হবে (আমি যদি এর জন্য জিজ্ঞাসা করি)',
   'mcp.configAssistant.send': 'পাঠান',
   'mcp.configAssistant.failedResponse': 'প্রতিক্রিয়া পেতে ব্যর্থ',
   'mcp.toolList.availableSingular': '{count} টুল উপলব্ধ',
@@ -866,8 +784,7 @@ const messages: TranslationMap = {
   'mcp.playground.close': 'খেলা বন্ধ করুন',
   'mcp.playground.inputSchema': 'ইনপুট স্কিমা',
   'mcp.playground.argsLabel': 'আর্গুমেন্ট',
-  'mcp.playground.argsHelp':
-    'ইনপুট স্কিমার ক্ষেত্রে xqxqx প্রয়োগ করা হবে। ফাঁকা ইনপুট পদ্ধতি {} অনুযায়ী চিহ্নিত।',
+  'mcp.playground.argsHelp': 'ইনপুট স্কিমার ক্ষেত্রে xqxqx প্রয়োগ করা হবে। ফাঁকা ইনপুট পদ্ধতি {} অনুযায়ী চিহ্নিত।',
   'mcp.playground.runShortcut': 'CD/Ctrl+S কমান্ড সঞ্চালন করুন',
   'mcp.playground.format': 'বিন্যাস',
   'mcp.playground.invalidJson': 'অবৈধ xqxqx',
@@ -892,8 +809,7 @@ const messages: TranslationMap = {
   'progress.stepsAria': 'অগ্রগতির ধাপ',
   'progress.stepAria': 'ধাপ {total} এর {current}',
   'workspace.vaultsTitle': 'নলেজ ভল্ট',
-  'workspace.vaultsDesc':
-    'একটি স্থানীয় ফোল্ডারে পয়েন্ট করুন; ফাইলগুলিকে টুকরো টুকরো করে মেমরিতে মিরর করা হয়।',
+  'workspace.vaultsDesc': 'একটি স্থানীয় ফোল্ডারে পয়েন্ট করুন; ফাইলগুলিকে টুকরো টুকরো করে মেমরিতে মিরর করা হয়।',
   'calls.title': 'কল',
   'calls.comingSoonBody': 'AI-সহায়তা কলগুলি শীঘ্রই আসছে৷ সাথে থাকুন।',
   'art.rotatingTetrahedronAria': 'ইনভার্টেড টেট্রাহেড্রন মহাকাশযান ঘোরানো',
@@ -913,8 +829,7 @@ const messages: TranslationMap = {
   'mcp.health.disconnectAll': 'সকল বিচ্ছিন্ন করুন (qxick)',
   'mcp.health.disconnectAllAria': 'সব xqxqx সংযুক্ত করা হবে',
   'mcp.health.disconnectConfirm.title': 'সকল xqxqx সার্ভার বন্ধ করা হবে কি?',
-  'mcp.health.disconnectConfirm.body':
-    'এটা xqxqx- এর সংযোগ বিচ্ছিন্ন করা হবে বর্তমানে xqx1x সার্ভার। ইনস্টল করা কনফিগারেশন ও গোপনীয়তাগুলি সংরক্ষিত হবে; কোনো সার্ভার দ্বারা পুনরায় সংযোগ করা যাবে ।',
+  'mcp.health.disconnectConfirm.body': 'এটা xqxqx- এর সংযোগ বিচ্ছিন্ন করা হবে বর্তমানে xqx1x সার্ভার। ইনস্টল করা কনফিগারেশন ও গোপনীয়তাগুলি সংরক্ষিত হবে; কোনো সার্ভার দ্বারা পুনরায় সংযোগ করা যাবে ।',
   'mcp.health.disconnectConfirm.cancel': 'বাতিল',
   'mcp.health.disconnectConfirm.confirm': 'সকল বিচ্ছিন্ন করুন',
   'mcp.health.opErrorGeneric': 'বুস্টার অপারেশন ব্যর্থ হয়েছে। লগ দেখুন।',
@@ -928,17 +843,14 @@ const messages: TranslationMap = {
   'mcp.inventory.openButton': 'আরম্ভ',
   'mcp.inventory.openAria': 'Sharpicizxqx প্যানেল খুলুন',
   'mcp.inventory.title': 'যোজিত xxqxyxridgyrary',
-  'mcp.inventory.subtitle':
-    'আপনার ইনস্টলxqxqx সার্ভারকে বহনযোগ্য, গোপনীয়-পত্র হিসেবে, অথবা একটি দল থেকে ইম্পোর্ট করুন। গোপনীয় পাওয়ার মান কখনো অন্তর্ভুক্ত করা হয়নি অথবা ইম্পোর্ট করা হয়নি।',
+  'mcp.inventory.subtitle': 'আপনার ইনস্টলxqxqx সার্ভারকে বহনযোগ্য, গোপনীয়-পত্র হিসেবে, অথবা একটি দল থেকে ইম্পোর্ট করুন। গোপনীয় পাওয়ার মান কখনো অন্তর্ভুক্ত করা হয়নি অথবা ইম্পোর্ট করা হয়নি।',
   'mcp.inventory.close': 'প্যানেল বন্ধ করো',
   'mcp.inventory.tablistAria': '[ পাদটীকা]',
   'mcp.inventory.tab.export': 'এক্সপোর্ট করুন',
   'mcp.inventory.tab.import': 'ইম্পোর্ট',
-  'mcp.inventory.export.empty':
-    'কোনো xqxqx সার্ভার এখনো ইনস্টল করা হয়নি - এক্সপোর্ট করার জন্য কিছু উপস্থিত নেই। ক্যাটালগ থেকে প্রথমে একটি ইনস্টল করুন ।',
+  'mcp.inventory.export.empty': 'কোনো xqxqx সার্ভার এখনো ইনস্টল করা হয়নি - এক্সপোর্ট করার জন্য কিছু উপস্থিত নেই। ক্যাটালগ থেকে প্রথমে একটি ইনস্টল করুন ।',
   'mcp.inventory.export.privacyTitle': '( ১ করি.',
-  'mcp.inventory.export.privacyBody':
-    'সার্ভার, যোগ্যতাসম্পন্ন নাম, নাম, নাম, envoxqxqxX1xkxyx, এবং নেস্টেড। গোপনীয় মূল্যবোধ, আপনার মেশিন চিহ্ন, এবং প্রতি মুদ্রণের সময় ইচ্ছে করে ফাঁস হয়ে গেছে।',
+  'mcp.inventory.export.privacyBody': 'সার্ভার, যোগ্যতাসম্পন্ন নাম, নাম, নাম, envoxqxqxX1xkxyx, এবং নেস্টেড। গোপনীয় মূল্যবোধ, আপনার মেশিন চিহ্ন, এবং প্রতি মুদ্রণের সময় ইচ্ছে করে ফাঁস হয়ে গেছে।',
   'mcp.inventory.export.serverCount': 'এই প্রদর্শনীতে xqxqx সার্ভার',
   'mcp.inventory.export.copy': 'কপি করুন',
   'mcp.inventory.export.copied': 'প্রতিলিপি',
@@ -946,11 +858,9 @@ const messages: TranslationMap = {
   'mcp.inventory.export.download': 'ডাউনলোড করা হয়েছে',
   'mcp.inventory.export.downloadAria': 'Xqxqx ফাইল হিসেবে প্রদর্শন করুন',
   'mcp.inventory.import.trustTitle': 'ফাঁকা xqxqx সহযোগে এক্সপোর্ট করা হয়েছে',
-  'mcp.inventory.import.trustBody':
-    'আপনার প্রতিনিধি নিয়োগকারী একটি Xqxqx সার্ভার। শুধুমাত্র আপনার কাছ থেকে প্রাপ্ত. xq1x1qx এড়িয়ে চলুন। প্রতিটি ইনস্টলের জন্য আপনার স্পষ্ট ক্লিক আবশ্যক; কোনো কিছুই স্বয়ংক্রিয় ইনস্টল করা হয়নি ।',
+  'mcp.inventory.import.trustBody': 'আপনার প্রতিনিধি নিয়োগকারী একটি Xqxqx সার্ভার। শুধুমাত্র আপনার কাছ থেকে প্রাপ্ত. xq1x1qx এড়িয়ে চলুন। প্রতিটি ইনস্টলের জন্য আপনার স্পষ্ট ক্লিক আবশ্যক; কোনো কিছুই স্বয়ংক্রিয় ইনস্টল করা হয়নি ।',
   'mcp.inventory.import.pasteLabel': 'প্রদর্শন মুছে ফেলুন xqxqx',
-  'mcp.inventory.import.pastePlaceholder':
-    'এখানে একটি প্রকাশ করুন, অথবা নীচে একটি ফাইল আপলোড করুন ।',
+  'mcp.inventory.import.pastePlaceholder': 'এখানে একটি প্রকাশ করুন, অথবা নীচে একটি ফাইল আপলোড করুন ।',
   'mcp.inventory.import.preview': 'প্রাকদর্শন',
   'mcp.inventory.import.clear': 'মুছে ফেলুন',
   'mcp.inventory.import.uploadFile': 'অথবা ফাইল আপলোড অথবা আপলোড করুন',
@@ -959,8 +869,7 @@ const messages: TranslationMap = {
   'mcp.inventory.import.fileReadFailed': 'ফাইল পড়তে ব্যর্থ।',
   'mcp.inventory.import.parseErrorPrefix': 'বার্তা পার্স করতে ব্যর্থ',
   'mcp.inventory.import.previewHeading': 'প্রাকদর্শন',
-  'mcp.inventory.import.previewCounts':
-    'xqxqx সার্ভার - xx1x1 নতুন, xxqx কনফিগার করা হয়েছে, xxx2x',
+  'mcp.inventory.import.previewCounts': 'xqxqx সার্ভার - xx1x1 নতুন, xxqx কনফিগার করা হয়েছে, xxx2x',
   'mcp.inventory.import.previewEmpty': 'সার্ভারে কোনো সার্ভার উপস্থিত নেই।',
   'mcp.inventory.import.exportedFrom': 'xqxqx থেকে এক্সপোর্ট করা হয়েছে',
   'mcp.inventory.import.exportedAt': 'কে. ডি. ই. ২ ঠিকানা- তালিকা আমদানি করো',
@@ -979,14 +888,10 @@ const messages: TranslationMap = {
   'mcp.inventory.parseError.invalidServers': 'অনুপস্থিত অথবা অবৈধ xxqxqx অ্যারে।',
   'mcp.inventory.parseError.serverNotObject': 'একটি সার্ভার এন্ট্রি কোন বস্তু নয়।',
   'mcp.inventory.parseError.serverMissingQualifiedName': 'কোনো সার্ভার এন্ট্রি সনাক্ত করা যায়নি।',
-  'mcp.inventory.parseError.serverMissingDisplayName':
-    'কোনো সার্ভার এন্ট্রির নাম উল্লেখ করা হয়নি।',
-  'mcp.inventory.parseError.serverEnvKeysNotArray':
-    'সার্ভারের এনট্রির মধ্যে একটি বিচ্ছিন্ন PGP-কি ক্ষেত্রের মধ্যে উপস্থিত রয়েছে। পরিত্যাগ করা হলে এই মান উপেক্ষা করা হবে না।',
-  'mcp.inventory.parseError.serverContainsEnv':
-    'একটি সার্ভারের এনট্রিতে একটি Xqxqxqx এর মান রয়েছে। আমদানি করতে অস্বীকার করে — প্রকাশ করা অবশ্যই কেবল ই-মেইল (নাম) বহন করতে হবে, কোন গোপন মূল্যবোধ নয় ।',
-  'mcp.inventory.parseError.duplicateQualifiedName':
-    'অফ-লাইন অবস্থায় উপস্থিত সর্বোচ্চ সংখ্যা: ( n) প্রতিটি সার্ভারের মধ্যে সবচেয়ে বেশি উপস্থিত থাকা আবশ্যক ।',
+  'mcp.inventory.parseError.serverMissingDisplayName': 'কোনো সার্ভার এন্ট্রির নাম উল্লেখ করা হয়নি।',
+  'mcp.inventory.parseError.serverEnvKeysNotArray': 'সার্ভারের এনট্রির মধ্যে একটি বিচ্ছিন্ন PGP-কি ক্ষেত্রের মধ্যে উপস্থিত রয়েছে। পরিত্যাগ করা হলে এই মান উপেক্ষা করা হবে না।',
+  'mcp.inventory.parseError.serverContainsEnv': 'একটি সার্ভারের এনট্রিতে একটি Xqxqxqx এর মান রয়েছে। আমদানি করতে অস্বীকার করে — প্রকাশ করা অবশ্যই কেবল ই-মেইল (নাম) বহন করতে হবে, কোন গোপন মূল্যবোধ নয় ।',
+  'mcp.inventory.parseError.duplicateQualifiedName': 'অফ-লাইন অবস্থায় উপস্থিত সর্বোচ্চ সংখ্যা: ( n) প্রতিটি সার্ভারের মধ্যে সবচেয়ে বেশি উপস্থিত থাকা আবশ্যক ।',
   'mcp.tab.loading': 'MCP সার্ভার লোড হচ্ছে...',
   'mcp.tab.emptyDetail': 'একটি সার্ভার বা সারি নির্বাচন করুন।',
   'mcp.install.loadingDetail': 'সার্ভারের বিবরণ লোড হচ্ছে...',
@@ -1005,8 +910,7 @@ const messages: TranslationMap = {
   'mcp.install.button': 'ইনস্টল করুন',
   'mcp.install.installing': 'ইনস্টল করা হচ্ছে...',
   'mcp.detail.suggestedEnvReady': 'প্রস্তাবিত পরিবেশ মান প্রস্তুত',
-  'mcp.detail.suggestedEnvBody':
-    'এই সার্ভারে-ইনস্টল করার জন্য পরামর্শ দেওয়া হল: xqxq0x ব্যবহার করুন',
+  'mcp.detail.suggestedEnvBody': 'এই সার্ভারে-ইনস্টল করার জন্য পরামর্শ দেওয়া হল: xqxq0x ব্যবহার করুন',
   'mcp.detail.connect': 'সংযোগ করুন',
   'mcp.detail.connecting': 'সংযুক্ত হচ্ছে...',
   'mcp.detail.disconnect': 'সংযোগ বিচ্ছিন্ন করুন',
@@ -1019,21 +923,17 @@ const messages: TranslationMap = {
   'mcp.detail.tools': 'টুলস',
   'onboarding.skipForNow': 'এখনই এড়িয়ে যান',
   'onboarding.localAI.continueWithCloud': 'ক্লাউডের সাথে চালিয়ে যান',
-  'onboarding.localAI.useLocalAnyway':
-    'যাইহোক স্থানীয় AI ব্যবহার করুন (আপনার ডিভাইসের জন্য প্রস্তাবিত নয়)',
-  'onboarding.localAI.useLocalInstead':
-    'পরিবর্তে স্থানীয় AI ব্যবহার করুন (এখনই Ollama সংযোগ করুন)',
+  'onboarding.localAI.useLocalAnyway': 'যাইহোক স্থানীয় AI ব্যবহার করুন (আপনার ডিভাইসের জন্য প্রস্তাবিত নয়)',
+  'onboarding.localAI.useLocalInstead': 'পরিবর্তে স্থানীয় AI ব্যবহার করুন (এখনই Ollama সংযোগ করুন)',
   'onboarding.localAI.setupIssue': 'স্থানীয় AI সেটআপ একটি সমস্যার সম্মুখীন হয়েছে',
   'autonomy.title': 'এজেন্ট স্বায়ত্তশাসন',
   'autonomy.maxActionsLabel': 'প্রতি ঘণ্টায় সর্বাধিক অ্যাকশন',
-  'autonomy.maxActionsHelp':
-    'একজন এজেন্ট প্রতি ঘণ্টায় সর্বোচ্চ কতটি টুল অ্যাকশন চালাতে পারবে। নতুন মান আপনার পরবর্তী চ্যাটে প্রযোজ্য হবে। Cron জব এবং চ্যানেল লিসেনার OpenHuman পুনরায় চালু না করা পর্যন্ত বর্তমান সীমা বজায় রাখবে।',
+  'autonomy.maxActionsHelp': 'একজন এজেন্ট প্রতি ঘণ্টায় সর্বোচ্চ কতটি টুল অ্যাকশন চালাতে পারবে। নতুন মান আপনার পরবর্তী চ্যাটে প্রযোজ্য হবে। Cron জব এবং চ্যানেল লিসেনার OpenHuman পুনরায় চালু না করা পর্যন্ত বর্তমান সীমা বজায় রাখবে।',
   'autonomy.statusSaving': 'সংরক্ষণ করা হচ্ছে...',
   'autonomy.statusSaved': 'সংরক্ষিত।',
   'autonomy.statusFailed': 'ব্যর্থ হয়েছে',
   'autonomy.unlimitedNote': 'সীমাহীন — হার সীমিত করা অক্ষম।',
-  'autonomy.invalidIntegerMsg':
-    'একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে (কোনো সীমা না রাখতে Unlimited প্রিসেট ব্যবহার করুন)।',
+  'autonomy.invalidIntegerMsg': 'একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে (কোনো সীমা না রাখতে Unlimited প্রিসেট ব্যবহার করুন)।',
   'autonomy.presetUnlimited': 'আনলিমিটেড (ডিফল্ট)',
   'triggers.toggleFailed': '{trigger} এর জন্য {action} ব্যর্থ হয়েছে: {message}',
   'settings.ai.overview': 'AI সিস্টেম ওভারভিউ',
@@ -1067,23 +967,18 @@ const messages: TranslationMap = {
   'settings.ai.refreshingAll': 'সব রিফ্রেশ হচ্ছে...',
   'settings.ai.refreshAll': 'সব AI কনফিগারেশন রিফ্রেশ করুন',
   'settings.notifications.suppressAll': 'সব বিজ্ঞপ্তি দমন করুন',
-  'settings.notifications.suppressAllDesc':
-    'ফোকাস স্টেট নির্বিশেষে এম্বেডেড অ্যাপ থেকে সব OS বিজ্ঞপ্তি টোস্ট ব্লক করুন।',
+  'settings.notifications.suppressAllDesc': 'ফোকাস স্টেট নির্বিশেষে এম্বেডেড অ্যাপ থেকে সব OS বিজ্ঞপ্তি টোস্ট ব্লক করুন।',
   'settings.notifications.toggleDnd': 'ডু নট ডিস্টার্ব টগল করুন',
   'settings.notifications.categories': 'ক্যাটাগরি',
-  'settings.notifications.categoryFooter':
-    'একটি ক্যাটাগরি নিষ্ক্রিয় করলে সেই ধরনের নতুন বিজ্ঞপ্তি বিজ্ঞপ্তি কেন্দ্রে আর দেখাবে না। বিদ্যমান বিজ্ঞপ্তিগুলো পরিষ্কার না করা পর্যন্ত থাকবে।',
+  'settings.notifications.categoryFooter': 'একটি ক্যাটাগরি নিষ্ক্রিয় করলে সেই ধরনের নতুন বিজ্ঞপ্তি বিজ্ঞপ্তি কেন্দ্রে আর দেখাবে না। বিদ্যমান বিজ্ঞপ্তিগুলো পরিষ্কার না করা পর্যন্ত থাকবে।',
   'settings.billing.movedToWeb': 'বিলিং ওয়েবে সরানো হয়েছে',
   'settings.billing.openDashboard': 'বিলিং ড্যাশবোর্ড খুলুন',
-  'settings.billing.movedToWebDesc':
-    'সাবস্ক্রিপশন পরিবর্তন, পেমেন্ট পদ্ধতি, ক্রেডিট এবং ইনভয়েস এখন ওয়েবে TinyHumans-এ পরিচালনা করা হয়।',
+  'settings.billing.movedToWebDesc': 'সাবস্ক্রিপশন পরিবর্তন, পেমেন্ট পদ্ধতি, ক্রেডিট এবং ইনভয়েস এখন ওয়েবে TinyHumans-এ পরিচালনা করা হয়।',
   'settings.billing.backToSettings': 'সেটিংসে ফিরুন',
   'settings.billing.openingBrowser': 'ব্রাউজার খোলা হচ্ছে...',
   'settings.billing.browserNotOpen': 'ব্রাউজার না খুললে উপরের বাটন ব্যবহার করুন।',
-  'settings.billing.browserOpenFailed':
-    'ব্রাউজার স্বয়ংক্রিয়ভাবে খোলা যায়নি। উপরের বাটন ব্যবহার করুন।',
-  'settings.tools.chooseCapabilities':
-    'OpenHuman আপনার হয়ে কোন ক্যাপাবিলিটিগুলো ব্যবহার করতে পারবে তা বেছে নিন।',
+  'settings.billing.browserOpenFailed': 'ব্রাউজার স্বয়ংক্রিয়ভাবে খোলা যায়নি। উপরের বাটন ব্যবহার করুন।',
+  'settings.tools.chooseCapabilities': 'OpenHuman আপনার হয়ে কোন ক্যাপাবিলিটিগুলো ব্যবহার করতে পারবে তা বেছে নিন।',
   'settings.tools.saveChanges': 'পরিবর্তন সংরক্ষণ করুন',
   'settings.tools.preferencesSaved': 'পছন্দ সংরক্ষিত',
   'settings.tools.saveFailed': 'পছন্দ সংরক্ষণ ব্যর্থ। আবার চেষ্টা করুন।',
@@ -1100,26 +995,20 @@ const messages: TranslationMap = {
   'settings.screenAwareness.startSession': 'সেশন শুরু করুন',
   'settings.screenAwareness.stopSession': 'সেশন বন্ধ করুন',
   'settings.screenAwareness.analyzeNow': 'এখনই বিশ্লেষণ করুন',
-  'settings.screenAwareness.macosOnly':
-    'স্ক্রিন সচেতনতা ডেস্কটপ ক্যাপচার এবং অনুমতি নিয়ন্ত্রণ বর্তমানে শুধু macOS-এ সমর্থিত।',
+  'settings.screenAwareness.macosOnly': 'স্ক্রিন সচেতনতা ডেস্কটপ ক্যাপচার এবং অনুমতি নিয়ন্ত্রণ বর্তমানে শুধু macOS-এ সমর্থিত।',
   'connections.comingSoon': 'শীঘ্রই আসছে',
   'connections.setUp': 'সেটআপ করুন',
   'connections.configured': 'কনফিগার করা হয়েছে',
   'connections.unavailable': 'পাওয়া যাচ্ছে না',
   'connections.checking': 'পরীক্ষা হচ্ছে…',
-  'connections.walletConfigured':
-    'আপনার রিকভারি ফ্রেজ থেকে লোকাল EVM, BTC, Solana এবং Tron পরিচয় কনফিগার করা হয়েছে।',
-  'connections.walletReady':
-    'একটি রিকভারি ফ্রেজ থেকে লোকাল EVM, BTC, Solana এবং Tron পরিচয় সেটআপ করুন।',
-  'connections.walletError':
-    'ওয়ালেট স্ট্যাটাস পরীক্ষা করা যায়নি। রিকভারি ফ্রেজ প্যানেল থেকে আবার চেষ্টা করতে ট্যাপ করুন।',
+  'connections.walletConfigured': 'আপনার রিকভারি ফ্রেজ থেকে লোকাল EVM, BTC, Solana এবং Tron পরিচয় কনফিগার করা হয়েছে।',
+  'connections.walletReady': 'একটি রিকভারি ফ্রেজ থেকে লোকাল EVM, BTC, Solana এবং Tron পরিচয় সেটআপ করুন।',
+  'connections.walletError': 'ওয়ালেট স্ট্যাটাস পরীক্ষা করা যায়নি। রিকভারি ফ্রেজ প্যানেল থেকে আবার চেষ্টা করতে ট্যাপ করুন।',
   'connections.walletChecking': 'ওয়ালেট স্ট্যাটাস পরীক্ষা হচ্ছে...',
   'connections.walletIdentities': 'ওয়ালেট পরিচয়',
-  'connections.walletDerived':
-    'আপনার রিকভারি ফ্রেজ থেকে লোকালি ডেরাইভ করা এবং শুধু নিরাপদ মেটাডেটা হিসেবে সংরক্ষিত।',
+  'connections.walletDerived': 'আপনার রিকভারি ফ্রেজ থেকে লোকালি ডেরাইভ করা এবং শুধু নিরাপদ মেটাডেটা হিসেবে সংরক্ষিত।',
   'connections.privacySecurity': 'গোপনীয়তা ও নিরাপত্তা',
-  'connections.privacySecurityDesc':
-    'সব ডেটা ও ক্রেডেনশিয়াল জিরো-ডেটা রিটেনশন নীতি সহ লোকালে সংরক্ষিত। আপনার তথ্য এনক্রিপ্ট করা এবং তৃতীয় পক্ষের সাথে কখনো শেয়ার করা হয় না।',
+  'connections.privacySecurityDesc': 'সব ডেটা ও ক্রেডেনশিয়াল জিরো-ডেটা রিটেনশন নীতি সহ লোকালে সংরক্ষিত। আপনার তথ্য এনক্রিপ্ট করা এবং তৃতীয় পক্ষের সাথে কখনো শেয়ার করা হয় না।',
   'channels.status.connecting': 'সংযোগ হচ্ছে',
   'channels.status.notConfigured': 'কনফিগার করা হয়নি',
   'channels.noActiveRoute': 'কোনো সক্রিয় রুট নেই',
@@ -1130,8 +1019,7 @@ const messages: TranslationMap = {
   'channels.configNotAvailable': 'কনফিগারেশন পাওয়া যাচ্ছে না',
   'channels.channel': 'চ্যানেল',
   'devOptions.coreModeNotSet': 'কোর মোড: সেট করা হয়নি',
-  'devOptions.coreModeNotSetDesc':
-    'বুট-চেক পিকার এখনো নিশ্চিত করা হয়নি। লোকাল বা ক্লাউড বেছে নিতে পিকারে সুইচ মোড ব্যবহার করুন।',
+  'devOptions.coreModeNotSetDesc': 'বুট-চেক পিকার এখনো নিশ্চিত করা হয়নি। লোকাল বা ক্লাউড বেছে নিতে পিকারে সুইচ মোড ব্যবহার করুন।',
   'devOptions.local': 'লোকাল',
   'devOptions.embeddedCoreSidecar': 'এম্বেডেড কোর সাইডকার',
   'devOptions.sidecarSpawned': 'অ্যাপ লঞ্চে Tauri শেল দ্বারা ইন-প্রসেসে স্প্যান করা হয়েছে।',
@@ -1140,37 +1028,30 @@ const messages: TranslationMap = {
   'devOptions.token': 'টোকেন',
   'devOptions.tokenNotSet': 'সেট করা হয়নি — RPC 401 দেবে',
   'devOptions.triggerSentryTest': 'Sentry পরীক্ষা ট্রিগার করুন (স্টেজিং)',
-  'devOptions.triggerSentryTestDesc':
-    'Sentry পাইপলাইন যাচাই করতে একটি ট্যাগড ত্রুটি পাঠায়। ইস্যু #1072 — যাচাইয়ের পরে সরান।',
+  'devOptions.triggerSentryTestDesc': 'Sentry পাইপলাইন যাচাই করতে একটি ট্যাগড ত্রুটি পাঠায়। ইস্যু #1072 — যাচাইয়ের পরে সরান।',
   'devOptions.sendTestEvent': 'পরীক্ষা ইভেন্ট পাঠান',
   'devOptions.sending': 'পাঠানো হচ্ছে…',
   'devOptions.eventSent': 'ইভেন্ট পাঠানো হয়েছে',
   'devOptions.sentryDisabled': '(কোনও আইডি নেই — এই বিল্ডে সেন্ট্রি নিষ্ক্রিয় করা হয়েছে)',
   'devOptions.failed': 'ব্যর্থ',
   'devOptions.appLogs': 'অ্যাপ লগ',
-  'devOptions.appLogsDesc':
-    'রোলিং ডেইলি লগ ফাইল ধারণকারী ফোল্ডার খুলুন। ইস্যু রিপোর্ট করার সময় সর্বশেষ ফাইলটি সংযুক্ত করুন।',
+  'devOptions.appLogsDesc': 'রোলিং ডেইলি লগ ফাইল ধারণকারী ফোল্ডার খুলুন। ইস্যু রিপোর্ট করার সময় সর্বশেষ ফাইলটি সংযুক্ত করুন।',
   'devOptions.openLogsFolder': 'লগ ফোল্ডার খুলুন',
   'mnemonic.phraseSaved': 'রিকভারি ফ্রেজ সংরক্ষিত',
   'mnemonic.walletReady': 'মাল্টি-চেইন ওয়ালেট পরিচয় প্রস্তুত। সেটিংসে ফিরছে...',
   'mnemonic.writeDownWords': 'এই',
-  'mnemonic.wordsInOrder':
-    'শব্দগুলো ক্রমানুসারে লিখে নিরাপদ স্থানে সংরক্ষণ করুন। এই ফ্রেজটি আপনার লোকাল এনক্রিপশন কী এবং EVM, BTC, Solana ও Tron ওয়ালেট পরিচয় সুরক্ষিত করে।',
-  'mnemonic.cannotRecover':
-    'এই ফ্রেজ হারালে কখনো পুনরুদ্ধার করা যাবে না এবং সম্পূর্ণ আপনার ডিভাইসে রাখা উচিত।',
+  'mnemonic.wordsInOrder': 'শব্দগুলো ক্রমানুসারে লিখে নিরাপদ স্থানে সংরক্ষণ করুন। এই ফ্রেজটি আপনার লোকাল এনক্রিপশন কী এবং EVM, BTC, Solana ও Tron ওয়ালেট পরিচয় সুরক্ষিত করে।',
+  'mnemonic.cannotRecover': 'এই ফ্রেজ হারালে কখনো পুনরুদ্ধার করা যাবে না এবং সম্পূর্ণ আপনার ডিভাইসে রাখা উচিত।',
   'mnemonic.copyToClipboard': 'ক্লিপবোর্ডে কপি করুন',
   'mnemonic.alreadyHavePhrase': 'আমার কাছে ইতিমধ্যে একটি রিকভারি ফ্রেজ আছে',
-  'mnemonic.consentSaved':
-    'আমি এই ফ্রেজটি সংরক্ষণ করেছি এবং লোকাল ওয়ালেট সেটআপের জন্য এটি ব্যবহারে সম্মতি দিচ্ছি',
-  'mnemonic.enterPhraseToRestore':
-    'আপনার লোকাল ওয়ালেট পরিচয় পুনরুদ্ধার করতে নিচে আপনার রিকভারি ফ্রেজ দিন, বা যেকোনো ফিল্ডে পুরো ফ্রেজ পেস্ট করুন (নতুন ব্যাকআপের জন্য ১২টি শব্দ; পুরনো ভার্সনের ২৪ শব্দের ফ্রেজও কাজ করে)।',
+  'mnemonic.consentSaved': 'আমি এই ফ্রেজটি সংরক্ষণ করেছি এবং লোকাল ওয়ালেট সেটআপের জন্য এটি ব্যবহারে সম্মতি দিচ্ছি',
+  'mnemonic.enterPhraseToRestore': 'আপনার লোকাল ওয়ালেট পরিচয় পুনরুদ্ধার করতে নিচে আপনার রিকভারি ফ্রেজ দিন, বা যেকোনো ফিল্ডে পুরো ফ্রেজ পেস্ট করুন (নতুন ব্যাকআপের জন্য ১২টি শব্দ; পুরনো ভার্সনের ২৪ শব্দের ফ্রেজও কাজ করে)।',
   'mnemonic.words': 'শব্দ',
   'mnemonic.validPhrase': 'বৈধ রিকভারি ফ্রেজ',
   'mnemonic.generateNewPhrase': 'পরিবর্তে একটি নতুন রিকভারি ফ্রেজ তৈরি করুন',
   'mnemonic.securingData': 'আপনার ডেটা সুরক্ষিত হচ্ছে...',
   'mnemonic.saveRecoveryPhrase': 'রিকভারি ফ্রেজ সংরক্ষণ করুন',
-  'mnemonic.userNotLoaded':
-    'ব্যবহারকারী লোড হয়নি। দয়া করে আবার সাইন ইন করুন বা পেজ রিফ্রেশ করুন।',
+  'mnemonic.userNotLoaded': 'ব্যবহারকারী লোড হয়নি। দয়া করে আবার সাইন ইন করুন বা পেজ রিফ্রেশ করুন।',
   'mnemonic.invalidPhrase': 'অবৈধ রিকভারি ফ্রেজ। আপনার শব্দগুলো পরীক্ষা করে আবার চেষ্টা করুন।',
   'mnemonic.somethingWentWrong': 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
   'team.failedToCreate': 'টিম তৈরি করতে ব্যর্থ',
@@ -1198,8 +1079,7 @@ const messages: TranslationMap = {
   'team.join': 'যোগ দিন',
   'team.leaveTeam': 'টিম ছাড়ুন',
   'team.confirmLeave': 'আপনি কি ছেড়ে যেতে চান',
-  'team.leaveWarning':
-    'আপনি টিম এবং সব টিম রিসোর্সে অ্যাক্সেস হারাবেন। পুনরায় যোগ দিতে নতুন আমন্ত্রণ প্রয়োজন।',
+  'team.leaveWarning': 'আপনি টিম এবং সব টিম রিসোর্সে অ্যাক্সেস হারাবেন। পুনরায় যোগ দিতে নতুন আমন্ত্রণ প্রয়োজন।',
   'team.management': 'টিম ম্যানেজমেন্ট',
   'team.notFound': 'টিম পাওয়া যায়নি',
   'team.accessDenied': 'অ্যাক্সেস অস্বীকৃত',
@@ -1221,8 +1101,7 @@ const messages: TranslationMap = {
   'team.manageTitle': 'ম্যানেজ করতে ব্যর্থ হয়েছে {name}',
   'team.planCreated': '{plan} পরিকল্পনা • তৈরি করা হয়েছে {date}',
   'team.confirmDelete': 'আপনি কি নিশ্চিত আপনি {name} মুছতে চান?',
-  'team.deleteWarning':
-    'এই ক্রিয়াটি পূর্বাবস্থায় ফেরানো যাবে না। সমস্ত দলের ডেটা স্থায়ীভাবে মুছে ফেলা হবে।',
+  'team.deleteWarning': 'এই ক্রিয়াটি পূর্বাবস্থায় ফেরানো যাবে না। সমস্ত দলের ডেটা স্থায়ীভাবে মুছে ফেলা হবে।',
   'voice.title': 'ভয়েস ডিক্টেশন',
   'voice.settings': 'ভয়েস সেটিংস',
   'voice.settingsDesc': 'ডিক্টেট করতে এবং সক্রিয় ফিল্ডে টেক্সট ঢোকাতে হটকি ধরে রাখুন।',
@@ -1234,11 +1113,9 @@ const messages: TranslationMap = {
   'voice.naturalCleanup': 'স্বাভাবিক পরিষ্কার',
   'voice.autoStart': 'কোরের সাথে স্বয়ংক্রিয়ভাবে ভয়েস সার্ভার শুরু করুন',
   'voice.customDictionary': 'কাস্টম ডিকশনারি',
-  'voice.customDictionaryDesc':
-    'স্বীকৃতির নির্ভুলতা উন্নত করতে নাম, প্রযুক্তিগত শব্দ এবং ডোমেন শব্দ যোগ করুন।',
+  'voice.customDictionaryDesc': 'স্বীকৃতির নির্ভুলতা উন্নত করতে নাম, প্রযুক্তিগত শব্দ এবং ডোমেন শব্দ যোগ করুন।',
   'voice.addWord': 'একটি শব্দ যোগ করুন...',
-  'voice.sttDisabled':
-    'লোকাল STT মডেল ডাউনলোড ও প্রস্তুত না হওয়া পর্যন্ত ভয়েস ডিক্টেশন নিষ্ক্রিয়।',
+  'voice.sttDisabled': 'লোকাল STT মডেল ডাউনলোড ও প্রস্তুত না হওয়া পর্যন্ত ভয়েস ডিক্টেশন নিষ্ক্রিয়।',
   'voice.openLocalAiModel': 'লোকাল AI মডেল খুলুন',
   'voice.serverRestarted': 'নতুন সেটিংস সহ ভয়েস সার্ভার রিস্টার্ট হয়েছে।',
   'voice.settingsSaved': 'ভয়েস সেটিংস সংরক্ষিত।',
@@ -1252,8 +1129,7 @@ const messages: TranslationMap = {
   'voice.failedToSaveSettings': 'ভয়েস সেটিংস সংরক্ষণ করতে ব্যর্থ হয়েছে',
   'voice.failedToStartServer': 'ভয়েস সার্ভার শুরু করতে ব্যর্থ হয়েছে',
   'voice.failedToStopServer': 'ভয়েস সার্ভার বন্ধ করতে ব্যর্থ হয়েছে',
-  'voice.sttDisabledPrefix':
-    'স্থানীয় STT মডেল ডাউনলোড না হওয়া পর্যন্ত ভয়েস ডিকটেশন নিষ্ক্রিয়। ব্যবহার করুন',
+  'voice.sttDisabledPrefix': 'স্থানীয় STT মডেল ডাউনলোড না হওয়া পর্যন্ত ভয়েস ডিকটেশন নিষ্ক্রিয়। ব্যবহার করুন',
   'voice.sttDisabledSuffix': 'বিভাগটি ব্যবহার করুন৷',
   'voice.debug.failedToLoadVoiceDebugData': 'ভয়েস ডিবাগ ডেটা লোড করতে ব্যর্থ হয়েছে',
   'voice.debug.settingsSaved': 'ডিবাগ সেটিংস সংরক্ষণ করা হয়েছে৷',
@@ -1270,12 +1146,10 @@ const messages: TranslationMap = {
   'voice.debug.transcriptions': 'সার্ভারের ত্রুটি',
   'voice.debug.serverError': 'উন্নত সেটিংস',
   'voice.debug.advancedSettings': 'টিউ 18-193 মিটারের নিম্ন স্তরের জন্য উন্নত সেটিংস',
-  'voice.debug.advancedSettingsDesc':
-    'রেকর্ডিং এবং নীরবতা সনাক্তকরণের জন্য নিম্ন-স্তরের টিউনিং প্যারামিটার।',
+  'voice.debug.advancedSettingsDesc': 'রেকর্ডিং এবং নীরবতা সনাক্তকরণের জন্য নিম্ন-স্তরের টিউনিং প্যারামিটার।',
   'voice.debug.minimumRecordingSeconds': 'ন্যূনতম রেকর্ডিং সেকেন্ড',
   'voice.debug.silenceThreshold': 'সাইলেন্স থ্রেশহোল্ড (RMS)',
-  'voice.debug.silenceThresholdDesc':
-    'এই মানের নিচে শক্তির রেকর্ডিংগুলি নীরবতা হিসেবে গণ্য হয় এবং এড়িয়ে যাওয়া হয়। কম মান = আরও সংবেদনশীল।',
+  'voice.debug.silenceThresholdDesc': 'এই মানের নিচে শক্তির রেকর্ডিংগুলি নীরবতা হিসেবে গণ্য হয় এবং এড়িয়ে যাওয়া হয়। কম মান = আরও সংবেদনশীল।',
   'voice.providers.saved': 'ভয়েস প্রদানকারী সংরক্ষিত।',
   'voice.providers.failedToSave': 'ভয়েস প্রদানকারী সংরক্ষণ করতে ব্যর্থ',
   'voice.providers.ellipsis': '…',
@@ -1293,17 +1167,14 @@ const messages: TranslationMap = {
   'voice.providers.piperInstallStarted': 'পাইপার ইনস্টল শুরু হয়েছে',
   'voice.providers.failedToInstallPiper': 'পাইপার ইনস্টল করতে ব্যর্থ হয়েছে',
   'voice.providers.title': 'ভয়েস প্রদানকারী',
-  'voice.providers.desc':
-    'ট্রান্সক্রিপশন এবং সিনথেসিস কোথায় চলবে তা বেছে নিন। বাইনারি এবং মডেলগুলি আপনার ওয়ার্কস্পেসে ডাউনলোড করতে Install locally বোতাম ব্যবহার করুন। ইনস্টল শেষ হওয়ার আগেই স্থানীয় প্রোভাইডার সংরক্ষণ করা যাবে — কোনো ম্যানুয়াল WHISPER_BIN বা PIPER_BIN সেটআপ প্রয়োজন নেই।',
+  'voice.providers.desc': 'ট্রান্সক্রিপশন এবং সিনথেসিস কোথায় চলবে তা বেছে নিন। বাইনারি এবং মডেলগুলি আপনার ওয়ার্কস্পেসে ডাউনলোড করতে Install locally বোতাম ব্যবহার করুন। ইনস্টল শেষ হওয়ার আগেই স্থানীয় প্রোভাইডার সংরক্ষণ করা যাবে — কোনো ম্যানুয়াল WHISPER_BIN বা PIPER_BIN সেটআপ প্রয়োজন নেই।',
   'voice.providers.sttProvider': 'স্পিচ-টু-টেক্সট প্রদানকারী',
   'voice.providers.sttProviderAria': 'STT প্রদানকারী',
   'voice.providers.cloudWhisperProxy': 'ক্লাউড (হুইস্পার প্রক্সি)',
   'voice.providers.localWhisper': 'স্থানীয় হুইস্পার',
   'voice.providers.installRequired': '(ইনস্টল করতে হবে)',
-  'voice.providers.whisperInstalledTitle':
-    'Whisper ইনস্টল করা আছে। পুনরায় ইনস্টল করতে ক্লিক করুন।',
-  'voice.providers.whisperDownloadTitle':
-    'whisper.cpp এবং GGML মডেল আপনার ওয়ার্কস্পেসে ডাউনলোড করুন।',
+  'voice.providers.whisperInstalledTitle': 'Whisper ইনস্টল করা আছে। পুনরায় ইনস্টল করতে ক্লিক করুন।',
+  'voice.providers.whisperDownloadTitle': 'whisper.cpp এবং GGML মডেল আপনার ওয়ার্কস্পেসে ডাউনলোড করুন।',
   'voice.providers.installed': 'ইনস্টল করা হয়েছে',
   'voice.providers.installFailed': 'ইনস্টল ব্যর্থ হয়েছে',
   'voice.providers.notInstalled': 'ইনস্টল করা হয়নি',
@@ -1319,18 +1190,15 @@ const messages: TranslationMap = {
   'voice.providers.cloudElevenLabsProxy': 'ক্লাউড (ElevenLabs proxy)',
   'voice.providers.localPiper': 'স্থানীয় পাইপার',
   'voice.providers.piperInstalledTitle': 'পাইপার ইনস্টল করা আছে। পুনরায় ইনস্টল করতে ক্লিক করুন.',
-  'voice.providers.piperDownloadTitle':
-    'Piper এবং বান্ডেল করা en_US-lessac-medium ভয়েস আপনার ওয়ার্কস্পেসে ডাউনলোড করুন।',
+  'voice.providers.piperDownloadTitle': 'Piper এবং বান্ডেল করা en_US-lessac-medium ভয়েস আপনার ওয়ার্কস্পেসে ডাউনলোড করুন।',
   'voice.providers.piperVoice': 'পাইপার ভয়েস',
   'voice.providers.piperVoiceAria': 'পাইপার ভয়েস',
   'voice.providers.customVoiceOption': 'অন্যান্য (নীচে টাইপ করুন)…',
   'voice.providers.customVoiceAria': 'পাইপার ভয়েস আইডি (কাস্টম)',
   'voice.providers.customVoicePlaceholder': 'en_US-lessac-medium',
-  'voice.providers.piperVoicesDesc':
-    'ভয়েসগুলি huggingface.co/rhasspy/piper-voices থেকে আসে। ভয়েস পরিবর্তন করলে নতুন .onnx ডাউনলোড করতে Install/Reinstall ক্লিক করতে হতে পারে।',
+  'voice.providers.piperVoicesDesc': 'ভয়েসগুলি huggingface.co/rhasspy/piper-voices থেকে আসে। ভয়েস পরিবর্তন করলে নতুন .onnx ডাউনলোড করতে Install/Reinstall ক্লিক করতে হতে পারে।',
   'voice.providers.mascotVoice': 'মাসকট ভয়েস',
-  'voice.providers.mascotVoiceDescPrefix':
-    'মাসকট কথিত উত্তরের জন্য যে ElevenLabs ভয়েস ব্যবহার করে তা কনফিগার করা আছে',
+  'voice.providers.mascotVoiceDescPrefix': 'মাসকট কথিত উত্তরের জন্য যে ElevenLabs ভয়েস ব্যবহার করে তা কনফিগার করা আছে',
   'voice.providers.mascotSettings': 'মাসকট সেটিংস',
   'voice.providers.mascotVoiceDescSuffix': '.',
   'voice.providers.hotkeyPlaceholder': 'Fn এর অধীনে কনফিগার করা হয়েছে',
@@ -1356,30 +1224,24 @@ const messages: TranslationMap = {
   'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
   'voice.providers.chip.comingSoon': 'শীঘ্রই আসছে',
   'voice.modal.title': 'Configure',
-  'voice.modal.desc':
-    'এই প্রোভাইডার সক্রিয় করতে আপনার API কী লিখুন। সংরক্ষণের আগে সংযোগ পরীক্ষা করতে পারবেন।',
+  'voice.modal.desc': 'এই প্রোভাইডার সক্রিয় করতে আপনার API কী লিখুন। সংরক্ষণের আগে সংযোগ পরীক্ষা করতে পারবেন।',
   'voice.modal.testKey': 'কী পরীক্ষা করুন',
   'voice.modal.testing': 'পরীক্ষা হচ্ছে…',
   'voice.modal.saveAndEnable': 'সংরক্ষণ করুন ও সক্রিয় করুন',
   'voice.modal.enable': 'Enable',
-  'voice.modal.whisperDesc':
-    'একটি মডেল সাইজ বেছে নিন এবং Whisper বাইনারি ও GGML মডেল আপনার ওয়ার্কস্পেসে ইনস্টল করুন। বড় মডেল আরও নির্ভুল তবে ধীর।',
-  'voice.modal.piperDesc':
-    'একটি ভয়েস বেছে নিন এবং Piper বাইনারি ও ONNX মডেল আপনার ওয়ার্কস্পেসে ইনস্টল করুন। Piper সম্পূর্ণ অফলাইনে কম লেটেন্সিতে চলে।',
+  'voice.modal.whisperDesc': 'একটি মডেল সাইজ বেছে নিন এবং Whisper বাইনারি ও GGML মডেল আপনার ওয়ার্কস্পেসে ইনস্টল করুন। বড় মডেল আরও নির্ভুল তবে ধীর।',
+  'voice.modal.piperDesc': 'একটি ভয়েস বেছে নিন এবং Piper বাইনারি ও ONNX মডেল আপনার ওয়ার্কস্পেসে ইনস্টল করুন। Piper সম্পূর্ণ অফলাইনে কম লেটেন্সিতে চলে।',
   'voice.routing.title': 'ভয়েস রাউটিং',
-  'voice.routing.desc':
-    'স্পিচ-টু-টেক্সট এবং টেক্সট-টু-স্পিচ পরিচালনার জন্য সক্রিয় প্রোভাইডার বেছে নিন।',
+  'voice.routing.desc': 'স্পিচ-টু-টেক্সট এবং টেক্সট-টু-স্পিচ পরিচালনার জন্য সক্রিয় প্রোভাইডার বেছে নিন।',
   'voice.routing.save': 'Save',
   'voice.routing.testStt': 'STT পরীক্ষা করুন',
   'voice.routing.testTts': 'TTS পরীক্ষা করুন',
   'voice.routing.elevenlabsVoice': 'ElevenLabs ভয়েস',
   'voice.routing.elevenlabsVoiceAria': 'ElevenLabs ভয়েস নির্বাচন',
   'voice.routing.elevenlabsVoiceIdAria': 'ElevenLabs ভয়েস ID (কাস্টম)',
-  'voice.routing.elevenlabsVoiceDesc':
-    'একটি কিউরেটেড ভয়েস বেছে নিন বা আপনার ElevenLabs ড্যাশবোর্ড থেকে একটি কাস্টম ভয়েস ID পেস্ট করুন।',
+  'voice.routing.elevenlabsVoiceDesc': 'একটি কিউরেটেড ভয়েস বেছে নিন বা আপনার ElevenLabs ড্যাশবোর্ড থেকে একটি কাস্টম ভয়েস ID পেস্ট করুন।',
   'voice.externalProviders.title': 'বাহ্যিক ভয়েস প্রোভাইডার',
-  'voice.externalProviders.desc':
-    'Deepgram, ElevenLabs, বা OpenAI-এর মতো থার্ড-পার্টি STT/TTS API সরাসরি সংযোগ করুন।',
+  'voice.externalProviders.desc': 'Deepgram, ElevenLabs, বা OpenAI-এর মতো থার্ড-পার্টি STT/TTS API সরাসরি সংযোগ করুন।',
   'voice.externalProviders.keySet': 'কী সেট করা হয়েছে',
   'voice.externalProviders.noKey': 'কোনো API কী নেই',
   'voice.externalProviders.test': 'Test',
@@ -1423,12 +1285,10 @@ const messages: TranslationMap = {
   'chat.askAgent': 'এজেন্টকে যেকোনো কিছু জিজ্ঞেস করুন...',
   'chat.sendMessage': 'বার্তা পাঠান',
   'composio.triageTitle': 'ইন্টিগ্রেশন ট্রিগার',
-  'composio.triageDesc':
-    'সক্রিয় থাকলে, প্রতিটি আসন্ত Composio ট্রিগার একটি AI ট্রিয়াজ ধাপের মধ্য দিয়ে যায় যা ইভেন্ট শ্রেণীবদ্ধ করে এবং স্বয়ংক্রিয় কাজ শুরু করতে পারে — প্রতিটি ট্রিগারে একটি লোকাল LLM টার্ন। বৈশ্বিকভাবে বা নির্দিষ্ট ইন্টিগ্রেশনে নিষ্ক্রিয় করুন যদি আপনি ম্যানুয়াল রিভিউ পছন্দ করেন। যদি পরিবেশ ভ্যারিয়েবল',
+  'composio.triageDesc': 'সক্রিয় থাকলে, প্রতিটি আসন্ত Composio ট্রিগার একটি AI ট্রিয়াজ ধাপের মধ্য দিয়ে যায় যা ইভেন্ট শ্রেণীবদ্ধ করে এবং স্বয়ংক্রিয় কাজ শুরু করতে পারে — প্রতিটি ট্রিগারে একটি লোকাল LLM টার্ন। বৈশ্বিকভাবে বা নির্দিষ্ট ইন্টিগ্রেশনে নিষ্ক্রিয় করুন যদি আপনি ম্যানুয়াল রিভিউ পছন্দ করেন। যদি পরিবেশ ভ্যারিয়েবল',
   'composio.disableAllTriage': 'সব ট্রিগারের জন্য AI ট্রিয়াজ নিষ্ক্রিয় করুন',
   'composio.triggersStillRecorded': 'ট্রিগারগুলো ইতিহাসে রেকর্ড থাকবে — কোনো LLM টার্ন চলবে না।',
-  'composio.disableSpecificIntegrations':
-    'নির্দিষ্ট ইন্টিগ্রেশনের জন্য AI ট্রিয়াজ নিষ্ক্রিয় করুন',
+  'composio.disableSpecificIntegrations': 'নির্দিষ্ট ইন্টিগ্রেশনের জন্য AI ট্রিয়াজ নিষ্ক্রিয় করুন',
   'composio.settingsSaved': 'সেটিংস সংরক্ষিত হয়েছে',
   'composio.saveFailed': 'সংরক্ষণ ব্যর্থ। আবার চেষ্টা করুন।',
   'cron.title': 'ক্রন জবস',
@@ -1438,11 +1298,9 @@ const messages: TranslationMap = {
   'localModel.modelStatus': 'মডেল স্ট্যাটাস',
   'localModel.downloadModels': 'মডেল ডাউনলোড করুন',
   'localModel.usage': 'ব্যবহার',
-  'localModel.usageDesc':
-    'কোন সাবসিস্টেম লোকাল মডেলে চলবে তা বেছে নিন। বন্ধ থাকলে ক্লাউড ব্যবহার করে।',
+  'localModel.usageDesc': 'কোন সাবসিস্টেম লোকাল মডেলে চলবে তা বেছে নিন। বন্ধ থাকলে ক্লাউড ব্যবহার করে।',
   'localModel.enableRuntime': 'লোকাল AI রানটাইম সক্রিয় করুন',
-  'localModel.enableRuntimeDesc':
-    'মাস্টার সুইচ। ডিফল্টে বন্ধ — Ollama নিষ্ক্রিয় থাকে। চালু হলে, ট্রি সামারাইজার, স্ক্রিন ইন্টেলিজেন্স এবং অটোকমপ্লিট সর্বদা লোকাল মডেল ব্যবহার করে।',
+  'localModel.enableRuntimeDesc': 'মাস্টার সুইচ। ডিফল্টে বন্ধ — Ollama নিষ্ক্রিয় থাকে। চালু হলে, ট্রি সামারাইজার, স্ক্রিন ইন্টেলিজেন্স এবং অটোকমপ্লিট সর্বদা লোকাল মডেল ব্যবহার করে।',
   'localModel.advancedSettings': 'অ্যাডভান্সড সেটিংস',
   'localModel.debugTitle': 'লোকাল মডেল ডিবাগ',
   'screenAwareness.debugTitle': 'স্ক্রিন সচেতনতা ডিবাগ',
@@ -1453,11 +1311,9 @@ const messages: TranslationMap = {
   'screenAwareness.debug.policyTitle': 'স্ক্রীন ইন্টেলিজেন্স নীতি',
   'screenAwareness.debug.baselineFps': 'বেসলাইন FPS',
   'screenAwareness.debug.useVisionModel': 'ভিআইপি ব্যবহার করুন',
-  'screenAwareness.debug.useVisionModelDesc':
-    'আরও সমৃদ্ধ প্রেক্ষাপটের জন্য একটি ভিশন LLM-এ স্ক্রিনশট পাঠান। বন্ধ থাকলে, শুধুমাত্র OCR টেক্সট একটি টেক্সট LLM-এর সাথে ব্যবহার করা হয় — দ্রুততর এবং কোনো ভিশন মডেল প্রয়োজন নেই।',
+  'screenAwareness.debug.useVisionModelDesc': 'আরও সমৃদ্ধ প্রেক্ষাপটের জন্য একটি ভিশন LLM-এ স্ক্রিনশট পাঠান। বন্ধ থাকলে, শুধুমাত্র OCR টেক্সট একটি টেক্সট LLM-এর সাথে ব্যবহার করা হয় — দ্রুততর এবং কোনো ভিশন মডেল প্রয়োজন নেই।',
   'screenAwareness.debug.keepScreenshots': 'স্ক্রিনশটগুলি রাখুন',
-  'screenAwareness.debug.keepScreenshotsDesc':
-    'প্রক্রিয়াকরণের পরে মুছে না দিয়ে ক্যাপচার করা স্ক্রিনশটগুলি ওয়ার্কস্পেসে সংরক্ষণ করুন',
+  'screenAwareness.debug.keepScreenshotsDesc': 'প্রক্রিয়াকরণের পরে মুছে না দিয়ে ক্যাপচার করা স্ক্রিনশটগুলি ওয়ার্কস্পেসে সংরক্ষণ করুন',
   'screenAwareness.debug.allowlist': 'অনুমতি তালিকা (প্রতি লাইনে একটি নিয়ম)',
   'screenAwareness.debug.denylist': 'অস্বীকারকারী (প্রতি লাইনে একটি নিয়ম)',
   'screenAwareness.debug.saveSettings': 'স্ক্রীন ইন্টেলিজেন্স সেটিংস সংরক্ষণ করুন',
@@ -1501,8 +1357,7 @@ const messages: TranslationMap = {
   'memory.exampleNamespace': 'যেমন skill:gmail:user@example.com',
   'memory.clear': 'সাফ',
   'memory.deleteConfirm': 'নামস্থান "{namespace}" এ নথি "{documentId}" মুছবেন?',
-  'memory.clearNamespaceConfirm':
-    'এটি "{namespace}" নেমস্পেসের সমস্ত ডকুমেন্ট স্থায়ীভাবে মুছে ফেলবে। চালিয়ে যাবেন?',
+  'memory.clearNamespaceConfirm': 'এটি "{namespace}" নেমস্পেসের সমস্ত ডকুমেন্ট স্থায়ীভাবে মুছে ফেলবে। চালিয়ে যাবেন?',
   'memory.clearNamespaceSuccess': 'নামস্থান "{namespace}" সাফ করা হয়েছে৷',
   'memory.clearNamespaceEmpty': '"{namespace}" এ পরিষ্কার করার কিছু নেই।',
   'webhooks.debugTitle': 'Webhooks ডিবাগ',
@@ -1535,14 +1390,10 @@ const messages: TranslationMap = {
   'webhooks.empty': '[খালি]',
   'providerSetup.error.defaultDetails': 'প্রদানকারী সেটআপ ব্যর্থ হয়েছে৷',
   'providerSetup.error.providerFallback': 'প্রদানকারী',
-  'providerSetup.error.credentialsRejected':
-    '{provider} শংসাপত্র প্রত্যাখ্যান করেছে। API কী পরীক্ষা করুন এবং আবার চেষ্টা করুন।',
-  'providerSetup.error.endpointNotRecognized':
-    '{provider} এন্ডপয়েন্ট সনাক্ত করতে পারেনি। বেস URL পরীক্ষা করুন এবং আবার চেষ্টা করুন।',
-  'providerSetup.error.providerUnavailable':
-    '{provider} এখন অনুপলব্ধ। আবার চেষ্টা করুন অথবা প্রোভাইডারের স্ট্যাটাস দেখুন।',
-  'providerSetup.error.unreachable':
-    '{provider}-এ পৌঁছানো যায়নি। এন্ডপয়েন্ট URL এবং নেটওয়ার্ক সংযোগ পরীক্ষা করুন, তারপর আবার চেষ্টা করুন।',
+  'providerSetup.error.credentialsRejected': '{provider} শংসাপত্র প্রত্যাখ্যান করেছে। API কী পরীক্ষা করুন এবং আবার চেষ্টা করুন।',
+  'providerSetup.error.endpointNotRecognized': '{provider} এন্ডপয়েন্ট সনাক্ত করতে পারেনি। বেস URL পরীক্ষা করুন এবং আবার চেষ্টা করুন।',
+  'providerSetup.error.providerUnavailable': '{provider} এখন অনুপলব্ধ। আবার চেষ্টা করুন অথবা প্রোভাইডারের স্ট্যাটাস দেখুন।',
+  'providerSetup.error.unreachable': '{provider}-এ পৌঁছানো যায়নি। এন্ডপয়েন্ট URL এবং নেটওয়ার্ক সংযোগ পরীক্ষা করুন, তারপর আবার চেষ্টা করুন।',
   'providerSetup.error.couldNotReachWithMessage': '{provider} এ পৌঁছানো যায়নি: {message}',
   'providerSetup.error.technicalDetails': 'প্রযুক্তিগত বিবরণ',
   'notifications.routingTitle': 'বিজ্ঞপ্তি রুটিং',
@@ -1551,29 +1402,25 @@ const messages: TranslationMap = {
   'notifications.routing.unread': 'অপঠিত',
   'notifications.routing.unscored': 'আনস্কোরড',
   'notifications.routing.intelligenceTitle': 'আনস্কোরড [[I18N_SEP_92731] নোটিফিকেশন',
-  'notifications.routing.intelligenceDesc':
-    'আপনার সংযুক্ত অ্যাকাউন্টের প্রতিটি বিজ্ঞপ্তি একটি স্থানীয় AI মডেল দ্বারা স্কোর করা হয়। উচ্চ-গুরুত্বের বিজ্ঞপ্তিগুলি স্বয়ংক্রিয়ভাবে আপনার অর্কেস্ট্রেটর এজেন্টে রুট করা হয় যাতে কিছু গুরুত্বপূর্ণ মিস না হয়।',
+  'notifications.routing.intelligenceDesc': 'আপনার সংযুক্ত অ্যাকাউন্টের প্রতিটি বিজ্ঞপ্তি একটি স্থানীয় AI মডেল দ্বারা স্কোর করা হয়। উচ্চ-গুরুত্বের বিজ্ঞপ্তিগুলি স্বয়ংক্রিয়ভাবে আপনার অর্কেস্ট্রেটর এজেন্টে রুট করা হয় যাতে কিছু গুরুত্বপূর্ণ মিস না হয়।',
   'notifications.routing.howItWorks': 'এটি কীভাবে কাজ করে',
   'notifications.routing.level.drop': 'ড্রপ',
   'notifications.routing.level.dropDesc': 'নয়েজ / স্প্যাম — সঞ্চিত কিন্তু প্রকাশ করা হয় না',
   'notifications.routing.level.acknowledge': 'স্বীকার করুন',
   'notifications.routing.level.acknowledgeDesc': 'নিম্ন-অগ্রাধিকার — বিজ্ঞপ্তি কেন্দ্রে দেখানো হয়',
   'notifications.routing.level.react': 'প্রতিক্রিয়া',
-  'notifications.routing.level.reactDesc':
-    'মধ্যম-অগ্রাধিকার — একটি ফোকাসড এজেন্ট প্রতিক্রিয়া চালু করে',
+  'notifications.routing.level.reactDesc': 'মধ্যম-অগ্রাধিকার — একটি ফোকাসড এজেন্ট প্রতিক্রিয়া চালু করে',
   'notifications.routing.level.escalate': 'এস্কেলেট',
   'notifications.routing.level.escalateDesc': 'উচ্চ-অগ্রাধিকার — অর্কেস্ট্রেটর এজেন্টে পাঠানো হয়',
   'notifications.routing.perProvider': 'প্রতি-প্রদানকারী রাউটিং',
   'notifications.routing.threshold': 'থ্রেশহোল্ড',
   'notifications.routing.routeToOrchestrator': 'অর্কেস্ট্রেটরের রুট',
-  'notifications.routing.loadSettingsError':
-    'সেটিংস লোড করতে ব্যর্থ হয়েছে। পুনরায় চেষ্টা করতে এই প্যানেলটি আবার খুলুন।',
+  'notifications.routing.loadSettingsError': 'সেটিংস লোড করতে ব্যর্থ হয়েছে। পুনরায় চেষ্টা করতে এই প্যানেলটি আবার খুলুন।',
   'common.reload': 'পুনরায় লোড',
   'common.skip': 'এড়িয়ে যান',
   'common.disable': 'নিষ্ক্রিয় করুন',
   'common.enable': 'সক্রিয় করুন',
-  'chat.safetyTimeout':
-    '২ মিনিট পরেও এজেন্টের কোনো সাড়া নেই। আবার চেষ্টা করুন বা সংযোগ পরীক্ষা করুন।',
+  'chat.safetyTimeout': '২ মিনিট পরেও এজেন্টের কোনো সাড়া নেই। আবার চেষ্টা করুন বা সংযোগ পরীক্ষা করুন।',
   'chat.filter.all': 'সব',
   'chat.filter.work': 'কাজ',
   'chat.filter.briefing': 'ব্রিফিং',
@@ -1601,8 +1448,7 @@ const messages: TranslationMap = {
   'chat.weeklyLimitHit': 'আপনি আপনার সাপ্তাহিক সীমায় পৌঁছেছেন।',
   'chat.resets': 'রিসেট হবে',
   'chat.topUpToContinue': 'চালিয়ে যেতে টপ আপ করুন।',
-  'chat.budgetComplete':
-    'আপনার অন্তর্ভুক্ত বাজেট শেষ হয়েছে। চালিয়ে যেতে ক্রেডিট যোগ করুন বা আপগ্রেড করুন।',
+  'chat.budgetComplete': 'আপনার অন্তর্ভুক্ত বাজেট শেষ হয়েছে। চালিয়ে যেতে ক্রেডিট যোগ করুন বা আপগ্রেড করুন।',
   'chat.topUp': 'টপ আপ',
   'chat.cycle': 'চক্র',
   'chat.cycleSpent': 'এই চক্রে ব্যয়',
@@ -1623,8 +1469,7 @@ const messages: TranslationMap = {
   'chat.attachment.remove': '{name} সরান',
   'chat.attachment.tooMany': 'প্রতি বার্তায় সর্বোচ্চ {max}টি ছবি',
   'chat.attachment.tooLarge': 'ছবি {max} আকারের সীমা অতিক্রম করেছে',
-  'chat.attachment.unsupportedType':
-    'অসমর্থিত ফাইল প্রকার। PNG, JPEG, WebP, GIF, বা BMP ব্যবহার করুন।',
+  'chat.attachment.unsupportedType': 'অসমর্থিত ফাইল প্রকার। PNG, JPEG, WebP, GIF, বা BMP ব্যবহার করুন।',
   'chat.attachment.readFailed': 'ফাইল পড়া যায়নি',
   'memory.searchAria': 'মেমোরি খুঁজুন',
   'memory.searchPlaceholder': 'মেমোরি এন্ট্রি খুঁজুন...',
@@ -1692,8 +1537,7 @@ const messages: TranslationMap = {
   'navigator.documents': 'ডকুমেন্ট',
   'navigator.people': 'মানুষ',
   'navigator.topics': 'বিষয়',
-  'dreams.description':
-    'স্বপ্ন হলো AI-জেনারেটেড প্রতিফলন যা আপনার মেমোরি থেকে প্যাটার্ন সংশ্লেষণ করে।',
+  'dreams.description': 'স্বপ্ন হলো AI-জেনারেটেড প্রতিফলন যা আপনার মেমোরি থেকে প্যাটার্ন সংশ্লেষণ করে।',
   'dreams.comingSoon': 'শীঘ্রই আসছে',
   'assignment.memoryLlm': 'মেমোরি LLM',
   'assignment.memoryLlmAria': 'মেমোরি LLM নির্বাচন',
@@ -1738,24 +1582,19 @@ const messages: TranslationMap = {
   'workspace.buildSummaryTrees': 'সারসংক্ষেপ ট্রি তৈরি করুন',
   'workspace.viewVault': 'ভল্ট দেখুন',
   'workspace.openingVaultTitle': 'ওবসিডিয়ানে ভল্ট খোলা হচ্ছে',
-  'workspace.openingVaultMessage':
-    'Obsidian না খুললে, obsidian.md থেকে ইনস্টল করুন অথবা Reveal Folder ব্যবহার করুন। ভল্ট পাথ:',
+  'workspace.openingVaultMessage': 'Obsidian না খুললে, obsidian.md থেকে ইনস্টল করুন অথবা Reveal Folder ব্যবহার করুন। ভল্ট পাথ:',
   'workspace.openVaultFailedTitle': 'Obsidian-এ ভল্ট খোলা যায়নি',
-  'workspace.openVaultFailedMessage':
-    'ভল্ট ডিরেক্টরিটি সরাসরি খুলতে রিভিল ফোল্ডার ব্যবহার করুন। ভল্ট পাথ:',
+  'workspace.openVaultFailedMessage': 'ভল্ট ডিরেক্টরিটি সরাসরি খুলতে রিভিল ফোল্ডার ব্যবহার করুন। ভল্ট পাথ:',
   'workspace.revealVaultFailed': 'ভল্ট ফোল্ডার দেখানো যায়নি',
   'workspace.revealFolder': 'ফোল্ডার প্রকাশ করুন',
   'workspace.checkingVault': 'যাচাই হচ্ছে…',
-  'workspace.vaultNotRegisteredHelp':
-    'Obsidian শুধুমাত্র আপনার যোগ করা ফোল্ডারগুলি ভল্ট হিসেবে খোলে। Obsidian-এ, "Open folder as vault" বেছে নিন এবং নিচের ফোল্ডারটি পিক করুন — এটি শুধুমাত্র একবার করতে হবে। তারপর আবার View Vault ক্লিক করুন।',
-  'workspace.obsidianNotFoundHelp':
-    'আমরা এই ডিভাইসে Obsidian খুঁজে পাইনি। এটি ইনস্টল করুন, অথবা — যদি এটি অ-মানক কোথাও ইনস্টল করা থাকে — Advanced-এর অধীনে এর কনফিগ ফোল্ডার সেট করুন।',
+  'workspace.vaultNotRegisteredHelp': 'Obsidian শুধুমাত্র আপনার যোগ করা ফোল্ডারগুলি ভল্ট হিসেবে খোলে। Obsidian-এ, "Open folder as vault" বেছে নিন এবং নিচের ফোল্ডারটি পিক করুন — এটি শুধুমাত্র একবার করতে হবে। তারপর আবার View Vault ক্লিক করুন।',
+  'workspace.obsidianNotFoundHelp': 'আমরা এই ডিভাইসে Obsidian খুঁজে পাইনি। এটি ইনস্টল করুন, অথবা — যদি এটি অ-মানক কোথাও ইনস্টল করা থাকে — Advanced-এর অধীনে এর কনফিগ ফোল্ডার সেট করুন।',
   'workspace.openAnyway': 'যাইহোক Obsidian-এ খুলুন',
   'workspace.installObsidian': 'Obsidian ইনস্টল করুন',
   'workspace.obsidianAdvanced': 'Obsidian অন্য কোথাও ইনস্টল করা আছে?',
   'workspace.obsidianConfigDirLabel': 'Obsidian কনফিগ ফোল্ডার',
-  'workspace.obsidianConfigDirHint':
-    'obsidian.json ধারণকারী ফোল্ডারের পাথ (যেমন ~/.config/obsidian)। স্বয়ংক্রিয়ভাবে সনাক্ত করতে খালি রাখুন।',
+  'workspace.obsidianConfigDirHint': 'obsidian.json ধারণকারী ফোল্ডারের পাথ (যেমন ~/.config/obsidian)। স্বয়ংক্রিয়ভাবে সনাক্ত করতে খালি রাখুন।',
   'workspace.obsidianConfigDirPlaceholder': '~/.config/obsidian',
   'workspace.graphLoadFailed': 'মেমোরি গ্রাফ লোড করতে ব্যর্থ',
   'workspace.loadingGraph': 'মেমোরি গ্রাফ লোড হচ্ছে...',
@@ -1798,14 +1637,12 @@ const messages: TranslationMap = {
   'sync.syncing': 'সিঙ্ক হচ্ছে…',
   'sync.sync': 'সিঙ্ক',
   'sync.failedToLoad': 'সিঙ্ক স্ট্যাটাস লোড করতে ব্যর্থ',
-  'sync.noContent':
-    'এখনো কোনো কন্টেন্ট মেমোরিতে সিঙ্ক হয়নি। শুরু করতে একটি ইন্টিগ্রেশন সংযুক্ত করুন।',
+  'sync.noContent': 'এখনো কোনো কন্টেন্ট মেমোরিতে সিঙ্ক হয়নি। শুরু করতে একটি ইন্টিগ্রেশন সংযুক্ত করুন।',
   'memorySources.title': 'মেমরি উৎস',
   'memorySources.empty': 'কোনো মেমরি পাওয়া যায়নি। স্মৃতি খাওয়া শুরু করতে একটা যোগ করো।',
   'memorySources.customSources': 'স্বনির্ধারিত উৎস',
   'memorySources.addSource': 'উৎস যোগ করুন',
-  'memorySources.noCustomSources':
-    'কোনো স্বনির্ধারিত উৎস পাওয়া যায়নি। একটি ফোল্ডার যোগ করুন, xqx1x rex, xqxqx pxkx ফিড, অথবা ওয়েব পেজ আরম্ভ করুন।',
+  'memorySources.noCustomSources': 'কোনো স্বনির্ধারিত উৎস পাওয়া যায়নি। একটি ফোল্ডার যোগ করুন, xqx1x rex, xqxqx pxkx ফিড, অথবা ওয়েব পেজ আরম্ভ করুন।',
   'memorySources.loadingConnections': 'সংযোগ লোড করা হচ্ছে...',
   'memorySources.noConnections': 'কোনো সক্রিয় xqxqx সংযোগ পাওয়া যায়নি। একটা সম্পর্ক প্রথমে।',
   'memorySources.pickConnection': 'একটি সংযোগ নির্বাচন করুন',
@@ -1858,13 +1695,11 @@ const messages: TranslationMap = {
   'backend.aiBackend': 'AI ব্যাকএন্ড',
   'backend.cloud': 'ক্লাউড',
   'backend.recommended': 'প্রস্তাবিত',
-  'backend.cloudDescription':
-    'আমাদের সার্ভারে হোস্ট করা দ্রুত, শক্তিশালী মডেল। সাথে সাথে ব্যবহারের জন্য প্রস্তুত।',
+  'backend.cloudDescription': 'আমাদের সার্ভারে হোস্ট করা দ্রুত, শক্তিশালী মডেল। সাথে সাথে ব্যবহারের জন্য প্রস্তুত।',
   'backend.privacyNote': 'কোনো ব্যক্তিগত ডেটা, বার্তা বা কী কখনো আমাদের সার্ভারে পাঠানো হয় না।',
   'backend.local': 'লোকাল',
   'backend.advanced': 'অ্যাডভান্সড',
-  'backend.localDescription':
-    'Ollama ব্যবহার করে নিজের মেশিনে মডেল চালান। সম্পূর্ণ গোপনীয়তা, সেটআপ প্রয়োজন।',
+  'backend.localDescription': 'Ollama ব্যবহার করে নিজের মেশিনে মডেল চালান। সম্পূর্ণ গোপনীয়তা, সেটআপ প্রয়োজন।',
   'backend.ramRecommended': '16GB+ RAM প্রস্তাবিত',
   'subconscious.tasks': 'টাস্ক',
   'subconscious.ticks': 'টিক',
@@ -1907,23 +1742,18 @@ const messages: TranslationMap = {
   'stats.tokens': 'টোকেন',
   'bootCheck.invalidUrl': 'একটি রানটাইম URL দিন।',
   'bootCheck.urlMustStartWith': 'URL-টি http:// বা https:// দিয়ে শুরু হতে হবে',
-  'bootCheck.validUrlRequired':
-    'এটি বৈধ URL মনে হচ্ছে না (চেষ্টা করুন https://core.example.com/rpc)',
+  'bootCheck.validUrlRequired': 'এটি বৈধ URL মনে হচ্ছে না (চেষ্টা করুন https://core.example.com/rpc)',
   'bootCheck.tokenRequired': 'সংযোগ করতে একটি অথ টোকেন প্রয়োজন।',
   'bootCheck.chooseCoreMode': 'একটি রানটাইম বেছে নিন',
   'bootCheck.connectToCore': 'আপনার রানটাইমে সংযুক্ত হন',
-  'bootCheck.desktopDescription':
-    'OpenHuman চিন্তা করতে একটি রানটাইম প্রয়োজন। এটি কোথায় থাকবে তা বেছে নিন।',
-  'bootCheck.webDescription':
-    'ওয়েবে, OpenHuman আপনার নিয়ন্ত্রণে একটি রানটাইমে সংযুক্ত হয়। নিচে এর URL ও অথ টোকেন দিন, অথবা সরাসরি আপনার মেশিনে চালাতে ডেস্কটপ অ্যাপ নিন।',
+  'bootCheck.desktopDescription': 'OpenHuman চিন্তা করতে একটি রানটাইম প্রয়োজন। এটি কোথায় থাকবে তা বেছে নিন।',
+  'bootCheck.webDescription': 'ওয়েবে, OpenHuman আপনার নিয়ন্ত্রণে একটি রানটাইমে সংযুক্ত হয়। নিচে এর URL ও অথ টোকেন দিন, অথবা সরাসরি আপনার মেশিনে চালাতে ডেস্কটপ অ্যাপ নিন।',
   'bootCheck.preferDesktop': 'সব নিজের ডিভাইসে রাখতে চান?',
   'bootCheck.downloadDesktop': 'ডেস্কটপ অ্যাপ নিন',
   'bootCheck.localRecommended': 'লোকালি চালান (প্রস্তাবিত)',
-  'bootCheck.localDescription':
-    'সরাসরি আপনার কম্পিউটারে চলে। সবচেয়ে দ্রুত, সম্পূর্ণ ব্যক্তিগত, কিছু সেটআপ করতে হবে না।',
+  'bootCheck.localDescription': 'সরাসরি আপনার কম্পিউটারে চলে। সবচেয়ে দ্রুত, সম্পূর্ণ ব্যক্তিগত, কিছু সেটআপ করতে হবে না।',
   'bootCheck.cloudMode': 'ক্লাউডে চালান (জটিল)',
-  'bootCheck.cloudDescription':
-    'অন্য কোথাও হোস্ট করা রানটাইমে সংযুক্ত হন। ২৪×৭ অনলাইন থাকে, এই ডিভাইস চালু রাখতে হয় না।',
+  'bootCheck.cloudDescription': 'অন্য কোথাও হোস্ট করা রানটাইমে সংযুক্ত হন। ২৪×৭ অনলাইন থাকে, এই ডিভাইস চালু রাখতে হয় না।',
   'bootCheck.coreRpcUrl': 'রানটাইম URL',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'অথ টোকেন',
@@ -1940,34 +1770,28 @@ const messages: TranslationMap = {
   'bootCheck.switchMode': 'ভিন্ন রানটাইম বেছে নিন',
   'bootCheck.quit': 'প্রস্থান',
   'bootCheck.legacyDetected': 'লেগ্যাসি ব্যাকগ্রাউন্ড রানটাইম শনাক্ত হয়েছে',
-  'bootCheck.legacyDescription':
-    'এই ডিভাইসে আলাদাভাবে ইনস্টল করা একটি OpenHuman ডেমন ইতিমধ্যে চলছে। বিল্ট-ইন রানটাইম নিয়ন্ত্রণ নেওয়ার আগে এটি সরাতে হবে।',
+  'bootCheck.legacyDescription': 'এই ডিভাইসে আলাদাভাবে ইনস্টল করা একটি OpenHuman ডেমন ইতিমধ্যে চলছে। বিল্ট-ইন রানটাইম নিয়ন্ত্রণ নেওয়ার আগে এটি সরাতে হবে।',
   'bootCheck.removing': 'সরানো হচ্ছে…',
   'bootCheck.removeContinue': 'সরান ও চালিয়ে যান',
   'bootCheck.localNeedsRestart': 'লোকাল রানটাইম রিস্টার্ট প্রয়োজন',
-  'bootCheck.localNeedsRestartDesc':
-    'আপনার লোকাল রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। দ্রুত রিস্টার্ট তাদের আবার সমন্বয় করবে।',
+  'bootCheck.localNeedsRestartDesc': 'আপনার লোকাল রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। দ্রুত রিস্টার্ট তাদের আবার সমন্বয় করবে।',
   'bootCheck.restarting': 'রিস্টার্ট হচ্ছে…',
   'bootCheck.restartCore': 'রানটাইম রিস্টার্ট করুন',
   'bootCheck.cloudNeedsUpdate': 'ক্লাউড রানটাইম আপডেট প্রয়োজন',
-  'bootCheck.cloudNeedsUpdateDesc':
-    'আপনার ক্লাউড রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। আপডেটার চালান।',
+  'bootCheck.cloudNeedsUpdateDesc': 'আপনার ক্লাউড রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। আপডেটার চালান।',
   'bootCheck.updating': 'আপডেট হচ্ছে…',
   'bootCheck.updateCloudCore': 'ক্লাউড রানটাইম আপডেট করুন',
   'bootCheck.versionCheckFailed': 'রানটাইম ভার্সন পরীক্ষা ব্যর্থ',
-  'bootCheck.versionCheckFailedDesc':
-    'আপনার রানটাইম চলছে কিন্তু ভার্সন জানাচ্ছে না। পুরনো হতে পারে। চালিয়ে যেতে রিস্টার্ট বা আপডেট করুন।',
+  'bootCheck.versionCheckFailedDesc': 'আপনার রানটাইম চলছে কিন্তু ভার্সন জানাচ্ছে না। পুরনো হতে পারে। চালিয়ে যেতে রিস্টার্ট বা আপডেট করুন।',
   'bootCheck.working': 'কাজ হচ্ছে…',
   'bootCheck.restartUpdateCore': 'রানটাইম রিস্টার্ট / আপডেট করুন',
   'bootCheck.unexpectedError': 'অপ্রত্যাশিত বুট-চেক ত্রুটি',
   'bootCheck.actionFailed': 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
   'bootCheck.portConflictTitle': 'অ্যাপ ইঞ্জিন চালু করা যায়নি',
-  'bootCheck.portConflictBody':
-    'অন্য একটি প্রক্রিয়া OpenHuman-এর প্রয়োজনীয় নেটওয়ার্ক পোর্ট ব্যবহার করছে। আমরা স্বয়ংক্রিয়ভাবে এটি ঠিক করার চেষ্টা করব।',
+  'bootCheck.portConflictBody': 'অন্য একটি প্রক্রিয়া OpenHuman-এর প্রয়োজনীয় নেটওয়ার্ক পোর্ট ব্যবহার করছে। আমরা স্বয়ংক্রিয়ভাবে এটি ঠিক করার চেষ্টা করব।',
   'bootCheck.portConflictFixButton': 'স্বয়ংক্রিয়ভাবে ঠিক করুন',
   'bootCheck.portConflictFixing': 'ঠিক করা হচ্ছে…',
-  'bootCheck.portConflictFixFailed':
-    'স্বয়ংক্রিয় সংশোধন কাজ করেনি। অনুগ্রহ করে আপনার কম্পিউটার পুনরায় চালু করুন এবং আবার চেষ্টা করুন।',
+  'bootCheck.portConflictFixFailed': 'স্বয়ংক্রিয় সংশোধন কাজ করেনি। অনুগ্রহ করে আপনার কম্পিউটার পুনরায় চালু করুন এবং আবার চেষ্টা করুন।',
   'notifications.justNow': 'এইমাত্র',
   'notifications.minAgo': '{n} মিনিট আগে',
   'notifications.hrAgo': '{n} ঘণ্টা আগে',
@@ -1984,8 +1808,7 @@ const messages: TranslationMap = {
   'about.update.status.availableNoVersion': 'আপডেট পাওয়া গেছে',
   'about.update.status.downloading': 'ডাউনলোড হচ্ছে...',
   'about.update.status.readyToInstall': 'v{version} ইনস্টলের জন্য প্রস্তুত',
-  'about.update.status.readyToInstallNoVersion':
-    'নতুন ভার্সন ডাউনলোড হয়ে প্রস্তুত। প্রয়োগ করতে রিস্টার্ট করুন।',
+  'about.update.status.readyToInstallNoVersion': 'নতুন ভার্সন ডাউনলোড হয়ে প্রস্তুত। প্রয়োগ করতে রিস্টার্ট করুন।',
   'about.update.status.installing': 'ইনস্টল হচ্ছে...',
   'about.update.status.restarting': 'রিস্টার্ট হচ্ছে...',
   'about.update.status.upToDate': 'আপনি সর্বশেষ ভার্সন চালাচ্ছেন।',
@@ -2017,12 +1840,10 @@ const messages: TranslationMap = {
   'composio.authExpired': 'অথ মেয়াদোত্তীর্ণ',
   'composio.reconnect': 'পুনঃসংযোগ',
   'composio.expiredAuthorization': '{name} অনুমোদনের মেয়াদ শেষ',
-  'composio.expiredDescription':
-    'পুনরায় সংযোগ করতে PH__0 টুল পুনরায় সংযুক্ত করুন। আপনি OAuth অ্যাক্সেস রিফ্রেশ না করা পর্যন্ত OpenHuman এই ইন্টিগ্রেশনটি অনুপলব্ধ রাখবে৷',
+  'composio.expiredDescription': 'পুনরায় সংযোগ করতে PH__0 টুল পুনরায় সংযুক্ত করুন। আপনি OAuth অ্যাক্সেস রিফ্রেশ না করা পর্যন্ত OpenHuman এই ইন্টিগ্রেশনটি অনুপলব্ধ রাখবে৷',
   'composio.envVarOverrides': 'সেট থাকলে, এই সেটিং ওভাররাইড করে।',
   'composio.previewBadge': 'পূর্বরূপ',
-  'composio.previewTooltip':
-    'এজেন্ট ইন্টিগ্রেশন শীঘ্রই আসছে — আপনি সংযোগ করতে পারেন, কিন্তু এজেন্ট এখনও এই টুলকিটটি ব্যবহার করতে পারবেন না।',
+  'composio.previewTooltip': 'এজেন্ট ইন্টিগ্রেশন শীঘ্রই আসছে — আপনি সংযোগ করতে পারেন, কিন্তু এজেন্ট এখনও এই টুলকিটটি ব্যবহার করতে পারবেন না।',
   'memory.day.sun': 'রবি',
   'memory.day.mon': 'সোম',
   'memory.day.tue': 'মঙ্গল',
@@ -2112,8 +1933,7 @@ const messages: TranslationMap = {
   'app.openhumanLink.notifications.retry': 'পরীক্ষা বিজ্ঞপ্তি আবার চেষ্টা করুন',
   'app.openhumanLink.notifications.send': 'পরীক্ষা বিজ্ঞপ্তি পাঠান',
   'app.openhumanLink.notifications.sendFailed': 'পাঠানো যায়নি: {error}',
-  'app.openhumanLink.notifications.sent':
-    'টেস্ট নোটিফিকেশন পাঠানো হয়েছে। যদি না পেয়ে থাকেন, System Settings → Notifications → OpenHuman-এ যান, Allow Notifications চালু করুন, এবং Banner Style-কে Persistent-এ সেট করুন।',
+  'app.openhumanLink.notifications.sent': 'টেস্ট নোটিফিকেশন পাঠানো হয়েছে। যদি না পেয়ে থাকেন, System Settings → Notifications → OpenHuman-এ যান, Allow Notifications চালু করুন, এবং Banner Style-কে Persistent-এ সেট করুন।',
   'app.openhumanLink.skipForNow': 'এখনের জন্য এড়িয়ে যান',
   'app.openhumanLink.telegramUnavailable': 'Telegram পাওয়া যাচ্ছে না',
   'app.openhumanLink.title.accounts': 'আপনার অ্যাপ সংযুক্ত করুন',
@@ -2171,8 +1991,7 @@ const messages: TranslationMap = {
   'channels.web.alwaysAvailable': 'সর্বদা পাওয়া যায়',
   'chat.approval.approve': 'লিইরোভ',
   'chat.approval.alwaysAllow': 'সর্বদা অনুমতি প্রদান করা হবে',
-  'chat.approval.alwaysAllowHint':
-    'এই সরঞ্জামের জন্য অনুরোধ করবেন না - সর্বদা আপনার তালিকায় যোগ করুন',
+  'chat.approval.alwaysAllowHint': 'এই সরঞ্জামের জন্য অনুরোধ করবেন না - সর্বদা আপনার তালিকায় যোগ করুন',
   'chat.approval.deciding': 'চলমান...',
   'chat.approval.deny': 'প্রত্যাখ্যান করুন',
   'chat.approval.error': 'আপনার সিদ্ধান্তের কথা রেকর্ড করা যায় নি — আবার চেষ্টা করুন ।',
@@ -2185,15 +2004,12 @@ const messages: TranslationMap = {
   'channels.authMode.api_key': 'আপনার নিজস্ব API কী ব্যবহার করুন',
   'channels.fieldRequired': '{field} প্রয়োজন',
   'channels.mcp.title': '__PH0__ সার্ভার__92731',
-  'channels.mcp.description':
-    'Model Context Protocol সার্ভার ব্রাউজ করুন এবং পরিচালনা করুন, যা AI-কে নতুন টুল দিয়ে সম্প্রসারিত করে।',
+  'channels.mcp.description': 'Model Context Protocol সার্ভার ব্রাউজ করুন এবং পরিচালনা করুন, যা AI-কে নতুন টুল দিয়ে সম্প্রসারিত করে।',
   'channels.discord.displayName': 'Discord',
   'channels.discord.description': 'Discord এর মাধ্যমে বার্তা পাঠান এবং গ্রহণ করুন।',
   'channels.discord.authMode.bot_token.description': 'আপনার নিজস্ব Discord বট টোকেন প্রদান করুন।',
-  'channels.discord.authMode.oauth.description':
-    'OAuth এর মাধ্যমে আপনার Discord সার্ভারে OpenHuman বট ইনস্টল করুন।',
-  'channels.discord.authMode.managed_dm.description':
-    'আপনার ব্যক্তিগত Discord অ্যাকাউন্টটি OpenHuman বটের সাথে লিঙ্ক করুন।',
+  'channels.discord.authMode.oauth.description': 'OAuth এর মাধ্যমে আপনার Discord সার্ভারে OpenHuman বট ইনস্টল করুন।',
+  'channels.discord.authMode.managed_dm.description': 'আপনার ব্যক্তিগত Discord অ্যাকাউন্টটি OpenHuman বটের সাথে লিঙ্ক করুন।',
   'channels.discord.fields.bot_token.label': 'বট টোকেন',
   'channels.discord.fields.bot_token.placeholder': 'আপনার Discord বট টোকেন',
   'channels.discord.fields.guild_id.label': 'সার্ভার (গিল্ড) আইডি',
@@ -2201,26 +2017,21 @@ const messages: TranslationMap = {
   'channels.telegram.displayName': 'Telegram',
   'channels.telegram.description': 'Telegram এর মাধ্যমে বার্তা পাঠান এবং গ্রহণ করুন।',
   'channels.telegram.authMode.managed_dm.description': 'সরাসরি OpenHuman Telegram বটকে মেসেজ করুন।',
-  'channels.telegram.authMode.bot_token.description':
-    '@BotFather থেকে আপনার নিজস্ব Telegram বট টোকেন প্রদান করুন।',
+  'channels.telegram.authMode.bot_token.description': '@BotFather থেকে আপনার নিজস্ব Telegram বট টোকেন প্রদান করুন।',
   'channels.telegram.fields.bot_token.label': 'বট টোকেন',
   'channels.telegram.fields.bot_token.placeholder': '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
   'channels.telegram.fields.allowed_users.label': 'অনুমোদিত ব্যবহারকারীদের',
-  'channels.telegram.fields.allowed_users.placeholder':
-    'কমা দ্বারা পৃথক করা Telegram ব্যবহারকারীর নাম',
+  'channels.telegram.fields.allowed_users.placeholder': 'কমা দ্বারা পৃথক করা Telegram ব্যবহারকারীর নাম',
   'channels.telegram.remoteControlTitle': 'রিমোট কন্ট্রোল (Telegram)',
-  'channels.telegram.remoteControlBody':
-    'একটি অনুমোদিত Telegram চ্যাট থেকে, /status, /sessions, /new, অথবা /help পাঠান। মডেল রাউটিং এখনও /মডেল এবং /মডেল ব্যবহার করে।',
+  'channels.telegram.remoteControlBody': 'একটি অনুমোদিত Telegram চ্যাট থেকে, /status, /sessions, /new, অথবা /help পাঠান। মডেল রাউটিং এখনও /মডেল এবং /মডেল ব্যবহার করে।',
   'channels.web.displayName': 'ওয়েব',
   'channels.web.description': 'বিল্ট-ইন ওয়েব UI এর মাধ্যমে চ্যাট করুন।',
-  'channels.web.authMode.managed_dm.description':
-    'এমবেড করা ওয়েব চ্যাট ব্যবহার করুন — কোনো সেটআপের প্রয়োজন নেই।',
+  'channels.web.authMode.managed_dm.description': 'এমবেড করা ওয়েব চ্যাট ব্যবহার করুন — কোনো সেটআপের প্রয়োজন নেই।',
   'channels.yuanbao.connect': 'Connect',
   'channels.yuanbao.connecting': 'সংযোগ হচ্ছে…',
   'channels.yuanbao.fieldRequired': '{field} আবশ্যক',
   'channels.yuanbao.reconnect': 'Reconnect',
-  'channels.yuanbao.savedRestartRequired':
-    'চ্যানেল সংরক্ষিত হয়েছে। সক্রিয় করতে অ্যাপটি পুনরায় চালু করুন।',
+  'channels.yuanbao.savedRestartRequired': 'চ্যানেল সংরক্ষিত হয়েছে। সক্রিয় করতে অ্যাপটি পুনরায় চালু করুন।',
   'channels.yuanbao.unexpectedStatus': 'অপ্রত্যাশিত সংযোগ অবস্থা: {status}',
   'chat.unsubscribeApproval.approve': 'অনুমোদন ও আনসাবস্ক্রাইব',
   'chat.unsubscribeApproval.approved': '✓ সফলভাবে আনসাবস্ক্রাইব হয়েছে।',
@@ -2249,17 +2060,12 @@ const messages: TranslationMap = {
   'iosPair.connectedLoading': 'সংযুক্ত! লোড হচ্ছে...',
   'iosPair.connecting': 'ডেস্কটপের সাথে সংযুক্ত হচ্ছে...',
   'iosPair.desktopLabel': 'ডেস্কটপ',
-  'iosPair.error.camera':
-    'ক্যামেরা স্ক্যান ব্যর্থ হয়েছে। ক্যামেরার অনুমতি পরীক্ষা করুন এবং আবার চেষ্টা করুন।',
-  'iosPair.error.connectionFailed':
-    'সংযোগ ব্যর্থ হয়েছে। নিশ্চিত করুন ডেস্কটপ অ্যাপটি চলছে এবং আবার চেষ্টা করুন।',
-  'iosPair.error.invalidQr':
-    'অবৈধ QR কোড। নিশ্চিত করুন আপনি একটি OpenHuman পেয়ারিং কোড স্ক্যান করছেন।',
-  'iosPair.error.unreachableDesktop':
-    'ডেস্কটপে পৌঁছানো যায়নি। নিশ্চিত করুন উভয় ডিভাইস অনলাইনে আছে এবং আবার চেষ্টা করুন।',
+  'iosPair.error.camera': 'ক্যামেরা স্ক্যান ব্যর্থ হয়েছে। ক্যামেরার অনুমতি পরীক্ষা করুন এবং আবার চেষ্টা করুন।',
+  'iosPair.error.connectionFailed': 'সংযোগ ব্যর্থ হয়েছে। নিশ্চিত করুন ডেস্কটপ অ্যাপটি চলছে এবং আবার চেষ্টা করুন।',
+  'iosPair.error.invalidQr': 'অবৈধ QR কোড। নিশ্চিত করুন আপনি একটি OpenHuman পেয়ারিং কোড স্ক্যান করছেন।',
+  'iosPair.error.unreachableDesktop': 'ডেস্কটপে পৌঁছানো যায়নি। নিশ্চিত করুন উভয় ডিভাইস অনলাইনে আছে এবং আবার চেষ্টা করুন।',
   'iosPair.expired': 'QR code মেয়াদ শেষ হয়েছে। কোডটি পুনরায় তৈরি করতে ডেস্কটপকে বলুন।',
-  'iosPair.instructions':
-    'আপনার ডেস্কটপে OpenHuman খুলুন, Settings > Devices-এ যান, এবং QR কোড দেখাতে "Pair phone" ট্যাপ করুন।',
+  'iosPair.instructions': 'আপনার ডেস্কটপে OpenHuman খুলুন, Settings > Devices-এ যান, এবং QR কোড দেখাতে "Pair phone" ট্যাপ করুন।',
   'iosPair.retryScan': 'পুনরায় স্ক্যান করার চেষ্টা করুন',
   'iosPair.scanQrCode': 'স্ক্যান QR code',
   'iosPair.scannerOpening': 'স্ক্যানার খোলা হচ্ছে...',
@@ -2271,30 +2077,25 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian সাবডোমেইন লেবেল',
   'composio.connect.connect': 'সংযোগ করুন',
-  'composio.connect.dynamicsOrgNameHint':
-    'উদাহরণস্বরূপ, myorg.crm.dynamics.com-এর জন্য "myorg"। সম্পূর্ণ URL নয়, শুধু সংক্ষিপ্ত সংস্থার নাম লিখুন।',
+  'composio.connect.dynamicsOrgNameHint': 'উদাহরণস্বরূপ, myorg.crm.dynamics.com-এর জন্য "myorg"। সম্পূর্ণ URL নয়, শুধু সংক্ষিপ্ত সংস্থার নাম লিখুন।',
   'composio.connect.dynamicsOrgNameLabel': 'Dynamics 365 সংস্থার নাম',
   'composio.connect.connectionFailed': 'সংযোগ ব্যর্থ (স্ট্যাটাস: {status})।',
   'composio.connect.disconnectFailed': 'সংযোগ বিচ্ছিন্ন করতে ব্যর্থ: {msg}',
   'composio.connect.disconnecting': 'সংযোগ বিচ্ছিন্ন হচ্ছে…',
   'composio.connect.idleDescription': 'সংযোগ করুন আপনার',
-  'composio.connect.idleDescriptionSuffix':
-    'অ্যাকাউন্ট। আমরা একটি ব্রাউজার উইন্ডো খুলব, সেখানে আপনি অ্যাক্সেস অনুমোদন করবেন, এবং এই অ্যাপ স্বয়ংক্রিয়ভাবে সংযোগ শনাক্ত করবে।',
+  'composio.connect.idleDescriptionSuffix': 'অ্যাকাউন্ট। আমরা একটি ব্রাউজার উইন্ডো খুলব, সেখানে আপনি অ্যাক্সেস অনুমোদন করবেন, এবং এই অ্যাপ স্বয়ংক্রিয়ভাবে সংযোগ শনাক্ত করবে।',
   'composio.connect.isConnected': 'সংযুক্ত।',
   'composio.connect.manage': 'পরিচালনা',
   'composio.connect.needsFieldsPrefix': 'সংযোগ করতে',
-  'composio.connect.needsFieldsSuffix':
-    'আমাদের আরও কিছু তথ্য প্রয়োজন। নিচের অনুপস্থিত ফিল্ডগুলি পূরণ করুন এবং আবার চেষ্টা করুন।',
+  'composio.connect.needsFieldsSuffix': 'আমাদের আরও কিছু তথ্য প্রয়োজন। নিচের অনুপস্থিত ফিল্ডগুলি পূরণ করুন এবং আবার চেষ্টা করুন।',
   'composio.connect.needsSubdomain': 'সংযোগ করতে',
-  'composio.connect.needsSubdomainSuffix':
-    'আপনার Atlassian সাবডোমেইন লিখুন (যেমন acme.atlassian.net-এর জন্য acme) এবং আবার চেষ্টা করুন।',
+  'composio.connect.needsSubdomainSuffix': 'আপনার Atlassian সাবডোমেইন লিখুন (যেমন acme.atlassian.net-এর জন্য acme) এবং আবার চেষ্টা করুন।',
   'composio.connect.oauthComplete': 'OAuth সম্পূর্ণ করতে…',
   'composio.connect.oauthTimeout': 'OAuth টাইমআউট',
   'composio.connect.permissions': 'অনুমতি',
   'composio.connect.permissionsDefault': 'পড়া + লেখা ডিফল্টে সক্রিয়',
   'composio.connect.permissionsNote': 'প্রকাশ করতে পারে',
-  'composio.connect.permissionsNoteSuffix':
-    'OpenHuman-এর নিজস্ব এজেন্ট অনুমতি নিচে read, write, এবং admin টগল হিসেবে নিয়ন্ত্রিত।',
+  'composio.connect.permissionsNoteSuffix': 'OpenHuman-এর নিজস্ব এজেন্ট অনুমতি নিচে read, write, এবং admin টগল হিসেবে নিয়ন্ত্রিত।',
   'composio.connect.reopenBrowser': 'ব্রাউজার আবার খুলুন',
   'composio.connect.requestingUrl': 'সংযোগ URL অনুরোধ হচ্ছে…',
   'composio.connect.requiredFieldEmpty': 'এই ফিল্ডটি আবশ্যক।',
@@ -2304,19 +2105,14 @@ const messages: TranslationMap = {
   'composio.connect.scope.read': 'পড়ুন',
   'composio.connect.scope.readHint': 'এজেন্টকে এই সংযোগ থেকে ডেটা পড়ার অনুমতি দিন।',
   'composio.connect.scope.write': 'লিখুন',
-  'composio.connect.scope.writeHint':
-    'এজেন্টকে এই সংযোগের মাধ্যমে ডেটা তৈরি বা পরিবর্তন করার অনুমতি দিন।',
+  'composio.connect.scope.writeHint': 'এজেন্টকে এই সংযোগের মাধ্যমে ডেটা তৈরি বা পরিবর্তন করার অনুমতি দিন।',
   'composio.connect.scope.admin': 'প্রশাসক',
-  'composio.connect.scope.adminHint':
-    'এজেন্টকে সেটিংস, অনুমতি বা ধ্বংসাত্মক ক্রিয়াকলাপ পরিচালনা করার অনুমতি দিন।',
-  'composio.connect.subdomainInvalid':
-    'শুধু সংক্ষিপ্ত সাবডোমেইন লিখুন (যেমন "acme"), পুরো URL নয়। এতে শুধু অক্ষর, সংখ্যা এবং হাইফেন থাকা উচিত।',
+  'composio.connect.scope.adminHint': 'এজেন্টকে সেটিংস, অনুমতি বা ধ্বংসাত্মক ক্রিয়াকলাপ পরিচালনা করার অনুমতি দিন।',
+  'composio.connect.subdomainInvalid': 'শুধু সংক্ষিপ্ত সাবডোমেইন লিখুন (যেমন "acme"), পুরো URL নয়। এতে শুধু অক্ষর, সংখ্যা এবং হাইফেন থাকা উচিত।',
   'composio.connect.subdomainRequired': 'চালিয়ে যেতে আপনার Atlassian সাবডোমেইন দিন।',
-  'composio.connect.wabaIdHint':
-    'আপনার Meta অ্যাক্সেস টোকেন ব্যবহার করে GET /me/businesses তারপর GET /{business_id}/owned_whatsapp_business_accounts এর মাধ্যমে এটি খুঁজে পান।',
+  'composio.connect.wabaIdHint': 'আপনার Meta অ্যাক্সেস টোকেন ব্যবহার করে GET /me/businesses তারপর GET /{business_id}/owned_whatsapp_business_accounts এর মাধ্যমে এটি খুঁজে পান।',
   'composio.connect.wabaIdLabel': 'WABA ID লেবেল',
-  'composio.connect.wabaIdRequired':
-    'চালিয়ে যেতে আপনার WhatsApp Business Account ID (WABA ID) দিন।',
+  'composio.connect.wabaIdRequired': 'চালিয়ে যেতে আপনার WhatsApp Business Account ID (WABA ID) দিন।',
   'composio.connect.waitingFor': 'অপেক্ষা করছে',
   'composio.connect.waitingHint': 'অপেক্ষার হিন্ট',
   'composio.triggers.heading': 'ট্রিগার',
@@ -2356,8 +2152,7 @@ const messages: TranslationMap = {
   'daemon.serviceBlockingGate.downloadHint': 'ডাউনলোড হিন্ট',
   'daemon.serviceBlockingGate.downloadLatest': 'সর্বশেষ সংস্করণ ডাউনলোড করুন',
   'daemon.serviceBlockingGate.retryCore': 'Core আবার চেষ্টা করুন',
-  'daemon.serviceBlockingGate.retryFailed':
-    'আবার চেষ্টা ব্যর্থ। সর্বশেষ অ্যাপ বিল্ড ডাউনলোড করে আবার চেষ্টা করুন।',
+  'daemon.serviceBlockingGate.retryFailed': 'আবার চেষ্টা ব্যর্থ। সর্বশেষ অ্যাপ বিল্ড ডাউনলোড করে আবার চেষ্টা করুন।',
   'daemon.serviceBlockingGate.retrying': 'আবার চেষ্টা হচ্ছে...',
   'daemon.serviceBlockingGate.title': 'OpenHuman কোর পাওয়া যাচ্ছে না',
   'home.banners.discordSubtitle': 'Discord সাবটাইটেল',
@@ -2386,16 +2181,13 @@ const messages: TranslationMap = {
   'intelligence.memoryChunk.scoreBars.heading': 'কে ন   রা খা',
   'intelligence.memoryChunk.scoreBars.kept': 'রাখা হয়েছে',
   'intelligence.diagram.title': 'আর্কিটেকচার ডায়াগ্রাম',
-  'intelligence.diagram.description':
-    'কনফিগার করা ডায়াগ্রাম এন্ডপয়েন্ট থেকে সর্বশেষ স্থানীয় আর্কিটেকচার আউটপুট।',
+  'intelligence.diagram.description': 'কনফিগার করা ডায়াগ্রাম এন্ডপয়েন্ট থেকে সর্বশেষ স্থানীয় আর্কিটেকচার আউটপুট।',
   'intelligence.diagram.refresh': 'Refresh',
   'intelligence.diagram.refreshAria': 'ডায়াগ্রাম রিফ্রেশ করুন',
   'intelligence.diagram.emptyTitle': 'এখনো কোনো ডায়াগ্রাম নেই',
-  'intelligence.diagram.emptyDescription':
-    'অর্কেস্ট্রেটর থেকে একটি আর্কিটেকচার ডায়াগ্রাম তৈরি করুন এবং এই প্যানেলটি কনফিগার করা স্থানীয় এন্ডপয়েন্ট থেকে রিফ্রেশ হবে।',
+  'intelligence.diagram.emptyDescription': 'অর্কেস্ট্রেটর থেকে একটি আর্কিটেকচার ডায়াগ্রাম তৈরি করুন এবং এই প্যানেলটি কনফিগার করা স্থানীয় এন্ডপয়েন্ট থেকে রিফ্রেশ হবে।',
   'intelligence.diagram.skillInstallCommand': 'npx skills add yizhiyanhua-ai/fireworks-tech-graph',
-  'intelligence.diagram.promptExample':
-    'ডার্ক টার্মিনাল স্টাইলে বর্তমান swarm-এর একটি আর্কিটেকচার ডায়াগ্রাম তৈরি করুন',
+  'intelligence.diagram.promptExample': 'ডার্ক টার্মিনাল স্টাইলে বর্তমান swarm-এর একটি আর্কিটেকচার ডায়াগ্রাম তৈরি করুন',
   'intelligence.diagram.imageAlt': 'সর্বশেষ তৈরি OpenHuman আর্কিটেকচার ডায়াগ্রাম',
   'intelligence.diagram.refreshesEvery': 'প্রতি {seconds}s-এ রিফ্রেশ হয়',
   'intelligence.memoryText.entityTypePrefix': 'এনটিটি ধরন',
@@ -2459,20 +2251,16 @@ const messages: TranslationMap = {
   'notifications.center.markAllRead': 'সব পঠিত চিহ্নিত করুন',
   'notifications.center.title': 'বিজ্ঞপ্তি',
   'oauth.button.connecting': 'সংযোগ হচ্ছে...',
-  'oauth.button.loopbackTimeout':
-    'সাইন-ইন টাইম আউট হয়েছে — ব্রাউজার OAuth পুনর্নির্দেশনা সম্পন্ন করেনি। অনুগ্রহ করে আবার চেষ্টা করুন।',
+  'oauth.button.loopbackTimeout': 'সাইন-ইন টাইম আউট হয়েছে — ব্রাউজার OAuth পুনর্নির্দেশনা সম্পন্ন করেনি। অনুগ্রহ করে আবার চেষ্টা করুন।',
   'oauth.login.continueWith': 'দিয়ে চালিয়ে যান',
   'onboarding.contextGathering.buildingDesc': 'বিল্ডিং বিবরণ',
   'onboarding.contextGathering.buildingProfile': 'আপনার প্রোফাইল তৈরি হচ্ছে...',
   'onboarding.contextGathering.continueToChat': 'চ্যাটে চালিয়ে যান',
   'onboarding.contextGathering.coreAlive': 'কোর সংযোগযোগ্য — প্রথম লঞ্চ এক মিনিট সময় নিতে পারে।',
   'onboarding.contextGathering.coreAliveProbing': 'কোর সংযোগ যাচাই করা হচ্ছে…',
-  'onboarding.contextGathering.coreUnreachable':
-    'কোর সাড়া দিচ্ছে না। আপনি চালিয়ে যেতে পারেন এবং পরে আবার চেষ্টা করতে পারেন।',
-  'onboarding.contextGathering.errorDesc':
-    'আমরা এখনই আপনার পূর্ণ প্রোফাইল তৈরি করতে পারিনি, কিন্তু সমস্যা নেই — আপনি চালিয়ে যেতে পারেন এবং আপনার প্রোফাইল সময়ের সাথে তৈরি হবে।',
-  'onboarding.contextGathering.stillWorkingDesc':
-    'আমরা আপনার লোকাল মডেল এবং টুলস প্রস্তুত করছি, প্রথম লঞ্চ ৩০–৬০ সেকেন্ড সময় নিতে পারে। আপনি যেকোনো সময় চ্যাটে যেতে পারেন — প্রোফাইল তৈরি ব্যাকগ্রাউন্ডে চলতে থাকবে।',
+  'onboarding.contextGathering.coreUnreachable': 'কোর সাড়া দিচ্ছে না। আপনি চালিয়ে যেতে পারেন এবং পরে আবার চেষ্টা করতে পারেন।',
+  'onboarding.contextGathering.errorDesc': 'আমরা এখনই আপনার পূর্ণ প্রোফাইল তৈরি করতে পারিনি, কিন্তু সমস্যা নেই — আপনি চালিয়ে যেতে পারেন এবং আপনার প্রোফাইল সময়ের সাথে তৈরি হবে।',
+  'onboarding.contextGathering.stillWorkingDesc': 'আমরা আপনার লোকাল মডেল এবং টুলস প্রস্তুত করছি, প্রথম লঞ্চ ৩০–৬০ সেকেন্ড সময় নিতে পারে। আপনি যেকোনো সময় চ্যাটে যেতে পারেন — প্রোফাইল তৈরি ব্যাকগ্রাউন্ডে চলতে থাকবে।',
   'onboarding.contextGathering.stillWorkingTitle': 'এখনও আপনার প্রোফাইলে কাজ চলছে…',
   'onboarding.contextGathering.title': 'কন্টেক্সট সংগ্রহ',
   'openhuman.team_list_teams': 'টিম তালিকা',
@@ -2489,8 +2277,7 @@ const messages: TranslationMap = {
   'pages.settings.account.connections': 'সংযোগ',
   'pages.settings.account.connectionsDesc': 'সংযোগের বিবরণ',
   'pages.settings.account.migration': 'অন্য সহকারী থেকে আমদানি করুন',
-  'pages.settings.account.migrationDesc':
-    'OpenClaw (এবং শীঘ্রই Hermes) থেকে মেমরি ও নোট এই ওয়ার্কস্পেসে স্থানান্তর করুন।',
+  'pages.settings.account.migrationDesc': 'OpenClaw (এবং শীঘ্রই Hermes) থেকে মেমরি ও নোট এই ওয়ার্কস্পেসে স্থানান্তর করুন।',
   'pages.settings.account.privacy': 'গোপনীয়তা',
   'pages.settings.account.privacyDesc': 'গোপনীয়তার বিবরণ',
   'pages.settings.account.recoveryPhrase': 'রিকভারি ফ্রেজ',
@@ -2503,17 +2290,14 @@ const messages: TranslationMap = {
   'pages.settings.ai.llmDesc': 'LLM বিবরণ',
   'pages.settings.ai.voice': 'ভয়েস',
   'pages.settings.ai.voiceDesc': 'ভয়েস বিবরণ',
-  'pages.settings.aiSection.description':
-    'ল্যাঙ্গুয়েজ মডেল প্রোভাইডার, লোকাল Ollama, এবং ভয়েস (STT / TTS)।',
+  'pages.settings.aiSection.description': 'ল্যাঙ্গুয়েজ মডেল প্রোভাইডার, লোকাল Ollama, এবং ভয়েস (STT / TTS)।',
   'pages.settings.aiSection.title': 'AI',
   'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Composio দ্বারা চালিত ইন্টিগ্রেশনের জন্য রাউটিং, ট্রিগার এবং ইতিহাস।',
+  'pages.settings.composioSection.description': 'Composio দ্বারা চালিত ইন্টিগ্রেশনের জন্য রাউটিং, ট্রিগার এবং ইতিহাস।',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc': 'রাউটিং মোড, ইন্টিগ্রেশন ট্রিগার, এবং ট্রিগার ইতিহাস।',
   'pages.settings.features.desktopCompanion': 'ডেস্কটপ কম্প্যানিয়ন',
-  'pages.settings.features.desktopCompanionDesc':
-    'স্ক্রিন সচেতনতা সহ ভয়েস সহকারী — শোনে, দেখে, কথা বলে, নির্দেশ করে',
+  'pages.settings.features.desktopCompanionDesc': 'স্ক্রিন সচেতনতা সহ ভয়েস সহকারী — শোনে, দেখে, কথা বলে, নির্দেশ করে',
   'pages.settings.features.messagingChannels': 'মেসেজিং চ্যানেল',
   'pages.settings.features.messagingChannelsDesc': 'মেসেজিং চ্যানেলের বিবরণ',
   'pages.settings.features.notifications': 'বিজ্ঞপ্তি',
@@ -2565,8 +2349,7 @@ const messages: TranslationMap = {
   'rewards.coupon.placeholder': 'কুপন কোড',
   'rewards.coupon.promoCredits': 'প্রোমো ক্রেডিট',
   'rewards.coupon.recentRedemptions': 'সাম্প্রতিক রিডেম্পশন',
-  'rewards.coupon.redeemAccepted':
-    '{code} গৃহীত হয়েছে। প্রয়োজনীয় কাজটি সম্পন্ন হলে {amount} আনলক হবে।',
+  'rewards.coupon.redeemAccepted': '{code} গৃহীত হয়েছে। প্রয়োজনীয় কাজটি সম্পন্ন হলে {amount} আনলক হবে।',
   'rewards.coupon.redeemButton': 'কোড রিডিম করুন',
   'rewards.coupon.redeemSuccess': '{code} রিডিম হয়েছে। আপনার ক্রেডিটে {amount} যোগ হয়েছে।',
   'rewards.coupon.redeemedCodes': 'রিডিম করা কোড',
@@ -2625,8 +2408,7 @@ const messages: TranslationMap = {
   'settings.ai.openAiCompat.baseUrlLabel': 'বেস URL',
   'settings.ai.openAiCompat.baseUrlUnavailable': 'অনুপলব্ধ',
   'settings.ai.openAiCompat.clearKey': 'ক্লিয়ার কী',
-  'settings.ai.openAiCompat.description':
-    'এই /v1 সার্ভারে স্থানীয় অপারেটিং সিস্টেমের মাধ্যমে প্রোগ্র্যামক ব্যবহার করে । অনুমোদন ব্যবস্থা আপনার এখানে একটি স্থায়ী চাবি ব্যবহার করে, অ্যাপ্লিকেশনের নিজস্ব প্রধান অংশ নয় ।',
+  'settings.ai.openAiCompat.description': 'এই /v1 সার্ভারে স্থানীয় অপারেটিং সিস্টেমের মাধ্যমে প্রোগ্র্যামক ব্যবহার করে । অনুমোদন ব্যবস্থা আপনার এখানে একটি স্থায়ী চাবি ব্যবহার করে, অ্যাপ্লিকেশনের নিজস্ব প্রধান অংশ নয় ।',
   'settings.ai.openAiCompat.keyConfigured': 'কী কনফিগার করা',
   'settings.ai.openAiCompat.keyRequired': 'কী প্রয়োজন',
   'settings.ai.openAiCompat.rotateKey': 'ঘোরান কী',
@@ -2634,8 +2416,7 @@ const messages: TranslationMap = {
   'settings.ai.openAiCompat.title': 'OpenAI-সামঞ্জস্যপূর্ণ এন্ডপয়েন্ট',
   'settings.ai.providerLabel': 'প্রোভাইডার',
   'skills.mcpComingSoon.title': 'MCP সার্ভার',
-  'skills.mcpComingSoon.description':
-    'MCP সার্ভার ম্যানেজমেন্ট শীঘ্রই আসছে। এই ট্যাবটি আপনার MCP সার্ভার ইন্টিগ্রেশন আবিষ্কার, সংযোগ এবং পর্যবেক্ষণের জায়গা হবে।',
+  'skills.mcpComingSoon.description': 'MCP সার্ভার ম্যানেজমেন্ট শীঘ্রই আসছে। এই ট্যাবটি আপনার MCP সার্ভার ইন্টিগ্রেশন আবিষ্কার, সংযোগ এবং পর্যবেক্ষণের জায়গা হবে।',
   'settings.ai.routing': 'রুটিং',
   'settings.ai.routingCustom': 'কাস্টম রুটিং',
   'settings.ai.routingDefault': 'ডিফল্ট',
@@ -2650,21 +2431,17 @@ const messages: TranslationMap = {
   'settings.ai.connectProviderLabel': 'সংযোগ {label}',
   'settings.ai.defaultLocalEndpoint': 'http://localhost:11434/v1',
   'settings.ai.endpointUrlLabel': 'শেষবিন্দু URL',
-  'settings.ai.localRuntimeHelper':
-    'xqxqx সহযোগে সংযোগ ব্যবস্থা করা হবে। ডিফল্ট স্থানীয় হোস্ট; দূরবর্তী হোস্টটিকে এই অবস্থায় দেখা যাবে (যেমন, xq1xqxqx ব্যবহার করা হচ্ছে)।',
+  'settings.ai.localRuntimeHelper': 'xqxqx সহযোগে সংযোগ ব্যবস্থা করা হবে। ডিফল্ট স্থানীয় হোস্ট; দূরবর্তী হোস্টটিকে এই অবস্থায় দেখা যাবে (যেমন, xq1xqxqx ব্যবহার করা হচ্ছে)।',
   'settings.ai.endpointUrlRequired': 'এন্ডপয়েন্ট URL প্রয়োজন।',
   'settings.ai.endpointProtocolRequired': 'সমাপ্তির তারিখ / http://wxqxqxkx/x উচিত',
   'settings.ai.connectProviderDialog': 'সংযোগ করুন {label}',
   'settings.ai.or': 'অথবা',
-  'settings.ai.openRouterOauthDescription':
-    'xqxqxx সহযোগে সাইন করুন এবং xqxyqx ব্যবহার করে একটি ব্যবহারকারী xxqx কী ইম্পোর্ট করুন',
+  'settings.ai.openRouterOauthDescription': 'xqxqxx সহযোগে সাইন করুন এবং xqxyqx ব্যবহার করে একটি ব্যবহারকারী xxqx কী ইম্পোর্ট করুন',
   'settings.ai.connecting': 'সংযোগ করা হচ্ছে...',
   'settings.ai.backgroundLoops': 'ব্যাকগ্রাউন্ড লুপস',
-  'settings.ai.backgroundLoopsDesc':
-    'লক্ষ্য করুন যে, কোন আড্ডা ছাড়াই কি করা হয়, হার্টবিটের কাজ বিরতি দিন এবং সম্প্রতি ক্রেডিট কার্ড পরীক্ষা করুন ।',
+  'settings.ai.backgroundLoopsDesc': 'লক্ষ্য করুন যে, কোন আড্ডা ছাড়াই কি করা হয়, হার্টবিটের কাজ বিরতি দিন এবং সম্প্রতি ক্রেডিট কার্ড পরীক্ষা করুন ।',
   'settings.ai.heartbeatControls': 'হার্টবিট নিয়ন্ত্রণ',
-  'settings.ai.heartbeatControlsDesc':
-    'বন্ধ করো। লুপ সক্রিয় করা হচ্ছে; চলমান কাজ পরিত্যাগ করা হচ্ছে।',
+  'settings.ai.heartbeatControlsDesc': 'বন্ধ করো। লুপ সক্রিয় করা হচ্ছে; চলমান কাজ পরিত্যাগ করা হচ্ছে।',
   'settings.ai.heartbeatLoop': 'হার্টবিট লুপ',
   'settings.ai.heartbeatLoopDesc': 'প্লানার + ঐচ্ছিক অবচেতনের মাস্টার শিডিউলার।',
   'settings.ai.subconsciousInference': 'অবচেতন অনুমান',
@@ -2677,28 +2454,23 @@ const messages: TranslationMap = {
   'settings.ai.minutesShort': '{count} মিনিট',
   'settings.ai.reminderLookahead': '__PH0__ Re__2 মিনিট] লুকআহেড',
   'settings.ai.cronReminderChecks': 'ক্রোন রিমাইন্ডার চেক করে',
-  'settings.ai.cronReminderChecksDesc':
-    'বিভিন্ন স্ক্যানের সময় বিশেষ কিছু বস্তু চিহ্নিত করার উদ্দেশ্যে স্বয়ংক্রিয়ভাবে কর্মের কর্ম সক্রিয় করা হয়।',
+  'settings.ai.cronReminderChecksDesc': 'বিভিন্ন স্ক্যানের সময় বিশেষ কিছু বস্তু চিহ্নিত করার উদ্দেশ্যে স্বয়ংক্রিয়ভাবে কর্মের কর্ম সক্রিয় করা হয়।',
   'settings.ai.relevantNotificationChecks': 'প্রাসঙ্গিক বিজ্ঞপ্তি চেক',
-  'settings.ai.relevantNotificationChecksDesc':
-    'সক্রিয় সতর্কতার সাথে স্থানীয় গুরুত্বপূর্ণ বার্তা প্রচার করা।',
+  'settings.ai.relevantNotificationChecksDesc': 'সক্রিয় সতর্কতার সাথে স্থানীয় গুরুত্বপূর্ণ বার্তা প্রচার করা।',
   'settings.ai.externalDelivery': 'বাহ্যিক ডেলিভারি',
-  'settings.ai.externalDeliveryDesc':
-    'হার্টবিট সতর্ক সংকেত দেয় বহিস্থিত চ্যানেলগুলোর কাছে সক্রিয় বার্তা পাঠাতে।',
+  'settings.ai.externalDeliveryDesc': 'হার্টবিট সতর্ক সংকেত দেয় বহিস্থিত চ্যানেলগুলোর কাছে সক্রিয় বার্তা পাঠাতে।',
   'settings.ai.interval': 'ব্যবধান',
   'settings.ai.running': 'চলছে...',
   'settings.ai.plannerTickNow': 'প্ল্যানার এখন টিক দিন',
   'settings.ai.loadingHeartbeatControls': 'হার্টবিট নিয়ন্ত্রণ লোড হচ্ছে...',
   'settings.ai.heartbeatControlsUnavailable': 'হার্টবিট নিয়ন্ত্রণ অনুপলব্ধ৷',
   'settings.ai.loopMap': 'লুপ ম্যাপ',
-  'settings.ai.plannerSummary':
-    'পরিকল্পনাকারী: {sourceEvents} উৎস ইভেন্ট, {sent} পাঠানো হয়েছে, {deduped} ডিডুড করা হয়েছে।',
+  'settings.ai.plannerSummary': 'পরিকল্পনাকারী: {sourceEvents} উৎস ইভেন্ট, {sent} পাঠানো হয়েছে, {deduped} ডিডুড করা হয়েছে।',
   'settings.ai.routeLabel': 'রুট: {route}',
   'settings.ai.on': 'উপর',
   'settings.ai.off': 'বন্ধ',
   'settings.ai.recentUsageLedger': 'সাম্প্রতিক ব্যবহার লেজার',
-  'settings.ai.recentUsageLedgerDesc':
-    'ব্যাক-এন্ড সারি আজ xqxqxqx; সোর্স ট্যাগের ব্যাক-এন্ড সমর্থন প্রয়োজন।',
+  'settings.ai.recentUsageLedgerDesc': 'ব্যাক-এন্ড সারি আজ xqxqxqx; সোর্স ট্যাগের ব্যাক-এন্ড সমর্থন প্রয়োজন।',
   'settings.ai.latestSpend': 'সর্বশেষ খরচ: {amount} এ {time} ({action})',
   'settings.ai.topActions': 'টপ অ্যাকশন',
   'settings.ai.noSpendRows': 'কোনো খরচ সারি লোড করা হয়নি।',
@@ -2715,8 +2487,7 @@ const messages: TranslationMap = {
   'settings.ai.temperatureOverride': 'তাপমাত্রা ওভাররাইড',
   'settings.ai.temperatureOverrideSlider': 'তাপমাত্রা ওভাররাইড (স্লাইডার)',
   'settings.ai.temperatureOverrideValue': 'তাপমাত্রা ওভাররাইড (মান)',
-  'settings.ai.temperatureOverrideDesc':
-    'নিচে = আরও বুদ্ধিমান. পরিসেবা উপলব্ধকারীর ডিফল্ট ব্যবহারের জন্য সীমা ধার্য না করা হলে, বন্ধ করুন ।',
+  'settings.ai.temperatureOverrideDesc': 'নিচে = আরও বুদ্ধিমান. পরিসেবা উপলব্ধকারীর ডিফল্ট ব্যবহারের জন্য সীমা ধার্য না করা হলে, বন্ধ করুন ।',
   'settings.ai.testFailed': 'পরীক্ষা ব্যর্থ হয়েছে',
   'settings.ai.testingModel': 'পরীক্ষার মডেল...',
   'settings.ai.modelResponse': 'মডেল প্রতিক্রিয়া',
@@ -2737,8 +2508,7 @@ const messages: TranslationMap = {
   'settings.ai.openAiUrlPlaceholder': 'https://api.openai.com/v1',
   'settings.ai.keepExistingKeyPlaceholder': 'বিদ্যমান কী রাখার জন্য ফাঁকা ছেড়ে দিন',
   'settings.ai.reindexingMemory': 'মেমরি পুনঃসূচীকরণ করা হচ্ছে',
-  'settings.ai.reindexingMemoryMessage':
-    'এম্পটগুলো পুনরায় চালু হচ্ছে। xqxqx মেমরি((s) বর্তমান মডেলের মধ্যে পুনরায় বিবাহ করা হচ্ছে- এই ধরনের কাজ শেষ না হওয়া পর্যন্ত তা কমিয়ে আনা হচ্ছে। শব্দ অনুসন্ধান কাজ করছে, এবং পটভূমিতে আবার অনুসন্ধান চালিয়ে যাচ্ছে যদি আপনি এটা বন্ধ করেন।',
+  'settings.ai.reindexingMemoryMessage': 'এম্পটগুলো পুনরায় চালু হচ্ছে। xqxqx মেমরি((s) বর্তমান মডেলের মধ্যে পুনরায় বিবাহ করা হচ্ছে- এই ধরনের কাজ শেষ না হওয়া পর্যন্ত তা কমিয়ে আনা হচ্ছে। শব্দ অনুসন্ধান কাজ করছে, এবং পটভূমিতে আবার অনুসন্ধান চালিয়ে যাচ্ছে যদি আপনি এটা বন্ধ করেন।',
   'settings.ai.signInWithOpenRouter': 'xqxqx সহযোগে সাইন করুন',
   'settings.ai.weekBudget': '__BR0__ দিয়ে সাইন ইন করুন',
   'settings.ai.cycleRemaining': 'সপ্তাহের বাজেট',
@@ -2762,36 +2532,26 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'মেমরি কর্মী পোল',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'পরিচালিত',
-  'settings.ai.routing.managedDesc':
-    'xq0xqx সমস্ত প্রকার মেঘে রান করা হবে, কর্মের জন্য সেরা মডেল নির্বাচন করুন, খরচের জন্য ব্যবহারযোগ্য ডিফল্ট মান নির্বাচন করুন।',
-  'settings.ai.routing.managedMsg':
-    'xqxqx সকল কাজের জন্য ফাংশনসমূহ পরিচালনা করবে এবং স্বয়ংক্রিয়ভাবে ব্যয়, মান, এবং নিরাপত্তার জন্য সেরা পথ নির্বাচন করবে।',
+  'settings.ai.routing.managedDesc': 'xq0xqx সমস্ত প্রকার মেঘে রান করা হবে, কর্মের জন্য সেরা মডেল নির্বাচন করুন, খরচের জন্য ব্যবহারযোগ্য ডিফল্ট মান নির্বাচন করুন।',
+  'settings.ai.routing.managedMsg': 'xqxqx সকল কাজের জন্য ফাংশনসমূহ পরিচালনা করবে এবং স্বয়ংক্রিয়ভাবে ব্যয়, মান, এবং নিরাপত্তার জন্য সেরা পথ নির্বাচন করবে।',
   'settings.ai.routing.useYourOwn': 'আপনার নিজের মডেলগুলি ব্যবহার করুন',
-  'settings.ai.routing.useYourOwnDesc':
-    'প্রোভাইডার + মডেল এবং প্রত্যেক ওয়ার্কশপে রুট বেছে নিন । এটা খুব সহজ, কিন্তু এটা দক্ষ হতে পারে কারণ লাইটওয়েট এবং ভারী ওজন একই পথ শেয়ার করতে পারে।',
+  'settings.ai.routing.useYourOwnDesc': 'প্রোভাইডার + মডেল এবং প্রত্যেক ওয়ার্কশপে রুট বেছে নিন । এটা খুব সহজ, কিন্তু এটা দক্ষ হতে পারে কারণ লাইটওয়েট এবং ভারী ওজন একই পথ শেয়ার করতে পারে।',
   'settings.ai.routing.advanced': 'উন্নত',
-  'settings.ai.routing.advancedDesc':
-    'ভিন্ন কাজের জন্য বিভিন্ন মডেল নির্বাচন করুন। এটা হচ্ছে সবচেয়ে ভালো উপায় যে, খরচ কমানোর জন্য সব থেকে বেশী খরচ করা যায়।',
-  'settings.ai.routing.customDesc':
-    'ফাইন-গ্রান্টিং আপনার জন্য সবচেয়ে ভাল দাম এবং সর্বোচ্চ ক্ষমতা দেয়. নীচে যে সারি ব্যবহার করা হবে তা নির্ধারণ করুন ।',
+  'settings.ai.routing.advancedDesc': 'ভিন্ন কাজের জন্য বিভিন্ন মডেল নির্বাচন করুন। এটা হচ্ছে সবচেয়ে ভালো উপায় যে, খরচ কমানোর জন্য সব থেকে বেশী খরচ করা যায়।',
+  'settings.ai.routing.customDesc': 'ফাইন-গ্রান্টিং আপনার জন্য সবচেয়ে ভাল দাম এবং সর্বোচ্চ ক্ষমতা দেয়. নীচে যে সারি ব্যবহার করা হবে তা নির্ধারণ করুন ।',
   'settings.ai.routing.chatAndConversations': 'চ্যাট এবং কথোপকথন',
-  'settings.ai.routing.chatDesc':
-    'সরাসরি ব্যবহারকারী যোগাযোগ, উত্তর, যুক্তি, এজেন্ট লুপ এবং কোড সাহায্য করার সময় ব্যবহার করা হয়েছে।',
+  'settings.ai.routing.chatDesc': 'সরাসরি ব্যবহারকারী যোগাযোগ, উত্তর, যুক্তি, এজেন্ট লুপ এবং কোড সাহায্য করার সময় ব্যবহার করা হয়েছে।',
   'settings.ai.routing.backgroundTasks': 'ব্যাকগ্রাউন্ড টাস্ক',
-  'settings.ai.routing.bgTasksDesc':
-    'তুলনা, হার্টবিট, শিক্ষা এবং অবচেতনের মূল্যায়নের মূল কথোপকথনের বাইরে যে মডেলগুলো ব্যবহার করা হয়েছে সেগুলো ব্যবহার করা হয়েছে।',
+  'settings.ai.routing.bgTasksDesc': 'তুলনা, হার্টবিট, শিক্ষা এবং অবচেতনের মূল্যায়নের মূল কথোপকথনের বাইরে যে মডেলগুলো ব্যবহার করা হয়েছে সেগুলো ব্যবহার করা হয়েছে।',
   'settings.ai.routing.addCustomProvider': 'কাস্টম প্রদানকারী যোগ করুন',
   'settings.ai.globalModel.title': 'সবকিছুর জন্য একটি মডেল চয়ন করুন',
-  'settings.ai.globalModel.desc':
-    'এই সব পথ এক মডেল দ্বারা সীমাবদ্ধ। এটা সহজ, কিন্তু খরচ ও গুণের ক্ষেত্রে এটি দক্ষ হতে পারে, কারণ লাইটওয়েট এবং ভারী কাজ সকল পথ একই ভাবে ব্যবহার করা হবে।',
-  'settings.ai.globalModel.noProviders':
-    'সংযোগ যোগ অথবা পরিসেবার সাথে সংযোগ স্থাপন করুন । তারপর তুমি প্রতিটি ওয়ার্কশপ পার করতে পারবে একটা মডেল দিয়ে।',
+  'settings.ai.globalModel.desc': 'এই সব পথ এক মডেল দ্বারা সীমাবদ্ধ। এটা সহজ, কিন্তু খরচ ও গুণের ক্ষেত্রে এটি দক্ষ হতে পারে, কারণ লাইটওয়েট এবং ভারী কাজ সকল পথ একই ভাবে ব্যবহার করা হবে।',
+  'settings.ai.globalModel.noProviders': 'সংযোগ যোগ অথবা পরিসেবার সাথে সংযোগ স্থাপন করুন । তারপর তুমি প্রতিটি ওয়ার্কশপ পার করতে পারবে একটা মডেল দিয়ে।',
   'settings.ai.globalModel.provider': 'প্রদানকারী',
   'settings.ai.globalModel.model': 'মডেল',
   'settings.ai.globalModel.loadingModels': 'মডেলগুলি লোড করা হচ্ছে...',
   'settings.ai.globalModel.enterModelId': 'মডেল আইডি লিখুন',
-  'settings.ai.globalModel.appliesToAll':
-    'একই সেবা প্রদানকারী + মডেল, যুক্তি, মেমরি, হার্টবিট, শিক্ষা, এবং অবচেতনের মাধ্যমে কথোপকথন, যুক্তি, যুক্তি, মেমরি, মেমরি, মেমরি, হৃদয়বিট। equice কনফিগার করা হয়েছে। সংরক্ষণ করার সময় পরিবর্তনগুলি সংরক্ষণ করা হবে।',
+  'settings.ai.globalModel.appliesToAll': 'একই সেবা প্রদানকারী + মডেল, যুক্তি, মেমরি, হার্টবিট, শিক্ষা, এবং অবচেতনের মাধ্যমে কথোপকথন, যুক্তি, যুক্তি, মেমরি, মেমরি, মেমরি, হৃদয়বিট। equice কনফিগার করা হয়েছে। সংরক্ষণ করার সময় পরিবর্তনগুলি সংরক্ষণ করা হবে।',
   'settings.ai.globalModel.saving': 'ইনস্টল করা হয়েছে...',
   'settings.ai.globalModel.saved': 'সংরক্ষণ করা হচ্ছে...',
   'settings.ai.workload.noModel': 'সংরক্ষণ করা হয়েছে',
@@ -2817,17 +2577,14 @@ const messages: TranslationMap = {
   'settings.autocomplete.appFilter.running': 'চলমান',
   'settings.autocomplete.appFilter.runtime': 'রানটাইম',
   'settings.autocomplete.appFilter.test': 'পরীক্ষা',
-  'settings.autocomplete.completionStyle.acceptedCompletion':
-    '{count}টি গৃহীত completion সংরক্ষিত — ভবিষ্যৎ পরামর্শ ব্যক্তিগতকরণে ব্যবহৃত হয়।',
-  'settings.autocomplete.completionStyle.acceptedCompletions':
-    '{count}টি গৃহীত completion সংরক্ষিত — ভবিষ্যৎ পরামর্শ ব্যক্তিগতকরণে ব্যবহৃত হয়।',
+  'settings.autocomplete.completionStyle.acceptedCompletion': '{count}টি গৃহীত completion সংরক্ষিত — ভবিষ্যৎ পরামর্শ ব্যক্তিগতকরণে ব্যবহৃত হয়।',
+  'settings.autocomplete.completionStyle.acceptedCompletions': '{count}টি গৃহীত completion সংরক্ষিত — ভবিষ্যৎ পরামর্শ ব্যক্তিগতকরণে ব্যবহৃত হয়।',
   'settings.autocomplete.completionStyle.clearHistory': 'পরিষ্কার হচ্ছে…',
   'settings.autocomplete.completionStyle.clearing': 'পরিষ্কার হচ্ছে…',
   'settings.autocomplete.completionStyle.debounce': 'ডিবাউন্স (ms)',
   'settings.autocomplete.completionStyle.enabled': 'সক্রিয়',
   'settings.autocomplete.completionStyle.maxChars': 'সর্বোচ্চ অক্ষর',
-  'settings.autocomplete.completionStyle.noHistory':
-    'এখনো কোনো গৃহীত কমপ্লিশন নেই। ব্যক্তিগতকৃত করা শুরু করতে Tab দিয়ে পরামর্শ গ্রহণ করুন।',
+  'settings.autocomplete.completionStyle.noHistory': 'এখনো কোনো গৃহীত কমপ্লিশন নেই। ব্যক্তিগতকৃত করা শুরু করতে Tab দিয়ে পরামর্শ গ্রহণ করুন।',
   'settings.autocomplete.completionStyle.overlayTtl': 'ওভারলে TTL (ms)',
   'settings.autocomplete.completionStyle.personalizationHistory': 'ব্যক্তিগতকরণ ইতিহাস',
   'settings.autocomplete.completionStyle.styleExamples': 'স্টাইল উদাহরণ (প্রতি লাইনে একটি)',
@@ -2837,18 +2594,14 @@ const messages: TranslationMap = {
   'settings.autocomplete.debug.alreadyRunning': 'স্বয়ংসম্পূর্ণ ইতিমধ্যেই চলছে৷',
   'settings.autocomplete.debug.clearHistoryFailed': 'ইতিহাস সাফ করতে ব্যর্থ হয়েছে',
   'settings.autocomplete.debug.didNotStart': 'স্বয়ংসম্পূর্ণ শুরু হয়নি৷',
-  'settings.autocomplete.debug.disabledInSettings':
-    'সেটিংসে স্বয়ংসম্পূর্ণ অক্ষম করা আছে। এটি সক্রিয় করুন এবং প্রথমে সংরক্ষণ করুন।',
+  'settings.autocomplete.debug.disabledInSettings': 'সেটিংসে স্বয়ংসম্পূর্ণ অক্ষম করা আছে। এটি সক্রিয় করুন এবং প্রথমে সংরক্ষণ করুন।',
   'settings.autocomplete.debug.fetchSuggestionFailed': 'বর্তমান প্রস্তাবনা আনতে ব্যর্থ হয়েছে',
-  'settings.autocomplete.debug.inspectFocusedElementFailed':
-    'ফোকাস করা উপাদান পরিদর্শন করতে ব্যর্থ হয়েছে',
+  'settings.autocomplete.debug.inspectFocusedElementFailed': 'ফোকাস করা উপাদান পরিদর্শন করতে ব্যর্থ হয়েছে',
   'settings.autocomplete.debug.loadSettingsFailed': 'স্বয়ংসম্পূর্ণ সেটিংস লোড করতে ব্যর্থ হয়েছে',
   'settings.autocomplete.debug.noSuggestionApplied': 'কোন পরামর্শ প্রয়োগ করা হয়নি.',
   'settings.autocomplete.debug.noSuggestionReturned': 'কোনো পরামর্শ ফেরত দেওয়া হয়নি৷',
-  'settings.autocomplete.debug.refreshStatusFailed':
-    'স্বয়ংসম্পূর্ণ স্থিতি রিফ্রেশ করতে ব্যর্থ হয়েছে',
-  'settings.autocomplete.debug.saveAdvancedSettingsFailed':
-    'উন্নত সেটিংস সংরক্ষণ করতে ব্যর্থ হয়েছে',
+  'settings.autocomplete.debug.refreshStatusFailed': 'স্বয়ংসম্পূর্ণ স্থিতি রিফ্রেশ করতে ব্যর্থ হয়েছে',
+  'settings.autocomplete.debug.saveAdvancedSettingsFailed': 'উন্নত সেটিংস সংরক্ষণ করতে ব্যর্থ হয়েছে',
   'settings.autocomplete.debug.startFailed': 'স্বয়ংসম্পূর্ণ শুরু করতে ব্যর্থ হয়েছে',
   'settings.autocomplete.debug.stopFailed': 'স্বয়ংসম্পূর্ণ বন্ধ করতে ব্যর্থ হয়েছে',
   'settings.autocomplete.debug.suggestionPrefix': 'সাজেশন: {value}',
@@ -2885,14 +2638,12 @@ const messages: TranslationMap = {
   'settings.billing.inferenceBudget.noBudgetDesc': 'বাজেট নেই বিবরণ',
   'settings.billing.inferenceBudget.noRecurringBudget': 'কোনো পুনরাবৃত্ত বাজেট নেই',
   'settings.billing.inferenceBudget.noRecurringPlanBudget': 'কোনো পুনরাবৃত্ত প্ল্যান বাজেট নেই',
-  'settings.billing.inferenceBudget.noRecurringWeeklyDesc':
-    'আপনার বর্তমান পরিকল্পনার মধ্যে রয়েছে নিয়মিত এক সাপ্তাহিক বাজেটের মধ্যে। পরিবর্তে, ব্যবহারের জন্য উপলব্ধ স্বীকৃতি প্রাপ্ত করা হয়েছে ।',
+  'settings.billing.inferenceBudget.noRecurringWeeklyDesc': 'আপনার বর্তমান পরিকল্পনার মধ্যে রয়েছে নিয়মিত এক সাপ্তাহিক বাজেটের মধ্যে। পরিবর্তে, ব্যবহারের জন্য উপলব্ধ স্বীকৃতি প্রাপ্ত করা হয়েছে ।',
   'settings.billing.inferenceBudget.remaining': 'অবশিষ্ট',
   'settings.billing.inferenceBudget.remainingSummary': '{remaining} / {budget} অবশিষ্ট',
   'settings.billing.inferenceBudget.spentThisCycle': '{amount} এই চক্রটি ব্যয় করেছে',
   'settings.billing.inferenceBudget.cycleEndsOn': 'চক্র শেষ হয় {date}',
-  'settings.billing.inferenceBudget.exhaustedDesc':
-    'সাবস্ক্রিপশন বিশিষ্ট সাবস্ক্রিপশন ব্যবহৃত হয় না। পরবর্তী চক্রের জন্য অপেক্ষা না করে AI ব্যবহার করার জন্য উপর উপর ক্লিক করুন।',
+  'settings.billing.inferenceBudget.exhaustedDesc': 'সাবস্ক্রিপশন বিশিষ্ট সাবস্ক্রিপশন ব্যবহৃত হয় না। পরবর্তী চক্রের জন্য অপেক্ষা না করে AI ব্যবহার করার জন্য উপর উপর ক্লিক করুন।',
   'settings.billing.inferenceBudget.discountVsPayg': 'Xqxqx%s-র জন্য চার্জ করা হয়েছে।',
   'settings.billing.inferenceBudget.cycleSpend': 'সাইকেল খরচ',
   'settings.billing.inferenceBudget.totalAmount': '{amount} মোট',
@@ -2942,28 +2693,21 @@ const messages: TranslationMap = {
   'settings.composio.apiKeyExamplePlaceholder': 'ck_live_xxxxxxxxxxxxxxxx',
   'settings.composio.apiKeyLabel': 'Composio API কী',
   'settings.composio.apiKeyStored': 'API key সংরক্ষিত',
-  'settings.composio.apiKeyStoredPlaceholder':
-    '• • • • • • ক • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • ক • • • • • • • • • • • • • • • • • • • • • ক • • • • • • • • • • • • • • • • • • • ক • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • ক ক • • • • • • • • • ক • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • ক ক • • • • • • • • • • • • • • • • • • • • ক • • • • • • • • • • • • • • • • • ক ক ক • • • • • • • • • • • • • • • • • • • • • • • • • • • • ক ক ক ক ক • • • • • • • • • • • • • • • • • • •',
+  'settings.composio.apiKeyStoredPlaceholder': '• • • • • • ক • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • ক • • • • • • • • • • • • • • • • • • • • • ক • • • • • • • • • • • • • • • • • • • ক • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • ক ক • • • • • • • • • ক • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • • ক ক • • • • • • • • • • • • • • • • • • • • ক • • • • • • • • • • • • • • • • • ক ক ক • • • • • • • • • • • • • • • • • • • • • • • • • • • • ক ক ক ক ক • • • • • • • • • • • • • • • • • • •',
   'settings.composio.clearedToBackend': 'ব্যাকএন্ড মোডে পরিবর্তিত',
   'settings.composio.confirmItem1': 'API key সহ app.composio.dev-এ একটি অ্যাকাউন্ট',
-  'settings.composio.confirmItem2':
-    'আপনার ব্যক্তিগত Composio অ্যাকাউন্টের মাধ্যমে প্রতিটি ইন্টিগ্রেশন পুনঃলিঙ্ক করতে',
-  'settings.composio.confirmItem3':
-    'নোট: Composio ট্রিগার (রিয়েল-টাইম webhooks) এখনও Direct মোডে কাজ করে না — শুধু সিঙ্ক্রোনাস টুল কল',
+  'settings.composio.confirmItem2': 'আপনার ব্যক্তিগত Composio অ্যাকাউন্টের মাধ্যমে প্রতিটি ইন্টিগ্রেশন পুনঃলিঙ্ক করতে',
+  'settings.composio.confirmItem3': 'নোট: Composio ট্রিগার (রিয়েল-টাইম webhooks) এখনও Direct মোডে কাজ করে না — শুধু সিঙ্ক্রোনাস টুল কল',
   'settings.composio.confirmNeedItems': 'আপনার প্রয়োজন হবে:',
   'settings.composio.confirmSwitch': 'আমি বুঝেছি, Direct-এ স্যুইচ করুন',
   'settings.composio.confirmTitle': '⚠️ Direct মোডে স্যুইচ হচ্ছে',
-  'settings.composio.confirmWarning':
-    'OpenHuman-এর মাধ্যমে লিঙ্ক করা আপনার বিদ্যমান ইন্টিগ্রেশনগুলি (Gmail, Slack, GitHub ইত্যাদি) দৃশ্যমান হবে না — সেগুলি OpenHuman-পরিচালিত Composio টেন্যান্টে থাকে।',
-  'settings.composio.intro':
-    'Composio ২৫০+ বহিরাগত অ্যাপকে টুল হিসেবে ইন্টিগ্রেট করে যা আপনার এজেন্ট কল করতে পারে। এই টুল কলগুলি কীভাবে রুট হবে তা নির্বাচন করুন।',
+  'settings.composio.confirmWarning': 'OpenHuman-এর মাধ্যমে লিঙ্ক করা আপনার বিদ্যমান ইন্টিগ্রেশনগুলি (Gmail, Slack, GitHub ইত্যাদি) দৃশ্যমান হবে না — সেগুলি OpenHuman-পরিচালিত Composio টেন্যান্টে থাকে।',
+  'settings.composio.intro': 'Composio ২৫০+ বহিরাগত অ্যাপকে টুল হিসেবে ইন্টিগ্রেট করে যা আপনার এজেন্ট কল করতে পারে। এই টুল কলগুলি কীভাবে রুট হবে তা নির্বাচন করুন।',
   'settings.composio.title': 'Composio',
   'settings.composio.modeDirect': 'ডাইরেক্ট (নিজের API কী আনুন)',
-  'settings.composio.modeDirectDesc':
-    'কলগুলি সরাসরি backend.composio.dev-এ যায়। সার্বভৌম / অফলাইন-বান্ধব। টুল এক্সিকিউশন সিঙ্ক্রোনাসভাবে কাজ করে; রিয়েল-টাইম ট্রিগার webhooks এখনও direct মোডে রুট করা হয় না (ফলো-আপ ইস্যু)।',
+  'settings.composio.modeDirectDesc': 'কলগুলি সরাসরি backend.composio.dev-এ যায়। সার্বভৌম / অফলাইন-বান্ধব। টুল এক্সিকিউশন সিঙ্ক্রোনাসভাবে কাজ করে; রিয়েল-টাইম ট্রিগার webhooks এখনও direct মোডে রুট করা হয় না (ফলো-আপ ইস্যু)।',
   'settings.composio.modeManaged': 'ম্যানেজড (OpenHuman আপনার হয়ে পরিচালনা করে)',
-  'settings.composio.modeManagedDesc':
-    'OpenHuman আমাদের ব্যাকএন্ডের মাধ্যমে টুল কল প্রক্সি করে (প্রস্তাবিত)। অথ ব্রোকার করা হয়; আপনি কখনও Composio API key পেস্ট করেন না। Webhooks সম্পূর্ণরূপে রুট করা।',
+  'settings.composio.modeManagedDesc': 'OpenHuman আমাদের ব্যাকএন্ডের মাধ্যমে টুল কল প্রক্সি করে (প্রস্তাবিত)। অথ ব্রোকার করা হয়; আপনি কখনও Composio API key পেস্ট করেন না। Webhooks সম্পূর্ণরূপে রুট করা।',
   'settings.composio.routingMode': 'রুটিং মোড',
   'settings.composio.saveErrorNoKey': 'সংরক্ষণ ব্যর্থ। Direct মোডের জন্য একটি API key প্রয়োজন।',
   'settings.composio.saving': 'সংরক্ষণ হচ্ছে…',
@@ -3012,28 +2756,22 @@ const messages: TranslationMap = {
   'settings.localModel.deviceCapability.disabled': 'নিষ্ক্রিয়',
   'settings.localModel.deviceCapability.disabledDesc': 'নিষ্ক্রিয় বিবরণ',
   'settings.localModel.deviceCapability.downloadingModels': '(মডেল ডাউনলোড হচ্ছে)',
-  'settings.localModel.deviceCapability.downloadingSetupDesc':
-    'OllamaSetup ইনস্টলার (~2 GB) ডাউনলোড ও আনপ্যাক হচ্ছে। প্রথম ইনস্টলে এক মিনিট সময় লাগতে পারে।',
+  'settings.localModel.deviceCapability.downloadingSetupDesc': 'OllamaSetup ইনস্টলার (~2 GB) ডাউনলোড ও আনপ্যাক হচ্ছে। প্রথম ইনস্টলে এক মিনিট সময় লাগতে পারে।',
   'settings.localModel.deviceCapability.failedToApplyPreset': 'প্রিসেট প্রয়োগ করতে ব্যর্থ',
   'settings.localModel.deviceCapability.gpu': 'GPU',
   'settings.localModel.deviceCapability.installFailed': 'Ollama ইনস্টল ব্যর্থ',
-  'settings.localModel.deviceCapability.installFailedDesc':
-    'Ollama ব্যবহারযোগ্য হওয়ার আগে ইনস্টলার বন্ধ হয়েছে। আবার চেষ্টা করতে ক্লিক করুন, বা ollama.com থেকে ম্যানুয়ালি ইনস্টল করুন।',
+  'settings.localModel.deviceCapability.installFailedDesc': 'Ollama ব্যবহারযোগ্য হওয়ার আগে ইনস্টলার বন্ধ হয়েছে। আবার চেষ্টা করতে ক্লিক করুন, বা ollama.com থেকে ম্যানুয়ালি ইনস্টল করুন।',
   'settings.localModel.deviceCapability.installFirst': 'প্রথমে Ollama চালান।',
-  'settings.localModel.deviceCapability.installFirstDesc':
-    'লোকাল টিয়ার একটি বাহ্যিকভাবে পরিচালিত Ollama endpoint-এর উপর নির্ভর করে। নিজে এটি শুরু করুন, আপনি যে মডেলগুলি চান তা টানুন, এবং রানটাইম পৌঁছানো না যাওয়া পর্যন্ত "Disabled (cloud fallback)" ব্যবহার করতে থাকুন।',
-  'settings.localModel.deviceCapability.installOllamaFirst':
-    'এই টিয়ার ব্যবহার করতে প্রথমে Ollama চালান',
+  'settings.localModel.deviceCapability.installFirstDesc': 'লোকাল টিয়ার একটি বাহ্যিকভাবে পরিচালিত Ollama endpoint-এর উপর নির্ভর করে। নিজে এটি শুরু করুন, আপনি যে মডেলগুলি চান তা টানুন, এবং রানটাইম পৌঁছানো না যাওয়া পর্যন্ত "Disabled (cloud fallback)" ব্যবহার করতে থাকুন।',
+  'settings.localModel.deviceCapability.installOllamaFirst': 'এই টিয়ার ব্যবহার করতে প্রথমে Ollama চালান',
   'settings.localModel.deviceCapability.installingOllama': 'Ollama ইনস্টল হচ্ছে',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'ডিভাইস তথ্য লোড হচ্ছে',
-  'settings.localModel.deviceCapability.localAiDisabled':
-    'লোকাল AI নিষ্ক্রিয় — ক্লাউড ফলব্যাক ব্যবহার করছে।',
+  'settings.localModel.deviceCapability.localAiDisabled': 'লোকাল AI নিষ্ক্রিয় — ক্লাউড ফলব্যাক ব্যবহার করছে।',
   'settings.localModel.deviceCapability.modelTier': 'মডেল টায়ার',
   'settings.localModel.deviceCapability.needsOllama': 'Ollama প্রয়োজন',
   'settings.localModel.deviceCapability.notDetected': 'শনাক্ত হয়নি',
   'settings.localModel.deviceCapability.disabledLowercase': 'অক্ষম',
-  'settings.localModel.deviceCapability.presetDetails':
-    'চ্যাট: {chatModel} · দৃষ্টি: {visionModel} · লক্ষ্য RAM: {targetRamGb} GB',
+  'settings.localModel.deviceCapability.presetDetails': 'চ্যাট: {chatModel} · দৃষ্টি: {visionModel} · লক্ষ্য RAM: {targetRamGb} GB',
   'settings.localModel.deviceCapability.ram': 'RAM',
   'settings.localModel.deviceCapability.recommended': 'প্রস্তাবিত',
   'settings.localModel.deviceCapability.retryInstall': 'আবার চেষ্টা হচ্ছে…',
@@ -3053,8 +2791,7 @@ const messages: TranslationMap = {
   'settings.localModel.download.embeddingVectors': 'ভেক্টর: {count}',
   'settings.localModel.download.noThinkMode': 'থিংক মোড নেই',
   'settings.localModel.download.notAvailable': 'n/a',
-  'settings.localModel.download.promptPlaceholder':
-    'যেকোনো প্রম্পট টাইপ করুন এবং লোকাল মডেলে চালান...',
+  'settings.localModel.download.promptPlaceholder': 'যেকোনো প্রম্পট টাইপ করুন এবং লোকাল মডেলে চালান...',
   'settings.localModel.download.quantizationPref': 'কোয়ান্টাইজেশন পছন্দ',
   'settings.localModel.download.runEmbeddingTest': 'চলছে...',
   'settings.localModel.download.runPromptTest': 'Prompt Test চালান',
@@ -3064,10 +2801,8 @@ const messages: TranslationMap = {
   'settings.localModel.download.runVisionTest': 'চলছে...',
   'settings.localModel.download.running': 'চলছে...',
   'settings.localModel.download.runningPrompt': 'প্রম্পট চলছে',
-  'settings.localModel.download.summaryHelper':
-    'রাস্ট কোরের মাধ্যমে `openhuman.inference_summarize` কল করে',
-  'settings.localModel.download.summarizePlaceholder':
-    'লোকাল মডেল দিয়ে সারসংক্ষেপের জন্য টেক্সট পেস্ট করুন...',
+  'settings.localModel.download.summaryHelper': 'রাস্ট কোরের মাধ্যমে `openhuman.inference_summarize` কল করে',
+  'settings.localModel.download.summarizePlaceholder': 'লোকাল মডেল দিয়ে সারসংক্ষেপের জন্য টেক্সট পেস্ট করুন...',
   'settings.localModel.download.testCustomPrompt': 'কাস্টম প্রম্পট পরীক্ষা করুন',
   'settings.localModel.download.testEmbeddings': 'এম্বেডিং পরীক্ষা করুন',
   'settings.localModel.download.testSummarization': 'সারসংক্ষেপ পরীক্ষা করুন',
@@ -3079,8 +2814,7 @@ const messages: TranslationMap = {
   'settings.localModel.download.ttsOutputPlaceholder': 'ঐচ্ছিক আউটপুট WAV পথ',
   'settings.localModel.download.ttsPlaceholder': 'সংশ্লেষণের জন্য টেক্সট দিন...',
   'settings.localModel.download.ttsVoice': 'ভয়েস: {voiceId}',
-  'settings.localModel.download.visionImagePlaceholder':
-    'প্রতি লাইনে একটি ইমেজ রেফারেন্স (data URI, URL, বা লোকাল পথ মার্কার)',
+  'settings.localModel.download.visionImagePlaceholder': 'প্রতি লাইনে একটি ইমেজ রেফারেন্স (data URI, URL, বা লোকাল পথ মার্কার)',
   'settings.localModel.download.visionPromptPlaceholder': 'ভিশন মডেলের জন্য একটি প্রম্পট দিন...',
   'settings.localModel.status.allChecksPassed': 'সব পরীক্ষা পাস',
   'settings.localModel.status.artifact': 'আর্টিফ্যাক্ট',
@@ -3089,20 +2823,15 @@ const messages: TranslationMap = {
   'settings.localModel.status.bootstrapResume': 'বুটস্ট্র্যাপ / রিজিউম',
   'settings.localModel.status.checking': 'পরীক্ষা হচ্ছে...',
   'settings.localModel.status.checkingOllama': 'Ollama পরীক্ষা হচ্ছে',
-  'settings.localModel.status.contextBelowMinimumBadge':
-    '{contextLength} ctx - নীচে {required} মিনিট',
-  'settings.localModel.status.contextBelowMinimumTitle':
-    'প্রত্যাখ্যান করা হয়েছে: প্রসঙ্গ উইন্ডো {contextLength} টোকেনগুলি মেমরি স্তরের প্রয়োজনীয় ন্যূনতম {required}-টোকেনের নীচে। প্রত্যাহার নীরব ছেদন দ্বারা দূষিত হবে.',
+  'settings.localModel.status.contextBelowMinimumBadge': '{contextLength} ctx - নীচে {required} মিনিট',
+  'settings.localModel.status.contextBelowMinimumTitle': 'প্রত্যাখ্যান করা হয়েছে: প্রসঙ্গ উইন্ডো {contextLength} টোকেনগুলি মেমরি স্তরের প্রয়োজনীয় ন্যূনতম {required}-টোকেনের নীচে। প্রত্যাহার নীরব ছেদন দ্বারা দূষিত হবে.',
   'settings.localModel.status.contextOkBadge': 'Xqxqxqx সার্ভার মোড ব্যবহার করুন',
-  'settings.localModel.status.contextOkTitle':
-    'কনটেক্সট উইন্ডো {contextLength} টোকেন মেমরি-লেয়ার ন্যূনতম {required} টোকেন পূরণ করে।',
+  'settings.localModel.status.contextOkTitle': 'কনটেক্সট উইন্ডো {contextLength} টোকেন মেমরি-লেয়ার ন্যূনতম {required} টোকেন পূরণ করে।',
   'settings.localModel.status.contextUnknownBadge': 'ctx অজানা',
-  'settings.localModel.status.contextUnknownTitle':
-    'প্রসঙ্গ উইন্ডো অজানা; নিশ্চিত করতে পারেনি এটি {required}-টোকেন মেমরি-লেয়ার ন্যূনতম পূরণ করে।',
+  'settings.localModel.status.contextUnknownTitle': 'প্রসঙ্গ উইন্ডো অজানা; নিশ্চিত করতে পারেনি এটি {required}-টোকেন মেমরি-লেয়ার ন্যূনতম পূরণ করে।',
   'settings.localModel.status.customLocation': 'কাস্টম লোকেশন',
   'settings.localModel.status.customLocationDesc': 'কাস্টম লোকেশন বিবরণ',
-  'settings.localModel.status.diagnosticsHint':
-    'Ollama চলছে এবং মডেল ইনস্টল আছে কিনা যাচাই করতে "Run Diagnostics"-এ ক্লিক করুন।',
+  'settings.localModel.status.diagnosticsHint': 'Ollama চলছে এবং মডেল ইনস্টল আছে কিনা যাচাই করতে "Run Diagnostics"-এ ক্লিক করুন।',
   'settings.localModel.status.downloadingUnknown': 'ডাউনলোড হচ্ছে (আকার অজানা)',
   'settings.localModel.status.eta': 'ETA',
   'settings.localModel.status.expectedModels': 'প্রত্যাশিত মডেল',
@@ -3139,8 +2868,7 @@ const messages: TranslationMap = {
   'localModel.ollamaServer.validationError': 'একটি বৈধ http:// বা https:// URL হতে হবে',
   'settings.localModel.status.ollamaDiagnostics': 'Ollama ডায়াগনস্টিক্স',
   'settings.localModel.status.ollamaNotInstalled': 'Ollama রানটাইম অনুপলব্ধ',
-  'settings.localModel.status.ollamaNotInstalledDesc':
-    'OpenHuman এখন Ollama-কে একটি বাহ্যিক ইনফারেন্স রানটাইম হিসেবে গণ্য করে। আপনার নিজের Ollama সার্ভার শুরু করুন, যে মডেলগুলি চান টানুন, এবং ওয়ার্কলোড রাউটিং সেদিকে নির্দেশ করুন।',
+  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman এখন Ollama-কে একটি বাহ্যিক ইনফারেন্স রানটাইম হিসেবে গণ্য করে। আপনার নিজের Ollama সার্ভার শুরু করুন, যে মডেলগুলি চান টানুন, এবং ওয়ার্কলোড রাউটিং সেদিকে নির্দেশ করুন।',
   'settings.localModel.status.progress': 'অগ্রগতি',
   'settings.localModel.status.provider': 'প্রোভাইডার',
   'settings.localModel.status.retryBootstrap': 'বুটস্ট্র্যাপ আবার চেষ্টা করুন',
@@ -3159,30 +2887,21 @@ const messages: TranslationMap = {
   'settings.localModel.status.unavailable': 'পাওয়া যাচ্ছে না',
   'settings.localModel.status.working': 'কাজ হচ্ছে...',
   'settings.developerMenu.ai.title': 'AI কনফিগারেশন',
-  'settings.developerMenu.ai.desc':
-    'ক্লাউড প্রদানকারী, স্থানীয় Ollama মডেল এবং প্রতি-ওয়ার্কলোড রাউটিং',
+  'settings.developerMenu.ai.desc': 'ক্লাউড প্রদানকারী, স্থানীয় Ollama মডেল এবং প্রতি-ওয়ার্কলোড রাউটিং',
   'settings.developerMenu.screenAwareness.title': 'স্ক্রিন সচেতনতা',
-  'settings.developerMenu.screenAwareness.desc':
-    'স্ক্রিন ক্যাপচার অনুমতি, মনিটরিং নীতি এবং সেশন নিয়ন্ত্রণ',
+  'settings.developerMenu.screenAwareness.desc': 'স্ক্রিন ক্যাপচার অনুমতি, মনিটরিং নীতি এবং সেশন নিয়ন্ত্রণ',
   'settings.developerMenu.messagingChannels.title': 'মেসেজিং চ্যানেল',
-  'settings.developerMenu.messagingChannels.desc':
-    'Telegram/Discord অথেন্টিকেশন মোড এবং ডিফল্ট চ্যানেল রাউটিং কনফিগার করুন',
+  'settings.developerMenu.messagingChannels.desc': 'Telegram/Discord অথেন্টিকেশন মোড এবং ডিফল্ট চ্যানেল রাউটিং কনফিগার করুন',
   'settings.developerMenu.tools.title': 'টুলস',
-  'settings.developerMenu.tools.desc':
-    'OpenHuman আপনার পক্ষ থেকে যে সক্ষমতাগুলি ব্যবহার করতে পারে সেগুলি চালু বা বন্ধ করুন',
+  'settings.developerMenu.tools.desc': 'OpenHuman আপনার পক্ষ থেকে যে সক্ষমতাগুলি ব্যবহার করতে পারে সেগুলি চালু বা বন্ধ করুন',
   'settings.developerMenu.agentChat.title': 'এজেন্ট চ্যাট',
-  'settings.developerMenu.agentChat.desc':
-    'মডেল এবং টেম্পারেচার ওভাররাইডসহ এজেন্ট কথোপকথন পরীক্ষা করুন',
+  'settings.developerMenu.agentChat.desc': 'মডেল এবং টেম্পারেচার ওভাররাইডসহ এজেন্ট কথোপকথন পরীক্ষা করুন',
   'settings.developerMenu.devWorkflow.title': 'Beavil কর্ম',
-  'settings.developerMenu.devWorkflow.desc':
-    'একজন স্বায়ত্তশাসিত এজেন্ট যে আপনার xqxqx বিষয় গ্রহণ করে এবং একটি তালিকাতে জনসংযোগের আয়োজন করে।',
-  'settings.developerMenu.devWorkflow.panelDesc':
-    'একটি স্বায়ত্তশাসিত ডেভেলপার এজেন্ট আপনার কাছে xqxkx বিষয় নির্বাচন করে এবং একটি সুনির্দিষ্ট সময়ে স্বয়ংক্রিয়ভাবে অনুরোধ জানায়।',
+  'settings.developerMenu.devWorkflow.desc': 'একজন স্বায়ত্তশাসিত এজেন্ট যে আপনার xqxqx বিষয় গ্রহণ করে এবং একটি তালিকাতে জনসংযোগের আয়োজন করে।',
+  'settings.developerMenu.devWorkflow.panelDesc': 'একটি স্বায়ত্তশাসিত ডেভেলপার এজেন্ট আপনার কাছে xqxkx বিষয় নির্বাচন করে এবং একটি সুনির্দিষ্ট সময়ে স্বয়ংক্রিয়ভাবে অনুরোধ জানায়।',
   'settings.developerMenu.skillsRunner.title': 'স্কিলস রানার',
-  'settings.developerMenu.skillsRunner.desc':
-    'যে কোন একটিd-hoc চালান - এর ইনপুট পূর্ণ করুন এবং স্বায়ত্তশাসিত পটভূমি দিয়ে আগুন জমবে',
-  'settings.developerMenu.skillsRunner.panelDesc':
-    'একটি জোড়ার দক্ষতা, এর ঘোষণাকৃত ইনপুটে ভর্তি, এবং অগ্নি-গঠিত পটভূমি। যদি আপনি পুনরাবৃত্তিমূলক কাজ করতে চান, তাহলে দেব রো ব্যবহার করুন।',
+  'settings.developerMenu.skillsRunner.desc': 'যে কোন একটিd-hoc চালান - এর ইনপুট পূর্ণ করুন এবং স্বায়ত্তশাসিত পটভূমি দিয়ে আগুন জমবে',
+  'settings.developerMenu.skillsRunner.panelDesc': 'একটি জোড়ার দক্ষতা, এর ঘোষণাকৃত ইনপুটে ভর্তি, এবং অগ্নি-গঠিত পটভূমি। যদি আপনি পুনরাবৃত্তিমূলক কাজ করতে চান, তাহলে দেব রো ব্যবহার করুন।',
   'settings.skillsRunner.skill': 'দক্ষতা',
   'settings.skillsRunner.selectSkill': 'একটি দক্ষতা স্তর বেছে নিন...',
   'settings.skillsRunner.loadingSkills': 'দক্ষতা স্তর...',
@@ -3199,8 +2918,7 @@ const messages: TranslationMap = {
   'settings.skillsRunner.error.run': 'আরম্ভ করতে ব্যর্থ:',
   'settings.skillsRunner.error.preflightGate': 'প্রিমবট গেট ব্যর্থ হয়েছে',
   'settings.skillsRunner.schedule.heading': 'নির্ধারিত সময় অবধি (বিপ)',
-  'settings.skillsRunner.schedule.help':
-    'এই দক্ষতা + ইনপুট একটি পুনরাবৃত্তিমূলক কাজ হিসাবে সংরক্ষণ করো । যে এজেন্টকে ফোন করা হবে প্রত্যেক টিকতে.',
+  'settings.skillsRunner.schedule.help': 'এই দক্ষতা + ইনপুট একটি পুনরাবৃত্তিমূলক কাজ হিসাবে সংরক্ষণ করো । যে এজেন্টকে ফোন করা হবে প্রত্যেক টিকতে.',
   'settings.skillsRunner.schedule.frequency': 'ফ্রিকোয়েন্সি',
   'settings.skillsRunner.schedule.every30min': 'প্রতি ৩০ মিনিট',
   'settings.skillsRunner.schedule.everyHour': 'প্রতি ঘন্টায়',
@@ -3236,10 +2954,8 @@ const messages: TranslationMap = {
   'settings.skillsRunner.viewer.error': 'লগ- ইন পড়তে ব্যর্থ',
   'settings.skillsRunner.repoPicker.loading': 'সংগ্রহস্থল লোড করা হচ্ছে...',
   'settings.skillsRunner.repoPicker.select': 'সংগ্রহস্থল নির্বাচন করুন',
-  'settings.skillsRunner.repoPicker.empty':
-    'সংগ্রহস্থল অনুপস্থিত। xqx1x সহযোগে xqxqx সহযোগে xq1-র সাথে সংযোগ করা হবে',
-  'settings.skillsRunner.repoPicker.notConnected':
-    'xqxqx +x সহযোগে xq1x-র সাথে সংযুক্ত করা হয়নি প্রথমে এটাকে দক্ষতার সাথে এক্সqxxx2x+x এর সাথে সংযুক্ত করুন।',
+  'settings.skillsRunner.repoPicker.empty': 'সংগ্রহস্থল অনুপস্থিত। xqx1x সহযোগে xqxqx সহযোগে xq1-র সাথে সংযোগ করা হবে',
+  'settings.skillsRunner.repoPicker.notConnected': 'xqxqx +x সহযোগে xq1x-র সাথে সংযুক্ত করা হয়নি প্রথমে এটাকে দক্ষতার সাথে এক্সqxxx2x+x এর সাথে সংযুক্ত করুন।',
   'settings.skillsRunner.repoPicker.privateTag': '(ব্যক্তিগত)',
   'settings.skillsRunner.branchPicker.needRepo': 'আগে আর একটা জিনিস নাও...',
   'settings.skillsRunner.branchPicker.loading': 'শাখা লোড করা হচ্ছে...',
@@ -3252,8 +2968,7 @@ const messages: TranslationMap = {
   'settings.devWorkflow.forkDetected': 'k সনাক্ত করা হয়েছে',
   'settings.devWorkflow.upstream': 'উপরে:',
   'settings.devWorkflow.forkPrNote': 'স্ট্রিমিং রিপোজিটরিতে জনসংযোগ করা হবে।',
-  'settings.devWorkflow.notForkNote':
-    'fork না। সরাসরি এই রিপোজিটরির বিরুদ্ধে জনসংযোগ ব্যবস্থা গ্রহণ করা হবে।',
+  'settings.devWorkflow.notForkNote': 'fork না। সরাসরি এই রিপোজিটরির বিরুদ্ধে জনসংযোগ ব্যবস্থা গ্রহণ করা হবে।',
   'settings.devWorkflow.targetBranch': 'লক্ষ্য ব্রাঞ্চ',
   'settings.devWorkflow.targetBranchNote': 'এই শাখার বিরুদ্ধে জনসংযোগ হবে',
   'settings.devWorkflow.loadingBranches': 'শাখা লোড করা হচ্ছে...',
@@ -3278,12 +2993,9 @@ const messages: TranslationMap = {
   'settings.devWorkflow.cronSaveError': 'কনফিগারেশন সংরক্ষণ করতে ব্যর্থ',
   'settings.devWorkflow.lastOutput': 'শেষ আউটপুট',
   'settings.devWorkflow.noOutput': 'কোনো আউটপুট পাওয়া যায়নি',
-  'settings.devWorkflow.runningStatus':
-    'এজেন্ট চলছে - একটা সমস্যা হচ্ছে আর ঠিক করার চেষ্টা করছে...',
-  'settings.devWorkflow.errorNotConnected':
-    'xqxqx সংযুক্ত নয়। অনুগ্রহ করে Xqx1qx; এর মাধ্যমে part- র সাথে সংযোগ করুন উচ্চ পর্যায়ের x xqx2x প্রথমে',
-  'settings.devWorkflow.errorToolNotEnabled':
-    'xqxqx টুল এই ব্যাক-এন্ডে সক্রিয় করা হয়নি। অনুগ্রহ করে আপনার অ্যাডমিনিস্ট্রেটরের সাথে যোগাযোগ করুন। Xqxq1qx সহযোগে এটি সক্রিয় করার অনুরোধ জানানো হয়েছে।',
+  'settings.devWorkflow.runningStatus': 'এজেন্ট চলছে - একটা সমস্যা হচ্ছে আর ঠিক করার চেষ্টা করছে...',
+  'settings.devWorkflow.errorNotConnected': 'xqxqx সংযুক্ত নয়। অনুগ্রহ করে Xqx1qx; এর মাধ্যমে part- র সাথে সংযোগ করুন উচ্চ পর্যায়ের x xqx2x প্রথমে',
+  'settings.devWorkflow.errorToolNotEnabled': 'xqxqx টুল এই ব্যাক-এন্ডে সক্রিয় করা হয়নি। অনুগ্রহ করে আপনার অ্যাডমিনিস্ট্রেটরের সাথে যোগাযোগ করুন। Xqxq1qx সহযোগে এটি সক্রিয় করার অনুরোধ জানানো হয়েছে।',
   'settings.devWorkflow.errorNotAuthenticated': 'অনুমোদিত নয়। দয়া করে প্রথমে সাইন ইন করুন।',
   'settings.devWorkflow.errorNoRepositories': 'xqxx অ্যাকাউন্টের জন্য কোন সংগ্রহস্থল পাওয়া যায়নি',
   'settings.devWorkflow.schedule.every30min': 'প্রতি ৩০ মিনিট',
@@ -3292,17 +3004,13 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every6hours': 'প্রতি ৬ ঘন্টা',
   'settings.devWorkflow.schedule.onceDaily': 'প্রতিদিন (৯.',
   'settings.developerMenu.cronJobs.title': 'Cron জব',
-  'settings.developerMenu.cronJobs.desc':
-    'রানটাইম স্কিলের জন্য নির্ধারিত জব দেখুন এবং কনফিগার করুন',
+  'settings.developerMenu.cronJobs.desc': 'রানটাইম স্কিলের জন্য নির্ধারিত জব দেখুন এবং কনফিগার করুন',
   'settings.developerMenu.localModelDebug.title': 'লোকাল মডেল ডিবাগ',
-  'settings.developerMenu.localModelDebug.desc':
-    'Ollama কনফিগারেশন, অ্যাসেট ডাউনলোড, মডেল টেস্ট এবং ডায়াগনস্টিক্স',
+  'settings.developerMenu.localModelDebug.desc': 'Ollama কনফিগারেশন, অ্যাসেট ডাউনলোড, মডেল টেস্ট এবং ডায়াগনস্টিক্স',
   'settings.developerMenu.webhooks.title': 'ওয়েবহুক',
-  'settings.developerMenu.webhooks.desc':
-    'রানটাইম ওয়েবহুক রেজিস্ট্রেশন এবং ধরা পড়া রিকোয়েস্ট লগ পরিদর্শন করুন',
+  'settings.developerMenu.webhooks.desc': 'রানটাইম ওয়েবহুক রেজিস্ট্রেশন এবং ধরা পড়া রিকোয়েস্ট লগ পরিদর্শন করুন',
   'settings.developerMenu.eventLog.title': 'ইভেন্টের লগ',
-  'settings.developerMenu.eventLog.desc':
-    'লাইভ রঙ-কোডকৃত সব এজেন্ট, টুল, এবং সিস্টেম ইভেন্টের জন্য',
+  'settings.developerMenu.eventLog.desc': 'লাইভ রঙ-কোডকৃত সব এজেন্ট, টুল, এবং সিস্টেম ইভেন্টের জন্য',
   'settings.developerMenu.eventLog.allTypes': 'সর্ব প্রকার',
   'settings.developerMenu.eventLog.filterAgent': 'ফিল্টার...',
   'settings.developerMenu.eventLog.download': 'ডাউনলোড করা হয়েছে',
@@ -3324,36 +3032,28 @@ const messages: TranslationMap = {
   'settings.developerMenu.eventLog.badge.comp': 'COMP',
   'settings.developerMenu.eventLog.badge.mcp': 'MCP',
   'settings.developerMenu.intelligence.title': 'ইন্টেলিজেন্স',
-  'settings.developerMenu.intelligence.desc':
-    'মেমরি ওয়ার্কস্পেস, সাবকনশাস ইঞ্জিন, ড্রিমস এবং সেটিংস',
+  'settings.developerMenu.intelligence.desc': 'মেমরি ওয়ার্কস্পেস, সাবকনশাস ইঞ্জিন, ড্রিমস এবং সেটিংস',
   'settings.developerMenu.notificationRouting.title': 'নোটিফিকেশন রাউটিং',
-  'settings.developerMenu.notificationRouting.desc':
-    'ইন্টিগ্রেশন অ্যালার্টের জন্য AI গুরুত্ব স্কোরিং এবং অর্কেস্ট্রেটর এসকেলেশন',
+  'settings.developerMenu.notificationRouting.desc': 'ইন্টিগ্রেশন অ্যালার্টের জন্য AI গুরুত্ব স্কোরিং এবং অর্কেস্ট্রেটর এসকেলেশন',
   'settings.developerMenu.composeioTriggers.title': 'ComposeIO ট্রিগার',
   'settings.developerMenu.composeioTriggers.desc': 'ComposeIO ট্রিগার ইতিহাস এবং আর্কাইভ দেখুন',
   'settings.developerMenu.composioRouting.title': 'Composio রাউটিং (ডাইরেক্ট মোড)',
-  'settings.developerMenu.composioRouting.desc':
-    'আপনার নিজস্ব Composio API কী ব্যবহার করুন এবং কল সরাসরি backend.composio.dev-এ রাউট করুন',
+  'settings.developerMenu.composioRouting.desc': 'আপনার নিজস্ব Composio API কী ব্যবহার করুন এবং কল সরাসরি backend.composio.dev-এ রাউট করুন',
   'settings.developerMenu.integrationTriggers.title': 'ইন্টিগ্রেশন ট্রিগার',
-  'settings.developerMenu.integrationTriggers.desc':
-    'Composio ইন্টিগ্রেশন ট্রিগারের জন্য AI ট্রায়াজ সেটিংস কনফিগার করুন',
+  'settings.developerMenu.integrationTriggers.desc': 'Composio ইন্টিগ্রেশন ট্রিগারের জন্য AI ট্রায়াজ সেটিংস কনফিগার করুন',
   'settings.developerMenu.mcpServer.title': 'MCP লাইব্রেরি অনুপলব্ধ',
-  'settings.developerMenu.mcpServer.desc':
-    'বাহ্যিক MCP ক্লায়েন্টগুলিকে OpenHuman-এ সংযুক্ত করতে কনফিগার করুন',
+  'settings.developerMenu.mcpServer.desc': 'বাহ্যিক MCP ক্লায়েন্টগুলিকে OpenHuman-এ সংযুক্ত করতে কনফিগার করুন',
   'settings.developerMenu.autonomy.title': 'এজেন্ট স্বায়ত্তশাসন',
   'settings.developerMenu.autonomy.desc': 'টুল অ্যাকশনের রেট সীমা এবং নিরাপত্তা থ্রেশহোল্ড',
-  'settings.mcpServer.title':
-    'MCP সার্ভারের সাথে সংযোগ করতে বহিরাগত __BR1__ ক্লায়েন্ট কনফিগার করুন',
+  'settings.mcpServer.title': 'MCP সার্ভারের সাথে সংযোগ করতে বহিরাগত __BR1__ ক্লায়েন্ট কনফিগার করুন',
   'settings.mcpServer.toolsSectionTitle': 'উপলভ্য টুল',
   'settings.mcpServer.toolsSectionDesc': 'উপলভ্য টুলস stdio সার্ভার যখন openhuman-core mcp',
   'settings.mcpServer.configSectionTitle': 'ক্লায়েন্ট কনফিগারেশন চালায়',
-  'settings.mcpServer.configSectionDesc':
-    'সঠিক কনফিগারেশন স্নিপেট তৈরি করতে আপনার MCP ক্লায়েন্ট নির্বাচন করুন',
+  'settings.mcpServer.configSectionDesc': 'সঠিক কনফিগারেশন স্নিপেট তৈরি করতে আপনার MCP ক্লায়েন্ট নির্বাচন করুন',
   'settings.mcpServer.copySnippet': 'ক্লিপবোর্ডে কপি করুন',
   'settings.mcpServer.copied': 'কপি করা হয়েছে!',
   'settings.mcpServer.openConfigFile': 'কনফিগ ফাইল খুলুন',
-  'settings.mcpServer.binaryPathNotFound':
-    'OpenHuman বাইনারি পাওয়া যায়নি। উৎস থেকে চললে, এর সাথে তৈরি করুন: cargo build --bin openhuman-core',
+  'settings.mcpServer.binaryPathNotFound': 'OpenHuman বাইনারি পাওয়া যায়নি। উৎস থেকে চললে, এর সাথে তৈরি করুন: cargo build --bin openhuman-core',
   'settings.mcpServer.openConfigError': 'কনফিগার ফাইল খুলতে ব্যর্থ',
   'settings.mcpServer.clientClaudeDesktop': 'Claude Desktop',
   'settings.mcpServer.clientCursor': 'কার্সার',
@@ -3363,40 +3063,30 @@ const messages: TranslationMap = {
   'settings.mcpServer.clientSelectorAriaLabel': 'MCP ক্লায়েন্ট নির্বাচক',
   'settings.appearance.menuDesc': 'লাইট, ডার্ক বা সিস্টেম থিমের সাথে মিল বেছে নিন',
   'settings.agentAccess.title': 'এজেন্ট OS ব্যবহার',
-  'settings.agentAccess.menuDesc':
-    'যেখানে এজেন্ট xqxqx ব্যবহার করে সেটি নিয়ন্ত্রণ করুন এবং শেল ব্যবহার করতে পারেন কি না ।',
+  'settings.agentAccess.menuDesc': 'যেখানে এজেন্ট xqxqx ব্যবহার করে সেটি নিয়ন্ত্রণ করুন এবং শেল ব্যবহার করতে পারেন কি না ।',
   'settings.agentAccess.loadError': 'বৈশিষ্ট্য লোড করতে ব্যর্থ',
   'settings.agentAccess.saveError': 'বৈশিষ্ট্য সংরক্ষণ করতে ব্যর্থ',
   'settings.agentAccess.saved': 'সংরক্ষিত — আপনার পরবর্তী বার্তার ওপর প্রয়োগ করা হয়েছে ।',
-  'settings.agentAccess.desktopOnly':
-    'শুধুমাত্র ডেস্কটপের মধ্যে উপলব্ধ বৈশিষ্ট্যগুলি উপলব্ধ রয়েছে ।',
+  'settings.agentAccess.desktopOnly': 'শুধুমাত্র ডেস্কটপের মধ্যে উপলব্ধ বৈশিষ্ট্যগুলি উপলব্ধ রয়েছে ।',
   'settings.agentAccess.loading': 'লোড করা হচ্ছে...',
   'settings.agentAccess.accessMode': 'অফলাইন মোড',
   'settings.agentAccess.tier.readonly.title': 'শুধুমাত্র পাঠযোগ্য',
-  'settings.agentAccess.tier.readonly.desc':
-    'ফাইল পড়ুন এবং শুধুমাত্র পাঠ করুন - কিন্তু কখনো লিখতে পারবেন না, সম্পাদনা, সম্পাদনা অথবা কোনো কিছু পরিবর্তন সাধন করতে পারবেন না ।',
+  'settings.agentAccess.tier.readonly.desc': 'ফাইল পড়ুন এবং শুধুমাত্র পাঠ করুন - কিন্তু কখনো লিখতে পারবেন না, সম্পাদনা, সম্পাদনা অথবা কোনো কিছু পরিবর্তন সাধন করতে পারবেন না ।',
   'settings.agentAccess.tier.supervised.title': 'সম্পাদনা করার পূর্বে জিজ্ঞাসা করা হবে',
-  'settings.agentAccess.tier.supervised.desc':
-    'অবাধভাবে নতুন ফাইল নির্মাণ করুন, কিন্তু কোনো উপস্থিত ফাইল সম্পাদনা করার পূর্বে আপনার অনুমোদন দাবি করা হবে, একটি কমান্ড চালানো অথবা নেটওয়ার্ক-এ প্রবেশ করান।',
+  'settings.agentAccess.tier.supervised.desc': 'অবাধভাবে নতুন ফাইল নির্মাণ করুন, কিন্তু কোনো উপস্থিত ফাইল সম্পাদনা করার পূর্বে আপনার অনুমোদন দাবি করা হবে, একটি কমান্ড চালানো অথবা নেটওয়ার্ক-এ প্রবেশ করান।',
   'settings.agentAccess.tier.full.title': 'সম্পূর্ণ ব্যবহার',
-  'settings.agentAccess.tier.full.desc':
-    'আপনার সম্পূর্ণ ব্যবহারকারী অ্যাকাউন্ট ব্যবহার করে কমান্ড সঞ্চালনার জন্য এটি xqxqxnx অনুমোদন করতে পারে, শুধুমাত্র পরিচয় এবং সিস্টেম স্টোর ছাড়া। দেশাঞ্চলীয় কমান্ড, নেটওয়ার্ক প্রবেশাধিকার এবং এখনও অনুমোদনের জন্য আবেদন করে।',
+  'settings.agentAccess.tier.full.desc': 'আপনার সম্পূর্ণ ব্যবহারকারী অ্যাকাউন্ট ব্যবহার করে কমান্ড সঞ্চালনার জন্য এটি xqxqxnx অনুমোদন করতে পারে, শুধুমাত্র পরিচয় এবং সিস্টেম স্টোর ছাড়া। দেশাঞ্চলীয় কমান্ড, নেটওয়ার্ক প্রবেশাধিকার এবং এখনও অনুমোদনের জন্য আবেদন করে।',
   'settings.agentAccess.defaultTag': '(ডিফল্ট)',
-  'settings.agentAccess.fullWarning':
-    'XKB সম্পূর্ণ ব্যবহার করে আপনার অ্যাকাউন্টের প্রবেশপথ চালু করা হয়েছে এবং আপনি স্যান্ডবক্স না। যখন আপনি xqxqxkx এই মেশিনের এজেন্টটিকে সক্রিয় করতে চান তখন এটি সক্রিয় করুন । অত্যন্ত সক্রিয় এবং সিস্টেম ডিরেক্টরি অবরুদ্ধ থাকবে, এবং ধ্বংসাত্মক হবে, নেটওয়ার্ক এবং অনুমোদন চেয়ে কাজ স্থাপন করবে।',
+  'settings.agentAccess.fullWarning': 'XKB সম্পূর্ণ ব্যবহার করে আপনার অ্যাকাউন্টের প্রবেশপথ চালু করা হয়েছে এবং আপনি স্যান্ডবক্স না। যখন আপনি xqxqxkx এই মেশিনের এজেন্টটিকে সক্রিয় করতে চান তখন এটি সক্রিয় করুন । অত্যন্ত সক্রিয় এবং সিস্টেম ডিরেক্টরি অবরুদ্ধ থাকবে, এবং ধ্বংসাত্মক হবে, নেটওয়ার্ক এবং অনুমোদন চেয়ে কাজ স্থাপন করবে।',
   'settings.agentAccess.confine.label': 'কর্মক্ষেত্র সক্রিয় করা হবে',
-  'settings.agentAccess.confine.desc':
-    'কর্মক্ষেত্রের মধ্যে উপস্থিত ফোল্ডারগুলির উপর নির্ভর করে (যেমন কোনো ফোল্ডার), যে কোনো ফোল্ডার নির্বাচন করা হবে। বন্ধ করা হলে, এটি আপনার ব্যবহারকারী যে কোন স্থানে পৌঁছাতে পারে - তবে একমাত্র নির্ধারিত পরিচয় এবং সিস্টেম ডিরেক্টরি ছাড়া।',
+  'settings.agentAccess.confine.desc': 'কর্মক্ষেত্রের মধ্যে উপস্থিত ফোল্ডারগুলির উপর নির্ভর করে (যেমন কোনো ফোল্ডার), যে কোনো ফোল্ডার নির্বাচন করা হবে। বন্ধ করা হলে, এটি আপনার ব্যবহারকারী যে কোন স্থানে পৌঁছাতে পারে - তবে একমাত্র নির্ধারিত পরিচয় এবং সিস্টেম ডিরেক্টরি ছাড়া।',
   'settings.agentAccess.requireTaskPlanApproval.label': 'কাজের পরিকল্পনা অনুমোদন প্রয়োজন',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'নির্ধারিত কর্মের পূর্বে একটি author-ed কর্মের সঞ্চালনার পূর্বে কর্ম স্থগিত করা হবে।',
+  'settings.agentAccess.requireTaskPlanApproval.desc': 'নির্ধারিত কর্মের পূর্বে একটি author-ed কর্মের সঞ্চালনার পূর্বে কর্ম স্থগিত করা হবে।',
   'settings.agentAccess.grantedFolders': 'ফোল্ডার',
   'settings.agentAccess.alwaysAllow': 'সর্বদা অপসারণযোগ্য সরঞ্জাম',
-  'settings.agentAccess.alwaysAllowDesc':
-    'জিজ্ঞাসা না করে আলাপনের ক্ষেত্রে "সর্বদা" প্রয়োগ করা হবে। পুনরায় লেখার জন্য একটি ফোল্ডার মুছে ফেলা হবে।',
+  'settings.agentAccess.alwaysAllowDesc': 'জিজ্ঞাসা না করে আলাপনের ক্ষেত্রে "সর্বদা" প্রয়োগ করা হবে। পুনরায় লেখার জন্য একটি ফোল্ডার মুছে ফেলা হবে।',
   'settings.agentAccess.alwaysAllowNone': 'এখনো পর্যন্ত কোন যন্ত্র নেই।',
-  'settings.agentAccess.grantedDesc':
-    'এজেন্টটি পড়তে পারে এবং লিখতে পারে, কর্মক্ষেত্রের সাথে যুক্ত। অন্তর্ভুক্ত স্টোর (~/.s, ~/.gag, ~/.wasg, কীচাইন (etc, /etc, সিস্টেম) এবং সিস্টেম ডিরেক্টরি (etc, C BAR  xqxkxxxx,...) সর্বদা বন্ধ করা হয়, এমনকি একটি ফোল্ডারও নিষিদ্ধ করা হয়।',
+  'settings.agentAccess.grantedDesc': 'এজেন্টটি পড়তে পারে এবং লিখতে পারে, কর্মক্ষেত্রের সাথে যুক্ত। অন্তর্ভুক্ত স্টোর (~/.s, ~/.gag, ~/.wasg, কীচাইন (etc, /etc, সিস্টেম) এবং সিস্টেম ডিরেক্টরি (etc, C BAR  xqxkxxxx,...) সর্বদা বন্ধ করা হয়, এমনকি একটি ফোল্ডারও নিষিদ্ধ করা হয়।',
   'settings.agentAccess.noneGranted': 'কোন ফোল্ডার দেয়া হয়নি।',
   'settings.agentAccess.readWrite': 'পড়া + লেখা',
   'settings.agentAccess.readOnly': 'শুধুমাত্র পাঠযোগ্য',
@@ -3415,17 +3105,14 @@ const messages: TranslationMap = {
   'settings.appearance.modeDarkDesc': 'আবছা পৃষ্ঠ, সন্ধ্যার পরে চোখের উপর সহজ।',
   'settings.appearance.modeSystem': 'ম্যাচ সিস্টেম',
   'settings.appearance.modeSystemDesc': 'আপনার OS চেহারা সেটিং অনুসরণ করুন.',
-  'settings.appearance.helperText':
-    'ডার্ক মোড পুরো অ্যাপকে স্যুইচ করে — চ্যাট, সেটিংস, প্যানেল — একটি আবছা প্যালেটে। "ম্যাচ সিস্টেম" আপনার OS চেহারা অনুসরণ করে এবং লাইভ আপডেট করে।',
+  'settings.appearance.helperText': 'ডার্ক মোড পুরো অ্যাপকে স্যুইচ করে — চ্যাট, সেটিংস, প্যানেল — একটি আবছা প্যালেটে। "ম্যাচ সিস্টেম" আপনার OS চেহারা অনুসরণ করে এবং লাইভ আপডেট করে।',
   'settings.appearance.tabBarHeading': 'নীচের ট্যাব বার',
   'settings.appearance.tabBarAlwaysShowLabels': 'সর্বদা লেবেলগুলি দেখান',
-  'settings.appearance.tabBarAlwaysShowLabelsDesc':
-    'বন্ধ থাকা অবস্থায়, লেবেলগুলি শুধুমাত্র হোভারে বা সক্রিয় ট্যাবের জন্য প্রদর্শিত হয়৷',
+  'settings.appearance.tabBarAlwaysShowLabelsDesc': 'বন্ধ থাকা অবস্থায়, লেবেলগুলি শুধুমাত্র হোভারে বা সক্রিয় ট্যাবের জন্য প্রদর্শিত হয়৷',
   'settings.mascot.active': 'সক্রিয়',
   'settings.mascot.characterDesc': 'চরিত্রের বিবরণ',
   'settings.mascot.characterHeading': 'চরিত্রের শিরোনাম',
-  'settings.mascot.customGifError':
-    'একটি HTTPS .gif URL, লুপব্যাক HTTP .gif URL, file:// .gif URL, অথবা স্থানীয় .gif পাথ লিখুন।',
+  'settings.mascot.customGifError': 'একটি HTTPS .gif URL, লুপব্যাক HTTP .gif URL, file:// .gif URL, অথবা স্থানীয় .gif পাথ লিখুন।',
   'settings.mascot.customGifHeading': 'কাস্টম GIF অবতার',
   'settings.mascot.customGifLabel': 'কাস্টম GIF অবতার URL',
   'settings.mascot.customGifPlaceholder': 'https://example.com/avatar.gif',
@@ -3453,13 +3140,11 @@ const messages: TranslationMap = {
   'settings.mascot.noCharacters': 'কোনো OpenHuman ক্যারেক্টার এখনও উপলব্ধ নেই',
   'settings.mascot.noColorVariants': 'কোনো রঙের ভেরিয়েন্ট নেই',
   'settings.mascot.voice.current': 'বর্তমান',
-  'settings.mascot.voice.customDesc':
-    'ভয়েস আইডি খুঁজুন api.elevenlabs.io/v1/voices বা আপনার ElevenLabs ড্যাশবোর্ডে। শুধু আইডি সংরক্ষিত থাকে — আপনার API কী ব্যাকএন্ডে থাকে।',
+  'settings.mascot.voice.customDesc': 'ভয়েস আইডি খুঁজুন api.elevenlabs.io/v1/voices বা আপনার ElevenLabs ড্যাশবোর্ডে। শুধু আইডি সংরক্ষিত থাকে — আপনার API কী ব্যাকএন্ডে থাকে।',
   'settings.mascot.voice.customHeading': 'কাস্টম ভয়েস আইডি',
   'settings.mascot.voice.customOption': 'অন্যান্য (ভয়েস আইডি পেস্ট করুন)…',
   'settings.mascot.voice.customPlaceholder': 'যেমন 21m00Tcm4TlvDq8ikWAM',
-  'settings.mascot.voice.desc':
-    'স্পোকেন উত্তরের জন্য ম্যাসকট যে ElevenLabs ভয়েস ব্যবহার করে তা বেছে নিন। জেন্ডার অনুযায়ী ফিল্টার করুন, কিউরেটেড তালিকা থেকে বাছাই করুন, কাস্টম আইডি পেস্ট করুন, অথবা ইন্টারফেস ভাষার সাথে মেলে এমন ভয়েস অ্যাপটিকে বেছে নিতে দিন।',
+  'settings.mascot.voice.desc': 'স্পোকেন উত্তরের জন্য ম্যাসকট যে ElevenLabs ভয়েস ব্যবহার করে তা বেছে নিন। জেন্ডার অনুযায়ী ফিল্টার করুন, কিউরেটেড তালিকা থেকে বাছাই করুন, কাস্টম আইডি পেস্ট করুন, অথবা ইন্টারফেস ভাষার সাথে মেলে এমন ভয়েস অ্যাপটিকে বেছে নিতে দিন।',
   'settings.mascot.voice.genderFemale': 'মহিলা',
   'settings.mascot.voice.genderHeading': 'ভয়েস জেন্ডার',
   'settings.mascot.voice.genderMale': 'পুরুষ',
@@ -3472,49 +3157,39 @@ const messages: TranslationMap = {
   'settings.mascot.voice.previewing': 'প্রিভিউ চলছে…',
   'settings.mascot.voice.reset': 'ডিফল্টে রিসেট করুন',
   'settings.mascot.voice.useLocaleDefault': 'অ্যাপের ভাষার সাথে মিলান',
-  'settings.mascot.voice.useLocaleDefaultDesc':
-    'বর্তমান ইন্টারফেস ভাষার জন্য স্বয়ংক্রিয়ভাবে একটি ভয়েস বেছে নিন।',
+  'settings.mascot.voice.useLocaleDefaultDesc': 'বর্তমান ইন্টারফেস ভাষার জন্য স্বয়ংক্রিয়ভাবে একটি ভয়েস বেছে নিন।',
   'settings.persona.title': 'ব্রেসট',
   'settings.persona.menuTitle': 'ব্রেসট',
-  'settings.persona.menuDesc':
-    'নাম, ব্যক্তিত্ব, অবতার এবং কণ্ঠস্বর — আপনার সহকারীকে এক প্রতীক হিসেবে',
+  'settings.persona.menuDesc': 'নাম, ব্যক্তিত্ব, অবতার এবং কণ্ঠস্বর — আপনার সহকারীকে এক প্রতীক হিসেবে',
   'settings.persona.identityHeading': 'পরিচয়',
-  'settings.persona.identityDesc':
-    'আপনার সহায়ক ব্যবস্থার জন্য একটি প্রদর্শন ও বিবরণ। অ্যাপ্লিকেশনে প্রদর্শিত; সহকারী কারণ পরিবর্তন হয় না।',
+  'settings.persona.identityDesc': 'আপনার সহায়ক ব্যবস্থার জন্য একটি প্রদর্শন ও বিবরণ। অ্যাপ্লিকেশনে প্রদর্শিত; সহকারী কারণ পরিবর্তন হয় না।',
   'settings.persona.displayNameLabel': 'প্রদর্শনের নাম',
   'settings.persona.displayNamePlaceholder': 'xqxqx সকাল',
   'settings.persona.descriptionLabel': 'বিবরণ',
   'settings.persona.descriptionPlaceholder': 'এক্স.qxqx. শান্ত হও, আমার টিমের কনফিউজিং সহকারী।',
   'settings.persona.soul.heading': 'ব্যক্তিগত ( xxqxqx)',
-  'settings.persona.soul.desc':
-    '( হিতো. আপনার কর্মক্ষেত্রের ওপর সংরক্ষিত বৈশিষ্ট্য সংরক্ষণ করে পরবর্তী উত্তর সম্পাদন করা হবে।',
-  'settings.persona.soul.editorLabel': "xqxqx ছবি. mdn' র",
+  'settings.persona.soul.desc': '( হিতো. আপনার কর্মক্ষেত্রের ওপর সংরক্ষিত বৈশিষ্ট্য সংরক্ষণ করে পরবর্তী উত্তর সম্পাদন করা হবে।',
+  'settings.persona.soul.editorLabel': 'xqxqx ছবি. mdn\' র',
   'settings.persona.soul.reset': 'ডিফল্ট মান পুনরায় স্থাপন করুন',
   'settings.persona.soul.usingDefault': 'দ্বারা বিভাজিত ডিফল্ট',
   'settings.persona.soul.loadError': 'xqxqx লোড করতে ব্যর্থ',
   'settings.persona.soul.saveError': 'ছবি সংরক্ষণ করতে ব্যর্থx% 1',
   'settings.persona.soul.resetError': 'xqxqx সার্ভার আরম্ভ করতে ব্যর্থ',
   'settings.persona.appearanceHeading': 'অবতার & ভয়েস',
-  'settings.persona.appearanceDesc':
-    'Mascot রঙের রং, স্বনির্ধারিত xxqxqx অ্যাভাটার, এবং Scotox বৈশিষ্ট্যের মধ্য থেকে ভয়েস কনফিগার করা হয়েছে।',
+  'settings.persona.appearanceDesc': 'Mascot রঙের রং, স্বনির্ধারিত xxqxqx অ্যাভাটার, এবং Scotox বৈশিষ্ট্যের মধ্য থেকে ভয়েস কনফিগার করা হয়েছে।',
   'settings.persona.openMascotSettings': 'মাস অনুযায়ী প্রদর্শন ব্যবস্থা আরম্ভ করা হবে',
   'settings.memoryWindow.balanced.badge': 'প্রস্তাবিত',
-  'settings.memoryWindow.balanced.hint':
-    'যৌক্তিক ডিফল্ট — প্রতিটি রানে অতিরিক্ত টোকেন না পুড়িয়ে ভাল ধারাবাহিকতা।',
+  'settings.memoryWindow.balanced.hint': 'যৌক্তিক ডিফল্ট — প্রতিটি রানে অতিরিক্ত টোকেন না পুড়িয়ে ভাল ধারাবাহিকতা।',
   'settings.memoryWindow.balanced.label': 'সুষম',
-  'settings.memoryWindow.description':
-    'প্রতিটি নতুন এজেন্ট রানে OpenHuman কতটা মনে রাখা প্রসঙ্গ ইনজেক্ট করে। বড় উইন্ডো অতীত কথোপকথন সম্পর্কে বেশি সচেতন মনে হয় কিন্তু প্রতিটি রানে বেশি টোকেন ব্যবহার করে — এবং বেশি খরচ হয়।',
+  'settings.memoryWindow.description': 'প্রতিটি নতুন এজেন্ট রানে OpenHuman কতটা মনে রাখা প্রসঙ্গ ইনজেক্ট করে। বড় উইন্ডো অতীত কথোপকথন সম্পর্কে বেশি সচেতন মনে হয় কিন্তু প্রতিটি রানে বেশি টোকেন ব্যবহার করে — এবং বেশি খরচ হয়।',
   'settings.memoryWindow.extended.badge': 'আরও প্রসঙ্গ',
-  'settings.memoryWindow.extended.hint':
-    'প্রতিটি রানে আরও দীর্ঘমেয়াদী মেমরি ইনজেক্ট করা হয়। প্রতি টার্নে উচ্চ টোকেন খরচ।',
+  'settings.memoryWindow.extended.hint': 'প্রতিটি রানে আরও দীর্ঘমেয়াদী মেমরি ইনজেক্ট করা হয়। প্রতি টার্নে উচ্চ টোকেন খরচ।',
   'settings.memoryWindow.extended.label': 'বর্ধিত',
   'settings.memoryWindow.maximum.badge': 'সর্বোচ্চ খরচ',
-  'settings.memoryWindow.maximum.hint':
-    'সবচেয়ে বড় নিরাপদ উইন্ডো। সেরা ধারাবাহিকতা, প্রতিটি রানে উল্লেখযোগ্যভাবে বেশি টোকেন বিল।',
+  'settings.memoryWindow.maximum.hint': 'সবচেয়ে বড় নিরাপদ উইন্ডো। সেরা ধারাবাহিকতা, প্রতিটি রানে উল্লেখযোগ্যভাবে বেশি টোকেন বিল।',
   'settings.memoryWindow.maximum.label': 'সর্বোচ্চ',
   'settings.memoryWindow.minimal.badge': 'সবচেয়ে সস্তা',
-  'settings.memoryWindow.minimal.hint':
-    'সবচেয়ে ছোট মেমরি উইন্ডো। সবচেয়ে সস্তা, দ্রুততম, রানগুলির মধ্যে সবচেয়ে কম ধারাবাহিকতা।',
+  'settings.memoryWindow.minimal.hint': 'সবচেয়ে ছোট মেমরি উইন্ডো। সবচেয়ে সস্তা, দ্রুততম, রানগুলির মধ্যে সবচেয়ে কম ধারাবাহিকতা।',
   'settings.memoryWindow.minimal.label': 'ন্যূনতম',
   'settings.memoryWindow.title': 'দীর্ঘমেয়াদী মেমোরি উইন্ডো',
   'settings.modelHealth.title': 'মডেল স্বাস্থ্য',
@@ -3575,13 +3250,11 @@ const messages: TranslationMap = {
   'skills.create.descriptionPlaceholder': 'এই স্কিল কী করে?',
   'skills.create.optional': '(ঐচ্ছিক)',
   'skills.create.inputs.heading': 'Inputs',
-  'skills.create.inputs.help':
-    'স্কিলের প্রয়োজনীয় প্যারামিটার ঘোষণা করুন। Skills Runner রানটাইমে এগুলির জন্য একটি ফর্ম রেন্ডার করবে।',
+  'skills.create.inputs.help': 'স্কিলের প্রয়োজনীয় প্যারামিটার ঘোষণা করুন। Skills Runner রানটাইমে এগুলির জন্য একটি ফর্ম রেন্ডার করবে।',
   'skills.create.inputs.add': 'ইনপুট যোগ করুন',
   'skills.create.inputs.row.name': 'ইনপুটের নাম',
   'skills.create.inputs.row.namePlaceholder': 'যেমন repo',
-  'skills.create.inputs.row.nameError':
-    'শুধুমাত্র অক্ষর, সংখ্যা, আন্ডারস্কোর এবং ড্যাশ; অক্ষর দিয়ে শুরু হতে হবে।',
+  'skills.create.inputs.row.nameError': 'শুধুমাত্র অক্ষর, সংখ্যা, আন্ডারস্কোর এবং ড্যাশ; অক্ষর দিয়ে শুরু হতে হবে।',
   'skills.create.inputs.row.description': 'ইনপুট বিবরণ',
   'skills.create.inputs.row.descriptionPlaceholder': 'এই ক্ষেত্রে কী যাবে?',
   'skills.create.inputs.row.type': 'Type',
@@ -3596,8 +3269,7 @@ const messages: TranslationMap = {
   'skills.create.namePlaceholder': 'যেমন Trade Journal',
   'skills.create.scope': 'স্কোপ',
   'skills.create.scopeProjectHint': '/.openhuman/skills/',
-  'skills.create.scopeUserHint':
-    '~/.openhuman/skills/<slug>/SKILL.md-এ লেখা — সব ওয়ার্কস্পেসে পাওয়া যায়।',
+  'skills.create.scopeUserHint': '~/.openhuman/skills/<slug>/SKILL.md-এ লেখা — সব ওয়ার্কস্পেসে পাওয়া যায়।',
   'skills.create.slugLabel': 'স্লাগ লেবেল',
   'skills.create.subtitle': 'SKILL.md',
   'skills.create.tags': 'ট্যাগ',
@@ -3611,32 +3283,23 @@ const messages: TranslationMap = {
   'skills.detail.noBundledResources': 'কোনো বান্ডেলড রিসোর্স নেই।',
   'skills.detail.tags': 'ট্যাগ',
   'skills.detail.warnings': 'সতর্কতা',
-  'skills.install.errors.alreadyInstalledHint':
-    'এই স্লাগের সাথে একটি দক্ষতা ইতিমধ্যেই কর্মক্ষেত্রে বিদ্যমান। প্রথমে এটি সরান বা সামনের বস্তু `metadata.id` / `name` পরিবর্তন করুন।',
+  'skills.install.errors.alreadyInstalledHint': 'এই স্লাগের সাথে একটি দক্ষতা ইতিমধ্যেই কর্মক্ষেত্রে বিদ্যমান। প্রথমে এটি সরান বা সামনের বস্তু `metadata.id` / `name` পরিবর্তন করুন।',
   'skills.install.errors.alreadyInstalledTitle': 'দক্ষতা ইতিমধ্যেই ইনস্টল করা হয়েছে',
-  'skills.install.errors.fetchFailedHint':
-    'অনুরোধটি সফলভাবে সম্পূর্ণ হয়নি৷ একটি পৌঁছানোর পাবলিক ফাইলে URL পয়েন্টগুলি পরীক্ষা করুন, এবং হোস্ট একটি 2xx প্রতিক্রিয়া ফিরিয়ে দিয়েছে৷',
+  'skills.install.errors.fetchFailedHint': 'অনুরোধটি সফলভাবে সম্পূর্ণ হয়নি৷ একটি পৌঁছানোর পাবলিক ফাইলে URL পয়েন্টগুলি পরীক্ষা করুন, এবং হোস্ট একটি 2xx প্রতিক্রিয়া ফিরিয়ে দিয়েছে৷',
   'skills.install.errors.fetchFailedTitle': 'আনা ব্যর্থ হয়েছে',
-  'skills.install.errors.fetchTimedOutHint':
-    'দূরবর্তী হোস্ট সময়মতো সাড়া দেয়নি৷ আবার চেষ্টা করুন বা সময়সীমা বাড়ান (1-600 সেকেন্ড)।',
+  'skills.install.errors.fetchTimedOutHint': 'দূরবর্তী হোস্ট সময়মতো সাড়া দেয়নি৷ আবার চেষ্টা করুন বা সময়সীমা বাড়ান (1-600 সেকেন্ড)।',
   'skills.install.errors.fetchTimedOutTitle': 'আনার সময় শেষ হয়েছে',
-  'skills.install.errors.fetchTooLargeHint':
-    'SKILL.md অবশ্যই 1 MiB এর নিচে হতে হবে। বান্ডিল করা সম্পদগুলিকে ইনলাইন করার পরিবর্তে `রেফারেন্স/` বা `স্ক্রিপ্ট/` ফাইলে ভাগ করুন।',
+  'skills.install.errors.fetchTooLargeHint': 'SKILL.md অবশ্যই 1 MiB এর নিচে হতে হবে। বান্ডিল করা সম্পদগুলিকে ইনলাইন করার পরিবর্তে `রেফারেন্স/` বা `স্ক্রিপ্ট/` ফাইলে ভাগ করুন।',
   'skills.install.errors.fetchTooLargeTitle': 'SKILL.md খুব বড়',
-  'skills.install.errors.genericHint':
-    'ব্যাকএন্ড একটি ত্রুটি ফিরিয়ে দিয়েছে। কাঁচা বার্তা নীচে দেখানো হয়.',
+  'skills.install.errors.genericHint': 'ব্যাকএন্ড একটি ত্রুটি ফিরিয়ে দিয়েছে। কাঁচা বার্তা নীচে দেখানো হয়.',
   'skills.install.errors.genericTitle': 'দক্ষতা ইনস্টল করা যায়নি',
-  'skills.install.errors.invalidSkillHint':
-    'ফ্রন্টম্যাটারটি খালি নয় `নাম` এবং `বর্ণনা` ক্ষেত্র সহ বৈধ YAML হতে হবে, `---` দ্বারা সমাপ্ত।',
+  'skills.install.errors.invalidSkillHint': 'ফ্রন্টম্যাটারটি খালি নয় `নাম` এবং `বর্ণনা` ক্ষেত্র সহ বৈধ YAML হতে হবে, `---` দ্বারা সমাপ্ত।',
   'skills.install.errors.invalidSkillTitle': 'SKILL.md পার্স করেনি',
-  'skills.install.errors.invalidUrlHint':
-    'শুধুমাত্র সর্বজনীন HTTPS URLগুলি অনুমোদিত। ব্যক্তিগত, লুপব্যাক এবং মেটাডেটা হোস্ট ব্লক করা হয়েছে।',
+  'skills.install.errors.invalidUrlHint': 'শুধুমাত্র সর্বজনীন HTTPS URLগুলি অনুমোদিত। ব্যক্তিগত, লুপব্যাক এবং মেটাডেটা হোস্ট ব্লক করা হয়েছে।',
   'skills.install.errors.invalidUrlTitle': 'URL প্রত্যাখ্যান',
-  'skills.install.errors.unsupportedUrlHint':
-    'শুধুমাত্র সরাসরি `.md` লিঙ্কগুলি কাজ করে৷ GitHub-এর জন্য, একটি ফাইলের সাথে লিঙ্ক করুন (github.com/owner/repo/blob/.../SKILL.md) - গাছ এবং রেপো রুট ইনস্টল করা নেই।',
+  'skills.install.errors.unsupportedUrlHint': 'শুধুমাত্র সরাসরি `.md` লিঙ্কগুলি কাজ করে৷ GitHub-এর জন্য, একটি ফাইলের সাথে লিঙ্ক করুন (github.com/owner/repo/blob/.../SKILL.md) - গাছ এবং রেপো রুট ইনস্টল করা নেই।',
   'skills.install.errors.unsupportedUrlTitle': 'URL ফর্ম সমর্থিত নয়',
-  'skills.install.errors.writeFailedHint':
-    'ওয়ার্কস্পেস দক্ষতা ডিরেক্টরি লেখার যোগ্য ছিল না। `<workspace>/.openhuman/skills/`-এর জন্য ফাইল সিস্টেমের অনুমতি পরীক্ষা করুন।',
+  'skills.install.errors.writeFailedHint': 'ওয়ার্কস্পেস দক্ষতা ডিরেক্টরি লেখার যোগ্য ছিল না। `<workspace>/.openhuman/skills/`-এর জন্য ফাইল সিস্টেমের অনুমতি পরীক্ষা করুন।',
   'skills.install.errors.writeFailedTitle': 'SKILL.md লেখা যায়নি',
   'skills.install.fetchLog': 'ফেচ লগ',
   'skills.install.fetchingPrefix': 'আনা হচ্ছে',
@@ -3648,14 +3311,11 @@ const messages: TranslationMap = {
   'skills.install.rawError': 'রা ত্রুটি',
   'skills.install.subtitleMiddle': 'HTTPS এর উপরে এবং এটিকে',
   'skills.install.subtitlePrefix': 'এর অধীনে ইনস্টল করে একটি একক',
-  'skills.install.subtitleSuffix':
-    'HTTPS শুধুমাত্র আনয়ন করে; ব্যক্তিগত এবং লুপব্যাক হোস্ট অবরুদ্ধ।',
+  'skills.install.subtitleSuffix': 'HTTPS শুধুমাত্র আনয়ন করে; ব্যক্তিগত এবং লুপব্যাক হোস্ট অবরুদ্ধ।',
   'skills.install.successDiscovered': 'আবিষ্কৃত {count} নতুন দক্ষতা(গুলি)।',
-  'skills.install.successNoNewIds':
-    'দক্ষতা ইনস্টল করা হয়েছে, কিন্তু কোনো নতুন দক্ষতা আইডি উপস্থিত হয়নি - ক্যাটালগে ইতিমধ্যেই একই স্লাগ সহ একটি দক্ষতা থাকতে পারে।',
+  'skills.install.successNoNewIds': 'দক্ষতা ইনস্টল করা হয়েছে, কিন্তু কোনো নতুন দক্ষতা আইডি উপস্থিত হয়নি - ক্যাটালগে ইতিমধ্যেই একই স্লাগ সহ একটি দক্ষতা থাকতে পারে।',
   'skills.install.timeoutHint': '(সেকেন্ড, ঐচ্ছিক)',
-  'skills.install.timeoutHelp':
-    'ডিফল্ট 60 সেকেন্ড। 1-600 এর বাইরের মানগুলি সার্ভার-সাইডে ক্ল্যাম্প করা হয়৷',
+  'skills.install.timeoutHelp': 'ডিফল্ট 60 সেকেন্ড। 1-600 এর বাইরের মানগুলি সার্ভার-সাইডে ক্ল্যাম্প করা হয়৷',
   'skills.install.timeoutInvalid': '1 এবং 600 এর মধ্যে একটি পূর্ণসংখ্যা হতে হবে।',
   'skills.install.timeoutLabel': 'টাইমআউট লেবেল',
   'skills.install.timeoutPlaceholder': '60',
@@ -3717,8 +3377,7 @@ const messages: TranslationMap = {
   'skills.setup.screenIntel.allGranted': 'সব অনুমতি দেওয়া হয়েছে',
   'skills.setup.screenIntel.captureMode': 'ক্যাপচার মোড',
   'skills.setup.screenIntel.captureModeValue': 'সব উইন্ডো (পরে কনফিগারযোগ্য)',
-  'skills.setup.screenIntel.deniedHint':
-    'সিস্টেম সেটিংসে অনুমতি দেওয়ার পর, পরিবর্তন নিতে নিচে ক্লিক করে রিস্টার্ট করুন।',
+  'skills.setup.screenIntel.deniedHint': 'সিস্টেম সেটিংসে অনুমতি দেওয়ার পর, পরিবর্তন নিতে নিচে ক্লিক করে রিস্টার্ট করুন।',
   'skills.setup.screenIntel.enableBtn': 'সক্রিয় হচ্ছে...',
   'skills.setup.screenIntel.enableDesc': 'আপনার স্ক্রিনে এবং এজেন্টে দরকারী কন্টেক্সট ফিড করুন',
   'skills.setup.screenIntel.enableError': 'স্ক্রিন ইন্টেলিজেন্স সক্রিয় করতে ব্যর্থ',
@@ -3756,26 +3415,21 @@ const messages: TranslationMap = {
   'skills.setup.voice.stepSetup': 'মডেল ডাউনলোড প্রয়োজন',
   'skills.setup.voice.stepSuccess': 'যেতে প্রস্তুত',
   'skills.setup.voice.sttNotReady': 'স্পিচ-টু-টেক্সট মডেল প্রস্তুত নয়',
-  'skills.setup.voice.sttNotReadyDesc':
-    'ভয়েস ইন্টেলিজেন্সের জন্য ট্রান্সক্রিপশনের জন্য একটি লোকাল Whisper মডেল প্রয়োজন। লোকাল মডেল সেটিংস থেকে ডাউনলোড করুন।',
+  'skills.setup.voice.sttNotReadyDesc': 'ভয়েস ইন্টেলিজেন্সের জন্য ট্রান্সক্রিপশনের জন্য একটি লোকাল Whisper মডেল প্রয়োজন। লোকাল মডেল সেটিংস থেকে ডাউনলোড করুন।',
   'skills.setup.voice.sttReady': 'স্পিচ-টু-টেক্সট মডেল প্রস্তুত',
   'skills.setup.voice.sttReturnHint': 'STT রিটার্ন হিন্ট',
   'skills.setup.voice.title': 'ভয়েস ইন্টেলিজেন্স',
   'skills.uninstall.couldNotUninstall': 'আনইনস্টল করা যায়নি',
-  'skills.uninstall.description':
-    'এটি স্থায়ীভাবে স্কিল ডিরেক্টরি এবং এর সমস্ত বান্ডল রিসোর্স মুছে ফেলে। এজেন্ট পরবর্তী টার্নে এটি দেখা বন্ধ করবে।',
+  'skills.uninstall.description': 'এটি স্থায়ীভাবে স্কিল ডিরেক্টরি এবং এর সমস্ত বান্ডল রিসোর্স মুছে ফেলে। এজেন্ট পরবর্তী টার্নে এটি দেখা বন্ধ করবে।',
   'skills.uninstall.title': 'আনইনস্টল',
   'skills.uninstall.uninstallBtn': 'আনইনস্টল',
   'skills.uninstall.uninstalling': 'আনইনস্টল হচ্ছে…',
   'upsell.global.limitMessage': 'চালিয়ে যেতে আপনার প্ল্যান আপগ্রেড করুন বা ক্রেডিট টপ আপ করুন',
   'upsell.global.limitTitle': 'আপনি',
-  'upsell.global.nearLimitMessage':
-    'আপনি আপনার ব্যবহার সীমার {pct}% ব্যবহার করেছেন। উচ্চ সীমার জন্য আপগ্রেড করুন।',
+  'upsell.global.nearLimitMessage': 'আপনি আপনার ব্যবহার সীমার {pct}% ব্যবহার করেছেন। উচ্চ সীমার জন্য আপগ্রেড করুন।',
   'upsell.global.nearLimitTitle': 'ব্যবহার সীমার কাছাকাছি',
-  'upsell.usageLimit.bodyBudget':
-    'আপনি সাপ্তাহিক সীমায় পৌঁছেছেন।{reset} সীমা এড়াতে আপনার প্ল্যান আপগ্রেড করুন বা ক্রেডিট টপ আপ করুন।',
-  'upsell.usageLimit.bodyRate':
-    'আপনি ১০-ঘণ্টার ইনফারেন্স রেট সীমায় পৌঁছেছেন।{reset} উচ্চতর সীমার জন্য আপগ্রেড করুন।',
+  'upsell.usageLimit.bodyBudget': 'আপনি সাপ্তাহিক সীমায় পৌঁছেছেন।{reset} সীমা এড়াতে আপনার প্ল্যান আপগ্রেড করুন বা ক্রেডিট টপ আপ করুন।',
+  'upsell.usageLimit.bodyRate': 'আপনি ১০-ঘণ্টার ইনফারেন্স রেট সীমায় পৌঁছেছেন।{reset} উচ্চতর সীমার জন্য আপগ্রেড করুন।',
   'upsell.usageLimit.heading': 'ব্যবহার সীমা পৌঁছেছে',
   'upsell.usageLimit.notNow': 'এখন না',
   'upsell.usageLimit.perWindow': '{amount}',
@@ -3843,31 +3497,25 @@ const messages: TranslationMap = {
   'intelligence.memoryChunk.detail.copiedHint': 'কপি হয়েছে',
   'settings.composio.notYetRouted': 'এখনও রুট করা হয়নি',
   'settings.localModel.download.manageExternal': 'আপনার বাহ্যিক রানটাইমে এই মডেলটি পরিচালনা করুন।',
-  'settings.localModel.status.manageOllamaExternal':
-    'OpenHuman-এর বাইরে Ollama প্রক্রিয়া এবং মডেল পুল পরিচালনা করুন, তারপর ডায়াগনস্টিক পুনরায় চালান।',
+  'settings.localModel.status.manageOllamaExternal': 'OpenHuman-এর বাইরে Ollama প্রক্রিয়া এবং মডেল পুল পরিচালনা করুন, তারপর ডায়াগনস্টিক পুনরায় চালান।',
   'settings.localModel.status.ollamaDocs': 'Ollama ডকস',
-  'settings.localModel.status.thenRetry':
-    'সেটআপ নির্দেশনার জন্য, তারপর আপনার রানটাইম পৌঁছানো গেলে পুনরায় চেষ্টা করুন।',
+  'settings.localModel.status.thenRetry': 'সেটআপ নির্দেশনার জন্য, তারপর আপনার রানটাইম পৌঁছানো গেলে পুনরায় চেষ্টা করুন।',
   'devOptions.menuAi': 'AI কনফিগারেশন',
   'devOptions.menuAiDesc': 'ক্লাউড প্রদানকারী, স্থানীয় Ollama মডেল, এবং প্রতি-ওয়ার্কলোড রাউটিং',
   'devOptions.menuScreenAware': 'স্ক্রীন সচেতনতা',
   'devOptions.menuScreenAwareDesc': 'স্ক্রীন ক্যাপচার অনুমতি এবং সেশন নিয়ন্ত্রণ, নিরীক্ষণ নীতি',
   'devOptions.menuMessaging': 'মেসেজিং চ্যানেলগুলি',
-  'devOptions.menuMessagingDesc':
-    'কনফিগার করুন Telegram/Discord প্রমাণীকরণ মোড এবং ডিফল্ট চ্যানেল রাউটিং',
+  'devOptions.menuMessagingDesc': 'কনফিগার করুন Telegram/Discord প্রমাণীকরণ মোড এবং ডিফল্ট চ্যানেল রাউটিং',
   'devOptions.menuTools': 'টুলগুলি',
-  'devOptions.menuToolsDesc':
-    'টুলগুলি [[I18N_SEP_92731] BR__7 সক্ষম করতে সক্ষম]__3 সক্ষম করতে পারে। আপনার পক্ষে ব্যবহার করুন',
+  'devOptions.menuToolsDesc': 'টুলগুলি [[I18N_SEP_92731] BR__7 সক্ষম করতে সক্ষম]__3 সক্ষম করতে পারে। আপনার পক্ষে ব্যবহার করুন',
   'devOptions.menuAgentChat': 'এজেন্ট চ্যাট',
   'devOptions.menuAgentChatDesc': 'মডেল এবং তাপমাত্রা ওভাররাইডের সাথে পরীক্ষা এজেন্ট কথোপকথন',
   'devOptions.menuCronJobs': 'ক্রোন জবস',
   'devOptions.menuCronJobsDesc': 'কাজের সময়সূচী চালনার সময়সূচী কনফিগার করুন',
   'devOptions.menuLocalModelDebug': 'স্থানীয় মডেল ডিবাগ',
-  'devOptions.menuLocalModelDebugDesc':
-    'Ollama কনফিগারেশন, সম্পদ ডাউনলোড, মডেল পরীক্ষা, এবং ডায়াগনস্টিকস',
+  'devOptions.menuLocalModelDebugDesc': 'Ollama কনফিগারেশন, সম্পদ ডাউনলোড, মডেল পরীক্ষা, এবং ডায়াগনস্টিকস',
   'devOptions.menuWebhooksDebug': 'ওয়েবহুক',
-  'devOptions.menuWebhooksDebugDesc':
-    'রানটাইম ওয়েবহুক নিবন্ধন এবং ক্যাপচার করা অনুরোধ লগগুলি পরিদর্শন করুন',
+  'devOptions.menuWebhooksDebugDesc': 'রানটাইম ওয়েবহুক নিবন্ধন এবং ক্যাপচার করা অনুরোধ লগগুলি পরিদর্শন করুন',
   'devOptions.menuIntelligence': 'বুদ্ধিমত্তা',
   'devOptions.menuIntelligenceDesc': 'মেমরি ওয়ার্কস্পেস, অবচেতন ইঞ্জিন, স্বপ্ন এবং সেটিংস',
   'devOptions.menuNotificationRouting': 'বিজ্ঞপ্তি রাউটিং',
@@ -3875,16 +3523,13 @@ const messages: TranslationMap = {
   'devOptions.menuComposeIOTriggers': 'ComposeIO ট্রিগারগুলি',
   'devOptions.menuComposeIOTriggersDesc': 'ComposeIO ট্রিগার ইতিহাস দেখুন এবং সংরক্ষণাগার',
   'devOptions.menuComposioRouting': 'Composio রাউটিং (ডাইরেক্ট মোড)',
-  'devOptions.menuComposioRoutingDesc':
-    'আপনার নিজের Composio এবং Composio Composio __বিরুট সরাসরি কল করুন।',
+  'devOptions.menuComposioRoutingDesc': 'আপনার নিজের Composio এবং Composio Composio __বিরুট সরাসরি কল করুন।',
   'devOptions.menuComposioTriggers': 'ইন্টিগ্রেশন ট্রিগার',
-  'devOptions.menuComposioTriggersDesc':
-    'Composio ইন্টিগ্রেশন ট্রিগারের জন্য AI ট্রাইজ সেটিংস কনফিগার করুন',
+  'devOptions.menuComposioTriggersDesc': 'Composio ইন্টিগ্রেশন ট্রিগারের জন্য AI ট্রাইজ সেটিংস কনফিগার করুন',
   'memory.sourceFilterAria': 'উত্স দ্বারা ফিল্টার',
   'calls.comingSoonDescription': 'AI-সহায়তা কলগুলি শীঘ্রই আসছে৷ সাথে থাকুন।',
   'vault.title': 'নলেজ ভল্ট',
-  'vault.description':
-    'একটি স্থানীয় ফোল্ডার নির্দেশ করুন; ফাইলগুলি চাঙ্ক করা হয় এবং মেমোরিতে মিরর করা হয়।',
+  'vault.description': 'একটি স্থানীয় ফোল্ডার নির্দেশ করুন; ফাইলগুলি চাঙ্ক করা হয় এবং মেমোরিতে মিরর করা হয়।',
   'vault.add': 'ভল্ট যোগ করুন',
   'vault.added': 'ভল্ট যোগ করা হয়েছে',
   'vault.createdMessage': 'তৈরি করা হয়েছে "{name}"। ইনজেস্ট করতে {sync} এ ক্লিক করুন।',
@@ -3897,8 +3542,7 @@ const messages: TranslationMap = {
   'vault.syncSummaryFailed': ', ব্যর্থ হয়েছে {count}',
   'vault.syncSummarySkipped': '__PH এড়িয়ে গেছে',
   'vault.syncSummaryDuration': ' · {seconds}s',
-  'vault.confirmRemovePurge':
-    'ভল্ট "{name}" সরিয়ে দেবেন?\n\nOK ক্লিক করুন এর মেমোরিও মুছে ফেলতে (সমস্ত {count}টি ইনজেস্ট করা ডকুমেন্ট মুছুন)।\nডকুমেন্টগুলি মেমোরিতে রাখতে Cancel ক্লিক করুন।',
+  'vault.confirmRemovePurge': 'ভল্ট "{name}" সরিয়ে দেবেন?\n\nOK ক্লিক করুন এর মেমোরিও মুছে ফেলতে (সমস্ত {count}টি ইনজেস্ট করা ডকুমেন্ট মুছুন)।\nডকুমেন্টগুলি মেমোরিতে রাখতে Cancel ক্লিক করুন।',
   'vault.confirmRemove': 'সত্যিই ভল্ট "{name}" সরান?',
   'vault.removed': 'ভল্ট সরানো হয়েছে',
   'vault.removedPurgedMessage': '"{name}" সরানো হয়েছে এবং এর মেমরি পরিষ্কার করেছে৷',
@@ -3943,27 +3587,21 @@ const messages: TranslationMap = {
   'settings.mascot': 'মাসকট',
   'settings.mascotDesc': 'অ্যাপের মাস্কট রঙ জুড়ে ব্যবহার করুন',
   'pages.settings.account.walletBalances': 'ওয়ালেট ব্যালেন্স',
-  'pages.settings.account.walletBalancesDesc':
-    'আপনার স্থানীয় ওয়ালেটের মাল্টি-চেইন ব্যালেন্স দেখুন',
+  'pages.settings.account.walletBalancesDesc': 'আপনার স্থানীয় ওয়ালেটের মাল্টি-চেইন ব্যালেন্স দেখুন',
   'walletBalances.title': 'ওয়ালেট ব্যালেন্স',
   'walletBalances.refresh': 'Refresh',
   'walletBalances.loading': 'ব্যালেন্স লোড হচ্ছে…',
   'walletBalances.retry': 'Retry',
-  'walletBalances.emptyState':
-    'এখনো কোনো ওয়ালেট অ্যাকাউন্ট নেই — Recovery Phrase-এ একটি ওয়ালেট সেটআপ করুন।',
+  'walletBalances.emptyState': 'এখনো কোনো ওয়ালেট অ্যাকাউন্ট নেই — Recovery Phrase-এ একটি ওয়ালেট সেটআপ করুন।',
   'walletBalances.copyAddress': 'ঠিকানা কপি করুন',
   'walletBalances.providerMissing': 'প্রোভাইডার অনুপলব্ধ',
   'walletBalances.rawBalance': 'কাঁচা: {raw}',
-  'walletBalances.errorGeneric':
-    'ওয়ালেট ব্যালেন্স লোড করতে অক্ষম। Recovery Phrase-এ আপনার ওয়ালেট সেটআপ করুন এবং আবার চেষ্টা করুন।',
+  'walletBalances.errorGeneric': 'ওয়ালেট ব্যালেন্স লোড করতে অক্ষম। Recovery Phrase-এ আপনার ওয়ালেট সেটআপ করুন এবং আবার চেষ্টা করুন।',
   'settings.taskSources.title': 'কাজের উৎস',
   'settings.taskSources.subtitle': 'আপনার টুল থেকে Tworet পরিচালনা করুন',
-  'settings.taskSources.description':
-    'GitHub, Notion, Linear, এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন, এবং এজেন্টের টোডো বোর্ডে রুট করুন।',
-  'settings.taskSources.connectHint':
-    'আপনার সংযুক্ত অ্যাকাউন্ট ব্যবহার করে কাজের উৎস খুঁজে নিন। প্রথমে তাদের সাথে যোগাযোগ করুন।',
-  'settings.taskSources.disabledBanner':
-    'কাজের উৎস নিষ্ক্রিয় করা হয়েছে। স্বয়ংক্রিয়ভাবে পোল করার ব্যবস্থা সক্রিয় করা হবে।',
+  'settings.taskSources.description': 'GitHub, Notion, Linear, এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন, এবং এজেন্টের টোডো বোর্ডে রুট করুন।',
+  'settings.taskSources.connectHint': 'আপনার সংযুক্ত অ্যাকাউন্ট ব্যবহার করে কাজের উৎস খুঁজে নিন। প্রথমে তাদের সাথে যোগাযোগ করুন।',
+  'settings.taskSources.disabledBanner': 'কাজের উৎস নিষ্ক্রিয় করা হয়েছে। স্বয়ংক্রিয়ভাবে পোল করার ব্যবস্থা সক্রিয় করা হবে।',
   'settings.taskSources.loadError': 'কাজ লোড করতে ব্যর্থ',
   'settings.taskSources.addTitle': 'কাজ যোগ করুন',
   'settings.taskSources.provider': 'পরিসেবা উপলব্ধকারী',
@@ -3992,8 +3630,7 @@ const messages: TranslationMap = {
   'settings.taskSources.enable': 'সক্রিয় করুন',
   'settings.taskSources.disable': 'নিষ্ক্রিয়',
   'settings.taskSources.remove': 'মুছে ফেলুন',
-  'settings.taskSources.removeConfirm':
-    'এই কাজটি মুছে ফেলা হবে কি? সকল পূর্ববর্তী তথ্য মুছে ফেলা হবে এবং তা উদ্ধার করা যাবে না।',
+  'settings.taskSources.removeConfirm': 'এই কাজটি মুছে ফেলা হবে কি? সকল পূর্ববর্তী তথ্য মুছে ফেলা হবে এবং তা উদ্ধার করা যাবে না।',
   'settings.taskSources.refresh': 'নতুন করে প্রদর্শন',
   'settings.taskSources.providers.github': 'GitHub',
   'settings.taskSources.providers.notion': 'সংযোগ',
@@ -4002,8 +3639,7 @@ const messages: TranslationMap = {
   'skills.dashboard.title': 'Skills',
   'skills.dashboard.scheduledHeading': 'নির্ধারিত স্কিল',
   'skills.dashboard.emptyTitle': 'কোনো নির্ধারিত স্কিল নেই',
-  'skills.dashboard.emptyBody':
-    'এখানে দেখতে একবার কোনো বান্ডেল স্কিল চালান বা একটি পুনরাবৃত্তি সময়সূচি সংরক্ষণ করুন।',
+  'skills.dashboard.emptyBody': 'এখানে দেখতে একবার কোনো বান্ডেল স্কিল চালান বা একটি পুনরাবৃত্তি সময়সূচি সংরক্ষণ করুন।',
   'skills.dashboard.create': 'একটি স্কিল তৈরি করুন',
   'skills.dashboard.run': 'একটি স্কিল চালান',
   'skills.dashboard.enable': 'নির্ধারিত স্কিল সক্রিয় করুন',
@@ -4013,11 +3649,9 @@ const messages: TranslationMap = {
   'skills.dashboard.cardOpenRunner': 'রানারে খুলুন',
   'skills.dashboard.loadError': 'নির্ধারিত স্কিল লোড করতে ব্যর্থ হয়েছে',
   'skills.new.title': 'একটি স্কিল তৈরি করুন',
-  'skills.new.placeholderBody':
-    'অথরিং ফর্ম শীঘ্রই আসছে। এখনের জন্য, রানার পৃষ্ঠায় "New skill" বোতাম ব্যবহার করুন।',
+  'skills.new.placeholderBody': 'অথরিং ফর্ম শীঘ্রই আসছে। এখনের জন্য, রানার পৃষ্ঠায় "New skill" বোতাম ব্যবহার করুন।',
   'settings.agents.title': 'এজেন্ট',
-  'settings.agents.subtitle':
-    'প্রতিনিধিদের জন্য উপলব্ধ এজেন্টগুলো তৈরি করা হয় – ডিফল্ট এবং আপনার নিজস্ব কাস্টম এজেন্টদের জন্য।',
+  'settings.agents.subtitle': 'প্রতিনিধিদের জন্য উপলব্ধ এজেন্টগুলো তৈরি করা হয় – ডিফল্ট এবং আপনার নিজস্ব কাস্টম এজেন্টদের জন্য।',
   'settings.agents.menuDesc': 'প্লাগ-ইন ও স্বনির্ধারিত এজেন্ট পরিচালনা করুন',
   'settings.agents.newAgent': 'নতুন এজেন্ট',
   'settings.agents.loadError': 'এজেন্ট লোড করতে ব্যর্থ',
@@ -4045,16 +3679,56 @@ const messages: TranslationMap = {
   'settings.agents.editor.modelPlaceholder': 'xqxqx; এর উত্তর, ইঙ্গিত: fast, অথবা একটি মডেল',
   'settings.agents.editor.systemPrompt': 'সিস্টেম প্রম্পট (ঐচ্ছিক)',
   'settings.agents.editor.tools': 'ব্যবহারের জন্য চিহ্নিত সামগ্রী',
-  'settings.agents.editor.toolsHint':
-    'প্রতিটি রেখার জন্য একটি টুল-নেম * সব হাতিয়ারের জন্য * ব্যবহার করুন ।',
-  'settings.agents.editor.defaultsNote':
-    'একটি নির্মিত ইন-ইন এজেন্ট সম্পাদনা করে আপনি পরে পুনরায় নির্ধারণ করতে পারবেন।',
+  'settings.agents.editor.toolsHint': 'প্রতিটি রেখার জন্য একটি টুল-নেম * সব হাতিয়ারের জন্য * ব্যবহার করুন ।',
+  'settings.agents.editor.defaultsNote': 'একটি নির্মিত ইন-ইন এজেন্ট সম্পাদনা করে আপনি পরে পুনরায় নির্ধারণ করতে পারবেন।',
   'settings.agents.editor.save': 'সংরক্ষণ',
   'settings.agents.editor.create': 'নির্মাণ করুন',
   'settings.agents.editor.saving': 'ইনস্টল করা হয়েছে...',
+  'nav.workflows': 'Workflows',
+  'workflows.title': 'Agent Workflows',
+  'workflows.subtitle': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
+  'workflows.createNew': 'New Workflow',
+  'workflows.listHeading': 'Workflows',
+  'workflows.delete': 'Delete Workflow',
+  'workflows.deleteError': 'Failed to delete workflow',
+  'workflows.warnings': '{count} warning(s)',
+  'workflows.empty.title': 'No workflows yet',
+  'workflows.empty.body': 'Create a workflow to define rules and scripts for task lifecycle phases.',
+  'workflows.create.title': 'New Workflow',
+  'workflows.create.subtitle': 'Define a lifecycle-bound rule set for the agent.',
+  'workflows.create.name': 'Name',
+  'workflows.create.namePlaceholder': 'e.g. Python project workflow',
+  'workflows.create.description': 'Description',
+  'workflows.create.descriptionPlaceholder': 'What does this workflow do?',
+  'workflows.create.whenToUse': 'When to use',
+  'workflows.create.whenToUsePlaceholder': 'When should the agent pick up this workflow?',
+  'workflows.create.optional': '(optional)',
+  'workflows.create.createBtn': 'Create workflow',
+  'workflows.create.creating': 'Creating…',
+  'workflows.create.createError': 'Could not create workflow',
+  'workflows.create.successTitle': 'Workflow created',
+  'workflows.create.successMessage': 'was created successfully.',
+  'workflows.deleteConfirm.title': 'Delete workflow',
+  'workflows.deleteConfirm.body': 'Remove "{name}"? This cannot be undone.',
+  'workflows.detail.tags': 'Tags',
+  'workflows.detail.location': 'Location',
+  'workflows.detail.warnings': 'Warnings',
+  'workflows.detail.phases': 'Phases',
+  'workflows.detail.noPhases': 'No phases defined.',
+  'workflows.detail.loadError': 'Failed to load full workflow',
+  'workflows.phase.rules': 'Rules',
+  'workflows.phase.rules.empty': 'No rules.',
+  'workflows.phase.scripts': 'Scripts',
+  'workflows.phase.scripts.empty': 'No scripts.',
+  'workflows.phase.toolScope': 'Tool scope',
+  'workflows.phase.toolScope.allow': 'Allow',
+  'workflows.phase.toolScope.deny': 'Deny',
+  'workflows.phase.toolScope.inherited': 'Inherited from workflow default.',
+  'workflows.phase.toolScope.empty': 'No tool restrictions.',
+  'workflows.phase.context': 'Context',
+  'workflows.phase.context.empty': 'No context providers.',
   'settings.agentsSection.title': 'Agents',
-  'settings.agentsSection.description':
-    'আপনার এজেন্ট, তাদের স্বায়ত্তশাসন এবং এই কম্পিউটারে তারা কী অ্যাক্সেস করতে পারে তা পরিচালনা করুন।',
+  'settings.agentsSection.description': 'আপনার এজেন্ট, তাদের স্বায়ত্তশাসন এবং এই কম্পিউটারে তারা কী অ্যাক্সেস করতে পারে তা পরিচালনা করুন।',
   'settings.agentsSection.menuDesc': 'রেজিস্ট্রি, স্বায়ত্তশাসন ও ওএস অ্যাক্সেস',
   'settings.agents.editor.notFound': 'এজেন্ট পাওয়া যায়নি।',
   'settings.agents.editor.modelInherit': 'উত্তরাধিকার (প্ল্যাটফর্ম ডিফল্ট)',
@@ -4075,8 +3749,7 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsLoadError': 'টুল লোড করা যায়নি',
   'settings.agents.editor.toolsEmpty': 'আপনার অনুসন্ধানের সাথে কোনো টুল মেলে না।',
   'settings.agents.editor.toolsDone': 'Done',
-  'settings.agents.editor.builtInReadonly':
-    'বিল্ট-ইন এজেন্ট সম্পাদনা করা যাবে না। আপনি এজেন্ট তালিকা থেকে সেগুলো সক্রিয়, নিষ্ক্রিয় বা পুনরায় সেট করতে পারেন।',
+  'settings.agents.editor.builtInReadonly': 'বিল্ট-ইন এজেন্ট সম্পাদনা করা যাবে না। আপনি এজেন্ট তালিকা থেকে সেগুলো সক্রিয়, নিষ্ক্রিয় বা পুনরায় সেট করতে পারেন।',
 };
 
 export default messages;

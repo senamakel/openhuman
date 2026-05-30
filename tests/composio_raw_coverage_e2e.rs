@@ -5,6 +5,12 @@
 
 use std::sync::Arc;
 
+use axum::body::to_bytes;
+use axum::extract::Request;
+use axum::http::{Method, StatusCode};
+use axum::response::{IntoResponse, Response};
+use axum::routing::any;
+use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::tempdir;
 
@@ -1156,6 +1162,193 @@ fn composio_direct_public_types_deserialize_polymorphic_toolkits() {
     assert_eq!(missing.toolkit_slug(), None);
 }
 
+#[tokio::test]
+async fn composio_backend_client_methods_build_requests_and_parse_local_envelopes() {
+    let app = Router::new().fallback(any(composio_round8_backend_handler));
+    let base = start_composio_round8_backend(app).await;
+    let client = ComposioClient::new(Arc::new(IntegrationClient::new(
+        base,
+        "round8-token".into(),
+    )));
+
+    let toolkits = client.list_toolkits().await.expect("toolkits");
+    assert_eq!(toolkits.toolkits, vec!["gmail", "github", "slack"]);
+
+    let connections = client.list_connections().await.expect("connections");
+    assert_eq!(connections.connections.len(), 2);
+    assert_eq!(connections.connections[0].normalized_toolkit(), "gmail");
+
+    let authorize = client
+        .authorize(
+            " Gmail ",
+            Some(json!({
+                "waba_id": "waba-1",
+                "oauth_scopes": "profile https://www.googleapis.com/auth/gmail.readonly"
+            })),
+        )
+        .await
+        .expect("authorize with string scopes");
+    assert_eq!(authorize.connect_url, "https://connect.example/gmail");
+    assert_eq!(authorize.connection_id, "conn-gmail");
+
+    let authorize_array = client
+        .authorize("gmail", Some(json!({ "oauth_scopes": ["profile", ""] })))
+        .await
+        .expect("authorize appends missing array scopes");
+    assert_eq!(authorize_array.connection_id, "conn-gmail");
+
+    let bad_scope_entry = client
+        .authorize("gmail", Some(json!({ "oauth_scopes": [42] })))
+        .await
+        .expect_err("scope entries must be strings");
+    assert!(bad_scope_entry
+        .to_string()
+        .contains("entries must be strings"));
+    let bad_scope_shape = client
+        .authorize("gmail", Some(json!({ "oauth_scopes": { "bad": true } })))
+        .await
+        .expect_err("scope shape must be string or array");
+    assert!(bad_scope_shape
+        .to_string()
+        .contains("must be a string or array"));
+
+    let tools = client
+        .list_tools(
+            Some(&[
+                " gmail ".to_string(),
+                "".to_string(),
+                "github/repo".to_string(),
+            ]),
+            Some(&[" important tag ".to_string(), " ".to_string()]),
+        )
+        .await
+        .expect("tools");
+    assert_eq!(tools.tools[0].function.name, "GMAIL_SEND_EMAIL");
+
+    let all_tools = client.list_tools(None, None).await.expect("all tools");
+    assert_eq!(all_tools.tools.len(), 1);
+
+    let execute = client
+        .execute_tool(
+            " GMAIL_SEND_EMAIL ",
+            Some(json!({ "to": "p@example.test" })),
+        )
+        .await
+        .expect("execute");
+    assert!(execute.successful);
+    assert_eq!(execute.data["id"], "msg-1");
+
+    let execute_error = client
+        .execute_tool(
+            "GMAIL_FETCH_EMAILS",
+            Some(json!({ "query": "newer_than:1d" })),
+        )
+        .await
+        .expect("execute provider failure envelope");
+    assert!(!execute_error.successful);
+    assert!(execute_error
+        .error
+        .as_deref()
+        .unwrap_or_default()
+        .starts_with("[composio:error:insufficient_scope]"));
+
+    let repos = client
+        .list_github_repos(Some(" github conn "))
+        .await
+        .expect("repos");
+    assert_eq!(repos.repositories[0].full_name, "tinyhumansai/openhuman");
+    let repos_without_connection = client
+        .list_github_repos(None)
+        .await
+        .expect("repos without connection");
+    assert_eq!(repos_without_connection.connection_id, "conn-github");
+
+    let created = client
+        .create_trigger(
+            " GITHUB_PULL_REQUEST_EVENT ",
+            Some(" conn-github "),
+            Some(json!({ "owner": "tinyhumansai", "repo": "openhuman" })),
+        )
+        .await
+        .expect("create trigger");
+    assert_eq!(created.trigger_id, "created-trigger");
+
+    let created_without_config = client
+        .create_trigger("SLACK_NEW_MESSAGE", None, None)
+        .await
+        .expect("create trigger without optional fields");
+    assert_eq!(created_without_config.status.as_deref(), Some("enabled"));
+
+    let available = client
+        .list_available_triggers(" github ", Some(" conn-github "))
+        .await
+        .expect("available triggers");
+    assert_eq!(available.triggers[0].slug, "GITHUB_PULL_REQUEST_EVENT");
+    let available_without_connection = client
+        .list_available_triggers("gmail", None)
+        .await
+        .expect("available triggers without connection");
+    assert_eq!(available_without_connection.triggers[0].scope, "mailbox");
+
+    let active = client
+        .list_active_triggers(Some(" gmail "))
+        .await
+        .expect("active triggers");
+    assert_eq!(active.triggers[0].toolkit, "gmail");
+    let active_all = client
+        .list_active_triggers(None)
+        .await
+        .expect("all active triggers");
+    assert_eq!(active_all.triggers[0].id, "active-trigger");
+
+    let enabled = client
+        .enable_trigger(
+            " conn-gmail ",
+            " GMAIL_NEW_GMAIL_MESSAGE ",
+            Some(json!({ "label": "INBOX" })),
+        )
+        .await
+        .expect("enable trigger");
+    assert_eq!(enabled.connection_id, "conn-gmail");
+    let enabled_without_config = client
+        .enable_trigger("conn-gmail", "GMAIL_NEW_GMAIL_MESSAGE", None)
+        .await
+        .expect("enable trigger without config");
+    assert_eq!(enabled_without_config.slug, "GMAIL_NEW_GMAIL_MESSAGE");
+
+    let deleted = client
+        .delete_connection(" conn-gmail ")
+        .await
+        .expect("delete connection");
+    assert!(deleted.deleted);
+    let disabled = client
+        .disable_trigger(" trigger/with space ")
+        .await
+        .expect("disable trigger");
+    assert!(disabled.deleted);
+
+    let delete_status = client
+        .delete_connection("bad-status")
+        .await
+        .expect_err("delete non-2xx");
+    assert!(delete_status.to_string().contains("Backend returned"));
+    assert!(delete_status.to_string().contains("delete rejected"));
+
+    let delete_envelope = client
+        .delete_connection("bad-envelope")
+        .await
+        .expect_err("delete envelope error");
+    assert!(delete_envelope
+        .to_string()
+        .contains("Backend error for DELETE"));
+
+    let delete_no_data = client
+        .disable_trigger("no-data")
+        .await
+        .expect_err("delete success needs data");
+    assert!(delete_no_data.to_string().contains("success but no data"));
+}
+
 #[test]
 fn composio_trigger_history_store_handles_limits_and_bad_archive_lines() {
     let dir = tempdir().expect("tempdir");
@@ -1203,4 +1396,189 @@ fn composio_trigger_history_store_handles_limits_and_bad_archive_lines() {
         .entries
         .iter()
         .any(|entry| entry.metadata_id == "metadata-1"));
+}
+
+async fn start_composio_round8_backend(app: Router) -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind mock composio backend");
+    let addr = listener.local_addr().expect("mock backend addr");
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    format!("http://127.0.0.1:{}", addr.port())
+}
+
+async fn composio_round8_backend_handler(request: Request) -> Response {
+    let method = request.method().clone();
+    let uri = request.uri().clone();
+    let path = uri.path().to_string();
+    let query = uri.query().unwrap_or_default().to_string();
+    let body = to_bytes(request.into_body(), usize::MAX)
+        .await
+        .expect("mock request body");
+    let body: Value = if body.is_empty() {
+        json!({})
+    } else {
+        serde_json::from_slice(&body).expect("json request body")
+    };
+
+    match (method, path.as_str()) {
+        (Method::GET, "/agent-integrations/composio/toolkits") => ok(json!({
+            "toolkits": ["gmail", "github", "slack"]
+        })),
+        (Method::GET, "/agent-integrations/composio/connections") => ok(json!({
+            "connections": [
+                { "id": "conn-gmail", "toolkit": " Gmail ", "status": "ACTIVE", "createdAt": "2026-05-29T00:00:00Z" },
+                { "id": "conn-slack", "toolkit": "slack", "status": "PENDING" }
+            ]
+        })),
+        (Method::POST, "/agent-integrations/composio/authorize") => {
+            let toolkit = body
+                .get("toolkit")
+                .and_then(Value::as_str)
+                .expect("authorize toolkit");
+            assert_eq!(toolkit.to_ascii_lowercase(), "gmail");
+            let scopes = body
+                .get("oauth_scopes")
+                .and_then(Value::as_array)
+                .expect("oauth scopes array");
+            assert!(scopes
+                .iter()
+                .any(|scope| scope == "https://www.googleapis.com/auth/gmail.readonly"));
+            ok(json!({
+                "connectUrl": "https://connect.example/gmail",
+                "connectionId": "conn-gmail"
+            }))
+        }
+        (Method::GET, "/agent-integrations/composio/tools") => {
+            if !query.is_empty() {
+                assert!(query.contains("toolkits=gmail,github%2Frepo"));
+                assert!(query.contains("tags=important%20tag"));
+            }
+            ok(json!({
+                "tools": [{
+                    "type": "function",
+                    "function": {
+                        "name": "GMAIL_SEND_EMAIL",
+                        "description": "Send mail",
+                        "parameters": { "type": "object" }
+                    }
+                }]
+            }))
+        }
+        (Method::POST, "/agent-integrations/composio/execute") => {
+            match body.get("tool").and_then(Value::as_str) {
+                Some("GMAIL_FETCH_EMAILS") => ok(json!({
+                    "data": null,
+                    "successful": false,
+                    "error": "403 insufficient authentication scopes",
+                    "costUsd": 0.0
+                })),
+                _ => ok(json!({
+                    "data": { "id": "msg-1" },
+                    "successful": true,
+                    "error": null,
+                    "costUsd": 0.01,
+                    "markdownFormatted": "**sent**"
+                })),
+            }
+        }
+        (Method::GET, "/agent-integrations/composio/github/repos") => ok(json!({
+            "connectionId": "conn-github",
+            "repositories": [{
+                "owner": "tinyhumansai",
+                "repo": "openhuman",
+                "fullName": "tinyhumansai/openhuman",
+                "private": false,
+                "defaultBranch": "main",
+                "htmlUrl": "https://github.com/tinyhumansai/openhuman"
+            }]
+        })),
+        (Method::POST, "/agent-integrations/composio/triggers") => {
+            if body.get("slug").and_then(Value::as_str) == Some("GITHUB_PULL_REQUEST_EVENT") {
+                assert_eq!(body["connectionId"], "conn-github");
+                ok(json!({
+                    "triggerId": "created-trigger",
+                    "status": "enabled"
+                }))
+            } else if body.get("connectionId").is_some() {
+                assert_eq!(body["connectionId"], "conn-gmail");
+                ok(json!({
+                    "triggerId": "enabled-trigger",
+                    "slug": "GMAIL_NEW_GMAIL_MESSAGE",
+                    "connectionId": "conn-gmail"
+                }))
+            } else {
+                ok(json!({
+                    "triggerId": "created-trigger",
+                    "status": "enabled"
+                }))
+            }
+        }
+        (Method::GET, "/agent-integrations/composio/triggers/available") => {
+            if query.contains("github") {
+                assert!(query.contains("connectionId=conn-github"));
+                ok(json!({
+                    "triggers": [{
+                        "slug": "GITHUB_PULL_REQUEST_EVENT",
+                        "scope": "github_repo",
+                        "defaultConfig": { "event": "pull_request" },
+                        "requiredConfigKeys": ["owner", "repo"],
+                        "repo": { "owner": "tinyhumansai", "repo": "openhuman" }
+                    }]
+                }))
+            } else {
+                ok(json!({
+                    "triggers": [{
+                        "slug": "GMAIL_NEW_GMAIL_MESSAGE",
+                        "scope": "mailbox"
+                    }]
+                }))
+            }
+        }
+        (Method::GET, "/agent-integrations/composio/triggers") => ok(json!({
+            "triggers": [{
+                "id": "active-trigger",
+                "slug": "GMAIL_NEW_GMAIL_MESSAGE",
+                "toolkit": "gmail",
+                "connectionId": "conn-gmail",
+                "triggerConfig": { "label": "INBOX" },
+                "state": "enabled"
+            }]
+        })),
+        (Method::DELETE, path) if path.starts_with("/agent-integrations/composio/connections/") => {
+            let id = path.rsplit('/').next().unwrap_or_default();
+            match id {
+                "bad-status" => (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "success": false, "error": "delete rejected" })),
+                )
+                    .into_response(),
+                "bad-envelope" => Json(json!({
+                    "success": false,
+                    "error": "delete envelope rejected"
+                }))
+                .into_response(),
+                _ => ok(json!({ "deleted": true, "memory_chunks_deleted": 2 })),
+            }
+        }
+        (Method::DELETE, path) if path.starts_with("/agent-integrations/composio/triggers/") => {
+            let id = path.rsplit('/').next().unwrap_or_default();
+            if id == "no-data" {
+                Json(json!({ "success": true })).into_response()
+            } else {
+                ok(json!({ "deleted": true }))
+            }
+        }
+        _ => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": format!("unhandled {path}") })),
+        )
+            .into_response(),
+    }
+}
+
+fn ok(data: Value) -> Response {
+    Json(json!({ "success": true, "data": data })).into_response()
 }

@@ -4,45 +4,46 @@
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc, Mutex, OnceLock,
+    atomic::{AtomicUsize, Ordering},
 };
 use std::time::Duration;
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::{header::AUTHORIZATION, HeaderMap};
+use axum::http::{HeaderMap, header::AUTHORIZATION};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use reqwest::StatusCode;
-use serde_json::{json, Value};
-use tempfile::{tempdir, TempDir};
+use serde_json::{Value, json};
+use tempfile::{TempDir, tempdir};
 
 use openhuman_core::api::config::{
-    api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env, effective_api_url,
-    effective_backend_api_url, effective_inference_url, looks_like_local_ai_endpoint,
-    normalize_api_base_url, APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL,
-    OPENHUMAN_INFERENCE_PATH, VITE_APP_ENV_VAR,
+    APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL, OPENHUMAN_INFERENCE_PATH,
+    VITE_APP_ENV_VAR, api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env,
+    effective_api_url, effective_backend_api_url, effective_inference_url,
+    looks_like_local_ai_endpoint, normalize_api_base_url,
 };
-use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
+use openhuman_core::core::auth::{CORE_TOKEN_ENV_VAR, init_rpc_token};
 use openhuman_core::core::event_bus::{DomainEvent, EventHandler};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::app_state::app_state_schemas;
 use openhuman_core::openhuman::config::schema::{
-    generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
-    migrate_legacy_fields, AuditConfig, AuthStyle, CapabilityProviderConfig,
-    CapabilityProviderTrustState, CloudProviderCreds, CloudProviderType, DashboardConfig,
-    EventStreamConfig, MemoryConfig, MemoryContextWindow, ModelHealthConfig,
-    OrchestratorModelConfig, ProxyConfig, ProxyScope, ResourceLimitsConfig, SandboxConfig,
-    SecurityConfig, TelegramConfig, VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
+    AuditConfig, AuthStyle, CapabilityProviderConfig, CapabilityProviderTrustState,
+    CloudProviderCreds, CloudProviderType, DashboardConfig, EventStreamConfig, MemoryConfig,
+    MemoryContextWindow, ModelHealthConfig, OrchestratorModelConfig, ProxyConfig, ProxyScope,
+    ResourceLimitsConfig, SandboxConfig, SecurityConfig, TelegramConfig, VoiceCapability,
+    VoiceProviderCreds, WhatsAppConfig, generate_provider_id, generate_voice_provider_id,
+    is_slug_reserved, is_voice_slug_reserved, migrate_legacy_fields,
 };
 use openhuman_core::openhuman::config::settings_cli::{
-    settings_section_json, ConfigSnapshotFields,
+    ConfigSnapshotFields, settings_section_json,
 };
 use openhuman_core::openhuman::config::{
-    clear_active_user, output_language_directive, pre_login_user_dir, read_active_user_id,
-    user_openhuman_dir, write_active_user_id, AgentConfig, ChannelsConfig, Config, DaemonConfig,
-    DictationActivationMode, LlmBackend, ReflectionSource, TeamModelConfig, UpdateRestartStrategy,
+    AgentConfig, ChannelsConfig, Config, DaemonConfig, DictationActivationMode, LlmBackend,
+    ReflectionSource, TeamModelConfig, UpdateRestartStrategy, clear_active_user,
+    output_language_directive, pre_login_user_dir, read_active_user_id, user_openhuman_dir,
+    write_active_user_id,
 };
 use openhuman_core::openhuman::connectivity::{
     all_connectivity_controller_schemas, all_connectivity_registered_controllers,
@@ -59,9 +60,9 @@ use openhuman_core::openhuman::credentials::session_support::{
     session_token_from_profile, summarize_auth_profile,
 };
 use openhuman_core::openhuman::credentials::{
-    clear_composio_api_key, decrypt_secret, encrypt_secret, get_composio_api_key,
-    list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
-    store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
+    APP_SESSION_PROVIDER, AuthService, COMPOSIO_DIRECT_PROVIDER, clear_composio_api_key,
+    decrypt_secret, encrypt_secret, get_composio_api_key, list_provider_credentials_by_prefix,
+    normalize_provider, rpc_store_composio_api_key, store_composio_api_key,
 };
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
@@ -408,10 +409,10 @@ async fn mock_client_key(AxumPath(integration_id): AxumPath<String>) -> Json<Val
 }
 
 fn encrypt_handoff_blob(key: &str, plaintext: &str) -> String {
+    use aes_gcm::AesGcm;
     use aes_gcm::aead::generic_array::typenum::U16;
     use aes_gcm::aead::{Aead, KeyInit};
     use aes_gcm::aes::Aes256;
-    use aes_gcm::AesGcm;
     use base64::Engine;
 
     type Aes256Gcm16 = AesGcm<Aes256, U16>;
@@ -752,10 +753,12 @@ encrypt = false
     )
     .expect("minimal config should deserialize with defaults");
     assert_eq!(minimal_config.default_temperature, 0.7);
-    assert!(minimal_config
-        .temperature_unsupported_models
-        .iter()
-        .any(|pattern| pattern == "gpt-5*"));
+    assert!(
+        minimal_config
+            .temperature_unsupported_models
+            .iter()
+            .any(|pattern| pattern == "gpt-5*")
+    );
 
     assert_eq!(
         output_language_directive(Some("zh_CN")).as_deref(),
@@ -807,10 +810,12 @@ encrypt = false
     assert!(config.workload_uses_local("subconscious"));
     assert!(!config.workload_uses_local("unknown"));
     config.output_language = Some("fr".into());
-    assert!(config
-        .output_language_directive()
-        .expect("language directive")
-        .contains("French"));
+    assert!(
+        config
+            .output_language_directive()
+            .expect("language directive")
+            .contains("French")
+    );
 
     config.orchestrator = OrchestratorModelConfig {
         model: Some(" orchestrator-model ".into()),
@@ -1149,9 +1154,11 @@ fn config_settings_cli_sections_project_snapshots_and_missing_fields() {
     }
 
     let unknown = settings_section_json("unknown", &snap, vec![]);
-    assert!(unknown
-        .pointer("/result/settings")
-        .is_some_and(Value::is_null));
+    assert!(
+        unknown
+            .pointer("/result/settings")
+            .is_some_and(Value::is_null)
+    );
 
     let missing = ConfigSnapshotFields {
         config: json!({ "default_model": "partial-model" }),
@@ -1163,13 +1170,17 @@ fn config_settings_cli_sections_project_snapshots_and_missing_fields() {
         missing_model.pointer("/result/settings/default_model"),
         Some(&json!("partial-model"))
     );
-    assert!(missing_model
-        .pointer("/result/settings/api_url")
-        .is_some_and(Value::is_null));
+    assert!(
+        missing_model
+            .pointer("/result/settings/api_url")
+            .is_some_and(Value::is_null)
+    );
     let missing_memory = settings_section_json("memory", &missing, vec![]);
-    assert!(missing_memory
-        .pointer("/result/settings")
-        .is_some_and(Value::is_null));
+    assert!(
+        missing_memory
+            .pointer("/result/settings")
+            .is_some_and(Value::is_null)
+    );
 }
 
 #[test]
@@ -1184,12 +1195,16 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
     let _all_lower = EnvVarGuard::unset("all_proxy");
     let _no_lower = EnvVarGuard::unset("no_proxy");
 
-    assert!(ProxyConfig::supported_service_keys()
-        .iter()
-        .any(|key| *key == "memory.embeddings"));
-    assert!(ProxyConfig::supported_service_selectors()
-        .iter()
-        .any(|selector| *selector == "tool.*"));
+    assert!(
+        ProxyConfig::supported_service_keys()
+            .iter()
+            .any(|key| *key == "memory.embeddings")
+    );
+    assert!(
+        ProxyConfig::supported_service_selectors()
+            .iter()
+            .any(|selector| *selector == "tool.*")
+    );
 
     let services = ProxyConfig {
         enabled: true,
@@ -1278,8 +1293,10 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
     }
 
     openhuman_core::openhuman::config::set_runtime_proxy_config(services.clone());
-    assert!(openhuman_core::openhuman::config::runtime_proxy_config()
-        .should_apply_to_service("tool.browser"));
+    assert!(
+        openhuman_core::openhuman::config::runtime_proxy_config()
+            .should_apply_to_service("tool.browser")
+    );
     let _cached = openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
     let _cached_again =
         openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
@@ -1414,6 +1431,113 @@ async fn credentials_session_expired_subscriber_ignores_unrelated_events() {
             channel: "e2e".to_string(),
         })
         .await;
+}
+
+#[tokio::test]
+async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_local_session() {
+    let _lock = env_lock();
+    let (backend_base, _backend_state, backend_join) = serve_static_auth_backend(json!({
+        "id": "session-expired-user",
+        "name": "Session Expired Worker",
+        "email": "session-expired@example.test"
+    }))
+    .await;
+    let harness = setup().await;
+    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
+
+    let remote_session = rpc(
+        &harness.rpc_base,
+        18_101,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "session-expired-remote-jwt",
+            "user_id": "session-expired-user",
+            "user": {
+                "id": "session-expired-user",
+                "name": "Session Expired Worker",
+                "email": "session-expired@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&remote_session, "auth_store_session before SessionExpired")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+
+    let subscriber = SessionExpiredSubscriber::new();
+    subscriber
+        .handle(&DomainEvent::SessionExpired {
+            source: "coverage-test".to_string(),
+            reason: "remote token rejected".to_string(),
+        })
+        .await;
+
+    let cleared_state = rpc(
+        &harness.rpc_base,
+        18_102,
+        "openhuman.auth_get_state",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&cleared_state, "auth_get_state after remote SessionExpired")
+            .get("isAuthenticated")
+            .and_then(Value::as_bool),
+        Some(false),
+        "remote SessionExpired events should clear the stored session"
+    );
+
+    let local_session = rpc(
+        &harness.rpc_base,
+        18_103,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "header.payload.local",
+            "user": {
+                "id": "renderer-local-session-expired",
+                "name": "Local Session Expired Worker",
+                "email": "local-session-expired@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(
+            &local_session,
+            "auth_store_session local before SessionExpired"
+        )
+        .get("provider")
+        .and_then(Value::as_str),
+        Some("app-session")
+    );
+
+    subscriber
+        .handle(&DomainEvent::SessionExpired {
+            source: "coverage-test".to_string(),
+            reason: "local token should survive".to_string(),
+        })
+        .await;
+
+    let local_state = rpc(
+        &harness.rpc_base,
+        18_104,
+        "openhuman.auth_get_state",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&local_state, "auth_get_state after local SessionExpired")
+            .get("isAuthenticated")
+            .and_then(Value::as_bool),
+        Some(true),
+        "local offline sessions should not be cleared by SessionExpired events"
+    );
+
+    harness.join.abort();
+    backend_join.abort();
 }
 
 #[tokio::test]
@@ -1813,12 +1937,15 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
         .set_active_profile("GitHub", "personal")
         .expect("set active by profile name");
     assert_eq!(active_id, stored.id);
-    assert!(auth
-        .remove_profile("GitHub", "personal")
-        .expect("remove stored profile"));
-    assert!(!auth
-        .remove_profile("GitHub", "personal")
-        .expect("remove missing profile"));
+    assert!(
+        auth.remove_profile("GitHub", "personal")
+            .expect("remove stored profile")
+    );
+    assert!(
+        !auth
+            .remove_profile("GitHub", "personal")
+            .expect("remove missing profile")
+    );
 
     let oauth_profile = AuthProfile::new_oauth(
         "gitlab",
@@ -1841,10 +1968,11 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
             .expect("oauth bearer lookup"),
         Some("gitlab-access-token".to_string())
     );
-    assert!(auth
-        .get_profile("gitlab", Some("missing"))
-        .expect("missing override lookup")
-        .is_none());
+    assert!(
+        auth.get_profile("gitlab", Some("missing"))
+            .expect("missing override lookup")
+            .is_none()
+    );
     let wrong_provider_err = auth
         .set_active_profile("github", &oauth_id)
         .expect_err("full profile id from another provider should fail")
@@ -2128,16 +2256,18 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
             .expect_err("missing session should fail")
             .contains("session JWT required")
     );
-    assert!(openhuman_core::openhuman::credentials::oauth_connect(
-        &config,
-        "github",
-        Some("skill"),
-        Some("code"),
-        Some("handoff"),
-    )
-    .await
-    .expect_err("oauth connect without session should fail")
-    .contains("session JWT required"));
+    assert!(
+        openhuman_core::openhuman::credentials::oauth_connect(
+            &config,
+            "github",
+            Some("skill"),
+            Some("code"),
+            Some("handoff"),
+        )
+        .await
+        .expect_err("oauth connect without session should fail")
+        .contains("session JWT required")
+    );
     assert!(
         openhuman_core::openhuman::credentials::oauth_list_integrations(&config)
             .await
@@ -3596,6 +3726,71 @@ async fn app_state_snapshot_clears_empty_current_user_cache_and_falls_back_to_st
 }
 
 #[tokio::test]
+async fn app_state_snapshot_falls_back_to_stored_user_when_current_user_refresh_errors() {
+    let _lock = env_lock();
+    let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
+        "id": "refresh-error-user",
+        "name": "Refresh Error Worker",
+        "email": "refresh-error@example.test"
+    }))
+    .await;
+    let harness = setup().await;
+    let backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
+
+    let session = rpc(
+        &harness.rpc_base,
+        22_121,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "refresh-error-remote-jwt",
+            "user_id": "stored-refresh-error-user",
+            "user": {
+                "id": "stored-refresh-error-user",
+                "name": "Stored Refresh Error Worker",
+                "email": "stored-refresh-error@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&session, "auth_store_session refresh-error")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        1,
+        "store_session should validate the remote JWT once"
+    );
+
+    drop(backend_guard);
+    let _broken_backend = EnvVarGuard::set("BACKEND_URL", "http://127.0.0.1:1");
+    let snapshot = rpc(
+        &harness.rpc_base,
+        22_122,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&snapshot, "app_state_snapshot refresh-error")
+            .pointer("/currentUser/email")
+            .and_then(Value::as_str),
+        Some("stored-refresh-error@example.test"),
+        "backend refresh transport failures should preserve stored session identity"
+    );
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        1,
+        "snapshot should use the broken backend URL instead of hitting the original backend"
+    );
+
+    harness.join.abort();
+    backend_join.abort();
+}
+
+#[tokio::test]
 async fn app_state_snapshot_clears_null_current_user_cache_and_falls_back_to_stored_user() {
     let _lock = env_lock();
     let (backend_base, backend_state, backend_join) = serve_null_auth_backend().await;
@@ -4209,24 +4404,28 @@ fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_files(
     let empty = store.load().expect("empty store load");
     assert!(empty.profiles.is_empty());
 
-    assert!(TokenSet {
-        access_token: "soon".to_string(),
-        refresh_token: None,
-        id_token: None,
-        expires_at: Some(chrono::Utc::now() + chrono::Duration::seconds(1)),
-        token_type: None,
-        scope: None,
-    }
-    .is_expiring_within(Duration::from_secs(5)));
-    assert!(!TokenSet {
-        access_token: "no-expiry".to_string(),
-        refresh_token: None,
-        id_token: None,
-        expires_at: None,
-        token_type: None,
-        scope: None,
-    }
-    .is_expiring_within(Duration::from_secs(5)));
+    assert!(
+        TokenSet {
+            access_token: "soon".to_string(),
+            refresh_token: None,
+            id_token: None,
+            expires_at: Some(chrono::Utc::now() + chrono::Duration::seconds(1)),
+            token_type: None,
+            scope: None,
+        }
+        .is_expiring_within(Duration::from_secs(5))
+    );
+    assert!(
+        !TokenSet {
+            access_token: "no-expiry".to_string(),
+            refresh_token: None,
+            id_token: None,
+            expires_at: None,
+            token_type: None,
+            scope: None,
+        }
+        .is_expiring_within(Duration::from_secs(5))
+    );
 
     let mut token_profile = AuthProfile::new_token("openai", "work", "sk-worker-a".to_string());
     token_profile
@@ -4538,16 +4737,20 @@ fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_e
 
     let public_api_dir = tmp.path().join("public-api-errors");
     let public_store = AuthProfilesStore::new(&public_api_dir, false);
-    assert!(public_store
-        .set_active_profile("github", "github:missing")
-        .expect_err("missing active profile should fail")
-        .to_string()
-        .contains("Auth profile not found"));
-    assert!(public_store
-        .update_profile("github:missing", |_| Ok(()))
-        .expect_err("missing update profile should fail")
-        .to_string()
-        .contains("Auth profile not found"));
+    assert!(
+        public_store
+            .set_active_profile("github", "github:missing")
+            .expect_err("missing active profile should fail")
+            .to_string()
+            .contains("Auth profile not found")
+    );
+    assert!(
+        public_store
+            .update_profile("github:missing", |_| Ok(()))
+            .expect_err("missing update profile should fail")
+            .to_string()
+            .contains("Auth profile not found")
+    );
 }
 
 #[test]

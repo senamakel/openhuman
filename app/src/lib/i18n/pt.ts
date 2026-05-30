@@ -4241,13 +4241,13 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Gerencie seus agentes, sua autonomia e o que eles podem acessar neste computador.',
   'settings.agentsSection.menuDesc': 'Registro, autonomia e acesso ao SO',
-  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.title': 'Cripto',
   'settings.cryptoSection.description':
     'Gerencie sua frase de recuperação e veja os saldos das suas contas de carteira.',
   'settings.cryptoSection.menuDesc': 'Frase de recuperação e saldos da carteira',
   'settings.notificationsHub.title': 'Notificações',
   'settings.notificationsHub.description':
-    'Veja a sua caixa de entrada de alertas e gira as preferências de notificação e o encaminhamento.',
+    'Veja a sua caixa de entrada de alertas e gerencie as preferências de notificação e o encaminhamento.',
   'settings.notificationsHub.menuDesc': 'Caixa de entrada de alertas e preferências de notificação',
   'settings.notificationsHub.settingsItem': 'Configurações de notificação',
   'settings.notificationsHub.settingsItemDesc': 'Preferências e encaminhamento',

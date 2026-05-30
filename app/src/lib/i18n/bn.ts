@@ -4170,7 +4170,7 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'আপনার এজেন্ট, তাদের স্বায়ত্তশাসন এবং এই কম্পিউটারে তারা কী অ্যাক্সেস করতে পারে তা পরিচালনা করুন।',
   'settings.agentsSection.menuDesc': 'রেজিস্ট্রি, স্বায়ত্তশাসন ও ওএস অ্যাক্সেস',
-  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.title': 'ক্রিপ্টো',
   'settings.cryptoSection.description':
     'আপনার রিকভারি ফ্রেজ পরিচালনা করুন এবং আপনার ওয়ালেট অ্যাকাউন্টগুলির ব্যালেন্স দেখুন।',
   'settings.cryptoSection.menuDesc': 'রিকভারি ফ্রেজ ও ওয়ালেট ব্যালেন্স',

@@ -4178,7 +4178,7 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'अपने एजेंट, उनकी स्वायत्तता और इस कंप्यूटर पर वे क्या एक्सेस कर सकते हैं, यह प्रबंधित करें।',
   'settings.agentsSection.menuDesc': 'रजिस्ट्री, स्वायत्तता और OS एक्सेस',
-  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.title': 'क्रिप्टো',
   'settings.cryptoSection.description':
     'अपना रिकवरी फ्रेज़ प्रबंधित करें और अपने वॉलेट खातों के बैलेंस देखें।',
   'settings.cryptoSection.menuDesc': 'रिकवरी फ्रेज़ और वॉलेट बैलेंस',

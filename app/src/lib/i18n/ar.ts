@@ -4097,7 +4097,7 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'إدارة عواملك واستقلاليتها وما يمكنها الوصول إليه على هذا الجهاز.',
   'settings.agentsSection.menuDesc': 'السجل، الاستقلالية ووصول نظام التشغيل',
-  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.title': 'العملات المشفرة',
   'settings.cryptoSection.description':
     'أدر عبارة الاسترداد الخاصة بك واعرض الأرصدة عبر حسابات محفظتك.',
   'settings.cryptoSection.menuDesc': 'عبارة الاسترداد وأرصدة المحفظة',

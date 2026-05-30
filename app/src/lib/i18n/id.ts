@@ -4186,7 +4186,7 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Kelola agen Anda, otonomi mereka, dan apa yang dapat mereka akses di komputer ini.',
   'settings.agentsSection.menuDesc': 'Registri, otonomi & akses OS',
-  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.title': 'Kripto',
   'settings.cryptoSection.description':
     'Kelola frasa pemulihan Anda dan lihat saldo di seluruh akun dompet Anda.',
   'settings.cryptoSection.menuDesc': 'Frasa pemulihan & saldo dompet',

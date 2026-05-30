@@ -1,5 +1,5 @@
 import { QRCodeSVG } from 'qrcode.react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { balanceNetworkLabel } from '../../../../features/wallet/walletDisplay';
 import { useT } from '../../../../lib/i18n/I18nContext';
@@ -21,6 +21,14 @@ const ReceiveModal = ({ balance, onClose }: ReceiveModalProps) => {
   const networkLabel = balanceNetworkLabel(balance);
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear the "Copied" reset timer if the modal unmounts before it fires.
+  useEffect(
+    () => () => {
+      if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
+    },
+    []
+  );
 
   const handleCopy = useCallback(async () => {
     try {

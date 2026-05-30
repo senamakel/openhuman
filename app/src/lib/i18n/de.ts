@@ -4283,7 +4283,7 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Verwalten Sie Ihre Agenten, deren Autonomie und worauf sie auf diesem Computer zugreifen dürfen.',
   'settings.agentsSection.menuDesc': 'Registrierung, Autonomie & BS-Zugriff',
-  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.title': 'Krypto',
   'settings.cryptoSection.description':
     'Verwalte deine Wiederherstellungsphrase und sieh dir die Guthaben deiner Wallet-Konten an.',
   'settings.cryptoSection.menuDesc': 'Wiederherstellungsphrase & Wallet-Guthaben',

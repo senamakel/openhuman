@@ -4242,7 +4242,7 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Gestisci i tuoi agenti, la loro autonomia e a cosa possono accedere su questo computer.',
   'settings.agentsSection.menuDesc': 'Registro, autonomia e accesso al sistema operativo',
-  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.title': 'Cripto',
   'settings.cryptoSection.description':
     'Gestisci la tua frase di recupero e visualizza i saldi dei tuoi account wallet.',
   'settings.cryptoSection.menuDesc': 'Frase di recupero e saldi del wallet',

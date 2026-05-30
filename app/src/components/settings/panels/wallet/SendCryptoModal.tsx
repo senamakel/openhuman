@@ -58,8 +58,9 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
     let amountRaw: string;
     try {
       amountRaw = toSmallestUnit(amount, balance.decimals);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('walletSend.invalidAmount'));
+    } catch {
+      // toSmallestUnit throws dev-facing messages; surface a translated one.
+      setError(t('walletSend.invalidAmount'));
       return;
     }
     if (amountRaw === '0') {

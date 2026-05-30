@@ -3969,7 +3969,7 @@ const messages: TranslationMap = {
   'settings.agentsSection.title': 'Agents',
   'settings.agentsSection.description': '管理您的智能体、其自主权及其在本机上的访问权限。',
   'settings.agentsSection.menuDesc': '注册表、自主权与系统访问',
-  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.title': '加密货币',
   'settings.cryptoSection.description': '管理你的恢复短语并查看各钱包账户的余额。',
   'settings.cryptoSection.menuDesc': '恢复短语和钱包余额',
   'settings.notificationsHub.title': '通知',

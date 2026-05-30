@@ -4138,7 +4138,7 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     '에이전트와 그 자율성, 그리고 이 컴퓨터에서 액세스할 수 있는 항목을 관리하세요.',
   'settings.agentsSection.menuDesc': '레지스트리, 자율성 및 OS 접근',
-  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.title': '암호화폐',
   'settings.cryptoSection.description': '복구 문구를 관리하고 지갑 계정 전반의 잔액을 확인하세요.',
   'settings.cryptoSection.menuDesc': '복구 문구 및 지갑 잔액',
   'settings.notificationsHub.title': '알림',

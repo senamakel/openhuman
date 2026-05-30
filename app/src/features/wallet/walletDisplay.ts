@@ -60,15 +60,19 @@ export function balanceKey(
  * Convert a human-entered decimal amount (e.g. "1.5") into the asset's smallest
  * unit as a decimal string (e.g. "1500000000000000000" for 18 decimals).
  * Throws on malformed input or more fractional digits than `decimals` allows.
+ *
+ * The thrown messages are internal sentinels (developer-facing only): callers
+ * catch them and surface a translated, user-facing message via `useT()` —
+ * never render `error.message` from here directly.
  */
 export function toSmallestUnit(human: string, decimals: number): string {
   const trimmed = human.trim();
   if (trimmed === '' || trimmed === '.' || !/^\d*\.?\d*$/.test(trimmed)) {
-    throw new Error('Enter a valid amount');
+    throw new Error('invalid_amount');
   }
   const [whole, frac = ''] = trimmed.split('.');
   if (frac.length > decimals) {
-    throw new Error(`At most ${decimals} decimal places`);
+    throw new Error('too_many_decimals');
   }
   const combined = `${whole || '0'}${frac.padEnd(decimals, '0')}`;
   const normalized = combined.replace(/^0+(?=\d)/, '');

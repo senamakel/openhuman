@@ -613,7 +613,7 @@ pub async fn invalidate_thread_sessions(thread_id: &str) {
     let mut sessions = THREAD_SESSIONS.lock().await;
     let keys_to_remove: Vec<String> = sessions
         .keys()
-        .filter(|k| k.ends_with(&format!("::{thread_id}")))
+        .filter(|k| k.as_str() == thread_id || k.ends_with(&format!("::{thread_id}")))
         .cloned()
         .collect();
     for key in &keys_to_remove {

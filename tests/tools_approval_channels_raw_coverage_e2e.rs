@@ -19,10 +19,16 @@ use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
+use openhuman_core::core::event_bus::{DomainEvent, EventHandler};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::core::socketio::WebChannelEvent;
+use openhuman_core::openhuman::agent::harness::definition::{
+    AgentDefinition, AgentDefinitionRegistry, AgentTier, DefinitionSource, ModelSpec,
+    PromptSource, SandboxMode, SkillsWildcard, SubagentEntry, ToolScope as AgentToolScope,
+};
 use openhuman_core::openhuman::channels::email_channel::EmailConfig;
 use openhuman_core::openhuman::channels::irc::IrcChannelConfig;
+use openhuman_core::openhuman::channels::proactive::ProactiveMessageSubscriber;
 use openhuman_core::openhuman::channels::traits::ChannelMessage;
 use openhuman_core::openhuman::channels::yuanbao::config::YuanbaoConfig;
 use openhuman_core::openhuman::channels::yuanbao::errors::{
@@ -64,6 +70,7 @@ use openhuman_core::openhuman::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState,
 };
 use openhuman_core::openhuman::config::Config;
+use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
 use openhuman_core::openhuman::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
@@ -84,6 +91,7 @@ use openhuman_core::openhuman::tools::generated::{
     GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
 };
 use openhuman_core::openhuman::tools::local_cli::tools_wrappers_list_json;
+use openhuman_core::openhuman::tools::orchestrator_tools::collect_orchestrator_tools;
 use openhuman_core::openhuman::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
     decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
@@ -221,6 +229,79 @@ impl GeneratedToolAdapter for EchoGeneratedAdapter {
             })
             .to_string(),
         ))
+    }
+}
+
+#[derive(Default)]
+struct CapturingChannel {
+    sent: Mutex<Vec<SendMessage>>,
+}
+
+#[async_trait]
+impl Channel for CapturingChannel {
+    fn name(&self) -> &str {
+        "capture"
+    }
+
+    async fn send(&self, message: &SendMessage) -> Result<()> {
+        self.sent
+            .lock()
+            .expect("capture lock")
+            .push(message.clone());
+        Ok(())
+    }
+
+    async fn listen(&self, _tx: tokio::sync::mpsc::Sender<ChannelMessage>) -> Result<()> {
+        Ok(())
+    }
+}
+
+fn coverage_agent_definition(
+    id: &str,
+    when_to_use: &str,
+    delegate_name: Option<&str>,
+) -> AgentDefinition {
+    AgentDefinition {
+        id: id.into(),
+        when_to_use: when_to_use.into(),
+        display_name: None,
+        system_prompt: PromptSource::Inline(String::new()),
+        omit_identity: true,
+        omit_memory_context: true,
+        omit_safety_preamble: true,
+        omit_skills_catalog: true,
+        omit_profile: true,
+        omit_memory_md: true,
+        model: ModelSpec::Inherit,
+        temperature: 0.4,
+        tools: AgentToolScope::Wildcard,
+        disallowed_tools: vec![],
+        skill_filter: None,
+        extra_tools: vec![],
+        max_iterations: 8,
+        max_result_chars: None,
+        timeout_secs: None,
+        sandbox_mode: SandboxMode::None,
+        background: false,
+        subagents: vec![],
+        delegate_name: delegate_name.map(str::to_string),
+        agent_tier: AgentTier::Worker,
+        source: DefinitionSource::Builtin,
+    }
+}
+
+fn coverage_connected_integration(
+    toolkit: &str,
+    description: &str,
+    connected: bool,
+) -> ConnectedIntegration {
+    ConnectedIntegration {
+        toolkit: toolkit.into(),
+        description: description.into(),
+        tools: vec![],
+        gated_tools: vec![],
+        connected,
+        non_active_status: None,
     }
 }
 
@@ -1443,6 +1524,102 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
 }
 
 #[tokio::test]
+async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edges() {
+    let mut registry = AgentDefinitionRegistry::default();
+    registry.insert(coverage_agent_definition(
+        "researcher",
+        "Use for careful public-source research.",
+        Some("research"),
+    ));
+
+    let mut orchestrator =
+        coverage_agent_definition("orchestrator", "Route to specialists.", None);
+    orchestrator.subagents = vec![
+        SubagentEntry::AgentId("researcher".into()),
+        SubagentEntry::AgentId("summarizer".into()),
+        SubagentEntry::AgentId("missing-agent".into()),
+        SubagentEntry::Skills(SkillsWildcard { skills: "gmail".into() }),
+        SubagentEntry::Skills(SkillsWildcard { skills: "*".into() }),
+    ];
+
+    let tools = collect_orchestrator_tools(
+        &orchestrator,
+        &registry,
+        &[
+            coverage_connected_integration(
+                "GMail Pro",
+                "Send and triage mail.",
+                true,
+            ),
+            coverage_connected_integration("Slack-Bot", "", true),
+            coverage_connected_integration(
+                "Slack.Bot",
+                "Duplicate sanitized slug should be dropped.",
+                true,
+            ),
+            coverage_connected_integration("Disconnected", "Should be skipped.", false),
+        ],
+    );
+
+    let names = tools.iter().map(|tool| tool.name()).collect::<Vec<_>>();
+    assert_eq!(names, vec!["research", "delegate_to_integrations_agent"]);
+
+    let research = &tools[0];
+    assert!(research.description().contains("direct tools are insufficient"));
+    assert!(research
+        .description()
+        .contains("careful public-source research"));
+    assert_eq!(research.permission_level(), PermissionLevel::Execute);
+    assert_eq!(research.category(), ToolCategory::System);
+    assert_eq!(
+        research.parameters_schema().pointer("/required/0"),
+        Some(&json!("prompt"))
+    );
+    let missing_prompt = research
+        .execute(json!({}))
+        .await
+        .expect("blank delegation prompt returns tool error");
+    assert!(missing_prompt.is_error);
+    assert!(missing_prompt.output().contains("prompt"));
+
+    let integrations = &tools[1];
+    let schema = integrations.parameters_schema();
+    assert_eq!(
+        schema.pointer("/properties/toolkit/enum"),
+        Some(&json!(["gmail_pro", "slack_bot"]))
+    );
+    let description = integrations.description();
+    assert!(description.contains("gmail_pro: Send and triage mail."));
+    assert!(description.contains(
+        "slack_bot: External integration via Slack-Bot"
+    ));
+    assert!(!description.contains("Slack.Bot"));
+    assert!(!description.contains("Disconnected"));
+
+    let missing_toolkit = integrations
+        .execute(json!({ "prompt": "send a message" }))
+        .await
+        .expect("missing toolkit returns tool error");
+    assert!(missing_toolkit.is_error);
+    assert!(missing_toolkit.output().contains("toolkit"));
+
+    let unknown_toolkit = integrations
+        .execute(json!({ "toolkit": "calendar", "prompt": "create an event" }))
+        .await
+        .expect("unknown toolkit returns tool error");
+    assert!(unknown_toolkit.is_error);
+    assert!(unknown_toolkit.output().contains("gmail_pro"));
+    assert!(unknown_toolkit.output().contains("slack_bot"));
+
+    let blank_prompt = integrations
+        .execute(json!({ "toolkit": "GMail-Pro", "prompt": "   " }))
+        .await
+        .expect("blank prompt returns tool error after slug normalization");
+    assert!(blank_prompt.is_error);
+    assert!(blank_prompt.output().contains("prompt"));
+}
+
+#[tokio::test]
 async fn browser_tool_with_agent_browser_shim_covers_action_parser_and_command_paths() {
     let _lock = env_lock();
     let dir = tempdir().expect("tempdir");
@@ -1856,6 +2033,96 @@ async fn web_channel_public_paths_cover_event_delivery_and_validation_errors() {
             .await
             .is_empty()
     );
+}
+
+#[tokio::test]
+async fn proactive_subscriber_routes_web_and_active_external_channel_without_network() {
+    async fn recv_proactive_thread(
+        rx: &mut tokio::sync::broadcast::Receiver<WebChannelEvent>,
+        thread_id: &str,
+    ) -> WebChannelEvent {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+        loop {
+            let now = tokio::time::Instant::now();
+            assert!(now < deadline, "timed out waiting for {thread_id}");
+            let remaining = deadline - now;
+            let event = tokio::time::timeout(remaining, rx.recv())
+                .await
+                .expect("proactive web event should be delivered")
+                .expect("proactive web event");
+            if event.event == "proactive_message" && event.thread_id == thread_id {
+                return event;
+            }
+        }
+    }
+
+    let mut rx = openhuman_core::openhuman::channels::web::subscribe_web_channel_events();
+    let capture = Arc::new(CapturingChannel::default());
+    let mut channels: HashMap<String, Arc<dyn Channel>> = HashMap::new();
+    channels.insert("capture".into(), capture.clone());
+
+    let subscriber = ProactiveMessageSubscriber::new(Arc::new(channels), Some("capture".into()));
+    assert_eq!(subscriber.name(), "channels::proactive");
+    assert_eq!(subscriber.domains(), Some(&["cron"][..]));
+
+    subscriber
+        .handle(&DomainEvent::AgentTurnStarted {
+            session_id: "ignored".into(),
+            channel: "web".into(),
+        })
+        .await;
+    assert!(capture.sent.lock().expect("capture lock").is_empty());
+
+    subscriber
+        .handle(&DomainEvent::ProactiveMessageRequested {
+            source: "cron:coverage".into(),
+            message: "send through active external channel".into(),
+            job_name: Some("coverage_job".into()),
+        })
+        .await;
+
+    let web_event = recv_proactive_thread(&mut rx, "proactive:coverage_job").await;
+    assert_eq!(web_event.event, "proactive_message");
+    assert_eq!(web_event.client_id, "system");
+    assert_eq!(web_event.thread_id, "proactive:coverage_job");
+    assert_eq!(
+        web_event.full_response.as_deref(),
+        Some("send through active external channel")
+    );
+    assert_eq!(web_event.success, Some(true));
+
+    let sent = capture.sent.lock().expect("capture lock").clone();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].content, "send through active external channel");
+    assert_eq!(sent[0].recipient, "");
+
+    subscriber.set_active_channel(Some("web".into()));
+    subscriber
+        .handle(&DomainEvent::ProactiveMessageRequested {
+            source: "cron:web-only".into(),
+            message: "web skips external duplicate".into(),
+            job_name: None,
+        })
+        .await;
+    let web_only_event = recv_proactive_thread(&mut rx, "proactive:system").await;
+    assert_eq!(web_only_event.thread_id, "proactive:system");
+    assert_eq!(
+        web_only_event.full_response.as_deref(),
+        Some("web skips external duplicate")
+    );
+    assert_eq!(capture.sent.lock().expect("capture lock").len(), 1);
+
+    subscriber.set_active_channel(Some("missing".into()));
+    subscriber
+        .handle(&DomainEvent::ProactiveMessageRequested {
+            source: "cron:missing".into(),
+            message: "missing external channel is logged only".into(),
+            job_name: Some("missing".into()),
+        })
+        .await;
+    let missing_event = recv_proactive_thread(&mut rx, "proactive:missing").await;
+    assert_eq!(missing_event.thread_id, "proactive:missing");
+    assert_eq!(capture.sent.lock().expect("capture lock").len(), 1);
 }
 
 #[test]

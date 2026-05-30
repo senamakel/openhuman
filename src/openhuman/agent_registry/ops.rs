@@ -2,10 +2,12 @@
 
 use std::collections::HashMap;
 
+use crate::openhuman::agent::harness::AgentDefinitionRegistry;
+use crate::openhuman::agent::Agent;
 use crate::openhuman::config::rpc as config_rpc;
 
 use super::defaults::default_agents;
-use super::types::{AgentRegistryEntry, AgentRegistryPatch, AgentRegistrySource};
+use super::types::{AgentRegistryEntry, AgentRegistryPatch, AgentRegistrySource, AgentToolInfo};
 
 const ORCHESTRATOR_AGENT_ID: &str = "orchestrator";
 
@@ -127,6 +129,34 @@ pub async fn remove_agent(id: &str) -> Result<bool, String> {
             .map_err(|e| format!("failed to save config: {e:#}"))?;
     }
     Ok(removed)
+}
+
+/// List every agent tool visible to the orchestrator, with descriptions.
+///
+/// Built from the orchestrator agent's `tool_specs()` — the same surface the
+/// MCP `core.list_tools` call uses — so the names returned here are exactly the
+/// identifiers `tool_allowlist` is matched against. Sorted by name for a stable
+/// picker UI.
+pub async fn available_tools() -> Result<Vec<AgentToolInfo>, String> {
+    let config = config_rpc::load_config_with_timeout().await?;
+    AgentDefinitionRegistry::init_global(&config.workspace_dir)
+        .map_err(|e| format!("failed to initialise AgentDefinitionRegistry: {e}"))?;
+    let mut agent = Agent::from_config_for_agent(&config, ORCHESTRATOR_AGENT_ID)
+        .map_err(|e| format!("failed to build orchestrator agent: {e}"))?;
+    agent.fetch_connected_integrations().await;
+    let _ = agent.refresh_delegation_tools();
+
+    let mut tools: Vec<AgentToolInfo> = agent
+        .tool_specs()
+        .iter()
+        .map(|spec| AgentToolInfo {
+            name: spec.name.clone(),
+            description: spec.description.clone(),
+        })
+        .collect();
+    tools.sort_by(|a, b| a.name.cmp(&b.name));
+    tools.dedup_by(|a, b| a.name == b.name);
+    Ok(tools)
 }
 
 pub fn merge_entries(

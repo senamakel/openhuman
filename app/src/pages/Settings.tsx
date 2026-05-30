@@ -6,6 +6,7 @@ import LogoutAndClearActions from '../components/settings/LogoutAndClearActions'
 import AboutPanel from '../components/settings/panels/AboutPanel';
 import AgentAccessPanel from '../components/settings/panels/AgentAccessPanel';
 import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
+import AgentEditorPage from '../components/settings/panels/AgentEditorPage';
 import AgentsPanel from '../components/settings/panels/AgentsPanel';
 import AIPanel from '../components/settings/panels/AIPanel';
 import AppearancePanel from '../components/settings/panels/AppearancePanel';
@@ -492,6 +493,8 @@ const Settings = () => {
         <Route path="appearance" element={wrapSettingsPage(<AppearancePanel />)} />
         <Route path="agent-access" element={wrapSettingsPage(<AgentAccessPanel />)} />
         <Route path="agents" element={wrapSettingsPage(<AgentsPanel />)} />
+        <Route path="agents/new" element={wrapSettingsPage(<AgentEditorPage />)} />
+        <Route path="agents/edit/:id" element={wrapSettingsPage(<AgentEditorPage />)} />
         <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
         <Route path="companion" element={wrapSettingsPage(<CompanionPanel />)} />
         {/* Developer Options */}

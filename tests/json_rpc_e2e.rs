@@ -1500,6 +1500,45 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
         Some(true)
     );
 
+    // The agent editor's tool picker is fed by available_tools — every entry is
+    // a {name, description} pair whose name is a valid tool_allowlist value.
+    let available_tools = post_json_rpc(
+        &rpc_base,
+        2862_24,
+        "openhuman.agent_registry_available_tools",
+        json!({}),
+    )
+    .await;
+    let tools = assert_no_jsonrpc_error(&available_tools, "agent_registry_available_tools")
+        .get("tools")
+        .and_then(Value::as_array)
+        .cloned()
+        .expect("available_tools should return a tools array");
+    assert!(
+        !tools.is_empty(),
+        "the orchestrator should expose at least one built-in tool"
+    );
+    let first = tools.first().expect("non-empty tools");
+    assert!(
+        first.get("name").and_then(Value::as_str).is_some(),
+        "each tool should have a string name: {first}"
+    );
+    assert!(
+        first.get("description").and_then(Value::as_str).is_some(),
+        "each tool should have a string description: {first}"
+    );
+    // The catalog is the full built-in surface (wildcard agent), not the
+    // orchestrator's curated `named` subset — so a core read tool like
+    // `file_read`, which the orchestrator does not list directly, must appear.
+    let names: Vec<&str> = tools
+        .iter()
+        .filter_map(|tool| tool.get("name").and_then(Value::as_str))
+        .collect();
+    assert!(
+        names.contains(&"file_read"),
+        "available_tools should expose the full catalog (file_read missing): {names:?}"
+    );
+
     rpc_join.abort();
 }
 

@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { todosApi, USER_TASKS_THREAD_ID } from '../../services/api/todosApi';
-
 import { UserTaskComposer } from './UserTaskComposer';
 
 vi.mock('../../store/hooks', () => ({
@@ -94,9 +93,7 @@ describe('UserTaskComposer', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
 
-    await waitFor(() =>
-      expect(screen.getByText(/Couldn't create the task/)).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText(/Couldn't create the task/)).toBeInTheDocument());
     expect(onClose).not.toHaveBeenCalled();
   });
 });

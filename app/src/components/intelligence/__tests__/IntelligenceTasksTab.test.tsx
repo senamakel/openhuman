@@ -51,11 +51,7 @@ vi.mock('../../../store/hooks', () => ({
 // Stub the composer so we can drive its `onCreated` callback without
 // exercising its internals.
 vi.mock('../UserTaskComposer', () => ({
-  UserTaskComposer: ({
-    onCreated,
-  }: {
-    onCreated: (threadId: string, board: unknown) => void;
-  }) => (
+  UserTaskComposer: ({ onCreated }: { onCreated: (threadId: string, board: unknown) => void }) => (
     <div data-testid="composer">
       <button
         type="button"

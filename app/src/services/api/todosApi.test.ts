@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { callCoreRpc } from '../coreRpcClient';
-
 import { todosApi, USER_TASKS_THREAD_ID } from './todosApi';
 
-vi.mock('../coreRpcClient', () => ({
-  callCoreRpc: vi.fn(),
-}));
+vi.mock('../coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
 const mockCall = vi.mocked(callCoreRpc);
 

@@ -20,8 +20,10 @@ use openhuman_core::openhuman::channels::providers::web::{
     cancel_chat, register_approval_surface_subscriber, start_chat, subscribe_web_channel_events,
     test_support as web_test_support,
 };
+use openhuman_core::openhuman::channels::providers::yuanbao::{YuanbaoChannel, YuanbaoConfig};
+use openhuman_core::openhuman::channels::LarkChannel;
 use openhuman_core::openhuman::channels::{Channel, SendMessage};
-use openhuman_core::openhuman::config::StreamMode;
+use openhuman_core::openhuman::config::{schema::LarkConfig, StreamMode};
 use serde_json::{json, Value};
 use tokio::time::timeout;
 
@@ -479,4 +481,149 @@ async fn telegram_loopback_covers_polling_recovery_inbound_reaction_and_send_err
         && req.body.get("document").and_then(Value::as_str) == Some("https://example.test/a.pdf")));
     assert!(requests.iter().any(|req| req.method == "sendPhoto"
         && req.body.get("photo").and_then(Value::as_str) == Some("https://example.test/a.png")));
+}
+
+#[test]
+fn lark_and_yuanbao_accessible_config_and_parser_branches() {
+    let mut lark_cfg = LarkConfig {
+        app_id: "round18-app".to_string(),
+        app_secret: "round18-secret".to_string(),
+        encrypt_key: None,
+        verification_token: Some("round18-verify".to_string()),
+        port: Some(0),
+        allowed_users: vec!["ou_allowed".to_string()],
+        use_feishu: false,
+        receive_mode: Default::default(),
+    };
+    let lark = LarkChannel::from_config(&lark_cfg);
+    assert_eq!(lark.name(), "lark");
+
+    let missing_event = json!({ "header": { "event_type": "url_verification" } });
+    assert!(lark.parse_event_payload(&missing_event).is_empty());
+
+    let empty_sender = json!({
+        "header": { "event_type": "im.message.receive_v1" },
+        "event": {
+            "sender": { "sender_id": {} },
+            "message": { "message_type": "text", "content": "{\"text\":\"missing sender\"}" }
+        }
+    });
+    assert!(lark.parse_event_payload(&empty_sender).is_empty());
+
+    let malformed_text = json!({
+        "header": { "event_type": "im.message.receive_v1" },
+        "event": {
+            "sender": { "sender_id": { "open_id": "ou_allowed" } },
+            "message": { "message_type": "text", "content": "{\"bad\":\"shape\"}" }
+        }
+    });
+    assert!(lark.parse_event_payload(&malformed_text).is_empty());
+
+    let unsupported_type = json!({
+        "header": { "event_type": "im.message.receive_v1" },
+        "event": {
+            "sender": { "sender_id": { "open_id": "ou_allowed" } },
+            "message": { "message_type": "image", "content": "{}" }
+        }
+    });
+    assert!(lark.parse_event_payload(&unsupported_type).is_empty());
+
+    let text_payload = json!({
+        "header": { "event_type": "im.message.receive_v1" },
+        "event": {
+            "sender": { "sender_id": { "open_id": "ou_allowed" } },
+            "message": {
+                "message_type": "text",
+                "content": "{\"text\":\"hello from round18\"}",
+                "create_time": "1710000000123",
+                "chat_id": "oc_chat"
+            }
+        }
+    });
+    let messages = lark.parse_event_payload(&text_payload);
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].channel, "lark");
+    assert_eq!(messages[0].sender, "oc_chat");
+    assert_eq!(messages[0].content, "hello from round18");
+
+    let post_payload = json!({
+        "header": { "event_type": "im.message.receive_v1" },
+        "event": {
+            "sender": { "sender_id": { "open_id": "ou_allowed" } },
+            "message": {
+                "message_type": "post",
+                "content": serde_json::to_string(&json!({
+                    "en_us": {
+                        "title": "Round18",
+                        "content": [[
+                            { "tag": "text", "text": "notes " },
+                            { "tag": "a", "text": "link", "href": "https://example.test" },
+                            { "tag": "at", "user_name": "Ada" }
+                        ]]
+                    }
+                })).expect("post json"),
+                "chat_id": "oc_chat"
+            }
+        }
+    });
+    let post_messages = lark.parse_event_payload(&post_payload);
+    assert_eq!(post_messages.len(), 1);
+    assert!(post_messages[0].content.contains("Round18"));
+    assert!(post_messages[0].content.contains("notes link@Ada"));
+
+    lark_cfg.allowed_users = vec!["*".to_string()];
+    let wildcard_lark = LarkChannel::from_config(&lark_cfg);
+    assert_eq!(wildcard_lark.parse_event_payload(&text_payload).len(), 1);
+
+    let mut prod = YuanbaoConfig {
+        app_key: "ak".to_string(),
+        token: "tok".to_string(),
+        ..Default::default()
+    };
+    prod.apply_env_defaults();
+    assert!(prod.api_domain.contains("bot.yuanbao.tencent.com"));
+    assert!(prod.ws_domain.contains("bot-wss.yuanbao.tencent.com"));
+    prod.validate().expect("prod token config validates");
+
+    let channel = YuanbaoChannel::new(prod.clone()).expect("yuanbao channel");
+    assert_eq!(channel.name(), "yuanbao");
+    assert!(!channel.supports_reactions());
+    assert!(channel.supports_draft_updates());
+
+    let mut pre = YuanbaoConfig {
+        env: "pre".to_string(),
+        app_key: "ak".to_string(),
+        token: "tok".to_string(),
+        ..Default::default()
+    };
+    pre.apply_env_defaults();
+    assert!(pre.api_domain.contains("bot-pre.yuanbao.tencent.com"));
+    assert!(pre.ws_domain.contains("bot-wss-pre.yuanbao.tencent.com"));
+    pre.validate().expect("pre token config validates");
+
+    let mut explicit = YuanbaoConfig {
+        env: "pre".to_string(),
+        app_key: "ak".to_string(),
+        token: "tok".to_string(),
+        api_domain: "https://custom-api.example.test".to_string(),
+        ws_domain: "wss://custom-ws.example.test".to_string(),
+        ..Default::default()
+    };
+    explicit.apply_env_defaults();
+    assert_eq!(explicit.api_domain, "https://custom-api.example.test");
+    assert_eq!(explicit.ws_domain, "wss://custom-ws.example.test");
+
+    let mut bad = YuanbaoConfig {
+        ws_domain: "wss://example.test".to_string(),
+        token: "tok".to_string(),
+        ..Default::default()
+    };
+    assert!(bad.validate().is_err());
+    bad.app_key = "ak".to_string();
+    bad.token.clear();
+    assert!(bad.validate().is_err());
+    bad.app_secret = "secret".to_string();
+    bad.api_domain = "https://api.example.test".to_string();
+    bad.validate()
+        .expect("app_secret plus api_domain config validates");
 }

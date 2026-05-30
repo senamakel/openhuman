@@ -281,9 +281,8 @@ impl ProgressReporter for SubagentProgress {
                             iteration,
                         }
                     }
-                    ProviderDelta::ToolCallStart { .. } | ProviderDelta::ToolCallArgsDelta { .. } => {
-                        continue
-                    }
+                    ProviderDelta::ToolCallStart { .. }
+                    | ProviderDelta::ToolCallArgsDelta { .. } => continue,
                 };
                 // Await backpressure so streamed deltas arrive in order.
                 if sink.send(mapped).await.is_err() {

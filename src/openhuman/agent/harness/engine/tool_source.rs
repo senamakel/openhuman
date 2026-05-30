@@ -21,9 +21,9 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 
 use super::super::payload_summarizer::PayloadSummarizer;
+use super::progress::ProgressReporter;
 use super::{run_one_tool, ToolRunResult};
 use crate::openhuman::agent::harness::parse::ParsedToolCall;
-use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::tools::policy::ToolPolicy;
 use crate::openhuman::tools::{Tool, ToolSpec};
 
@@ -42,7 +42,7 @@ pub(crate) trait ToolSource: Send {
         &mut self,
         call: &ParsedToolCall,
         iteration: usize,
-        on_progress: &Option<tokio::sync::mpsc::Sender<AgentProgress>>,
+        progress: &dyn ProgressReporter,
         progress_call_id: &str,
     ) -> ToolRunResult;
 }
@@ -105,7 +105,7 @@ impl ToolSource for RegistryToolSource<'_> {
         &mut self,
         call: &ParsedToolCall,
         iteration: usize,
-        on_progress: &Option<tokio::sync::mpsc::Sender<AgentProgress>>,
+        progress: &dyn ProgressReporter,
         progress_call_id: &str,
     ) -> ToolRunResult {
         // Look up the tool by name in the combined registry + extras, subject
@@ -121,7 +121,7 @@ impl ToolSource for RegistryToolSource<'_> {
             tool_opt,
             call,
             iteration,
-            on_progress,
+            progress,
             self.tool_policy,
             self.payload_summarizer,
             progress_call_id,

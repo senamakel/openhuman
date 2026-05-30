@@ -279,10 +279,16 @@ pub(crate) async fn run_tool_call_loop(
         tool_policy,
         payload_summarizer,
     );
+    let progress = super::engine::TurnProgress::new(on_progress);
+    let mut observer = super::engine::NullObserver;
+    let checkpoint = super::engine::ErrorCheckpoint;
     super::engine::run_turn_engine(
         provider,
         history,
         &mut tool_source,
+        &progress,
+        &mut observer,
+        &checkpoint,
         provider_name,
         model,
         temperature,
@@ -290,9 +296,9 @@ pub(crate) async fn run_tool_call_loop(
         multimodal_config,
         max_iterations,
         on_delta,
-        on_progress,
     )
     .await
+    .map(|outcome| outcome.text)
 
 }
 

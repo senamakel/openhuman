@@ -14,12 +14,16 @@
 //! timeout → scrub/tokenjuice/cap/summarize → audit), which was previously
 //! duplicated verbatim across all three loops.
 
+pub(crate) mod checkpoint;
 pub(crate) mod core;
 pub(crate) mod progress;
+pub(crate) mod state;
 pub(crate) mod tool_source;
 pub(crate) mod tools;
 
-pub(crate) use core::run_turn_engine;
-pub(crate) use progress::spawn_delta_forwarder;
-pub(crate) use tool_source::RegistryToolSource;
+pub(crate) use checkpoint::{CheckpointStrategy, ErrorCheckpoint};
+pub(crate) use core::{run_turn_engine, TurnEngineOutcome};
+pub(crate) use progress::{spawn_delta_forwarder, NullProgress, ProgressReporter, SubagentProgress, TurnProgress};
+pub(crate) use state::{NullObserver, TurnObserver};
+pub(crate) use tool_source::{RegistryToolSource, ToolSource};
 pub(crate) use tools::{run_one_tool, ToolRunResult};

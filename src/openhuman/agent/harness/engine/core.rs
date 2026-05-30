@@ -2,17 +2,19 @@
 //!
 //! [`run_turn_engine`] is the single agentic loop the harness runs: announce the
 //! turn, then per iteration run the stop-hook + context guards, send the
-//! provider request (streaming deltas when a sink exists), parse the response,
-//! either return the final text or execute every requested tool through the
-//! [`ToolSource`] and loop again — bailing early via the shared repeated-failure
-//! circuit breaker, or returning `MaxIterationsExceeded` at the cap.
+//! provider request (streaming deltas when the [`ProgressReporter`] supplies a
+//! sink), parse the response, either return the final text or execute every
+//! requested tool through the [`ToolSource`] and loop again — bailing early via
+//! the shared repeated-failure circuit breaker, or handing the iteration cap to
+//! the [`CheckpointStrategy`].
 //!
-//! This body was moved verbatim (behavior-preserving) out of the canonical
-//! `run_tool_call_loop`; the only seam introduced so far is [`ToolSource`],
-//! which owns tool advertisement + per-call execution. Progress events, history
-//! shaping, context management and the max-iteration outcome are still the
-//! channel loop's behavior inline; later phases lift those behind their own
-//! seams as the subagent and `Agent` paths need them.
+//! Everything that varies per caller lives behind a seam: [`ToolSource`] (tool
+//! advertisement + per-call execution), [`ProgressReporter`] (Turn* vs
+//! Subagent* events + streaming), [`TurnObserver`] (context management,
+//! transcript persistence, worker-thread mirroring) and [`CheckpointStrategy`]
+//! (error vs summarize on cap). The universal concerns — stop hooks, the
+//! context guard, token-budget trimming, native/text parsing and the circuit
+//! breaker — stay inline.
 
 use anyhow::Result;
 use std::fmt::Write as _;
@@ -20,7 +22,6 @@ use std::io::Write as _;
 
 use crate::openhuman::agent::cost::TurnCost;
 use crate::openhuman::agent::multimodal;
-use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::stop_hooks::{current_stop_hooks, StopDecision, TurnState};
 use crate::openhuman::context::guard::{ContextCheckResult, ContextGuard};
 use crate::openhuman::inference::model_context::context_window_for_model;
@@ -29,7 +30,29 @@ use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, Provider, 
 use super::super::parse::{build_native_assistant_history, parse_structured_tool_calls, parse_tool_calls};
 use super::super::token_budget::trim_chat_messages_to_budget;
 use super::super::tool_loop::{RepeatFailureGuard, STREAM_CHUNK_MIN_CHARS};
+use super::checkpoint::CheckpointStrategy;
+use super::progress::ProgressReporter;
+use super::state::TurnObserver;
 use super::tool_source::ToolSource;
+
+/// What a completed turn yields. `text` is the final assistant text (or the
+/// circuit-breaker / checkpoint summary); `iterations` and `cost` let stateful
+/// callers attribute the run.
+pub(crate) struct TurnEngineOutcome {
+    pub text: String,
+    pub iterations: u32,
+    pub cost: TurnCost,
+}
+
+/// Truncate a digest entry's body so a huge tool result can't blow up the
+/// checkpoint summary. Mirrors the subagent's previous `truncate_with_ellipsis`.
+fn truncate_with_ellipsis(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    let head: String = s.chars().take(max).collect();
+    format!("{head}…")
+}
 
 /// Run the agent loop over `history` using `tools`. `max_iterations` must be
 /// pre-normalized (callers map `0` to a sane default). See the module docs for
@@ -39,6 +62,9 @@ pub(crate) async fn run_turn_engine(
     provider: &dyn Provider,
     history: &mut Vec<ChatMessage>,
     tools: &mut dyn ToolSource,
+    progress: &dyn ProgressReporter,
+    observer: &mut dyn TurnObserver,
+    checkpoint: &dyn CheckpointStrategy,
     provider_name: &str,
     model: &str,
     temperature: f64,
@@ -46,8 +72,7 @@ pub(crate) async fn run_turn_engine(
     multimodal_config: &crate::openhuman::config::MultimodalConfig,
     max_iterations: usize,
     on_delta: Option<tokio::sync::mpsc::Sender<String>>,
-    on_progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
-) -> Result<String> {
+) -> Result<TurnEngineOutcome> {
     let use_native_tools = provider.supports_native_tools() && !tools.request_specs().is_empty();
 
     let mut context_guard = context_window_for_model(model)
@@ -55,34 +80,25 @@ pub(crate) async fn run_turn_engine(
         .unwrap_or_else(ContextGuard::new);
     let mut turn_cost = TurnCost::new();
 
-    // Announce turn start to progress subscribers (if any). We use
-    // `send().await` for lifecycle (turn/iteration) events so they survive
-    // downstream backpressure — dropping one of these would desync the
-    // web-channel progress bridge. High-volume delta events use the same
-    // backpressure discipline (see below).
-    if let Some(ref sink) = on_progress {
-        if let Err(e) = sink.send(AgentProgress::TurnStarted).await {
-            log::warn!("[agent_loop] progress sink closed at TurnStarted: {e}");
-        }
-    }
+    // Compiled digest of this run's tool calls + results, for a graceful
+    // checkpoint if the iteration cap is hit. Accumulated as the loop runs so
+    // it survives history trimming.
+    let mut run_tool_digest = String::new();
+
+    // Announce turn start. Lifecycle (turn/iteration) events are `.await`-ed so
+    // they survive downstream backpressure — dropping one would desync the
+    // web-channel progress bridge.
+    progress.turn_started().await;
 
     let stop_hooks = current_stop_hooks();
     // Repeated-failure circuit breaker — halts with a root cause rather than
-    // grinding to `max_iterations` (shared with the subagent loop).
+    // grinding to `max_iterations`.
     let mut failure_guard = RepeatFailureGuard::new();
     let mut halt_reason: Option<String> = None;
     for iteration in 0..max_iterations {
-        if let Some(ref sink) = on_progress {
-            if let Err(e) = sink
-                .send(AgentProgress::IterationStarted {
-                    iteration: (iteration + 1) as u32,
-                    max_iterations: max_iterations as u32,
-                })
-                .await
-            {
-                log::warn!("[agent_loop] progress sink closed at IterationStarted: {e}");
-            }
-        }
+        progress
+            .iteration_started((iteration + 1) as u32, max_iterations as u32)
+            .await;
 
         // ── Stop hooks: policy check before the next LLM call ──
         if !stop_hooks.is_empty() {
@@ -117,8 +133,6 @@ pub(crate) async fn run_turn_engine(
                     "[agent_loop] context guard: compaction needed (>{:.0}% full)",
                     crate::openhuman::context::guard::COMPACTION_TRIGGER_THRESHOLD * 100.0
                 );
-                // Compaction is handled by history management upstream;
-                // log and continue so the caller can act on it.
             }
             ContextCheckResult::ContextExhausted {
                 utilization_pct,
@@ -161,6 +175,9 @@ pub(crate) async fn run_turn_engine(
             }
         }
 
+        // Caller-specific pre-dispatch work (e.g. Agent's ContextManager).
+        observer.before_dispatch(history, iteration).await?;
+
         tracing::debug!(iteration, "[agent_loop] sending LLM request");
         let image_marker_count = multimodal::count_image_markers(history);
         if image_marker_count > 0 && !provider.supports_vision() {
@@ -187,19 +204,16 @@ pub(crate) async fn run_turn_engine(
         let prepared_messages =
             multimodal::prepare_messages_for_provider(history, multimodal_config).await?;
 
-        // Unified path via Provider::chat so provider-specific native tool logic
-        // (OpenAI/Anthropic/OpenRouter/compatible adapters) is honored.
         let request_tools = if use_native_tools {
             Some(tools.request_specs())
         } else {
             None
         };
 
-        // Wire up a ProviderDelta → AgentProgress forwarder for this iteration
-        // when a progress sink exists. Senders dropped after the chat call so
-        // the forwarder task exits cleanly.
-        let (delta_tx_opt, delta_forwarder) =
-            super::spawn_delta_forwarder(on_progress.clone(), (iteration + 1) as u32);
+        // ProviderDelta → progress forwarder for this iteration (no-op for
+        // flavors that don't stream). Sender dropped after the chat call so the
+        // forwarder exits cleanly.
+        let (delta_tx_opt, delta_forwarder) = progress.make_stream_sink((iteration + 1) as u32);
 
         let chat_result = provider
             .chat(
@@ -221,10 +235,11 @@ pub(crate) async fn run_turn_engine(
         let (response_text, parsed_text, tool_calls, assistant_history_content, native_tool_calls) =
             match chat_result {
                 Ok(resp) => {
-                    // Update context guard with token usage from this response.
+                    // Update context guard + cost with token usage from this response.
                     if let Some(ref usage) = resp.usage {
                         context_guard.update_usage(usage);
                         turn_cost.add_call(model, usage);
+                        observer.record_usage(model, usage);
                         tracing::debug!(
                             iteration,
                             input_tokens = usage.input_tokens,
@@ -233,19 +248,9 @@ pub(crate) async fn run_turn_engine(
                             cumulative_usd = turn_cost.total_usd(),
                             "[agent_loop] LLM response received"
                         );
-                        if let Some(ref sink) = on_progress {
-                            let event = AgentProgress::TurnCostUpdated {
-                                model: model.to_string(),
-                                iteration: (iteration + 1) as u32,
-                                input_tokens: turn_cost.input_tokens,
-                                output_tokens: turn_cost.output_tokens,
-                                cached_input_tokens: turn_cost.cached_input_tokens,
-                                total_usd: turn_cost.total_usd(),
-                            };
-                            if let Err(e) = sink.send(event).await {
-                                log::warn!("[agent_loop] progress sink closed at TurnCostUpdated: {e}");
-                            }
-                        }
+                        progress
+                            .cost_updated(model, (iteration + 1) as u32, &turn_cost)
+                            .await;
                     } else {
                         tracing::debug!(iteration, "[agent_loop] LLM response received (no usage info)");
                     }
@@ -269,8 +274,6 @@ pub(crate) async fn run_turn_engine(
                         "[agent_loop] tool calls parsed"
                     );
 
-                    // Preserve native tool call IDs in assistant history so role=tool
-                    // follow-up messages can reference the exact call id.
                     let assistant_history_content = if resp.tool_calls.is_empty() {
                         response_text.clone()
                     } else {
@@ -291,12 +294,9 @@ pub(crate) async fn run_turn_engine(
                     )
                 }
                 Err(e) => {
-                    // Transient upstream failures (rate-limit, gateway 5xx, "no
-                    // healthy upstream", etc.) are already classified + retried
-                    // by reliable.rs and produce an aggregate Sentry event only
-                    // when every provider/model is exhausted. Reporting each
-                    // per-iteration provider_chat error here duplicates the
-                    // signal and floods Sentry — see OPENHUMAN-TAURI-3Y/3Z.
+                    // Transient upstream failures are already classified + retried by
+                    // reliable.rs and reported once when all providers are exhausted;
+                    // re-reporting per iteration floods Sentry (OPENHUMAN-TAURI-3Y/3Z).
                     let transient = crate::openhuman::inference::provider::reliable::is_rate_limited(&e)
                         || crate::openhuman::inference::provider::reliable::is_upstream_unhealthy(&e);
                     if transient {
@@ -307,8 +307,7 @@ pub(crate) async fn run_turn_engine(
                             model = model,
                             iteration = iteration + 1,
                             error = %format!("{e:#}"),
-                            "[agent] transient provider_chat failure — retried upstream; \
-                             aggregated all-providers-exhausted will report if applicable"
+                            "[agent] transient provider_chat failure — retried upstream"
                         );
                     } else {
                         crate::core::observability::report_error_or_expected(
@@ -334,13 +333,9 @@ pub(crate) async fn run_turn_engine(
 
         if tool_calls.is_empty() {
             tracing::debug!(iteration, "[agent_loop] no tool calls — returning final response");
-            // No tool calls — this is the final response. If a streaming sender
-            // is provided, relay the text in small chunks so the channel can
-            // progressively update the draft message.
+            // No tool calls — final response. Relay the text in small chunks
+            // when a streaming draft sink exists.
             if let Some(ref tx) = on_delta {
-                // Split on whitespace boundaries, accumulating chunks of at
-                // least STREAM_CHUNK_MIN_CHARS characters for progressive
-                // draft updates.
                 let mut chunk = String::new();
                 for word in display_text.split_inclusive(char::is_whitespace) {
                     chunk.push_str(word);
@@ -355,6 +350,7 @@ pub(crate) async fn run_turn_engine(
                 }
             }
             history.push(ChatMessage::assistant(response_text.clone()));
+            observer.after_history_commit(history, iteration);
             log::info!(
                 "[agent_loop] turn complete: iters={} provider_calls={} tokens_in={} tokens_out={} cached_in={} usd={:.4}",
                 (iteration + 1),
@@ -364,17 +360,12 @@ pub(crate) async fn run_turn_engine(
                 turn_cost.cached_input_tokens,
                 turn_cost.total_usd(),
             );
-            if let Some(ref sink) = on_progress {
-                if let Err(e) = sink
-                    .send(AgentProgress::TurnCompleted {
-                        iterations: (iteration + 1) as u32,
-                    })
-                    .await
-                {
-                    log::warn!("[agent_loop] progress sink closed at TurnCompleted: {e}");
-                }
-            }
-            return Ok(display_text);
+            progress.turn_completed((iteration + 1) as u32).await;
+            return Ok(TurnEngineOutcome {
+                text: display_text,
+                iterations: (iteration + 1) as u32,
+                cost: turn_cost,
+            });
         }
 
         // Print any text the LLM produced alongside tool calls (unless silent)
@@ -383,27 +374,23 @@ pub(crate) async fn run_turn_engine(
             let _ = std::io::stdout().flush();
         }
 
-        // Execute each tool call and build results.
-        // `individual_results` tracks per-call output so that native-mode
-        // history can emit one `role: tool` message per tool call with the
-        // correct ID.
+        // Execute each tool call and build results. `individual_results` tracks
+        // per-call output so native-mode history can emit one `role: tool`
+        // message per call with the correct id.
         let mut tool_results = String::new();
         let mut individual_results: Vec<String> = Vec::new();
         for (call_idx, call) in tool_calls.iter().enumerate() {
-            // Stable id threaded through the start/complete pair (and any
-            // preceding args-delta events) so consumers can reconcile tool rows
-            // by id. The fallback includes `call_idx` to stay unique when the
-            // same tool name appears multiple times in one iteration.
+            // Stable id threaded through the start/complete pair. The fallback
+            // includes `call_idx` to stay unique when the same tool name
+            // appears multiple times in one iteration.
             let progress_call_id = call
                 .id
                 .clone()
                 .unwrap_or_else(|| format!("loop-{iteration}-{call_idx}-{}", call.name));
 
-            // The full per-call lifecycle (start event, policy gate, scope
-            // guard, approval gate, execute + timeout, scrub/tokenjuice/cap/
-            // summarize, audit, completion event) is owned by the ToolSource.
+            // Full per-call lifecycle is owned by the ToolSource.
             let outcome = tools
-                .execute_call(call, iteration, &on_progress, &progress_call_id)
+                .execute_call(call, iteration, progress, &progress_call_id)
                 .await;
 
             individual_results.push(outcome.text.clone());
@@ -413,8 +400,17 @@ pub(crate) async fn run_turn_engine(
                 call.name, outcome.text
             );
 
-            // Repeated-failure circuit breaker (shared guard) — halt with a root
-            // cause instead of grinding to `max_iterations` on a doomed action.
+            // Record this call in the run digest (output truncated) for a
+            // possible max-iteration checkpoint.
+            let _ = writeln!(
+                run_tool_digest,
+                "- {} [{}]: {}",
+                call.name,
+                if outcome.success { "ok" } else { "failed" },
+                truncate_with_ellipsis(&outcome.text, 800)
+            );
+
+            // Repeated-failure circuit breaker (shared guard).
             if let Some(reason) = failure_guard.record(
                 &call.name,
                 &call.arguments.to_string(),
@@ -431,9 +427,9 @@ pub(crate) async fn run_turn_engine(
         }
 
         // Add assistant message with tool calls + tool results to history.
-        // Native mode: use JSON-structured messages so convert_messages() can
-        // reconstruct proper OpenAI-format tool_calls and tool result messages.
-        // Prompt mode: use XML-based text format as before.
+        // Native mode: JSON-structured messages so convert_messages() can
+        // reconstruct OpenAI-format tool_calls + tool result messages. Prompt
+        // mode: XML-based text format.
         history.push(ChatMessage::assistant(assistant_history_content));
         if native_tool_calls.is_empty() {
             history.push(ChatMessage::user(format!("[Tool results]\n{tool_results}")));
@@ -447,36 +443,35 @@ pub(crate) async fn run_turn_engine(
             }
         }
 
+        observer.after_history_commit(history, iteration);
+
         // Circuit breaker tripped this iteration: return the root-cause summary
-        // as the agent's result instead of looping to `max_iterations`. The
-        // tool results are already in `history` above, so the caller still has
-        // full context if it wants it.
+        // instead of looping to `max_iterations`. Tool results are already in
+        // `history`, so the caller still has full context.
         if let Some(reason) = halt_reason.take() {
-            // Mirror the normal-completion path: emit TurnCompleted before the
-            // early return, otherwise progress consumers stay "in-flight"
-            // indefinitely when the circuit breaker trips.
-            if let Some(ref sink) = on_progress {
-                if let Err(e) = sink
-                    .send(AgentProgress::TurnCompleted {
-                        iterations: (iteration + 1) as u32,
-                    })
-                    .await
-                {
-                    log::warn!("[agent_loop] progress sink closed at TurnCompleted: {e}");
-                }
-            }
-            return Ok(reason);
+            // Mirror the normal-completion path: emit turn-completed before the
+            // early return so progress consumers don't stay in-flight.
+            progress.turn_completed((iteration + 1) as u32).await;
+            return Ok(TurnEngineOutcome {
+                text: reason,
+                iterations: (iteration + 1) as u32,
+                cost: turn_cost,
+            });
         }
     }
 
-    // Return the typed `AgentError::MaxIterationsExceeded` variant (boxed
-    // through `anyhow::Error`) so downstream wrappers — notably
-    // `Agent::run_single` in `harness/session/runtime.rs` — can downcast and
-    // suppress Sentry emission for this deterministic agent-state outcome
-    // (OPENHUMAN-TAURI-99 / -98). The `Display` text is preserved verbatim so
-    // any caller that already inspects the string (UI chat surface, tests)
-    // continues to work.
-    Err(anyhow::Error::new(
-        crate::openhuman::agent::error::AgentError::MaxIterationsExceeded { max: max_iterations },
-    ))
+    // Iteration cap reached — hand off to the checkpoint strategy (error vs
+    // summarize). The accumulated digest lets a summarizing strategy produce a
+    // resumable, root-cause-aware checkpoint.
+    let digest = if run_tool_digest.is_empty() {
+        "(no tool calls completed)"
+    } else {
+        run_tool_digest.as_str()
+    };
+    let text = checkpoint.on_max_iter(digest, max_iterations).await?;
+    Ok(TurnEngineOutcome {
+        text,
+        iterations: max_iterations as u32,
+        cost: turn_cost,
+    })
 }

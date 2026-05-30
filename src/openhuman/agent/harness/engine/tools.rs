@@ -23,8 +23,8 @@
 //! of each carrying their own copy.
 
 use super::super::payload_summarizer::PayloadSummarizer;
+use super::progress::ProgressReporter;
 use crate::openhuman::agent::harness::parse::ParsedToolCall;
-use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::tools::policy::{PolicyDecision, ToolPolicy};
 use crate::openhuman::tools::traits::ToolScope;
 use crate::openhuman::tools::Tool;
@@ -53,55 +53,36 @@ pub(crate) async fn run_one_tool(
     tool_opt: Option<&dyn Tool>,
     call: &ParsedToolCall,
     iteration: usize,
-    on_progress: &Option<tokio::sync::mpsc::Sender<AgentProgress>>,
+    progress: &dyn ProgressReporter,
     tool_policy: &dyn ToolPolicy,
     payload_summarizer: Option<&dyn PayloadSummarizer>,
     progress_call_id: &str,
 ) -> ToolRunResult {
-    // Emit `ToolCallStarted` for every parsed call, even ones that will be
+    let iteration_u32 = (iteration + 1) as u32;
+
+    // Emit a "tool started" event for every parsed call, even ones that will be
     // rejected below (approval denied, CliRpcOnly, unknown) — the client-side
     // row was created from the streamed args and needs a terminal event.
-    if let Some(ref sink) = on_progress {
-        if let Err(e) = sink
-            .send(AgentProgress::ToolCallStarted {
-                call_id: progress_call_id.to_string(),
-                tool_name: call.name.clone(),
-                arguments: call.arguments.clone(),
-                iteration: (iteration + 1) as u32,
-            })
-            .await
-        {
-            log::warn!("[agent_loop] progress sink closed while emitting ToolCallStarted: {e}");
-        }
-    }
+    progress
+        .tool_started(progress_call_id, &call.name, &call.arguments, iteration_u32)
+        .await;
 
-    // Helper: emit a failed `ToolCallCompleted` for an early-exit path
+    // Helper: emit a failed "tool completed" event for an early-exit path
     // (denied / CliRpcOnly / unknown) so the client row flips to `error`
     // instead of staying running.
     let emit_failed_completion = |message: &str| {
-        let call_id = progress_call_id.to_string();
-        let tool_name = call.name.clone();
         let output_chars = message.chars().count();
-        let iteration_u32 = (iteration + 1) as u32;
-        let sink_opt = on_progress.clone();
         async move {
-            if let Some(sink) = sink_opt {
-                if let Err(e) = sink
-                    .send(AgentProgress::ToolCallCompleted {
-                        call_id,
-                        tool_name,
-                        success: false,
-                        output_chars,
-                        elapsed_ms: 0,
-                        iteration: iteration_u32,
-                    })
-                    .await
-                {
-                    log::warn!(
-                        "[agent_loop] progress sink closed while emitting early-exit ToolCallCompleted: {e}"
-                    );
-                }
-            }
+            progress
+                .tool_completed(
+                    progress_call_id,
+                    &call.name,
+                    false,
+                    output_chars,
+                    0,
+                    iteration_u32,
+                )
+                .await;
         }
     };
 
@@ -352,21 +333,16 @@ pub(crate) async fn run_one_tool(
             )
         }
     };
-    if let Some(ref sink) = on_progress {
-        if let Err(e) = sink
-            .send(AgentProgress::ToolCallCompleted {
-                call_id: progress_call_id.to_string(),
-                tool_name: call.name.clone(),
-                success,
-                output_chars: result_text.chars().count(),
-                elapsed_ms,
-                iteration: (iteration + 1) as u32,
-            })
-            .await
-        {
-            log::warn!("[agent_loop] progress sink closed while emitting ToolCallCompleted: {e}");
-        }
-    }
+    progress
+        .tool_completed(
+            progress_call_id,
+            &call.name,
+            success,
+            result_text.chars().count(),
+            elapsed_ms,
+            iteration_u32,
+        )
+        .await;
     // ── Approval audit after-action row (#2135) ────
     // Stamp the terminal status onto the same `pending_approvals` row the gate
     // created before execution, so the audit trail carries both the before

@@ -6,8 +6,6 @@
 
 use std::path::Path;
 
-use crate::openhuman::tools::r#impl::system::workspace_state::run_git;
-
 /// Build the working-dir context block for the requested `providers`. Returns
 /// an empty string when no providers are requested.
 pub fn working_dir_context(dir: &Path, providers: &[String]) -> String {
@@ -25,18 +23,42 @@ pub fn working_dir_context(dir: &Path, providers: &[String]) -> String {
     out
 }
 
+/// Run a git command synchronously in `dir`. Returns the trimmed stdout on
+/// success, or an error if the command fails or git is not available.
+fn run_git_sync(dir: &Path, args: &[&str]) -> Result<String, String> {
+    match std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        }
+        Ok(output) => Err(String::from_utf8_lossy(&output.stderr).to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Render the git context: branch, dirty flag, porcelain status, recent log.
 fn git_block(dir: &Path) -> String {
     let mut b = String::new();
-    match run_git(dir, &["rev-parse", "--abbrev-ref", "HEAD"]) {
-        Ok(branch) => b.push_str(&format!("- git branch: {}\n", branch.trim())),
-        Err(_) => {
-            b.push_str("- git: not a git repository\n");
-            return b;
-        }
+
+    // Detect repo membership independently of HEAD so a freshly-`init`ed repo
+    // with an unborn branch (no commits yet) is still recognised and reported
+    // as dirty when it has uncommitted/untracked files.
+    if run_git_sync(dir, &["rev-parse", "--is-inside-work-tree"]).is_err() {
+        b.push_str("- git: not a git repository\n");
+        return b;
     }
 
-    let status = run_git(dir, &["status", "--porcelain"]).unwrap_or_default();
+    // `--abbrev-ref HEAD` fails on an unborn branch; fall back gracefully.
+    let branch = match run_git_sync(dir, &["rev-parse", "--abbrev-ref", "HEAD"]) {
+        Ok(b) if b.trim() != "HEAD" && !b.trim().is_empty() => b.trim().to_string(),
+        _ => "(unborn)".to_string(),
+    };
+    b.push_str(&format!("- git branch: {branch}\n"));
+
+    let status = run_git_sync(dir, &["status", "--porcelain"]).unwrap_or_default();
     let dirty = !status.trim().is_empty();
     b.push_str(&format!("- git dirty: {dirty}\n"));
     if dirty {
@@ -46,7 +68,7 @@ fn git_block(dir: &Path) -> String {
         }
     }
 
-    if let Ok(log) = run_git(dir, &["log", "--oneline", "-5"]) {
+    if let Ok(log) = run_git_sync(dir, &["log", "--oneline", "-5"]) {
         if !log.trim().is_empty() {
             b.push_str("- recent commits:\n");
             for line in log.lines().take(5) {

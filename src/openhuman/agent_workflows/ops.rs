@@ -140,7 +140,7 @@ fn slugify(name: &str) -> String {
 }
 
 #[cfg(test)]
-pub(crate) use slugify as slugify_for_test;
+use slugify as slugify_for_test;
 
 #[cfg(test)]
 #[path = "ops_tests.rs"]

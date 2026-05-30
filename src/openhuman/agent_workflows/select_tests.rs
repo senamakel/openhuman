@@ -1,7 +1,9 @@
 //! Tests for phase guidance rendering, tool-scope resolution, and selection.
 
 use super::*;
-use crate::openhuman::agent_workflows::types::WorkflowFrontmatter;
+use crate::openhuman::agent_workflows::types::{
+    WorkflowFrontmatter, WorkflowPhase, PHASE_CLOSE_TASK, PHASE_PICK_UP_TASK,
+};
 use std::collections::HashMap;
 
 fn wf_with(name: &str, when_to_use: &str, phases: HashMap<String, WorkflowPhase>) -> Workflow {

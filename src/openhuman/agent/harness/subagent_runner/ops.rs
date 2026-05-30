@@ -1092,6 +1092,7 @@ async fn run_typed_mode(
         personality_soul_md: None,
         personality_memory_md: None,
         personality_roster: vec![],
+        workflows: &[],
     };
 
     let system_prompt = match &definition.system_prompt {

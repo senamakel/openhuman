@@ -1160,8 +1160,11 @@ const en1: TranslationMap = {
   'settings.search.menuDesc':
     'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel, Brave, and Querit run direct from your machine using your API key.',
+    'Pick the search engine the agent uses, or disable search tools entirely. Managed uses OpenHuman’s backend (no setup). Parallel, Brave, and Querit run direct from your machine using your API key.',
   'settings.search.engineAria': 'Search engine',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
   'settings.search.engineManagedLabel': 'OpenHuman Managed',
   'settings.search.engineManagedDesc':
     'Default. Routed through the OpenHuman backend — no API key required.',

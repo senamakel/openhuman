@@ -448,6 +448,18 @@ const bn4: TranslationMap = {
   'pages.settings.composioSection.title': 'Composio',
   'pages.settings.composioSection.description':
     'Composio দ্বারা চালিত ইন্টিগ্রেশনের জন্য রাউটিং, ট্রিগার এবং ইতিহাস।',
+  'pages.settings.account.walletBalances': 'Wallet Balances',
+  'pages.settings.account.walletBalancesDesc': 'View multi-chain balances for your local wallet',
+  'walletBalances.title': 'Wallet Balances',
+  'walletBalances.refresh': 'Refresh',
+  'walletBalances.loading': 'Loading balances…',
+  'walletBalances.retry': 'Retry',
+  'walletBalances.emptyState': 'No wallet accounts yet — set up a wallet in Recovery Phrase.',
+  'walletBalances.copyAddress': 'Copy address',
+  'walletBalances.providerMissing': 'provider unavailable',
+  'walletBalances.rawBalance': 'Raw: {raw}',
+  'walletBalances.errorGeneric':
+    'Unable to load wallet balances. Set up your wallet in Recovery Phrase and try again.',
   'conversations.taskKanban.approval.default': 'Default',
   'conversations.taskKanban.approval.notRequired': 'Not required',
   'conversations.taskKanban.approval.notRequiredBadge': 'no approval',

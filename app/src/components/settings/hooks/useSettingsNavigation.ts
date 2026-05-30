@@ -24,6 +24,7 @@ export type SettingsRoute =
   | 'memory-data'
   | 'memory-debug'
   | 'recovery-phrase'
+  | 'wallet-balances'
   | 'webhooks-debug'
   | 'agent-chat'
   | 'screen-awareness-debug'
@@ -110,6 +111,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     if (path.includes('/settings/composio-routing')) return 'composio-routing';
     if (path.includes('/settings/intelligence')) return 'intelligence';
     if (path.includes('/settings/recovery-phrase')) return 'recovery-phrase';
+    if (path.includes('/settings/wallet-balances')) return 'wallet-balances';
     if (path.includes('/settings/agent-chat')) return 'agent-chat';
     // Notification routes must be checked in specificity order so the more
     // specific `notification-routing` path doesn't get swallowed by the
@@ -189,6 +191,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
 
       // Leaf panels under account
       case 'recovery-phrase':
+      case 'wallet-balances':
       case 'team':
       case 'privacy':
         return [settingsCrumb, accountCrumb];

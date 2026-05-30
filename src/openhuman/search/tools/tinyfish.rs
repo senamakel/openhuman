@@ -11,7 +11,7 @@
 //! rate limits stay server-side. Search and Fetch are read-oriented tools;
 //! Agent runs execute browser workflows on remote websites.
 
-use super::IntegrationClient;
+use crate::openhuman::integrations::IntegrationClient;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;

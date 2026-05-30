@@ -15,12 +15,17 @@ import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../../typ
 
 type ColumnDef = { status: TaskBoardCardStatus; labelKey: string };
 
+// The board surfaces exactly three columns — Pending / Working / Done. The
+// richer status set the core tracks (approval flow, blocked, rejected) is
+// bucketed into these three via `columnFor`.
 const COLUMN_DEFS: ColumnDef[] = [
-  { status: 'todo', labelKey: 'conversations.taskKanban.todo' },
-  { status: 'in_progress', labelKey: 'conversations.taskKanban.inProgress' },
-  { status: 'blocked', labelKey: 'conversations.taskKanban.blocked' },
+  { status: 'todo', labelKey: 'conversations.taskKanban.pending' },
+  { status: 'in_progress', labelKey: 'conversations.taskKanban.working' },
   { status: 'done', labelKey: 'conversations.taskKanban.done' },
 ];
+
+/** The three statuses a user can set directly from the board. */
+const COLUMN_STATUSES = COLUMN_DEFS.map(column => column.status);
 
 const STATUS_INDEX = new Map(COLUMN_DEFS.map((column, index) => [column.status, index]));
 
@@ -31,33 +36,32 @@ const STATUS_INDEX = new Map(COLUMN_DEFS.map((column, index) => [column.status, 
  *  React warns about and which renders as the first option, hiding the real
  *  status from the user). */
 const STATUS_LABEL_KEYS: Record<TaskBoardCardStatus, string> = {
-  todo: 'conversations.taskKanban.todo',
+  todo: 'conversations.taskKanban.pending',
   awaiting_approval: 'conversations.taskKanban.awaitingApproval',
   ready: 'conversations.taskKanban.ready',
-  in_progress: 'conversations.taskKanban.inProgress',
+  in_progress: 'conversations.taskKanban.working',
   blocked: 'conversations.taskKanban.blocked',
   done: 'conversations.taskKanban.done',
   rejected: 'conversations.taskKanban.rejected',
 };
 
-const ALL_STATUSES = Object.keys(STATUS_LABEL_KEYS) as TaskBoardCardStatus[];
-
-/** Whether a status owns a kanban column (vs the approval-flow statuses that
- *  are bucketed into an existing column). */
+/** Whether a status owns a kanban column (vs the approval-flow / terminal
+ *  statuses that are bucketed into an existing column). */
 function isColumnStatus(status: TaskBoardCardStatus): boolean {
   return STATUS_INDEX.has(status);
 }
 
-/** Map a card status to the column it renders under. The approval-flow
- *  statuses don't get their own columns: pre-execution ones sit in `todo`,
- *  `rejected` sits with `blocked`. */
+/** Map a card status to the column it renders under. Pre-execution approval
+ *  statuses sit in `Pending`; `blocked` and `rejected` are surfaced under
+ *  `Done` so the board stays a clean three-column Pending / Working / Done. */
 function columnFor(status: TaskBoardCardStatus): TaskBoardCardStatus {
   switch (status) {
     case 'awaiting_approval':
     case 'ready':
       return 'todo';
+    case 'blocked':
     case 'rejected':
-      return 'blocked';
+      return 'done';
     default:
       return status;
   }
@@ -66,8 +70,12 @@ function columnFor(status: TaskBoardCardStatus): TaskBoardCardStatus {
 interface TaskKanbanBoardProps {
   board: TaskBoard;
   disabled?: boolean;
+  /** Hide the board's own "Tasks" title row — used where the caller already
+   *  renders a heading for the board, to avoid a doubled-up title. */
+  hideHeader?: boolean;
   onMove?: (card: TaskBoardCard, status: TaskBoardCardStatus) => void;
   onUpdateCard?: (card: TaskBoardCard, nextCard: TaskBoardCard) => void;
+  onDeleteCard?: (card: TaskBoardCard) => void;
   /** Approve/reject a card awaiting plan approval. */
   onDecidePlan?: (card: TaskBoardCard, approve: boolean) => void;
 }
@@ -75,8 +83,10 @@ interface TaskKanbanBoardProps {
 export function TaskKanbanBoard({
   board,
   disabled = false,
+  hideHeader = false,
   onMove,
   onUpdateCard,
+  onDeleteCard,
   onDecidePlan,
 }: TaskKanbanBoardProps) {
   const { t } = useT();
@@ -108,16 +118,18 @@ export function TaskKanbanBoard({
   };
 
   return (
-    <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-3 shadow-sm">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-          {t('conversations.taskKanban.title')}
-        </h4>
-        <span className="text-[10px] text-stone-400 dark:text-neutral-500">
-          {board.cards.length}
-        </span>
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+    <div className="py-3">
+      {!hideHeader && (
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+            {t('conversations.taskKanban.title')}
+          </h4>
+          <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+            {board.cards.length}
+          </span>
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {COLUMN_DEFS.map(column => (
           <section
             key={column.status}
@@ -225,6 +237,7 @@ export function TaskKanbanBoard({
                     </p>
                   )}
                   {(onUpdateCard ||
+                    onDeleteCard ||
                     card.plan?.length ||
                     card.allowedTools?.length ||
                     card.acceptanceCriteria?.length ||
@@ -252,6 +265,7 @@ export function TaskKanbanBoard({
           disabled={disabled}
           onClose={() => setSelectedCardId(null)}
           onUpdate={onUpdateCard}
+          onDelete={onDeleteCard}
         />
       )}
     </div>
@@ -263,14 +277,23 @@ function TaskBriefDialog({
   disabled,
   onClose,
   onUpdate,
+  onDelete,
 }: {
   card: TaskBoardCard;
   disabled: boolean;
   onClose: () => void;
   onUpdate?: (card: TaskBoardCard, nextCard: TaskBoardCard) => void;
+  onDelete?: (card: TaskBoardCard) => void;
 }) {
   const { t } = useT();
   const editable = Boolean(onUpdate) && !disabled;
+  const deletable = Boolean(onDelete) && !disabled;
+
+  const handleDelete = () => {
+    if (!deletable) return;
+    onDelete?.(card);
+    onClose();
+  };
   const [title, setTitle] = useState(card.title);
   const [status, setStatus] = useState<TaskBoardCardStatus>(card.status);
   const [objective, setObjective] = useState(card.objective ?? '');
@@ -347,7 +370,10 @@ function TaskBriefDialog({
                   value={status}
                   onChange={e => setStatus(e.target.value as TaskBoardCardStatus)}
                   className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50">
-                  {ALL_STATUSES.map(s => (
+                  {(COLUMN_STATUSES.includes(status)
+                    ? COLUMN_STATUSES
+                    : [status, ...COLUMN_STATUSES]
+                  ).map(s => (
                     <option key={s} value={s}>
                       {t(STATUS_LABEL_KEYS[s])}
                     </option>
@@ -412,20 +438,32 @@ function TaskBriefDialog({
               value={blocker}
               onChange={setBlocker}
             />
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={save}
-                disabled={!title.trim()}
-                className="rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700 disabled:opacity-50">
-                {t('conversations.taskKanban.saveChanges')}
-              </button>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              {deletable ? (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="rounded-md border border-coral-200 px-3 py-1.5 text-xs font-medium text-coral-600 hover:bg-coral-50 dark:border-coral-500/30 dark:text-coral-300 dark:hover:bg-coral-500/10">
+                  {t('conversations.taskKanban.deleteCard')}
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={save}
+                  disabled={!title.trim()}
+                  className="rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700 disabled:opacity-50">
+                  {t('conversations.taskKanban.saveChanges')}
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -473,6 +511,16 @@ function TaskBriefDialog({
               value={card.blocker}
               tone="danger"
             />
+            {deletable && (
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="rounded-md border border-coral-200 px-3 py-1.5 text-xs font-medium text-coral-600 hover:bg-coral-50 dark:border-coral-500/30 dark:text-coral-300 dark:hover:bg-coral-500/10">
+                  {t('conversations.taskKanban.deleteCard')}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </section>

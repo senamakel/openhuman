@@ -450,20 +450,8 @@ pub fn all_tools_with_runtime(
                 "[integrations] parallel toggle is active but tools are governed by search.engine now"
             );
         }
-        if root_config.integrations.tinyfish.is_active() {
-            tools.push(Box::new(crate::openhuman::tools::TinyFishSearchTool::new(
-                Arc::clone(&client),
-            )));
-            tools.push(Box::new(crate::openhuman::tools::TinyFishFetchTool::new(
-                Arc::clone(&client),
-            )));
-            tools.push(Box::new(
-                crate::openhuman::tools::TinyFishAgentRunTool::new(Arc::clone(&client)),
-            ));
-            tracing::debug!("[integrations] registered tinyfish tools");
-        } else {
-            tracing::debug!("[integrations] tinyfish disabled — skipping");
-        }
+        // TinyFish is search-owned and registers through the unified search
+        // surface above so `search.engine = "disabled"` suppresses it too.
         if root_config.integrations.stock_prices.is_active() {
             tools.push(Box::new(crate::openhuman::tools::StockQuoteTool::new(
                 Arc::clone(&client),

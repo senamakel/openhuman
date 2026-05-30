@@ -20,22 +20,22 @@ pub(crate) fn build(root_config: &Config, params: SearchToolParams) -> Vec<Box<d
     };
 
     vec![
-        Box::new(crate::openhuman::tools::ParallelSearchTool::new(
+        Box::new(crate::openhuman::search::tools::ParallelSearchTool::new(
             Arc::clone(&client),
         )),
-        Box::new(crate::openhuman::tools::ParallelExtractTool::new(
+        Box::new(crate::openhuman::search::tools::ParallelExtractTool::new(
             Arc::clone(&client),
         )),
-        Box::new(crate::openhuman::tools::ParallelChatTool::new(Arc::clone(
-            &client,
-        ))),
-        Box::new(crate::openhuman::tools::ParallelResearchTool::new(
+        Box::new(crate::openhuman::search::tools::ParallelChatTool::new(
             Arc::clone(&client),
         )),
-        Box::new(crate::openhuman::tools::ParallelEnrichTool::new(
+        Box::new(crate::openhuman::search::tools::ParallelResearchTool::new(
             Arc::clone(&client),
         )),
-        Box::new(crate::openhuman::tools::ParallelDatasetTool::new(
+        Box::new(crate::openhuman::search::tools::ParallelEnrichTool::new(
+            Arc::clone(&client),
+        )),
+        Box::new(crate::openhuman::search::tools::ParallelDatasetTool::new(
             Arc::clone(&client),
         )),
         Box::new(crate::openhuman::search::WebSearchTool::new(

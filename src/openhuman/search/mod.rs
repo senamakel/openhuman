@@ -1,9 +1,8 @@
 //! Unified search domain.
 //!
 //! This is the canonical home for web search selection and agent-facing search
-//! tool registration. Engine implementations may still live in integration
-//! modules when they own provider-specific HTTP details, but the active search
-//! surface is assembled here.
+//! tool registration. Search provider implementations live under this module,
+//! even when they call shared backend-proxied integration infrastructure.
 
 pub mod registry;
 pub mod tools;

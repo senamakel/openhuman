@@ -1027,9 +1027,12 @@ fn all_tools_omits_search_surface_when_search_is_disabled() {
     let browser = BrowserConfig::default();
     let http = crate::openhuman::config::HttpRequestConfig::default();
     let mut cfg = test_config(&tmp);
+    cfg.api_url = Some("https://backend.example.test".to_string());
     cfg.search.engine = crate::openhuman::config::SEARCH_ENGINE_DISABLED.into();
     cfg.search.brave.api_key = Some("test-brave-key".into());
     cfg.search.querit.api_key = Some("test-querit-key".into());
+    cfg.integrations.tinyfish.enabled = true;
+    store_test_session_token(&cfg);
 
     let tools = all_tools(
         Arc::new(cfg.clone()),
@@ -1050,6 +1053,9 @@ fn all_tools_omits_search_surface_when_search_is_disabled() {
         "brave_image_search",
         "brave_video_search",
         "querit_search",
+        "tinyfish_search",
+        "tinyfish_fetch",
+        "tinyfish_agent_run",
     ] {
         assert!(
             !names.iter().any(|name| name == search_tool),

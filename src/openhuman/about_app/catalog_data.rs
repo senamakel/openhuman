@@ -311,6 +311,16 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: LOCAL_RAW,
     },
     Capability {
+        id: "intelligence.vault_markdown_writes",
+        name: "Vault Markdown Writes",
+        domain: "intelligence",
+        category: CapabilityCategory::Intelligence,
+        description: "Show whether a user-added local vault is writable, and write explicitly approved markdown/wiki artifacts back into that vault without leaving the device.",
+        how_to: "Intelligence > Memory > Knowledge vaults",
+        status: CapabilityStatus::Beta,
+        privacy: LOCAL_RAW,
+    },
+    Capability {
         id: "intelligence.embedding_provider_config",
         name: "Configure Embedding Provider",
         domain: "embeddings",
@@ -1438,6 +1448,18 @@ pub(super) const CAPABILITIES: &[Capability] = &[
                       remove it any time under Settings → Agent OS access to be prompted again. \
                       Policy still blocks forbidden paths and high-risk commands regardless.",
         how_to: "Click \"Always allow\" on an approval prompt; manage the list in Settings → Agent OS access.",
+        status: CapabilityStatus::Stable,
+        privacy: None,
+    },
+    Capability {
+        id: "security.approval_history",
+        name: "Approval History",
+        domain: "security",
+        category: CapabilityCategory::Settings,
+        description: "Review a read-only audit trail of past tool-approval decisions \
+                      (Approve once / Always allow / Deny), newest first. Summaries are \
+                      scrubbed of chat content and arguments are shown as redacted shape only.",
+        how_to: "Settings → Agent OS access → View approval history",
         status: CapabilityStatus::Stable,
         privacy: None,
     },

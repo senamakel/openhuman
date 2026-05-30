@@ -149,18 +149,33 @@ async fn serve_mock_backend() -> (
     let state = MockBackendState::default();
     let app = Router::new()
         .route("/auth/me", get(mock_auth_me))
+        .route("/api/auth/me", get(mock_auth_me))
         .route(
             "/telegram/login-tokens/{token}/consume",
+            post(mock_consume_login_token),
+        )
+        .route(
+            "/api/telegram/login-tokens/{token}/consume",
             post(mock_consume_login_token),
         )
         .route(
             "/auth/channels/{channel}/link-token",
             post(mock_channel_link_token),
         )
+        .route(
+            "/api/auth/channels/{channel}/link-token",
+            post(mock_channel_link_token),
+        )
         .route("/auth/integrations", get(mock_integrations))
+        .route("/api/auth/integrations", get(mock_integrations))
         .route("/auth/github/connect", get(mock_oauth_connect))
+        .route("/api/auth/github/connect", get(mock_oauth_connect))
         .route(
             "/auth/integrations/{integration_id}/tokens",
+            post(mock_integration_tokens),
+        )
+        .route(
+            "/api/auth/integrations/{integration_id}/tokens",
             post(mock_integration_tokens),
         )
         .route(
@@ -168,7 +183,15 @@ async fn serve_mock_backend() -> (
             post(mock_client_key),
         )
         .route(
+            "/api/auth/integrations/{integration_id}/client-key",
+            post(mock_client_key),
+        )
+        .route(
             "/auth/integrations/{integration_id}",
+            delete(mock_revoke_integration),
+        )
+        .route(
+            "/api/auth/integrations/{integration_id}",
             delete(mock_revoke_integration),
         )
         .with_state(state.clone());
@@ -3720,6 +3743,25 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
         "stored provider profile should be listed: {listed_payload}"
     );
 
+    let listed_without_filter = rpc(
+        &harness.rpc_base,
+        20_021,
+        "openhuman.auth_list_provider_credentials",
+        json!({}),
+    )
+    .await;
+    assert!(
+        payload(
+            &listed_without_filter,
+            "auth_list_provider_credentials default params"
+        )
+        .as_array()
+        .expect("unfiltered credentials list")
+        .iter()
+        .any(|profile| profile.get("provider").and_then(Value::as_str) == Some("worker-a")),
+        "unfiltered credentials list should include stored provider: {listed_without_filter}"
+    );
+
     let removed = rpc(
         &harness.rpc_base,
         20_015,
@@ -4123,6 +4165,58 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
     assert_eq!(
         identity.email.as_deref(),
         Some("remote-worker@example.test")
+    );
+
+    harness.join.abort();
+    backend_join.abort();
+}
+
+#[tokio::test]
+async fn auth_remote_backend_path_prefix_is_preserved_for_app_state_refresh() {
+    let _lock = env_lock();
+    let (backend_base, backend_state, backend_join) = serve_mock_backend().await;
+    let harness = setup().await;
+    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &format!("{backend_base}/api"));
+
+    let session = rpc(
+        &harness.rpc_base,
+        22_051,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "remote-path-prefix-jwt",
+            "user_id": "remote-user-1",
+            "user": {
+                "id": "stale-path-prefix-user",
+                "name": "Path Prefix Renderer",
+                "email": "path-prefix-renderer@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&session, "auth_store_session with backend path prefix")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        22_052,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&snapshot, "app_state_snapshot with backend path prefix")
+            .pointer("/currentUser/email")
+            .and_then(Value::as_str),
+        Some("remote-worker@example.test"),
+        "app_state should join auth/me below the configured backend path prefix"
+    );
+    assert!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst) >= 2,
+        "store_session and app_state snapshot should both hit the prefixed backend"
     );
 
     harness.join.abort();
@@ -5061,6 +5155,96 @@ fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_files(
             .contains("Unsupported auth profile schema version"),
         "unexpected future schema error: {future_err:#}"
     );
+}
+
+#[test]
+fn credentials_auth_service_selects_active_default_and_requested_profiles() {
+    let _lock = env_lock();
+    let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "disabled");
+    let tmp = tempdir().expect("tempdir");
+    let service = AuthService::new(&tmp.path().join("auth-service"), false);
+
+    service
+        .store_provider_token(
+            "github",
+            "default",
+            "default-token",
+            Default::default(),
+            false,
+        )
+        .expect("store default github profile");
+    assert_eq!(
+        service
+            .get_provider_bearer_token("github", None)
+            .expect("get default provider token")
+            .as_deref(),
+        Some("default-token"),
+        "without an active profile, provider token lookup should fall back to default"
+    );
+
+    let oauth_profile = AuthProfile::new_oauth(
+        "github",
+        "work",
+        TokenSet {
+            access_token: "oauth-access".to_string(),
+            refresh_token: None,
+            id_token: None,
+            expires_at: None,
+            token_type: Some("Bearer".to_string()),
+            scope: Some("repo".to_string()),
+        },
+    );
+    let oauth_id = oauth_profile.id.clone();
+    service.load_profiles().expect("load before oauth upsert");
+    AuthProfilesStore::new(&tmp.path().join("auth-service"), false)
+        .upsert_profile(oauth_profile, false)
+        .expect("upsert oauth work profile");
+    assert_eq!(
+        service
+            .set_active_profile(" GITHUB ", "github:work")
+            .expect("set active by full profile id"),
+        oauth_id
+    );
+    assert_eq!(
+        service
+            .get_provider_bearer_token("github", None)
+            .expect("get active oauth bearer")
+            .as_deref(),
+        Some("oauth-access"),
+        "active OAuth profiles should expose their access token as bearer material"
+    );
+    assert_eq!(
+        service
+            .get_provider_bearer_token("github", Some("default"))
+            .expect("explicit default token")
+            .as_deref(),
+        Some("default-token"),
+        "explicit profile overrides should win over active profiles"
+    );
+    assert_eq!(
+        service
+            .get_provider_bearer_token("github", Some("missing"))
+            .expect("missing explicit profile")
+            .as_deref(),
+        None
+    );
+
+    let slack_profile = AuthProfile::new_token("slack", "main", "slack-token".to_string());
+    let slack_id = slack_profile.id.clone();
+    AuthProfilesStore::new(&tmp.path().join("auth-service"), false)
+        .upsert_profile(slack_profile, false)
+        .expect("upsert slack profile");
+    let mismatch = service
+        .set_active_profile("github", &slack_id)
+        .expect_err("provider/profile mismatch should fail");
+    assert!(
+        mismatch.to_string().contains("belongs to provider slack"),
+        "unexpected provider mismatch error: {mismatch:#}"
+    );
+
+    assert!(service
+        .remove_profile("github", "github:work")
+        .expect("remove active oauth profile"));
 }
 
 #[test]

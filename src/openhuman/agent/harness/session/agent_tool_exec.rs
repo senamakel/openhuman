@@ -61,7 +61,12 @@ pub(super) async fn run_agent_tool_call(
         )
     });
     progress
-        .tool_started(&call_id, &call.name, &call.arguments, (iteration + 1) as u32)
+        .tool_started(
+            &call_id,
+            &call.name,
+            &call.arguments,
+            (iteration + 1) as u32,
+        )
         .await;
     log::info!("[agent] executing tool: {}", call.name);
 

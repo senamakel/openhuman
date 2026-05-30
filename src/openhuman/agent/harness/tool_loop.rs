@@ -301,7 +301,6 @@ pub(crate) async fn run_tool_call_loop(
     )
     .await
     .map(|outcome| outcome.text)
-
 }
 
 #[cfg(test)]

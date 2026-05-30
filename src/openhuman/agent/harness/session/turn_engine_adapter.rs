@@ -27,11 +27,15 @@ use super::agent_tool_exec::{run_agent_tool_call, AgentToolExecCtx};
 use super::transcript;
 use super::turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION;
 use super::types::Agent;
-use crate::openhuman::agent::dispatcher::{ParsedToolCall as DispatcherParsedToolCall, ToolDispatcher, ToolExecutionResult};
+use crate::openhuman::agent::dispatcher::{
+    ParsedToolCall as DispatcherParsedToolCall, ToolDispatcher, ToolExecutionResult,
+};
 use crate::openhuman::agent::harness::engine::{
-    CheckpointOutcome, CheckpointStrategy, ProgressReporter, ToolRunResult, ToolSource, TurnObserver,
+    CheckpointOutcome, CheckpointStrategy, ProgressReporter, ToolRunResult, ToolSource,
+    TurnObserver,
 };
 use crate::openhuman::agent::harness::parse::ParsedToolCall;
+use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::agent::hooks::ToolCallRecord;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::tool_policy::ToolPolicy;
@@ -41,7 +45,6 @@ use crate::openhuman::inference::model_context::context_window_for_model;
 use crate::openhuman::inference::provider::{
     ChatMessage, ChatRequest, ConversationMessage, Provider, ProviderDelta, ToolCall, UsageInfo,
 };
-use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::tools::{Tool, ToolSpec};
 
 /// Rebuild the persisted `Vec<ToolCall>` for an assistant-with-tools history
@@ -272,8 +275,7 @@ impl TurnObserver for AgentObserver<'_> {
         if is_final {
             let mut assistant_msg = ChatMessage::assistant(display_text.to_string());
             if let Some(rc) = reasoning_content {
-                assistant_msg.extra_metadata =
-                    Some(serde_json::json!({ "reasoning_content": rc }));
+                assistant_msg.extra_metadata = Some(serde_json::json!({ "reasoning_content": rc }));
             }
             self.agent
                 .history
@@ -294,20 +296,26 @@ impl TurnObserver for AgentObserver<'_> {
                     display_text.to_string(),
                 )));
         }
-        let tool_calls =
-            persisted_tool_calls(native_tool_calls, parsed_calls, &self.pending_results, iteration);
-        self.agent.history.push(ConversationMessage::AssistantToolCalls {
-            text: if display_text.is_empty() {
-                None
-            } else {
-                Some(display_text.to_string())
-            },
-            tool_calls,
-            reasoning_content: reasoning_content
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(ToString::to_string),
-        });
+        let tool_calls = persisted_tool_calls(
+            native_tool_calls,
+            parsed_calls,
+            &self.pending_results,
+            iteration,
+        );
+        self.agent
+            .history
+            .push(ConversationMessage::AssistantToolCalls {
+                text: if display_text.is_empty() {
+                    None
+                } else {
+                    Some(display_text.to_string())
+                },
+                tool_calls,
+                reasoning_content: reasoning_content
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(ToString::to_string),
+            });
         let results = std::mem::take(&mut self.pending_results);
         let formatted = self.agent.tool_dispatcher.format_results(&results);
         self.agent.history.push(formatted);
@@ -350,11 +358,7 @@ pub(super) struct AgentCheckpoint {
 
 #[async_trait]
 impl CheckpointStrategy for AgentCheckpoint {
-    async fn on_max_iter(
-        &self,
-        digest: &str,
-        max_iterations: usize,
-    ) -> Result<CheckpointOutcome> {
+    async fn on_max_iter(&self, digest: &str, max_iterations: usize) -> Result<CheckpointOutcome> {
         let deterministic = format!(
             "I reached the tool-call limit for this turn ({max_iterations} steps), so I paused here.\n\n\
              **Done so far:**\n{digest}\n\
@@ -375,7 +379,9 @@ impl CheckpointStrategy for AgentCheckpoint {
             let progress_tx = self.on_progress.clone();
             let forwarder = tokio::spawn(async move {
                 while let Some(event) = rx.recv().await {
-                    let Some(ref sink) = progress_tx else { continue };
+                    let Some(ref sink) = progress_tx else {
+                        continue;
+                    };
                     if let ProviderDelta::TextDelta { delta } = event {
                         if sink
                             .send(AgentProgress::TextDelta {

@@ -43,7 +43,9 @@ pub(crate) struct ErrorCheckpoint;
 impl CheckpointStrategy for ErrorCheckpoint {
     async fn on_max_iter(&self, _digest: &str, max_iterations: usize) -> Result<CheckpointOutcome> {
         Err(anyhow::Error::new(
-            crate::openhuman::agent::error::AgentError::MaxIterationsExceeded { max: max_iterations },
+            crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
+                max: max_iterations,
+            },
         ))
     }
 }

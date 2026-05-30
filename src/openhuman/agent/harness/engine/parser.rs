@@ -13,7 +13,9 @@
 //! separately for assistant-history serialization.
 
 use crate::openhuman::agent::dispatcher::ToolDispatcher;
-use crate::openhuman::agent::harness::parse::{parse_structured_tool_calls, parse_tool_calls, ParsedToolCall};
+use crate::openhuman::agent::harness::parse::{
+    parse_structured_tool_calls, parse_tool_calls, ParsedToolCall,
+};
 use crate::openhuman::inference::provider::ChatResponse;
 
 pub(crate) trait ResponseParser: Send + Sync {

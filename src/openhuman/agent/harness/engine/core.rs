@@ -25,7 +25,9 @@ use crate::openhuman::agent::multimodal;
 use crate::openhuman::agent::stop_hooks::{current_stop_hooks, StopDecision, TurnState};
 use crate::openhuman::context::guard::{ContextCheckResult, ContextGuard};
 use crate::openhuman::inference::model_context::context_window_for_model;
-use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, Provider, ProviderCapabilityError};
+use crate::openhuman::inference::provider::{
+    ChatMessage, ChatRequest, Provider, ProviderCapabilityError,
+};
 
 use super::super::parse::build_native_assistant_history;
 use super::super::token_budget::trim_chat_messages_to_budget;
@@ -247,92 +249,101 @@ pub(crate) async fn run_turn_engine(
             assistant_history_content,
             native_tool_calls,
         ) = match chat_result {
-                Ok(resp) => {
-                    // Update context guard + cost with token usage from this response.
-                    if let Some(ref usage) = resp.usage {
-                        context_guard.update_usage(usage);
-                        turn_cost.add_call(model, usage);
-                        observer.record_usage(model, usage);
-                        tracing::debug!(
-                            iteration,
-                            input_tokens = usage.input_tokens,
-                            output_tokens = usage.output_tokens,
-                            context_window = usage.context_window,
-                            cumulative_usd = turn_cost.total_usd(),
-                            "[agent_loop] LLM response received"
-                        );
-                        progress
-                            .cost_updated(model, (iteration + 1) as u32, &turn_cost)
-                            .await;
-                    } else {
-                        tracing::debug!(iteration, "[agent_loop] LLM response received (no usage info)");
-                    }
-
-                    let response_text = resp.text_or_empty().to_string();
-                    let (display_text, calls) = parser.parse(&resp);
-
+            Ok(resp) => {
+                // Update context guard + cost with token usage from this response.
+                if let Some(ref usage) = resp.usage {
+                    context_guard.update_usage(usage);
+                    turn_cost.add_call(model, usage);
+                    observer.record_usage(model, usage);
                     tracing::debug!(
                         iteration,
-                        native_tool_calls = resp.tool_calls.len(),
-                        parsed_tool_calls = calls.len(),
-                        "[agent_loop] tool calls parsed"
+                        input_tokens = usage.input_tokens,
+                        output_tokens = usage.output_tokens,
+                        context_window = usage.context_window,
+                        cumulative_usd = turn_cost.total_usd(),
+                        "[agent_loop] LLM response received"
                     );
+                    progress
+                        .cost_updated(model, (iteration + 1) as u32, &turn_cost)
+                        .await;
+                } else {
+                    tracing::debug!(
+                        iteration,
+                        "[agent_loop] LLM response received (no usage info)"
+                    );
+                }
 
-                    let assistant_history_content = if resp.tool_calls.is_empty() {
-                        response_text.clone()
-                    } else {
-                        build_native_assistant_history(
-                            &response_text,
-                            resp.reasoning_content.as_deref(),
-                            &resp.tool_calls,
-                        )
-                    };
+                let response_text = resp.text_or_empty().to_string();
+                let (display_text, calls) = parser.parse(&resp);
 
-                    let reasoning_content = resp.reasoning_content;
-                    let native_calls = resp.tool_calls;
-                    (
-                        response_text,
-                        display_text,
-                        reasoning_content,
-                        calls,
-                        assistant_history_content,
-                        native_calls,
+                tracing::debug!(
+                    iteration,
+                    native_tool_calls = resp.tool_calls.len(),
+                    parsed_tool_calls = calls.len(),
+                    "[agent_loop] tool calls parsed"
+                );
+
+                let assistant_history_content = if resp.tool_calls.is_empty() {
+                    response_text.clone()
+                } else {
+                    build_native_assistant_history(
+                        &response_text,
+                        resp.reasoning_content.as_deref(),
+                        &resp.tool_calls,
                     )
-                }
-                Err(e) => {
-                    // Transient upstream failures are already classified + retried by
-                    // reliable.rs and reported once when all providers are exhausted;
-                    // re-reporting per iteration floods Sentry (OPENHUMAN-TAURI-3Y/3Z).
-                    let transient = crate::openhuman::inference::provider::reliable::is_rate_limited(&e)
-                        || crate::openhuman::inference::provider::reliable::is_upstream_unhealthy(&e);
-                    if transient {
-                        tracing::warn!(
-                            domain = "agent",
-                            operation = "provider_chat",
-                            provider = provider_name,
-                            model = model,
-                            iteration = iteration + 1,
-                            error = %format!("{e:#}"),
-                            "[agent] transient provider_chat failure — retried upstream"
-                        );
-                    } else {
-                        crate::core::observability::report_error_or_expected(
+                };
+
+                let reasoning_content = resp.reasoning_content;
+                let native_calls = resp.tool_calls;
+                (
+                    response_text,
+                    display_text,
+                    reasoning_content,
+                    calls,
+                    assistant_history_content,
+                    native_calls,
+                )
+            }
+            Err(e) => {
+                // Transient upstream failures are already classified + retried by
+                // reliable.rs and reported once when all providers are exhausted;
+                // re-reporting per iteration floods Sentry (OPENHUMAN-TAURI-3Y/3Z).
+                let transient =
+                    crate::openhuman::inference::provider::reliable::is_rate_limited(&e)
+                        || crate::openhuman::inference::provider::reliable::is_upstream_unhealthy(
                             &e,
-                            "agent",
-                            "provider_chat",
-                            &[
-                                ("provider", provider_name),
-                                ("model", model),
-                                ("iteration", &(iteration + 1).to_string()),
-                            ],
                         );
-                    }
-                    return Err(e);
+                if transient {
+                    tracing::warn!(
+                        domain = "agent",
+                        operation = "provider_chat",
+                        provider = provider_name,
+                        model = model,
+                        iteration = iteration + 1,
+                        error = %format!("{e:#}"),
+                        "[agent] transient provider_chat failure — retried upstream"
+                    );
+                } else {
+                    crate::core::observability::report_error_or_expected(
+                        &e,
+                        "agent",
+                        "provider_chat",
+                        &[
+                            ("provider", provider_name),
+                            ("model", model),
+                            ("iteration", &(iteration + 1).to_string()),
+                        ],
+                    );
                 }
-            };
+                return Err(e);
+            }
+        };
 
         if tool_calls.is_empty() {
-            tracing::debug!(iteration, "[agent_loop] no tool calls — returning final response");
+            tracing::debug!(
+                iteration,
+                "[agent_loop] no tool calls — returning final response"
+            );
             // The final answer is the narrative text, falling back to the raw
             // response text when the parser stripped everything (mirrors the
             // legacy `Agent::turn` `final_text` logic).
@@ -350,10 +361,12 @@ pub(crate) async fn run_turn_engine(
                     "[agent_loop] provider returned an empty final response (i={}, no text, no tool calls) — surfacing as error",
                     iteration + 1
                 );
-                return Err(crate::openhuman::agent::error::AgentError::EmptyProviderResponse {
-                    iteration: iteration + 1,
-                }
-                .into());
+                return Err(
+                    crate::openhuman::agent::error::AgentError::EmptyProviderResponse {
+                        iteration: iteration + 1,
+                    }
+                    .into(),
+                );
             }
             // No tool calls — final response. Relay the text in small chunks
             // when a streaming draft sink exists.

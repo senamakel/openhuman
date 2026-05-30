@@ -18,17 +18,13 @@
 //!   background archivist fork.
 
 use super::transcript;
+use super::turn_engine_adapter::{AgentCheckpoint, AgentObserver, AgentToolSource};
 use super::types::Agent;
-use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::dispatcher::{ParsedToolCall, ToolExecutionResult};
-use crate::openhuman::agent::error::AgentError;
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::hooks::{self, ToolCallRecord, TurnContext};
 use crate::openhuman::agent::memory_loader::collect_recall_citations;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::agent::tool_policy::{
-    ToolCallContext, ToolPolicyDecision, ToolPolicyRequest,
-};
 use crate::openhuman::agent_experience::{
     prepend_experience_block, render_experience_hits, AgentExperienceStore, ExperienceQuery,
 };
@@ -36,20 +32,14 @@ use crate::openhuman::agent_tool_policy::render_tool_policy_boundary;
 use crate::openhuman::context::prompt::{
     LearnedContextData, NamespaceSummary, PromptContext, PromptTool,
 };
-use super::turn_engine_adapter::{AgentCheckpoint, AgentObserver, AgentToolSource};
-use crate::openhuman::context::{ReductionOutcome, ARCHIVIST_EXTRACTION_PROMPT};
-use crate::openhuman::inference::model_context::context_window_for_model;
+use crate::openhuman::context::ARCHIVIST_EXTRACTION_PROMPT;
 use crate::openhuman::inference::provider::{
     ChatMessage, ChatRequest, ConversationMessage, ProviderDelta, UsageInfo,
 };
 use crate::openhuman::memory::MemoryCategory;
-use crate::openhuman::tools::traits::ToolCallOptions;
 use crate::openhuman::tools::Tool;
 use crate::openhuman::util::truncate_with_ellipsis;
 
-use crate::openhuman::agent::harness::token_budget::{
-    trim_chat_messages_to_budget, trim_conversation_history_to_budget,
-};
 use anyhow::Result;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -63,10 +53,7 @@ use std::sync::Arc;
 /// detect those at the `ChatMessage` boundary (where `bound_cached_transcript_messages`
 /// operates) we have to peek inside the JSON. See TAURI-RUST-7 for the
 /// failure mode this guards against.
-use super::turn_checkpoint::{
-    assistant_message_has_tool_calls, build_deterministic_checkpoint,
-    MAX_ITER_CHECKPOINT_INSTRUCTION,
-};
+use super::turn_checkpoint::{assistant_message_has_tool_calls, MAX_ITER_CHECKPOINT_INSTRUCTION};
 
 impl Agent {
     /// Executes a single interaction "turn" with the agent.
@@ -732,290 +719,6 @@ impl Agent {
             budget_bytes: self.context.tool_result_budget_bytes(),
         };
         super::agent_tool_exec::run_agent_tool_call(&ctx, &progress, call, iteration).await
-    }
-
-    #[allow(dead_code)]
-    async fn execute_tool_call_legacy(
-        &self,
-        call: &ParsedToolCall,
-        iteration: usize,
-    ) -> (ToolExecutionResult, ToolCallRecord) {
-        let started = std::time::Instant::now();
-        publish_global(DomainEvent::ToolExecutionStarted {
-            tool_name: call.name.clone(),
-            session_id: self.event_session_id().to_string(),
-        });
-        // Synthesise a fallback id for prompt-guided (non-native) tool
-        // calls so downstream consumers always have a stable key to
-        // reconcile tool_call / tool_args_delta / tool_result rows by.
-        // A random uuid guarantees uniqueness even when the same tool
-        // name appears multiple times in the same iteration's parsed
-        // calls.
-        let call_id = call.tool_call_id.clone().unwrap_or_else(|| {
-            format!(
-                "turn-{iteration}-{}-{}",
-                call.name,
-                uuid::Uuid::new_v4().simple()
-            )
-        });
-        self.emit_progress(AgentProgress::ToolCallStarted {
-            call_id: call_id.clone(),
-            tool_name: call.name.clone(),
-            arguments: call.arguments.clone(),
-            iteration: (iteration + 1) as u32,
-        })
-        .await;
-        log::info!("[agent] executing tool: {}", call.name);
-        log::info!("[agent_loop] tool start name={}", call.name);
-
-        let (raw_result, success) = if !self.visible_tool_names.is_empty()
-            && !self.visible_tool_names.contains(&call.name)
-        {
-            log::warn!(
-                "[agent] blocked tool call '{}' — not in visible tool set",
-                call.name
-            );
-            (
-                format!("Tool '{}' is not available to this agent", call.name),
-                false,
-            )
-        } else if let Some(tool) = self.tools.iter().find(|t| t.name() == call.name) {
-            let session_decision = self.tool_policy_session.decision_for(&call.name);
-            if session_decision.is_denied() {
-                let required = session_decision
-                    .required_permission
-                    .map(|permission| permission.to_string())
-                    .unwrap_or_else(|| "unknown".to_string());
-                (
-                    format!(
-                        "Tool '{}' blocked by tool policy: requires {}, channel '{}' allows {}",
-                        call.name,
-                        required,
-                        self.event_channel,
-                        session_decision.allowed_permission
-                    ),
-                    false,
-                )
-            } else {
-                // Per-call args-aware permission check: tools that expose
-                // multi-level actions (e.g. schedule list vs schedule create)
-                // set a low static permission_level() so the tool is visible
-                // on read-capable channels, but declare the true per-action
-                // level via permission_level_with_args.
-                let call_required = tool.permission_level_with_args(&call.arguments);
-                if call_required > session_decision.allowed_permission {
-                    tracing::debug!(
-                        tool = call.name.as_str(),
-                        call_required = %call_required,
-                        allowed = %session_decision.allowed_permission,
-                        "[agent_loop] tool action blocked by per-call permission check"
-                    );
-                    (
-                        format!(
-                            "Tool '{}' action requires {} permission, channel '{}' allows {}",
-                            call.name,
-                            call_required,
-                            self.event_channel,
-                            session_decision.allowed_permission
-                        ),
-                        false,
-                    )
-                } else {
-                    let context = ToolCallContext::session(
-                        self.event_session_id(),
-                        self.event_channel(),
-                        self.agent_definition_id.to_string(),
-                        call_id.clone(),
-                        (iteration + 1) as u32,
-                    );
-                    let mut policy_request =
-                        ToolPolicyRequest::new(call.name.clone(), call.arguments.clone(), context);
-                    if let Some(generated_context) = tool.generated_runtime_context(&call.arguments)
-                    {
-                        policy_request =
-                            policy_request.with_generated_tool_context(generated_context);
-                    }
-                    let policy_decision = self.tool_policy.check(&policy_request).await;
-                    if let Some(reason) = policy_decision.blocking_reason() {
-                        let blocked_action = match &policy_decision {
-                            ToolPolicyDecision::RequireApproval { .. } => "requires approval",
-                            ToolPolicyDecision::Deny { .. } => "denied",
-                            ToolPolicyDecision::Allow => "allowed",
-                        };
-                        crate::openhuman::tool_registry::denials::record(
-                            call.name.as_str(),
-                            self.tool_policy.name(),
-                            blocked_action,
-                            reason,
-                        );
-                        tracing::debug!(
-                            tool = call.name.as_str(),
-                            policy = self.tool_policy.name(),
-                            action = blocked_action,
-                            reason = %reason,
-                            "[agent_loop] tool blocked by policy"
-                        );
-                        (
-                            format!(
-                                "Tool '{}' {blocked_action} by policy '{}': {reason}",
-                                call.name,
-                                self.tool_policy.name()
-                            ),
-                            false,
-                        )
-                    } else {
-                        // Per-call options: ask the tool for markdown output when the
-                        // context manager is configured to prefer it. Tools that
-                        // implement `execute_with_options` will populate
-                        // `markdown_formatted`; others fall through to the default
-                        // implementation which forwards to `execute`.
-                        let prefer_markdown = self.context.prefer_markdown_tool_output();
-                        let options = ToolCallOptions { prefer_markdown };
-                        let outcome = tool
-                            .execute_with_options(call.arguments.clone(), options)
-                            .await;
-                        match outcome {
-                            Ok(r) => {
-                                if !r.is_error {
-                                    let mut output = r.output_for_llm(prefer_markdown);
-                                    if prefer_markdown && r.markdown_formatted.is_some() {
-                                        log::debug!(
-                                        "[agent_loop] tool={} returned markdown payload bytes={}",
-                                        call.name,
-                                        output.len()
-                                    );
-                                    }
-                                    // Issue #574 — if a payload summarizer is wired
-                                    // in (orchestrator session only) and the output
-                                    // exceeds the configured threshold, hand it to
-                                    // the summarizer sub-agent before it enters
-                                    // history. On any failure or below-threshold
-                                    // payload, leave `output` untouched and let the
-                                    // existing tool_result_budget_bytes truncation
-                                    // pipeline handle it downstream.
-                                    if let Some(ps) = self.payload_summarizer.as_ref() {
-                                        log::debug!(
-                                    "[agent_loop] payload_summarizer intercepting tool={} bytes={}",
-                                    call.name,
-                                    output.len()
-                                );
-                                        match ps.maybe_summarize(&call.name, None, &output).await {
-                                            Ok(Some(payload)) => {
-                                                log::info!(
-                                            "[agent_loop] payload_summarizer compressed tool={} {}->{} bytes",
-                                            call.name,
-                                            payload.original_bytes,
-                                            payload.summary_bytes
-                                        );
-                                                output = payload.summary;
-                                            }
-                                            Ok(None) => {
-                                                log::debug!(
-                                            "[agent_loop] payload_summarizer pass-through tool={} bytes={}",
-                                            call.name,
-                                            output.len()
-                                        );
-                                            }
-                                            Err(e) => {
-                                                log::warn!(
-                                            "[agent_loop] payload_summarizer error tool={} err={} (passing raw payload through)",
-                                            call.name,
-                                            e
-                                        );
-                                            }
-                                        }
-                                    }
-                                    (output, true)
-                                } else {
-                                    (
-                                        format!("Error: {}", r.output_for_llm(prefer_markdown)),
-                                        false,
-                                    )
-                                }
-                            }
-                            Err(e) => (format!("Error executing {}: {e}", call.name), false),
-                        }
-                    }
-                } // end else { // per-call permission ok
-            }
-        } else {
-            (format!("Unknown tool: {}", call.name), false)
-        };
-
-        // Context pipeline stage 1: apply the per-result byte budget
-        // *inline* before the result enters history. This is the only
-        // cache-safe reduction stage — the truncated body has never
-        // been sent to the backend so it creates no cache invalidation.
-        // Source the budget from the context manager so it tracks the
-        // resolved `context.tool_result_budget_bytes` (including any
-        // env/config overrides) rather than the deprecated
-        // `agent.tool_result_budget_bytes` field.
-        let budget_bytes = self.context.tool_result_budget_bytes();
-        let (result, budget_outcome) =
-            crate::openhuman::context::apply_tool_result_budget(raw_result, budget_bytes);
-        if budget_outcome.truncated {
-            log::info!(
-                "[agent_loop] tool_result_budget applied name={} original_bytes={} final_bytes={} dropped_bytes={}",
-                call.name,
-                budget_outcome.original_bytes,
-                budget_outcome.final_bytes,
-                budget_outcome.original_bytes - budget_outcome.final_bytes
-            );
-        }
-
-        let elapsed_ms = started.elapsed().as_millis() as u64;
-        publish_global(DomainEvent::ToolExecutionCompleted {
-            tool_name: call.name.clone(),
-            session_id: self.event_session_id().to_string(),
-            success,
-            elapsed_ms,
-        });
-        self.emit_progress(AgentProgress::ToolCallCompleted {
-            call_id: call_id.clone(),
-            tool_name: call.name.clone(),
-            success,
-            output_chars: result.chars().count(),
-            elapsed_ms,
-            iteration: (iteration + 1) as u32,
-        })
-        .await;
-        log::info!(
-            "[agent] tool completed: {} success={} elapsed_ms={}",
-            call.name,
-            success,
-            elapsed_ms
-        );
-        log::debug!(
-            "[agent] tool output for {}: {}",
-            call.name,
-            truncate_with_ellipsis(&result, 500)
-        );
-        log::info!(
-            "[agent_loop] tool finish name={} elapsed_ms={} output_chars={} success={}",
-            call.name,
-            elapsed_ms,
-            result.chars().count(),
-            success
-        );
-
-        let output_summary = hooks::sanitize_tool_output(&result, &call.name, success);
-
-        let record = ToolCallRecord {
-            name: call.name.clone(),
-            arguments: call.arguments.clone(),
-            success,
-            output_summary,
-            duration_ms: elapsed_ms,
-        };
-
-        let exec_result = ToolExecutionResult {
-            name: call.name.clone(),
-            output: result,
-            success,
-            tool_call_id: call.tool_call_id.clone(),
-        };
-
-        (exec_result, record)
     }
 
     /// Executes multiple tool calls in sequence.

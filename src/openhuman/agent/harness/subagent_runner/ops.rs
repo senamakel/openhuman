@@ -1463,8 +1463,7 @@ impl super::super::engine::ToolSource for SubagentToolSource<'_> {
             progress
                 .tool_started(progress_call_id, &call.name, &call.arguments, iteration_u32)
                 .await;
-            let mut available: Vec<&str> =
-                self.allowed_names.iter().map(|s| s.as_str()).collect();
+            let mut available: Vec<&str> = self.allowed_names.iter().map(|s| s.as_str()).collect();
             if let Some(resolver) = self.lazy_resolver.as_ref() {
                 available.extend(resolver.known_slugs());
             }
@@ -1605,7 +1604,11 @@ impl SubagentObserver {
 
 #[async_trait::async_trait]
 impl super::super::engine::TurnObserver for SubagentObserver {
-    fn record_usage(&mut self, _model: &str, usage: &crate::openhuman::inference::provider::UsageInfo) {
+    fn record_usage(
+        &mut self,
+        _model: &str,
+        usage: &crate::openhuman::inference::provider::UsageInfo,
+    ) {
         self.usage.input_tokens += usage.input_tokens;
         self.usage.output_tokens += usage.output_tokens;
         self.usage.cached_input_tokens += usage.cached_input_tokens;

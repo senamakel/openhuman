@@ -22,9 +22,9 @@
 pub(crate) mod archivist;
 pub(crate) mod builtin_definitions;
 mod credentials;
-pub(crate) mod engine;
 pub mod definition;
 pub(crate) mod definition_loader;
+pub(crate) mod engine;
 pub mod fork_context;
 mod instructions;
 pub mod interrupt;

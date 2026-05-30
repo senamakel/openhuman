@@ -156,8 +156,9 @@ pub(crate) async fn run_one_tool(
     // either not gated, was session-allowlist-shortcutted, or was denied —
     // none of which produce an audit row that needs an "after" entry.
     let mut approval_request_id: Option<String> = None;
-    let mut approval_gate_for_audit: Option<std::sync::Arc<crate::openhuman::approval::ApprovalGate>> =
-        None;
+    let mut approval_gate_for_audit: Option<
+        std::sync::Arc<crate::openhuman::approval::ApprovalGate>,
+    > = None;
     if tool.external_effect_with_args(&call.arguments) {
         if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
             let summary = crate::openhuman::approval::summarize_action(&call.name, &call.arguments);
@@ -254,7 +255,10 @@ pub(crate) async fn run_one_tool(
                             call.name,
                             scrubbed.len()
                         );
-                        match summarizer.maybe_summarize(&call.name, None, &scrubbed).await {
+                        match summarizer
+                            .maybe_summarize(&call.name, None, &scrubbed)
+                            .await
+                        {
                             Ok(Some(payload)) => {
                                 log::info!(
                                     "[agent_loop] payload_summarizer compressed tool={} {}->{} bytes",
@@ -312,7 +316,10 @@ pub(crate) async fn run_one_tool(
             (format!("Error executing {}: {e}", call.name), false)
         }
         Err(_) => {
-            let msg = format!("tool '{}' timed out after {} seconds", call.name, timeout_secs);
+            let msg = format!(
+                "tool '{}' timed out after {} seconds",
+                call.name, timeout_secs
+            );
             crate::core::observability::report_error(
                 msg.as_str(),
                 "tool",
@@ -348,15 +355,20 @@ pub(crate) async fn run_one_tool(
     // created before execution, so the audit trail carries both the before
     // (approval) and after (executed_at + outcome). Best-effort: a write
     // failure here is logged but not propagated to the agent.
-    if let (Some(gate), Some(req_id)) =
-        (approval_gate_for_audit.as_ref(), approval_request_id.as_ref())
-    {
+    if let (Some(gate), Some(req_id)) = (
+        approval_gate_for_audit.as_ref(),
+        approval_request_id.as_ref(),
+    ) {
         let exec_outcome = if success {
             crate::openhuman::approval::ExecutionOutcome::Success
         } else {
             crate::openhuman::approval::ExecutionOutcome::Failure
         };
-        let err_text = if success { None } else { Some(result_text.as_str()) };
+        let err_text = if success {
+            None
+        } else {
+            Some(result_text.as_str())
+        };
         gate.record_execution(req_id, exec_outcome, err_text);
     }
 

@@ -62,6 +62,11 @@ struct AgentRecord {
 }
 
 impl AgentOrchestrationSession {
+    /// Create an in-memory orchestration session.
+    ///
+    /// The `session_id` identifies the parent orchestration run in emitted
+    /// [`DomainEvent`] payloads. The session starts empty and remains
+    /// process-local until a future persistence layer stores snapshots.
     pub fn new(session_id: impl Into<String>) -> Self {
         Self {
             session_id: session_id.into(),
@@ -70,10 +75,27 @@ impl AgentOrchestrationSession {
         }
     }
 
+    /// Return the stable parent orchestration session id.
     pub fn session_id(&self) -> &str {
         &self.session_id
     }
 
+    /// Spawn a child agent from the active parent agent turn.
+    ///
+    /// `request` must provide a non-empty `agent_id` and `prompt`; optional
+    /// context, toolkit, model, parent id, and metadata are carried into the
+    /// child record and sub-agent run options. On success this returns the
+    /// accepted child id and initial status while a background task executes the
+    /// child through [`run_subagent`].
+    ///
+    /// Returns [`OrchestrationError::NoParentContext`] when called outside an
+    /// agent turn, [`OrchestrationError::InvalidSpawnRequest`] for an empty
+    /// agent id or prompt, [`OrchestrationError::RegistryUnavailable`] when the
+    /// agent definition registry is not initialized, or
+    /// [`OrchestrationError::DefinitionNotFound`] for an unknown agent id. Side
+    /// effects include storing a pending snapshot, publishing an
+    /// [`DomainEvent::AgentOrchestrationSpawned`] event, emitting parent
+    /// progress when available, and waking waiters.
     pub async fn spawn_agent(
         &self,
         request: SpawnAgentRequest,
@@ -84,6 +106,10 @@ impl AgentOrchestrationSession {
             .await
     }
 
+    /// List all child agents currently known to this session.
+    ///
+    /// Returns cloned [`AgentSnapshot`] values ordered by creation timestamp.
+    /// This method has no fallible paths and does not mutate session state.
     pub async fn list_agents(&self) -> Vec<AgentSnapshot> {
         let state = self.state.lock().await;
         let mut agents: Vec<AgentSnapshot> = state
@@ -95,6 +121,20 @@ impl AgentOrchestrationSession {
         agents
     }
 
+    /// Record a parent-to-child message on an orchestration record.
+    ///
+    /// `request.orchestration_id` selects the child record and
+    /// `request.content` must be non-empty after trimming. For a running child,
+    /// the snapshot status moves to [`AgentStatus::Waiting`]; terminal children
+    /// keep their terminal status so a completed child can still receive a
+    /// recorded orchestrator answer before a follow-up child is spawned.
+    ///
+    /// Returns [`OrchestrationError::InvalidMessage`] for empty content or
+    /// [`OrchestrationError::AgentNotFound`] for an unknown child id. Side
+    /// effects include appending an [`AgentMessage`], recording a
+    /// [`AgentOrchestrationEvent::MessageRecorded`] event, updating the
+    /// timestamp, and waking waiters. This records communication metadata only;
+    /// it does not inject live input into an already-running harness loop.
     pub async fn message_agent(
         &self,
         request: MessageAgentRequest,
@@ -127,6 +167,16 @@ impl AgentOrchestrationSession {
         Ok(snapshot)
     }
 
+    /// Wait for one or more child agents to reach terminal status.
+    ///
+    /// `options.orchestration_ids` names the children to observe. An empty id
+    /// list returns the current full session snapshot immediately. When
+    /// `timeout_ms` is present, the wait returns a partial response with
+    /// `completed = false` after the timeout instead of failing.
+    ///
+    /// Returns [`OrchestrationError::AgentNotFound`] if any requested child id
+    /// is unknown. Side effects are limited to waiting on internal notifications;
+    /// no snapshots or events are mutated.
     pub async fn wait_agents(
         &self,
         options: WaitAgentOptions,
@@ -161,6 +211,17 @@ impl AgentOrchestrationSession {
         }
     }
 
+    /// Close a child agent record and abort its background task if present.
+    ///
+    /// `request.orchestration_id` selects the child and `request.reason`, when
+    /// present, is stored as the snapshot error/reason. Closing is terminal and
+    /// returns the updated snapshot.
+    ///
+    /// Returns [`OrchestrationError::AgentNotFound`] for an unknown child id.
+    /// Side effects include aborting the child task, marking the snapshot as
+    /// [`AgentStatus::Closed`], recording an
+    /// [`AgentOrchestrationEvent::Closed`] event, publishing
+    /// [`DomainEvent::AgentOrchestrationClosed`], and waking waiters.
     pub async fn close_agent(
         &self,
         request: CloseAgentRequest,
@@ -191,6 +252,19 @@ impl AgentOrchestrationSession {
         Ok(snapshot)
     }
 
+    /// Spawn a linked follow-up child from an existing child record.
+    ///
+    /// `request.orchestration_id` identifies the previous child and
+    /// `request.prompt` is the new delegated instruction. If `request.context`
+    /// is absent, the previous child's result summary is used as follow-up
+    /// context. The new child inherits the prior child agent id, toolkit, model,
+    /// and metadata, and stores `follow_up_of` metadata plus `parent_agent_id`
+    /// pointing at the previous child.
+    ///
+    /// Returns [`OrchestrationError::NoParentContext`] outside an active parent
+    /// turn, [`OrchestrationError::AgentNotFound`] for an unknown prior child,
+    /// or any spawn-time error from [`Self::spawn_agent`]'s validation path.
+    /// Side effects match spawning a new child agent.
     pub async fn follow_up(
         &self,
         request: FollowUpRequest,
@@ -230,6 +304,17 @@ impl AgentOrchestrationSession {
             .await
     }
 
+    /// Resume a child by spawning a linked continuation child.
+    ///
+    /// `request.orchestration_id` selects the prior child. When
+    /// `request.prompt` is absent, the previous prompt is reused; the previous
+    /// result summary or error becomes the follow-up context. This is a
+    /// convenience wrapper around [`Self::follow_up`].
+    ///
+    /// Returns [`OrchestrationError::AgentNotFound`] if the prior child is
+    /// unknown, [`OrchestrationError::NoParentContext`] if no parent turn is
+    /// active, or the same spawn-time errors as [`Self::follow_up`]. Side
+    /// effects match spawning a linked follow-up child.
     pub async fn resume_agent(
         &self,
         request: ResumeAgentRequest,
@@ -252,6 +337,11 @@ impl AgentOrchestrationSession {
         .await
     }
 
+    /// Return lifecycle events recorded by this session.
+    ///
+    /// The returned vector is a cloned snapshot of in-memory events in
+    /// insertion order. This method has no fallible paths and does not mutate
+    /// the session.
     pub async fn events(&self) -> Vec<AgentOrchestrationEvent> {
         self.state.lock().await.events.clone()
     }

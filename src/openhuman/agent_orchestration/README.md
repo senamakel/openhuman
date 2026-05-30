@@ -8,9 +8,9 @@ sub-agent loops.
 
 ## Current Inventory
 
-- `agent_registry::tools::spawn_subagent` runs one typed sub-agent and returns a collapsed result.
-- `agent_registry::tools::spawn_parallel_agents` fans out independent typed sub-agent runs.
-- `agent_registry::tools::spawn_worker_thread` creates a persisted worker-thread transcript, but the current `spawn_subagent` tool rejects `dedicated_thread` until the worker UI is ready.
+- `agent_orchestration::tools::spawn_subagent` runs one typed sub-agent and returns a collapsed result.
+- `agent_orchestration::tools::spawn_parallel_agents` fans out independent typed sub-agent runs.
+- `agent_orchestration::tools::spawn_worker_thread` creates a persisted worker-thread transcript, but the current `spawn_subagent` tool rejects `dedicated_thread` until the worker UI is ready.
 - `agent::harness::subagent_runner` is the canonical execution path for typed child agents.
 - `agent::progress::AgentProgress::Subagent*` and `DomainEvent::Subagent*` already provide lifecycle and child tool-call telemetry.
 

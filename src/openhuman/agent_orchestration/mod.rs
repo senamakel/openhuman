@@ -6,6 +6,7 @@
 //! construction, tool filtering, and the actual sub-agent run loop.
 
 mod ops;
+pub mod tools;
 pub mod types;
 
 #[cfg(test)]

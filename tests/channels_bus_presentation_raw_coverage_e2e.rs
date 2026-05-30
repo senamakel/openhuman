@@ -53,10 +53,20 @@ async fn presentation_segments_text_and_delivers_single_bubble_with_citations() 
     )
     .await;
 
-    let event = timeout(Duration::from_secs(5), rx.recv())
-        .await
-        .expect("single bubble event timeout")
-        .expect("single bubble event");
+    // `subscribe_web_channel_events` is a process-global bus shared with the
+    // other presentation tests, which run concurrently and emit their own
+    // `chat_segment`/`chat_done` events. Filter to this delivery's request id so
+    // a sibling's segment event can't be mistaken for our single bubble.
+    let event = timeout(Duration::from_secs(5), async {
+        loop {
+            let event = rx.recv().await.expect("single bubble event");
+            if event.request_id == "round20-single" {
+                break event;
+            }
+        }
+    })
+    .await
+    .expect("single bubble event timeout");
     assert_eq!(event.event, "chat_done");
     assert_eq!(event.full_response.as_deref(), Some("Short final answer."));
     assert_eq!(event.reaction_emoji, None);

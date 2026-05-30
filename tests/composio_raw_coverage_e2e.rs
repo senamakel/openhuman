@@ -36,14 +36,14 @@ use openhuman_core::openhuman::composio::tools::{
 };
 use openhuman_core::openhuman::composio::trigger_history::ComposioTriggerHistoryStore;
 use openhuman_core::openhuman::composio::types::{
-    ComposioActiveTrigger, ComposioActiveTriggersResponse, ComposioAvailableTrigger,
-    ComposioAvailableTriggerRepo, ComposioAvailableTriggersResponse, ComposioCapabilitiesResponse,
-    ComposioCapability, ComposioConnection, ComposioConnectionsResponse,
-    ComposioCreateTriggerResponse, ComposioDeleteResponse, ComposioDisableTriggerResponse,
-    ComposioEnableTriggerResponse, ComposioExecuteResponse, ComposioGithubRepo,
-    ComposioGithubReposResponse, ComposioToolFunction, ComposioToolSchema,
-    ComposioToolkitsResponse, ComposioToolsResponse, ComposioTriggerEvent,
-    ComposioTriggerHistoryEntry, ComposioTriggerMetadata,
+    ComposioActiveTrigger, ComposioActiveTriggersResponse, ComposioAgentReadyToolkitsResponse,
+    ComposioAuthorizeResponse, ComposioAvailableTrigger, ComposioAvailableTriggerRepo,
+    ComposioAvailableTriggersResponse, ComposioCapabilitiesResponse, ComposioCapability,
+    ComposioConnection, ComposioConnectionsResponse, ComposioCreateTriggerResponse,
+    ComposioDeleteResponse, ComposioDisableTriggerResponse, ComposioEnableTriggerResponse,
+    ComposioExecuteResponse, ComposioGithubRepo, ComposioGithubReposResponse, ComposioToolFunction,
+    ComposioToolSchema, ComposioToolkitsResponse, ComposioToolsResponse, ComposioTriggerEvent,
+    ComposioTriggerHistoryEntry, ComposioTriggerHistoryResult, ComposioTriggerMetadata,
 };
 use openhuman_core::openhuman::composio::{
     all_composio_agent_tools, all_composio_controller_schemas, all_composio_registered_controllers,
@@ -957,10 +957,96 @@ async fn composio_agent_tools_cover_metadata_missing_params_and_scope_helpers() 
     assert!(fallback.is_error);
 }
 
+#[tokio::test]
+async fn composio_agent_tools_direct_mode_take_local_branches_without_backend() {
+    let dir = tempdir().expect("tempdir");
+    let mut config = Config {
+        workspace_dir: dir.path().join("workspace"),
+        config_path: dir.path().join("config.toml"),
+        ..Config::default()
+    };
+    config.composio.mode = "direct".into();
+    config.composio.api_key = Some("direct-test-key".into());
+    config
+        .save()
+        .await
+        .expect("persist direct-mode test config");
+    let config = Arc::new(config);
+
+    let list_toolkits = ComposioListToolkitsTool::new(config.clone());
+    let toolkits = list_toolkits
+        .execute(json!({}))
+        .await
+        .expect("direct list_toolkits returns local empty response");
+    assert!(!toolkits.is_error);
+    assert_eq!(toolkits.text(), r#"{"toolkits":[]}"#);
+
+    let list_tools = ComposioListToolsTool::new(config.clone());
+    let tools = list_tools
+        .execute_with_options(
+            json!({ "include_unconnected": true, "tags": ["ignored outside github"] }),
+            ToolCallOptions {
+                prefer_markdown: true,
+            },
+        )
+        .await
+        .expect("direct list_tools returns local empty response");
+    assert!(!tools.is_error);
+    assert_eq!(tools.text(), r#"{"tools":[]}"#);
+    assert_eq!(
+        tools.markdown_formatted.as_deref(),
+        Some("_No composio tools available._")
+    );
+
+    let authorize = ComposioAuthorizeTool::new(config.clone());
+    let authorize_result = authorize
+        .execute(json!({ "toolkit": "gmail" }))
+        .await
+        .expect("direct authorize is refused locally");
+    assert!(authorize_result.is_error);
+    assert!(authorize_result.text().contains("direct mode is active"));
+
+    let execute = ComposioExecuteTool::new(config);
+    let execute_result = execute
+        .execute(json!({
+            "tool": "GMAIL_FETCH_EMAILS",
+            "connection_id": "conn-gmail",
+            "arguments": "not an object"
+        }))
+        .await
+        .expect("direct execute validation is rendered locally");
+    assert!(execute_result.is_error);
+    let execute_text = execute_result.text();
+    assert!(
+        execute_text.starts_with("[composio:error:"),
+        "{execute_text}"
+    );
+    assert!(execute_text.contains("must be a JSON object"));
+}
+
 #[test]
 fn composio_types_roundtrip_connection_tool_trigger_and_history_shapes() {
     let toolkits: ComposioToolkitsResponse = serde_json::from_value(json!({})).unwrap();
     assert!(toolkits.toolkits.is_empty());
+
+    let agent_ready = ComposioAgentReadyToolkitsResponse {
+        toolkits: vec!["gmail".into(), "googlesheets".into()],
+    };
+    assert_eq!(
+        serde_json::to_value(&agent_ready).unwrap()["toolkits"][1],
+        "googlesheets"
+    );
+
+    let authorize = ComposioAuthorizeResponse {
+        connect_url: "https://connect.example/oauth".into(),
+        connection_id: "conn-123".into(),
+    };
+    let authorize_json = serde_json::to_value(&authorize).unwrap();
+    assert_eq!(
+        authorize_json["connectUrl"],
+        "https://connect.example/oauth"
+    );
+    assert_eq!(authorize_json["connectionId"], "conn-123");
 
     let capabilities = ComposioCapabilitiesResponse {
         capabilities: vec![ComposioCapability {
@@ -1180,6 +1266,20 @@ fn composio_types_roundtrip_connection_tool_trigger_and_history_shapes() {
         payload: json!({ "subject": "coverage" }),
     };
     assert_eq!(serde_json::to_value(entry).unwrap()["received_at_ms"], 42);
+    let history = ComposioTriggerHistoryResult {
+        archive_dir: "/tmp/archive".into(),
+        current_day_file: "/tmp/archive/2026-05-29.jsonl".into(),
+        entries: vec![ComposioTriggerHistoryEntry {
+            received_at_ms: 43,
+            toolkit: "slack".into(),
+            trigger: "SLACK_NEW_MESSAGE".into(),
+            metadata_id: "m2".into(),
+            metadata_uuid: "u2".into(),
+            payload: json!({ "text": "coverage" }),
+        }],
+    };
+    let history_json = serde_json::to_value(history).unwrap();
+    assert_eq!(history_json["entries"][0]["metadata_uuid"], "u2");
 }
 
 #[test]

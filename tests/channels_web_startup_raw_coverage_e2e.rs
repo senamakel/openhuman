@@ -81,8 +81,21 @@ fn web_error_debug_export_covers_provider_config_and_retry_branches() {
     ));
 }
 
+/// Serialize tests that run a web chat task whose outcome depends on the
+/// process-global forced-error seam (`set_forced_run_chat_task_error_for_test`).
+/// Without this, the forced error one test installs leaks into another's chat
+/// run, crossing their expected error types (e.g. `rate_limited` vs
+/// `cancelled`) under cargo-llvm-cov's multi-threaded execution.
+fn web_chat_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
 #[tokio::test]
 async fn web_controllers_validate_inputs_and_emit_structured_forced_errors() {
+    let _chat_lock = web_chat_lock();
     let controller_schemas = all_web_channel_controller_schemas();
     assert_eq!(controller_schemas.len(), 2);
     assert!(controller_schemas
@@ -150,6 +163,11 @@ async fn web_controllers_validate_inputs_and_emit_structured_forced_errors() {
 
 #[tokio::test]
 async fn web_chat_cancel_aborts_in_flight_thread_without_real_provider() {
+    let _chat_lock = web_chat_lock();
+    // Clear any forced error a sibling test may have leaked before this chat
+    // runs, so the cancellation path produces a real `cancelled` error rather
+    // than inheriting a stale forced `rate_limited`/`inference` one.
+    web_test_support::set_forced_run_chat_task_error_for_test(None).await;
     let mut rx = subscribe_web_channel_events();
     let request_id = start_chat(
         "cancel-client",

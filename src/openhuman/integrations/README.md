@@ -70,7 +70,7 @@ None — no `store.rs`. The only in-memory cache is the per-`IntegrationClient` 
 ## Used by
 
 - `src/openhuman/tools/{ops,mod,schemas}.rs` — registers the integration tools into the agent tool registry, gated by config.
-- `src/openhuman/tools/impl/network/web_search.rs` — web-search tool surface backed by integration providers.
+- `src/openhuman/search/` — search engine registry and web-search tool surface backed by integration providers.
 - `src/openhuman/learning/linkedin_enrichment.rs` — uses an integration (Apify-style enrichment) for LinkedIn data.
 - `src/openhuman/composio/*` — the Composio domain reuses `IntegrationClient` / `build_client` for its backend-proxied OAuth-integration calls.
 - `src/core/observability.rs` — references integration error-classification paths.

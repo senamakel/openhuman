@@ -188,6 +188,9 @@ pub fn all_tools_with_runtime(
         Box::new(WalletStatusTool::new()),
         Box::new(WalletChainStatusTool::new()),
         Box::new(WalletPrepareTransferTool::new()),
+        Box::new(WalletTxStatusTool::new()),
+        Box::new(WalletTxReceiptTool::new()),
+        Box::new(WalletLookupTxTool::new()),
         Box::new(MemoryStoreTool::new(memory.clone(), security.clone())),
         Box::new(MemoryRecallTool::new(memory.clone())),
         Box::new(MemoryForgetTool::new(memory.clone(), security.clone())),
@@ -352,6 +355,11 @@ pub fn all_tools_with_runtime(
     }
 
     tools.extend(crate::openhuman::search::build_search_tools(root_config));
+
+    // High-level web3 tools (swaps / bridges / dapp calls) built on the wallet.
+    // They call the backend deBridge proxy per-invocation and error gracefully
+    // when the user is not signed in, so they register unconditionally.
+    tools.extend(crate::openhuman::web3::all_web3_agent_tools());
 
     // Managed Node.js exec tools — gated on `root_config.node.enabled`.
     // Both share the same `NodeBootstrap` as ShellTool so the download +

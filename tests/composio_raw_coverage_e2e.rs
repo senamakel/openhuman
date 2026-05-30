@@ -49,13 +49,13 @@ use openhuman_core::openhuman::composio::{
     all_composio_agent_tools, all_composio_controller_schemas, all_composio_registered_controllers,
     cached_active_integrations, connected_set_hash, connection_identity,
     fetch_connected_integrations, fetch_connected_integrations_status,
-    invalidate_connected_integrations_cache, ComposioActionTool, ComposioClient,
-    FetchConnectedIntegrationsStatus,
+    init_composio_trigger_history, invalidate_connected_integrations_cache, ComposioActionTool,
+    ComposioClient, FetchConnectedIntegrationsStatus,
 };
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
 use openhuman_core::openhuman::integrations::IntegrationClient;
-use openhuman_core::openhuman::security::SecurityPolicy;
+use openhuman_core::openhuman::security::{AutonomyLevel, SecurityPolicy};
 use openhuman_core::openhuman::tools::{
     ComposioTool, PermissionLevel, Tool, ToolCallOptions, ToolCategory,
 };
@@ -352,6 +352,55 @@ async fn composio_connected_integrations_public_helpers_handle_empty_auth_and_id
     assert_eq!(connection_identity(&config, "unknown-toolkit").await, None);
 }
 
+#[tokio::test]
+async fn composio_ops_mode_and_trigger_history_are_local_and_deterministic() {
+    let dir = tempdir().expect("tempdir");
+    let mut config = Config {
+        workspace_dir: dir.path().to_path_buf(),
+        config_path: dir.path().join("config.toml"),
+        ..Config::default()
+    };
+    config.composio.mode = "direct".into();
+
+    let mode = openhuman_core::openhuman::composio::ops::composio_get_mode(&config)
+        .await
+        .expect("get mode should not call backend")
+        .into_cli_compatible_json()
+        .expect("mode outcome serializes");
+    assert_eq!(mode.pointer("/result/mode"), Some(&json!("direct")));
+    assert!(mode.pointer("/result/api_key_set").is_some());
+
+    init_composio_trigger_history(dir.path().to_path_buf())
+        .expect("global trigger history initializes for temp workspace");
+    let store = openhuman_core::openhuman::composio::global_composio_trigger_history()
+        .expect("global history store");
+    store
+        .record_trigger(
+            "gmail",
+            "GMAIL_NEW_GMAIL_MESSAGE",
+            "metadata-local",
+            "uuid-local",
+            &json!({ "subject": "ops coverage" }),
+        )
+        .expect("record global trigger");
+
+    let history =
+        openhuman_core::openhuman::composio::ops::composio_list_trigger_history(&config, Some(0))
+            .await
+            .expect("history listing is local")
+            .into_cli_compatible_json()
+            .expect("history outcome serializes");
+    assert_eq!(
+        history.pointer("/result/entries/0/metadata_id"),
+        Some(&json!("metadata-local"))
+    );
+    assert!(history
+        .pointer("/result/archive_dir")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .contains("state/triggers"));
+}
+
 #[test]
 fn composio_action_tool_metadata_is_stable_without_network_execution() {
     let dir = tempdir().expect("tempdir");
@@ -503,6 +552,24 @@ async fn composio_client_and_dispatch_reject_invalid_inputs_before_network() {
     .unwrap_err();
     assert!(kind_validation.starts_with("[composio:error:"));
     assert!(kind_validation.contains("recipient"));
+
+    let direct_tool = Arc::new(ComposioTool::new(
+        "direct-key",
+        Some("entity-1"),
+        Arc::new(SecurityPolicy::default()),
+    ));
+    let direct_kind = ComposioClientKind::Direct(direct_tool);
+    assert_eq!(direct_kind.mode(), "direct");
+    let direct_validation = execute_composio_action_kind(
+        direct_kind,
+        "GMAIL_SEND_EMAIL",
+        Some(json!({ "subject": "still missing recipient" })),
+        "entity-1",
+    )
+    .await
+    .expect_err("direct dispatch validates before network");
+    assert!(direct_validation.starts_with("[composio:error:"));
+    assert!(direct_validation.contains("recipient"));
 }
 
 #[test]
@@ -1148,6 +1215,19 @@ fn composio_direct_public_types_deserialize_polymorphic_toolkits() {
     .unwrap();
     assert_eq!(nested.toolkit_slug().as_deref(), Some("slack"));
 
+    for (field, expected) in [
+        ("slug", "github"),
+        ("id", "googlecalendar"),
+        ("name", "googledrive"),
+    ] {
+        let account: ComposioConnectedAccount = serde_json::from_value(json!({
+            "id": format!("acct-{field}"),
+            "toolkit": { field: format!(" {expected} ") }
+        }))
+        .unwrap();
+        assert_eq!(account.toolkit_slug().as_deref(), Some(expected));
+    }
+
     let fallback: ComposioConnectedAccount = serde_json::from_value(json!({
         "id": "acct-3",
         "toolkit": { "ignored": "value" },
@@ -1432,6 +1512,39 @@ async fn composio_direct_tool_public_surface_handles_local_metadata_and_errors()
     assert!(missing_connect_target
         .to_string()
         .contains("Missing 'app' or 'auth_config_id'"));
+
+    let read_only_tool = ComposioTool::new(
+        "direct-api-key",
+        Some("default"),
+        Arc::new(SecurityPolicy {
+            autonomy: AutonomyLevel::ReadOnly,
+            ..SecurityPolicy::default()
+        }),
+    );
+    let blocked_execute = read_only_tool
+        .execute(json!({
+            "action": "execute",
+            "tool_slug": "GMAIL_FETCH_EMAILS",
+            "params": { "query": "newer_than:1d" }
+        }))
+        .await
+        .expect("policy block is rendered as a tool result");
+    assert!(blocked_execute.is_error);
+    assert!(serde_json::to_string(&blocked_execute)
+        .unwrap()
+        .contains("read-only mode"));
+
+    let blocked_connect = read_only_tool
+        .execute(json!({
+            "action": "connect",
+            "auth_config_id": "auth-config-1"
+        }))
+        .await
+        .expect("policy block is rendered as a tool result");
+    assert!(blocked_connect.is_error);
+    assert!(serde_json::to_string(&blocked_connect)
+        .unwrap()
+        .contains("read-only mode"));
 }
 
 #[test]

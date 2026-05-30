@@ -8,6 +8,7 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 use tempfile::tempdir;
 
+use openhuman_core::core::all::RegisteredController;
 use openhuman_core::openhuman::composio::error_mapping::{
     classify_composio_error, format_provider_error, remap_transport_error, ComposioErrorClass,
 };
@@ -15,6 +16,13 @@ use openhuman_core::openhuman::composio::execute_prepare::prepare_execute_argume
 use openhuman_core::openhuman::composio::oauth_handoff::{
     is_authorize_rate_limited, is_clearable_oauth_status, is_inflight_oauth_status,
     is_meta_oauth_toolkit, meta_oauth_rate_limit_message, wrap_authorize_rate_limit_error,
+};
+use openhuman_core::openhuman::composio::providers::{
+    classify_unknown, find_curated, toolkit_from_slug, CuratedTool, ToolScope, UserScopePref,
+};
+use openhuman_core::openhuman::composio::tools::{
+    ComposioAuthorizeTool, ComposioExecuteTool, ComposioListConnectionsTool,
+    ComposioListToolkitsTool, ComposioListToolsTool,
 };
 use openhuman_core::openhuman::composio::trigger_history::ComposioTriggerHistoryStore;
 use openhuman_core::openhuman::composio::types::{
@@ -27,9 +35,12 @@ use openhuman_core::openhuman::composio::types::{
     ComposioToolkitsResponse, ComposioToolsResponse, ComposioTriggerEvent,
     ComposioTriggerHistoryEntry, ComposioTriggerMetadata,
 };
-use openhuman_core::openhuman::composio::ComposioActionTool;
+use openhuman_core::openhuman::composio::{
+    all_composio_agent_tools, all_composio_controller_schemas, all_composio_registered_controllers,
+    ComposioActionTool,
+};
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolCategory};
+use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory};
 
 #[test]
 fn composio_prepare_execute_arguments_normalizes_calendar_and_notion_payloads() {
@@ -256,6 +267,201 @@ fn composio_action_tool_metadata_is_stable_without_network_execution() {
         default_schema.parameters_schema(),
         json!({ "type": "object" })
     );
+}
+
+#[tokio::test]
+async fn composio_controller_registry_and_scope_handlers_cover_validation_edges() {
+    let schemas = all_composio_controller_schemas();
+    let registered = all_composio_registered_controllers();
+    assert_eq!(schemas.len(), registered.len());
+    assert!(schemas.iter().any(|schema| schema.function == "execute"));
+    assert!(schemas
+        .iter()
+        .any(|schema| schema.function == "set_api_key"));
+    assert!(registered.iter().all(|controller| {
+        controller
+            .rpc_method_name()
+            .starts_with("openhuman.composio_")
+    }));
+
+    let unknown = openhuman_core::openhuman::composio::schemas::schemas("not_real");
+    assert_eq!(unknown.function, "unknown");
+    assert_eq!(unknown.inputs[0].name, "function");
+
+    let get_scopes = composio_controller(&registered, "get_user_scopes");
+    let scopes = composio_call(get_scopes, json!({ "toolkit": " Gmail " }))
+        .await
+        .expect("default user scopes");
+    assert_eq!(scopes.pointer("/read"), Some(&json!(true)));
+    assert_eq!(scopes.pointer("/write"), Some(&json!(true)));
+    assert_eq!(scopes.pointer("/admin"), Some(&json!(false)));
+
+    let missing_toolkit = composio_call(get_scopes, json!({}))
+        .await
+        .expect_err("toolkit is required");
+    assert!(missing_toolkit.contains("missing required param 'toolkit'"));
+
+    let set_scopes = composio_controller(&registered, "set_user_scopes");
+    let invalid_write = composio_call(
+        set_scopes,
+        json!({ "toolkit": "gmail", "read": true, "write": "yes", "admin": false }),
+    )
+    .await
+    .expect_err("write must be bool");
+    assert!(invalid_write.contains("invalid 'write'"));
+    let memory_missing = composio_call(
+        set_scopes,
+        json!({ "toolkit": "gmail", "read": true, "write": true, "admin": false }),
+    )
+    .await
+    .expect_err("memory client not initialised");
+    assert!(memory_missing.contains("memory client not initialised"));
+}
+
+fn composio_controller<'a>(
+    controllers: &'a [RegisteredController],
+    function: &str,
+) -> &'a RegisteredController {
+    controllers
+        .iter()
+        .find(|controller| controller.schema.function == function)
+        .unwrap_or_else(|| panic!("controller {function} registered"))
+}
+
+async fn composio_call(controller: &RegisteredController, params: Value) -> Result<Value, String> {
+    let params = params.as_object().cloned().unwrap_or_default();
+    (controller.handler)(params).await
+}
+
+#[tokio::test]
+async fn composio_agent_tools_cover_metadata_missing_params_and_scope_helpers() {
+    let dir = tempdir().expect("tempdir");
+    let config = Config {
+        workspace_dir: dir.path().to_path_buf(),
+        config_path: dir.path().join("config.toml"),
+        ..Config::default()
+    };
+    let config = Arc::new(config);
+
+    let list_toolkits = ComposioListToolkitsTool::new(config.clone());
+    assert_eq!(list_toolkits.name(), "composio_list_toolkits");
+    assert_eq!(list_toolkits.permission_level(), PermissionLevel::ReadOnly);
+    assert_eq!(list_toolkits.category(), ToolCategory::Skill);
+    assert_eq!(
+        list_toolkits
+            .parameters_schema()
+            .pointer("/additionalProperties"),
+        Some(&json!(false))
+    );
+
+    let list_connections = ComposioListConnectionsTool::new(config.clone());
+    assert_eq!(list_connections.name(), "composio_list_connections");
+    assert_eq!(
+        list_connections.permission_level(),
+        PermissionLevel::ReadOnly
+    );
+    assert_eq!(list_connections.category(), ToolCategory::Skill);
+
+    let authorize = ComposioAuthorizeTool::new(config.clone());
+    assert_eq!(authorize.name(), "composio_authorize");
+    assert_eq!(authorize.permission_level(), PermissionLevel::Write);
+    assert_eq!(
+        authorize.parameters_schema().pointer("/required/0"),
+        Some(&json!("toolkit"))
+    );
+    let auth_missing = authorize.execute(json!({})).await.expect("missing toolkit");
+    assert!(auth_missing.is_error);
+    assert!(serde_json::to_string(&auth_missing)
+        .unwrap()
+        .contains("'toolkit' is required"));
+
+    let list_tools = ComposioListToolsTool::new(config.clone());
+    assert_eq!(list_tools.name(), "composio_list_tools");
+    assert!(list_tools.supports_markdown());
+    assert_eq!(
+        list_tools
+            .parameters_schema()
+            .pointer("/properties/tags/items/type"),
+        Some(&json!("string"))
+    );
+
+    let execute = ComposioExecuteTool::new(config.clone());
+    assert_eq!(execute.name(), "composio_execute");
+    assert_eq!(execute.permission_level(), PermissionLevel::Write);
+    assert_eq!(execute.category(), ToolCategory::Skill);
+    let execute_missing = execute.execute(json!({})).await.expect("missing tool");
+    assert!(execute_missing.is_error);
+    assert!(serde_json::to_string(&execute_missing)
+        .unwrap()
+        .contains("'tool' is required"));
+
+    let mut direct_config = (*config).clone();
+    direct_config.composio.mode = "direct".to_string();
+    direct_config.composio.api_key = Some("test-direct-key".to_string());
+    let registered_tools = all_composio_agent_tools(&direct_config);
+    let names: Vec<&str> = registered_tools.iter().map(|tool| tool.name()).collect();
+    assert_eq!(
+        names,
+        vec![
+            "composio_list_toolkits",
+            "composio_list_connections",
+            "composio_authorize",
+            "composio_list_tools",
+            "composio_execute",
+        ]
+    );
+    let no_tools = all_composio_agent_tools(&Config::default());
+    assert!(no_tools.is_empty());
+
+    assert_eq!(
+        toolkit_from_slug(" GMAIL_SEND_EMAIL "),
+        Some("gmail".into())
+    );
+    assert_eq!(
+        toolkit_from_slug("noUnderscore"),
+        Some("nounderscore".into())
+    );
+    assert_eq!(toolkit_from_slug(""), None);
+    assert_eq!(classify_unknown("GMAIL_DELETE_EMAIL"), ToolScope::Admin);
+    assert_eq!(classify_unknown("GMAIL_SEND_EMAIL"), ToolScope::Write);
+    assert_eq!(classify_unknown("GMAIL_FETCH_EMAILS"), ToolScope::Read);
+    let catalog = [
+        CuratedTool {
+            slug: "GMAIL_FETCH_EMAILS",
+            scope: ToolScope::Read,
+        },
+        CuratedTool {
+            slug: "GMAIL_SEND_EMAIL",
+            scope: ToolScope::Write,
+        },
+    ];
+    assert_eq!(
+        find_curated(&catalog, "gmail_send_email")
+            .expect("case-insensitive curated match")
+            .scope,
+        ToolScope::Write
+    );
+    assert!(find_curated(&catalog, "GMAIL_DELETE_EMAIL").is_none());
+    assert_eq!(ToolScope::Admin.as_str(), "admin");
+    let pref = UserScopePref {
+        read: true,
+        write: false,
+        admin: false,
+    };
+    assert!(pref.allows(ToolScope::Read));
+    assert!(!pref.allows(ToolScope::Write));
+    assert!(!pref.allows(ToolScope::Admin));
+
+    let fallback = list_tools
+        .execute_with_options(
+            json!({ "toolkits": ["unknown_toolkit"], "include_unconnected": true }),
+            ToolCallOptions {
+                prefer_markdown: true,
+            },
+        )
+        .await
+        .expect("factory failure is rendered as tool result");
+    assert!(fallback.is_error);
 }
 
 #[test]

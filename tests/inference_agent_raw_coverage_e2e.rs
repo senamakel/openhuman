@@ -6,13 +6,14 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use async_trait::async_trait;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde_json::{Value, json};
-use tempfile::{TempDir, tempdir};
+use serde_json::{json, Value};
+use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::all::RegisteredController;
 use openhuman_core::openhuman::agent::agents::BUILTINS;
@@ -22,27 +23,30 @@ use openhuman_core::openhuman::agent::dispatcher::{
 };
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::agent::host_runtime::create_runtime;
+use openhuman_core::openhuman::agent::memory_loader::{
+    collect_recall_citations, DefaultMemoryLoader, MemoryLoader, CROSS_CHAT_HEADER,
+};
 use openhuman_core::openhuman::agent::multimodal::{
-    MultimodalError, contains_image_markers, count_image_markers, extract_ollama_image_payload,
-    parse_image_markers, prepare_messages_for_provider,
+    contains_image_markers, count_image_markers, extract_ollama_image_payload, parse_image_markers,
+    prepare_messages_for_provider, MultimodalError,
 };
 use openhuman_core::openhuman::agent::personality_paths::{
-    HasToolkit, PersonalityContext, filter_integrations, memory_subdir_for_suffix,
-    memory_tree_subdir_for_suffix, resolve_personality_memory_md, resolve_personality_soul,
-    session_raw_subdir_for_suffix,
+    filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
+    resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
+    HasToolkit, PersonalityContext,
 };
 use openhuman_core::openhuman::agent::pformat::{
-    PFormatParamType, PFormatRegistry, PFormatToolParams, build_registry,
-    parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
+    build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
+    PFormatParamType, PFormatRegistry, PFormatToolParams,
 };
 use openhuman_core::openhuman::agent::profiles::{
     AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
 };
 use openhuman_core::openhuman::agent::prompts::{
-    ConnectedIntegration, GatedIntegrationTool, LearnedContextData, NamespaceSummary,
-    PersonalityRosterEntry, PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder,
-    ToolCallFormat, UserIdentity, render_ambient_environment, render_subagent_system_prompt,
-    render_tools,
+    render_ambient_environment, render_subagent_system_prompt, render_tools, ConnectedIntegration,
+    GatedIntegrationTool, LearnedContextData, NamespaceSummary, PersonalityRosterEntry,
+    PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat,
+    UserIdentity,
 };
 use openhuman_core::openhuman::agent::task_board::{
     TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
@@ -56,32 +60,32 @@ use openhuman_core::openhuman::agent::tool_policy::{
 use openhuman_core::openhuman::agent::tools::PlanExitTool;
 use openhuman_core::openhuman::agent::triage::envelope::{TriggerEnvelope, TriggerSource};
 use openhuman_core::openhuman::agent::triage::routing::build_local_provider_with_config;
-use openhuman_core::openhuman::agent::triage::{ParseError, TriageAction, parse_triage_decision};
+use openhuman_core::openhuman::agent::triage::{parse_triage_decision, ParseError, TriageAction};
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
 };
-use openhuman_core::openhuman::config::schema::LocalAiConfig;
 use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
+use openhuman_core::openhuman::config::schema::LocalAiConfig;
 use openhuman_core::openhuman::config::{
     Config, DelegateAgentConfig, DockerRuntimeConfig, MultimodalConfig, RuntimeConfig,
 };
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, TokenSet};
-use openhuman_core::openhuman::credentials::{APP_SESSION_PROVIDER, AuthService};
+use openhuman_core::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
 use openhuman_core::openhuman::inference::context_window_for_model;
 use openhuman_core::openhuman::inference::openai_oauth::{
-    OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY, lookup_openai_bearer_token,
+    lookup_openai_bearer_token, OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
 };
 use openhuman_core::openhuman::inference::presets::{
-    MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER, ModelTier, VisionMode, all_presets,
-    apply_preset_to_config, current_tier_from_config, device_supports_local_ai, mvp_presets,
-    preset_for_tier, recommend_tier, should_default_to_cloud_fallback, supports_screen_summary,
-    vision_mode_for_config, vision_mode_for_tier,
+    all_presets, apply_preset_to_config, current_tier_from_config, device_supports_local_ai,
+    mvp_presets, preset_for_tier, recommend_tier, should_default_to_cloud_fallback,
+    supports_screen_summary, vision_mode_for_config, vision_mode_for_tier, ModelTier, VisionMode,
+    MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER,
 };
 use openhuman_core::openhuman::inference::provider::factory::{
-    BYOK_INCOMPLETE_SENTINEL, auth_key_for_slug, create_chat_provider_from_string,
-    provider_for_role,
+    auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
+    BYOK_INCOMPLETE_SENTINEL,
 };
 use openhuman_core::openhuman::inference::provider::temperature::{
     glob_match, temperature_for_model,
@@ -90,21 +94,23 @@ use openhuman_core::openhuman::inference::provider::thread_context::{
     current_thread_id, with_thread_id,
 };
 use openhuman_core::openhuman::inference::provider::{
-    ChatMessage, ChatResponse, ConversationMessage, ToolCall, ToolResultMessage, UsageInfo,
-};
-use openhuman_core::openhuman::inference::provider::{
     format_anyhow_chain, is_budget_exhausted_message, is_openai_compatible_unknown_model_message,
     is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
 };
+use openhuman_core::openhuman::inference::provider::{
+    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, ToolCall,
+    ToolResultMessage, UsageInfo,
+};
 use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
 use openhuman_core::openhuman::inference::voice::hallucination::{
-    HallucinationMode, is_hallucinated_output,
+    is_hallucinated_output, HallucinationMode,
 };
 use openhuman_core::openhuman::inference::voice::postprocess::cleanup_transcription;
 use openhuman_core::openhuman::inference::{
-    DeviceProfile, all_inference_controller_schemas, all_inference_registered_controllers,
-    all_local_ai_controller_schemas, all_local_ai_registered_controllers,
+    all_inference_controller_schemas, all_inference_registered_controllers,
+    all_local_ai_controller_schemas, all_local_ai_registered_controllers, DeviceProfile,
 };
+use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
 use openhuman_core::openhuman::security::SecurityPolicy;
 use openhuman_core::openhuman::todos::ops::BoardLocation;
 use openhuman_core::openhuman::tools::{Tool, ToolSpec};
@@ -164,6 +170,112 @@ struct FakeIntegration {
 impl HasToolkit for FakeIntegration {
     fn toolkit_name(&self) -> &str {
         &self.toolkit
+    }
+}
+
+struct EchoProvider;
+
+#[async_trait]
+impl Provider for EchoProvider {
+    async fn chat_with_system(
+        &self,
+        system_prompt: Option<&str>,
+        message: &str,
+        model: &str,
+        temperature: f64,
+    ) -> anyhow::Result<String> {
+        Ok(format!(
+            "system={}; message={message}; model={model}; temp={temperature}",
+            system_prompt.unwrap_or("<none>")
+        ))
+    }
+}
+
+#[derive(Clone, Default)]
+struct ScriptedMemory {
+    normal: Arc<Vec<MemoryEntry>>,
+    cross_session: Arc<Vec<MemoryEntry>>,
+}
+
+#[async_trait]
+impl Memory for ScriptedMemory {
+    fn name(&self) -> &str {
+        "scripted"
+    }
+
+    async fn store(
+        &self,
+        _namespace: &str,
+        _key: &str,
+        _content: &str,
+        _category: MemoryCategory,
+        _session_id: Option<&str>,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn recall(
+        &self,
+        _query: &str,
+        _limit: usize,
+        opts: RecallOpts<'_>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        if opts.cross_session {
+            Ok((*self.cross_session).clone())
+        } else {
+            Ok((*self.normal).clone())
+        }
+    }
+
+    async fn get(&self, _namespace: &str, _key: &str) -> anyhow::Result<Option<MemoryEntry>> {
+        Ok(None)
+    }
+
+    async fn list(
+        &self,
+        _namespace: Option<&str>,
+        _category: Option<&MemoryCategory>,
+        _session_id: Option<&str>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        Ok(Vec::new())
+    }
+
+    async fn forget(&self, _namespace: &str, _key: &str) -> anyhow::Result<bool> {
+        Ok(false)
+    }
+
+    async fn namespace_summaries(
+        &self,
+    ) -> anyhow::Result<Vec<openhuman_core::openhuman::memory::NamespaceSummary>> {
+        Ok(Vec::new())
+    }
+
+    async fn count(&self) -> anyhow::Result<usize> {
+        Ok(self.normal.len() + self.cross_session.len())
+    }
+
+    async fn health_check(&self) -> bool {
+        true
+    }
+}
+
+fn memory_entry(
+    id: &str,
+    key: &str,
+    content: &str,
+    namespace: Option<&str>,
+    session_id: Option<&str>,
+    score: Option<f64>,
+) -> MemoryEntry {
+    MemoryEntry {
+        id: id.to_string(),
+        key: key.to_string(),
+        content: content.to_string(),
+        namespace: namespace.map(ToOwned::to_owned),
+        category: MemoryCategory::Conversation,
+        timestamp: "2026-05-29T12:00:00Z".to_string(),
+        session_id: session_id.map(ToOwned::to_owned),
+        score,
     }
 }
 
@@ -299,11 +411,9 @@ async fn inference_registry_drives_config_oauth_models_and_provider_chat() {
     let schemas = all_inference_controller_schemas();
     let registered = all_inference_registered_controllers();
     assert_eq!(schemas.len(), registered.len());
-    assert!(
-        schemas
-            .iter()
-            .any(|schema| schema.function == "test_provider_model")
-    );
+    assert!(schemas
+        .iter()
+        .any(|schema| schema.function == "test_provider_model"));
     assert!(registered.iter().all(|controller| {
         controller
             .rpc_method_name()
@@ -527,11 +637,9 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     let schemas = all_agent_controller_schemas();
     let registered = all_agent_registered_controllers();
     assert_eq!(schemas.len(), registered.len());
-    assert!(
-        registered
-            .iter()
-            .all(|controller| controller.rpc_method_name().starts_with("openhuman.agent_"))
-    );
+    assert!(registered
+        .iter()
+        .all(|controller| controller.rpc_method_name().starts_with("openhuman.agent_")));
 
     let status = call(controller(&registered, "server_status"), json!({}))
         .await
@@ -546,10 +654,9 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
         .pointer("/definitions")
         .and_then(Value::as_array)
         .expect("definitions array");
-    assert!(
-        defs.iter()
-            .any(|def| def.pointer("/id") == Some(&json!("planner")))
-    );
+    assert!(defs
+        .iter()
+        .any(|def| def.pointer("/id") == Some(&json!("planner"))));
 
     let planner = call(
         controller(&registered, "get_definition"),
@@ -580,13 +687,12 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
         list.pointer("/activeProfileId"),
         Some(&json!(DEFAULT_PROFILE_ID))
     );
-    assert!(
-        list.pointer("/profiles")
-            .and_then(Value::as_array)
-            .expect("profiles")
-            .iter()
-            .any(|profile| profile.pointer("/id") == Some(&json!("research")))
-    );
+    assert!(list
+        .pointer("/profiles")
+        .and_then(Value::as_array)
+        .expect("profiles")
+        .iter()
+        .any(|profile| profile.pointer("/id") == Some(&json!("research"))));
 
     let unknown_agent = call(
         controller(&registered, "profile_upsert"),
@@ -833,12 +939,10 @@ fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes(
     let workspace = tempdir().expect("workspace");
     let store = TaskBoardStore::new(workspace.path().to_path_buf());
     assert!(store.get("thread-1").expect("missing board").is_none());
-    assert!(
-        store
-            .get("   ")
-            .unwrap_err()
-            .contains("invalid task board thread_id")
-    );
+    assert!(store
+        .get("   ")
+        .unwrap_err()
+        .contains("invalid task board thread_id"));
 
     let mut board = TaskBoard::empty("thread-1");
     assert_eq!(board.thread_id, "thread-1");
@@ -1036,6 +1140,110 @@ async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks(
 }
 
 #[tokio::test]
+async fn agent_memory_loader_public_paths_cover_working_prior_cross_and_citations() {
+    let memory = ScriptedMemory {
+        normal: Arc::new(vec![
+            memory_entry(
+                "working-1",
+                "working.user.timezone",
+                "Prefers UTC for release plans.",
+                Some("profile"),
+                None,
+                Some(0.95),
+            ),
+            memory_entry(
+                "working-low",
+                "working.user.low",
+                "Too weak to include.",
+                Some("profile"),
+                None,
+                Some(0.1),
+            ),
+            memory_entry(
+                "prior-1",
+                "high.preference.database",
+                "[high preference] Prefer Postgres for production services.\n[provenance] {\"thread_id\":\"older\"}",
+                Some("conversation_memory"),
+                Some("older-thread"),
+                Some(0.92),
+            ),
+            memory_entry(
+                "citation-1",
+                "project.summary",
+                &"x".repeat(320),
+                Some("projects"),
+                Some("thread-citation"),
+                Some(0.88),
+            ),
+            memory_entry(
+                "citation-low",
+                "project.low",
+                "below threshold",
+                Some("projects"),
+                Some("thread-citation"),
+                Some(0.2),
+            ),
+        ]),
+        cross_session: Arc::new(vec![
+            memory_entry(
+                "episodic-cross:old",
+                "old-thread",
+                "Earlier chat mentioned round seven coverage priorities.",
+                Some("episodic_log"),
+                Some(r#"{"thread_id":"old-thread","client_id":"client"}"#),
+                Some(0.91),
+            ),
+            memory_entry(
+                "episodic-cross:current",
+                "current-thread",
+                "Current chat should be excluded from cross chat context.",
+                Some("episodic_log"),
+                Some(r#"{"thread_id":"current-thread"}"#),
+                Some(0.99),
+            ),
+        ]),
+    };
+
+    let context = with_thread_id("current-thread", async {
+        DefaultMemoryLoader::new(5, 0.4)
+            .with_max_chars(2_000)
+            .load_context(&memory, "coverage priorities")
+            .await
+    })
+    .await
+    .expect("memory context");
+
+    assert!(context.contains("[User working memory]"));
+    assert!(context.contains("working.user.timezone (as of 2026-05-29)"));
+    assert!(!context.contains("Too weak to include"));
+    assert!(context.contains("[Prior conversations]"));
+    assert!(context.contains("(noted 2026-05-29) [high preference] Prefer Postgres"));
+    assert!(!context.contains("[provenance]"));
+    assert!(context.contains(CROSS_CHAT_HEADER.trim_end()));
+    assert!(context.contains("Earlier chat mentioned round seven coverage priorities"));
+    assert!(!context.contains("Current chat should be excluded"));
+
+    let citations = collect_recall_citations(&memory, "project", 8, 0.4)
+        .await
+        .expect("citations");
+    assert!(citations.iter().any(|citation| {
+        citation.id == "citation-1"
+            && citation.namespace.as_deref() == Some("projects")
+            && citation.snippet.ends_with("...")
+    }));
+    assert!(!citations
+        .iter()
+        .any(|citation| citation.id == "citation-low"));
+
+    let tiny_budget = DefaultMemoryLoader::new(5, 0.4)
+        .with_max_chars("[User working memory]\n".len() - 1)
+        .load_context(&memory, "coverage priorities")
+        .await
+        .expect("tiny budget context");
+    assert!(tiny_budget.is_empty());
+}
+
+#[tokio::test]
 async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
     let _lock = ENV_LOCK
         .lock()
@@ -1135,6 +1343,131 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
         "mock:chat-model@0.25"
     );
     assert_eq!(provider_for_role("memory", &config), "openhuman");
+}
+
+#[tokio::test]
+async fn inference_provider_trait_defaults_cover_prompt_guided_paths() {
+    use futures_util::StreamExt;
+    use openhuman_core::openhuman::inference::provider::traits::{
+        build_tool_instructions_text, StreamChunk, StreamOptions, ToolsPayload,
+    };
+
+    let provider = EchoProvider;
+    assert!(!provider.supports_native_tools());
+    assert!(!provider.supports_vision());
+    provider.warmup().await.expect("default warmup");
+
+    let simple = provider
+        .simple_chat("hello", "agentic-v1", 0.2)
+        .await
+        .expect("simple chat");
+    assert!(simple.contains("system=<none>; message=hello"));
+
+    let history = vec![
+        ChatMessage::system("system rules"),
+        ChatMessage::assistant("previous answer"),
+        ChatMessage::user("latest user"),
+    ];
+    let history_reply = provider
+        .chat_with_history(&history, "agentic-v1", 0.3)
+        .await
+        .expect("history chat");
+    assert!(history_reply.contains("system=system rules; message=latest user"));
+
+    let tool_spec = ToolSpec {
+        name: "lookup_docs".into(),
+        description: "Look up docs".into(),
+        parameters: json!({
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"]
+        }),
+    };
+    let instructions = build_tool_instructions_text(&[tool_spec.clone()]);
+    assert!(instructions.contains("<tool_call>"));
+    assert!(instructions.contains("lookup_docs"));
+    assert!(instructions.contains("Parameters:"));
+
+    let converted = provider.convert_tools(&[tool_spec.clone()]);
+    match converted {
+        ToolsPayload::PromptGuided { instructions } => {
+            assert!(instructions.contains("lookup_docs"));
+        }
+        other => panic!("default provider returned unexpected payload: {other:?}"),
+    }
+
+    let chat_with_tools = provider
+        .chat(
+            ChatRequest {
+                messages: &[ChatMessage::user("need docs")],
+                tools: Some(&[tool_spec.clone()]),
+                stream: None,
+            },
+            "agentic-v1",
+            0.4,
+        )
+        .await
+        .expect("prompt-guided chat");
+    assert!(chat_with_tools.text_or_empty().contains("lookup_docs"));
+    assert!(!chat_with_tools.has_tool_calls());
+
+    let default_chat = provider
+        .chat(
+            ChatRequest {
+                messages: &[ChatMessage::user("plain")],
+                tools: None,
+                stream: None,
+            },
+            "agentic-v1",
+            0.5,
+        )
+        .await
+        .expect("default chat");
+    assert_eq!(
+        default_chat.text_or_empty(),
+        "system=<none>; message=plain; model=agentic-v1; temp=0.5"
+    );
+    assert_eq!(ChatResponse::default().text_or_empty(), "");
+
+    let native_fallback = provider
+        .chat_with_tools(
+            &[ChatMessage::user("call")],
+            &[json!({})],
+            "agentic-v1",
+            0.6,
+        )
+        .await
+        .expect("chat_with_tools fallback");
+    assert!(native_fallback.text_or_empty().contains("message=call"));
+
+    assert!(!provider.supports_streaming());
+    let mut empty_stream = provider.stream_chat_with_system(
+        Some("sys"),
+        "msg",
+        "agentic-v1",
+        0.1,
+        StreamOptions::new(true).with_token_count(),
+    );
+    assert!(empty_stream.next().await.is_none());
+
+    let mut fallback_stream =
+        provider.stream_chat_with_history(&[ChatMessage::user("stream")], "agentic-v1", 0.1, {
+            StreamOptions::new(true)
+        });
+    let chunk = fallback_stream
+        .next()
+        .await
+        .expect("fallback stream chunk")
+        .expect("fallback stream result");
+    assert!(chunk.is_final);
+    assert!(chunk.delta.contains("does not support streaming"));
+
+    assert_eq!(
+        StreamChunk::delta("abcd").with_token_estimate().token_count,
+        1
+    );
+    assert!(StreamChunk::final_chunk().is_final);
+    assert!(StreamChunk::error("boom").is_final);
 }
 
 fn provider_factory_error(role: &str, provider: &str, config: &Config) -> String {
@@ -1253,12 +1586,10 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
     });
     let denied = revoked_provider.check(&generated).await;
     assert!(matches!(denied, ToolPolicyDecision::Deny { .. }));
-    assert!(
-        denied
-            .blocking_reason()
-            .expect("deny reason")
-            .contains("provider `mail.runtime` is revoked")
-    );
+    assert!(denied
+        .blocking_reason()
+        .expect("deny reason")
+        .contains("provider `mail.runtime` is revoked"));
 
     let revoked_capability = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
         enabled: true,
@@ -1267,12 +1598,10 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
     });
     let denied = revoked_capability.check(&generated).await;
     assert!(matches!(denied, ToolPolicyDecision::Deny { .. }));
-    assert!(
-        denied
-            .blocking_reason()
-            .expect("deny reason")
-            .contains("capability `email.send` is revoked")
-    );
+    assert!(denied
+        .blocking_reason()
+        .expect("deny reason")
+        .contains("capability `email.send` is revoked"));
 
     let capability_over_provider =
         GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
@@ -1292,12 +1621,10 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
         approval,
         ToolPolicyDecision::RequireApproval { .. }
     ));
-    assert!(
-        approval
-            .blocking_reason()
-            .expect("approval reason")
-            .contains("capability `email.send` matched runtime policy")
-    );
+    assert!(approval
+        .blocking_reason()
+        .expect("approval reason")
+        .contains("capability `email.send` matched runtime policy"));
 
     let provider_denial = GeneratedToolRuntimePolicy::new(GeneratedToolRuntimePolicyConfig {
         enabled: true,
@@ -1782,11 +2109,9 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     assert!(native.contains("native tool-calling output"));
     assert!(UserIdentity::default().is_empty());
     assert!(PromptTool::new("x", "desc").parameters_schema.is_none());
-    assert!(
-        PromptTool::with_schema("x", "desc", "{}".into())
-            .parameters_schema
-            .is_some()
-    );
+    assert!(PromptTool::with_schema("x", "desc", "{}".into())
+        .parameters_schema
+        .is_some());
     let options = SubagentRenderOptions::from_definition_flags(false, true, false, true, false);
     assert!(options.include_identity);
     assert!(!options.include_safety_preamble);
@@ -1854,7 +2179,7 @@ fn agent_builtin_prompt_builders_cover_all_registered_archetypes() {
 async fn agent_public_tools_cover_validation_and_metadata_paths() {
     use openhuman_core::openhuman::agent::tools::{
         ArchetypeDelegationTool, AskClarificationTool, DelegateToPersonalityTool, DelegateTool,
-        RUN_SKILL_TOOL_NAME, RunSkillTool, SkillDelegationTool, TodoTool,
+        RunSkillTool, SkillDelegationTool, TodoTool, RUN_SKILL_TOOL_NAME,
     };
 
     let ask = AskClarificationTool::new();
@@ -1897,11 +2222,9 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
         }))
         .await
         .expect("no parent context");
-    assert!(
-        no_parent_context
-            .output()
-            .contains("no parent execution context")
-    );
+    assert!(no_parent_context
+        .output()
+        .contains("no parent execution context"));
 
     let archetype = ArchetypeDelegationTool {
         tool_name: "delegate_researcher".into(),
@@ -1930,11 +2253,9 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
         .await
         .expect("unknown toolkit");
     assert!(unknown_toolkit.is_error);
-    assert!(
-        unknown_toolkit
-            .output()
-            .contains("allowed: [gmail, notion]")
-    );
+    assert!(unknown_toolkit
+        .output()
+        .contains("allowed: [gmail, notion]"));
     let blank_skill_prompt = skill_delegate
         .execute(json!({ "toolkit": "gmail", "prompt": "   " }))
         .await
@@ -1976,11 +2297,9 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
         .execute(json!({ "agent": "worker", "prompt": "do work" }))
         .await
         .expect("depth limit returns tool error");
-    assert!(
-        depth_error
-            .output()
-            .contains("Delegation depth limit reached")
-    );
+    assert!(depth_error
+        .output()
+        .contains("Delegation depth limit reached"));
 }
 
 #[test]
@@ -2203,11 +2522,9 @@ async fn agent_multimodal_helpers_cover_normalization_and_error_paths() {
     .await
     .expect("valid data uri");
     assert!(normalized.contains_images);
-    assert!(
-        normalized.messages[0]
-            .content
-            .contains("[IMAGE:data:image/png;base64,iVBORw0KGgo=]")
-    );
+    assert!(normalized.messages[0]
+        .content
+        .contains("[IMAGE:data:image/png;base64,iVBORw0KGgo=]"));
 
     let too_many = prepare_messages_for_provider(
         &[ChatMessage::user("[IMAGE:a][IMAGE:b]")],

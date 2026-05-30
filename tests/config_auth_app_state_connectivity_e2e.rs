@@ -44,6 +44,10 @@ use openhuman_core::openhuman::config::{
     user_openhuman_dir, write_active_user_id, AgentConfig, ChannelsConfig, Config, DaemonConfig,
     DictationActivationMode, LlmBackend, ReflectionSource, TeamModelConfig, UpdateRestartStrategy,
 };
+use openhuman_core::openhuman::connectivity::{
+    all_connectivity_controller_schemas, all_connectivity_registered_controllers,
+    connectivity_controller_schema,
+};
 use openhuman_core::openhuman::credentials::bus::SessionExpiredSubscriber;
 use openhuman_core::openhuman::credentials::cli::{
     cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
@@ -600,16 +604,48 @@ fn config_schema_helpers_cover_provider_voice_agent_and_channel_defaults() {
     assert_eq!(provider.endpoint, "https://api.anthropic.com/v1");
     assert_eq!(provider.auth_style, AuthStyle::Anthropic);
     assert_eq!(AuthStyle::OpenhumanJwt.as_str(), "openhuman_jwt");
+    assert_eq!(AuthStyle::Anthropic.as_str(), "anthropic");
+    assert_eq!(AuthStyle::None.as_str(), "none");
     assert_eq!(
         CloudProviderType::Openrouter.default_endpoint(),
         "https://openrouter.ai/api/v1"
     );
+    assert_eq!(
+        CloudProviderType::Openhuman.default_endpoint(),
+        "https://api.openhuman.ai/v1"
+    );
+    assert_eq!(
+        CloudProviderType::Openai.default_endpoint(),
+        "https://api.openai.com/v1"
+    );
+    assert_eq!(
+        CloudProviderType::Anthropic.default_endpoint(),
+        "https://api.anthropic.com/v1"
+    );
+    assert_eq!(
+        CloudProviderType::Orcarouter.default_endpoint(),
+        "https://api.orcarouter.ai/v1"
+    );
+    assert_eq!(CloudProviderType::Custom.default_endpoint(), "");
+    assert_eq!(CloudProviderType::Openhuman.label(), "OpenHuman");
+    assert_eq!(CloudProviderType::Openai.label(), "OpenAI");
+    assert_eq!(CloudProviderType::Anthropic.label(), "Anthropic");
     assert_eq!(CloudProviderType::Orcarouter.label(), "OrcaRouter");
     assert_eq!(CloudProviderType::Openhuman.as_str(), "openhuman");
+    assert_eq!(CloudProviderType::Openai.as_str(), "openai");
+    assert_eq!(CloudProviderType::Anthropic.as_str(), "anthropic");
+    assert_eq!(CloudProviderType::Openrouter.as_str(), "openrouter");
+    assert_eq!(CloudProviderType::Orcarouter.as_str(), "orcarouter");
+    assert_eq!(CloudProviderType::Custom.as_str(), "custom");
+    assert_eq!(
+        CloudProviderType::Openhuman.auth_style(),
+        AuthStyle::OpenhumanJwt
+    );
     assert_eq!(
         CloudProviderType::Anthropic.auth_style(),
         AuthStyle::Anthropic
     );
+    assert_eq!(CloudProviderType::Custom.auth_style(), AuthStyle::Bearer);
     assert!(is_slug_reserved(" cloud "));
     assert!(!is_slug_reserved("ollama"));
 
@@ -648,6 +684,13 @@ fn config_schema_helpers_cover_provider_voice_agent_and_channel_defaults() {
         Some(MemoryContextWindow::Maximum)
     );
     assert_eq!(MemoryContextWindow::Extended.as_str(), "extended");
+    assert_eq!(MemoryContextWindow::Minimal.as_str(), "minimal");
+    assert_eq!(MemoryContextWindow::Balanced.as_str(), "balanced");
+    assert_eq!(MemoryContextWindow::Maximum.as_str(), "maximum");
+    assert_eq!(
+        MemoryContextWindow::Balanced.limits().total_tree_max_chars,
+        32_000
+    );
     let mut agent = AgentConfig {
         max_memory_context_chars: 20_000,
         ..AgentConfig::default()
@@ -685,6 +728,19 @@ fn config_schema_helpers_cover_provider_voice_agent_and_channel_defaults() {
     assert_eq!(whatsapp.backend_type(), "cloud");
     assert!(whatsapp.is_cloud_config());
     assert!(!whatsapp.is_web_config());
+    let whatsapp_web = WhatsAppConfig {
+        access_token: None,
+        phone_number_id: None,
+        verify_token: None,
+        app_secret: None,
+        session_path: Some("/tmp/openhuman-whatsapp-session".to_string()),
+        pair_phone: None,
+        pair_code: None,
+        allowed_numbers: vec![],
+    };
+    assert_eq!(whatsapp_web.backend_type(), "web");
+    assert!(!whatsapp_web.is_cloud_config());
+    assert!(whatsapp_web.is_web_config());
 
     let minimal_config: Config = toml::from_str(
         r#"
@@ -971,6 +1027,54 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
         api_key: None,
     };
     assert!(managed_integration.is_active());
+
+    let mcp_default = openhuman_core::openhuman::config::schema::McpServerConfig::default();
+    assert!(mcp_default.enabled);
+    assert_eq!(mcp_default.timeout_secs, 30);
+    assert!(matches!(
+        mcp_default.auth,
+        openhuman_core::openhuman::config::schema::McpAuthConfig::None
+    ));
+    let mcp_with_auth: openhuman_core::openhuman::config::schema::McpServerConfig =
+        serde_json::from_value(json!({
+            "name": "worker-a-mcp",
+            "endpoint": "https://mcp.example.test",
+            "auth": {
+                "kind": "header",
+                "name": "x-api-key",
+                "value": "secret"
+            }
+        }))
+        .expect("mcp server auth config");
+    assert!(matches!(
+        mcp_with_auth.auth,
+        openhuman_core::openhuman::config::schema::McpAuthConfig::Header { .. }
+    ));
+    for auth in [
+        json!({ "kind": "bearer_token", "token": "bearer" }),
+        json!({ "kind": "basic", "username": "u", "password": "p" }),
+        json!({ "kind": "query_param", "name": "api_key", "value": "secret" }),
+    ] {
+        let _: openhuman_core::openhuman::config::schema::McpAuthConfig =
+            serde_json::from_value(auth).expect("mcp auth variant should deserialize");
+    }
+
+    let incomplete_poly = openhuman_core::openhuman::config::schema::PolymarketClobCredentials {
+        api_key: " key ".into(),
+        secret: "   ".into(),
+        passphrase: " pass ".into(),
+    };
+    assert!(!incomplete_poly.is_complete());
+    let complete_poly = openhuman_core::openhuman::config::schema::PolymarketClobCredentials {
+        api_key: " key ".into(),
+        secret: " secret ".into(),
+        passphrase: " pass ".into(),
+    };
+    assert!(complete_poly.is_complete());
+    assert_eq!(
+        format!("{complete_poly:?}"),
+        "PolymarketClobCredentials { api_key: \"<redacted>\", secret: \"<redacted>\", passphrase: \"<redacted>\" }"
+    );
 }
 
 #[test]
@@ -1737,11 +1841,10 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
             .expect("oauth bearer lookup"),
         Some("gitlab-access-token".to_string())
     );
-    assert!(
-        auth.get_profile("gitlab", Some("missing"))
-            .expect("missing override lookup")
-            .is_none()
-    );
+    assert!(auth
+        .get_profile("gitlab", Some("missing"))
+        .expect("missing override lookup")
+        .is_none());
     let wrong_provider_err = auth
         .set_active_profile("github", &oauth_id)
         .expect_err("full profile id from another provider should fail")
@@ -1988,6 +2091,86 @@ async fn composio_direct_credentials_helpers_trim_store_and_clear_key() {
     assert_eq!(
         cleared_again.value.get("removed").and_then(Value::as_bool),
         Some(false)
+    );
+}
+
+#[tokio::test]
+async fn credentials_public_ops_cover_service_and_missing_session_error_paths() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    config.secrets.encrypt = false;
+    config.local_ai.runtime_enabled = false;
+    config.voice_server.auto_start = false;
+    std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
+        .expect("create config parent");
+
+    openhuman_core::openhuman::credentials::start_login_gated_services(&config).await;
+    openhuman_core::openhuman::credentials::stop_login_gated_services(&config).await;
+
+    assert!(
+        openhuman_core::openhuman::credentials::auth_create_channel_link_token(&config, "   ")
+            .await
+            .expect_err("blank channel should fail")
+            .contains("channel is required")
+    );
+    assert!(
+        openhuman_core::openhuman::credentials::auth_create_channel_link_token(&config, "matrix")
+            .await
+            .expect_err("unsupported channel should fail")
+            .contains("unsupported channel")
+    );
+    assert!(
+        openhuman_core::openhuman::credentials::auth_create_channel_link_token(&config, "telegram")
+            .await
+            .expect_err("missing session should fail")
+            .contains("session JWT required")
+    );
+    assert!(openhuman_core::openhuman::credentials::oauth_connect(
+        &config,
+        "github",
+        Some("skill"),
+        Some("code"),
+        Some("handoff"),
+    )
+    .await
+    .expect_err("oauth connect without session should fail")
+    .contains("session JWT required"));
+    assert!(
+        openhuman_core::openhuman::credentials::oauth_list_integrations(&config)
+            .await
+            .expect_err("oauth list without session should fail")
+            .contains("session JWT required")
+    );
+    assert!(
+        openhuman_core::openhuman::credentials::oauth_fetch_integration_tokens(
+            &config,
+            "0123456789abcdef01234567",
+            "0123456789abcdef0123456789abcdef",
+        )
+        .await
+        .expect_err("oauth token fetch without session should fail")
+        .contains("session JWT required")
+    );
+    assert!(
+        openhuman_core::openhuman::credentials::oauth_fetch_client_key(
+            &config,
+            "0123456789abcdef01234567",
+        )
+        .await
+        .expect_err("client key fetch without session should fail")
+        .contains("session JWT required")
+    );
+    assert!(
+        openhuman_core::openhuman::credentials::oauth_revoke_integration(
+            &config,
+            "0123456789abcdef01234567",
+        )
+        .await
+        .expect_err("oauth revoke without session should fail")
+        .contains("session JWT required")
     );
 }
 
@@ -3746,6 +3929,20 @@ async fn app_state_update_persists_and_snapshot_reads_local_state() {
         "invalid params",
     );
 
+    let unchanged = rpc(
+        &harness.rpc_base,
+        30_006,
+        "openhuman.app_state_update_local_state",
+        json!({}),
+    )
+    .await;
+    assert!(
+        payload(&unchanged, "app_state_update_local_state empty patch")
+            .get("encryptionKey")
+            .is_none(),
+        "empty patch should preserve the already-cleared encryption key: {unchanged}"
+    );
+
     harness.join.abort();
 }
 
@@ -4354,6 +4551,63 @@ fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_e
 }
 
 #[test]
+fn credentials_profile_store_round_trips_oauth_secret_fields_after_backend_selection() {
+    let _lock = env_lock();
+    let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "disabled");
+    let tmp = tempdir().expect("tempdir");
+    let state_dir = tmp.path().join("json-fallback");
+    let store = AuthProfilesStore::new(&state_dir, false);
+    let profile = AuthProfile::new_oauth(
+        "github",
+        "json-fallback",
+        TokenSet {
+            access_token: "json-access".to_string(),
+            refresh_token: Some("json-refresh".to_string()),
+            id_token: Some("json-id".to_string()),
+            expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(2)),
+            token_type: Some("Bearer".to_string()),
+            scope: Some("repo user".to_string()),
+        },
+    );
+    let profile_id = profile.id.clone();
+
+    store
+        .upsert_profile(profile, true)
+        .expect("upsert oauth profile after backend selection");
+    let raw: Value = serde_json::from_str(
+        &std::fs::read_to_string(state_dir.join("auth-profiles.json"))
+            .expect("read persisted auth profiles"),
+    )
+    .expect("persisted auth profiles json");
+    let persisted_access_token = raw.pointer(&format!("/profiles/{profile_id}/access_token"));
+    assert!(
+        persisted_access_token.is_some_and(|value| {
+            value.is_null()
+                || value
+                    .as_str()
+                    .is_some_and(|secret| secret.starts_with("enc2:"))
+        }),
+        "persisted profile should either keychain-strip or encrypt access token: {raw}"
+    );
+
+    let loaded = store.load().expect("reload json fallback profile");
+    let tokens = loaded
+        .profiles
+        .get(&profile_id)
+        .and_then(|profile| profile.token_set.as_ref())
+        .expect("oauth token set should round-trip");
+    assert_eq!(tokens.access_token, "json-access");
+    assert_eq!(tokens.refresh_token.as_deref(), Some("json-refresh"));
+    assert_eq!(tokens.id_token.as_deref(), Some("json-id"));
+
+    let root_path_store = AuthProfilesStore::new(Path::new("/"), false);
+    assert_eq!(
+        root_path_store.path(),
+        Path::new("/").join("auth-profiles.json")
+    );
+}
+
+#[test]
 fn credentials_profile_store_reclaims_stale_dead_pid_lock() {
     let _lock = env_lock();
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
@@ -4372,6 +4626,60 @@ fn credentials_profile_store_reclaims_stale_dead_pid_lock() {
         !lock_path.exists(),
         "stale lock should be removed after successful load"
     );
+}
+
+#[test]
+fn connectivity_public_helpers_cover_schemas_and_port_probe() {
+    let schemas = all_connectivity_controller_schemas();
+    assert_eq!(schemas.len(), 1);
+    assert_eq!(schemas[0].namespace, "connectivity");
+    assert_eq!(schemas[0].function, "diag");
+    assert!(schemas[0].inputs.is_empty());
+    assert_eq!(schemas[0].outputs[0].name, "diag");
+
+    let registered = all_connectivity_registered_controllers();
+    assert_eq!(registered.len(), schemas.len());
+
+    let unknown = connectivity_controller_schema("missing");
+    assert_eq!(unknown.namespace, "connectivity");
+    assert_eq!(unknown.function, "unknown");
+    assert_eq!(unknown.outputs[0].name, "error");
+    assert!(unknown.description.contains("Unknown connectivity"));
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
+    let port = listener.local_addr().expect("probe local addr").port();
+    assert!(openhuman_core::openhuman::connectivity::ops::is_port_in_use(port));
+    drop(listener);
+    let _ = openhuman_core::openhuman::connectivity::ops::is_port_in_use(port);
+}
+
+#[tokio::test]
+async fn connectivity_pick_listen_port_uses_fallback_when_preferred_is_busy() {
+    let _lock = env_lock();
+    let mut held_listener = None;
+    let mut preferred = 0;
+    for _ in 0..25 {
+        let listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("bind candidate preferred listener");
+        let port = listener.local_addr().expect("candidate local addr").port();
+        if port < u16::MAX - 10 {
+            preferred = port;
+            held_listener = Some(listener);
+            break;
+        }
+    }
+    let held_listener = held_listener.expect("find preferred port with fallback room");
+
+    let picked = openhuman_core::openhuman::connectivity::rpc::pick_listen_port_for_host(
+        "127.0.0.1",
+        preferred,
+    )
+    .await
+    .expect("busy preferred port should fall back");
+    assert_ne!(picked.port, preferred);
+    assert_eq!(picked.fallback_from, Some(preferred));
+    drop(picked.listener);
+    drop(held_listener);
 }
 
 #[tokio::test]

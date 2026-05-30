@@ -21,8 +21,17 @@ use openhuman_core::openhuman::agent::personality_paths::{
     resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
     HasToolkit, PersonalityContext,
 };
+use openhuman_core::openhuman::agent::pformat::{
+    build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
+    PFormatParamType, PFormatRegistry, PFormatToolParams,
+};
 use openhuman_core::openhuman::agent::profiles::{
     AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
+};
+use openhuman_core::openhuman::agent::prompts::{
+    render_ambient_environment, render_subagent_system_prompt, render_tools, ConnectedIntegration,
+    GatedIntegrationTool, LearnedContextData, NamespaceSummary, PromptContext, PromptTool,
+    SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat, UserIdentity,
 };
 use openhuman_core::openhuman::agent::task_board::{
     TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
@@ -33,6 +42,7 @@ use openhuman_core::openhuman::agent::tool_policy::{
     GeneratedToolRuntimePolicyConfig, GeneratedToolRuntimeRisk, RuntimeToolPolicyAction,
     ToolCallContext, ToolPolicy, ToolPolicyDecision, ToolPolicyRequest,
 };
+use openhuman_core::openhuman::agent::tools::PlanExitTool;
 use openhuman_core::openhuman::agent::triage::envelope::{TriggerEnvelope, TriggerSource};
 use openhuman_core::openhuman::agent::triage::routing::build_local_provider_with_config;
 use openhuman_core::openhuman::agent::triage::{parse_triage_decision, ParseError, TriageAction};
@@ -42,9 +52,16 @@ use openhuman_core::openhuman::agent::{
 use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
+use openhuman_core::openhuman::config::schema::LocalAiConfig;
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
 use openhuman_core::openhuman::inference::context_window_for_model;
+use openhuman_core::openhuman::inference::presets::{
+    all_presets, apply_preset_to_config, current_tier_from_config, device_supports_local_ai,
+    mvp_presets, preset_for_tier, recommend_tier, should_default_to_cloud_fallback,
+    supports_screen_summary, vision_mode_for_config, vision_mode_for_tier, ModelTier, VisionMode,
+    MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER,
+};
 use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
     BYOK_INCOMPLETE_SENTINEL,
@@ -63,8 +80,10 @@ use openhuman_core::openhuman::inference::voice::hallucination::{
 };
 use openhuman_core::openhuman::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
+    all_local_ai_controller_schemas, all_local_ai_registered_controllers, DeviceProfile,
 };
 use openhuman_core::openhuman::todos::ops::BoardLocation;
+use openhuman_core::openhuman::tools::Tool;
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -152,6 +171,7 @@ async fn serve_provider_mock() -> (String, ProviderMockState) {
         .route("/v1/models", get(provider_models))
         .route("/v1/chat/completions", post(provider_chat))
         .route("/missing/models", get(provider_missing_models))
+        .route("/api/tags", get(ollama_tags))
         .with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
@@ -187,6 +207,16 @@ async fn provider_missing_models() -> Response {
         Json(json!({ "error": "models unsupported" })),
     )
         .into_response()
+}
+
+async fn ollama_tags() -> Response {
+    Json(json!({
+        "models": [
+            { "name": "gemma3:1b-it-qat", "model": "gemma3:1b-it-qat" },
+            { "name": "bge-m3", "model": "bge-m3" }
+        ]
+    }))
+    .into_response()
 }
 
 async fn provider_chat(
@@ -1316,4 +1346,376 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
     assert_eq!(local.provider_name, "custom_openai");
     assert_eq!(local.model, "local-chat");
     assert!(local.used_local);
+}
+
+#[tokio::test]
+async fn inference_local_controllers_and_presets_cover_public_paths() {
+    let _lock = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = isolated_env();
+    let (provider_base, _provider_state) = serve_provider_mock().await;
+
+    let local_schemas = all_local_ai_controller_schemas();
+    let local_registered = all_local_ai_registered_controllers();
+    assert_eq!(local_schemas.len(), local_registered.len());
+    assert!(local_registered.iter().all(|controller| controller
+        .rpc_method_name()
+        .starts_with("openhuman.local_ai_")));
+
+    let reachable = call(
+        controller(&local_registered, "test_connection"),
+        json!({ "url": provider_base }),
+    )
+    .await
+    .expect("mock ollama tags endpoint is reachable");
+    assert_eq!(reachable.pointer("/reachable"), Some(&json!(true)));
+    assert_eq!(reachable.pointer("/models_count"), Some(&json!(2)));
+
+    let rejected_url = call(
+        controller(&local_registered, "test_connection"),
+        json!({ "url": "ftp://example.test" }),
+    )
+    .await
+    .expect_err("non-http URL should be rejected");
+    assert!(rejected_url.contains("URL must start with http:// or https://"));
+
+    let assets = call(controller(&local_registered, "assets_status"), json!({}))
+        .await
+        .expect("local assets status");
+    assert!(assets.is_object());
+
+    let downloads = call(
+        controller(&local_registered, "downloads_progress"),
+        json!({}),
+    )
+    .await
+    .expect("download progress");
+    assert!(downloads.is_object());
+
+    let whisper_status = call(
+        controller(&local_registered, "whisper_install_status"),
+        json!({}),
+    )
+    .await
+    .expect("whisper install status");
+    assert_eq!(whisper_status.pointer("/engine"), Some(&json!("whisper")));
+
+    let piper_status = call(
+        controller(&local_registered, "piper_install_status"),
+        json!({}),
+    )
+    .await
+    .expect("piper install status");
+    assert_eq!(piper_status.pointer("/engine"), Some(&json!("piper")));
+
+    let inference_registered = all_inference_registered_controllers();
+    let status = call(controller(&inference_registered, "status"), json!({}))
+        .await
+        .expect("inference status");
+    assert!(status.pointer("/result/state").is_some());
+
+    let device = call(
+        controller(&inference_registered, "device_profile"),
+        json!({}),
+    )
+    .await
+    .expect("device profile");
+    assert!(device.pointer("/result/total_ram_bytes").is_some());
+
+    let diagnostics = call(controller(&inference_registered, "diagnostics"), json!({}))
+        .await
+        .expect("diagnostics");
+    assert!(diagnostics.pointer("/ok").is_some());
+
+    let disabled = call(
+        controller(&inference_registered, "apply_preset"),
+        json!({ "tier": "disabled" }),
+    )
+    .await
+    .expect("disable local ai preset");
+    assert_eq!(
+        disabled.pointer("/result/local_ai_enabled"),
+        Some(&json!(false))
+    );
+
+    let bad_tier = call(
+        controller(&inference_registered, "apply_preset"),
+        json!({ "tier": "ram_16_plus_gb" }),
+    )
+    .await
+    .expect_err("MVP build rejects larger preset tiers");
+    assert!(bad_tier.contains("not available in this build"));
+
+    let applied = call(
+        controller(&inference_registered, "apply_preset"),
+        json!({ "tier": "low" }),
+    )
+    .await
+    .expect("low alias applies MVP preset");
+    assert_eq!(
+        applied.pointer("/result/applied_tier"),
+        Some(&json!("ram_2_4gb"))
+    );
+    assert_eq!(
+        applied.pointer("/result/vision_mode"),
+        Some(&json!("disabled"))
+    );
+
+    let presets = call(controller(&inference_registered, "presets"), json!({}))
+        .await
+        .expect("presets controller");
+    assert_eq!(
+        presets.pointer("/result/recommended_tier"),
+        Some(&json!("ram_2_4gb"))
+    );
+    assert_eq!(
+        presets.pointer("/result/selected_tier"),
+        Some(&json!("ram_2_4gb"))
+    );
+
+    assert_eq!(MVP_MAX_TIER, ModelTier::Ram2To4Gb);
+    assert_eq!(MIN_RAM_GB_FOR_LOCAL_AI, 8);
+    assert_eq!(all_presets().len(), 5);
+    assert_eq!(mvp_presets().len(), 1);
+    assert_eq!(
+        ModelTier::from_str_opt("HIGH"),
+        Some(ModelTier::Ram16PlusGb)
+    );
+    assert_eq!(ModelTier::from_str_opt("tier_1gb"), Some(ModelTier::Ram1Gb));
+    assert_eq!(ModelTier::from_str_opt("bogus"), None);
+    assert_eq!(
+        preset_for_tier(ModelTier::Ram4To8Gb)
+            .expect("4-8 preset")
+            .vision_mode,
+        VisionMode::Ondemand
+    );
+    assert!(preset_for_tier(ModelTier::Custom).is_none());
+    assert_eq!(vision_mode_for_tier(ModelTier::Custom), VisionMode::Bundled);
+
+    let tiny_device = test_device(4);
+    let capable_device = test_device(16);
+    assert!(!device_supports_local_ai(&tiny_device));
+    assert!(should_default_to_cloud_fallback(&tiny_device));
+    assert!(device_supports_local_ai(&capable_device));
+    assert!(!should_default_to_cloud_fallback(&capable_device));
+    assert_eq!(recommend_tier(&capable_device), ModelTier::Ram2To4Gb);
+
+    let mut config = LocalAiConfig::default();
+    apply_preset_to_config(&mut config, ModelTier::Ram4To8Gb);
+    assert_eq!(current_tier_from_config(&config), ModelTier::Ram4To8Gb);
+    assert_eq!(vision_mode_for_config(&config), VisionMode::Ondemand);
+    assert!(supports_screen_summary(&config));
+
+    config.selected_tier = Some("custom".into());
+    assert_eq!(current_tier_from_config(&config), ModelTier::Custom);
+    config.vision_model_id.clear();
+    assert_eq!(vision_mode_for_config(&config), VisionMode::Disabled);
+    config.vision_model_id = "custom-vision".into();
+    config.preload_vision_model = false;
+    assert_eq!(vision_mode_for_config(&config), VisionMode::Ondemand);
+    config.preload_vision_model = true;
+    assert_eq!(vision_mode_for_config(&config), VisionMode::Bundled);
+}
+
+#[test]
+fn agent_pformat_and_prompt_renderers_cover_public_paths() {
+    let plan_tool: Box<dyn Tool> = Box::new(PlanExitTool::new());
+    let tools: Vec<Box<dyn Tool>> = vec![plan_tool];
+    let registry = build_registry(&tools);
+    assert_eq!(
+        render_signature_from_tool(tools[0].as_ref()),
+        "plan_exit[plan]"
+    );
+    assert_eq!(
+        render_signature("plan_exit", registry.get("plan_exit").expect("plan params")),
+        "plan_exit[plan]"
+    );
+    let (name, args) = parse_pformat_call(r"plan_exit[Read code \| add test \] commit]", &registry)
+        .expect("p-format call parses");
+    assert_eq!(name, "plan_exit");
+    assert_eq!(
+        args.pointer("/plan"),
+        Some(&json!("Read code | add test ] commit"))
+    );
+    assert!(parse_pformat_call("bad-name[value]", &registry).is_none());
+
+    let mut custom_registry = PFormatRegistry::new();
+    custom_registry.insert(
+        "coerce".into(),
+        PFormatToolParams {
+            names: vec![
+                "flag".into(),
+                "count".into(),
+                "ratio".into(),
+                "blob".into(),
+                "maybe".into(),
+            ],
+            types: vec![
+                PFormatParamType::Boolean,
+                PFormatParamType::Integer,
+                PFormatParamType::Number,
+                PFormatParamType::Other,
+                PFormatParamType::String,
+            ],
+        },
+    );
+    let (_, coerced) = parse_pformat_call("coerce[yes|7|2.5|{\"x\":1}|plain]", &custom_registry)
+        .expect("custom p-format");
+    assert_eq!(
+        coerced,
+        json!({
+            "flag": true,
+            "count": 7,
+            "ratio": 2.5,
+            "blob": "{\"x\":1}",
+            "maybe": "plain"
+        })
+    );
+    assert_eq!(
+        PFormatParamType::from_schema_type(Some(&json!(["null", "integer"]))),
+        PFormatParamType::Integer
+    );
+    assert_eq!(
+        PFormatToolParams::from_schema(&json!({ "type": "string" })).names,
+        Vec::<String>::new()
+    );
+
+    let workspace = tempdir().expect("prompt workspace");
+    std::fs::write(workspace.path().join("SOUL.md"), "coverage soul").expect("write soul");
+    std::fs::write(workspace.path().join("IDENTITY.md"), "coverage identity")
+        .expect("write identity");
+    std::fs::write(workspace.path().join("PROFILE.md"), "coverage profile").expect("write profile");
+    std::fs::write(workspace.path().join("MEMORY.md"), "coverage memory").expect("write memory");
+
+    let visible_tool_names = HashSet::from(["plan_exit".to_string()]);
+    let prompt_tools = PromptTool::from_tools(&tools);
+    let skills = Vec::new();
+    let integrations = vec![ConnectedIntegration {
+        toolkit: "gmail".into(),
+        description: "Email account".into(),
+        tools: vec![],
+        gated_tools: vec![GatedIntegrationTool {
+            name: "GMAIL_DELETE_EMAIL".into(),
+            description: "Delete an email".into(),
+            required_scope: "admin".into(),
+            unlock_paths: vec!["Open Settings > Connections".into()],
+        }],
+        connected: false,
+        non_active_status: Some("INITIATED".into()),
+    }];
+    let learned = LearnedContextData {
+        observations: vec!["observed preference".into()],
+        patterns: vec!["pattern one".into()],
+        user_profile: vec!["profile fact".into()],
+        reflections: vec!["reflection one".into()],
+        tree_root_summaries: vec![NamespaceSummary {
+            namespace: "activities".into(),
+            body: "root memory summary".into(),
+            updated_at: chrono::DateTime::from_timestamp(1_700_000_000, 0).expect("timestamp"),
+        }],
+    };
+    let ctx = PromptContext {
+        workspace_dir: workspace.path(),
+        model_name: "agentic-v1",
+        agent_id: "planner",
+        tools: &prompt_tools,
+        skills: &skills,
+        dispatcher_instructions: "Use tool calls when useful.",
+        learned,
+        visible_tool_names: &visible_tool_names,
+        tool_call_format: ToolCallFormat::PFormat,
+        connected_integrations: &integrations,
+        connected_identities_md: String::new(),
+        include_profile: true,
+        include_memory_md: true,
+        curated_snapshot: None,
+        user_identity: Some(UserIdentity {
+            id: Some("user-1".into()),
+            name: Some(" Coverage\nUser ".into()),
+            email: Some("coverage@example.test".into()),
+        }),
+        personality_soul_md: None,
+        personality_memory_md: None,
+        personality_roster: vec![],
+    };
+
+    let tools_md = render_tools(&ctx).expect("render tools");
+    assert!(tools_md.contains("plan_exit[plan]"));
+    assert!(!tools_md.contains("Parameters:"));
+    let ambient = render_ambient_environment(&ctx).expect("ambient");
+    assert!(ambient.contains("Model: agentic-v1"));
+    assert!(ambient.contains("- name: Coverage User"));
+    assert!(ambient.contains("Current Date & Time"));
+
+    let built = SystemPromptBuilder::for_subagent(
+        "You are a narrow coverage sub-agent.".into(),
+        false,
+        false,
+        true,
+    )
+    .build(&ctx)
+    .expect("subagent builder");
+    assert!(built.contains("coverage soul"));
+    assert!(built.contains("coverage profile"));
+    assert!(built.contains("Output style"));
+
+    let narrow = render_subagent_system_prompt(
+        workspace.path(),
+        "agentic-v1",
+        &[0, 99],
+        &tools,
+        &[],
+        "Subagent archetype body",
+        SubagentRenderOptions {
+            include_safety_preamble: true,
+            include_identity: true,
+            include_skills_catalog: false,
+            include_profile: true,
+            include_memory_md: true,
+        },
+        ToolCallFormat::Json,
+        &integrations,
+    );
+    assert!(narrow.contains("Subagent archetype body"));
+    assert!(narrow.contains("coverage identity"));
+    assert!(narrow.contains("Parameters:"));
+    assert!(narrow.contains("Do not exfiltrate private data"));
+
+    let native = render_subagent_system_prompt(
+        workspace.path(),
+        "agentic-v1",
+        &[0],
+        &tools,
+        &[],
+        "Native body",
+        SubagentRenderOptions::narrow(),
+        ToolCallFormat::Native,
+        &[],
+    );
+    assert!(!native.contains("## Tools"));
+    assert!(native.contains("native tool-calling output"));
+    assert!(UserIdentity::default().is_empty());
+    assert!(PromptTool::new("x", "desc").parameters_schema.is_none());
+    assert!(PromptTool::with_schema("x", "desc", "{}".into())
+        .parameters_schema
+        .is_some());
+    let options = SubagentRenderOptions::from_definition_flags(false, true, false, true, false);
+    assert!(options.include_identity);
+    assert!(!options.include_safety_preamble);
+    assert!(options.include_skills_catalog);
+    assert!(!options.include_profile);
+    assert!(options.include_memory_md);
+}
+
+fn test_device(total_ram_gb: u64) -> DeviceProfile {
+    DeviceProfile {
+        total_ram_bytes: total_ram_gb * 1024 * 1024 * 1024,
+        cpu_count: 4,
+        cpu_brand: "coverage cpu".into(),
+        os_name: "coverage os".into(),
+        os_version: "1.0".into(),
+        has_gpu: false,
+        gpu_description: None,
+    }
 }

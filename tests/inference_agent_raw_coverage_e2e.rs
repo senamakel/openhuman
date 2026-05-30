@@ -4,7 +4,10 @@
 //! model/provider calls while still exercising the public controller registry.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use axum::extract::State;
@@ -21,12 +24,19 @@ use openhuman_core::openhuman::agent::agents::BUILTINS;
 use openhuman_core::openhuman::agent::bus::{
     AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
 };
+use openhuman_core::openhuman::agent::debug::{
+    write_prompt_dumps, DumpPromptOptions, DumpedPrompt,
+};
 use openhuman_core::openhuman::agent::dispatcher::{
     NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, ToolExecutionResult,
     XmlToolDispatcher,
 };
 use openhuman_core::openhuman::agent::error::{
     is_context_limit_error, is_max_iterations_error, AgentError, MAX_ITERATIONS_ERROR_PREFIX,
+};
+use openhuman_core::openhuman::agent::harness::subagent_runner::{
+    autonomous_iter_cap, with_autonomous_iter_cap, SubagentMode, SubagentRunError,
+    SubagentRunOptions, SubagentRunOutcome,
 };
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::agent::harness::{
@@ -125,6 +135,7 @@ use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
     BYOK_INCOMPLETE_SENTINEL,
 };
+use openhuman_core::openhuman::inference::provider::reliable::ReliableProvider;
 use openhuman_core::openhuman::inference::provider::router::{Route, RouterProvider};
 use openhuman_core::openhuman::inference::provider::temperature::{
     glob_match, temperature_for_model,
@@ -132,6 +143,7 @@ use openhuman_core::openhuman::inference::provider::temperature::{
 use openhuman_core::openhuman::inference::provider::thread_context::{
     current_thread_id, with_thread_id,
 };
+use openhuman_core::openhuman::inference::provider::traits::ProviderCapabilities;
 use openhuman_core::openhuman::inference::provider::{
     format_anyhow_chain, is_budget_exhausted_message, is_openai_compatible_unknown_model_message,
     is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
@@ -225,6 +237,81 @@ impl Provider for EchoProvider {
     ) -> anyhow::Result<String> {
         Ok(format!(
             "system={}; message={message}; model={model}; temp={temperature}",
+            system_prompt.unwrap_or("<none>")
+        ))
+    }
+}
+
+struct ScriptedProvider {
+    calls: Arc<AtomicUsize>,
+    fail_until: usize,
+    fail_on_models: HashSet<String>,
+    response: &'static str,
+    error: &'static str,
+    native_tools: bool,
+    vision: bool,
+}
+
+impl ScriptedProvider {
+    fn new(response: &'static str) -> Self {
+        Self {
+            calls: Arc::new(AtomicUsize::new(0)),
+            fail_until: 0,
+            fail_on_models: HashSet::new(),
+            response,
+            error: "temporary provider failure",
+            native_tools: false,
+            vision: false,
+        }
+    }
+
+    fn with_calls(mut self, calls: Arc<AtomicUsize>) -> Self {
+        self.calls = calls;
+        self
+    }
+
+    fn fail_until(mut self, fail_until: usize, error: &'static str) -> Self {
+        self.fail_until = fail_until;
+        self.error = error;
+        self
+    }
+
+    fn fail_on_models(mut self, models: &[&str], error: &'static str) -> Self {
+        self.fail_on_models = models.iter().map(|model| (*model).to_string()).collect();
+        self.error = error;
+        self
+    }
+
+    fn with_capabilities(mut self, native_tools: bool, vision: bool) -> Self {
+        self.native_tools = native_tools;
+        self.vision = vision;
+        self
+    }
+}
+
+#[async_trait]
+impl Provider for ScriptedProvider {
+    fn capabilities(&self) -> ProviderCapabilities {
+        ProviderCapabilities {
+            native_tool_calling: self.native_tools,
+            vision: self.vision,
+        }
+    }
+
+    async fn chat_with_system(
+        &self,
+        system_prompt: Option<&str>,
+        message: &str,
+        model: &str,
+        temperature: f64,
+    ) -> anyhow::Result<String> {
+        let attempt = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
+        if attempt <= self.fail_until || self.fail_on_models.contains(model) {
+            anyhow::bail!(self.error);
+        }
+        Ok(format!(
+            "{} system={} message={message} model={model} temp={temperature}",
+            self.response,
             system_prompt.unwrap_or("<none>")
         ))
     }
@@ -3718,6 +3805,258 @@ async fn inference_router_provider_covers_hint_tier_and_passthrough_routing() {
         .await
         .expect("unknown hint falls through");
     assert!(unknown_hint.contains("model=hint:not_configured"));
+}
+
+#[tokio::test]
+async fn inference_reliable_provider_covers_retry_fallback_and_aggregate_errors() {
+    let retry_calls = Arc::new(AtomicUsize::new(0));
+    let retrying = ReliableProvider::new(
+        vec![(
+            "primary".to_string(),
+            Box::new(
+                ScriptedProvider::new("recovered")
+                    .with_calls(Arc::clone(&retry_calls))
+                    .fail_until(1, "503 service unavailable retry-after: 0"),
+            ) as Box<dyn Provider>,
+        )],
+        1,
+        1,
+    );
+    let recovered = retrying
+        .chat_with_system(Some("sys"), "hello", "demo-model", 0.7)
+        .await
+        .expect("retry should recover");
+    assert!(recovered.contains("recovered"));
+    assert_eq!(retry_calls.load(Ordering::SeqCst), 2);
+
+    let fallback_calls = Arc::new(AtomicUsize::new(0));
+    let mut fallbacks = HashMap::new();
+    fallbacks.insert(
+        "primary-model".to_string(),
+        vec!["fallback-model".to_string()],
+    );
+    let fallback = ReliableProvider::new(
+        vec![(
+            "primary".to_string(),
+            Box::new(
+                ScriptedProvider::new("fallback-response")
+                    .with_calls(Arc::clone(&fallback_calls))
+                    .fail_on_models(&["primary-model"], "model primary-model unsupported"),
+            ) as Box<dyn Provider>,
+        )],
+        0,
+        1,
+    )
+    .with_model_fallbacks(fallbacks);
+    let fallback_reply = fallback
+        .chat_with_history(
+            &[ChatMessage::system("rules"), ChatMessage::user("question")],
+            "primary-model",
+            0.1,
+        )
+        .await
+        .expect("model fallback should recover");
+    assert!(fallback_reply.contains("model=fallback-model"));
+    assert_eq!(fallback_calls.load(Ordering::SeqCst), 2);
+
+    let native = ReliableProvider::new(
+        vec![(
+            "native".to_string(),
+            Box::new(ScriptedProvider::new("native").with_capabilities(true, true))
+                as Box<dyn Provider>,
+        )],
+        0,
+        1,
+    );
+    assert!(native.supports_native_tools());
+    assert!(native.supports_vision());
+
+    let exhausted = ReliableProvider::new(
+        vec![
+            (
+                "rate-limited".to_string(),
+                Box::new(
+                    ScriptedProvider::new("never")
+                        .fail_until(usize::MAX, "429 Too Many Requests rate limit"),
+                ) as Box<dyn Provider>,
+            ),
+            (
+                "auth".to_string(),
+                Box::new(
+                    ScriptedProvider::new("never")
+                        .fail_until(usize::MAX, "invalid api key secret-sk-test"),
+                ) as Box<dyn Provider>,
+            ),
+        ],
+        0,
+        1,
+    )
+    .with_api_keys(vec!["key-a".to_string(), "key-b".to_string()]);
+    let err = exhausted
+        .chat(
+            ChatRequest {
+                messages: &[ChatMessage::user("fail")],
+                tools: None,
+                stream: None,
+            },
+            "missing-model",
+            0.0,
+        )
+        .await
+        .expect_err("all providers should fail");
+    let message = err.to_string();
+    assert!(message.contains("All providers/models failed"));
+    assert!(message.contains("provider=rate-limited"));
+    assert!(message.contains("rate_limited"));
+    assert!(message.contains("provider=auth"));
+    assert!(message.contains("non_retryable"));
+
+    let context_err = ReliableProvider::new(
+        vec![(
+            "context".to_string(),
+            Box::new(ScriptedProvider::new("never").fail_until(
+                usize::MAX,
+                "Your input exceeds the context window of this model.",
+            )) as Box<dyn Provider>,
+        )],
+        1,
+        1,
+    )
+    .chat_with_tools(&[ChatMessage::user("too long")], &[], "tiny-context", 0.0)
+    .await
+    .expect_err("context errors should fail fast");
+    assert!(context_err
+        .to_string()
+        .contains("Request exceeds model context window"));
+}
+
+#[tokio::test]
+async fn agent_debug_prompt_dump_and_identity_rendering_cover_file_layouts() {
+    let _lock = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = isolated_env();
+
+    let options = DumpPromptOptions::new("integrations_agent");
+    assert_eq!(options.agent_id, "integrations_agent");
+    assert!(options.toolkit.is_none());
+    assert!(options.workspace_dir_override.is_none());
+    assert!(options.model_override.is_none());
+
+    let workspace = tempdir().expect("dump workspace");
+    let dumps = vec![
+        DumpedPrompt {
+            agent_id: "planner/coverage".to_string(),
+            toolkit: None,
+            mode: "session",
+            model: "coverage-model".to_string(),
+            workspace_dir: workspace.path().join("ws"),
+            text: "# planner\nbody\n".to_string(),
+            tool_names: vec!["todo".to_string(), "delegate".to_string()],
+            skill_tool_count: 0,
+        },
+        DumpedPrompt {
+            agent_id: "integrations_agent".to_string(),
+            toolkit: Some("gmail+calendar".to_string()),
+            mode: "session",
+            model: "coverage-model".to_string(),
+            workspace_dir: workspace.path().join("ws"),
+            text: "# integrations\nbody\n".to_string(),
+            tool_names: vec!["GMAIL_SEND_EMAIL".to_string()],
+            skill_tool_count: 1,
+        },
+    ];
+
+    let summary = write_prompt_dumps(workspace.path(), &dumps).expect("write prompt dumps");
+    assert_eq!(summary.prompt_paths.len(), 2);
+    assert_eq!(
+        summary.prompt_paths[0],
+        workspace.path().join("1_planner_coverage.md")
+    );
+    assert_eq!(
+        summary.prompt_paths[1],
+        workspace
+            .path()
+            .join("2_integrations_agent_gmail_calendar.md")
+    );
+    assert_eq!(
+        std::fs::read_to_string(&summary.prompt_paths[0]).expect("prompt body"),
+        "# planner\nbody\n"
+    );
+
+    let meta = std::fs::read_to_string(
+        workspace
+            .path()
+            .join("2_integrations_agent_gmail_calendar.meta.txt"),
+    )
+    .expect("meta sidecar");
+    assert!(meta.contains("agent:          integrations_agent"));
+    assert!(meta.contains("toolkit:        gmail+calendar"));
+    assert!(meta.contains("skill_tools:    1"));
+
+    let summary_text = std::fs::read_to_string(summary.summary_path).expect("summary");
+    assert!(summary_text.contains("planner/coverage"));
+    assert!(summary_text.contains("integrations_agent@gmail+calendar"));
+
+    let identities = openhuman_core::openhuman::agent::prompts::render_connected_identities();
+    assert_eq!(identities, "");
+}
+
+#[tokio::test]
+async fn agent_subagent_public_types_cover_task_local_and_error_display_paths() {
+    assert_eq!(autonomous_iter_cap(), None);
+    let scoped = with_autonomous_iter_cap(42, async { autonomous_iter_cap() }).await;
+    assert_eq!(scoped, Some(42));
+    assert_eq!(autonomous_iter_cap(), None);
+
+    let options = SubagentRunOptions {
+        skill_filter_override: Some("docs".to_string()),
+        toolkit_override: Some("github".to_string()),
+        context: Some("parent context".to_string()),
+        model_override: Some("specialist-model".to_string()),
+        task_id: Some("task-1".to_string()),
+        worker_thread_id: Some("thread-1".to_string()),
+    };
+    assert_eq!(options.skill_filter_override.as_deref(), Some("docs"));
+    assert_eq!(options.toolkit_override.as_deref(), Some("github"));
+    assert_eq!(options.model_override.as_deref(), Some("specialist-model"));
+
+    let outcome = SubagentRunOutcome {
+        task_id: "task-1".to_string(),
+        agent_id: "researcher".to_string(),
+        output: "done".to_string(),
+        iterations: 3,
+        elapsed: Duration::from_millis(12),
+        mode: SubagentMode::Typed,
+    };
+    assert_eq!(outcome.mode.as_str(), "typed");
+    assert_eq!(outcome.elapsed.as_millis(), 12);
+
+    let errors = [
+        SubagentRunError::NoParentContext.to_string(),
+        SubagentRunError::DefinitionNotFound("researcher".to_string()).to_string(),
+        SubagentRunError::Provider(anyhow::anyhow!("backend down")).to_string(),
+        SubagentRunError::SpawnDepthExceeded {
+            attempted_depth: 4,
+            max_depth: 3,
+        }
+        .to_string(),
+        SubagentRunError::MaxIterationsExceeded(9).to_string(),
+    ];
+    assert!(errors[0].contains("outside of an agent turn"));
+    assert!(errors[1].contains("not found"));
+    assert!(errors[2].contains("backend down"));
+    assert!(errors[3].contains("attempted depth 4"));
+    assert!(errors[4].contains("maximum iterations"));
+
+    let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "missing prompt");
+    let prompt_error = SubagentRunError::PromptLoad {
+        path: PathBuf::from("/tmp/missing.toml").display().to_string(),
+        source: io_error,
+    };
+    assert!(prompt_error
+        .to_string()
+        .contains("failed to load archetype prompt"));
 }
 
 fn test_device(total_ram_gb: u64) -> DeviceProfile {

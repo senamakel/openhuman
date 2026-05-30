@@ -201,10 +201,8 @@ fn handle_list(_params: Map<String, Value>) -> ControllerFuture {
         log::debug!("[workflows][rpc] list");
         let workflows = super::discover_workflows(dirs::home_dir().as_deref(), None, false);
         let summaries: Vec<WorkflowSummary> = workflows.iter().map(WorkflowSummary::from).collect();
-        to_json(RpcOutcome::single_log(
-            json!({ "workflows": summaries }),
-            format!("listed {} workflow(s)", summaries.len()),
-        ))
+        log::debug!("[workflows][rpc] list -> {} workflow(s)", summaries.len());
+        to_json(RpcOutcome::new(json!({ "workflows": summaries }), Vec::new()))
     })
 }
 
@@ -213,10 +211,7 @@ fn handle_read(params: Map<String, Value>) -> ControllerFuture {
         let id = read_required::<String>(&params, "id")?;
         log::debug!("[workflows][rpc] read id={id}");
         let workflow = super::read_workflow(id.trim())?;
-        to_json(RpcOutcome::single_log(
-            json!({ "workflow": workflow }),
-            "read workflow",
-        ))
+        to_json(RpcOutcome::new(json!({ "workflow": workflow }), Vec::new()))
     })
 }
 
@@ -227,10 +222,7 @@ fn handle_create(params: Map<String, Value>) -> ControllerFuture {
         let when_to_use = read_optional_str(&params, "when_to_use").unwrap_or_default();
         log::info!("[workflows][rpc] create name={name}");
         let workflow = super::create_workflow(name.trim(), description.trim(), when_to_use.trim())?;
-        to_json(RpcOutcome::single_log(
-            json!({ "workflow": workflow }),
-            "created workflow",
-        ))
+        to_json(RpcOutcome::new(json!({ "workflow": workflow }), Vec::new()))
     })
 }
 
@@ -239,9 +231,9 @@ fn handle_uninstall(params: Map<String, Value>) -> ControllerFuture {
         let id = read_required::<String>(&params, "id")?;
         log::info!("[workflows][rpc] uninstall id={id}");
         let removed = super::uninstall_workflow(id.trim())?;
-        to_json(RpcOutcome::single_log(
+        to_json(RpcOutcome::new(
             json!({ "id": id.trim(), "removed": removed }),
-            "uninstalled workflow",
+            Vec::new(),
         ))
     })
 }
@@ -254,9 +246,9 @@ fn handle_phase(params: Map<String, Value>) -> ControllerFuture {
         let workflow = super::read_workflow(id.trim())?;
         let guidance = super::phase_guidance(&workflow, phase.trim());
         let tool_scope = super::effective_tool_scope(&workflow, phase.trim());
-        to_json(RpcOutcome::single_log(
+        to_json(RpcOutcome::new(
             json!({ "guidance": guidance, "tool_scope": tool_scope }),
-            "resolved workflow phase",
+            Vec::new(),
         ))
     })
 }

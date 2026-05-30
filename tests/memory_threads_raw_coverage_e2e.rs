@@ -24,7 +24,12 @@ use openhuman_core::openhuman::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::tree_policy::TreePolicy;
 use openhuman_core::openhuman::memory::tree_source;
 use openhuman_core::openhuman::memory::{
+    preferences::{
+        load_general_preferences, recall_related_preferences, recall_situational_preferences,
+        USER_PREF_GENERAL_NAMESPACE, USER_PREF_SITUATIONAL_NAMESPACE,
+    },
     read_rpc as memory_read_rpc,
+    remember::RememberSourceKind,
     rpc_models::{
         ApiEnvelope, ApiError, ApiMeta, AppendConversationMessageRequest,
         ConversationMessageRecord, ConversationMessagesRequest, CreateConversationThreadRequest,
@@ -33,13 +38,15 @@ use openhuman_core::openhuman::memory::{
         UpdateConversationMessageRequest, UpdateConversationThreadLabelsRequest,
         UpdateConversationThreadTitleRequest, UpsertConversationThreadRequest,
     },
-    traits::{MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts},
+    traits::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts},
+    util::redact::{redact, redact_endpoint},
     MemoryIngestionConfig, MemoryIngestionRequest,
 };
 use openhuman_core::openhuman::memory_sources::readers::reader_for;
 use openhuman_core::openhuman::memory_sources::registry;
 use openhuman_core::openhuman::memory_sources::rpc as memory_sources_rpc;
 use openhuman_core::openhuman::memory_sources::status::{source_status, FreshnessLabel};
+use openhuman_core::openhuman::memory_sources::sync::sync_source;
 use openhuman_core::openhuman::memory_sources::types::{
     ContentType, MemorySourceEntry, SourceContent, SourceItem, SourceKind,
 };
@@ -85,10 +92,14 @@ use openhuman_core::openhuman::memory_sync::composio::providers::{
     agent_ready_toolkits, capability_matrix, catalog_for_toolkit, classify_unknown,
     curated_scope_for, find_curated, is_action_visible_with_pref, toolkit_from_slug,
     toolkit_has_scope, ComposioProvider, CuratedTool, NormalizedTask, ProviderContext,
-    ProviderUserProfile, SyncOutcome, SyncReason, TaskFetchFilter, ToolScope, UserScopePref,
+    ProviderUserProfile, SyncOutcome as ComposioSyncOutcome, SyncReason, TaskFetchFilter,
+    ToolScope, UserScopePref,
 };
 use openhuman_core::openhuman::memory_sync::sync_status::{
     rpc as memory_sync_status_rpc, schemas as memory_sync_status_schemas,
+};
+use openhuman_core::openhuman::memory_sync::traits::{
+    SyncOutcome as PipelineSyncOutcome, SyncPipeline, SyncPipelineKind,
 };
 use openhuman_core::openhuman::memory_tree::score::extract::{
     EntityKind, ExtractedEntities, ExtractedEntity, ExtractedTopic,
@@ -962,7 +973,7 @@ fn memory_sync_composio_catalog_scope_and_state_helpers_cover_edge_cases() {
     assert_eq!(SyncReason::Periodic.as_str(), "periodic");
     assert_eq!(SyncReason::Manual.as_str(), "manual");
 
-    let mut outcome = SyncOutcome {
+    let mut outcome = ComposioSyncOutcome {
         toolkit: "gmail".into(),
         connection_id: Some("conn-1".into()),
         reason: SyncReason::Manual.as_str().into(),
@@ -1810,6 +1821,175 @@ fn memory_retrieval_embedding_and_rpc_model_helpers_round_trip() {
     assert_eq!(serde_json::to_value(summary).unwrap()["count"], 1);
 }
 
+#[tokio::test]
+async fn memory_preferences_remember_redaction_and_pipeline_traits_cover_public_edges() {
+    let tmp = TempDir::new().expect("tempdir");
+    let memory: Arc<dyn Memory> =
+        Arc::new(UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).expect("memory"));
+
+    memory
+        .store(
+            USER_PREF_GENERAL_NAMESPACE,
+            "tone",
+            "Prefer concise responses.",
+            MemoryCategory::Core,
+            None,
+        )
+        .await
+        .expect("store general preference");
+    memory
+        .store(
+            USER_PREF_GENERAL_NAMESPACE,
+            "empty",
+            "   ",
+            MemoryCategory::Core,
+            None,
+        )
+        .await
+        .expect("store empty general preference");
+    memory
+        .store(
+            USER_PREF_SITUATIONAL_NAMESPACE,
+            "rust-tests",
+            "When changing Rust code, run targeted tests first.",
+            MemoryCategory::Core,
+            None,
+        )
+        .await
+        .expect("store situational preference");
+
+    let general = load_general_preferences(&memory, 10).await;
+    assert_eq!(general, vec!["Prefer concise responses."]);
+    assert!(load_general_preferences(&memory, 0).await.is_empty());
+    assert!(recall_situational_preferences(&memory, "  ")
+        .await
+        .is_empty());
+    assert!(recall_related_preferences(&memory, "  ", "tone", 3)
+        .await
+        .is_empty());
+    assert!(
+        recall_related_preferences(&memory, "Prefer concise responses.", "tone", 0)
+            .await
+            .is_empty()
+    );
+
+    for (kind, label) in [
+        (RememberSourceKind::ChatHistory, "chat_history"),
+        (RememberSourceKind::UploadedData, "uploaded_data"),
+        (RememberSourceKind::LlmThought, "llm_thought"),
+    ] {
+        assert_eq!(kind.as_str(), label);
+        assert_eq!(serde_json::to_value(kind).unwrap(), json!(label));
+    }
+
+    assert_eq!(redact("alice@example.com").len(), 8);
+    assert_eq!(
+        redact_endpoint("https://user:p@ss@example.com:8443/path?q=alice@example.com#frag"),
+        "example.com:8443"
+    );
+    assert_eq!(
+        redact_endpoint("localhost:11434/api/chat"),
+        "localhost:11434"
+    );
+
+    #[derive(Default)]
+    struct RawPipeline;
+
+    #[async_trait::async_trait]
+    impl SyncPipeline for RawPipeline {
+        fn id(&self) -> &str {
+            "workspace:raw-coverage"
+        }
+
+        fn kind(&self) -> SyncPipelineKind {
+            SyncPipelineKind::Workspace
+        }
+
+        async fn init(&self, _config: &Config) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        async fn tick(&self, _config: &Config) -> anyhow::Result<PipelineSyncOutcome> {
+            Ok(PipelineSyncOutcome {
+                records_ingested: 2,
+                more_pending: false,
+                note: Some("covered".into()),
+            })
+        }
+    }
+
+    let pipeline = RawPipeline;
+    assert_eq!(pipeline.id(), "workspace:raw-coverage");
+    assert_eq!(pipeline.kind().as_str(), "workspace");
+    pipeline
+        .init(&config_in(&tmp))
+        .await
+        .expect("pipeline init");
+    let outcome = pipeline
+        .tick(&config_in(&tmp))
+        .await
+        .expect("pipeline tick");
+    assert_eq!(outcome.records_ingested, 2);
+    assert_eq!(serde_json::to_value(outcome).unwrap()["note"], "covered");
+    assert_eq!(PipelineSyncOutcome::default().records_ingested, 0);
+    assert_eq!(SyncPipelineKind::Composio.as_str(), "composio");
+    assert_eq!(SyncPipelineKind::Mcp.as_str(), "mcp");
+}
+
+#[tokio::test]
+async fn memory_source_sync_entrypoint_rejects_disabled_and_ingests_folder_items() {
+    let tmp = TempDir::new().expect("tempdir");
+    let config = config_in(&tmp);
+    std::fs::write(
+        tmp.path().join("sync-note.md"),
+        "# Sync note\n\nAlice documents deterministic source sync coverage.",
+    )
+    .expect("write sync note");
+
+    let mut disabled = source(SourceKind::Folder, "src_disabled");
+    disabled.path = Some(tmp.path().to_string_lossy().to_string());
+    disabled.enabled = false;
+    assert!(sync_source(disabled, config.clone())
+        .await
+        .unwrap_err()
+        .contains("disabled"));
+
+    let mut folder = source(SourceKind::Folder, "src_sync");
+    folder.path = Some(tmp.path().to_string_lossy().to_string());
+    folder.glob = Some("sync-note.md".into());
+    sync_source(folder, config.clone())
+        .await
+        .expect("queue folder sync");
+
+    let composite_source_id = "mem_src:src_sync:sync-note.md";
+    let mut synced_rows = 0_i64;
+    for _ in 0..40 {
+        synced_rows = with_connection(&config, |conn| {
+            Ok(conn.query_row(
+                "SELECT COUNT(*) FROM mem_tree_chunks WHERE source_id = ?1",
+                [composite_source_id],
+                |row| row.get::<_, i64>(0),
+            )?)
+        })
+        .expect("count synced chunks");
+        if synced_rows > 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(
+        synced_rows > 0,
+        "folder sync should ingest at least one chunk"
+    );
+
+    let mut twitter = source(SourceKind::TwitterQuery, "src_twitter_sync");
+    twitter.query = Some("openhuman".into());
+    sync_source(twitter, config)
+        .await
+        .expect("twitter placeholder queues and reports failure asynchronously");
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+}
+
 #[test]
 fn memory_tree_io_contract_types_round_trip_leaf_read_and_write_shapes() {
     let now = Utc.with_ymd_and_hms(2026, 5, 29, 16, 0, 0).unwrap();
@@ -2031,8 +2211,8 @@ impl ComposioProvider for RawCoverageProvider {
         &self,
         _ctx: &ProviderContext,
         reason: SyncReason,
-    ) -> Result<SyncOutcome, String> {
-        Ok(SyncOutcome {
+    ) -> Result<ComposioSyncOutcome, String> {
+        Ok(ComposioSyncOutcome {
             toolkit: "raw_coverage".into(),
             connection_id: Some("conn-1".into()),
             reason: reason.as_str().into(),

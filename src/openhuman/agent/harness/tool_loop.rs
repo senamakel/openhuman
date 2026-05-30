@@ -3,17 +3,15 @@ use crate::openhuman::agent::multimodal;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::stop_hooks::{current_stop_hooks, StopDecision, TurnState};
 use crate::openhuman::inference::provider::{
-    ChatMessage, ChatRequest, Provider, ProviderCapabilityError, ProviderDelta,
+    ChatMessage, ChatRequest, Provider, ProviderCapabilityError,
 };
-use crate::openhuman::tools::policy::{DefaultToolPolicy, PolicyDecision, ToolPolicy};
-use crate::openhuman::tools::traits::ToolScope;
+use crate::openhuman::tools::policy::{DefaultToolPolicy, ToolPolicy};
 use crate::openhuman::tools::Tool;
 use anyhow::Result;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::io::Write as _;
 
-use super::credentials::scrub_credentials;
 use super::parse::{build_native_assistant_history, parse_structured_tool_calls, parse_tool_calls};
 use super::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::context::guard::{ContextCheckResult, ContextGuard};
@@ -460,50 +458,8 @@ pub(crate) async fn run_tool_call_loop(
         // Wire up a ProviderDelta → AgentProgress forwarder for this
         // iteration when a progress sink exists. Senders dropped after
         // the chat call so the forwarder task exits cleanly.
-        let iteration_for_stream = (iteration + 1) as u32;
-        let (delta_tx_opt, delta_forwarder) = if let Some(progress_sink) = on_progress.clone() {
-            let (tx, mut rx) = tokio::sync::mpsc::channel::<ProviderDelta>(128);
-            let forwarder = tokio::spawn(async move {
-                while let Some(event) = rx.recv().await {
-                    let mapped = match event {
-                        ProviderDelta::TextDelta { delta } => AgentProgress::TextDelta {
-                            delta,
-                            iteration: iteration_for_stream,
-                        },
-                        ProviderDelta::ThinkingDelta { delta } => AgentProgress::ThinkingDelta {
-                            delta,
-                            iteration: iteration_for_stream,
-                        },
-                        ProviderDelta::ToolCallStart { call_id, tool_name } => {
-                            AgentProgress::ToolCallArgsDelta {
-                                call_id,
-                                tool_name,
-                                delta: String::new(),
-                                iteration: iteration_for_stream,
-                            }
-                        }
-                        ProviderDelta::ToolCallArgsDelta { call_id, delta } => {
-                            AgentProgress::ToolCallArgsDelta {
-                                call_id,
-                                tool_name: String::new(),
-                                delta,
-                                iteration: iteration_for_stream,
-                            }
-                        }
-                    };
-                    // Await backpressure rather than dropping deltas so
-                    // partial streamed text/args stays consistent with the
-                    // eventual ToolCallStarted / ToolCallCompleted events.
-                    if progress_sink.send(mapped).await.is_err() {
-                        // Downstream closed — abandon the forwarder.
-                        break;
-                    }
-                }
-            });
-            (Some(tx), Some(forwarder))
-        } else {
-            (None, None)
-        };
+        let (delta_tx_opt, delta_forwarder) =
+            super::engine::spawn_delta_forwarder(on_progress.clone(), (iteration + 1) as u32);
 
         let chat_result = provider
             .chat(
@@ -715,413 +671,35 @@ pub(crate) async fn run_tool_call_loop(
                 .id
                 .clone()
                 .unwrap_or_else(|| format!("loop-{iteration}-{call_idx}-{}", call.name));
-            // Emit `ToolCallStarted` for every parsed call, even ones
-            // that will be rejected below (approval denied, CliRpcOnly,
-            // unknown) — the client-side row was created from the
-            // streamed args and needs a terminal event to resolve.
-            if let Some(ref sink) = on_progress {
-                if let Err(e) = sink
-                    .send(AgentProgress::ToolCallStarted {
-                        call_id: progress_call_id.clone(),
-                        tool_name: call.name.clone(),
-                        arguments: call.arguments.clone(),
-                        iteration: (iteration + 1) as u32,
-                    })
-                    .await
-                {
-                    log::warn!(
-                        "[agent_loop] progress sink closed while emitting ToolCallStarted: {e}"
-                    );
-                }
-            }
-
-            // Helper: emit a failed `ToolCallCompleted` for an
-            // early-exit path (denied / CliRpcOnly / unknown) so the
-            // client row flips to `error` instead of staying running.
-            let emit_failed_completion = |message: &str| {
-                let call_id = progress_call_id.clone();
-                let tool_name = call.name.clone();
-                let output_chars = message.chars().count();
-                let iteration_u32 = (iteration + 1) as u32;
-                let sink_opt = on_progress.clone();
-                async move {
-                    if let Some(sink) = sink_opt {
-                        if let Err(e) = sink
-                            .send(AgentProgress::ToolCallCompleted {
-                                call_id,
-                                tool_name,
-                                success: false,
-                                output_chars,
-                                elapsed_ms: 0,
-                                iteration: iteration_u32,
-                            })
-                            .await
-                        {
-                            log::warn!(
-                                "[agent_loop] progress sink closed while emitting early-exit ToolCallCompleted: {e}"
-                            );
-                        }
-                    }
-                }
-            };
-
-            // ── Tool policy check (#2131) ─────────────────
-            // Evaluate the pluggable ToolPolicy before any approval or
-            // execution. If the policy denies the call, skip everything
-            // (including approval side-effects) and return the denial
-            // reason as a tool error to the model.
-            if let PolicyDecision::Deny(reason) = tool_policy.evaluate(&call.name, &call.arguments)
-            {
-                tracing::debug!(
-                    iteration,
-                    tool = call.name.as_str(),
-                    reason = %reason,
-                    "[agent_loop] tool policy denied tool call"
-                );
-                let denied = format!("Tool '{}' denied by policy: {reason}", call.name);
-                emit_failed_completion(&denied).await;
-                individual_results.push(denied.clone());
-                let _ = writeln!(
-                    tool_results,
-                    "<tool_result name=\"{}\">\n{denied}\n</tool_result>",
-                    call.name
-                );
-                // Record so a re-issued identical call halts the turn rather than
-                // repeating a deterministic policy denial to max_iterations.
-                if let Some(halt) =
-                    failure_guard.record(&call.name, &call.arguments.to_string(), false, &denied)
-                {
-                    halt_reason = Some(halt);
-                }
-                continue;
-            }
 
             // Look up the tool by name in the combined registry + extras,
             // subject to the visibility whitelist. If the model hallucinated
-            // a filtered-out tool name we treat it as unknown — the error
-            // path below produces a structured error message the LLM can
-            // correct in the next iteration.
+            // a filtered-out tool name we treat it as unknown — `run_one_tool`
+            // produces a structured error message the LLM can correct in the
+            // next iteration.
             let tool_opt: Option<&dyn Tool> = tools_registry
                 .iter()
                 .chain(extra_tools.iter())
                 .find(|t| t.name() == call.name && is_visible(t.name()))
                 .map(|b| b.as_ref());
-            tracing::debug!(
+
+            // The full per-call lifecycle (start event, policy gate, scope
+            // guard, approval gate, execute + timeout, scrub/tokenjuice/cap/
+            // summarize, audit, completion event) lives in the shared
+            // [`engine::run_one_tool`] so all three agent loops stay in lockstep.
+            let super::engine::ToolRunResult {
+                text: result,
+                success: call_succeeded,
+            } = super::engine::run_one_tool(
+                tool_opt,
+                call,
                 iteration,
-                tool = call.name.as_str(),
-                found = tool_opt.is_some(),
-                "[agent_loop] executing tool"
-            );
-
-            // Scope check: CliRpcOnly tools cannot run in the autonomous agent loop.
-            if let Some(tool) = tool_opt {
-                if tool.scope() == ToolScope::CliRpcOnly {
-                    tracing::warn!(
-                        iteration,
-                        tool = call.name.as_str(),
-                        "[agent_loop] tool scope is CliRpcOnly — denied in agent loop"
-                    );
-                    let denied = format!(
-                        "Tool '{}' is only available via explicit CLI/RPC invocation, not in the autonomous agent loop.",
-                        call.name
-                    );
-                    emit_failed_completion(&denied).await;
-                    individual_results.push(denied.clone());
-                    let _ = writeln!(
-                        tool_results,
-                        "<tool_result name=\"{}\">\n{denied}\n</tool_result>",
-                        call.name
-                    );
-                    if let Some(halt) = failure_guard.record(
-                        &call.name,
-                        &call.arguments.to_string(),
-                        false,
-                        &denied,
-                    ) {
-                        halt_reason = Some(halt);
-                    }
-                    continue;
-                }
-            }
-
-            // ── External-effect approval gate (#1339, #2135) ──
-            // Tools whose `external_effect()` returns true route
-            // through the process-global `ApprovalGate` so the UI
-            // can prompt the user before `execute()` runs. The gate
-            // is `None` when supervised mode is disabled or in test
-            // envs — behavior matches the pre-#1339 path.
-            //
-            // `approval_request_id` carries the persisted row id
-            // forward so we can stamp the terminal execution
-            // outcome onto the same `pending_approvals` row after
-            // the tool finishes (issue #2135). `None` means the
-            // tool was either not gated (no supervised gate, not
-            // external-effect), was session-allowlist-shortcutted,
-            // or was denied — none of which produce an audit row
-            // that needs an "after" entry.
-            let mut approval_request_id: Option<String> = None;
-            let mut approval_gate_for_audit: Option<
-                std::sync::Arc<crate::openhuman::approval::ApprovalGate>,
-            > = None;
-            if let Some(tool) = tool_opt {
-                if tool.external_effect_with_args(&call.arguments) {
-                    if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
-                        let summary = crate::openhuman::approval::summarize_action(
-                            &call.name,
-                            &call.arguments,
-                        );
-                        let redacted = crate::openhuman::approval::redact_args(&call.arguments);
-                        let (outcome, request_id) =
-                            gate.intercept_audited(&call.name, &summary, redacted).await;
-                        match outcome {
-                            crate::openhuman::approval::GateOutcome::Allow => {
-                                approval_request_id = request_id;
-                                if approval_request_id.is_some() {
-                                    approval_gate_for_audit = Some(gate);
-                                }
-                            }
-                            crate::openhuman::approval::GateOutcome::Deny { reason } => {
-                                tracing::warn!(
-                                    iteration,
-                                    tool = call.name.as_str(),
-                                    reason = %reason,
-                                    "[agent_loop] approval gate denied tool call"
-                                );
-                                emit_failed_completion(&reason).await;
-                                individual_results.push(reason.clone());
-                                let _ = writeln!(
-                                    tool_results,
-                                    "<tool_result name=\"{}\">\n{reason}\n</tool_result>",
-                                    call.name
-                                );
-                                // Record the denial in the shared breaker (the
-                                // gate's `[policy-denied]` marker makes it a
-                                // hard reject) so a re-issued identical call
-                                // halts the turn instead of re-prompting
-                                // forever — the normal record path below is
-                                // skipped by this `continue`.
-                                if let Some(halt) = failure_guard.record(
-                                    &call.name,
-                                    &call.arguments.to_string(),
-                                    false,
-                                    &reason,
-                                ) {
-                                    halt_reason = Some(halt);
-                                }
-                                continue;
-                            }
-                        }
-                    }
-                }
-            }
-
-            let (result, call_succeeded) = if let Some(tool) = tool_opt {
-                let tool_deadline =
-                    crate::openhuman::tool_timeout::tool_execution_timeout_duration();
-                let timeout_secs = crate::openhuman::tool_timeout::tool_execution_timeout_secs();
-                let tool_started = std::time::Instant::now();
-                let outcome =
-                    tokio::time::timeout(tool_deadline, tool.execute(call.arguments.clone())).await;
-                let elapsed_ms = tool_started.elapsed().as_millis() as u64;
-                let (result_text, success) = match outcome {
-                    Ok(Ok(r)) => {
-                        let output = r.output();
-                        let success = !r.is_error;
-                        if success {
-                            tracing::debug!(
-                                iteration,
-                                tool = call.name.as_str(),
-                                output_len = output.len(),
-                                "[agent_loop] tool succeeded"
-                            );
-                            let mut scrubbed = scrub_credentials(&output);
-                            let (compacted, tj_stats) =
-                                crate::openhuman::tokenjuice::compact_tool_output(
-                                    &call.name,
-                                    Some(&call.arguments),
-                                    &scrubbed,
-                                    Some(0),
-                                );
-                            if tj_stats.applied {
-                                log::debug!(
-                                    "[agent_loop] tokenjuice applied tool={} rule={} {}->{} bytes",
-                                    call.name,
-                                    tj_stats.rule_id,
-                                    tj_stats.original_bytes,
-                                    tj_stats.compacted_bytes
-                                );
-                                scrubbed = compacted;
-                            }
-
-                            // Per-tool max_result_size_chars cap. When
-                            // a tool sets it and the (post-tokenjuice)
-                            // body still exceeds the cap, truncate
-                            // here and skip the global payload
-                            // summarizer for this call — the cap is
-                            // fast and deterministic, the summarizer
-                            // is the fallback for tools that don't
-                            // know their own size budget.
-                            let mut hit_per_tool_cap = false;
-                            if let Some(cap) = tool.max_result_size_chars() {
-                                let char_count = scrubbed.chars().count();
-                                if char_count > cap {
-                                    let truncated: String = scrubbed.chars().take(cap).collect();
-                                    let dropped = char_count - cap;
-                                    log::info!(
-                                        "[agent_loop] per-tool cap applied tool={} cap_chars={} original_chars={} dropped_chars={}",
-                                        call.name,
-                                        cap,
-                                        char_count,
-                                        dropped,
-                                    );
-                                    scrubbed = format!(
-                                        "{truncated}\n\n[truncated by tool cap: {dropped} more chars not shown]"
-                                    );
-                                    hit_per_tool_cap = true;
-                                }
-                            }
-
-                            if !hit_per_tool_cap {
-                                if let Some(summarizer) = payload_summarizer {
-                                    log::debug!(
-                                        "[agent_loop] payload_summarizer intercepting tool={} bytes={}",
-                                        call.name,
-                                        scrubbed.len()
-                                    );
-                                    match summarizer
-                                        .maybe_summarize(&call.name, None, &scrubbed)
-                                        .await
-                                    {
-                                        Ok(Some(payload)) => {
-                                            log::info!(
-                                                "[agent_loop] payload_summarizer compressed tool={} {}->{} bytes",
-                                                call.name,
-                                                payload.original_bytes,
-                                                payload.summary_bytes
-                                            );
-                                            scrubbed = payload.summary;
-                                        }
-                                        Ok(None) => {
-                                            log::debug!(
-                                                "[agent_loop] payload_summarizer pass-through tool={} bytes={}",
-                                                call.name,
-                                                scrubbed.len()
-                                            );
-                                        }
-                                        Err(e) => {
-                                            log::warn!(
-                                                "[agent_loop] payload_summarizer error tool={} err={} (passing raw payload through)",
-                                                call.name,
-                                                e
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                            (scrubbed, true)
-                        } else {
-                            tracing::warn!(
-                                iteration,
-                                tool = call.name.as_str(),
-                                "[agent_loop] tool returned error: {output}"
-                            );
-                            let scrubbed = scrub_credentials(&output);
-                            let (compacted, _) = crate::openhuman::tokenjuice::compact_tool_output(
-                                &call.name,
-                                Some(&call.arguments),
-                                &scrubbed,
-                                Some(1),
-                            );
-                            (format!("Error: {compacted}"), false)
-                        }
-                    }
-                    Ok(Err(e)) => {
-                        crate::core::observability::report_error(
-                            &e,
-                            "tool",
-                            "execute",
-                            &[
-                                ("tool", call.name.as_str()),
-                                ("outcome", "failed"),
-                                ("iteration", &(iteration + 1).to_string()),
-                            ],
-                        );
-                        (format!("Error executing {}: {e}", call.name), false)
-                    }
-                    Err(_) => {
-                        let msg = format!(
-                            "tool '{}' timed out after {} seconds",
-                            call.name, timeout_secs
-                        );
-                        crate::core::observability::report_error(
-                            msg.as_str(),
-                            "tool",
-                            "execute",
-                            &[
-                                ("tool", call.name.as_str()),
-                                ("outcome", "timeout"),
-                                ("timeout_secs", &timeout_secs.to_string()),
-                                ("iteration", &(iteration + 1).to_string()),
-                            ],
-                        );
-                        (
-                            format!(
-                                "Error: tool '{}' timed out after {} seconds",
-                                call.name, timeout_secs
-                            ),
-                            false,
-                        )
-                    }
-                };
-                if let Some(ref sink) = on_progress {
-                    if let Err(e) = sink
-                        .send(AgentProgress::ToolCallCompleted {
-                            call_id: progress_call_id.clone(),
-                            tool_name: call.name.clone(),
-                            success,
-                            output_chars: result_text.chars().count(),
-                            elapsed_ms,
-                            iteration: (iteration + 1) as u32,
-                        })
-                        .await
-                    {
-                        log::warn!("[agent_loop] progress sink closed while emitting ToolCallCompleted: {e}");
-                    }
-                }
-                // ── Approval audit after-action row (#2135) ────
-                // Stamp the terminal status onto the same
-                // `pending_approvals` row the gate created before
-                // execution, so the audit trail carries both the
-                // before (approval) and after (executed_at +
-                // outcome). Best-effort: a write failure here is
-                // logged but not propagated to the agent.
-                if let (Some(gate), Some(req_id)) = (
-                    approval_gate_for_audit.as_ref(),
-                    approval_request_id.as_ref(),
-                ) {
-                    let exec_outcome = if success {
-                        crate::openhuman::approval::ExecutionOutcome::Success
-                    } else {
-                        crate::openhuman::approval::ExecutionOutcome::Failure
-                    };
-                    let err_text = if success {
-                        None
-                    } else {
-                        Some(result_text.as_str())
-                    };
-                    gate.record_execution(req_id, exec_outcome, err_text);
-                }
-                (result_text, success)
-            } else {
-                tracing::warn!(
-                    iteration,
-                    tool = call.name.as_str(),
-                    "[agent_loop] unknown tool requested"
-                );
-                let msg = format!("Unknown tool: {}", call.name);
-                emit_failed_completion(&msg).await;
-                (msg, false)
-            };
+                &on_progress,
+                tool_policy,
+                payload_summarizer,
+                &progress_call_id,
+            )
+            .await;
 
             individual_results.push(result.clone());
             let _ = writeln!(

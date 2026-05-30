@@ -637,55 +637,11 @@ impl Agent {
                 // provider; skipping it also keeps the non-streaming
                 // HTTP path alive for providers that don't implement
                 // SSE.
-                let iteration_for_stream = (iteration + 1) as u32;
-                let (delta_tx_opt, delta_forwarder) = if self.on_progress.is_some() {
-                    let (tx, mut rx) = tokio::sync::mpsc::channel::<ProviderDelta>(128);
-                    let progress_tx = self.on_progress.clone();
-                    let forwarder = tokio::spawn(async move {
-                        while let Some(event) = rx.recv().await {
-                            let Some(ref sink) = progress_tx else {
-                                continue;
-                            };
-                            let mapped = match event {
-                                ProviderDelta::TextDelta { delta } => AgentProgress::TextDelta {
-                                    delta,
-                                    iteration: iteration_for_stream,
-                                },
-                                ProviderDelta::ThinkingDelta { delta } => {
-                                    AgentProgress::ThinkingDelta {
-                                        delta,
-                                        iteration: iteration_for_stream,
-                                    }
-                                }
-                                ProviderDelta::ToolCallStart { call_id, tool_name } => {
-                                    AgentProgress::ToolCallArgsDelta {
-                                        call_id,
-                                        tool_name,
-                                        delta: String::new(),
-                                        iteration: iteration_for_stream,
-                                    }
-                                }
-                                ProviderDelta::ToolCallArgsDelta { call_id, delta } => {
-                                    AgentProgress::ToolCallArgsDelta {
-                                        call_id,
-                                        tool_name: String::new(),
-                                        delta,
-                                        iteration: iteration_for_stream,
-                                    }
-                                }
-                            };
-                            // Await backpressure so streamed deltas arrive
-                            // in order and aren't silently dropped when the
-                            // downstream progress bridge is slow.
-                            if sink.send(mapped).await.is_err() {
-                                break;
-                            }
-                        }
-                    });
-                    (Some(tx), Some(forwarder))
-                } else {
-                    (None, None)
-                };
+                let (delta_tx_opt, delta_forwarder) =
+                    crate::openhuman::agent::harness::engine::spawn_delta_forwarder(
+                        self.on_progress.clone(),
+                        (iteration + 1) as u32,
+                    );
                 let response = match self
                     .provider
                     .chat(

@@ -17,6 +17,14 @@ const mockFetchWalletStatus = vi.fn<() => Promise<WalletStatus>>();
 vi.mock('../../../../services/walletApi', () => ({
   fetchWalletBalances: (...args: unknown[]) => mockFetchWalletBalances(...(args as [])),
   fetchWalletStatus: (...args: unknown[]) => mockFetchWalletStatus(...(args as [])),
+  // Send modal imports these; not exercised by the open-modal tests below.
+  prepareTransfer: vi.fn(),
+  executePrepared: vi.fn(),
+}));
+
+// The Receive modal renders a QR code; stub it to a lightweight element.
+vi.mock('qrcode.react', () => ({
+  QRCodeSVG: ({ value }: { value: string }) => <div data-testid="qr-code" data-value={value} />,
 }));
 
 const mockNavigateToSettings = vi.fn();
@@ -194,9 +202,12 @@ describe('WalletBalancesPanel — wallet not configured', () => {
     await waitFor(() => {
       expect(screen.getByText(/Set it up to enable your wallet/i)).toBeInTheDocument();
     });
-    // Placeholder rows render for every supported chain (one "Not set up" each).
-    expect(screen.getByText('EVM')).toBeInTheDocument();
-    expect(screen.getAllByText('Not set up')).toHaveLength(4);
+    // Placeholder rows render per displayed network (Ethereum/Base/BNB Chain)
+    // plus Bitcoin/Solana/Tron — one "Not set up" each.
+    expect(screen.getByText('Ethereum')).toBeInTheDocument();
+    expect(screen.getByText('Base')).toBeInTheDocument();
+    expect(screen.getByText('BNB Chain')).toBeInTheDocument();
+    expect(screen.getAllByText('Not set up')).toHaveLength(6);
     // No balances fetch, no red error / retry button.
     expect(mockFetchWalletBalances).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
@@ -226,14 +237,14 @@ describe('WalletBalancesPanel — loaded state', () => {
     renderPanel();
 
     await waitFor(() => {
-      // Chain badge — appears once (EVM has no asset symbol collision with chain label)
-      expect(screen.getByText('EVM')).toBeInTheDocument();
+      // EVM rows now show the network label + a per-network badge.
+      expect(screen.getByText('Ethereum')).toBeInTheDocument();
+      expect(screen.getByText('Bitcoin')).toBeInTheDocument();
       // Formatted balances (unique per row)
       expect(screen.getByText('1.000000000000000000')).toBeInTheDocument();
       expect(screen.getByText('1.00000000')).toBeInTheDocument();
-      // Symbols — ETH appears only as the asset symbol; BTC appears twice
-      // (chain badge + asset symbol) so we assert via getAllByText length.
-      expect(screen.getByText('ETH')).toBeInTheDocument();
+      // ETH appears as the EVM badge + asset symbol; BTC as the badge + symbol.
+      expect(screen.getAllByText('ETH').length).toBeGreaterThanOrEqual(2);
       expect(screen.getAllByText('BTC').length).toBeGreaterThanOrEqual(2);
     });
   });
@@ -271,6 +282,37 @@ describe('WalletBalancesPanel — loaded state', () => {
   });
 });
 
+describe('WalletBalancesPanel — send / receive actions', () => {
+  beforeEach(() => {
+    mockFetchWalletBalances.mockReset();
+  });
+
+  it('opens the Receive modal with the row address + QR when Receive is clicked', async () => {
+    mockFetchWalletBalances.mockResolvedValueOnce([EVM_BALANCE]);
+
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByText('Receive')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Receive'));
+
+    expect(screen.getByTestId('receive-address')).toHaveTextContent(EVM_BALANCE.address);
+    expect(screen.getByTestId('qr-code')).toHaveAttribute('data-value', EVM_BALANCE.address);
+  });
+
+  it('opens the Send modal with the recipient + amount fields when Send is clicked', async () => {
+    mockFetchWalletBalances.mockResolvedValueOnce([EVM_BALANCE]);
+
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByText('Send')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Send'));
+
+    expect(screen.getByTestId('send-recipient')).toBeInTheDocument();
+    expect(screen.getByTestId('send-amount')).toBeInTheDocument();
+    expect(screen.getByTestId('send-review')).toBeInTheDocument();
+  });
+});
+
 describe('WalletBalancesPanel — refresh', () => {
   beforeEach(() => {
     mockFetchWalletBalances.mockReset();
@@ -283,7 +325,7 @@ describe('WalletBalancesPanel — refresh', () => {
 
     renderPanel();
 
-    await waitFor(() => expect(screen.getByText('EVM')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Ethereum')).toBeInTheDocument());
 
     const refreshButton = screen.getByRole('button', { name: /refresh/i });
     fireEvent.click(refreshButton);

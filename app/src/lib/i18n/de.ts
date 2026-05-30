@@ -4113,6 +4113,32 @@ const messages: TranslationMap = {
     'Deine Wiederherstellungsphrase ist noch nicht eingerichtet. Richte sie ein, um deine Wallet zu aktivieren und Live-Guthaben zu sehen.',
   'walletBalances.setupCta': 'Wiederherstellungsphrase einrichten',
   'walletBalances.notSetUp': 'Nicht eingerichtet',
+  'walletBalances.send': 'Senden',
+  'walletBalances.receive': 'Empfangen',
+  'walletReceive.scanHint':
+    'Scanne diesen Code oder kopiere die Adresse unten, um Gelder zu empfangen.',
+  'walletReceive.addressLabel': '{network}-Adresse',
+  'walletReceive.onlyChainWarning':
+    'Sende nur {network}-Assets an diese Adresse. Das Senden von Assets aus einem anderen Netzwerk kann zu einem dauerhaften Verlust führen.',
+  'walletSend.available': 'Verfügbar',
+  'walletSend.recipient': 'Empfängeradresse',
+  'walletSend.recipientPlaceholder': 'Zieladresse einfügen',
+  'walletSend.recipientRequired': 'Gib eine Empfängeradresse ein',
+  'walletSend.amount': 'Betrag',
+  'walletSend.invalidAmount': 'Gib einen gültigen Betrag ein',
+  'walletSend.review': 'Überprüfen',
+  'walletSend.preparing': 'Wird vorbereitet…',
+  'walletSend.confirmHint':
+    'Überprüfe die Details unten. Die Signierung erfolgt lokal — nichts wird gesendet, bis du bestätigst.',
+  'walletSend.estimatedFee': 'Geschätzte Netzwerkgebühr',
+  'walletSend.confirmSend': 'Bestätigen und senden',
+  'walletSend.sending': 'Wird gesendet…',
+  'walletSend.sent': 'Transaktion gesendet',
+  'walletSend.txHash': 'Transaktions-Hash',
+  'walletSend.viewExplorer': 'Im Explorer ansehen',
+  'walletSend.done': 'Fertig',
+  'walletSend.genericError':
+    'Überweisung konnte nicht abgeschlossen werden. Bitte versuche es erneut.',
   'settings.taskSources.title': 'Aufgabenquellen',
   'settings.taskSources.subtitle': 'Ziehen Sie Aufgaben aus Ihren Tools auf das Agenten-ToDo-Board',
   'settings.taskSources.description':

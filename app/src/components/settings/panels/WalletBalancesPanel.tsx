@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import {
+  balanceBadge,
+  balanceKey,
+  balanceNetworkLabel,
+} from '../../../features/wallet/walletDisplay';
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
   type BalanceInfo,
+  type EvmNetwork,
   fetchWalletBalances,
   fetchWalletStatus,
   type WalletChain,
 } from '../../../services/walletApi';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import ReceiveModal from './wallet/ReceiveModal';
+import SendCryptoModal from './wallet/SendCryptoModal';
 
 // ---------------------------------------------------------------------------
 // Chain badge colours — each chain gets a distinct palette token combination
@@ -24,20 +32,21 @@ const CHAIN_BADGE_CLASS: Record<string, string> = {
   tron: 'bg-coral-100 text-coral-700 dark:bg-coral-900/30 dark:text-coral-300',
 };
 
-const CHAIN_LABEL: Record<string, string> = { evm: 'EVM', btc: 'BTC', solana: 'SOL', tron: 'TRX' };
+const badgeClassFor = (chain: WalletChain): string =>
+  CHAIN_BADGE_CLASS[chain] ??
+  'bg-stone-100 text-stone-700 dark:bg-neutral-800 dark:text-neutral-300';
 
-// Native asset symbol per chain — used for the not-configured placeholder rows
-// where no real BalanceInfo (and therefore no assetSymbol) exists yet.
-const CHAIN_ASSET: Record<WalletChain, string> = {
-  evm: 'ETH',
-  btc: 'BTC',
-  solana: 'SOL',
-  tron: 'TRX',
-};
-
-// The supported chains rendered as placeholders before the wallet is set up,
-// so the panel shows the full wallet layout (one row per chain) regardless.
-const SUPPORTED_CHAINS: WalletChain[] = ['evm', 'btc', 'solana', 'tron'];
+// The rows rendered as placeholders before the wallet is set up, mirroring the
+// configured layout (one EVM row per displayed network + BTC/Solana/Tron) so
+// the preview matches what appears once a recovery phrase exists.
+const PLACEHOLDER_ROWS: Array<{ chain: WalletChain; evmNetwork?: EvmNetwork; symbol: string }> = [
+  { chain: 'evm', evmNetwork: 'ethereum_mainnet', symbol: 'ETH' },
+  { chain: 'evm', evmNetwork: 'base_mainnet', symbol: 'ETH' },
+  { chain: 'evm', evmNetwork: 'bsc_mainnet', symbol: 'BNB' },
+  { chain: 'btc', symbol: 'BTC' },
+  { chain: 'solana', symbol: 'SOL' },
+  { chain: 'tron', symbol: 'TRX' },
+];
 
 /** Shorten an address to first 6 + last 4 characters: `0x1234…abcd`. */
 function truncateAddress(address: string): string {
@@ -46,14 +55,16 @@ function truncateAddress(address: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// BalanceRow — a single chain entry
+// BalanceRow — a single chain/network entry with Send / Receive actions
 // ---------------------------------------------------------------------------
 
 interface BalanceRowProps {
   balance: BalanceInfo;
+  onSend: (balance: BalanceInfo) => void;
+  onReceive: (balance: BalanceInfo) => void;
 }
 
-const BalanceRow = ({ balance }: BalanceRowProps) => {
+const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
   const { t } = useT();
   const [copied, setCopied] = useState(false);
   // Tracks the most recent "Copied" timer so rapid re-clicks reset the 2s
@@ -88,61 +99,68 @@ const BalanceRow = ({ balance }: BalanceRowProps) => {
     }
   }, [balance.address]);
 
-  const badgeClass =
-    CHAIN_BADGE_CLASS[balance.chain] ??
-    'bg-stone-100 text-stone-700 dark:bg-neutral-800 dark:text-neutral-300';
-  const chainLabel = CHAIN_LABEL[balance.chain] ?? balance.chain.toUpperCase();
+  const badgeClass = badgeClassFor(balance.chain);
+  const networkLabel = balanceNetworkLabel(balance);
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      {/* Chain badge */}
-      <span
-        className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold font-mono min-w-[3rem] justify-center shrink-0 ${badgeClass}`}>
-        {chainLabel}
-      </span>
-
-      {/* Address + copy button */}
-      <div className="flex items-center gap-1.5 min-w-0">
-        <span className="font-mono text-xs text-stone-600 dark:text-neutral-400 truncate">
-          {truncateAddress(balance.address)}
+    <div className="px-4 py-3">
+      <div className="flex items-center gap-3">
+        {/* Network badge */}
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold font-mono min-w-[3rem] justify-center shrink-0 ${badgeClass}`}>
+          {balanceBadge(balance)}
         </span>
-        <button
-          type="button"
-          onClick={() => void handleCopyAddress()}
-          aria-label={t('walletBalances.copyAddress')}
-          className="shrink-0 text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors">
-          {copied ? (
-            <svg
-              className="w-3.5 h-3.5 text-sage-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-stone-700 dark:text-neutral-200 truncate">
+              {networkLabel}
+            </span>
+            {balance.providerStatus !== 'ready' && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                {t('walletBalances.providerMissing')}
+              </span>
+            )}
+          </div>
+          {/* Address + copy button */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-mono text-[11px] text-stone-500 dark:text-neutral-400 truncate">
+              {truncateAddress(balance.address)}
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleCopyAddress()}
+              aria-label={t('walletBalances.copyAddress')}
+              className="shrink-0 text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors">
+              {copied ? (
+                <svg
+                  className="w-3.5 h-3.5 text-sage-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
 
-      {/* Amount + provider status */}
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="text-right">
+        {/* Amount */}
+        <div className="text-right shrink-0">
           <span
             title={t('walletBalances.rawBalance').replace('{raw}', balance.raw)}
             className="text-sm font-medium text-stone-800 dark:text-neutral-100 font-mono">
@@ -152,11 +170,24 @@ const BalanceRow = ({ balance }: BalanceRowProps) => {
             {balance.assetSymbol}
           </span>
         </div>
-        {balance.providerStatus !== 'ready' && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-            {t('walletBalances.providerMissing')}
-          </span>
-        )}
+      </div>
+
+      {/* Send / Receive actions */}
+      <div className="flex gap-2 mt-2.5">
+        <button
+          type="button"
+          onClick={() => onSend(balance)}
+          className="flex-1 py-1.5 text-xs font-medium rounded-lg border border-stone-200 dark:border-neutral-700 text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors"
+          data-testid={`wallet-send-${balanceKey(balance)}`}>
+          {t('walletBalances.send')}
+        </button>
+        <button
+          type="button"
+          onClick={() => onReceive(balance)}
+          className="flex-1 py-1.5 text-xs font-medium rounded-lg border border-stone-200 dark:border-neutral-700 text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors"
+          data-testid={`wallet-receive-${balanceKey(balance)}`}>
+          {t('walletBalances.receive')}
+        </button>
       </div>
     </div>
   );
@@ -168,31 +199,39 @@ const BalanceRow = ({ balance }: BalanceRowProps) => {
 // to convey the wallet layout without fabricating data.
 // ---------------------------------------------------------------------------
 
-const ChainPlaceholderRow = ({ chain }: { chain: WalletChain }) => {
+const ChainPlaceholderRow = ({
+  chain,
+  evmNetwork,
+  symbol,
+}: {
+  chain: WalletChain;
+  evmNetwork?: EvmNetwork;
+  symbol: string;
+}) => {
   const { t } = useT();
-  const badgeClass =
-    CHAIN_BADGE_CLASS[chain] ??
-    'bg-stone-100 text-stone-700 dark:bg-neutral-800 dark:text-neutral-300';
-  const chainLabel = CHAIN_LABEL[chain] ?? chain.toUpperCase();
+  const badgeClass = badgeClassFor(chain);
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 opacity-70">
       <span
         className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold font-mono min-w-[3rem] justify-center shrink-0 ${badgeClass}`}>
-        {chainLabel}
+        {balanceBadge({ chain, evmNetwork })}
       </span>
-      <span className="font-mono text-xs text-stone-400 dark:text-neutral-500 truncate">
-        {t('walletBalances.notSetUp')}
-      </span>
+      <div className="min-w-0">
+        <span className="block text-xs font-medium text-stone-400 dark:text-neutral-500 truncate">
+          {balanceNetworkLabel({ chain, evmNetwork })}
+        </span>
+        <span className="font-mono text-[11px] text-stone-400 dark:text-neutral-500 truncate">
+          {t('walletBalances.notSetUp')}
+        </span>
+      </div>
       <div className="flex-1" />
       <div className="text-right shrink-0">
         {/* Em dash placeholder — punctuation, not translatable copy. */}
         <span className="text-sm font-medium text-stone-400 dark:text-neutral-500 font-mono">
           —
         </span>
-        <span className="ml-1 text-xs text-stone-400 dark:text-neutral-500">
-          {CHAIN_ASSET[chain]}
-        </span>
+        <span className="ml-1 text-xs text-stone-400 dark:text-neutral-500">{symbol}</span>
       </div>
     </div>
   );
@@ -212,6 +251,9 @@ const WalletBalancesPanel = () => {
   // null = unknown (not yet loaded); false = wallet has no recovery phrase set
   // up yet, in which case we show a hint + placeholder rows instead of erroring.
   const [walletConfigured, setWalletConfigured] = useState<boolean | null>(null);
+  // The balance row a Send / Receive modal is currently open for (null = none).
+  const [sendTarget, setSendTarget] = useState<BalanceInfo | null>(null);
+  const [receiveTarget, setReceiveTarget] = useState<BalanceInfo | null>(null);
 
   // Request-sequencing guard: a slower earlier request must not overwrite a
   // newer one. `loadBalances` can fire concurrently (mount + Refresh + Retry),
@@ -348,8 +390,13 @@ const WalletBalancesPanel = () => {
             </div>
           </div>
           <div className="divide-y divide-stone-100 dark:divide-neutral-800">
-            {SUPPORTED_CHAINS.map(chain => (
-              <ChainPlaceholderRow key={chain} chain={chain} />
+            {PLACEHOLDER_ROWS.map(row => (
+              <ChainPlaceholderRow
+                key={`${row.chain}-${row.evmNetwork ?? 'native'}`}
+                chain={row.chain}
+                evmNetwork={row.evmNetwork}
+                symbol={row.symbol}
+              />
             ))}
           </div>
         </div>
@@ -383,8 +430,13 @@ const WalletBalancesPanel = () => {
     if (balances && balances.length > 0) {
       return (
         <div className="divide-y divide-stone-100 dark:divide-neutral-800">
-          {balances.map((balance, index) => (
-            <BalanceRow key={`${balance.chain}-${index}`} balance={balance} />
+          {balances.map(balance => (
+            <BalanceRow
+              key={balanceKey(balance)}
+              balance={balance}
+              onSend={setSendTarget}
+              onReceive={setReceiveTarget}
+            />
           ))}
         </div>
       );
@@ -427,6 +479,17 @@ const WalletBalancesPanel = () => {
       <div className="bg-white dark:bg-neutral-900 rounded-xl border border-stone-200 dark:border-neutral-800 mx-4 mb-4 overflow-hidden">
         {renderContent()}
       </div>
+
+      {sendTarget && (
+        <SendCryptoModal
+          balance={sendTarget}
+          onClose={() => setSendTarget(null)}
+          onSuccess={() => void loadBalances()}
+        />
+      )}
+      {receiveTarget && (
+        <ReceiveModal balance={receiveTarget} onClose={() => setReceiveTarget(null)} />
+      )}
     </div>
   );
 };

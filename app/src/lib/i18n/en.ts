@@ -4219,6 +4219,32 @@ const en: TranslationMap = {
     'Your recovery phrase isn’t set up yet. Set it up to enable your wallet and see live balances.',
   'walletBalances.setupCta': 'Set up recovery phrase',
   'walletBalances.notSetUp': 'Not set up',
+  'walletBalances.send': 'Send',
+  'walletBalances.receive': 'Receive',
+  // Receive modal
+  'walletReceive.scanHint': 'Scan this code or copy the address below to receive funds.',
+  'walletReceive.addressLabel': '{network} address',
+  'walletReceive.onlyChainWarning':
+    'Only send {network} assets to this address. Sending assets from another network may result in permanent loss.',
+  // Send modal
+  'walletSend.available': 'Available',
+  'walletSend.recipient': 'Recipient address',
+  'walletSend.recipientPlaceholder': 'Paste the destination address',
+  'walletSend.recipientRequired': 'Enter a recipient address',
+  'walletSend.amount': 'Amount',
+  'walletSend.invalidAmount': 'Enter a valid amount',
+  'walletSend.review': 'Review',
+  'walletSend.preparing': 'Preparing…',
+  'walletSend.confirmHint':
+    'Review the details below. Signing happens locally — nothing is broadcast until you confirm.',
+  'walletSend.estimatedFee': 'Estimated network fee',
+  'walletSend.confirmSend': 'Confirm & send',
+  'walletSend.sending': 'Sending…',
+  'walletSend.sent': 'Transaction sent',
+  'walletSend.txHash': 'Transaction hash',
+  'walletSend.viewExplorer': 'View on explorer',
+  'walletSend.done': 'Done',
+  'walletSend.genericError': 'Could not complete the transfer. Please try again.',
   // Task sources (#task-sources)
   'settings.taskSources.title': 'Task Sources',
   'settings.taskSources.subtitle': 'Pull tasks from your tools onto the agent todo board',

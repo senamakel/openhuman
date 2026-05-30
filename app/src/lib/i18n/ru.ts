@@ -4092,6 +4092,32 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'Сохранять',
   'settings.agents.editor.create': 'Создать агента',
   'settings.agents.editor.saving': 'Сохранение…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Управляйте агентами, их автономностью и доступом к ресурсам компьютера.',
+  'settings.agentsSection.menuDesc': 'Реестр, автономность и доступ к ОС',
+  'settings.agents.editor.notFound': 'Агент не найден.',
+  'settings.agents.editor.modelInherit': 'Унаследовать (системное по умолчанию)',
+  'settings.agents.editor.modelHints': 'Подсказки маршрутизации',
+  'settings.agents.editor.modelTiers': 'Уровни моделей',
+  'settings.agents.editor.modelCustom': 'Идентификатор модели…',
+  'settings.agents.editor.modelCustomPlaceholder': 'напр. anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'Добавить инструменты',
+  'settings.agents.editor.toolsAllSelected': 'Все инструменты',
+  'settings.agents.editor.toolsNoneSelected': 'Инструменты не выбраны',
+  'settings.agents.editor.removeToolAria': 'Удалить {tool}',
+  'settings.agents.editor.toolsModalTitle': 'Разрешённые инструменты',
+  'settings.agents.editor.toolsSelectedCount': 'Выбрано: {count}',
+  'settings.agents.editor.toolsSearchPlaceholder': 'Поиск инструментов…',
+  'settings.agents.editor.toolsAllowAll': 'Разрешить все инструменты (*)',
+  'settings.agents.editor.toolsAllowAllHint':
+    'Этот агент может использовать любой доступный инструмент.',
+  'settings.agents.editor.toolsLoading': 'Загрузка инструментов…',
+  'settings.agents.editor.toolsLoadError': 'Не удалось загрузить инструменты',
+  'settings.agents.editor.toolsEmpty': 'Инструменты по вашему запросу не найдены.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'Встроенные агенты нельзя редактировать. Вы можете включить, отключить или сбросить их в списке агентов.',
 };
 
 export default messages;

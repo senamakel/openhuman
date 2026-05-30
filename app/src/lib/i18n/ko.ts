@@ -4021,6 +4021,32 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': '저장',
   'settings.agents.editor.create': '에이전트 만들기',
   'settings.agents.editor.saving': '저장 중…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    '에이전트와 그 자율성, 그리고 이 컴퓨터에서 액세스할 수 있는 항목을 관리하세요.',
+  'settings.agentsSection.menuDesc': '레지스트리, 자율성 및 OS 접근',
+  'settings.agents.editor.notFound': '에이전트를 찾을 수 없습니다.',
+  'settings.agents.editor.modelInherit': '상속 (플랫폼 기본값)',
+  'settings.agents.editor.modelHints': '라우트 힌트',
+  'settings.agents.editor.modelTiers': '모델 등급',
+  'settings.agents.editor.modelCustom': '사용자 정의 모델 ID…',
+  'settings.agents.editor.modelCustomPlaceholder': '예: anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': '도구 추가',
+  'settings.agents.editor.toolsAllSelected': '모든 도구',
+  'settings.agents.editor.toolsNoneSelected': '선택된 도구 없음',
+  'settings.agents.editor.removeToolAria': '{tool} 제거',
+  'settings.agents.editor.toolsModalTitle': '허용된 도구',
+  'settings.agents.editor.toolsSelectedCount': '{count}개 선택됨',
+  'settings.agents.editor.toolsSearchPlaceholder': '도구 검색…',
+  'settings.agents.editor.toolsAllowAll': '모든 도구 허용 (*)',
+  'settings.agents.editor.toolsAllowAllHint':
+    '이 에이전트는 사용 가능한 모든 도구를 사용할 수 있습니다.',
+  'settings.agents.editor.toolsLoading': '도구 불러오는 중…',
+  'settings.agents.editor.toolsLoadError': '도구를 불러올 수 없습니다',
+  'settings.agents.editor.toolsEmpty': '검색 결과와 일치하는 도구가 없습니다.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    '기본 제공 에이전트는 편집할 수 없습니다. 에이전트 목록에서 활성화, 비활성화 또는 초기화할 수 있습니다.',
 };
 
 export default messages;

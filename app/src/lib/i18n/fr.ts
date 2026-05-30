@@ -4145,6 +4145,32 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'Enregistrer',
   'settings.agents.editor.create': 'Créer un agent',
   'settings.agents.editor.saving': 'Enregistrement…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Gérez vos agents, leur autonomie et ce à quoi ils peuvent accéder sur cet ordinateur.',
+  'settings.agentsSection.menuDesc': 'Registre, autonomie et accès au système',
+  'settings.agents.editor.notFound': 'Agent introuvable.',
+  'settings.agents.editor.modelInherit': 'Hériter (défaut de la plateforme)',
+  'settings.agents.editor.modelHints': 'Conseils de routage',
+  'settings.agents.editor.modelTiers': 'Niveaux de modèle',
+  'settings.agents.editor.modelCustom': 'Identifiant de modèle personnalisé…',
+  'settings.agents.editor.modelCustomPlaceholder': 'ex. anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'Ajouter des outils',
+  'settings.agents.editor.toolsAllSelected': 'Tous les outils',
+  'settings.agents.editor.toolsNoneSelected': 'Aucun outil sélectionné',
+  'settings.agents.editor.removeToolAria': 'Retirer {tool}',
+  'settings.agents.editor.toolsModalTitle': 'Outils autorisés',
+  'settings.agents.editor.toolsSelectedCount': '{count} sélectionné(s)',
+  'settings.agents.editor.toolsSearchPlaceholder': 'Rechercher des outils…',
+  'settings.agents.editor.toolsAllowAll': 'Autoriser tous les outils (*)',
+  'settings.agents.editor.toolsAllowAllHint':
+    'Cet agent peut utiliser tous les outils disponibles.',
+  'settings.agents.editor.toolsLoading': 'Chargement des outils…',
+  'settings.agents.editor.toolsLoadError': 'Impossible de charger les outils',
+  'settings.agents.editor.toolsEmpty': 'Aucun outil ne correspond à votre recherche.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'Les agents intégrés ne peuvent pas être modifiés. Vous pouvez les activer, les désactiver ou les réinitialiser depuis la liste des agents.',
 };
 
 export default messages;

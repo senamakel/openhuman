@@ -3980,6 +3980,31 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'أنقذ',
   'settings.agents.editor.create': 'وكيل خلق',
   'settings.agents.editor.saving': 'إنقاذ...',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'إدارة عواملك واستقلاليتها وما يمكنها الوصول إليه على هذا الجهاز.',
+  'settings.agentsSection.menuDesc': 'السجل، الاستقلالية ووصول نظام التشغيل',
+  'settings.agents.editor.notFound': 'العامل غير موجود.',
+  'settings.agents.editor.modelInherit': 'موروث (الافتراضي للمنصة)',
+  'settings.agents.editor.modelHints': 'تلميحات التوجيه',
+  'settings.agents.editor.modelTiers': 'مستويات النموذج',
+  'settings.agents.editor.modelCustom': 'معرّف نموذج مخصص…',
+  'settings.agents.editor.modelCustomPlaceholder': 'مثال: anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'إضافة أدوات',
+  'settings.agents.editor.toolsAllSelected': 'كل الأدوات',
+  'settings.agents.editor.toolsNoneSelected': 'لم يتم اختيار أي أدوات',
+  'settings.agents.editor.removeToolAria': 'إزالة {tool}',
+  'settings.agents.editor.toolsModalTitle': 'الأدوات المسموح بها',
+  'settings.agents.editor.toolsSelectedCount': '{count} محددة',
+  'settings.agents.editor.toolsSearchPlaceholder': 'البحث في الأدوات…',
+  'settings.agents.editor.toolsAllowAll': 'السماح بجميع الأدوات (*)',
+  'settings.agents.editor.toolsAllowAllHint': 'يمكن لهذا العامل استخدام كل الأدوات المتاحة.',
+  'settings.agents.editor.toolsLoading': 'جارٍ تحميل الأدوات…',
+  'settings.agents.editor.toolsLoadError': 'تعذّر تحميل الأدوات',
+  'settings.agents.editor.toolsEmpty': 'لا توجد أدوات تطابق بحثك.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'لا يمكن تعديل العوامل المدمجة. يمكنك تفعيلها أو تعطيلها أو إعادة ضبطها من قائمة العوامل.',
 };
 
 export default messages;

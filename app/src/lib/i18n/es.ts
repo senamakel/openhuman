@@ -4128,6 +4128,32 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'Guardar',
   'settings.agents.editor.create': 'Crear agente',
   'settings.agents.editor.saving': 'Guardando…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Administra tus agentes, su autonomía y a qué pueden acceder en este equipo.',
+  'settings.agentsSection.menuDesc': 'Registro, autonomía y acceso al SO',
+  'settings.agents.editor.notFound': 'Agente no encontrado.',
+  'settings.agents.editor.modelInherit': 'Heredar (predeterminado de la plataforma)',
+  'settings.agents.editor.modelHints': 'Sugerencias de enrutamiento',
+  'settings.agents.editor.modelTiers': 'Niveles de modelo',
+  'settings.agents.editor.modelCustom': 'ID de modelo personalizado…',
+  'settings.agents.editor.modelCustomPlaceholder': 'ej. anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'Agregar herramientas',
+  'settings.agents.editor.toolsAllSelected': 'Todas las herramientas',
+  'settings.agents.editor.toolsNoneSelected': 'Ninguna herramienta seleccionada',
+  'settings.agents.editor.removeToolAria': 'Eliminar {tool}',
+  'settings.agents.editor.toolsModalTitle': 'Herramientas permitidas',
+  'settings.agents.editor.toolsSelectedCount': '{count} seleccionadas',
+  'settings.agents.editor.toolsSearchPlaceholder': 'Buscar herramientas…',
+  'settings.agents.editor.toolsAllowAll': 'Permitir todas las herramientas (*)',
+  'settings.agents.editor.toolsAllowAllHint':
+    'Este agente puede usar todas las herramientas disponibles.',
+  'settings.agents.editor.toolsLoading': 'Cargando herramientas…',
+  'settings.agents.editor.toolsLoadError': 'No se pudieron cargar las herramientas',
+  'settings.agents.editor.toolsEmpty': 'Ninguna herramienta coincide con tu búsqueda.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'Los agentes integrados no se pueden editar. Puedes activarlos, desactivarlos o restablecerlos desde la lista de agentes.',
 };
 
 export default messages;

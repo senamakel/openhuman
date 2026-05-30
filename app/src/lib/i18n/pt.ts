@@ -4123,6 +4123,32 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'Salvar',
   'settings.agents.editor.create': 'Criar agente',
   'settings.agents.editor.saving': 'Salvando…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Gerencie seus agentes, sua autonomia e o que eles podem acessar neste computador.',
+  'settings.agentsSection.menuDesc': 'Registro, autonomia e acesso ao SO',
+  'settings.agents.editor.notFound': 'Agente não encontrado.',
+  'settings.agents.editor.modelInherit': 'Herdar (padrão da plataforma)',
+  'settings.agents.editor.modelHints': 'Dicas de roteamento',
+  'settings.agents.editor.modelTiers': 'Níveis de modelo',
+  'settings.agents.editor.modelCustom': 'ID de modelo personalizado…',
+  'settings.agents.editor.modelCustomPlaceholder': 'ex.: anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'Adicionar ferramentas',
+  'settings.agents.editor.toolsAllSelected': 'Todas as ferramentas',
+  'settings.agents.editor.toolsNoneSelected': 'Nenhuma ferramenta selecionada',
+  'settings.agents.editor.removeToolAria': 'Remover {tool}',
+  'settings.agents.editor.toolsModalTitle': 'Ferramentas permitidas',
+  'settings.agents.editor.toolsSelectedCount': '{count} selecionadas',
+  'settings.agents.editor.toolsSearchPlaceholder': 'Pesquisar ferramentas…',
+  'settings.agents.editor.toolsAllowAll': 'Permitir todas as ferramentas (*)',
+  'settings.agents.editor.toolsAllowAllHint':
+    'Este agente pode usar todas as ferramentas disponíveis.',
+  'settings.agents.editor.toolsLoading': 'Carregando ferramentas…',
+  'settings.agents.editor.toolsLoadError': 'Não foi possível carregar as ferramentas',
+  'settings.agents.editor.toolsEmpty': 'Nenhuma ferramenta corresponde à sua pesquisa.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'Agentes integrados não podem ser editados. Você pode ativá-los, desativá-los ou redefini-los na lista de agentes.',
 };
 
 export default messages;

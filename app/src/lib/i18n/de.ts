@@ -4163,6 +4163,31 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'Speichern',
   'settings.agents.editor.create': 'Vermittler erstellen',
   'settings.agents.editor.saving': 'Sichern…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Verwalten Sie Ihre Agenten, deren Autonomie und worauf sie auf diesem Computer zugreifen dürfen.',
+  'settings.agentsSection.menuDesc': 'Registrierung, Autonomie & BS-Zugriff',
+  'settings.agents.editor.notFound': 'Agent nicht gefunden.',
+  'settings.agents.editor.modelInherit': 'Übernehmen (Plattformstandard)',
+  'settings.agents.editor.modelHints': 'Routing-Hinweise',
+  'settings.agents.editor.modelTiers': 'Modellstufen',
+  'settings.agents.editor.modelCustom': 'Benutzerdefinierte Modell-ID…',
+  'settings.agents.editor.modelCustomPlaceholder': 'z. B. anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'Tools hinzufügen',
+  'settings.agents.editor.toolsAllSelected': 'Alle Tools',
+  'settings.agents.editor.toolsNoneSelected': 'Keine Tools ausgewählt',
+  'settings.agents.editor.removeToolAria': '{tool} entfernen',
+  'settings.agents.editor.toolsModalTitle': 'Erlaubte Tools',
+  'settings.agents.editor.toolsSelectedCount': '{count} ausgewählt',
+  'settings.agents.editor.toolsSearchPlaceholder': 'Tools suchen…',
+  'settings.agents.editor.toolsAllowAll': 'Alle Tools erlauben (*)',
+  'settings.agents.editor.toolsAllowAllHint': 'Dieser Agent kann jedes verfügbare Tool verwenden.',
+  'settings.agents.editor.toolsLoading': 'Tools werden geladen…',
+  'settings.agents.editor.toolsLoadError': 'Tools konnten nicht geladen werden',
+  'settings.agents.editor.toolsEmpty': 'Keine Tools entsprechen Ihrer Suche.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'Integrierte Agenten können nicht bearbeitet werden. Sie können sie in der Agentenliste aktivieren, deaktivieren oder zurücksetzen.',
 };
 
 export default messages;

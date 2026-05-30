@@ -4059,6 +4059,31 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'सहेजें',
   'settings.agents.editor.create': 'एजेंट बनाना',
   'settings.agents.editor.saving': 'बचत',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'अपने एजेंट, उनकी स्वायत्तता और इस कंप्यूटर पर वे क्या एक्सेस कर सकते हैं, यह प्रबंधित करें।',
+  'settings.agentsSection.menuDesc': 'रजिस्ट्री, स्वायत्तता और OS एक्सेस',
+  'settings.agents.editor.notFound': 'एजेंट नहीं मिला।',
+  'settings.agents.editor.modelInherit': 'इनहेरिट करें (प्लेटफ़ॉर्म डिफ़ॉल्ट)',
+  'settings.agents.editor.modelHints': 'रूट संकेत',
+  'settings.agents.editor.modelTiers': 'मॉडल स्तर',
+  'settings.agents.editor.modelCustom': 'कस्टम मॉडल आईडी…',
+  'settings.agents.editor.modelCustomPlaceholder': 'जैसे anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'टूल जोड़ें',
+  'settings.agents.editor.toolsAllSelected': 'सभी टूल',
+  'settings.agents.editor.toolsNoneSelected': 'कोई टूल चुना नहीं गया',
+  'settings.agents.editor.removeToolAria': '{tool} हटाएं',
+  'settings.agents.editor.toolsModalTitle': 'अनुमत टूल',
+  'settings.agents.editor.toolsSelectedCount': '{count} चुने गए',
+  'settings.agents.editor.toolsSearchPlaceholder': 'टूल खोजें…',
+  'settings.agents.editor.toolsAllowAll': 'सभी टूल की अनुमति दें (*)',
+  'settings.agents.editor.toolsAllowAllHint': 'यह एजेंट हर उपलब्ध टूल का उपयोग कर सकता है।',
+  'settings.agents.editor.toolsLoading': 'टूल लोड हो रहे हैं…',
+  'settings.agents.editor.toolsLoadError': 'टूल लोड नहीं हो सके',
+  'settings.agents.editor.toolsEmpty': 'आपकी खोज से कोई टूल मेल नहीं खाता।',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'बिल्ट-इन एजेंट संपादित नहीं किए जा सकते। आप एजेंट सूची से उन्हें सक्षम, अक्षम या रीसेट कर सकते हैं।',
 };
 
 export default messages;

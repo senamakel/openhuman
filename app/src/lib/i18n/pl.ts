@@ -4124,6 +4124,32 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'Zapisz',
   'settings.agents.editor.create': 'Utwórz agenta',
   'settings.agents.editor.saving': 'Zapisywanie…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Zarządzaj agentami, ich autonomią i tym, do czego mogą uzyskać dostęp na tym komputerze.',
+  'settings.agentsSection.menuDesc': 'Rejestr, autonomia i dostęp do systemu',
+  'settings.agents.editor.notFound': 'Nie znaleziono agenta.',
+  'settings.agents.editor.modelInherit': 'Dziedzicz (domyślne platformy)',
+  'settings.agents.editor.modelHints': 'Wskazówki trasowania',
+  'settings.agents.editor.modelTiers': 'Poziomy modelu',
+  'settings.agents.editor.modelCustom': 'Własny identyfikator modelu…',
+  'settings.agents.editor.modelCustomPlaceholder': 'np. anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'Dodaj narzędzia',
+  'settings.agents.editor.toolsAllSelected': 'Wszystkie narzędzia',
+  'settings.agents.editor.toolsNoneSelected': 'Nie wybrano narzędzi',
+  'settings.agents.editor.removeToolAria': 'Usuń {tool}',
+  'settings.agents.editor.toolsModalTitle': 'Dozwolone narzędzia',
+  'settings.agents.editor.toolsSelectedCount': '{count} wybrano',
+  'settings.agents.editor.toolsSearchPlaceholder': 'Szukaj narzędzi…',
+  'settings.agents.editor.toolsAllowAll': 'Zezwól na wszystkie narzędzia (*)',
+  'settings.agents.editor.toolsAllowAllHint':
+    'Ten agent może korzystać z każdego dostępnego narzędzia.',
+  'settings.agents.editor.toolsLoading': 'Ładowanie narzędzi…',
+  'settings.agents.editor.toolsLoadError': 'Nie udało się załadować narzędzi',
+  'settings.agents.editor.toolsEmpty': 'Żadne narzędzie nie pasuje do wyszukiwania.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'Wbudowanych agentów nie można edytować. Możesz je włączyć, wyłączyć lub zresetować z poziomu listy agentów.',
 };
 
 export default messages;

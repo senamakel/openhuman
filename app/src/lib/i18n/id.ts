@@ -4068,6 +4068,32 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'Simpan',
   'settings.agents.editor.create': 'Buat agen',
   'settings.agents.editor.saving': 'Menyimpan...',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Kelola agen Anda, otonomi mereka, dan apa yang dapat mereka akses di komputer ini.',
+  'settings.agentsSection.menuDesc': 'Registri, otonomi & akses OS',
+  'settings.agents.editor.notFound': 'Agen tidak ditemukan.',
+  'settings.agents.editor.modelInherit': 'Warisi (default platform)',
+  'settings.agents.editor.modelHints': 'Petunjuk rute',
+  'settings.agents.editor.modelTiers': 'Tingkatan model',
+  'settings.agents.editor.modelCustom': 'ID model kustom…',
+  'settings.agents.editor.modelCustomPlaceholder': 'mis. anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'Tambah alat',
+  'settings.agents.editor.toolsAllSelected': 'Semua alat',
+  'settings.agents.editor.toolsNoneSelected': 'Tidak ada alat yang dipilih',
+  'settings.agents.editor.removeToolAria': 'Hapus {tool}',
+  'settings.agents.editor.toolsModalTitle': 'Alat yang diizinkan',
+  'settings.agents.editor.toolsSelectedCount': '{count} dipilih',
+  'settings.agents.editor.toolsSearchPlaceholder': 'Cari alat…',
+  'settings.agents.editor.toolsAllowAll': 'Izinkan semua alat (*)',
+  'settings.agents.editor.toolsAllowAllHint':
+    'Agen ini dapat menggunakan semua alat yang tersedia.',
+  'settings.agents.editor.toolsLoading': 'Memuat alat…',
+  'settings.agents.editor.toolsLoadError': 'Gagal memuat alat',
+  'settings.agents.editor.toolsEmpty': 'Tidak ada alat yang cocok dengan pencarian Anda.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'Agen bawaan tidak dapat diedit. Anda dapat mengaktifkan, menonaktifkan, atau meresetnya dari daftar agen.',
 };
 
 export default messages;

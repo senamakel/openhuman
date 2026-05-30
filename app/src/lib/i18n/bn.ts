@@ -4052,6 +4052,31 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'সংরক্ষণ',
   'settings.agents.editor.create': 'নির্মাণ করুন',
   'settings.agents.editor.saving': 'ইনস্টল করা হয়েছে...',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'আপনার এজেন্ট, তাদের স্বায়ত্তশাসন এবং এই কম্পিউটারে তারা কী অ্যাক্সেস করতে পারে তা পরিচালনা করুন।',
+  'settings.agentsSection.menuDesc': 'রেজিস্ট্রি, স্বায়ত্তশাসন ও ওএস অ্যাক্সেস',
+  'settings.agents.editor.notFound': 'এজেন্ট পাওয়া যায়নি।',
+  'settings.agents.editor.modelInherit': 'উত্তরাধিকার (প্ল্যাটফর্ম ডিফল্ট)',
+  'settings.agents.editor.modelHints': 'রুট হিন্টস',
+  'settings.agents.editor.modelTiers': 'মডেল স্তর',
+  'settings.agents.editor.modelCustom': 'কাস্টম মডেল আইডি…',
+  'settings.agents.editor.modelCustomPlaceholder': 'যেমন anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'টুল যোগ করুন',
+  'settings.agents.editor.toolsAllSelected': 'সব টুল',
+  'settings.agents.editor.toolsNoneSelected': 'কোনো টুল নির্বাচিত নয়',
+  'settings.agents.editor.removeToolAria': '{tool} সরান',
+  'settings.agents.editor.toolsModalTitle': 'অনুমোদিত টুল',
+  'settings.agents.editor.toolsSelectedCount': '{count}টি নির্বাচিত',
+  'settings.agents.editor.toolsSearchPlaceholder': 'টুল খুঁজুন…',
+  'settings.agents.editor.toolsAllowAll': 'সব টুল অনুমতি দিন (*)',
+  'settings.agents.editor.toolsAllowAllHint': 'এই এজেন্ট প্রতিটি উপলব্ধ টুল ব্যবহার করতে পারে।',
+  'settings.agents.editor.toolsLoading': 'টুল লোড হচ্ছে…',
+  'settings.agents.editor.toolsLoadError': 'টুল লোড করা যায়নি',
+  'settings.agents.editor.toolsEmpty': 'আপনার অনুসন্ধানের সাথে কোনো টুল মেলে না।',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'বিল্ট-ইন এজেন্ট সম্পাদনা করা যাবে না। আপনি এজেন্ট তালিকা থেকে সেগুলো সক্রিয়, নিষ্ক্রিয় বা পুনরায় সেট করতে পারেন।',
 };
 
 export default messages;

@@ -4123,6 +4123,32 @@ const messages: TranslationMap = {
   'settings.agents.editor.save': 'Salva',
   'settings.agents.editor.create': 'Crea agente',
   'settings.agents.editor.saving': 'Salvataggio…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Gestisci i tuoi agenti, la loro autonomia e a cosa possono accedere su questo computer.',
+  'settings.agentsSection.menuDesc': 'Registro, autonomia e accesso al sistema operativo',
+  'settings.agents.editor.notFound': 'Agente non trovato.',
+  'settings.agents.editor.modelInherit': 'Eredita (predefinito della piattaforma)',
+  'settings.agents.editor.modelHints': 'Suggerimenti di instradamento',
+  'settings.agents.editor.modelTiers': 'Livelli di modello',
+  'settings.agents.editor.modelCustom': 'ID modello personalizzato…',
+  'settings.agents.editor.modelCustomPlaceholder': 'es. anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'Aggiungi strumenti',
+  'settings.agents.editor.toolsAllSelected': 'Tutti gli strumenti',
+  'settings.agents.editor.toolsNoneSelected': 'Nessuno strumento selezionato',
+  'settings.agents.editor.removeToolAria': 'Rimuovi {tool}',
+  'settings.agents.editor.toolsModalTitle': 'Strumenti consentiti',
+  'settings.agents.editor.toolsSelectedCount': '{count} selezionati',
+  'settings.agents.editor.toolsSearchPlaceholder': 'Cerca strumenti…',
+  'settings.agents.editor.toolsAllowAll': 'Consenti tutti gli strumenti (*)',
+  'settings.agents.editor.toolsAllowAllHint':
+    'Questo agente può utilizzare tutti gli strumenti disponibili.',
+  'settings.agents.editor.toolsLoading': 'Caricamento strumenti…',
+  'settings.agents.editor.toolsLoadError': 'Impossibile caricare gli strumenti',
+  'settings.agents.editor.toolsEmpty': 'Nessuno strumento corrisponde alla ricerca.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    "Gli agenti integrati non possono essere modificati. Puoi abilitarli, disabilitarli o reimpostarli dall'elenco degli agenti.",
 };
 
 export default messages;

@@ -42,6 +42,13 @@ export interface SubagentActivity {
   mode?: string;
   /** `true` when the spawn requested a dedicated worker thread. */
   dedicatedThread?: boolean;
+  /**
+   * The parent's delegation prompt — what the parent agent asked this
+   * sub-agent to do. Rendered as the opening (parent) turn in the drawer's
+   * parent↔subagent chat. Captured from the originating `spawn_subagent` /
+   * `delegate_*` tool call when the row is created.
+   */
+  prompt?: string;
   /** Sub-agent's current 1-based iteration index (live). */
   childIteration?: number;
   /** Sub-agent's iteration cap. */
@@ -55,20 +62,42 @@ export interface SubagentActivity {
   /** Child tool calls executed inside the sub-agent, in arrival order. */
   toolCalls: SubagentToolCallEntry[];
   /**
-   * Live, display-only accumulation of the sub-agent's streamed visible
-   * text, built up from `subagent_text_delta` socket events. Powers the
-   * inline card preview and the full-transcript drawer. Intentionally
-   * **not** persisted to the turn-state snapshot (see the core
-   * `turn_state::mirror` SubagentTextDelta arm) — the child's final
-   * answer lands in the thread on completion, so this is reset to `''`
-   * on rehydration of an older snapshot. Optional so legacy/test
-   * fixtures that predate streaming stay assignable — absent means
-   * "nothing streamed yet".
+   * Ordered, interleaved record of everything the sub-agent did, in the
+   * exact sequence it happened: a run of streamed thinking, then streamed
+   * visible text, then the tool calls that text triggered, then the next
+   * iteration's thinking/text, and so on. This is what the full-processing
+   * drawer renders so reasoning, output, and tool calls appear *where they
+   * occurred* instead of being split into three flat sections.
+   *
+   * Built incrementally from the `subagent_text_delta` /
+   * `subagent_thinking_delta` / `subagent_tool_call` / `subagent_tool_result`
+   * socket events in arrival order (the core flushes a child's text/thinking
+   * deltas before its tool-call events within an iteration, so arrival order
+   * is chronological order). Text is **not** persisted to the turn-state
+   * snapshot — on rehydration the transcript is rebuilt from the persisted
+   * `toolCalls` (tool items only), so an interrupted run still shows its
+   * tool sequence. Absent on legacy/test rows that predate streaming.
    */
-  streamingText?: string;
-  /** Live, display-only accumulation of streamed reasoning. See `streamingText`. */
-  streamingThinking?: string;
+  transcript?: SubagentTranscriptItem[];
 }
+
+/**
+ * One entry in a sub-agent's ordered {@link SubagentActivity.transcript}.
+ * A `thinking`/`text` item accumulates streamed deltas; a `tool` item is a
+ * child tool call whose `status` flips on its result event.
+ */
+export type SubagentTranscriptItem =
+  | { kind: 'thinking'; iteration?: number; text: string }
+  | { kind: 'text'; iteration?: number; text: string }
+  | {
+      kind: 'tool';
+      iteration?: number;
+      callId: string;
+      toolName: string;
+      status: ToolTimelineEntryStatus;
+      elapsedMs?: number;
+      outputChars?: number;
+    };
 
 /** One child tool call performed by a running sub-agent. */
 export interface SubagentToolCallEntry {
@@ -196,11 +225,19 @@ function subagentActivityFromPersisted(activity: PersistedSubagentActivity): Sub
     elapsedMs: activity.elapsedMs,
     outputChars: activity.outputChars,
     toolCalls: activity.toolCalls.map(subagentToolCallFromPersisted),
-    // Streaming text/thinking is live-only and never persisted; a
-    // rehydrated subagent row starts with empty buffers (the final
-    // answer already lives in the thread history).
-    streamingText: '',
-    streamingThinking: '',
+    // Streamed text/thinking is live-only and never persisted, so a
+    // rehydrated run can't replay the prose. Rebuild the transcript from
+    // the persisted tool calls (tool items only) so an interrupted run
+    // still shows its tool sequence in chronological order.
+    transcript: activity.toolCalls.map(call => ({
+      kind: 'tool' as const,
+      iteration: call.iteration,
+      callId: call.callId,
+      toolName: call.toolName,
+      status: call.status,
+      elapsedMs: call.elapsedMs,
+      outputChars: call.outputChars,
+    })),
   };
 }
 
@@ -251,12 +288,16 @@ const chatRuntimeSlice = createSlice({
     },
     /**
      * Append a streamed `subagent_text_delta` / `subagent_thinking_delta`
-     * chunk to the live transcript of the matching subagent row. The row
+     * chunk to the ordered transcript of the matching subagent row. The row
      * is located by its synthetic id (`<thread>:subagent:<taskId>:<agentId>`)
      * built from the event's subagent detail — the same id the
-     * `subagent_spawned` handler created. No-ops if the row isn't present
-     * yet (a delta racing ahead of its spawn event is dropped rather than
-     * resurrecting a row with no lifecycle context).
+     * `subagent_spawned` handler created.
+     *
+     * Consecutive deltas of the same kind extend the trailing transcript
+     * item; a kind switch (or an intervening tool call) starts a new item.
+     * That keeps reasoning, output, and tool calls in the exact order they
+     * occurred. No-ops if the row isn't present yet (a delta racing ahead of
+     * its spawn event is dropped rather than resurrecting a context-less row).
      */
     appendSubagentStreamDelta: (
       state,
@@ -265,18 +306,67 @@ const chatRuntimeSlice = createSlice({
         rowId: string;
         kind: 'text' | 'thinking';
         delta: string;
+        iteration?: number;
       }>
     ) => {
-      const { threadId, rowId, kind, delta } = action.payload;
-      const entries = state.toolTimelineByThread[threadId];
-      if (!entries) return;
-      const entry = entries.find(e => e.id === rowId);
+      const { threadId, rowId, kind, delta, iteration } = action.payload;
+      const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
       if (!entry?.subagent) return;
-      if (kind === 'text') {
-        entry.subagent.streamingText = (entry.subagent.streamingText ?? '') + delta;
+      const transcript = (entry.subagent.transcript ??= []);
+      const last = transcript[transcript.length - 1];
+      if (last && (last.kind === 'text' || last.kind === 'thinking') && last.kind === kind) {
+        last.text += delta;
       } else {
-        entry.subagent.streamingThinking = (entry.subagent.streamingThinking ?? '') + delta;
+        transcript.push({ kind, iteration, text: delta });
       }
+    },
+    /**
+     * Record the start of a child tool call as a `tool` item at the current
+     * tail of the subagent transcript — i.e. right after the text that
+     * triggered it. De-duped by `callId` so a socket redelivery doesn't
+     * append twice. Complements the flat `toolCalls` list (kept for the
+     * compact card + persistence).
+     */
+    recordSubagentTranscriptTool: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        rowId: string;
+        callId: string;
+        toolName: string;
+        iteration?: number;
+      }>
+    ) => {
+      const { threadId, rowId, callId, toolName, iteration } = action.payload;
+      const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
+      if (!entry?.subagent) return;
+      const transcript = (entry.subagent.transcript ??= []);
+      if (transcript.some(i => i.kind === 'tool' && i.callId === callId)) return;
+      transcript.push({ kind: 'tool', iteration, callId, toolName, status: 'running' });
+    },
+    /**
+     * Flip a transcript `tool` item to its terminal status when the child
+     * tool result arrives, recording timing/size. No-op if the matching
+     * item isn't present.
+     */
+    resolveSubagentTranscriptTool: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        rowId: string;
+        callId: string;
+        success: boolean;
+        elapsedMs?: number;
+        outputChars?: number;
+      }>
+    ) => {
+      const { threadId, rowId, callId, success, elapsedMs, outputChars } = action.payload;
+      const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
+      const item = entry?.subagent?.transcript?.find(i => i.kind === 'tool' && i.callId === callId);
+      if (!item || item.kind !== 'tool') return;
+      item.status = success ? 'success' : 'error';
+      if (elapsedMs != null) item.elapsedMs = elapsedMs;
+      if (outputChars != null) item.outputChars = outputChars;
     },
     setTaskBoardForThread: (
       state,
@@ -405,6 +495,8 @@ export const {
   setToolTimelineForThread,
   clearToolTimelineForThread,
   appendSubagentStreamDelta,
+  recordSubagentTranscriptTool,
+  resolveSubagentTranscriptTool,
   setTaskBoardForThread,
   clearTaskBoardForThread,
   setPendingApprovalForThread,

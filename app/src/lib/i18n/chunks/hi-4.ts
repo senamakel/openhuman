@@ -71,6 +71,7 @@ const hi4: TranslationMap = {
   'conversations.toolTimeline.turn': 'टर्न',
   'conversations.toolTimeline.workerThread': 'वर्कर थ्रेड',
   'conversations.subagent.viewProcessing': 'View full processing',
+  'conversations.subagent.parent': 'Parent',
   'conversations.subagent.thinking': 'Thinking',
   'conversations.subagent.response': 'Response',
   'conversations.subagent.toolCalls': 'Tool calls',

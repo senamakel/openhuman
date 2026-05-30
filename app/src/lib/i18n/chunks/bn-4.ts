@@ -71,6 +71,7 @@ const bn4: TranslationMap = {
   'conversations.toolTimeline.turn': 'টার্ন',
   'conversations.toolTimeline.workerThread': 'ওয়ার্কার থ্রেড',
   'conversations.subagent.viewProcessing': 'View full processing',
+  'conversations.subagent.parent': 'Parent',
   'conversations.subagent.thinking': 'Thinking',
   'conversations.subagent.response': 'Response',
   'conversations.subagent.toolCalls': 'Tool calls',

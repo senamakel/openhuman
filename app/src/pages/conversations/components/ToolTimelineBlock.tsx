@@ -70,17 +70,19 @@ export function SubagentActivityBlock({
     );
   }
 
-  // Live one-line preview of the subagent's streamed processing: prefer the
-  // visible output tail; fall back to the reasoning tail while the child is
-  // still thinking and hasn't emitted visible text yet. Drives the
-  // at-a-glance "what is it doing right now" affordance on the card.
-  const streamingText = subagent.streamingText ?? '';
-  const streamingThinking = subagent.streamingThinking ?? '';
-  const previewSource = streamingText.length > 0 ? streamingText : streamingThinking;
-  const previewIcon = streamingText.length > 0 ? '📝' : '💭';
+  // Live one-line preview of the subagent's streamed processing, derived
+  // from the ordered transcript: prefer the latest visible-output tail, then
+  // fall back to the latest reasoning tail while the child is still thinking
+  // and hasn't emitted visible text yet. Drives the at-a-glance "what is it
+  // doing right now" affordance on the card.
+  const transcript = subagent.transcript ?? [];
+  const lastTextItem = [...transcript].reverse().find(i => i.kind === 'text');
+  const lastThinkingItem = [...transcript].reverse().find(i => i.kind === 'thinking');
+  const previewItem = lastTextItem ?? lastThinkingItem;
+  const previewIcon = previewItem?.kind === 'text' ? '📝' : '💭';
   const preview =
-    previewSource.length > 0
-      ? previewSource.replace(/\s+/g, ' ').trim().slice(-SUBAGENT_PREVIEW_CHARS)
+    previewItem && 'text' in previewItem
+      ? previewItem.text.replace(/\s+/g, ' ').trim().slice(-SUBAGENT_PREVIEW_CHARS)
       : '';
 
   return (
@@ -147,7 +149,7 @@ export function SubagentActivityBlock({
           type="button"
           onClick={onView}
           data-testid="subagent-view-processing"
-          className="mt-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-ocean-600 hover:bg-ocean-50 dark:text-ocean-300 dark:hover:bg-ocean-500/15">
+          className="mt-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-500/15">
           {t('conversations.subagent.viewProcessing')} →
         </button>
       ) : null}

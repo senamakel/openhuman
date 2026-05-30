@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { SubagentActivity, ToolTimelineEntryStatus } from '../../../store/chatRuntimeSlice';
@@ -79,10 +79,17 @@ export function SubagentDrawer({
   if (!subagent) return null;
 
   const tone = statusTone(status);
-  const thinking = subagent.streamingThinking ?? '';
-  const output = subagent.streamingText ?? '';
-  const hasOutput = output.trim().length > 0;
   const isRunning = status !== 'success' && status !== 'error';
+  const transcript = subagent.transcript ?? [];
+  // The last visible-text item gets the live cursor while the run is in
+  // flight (the model is mid-sentence on its final/visible output).
+  let lastTextIdx = -1;
+  for (let i = transcript.length - 1; i >= 0; i -= 1) {
+    if (transcript[i].kind === 'text') {
+      lastTextIdx = i;
+      break;
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" data-testid="subagent-drawer">
@@ -96,7 +103,7 @@ export function SubagentDrawer({
       <aside className="relative flex h-full w-full max-w-md flex-col bg-white dark:bg-neutral-900 shadow-xl">
         {/* Header */}
         <header className="flex items-center gap-2.5 border-b border-stone-200 dark:border-neutral-800 px-4 py-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ocean-50 dark:bg-ocean-500/15 text-base">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-50 dark:bg-primary-500/15 text-base">
             🤖
           </span>
           <div className="min-w-0 flex-1">
@@ -133,84 +140,122 @@ export function SubagentDrawer({
           </button>
         </header>
 
-        {/* Body */}
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-          {/* Streamed reasoning */}
-          {thinking.trim().length > 0 ? (
-            <section>
-              <h3 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-stone-500 dark:text-neutral-400">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />
-                {t('conversations.subagent.thinking')}
-              </h3>
-              <pre className="whitespace-pre-wrap break-words rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 font-sans text-[12px] leading-relaxed text-stone-600 dark:text-neutral-300">
-                {thinking}
-              </pre>
-            </section>
-          ) : null}
-
-          {/* Streamed visible output */}
-          <section>
-            <h3 className="mb-1.5 text-xs font-semibold text-stone-500 dark:text-neutral-400">
-              {t('conversations.subagent.response')}
-            </h3>
-            {hasOutput ? (
-              <div className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
-                <BubbleMarkdown content={output} />
-                {isRunning ? (
-                  <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-primary-400 align-middle" />
-                ) : null}
+        {/* Body — a parent↔subagent conversation: the parent's delegation
+            prompt opens it, then the sub-agent replies as one chronological
+            transcript (thinking, the text it produced, the tool calls that
+            text triggered, the next turn — exactly as it was emitted). */}
+        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          {/* Parent → sub-agent: the delegation prompt (the "input"). */}
+          {subagent.prompt ? (
+            <div className="flex justify-end" data-testid="subagent-parent-prompt">
+              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary-500 px-3 py-2 text-sm text-white">
+                <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/70">
+                  {t('conversations.subagent.parent')}
+                </div>
+                <div className="whitespace-pre-wrap break-words">{subagent.prompt}</div>
               </div>
-            ) : (
-              <p className="text-xs italic text-stone-400 dark:text-neutral-500">
-                {isRunning
-                  ? t('conversations.subagent.working')
-                  : t('conversations.subagent.noOutputYet')}
-              </p>
-            )}
-          </section>
-
-          {/* Child tool calls */}
-          {subagent.toolCalls.length > 0 ? (
-            <section>
-              <h3 className="mb-1.5 text-xs font-semibold text-stone-500 dark:text-neutral-400">
-                {t('conversations.subagent.toolCalls')} ({subagent.toolCalls.length})
-              </h3>
-              <ul className="space-y-1">
-                {subagent.toolCalls.map(call => {
-                  const callTone =
-                    call.status === 'running'
-                      ? 'text-amber-700 dark:text-amber-300'
-                      : call.status === 'success'
-                        ? 'text-sage-700 dark:text-sage-300'
-                        : 'text-coral-700 dark:text-coral-300';
-                  return (
-                    <li
-                      key={call.callId}
-                      className="flex items-center gap-2 rounded-md bg-stone-50 dark:bg-neutral-800/60 px-2.5 py-1.5 text-xs"
-                      data-testid="subagent-drawer-tool-call">
-                      <span className={callTone}>●</span>
-                      <span className="font-mono text-stone-700 dark:text-neutral-200">
-                        {call.toolName}
-                      </span>
-                      {call.iteration != null ? (
-                        <span className="text-[10px] text-stone-400 dark:text-neutral-500">
-                          t{call.iteration}
-                        </span>
-                      ) : null}
-                      <span className={`ml-auto ${callTone}`}>{call.status}</span>
-                      {call.elapsedMs != null && call.status !== 'running' ? (
-                        <span className="text-[10px] text-stone-400 dark:text-neutral-500">
-                          {formatElapsed(call.elapsedMs)}
-                        </span>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+            </div>
           ) : null}
+
+          {/* Sub-agent side: avatar label + its turns. */}
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+            <span>🤖</span>
+            {subagent.agentId}
+          </div>
+
+          {transcript.length === 0 ? (
+            <p className="text-xs italic text-stone-400 dark:text-neutral-500">
+              {isRunning
+                ? t('conversations.subagent.working')
+                : t('conversations.subagent.noOutputYet')}
+            </p>
+          ) : (
+            <ol className="space-y-2">
+              {transcript.map((item, idx) => {
+                // Insert a "Turn N" divider when the iteration advances.
+                const prevIteration = idx > 0 ? transcript[idx - 1].iteration : undefined;
+                const showTurn = item.iteration != null && item.iteration !== prevIteration;
+                const turnDivider = showTurn ? (
+                  <li
+                    aria-hidden
+                    className="flex items-center gap-2 pt-1 text-[10px] font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500"
+                    data-testid="subagent-turn-divider">
+                    <span className="h-px flex-1 bg-stone-200 dark:bg-neutral-800" />
+                    {t('conversations.toolTimeline.turn')} {item.iteration}
+                    <span className="h-px flex-1 bg-stone-200 dark:bg-neutral-800" />
+                  </li>
+                ) : null;
+
+                if (item.kind === 'thinking') {
+                  return (
+                    <ItemWrapper key={`th-${idx}`} divider={turnDivider}>
+                      <div
+                        className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2"
+                        data-testid="subagent-transcript-thinking">
+                        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-stone-500 dark:text-neutral-400">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />
+                          {t('conversations.subagent.thinking')}
+                        </div>
+                        <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-stone-600 dark:text-neutral-300">
+                          {item.text}
+                        </pre>
+                      </div>
+                    </ItemWrapper>
+                  );
+                }
+
+                if (item.kind === 'text') {
+                  return (
+                    <ItemWrapper key={`tx-${idx}`} divider={turnDivider}>
+                      <div data-testid="subagent-transcript-text">
+                        <BubbleMarkdown content={item.text} />
+                        {isRunning && idx === lastTextIdx ? (
+                          <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-primary-400 align-middle" />
+                        ) : null}
+                      </div>
+                    </ItemWrapper>
+                  );
+                }
+
+                const callTone =
+                  item.status === 'running'
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : item.status === 'success'
+                      ? 'text-sage-700 dark:text-sage-300'
+                      : 'text-coral-700 dark:text-coral-300';
+                return (
+                  <ItemWrapper key={`tl-${item.callId}`} divider={turnDivider}>
+                    <div
+                      className="flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-xs dark:border-neutral-800 dark:bg-neutral-800/60"
+                      data-testid="subagent-drawer-tool-call">
+                      <span className={callTone}>🔧</span>
+                      <span className="font-mono text-stone-700 dark:text-neutral-200">
+                        {item.toolName}
+                      </span>
+                      <span className={`ml-auto ${callTone}`}>{item.status}</span>
+                      {item.elapsedMs != null && item.status !== 'running' ? (
+                        <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+                          {formatElapsed(item.elapsedMs)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </ItemWrapper>
+                );
+              })}
+            </ol>
+          )}
         </div>
       </aside>
     </div>
+  );
+}
+
+/** Render a transcript row, prefixed by an optional "Turn N" divider. */
+function ItemWrapper({ divider, children }: { divider: ReactNode; children: ReactNode }) {
+  return (
+    <>
+      {divider}
+      <li>{children}</li>
+    </>
   );
 }

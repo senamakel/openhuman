@@ -71,6 +71,7 @@ const de4: TranslationMap = {
   'conversations.toolTimeline.turn': 'drehen',
   'conversations.toolTimeline.workerThread': 'Worker-Thread',
   'conversations.subagent.viewProcessing': 'View full processing',
+  'conversations.subagent.parent': 'Parent',
   'conversations.subagent.thinking': 'Thinking',
   'conversations.subagent.response': 'Response',
   'conversations.subagent.toolCalls': 'Tool calls',

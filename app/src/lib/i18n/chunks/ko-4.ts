@@ -62,6 +62,7 @@ const ko4: TranslationMap = {
   'conversations.toolTimeline.turn': '턴',
   'conversations.toolTimeline.workerThread': '워커 스레드',
   'conversations.subagent.viewProcessing': 'View full processing',
+  'conversations.subagent.parent': 'Parent',
   'conversations.subagent.thinking': 'Thinking',
   'conversations.subagent.response': 'Response',
   'conversations.subagent.toolCalls': 'Tool calls',

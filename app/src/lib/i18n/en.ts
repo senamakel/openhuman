@@ -2556,6 +2556,7 @@ const en: TranslationMap = {
   'conversations.toolTimeline.turn': 'turn',
   'conversations.toolTimeline.workerThread': 'worker thread',
   'conversations.subagent.viewProcessing': 'View full processing',
+  'conversations.subagent.parent': 'Parent',
   'conversations.subagent.thinking': 'Thinking',
   'conversations.subagent.response': 'Response',
   'conversations.subagent.toolCalls': 'Tool calls',

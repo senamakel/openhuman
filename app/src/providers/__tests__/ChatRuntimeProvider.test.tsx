@@ -125,6 +125,49 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(timeline[0]?.status).toBe('running');
     });
 
+    it('collapses a spawn_subagent tool-call row into the subagent row', () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        // Parent invokes the delegation tool — creates a "spawn_subagent" row.
+        listeners.onToolCall?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'spawn_subagent',
+          skill_id: 'orchestration',
+          args: {},
+          tool_call_id: 'call-spawn',
+        });
+        // The delegation prompt streams in as the tool's args JSON.
+        listeners.onToolArgsDelta?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          tool_call_id: 'call-spawn',
+          tool_name: 'spawn_subagent',
+          delta: '{"prompt":"Research Q3 revenue."}',
+        });
+        // The child spawns — should REPLACE the tool-call row, not add a second.
+        listeners.onSubagentSpawned?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'researcher',
+          skill_id: 'sub-1',
+          message: 'spawned',
+          subagent: { mode: 'typed' },
+        });
+      });
+
+      const timeline = store.getState().chatRuntime.toolTimelineByThread['t1'] ?? [];
+      expect(timeline).toHaveLength(1);
+      expect(timeline[0]?.name).toBe('subagent:researcher');
+      // The parent's delegation prompt is carried onto the subagent so the
+      // drawer can open the conversation with it.
+      expect(timeline[0]?.subagent?.prompt).toContain('Research Q3 revenue');
+    });
+
     it('drops duplicate chat_done events with the same thread/request', async () => {
       const listeners = renderProvider();
 

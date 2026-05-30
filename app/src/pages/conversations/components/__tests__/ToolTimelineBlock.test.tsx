@@ -84,8 +84,10 @@ describe('SubagentActivityBlock', () => {
           taskId: 't',
           agentId: 'researcher',
           toolCalls: [],
-          streamingThinking: 'pondering the request',
-          streamingText: 'Here is what I found so far about the topic',
+          transcript: [
+            { kind: 'thinking', iteration: 1, text: 'pondering the request' },
+            { kind: 'text', iteration: 1, text: 'Here is what I found so far about the topic' },
+          ],
         }}
       />
     );
@@ -102,8 +104,7 @@ describe('SubagentActivityBlock', () => {
           taskId: 't',
           agentId: 'researcher',
           toolCalls: [],
-          streamingThinking: 'I should search the web first',
-          streamingText: '',
+          transcript: [{ kind: 'thinking', iteration: 1, text: 'I should search the web first' }],
         }}
       />
     );

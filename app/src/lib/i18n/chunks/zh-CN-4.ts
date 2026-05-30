@@ -69,6 +69,7 @@ const zhCN4: TranslationMap = {
   'conversations.toolTimeline.turn': '轮次',
   'conversations.toolTimeline.workerThread': '工作线程',
   'conversations.subagent.viewProcessing': 'View full processing',
+  'conversations.subagent.parent': 'Parent',
   'conversations.subagent.thinking': 'Thinking',
   'conversations.subagent.response': 'Response',
   'conversations.subagent.toolCalls': 'Tool calls',

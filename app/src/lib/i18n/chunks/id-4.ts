@@ -71,6 +71,7 @@ const id4: TranslationMap = {
   'conversations.toolTimeline.turn': 'giliran',
   'conversations.toolTimeline.workerThread': 'thread worker',
   'conversations.subagent.viewProcessing': 'View full processing',
+  'conversations.subagent.parent': 'Parent',
   'conversations.subagent.thinking': 'Thinking',
   'conversations.subagent.response': 'Response',
   'conversations.subagent.toolCalls': 'Tool calls',

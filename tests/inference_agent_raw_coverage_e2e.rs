@@ -25,7 +25,17 @@ use openhuman_core::openhuman::agent::dispatcher::{
     NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, ToolExecutionResult,
     XmlToolDispatcher,
 };
+use openhuman_core::openhuman::agent::error::{
+    is_context_limit_error, is_max_iterations_error, AgentError, MAX_ITERATIONS_ERROR_PREFIX,
+};
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
+use openhuman_core::openhuman::agent::harness::{
+    check_interrupt, current_sandbox_mode, with_current_sandbox_mode, InterruptFence,
+    InterruptedError, SandboxMode,
+};
+use openhuman_core::openhuman::agent::hooks::{
+    fire_hooks, sanitize_tool_output, PostTurnHook, ToolCallRecord, TurnContext,
+};
 use openhuman_core::openhuman::agent::host_runtime::create_runtime;
 use openhuman_core::openhuman::agent::memory_loader::{
     collect_recall_citations, DefaultMemoryLoader, MemoryLoader, CROSS_CHAT_HEADER,
@@ -51,6 +61,10 @@ use openhuman_core::openhuman::agent::prompts::{
     GatedIntegrationTool, LearnedContextData, NamespaceSummary, PersonalityRosterEntry,
     PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat,
     UserIdentity,
+};
+use openhuman_core::openhuman::agent::stop_hooks::{
+    current_stop_hooks, with_stop_hooks, BudgetStopHook, MaxIterationsStopHook, StopDecision,
+    StopHook, TurnState,
 };
 use openhuman_core::openhuman::agent::task_board::{
     TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
@@ -97,6 +111,7 @@ use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
     BYOK_INCOMPLETE_SENTINEL,
 };
+use openhuman_core::openhuman::inference::provider::router::{Route, RouterProvider};
 use openhuman_core::openhuman::inference::provider::temperature::{
     glob_match, temperature_for_model,
 };
@@ -3085,6 +3100,306 @@ fn inference_openai_oauth_store_covers_persist_lookup_and_empty_profiles() {
         lookup_openai_bearer_token(&config).expect("blank token lookup"),
         None
     );
+}
+
+#[tokio::test]
+async fn agent_error_hooks_interrupt_and_stop_hooks_cover_public_paths() {
+    let max_iterations = AgentError::MaxIterationsExceeded { max: 12 };
+    assert_eq!(
+        max_iterations.to_string(),
+        format!("{MAX_ITERATIONS_ERROR_PREFIX} (12)")
+    );
+    assert!(max_iterations.skips_sentry());
+    assert!(is_max_iterations_error(&format!(
+        "agent turn failed: {max_iterations}"
+    )));
+
+    let empty = AgentError::EmptyProviderResponse { iteration: 2 };
+    assert_eq!(
+        empty.to_string(),
+        "The model returned an empty response. Please try again."
+    );
+    assert!(empty.skips_sentry());
+
+    let variants = [
+        AgentError::ProviderError {
+            message: "upstream timeout".into(),
+            retryable: true,
+        },
+        AgentError::ContextLimitExceeded {
+            utilization_pct: 97,
+        },
+        AgentError::ToolExecutionError {
+            tool_name: "search_docs".into(),
+            message: "bad arguments".into(),
+        },
+        AgentError::CostBudgetExceeded {
+            spent_microdollars: 5_500_000,
+            budget_microdollars: 5_000_000,
+        },
+        AgentError::CompactionFailed {
+            message: "summarizer unavailable".into(),
+            consecutive_failures: 3,
+        },
+        AgentError::PermissionDenied {
+            tool_name: "shell".into(),
+            required_level: "full".into(),
+            channel_max_level: "read_only".into(),
+        },
+        AgentError::Other(anyhow::anyhow!("wrapped failure")),
+    ];
+    let rendered = variants
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(rendered.contains("retryable=true"));
+    assert!(rendered.contains("97% utilized"));
+    assert!(rendered.contains("Tool execution error [search_docs]"));
+    assert!(rendered.contains("spent $5.5000"));
+    assert!(rendered.contains("Compaction failed (3 consecutive)"));
+    assert!(rendered.contains("requires full, channel allows read_only"));
+    assert!(rendered.contains("wrapped failure"));
+    assert!(variants.iter().all(|err| !err.skips_sentry()));
+    assert!(is_context_limit_error(
+        "provider says maximum context length exceeded"
+    ));
+    assert!(is_context_limit_error("token limit reached"));
+    assert!(!is_context_limit_error("temporary upstream outage"));
+
+    let recovered: AgentError =
+        anyhow::anyhow!(AgentError::MaxIterationsExceeded { max: 3 }).into();
+    assert!(matches!(
+        recovered,
+        AgentError::MaxIterationsExceeded { max: 3 }
+    ));
+
+    let fence = InterruptFence::new();
+    assert!(check_interrupt(&fence).is_ok());
+    let shared = fence.flag_handle();
+    shared.store(true, std::sync::atomic::Ordering::Relaxed);
+    assert!(fence.is_interrupted());
+    assert!(matches!(check_interrupt(&fence), Err(InterruptedError)));
+    fence.reset();
+    assert!(!fence.is_interrupted());
+    let cloned = fence.clone();
+    cloned.trigger();
+    assert!(fence.is_interrupted());
+
+    assert_eq!(current_sandbox_mode(), None);
+    with_current_sandbox_mode(SandboxMode::ReadOnly, async {
+        assert_eq!(current_sandbox_mode(), Some(SandboxMode::ReadOnly));
+        with_current_sandbox_mode(SandboxMode::Sandboxed, async {
+            assert_eq!(current_sandbox_mode(), Some(SandboxMode::Sandboxed));
+        })
+        .await;
+        assert_eq!(current_sandbox_mode(), Some(SandboxMode::ReadOnly));
+    })
+    .await;
+    assert_eq!(current_sandbox_mode(), None);
+
+    assert_eq!(current_stop_hooks().len(), 0);
+    let hook: Arc<dyn StopHook> = Arc::new(MaxIterationsStopHook::new(2));
+    let hook_names = with_stop_hooks(vec![Arc::clone(&hook)], async {
+        current_stop_hooks()
+            .iter()
+            .map(|hook| hook.name().to_string())
+            .collect::<Vec<_>>()
+    })
+    .await;
+    assert_eq!(hook_names, vec!["max_iterations"]);
+    assert_eq!(current_stop_hooks().len(), 0);
+
+    let mut turn_cost = openhuman_core::openhuman::agent::cost::TurnCost::new();
+    turn_cost.add_call(
+        "agentic-v1",
+        &UsageInfo {
+            charged_amount_usd: 1.25,
+            ..Default::default()
+        },
+    );
+    let state = TurnState {
+        iteration: 3,
+        max_iterations: 10,
+        cost: &turn_cost,
+        model: "agentic-v1",
+    };
+    match BudgetStopHook::new(1.0).check(&state).await {
+        StopDecision::Stop { reason } => assert!(reason.contains("reached cap")),
+        StopDecision::Continue => panic!("budget cap should stop"),
+    }
+    match BudgetStopHook::new(f64::NAN).check(&state).await {
+        StopDecision::Stop { reason } => assert!(reason.contains("invalid budget cap")),
+        StopDecision::Continue => panic!("invalid budget should stop"),
+    }
+    assert!(matches!(
+        BudgetStopHook::new(2.0).check(&state).await,
+        StopDecision::Continue
+    ));
+    match MaxIterationsStopHook::new(2).check(&state).await {
+        StopDecision::Stop { reason } => {
+            assert!(reason.contains("about to start iteration 3"));
+        }
+        StopDecision::Continue => panic!("iteration cap should stop"),
+    }
+    assert!(matches!(
+        MaxIterationsStopHook::new(3).check(&state).await,
+        StopDecision::Continue
+    ));
+    assert_eq!(state.max_iterations, 10);
+    assert_eq!(state.model, "agentic-v1");
+
+    assert_eq!(
+        sanitize_tool_output("hello world", "read_file", true),
+        "read_file: ok (11 chars)"
+    );
+    for (raw, class) in [
+        ("connection timeout after 30s", "timeout"),
+        ("no such file or directory", "not_found"),
+        ("Permission denied", "permission_denied"),
+        ("network unreachable", "connection_error"),
+        ("invalid JSON syntax", "parse_error"),
+        ("unknown tool requested", "unknown_tool"),
+        ("opaque failure", "error"),
+    ] {
+        assert_eq!(
+            sanitize_tool_output(raw, "tool", false),
+            format!("tool: failed ({class})")
+        );
+    }
+
+    let ctx = TurnContext {
+        user_message: "hello".into(),
+        assistant_response: "hi".into(),
+        tool_calls: vec![ToolCallRecord {
+            name: "read".into(),
+            arguments: json!({ "path": "/tmp/demo" }),
+            success: true,
+            output_summary: "read: ok (10 chars)".into(),
+            duration_ms: 42,
+        }],
+        turn_duration_ms: 100,
+        session_id: Some("session-1".into()),
+        agent_id: Some("orchestrator".into()),
+        entrypoint: Some("test".into()),
+        iteration_count: 1,
+    };
+    let back: TurnContext =
+        serde_json::from_str(&serde_json::to_string(&ctx).expect("serialize turn context"))
+            .expect("deserialize turn context");
+    assert_eq!(back.tool_calls[0].name, "read");
+
+    struct CountingHook {
+        calls: Arc<Mutex<usize>>,
+    }
+    #[async_trait]
+    impl PostTurnHook for CountingHook {
+        fn name(&self) -> &str {
+            "counting"
+        }
+
+        async fn on_turn_complete(&self, ctx: &TurnContext) -> anyhow::Result<()> {
+            assert_eq!(ctx.user_message, "hello");
+            *self.calls.lock().expect("hook calls") += 1;
+            Ok(())
+        }
+    }
+    let calls = Arc::new(Mutex::new(0));
+    let counting = CountingHook {
+        calls: Arc::clone(&calls),
+    };
+    assert_eq!(counting.name(), "counting");
+    counting
+        .on_turn_complete(&ctx)
+        .await
+        .expect("direct hook call");
+    assert_eq!(*calls.lock().expect("hook calls"), 1);
+    let hook: Arc<dyn PostTurnHook> = Arc::new(CountingHook {
+        calls: Arc::clone(&calls),
+    });
+    fire_hooks(&[hook], ctx);
+    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    assert_eq!(*calls.lock().expect("hook calls"), 2);
+}
+
+#[tokio::test]
+async fn inference_router_provider_covers_hint_tier_and_passthrough_routing() {
+    let router = RouterProvider::new(
+        vec![
+            (
+                "default".to_string(),
+                Box::new(EchoProvider) as Box<dyn Provider>,
+            ),
+            (
+                "fast".to_string(),
+                Box::new(EchoProvider) as Box<dyn Provider>,
+            ),
+        ],
+        vec![
+            (
+                "chat".to_string(),
+                Route {
+                    provider_name: "fast".to_string(),
+                    model: "fast-chat".to_string(),
+                    context_window: Some(8_192),
+                },
+            ),
+            (
+                "reasoning".to_string(),
+                Route {
+                    provider_name: "missing".to_string(),
+                    model: "ignored".to_string(),
+                    context_window: None,
+                },
+            ),
+        ],
+        "default-chat".to_string(),
+    );
+
+    let routed_hint = router
+        .chat_with_system(Some("sys"), "hello", "hint:chat", 0.2)
+        .await
+        .expect("hint route");
+    assert!(routed_hint.contains("model=fast-chat"));
+
+    let routed_tier = router
+        .chat_with_history(&[ChatMessage::user("tier")], "reasoning-quick-v1", 0.3)
+        .await
+        .expect("tier route");
+    assert!(routed_tier.contains("model=fast-chat"));
+
+    let tier_without_route = router
+        .chat(
+            ChatRequest {
+                messages: &[ChatMessage::user("fallback")],
+                tools: None,
+                stream: None,
+            },
+            "reasoning-v1",
+            0.4,
+        )
+        .await
+        .expect("tier fallback");
+    assert!(tier_without_route
+        .text_or_empty()
+        .contains("model=default-chat"));
+
+    let passthrough = router
+        .chat_with_tools(
+            &[ChatMessage::user("tools")],
+            &[json!({ "type": "function", "function": { "name": "noop" } })],
+            "custom-model",
+            0.5,
+        )
+        .await
+        .expect("passthrough route");
+    assert!(passthrough.text_or_empty().contains("model=custom-model"));
+
+    let unknown_hint = router
+        .chat_with_system(None, "unknown", "hint:not_configured", 0.1)
+        .await
+        .expect("unknown hint falls through");
+    assert!(unknown_hint.contains("model=hint:not_configured"));
 }
 
 fn test_device(total_ram_gb: u64) -> DeviceProfile {

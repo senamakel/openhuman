@@ -245,6 +245,54 @@ impl ProgressReporter for SubagentProgress {
                 .await;
         }
     }
+
+    /// Stream the child's visible text + reasoning deltas to the parent,
+    /// attributed to this sub-agent's `task_id` so the UI renders them inside
+    /// the live subagent row (PR #3007). Tool-call arg fragments are dropped
+    /// here — they're already surfaced via the `SubagentToolCall*` lifecycle
+    /// events, so forwarding them too would double-render.
+    fn make_stream_sink(
+        &self,
+        iteration: u32,
+    ) -> (
+        Option<tokio::sync::mpsc::Sender<ProviderDelta>>,
+        Option<tokio::task::JoinHandle<()>>,
+    ) {
+        let Some(sink) = self.sink.clone() else {
+            return (None, None);
+        };
+        let agent_id = self.agent_id.clone();
+        let task_id = self.task_id.clone();
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<ProviderDelta>(128);
+        let forwarder = tokio::spawn(async move {
+            while let Some(event) = rx.recv().await {
+                let mapped = match event {
+                    ProviderDelta::TextDelta { delta } => AgentProgress::SubagentTextDelta {
+                        agent_id: agent_id.clone(),
+                        task_id: task_id.clone(),
+                        delta,
+                        iteration,
+                    },
+                    ProviderDelta::ThinkingDelta { delta } => {
+                        AgentProgress::SubagentThinkingDelta {
+                            agent_id: agent_id.clone(),
+                            task_id: task_id.clone(),
+                            delta,
+                            iteration,
+                        }
+                    }
+                    ProviderDelta::ToolCallStart { .. } | ProviderDelta::ToolCallArgsDelta { .. } => {
+                        continue
+                    }
+                };
+                // Await backpressure so streamed deltas arrive in order.
+                if sink.send(mapped).await.is_err() {
+                    break;
+                }
+            }
+        });
+        (Some(tx), Some(forwarder))
+    }
 }
 
 /// No-op reporter for triage / tests.

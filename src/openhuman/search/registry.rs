@@ -1,7 +1,13 @@
-use std::sync::Arc;
-
 use crate::openhuman::config::{Config, SearchEngine};
 use crate::openhuman::tools::Tool;
+
+use super::engines;
+
+#[derive(Clone, Copy)]
+pub(crate) struct SearchToolParams {
+    pub(crate) max_results: usize,
+    pub(crate) timeout_secs: u64,
+}
 
 /// Build the complete agent-facing search tool surface for the configured
 /// search engine.
@@ -11,111 +17,18 @@ use crate::openhuman::tools::Tool;
 /// agent prompt context and the runtime tool map.
 pub fn build_search_tools(root_config: &Config) -> Vec<Box<dyn Tool>> {
     let search = &root_config.search;
-    let max_results = search.max_results.clamp(1, 20);
-    let timeout_secs = search.timeout_secs.max(1);
-    let mut tools: Vec<Box<dyn Tool>> = Vec::new();
+    let params = SearchToolParams {
+        max_results: search.max_results.clamp(1, 20),
+        timeout_secs: search.timeout_secs.max(1),
+    };
 
     match search.effective_engine() {
-        SearchEngine::Disabled => {
-            tracing::debug!("[search] disabled — no search tools registered");
-        }
-        SearchEngine::Managed => {
-            tracing::debug!(
-                requested = %search.requested_engine_str(),
-                "[search] active engine = managed (backend-proxied web_search)"
-            );
-            tools.push(Box::new(crate::openhuman::search::WebSearchTool::new(
-                crate::openhuman::integrations::build_client(root_config),
-                max_results,
-                timeout_secs,
-            )));
-        }
-        SearchEngine::Parallel => {
-            tracing::debug!("[search] active engine = parallel (BYO direct API)");
-            let client = crate::openhuman::integrations::build_client(root_config);
-            if let Some(client) = client {
-                tools.push(Box::new(crate::openhuman::tools::ParallelSearchTool::new(
-                    Arc::clone(&client),
-                )));
-                tools.push(Box::new(crate::openhuman::tools::ParallelExtractTool::new(
-                    Arc::clone(&client),
-                )));
-                tools.push(Box::new(crate::openhuman::tools::ParallelChatTool::new(
-                    Arc::clone(&client),
-                )));
-                tools.push(Box::new(
-                    crate::openhuman::tools::ParallelResearchTool::new(Arc::clone(&client)),
-                ));
-                tools.push(Box::new(crate::openhuman::tools::ParallelEnrichTool::new(
-                    Arc::clone(&client),
-                )));
-                tools.push(Box::new(crate::openhuman::tools::ParallelDatasetTool::new(
-                    Arc::clone(&client),
-                )));
-                tools.push(Box::new(crate::openhuman::search::WebSearchTool::new(
-                    Some(Arc::clone(&client)),
-                    max_results,
-                    timeout_secs,
-                )));
-            } else {
-                tracing::warn!(
-                    "[search] engine=parallel but no backend client — falling back to managed surface"
-                );
-                tools.push(Box::new(crate::openhuman::search::WebSearchTool::new(
-                    None,
-                    max_results,
-                    timeout_secs,
-                )));
-            }
-        }
-        SearchEngine::Brave => {
-            tracing::debug!("[search] active engine = brave (BYO direct API)");
-            let api_key = search.brave.api_key.clone();
-            tools.push(Box::new(crate::openhuman::tools::BraveWebSearchTool::new(
-                api_key.clone(),
-                max_results,
-                timeout_secs,
-            )));
-            tools.push(Box::new(crate::openhuman::tools::BraveNewsSearchTool::new(
-                api_key.clone(),
-                max_results,
-                timeout_secs,
-            )));
-            tools.push(Box::new(
-                crate::openhuman::tools::BraveImageSearchTool::new(
-                    api_key.clone(),
-                    max_results,
-                    timeout_secs,
-                ),
-            ));
-            tools.push(Box::new(
-                crate::openhuman::tools::BraveVideoSearchTool::new(
-                    api_key,
-                    max_results,
-                    timeout_secs,
-                ),
-            ));
-        }
-        SearchEngine::Querit => {
-            tracing::debug!("[search] active engine = querit (BYO direct API)");
-            tools.push(Box::new(
-                crate::openhuman::tools::QueritSearchTool::new_web_search_tool(
-                    search.querit.api_key.clone(),
-                    None,
-                    max_results,
-                    timeout_secs,
-                ),
-            ));
-            tools.push(Box::new(crate::openhuman::tools::QueritSearchTool::new(
-                search.querit.api_key.clone(),
-                None,
-                max_results,
-                timeout_secs,
-            )));
-        }
+        SearchEngine::Disabled => engines::disabled::build(root_config, params),
+        SearchEngine::Managed => engines::managed::build(root_config, params),
+        SearchEngine::Parallel => engines::parallel::build(root_config, params),
+        SearchEngine::Brave => engines::brave::build(root_config, params),
+        SearchEngine::Querit => engines::querit::build(root_config, params),
     }
-
-    tools
 }
 
 #[cfg(test)]

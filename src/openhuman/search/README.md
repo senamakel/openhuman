@@ -5,6 +5,7 @@ Top-level home for web search selection and agent-facing search tool registratio
 ## Shape
 
 - `registry.rs` builds the active search tool surface from `Config.search`.
+- `engines/` contains one file per search engine (`managed`, `parallel`, `brave`, `querit`, and `disabled`) so provider-specific registration stays isolated.
 - `tools/` contains search-owned agent tools such as `WebSearchTool`.
 - Provider-specific direct API implementations that also serve other integration surfaces can stay under `openhuman::integrations::tools`; the search registry assembles them into the active engine surface.
 

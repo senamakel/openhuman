@@ -559,6 +559,8 @@ const bn5: TranslationMap = {
   'skills.uninstall.confirmTitle': '{name} আনইনস্টল করবেন?',
   'conversations.taskKanban.blocked': 'ব্লকড',
   'conversations.taskKanban.done': 'সম্পন্ন',
+  'conversations.taskKanban.pending': 'Pending',
+  'conversations.taskKanban.working': 'Working',
   'conversations.taskKanban.awaitingApproval': 'Awaiting approval',
   'conversations.taskKanban.ready': 'Ready',
   'conversations.taskKanban.rejected': 'Rejected',

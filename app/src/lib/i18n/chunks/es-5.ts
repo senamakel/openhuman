@@ -564,6 +564,8 @@ const es5: TranslationMap = {
   'skills.uninstall.confirmTitle': '¿Desinstalar {name}?',
   'conversations.taskKanban.blocked': 'Bloqueado',
   'conversations.taskKanban.done': 'Completado',
+  'conversations.taskKanban.pending': 'Pending',
+  'conversations.taskKanban.working': 'Working',
   'conversations.taskKanban.awaitingApproval': 'Awaiting approval',
   'conversations.taskKanban.ready': 'Ready',
   'conversations.taskKanban.rejected': 'Rejected',

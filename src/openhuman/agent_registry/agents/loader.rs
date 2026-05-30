@@ -26,11 +26,11 @@
 //!
 //! The synthetic `fork` definition is *not* listed here — it's a
 //! byte-stable replay of the parent and has no standalone prompt. It is
-//! added by [`super::harness::builtin_definitions::all`] on top of the
+//! added by [`crate::openhuman::agent::harness::builtin_definitions::all`] on top of the
 //! loader output.
 //!
 //! Workspace-level overrides (`$OPENHUMAN_WORKSPACE/agents/*.toml`) are
-//! handled separately by [`super::harness::definition_loader`] and merged
+//! handled separately by [`crate::openhuman::agent::harness::definition_loader`] and merged
 //! into the global registry, where they replace built-ins on `id`
 //! collision.
 

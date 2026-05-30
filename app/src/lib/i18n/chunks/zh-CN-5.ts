@@ -533,6 +533,8 @@ const zhCN5: TranslationMap = {
   'skills.uninstall.confirmTitle': '卸载 {name}？',
   'conversations.taskKanban.blocked': '已阻塞',
   'conversations.taskKanban.done': '已完成',
+  'conversations.taskKanban.pending': 'Pending',
+  'conversations.taskKanban.working': 'Working',
   'conversations.taskKanban.awaitingApproval': 'Awaiting approval',
   'conversations.taskKanban.ready': 'Ready',
   'conversations.taskKanban.rejected': 'Rejected',

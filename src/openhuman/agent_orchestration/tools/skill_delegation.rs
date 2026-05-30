@@ -109,6 +109,10 @@ impl Tool for SkillDelegationTool {
                 "prompt": {
                     "type": "string",
                     "description": "Clear instruction for what to do. Include all relevant context — the sub-agent has no memory of your conversation."
+                },
+                "model": {
+                    "type": "string",
+                    "description": "Optional exact model id for this delegation only. Keeps the parent provider/routing, but pins the child agent to this model instead of the agent definition's default."
                 }
             }
         })
@@ -190,6 +194,12 @@ impl Tool for SkillDelegationTool {
             )));
         }
 
+        let model_override = args
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+
         log::debug!(
             "[skill-delegation] dispatching toolkit='{}' to integrations_agent (prompt_chars={})",
             slug,
@@ -200,7 +210,7 @@ impl Tool for SkillDelegationTool {
             &self.tool_name,
             &prompt,
             Some(&slug),
-            None,
+            model_override,
         )
         .await
     }

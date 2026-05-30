@@ -190,6 +190,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 | 4.3.2 | Permission-Based Execution | RU+WD | `src/openhuman/tools/`, `skill-execution-flow.spec.ts`      | ✅     |       |
 | 4.3.3 | Tool Failure Handling      | WD    | `skill-execution-flow.spec.ts`                              | ✅     |       |
 | 4.3.4 | Subagent Mascot Visualization | VU | `app/src/features/human/SubMascotLayer.test.tsx`, `app/src/features/human/HumanPage.test.tsx` | ✅ | Renders spawned/completed/failed subagent timeline rows as colored companion mascots with activity bubbles |
+| 4.3.5 | Image Tool Contracts | RU | `src/openhuman/image/` | ✅ | High-level `image_generation` / `view_image` schema, gating, serialization, prompt guidance, and contract e2e coverage for #2984 |
 
 ---
 

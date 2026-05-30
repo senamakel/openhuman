@@ -436,6 +436,8 @@ const ko5: TranslationMap = {
   'skills.uninstall.confirmTitle': '{name}을(를) 제거하시겠습니까?',
   'conversations.taskKanban.blocked': '차단됨',
   'conversations.taskKanban.done': '완료',
+  'conversations.taskKanban.pending': 'Pending',
+  'conversations.taskKanban.working': 'Working',
   'conversations.taskKanban.awaitingApproval': 'Awaiting approval',
   'conversations.taskKanban.ready': 'Ready',
   'conversations.taskKanban.rejected': 'Rejected',

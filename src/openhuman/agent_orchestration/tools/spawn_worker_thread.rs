@@ -86,6 +86,10 @@ impl Tool for SpawnWorkerThreadTool {
                 "toolkit": {
                     "type": "string",
                     "description": "Composio toolkit slug to scope this spawn to (e.g. `gmail`, `notion`)."
+                },
+                "model": {
+                    "type": "string",
+                    "description": "Optional exact model id for this spawn only. Keeps the parent provider/routing, but pins the worker child agent to this model instead of the agent definition's default."
                 }
             }
         })
@@ -121,6 +125,11 @@ impl Tool for SpawnWorkerThreadTool {
             .get("toolkit")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
+        let model_override = args
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
 
         if agent_id.is_empty() || prompt.is_empty() {
             tracing::warn!(
@@ -226,7 +235,7 @@ impl Tool for SpawnWorkerThreadTool {
             skill_filter_override: None,
             toolkit_override,
             context,
-            model_override: None,
+            model_override,
             task_id: None,
             worker_thread_id: Some(worker_thread_id.clone()),
         };

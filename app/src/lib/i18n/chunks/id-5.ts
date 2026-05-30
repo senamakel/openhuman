@@ -561,6 +561,8 @@ const id5: TranslationMap = {
   'skills.uninstall.confirmTitle': 'Copot {name}?',
   'conversations.taskKanban.blocked': 'Terhambat',
   'conversations.taskKanban.done': 'Selesai',
+  'conversations.taskKanban.pending': 'Pending',
+  'conversations.taskKanban.working': 'Working',
   'conversations.taskKanban.awaitingApproval': 'Awaiting approval',
   'conversations.taskKanban.ready': 'Ready',
   'conversations.taskKanban.rejected': 'Rejected',

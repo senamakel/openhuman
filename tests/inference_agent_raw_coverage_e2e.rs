@@ -75,9 +75,19 @@ use openhuman_core::openhuman::agent::tool_policy::{
     GeneratedToolRuntimePolicyConfig, GeneratedToolRuntimeRisk, RuntimeToolPolicyAction,
     ToolCallContext, ToolPolicy, ToolPolicyDecision, ToolPolicyRequest,
 };
+use openhuman_core::openhuman::agent::tools::remember_preference::{
+    pinned_content, pinned_key, FacetClass, RememberPreferenceTool, PINNED_PREFERENCES_NAMESPACE,
+};
+use openhuman_core::openhuman::agent::tools::save_preference::{PrefScope, SavePreferenceTool};
 use openhuman_core::openhuman::agent::tools::PlanExitTool;
+use openhuman_core::openhuman::agent::tree_loader::{
+    should_prefetch, TreeContextLoader, REFRESH_INTERVAL,
+};
 use openhuman_core::openhuman::agent::triage::envelope::{TriggerEnvelope, TriggerSource};
 use openhuman_core::openhuman::agent::triage::evaluator::{run_triage_with_arms, TriageOutcome};
+use openhuman_core::openhuman::agent::triage::events::{
+    publish_escalated, publish_evaluated, publish_failed,
+};
 use openhuman_core::openhuman::agent::triage::routing::{
     build_local_provider_with_config, ResolvedProvider,
 };
@@ -95,6 +105,10 @@ use openhuman_core::openhuman::config::{
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, TokenSet};
 use openhuman_core::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
 use openhuman_core::openhuman::inference::context_window_for_model;
+use openhuman_core::openhuman::inference::local::{
+    global as local_ai_global, model_artifact_path, try_global as local_ai_try_global,
+    LocalAiService,
+};
 use openhuman_core::openhuman::inference::openai_oauth::{
     lookup_openai_bearer_token, OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
 };
@@ -277,6 +291,132 @@ impl Memory for ScriptedMemory {
 
     async fn count(&self) -> anyhow::Result<usize> {
         Ok(self.normal.len() + self.cross_session.len())
+    }
+
+    async fn health_check(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct StoredRecord {
+    namespace: String,
+    key: String,
+    content: String,
+    category: MemoryCategory,
+    session_id: Option<String>,
+}
+
+#[derive(Clone, Default)]
+struct RecordingMemory {
+    stored: Arc<Mutex<Vec<StoredRecord>>>,
+    forgotten: Arc<Mutex<Vec<(String, String)>>>,
+}
+
+#[async_trait]
+impl Memory for RecordingMemory {
+    fn name(&self) -> &str {
+        "recording"
+    }
+
+    async fn store(
+        &self,
+        namespace: &str,
+        key: &str,
+        content: &str,
+        category: MemoryCategory,
+        session_id: Option<&str>,
+    ) -> anyhow::Result<()> {
+        self.stored.lock().expect("stored").push(StoredRecord {
+            namespace: namespace.to_string(),
+            key: key.to_string(),
+            content: content.to_string(),
+            category,
+            session_id: session_id.map(ToOwned::to_owned),
+        });
+        Ok(())
+    }
+
+    async fn recall(
+        &self,
+        query: &str,
+        _limit: usize,
+        _opts: RecallOpts<'_>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        Ok(vec![memory_entry(
+            "related-1",
+            "reply_style",
+            &format!("Related to {query}"),
+            Some("user_preferences"),
+            None,
+            Some(0.91),
+        )])
+    }
+
+    async fn get(&self, namespace: &str, key: &str) -> anyhow::Result<Option<MemoryEntry>> {
+        let found = self
+            .stored
+            .lock()
+            .expect("stored")
+            .iter()
+            .rev()
+            .find(|record| record.namespace == namespace && record.key == key)
+            .cloned();
+        Ok(found.map(|record| {
+            memory_entry(
+                "stored-1",
+                &record.key,
+                &record.content,
+                Some(&record.namespace),
+                record.session_id.as_deref(),
+                Some(1.0),
+            )
+        }))
+    }
+
+    async fn list(
+        &self,
+        namespace: Option<&str>,
+        category: Option<&MemoryCategory>,
+        session_id: Option<&str>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        Ok(self
+            .stored
+            .lock()
+            .expect("stored")
+            .iter()
+            .filter(|record| namespace.is_none_or(|ns| record.namespace == ns))
+            .filter(|record| category.is_none_or(|cat| &record.category == cat))
+            .filter(|record| session_id.is_none_or(|sid| record.session_id.as_deref() == Some(sid)))
+            .map(|record| {
+                memory_entry(
+                    "stored-list",
+                    &record.key,
+                    &record.content,
+                    Some(&record.namespace),
+                    record.session_id.as_deref(),
+                    Some(1.0),
+                )
+            })
+            .collect())
+    }
+
+    async fn forget(&self, namespace: &str, key: &str) -> anyhow::Result<bool> {
+        self.forgotten
+            .lock()
+            .expect("forgotten")
+            .push((namespace.to_string(), key.to_string()));
+        Ok(true)
+    }
+
+    async fn namespace_summaries(
+        &self,
+    ) -> anyhow::Result<Vec<openhuman_core::openhuman::memory::NamespaceSummary>> {
+        Ok(Vec::new())
+    }
+
+    async fn count(&self) -> anyhow::Result<usize> {
+        Ok(self.stored.lock().expect("stored").len())
     }
 
     async fn health_check(&self) -> bool {
@@ -1250,6 +1390,39 @@ async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks(
     )
     .await;
     assert_eq!(skipped, raw);
+
+    let workspace = tempdir().expect("local ai workspace");
+    let mut local_config = Config {
+        workspace_dir: workspace.path().to_path_buf(),
+        ..Config::default()
+    };
+    local_config.local_ai.runtime_enabled = false;
+    local_config.local_ai.chat_model_id = "qwen2:1.5b".into();
+    let artifact_path = model_artifact_path(&local_config);
+    assert!(artifact_path.to_string_lossy().contains("local-ai"));
+    assert!(!artifact_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("artifact filename")
+        .contains(':'));
+
+    let service = LocalAiService::new(&local_config);
+    assert!(!service.has_owned_ollama());
+    assert_eq!(service.status().state, "idle");
+    service.mark_degraded("mock provider unavailable".into());
+    assert_eq!(service.status().state, "degraded");
+    service.reset_to_idle(&local_config);
+    assert_eq!(service.status().state, "idle");
+    service.mark_disabled(&local_config);
+    assert_eq!(service.status().state, "disabled");
+    service.bootstrap(&local_config).await;
+    assert_eq!(service.status().state, "disabled");
+
+    let global_service = local_ai_global(&local_config);
+    assert!(Arc::ptr_eq(
+        &global_service,
+        &local_ai_try_global().expect("global initialized")
+    ));
 }
 
 #[tokio::test]
@@ -2709,6 +2882,151 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
     assert!(depth_error
         .output()
         .contains("Delegation depth limit reached"));
+}
+
+#[tokio::test]
+async fn agent_preference_tools_tree_loader_and_triage_events_cover_public_edges() {
+    let memory = Arc::new(RecordingMemory::default());
+    let security = Arc::new(SecurityPolicy::default());
+
+    assert_eq!(FacetClass::parse(" Tooling "), Some(FacetClass::Tooling));
+    assert_eq!(FacetClass::parse("unknown"), None);
+    assert_eq!(
+        pinned_key(FacetClass::Channel, "daily_summary"),
+        "pinned/channel/daily_summary"
+    );
+    assert_eq!(
+        pinned_content(FacetClass::Style, "verbosity", "terse"),
+        "[pinned] (class=style) verbosity: terse"
+    );
+
+    let remember = RememberPreferenceTool::new(memory.clone(), security.clone());
+    assert_eq!(remember.permission_level().to_string(), "Write");
+    let remember_missing = remember
+        .execute(json!({ "class": "style", "key": "verbosity" }))
+        .await
+        .expect("missing value is handled");
+    assert!(remember_missing.is_error);
+    assert!(remember_missing.output().contains("value"));
+
+    let remember_bad_key = remember
+        .execute(json!({
+            "class": "style",
+            "key": "Bad Key",
+            "value": "terse"
+        }))
+        .await
+        .expect("bad key is handled");
+    assert!(remember_bad_key.output().contains("invalid characters"));
+
+    let remembered = remember
+        .execute(json!({
+            "class": "style",
+            "key": "verbosity",
+            "value": "  terse\nanswers only  "
+        }))
+        .await
+        .expect("remember preference");
+    assert!(!remembered.is_error);
+    assert!(remembered.output().contains("Preference saved"));
+    let stored = memory.stored.lock().expect("stored").clone();
+    assert!(stored.iter().any(|record| {
+        record.namespace == PINNED_PREFERENCES_NAMESPACE
+            && record.key == "pinned/style/verbosity"
+            && record.content == "[pinned] (class=style) verbosity: terse answers only"
+            && record.category == MemoryCategory::Core
+    }));
+
+    assert_eq!(PrefScope::parse("GENERAL"), Some(PrefScope::General));
+    assert_eq!(
+        PrefScope::parse("Situational"),
+        Some(PrefScope::Situational)
+    );
+    assert_eq!(PrefScope::parse("bad"), None);
+    assert_eq!(PrefScope::General.as_str(), "general");
+    assert_ne!(
+        PrefScope::General.namespace(),
+        PrefScope::General.other_namespace()
+    );
+
+    let save = SavePreferenceTool::new(memory.clone(), security);
+    assert_eq!(save.permission_level().to_string(), "Write");
+    let bad_category = save
+        .execute(json!({
+            "topic": "verbosity",
+            "value": "keep replies short",
+            "category": "sometimes"
+        }))
+        .await
+        .expect("bad category is handled");
+    assert!(bad_category.output().contains("invalid category"));
+
+    let bad_topic = save
+        .execute(json!({
+            "topic": "Bad Topic",
+            "value": "keep replies short",
+            "category": "general"
+        }))
+        .await
+        .expect("bad topic is handled");
+    assert!(bad_topic.output().contains("invalid characters"));
+
+    let secret_like = save
+        .execute(json!({
+            "topic": "api_usage",
+            "value": "api_key: sk_live_secretvalue",
+            "category": "situational"
+        }))
+        .await
+        .expect("secret-like preference is rejected");
+    assert!(secret_like.output().contains("looks like a secret"));
+
+    let saved = save
+        .execute(json!({
+            "topic": "reply_style",
+            "value": "Use concise release notes.",
+            "category": "general"
+        }))
+        .await
+        .expect("save preference");
+    assert!(!saved.is_error);
+    assert!(saved.output().contains("Saved general preference"));
+    let forgotten = memory.forgotten.lock().expect("forgotten").clone();
+    assert!(forgotten.iter().any(|(_, key)| key == "reply_style"));
+
+    let now = std::time::Instant::now();
+    assert!(should_prefetch(None, now, REFRESH_INTERVAL));
+    assert!(!should_prefetch(
+        Some(now - std::time::Duration::from_secs(30)),
+        now,
+        REFRESH_INTERVAL
+    ));
+    assert!(should_prefetch(
+        Some(now - REFRESH_INTERVAL),
+        now,
+        REFRESH_INTERVAL
+    ));
+
+    let tmp = tempdir().expect("tree workspace");
+    let config = Config {
+        workspace_dir: tmp.path().to_path_buf(),
+        ..Config::default()
+    };
+    assert_eq!(
+        TreeContextLoader::load(&config)
+            .await
+            .expect("empty tree context"),
+        ""
+    );
+
+    let envelope = TriggerEnvelope::from_external(
+        "triage-public-events",
+        "manual",
+        json!({ "kind": "coverage" }),
+    );
+    publish_evaluated(&envelope, "acknowledge", false, 7);
+    publish_escalated(&envelope, "orchestrator");
+    publish_failed(&envelope, "coverage failure");
 }
 
 #[test]

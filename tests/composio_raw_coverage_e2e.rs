@@ -37,9 +37,12 @@ use openhuman_core::openhuman::composio::types::{
 };
 use openhuman_core::openhuman::composio::{
     all_composio_agent_tools, all_composio_controller_schemas, all_composio_registered_controllers,
-    ComposioActionTool,
+    cached_active_integrations, connected_set_hash, connection_identity,
+    fetch_connected_integrations, fetch_connected_integrations_status,
+    invalidate_connected_integrations_cache, ComposioActionTool, FetchConnectedIntegrationsStatus,
 };
 use openhuman_core::openhuman::config::Config;
+use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
 use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory};
 
 #[test]
@@ -228,6 +231,70 @@ fn composio_oauth_handoff_helpers_classify_meta_status_and_rate_limits() {
     assert!(wrapped.to_string().contains("temporarily rate-limiting"));
     let passthrough = wrap_authorize_rate_limit_error("gmail", anyhow::anyhow!("429"));
     assert_eq!(passthrough.to_string(), "429");
+}
+
+#[tokio::test]
+async fn composio_connected_integrations_public_helpers_handle_empty_auth_and_identity_edges() {
+    let dir = tempdir().expect("tempdir");
+    let config = Config {
+        workspace_dir: dir.path().to_path_buf(),
+        config_path: dir.path().join("config.toml"),
+        ..Config::default()
+    };
+
+    invalidate_connected_integrations_cache();
+    assert!(cached_active_integrations(&config).is_none());
+
+    let first = ConnectedIntegration {
+        toolkit: "gmail".into(),
+        description: "Gmail".into(),
+        tools: Vec::new(),
+        gated_tools: Vec::new(),
+        connected: true,
+        non_active_status: None,
+    };
+    let second = ConnectedIntegration {
+        toolkit: "slack".into(),
+        description: "Slack".into(),
+        tools: Vec::new(),
+        gated_tools: Vec::new(),
+        connected: true,
+        non_active_status: None,
+    };
+    let disconnected = ConnectedIntegration {
+        toolkit: "notion".into(),
+        description: "Notion".into(),
+        tools: Vec::new(),
+        gated_tools: Vec::new(),
+        connected: false,
+        non_active_status: Some("EXPIRED".into()),
+    };
+    assert_eq!(
+        connected_set_hash(&[first.clone(), second.clone(), disconnected.clone()]),
+        connected_set_hash(&[disconnected, second, first])
+    );
+    assert_ne!(
+        connected_set_hash(&[]),
+        connected_set_hash(&[ConnectedIntegration {
+            toolkit: "gmail".into(),
+            description: String::new(),
+            tools: Vec::new(),
+            gated_tools: Vec::new(),
+            connected: true,
+            non_active_status: None,
+        }])
+    );
+
+    let status = fetch_connected_integrations_status(&config).await;
+    assert!(matches!(
+        status,
+        FetchConnectedIntegrationsStatus::Unavailable
+    ));
+    assert!(fetch_connected_integrations(&config).await.is_empty());
+    assert!(cached_active_integrations(&config).is_none());
+
+    assert_eq!(connection_identity(&config, "   ").await, None);
+    assert_eq!(connection_identity(&config, "unknown-toolkit").await, None);
 }
 
 #[test]

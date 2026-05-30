@@ -20,7 +20,13 @@ use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
+use openhuman_core::openhuman::channels::{
+    Channel, CliChannel, LinqChannel, SendMessage, WhatsAppChannel,
+};
 use openhuman_core::openhuman::composio::all_composio_agent_tools;
+use openhuman_core::openhuman::config::schema::{
+    CapabilityProviderConfig, CapabilityProviderTrustState,
+};
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
@@ -29,9 +35,12 @@ use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
 use openhuman_core::openhuman::security::{AuditLogger, SecurityPolicy};
+use openhuman_core::openhuman::tool_registry::ops::diagnostics_for_config;
 use openhuman_core::openhuman::tool_registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
-    registry_entries,
+    capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
+    denials, is_capability_provider_trusted_enabled, list_capability_providers,
+    normalize_capability_provider_id, registry_entries, CapabilityProviderRegistryError,
 };
 use openhuman_core::openhuman::tools::generated::{
     admit_generated_tool_definitions, generated_tools_from_definitions, GeneratedToolAdapter,
@@ -40,7 +49,7 @@ use openhuman_core::openhuman::tools::generated::{
 use openhuman_core::openhuman::tools::local_cli::tools_wrappers_list_json;
 use openhuman_core::openhuman::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers, default_tools,
-    CleaningStrategy, DefaultToolPolicy, PermissionLevel, PolicyDecision, SchemaCleanr,
+    CleaningStrategy, DefaultToolPolicy, PermissionLevel, PolicyDecision, SchemaCleanr, Tool,
     ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope,
 };
 
@@ -171,6 +180,32 @@ impl GeneratedToolAdapter for EchoGeneratedAdapter {
             })
             .to_string(),
         ))
+    }
+}
+
+struct DefaultPathTool;
+
+#[async_trait]
+impl openhuman_core::openhuman::tools::Tool for DefaultPathTool {
+    fn name(&self) -> &str {
+        "default_path_tool"
+    }
+
+    fn description(&self) -> &str {
+        "Covers default Tool trait metadata paths."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "value": { "type": "string" }
+            }
+        })
+    }
+
+    async fn execute(&self, args: Value) -> Result<ToolResult> {
+        Ok(ToolResult::success(args.to_string()))
     }
 }
 
@@ -1264,6 +1299,248 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         policy.evaluate("anything", &json!({ "arg": true })),
         PolicyDecision::Allow
     );
+
+    let default_tool = DefaultPathTool;
+    let spec = default_tool.spec();
+    assert_eq!(spec.name, "default_path_tool");
+    assert_eq!(
+        spec.description,
+        "Covers default Tool trait metadata paths."
+    );
+    assert_eq!(default_tool.permission_level(), PermissionLevel::ReadOnly);
+    assert_eq!(
+        default_tool.permission_level_with_args(&json!({ "value": "x" })),
+        PermissionLevel::ReadOnly
+    );
+    assert_eq!(default_tool.scope(), ToolScope::All);
+    assert_eq!(default_tool.category(), ToolCategory::System);
+    assert!(!default_tool.supports_markdown());
+    assert!(!default_tool.is_concurrency_safe(&json!({})));
+    assert!(!default_tool.external_effect());
+    assert!(!default_tool.external_effect_with_args(&json!({})));
+    assert!(default_tool.generated_runtime_context(&json!({})).is_none());
+    assert!(default_tool.max_result_size_chars().is_none());
+}
+
+#[tokio::test]
+async fn channels_public_helpers_cover_cli_trait_defaults_and_webhook_parsers() {
+    let cli = CliChannel::new();
+    assert_eq!(cli.name(), "cli");
+    assert!(cli
+        .send(&SendMessage::new("hello from coverage", "stdout"))
+        .await
+        .is_ok());
+    assert!(cli.health_check().await);
+    assert!(cli.start_typing("user").await.is_ok());
+    assert!(cli.stop_typing("user").await.is_ok());
+    assert!(!cli.supports_reactions());
+    assert!(!cli.supports_draft_updates());
+    assert!(cli
+        .send_draft(&SendMessage::new("draft", "user"))
+        .await
+        .expect("default send_draft")
+        .is_none());
+    assert!(cli.update_draft("user", "msg-1", "draft").await.is_ok());
+    assert!(cli
+        .finalize_draft("user", "msg-1", "final", Some("thread-1"))
+        .await
+        .is_ok());
+
+    let threaded = SendMessage::with_subject("body", "recipient", "subject")
+        .in_thread(Some("thread-1".to_string()));
+    assert_eq!(threaded.subject.as_deref(), Some("subject"));
+    assert_eq!(threaded.thread_ts.as_deref(), Some("thread-1"));
+
+    let whatsapp = WhatsAppChannel::new(
+        "token".into(),
+        "phone-id".into(),
+        "verify-me".into(),
+        vec!["+15551234567".into()],
+    );
+    assert_eq!(whatsapp.name(), "whatsapp");
+    assert_eq!(whatsapp.verify_token(), "verify-me");
+    let whatsapp_messages = whatsapp.parse_webhook_payload(&json!({
+        "entry": [{
+            "changes": [{
+                "value": {
+                    "messages": [{
+                        "id": "wamid.1",
+                        "from": "15551234567",
+                        "timestamp": "1780000000",
+                        "text": { "body": "hi from whatsapp" }
+                    }, {
+                        "id": "wamid.2",
+                        "from": "15550000000",
+                        "timestamp": "1780000001",
+                        "text": { "body": "blocked" }
+                    }, {
+                        "id": "wamid.3",
+                        "from": "15551234567",
+                        "timestamp": "bad",
+                        "image": { "id": "media" }
+                    }]
+                }
+            }]
+        }]
+    }));
+    assert_eq!(whatsapp_messages.len(), 1);
+    assert_eq!(whatsapp_messages[0].sender, "+15551234567");
+    assert_eq!(whatsapp_messages[0].content, "hi from whatsapp");
+    assert!(whatsapp.parse_webhook_payload(&json!({})).is_empty());
+
+    let linq = LinqChannel::new("linq-token".into(), "+15557654321".into(), vec!["*".into()]);
+    assert_eq!(linq.name(), "linq");
+    assert_eq!(linq.phone_number(), "+15557654321");
+    let linq_messages = linq.parse_webhook_payload(&json!({
+        "event_type": "message.received",
+        "data": {
+            "chat_id": "chat-1",
+            "from": "15551234567",
+            "recipient_phone": "+15557654321",
+            "service": "iMessage",
+            "is_from_me": false,
+            "message": {
+                "id": "linq-msg-1",
+                "parts": [
+                    { "type": "text", "value": "hello" },
+                    { "type": "media", "url": "https://cdn.example.test/image.png", "mime_type": "image/png" },
+                    { "type": "media", "url": "https://cdn.example.test/file.pdf", "mime_type": "application/pdf" }
+                ]
+            }
+        }
+    }));
+    assert_eq!(linq_messages.len(), 1);
+    assert_eq!(linq_messages[0].sender, "+15551234567");
+    assert!(linq_messages[0].content.contains("hello"));
+    assert!(linq_messages[0]
+        .content
+        .contains("[IMAGE:https://cdn.example.test/image.png]"));
+    assert!(linq
+        .parse_webhook_payload(&json!({ "event_type": "message.sent" }))
+        .is_empty());
+    assert!(linq
+        .parse_webhook_payload(&json!({
+            "event_type": "message.received",
+            "data": { "is_from_me": true }
+        }))
+        .is_empty());
+}
+
+#[test]
+fn tool_registry_provider_and_denial_paths_cover_diagnostics() {
+    assert_eq!(
+        normalize_capability_provider_id(" Trusted Runtime.Provider "),
+        Ok("trusted-runtime.provider".to_string())
+    );
+    assert!(matches!(
+        normalize_capability_provider_id("!!!"),
+        Err(CapabilityProviderRegistryError::InvalidId { .. })
+    ));
+    assert!(matches!(
+        normalize_capability_provider_id(&"x".repeat(128)),
+        Err(CapabilityProviderRegistryError::InvalidId { .. })
+    ));
+
+    let mut config = Config::default();
+    config.capability_providers = vec![
+        CapabilityProviderConfig {
+            id: "Trusted Runtime.Provider".into(),
+            display_name: "  Trusted Runtime  ".into(),
+            source_uri: Some(" https://example.test/catalog.json ".into()),
+            source_digest: Some(" sha256:abc123 ".into()),
+            trust_state: CapabilityProviderTrustState::Trusted,
+            enabled: true,
+        },
+        CapabilityProviderConfig {
+            id: "Disabled Provider".into(),
+            display_name: String::new(),
+            source_uri: Some("   ".into()),
+            source_digest: None,
+            trust_state: CapabilityProviderTrustState::Untrusted,
+            enabled: false,
+        },
+    ];
+
+    let registry = capability_provider_registry(&config).expect("provider registry");
+    assert_eq!(registry.list().len(), 2);
+    assert!(registry.is_trusted_enabled("trusted runtime.provider"));
+    assert!(!registry.is_trusted_enabled("disabled provider"));
+    assert_eq!(
+        registry
+            .get("disabled provider")
+            .expect("disabled provider")
+            .display_name,
+        "disabled-provider"
+    );
+    assert_eq!(
+        list_capability_providers(&config)
+            .expect("list providers")
+            .len(),
+        2
+    );
+    assert_eq!(
+        capability_provider_by_id(&config, "TRUSTED RUNTIME.PROVIDER")
+            .expect("provider lookup")
+            .expect("provider")
+            .source_uri
+            .as_deref(),
+        Some("https://example.test/catalog.json")
+    );
+    assert!(is_capability_provider_trusted_enabled(
+        &config,
+        "trusted runtime.provider"
+    ));
+    let provider_diagnostics = capability_provider_diagnostics(&config);
+    assert_eq!(provider_diagnostics.total_providers, 2);
+    assert_eq!(provider_diagnostics.enabled_providers, 1);
+    assert_eq!(provider_diagnostics.trusted_providers, 1);
+    assert_eq!(provider_diagnostics.trusted_enabled_providers, 1);
+
+    let mut duplicate_config = config.clone();
+    duplicate_config
+        .capability_providers
+        .push(CapabilityProviderConfig {
+            id: "Trusted Runtime.Provider".into(),
+            ..CapabilityProviderConfig::default()
+        });
+    assert!(matches!(
+        capability_provider_registry(&duplicate_config),
+        Err(CapabilityProviderRegistryError::DuplicateId { .. })
+    ));
+    assert!(!is_capability_provider_trusted_enabled(
+        &duplicate_config,
+        "trusted runtime.provider"
+    ));
+    let duplicate_diagnostics = capability_provider_diagnostics(&duplicate_config);
+    assert_eq!(duplicate_diagnostics.total_providers, 3);
+    assert_eq!(duplicate_diagnostics.registry_errors.len(), 1);
+
+    denials::record(" coverage.tool ", "", "", "");
+    denials::record(
+        "secret.tool",
+        "generated",
+        "execute",
+        "blocked Bearer super-secret-token",
+    );
+    let recent_denials = denials::list(2);
+    assert_eq!(recent_denials[0].tool_name, "secret.tool");
+    assert_eq!(recent_denials[0].reason, "[redacted: sensitive content]");
+    assert_eq!(recent_denials[1].policy, "unknown");
+    assert_eq!(recent_denials[1].action, "blocked");
+    assert_eq!(recent_denials[1].reason, "<empty>");
+
+    let diagnostics = diagnostics_for_config(&config).value;
+    assert!(diagnostics.total_tools > 0);
+    assert!(diagnostics.enabled_tools > 0);
+    assert!(diagnostics
+        .policy_surfaces
+        .iter()
+        .any(|surface| surface == "approval.decide"));
+    assert!(diagnostics
+        .recent_denials
+        .iter()
+        .any(|denial| denial.tool_name == "secret.tool"));
+    assert_eq!(diagnostics.capability_providers.total_providers, 2);
 }
 
 #[tokio::test]

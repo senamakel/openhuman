@@ -18,7 +18,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::openhuman::inference::provider::{ChatMessage, UsageInfo};
+use crate::openhuman::agent::harness::parse::ParsedToolCall;
+use crate::openhuman::inference::provider::{ChatMessage, ToolCall, UsageInfo};
 
 #[async_trait]
 pub(crate) trait TurnObserver: Send {
@@ -38,14 +39,21 @@ pub(crate) trait TurnObserver: Send {
     fn record_usage(&mut self, _model: &str, _usage: &UsageInfo) {}
 
     /// Called after the assistant message for this iteration is committed to
-    /// history. `response_text` is the raw provider text (pre native
-    /// serialization); `tool_calls` is how many calls it requested (0 ⇒ this is
-    /// the final response and `is_final` is true). Subagent mirrors this to its
-    /// worker thread.
+    /// the engine's working buffer. `response_text` is the raw provider text
+    /// (pre native serialization); `reasoning_content` is the thinking-model
+    /// content to round-trip; `native_tool_calls` are the provider's structured
+    /// calls (empty in text/prompt mode); `parsed_calls` are the engine-parsed
+    /// calls (empty when `is_final`). `Agent::turn` uses these to rebuild its
+    /// typed `ConversationMessage` history; the subagent mirrors to its worker
+    /// thread.
+    #[allow(clippy::too_many_arguments)]
     fn on_assistant(
         &mut self,
+        _display_text: &str,
         _response_text: &str,
-        _tool_calls: usize,
+        _reasoning_content: Option<&str>,
+        _native_tool_calls: &[ToolCall],
+        _parsed_calls: &[ParsedToolCall],
         _iteration: usize,
         _is_final: bool,
     ) {
@@ -53,12 +61,13 @@ pub(crate) trait TurnObserver: Send {
 
     /// Called after one tool's result is known, in native-tool mode (one
     /// `role:tool` message per call). Subagent mirrors per-call results to its
-    /// worker thread.
+    /// worker thread; `Agent::turn` buffers them to rebuild typed history.
     fn on_tool_result(
         &mut self,
         _call_id: &str,
         _tool_name: &str,
         _result_text: &str,
+        _success: bool,
         _iteration: usize,
     ) {
     }

@@ -43,6 +43,11 @@ pub(crate) struct TurnEngineOutcome {
     pub text: String,
     pub iterations: u32,
     pub cost: TurnCost,
+    /// True when the turn stopped because it hit the iteration cap (the
+    /// `CheckpointStrategy` produced `text`), false for a normal final response
+    /// or an early circuit-breaker halt. `Agent::turn` keys its checkpoint-only
+    /// history/transcript handling off this.
+    pub hit_cap: bool,
 }
 
 /// Truncate a digest entry's body so a huge tool result can't blow up the
@@ -234,8 +239,14 @@ pub(crate) async fn run_turn_engine(
             let _ = handle.await;
         }
 
-        let (response_text, display_text, tool_calls, assistant_history_content, native_tool_calls) =
-            match chat_result {
+        let (
+            response_text,
+            display_text,
+            reasoning_content,
+            tool_calls,
+            assistant_history_content,
+            native_tool_calls,
+        ) = match chat_result {
                 Ok(resp) => {
                     // Update context guard + cost with token usage from this response.
                     if let Some(ref usage) = resp.usage {
@@ -277,10 +288,12 @@ pub(crate) async fn run_turn_engine(
                         )
                     };
 
+                    let reasoning_content = resp.reasoning_content;
                     let native_calls = resp.tool_calls;
                     (
                         response_text,
                         display_text,
+                        reasoning_content,
                         calls,
                         assistant_history_content,
                         native_calls,
@@ -337,7 +350,15 @@ pub(crate) async fn run_turn_engine(
                 }
             }
             history.push(ChatMessage::assistant(response_text.clone()));
-            observer.on_assistant(&response_text, 0, iteration, true);
+            observer.on_assistant(
+                &display_text,
+                &response_text,
+                reasoning_content.as_deref(),
+                &[],
+                &[],
+                iteration,
+                true,
+            );
             observer.after_iteration(history, iteration);
             log::info!(
                 "[agent_loop] turn complete: iters={} provider_calls={} tokens_in={} tokens_out={} cached_in={} usd={:.4}",
@@ -353,6 +374,7 @@ pub(crate) async fn run_turn_engine(
                 text: display_text,
                 iterations: (iteration + 1) as u32,
                 cost: turn_cost,
+                hit_cap: false,
             });
         }
 
@@ -398,7 +420,13 @@ pub(crate) async fn run_turn_engine(
                 truncate_with_ellipsis(&outcome.text, 800)
             );
 
-            observer.on_tool_result(&progress_call_id, &call.name, &outcome.text, iteration);
+            observer.on_tool_result(
+                &progress_call_id,
+                &call.name,
+                &outcome.text,
+                outcome.success,
+                iteration,
+            );
 
             // Repeated-failure circuit breaker (shared guard).
             if let Some(reason) = failure_guard.record(
@@ -421,7 +449,15 @@ pub(crate) async fn run_turn_engine(
         // reconstruct OpenAI-format tool_calls + tool result messages. Prompt
         // mode: XML-based text format.
         history.push(ChatMessage::assistant(assistant_history_content));
-        observer.on_assistant(&response_text, tool_calls.len(), iteration, false);
+        observer.on_assistant(
+            &display_text,
+            &response_text,
+            reasoning_content.as_deref(),
+            &native_tool_calls,
+            &tool_calls,
+            iteration,
+            false,
+        );
         if native_tool_calls.is_empty() {
             let content = format!("[Tool results]\n{tool_results}");
             observer.on_results_batch(&content, iteration);
@@ -449,6 +485,7 @@ pub(crate) async fn run_turn_engine(
                 text: reason,
                 iterations: (iteration + 1) as u32,
                 cost: turn_cost,
+                hit_cap: false,
             });
         }
     }
@@ -472,5 +509,6 @@ pub(crate) async fn run_turn_engine(
         text: co.text,
         iterations: max_iterations as u32,
         cost: turn_cost,
+        hit_cap: true,
     })
 }

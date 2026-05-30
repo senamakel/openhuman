@@ -1239,6 +1239,33 @@ impl Agent {
         call: &ParsedToolCall,
         iteration: usize,
     ) -> (ToolExecutionResult, ToolCallRecord) {
+        // The per-call execution path lives in the shared
+        // [`super::agent_tool_exec::run_agent_tool_call`] so `Agent::turn`
+        // (when migrated to the turn engine, via `AgentToolSource`) and any
+        // direct caller run the identical logic. Progress is emitted through a
+        // `TurnProgress` over this agent's sink.
+        let progress = super::super::engine::TurnProgress::new(self.on_progress.clone());
+        let ctx = super::agent_tool_exec::AgentToolExecCtx {
+            tools: &self.tools,
+            visible_tool_names: &self.visible_tool_names,
+            tool_policy_session: &self.tool_policy_session,
+            tool_policy: self.tool_policy.as_ref(),
+            payload_summarizer: self.payload_summarizer.as_deref(),
+            event_session_id: self.event_session_id(),
+            event_channel: self.event_channel(),
+            agent_definition_id: &self.agent_definition_id,
+            prefer_markdown: self.context.prefer_markdown_tool_output(),
+            budget_bytes: self.context.tool_result_budget_bytes(),
+        };
+        super::agent_tool_exec::run_agent_tool_call(&ctx, &progress, call, iteration).await
+    }
+
+    #[allow(dead_code)]
+    async fn execute_tool_call_legacy(
+        &self,
+        call: &ParsedToolCall,
+        iteration: usize,
+    ) -> (ToolExecutionResult, ToolCallRecord) {
         let started = std::time::Instant::now();
         publish_global(DomainEvent::ToolExecutionStarted {
             tool_name: call.name.clone(),

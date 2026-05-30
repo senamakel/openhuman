@@ -1614,11 +1614,15 @@ impl super::super::engine::TurnObserver for SubagentObserver {
 
     fn on_assistant(
         &mut self,
+        _display_text: &str,
         response_text: &str,
-        tool_calls: usize,
+        _reasoning_content: Option<&str>,
+        _native_tool_calls: &[crate::openhuman::inference::provider::ToolCall],
+        parsed_calls: &[super::super::parse::ParsedToolCall],
         iteration: usize,
         is_final: bool,
     ) {
+        let tool_calls = parsed_calls.len();
         let extra = if is_final {
             serde_json::json!({
                 "scope": "worker_thread",
@@ -1644,6 +1648,7 @@ impl super::super::engine::TurnObserver for SubagentObserver {
         call_id: &str,
         tool_name: &str,
         result_text: &str,
+        _success: bool,
         iteration: usize,
     ) {
         // Native mode mirrors each tool result individually; text mode batches

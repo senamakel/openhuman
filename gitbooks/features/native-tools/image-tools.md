@@ -1,12 +1,12 @@
-# Hosted Media Tools
+# Image Tools
 
-OpenHuman's hosted media contract gives agents a stable way to reason about
+OpenHuman's image contract gives agents a stable way to reason about
 image generation and local image inspection without tying the prompt surface to a
 single provider runtime.
 
 ## Scope
 
-The contract lives in the top-level `src/openhuman/hosted_media/` module and
+The contract lives in the top-level `src/openhuman/image/` module and
 currently covers two model-facing tools:
 
 | Tool | Purpose | Permission | Output |
@@ -22,7 +22,7 @@ their concrete behavior:
 - Agent multimodal preparation normalizes `[IMAGE:...]` markers for providers
   that accept image data.
 
-The hosted media layer defines names, schemas, gating, and prompt rules so
+The image layer defines names, schemas, gating, and prompt rules so
 agents can make consistent decisions as runtimes add direct support.
 
 ## `image_generation`
@@ -59,7 +59,7 @@ Use `original` only when full-resolution inspection is necessary.
 
 ## Prompt Guidance
 
-Prompt rendering should include hosted media guidance only when at least one
+Prompt rendering should include image guidance only when at least one
 media tool is enabled. The guidance should tell agents:
 
 - Use `view_image` when pixels are needed, not for ordinary file metadata.

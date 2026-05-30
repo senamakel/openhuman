@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::{HostedMediaPermission, HostedMediaToolSpec};
+use super::{ImagePermission, ImageToolSpec};
 
 /// Stable model-facing tool name.
 pub const IMAGE_GENERATION_TOOL_NAME: &str = "image_generation";
@@ -33,8 +33,8 @@ impl ImageGenerationOutputFormat {
 }
 
 /// Build the hosted `image_generation` model-facing contract.
-pub fn image_generation_spec(output_format: ImageGenerationOutputFormat) -> HostedMediaToolSpec {
-    HostedMediaToolSpec {
+pub fn image_generation_spec(output_format: ImageGenerationOutputFormat) -> ImageToolSpec {
+    ImageToolSpec {
         name: IMAGE_GENERATION_TOOL_NAME.to_string(),
         description: "Generate or edit raster images from a prompt and store each result as a local artifact path for the user.".to_string(),
         parameters: json!({
@@ -65,7 +65,7 @@ pub fn image_generation_spec(output_format: ImageGenerationOutputFormat) -> Host
             },
             "required": ["prompt"]
         }),
-        permission: HostedMediaPermission::Write,
+        permission: ImagePermission::Write,
         model_visible_image_output: false,
         writes_files: true,
     }
@@ -81,7 +81,7 @@ mod tests {
 
         assert_eq!(spec.name, "image_generation");
         assert!(spec.description.contains("Generate or edit raster images"));
-        assert_eq!(spec.permission, HostedMediaPermission::Write);
+        assert_eq!(spec.permission, ImagePermission::Write);
         assert!(!spec.model_visible_image_output);
         assert!(spec.writes_files);
         assert_eq!(spec.parameters["required"], serde_json::json!(["prompt"]));

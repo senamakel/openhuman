@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::{HostedMediaPermission, HostedMediaToolSpec};
+use super::{ImagePermission, ImageToolSpec};
 
 /// Stable model-facing tool name.
 pub const IMAGE_VIEW_TOOL_NAME: &str = "view_image";
@@ -32,8 +32,8 @@ impl ImageDetail {
 }
 
 /// Build the hosted `view_image` model-facing contract.
-pub fn image_view_spec() -> HostedMediaToolSpec {
-    HostedMediaToolSpec {
+pub fn image_view_spec() -> ImageToolSpec {
+    ImageToolSpec {
         name: IMAGE_VIEW_TOOL_NAME.to_string(),
         description: "Load a local image file into model-visible image context for inspection, OCR, UI review, or visual reasoning.".to_string(),
         parameters: json!({
@@ -52,7 +52,7 @@ pub fn image_view_spec() -> HostedMediaToolSpec {
             },
             "required": ["path"]
         }),
-        permission: HostedMediaPermission::ReadOnly,
+        permission: ImagePermission::ReadOnly,
         model_visible_image_output: true,
         writes_files: false,
     }
@@ -68,7 +68,7 @@ mod tests {
 
         assert_eq!(spec.name, "view_image");
         assert!(spec.description.contains("model-visible image context"));
-        assert_eq!(spec.permission, HostedMediaPermission::ReadOnly);
+        assert_eq!(spec.permission, ImagePermission::ReadOnly);
         assert!(spec.model_visible_image_output);
         assert!(!spec.writes_files);
         assert_eq!(spec.parameters["required"], serde_json::json!(["path"]));

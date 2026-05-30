@@ -4096,6 +4096,10 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Управляйте агентами, их автономностью и доступом к ресурсам компьютера.',
   'settings.agentsSection.menuDesc': 'Реестр, автономность и доступ к ОС',
+  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.description':
+    'Управляйте секретной фразой восстановления и просматривайте балансы своих кошельковых счетов.',
+  'settings.cryptoSection.menuDesc': 'Фраза восстановления и балансы кошелька',
   'settings.agents.editor.notFound': 'Агент не найден.',
   'settings.agents.editor.modelInherit': 'Унаследовать (системное по умолчанию)',
   'settings.agents.editor.modelHints': 'Подсказки маршрутизации',

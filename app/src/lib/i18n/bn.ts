@@ -4056,6 +4056,10 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'আপনার এজেন্ট, তাদের স্বায়ত্তশাসন এবং এই কম্পিউটারে তারা কী অ্যাক্সেস করতে পারে তা পরিচালনা করুন।',
   'settings.agentsSection.menuDesc': 'রেজিস্ট্রি, স্বায়ত্তশাসন ও ওএস অ্যাক্সেস',
+  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.description':
+    'আপনার রিকভারি ফ্রেজ পরিচালনা করুন এবং আপনার ওয়ালেট অ্যাকাউন্টগুলির ব্যালেন্স দেখুন।',
+  'settings.cryptoSection.menuDesc': 'রিকভারি ফ্রেজ ও ওয়ালেট ব্যালেন্স',
   'settings.agents.editor.notFound': 'এজেন্ট পাওয়া যায়নি।',
   'settings.agents.editor.modelInherit': 'উত্তরাধিকার (প্ল্যাটফর্ম ডিফল্ট)',
   'settings.agents.editor.modelHints': 'রুট হিন্টস',

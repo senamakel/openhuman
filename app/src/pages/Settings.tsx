@@ -240,13 +240,6 @@ const Settings = () => {
 
   const accountSettingsItems = [
     {
-      id: 'recovery-phrase',
-      title: t('pages.settings.account.recoveryPhrase'),
-      description: t('pages.settings.account.recoveryPhraseDesc'),
-      route: 'recovery-phrase',
-      icon: RecoveryPhraseIcon,
-    },
-    {
       id: 'team',
       title: t('pages.settings.account.team'),
       description: t('pages.settings.account.teamDesc'),
@@ -266,6 +259,16 @@ const Settings = () => {
       description: t('pages.settings.account.migrationDesc'),
       route: 'migration',
       icon: MigrationIcon,
+    },
+  ];
+
+  const cryptoSettingsItems = [
+    {
+      id: 'recovery-phrase',
+      title: t('pages.settings.account.recoveryPhrase'),
+      description: t('pages.settings.account.recoveryPhraseDesc'),
+      route: 'recovery-phrase',
+      icon: RecoveryPhraseIcon,
     },
     {
       id: 'wallet-balances',
@@ -481,6 +484,16 @@ const Settings = () => {
               title={t('settings.agentsSection.title')}
               description={t('settings.agentsSection.description')}
               items={agentsSettingsItems}
+            />
+          )}
+        />
+        <Route
+          path="crypto"
+          element={wrapSettingsPage(
+            <SettingsSectionPage
+              title={t('settings.cryptoSection.title')}
+              description={t('settings.cryptoSection.description')}
+              items={cryptoSettingsItems}
             />
           )}
         />

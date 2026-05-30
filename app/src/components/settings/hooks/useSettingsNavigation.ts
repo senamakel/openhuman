@@ -25,6 +25,7 @@ export type SettingsRoute =
   | 'tools'
   | 'memory-data'
   | 'memory-debug'
+  | 'crypto'
   | 'recovery-phrase'
   | 'wallet-balances'
   | 'webhooks-debug'
@@ -112,6 +113,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     if (path.includes('/settings/composio-triggers')) return 'composio-triggers';
     if (path.includes('/settings/composio-routing')) return 'composio-routing';
     if (path.includes('/settings/intelligence')) return 'intelligence';
+    if (path.includes('/settings/crypto')) return 'crypto';
     if (path.includes('/settings/recovery-phrase')) return 'recovery-phrase';
     if (path.includes('/settings/wallet-balances')) return 'wallet-balances';
     if (path.includes('/settings/agent-chat')) return 'agent-chat';
@@ -192,6 +194,11 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     onClick: () => navigate('/settings/agents-settings'),
   };
 
+  const cryptoCrumb: BreadcrumbItem = {
+    label: 'Crypto',
+    onClick: () => navigate('/settings/crypto'),
+  };
+
   const getBreadcrumbs = (): BreadcrumbItem[] => {
     switch (currentRoute) {
       // Section pages
@@ -199,6 +206,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
       case 'features':
       case 'ai':
       case 'agents-settings':
+      case 'crypto':
         return [settingsCrumb];
 
       // Leaf panels under the Agents section
@@ -208,9 +216,12 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
       case 'persona':
         return [settingsCrumb, agentsCrumb];
 
-      // Leaf panels under account
+      // Leaf panels under the Crypto section
       case 'recovery-phrase':
       case 'wallet-balances':
+        return [settingsCrumb, cryptoCrumb];
+
+      // Leaf panels under account
       case 'team':
       case 'privacy':
         return [settingsCrumb, accountCrumb];

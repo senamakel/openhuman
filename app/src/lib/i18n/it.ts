@@ -4127,6 +4127,10 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Gestisci i tuoi agenti, la loro autonomia e a cosa possono accedere su questo computer.',
   'settings.agentsSection.menuDesc': 'Registro, autonomia e accesso al sistema operativo',
+  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.description':
+    'Gestisci la tua frase di recupero e visualizza i saldi dei tuoi account wallet.',
+  'settings.cryptoSection.menuDesc': 'Frase di recupero e saldi del wallet',
   'settings.agents.editor.notFound': 'Agente non trovato.',
   'settings.agents.editor.modelInherit': 'Eredita (predefinito della piattaforma)',
   'settings.agents.editor.modelHints': 'Suggerimenti di instradamento',

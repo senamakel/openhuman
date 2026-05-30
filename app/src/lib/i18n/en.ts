@@ -4279,6 +4279,10 @@ const en: TranslationMap = {
   'settings.agentsSection.description':
     'Manage your agents, their autonomy, and what they can access on this computer.',
   'settings.agentsSection.menuDesc': 'Registry, autonomy & OS access',
+  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.description':
+    'Manage your recovery phrase and view balances across your wallet accounts.',
+  'settings.cryptoSection.menuDesc': 'Recovery phrase & wallet balances',
   'settings.agents.editor.notFound': 'Agent not found.',
   'settings.agents.editor.modelInherit': 'Inherit (platform default)',
   'settings.agents.editor.modelHints': 'Route hints',

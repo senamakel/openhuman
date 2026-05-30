@@ -150,6 +150,22 @@ const SettingsHome = () => {
           onClick: () => navigateToSettings('agents-settings'),
         },
         {
+          id: 'crypto',
+          title: t('settings.cryptoSection.title'),
+          description: t('settings.cryptoSection.menuDesc'),
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 10c-1.11 0-2.08-.402-2.599-1M12 16v2m0-12a9 9 0 100 18 9 9 0 000-18z"
+              />
+            </svg>
+          ),
+          onClick: () => navigateToSettings('crypto'),
+        },
+        {
           id: 'mascot',
           title: t('settings.mascot.menuTitle'),
           description: t('settings.mascot.menuDesc'),

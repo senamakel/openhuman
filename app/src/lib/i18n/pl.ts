@@ -4128,6 +4128,10 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Zarządzaj agentami, ich autonomią i tym, do czego mogą uzyskać dostęp na tym komputerze.',
   'settings.agentsSection.menuDesc': 'Rejestr, autonomia i dostęp do systemu',
+  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.description':
+    'Zarządzaj frazą odzyskiwania i sprawdzaj salda na kontach portfela.',
+  'settings.cryptoSection.menuDesc': 'Fraza odzyskiwania i salda portfela',
   'settings.agents.editor.notFound': 'Nie znaleziono agenta.',
   'settings.agents.editor.modelInherit': 'Dziedzicz (domyślne platformy)',
   'settings.agents.editor.modelHints': 'Wskazówki trasowania',

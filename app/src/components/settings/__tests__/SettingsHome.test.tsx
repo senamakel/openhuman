@@ -165,6 +165,15 @@ describe('SettingsHome', () => {
       expect(mockNavigateToSettings).toHaveBeenCalledWith('agents-settings');
     });
 
+    it('navigates to the Crypto section when Crypto is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      // Recovery phrase + wallet balances now live under the Crypto section page.
+      await user.click(screen.getByText('Crypto').closest('button')!);
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('crypto');
+    });
+
     it('navigates to /notifications inbox when Alerts is clicked', async () => {
       const user = userEvent.setup();
       renderSettingsHome();

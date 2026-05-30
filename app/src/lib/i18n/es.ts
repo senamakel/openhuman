@@ -4132,6 +4132,10 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Administra tus agentes, su autonomía y a qué pueden acceder en este equipo.',
   'settings.agentsSection.menuDesc': 'Registro, autonomía y acceso al SO',
+  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.description':
+    'Gestiona tu frase de recuperación y consulta los saldos de tus cuentas de monedero.',
+  'settings.cryptoSection.menuDesc': 'Frase de recuperación y saldos del monedero',
   'settings.agents.editor.notFound': 'Agente no encontrado.',
   'settings.agents.editor.modelInherit': 'Heredar (predeterminado de la plataforma)',
   'settings.agents.editor.modelHints': 'Sugerencias de enrutamiento',

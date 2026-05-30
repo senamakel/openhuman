@@ -4149,6 +4149,10 @@ const messages: TranslationMap = {
   'settings.agentsSection.description':
     'Gérez vos agents, leur autonomie et ce à quoi ils peuvent accéder sur cet ordinateur.',
   'settings.agentsSection.menuDesc': 'Registre, autonomie et accès au système',
+  'settings.cryptoSection.title': 'Crypto',
+  'settings.cryptoSection.description':
+    'Gérez votre phrase de récupération et consultez les soldes de vos comptes de portefeuille.',
+  'settings.cryptoSection.menuDesc': 'Phrase de récupération et soldes du portefeuille',
   'settings.agents.editor.notFound': 'Agent introuvable.',
   'settings.agents.editor.modelInherit': 'Hériter (défaut de la plateforme)',
   'settings.agents.editor.modelHints': 'Conseils de routage',

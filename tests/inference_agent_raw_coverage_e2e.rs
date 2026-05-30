@@ -35,14 +35,32 @@ use openhuman_core::openhuman::agent::tool_policy::{
 };
 use openhuman_core::openhuman::agent::triage::envelope::{TriggerEnvelope, TriggerSource};
 use openhuman_core::openhuman::agent::triage::routing::build_local_provider_with_config;
+use openhuman_core::openhuman::agent::triage::{parse_triage_decision, ParseError, TriageAction};
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
+};
+use openhuman_core::openhuman::config::schema::cloud_providers::{
+    AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
 use openhuman_core::openhuman::inference::context_window_for_model;
+use openhuman_core::openhuman::inference::provider::factory::{
+    auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
+    BYOK_INCOMPLETE_SENTINEL,
+};
+use openhuman_core::openhuman::inference::provider::temperature::{
+    glob_match, temperature_for_model,
+};
 use openhuman_core::openhuman::inference::provider::UsageInfo;
+use openhuman_core::openhuman::inference::provider::{
+    format_anyhow_chain, is_budget_exhausted_message, is_openai_compatible_unknown_model_message,
+    is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
+};
 use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
+use openhuman_core::openhuman::inference::voice::hallucination::{
+    is_hallucinated_output, HallucinationMode,
+};
 use openhuman_core::openhuman::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
 };
@@ -908,6 +926,167 @@ async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks(
     assert_eq!(empty.value.emotion, "neutral");
     assert_eq!(empty.value.valence, "neutral");
     assert_eq!(empty.value.confidence, 1.0);
+}
+
+#[tokio::test]
+async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
+    let _lock = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = isolated_env();
+    let mut config = Config::load_or_init().await.expect("load config");
+
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            "default",
+            "session-token-for-provider-factory",
+            HashMap::new(),
+            true,
+        )
+        .expect("store app session token");
+
+    assert_eq!(auth_key_for_slug("openrouter"), "provider:openrouter");
+    assert!(is_budget_exhausted_message(
+        "OpenRouter says insufficient balance, add credits"
+    ));
+    assert!(!is_budget_exhausted_message("upstream timeout"));
+
+    for body in [
+        "The supported API model names are native-a or native-b",
+        "ModelNotAllowed",
+        "invalid_authentication_error",
+        "unknown parameter: tools",
+        "requires a subscription, upgrade for access",
+        "No active credentials for provider: openai",
+    ] {
+        assert!(
+            is_provider_config_rejection_message(body),
+            "{body:?} should be user configuration state"
+        );
+    }
+    assert!(is_openai_compatible_unknown_model_message(
+        "Model `gpt-unknown` is not available. Use GET /openai/v1/models to list available models."
+    ));
+    assert!(!is_provider_config_rejection_message(
+        "internal server error while streaming tokens"
+    ));
+
+    let scrubbed =
+        scrub_secret_patterns("tokens sk-live-secret and github_pat_abc123 should not escape");
+    assert!(scrubbed.contains("[REDACTED]"));
+    assert!(!scrubbed.contains("sk-live-secret"));
+    assert!(!sanitize_api_error(&"x".repeat(500)).contains(&"x".repeat(250)));
+    let chain = format_anyhow_chain(&anyhow::anyhow!(
+        "wrapped failure caused by ghp_secretvalue"
+    ));
+    assert!(chain.contains("[REDACTED]"));
+
+    assert!(glob_match("moonshot*k2*", "moonshot/kimi-k2-instruct"));
+    assert!(!glob_match("gpt*mini", "gpt-4o-large"));
+    config.temperature_unsupported_models = vec!["gpt-5*".into(), "*kimi-k2*".into()];
+    assert_eq!(temperature_for_model("gpt-5.5", 0.7, &config), None);
+    assert_eq!(
+        temperature_for_model("moonshot/kimi-k2-instruct", 0.7, &config),
+        None
+    );
+    assert_eq!(
+        temperature_for_model("gpt-4o-mini", 0.3, &config),
+        Some(0.3)
+    );
+
+    config.default_model = Some("stale-provider-model".into());
+    let (_, openhuman_model) =
+        create_chat_provider_from_string("chat", "openhuman", &config).expect("openhuman provider");
+    assert_eq!(openhuman_model, "reasoning-v1");
+
+    let byok_err = provider_factory_error("chat", BYOK_INCOMPLETE_SENTINEL, &config);
+    assert!(byok_err.contains("BYOK_INCOMPLETE"));
+
+    let empty_ollama = provider_factory_error("chat", "ollama:", &config);
+    assert!(empty_ollama.contains("empty model"));
+    let empty_slug = provider_factory_error("chat", ":demo", &config);
+    assert!(empty_slug.contains("empty slug"));
+    let unknown = provider_factory_error("chat", "not-a-provider", &config);
+    assert!(unknown.contains("unrecognised provider string"));
+
+    config.cloud_providers = vec![CloudProviderCreds {
+        id: "mock-id".into(),
+        slug: "mock".into(),
+        label: "Mock".into(),
+        endpoint: "http://127.0.0.1:1/v1".into(),
+        auth_style: CloudAuthStyle::None,
+        legacy_type: None,
+        default_model: Some("mock-default".into()),
+    }];
+    config.chat_provider = Some("mock:chat-model@0.25".into());
+    config.reasoning_provider = None;
+    config.memory_provider = None;
+    assert_eq!(provider_for_role("chat", &config), "mock:chat-model@0.25");
+    assert_eq!(
+        provider_for_role("reasoning", &config),
+        "mock:chat-model@0.25"
+    );
+    assert_eq!(provider_for_role("memory", &config), "openhuman");
+}
+
+fn provider_factory_error(role: &str, provider: &str, config: &Config) -> String {
+    match create_chat_provider_from_string(role, provider, config) {
+        Ok((_, model)) => panic!("provider factory unexpectedly succeeded with model {model}"),
+        Err(err) => err.to_string(),
+    }
+}
+
+#[test]
+fn inference_voice_and_triage_parsers_cover_public_error_shapes() {
+    assert!(is_hallucinated_output(
+        "[ blank_audio ]",
+        HallucinationMode::Conversation
+    ));
+    assert!(is_hallucinated_output(
+        "Thank you. Thank you. Thank you.",
+        HallucinationMode::Conversation
+    ));
+    assert!(is_hallucinated_output(
+        "it it it it it it hello",
+        HallucinationMode::Conversation
+    ));
+    assert!(is_hallucinated_output("okay", HallucinationMode::Dictation));
+    assert!(!is_hallucinated_output(
+        "okay",
+        HallucinationMode::Conversation
+    ));
+    assert!(!is_hallucinated_output(
+        "no no no please stop",
+        HallucinationMode::Conversation
+    ));
+
+    let fenced = parse_triage_decision(
+        "notes before\n```json\n{\"action\":\"ESCALATE\",\"target_agent\":\"orchestrator\",\"prompt\":\"draft a reply\",\"reason\":\"requires planning\",}\n```\ntrailing notes",
+    )
+    .expect("fenced triage");
+    assert_eq!(fenced.action, TriageAction::Escalate);
+    assert_eq!(fenced.target_agent.as_deref(), Some("orchestrator"));
+    assert_eq!(fenced.prompt.as_deref(), Some("draft a reply"));
+
+    let last_object = parse_triage_decision(
+        "{\"action\":\"react\",\"target_agent\":\"trigger_reactor\",\"prompt\":\"first\",\"reason\":\"old\"} then {\"action\":\"drop\",\"reason\":\"duplicate\"}",
+    )
+    .expect("last object wins");
+    assert_eq!(last_object.action.as_str(), "drop");
+    assert_eq!(last_object.reason, "duplicate");
+
+    let missing_target =
+        parse_triage_decision("{\"action\":\"react\",\"reason\":\"needs side effect\"}")
+            .expect_err("react must include target and prompt");
+    assert!(matches!(
+        missing_target,
+        ParseError::MissingTarget { action: "react" }
+    ));
+    assert!(matches!(
+        parse_triage_decision("no json here").expect_err("json required"),
+        ParseError::NoJsonObject
+    ));
 }
 
 #[tokio::test]

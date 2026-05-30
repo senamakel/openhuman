@@ -17,6 +17,8 @@ use std::path::Path;
 use std::sync::Arc;
 use tempfile::TempDir;
 
+use openhuman_core::openhuman::agent::progress::AgentProgress;
+use openhuman_core::openhuman::agent::task_board::{TaskBoard, TaskBoardCard, TaskCardStatus};
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::tree_policy::TreePolicy;
@@ -64,6 +66,11 @@ use openhuman_core::openhuman::memory_sync::canonicalize::email::{
 };
 use openhuman_core::openhuman::memory_sync::canonicalize::email_clean;
 use openhuman_core::openhuman::memory_sync::composio;
+use openhuman_core::openhuman::memory_sync::composio::providers::profile::{
+    canonicalize, delete_connected_identity_facets, is_self_identity, is_self_identity_any_toolkit,
+    load_connected_identities, render_connected_identities_section, ConnectedIdentity,
+    IdentityKind,
+};
 use openhuman_core::openhuman::memory_sync::composio::providers::profile_md::{
     block_end, block_start, merge_provider_into_profile_md, remove_provider_from_profile_md,
     replace_managed_block,
@@ -77,8 +84,8 @@ use openhuman_core::openhuman::memory_sync::composio::providers::sync_state::{
 use openhuman_core::openhuman::memory_sync::composio::providers::{
     agent_ready_toolkits, capability_matrix, catalog_for_toolkit, classify_unknown,
     curated_scope_for, find_curated, is_action_visible_with_pref, toolkit_from_slug,
-    toolkit_has_scope, CuratedTool, NormalizedTask, ProviderUserProfile, SyncOutcome, SyncReason,
-    TaskFetchFilter, ToolScope, UserScopePref,
+    toolkit_has_scope, ComposioProvider, CuratedTool, NormalizedTask, ProviderContext,
+    ProviderUserProfile, SyncOutcome, SyncReason, TaskFetchFilter, ToolScope, UserScopePref,
 };
 use openhuman_core::openhuman::memory_sync::sync_status::{
     rpc as memory_sync_status_rpc, schemas as memory_sync_status_schemas,
@@ -97,6 +104,7 @@ use openhuman_core::openhuman::memory_tree::score::{resolver, ScoringConfig};
 use openhuman_core::openhuman::memory_tree::summarise::{
     fallback_summary, SummaryContext, SummaryInput,
 };
+use openhuman_core::openhuman::memory_tree::tree::bucket_seal::LeafRef;
 use openhuman_core::openhuman::memory_tree::tree_runtime::store as tree_runtime_store;
 use openhuman_core::openhuman::memory_tree::tree_runtime::{
     all_tree_summarizer_controller_schemas, all_tree_summarizer_registered_controllers,
@@ -112,7 +120,7 @@ use openhuman_core::openhuman::threads::title::{
 use openhuman_core::openhuman::threads::turn_state::{
     self, ClearTurnStateRequest, GetTurnStateRequest, GetTurnStateResponse, ListTurnStatesResponse,
     SubagentActivity, SubagentToolCall, ToolTimelineEntry, ToolTimelineStatus, TurnLifecycle,
-    TurnPhase, TurnState,
+    TurnPhase, TurnState, TurnStateMirror, TurnStateStore,
 };
 use openhuman_core::openhuman::threads::ThreadsError;
 use openhuman_core::openhuman::threads::{
@@ -1800,6 +1808,446 @@ fn memory_retrieval_embedding_and_rpc_model_helpers_round_trip() {
         last_updated: Some(now.to_rfc3339()),
     };
     assert_eq!(serde_json::to_value(summary).unwrap()["count"], 1);
+}
+
+#[test]
+fn memory_tree_io_contract_types_round_trip_leaf_read_and_write_shapes() {
+    let now = Utc.with_ymd_and_hms(2026, 5, 29, 16, 0, 0).unwrap();
+    let payload = openhuman_core::openhuman::memory_tree::io::TreeLeafPayload {
+        chunk_id: "chunk-contract-1".into(),
+        token_count: 42,
+        timestamp: now,
+        content: "Leaf content for a canonical write request".into(),
+        entities: vec!["person:alice".into(), "email:alice@example.com".into()],
+        topics: vec!["coverage".into()],
+        score: 0.77,
+    };
+    let leaf_ref = LeafRef::from(&payload);
+    assert_eq!(leaf_ref.chunk_id, payload.chunk_id);
+    assert_eq!(leaf_ref.entities, payload.entities);
+    let round_trip =
+        openhuman_core::openhuman::memory_tree::io::TreeLeafPayload::from(leaf_ref.clone());
+    assert_eq!(round_trip.content, payload.content);
+    assert_eq!(round_trip.score, payload.score);
+
+    let write_default_json = serde_json::to_value(
+        openhuman_core::openhuman::memory_tree::io::TreeWriteRequest {
+            tree_id: "tree-contract".into(),
+            tree_kind: TreeKind::Source,
+            leaf: round_trip.clone(),
+            label_strategy: Default::default(),
+            deferred: false,
+        },
+    )
+    .expect("write request json");
+    assert_eq!(write_default_json["label_strategy"], "inherit");
+    assert_eq!(write_default_json["deferred"], false);
+
+    let decoded_write: openhuman_core::openhuman::memory_tree::io::TreeWriteRequest =
+        serde_json::from_value(json!({
+            "tree_id": "tree-contract",
+            "tree_kind": "global",
+            "leaf": {
+                "chunk_id": "chunk-contract-2",
+                "token_count": 5,
+                "timestamp": now,
+                "content": "minimal leaf"
+            },
+            "label_strategy": "empty",
+            "deferred": true
+        }))
+        .expect("decode write request");
+    assert_eq!(decoded_write.tree_kind, TreeKind::Global);
+    assert_eq!(
+        decoded_write.label_strategy,
+        openhuman_core::openhuman::memory_tree::io::TreeLabelStrategy::Empty
+    );
+    assert!(decoded_write.leaf.entities.is_empty());
+    assert!(decoded_write.deferred);
+
+    let outcome = openhuman_core::openhuman::memory_tree::io::TreeWriteOutcome {
+        new_summary_ids: vec!["summary-1".into()],
+        seal_pending: true,
+    };
+    let outcome_json = serde_json::to_value(outcome).expect("outcome json");
+    assert_eq!(outcome_json["new_summary_ids"][0], "summary-1");
+    assert_eq!(outcome_json["seal_pending"], true);
+
+    let read_request: openhuman_core::openhuman::memory_tree::io::TreeReadRequest =
+        serde_json::from_value(json!({
+            "tree_id": "tree-contract",
+            "max_depth": 2,
+            "query": "coverage",
+            "limit": 3
+        }))
+        .expect("decode read request defaults");
+    assert_eq!(read_request.start_node_id, None);
+    assert_eq!(read_request.max_depth, 2);
+    assert_eq!(read_request.limit, Some(3));
+
+    let hit = openhuman_core::openhuman::memory_tree::io::TreeReadHit {
+        node_id: "summary-1".into(),
+        node_kind: "summary".into(),
+        level: 1,
+        content: "Summary text".into(),
+        score: 0.42,
+    };
+    let result = openhuman_core::openhuman::memory_tree::io::TreeReadResult {
+        hits: vec![hit],
+        total: 4,
+        tree_id: "tree-contract".into(),
+    };
+    let result_json = serde_json::to_value(result).expect("read result json");
+    assert_eq!(result_json["hits"][0]["node_kind"], "summary");
+    assert_eq!(result_json["total"], 4);
+
+    let tree = Tree {
+        id: "empty-tree".into(),
+        kind: TreeKind::Source,
+        scope: "source:contract".into(),
+        root_id: None,
+        max_level: 0,
+        status: StoredTreeStatus::Active,
+        created_at: now,
+        last_sealed_at: None,
+    };
+    let empty = openhuman_core::openhuman::memory_tree::io::TreeReadResult::empty(&tree);
+    assert_eq!(empty.tree_id, "empty-tree");
+    assert!(empty.hits.is_empty());
+}
+
+#[test]
+fn memory_sync_profile_identity_helpers_cover_public_no_client_paths_and_rendering() {
+    assert_eq!(IdentityKind::parse("email"), Some(IdentityKind::Email));
+    assert_eq!(IdentityKind::parse("missing"), None);
+    assert!(IdentityKind::Email.is_matchable());
+    assert!(!IdentityKind::AvatarUrl.is_matchable());
+    assert!(IdentityKind::UserId.confidence() > IdentityKind::DisplayName.confidence());
+
+    assert_eq!(
+        canonicalize(IdentityKind::Email, " Alice@Example.COM "),
+        Some("alice@example.com".into())
+    );
+    assert_eq!(
+        canonicalize(IdentityKind::Handle, " @Alice "),
+        Some("alice".into())
+    );
+    assert_eq!(
+        canonicalize(IdentityKind::Phone, " +1 (555) 123-4567 "),
+        Some("+15551234567".into())
+    );
+    assert_eq!(
+        canonicalize(IdentityKind::DisplayName, " Alice\n Example "),
+        Some("Alice Example".into())
+    );
+    assert_eq!(canonicalize(IdentityKind::Email, "   "), None);
+
+    assert!(load_connected_identities().is_empty());
+    assert!(!is_self_identity(
+        "gmail",
+        IdentityKind::Email,
+        "alice@example.com"
+    ));
+    assert!(!is_self_identity(
+        "gmail",
+        IdentityKind::AvatarUrl,
+        "https://example.test/avatar.png"
+    ));
+    assert!(!is_self_identity_any_toolkit(
+        IdentityKind::Email,
+        "alice@example.com"
+    ));
+    assert_eq!(delete_connected_identity_facets("gmail", "conn-1"), 0);
+
+    let rendered = render_connected_identities_section(&[
+        ConnectedIdentity {
+            source: "gmail".into(),
+            identifier: "conn:1".into(),
+            display_name: Some("Alice\nExample".into()),
+            email: Some("alice@example.com".into()),
+            handle: None,
+            phone: None,
+            user_id: Some("U123".into()),
+            avatar_url: None,
+            profile_url: Some("https://example.test/alice|profile".into()),
+        },
+        ConnectedIdentity {
+            source: "slack".into(),
+            identifier: "workspace".into(),
+            display_name: None,
+            email: None,
+            handle: Some("alice".into()),
+            phone: None,
+            user_id: None,
+            avatar_url: None,
+            profile_url: None,
+        },
+    ]);
+    assert!(rendered.starts_with("## Connected Identities"));
+    assert!(rendered.contains("Gmail (conn:1): Alice Example | alice@example.com"));
+    assert!(rendered.contains("Slack (workspace): @alice"));
+    assert!(!rendered.contains("U123"));
+    assert_eq!(
+        render_connected_identities_section(&[ConnectedIdentity {
+            source: "empty".into(),
+            identifier: "id".into(),
+            ..Default::default()
+        }]),
+        ""
+    );
+}
+
+struct RawCoverageProvider {
+    fail_profile: bool,
+}
+
+#[async_trait::async_trait]
+impl ComposioProvider for RawCoverageProvider {
+    fn toolkit_slug(&self) -> &'static str {
+        "raw_coverage"
+    }
+
+    async fn fetch_user_profile(
+        &self,
+        _ctx: &ProviderContext,
+    ) -> Result<ProviderUserProfile, String> {
+        if self.fail_profile {
+            Err("profile unavailable".into())
+        } else {
+            Ok(ProviderUserProfile {
+                toolkit: "raw_coverage".into(),
+                connection_id: Some("conn-1".into()),
+                display_name: Some("Raw Coverage".into()),
+                email: Some("raw@example.com".into()),
+                username: None,
+                avatar_url: None,
+                profile_url: None,
+                extras: json!({}),
+            })
+        }
+    }
+
+    async fn sync(
+        &self,
+        _ctx: &ProviderContext,
+        reason: SyncReason,
+    ) -> Result<SyncOutcome, String> {
+        Ok(SyncOutcome {
+            toolkit: "raw_coverage".into(),
+            connection_id: Some("conn-1".into()),
+            reason: reason.as_str().into(),
+            items_ingested: 1,
+            started_at_ms: 10,
+            finished_at_ms: 25,
+            summary: "synced".into(),
+            details: json!({ "reason": reason.as_str() }),
+        })
+    }
+}
+
+#[tokio::test]
+async fn memory_sync_provider_trait_defaults_and_connection_hook_are_deterministic() {
+    let tmp = TempDir::new().expect("tempdir");
+    let ctx = ProviderContext {
+        config: Arc::new(config_in(&tmp)),
+        toolkit: "raw_coverage".into(),
+        connection_id: Some("conn-1".into()),
+    };
+    let provider = RawCoverageProvider { fail_profile: true };
+    assert_eq!(provider.sync_interval_secs(), Some(15 * 60));
+    assert!(provider.curated_tools().is_none());
+    assert!(provider
+        .fetch_tasks(&ctx, &TaskFetchFilter::default())
+        .await
+        .unwrap_err()
+        .contains("provider has no task-fetch surface"));
+
+    let mut action_data = json!({ "ok": true });
+    provider.post_process_action_result("RAW_ACTION", None, &mut action_data);
+    assert_eq!(action_data, json!({ "ok": true }));
+    provider
+        .on_trigger(&ctx, "raw.trigger", &json!({ "payload": true }))
+        .await
+        .expect("default trigger no-op");
+    assert_eq!(
+        provider.identity_set(&ProviderUserProfile {
+            toolkit: "raw_coverage".into(),
+            connection_id: Some("conn-1".into()),
+            display_name: Some("No client".into()),
+            ..Default::default()
+        }),
+        0
+    );
+
+    provider
+        .on_connection_created(&ctx)
+        .await
+        .expect("profile failure still syncs");
+    assert!(!tmp.path().join("PROFILE.md").exists());
+
+    let profile_provider = RawCoverageProvider {
+        fail_profile: false,
+    };
+    profile_provider
+        .on_connection_created(&ctx)
+        .await
+        .expect("profile success syncs");
+    let profile_md = std::fs::read_to_string(tmp.path().join("PROFILE.md")).expect("profile md");
+    assert!(profile_md.contains("Raw Coverage"));
+    assert!(profile_md.contains("raw@example.com"));
+}
+
+#[test]
+fn turn_state_mirror_persists_progress_edges_from_public_events() {
+    let tmp = TempDir::new().expect("tempdir");
+    let store = TurnStateStore::new(tmp.path().to_path_buf());
+    let mut mirror = TurnStateMirror::new(store.clone(), "thread/mirror", "request-mirror");
+    assert!(store
+        .get("thread/mirror")
+        .expect("initial snapshot")
+        .is_some());
+
+    assert!(mirror.observe(&AgentProgress::TurnStarted));
+    assert!(mirror.observe(&AgentProgress::IterationStarted {
+        iteration: 2,
+        max_iterations: 5,
+    }));
+    assert!(!mirror.observe(&AgentProgress::ThinkingDelta {
+        delta: "thinking ".into(),
+        iteration: 2,
+    }));
+    assert!(!mirror.observe(&AgentProgress::TextDelta {
+        delta: "visible".into(),
+        iteration: 2,
+    }));
+    assert!(!mirror.observe(&AgentProgress::ToolCallArgsDelta {
+        call_id: "call-1".into(),
+        tool_name: "memory.search".into(),
+        delta: "{\"q\":\"coverage\"}".into(),
+        iteration: 2,
+    }));
+    assert!(mirror.observe(&AgentProgress::ToolCallStarted {
+        call_id: "call-1".into(),
+        tool_name: "memory.search".into(),
+        arguments: json!({ "q": "coverage" }),
+        iteration: 2,
+    }));
+    assert!(mirror.observe(&AgentProgress::ToolCallCompleted {
+        call_id: "call-1".into(),
+        tool_name: "memory.search".into(),
+        success: false,
+        output_chars: 0,
+        elapsed_ms: 11,
+        iteration: 2,
+    }));
+    assert!(!mirror.observe(&AgentProgress::TurnCostUpdated {
+        model: "coverage-model".into(),
+        iteration: 2,
+        input_tokens: 10,
+        output_tokens: 3,
+        cached_input_tokens: 2,
+        total_usd: 0.001,
+    }));
+
+    assert!(mirror.observe(&AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "task-1".into(),
+        mode: "typed".into(),
+        dedicated_thread: true,
+        prompt_chars: 99,
+    }));
+    assert!(!mirror.observe(&AgentProgress::SubagentIterationStarted {
+        agent_id: "researcher".into(),
+        task_id: "task-1".into(),
+        iteration: 1,
+        max_iterations: 3,
+    }));
+    assert!(!mirror.observe(&AgentProgress::SubagentToolCallStarted {
+        agent_id: "researcher".into(),
+        task_id: "task-1".into(),
+        call_id: "child-call".into(),
+        tool_name: "memory.read".into(),
+        iteration: 1,
+    }));
+    assert!(!mirror.observe(&AgentProgress::SubagentToolCallCompleted {
+        agent_id: "researcher".into(),
+        task_id: "task-1".into(),
+        call_id: "child-call".into(),
+        tool_name: "memory.read".into(),
+        success: true,
+        output_chars: 44,
+        elapsed_ms: 22,
+        iteration: 1,
+    }));
+    assert!(mirror.observe(&AgentProgress::SubagentFailed {
+        agent_id: "researcher".into(),
+        task_id: "task-1".into(),
+        error: "child failed".into(),
+    }));
+
+    let board = TaskBoard {
+        thread_id: "thread/mirror".into(),
+        cards: vec![TaskBoardCard {
+            id: "card-1".into(),
+            title: "Mirror coverage".into(),
+            status: TaskCardStatus::Todo,
+            objective: None,
+            plan: vec!["exercise public events".into()],
+            assigned_agent: None,
+            allowed_tools: Vec::new(),
+            approval_mode: None,
+            acceptance_criteria: Vec::new(),
+            evidence: Vec::new(),
+            notes: None,
+            blocker: None,
+            source_metadata: None,
+            order: 0,
+            updated_at: "2026-05-29T16:00:00Z".into(),
+        }],
+        updated_at: "2026-05-29T16:00:00Z".into(),
+    };
+    assert!(mirror.observe(&AgentProgress::TaskBoardUpdated {
+        board: board.clone()
+    }));
+
+    let snapshot = store
+        .get("thread/mirror")
+        .expect("read mirror snapshot")
+        .expect("snapshot");
+    assert_eq!(snapshot.lifecycle, TurnLifecycle::Streaming);
+    assert_eq!(snapshot.phase, Some(TurnPhase::Thinking));
+    assert!(snapshot.active_tool.is_none());
+    assert!(snapshot.active_subagent.is_none());
+    assert_eq!(snapshot.streaming_text, "visible");
+    assert_eq!(snapshot.thinking, "thinking ");
+    assert_eq!(snapshot.task_board, Some(board));
+    assert!(snapshot
+        .tool_timeline
+        .iter()
+        .any(|entry| entry.id == "call-1" && entry.status == ToolTimelineStatus::Error));
+    assert!(snapshot.tool_timeline.iter().any(|entry| {
+        entry.id == "subagent:task-1"
+            && entry.status == ToolTimelineStatus::Error
+            && entry
+                .subagent
+                .as_ref()
+                .is_some_and(|activity| activity.tool_calls.len() == 1)
+    }));
+
+    mirror.finish();
+    let interrupted = store
+        .get("thread/mirror")
+        .expect("read interrupted snapshot")
+        .expect("interrupted snapshot");
+    assert_eq!(interrupted.lifecycle, TurnLifecycle::Interrupted);
+
+    let mut complete = TurnStateMirror::new(store.clone(), "thread/completed", "request-complete");
+    assert!(complete.observe(&AgentProgress::TurnCompleted { iterations: 2 }));
+    complete.finish();
+    assert!(store
+        .get("thread/completed")
+        .expect("completed snapshot lookup")
+        .is_none());
 }
 
 #[test]

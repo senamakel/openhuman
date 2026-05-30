@@ -769,8 +769,11 @@ const en: TranslationMap = {
   'settings.search.menuDesc':
     'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel, Brave, and Querit run direct from your machine using your API key.',
+    'Pick the search engine the agent uses, or disable search tools entirely. Managed uses OpenHuman’s backend (no setup). Parallel, Brave, and Querit run direct from your machine using your API key.',
   'settings.search.engineAria': 'Search engine',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
   'settings.search.engineManagedLabel': 'OpenHuman Managed',
   'settings.search.engineManagedDesc':
     'Default. Routed through the OpenHuman backend — no API key required.',
@@ -4156,6 +4159,20 @@ const en: TranslationMap = {
   'settings.appearanceDesc': 'Pick light, dark, or match your system theme',
   'settings.mascot': 'Mascot',
   'settings.mascotDesc': 'Pick the mascot color used across the app',
+  // Settings > Account > Wallet Balances
+  'pages.settings.account.walletBalances': 'Wallet Balances',
+  'pages.settings.account.walletBalancesDesc': 'View multi-chain balances for your local wallet',
+  // WalletBalancesPanel strings
+  'walletBalances.title': 'Wallet Balances',
+  'walletBalances.refresh': 'Refresh',
+  'walletBalances.loading': 'Loading balances…',
+  'walletBalances.retry': 'Retry',
+  'walletBalances.emptyState': 'No wallet accounts yet — set up a wallet in Recovery Phrase.',
+  'walletBalances.copyAddress': 'Copy address',
+  'walletBalances.providerMissing': 'provider unavailable',
+  'walletBalances.rawBalance': 'Raw: {raw}',
+  'walletBalances.errorGeneric':
+    'Unable to load wallet balances. Set up your wallet in Recovery Phrase and try again.',
   // Task sources (#task-sources)
   'settings.taskSources.title': 'Task Sources',
   'settings.taskSources.subtitle': 'Pull tasks from your tools onto the agent todo board',

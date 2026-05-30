@@ -54,7 +54,9 @@ enum ArchiveKind {
 /// archive per OS/architecture under the `latest` release alias. Names
 /// have been stable across recent releases.
 fn binary_download_asset() -> Option<BinaryAsset> {
-    let base = "https://github.com/rhasspy/piper/releases/latest/download";
+    let base = std::env::var("OPENHUMAN_PIPER_RELEASE_BASE_URL").unwrap_or_else(|_| {
+        "https://github.com/rhasspy/piper/releases/latest/download".to_string()
+    });
     if cfg!(target_os = "windows") {
         return Some(BinaryAsset {
             url: format!("{base}/piper_windows_amd64.zip"),
@@ -97,9 +99,18 @@ fn voice_download_urls(voice_id: &str) -> (String, String) {
     // We only support the bundled default — multi-voice support is
     // tracked separately. The path components mirror the voice id.
     let (lang_short, locale, name, quality) = decode_voice_id(voice_id);
-    let base = format!(
-        "https://huggingface.co/rhasspy/piper-voices/resolve/main/{lang_short}/{locale}/{name}/{quality}"
-    );
+    let base = std::env::var("OPENHUMAN_PIPER_VOICES_BASE_URL")
+        .map(|root| {
+            format!(
+                "{}/{lang_short}/{locale}/{name}/{quality}",
+                root.trim_end_matches('/')
+            )
+        })
+        .unwrap_or_else(|_| {
+            format!(
+                "https://huggingface.co/rhasspy/piper-voices/resolve/main/{lang_short}/{locale}/{name}/{quality}"
+            )
+        });
     let stem = format!("{locale}-{name}-{quality}");
     (
         format!("{base}/{stem}.onnx"),

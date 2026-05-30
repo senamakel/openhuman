@@ -109,12 +109,9 @@ impl AgentOrchestrationSession {
             .agents
             .get_mut(&request.orchestration_id)
             .ok_or_else(|| OrchestrationError::AgentNotFound(request.orchestration_id.clone()))?;
-        if record.snapshot.status.is_terminal() {
-            return Err(OrchestrationError::AgentTerminal(
-                request.orchestration_id.clone(),
-            ));
+        if !record.snapshot.status.is_terminal() {
+            record.snapshot.status = AgentStatus::Waiting;
         }
-        record.snapshot.status = AgentStatus::Waiting;
         record.snapshot.messages.push(AgentMessage {
             role: "parent".to_string(),
             content: content.to_string(),

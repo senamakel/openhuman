@@ -8,6 +8,9 @@
 mod ops;
 pub mod types;
 
+#[cfg(test)]
+mod ops_tests;
+
 pub use ops::{AgentOrchestrationSession, OrchestrationError};
 pub use types::{
     AgentMessage, AgentOrchestrationEvent, AgentSnapshot, AgentStatus, CloseAgentRequest,

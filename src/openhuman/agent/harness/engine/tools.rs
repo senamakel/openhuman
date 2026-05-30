@@ -287,12 +287,14 @@ pub(crate) async fn run_one_tool(
                 }
                 (scrubbed, true)
             } else {
+                // Scrub before logging — a failing tool payload can carry
+                // credentials / PII, so never log the raw output.
+                let scrubbed = scrub_credentials(&output);
                 tracing::warn!(
                     iteration,
                     tool = call.name.as_str(),
-                    "[agent_loop] tool returned error: {output}"
+                    "[agent_loop] tool returned error: {scrubbed}"
                 );
-                let scrubbed = scrub_credentials(&output);
                 let (compacted, _) = crate::openhuman::tokenjuice::compact_tool_output(
                     &call.name,
                     Some(&call.arguments),

@@ -82,8 +82,6 @@ pub(crate) async fn run_turn_engine(
     max_iterations: usize,
     on_delta: Option<tokio::sync::mpsc::Sender<String>>,
 ) -> Result<TurnEngineOutcome> {
-    let use_native_tools = provider.supports_native_tools() && !tools.request_specs().is_empty();
-
     let mut context_guard = context_window_for_model(model)
         .map(ContextGuard::with_context_window)
         .unwrap_or_else(ContextGuard::new);
@@ -213,7 +211,10 @@ pub(crate) async fn run_turn_engine(
         let prepared_messages =
             multimodal::prepare_messages_for_provider(history, multimodal_config).await?;
 
-        let request_tools = if use_native_tools {
+        // Recomputed each iteration: a `ToolSource` may register tools lazily
+        // mid-turn, so native-tool enablement can flip from off to on.
+        let request_tools = if provider.supports_native_tools() && !tools.request_specs().is_empty()
+        {
             Some(tools.request_specs())
         } else {
             None
@@ -540,6 +541,10 @@ pub(crate) async fn run_turn_engine(
         turn_cost.add_call(model, u);
         observer.record_usage(model, u);
     }
+    // Emit the terminal lifecycle event on this successful (checkpoint) exit
+    // too, so consumers aren't left waiting — matching the final-response and
+    // circuit-breaker paths.
+    progress.turn_completed(max_iterations as u32).await;
     Ok(TurnEngineOutcome {
         text: co.text,
         iterations: max_iterations as u32,

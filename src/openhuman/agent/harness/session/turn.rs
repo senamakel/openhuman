@@ -541,12 +541,9 @@ impl Agent {
                         outcome.text.clone(),
                     )));
                 self.trim_history();
-                if outcome.hit_cap {
-                    self.emit_progress(AgentProgress::TurnCompleted {
-                        iterations: self.config.max_tool_iterations as u32,
-                    })
-                    .await;
-                }
+                // Note: the engine already emits `TurnCompleted` on the
+                // checkpoint exit (and every other terminal path), so we don't
+                // re-emit it here — doing so would double-fire for the UI.
                 let messages = self.tool_dispatcher.to_provider_messages(&self.history);
                 self.persist_session_transcript(
                     &messages,

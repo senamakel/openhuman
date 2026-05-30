@@ -160,7 +160,7 @@ async fn http_models_and_chat_use_mocked_ollama_without_real_runtime() {
         .await
         .expect("stream text");
     assert!(
-        stream_text.contains("does not support streaming"),
+        stream_text.contains("round23 stream"),
         "stream_text={stream_text}"
     );
     assert!(stream_text.contains("[DONE]"));

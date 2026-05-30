@@ -20,6 +20,7 @@ use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
+use openhuman_core::core::socketio::WebChannelEvent;
 use openhuman_core::openhuman::channels::email_channel::EmailConfig;
 use openhuman_core::openhuman::channels::irc::IrcChannelConfig;
 use openhuman_core::openhuman::channels::traits::ChannelMessage;
@@ -73,10 +74,10 @@ use openhuman_core::openhuman::tools::local_cli::tools_wrappers_list_json;
 use openhuman_core::openhuman::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
     decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
-    write_bytes_to_path, BrowserAction, CleaningStrategy, ComputerUseConfig, DefaultToolPolicy,
-    InsertSqlRecordTool, PermissionLevel, PolicyDecision, ReadDiffTool, RunLinterTool,
-    SchemaCleanr, Tool, ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope,
-    UpdateMemoryMdTool, WorkspaceStateTool,
+    write_bytes_to_path, BrowserAction, BrowserTool, CleaningStrategy, ComputerUseConfig,
+    DefaultToolPolicy, InsertSqlRecordTool, PermissionLevel, PolicyDecision, ReadDiffTool,
+    RunLinterTool, SchemaCleanr, Tool, ToolCallOptions, ToolCategory, ToolPolicy, ToolResult,
+    ToolScope, UpdateMemoryMdTool, WorkspaceStateTool,
 };
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
@@ -1418,6 +1419,106 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
 }
 
 #[tokio::test]
+async fn browser_tool_with_agent_browser_shim_covers_action_parser_and_command_paths() {
+    let _lock = env_lock();
+    let dir = tempdir().expect("tempdir");
+    let bin_dir = dir.path().join("bin");
+    std::fs::create_dir(&bin_dir).expect("create fake bin dir");
+    let shim_path = bin_dir.join("agent-browser");
+    std::fs::write(
+        &shim_path,
+        "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo agent-browser-shim; exit 0; fi\necho '{\"success\":true,\"data\":{\"ok\":true}}'\n",
+    )
+    .expect("write agent-browser shim");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&shim_path, std::fs::Permissions::from_mode(0o755))
+            .expect("chmod agent-browser shim");
+    }
+
+    let old_path = std::env::var("PATH").unwrap_or_default();
+    let _path_guard = EnvVarGuard::set("PATH", &format!("{}:{old_path}", bin_dir.display()));
+
+    let security = Arc::new(SecurityPolicy::from_config(
+        &Config::default().autonomy,
+        dir.path(),
+    ));
+    let tool = BrowserTool::new_with_backend(
+        security,
+        vec!["example.com".into()],
+        Some("coverage-session".into()),
+        "agent_browser".into(),
+        true,
+        "http://127.0.0.1:9515".into(),
+        None,
+        ComputerUseConfig::default(),
+    );
+    assert!(BrowserTool::is_agent_browser_available().await);
+    assert_eq!(tool.name(), "browser");
+
+    for args in [
+        json!({ "action": "open", "url": "https://example.com/path" }),
+        json!({ "action": "snapshot", "interactive_only": false, "compact": false, "depth": u64::MAX }),
+        json!({ "action": "click", "selector": "@e1" }),
+        json!({ "action": "fill", "selector": "#name", "value": "Ada" }),
+        json!({ "action": "type", "selector": "#name", "text": " Lovelace" }),
+        json!({ "action": "get_text", "selector": "main" }),
+        json!({ "action": "get_title" }),
+        json!({ "action": "get_url" }),
+        json!({ "action": "screenshot", "path": "shot.png", "full_page": true }),
+        json!({ "action": "wait", "selector": ".ready" }),
+        json!({ "action": "wait", "ms": 25 }),
+        json!({ "action": "wait", "text": "Loaded" }),
+        json!({ "action": "press", "key": "Enter" }),
+        json!({ "action": "hover", "selector": ".menu" }),
+        json!({ "action": "scroll", "direction": "down", "pixels": u64::MAX }),
+        json!({ "action": "is_visible", "selector": ".result" }),
+        json!({ "action": "close" }),
+        json!({ "action": "find", "by": "text", "value": "Submit", "find_action": "fill", "fill_value": "done" }),
+    ] {
+        let result = tool
+            .execute(args)
+            .await
+            .expect("browser action should execute through shim");
+        assert!(!result.is_error, "{}", result.output());
+        assert!(result.output().contains("\"ok\": true"));
+    }
+
+    for (args, expected) in [
+        (
+            json!({ "action": "open", "url": "file:///tmp/secret.txt" }),
+            "file:// URLs",
+        ),
+        (
+            json!({ "action": "fill", "selector": "#name" }),
+            "Missing 'value'",
+        ),
+        (
+            json!({ "action": "find", "by": "text", "value": "Submit" }),
+            "Missing 'find_action'",
+        ),
+        (
+            json!({ "action": "mouse_move", "x": 1, "y": 2 }),
+            "agent_browser",
+        ),
+        (json!({ "action": "does_not_exist" }), "Unknown action"),
+    ] {
+        let observed = match tool.execute(args).await {
+            Ok(result) => {
+                assert!(result.is_error);
+                result.output().to_string()
+            }
+            Err(error) => error.to_string(),
+        };
+        assert!(
+            observed.contains(expected),
+            "expected {expected:?} in {observed}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn read_diff_tool_reports_empty_diff_and_git_errors() {
     let dir = tempdir().expect("tempdir");
     std::process::Command::new("git")
@@ -1660,6 +1761,77 @@ async fn channel_provider_public_paths_cover_pre_network_errors_and_utilities() 
         true,
     );
     assert_eq!(signal.name(), "signal");
+}
+
+#[tokio::test]
+async fn web_channel_public_paths_cover_event_delivery_and_validation_errors() {
+    let mut rx = openhuman_core::openhuman::channels::web::subscribe_web_channel_events();
+    openhuman_core::openhuman::channels::web::publish_web_channel_event(WebChannelEvent {
+        event: "coverage_event".to_string(),
+        client_id: "client-1".to_string(),
+        thread_id: "thread-1".to_string(),
+        request_id: "request-1".to_string(),
+        message: Some("hello web channel".to_string()),
+        ..Default::default()
+    });
+    let event = tokio::time::timeout(Duration::from_secs(1), rx.recv())
+        .await
+        .expect("web channel event should be delivered")
+        .expect("web channel event");
+    assert_eq!(event.event, "coverage_event");
+    assert_eq!(event.client_id, "client-1");
+    assert_eq!(event.thread_id, "thread-1");
+    assert_eq!(event.message.as_deref(), Some("hello web channel"));
+
+    assert_eq!(
+        openhuman_core::openhuman::channels::web::start_chat(
+            "", "thread-1", "hello", None, None, None, None,
+        )
+        .await
+        .expect_err("blank client_id"),
+        "client_id is required"
+    );
+    assert_eq!(
+        openhuman_core::openhuman::channels::web::start_chat(
+            "client-1", "", "hello", None, None, None, None,
+        )
+        .await
+        .expect_err("blank thread_id"),
+        "thread_id is required"
+    );
+    assert_eq!(
+        openhuman_core::openhuman::channels::web::start_chat(
+            "client-1", "thread-1", "   ", None, None, None, None,
+        )
+        .await
+        .expect_err("blank message"),
+        "message is required"
+    );
+
+    assert_eq!(
+        openhuman_core::openhuman::channels::web::cancel_chat("", "thread-1")
+            .await
+            .expect_err("blank cancel client_id"),
+        "client_id is required"
+    );
+    assert_eq!(
+        openhuman_core::openhuman::channels::web::cancel_chat("client-1", "")
+            .await
+            .expect_err("blank cancel thread_id"),
+        "thread_id is required"
+    );
+    assert!(
+        openhuman_core::openhuman::channels::web::cancel_chat("client-1", "thread-1")
+            .await
+            .expect("cancel with no in-flight request")
+            .is_none()
+    );
+    openhuman_core::openhuman::channels::web::invalidate_thread_sessions("thread-1").await;
+    assert!(
+        openhuman_core::openhuman::channels::web::in_flight_entries_for_test()
+            .await
+            .is_empty()
+    );
 }
 
 #[test]

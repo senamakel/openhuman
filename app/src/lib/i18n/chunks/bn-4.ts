@@ -471,6 +471,18 @@ const bn4: TranslationMap = {
   'settings.billing.subscription.paymentConfirmed': 'পেমেন্ট নিশ্চিত',
   'settings.billing.subscription.perMonth': 'প্রতি মাসে',
   'settings.billing.subscription.popular': 'জনপ্রিয়',
+  'pages.settings.account.walletBalances': 'Wallet Balances',
+  'pages.settings.account.walletBalancesDesc': 'View multi-chain balances for your local wallet',
+  'walletBalances.title': 'Wallet Balances',
+  'walletBalances.refresh': 'Refresh',
+  'walletBalances.loading': 'Loading balances…',
+  'walletBalances.retry': 'Retry',
+  'walletBalances.emptyState': 'No wallet accounts yet — set up a wallet in Recovery Phrase.',
+  'walletBalances.copyAddress': 'Copy address',
+  'walletBalances.providerMissing': 'provider unavailable',
+  'walletBalances.rawBalance': 'Raw: {raw}',
+  'walletBalances.errorGeneric':
+    'Unable to load wallet balances. Set up your wallet in Recovery Phrase and try again.',
 };
 
 export default bn4;

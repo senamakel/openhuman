@@ -1592,6 +1592,22 @@ const bn1: TranslationMap = {
   'subconscious.priority.normal': 'স্বাভাবিক',
   'subconscious.durationSeconds': '{seconds}s',
   'subconscious.durationMilliseconds': '{milliseconds}ms',
+  'common.breadcrumb': 'ব্রেডক্রাম্ব নেভিগেশন',
+  'settings.betaBuild': 'বেটা বিল্ড - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent',
+  'onboarding.apiKeys.openaiOauthHint':
+    'ChatGPT Plus/Pro (সাবস্ক্রিপশন) বা OpenAI API কী ব্যবহার করুন — দুটিই প্রয়োজন নয়।',
+  'onboarding.apiKeys.openaiOauthOpening': 'সাইন-ইন খোলা হচ্ছে…',
+  'onboarding.apiKeys.finishSignIn': 'ChatGPT সাইন-ইন সম্পূর্ণ করুন',
+  'onboarding.apiKeys.orApiKey': 'অথবা API কী',
+  'calls.title': 'কল',
+  'calls.comingSoonBody': 'AI-সহায়িত কল শিগগিরই আসছে। সঙ্গে থাকুন।',
+  'rewards.referralSection.retry': 'আবার চেষ্টা করুন',
+  'devOptions.sentryDisabled': '(কোনো আইডি নেই — এই বিল্ডে Sentry নিষ্ক্রিয়)',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default bn1;

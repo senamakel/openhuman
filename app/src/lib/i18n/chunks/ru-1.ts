@@ -1625,6 +1625,9 @@ const ru1: TranslationMap = {
   'graphCentrality.bridgeTitle':
     'Коннектор — более влиятельный, чем предполагает количество ссылок.',
   'graphCentrality.degreeTitle': '{in} вход · {out} выход',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default ru1;

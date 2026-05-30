@@ -1608,5 +1608,8 @@ const ko1: TranslationMap = {
   'graphCentrality.bridgeBadge': '커넥터',
   'graphCentrality.bridgeTitle': '커넥터 - 링크 수보다 더 큰 영향력을 가진 엔터티',
   'graphCentrality.degreeTitle': '들어옴 {in} · 나감 {out}',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 export default ko1;

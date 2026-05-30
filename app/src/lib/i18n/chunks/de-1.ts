@@ -1648,6 +1648,9 @@ const de1: TranslationMap = {
   'graphCentrality.bridgeTitle':
     'Connector – einflussreicher als die Anzahl der Links vermuten lässt',
   'graphCentrality.degreeTitle': '{in} rein · {out} raus',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default de1;

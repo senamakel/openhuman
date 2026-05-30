@@ -7,6 +7,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import ts from "typescript";
 
 const CHUNK_DIR = path.resolve("app/src/lib/i18n/chunks");
 const LOCALES = [
@@ -32,9 +33,51 @@ async function loadChunk(locale, n) {
     const mod = await import(pathToFileURL(file).href);
     return { file, table: mod.default ?? {} };
   } catch (err) {
-    if (err.code === "ERR_MODULE_NOT_FOUND") return { file, table: null };
-    throw err;
+    try {
+      await fs.access(file);
+    } catch {
+      if (err.code === "ERR_MODULE_NOT_FOUND") return { file, table: null };
+      throw err;
+    }
+
+    return { file, table: await parseChunkFile(file, locale, n) };
   }
+}
+
+async function parseChunkFile(file, locale, n) {
+  const source = await fs.readFile(file, "utf8");
+  const parsed = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const table = {};
+
+  if (locale !== "en" && source.includes(`...en${n}`)) {
+    Object.assign(table, (await loadChunk("en", n)).table);
+  }
+
+  function visit(node) {
+    if (ts.isObjectLiteralExpression(node)) {
+      for (const prop of node.properties) {
+        if (!ts.isPropertyAssignment(prop)) continue;
+        if (!ts.isStringLiteral(prop.name)) continue;
+        const value = prop.initializer;
+        if (
+          ts.isStringLiteralLike(value) ||
+          ts.isNoSubstitutionTemplateLiteral(value)
+        ) {
+          table[prop.name.text] = value.text;
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(parsed);
+  return table;
 }
 
 function tsLiteral(value) {

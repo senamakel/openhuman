@@ -475,6 +475,18 @@ const ko4: TranslationMap = {
   'conversations.taskKanban.deleteCard': '삭제',
   'conversations.taskKanban.updateFailed':
     '작업을 업데이트할 수 없어 변경 사항이 저장되지 않았습니다.',
+  'pages.settings.account.walletBalances': 'Wallet Balances',
+  'pages.settings.account.walletBalancesDesc': 'View multi-chain balances for your local wallet',
+  'walletBalances.title': 'Wallet Balances',
+  'walletBalances.refresh': 'Refresh',
+  'walletBalances.loading': 'Loading balances…',
+  'walletBalances.retry': 'Retry',
+  'walletBalances.emptyState': 'No wallet accounts yet — set up a wallet in Recovery Phrase.',
+  'walletBalances.copyAddress': 'Copy address',
+  'walletBalances.providerMissing': 'provider unavailable',
+  'walletBalances.rawBalance': 'Raw: {raw}',
+  'walletBalances.errorGeneric':
+    'Unable to load wallet balances. Set up your wallet in Recovery Phrase and try again.',
 };
 
 export default ko4;

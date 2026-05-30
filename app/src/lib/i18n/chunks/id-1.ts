@@ -1622,6 +1622,9 @@ const id1: TranslationMap = {
   'graphCentrality.bridgeTitle':
     'Konektor - lebih berpengaruh daripada jumlah link yang menunjukkan',
   'graphCentrality.degreeTitle': '{in} keluar',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default id1;

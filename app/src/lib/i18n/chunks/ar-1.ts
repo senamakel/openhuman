@@ -1580,6 +1580,22 @@ const ar1: TranslationMap = {
   'subconscious.priority.normal': 'عادي',
   'subconscious.durationSeconds': '{seconds}s',
   'subconscious.durationMilliseconds': '{milliseconds}ms',
+  'common.breadcrumb': 'مسار التنقل',
+  'settings.betaBuild': 'إصدار تجريبي - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent',
+  'onboarding.apiKeys.openaiOauthHint':
+    'استخدم ChatGPT Plus/Pro (اشتراك) أو مفتاح OpenAI API، ولا تحتاج إلى كليهما.',
+  'onboarding.apiKeys.openaiOauthOpening': 'جارٍ فتح تسجيل الدخول…',
+  'onboarding.apiKeys.finishSignIn': 'أكمل تسجيل الدخول إلى ChatGPT',
+  'onboarding.apiKeys.orApiKey': 'أو مفتاح API',
+  'calls.title': 'المكالمات',
+  'calls.comingSoonBody': 'المكالمات المدعومة بالذكاء الاصطناعي قادمة قريبًا. ترقّبها.',
+  'rewards.referralSection.retry': 'إعادة المحاولة',
+  'devOptions.sentryDisabled': '(لا يوجد معرّف — تم تعطيل Sentry في هذا الإصدار)',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default ar1;

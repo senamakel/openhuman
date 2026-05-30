@@ -462,6 +462,18 @@ const zhCN4: TranslationMap = {
   'conversations.taskKanban.saveChanges': '保存更改',
   'conversations.taskKanban.deleteCard': '删除',
   'conversations.taskKanban.updateFailed': '无法更新任务；更改未保存。',
+  'pages.settings.account.walletBalances': 'Wallet Balances',
+  'pages.settings.account.walletBalancesDesc': 'View multi-chain balances for your local wallet',
+  'walletBalances.title': 'Wallet Balances',
+  'walletBalances.refresh': 'Refresh',
+  'walletBalances.loading': 'Loading balances…',
+  'walletBalances.retry': 'Retry',
+  'walletBalances.emptyState': 'No wallet accounts yet — set up a wallet in Recovery Phrase.',
+  'walletBalances.copyAddress': 'Copy address',
+  'walletBalances.providerMissing': 'provider unavailable',
+  'walletBalances.rawBalance': 'Raw: {raw}',
+  'walletBalances.errorGeneric':
+    'Unable to load wallet balances. Set up your wallet in Recovery Phrase and try again.',
 };
 
 export default zhCN4;

@@ -18,7 +18,7 @@
 //!
 //! The backend handles Parallel API keys, billing, and rate limiting.
 
-use super::IntegrationClient;
+use crate::openhuman::integrations::IntegrationClient;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;

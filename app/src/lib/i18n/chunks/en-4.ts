@@ -247,9 +247,22 @@ const en4: TranslationMap = {
   'pages.settings.account.migration': 'Import from another assistant',
   'pages.settings.account.migrationDesc':
     'Migrate memory and notes from OpenClaw (or, soon, Hermes) into this workspace.',
+  'pages.settings.account.walletBalances': 'Wallet Balances',
+  'pages.settings.account.walletBalancesDesc': 'View multi-chain balances for your local wallet',
   'pages.settings.accountSection.description':
     'Recovery phrase, team, connections, and privacy settings.',
   'pages.settings.accountSection.title': 'Account',
+  // WalletBalancesPanel strings
+  'walletBalances.title': 'Wallet Balances',
+  'walletBalances.refresh': 'Refresh',
+  'walletBalances.loading': 'Loading balances…',
+  'walletBalances.retry': 'Retry',
+  'walletBalances.emptyState': 'No wallet accounts yet — set up a wallet in Recovery Phrase.',
+  'walletBalances.copyAddress': 'Copy address',
+  'walletBalances.providerMissing': 'provider unavailable',
+  'walletBalances.rawBalance': 'Raw: {raw}',
+  'walletBalances.errorGeneric':
+    'Unable to load wallet balances. Set up your wallet in Recovery Phrase and try again.',
   'pages.settings.ai.llm': 'Llm',
   'pages.settings.ai.llmDesc': 'Llm desc',
   'pages.settings.ai.voice': 'Voice',

@@ -1598,6 +1598,22 @@ const hi1: TranslationMap = {
   'subconscious.priority.normal': 'सामान्य',
   'subconscious.durationSeconds': '{seconds}s',
   'subconscious.durationMilliseconds': '{milliseconds}ms',
+  'common.breadcrumb': 'ब्रेडक्रंब नेविगेशन',
+  'settings.betaBuild': 'बीटा बिल्ड - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent',
+  'onboarding.apiKeys.openaiOauthHint':
+    'आप ChatGPT Plus/Pro सदस्यता या OpenAI API कुंजी में से किसी एक का उपयोग कर सकते हैं — दोनों आवश्यक नहीं हैं।',
+  'onboarding.apiKeys.openaiOauthOpening': 'साइन-इन खोल रहा है…',
+  'onboarding.apiKeys.finishSignIn': 'ChatGPT साइन-इन पूरा करें',
+  'onboarding.apiKeys.orApiKey': 'या API कुंजी',
+  'calls.title': 'कॉल',
+  'calls.comingSoonBody': 'AI-सहायित कॉल जल्द आ रही हैं। जुड़े रहें।',
+  'rewards.referralSection.retry': 'पुनः प्रयास करें',
+  'devOptions.sentryDisabled': '(कोई ID नहीं — इस बिल्ड में Sentry अक्षम है)',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default hi1;

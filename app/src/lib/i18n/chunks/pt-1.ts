@@ -1638,6 +1638,9 @@ const pt1: TranslationMap = {
   'graphCentrality.bridgeBadge': 'conector',
   'graphCentrality.bridgeTitle': 'Conector — mais influente do que seu número de links sugere',
   'graphCentrality.degreeTitle': '{in} entrando · {out} saindo',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default pt1;

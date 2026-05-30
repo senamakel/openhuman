@@ -1568,6 +1568,9 @@ const zhCN1: TranslationMap = {
   'graphCentrality.bridgeBadge': '连接点',
   'graphCentrality.bridgeTitle': '连接点，影响力高于其链接数量所暗示的程度',
   'graphCentrality.degreeTitle': '{in} 入 · {out} 出',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default zhCN1;

@@ -1634,6 +1634,9 @@ const it1: TranslationMap = {
   'graphCentrality.bridgeTitle':
     'Connettore — più influente di quanto suggerisca il suo numero di collegamenti',
   'graphCentrality.degreeTitle': '{in} in entrata · {out} in uscita',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default it1;

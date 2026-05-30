@@ -1646,6 +1646,9 @@ const fr1: TranslationMap = {
   'graphCentrality.bridgeBadge': 'connecteur',
   'graphCentrality.bridgeTitle': 'Connecteur — plus influent que ne le suggère son nombre de liens',
   'graphCentrality.degreeTitle': '{in} en · {out} hors',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default fr1;

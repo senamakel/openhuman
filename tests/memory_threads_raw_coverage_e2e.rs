@@ -26,6 +26,9 @@ use openhuman_core::openhuman::memory::query::{
     MemoryTreeIngestDocumentTool, MemoryTreeQueryGlobalTool, MemoryTreeQuerySourceTool,
     MemoryTreeQueryTopicTool, MemoryTreeSearchEntitiesTool, MemoryTreeWalkTool,
 };
+use openhuman_core::openhuman::memory::tools::{
+    MemoryForgetTool, MemoryRecallTool, MemoryStoreTool,
+};
 use openhuman_core::openhuman::memory::tree_policy::TreePolicy;
 use openhuman_core::openhuman::memory::tree_source;
 use openhuman_core::openhuman::memory::{
@@ -98,6 +101,7 @@ use openhuman_core::openhuman::memory_sync::composio::providers::slack::{
 use openhuman_core::openhuman::memory_sync::composio::providers::sync_state::{
     extract_item_id, DailyBudget, SyncState, DEFAULT_DAILY_REQUEST_LIMIT,
 };
+use openhuman_core::openhuman::memory_sync::composio::providers::user_scopes;
 use openhuman_core::openhuman::memory_sync::composio::providers::{
     agent_ready_toolkits, capability_matrix, catalog_for_toolkit, classify_unknown,
     curated_scope_for, find_curated, is_action_visible_with_pref, toolkit_from_slug,
@@ -111,8 +115,10 @@ use openhuman_core::openhuman::memory_sync::sync_status::{
 use openhuman_core::openhuman::memory_sync::traits::{
     SyncOutcome as PipelineSyncOutcome, SyncPipeline, SyncPipelineKind,
 };
+use openhuman_core::openhuman::memory_tree::score::embed::Embedder;
 use openhuman_core::openhuman::memory_tree::score::extract::{
-    EntityKind, ExtractedEntities, ExtractedEntity, ExtractedTopic,
+    CompositeExtractor, EntityExtractor, EntityKind, ExtractedEntities, ExtractedEntity,
+    ExtractedTopic,
 };
 use openhuman_core::openhuman::memory_tree::score::resolver::CanonicalEntity;
 use openhuman_core::openhuman::memory_tree::score::signals::{
@@ -133,6 +139,7 @@ use openhuman_core::openhuman::memory_tree::tree_runtime::{
     NodeLevel, TreeNode,
 };
 use openhuman_core::openhuman::memory_tree::{retrieval, score::embed};
+use openhuman_core::openhuman::security::{AutonomyLevel, SecurityPolicy};
 use openhuman_core::openhuman::threads::ops as thread_ops;
 use openhuman_core::openhuman::threads::title::{
     build_title_prompt, collapse_whitespace, is_auto_generated_thread_title,
@@ -656,6 +663,32 @@ async fn memory_source_readers_validate_and_use_local_inputs_only() {
         .validate()
         .unwrap_err()
         .contains("query"));
+
+    let mut github = source(SourceKind::GithubRepo, "src_github");
+    github.url = Some("https://github.com/tinyhumansai/openhuman".into());
+    let github_reader = reader_for(&SourceKind::GithubRepo);
+    assert_eq!(github_reader.kind(), SourceKind::GithubRepo);
+    assert!(github_reader
+        .read_item(&github, "unknown:123", &config)
+        .await
+        .unwrap_err()
+        .contains("invalid item id"));
+    assert!(github_reader
+        .read_item(&github, "issue:not-a-number", &config)
+        .await
+        .unwrap_err()
+        .contains("invalid issue number"));
+    assert!(github_reader
+        .read_item(&github, "pr:not-a-number", &config)
+        .await
+        .unwrap_err()
+        .contains("invalid PR number"));
+    github.url = Some("https://github.com/tinyhumansai/openhuman/tree/main".into());
+    assert!(github_reader
+        .list_items(&github, &config)
+        .await
+        .unwrap_err()
+        .contains("expected https://github.com/<owner>/<repo>"));
 }
 
 #[tokio::test]
@@ -1043,6 +1076,35 @@ fn memory_tree_policy_and_source_registry_write_metadata_mirror() {
     assert!(body.contains("kind: source"));
     assert!(body.contains("scope: \"gmail:user@example.com\""));
     assert!(body.contains("last_sealed_at: null"));
+
+    let cold = openhuman_core::openhuman::memory::tree_topic::hotness::hotness_at(
+        "email:cold@example.com",
+        &openhuman_core::openhuman::memory_store::trees::types::EntityIndexStats {
+            mention_count_30d: 0,
+            distinct_sources: 0,
+            last_seen_ms: None,
+            query_hits_30d: 0,
+            graph_centrality: None,
+        },
+        now,
+    );
+    assert_eq!(cold, 0.0);
+    let warm = openhuman_core::openhuman::memory::tree_topic::hotness::hotness_at(
+        "email:warm@example.com",
+        &stats,
+        now,
+    );
+    assert!(warm > cold);
+    assert_eq!(
+        openhuman_core::openhuman::memory::tree_topic::hotness::recency_decay(None, now),
+        0.0
+    );
+    assert!(
+        openhuman_core::openhuman::memory::tree_topic::hotness::hotness(
+            "email:live@example.com",
+            &stats
+        ) > 0.0
+    );
 }
 
 #[test]
@@ -1347,6 +1409,8 @@ fn memory_tree_scoring_signal_helpers_cover_boundaries_and_serialization() {
     let scoring_config = ScoringConfig::default_regex_only();
     assert!(scoring_config.definite_keep_threshold > scoring_config.definite_drop_threshold);
     assert!(scoring_config.llm_extractor.is_none());
+    let regex_only = CompositeExtractor::regex_only();
+    assert_eq!(regex_only.name(), "composite");
 
     let mut extracted = ExtractedEntities {
         entities: vec![ExtractedEntity {
@@ -1600,6 +1664,59 @@ fn memory_tree_runtime_store_buffers_and_retrieval_wire_helpers() {
     assert_eq!(
         tree_runtime_store::delete_tree(&config, namespace).unwrap(),
         0
+    );
+
+    let source_factory = openhuman_core::openhuman::memory_tree::tree::TreeFactory::source(
+        "gmail:alice@example.com|bob@example.com",
+    );
+    assert_eq!(
+        source_factory.profile(),
+        openhuman_core::openhuman::memory_tree::tree::TreeProfile::Source
+    );
+    assert_eq!(
+        source_factory.scope_slug(),
+        "alice-example-com-bob-example-com"
+    );
+    let source_tree = source_factory
+        .get_or_create(&config)
+        .expect("source tree from factory");
+    assert_eq!(
+        openhuman_core::openhuman::memory_tree::tree::TreeFactory::from_tree(&source_tree).kind(),
+        TreeKind::Source
+    );
+    let topic_factory =
+        openhuman_core::openhuman::memory_tree::tree::TreeFactory::topic("email:alice@example.com");
+    assert!(matches!(
+        topic_factory.summary_tree_kind(),
+        openhuman_core::openhuman::memory_store::content::SummaryTreeKind::Topic
+    ));
+    let topic_tree = topic_factory
+        .get_or_create(&config)
+        .expect("topic tree from factory");
+    assert_ne!(source_tree.id, topic_tree.id);
+    assert!(
+        openhuman_core::openhuman::memory_tree::tree::new_tree_id(TreeKind::Global)
+            .starts_with("global:")
+    );
+    assert!(openhuman_core::openhuman::memory_tree::tree::new_summary_id(2).contains(":L2-"));
+    assert!(
+        openhuman_core::openhuman::memory_tree::tree::registry::is_unique_violation(
+            &anyhow::anyhow!("UNIQUE constraint failed: mem_trees.kind, mem_trees.scope")
+        )
+    );
+    source_factory
+        .archive(&config)
+        .expect("archive source tree");
+    assert_eq!(
+        openhuman_core::openhuman::memory_tree::tree::store::get_tree_by_scope(
+            &config,
+            TreeKind::Source,
+            "gmail:alice@example.com|bob@example.com"
+        )
+        .unwrap()
+        .unwrap()
+        .status,
+        StoredTreeStatus::Archived
     );
 }
 
@@ -1878,6 +1995,7 @@ fn memory_retrieval_embedding_and_rpc_model_helpers_round_trip() {
     assert!(embed::decode_optional_blob(None, "none").unwrap().is_none());
     assert!(embed::decode_optional_blob(Some(vec![0; 16]), "bad row").is_err());
     assert_eq!(embed::cosine_similarity(&[1.0, 0.0], &[0.0, 1.0]), 0.0);
+    assert_eq!(embed::InertEmbedder::new().name(), "inert");
 
     let query = QueryNamespaceRequest {
         namespace: "default".into(),
@@ -2068,6 +2186,141 @@ async fn memory_preferences_remember_redaction_and_pipeline_traits_cover_public_
     assert_eq!(PipelineSyncOutcome::default().records_ingested, 0);
     assert_eq!(SyncPipelineKind::Composio.as_str(), "composio");
     assert_eq!(SyncPipelineKind::Mcp.as_str(), "mcp");
+}
+
+#[tokio::test]
+async fn memory_tools_and_user_scope_prefs_cover_public_execution_paths() {
+    let tmp = TempDir::new().expect("tempdir");
+    let memory: Arc<dyn Memory> =
+        Arc::new(UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).expect("memory"));
+    let security = Arc::new(SecurityPolicy {
+        autonomy: AutonomyLevel::Full,
+        ..SecurityPolicy::default()
+    });
+
+    let store_tool = MemoryStoreTool::new(memory.clone(), security.clone());
+    assert_eq!(store_tool.name(), "memory_store");
+    assert!(store_tool.parameters_schema()["required"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|field| field == "content"));
+    let stored = store_tool
+        .execute(json!({
+            "namespace": "coverage-tools",
+            "key": "rust",
+            "content": "Use deterministic memory coverage tests",
+            "category": "daily"
+        }))
+        .await
+        .expect("store tool");
+    assert!(!stored.is_error);
+    assert!(stored.output().contains("coverage-tools/rust"));
+
+    let custom = store_tool
+        .execute(json!({
+            "namespace": "coverage-tools",
+            "key": "custom",
+            "content": "Custom categories survive tool writes",
+            "category": "testing"
+        }))
+        .await
+        .expect("store custom category");
+    assert!(!custom.is_error);
+    assert!(
+        store_tool
+            .execute(json!({
+                "namespace": " ",
+                "key": "blank",
+                "content": "not written"
+            }))
+            .await
+            .expect("blank namespace")
+            .is_error
+    );
+    assert!(
+        store_tool
+            .execute(json!({
+                "namespace": "coverage-tools",
+                "key": "secret",
+                "content": "OPENAI_API_KEY=sk-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }))
+            .await
+            .expect("secret rejected")
+            .is_error
+    );
+
+    let recall_tool = MemoryRecallTool::new(memory.clone());
+    assert_eq!(recall_tool.name(), "memory_recall");
+    let recalled = recall_tool
+        .execute(json!({
+            "namespace": "coverage-tools",
+            "query": "deterministic",
+            "limit": 3
+        }))
+        .await
+        .expect("recall tool");
+    assert!(!recalled.is_error);
+    assert!(recalled.output().contains("rust"));
+    assert!(recall_tool
+        .execute(json!({ "namespace": "coverage-tools", "query": " " }))
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("query cannot be empty"));
+
+    let forget_tool = MemoryForgetTool::new(memory.clone(), security);
+    assert_eq!(forget_tool.name(), "memory_forget");
+    let missing = forget_tool
+        .execute(json!({
+            "namespace": "coverage-tools",
+            "key": "missing"
+        }))
+        .await
+        .expect("forget missing");
+    assert!(!missing.is_error);
+    assert!(missing.output().contains("No memory found"));
+    let forgot = forget_tool
+        .execute(json!({
+            "namespace": "coverage-tools",
+            "key": "rust"
+        }))
+        .await
+        .expect("forget existing");
+    assert!(!forgot.is_error);
+    assert!(forgot.output().contains("Forgot memory"));
+
+    let scoped_client: openhuman_core::openhuman::memory_store::MemoryClientRef =
+        Arc::new(MemoryClient::from_workspace_dir(tmp.path().join("scope-prefs")).unwrap());
+    assert_eq!(
+        user_scopes::load(&scoped_client, " GMAIL ").await,
+        UserScopePref::default()
+    );
+    let pref = UserScopePref {
+        read: true,
+        write: false,
+        admin: true,
+    };
+    user_scopes::save(&scoped_client, " GMAIL ", pref)
+        .await
+        .expect("save user scope pref");
+    assert_eq!(user_scopes::load(&scoped_client, "gmail").await, pref);
+    scoped_client
+        .kv_set(Some("composio-user-scopes"), "gmail", &json!("bad pref"))
+        .await
+        .expect("write bad pref");
+    assert_eq!(
+        user_scopes::load(&scoped_client, "gmail").await,
+        UserScopePref::default()
+    );
+    assert!(user_scopes::save(&scoped_client, " ", pref)
+        .await
+        .unwrap_err()
+        .contains("toolkit must not be empty"));
+    assert_eq!(
+        user_scopes::load_or_default("not-ready-toolkit").await,
+        UserScopePref::default()
+    );
 }
 
 #[tokio::test]

@@ -28,6 +28,19 @@ use openhuman_core::openhuman::channels::yuanbao::config::YuanbaoConfig;
 use openhuman_core::openhuman::channels::yuanbao::errors::{
     AUTH_FAILED_CODES, AUTH_RETRYABLE_CODES, NO_RECONNECT_CLOSE_CODES,
 };
+use openhuman_core::openhuman::channels::yuanbao::media::{
+    build_file_msg_body, build_image_msg_body, guess_mime_type, image_format_code, is_image,
+    parse_image_size,
+};
+use openhuman_core::openhuman::channels::yuanbao::proto::{
+    decode_auth_bind_rsp, decode_conn_msg, decode_inbound_json, decode_inbound_push,
+    decode_push_msg, encode_auth_bind, encode_conn_msg, encode_msg_body_element, encode_ping,
+    encode_push_ack,
+};
+use openhuman_core::openhuman::channels::yuanbao::proto_constants::{cmd, cmd_type, module};
+use openhuman_core::openhuman::channels::yuanbao::sign::{
+    build_timestamp, compute_signature, generate_nonce, SignManager,
+};
 use openhuman_core::openhuman::channels::yuanbao::splitter::split_markdown;
 use openhuman_core::openhuman::channels::yuanbao::types::{
     Account as YuanbaoAccount, ConnFrame as YuanbaoConnFrame,
@@ -75,9 +88,10 @@ use openhuman_core::openhuman::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
     decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
     write_bytes_to_path, BrowserAction, BrowserTool, CleaningStrategy, ComputerUseConfig,
-    DefaultToolPolicy, InsertSqlRecordTool, PermissionLevel, PolicyDecision, ReadDiffTool,
-    RunLinterTool, SchemaCleanr, Tool, ToolCallOptions, ToolCategory, ToolPolicy, ToolResult,
-    ToolScope, UpdateMemoryMdTool, WorkspaceStateTool,
+    CurrentTimeTool, DefaultToolPolicy, DetectToolsTool, GrepTool, InsertSqlRecordTool, LspTool,
+    PermissionLevel, PolicyDecision, ReadDiffTool, RunLinterTool, SchemaCleanr, Tool,
+    ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope, UpdateMemoryMdTool,
+    WorkspaceStateTool,
 };
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
@@ -416,6 +430,16 @@ async fn mock_backend(request: Request) -> Response {
                 "error": null,
                 "costUsd": 0.015,
                 "markdownFormatted": "Fetched 1 matching Gmail message."
+            }
+        }),
+        (Method::POST, "/api/v5/robotLogic/sign-token") => json!({
+            "code": 0,
+            "data": {
+                "token": "yuanbao-token-e2e",
+                "bot_id": "yuanbao-bot-e2e",
+                "product": "openhuman",
+                "source": "coverage",
+                "duration": 120
             }
         }),
         _ => {
@@ -2545,6 +2569,94 @@ async fn filesystem_and_system_tool_edges_cover_deterministic_error_and_success_
 }
 
 #[tokio::test]
+async fn filesystem_search_and_system_probe_tools_cover_success_and_error_paths() {
+    let _lock = env_lock();
+    let dir = tempdir().expect("tempdir");
+    std::fs::create_dir_all(dir.path().join("src")).expect("create src dir");
+    std::fs::create_dir_all(dir.path().join("node_modules")).expect("create skipped dir");
+    std::fs::write(
+        dir.path().join("src").join("main.rs"),
+        "Alpha\nbeta\nalpha tail\n",
+    )
+    .expect("write grep fixture");
+    std::fs::write(
+        dir.path().join("node_modules").join("hidden.txt"),
+        "alpha hidden\n",
+    )
+    .expect("write skipped fixture");
+
+    let security = Arc::new(SecurityPolicy::from_config(
+        &Config::default().autonomy,
+        dir.path(),
+    ));
+    let grep = GrepTool::new(security);
+    assert_eq!(grep.name(), "grep");
+    assert_eq!(grep.permission_level(), PermissionLevel::ReadOnly);
+    assert!(grep.is_concurrency_safe(&json!({})));
+    let matches = grep
+        .execute(json!({
+            "pattern": "alpha",
+            "case_insensitive": true,
+            "path": "src",
+            "max_matches": 1
+        }))
+        .await
+        .expect("grep executes");
+    assert!(!matches.is_error, "{}", matches.output());
+    assert!(matches.output().contains("truncated at 1"));
+    assert!(matches.output().contains("src/main.rs:1:Alpha"));
+    assert!(!matches.output().contains("hidden"));
+    let invalid_regex = grep
+        .execute(json!({ "pattern": "([unterminated" }))
+        .await
+        .expect("invalid regex returns tool error");
+    assert!(invalid_regex.is_error);
+    assert!(invalid_regex.output().contains("Invalid regex"));
+
+    let detect = DetectToolsTool::new();
+    assert_eq!(detect.name(), "detect_tools");
+    let detected = detect
+        .execute(json!({ "tools": ["definitely_not_a_real_binary_xyz_123"] }))
+        .await
+        .expect("detect tools executes");
+    assert!(!detected.is_error);
+    let detected_json: Value = serde_json::from_str(&detected.output()).expect("detect json");
+    assert_eq!(detected_json.get("probed").and_then(Value::as_u64), Some(1));
+    assert_eq!(
+        detected_json.pointer("/missing/0").and_then(Value::as_str),
+        Some("definitely_not_a_real_binary_xyz_123")
+    );
+
+    let lsp = LspTool::new();
+    assert_eq!(lsp.name(), "lsp");
+    assert_eq!(lsp.permission_level(), PermissionLevel::ReadOnly);
+    let lsp_result = lsp
+        .execute(json!({ "kind": "hover", "language": "rust", "file": "src/main.rs" }))
+        .await
+        .expect("lsp returns stub result");
+    assert!(lsp_result.is_error);
+    assert!(lsp_result.output().contains("not yet implemented"));
+
+    let current_time = CurrentTimeTool::new();
+    assert!(current_time.supports_markdown());
+    let time_result = current_time
+        .execute_with_options(
+            json!({ "timezone": "Not/AReal_Zone" }),
+            ToolCallOptions {
+                prefer_markdown: true,
+            },
+        )
+        .await
+        .expect("current time executes");
+    assert!(!time_result.is_error, "{}", time_result.output());
+    assert!(time_result.output().contains("requested_timezone_error"));
+    assert!(time_result
+        .markdown_formatted
+        .as_deref()
+        .is_some_and(|md| md.contains("timezone error")));
+}
+
+#[tokio::test]
 async fn irc_channel_public_constructor_and_preconnect_send_are_deterministic() {
     let irc = IrcChannel::new(IrcChannelConfig {
         server: "irc.example.test".into(),
@@ -2682,4 +2794,236 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
     let hard_split = split_markdown("é".repeat(8).as_str(), 3);
     assert!(hard_split.len() > 1);
     assert!(hard_split.iter().all(|chunk| chunk.len() <= 4));
+}
+
+#[test]
+fn yuanbao_media_and_proto_helpers_cover_public_roundtrips() {
+    assert_eq!(guess_mime_type("PHOTO.JPG"), "image/jpeg");
+    assert_eq!(
+        guess_mime_type("slides.pptx"),
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    );
+    assert_eq!(
+        guess_mime_type("archive.unknown"),
+        "application/octet-stream"
+    );
+    assert!(is_image("avatar.webp", ""));
+    assert!(is_image("no-extension", "image/png"));
+    assert!(!is_image("notes.txt", ""));
+    assert_eq!(image_format_code("image/jpeg"), 1);
+    assert_eq!(image_format_code("image/gif"), 2);
+    assert_eq!(image_format_code("image/png"), 3);
+    assert_eq!(image_format_code("image/bmp"), 4);
+    assert_eq!(image_format_code("image/heic"), 255);
+
+    let png = [
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x01, 0x40, 0x00, 0x00, 0x00, 0xF0,
+    ];
+    let png_dims = parse_image_size(&png).expect("png dims");
+    assert_eq!(png_dims.width, 320);
+    assert_eq!(png_dims.height, 240);
+    let gif_dims = parse_image_size(b"GIF89a\x40\x01\xF0\x00rest").expect("gif dims");
+    assert_eq!(gif_dims.width, 320);
+    assert_eq!(gif_dims.height, 240);
+    let mut webp_vp8x = b"RIFF\x00\x00\x00\x00WEBPVP8X".to_vec();
+    webp_vp8x.extend_from_slice(&[0u8; 8]);
+    webp_vp8x.extend_from_slice(&[0x3F, 0x01, 0x00, 0xEF, 0x00, 0x00]);
+    let webp_dims = parse_image_size(&webp_vp8x).expect("webp dims");
+    assert_eq!(webp_dims.width, 320);
+    assert_eq!(webp_dims.height, 240);
+    assert!(parse_image_size(b"not-an-image").is_none());
+
+    let image_body = build_image_msg_body(
+        "https://cdn.example.test/cat.png",
+        None,
+        Some("cat.png"),
+        1024,
+        800,
+        600,
+        "image/png",
+    );
+    assert_eq!(image_body[0].msg_type, "TIMImageElem");
+    assert_eq!(image_body[0].msg_content.uuid.as_deref(), Some("cat.png"));
+    assert_eq!(image_body[0].msg_content.image_format, Some(3));
+    assert_eq!(
+        image_body[0].msg_content.image_info_array[0].url,
+        "https://cdn.example.test/cat.png"
+    );
+    let file_body = build_file_msg_body(
+        "https://cdn.example.test/report.pdf",
+        "report.pdf",
+        Some("file-uuid"),
+        2048,
+    );
+    assert_eq!(file_body[0].msg_type, "TIMFileElem");
+    assert_eq!(
+        file_body[0].msg_content.file_name.as_deref(),
+        Some("report.pdf")
+    );
+    assert_eq!(file_body[0].msg_content.file_size, Some(2048));
+
+    let frame_buf = encode_conn_msg(
+        cmd_type::REQUEST,
+        cmd::PING,
+        7,
+        "msg-7",
+        module::CONN_ACCESS,
+        b"payload",
+    );
+    let frame = decode_conn_msg(&frame_buf).expect("decode conn msg");
+    assert_eq!(frame.cmd_type, cmd_type::REQUEST);
+    assert_eq!(frame.cmd, cmd::PING);
+    assert_eq!(frame.seq_no, 7);
+    assert_eq!(frame.msg_id, "msg-7");
+    assert_eq!(frame.data, b"payload");
+    let ping = decode_conn_msg(&encode_ping("ping-1")).expect("decode ping");
+    assert_eq!(ping.cmd, cmd::PING);
+    let ack = decode_conn_msg(&encode_push_ack(&YuanbaoConnFrame {
+        cmd_type: cmd_type::PUSH,
+        cmd: "push".into(),
+        seq_no: 9,
+        msg_id: "push-1".into(),
+        need_ack: true,
+        status: 0,
+        module: module::BIZ_PKG.into(),
+        data: Vec::new(),
+    }))
+    .expect("decode ack");
+    assert_eq!(ack.cmd_type, cmd_type::PUSH_ACK);
+    assert_eq!(ack.msg_id, "push-1");
+    let auth = decode_conn_msg(&encode_auth_bind(
+        "biz", "uid", "openclaw", "token", "auth-1", "1.0.0", "linux", "2.0.0", "pre",
+    ))
+    .expect("decode auth bind");
+    assert_eq!(auth.cmd, cmd::AUTH_BIND);
+    assert_eq!(auth.module, module::CONN_ACCESS);
+    assert!(!auth.data.is_empty());
+
+    let mut auth_rsp = Vec::new();
+    encode_field_varint(1, 0, &mut auth_rsp);
+    encode_field_string(2, "ok", &mut auth_rsp);
+    encode_field_string(3, "connect-1", &mut auth_rsp);
+    let auth_rsp = decode_auth_bind_rsp(&auth_rsp).expect("decode auth rsp");
+    assert_eq!(auth_rsp.message, "ok");
+    assert_eq!(auth_rsp.connect_id, "connect-1");
+
+    let mut push_msg = Vec::new();
+    encode_field_string(1, "inbound_message", &mut push_msg);
+    encode_field_string(2, module::BIZ_PKG, &mut push_msg);
+    encode_field_string(3, "push-msg-1", &mut push_msg);
+    encode_field_bytes(4, b"biz-payload", &mut push_msg);
+    let decoded_push = decode_push_msg(&push_msg).expect("decode push msg");
+    assert_eq!(decoded_push.cmd, "inbound_message");
+    assert_eq!(decoded_push.data, b"biz-payload");
+
+    let text_el = YuanbaoMsgBodyElement {
+        msg_type: "TIMTextElem".into(),
+        msg_content: YuanbaoMsgContent {
+            text: Some("hello from proto".into()),
+            ..Default::default()
+        },
+    };
+    let mut inbound = Vec::new();
+    encode_field_string(1, "C2C.Callback", &mut inbound);
+    encode_field_string(2, "sender", &mut inbound);
+    encode_field_string(3, "bot", &mut inbound);
+    encode_field_string(4, "Alice", &mut inbound);
+    encode_field_varint(8, 11, &mut inbound);
+    encode_field_varint(10, 1_780_000_000, &mut inbound);
+    encode_field_string(12, "msg-11", &mut inbound);
+    encode_field_bytes(13, &encode_msg_body_element(&text_el), &mut inbound);
+    let mut recall = Vec::new();
+    encode_field_varint(1, 10, &mut recall);
+    encode_field_string(2, "old-msg", &mut recall);
+    encode_field_bytes(17, &recall, &mut inbound);
+    let mut log_ext = Vec::new();
+    encode_field_string(1, "trace-11", &mut log_ext);
+    encode_field_bytes(20, &log_ext, &mut inbound);
+    let decoded_inbound = decode_inbound_push(&inbound).expect("decode inbound push");
+    assert_eq!(decoded_inbound.callback_command, "C2C.Callback");
+    assert_eq!(decoded_inbound.extract_text(), "hello from proto");
+    assert_eq!(decoded_inbound.recall_msg_seq_list[0].msg_id, "old-msg");
+    assert_eq!(decoded_inbound.trace_id, "trace-11");
+
+    let decoded_json = decode_inbound_json(
+        br#"{
+            "callback_command": "Group.Callback",
+            "from_account": "sender-json",
+            "group_code": "group-json",
+            "msg_seq": 12,
+            "msg_body": [{
+                "msg_type": "TIMImageElem",
+                "msg_content": {
+                    "uuid": "img-json",
+                    "image_format": 3,
+                    "image_info_array": [{
+                        "image_type": 1,
+                        "size": 50,
+                        "width": 10,
+                        "height": 20,
+                        "url": "https://cdn.example.test/json.png"
+                    }]
+                }
+            }],
+            "recall_msg_seq_list": [{ "msg_seq": 11, "msg_id": "old-json" }],
+            "log_ext": { "trace_id": "trace-json" }
+        }"#,
+    )
+    .expect("decode inbound json");
+    assert!(decoded_json.is_group());
+    assert_eq!(
+        decoded_json.extract_image_urls(),
+        vec!["https://cdn.example.test/json.png".to_string()]
+    );
+    assert_eq!(decoded_json.recall_msg_seq_list[0].msg_seq, 11);
+    assert_eq!(decoded_json.trace_id, "trace-json");
+    assert!(decode_inbound_json(b"[]")
+        .expect_err("json root must be object")
+        .to_string()
+        .contains("json root is not an object"));
+}
+
+#[tokio::test]
+async fn yuanbao_sign_manager_uses_local_sign_token_backend_and_cache() {
+    let (addr, join) = serve_backend().await;
+    let api_domain = format!("http://{addr}");
+
+    let signature = compute_signature("nonce", "2026-05-29T10:00:00+08:00", "app-key", "secret");
+    assert_eq!(signature.len(), 64);
+    assert!(signature.chars().all(|ch| ch.is_ascii_hexdigit()));
+    assert_eq!(
+        signature,
+        compute_signature("nonce", "2026-05-29T10:00:00+08:00", "app-key", "secret")
+    );
+    let nonce = generate_nonce();
+    assert_eq!(nonce.len(), 32);
+    assert!(nonce.chars().all(|ch| ch.is_ascii_hexdigit()));
+    let timestamp = build_timestamp();
+    assert!(timestamp.ends_with("+08:00"));
+
+    let manager = SignManager::new(reqwest::Client::new());
+    let entry = manager
+        .get_token("app-key", "secret", &api_domain, "pre")
+        .await
+        .expect("sign manager fetches token");
+    assert_eq!(entry.token, "yuanbao-token-e2e");
+    assert_eq!(entry.bot_id, "yuanbao-bot-e2e");
+    assert_eq!(entry.product, "openhuman");
+    assert_eq!(entry.source, "coverage");
+    assert!(entry.is_valid());
+    assert!(entry.seconds_remaining() > 0);
+
+    let cached = manager
+        .cached("app-key")
+        .await
+        .expect("cached token remains valid");
+    assert_eq!(cached.token, entry.token);
+    let refreshed = manager
+        .force_refresh("app-key", "secret", &api_domain, "")
+        .await
+        .expect("force refresh fetches token");
+    assert_eq!(refreshed.bot_id, "yuanbao-bot-e2e");
+    manager.clear_locks().await;
+    join.abort();
 }

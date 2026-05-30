@@ -68,6 +68,11 @@ pub enum AgentProgress {
         /// whether to render the prompt detail inline or behind a
         /// "show more" affordance.
         prompt_chars: usize,
+        /// Persistent worker sub-thread id backing this delegation, when
+        /// one was created (`worker-<uuid>`). The UI uses it to reopen the
+        /// full parent↔subagent conversation from memory after the live
+        /// turn ends. `None` for live-only runs (no parent context).
+        worker_thread_id: Option<String>,
     },
 
     /// A sub-agent completed successfully.

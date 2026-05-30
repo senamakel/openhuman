@@ -1,8 +1,45 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import type { SubagentActivity, ToolTimelineEntryStatus } from '../../../store/chatRuntimeSlice';
+import { threadApi } from '../../../services/api/threadApi';
+import type {
+  SubagentActivity,
+  SubagentTranscriptItem,
+  ToolTimelineEntryStatus,
+} from '../../../store/chatRuntimeSlice';
+import type { ThreadMessage } from '../../../types/thread';
 import { BubbleMarkdown } from './AgentMessageBubble';
+
+/**
+ * Rebuild a renderable transcript from a worker sub-thread's persisted
+ * messages so a delegation can be reopened from memory after its live
+ * stream is gone (navigation / cold boot). The first `user` message is the
+ * parent's delegation prompt; `agent` messages with a `tool_name` in their
+ * metadata are tool calls, the rest are the sub-agent's visible text.
+ * Streamed reasoning isn't persisted, so reopened transcripts omit it.
+ */
+function transcriptFromMessages(messages: ThreadMessage[]): {
+  prompt?: string;
+  items: SubagentTranscriptItem[];
+} {
+  let prompt: string | undefined;
+  const items: SubagentTranscriptItem[] = [];
+  for (const m of messages) {
+    const meta = m.extraMetadata ?? {};
+    const iteration = typeof meta.iteration === 'number' ? meta.iteration : undefined;
+    if (m.sender === 'user') {
+      if (prompt === undefined) prompt = m.content;
+      continue;
+    }
+    const toolName = typeof meta.tool_name === 'string' ? meta.tool_name : undefined;
+    if (toolName) {
+      items.push({ kind: 'tool', iteration, callId: m.id, toolName, status: 'success' });
+    } else if (m.content.trim().length > 0) {
+      items.push({ kind: 'text', iteration, text: m.content });
+    }
+  }
+  return { prompt, items };
+}
 
 /**
  * Map a subagent row's terminal/running status to the visual tone used
@@ -76,11 +113,44 @@ export function SubagentDrawer({
     return () => window.removeEventListener('keydown', onKey);
   }, [subagent, onClose]);
 
+  // Reopen-from-memory: when there's no live transcript (the row was
+  // restored from a snapshot, or the user navigated back after the turn
+  // ended) but a worker sub-thread backs it, load that thread's persisted
+  // messages and render them as the conversation. Failures fall back to the
+  // empty/working placeholder rather than blocking the drawer.
+  const [fetched, setFetched] = useState<{
+    prompt?: string;
+    items: SubagentTranscriptItem[];
+  } | null>(null);
+  const liveTranscript = subagent?.transcript ?? [];
+  const workerThreadId = subagent?.workerThreadId;
+  const needsFetch = Boolean(subagent && workerThreadId && liveTranscript.length === 0);
+
+  useEffect(() => {
+    if (!needsFetch || !workerThreadId) {
+      setFetched(null);
+      return;
+    }
+    let cancelled = false;
+    void threadApi
+      .getThreadMessages(workerThreadId)
+      .then(data => {
+        if (!cancelled) setFetched(transcriptFromMessages(data.messages));
+      })
+      .catch(() => {
+        if (!cancelled) setFetched(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsFetch, workerThreadId]);
+
   if (!subagent) return null;
 
   const tone = statusTone(status);
   const isRunning = status !== 'success' && status !== 'error';
-  const transcript = subagent.transcript ?? [];
+  const transcript = liveTranscript.length > 0 ? liveTranscript : (fetched?.items ?? []);
+  const promptText = subagent.prompt ?? fetched?.prompt;
   // The last visible-text item gets the live cursor while the run is in
   // flight (the model is mid-sentence on its final/visible output).
   let lastTextIdx = -1;
@@ -146,13 +216,13 @@ export function SubagentDrawer({
             text triggered, the next turn — exactly as it was emitted). */}
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {/* Parent → sub-agent: the delegation prompt (the "input"). */}
-          {subagent.prompt ? (
+          {promptText ? (
             <div className="flex justify-end" data-testid="subagent-parent-prompt">
               <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary-500 px-3 py-2 text-sm text-white">
                 <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/70">
                   {t('conversations.subagent.parent')}
                 </div>
-                <div className="whitespace-pre-wrap break-words">{subagent.prompt}</div>
+                <div className="whitespace-pre-wrap break-words">{promptText}</div>
               </div>
             </div>
           ) : null}

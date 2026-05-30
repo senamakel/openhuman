@@ -1,9 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { threadApi } from '../../../../services/api/threadApi';
 import type { SubagentActivity, SubagentTranscriptItem } from '../../../../store/chatRuntimeSlice';
 import { SubagentDrawer } from '../SubagentDrawer';
+
+vi.mock('../../../../services/api/threadApi', () => ({
+  threadApi: { getThreadMessages: vi.fn() },
+}));
 
 function activity(overrides: Partial<SubagentActivity> = {}): SubagentActivity {
   return { taskId: 'sub-1', agentId: 'researcher', toolCalls: [], transcript: [], ...overrides };
@@ -96,6 +101,70 @@ describe('SubagentDrawer', () => {
   it('shows a working placeholder while running with an empty transcript', () => {
     render(<SubagentDrawer subagent={activity()} status="running" onClose={() => {}} />);
     expect(screen.getByTestId('subagent-drawer').textContent).toContain('Working');
+  });
+
+  it('reopens from memory: fetches the worker thread when there is no live transcript', async () => {
+    vi.mocked(threadApi.getThreadMessages).mockResolvedValue({
+      count: 3,
+      messages: [
+        {
+          id: 'm0',
+          content: 'Research Q3 revenue.',
+          type: 'text',
+          sender: 'user',
+          createdAt: 't0',
+          extraMetadata: { scope: 'worker_thread' },
+        },
+        {
+          id: 'm1',
+          content: 'Searched the web.',
+          type: 'text',
+          sender: 'agent',
+          createdAt: 't1',
+          extraMetadata: { tool_name: 'web_search', iteration: 1 },
+        },
+        {
+          id: 'm2',
+          content: 'Revenue grew 18%.',
+          type: 'text',
+          sender: 'agent',
+          createdAt: 't2',
+          extraMetadata: { iteration: 2, final: true },
+        },
+      ],
+    });
+
+    render(
+      <SubagentDrawer
+        subagent={activity({ workerThreadId: 'worker-abc', transcript: [] })}
+        status="success"
+        onClose={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(threadApi.getThreadMessages).toHaveBeenCalledWith('worker-abc'));
+    // The persisted conversation renders: parent prompt + a tool call + the text.
+    await waitFor(() =>
+      expect(screen.getByTestId('subagent-parent-prompt').textContent).toContain('Research Q3')
+    );
+    expect(screen.getByTestId('subagent-drawer-tool-call').textContent).toContain('web_search');
+    expect(screen.getByTestId('subagent-transcript-text').textContent).toContain(
+      'Revenue grew 18%'
+    );
+  });
+
+  it('does not fetch when a live transcript is present', () => {
+    render(
+      <SubagentDrawer
+        subagent={activity({
+          workerThreadId: 'worker-abc',
+          transcript: [{ kind: 'text', iteration: 1, text: 'live' }],
+        })}
+        status="running"
+        onClose={() => {}}
+      />
+    );
+    expect(threadApi.getThreadMessages).not.toHaveBeenCalled();
   });
 
   it('invokes onClose from the close button', async () => {

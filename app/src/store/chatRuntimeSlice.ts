@@ -38,6 +38,13 @@ export interface SubagentActivity {
   taskId: string;
   /** Sub-agent definition id (e.g. `researcher`). */
   agentId: string;
+  /**
+   * Persistent worker sub-thread id (`worker-<uuid>`) backing this
+   * delegation, when one was created. Lets the drawer reopen the full
+   * parent↔subagent conversation from memory (via `threadApi.getThreadMessages`)
+   * after the live transcript is gone — navigation, cold boot, etc.
+   */
+  workerThreadId?: string;
   /** Resolved spawn mode — `"typed"` or `"fork"`. */
   mode?: string;
   /** `true` when the spawn requested a dedicated worker thread. */
@@ -217,6 +224,7 @@ function subagentActivityFromPersisted(activity: PersistedSubagentActivity): Sub
   return {
     taskId: activity.taskId,
     agentId: activity.agentId,
+    workerThreadId: activity.workerThreadId,
     mode: activity.mode,
     dedicatedThread: activity.dedicatedThread,
     childIteration: activity.childIteration,

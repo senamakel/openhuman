@@ -1102,6 +1102,7 @@ fn spawn_progress_bridge(
                     mode,
                     dedicated_thread,
                     prompt_chars,
+                    worker_thread_id,
                 } => {
                     publish_web_channel_event(WebChannelEvent {
                         event: "subagent_spawned".to_string(),
@@ -1116,6 +1117,7 @@ fn spawn_progress_bridge(
                             mode: Some(mode),
                             dedicated_thread: Some(dedicated_thread),
                             prompt_chars: Some(prompt_chars as u64),
+                            worker_thread_id,
                             ..Default::default()
                         }),
                         ..Default::default()

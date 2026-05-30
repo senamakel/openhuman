@@ -196,6 +196,8 @@ export interface SubagentProgressDetail {
   elapsed_ms?: number;
   iterations?: number;
   output_chars?: number;
+  /** Persistent worker sub-thread id backing the delegation (on `subagent_spawned`). */
+  worker_thread_id?: string;
 }
 
 /** Extended payload for `subagent_spawned`. */

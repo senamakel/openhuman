@@ -144,6 +144,7 @@ impl TurnStateMirror {
                 task_id,
                 mode,
                 dedicated_thread,
+                worker_thread_id,
                 ..
             } => {
                 self.state.phase = Some(TurnPhase::Subagent);
@@ -167,6 +168,7 @@ impl TurnStateMirror {
                         iterations: None,
                         elapsed_ms: None,
                         output_chars: None,
+                        worker_thread_id: worker_thread_id.clone(),
                         tool_calls: Vec::new(),
                     }),
                 });

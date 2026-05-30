@@ -162,6 +162,11 @@ struct SequenceAuthBackendState {
     auth_me_hits: Arc<AtomicUsize>,
 }
 
+#[derive(Clone, Default)]
+struct NullAuthBackendState {
+    auth_me_hits: Arc<AtomicUsize>,
+}
+
 #[derive(Clone)]
 struct StaticAuthBackendState {
     auth_me_hits: Arc<AtomicUsize>,
@@ -181,6 +186,23 @@ async fn serve_sequence_auth_backend() -> (
         .await
         .expect("bind sequence auth backend");
     let addr = listener.local_addr().expect("sequence auth backend addr");
+    let join = tokio::spawn(async move { axum::serve(listener, app).await });
+    (format!("http://{addr}"), state, join)
+}
+
+async fn serve_null_auth_backend() -> (
+    String,
+    NullAuthBackendState,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    let state = NullAuthBackendState::default();
+    let app = Router::new()
+        .route("/auth/me", get(null_auth_me))
+        .with_state(state.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind null auth backend");
+    let addr = listener.local_addr().expect("null auth backend addr");
     let join = tokio::spawn(async move { axum::serve(listener, app).await });
     (format!("http://{addr}"), state, join)
 }
@@ -260,6 +282,30 @@ async fn sequence_auth_me(
             })),
         )
             .into_response(),
+    }
+}
+
+async fn null_auth_me(State(state): State<NullAuthBackendState>, headers: HeaderMap) -> Response {
+    let hit = state.auth_me_hits.fetch_add(1, Ordering::SeqCst) + 1;
+    match hit {
+        1 => {
+            let auth = bearer(&headers).unwrap_or_default();
+            Json(json!({
+                "success": true,
+                "data": {
+                    "id": "null-sequence-user",
+                    "name": "Null Sequence Worker",
+                    "email": "null-sequence@example.test",
+                    "authHeader": auth
+                }
+            }))
+            .into_response()
+        }
+        _ => Json(json!({
+            "success": true,
+            "data": null
+        }))
+        .into_response(),
     }
 }
 
@@ -2791,6 +2837,68 @@ async fn app_state_snapshot_clears_empty_current_user_cache_and_falls_back_to_st
 }
 
 #[tokio::test]
+async fn app_state_snapshot_clears_null_current_user_cache_and_falls_back_to_stored_user() {
+    let _lock = env_lock();
+    let (backend_base, backend_state, backend_join) = serve_null_auth_backend().await;
+    let harness = setup().await;
+    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
+
+    let session = rpc(
+        &harness.rpc_base,
+        22_151,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "null-sequence-remote-jwt",
+            "user_id": "stored-null-sequence-user",
+            "user": {
+                "id": "stored-null-sequence-user",
+                "name": "Stored Null Sequence Worker",
+                "email": "stored-null-sequence@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&session, "auth_store_session null sequence")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        1,
+        "store_session should validate the null-sequence JWT once"
+    );
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        22_152,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        2,
+        "snapshot should refresh and receive the null user payload"
+    );
+    assert_eq!(
+        payload(&snapshot, "null current-user snapshot")
+            .pointer("/currentUser/email")
+            .and_then(Value::as_str),
+        Some("stored-null-sequence@example.test"),
+        "null backend users should clear the cache and fall back to stored identity"
+    );
+    assert!(
+        openhuman_core::openhuman::app_state::peek_cached_current_user_identity().is_none(),
+        "null backend user should clear the process current-user cache"
+    );
+
+    harness.join.abort();
+    backend_join.abort();
+}
+
+#[tokio::test]
 async fn app_state_cached_identity_peek_accepts_legacy_current_user_fields() {
     let _lock = env_lock();
     let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
@@ -2912,6 +3020,65 @@ async fn app_state_cached_identity_peek_accepts_camel_case_fallback_fields() {
 }
 
 #[tokio::test]
+async fn app_state_cached_identity_peek_ignores_current_user_without_identity_fields() {
+    let _lock = env_lock();
+    let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
+        "metadata": "present-but-not-identity"
+    }))
+    .await;
+    let harness = setup().await;
+    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
+
+    let session = rpc(
+        &harness.rpc_base,
+        22_351,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "identity-empty-remote-jwt",
+            "user_id": "stored-empty-identity-user",
+            "user": {
+                "id": "stored-empty-identity-user",
+                "name": "Stored Empty Identity Worker",
+                "email": "stored-empty-identity@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&session, "auth_store_session identity-empty")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        22_352,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&snapshot, "identity-empty current-user snapshot")
+            .pointer("/currentUser/metadata")
+            .and_then(Value::as_str),
+        Some("present-but-not-identity")
+    );
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        2,
+        "store_session and snapshot should each fetch the no-identity backend once"
+    );
+    assert!(
+        openhuman_core::openhuman::app_state::peek_cached_current_user_identity().is_none(),
+        "current-user objects without id/name/email should not produce prompt identity"
+    );
+
+    harness.join.abort();
+    backend_join.abort();
+}
+
+#[tokio::test]
 async fn app_state_update_persists_and_snapshot_reads_local_state() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -2994,6 +3161,58 @@ async fn app_state_update_persists_and_snapshot_reads_local_state() {
 }
 
 #[tokio::test]
+async fn app_state_snapshot_degrades_runtime_service_status_failures() {
+    let _lock = env_lock();
+    let harness = setup().await;
+    let service_state_path = harness.home.join("service-status-failure.json");
+    std::fs::write(
+        &service_state_path,
+        serde_json::to_vec_pretty(&json!({
+            "installed": true,
+            "running": true,
+            "agent_running": true,
+            "failures": {
+                "status": "forced status failure from app_state test"
+            }
+        }))
+        .expect("serialize service mock state"),
+    )
+    .expect("write service mock state");
+    let _service_mock = EnvVarGuard::set("OPENHUMAN_SERVICE_MOCK", "1");
+    let _service_state =
+        EnvVarGuard::set_to_path("OPENHUMAN_SERVICE_MOCK_STATE_FILE", &service_state_path);
+
+    // The runtime snapshot cache is process-global and not keyed by config.
+    // Let prior app_state_snapshot tests age out so this call exercises the
+    // service-status fallback instead of returning a cached runtime.
+    tokio::time::sleep(Duration::from_millis(2_100)).await;
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        30_051,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    let service = payload(&snapshot, "app_state_snapshot with service status failure")
+        .pointer("/runtime/service")
+        .expect("snapshot should include runtime service status");
+    assert!(
+        service
+            .pointer("/state/Unknown")
+            .and_then(Value::as_str)
+            .is_some_and(|message| message.contains("forced status failure")),
+        "service status failures should degrade to Unknown state: {service}"
+    );
+    assert_eq!(
+        service.get("label").and_then(Value::as_str),
+        Some("OpenHuman")
+    );
+
+    harness.join.abort();
+}
+
+#[tokio::test]
 async fn app_state_snapshot_and_update_surface_state_dir_creation_errors() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -3029,6 +3248,61 @@ async fn app_state_snapshot_and_update_surface_state_dir_creation_errors() {
         .await,
         "app_state_update_local_state with file at state path",
         "failed to create workspace state dir",
+    );
+
+    harness.join.abort();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn app_state_snapshot_keeps_unquarantinable_local_state_path_but_uses_defaults() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let config = rpc(&harness.rpc_base, 31_151, "openhuman.config_get", json!({})).await;
+    let workspace_dir = payload(&config, "config_get for unquarantinable app_state path")
+        .get("workspace_dir")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .expect("config_get should expose workspace_dir");
+    let state_dir = workspace_dir.join("state");
+    std::fs::create_dir_all(&state_dir).expect("create state dir");
+    let app_state_path = state_dir.join("app-state.json");
+    std::fs::create_dir(&app_state_path).expect("create app-state directory");
+
+    let original_permissions = std::fs::metadata(&state_dir)
+        .expect("state dir metadata")
+        .permissions();
+    let mut read_only_permissions = original_permissions.clone();
+    read_only_permissions.set_mode(0o500);
+    std::fs::set_permissions(&state_dir, read_only_permissions).expect("make state dir unwritable");
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        31_152,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+
+    std::fs::set_permissions(&state_dir, original_permissions)
+        .expect("restore state dir permissions");
+
+    let local_state = payload(
+        &snapshot,
+        "app_state_snapshot after failed quarantine of unreadable path",
+    )
+    .get("localState")
+    .expect("snapshot should include localState");
+    assert!(
+        local_state.as_object().is_some_and(|map| map.is_empty()),
+        "unquarantinable app state should still fall back to defaults: {local_state}"
+    );
+    assert!(
+        app_state_path.exists(),
+        "unwritable state dir should prevent quarantine rename/removal of the live path"
     );
 
     harness.join.abort();

@@ -11,6 +11,11 @@ permissions:
   packages: read
   pull-requests: read
 
+env:
+  NPM_CONFIG_STORE_DIR: .pnpm-store
+  SCCACHE_CACHE_SIZE: 2G
+  SCCACHE_DIR: .sccache
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}
   cancel-in-progress: true
@@ -35,7 +40,7 @@ jobs:
         id: pnpm-cache
         uses: actions/cache/restore@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             pnpm-store-${{ runner.os }}-
@@ -47,7 +52,7 @@ jobs:
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Type check TypeScript files
@@ -73,7 +78,6 @@ jobs:
     env:
       CARGO_INCREMENTAL: "0"
       RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -90,6 +94,16 @@ jobs:
           cache-on-failure: true
           key: pr-rust-quality-core
 
+      - name: Restore sccache compiler cache
+        id: sccache-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .sccache
+          key: sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-
+            sccache-${{ runner.os }}-${{ github.job }}-
+
       - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.9
 
@@ -98,6 +112,13 @@ jobs:
 
       - name: Run clippy (core crate)
         run: bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman
+
+      - name: Save sccache compiler cache
+        if: always() && hashFiles('.sccache/**') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: .sccache
+          key: ${{ steps.sccache-cache.outputs.cache-primary-key }}
 
   build-linux-desktop-e2e-artifact:
     name: Build Linux Desktop E2E Artifact
@@ -108,7 +129,6 @@ jobs:
     env:
       CARGO_INCREMENTAL: "0"
       RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -121,7 +141,7 @@ jobs:
         id: pnpm-cache
         uses: actions/cache/restore@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             pnpm-store-${{ runner.os }}-
@@ -134,6 +154,16 @@ jobs:
             app/src-tauri -> target
           cache-on-failure: true
           key: pr-e2e-build-linux
+
+      - name: Restore sccache compiler cache
+        id: sccache-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .sccache
+          key: sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-
+            sccache-${{ runner.os }}-${{ github.job }}-
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -163,7 +193,7 @@ jobs:
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Ensure .env exists for E2E builds
@@ -210,6 +240,13 @@ jobs:
           path: .ci/artifacts/e2e-desktop-linux.tar.gz
           key: ${{ steps.desktop-artifact-cache.outputs.cache-primary-key }}
 
+      - name: Save sccache compiler cache
+        if: always() && hashFiles('.sccache/**') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: .sccache
+          key: ${{ steps.sccache-cache.outputs.cache-primary-key }}
+
       - name: Upload Linux desktop E2E artifact
         uses: actions/upload-artifact@v5
         with:
@@ -227,7 +264,6 @@ jobs:
     env:
       CARGO_INCREMENTAL: "0"
       RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -240,7 +276,7 @@ jobs:
         id: pnpm-cache
         uses: actions/cache/restore@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             pnpm-store-${{ runner.os }}-
@@ -251,6 +287,16 @@ jobs:
           workspaces: . -> target
           cache-on-failure: true
           key: pr-playwright-build-linux
+
+      - name: Restore sccache compiler cache
+        id: sccache-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .sccache
+          key: sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-
+            sccache-${{ runner.os }}-${{ github.job }}-
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -270,7 +316,7 @@ jobs:
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Ensure .env exists for E2E build
@@ -309,6 +355,13 @@ jobs:
           path: .ci/artifacts/e2e-playwright-linux.tar.gz
           key: ${{ steps.playwright-artifact-cache.outputs.cache-primary-key }}
 
+      - name: Save sccache compiler cache
+        if: always() && hashFiles('.sccache/**') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: .sccache
+          key: ${{ steps.sccache-cache.outputs.cache-primary-key }}
+
       - name: Upload Playwright E2E artifact
         uses: actions/upload-artifact@v5
         with:
@@ -333,7 +386,7 @@ jobs:
         id: pnpm-cache
         uses: actions/cache/restore@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             pnpm-store-${{ runner.os }}-
@@ -345,7 +398,7 @@ jobs:
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Run Vitest with coverage
@@ -479,7 +532,6 @@ jobs:
       CARGO_INCREMENTAL: "0"
       RUST_BACKTRACE: "1"
       RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -492,7 +544,7 @@ jobs:
         id: pnpm-cache
         uses: actions/cache/restore@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             pnpm-store-${{ runner.os }}-
@@ -504,6 +556,16 @@ jobs:
           cache-on-failure: true
           key: pr-rust-e2e-linux
 
+      - name: Restore sccache compiler cache
+        id: sccache-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .sccache
+          key: sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-
+            sccache-${{ runner.os }}-${{ github.job }}-
+
       - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.9
 
@@ -514,7 +576,7 @@ jobs:
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Ensure .env exists for tests
@@ -524,6 +586,13 @@ jobs:
 
       - name: Run Rust E2E suite
         run: bash scripts/ci-cancel-aware.sh pnpm test:rust:e2e
+
+      - name: Save sccache compiler cache
+        if: always() && hashFiles('.sccache/**') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: .sccache
+          key: ${{ steps.sccache-cache.outputs.cache-primary-key }}
 
   desktop-e2e-linux:
     name: Desktop E2E (Linux / mega-flow)
@@ -544,7 +613,7 @@ jobs:
         id: pnpm-cache
         uses: actions/cache/restore@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             pnpm-store-${{ runner.os }}-
@@ -565,7 +634,7 @@ jobs:
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Install Appium and chromium driver
@@ -650,7 +719,7 @@ jobs:
         id: pnpm-cache
         uses: actions/cache/restore@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             pnpm-store-${{ runner.os }}-
@@ -662,7 +731,7 @@ jobs:
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: ~/.local/share/pnpm/store
+          path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Download Playwright E2E artifact

@@ -8,17 +8,17 @@ use std::time::Duration;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use axum::Router;
 use axum::body::Bytes;
 use axum::extract::Request;
-use axum::http::{header::AUTHORIZATION, Method, StatusCode};
+use axum::http::{Method, StatusCode, header::AUTHORIZATION};
 use axum::response::{IntoResponse, Response};
 use axum::routing::any;
-use axum::Router;
 use reqwest::StatusCode as ReqwestStatusCode;
-use serde_json::{json, Value};
-use tempfile::{tempdir, TempDir};
+use serde_json::{Value, json};
+use tempfile::{TempDir, tempdir};
 
-use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
+use openhuman_core::core::auth::{CORE_TOKEN_ENV_VAR, init_rpc_token};
 use openhuman_core::core::event_bus::{DomainEvent, EventHandler};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::core::socketio::WebChannelEvent;
@@ -30,6 +30,7 @@ use openhuman_core::openhuman::channels::email_channel::EmailConfig;
 use openhuman_core::openhuman::channels::irc::IrcChannelConfig;
 use openhuman_core::openhuman::channels::proactive::ProactiveMessageSubscriber;
 use openhuman_core::openhuman::channels::traits::ChannelMessage;
+use openhuman_core::openhuman::channels::yuanbao::YuanbaoChannel;
 use openhuman_core::openhuman::channels::yuanbao::config::YuanbaoConfig;
 use openhuman_core::openhuman::channels::yuanbao::errors::{
     AUTH_FAILED_CODES, AUTH_RETRYABLE_CODES, NO_RECONNECT_CLOSE_CODES,
@@ -48,7 +49,7 @@ use openhuman_core::openhuman::channels::yuanbao::proto::{
 };
 use openhuman_core::openhuman::channels::yuanbao::proto_constants::{cmd, cmd_type, module};
 use openhuman_core::openhuman::channels::yuanbao::sign::{
-    build_timestamp, compute_signature, generate_nonce, SignManager,
+    SignManager, build_timestamp, compute_signature, generate_nonce,
 };
 use openhuman_core::openhuman::channels::yuanbao::splitter::split_markdown;
 use openhuman_core::openhuman::channels::yuanbao::types::{
@@ -61,22 +62,22 @@ use openhuman_core::openhuman::channels::yuanbao::types::{
     Source as YuanbaoSource,
 };
 use openhuman_core::openhuman::channels::yuanbao::wire::{
-    decode_varint, encode_field_bytes, encode_field_string, encode_field_varint, encode_varint,
-    get_bytes, get_repeated_bytes, get_string, get_varint, next_seq_no, parse_fields, FieldValue,
+    FieldValue, decode_varint, encode_field_bytes, encode_field_string, encode_field_varint,
+    encode_varint, get_bytes, get_repeated_bytes, get_string, get_varint, next_seq_no,
+    parse_fields,
 };
-use openhuman_core::openhuman::channels::yuanbao::YuanbaoChannel;
 use openhuman_core::openhuman::channels::{
     Channel, CliChannel, DingTalkChannel, EmailChannel, IMessageChannel, IrcChannel, LinqChannel,
     MattermostChannel, QQChannel, SendMessage, SignalChannel, SlackChannel, WhatsAppChannel,
 };
 use openhuman_core::openhuman::composio::all_composio_agent_tools;
+use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState,
 };
-use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
 use openhuman_core::openhuman::credentials::{
-    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
@@ -84,26 +85,28 @@ use openhuman_core::openhuman::memory::{
 use openhuman_core::openhuman::security::{AuditLogger, SecurityPolicy};
 use openhuman_core::openhuman::tool_registry::ops::diagnostics_for_config;
 use openhuman_core::openhuman::tool_registry::{
-    all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
-    capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
-    denials, get_tool, is_capability_provider_trusted_enabled, list_capability_providers,
-    list_tools, normalize_capability_provider_id, registry_entries,
-    CapabilityProviderRegistryError,
+    CapabilityProviderRegistryError, all_tool_registry_controller_schemas,
+    all_tool_registry_registered_controllers, capability_provider_by_id,
+    capability_provider_diagnostics, capability_provider_registry, denials, get_tool,
+    is_capability_provider_trusted_enabled, list_capability_providers, list_tools,
+    normalize_capability_provider_id, registry_entries,
 };
 use openhuman_core::openhuman::tools::generated::{
-    admit_generated_tool_definitions, generated_tools_from_definitions, GeneratedToolAdapter,
-    GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
+    GeneratedToolAdapter, GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
+    admit_generated_tool_definitions, generated_tools_from_definitions,
 };
 use openhuman_core::openhuman::tools::local_cli::tools_wrappers_list_json;
 use openhuman_core::openhuman::tools::orchestrator_tools::collect_orchestrator_tools;
 use openhuman_core::openhuman::tools::{
+    ApplyPatchTool, BrowserAction, BrowserTool, CleaningStrategy, ComputerUseConfig, CsvExportTool,
+    CurrentTimeTool, DefaultToolPolicy, DetectToolsTool, EditFileTool, FileReadTool, FileWriteTool,
+    GitbooksGetPageTool, GitbooksSearchTool, GlobTool, GrepTool, InsertSqlRecordTool,
+    ListFilesTool, LspTool, PermissionLevel, PolicyDecision, ProxyConfigTool, ReadDiffTool,
+    RunLinterTool, RunTestsTool, SchemaCleanr, Tool, ToolCallOptions, ToolCategory, ToolPolicy,
+    ToolResult, ToolScope, UpdateApplyTool, UpdateMemoryMdTool, WebFetchTool, WorkspaceStateTool,
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
     decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
-    write_bytes_to_path, BrowserAction, BrowserTool, CleaningStrategy, ComputerUseConfig,
-    CurrentTimeTool, DefaultToolPolicy, DetectToolsTool, GrepTool, InsertSqlRecordTool, LspTool,
-    PermissionLevel, PolicyDecision, ProxyConfigTool, ReadDiffTool, RunLinterTool, SchemaCleanr,
-    Tool, ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope, UpdateMemoryMdTool,
-    WorkspaceStateTool,
+    write_bytes_to_path,
 };
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
@@ -390,6 +393,76 @@ async fn mock_backend(request: Request) -> Response {
     } else {
         serde_json::from_slice(&body).unwrap_or_else(|_| Value::Null)
     };
+
+    if method == Method::GET && path == "/plain" {
+        return (StatusCode::OK, "plain coverage body").into_response();
+    }
+    if method == Method::GET && path == "/redirect" {
+        return (
+            StatusCode::FOUND,
+            [(axum::http::header::LOCATION, "https://example.test/next")],
+            "redirecting",
+        )
+            .into_response();
+    }
+    if method == Method::POST && path == "/mcp" {
+        let rpc_method = json_body
+            .get("method")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if rpc_method == "notifications/initialized" {
+            return StatusCode::NO_CONTENT.into_response();
+        }
+        let id = json_body.get("id").cloned().unwrap_or(json!(1));
+        let result = match rpc_method {
+            "initialize" => json!({
+                "protocolVersion": "2025-11-25",
+                "capabilities": { "tools": { "listChanged": false } },
+                "serverInfo": { "name": "coverage-gitbooks", "version": "1.0.0" }
+            }),
+            "tools/list" => json!({
+                "tools": [
+                    {
+                        "name": "searchDocumentation",
+                        "description": "Search docs",
+                        "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } } }
+                    },
+                    {
+                        "name": "getPage",
+                        "description": "Get page",
+                        "inputSchema": { "type": "object", "properties": { "url": { "type": "string" } } }
+                    }
+                ]
+            }),
+            "tools/call" => {
+                let params = json_body.get("params").cloned().unwrap_or(Value::Null);
+                json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!(
+                            "gitbooks mocked {}",
+                            params.get("name").and_then(Value::as_str).unwrap_or("unknown")
+                        )
+                    }]
+                })
+            }
+            _ => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    axum::Json(json!({ "error": format!("unexpected mcp method {rpc_method}") })),
+                )
+                    .into_response();
+            }
+        };
+        return (
+            [(
+                axum::http::header::HeaderName::from_static("mcp-session-id"),
+                "coverage-session",
+            )],
+            axum::Json(json!({ "jsonrpc": "2.0", "id": id, "result": result })),
+        )
+            .into_response();
+    }
 
     let payload = match (method, path.as_str()) {
         (Method::GET, "/auth/me") => json!({
@@ -700,9 +773,11 @@ async fn composio_agent_tools_cover_backend_discovery_markdown_and_execution_pat
             "composio_execute",
         ]
     );
-    assert!(tools
-        .iter()
-        .all(|tool| tool.category() == ToolCategory::Skill));
+    assert!(
+        tools
+            .iter()
+            .all(|tool| tool.category() == ToolCategory::Skill)
+    );
 
     let list_toolkits = tools
         .iter()
@@ -775,9 +850,11 @@ async fn composio_agent_tools_cover_backend_discovery_markdown_and_execution_pat
         .await
         .expect("authorize executes");
     assert!(!handoff.is_error, "{}", handoff.output());
-    assert!(handoff
-        .output()
-        .contains("https://connect.example.test/gmail"));
+    assert!(
+        handoff
+            .output()
+            .contains("https://connect.example.test/gmail")
+    );
     assert!(handoff.output().contains("conn-new-1"));
 
     let execute = tools
@@ -814,9 +891,11 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
     let channels = payload(&list, "channels_list")
         .as_array()
         .expect("channels list");
-    assert!(channels
-        .iter()
-        .any(|channel| channel.get("id").and_then(Value::as_str) == Some("telegram")));
+    assert!(
+        channels
+            .iter()
+            .any(|channel| channel.get("id").and_then(Value::as_str) == Some("telegram"))
+    );
 
     let describe = rpc(
         &harness.rpc_base,
@@ -865,8 +944,10 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
         json!({ "channel": "telegram", "authMode": "bot_token", "credentials": "bad" }),
     )
     .await;
-    assert!(error_message(&non_object_creds, "non-object credentials")
-        .contains("credentials must be a JSON object"));
+    assert!(
+        error_message(&non_object_creds, "non-object credentials")
+            .contains("credentials must be a JSON object")
+    );
 
     let telegram_managed = rpc(
         &harness.rpc_base,
@@ -1092,11 +1173,13 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
         json!({ "channel": " discord " }),
     )
     .await;
-    assert!(payload(&filtered_status, "filtered status")
-        .as_array()
-        .expect("filtered status entries")
-        .iter()
-        .all(|entry| entry.get("channel_id").and_then(Value::as_str) == Some("discord")));
+    assert!(
+        payload(&filtered_status, "filtered status")
+            .as_array()
+            .expect("filtered status entries")
+            .iter()
+            .all(|entry| entry.get("channel_id").and_then(Value::as_str) == Some("discord"))
+    );
 
     let telegram_start = rpc(
         &harness.rpc_base,
@@ -1132,10 +1215,12 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
         json!({}),
     )
     .await;
-    assert!(payload(&discord_start, "discord link start")
-        .get("instructions")
-        .and_then(Value::as_str)
-        .is_some_and(|instructions| instructions.contains("discord-link-e2e")));
+    assert!(
+        payload(&discord_start, "discord link start")
+            .get("instructions")
+            .and_then(Value::as_str)
+            .is_some_and(|instructions| instructions.contains("discord-link-e2e"))
+    );
     let discord_check = rpc(
         &harness.rpc_base,
         15,
@@ -1354,27 +1439,33 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert_eq!(baseline[0].permission_level(), PermissionLevel::Execute);
 
     let wrappers = tools_wrappers_list_json();
-    assert!(wrappers
-        .pointer("/result/wrappers")
-        .and_then(Value::as_array)
-        .expect("wrapper list")
-        .iter()
-        .any(|wrapper| wrapper.get("name").and_then(Value::as_str) == Some("screenshot")));
+    assert!(
+        wrappers
+            .pointer("/result/wrappers")
+            .and_then(Value::as_array)
+            .expect("wrapper list")
+            .iter()
+            .any(|wrapper| wrapper.get("name").and_then(Value::as_str) == Some("screenshot"))
+    );
 
     let tool_schemas = all_tools_controller_schemas();
     let tool_controllers = all_tools_registered_controllers();
     assert_eq!(tool_schemas.len(), tool_controllers.len());
-    assert!(tool_schemas
-        .iter()
-        .any(|schema| schema.function == "web_search"));
+    assert!(
+        tool_schemas
+            .iter()
+            .any(|schema| schema.function == "web_search")
+    );
 
     let registry_schemas = all_tool_registry_controller_schemas();
     let registry_controllers = all_tool_registry_registered_controllers();
     assert_eq!(registry_schemas.len(), 3);
     assert_eq!(registry_schemas.len(), registry_controllers.len());
-    assert!(registry_entries()
-        .iter()
-        .any(|entry| entry.tool_id == "tools.web_search"));
+    assert!(
+        registry_entries()
+            .iter()
+            .any(|entry| entry.tool_id == "tools.web_search")
+    );
     let listed = list_tools()
         .into_cli_compatible_json()
         .expect("list_tools json");
@@ -1395,12 +1486,16 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         found.get("tool_id").and_then(Value::as_str),
         Some(first_tool_id)
     );
-    assert!(get_tool("  ")
-        .expect_err("blank registry id should fail")
-        .contains("non-empty"));
-    assert!(get_tool("tools.missing")
-        .expect_err("missing registry id should fail")
-        .contains("tools.missing"));
+    assert!(
+        get_tool("  ")
+            .expect_err("blank registry id should fail")
+            .contains("non-empty")
+    );
+    assert!(
+        get_tool("tools.missing")
+            .expect_err("missing registry id should fail")
+            .contains("tools.missing")
+    );
 
     let dirty_schema = json!({
         "type": "object",
@@ -1498,9 +1593,11 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     );
     let decoded = decode_data_url_bytes(png_data_url).expect("decode png");
     assert_eq!(&decoded[..4], b"\x89PNG");
-    assert!(decode_data_url_bytes("data:text/plain;base64,aGVsbG8=")
-        .expect_err("non-image data URL rejected")
-        .contains("invalid data URL"));
+    assert!(
+        decode_data_url_bytes("data:text/plain;base64,aGVsbG8=")
+            .expect_err("non-image data URL rejected")
+            .contains("invalid data URL")
+    );
     let nested = dir.path().join("screens").join("nested").join("shot.png");
     write_bytes_to_path(&nested, &decoded).expect("write screenshot bytes");
     assert_eq!(
@@ -1566,12 +1663,16 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
     assert_eq!(names, vec!["research", "delegate_to_integrations_agent"]);
 
     let research = &tools[0];
-    assert!(research
-        .description()
-        .contains("direct tools are insufficient"));
-    assert!(research
-        .description()
-        .contains("careful public-source research"));
+    assert!(
+        research
+            .description()
+            .contains("direct tools are insufficient")
+    );
+    assert!(
+        research
+            .description()
+            .contains("careful public-source research")
+    );
     assert_eq!(research.permission_level(), PermissionLevel::Execute);
     assert_eq!(research.category(), ToolCategory::System);
     assert_eq!(
@@ -1779,25 +1880,28 @@ async fn read_diff_tool_reports_empty_diff_and_git_errors() {
 async fn channels_public_helpers_cover_cli_trait_defaults_and_webhook_parsers() {
     let cli = CliChannel::new();
     assert_eq!(cli.name(), "cli");
-    assert!(cli
-        .send(&SendMessage::new("hello from coverage", "stdout"))
-        .await
-        .is_ok());
+    assert!(
+        cli.send(&SendMessage::new("hello from coverage", "stdout"))
+            .await
+            .is_ok()
+    );
     assert!(cli.health_check().await);
     assert!(cli.start_typing("user").await.is_ok());
     assert!(cli.stop_typing("user").await.is_ok());
     assert!(!cli.supports_reactions());
     assert!(!cli.supports_draft_updates());
-    assert!(cli
-        .send_draft(&SendMessage::new("draft", "user"))
-        .await
-        .expect("default send_draft")
-        .is_none());
+    assert!(
+        cli.send_draft(&SendMessage::new("draft", "user"))
+            .await
+            .expect("default send_draft")
+            .is_none()
+    );
     assert!(cli.update_draft("user", "msg-1", "draft").await.is_ok());
-    assert!(cli
-        .finalize_draft("user", "msg-1", "final", Some("thread-1"))
-        .await
-        .is_ok());
+    assert!(
+        cli.finalize_draft("user", "msg-1", "final", Some("thread-1"))
+            .await
+            .is_ok()
+    );
 
     let threaded = SendMessage::with_subject("body", "recipient", "subject")
         .in_thread(Some("thread-1".to_string()));
@@ -1865,18 +1969,22 @@ async fn channels_public_helpers_cover_cli_trait_defaults_and_webhook_parsers() 
     assert_eq!(linq_messages.len(), 1);
     assert_eq!(linq_messages[0].sender, "+15551234567");
     assert!(linq_messages[0].content.contains("hello"));
-    assert!(linq_messages[0]
-        .content
-        .contains("[IMAGE:https://cdn.example.test/image.png]"));
-    assert!(linq
-        .parse_webhook_payload(&json!({ "event_type": "message.sent" }))
-        .is_empty());
-    assert!(linq
-        .parse_webhook_payload(&json!({
+    assert!(
+        linq_messages[0]
+            .content
+            .contains("[IMAGE:https://cdn.example.test/image.png]")
+    );
+    assert!(
+        linq.parse_webhook_payload(&json!({ "event_type": "message.sent" }))
+            .is_empty()
+    );
+    assert!(
+        linq.parse_webhook_payload(&json!({
             "event_type": "message.received",
             "data": { "is_from_me": true }
         }))
-        .is_empty());
+        .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -1912,9 +2020,11 @@ async fn channel_provider_public_paths_cover_pre_network_errors_and_utilities() 
         .listen(tx)
         .await
         .expect_err("mattermost listen should require channel_id before polling");
-    assert!(mattermost_listen
-        .to_string()
-        .contains("channel_id required"));
+    assert!(
+        mattermost_listen
+            .to_string()
+            .contains("channel_id required")
+    );
     assert!(mattermost.stop_typing("channel:root").await.is_ok());
 
     let imessage = IMessageChannel::new(vec!["friend@example.test".into()]);
@@ -1923,9 +2033,11 @@ async fn channel_provider_public_paths_cover_pre_network_errors_and_utilities() 
         .send(&SendMessage::new("hello", "not a valid recipient"))
         .await
         .expect_err("invalid iMessage target should be rejected before osascript");
-    assert!(invalid_target
-        .to_string()
-        .contains("Invalid iMessage target"));
+    assert!(
+        invalid_target
+            .to_string()
+            .contains("Invalid iMessage target")
+    );
 
     let mut email_config = EmailConfig {
         allowed_senders: vec![
@@ -2398,10 +2510,12 @@ async fn yuanbao_channel_and_inbound_pipeline_cover_dispatch_filter_and_error_pa
         .await
         .expect("yuanbao draft marker");
     assert_eq!(draft.as_deref(), Some("yb-draft:alice-uid"));
-    assert!(channel
-        .update_draft("alice-uid", "yb-draft:alice-uid", "partial")
-        .await
-        .is_ok());
+    assert!(
+        channel
+            .update_draft("alice-uid", "yb-draft:alice-uid", "partial")
+            .await
+            .is_ok()
+    );
 
     let pipeline = yuanbao_pipeline(&config);
     match pipeline
@@ -2573,9 +2687,11 @@ async fn tool_registry_rpc_controllers_cover_list_get_diagnostics_and_errors() {
         .get("tools")
         .and_then(Value::as_array)
         .expect("registry tools");
-    assert!(tools
-        .iter()
-        .any(|tool| tool.get("tool_id").and_then(Value::as_str) == Some("tools.web_search")));
+    assert!(
+        tools
+            .iter()
+            .any(|tool| tool.get("tool_id").and_then(Value::as_str) == Some("tools.web_search"))
+    );
 
     let found = rpc(
         &harness.rpc_base,
@@ -2598,8 +2714,10 @@ async fn tool_registry_rpc_controllers_cover_list_get_diagnostics_and_errors() {
         json!({ "tool_id": "   " }),
     )
     .await;
-    assert!(error_message(&missing_id, "tool_registry_get blank id")
-        .contains("tool_id must be a non-empty string"));
+    assert!(
+        error_message(&missing_id, "tool_registry_get blank id")
+            .contains("tool_id must be a non-empty string")
+    );
     let unknown_tool = rpc(
         &harness.rpc_base,
         104,
@@ -2619,18 +2737,24 @@ async fn tool_registry_rpc_controllers_cover_list_get_diagnostics_and_errors() {
     )
     .await;
     let diagnostics = payload(&diagnostics, "tool_registry_diagnostics");
-    assert!(diagnostics
-        .get("total_tools")
-        .and_then(Value::as_u64)
-        .is_some_and(|count| count > 0));
-    assert!(diagnostics
-        .pointer("/mcp_allowlists/server_count")
-        .and_then(Value::as_u64)
-        .is_some());
-    assert!(diagnostics
-        .pointer("/mcp_write_audit/enabled")
-        .and_then(Value::as_bool)
-        .is_some());
+    assert!(
+        diagnostics
+            .get("total_tools")
+            .and_then(Value::as_u64)
+            .is_some_and(|count| count > 0)
+    );
+    assert!(
+        diagnostics
+            .pointer("/mcp_allowlists/server_count")
+            .and_then(Value::as_u64)
+            .is_some()
+    );
+    assert!(
+        diagnostics
+            .pointer("/mcp_write_audit/enabled")
+            .and_then(Value::as_bool)
+            .is_some()
+    );
 
     harness.rpc_join.abort();
     harness.backend_join.abort();
@@ -2755,14 +2879,18 @@ fn tool_registry_provider_and_denial_paths_cover_diagnostics() {
     let diagnostics = diagnostics_for_config(&config).value;
     assert!(diagnostics.total_tools > 0);
     assert!(diagnostics.enabled_tools > 0);
-    assert!(diagnostics
-        .policy_surfaces
-        .iter()
-        .any(|surface| surface == "approval.decide"));
-    assert!(diagnostics
-        .recent_denials
-        .iter()
-        .any(|denial| denial.tool_name == "secret.tool"));
+    assert!(
+        diagnostics
+            .policy_surfaces
+            .iter()
+            .any(|surface| surface == "approval.decide")
+    );
+    assert!(
+        diagnostics
+            .recent_denials
+            .iter()
+            .any(|denial| denial.tool_name == "secret.tool")
+    );
     assert_eq!(diagnostics.capability_providers.total_providers, 2);
 }
 
@@ -2846,26 +2974,32 @@ async fn generated_tools_raw_paths_cover_admission_validation_and_execution() {
     unsafe_name.name = "Bad Tool".into();
     let unsafe_report = admit_generated_tool_definitions(vec![unsafe_name], &admission);
     assert!(unsafe_report.admitted.is_empty());
-    assert!(unsafe_report.rejected[0]
-        .reason
-        .contains("unsupported characters"));
+    assert!(
+        unsafe_report.rejected[0]
+            .reason
+            .contains("unsupported characters")
+    );
 
     let mut missing_provider = admitted.clone();
     missing_provider.provider_id = None;
     let missing_provider_report =
         admit_generated_tool_definitions(vec![missing_provider], &admission);
     assert!(missing_provider_report.admitted.is_empty());
-    assert!(missing_provider_report.rejected[0]
-        .reason
-        .contains("missing provider_id"));
+    assert!(
+        missing_provider_report.rejected[0]
+            .reason
+            .contains("missing provider_id")
+    );
 
     let mut bad_schema = admitted.clone();
     bad_schema.parameters_schema = json!({ "properties": {} });
     let bad_schema_report = admit_generated_tool_definitions(vec![bad_schema], &admission);
     assert!(bad_schema_report.admitted.is_empty());
-    assert!(bad_schema_report.rejected[0]
-        .reason
-        .contains("invalid schema"));
+    assert!(
+        bad_schema_report.rejected[0]
+            .reason
+            .contains("invalid schema")
+    );
 
     let mut adapter_mismatch = admitted.clone();
     adapter_mismatch.adapter_id = "other-adapter".into();
@@ -2924,9 +3058,11 @@ async fn filesystem_and_system_tool_edges_cover_deterministic_error_and_success_
         .await
         .expect("append missing section");
     assert!(!replaced_new.is_error, "{}", replaced_new.output());
-    assert!(std::fs::read_to_string(dir.path().join("MEMORY.md"))
-        .expect("read MEMORY.md after section append")
-        .contains("## Facts\nalpha\n"));
+    assert!(
+        std::fs::read_to_string(dir.path().join("MEMORY.md"))
+            .expect("read MEMORY.md after section append")
+            .contains("## Facts\nalpha\n")
+    );
 
     let replaced_existing = memory_tool
         .execute(json!({
@@ -3081,7 +3217,8 @@ async fn proxy_config_tool_covers_temp_config_runtime_env_and_validation_paths()
     assert_eq!(tool.name(), "proxy_config");
     assert_eq!(tool.permission_level(), PermissionLevel::ReadOnly);
     assert_eq!(
-        tool.parameters_schema().pointer("/properties/action/enum/0"),
+        tool.parameters_schema()
+            .pointer("/properties/action/enum/0"),
         Some(&json!("get"))
     );
 
@@ -3109,7 +3246,11 @@ async fn proxy_config_tool_covers_temp_config_runtime_env_and_validation_paths()
         .await
         .expect("bad no_proxy is tool error");
     assert!(bad_no_proxy.is_error);
-    assert!(bad_no_proxy.output().contains("array must only contain strings"));
+    assert!(
+        bad_no_proxy
+            .output()
+            .contains("array must only contain strings")
+    );
 
     let set_services = tool
         .execute(json!({
@@ -3124,7 +3265,11 @@ async fn proxy_config_tool_covers_temp_config_runtime_env_and_validation_paths()
         .await
         .expect("set services proxy");
     assert!(!set_services.is_error, "{}", set_services.output());
-    assert!(set_services.output().contains("Proxy configuration updated"));
+    assert!(
+        set_services
+            .output()
+            .contains("Proxy configuration updated")
+    );
     assert!(set_services.output().contains("provider.openai"));
 
     let apply_wrong_scope = tool
@@ -3198,6 +3343,129 @@ async fn filesystem_search_and_system_probe_tools_cover_success_and_error_paths(
         &Config::default().autonomy,
         dir.path(),
     ));
+
+    let file_write = FileWriteTool::new(security.clone());
+    assert_eq!(file_write.name(), "file_write");
+    assert_eq!(file_write.permission_level(), PermissionLevel::Write);
+    assert!(!file_write.external_effect_with_args(&json!({ "path": "new.txt" })));
+    let wrote = file_write
+        .execute(json!({ "path": "notes/new.txt", "content": "one\ntwo\none\n" }))
+        .await
+        .expect("file write executes");
+    assert!(!wrote.is_error, "{}", wrote.output());
+    assert!(file_write.external_effect_with_args(&json!({ "path": "notes/new.txt" })));
+
+    let file_read = FileReadTool::new(security.clone());
+    assert_eq!(file_read.name(), "file_read");
+    assert!(file_read.is_concurrency_safe(&json!({})));
+    let read = file_read
+        .execute(json!({ "path": "notes/new.txt" }))
+        .await
+        .expect("file read executes");
+    assert_eq!(read.output(), "one\ntwo\none\n");
+    let missing_path = file_read
+        .execute(json!({ "path": "missing.txt" }))
+        .await
+        .expect("missing read is tool error");
+    assert!(missing_path.is_error);
+    assert!(missing_path.output().contains("Failed to resolve"));
+
+    let list = ListFilesTool::new(security.clone());
+    assert_eq!(list.name(), "list");
+    let listing = list.execute(json!({ "path": "." })).await.expect("list");
+    assert!(!listing.is_error, "{}", listing.output());
+    assert!(listing.output().contains("dir\tnotes"));
+
+    let glob = GlobTool::new(security.clone());
+    assert_eq!(glob.name(), "glob");
+    assert!(glob.is_concurrency_safe(&json!({})));
+    let globbed = glob
+        .execute(json!({ "pattern": "notes/*.txt", "max_results": 1 }))
+        .await
+        .expect("glob");
+    assert!(!globbed.is_error, "{}", globbed.output());
+    assert!(globbed.output().contains("notes/new.txt"));
+    let bad_glob = glob
+        .execute(json!({ "pattern": "[" }))
+        .await
+        .expect("bad glob is tool error");
+    assert!(bad_glob.is_error);
+    assert!(bad_glob.output().contains("Invalid glob pattern"));
+
+    let edit = EditFileTool::new(security.clone());
+    assert_eq!(edit.name(), "edit");
+    assert!(edit.external_effect_with_args(&json!({})));
+    let duplicate_edit = edit
+        .execute(json!({
+            "path": "notes/new.txt",
+            "old_string": "one",
+            "new_string": "three"
+        }))
+        .await
+        .expect("duplicate edit is tool error");
+    assert!(duplicate_edit.is_error);
+    assert!(duplicate_edit.output().contains("matches 2 times"));
+    let edited = edit
+        .execute(json!({
+            "path": "notes/new.txt",
+            "old_string": "one",
+            "new_string": "three",
+            "replace_all": true
+        }))
+        .await
+        .expect("edit replace all");
+    assert!(!edited.is_error, "{}", edited.output());
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("notes/new.txt")).expect("read edited"),
+        "three\ntwo\nthree\n"
+    );
+
+    let patch = ApplyPatchTool::new(security.clone());
+    assert_eq!(patch.name(), "apply_patch");
+    let empty_patch = patch
+        .execute(json!({ "edits": [] }))
+        .await
+        .expect("empty patch is tool error");
+    assert!(empty_patch.is_error);
+    assert!(empty_patch.output().contains("empty"));
+    let patched = patch
+        .execute(json!({
+            "edits": [{
+                "path": "notes/new.txt",
+                "old_string": "two",
+                "new_string": "four"
+            }]
+        }))
+        .await
+        .expect("apply patch");
+    assert!(!patched.is_error, "{}", patched.output());
+    assert!(
+        std::fs::read_to_string(dir.path().join("notes/new.txt"))
+            .expect("read patched")
+            .contains("four")
+    );
+
+    let csv = CsvExportTool::new(security.clone());
+    assert_eq!(csv.name(), "csv_export");
+    let csv_result = csv
+        .execute(json!({
+            "data": r#"[{"name":"Ada, Lovelace","active":true,"score":7},{"name":"Grace","active":false,"score":9}]"#,
+            "filename": "coverage.csv",
+            "columns": ["name", "active", "score"]
+        }))
+        .await
+        .expect("csv export");
+    assert!(!csv_result.is_error, "{}", csv_result.output());
+    let csv_body =
+        std::fs::read_to_string(dir.path().join("exports/coverage.csv")).expect("read csv export");
+    assert!(csv_body.contains("\"Ada, Lovelace\",true,7"));
+    let csv_bad_json = csv
+        .execute(json!({ "data": "not-json", "filename": "bad.csv" }))
+        .await
+        .expect("bad csv json is tool error");
+    assert!(csv_bad_json.is_error);
+    assert!(csv_bad_json.output().contains("Failed to parse data"));
+
     let grep = GrepTool::new(security);
     assert_eq!(grep.name(), "grep");
     assert_eq!(grep.permission_level(), PermissionLevel::ReadOnly);
@@ -3246,6 +3514,38 @@ async fn filesystem_search_and_system_probe_tools_cover_success_and_error_paths(
     assert!(lsp_result.is_error);
     assert!(lsp_result.output().contains("not yet implemented"));
 
+    let run_tests = RunTestsTool::new(dir.path().to_path_buf());
+    assert_eq!(run_tests.name(), "run_tests");
+    let no_project = run_tests
+        .execute(json!({ "runner": "auto" }))
+        .await
+        .expect("run_tests auto without project");
+    assert!(no_project.is_error);
+    assert!(
+        no_project
+            .output()
+            .contains("Could not detect project type")
+    );
+    let bad_runner = run_tests
+        .execute(json!({ "runner": "gradle" }))
+        .await
+        .expect("run_tests bad runner");
+    assert!(bad_runner.is_error);
+    assert!(bad_runner.output().contains("Unknown test runner"));
+
+    let update_apply = UpdateApplyTool::new(Arc::new(SecurityPolicy::from_config(
+        &Config::default().autonomy,
+        dir.path(),
+    )));
+    assert_eq!(update_apply.name(), "update_apply");
+    assert_eq!(update_apply.permission_level(), PermissionLevel::Dangerous);
+    let missing_consent = update_apply
+        .execute(json!({}))
+        .await
+        .expect("update apply consent guard");
+    assert!(missing_consent.is_error);
+    assert!(missing_consent.output().contains("explicit user consent"));
+
     let current_time = CurrentTimeTool::new();
     assert!(current_time.supports_markdown());
     let time_result = current_time
@@ -3259,10 +3559,12 @@ async fn filesystem_search_and_system_probe_tools_cover_success_and_error_paths(
         .expect("current time executes");
     assert!(!time_result.is_error, "{}", time_result.output());
     assert!(time_result.output().contains("requested_timezone_error"));
-    assert!(time_result
-        .markdown_formatted
-        .as_deref()
-        .is_some_and(|md| md.contains("timezone error")));
+    assert!(
+        time_result
+            .markdown_formatted
+            .as_deref()
+            .is_some_and(|md| md.contains("timezone error"))
+    );
 }
 
 #[tokio::test]
@@ -3290,6 +3592,77 @@ async fn irc_channel_public_constructor_and_preconnect_send_are_deterministic() 
     );
 }
 
+#[tokio::test]
+async fn web_fetch_and_gitbooks_tools_use_local_http_backends() {
+    let dir = tempdir().expect("tempdir");
+    let (addr, join) = serve_backend().await;
+    let base = format!("http://{addr}");
+    let security = Arc::new(SecurityPolicy::from_config(
+        &Config::default().autonomy,
+        dir.path(),
+    ));
+
+    let fetch = WebFetchTool::new(security, vec!["*".into()], Some(0), Some(5));
+    assert_eq!(fetch.name(), "web_fetch");
+    assert_eq!(fetch.permission_level(), PermissionLevel::ReadOnly);
+    assert!(fetch.is_concurrency_safe(&json!({})));
+    assert_eq!(fetch.max_result_size_chars(), Some(50_000));
+    let loopback_block = fetch
+        .execute(json!({ "url": format!("{base}/plain"), "max_bytes": 8 }))
+        .await
+        .expect("web fetch blocks loopback before network");
+    assert!(loopback_block.is_error);
+    assert!(
+        loopback_block
+            .output()
+            .contains("Blocked local/private host")
+    );
+    let bad_scheme = fetch
+        .execute(json!({ "url": "file:///tmp/secret" }))
+        .await
+        .expect("web fetch bad scheme");
+    assert!(bad_scheme.is_error);
+    assert!(bad_scheme.output().contains("URL rejected"));
+
+    let endpoint = format!("{base}/mcp");
+    let search = GitbooksSearchTool::new(endpoint.clone(), 5);
+    assert_eq!(search.name(), "gitbooks_search");
+    assert_eq!(search.permission_level(), PermissionLevel::ReadOnly);
+    let blank_query = search
+        .execute(json!({ "query": "  " }))
+        .await
+        .expect("blank query");
+    assert!(blank_query.is_error);
+    assert!(blank_query.output().contains("empty"));
+    let searched = search
+        .execute(json!({ "query": "channels coverage" }))
+        .await
+        .expect("gitbooks search");
+    assert!(!searched.is_error, "{}", searched.output());
+    assert!(
+        searched
+            .output()
+            .contains("gitbooks mocked searchDocumentation")
+    );
+
+    let get_page = GitbooksGetPageTool::new(endpoint, 5);
+    assert_eq!(get_page.name(), "gitbooks_get_page");
+    let blank_url = get_page
+        .execute(json!({ "url": "" }))
+        .await
+        .expect("blank page url");
+    assert!(blank_url.is_error);
+    assert!(blank_url.output().contains("empty"));
+    let page = get_page
+        .execute(json!({ "url": "https://tinyhumans.gitbook.io/openhuman/test" }))
+        .await
+        .expect("gitbooks get page");
+    assert!(!page.is_error, "{}", page.output());
+    assert!(page.output().contains("gitbooks mocked getPage"));
+
+    join.abort();
+}
+
 #[test]
 fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
     assert!(NO_RECONNECT_CLOSE_CODES.contains(&4012));
@@ -3304,11 +3677,12 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
     assert!(cfg.group_at_required);
     assert_eq!(cfg.max_message_length, 4500);
     assert_eq!(cfg.max_media_mb, 50);
-    assert!(cfg
-        .validate()
-        .expect_err("default config invalid")
-        .to_string()
-        .contains("app_key"));
+    assert!(
+        cfg.validate()
+            .expect_err("default config invalid")
+            .to_string()
+            .contains("app_key")
+    );
     cfg.env = "pre".into();
     cfg.apply_env_defaults();
     assert_eq!(cfg.api_domain, "https://bot-pre.yuanbao.tencent.com");
@@ -3316,17 +3690,19 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
         cfg.ws_domain,
         "wss://bot-wss-pre.yuanbao.tencent.com/wss/connection"
     );
-    assert!(cfg
-        .validate()
-        .expect_err("missing token or secret invalid")
-        .to_string()
-        .contains("app_key"));
+    assert!(
+        cfg.validate()
+            .expect_err("missing token or secret invalid")
+            .to_string()
+            .contains("app_key")
+    );
     cfg.app_key = "app-key".into();
-    assert!(cfg
-        .validate()
-        .expect_err("missing token or secret invalid")
-        .to_string()
-        .contains("token"));
+    assert!(
+        cfg.validate()
+            .expect_err("missing token or secret invalid")
+            .to_string()
+            .contains("token")
+    );
     cfg.token = "pre-provisioned-token".into();
     assert!(cfg.validate().is_ok());
 
@@ -3350,14 +3726,18 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
     encode_varint(300, &mut varint);
     assert_eq!(varint, vec![0xac, 0x02]);
     assert_eq!(decode_varint(&varint, 0).expect("decode varint"), (300, 2));
-    assert!(decode_varint(&[0x80], 0)
-        .expect_err("truncated varint")
-        .to_string()
-        .contains("truncated varint"));
-    assert!(decode_varint(&[0xff; 10], 0)
-        .expect_err("overflow varint")
-        .to_string()
-        .contains("overflow"));
+    assert!(
+        decode_varint(&[0x80], 0)
+            .expect_err("truncated varint")
+            .to_string()
+            .contains("truncated varint")
+    );
+    assert!(
+        decode_varint(&[0xff; 10], 0)
+            .expect_err("overflow varint")
+            .to_string()
+            .contains("overflow")
+    );
 
     let mut fields_buf = Vec::new();
     encode_field_varint(1, 42, &mut fields_buf);
@@ -3379,20 +3759,28 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
     assert_eq!(get_varint(&fields, 99), 0);
     assert_eq!(get_string(&fields, 99), "");
     assert!(get_bytes(&fields, 99).is_empty());
-    assert!(fields
-        .iter()
-        .any(|(_, value)| matches!(value, FieldValue::Fixed32(0x1234_5678))));
-    assert!(fields
-        .iter()
-        .any(|(_, value)| matches!(value, FieldValue::Fixed64(0x0102_0304_0506_0708))));
-    assert!(parse_fields(&[((9 << 3) | 3) as u8])
-        .expect_err("unsupported wire type")
-        .to_string()
-        .contains("unsupported wire type"));
-    assert!(parse_fields(&[((9 << 3) | 2) as u8, 5, b'a'])
-        .expect_err("truncated len field")
-        .to_string()
-        .contains("truncated len field"));
+    assert!(
+        fields
+            .iter()
+            .any(|(_, value)| matches!(value, FieldValue::Fixed32(0x1234_5678)))
+    );
+    assert!(
+        fields
+            .iter()
+            .any(|(_, value)| matches!(value, FieldValue::Fixed64(0x0102_0304_0506_0708)))
+    );
+    assert!(
+        parse_fields(&[((9 << 3) | 3) as u8])
+            .expect_err("unsupported wire type")
+            .to_string()
+            .contains("unsupported wire type")
+    );
+    assert!(
+        parse_fields(&[((9 << 3) | 2) as u8, 5, b'a'])
+            .expect_err("truncated len field")
+            .to_string()
+            .contains("truncated len field")
+    );
 
     assert_eq!(split_markdown("short", 100), vec!["short"]);
     let fenced = "intro\n```rust\nfn alpha() {}\nfn beta() {}\n```\noutro\n";
@@ -3587,10 +3975,12 @@ fn yuanbao_media_and_proto_helpers_cover_public_roundtrips() {
     );
     assert_eq!(decoded_json.recall_msg_seq_list[0].msg_seq, 11);
     assert_eq!(decoded_json.trace_id, "trace-json");
-    assert!(decode_inbound_json(b"[]")
-        .expect_err("json root must be object")
-        .to_string()
-        .contains("json root is not an object"));
+    assert!(
+        decode_inbound_json(b"[]")
+            .expect_err("json root must be object")
+            .to_string()
+            .contains("json root is not an object")
+    );
 }
 
 #[tokio::test]

@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { callCoreRpc } from '../coreRpcClient';
-
 import { agentRegistryApi, type AgentRegistryEntry } from './agentRegistryApi';
 
 vi.mock('../coreRpcClient', () => ({ callCoreRpc: vi.fn() }));

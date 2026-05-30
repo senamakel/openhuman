@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { agentRegistryApi, type AgentRegistryEntry } from '../../../services/api/agentRegistryApi';
-
 import AgentsPanel from './AgentsPanel';
 
 vi.mock('../../../services/api/agentRegistryApi', () => ({
@@ -45,7 +44,12 @@ describe('AgentsPanel', () => {
     mockList.mockResolvedValue([
       agent({ id: 'orchestrator', name: 'Orchestrator' }),
       agent({ id: 'researcher', name: 'Researcher' }),
-      agent({ id: 'finance', name: 'Finance', source: 'custom', tool_allowlist: ['memory.search'] }),
+      agent({
+        id: 'finance',
+        name: 'Finance',
+        source: 'custom',
+        tool_allowlist: ['memory.search'],
+      }),
     ]);
   });
 

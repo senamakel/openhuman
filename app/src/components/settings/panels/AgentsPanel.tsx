@@ -16,8 +16,8 @@ import {
   type AgentRegistryEntry,
   type UpdateAgentInput,
 } from '../../../services/api/agentRegistryApi';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import SettingsHeader from '../components/SettingsHeader';
+import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 const ORCHESTRATOR_ID = 'orchestrator';
 

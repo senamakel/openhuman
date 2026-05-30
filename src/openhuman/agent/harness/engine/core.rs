@@ -350,7 +350,8 @@ pub(crate) async fn run_turn_engine(
                 }
             }
             history.push(ChatMessage::assistant(response_text.clone()));
-            observer.after_history_commit(history, iteration);
+            observer.on_assistant(&response_text, 0, iteration, true);
+            observer.after_iteration(history, iteration);
             log::info!(
                 "[agent_loop] turn complete: iters={} provider_calls={} tokens_in={} tokens_out={} cached_in={} usd={:.4}",
                 (iteration + 1),
@@ -410,6 +411,8 @@ pub(crate) async fn run_turn_engine(
                 truncate_with_ellipsis(&outcome.text, 800)
             );
 
+            observer.on_tool_result(&progress_call_id, &call.name, &outcome.text, iteration);
+
             // Repeated-failure circuit breaker (shared guard).
             if let Some(reason) = failure_guard.record(
                 &call.name,
@@ -431,8 +434,11 @@ pub(crate) async fn run_turn_engine(
         // reconstruct OpenAI-format tool_calls + tool result messages. Prompt
         // mode: XML-based text format.
         history.push(ChatMessage::assistant(assistant_history_content));
+        observer.on_assistant(&response_text, tool_calls.len(), iteration, false);
         if native_tool_calls.is_empty() {
-            history.push(ChatMessage::user(format!("[Tool results]\n{tool_results}")));
+            let content = format!("[Tool results]\n{tool_results}");
+            observer.on_results_batch(&content, iteration);
+            history.push(ChatMessage::user(content));
         } else {
             for (native_call, result) in native_tool_calls.iter().zip(individual_results.iter()) {
                 let tool_msg = serde_json::json!({
@@ -443,7 +449,7 @@ pub(crate) async fn run_turn_engine(
             }
         }
 
-        observer.after_history_commit(history, iteration);
+        observer.after_iteration(history, iteration);
 
         // Circuit breaker tripped this iteration: return the root-cause summary
         // instead of looping to `max_iterations`. Tool results are already in
@@ -468,9 +474,15 @@ pub(crate) async fn run_turn_engine(
     } else {
         run_tool_digest.as_str()
     };
-    let text = checkpoint.on_max_iter(digest, max_iterations).await?;
+    let co = checkpoint.on_max_iter(digest, max_iterations).await?;
+    // Fold any summarization-call usage into the turn cost + observer so token
+    // accounting stays complete.
+    if let Some(ref u) = co.usage {
+        turn_cost.add_call(model, u);
+        observer.record_usage(model, u);
+    }
     Ok(TurnEngineOutcome {
-        text,
+        text: co.text,
         iterations: max_iterations as u32,
         cost: turn_cost,
     })

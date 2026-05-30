@@ -8,17 +8,17 @@ use std::time::Duration;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use axum::Router;
 use axum::body::Bytes;
 use axum::extract::Request;
-use axum::http::{Method, StatusCode, header::AUTHORIZATION};
+use axum::http::{header::AUTHORIZATION, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::any;
+use axum::Router;
 use reqwest::StatusCode as ReqwestStatusCode;
-use serde_json::{Value, json};
-use tempfile::{TempDir, tempdir};
+use serde_json::{json, Value};
+use tempfile::{tempdir, TempDir};
 
-use openhuman_core::core::auth::{CORE_TOKEN_ENV_VAR, init_rpc_token};
+use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::event_bus::{DomainEvent, EventHandler};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::core::socketio::WebChannelEvent;
@@ -26,11 +26,11 @@ use openhuman_core::openhuman::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, AgentTier, DefinitionSource, ModelSpec, PromptSource,
     SandboxMode, SkillsWildcard, SubagentEntry, ToolScope as AgentToolScope,
 };
+use openhuman_core::openhuman::agent::host_runtime::NativeRuntime;
 use openhuman_core::openhuman::channels::email_channel::EmailConfig;
 use openhuman_core::openhuman::channels::irc::IrcChannelConfig;
 use openhuman_core::openhuman::channels::proactive::ProactiveMessageSubscriber;
 use openhuman_core::openhuman::channels::traits::ChannelMessage;
-use openhuman_core::openhuman::channels::yuanbao::YuanbaoChannel;
 use openhuman_core::openhuman::channels::yuanbao::config::YuanbaoConfig;
 use openhuman_core::openhuman::channels::yuanbao::errors::{
     AUTH_FAILED_CODES, AUTH_RETRYABLE_CODES, NO_RECONNECT_CLOSE_CODES,
@@ -49,7 +49,7 @@ use openhuman_core::openhuman::channels::yuanbao::proto::{
 };
 use openhuman_core::openhuman::channels::yuanbao::proto_constants::{cmd, cmd_type, module};
 use openhuman_core::openhuman::channels::yuanbao::sign::{
-    SignManager, build_timestamp, compute_signature, generate_nonce,
+    build_timestamp, compute_signature, generate_nonce, SignManager,
 };
 use openhuman_core::openhuman::channels::yuanbao::splitter::split_markdown;
 use openhuman_core::openhuman::channels::yuanbao::types::{
@@ -62,51 +62,53 @@ use openhuman_core::openhuman::channels::yuanbao::types::{
     Source as YuanbaoSource,
 };
 use openhuman_core::openhuman::channels::yuanbao::wire::{
-    FieldValue, decode_varint, encode_field_bytes, encode_field_string, encode_field_varint,
-    encode_varint, get_bytes, get_repeated_bytes, get_string, get_varint, next_seq_no,
-    parse_fields,
+    decode_varint, encode_field_bytes, encode_field_string, encode_field_varint, encode_varint,
+    get_bytes, get_repeated_bytes, get_string, get_varint, next_seq_no, parse_fields, FieldValue,
 };
+use openhuman_core::openhuman::channels::yuanbao::YuanbaoChannel;
 use openhuman_core::openhuman::channels::{
-    Channel, CliChannel, DingTalkChannel, EmailChannel, IMessageChannel, IrcChannel, LinqChannel,
-    MattermostChannel, QQChannel, SendMessage, SignalChannel, SlackChannel, WhatsAppChannel,
+    doctor_channels, Channel, CliChannel, DingTalkChannel, EmailChannel, IMessageChannel,
+    IrcChannel, LinqChannel, MattermostChannel, QQChannel, SendMessage, SignalChannel,
+    SlackChannel, WhatsAppChannel,
 };
 use openhuman_core::openhuman::composio::all_composio_agent_tools;
-use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::config::schema::{
-    CapabilityProviderConfig, CapabilityProviderTrustState,
+    CapabilityProviderConfig, CapabilityProviderTrustState, NodeConfig, WhatsAppConfig,
 };
+use openhuman_core::openhuman::config::{Config, IMessageConfig, WebhookConfig};
 use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
 use openhuman_core::openhuman::credentials::{
-    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
+use openhuman_core::openhuman::javascript::NodeBootstrap;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::security::{AuditLogger, SecurityPolicy};
+use openhuman_core::openhuman::security::{AuditLogger, AutonomyLevel, SecurityPolicy};
 use openhuman_core::openhuman::tool_registry::ops::diagnostics_for_config;
 use openhuman_core::openhuman::tool_registry::{
-    CapabilityProviderRegistryError, all_tool_registry_controller_schemas,
-    all_tool_registry_registered_controllers, capability_provider_by_id,
-    capability_provider_diagnostics, capability_provider_registry, denials, get_tool,
-    is_capability_provider_trusted_enabled, list_capability_providers, list_tools,
-    normalize_capability_provider_id, registry_entries,
+    all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
+    capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
+    denials, get_tool, is_capability_provider_trusted_enabled, list_capability_providers,
+    list_tools, normalize_capability_provider_id, registry_entries,
+    CapabilityProviderRegistryError,
 };
 use openhuman_core::openhuman::tools::generated::{
-    GeneratedToolAdapter, GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
-    admit_generated_tool_definitions, generated_tools_from_definitions,
+    admit_generated_tool_definitions, generated_tools_from_definitions, GeneratedToolAdapter,
+    GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
 };
 use openhuman_core::openhuman::tools::local_cli::tools_wrappers_list_json;
 use openhuman_core::openhuman::tools::orchestrator_tools::collect_orchestrator_tools;
 use openhuman_core::openhuman::tools::{
-    ApplyPatchTool, BrowserAction, BrowserTool, CleaningStrategy, ComputerUseConfig, CsvExportTool,
-    CurrentTimeTool, DefaultToolPolicy, DetectToolsTool, EditFileTool, FileReadTool, FileWriteTool,
-    GitbooksGetPageTool, GitbooksSearchTool, GlobTool, GrepTool, InsertSqlRecordTool,
-    ListFilesTool, LspTool, PermissionLevel, PolicyDecision, ProxyConfigTool, ReadDiffTool,
-    RunLinterTool, RunTestsTool, SchemaCleanr, Tool, ToolCallOptions, ToolCategory, ToolPolicy,
-    ToolResult, ToolScope, UpdateApplyTool, UpdateMemoryMdTool, WebFetchTool, WorkspaceStateTool,
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
     decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
-    write_bytes_to_path,
+    write_bytes_to_path, ApplyPatchTool, BrowserAction, BrowserTool, CleaningStrategy,
+    ComputerUseConfig, CsvExportTool, CurrentTimeTool, DefaultToolPolicy, DetectToolsTool,
+    EditFileTool, FileReadTool, FileWriteTool, GitbooksGetPageTool, GitbooksSearchTool, GlobTool,
+    GrepTool, InsertSqlRecordTool, ListFilesTool, LspTool, NodeExecTool, NpmExecTool,
+    PermissionLevel, PolicyDecision, ProxyConfigTool, ReadDiffTool, RunLinterTool, RunTestsTool,
+    SchemaCleanr, Tool, ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope,
+    UpdateApplyTool, UpdateMemoryMdTool, WebFetchTool, WorkspaceStateTool,
 };
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
@@ -773,11 +775,9 @@ async fn composio_agent_tools_cover_backend_discovery_markdown_and_execution_pat
             "composio_execute",
         ]
     );
-    assert!(
-        tools
-            .iter()
-            .all(|tool| tool.category() == ToolCategory::Skill)
-    );
+    assert!(tools
+        .iter()
+        .all(|tool| tool.category() == ToolCategory::Skill));
 
     let list_toolkits = tools
         .iter()
@@ -850,11 +850,9 @@ async fn composio_agent_tools_cover_backend_discovery_markdown_and_execution_pat
         .await
         .expect("authorize executes");
     assert!(!handoff.is_error, "{}", handoff.output());
-    assert!(
-        handoff
-            .output()
-            .contains("https://connect.example.test/gmail")
-    );
+    assert!(handoff
+        .output()
+        .contains("https://connect.example.test/gmail"));
     assert!(handoff.output().contains("conn-new-1"));
 
     let execute = tools
@@ -891,11 +889,9 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
     let channels = payload(&list, "channels_list")
         .as_array()
         .expect("channels list");
-    assert!(
-        channels
-            .iter()
-            .any(|channel| channel.get("id").and_then(Value::as_str) == Some("telegram"))
-    );
+    assert!(channels
+        .iter()
+        .any(|channel| channel.get("id").and_then(Value::as_str) == Some("telegram")));
 
     let describe = rpc(
         &harness.rpc_base,
@@ -944,10 +940,8 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
         json!({ "channel": "telegram", "authMode": "bot_token", "credentials": "bad" }),
     )
     .await;
-    assert!(
-        error_message(&non_object_creds, "non-object credentials")
-            .contains("credentials must be a JSON object")
-    );
+    assert!(error_message(&non_object_creds, "non-object credentials")
+        .contains("credentials must be a JSON object"));
 
     let telegram_managed = rpc(
         &harness.rpc_base,
@@ -1173,13 +1167,11 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
         json!({ "channel": " discord " }),
     )
     .await;
-    assert!(
-        payload(&filtered_status, "filtered status")
-            .as_array()
-            .expect("filtered status entries")
-            .iter()
-            .all(|entry| entry.get("channel_id").and_then(Value::as_str) == Some("discord"))
-    );
+    assert!(payload(&filtered_status, "filtered status")
+        .as_array()
+        .expect("filtered status entries")
+        .iter()
+        .all(|entry| entry.get("channel_id").and_then(Value::as_str) == Some("discord")));
 
     let telegram_start = rpc(
         &harness.rpc_base,
@@ -1215,12 +1207,10 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
         json!({}),
     )
     .await;
-    assert!(
-        payload(&discord_start, "discord link start")
-            .get("instructions")
-            .and_then(Value::as_str)
-            .is_some_and(|instructions| instructions.contains("discord-link-e2e"))
-    );
+    assert!(payload(&discord_start, "discord link start")
+        .get("instructions")
+        .and_then(Value::as_str)
+        .is_some_and(|instructions| instructions.contains("discord-link-e2e")));
     let discord_check = rpc(
         &harness.rpc_base,
         15,
@@ -1439,33 +1429,27 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert_eq!(baseline[0].permission_level(), PermissionLevel::Execute);
 
     let wrappers = tools_wrappers_list_json();
-    assert!(
-        wrappers
-            .pointer("/result/wrappers")
-            .and_then(Value::as_array)
-            .expect("wrapper list")
-            .iter()
-            .any(|wrapper| wrapper.get("name").and_then(Value::as_str) == Some("screenshot"))
-    );
+    assert!(wrappers
+        .pointer("/result/wrappers")
+        .and_then(Value::as_array)
+        .expect("wrapper list")
+        .iter()
+        .any(|wrapper| wrapper.get("name").and_then(Value::as_str) == Some("screenshot")));
 
     let tool_schemas = all_tools_controller_schemas();
     let tool_controllers = all_tools_registered_controllers();
     assert_eq!(tool_schemas.len(), tool_controllers.len());
-    assert!(
-        tool_schemas
-            .iter()
-            .any(|schema| schema.function == "web_search")
-    );
+    assert!(tool_schemas
+        .iter()
+        .any(|schema| schema.function == "web_search"));
 
     let registry_schemas = all_tool_registry_controller_schemas();
     let registry_controllers = all_tool_registry_registered_controllers();
     assert_eq!(registry_schemas.len(), 3);
     assert_eq!(registry_schemas.len(), registry_controllers.len());
-    assert!(
-        registry_entries()
-            .iter()
-            .any(|entry| entry.tool_id == "tools.web_search")
-    );
+    assert!(registry_entries()
+        .iter()
+        .any(|entry| entry.tool_id == "tools.web_search"));
     let listed = list_tools()
         .into_cli_compatible_json()
         .expect("list_tools json");
@@ -1486,16 +1470,12 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         found.get("tool_id").and_then(Value::as_str),
         Some(first_tool_id)
     );
-    assert!(
-        get_tool("  ")
-            .expect_err("blank registry id should fail")
-            .contains("non-empty")
-    );
-    assert!(
-        get_tool("tools.missing")
-            .expect_err("missing registry id should fail")
-            .contains("tools.missing")
-    );
+    assert!(get_tool("  ")
+        .expect_err("blank registry id should fail")
+        .contains("non-empty"));
+    assert!(get_tool("tools.missing")
+        .expect_err("missing registry id should fail")
+        .contains("tools.missing"));
 
     let dirty_schema = json!({
         "type": "object",
@@ -1593,11 +1573,9 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     );
     let decoded = decode_data_url_bytes(png_data_url).expect("decode png");
     assert_eq!(&decoded[..4], b"\x89PNG");
-    assert!(
-        decode_data_url_bytes("data:text/plain;base64,aGVsbG8=")
-            .expect_err("non-image data URL rejected")
-            .contains("invalid data URL")
-    );
+    assert!(decode_data_url_bytes("data:text/plain;base64,aGVsbG8=")
+        .expect_err("non-image data URL rejected")
+        .contains("invalid data URL"));
     let nested = dir.path().join("screens").join("nested").join("shot.png");
     write_bytes_to_path(&nested, &decoded).expect("write screenshot bytes");
     assert_eq!(
@@ -1663,16 +1641,12 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
     assert_eq!(names, vec!["research", "delegate_to_integrations_agent"]);
 
     let research = &tools[0];
-    assert!(
-        research
-            .description()
-            .contains("direct tools are insufficient")
-    );
-    assert!(
-        research
-            .description()
-            .contains("careful public-source research")
-    );
+    assert!(research
+        .description()
+        .contains("direct tools are insufficient"));
+    assert!(research
+        .description()
+        .contains("careful public-source research"));
     assert_eq!(research.permission_level(), PermissionLevel::Execute);
     assert_eq!(research.category(), ToolCategory::System);
     assert_eq!(
@@ -1880,28 +1854,25 @@ async fn read_diff_tool_reports_empty_diff_and_git_errors() {
 async fn channels_public_helpers_cover_cli_trait_defaults_and_webhook_parsers() {
     let cli = CliChannel::new();
     assert_eq!(cli.name(), "cli");
-    assert!(
-        cli.send(&SendMessage::new("hello from coverage", "stdout"))
-            .await
-            .is_ok()
-    );
+    assert!(cli
+        .send(&SendMessage::new("hello from coverage", "stdout"))
+        .await
+        .is_ok());
     assert!(cli.health_check().await);
     assert!(cli.start_typing("user").await.is_ok());
     assert!(cli.stop_typing("user").await.is_ok());
     assert!(!cli.supports_reactions());
     assert!(!cli.supports_draft_updates());
-    assert!(
-        cli.send_draft(&SendMessage::new("draft", "user"))
-            .await
-            .expect("default send_draft")
-            .is_none()
-    );
+    assert!(cli
+        .send_draft(&SendMessage::new("draft", "user"))
+        .await
+        .expect("default send_draft")
+        .is_none());
     assert!(cli.update_draft("user", "msg-1", "draft").await.is_ok());
-    assert!(
-        cli.finalize_draft("user", "msg-1", "final", Some("thread-1"))
-            .await
-            .is_ok()
-    );
+    assert!(cli
+        .finalize_draft("user", "msg-1", "final", Some("thread-1"))
+        .await
+        .is_ok());
 
     let threaded = SendMessage::with_subject("body", "recipient", "subject")
         .in_thread(Some("thread-1".to_string()));
@@ -1969,22 +1940,18 @@ async fn channels_public_helpers_cover_cli_trait_defaults_and_webhook_parsers() 
     assert_eq!(linq_messages.len(), 1);
     assert_eq!(linq_messages[0].sender, "+15551234567");
     assert!(linq_messages[0].content.contains("hello"));
-    assert!(
-        linq_messages[0]
-            .content
-            .contains("[IMAGE:https://cdn.example.test/image.png]")
-    );
-    assert!(
-        linq.parse_webhook_payload(&json!({ "event_type": "message.sent" }))
-            .is_empty()
-    );
-    assert!(
-        linq.parse_webhook_payload(&json!({
+    assert!(linq_messages[0]
+        .content
+        .contains("[IMAGE:https://cdn.example.test/image.png]"));
+    assert!(linq
+        .parse_webhook_payload(&json!({ "event_type": "message.sent" }))
+        .is_empty());
+    assert!(linq
+        .parse_webhook_payload(&json!({
             "event_type": "message.received",
             "data": { "is_from_me": true }
         }))
-        .is_empty()
-    );
+        .is_empty());
 }
 
 #[tokio::test]
@@ -2020,11 +1987,9 @@ async fn channel_provider_public_paths_cover_pre_network_errors_and_utilities() 
         .listen(tx)
         .await
         .expect_err("mattermost listen should require channel_id before polling");
-    assert!(
-        mattermost_listen
-            .to_string()
-            .contains("channel_id required")
-    );
+    assert!(mattermost_listen
+        .to_string()
+        .contains("channel_id required"));
     assert!(mattermost.stop_typing("channel:root").await.is_ok());
 
     let imessage = IMessageChannel::new(vec!["friend@example.test".into()]);
@@ -2033,11 +1998,9 @@ async fn channel_provider_public_paths_cover_pre_network_errors_and_utilities() 
         .send(&SendMessage::new("hello", "not a valid recipient"))
         .await
         .expect_err("invalid iMessage target should be rejected before osascript");
-    assert!(
-        invalid_target
-            .to_string()
-            .contains("Invalid iMessage target")
-    );
+    assert!(invalid_target
+        .to_string()
+        .contains("Invalid iMessage target"));
 
     let mut email_config = EmailConfig {
         allowed_senders: vec![
@@ -2510,12 +2473,10 @@ async fn yuanbao_channel_and_inbound_pipeline_cover_dispatch_filter_and_error_pa
         .await
         .expect("yuanbao draft marker");
     assert_eq!(draft.as_deref(), Some("yb-draft:alice-uid"));
-    assert!(
-        channel
-            .update_draft("alice-uid", "yb-draft:alice-uid", "partial")
-            .await
-            .is_ok()
-    );
+    assert!(channel
+        .update_draft("alice-uid", "yb-draft:alice-uid", "partial")
+        .await
+        .is_ok());
 
     let pipeline = yuanbao_pipeline(&config);
     match pipeline
@@ -2687,11 +2648,9 @@ async fn tool_registry_rpc_controllers_cover_list_get_diagnostics_and_errors() {
         .get("tools")
         .and_then(Value::as_array)
         .expect("registry tools");
-    assert!(
-        tools
-            .iter()
-            .any(|tool| tool.get("tool_id").and_then(Value::as_str) == Some("tools.web_search"))
-    );
+    assert!(tools
+        .iter()
+        .any(|tool| tool.get("tool_id").and_then(Value::as_str) == Some("tools.web_search")));
 
     let found = rpc(
         &harness.rpc_base,
@@ -2714,10 +2673,8 @@ async fn tool_registry_rpc_controllers_cover_list_get_diagnostics_and_errors() {
         json!({ "tool_id": "   " }),
     )
     .await;
-    assert!(
-        error_message(&missing_id, "tool_registry_get blank id")
-            .contains("tool_id must be a non-empty string")
-    );
+    assert!(error_message(&missing_id, "tool_registry_get blank id")
+        .contains("tool_id must be a non-empty string"));
     let unknown_tool = rpc(
         &harness.rpc_base,
         104,
@@ -2737,24 +2694,18 @@ async fn tool_registry_rpc_controllers_cover_list_get_diagnostics_and_errors() {
     )
     .await;
     let diagnostics = payload(&diagnostics, "tool_registry_diagnostics");
-    assert!(
-        diagnostics
-            .get("total_tools")
-            .and_then(Value::as_u64)
-            .is_some_and(|count| count > 0)
-    );
-    assert!(
-        diagnostics
-            .pointer("/mcp_allowlists/server_count")
-            .and_then(Value::as_u64)
-            .is_some()
-    );
-    assert!(
-        diagnostics
-            .pointer("/mcp_write_audit/enabled")
-            .and_then(Value::as_bool)
-            .is_some()
-    );
+    assert!(diagnostics
+        .get("total_tools")
+        .and_then(Value::as_u64)
+        .is_some_and(|count| count > 0));
+    assert!(diagnostics
+        .pointer("/mcp_allowlists/server_count")
+        .and_then(Value::as_u64)
+        .is_some());
+    assert!(diagnostics
+        .pointer("/mcp_write_audit/enabled")
+        .and_then(Value::as_bool)
+        .is_some());
 
     harness.rpc_join.abort();
     harness.backend_join.abort();
@@ -2879,18 +2830,14 @@ fn tool_registry_provider_and_denial_paths_cover_diagnostics() {
     let diagnostics = diagnostics_for_config(&config).value;
     assert!(diagnostics.total_tools > 0);
     assert!(diagnostics.enabled_tools > 0);
-    assert!(
-        diagnostics
-            .policy_surfaces
-            .iter()
-            .any(|surface| surface == "approval.decide")
-    );
-    assert!(
-        diagnostics
-            .recent_denials
-            .iter()
-            .any(|denial| denial.tool_name == "secret.tool")
-    );
+    assert!(diagnostics
+        .policy_surfaces
+        .iter()
+        .any(|surface| surface == "approval.decide"));
+    assert!(diagnostics
+        .recent_denials
+        .iter()
+        .any(|denial| denial.tool_name == "secret.tool"));
     assert_eq!(diagnostics.capability_providers.total_providers, 2);
 }
 
@@ -2974,32 +2921,26 @@ async fn generated_tools_raw_paths_cover_admission_validation_and_execution() {
     unsafe_name.name = "Bad Tool".into();
     let unsafe_report = admit_generated_tool_definitions(vec![unsafe_name], &admission);
     assert!(unsafe_report.admitted.is_empty());
-    assert!(
-        unsafe_report.rejected[0]
-            .reason
-            .contains("unsupported characters")
-    );
+    assert!(unsafe_report.rejected[0]
+        .reason
+        .contains("unsupported characters"));
 
     let mut missing_provider = admitted.clone();
     missing_provider.provider_id = None;
     let missing_provider_report =
         admit_generated_tool_definitions(vec![missing_provider], &admission);
     assert!(missing_provider_report.admitted.is_empty());
-    assert!(
-        missing_provider_report.rejected[0]
-            .reason
-            .contains("missing provider_id")
-    );
+    assert!(missing_provider_report.rejected[0]
+        .reason
+        .contains("missing provider_id"));
 
     let mut bad_schema = admitted.clone();
     bad_schema.parameters_schema = json!({ "properties": {} });
     let bad_schema_report = admit_generated_tool_definitions(vec![bad_schema], &admission);
     assert!(bad_schema_report.admitted.is_empty());
-    assert!(
-        bad_schema_report.rejected[0]
-            .reason
-            .contains("invalid schema")
-    );
+    assert!(bad_schema_report.rejected[0]
+        .reason
+        .contains("invalid schema"));
 
     let mut adapter_mismatch = admitted.clone();
     adapter_mismatch.adapter_id = "other-adapter".into();
@@ -3058,11 +2999,9 @@ async fn filesystem_and_system_tool_edges_cover_deterministic_error_and_success_
         .await
         .expect("append missing section");
     assert!(!replaced_new.is_error, "{}", replaced_new.output());
-    assert!(
-        std::fs::read_to_string(dir.path().join("MEMORY.md"))
-            .expect("read MEMORY.md after section append")
-            .contains("## Facts\nalpha\n")
-    );
+    assert!(std::fs::read_to_string(dir.path().join("MEMORY.md"))
+        .expect("read MEMORY.md after section append")
+        .contains("## Facts\nalpha\n"));
 
     let replaced_existing = memory_tool
         .execute(json!({
@@ -3246,11 +3185,9 @@ async fn proxy_config_tool_covers_temp_config_runtime_env_and_validation_paths()
         .await
         .expect("bad no_proxy is tool error");
     assert!(bad_no_proxy.is_error);
-    assert!(
-        bad_no_proxy
-            .output()
-            .contains("array must only contain strings")
-    );
+    assert!(bad_no_proxy
+        .output()
+        .contains("array must only contain strings"));
 
     let set_services = tool
         .execute(json!({
@@ -3265,11 +3202,9 @@ async fn proxy_config_tool_covers_temp_config_runtime_env_and_validation_paths()
         .await
         .expect("set services proxy");
     assert!(!set_services.is_error, "{}", set_services.output());
-    assert!(
-        set_services
-            .output()
-            .contains("Proxy configuration updated")
-    );
+    assert!(set_services
+        .output()
+        .contains("Proxy configuration updated"));
     assert!(set_services.output().contains("provider.openai"));
 
     let apply_wrong_scope = tool
@@ -3439,11 +3374,9 @@ async fn filesystem_search_and_system_probe_tools_cover_success_and_error_paths(
         .await
         .expect("apply patch");
     assert!(!patched.is_error, "{}", patched.output());
-    assert!(
-        std::fs::read_to_string(dir.path().join("notes/new.txt"))
-            .expect("read patched")
-            .contains("four")
-    );
+    assert!(std::fs::read_to_string(dir.path().join("notes/new.txt"))
+        .expect("read patched")
+        .contains("four"));
 
     let csv = CsvExportTool::new(security.clone());
     assert_eq!(csv.name(), "csv_export");
@@ -3521,11 +3454,9 @@ async fn filesystem_search_and_system_probe_tools_cover_success_and_error_paths(
         .await
         .expect("run_tests auto without project");
     assert!(no_project.is_error);
-    assert!(
-        no_project
-            .output()
-            .contains("Could not detect project type")
-    );
+    assert!(no_project
+        .output()
+        .contains("Could not detect project type"));
     let bad_runner = run_tests
         .execute(json!({ "runner": "gradle" }))
         .await
@@ -3559,12 +3490,173 @@ async fn filesystem_search_and_system_probe_tools_cover_success_and_error_paths(
         .expect("current time executes");
     assert!(!time_result.is_error, "{}", time_result.output());
     assert!(time_result.output().contains("requested_timezone_error"));
-    assert!(
-        time_result
-            .markdown_formatted
-            .as_deref()
-            .is_some_and(|md| md.contains("timezone error"))
+    assert!(time_result
+        .markdown_formatted
+        .as_deref()
+        .is_some_and(|md| md.contains("timezone error")));
+}
+
+#[tokio::test]
+async fn node_and_npm_exec_tools_cover_validation_policy_and_disabled_runtime_paths() {
+    let dir = tempdir().expect("tempdir");
+    let workspace = dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let mut config = Config {
+        workspace_dir: workspace.clone(),
+        config_path: dir.path().join("config.toml"),
+        ..Config::default()
+    };
+    config.autonomy.level = AutonomyLevel::Full;
+    config.node = NodeConfig {
+        enabled: false,
+        ..NodeConfig::default()
+    };
+
+    let full_security = Arc::new(SecurityPolicy::from_config(
+        &config.autonomy,
+        &config.workspace_dir,
+    ));
+    let readonly_security = Arc::new(SecurityPolicy::from_config(
+        &openhuman_core::openhuman::config::AutonomyConfig {
+            level: AutonomyLevel::ReadOnly,
+            ..config.autonomy.clone()
+        },
+        &config.workspace_dir,
+    ));
+    let runtime = Arc::new(NativeRuntime::new());
+    let bootstrap = Arc::new(NodeBootstrap::new(
+        config.node.clone(),
+        workspace,
+        reqwest::Client::new(),
+    ));
+
+    let node = NodeExecTool::new(full_security.clone(), runtime.clone(), bootstrap.clone());
+    assert_eq!(node.name(), "node_exec");
+    assert_eq!(node.permission_level(), PermissionLevel::Execute);
+    assert!(node.description().contains("Execute JavaScript"));
+    assert_eq!(
+        node.parameters_schema()
+            .pointer("/properties/inline_code/type"),
+        Some(&json!("string"))
     );
+
+    let missing_mode = node.execute(json!({})).await.expect("node mode validation");
+    assert!(missing_mode.is_error);
+    assert!(missing_mode.output().contains("exactly one"));
+    let conflicting_mode = node
+        .execute(json!({
+            "inline_code": "console.log('hi')",
+            "script_path": "script.js",
+        }))
+        .await
+        .expect("node conflict validation");
+    assert!(conflicting_mode.is_error);
+    assert!(conflicting_mode.output().contains("exactly one"));
+
+    let readonly_node = NodeExecTool::new(
+        readonly_security.clone(),
+        runtime.clone(),
+        bootstrap.clone(),
+    );
+    let blocked = readonly_node
+        .execute(json!({ "inline_code": "console.log('blocked')" }))
+        .await
+        .expect("node read-only block");
+    assert!(blocked.is_error);
+    assert!(blocked.output().contains("read-only mode"));
+
+    let disabled_runtime = node
+        .execute(json!({ "inline_code": "console.log('disabled')" }))
+        .await
+        .expect("node disabled runtime");
+    assert!(disabled_runtime.is_error);
+    assert!(disabled_runtime
+        .output()
+        .contains("Node.js runtime unavailable"));
+
+    let npm = NpmExecTool::new(full_security, runtime.clone(), bootstrap.clone());
+    assert_eq!(npm.name(), "npm_exec");
+    assert_eq!(npm.permission_level(), PermissionLevel::Execute);
+    assert!(npm.description().contains("npm subcommand"));
+    assert_eq!(
+        npm.parameters_schema().pointer("/required/0"),
+        Some(&json!("subcommand"))
+    );
+
+    let missing_subcommand = npm.execute(json!({})).await.expect("npm missing");
+    assert!(missing_subcommand.is_error);
+    assert!(missing_subcommand
+        .output()
+        .contains("requires a `subcommand`"));
+    let empty_subcommand = npm
+        .execute(json!({ "subcommand": "   " }))
+        .await
+        .expect("npm empty");
+    assert!(empty_subcommand.is_error);
+    assert!(empty_subcommand.output().contains("cannot be empty"));
+    let rejected_subcommand = npm
+        .execute(json!({ "subcommand": "run && echo nope" }))
+        .await
+        .expect("npm metachar rejection");
+    assert!(rejected_subcommand.is_error);
+    assert!(rejected_subcommand.output().contains("rejected subcommand"));
+    let disallowed_subcommand = npm
+        .execute(json!({ "subcommand": "publish" }))
+        .await
+        .expect("npm disallowed mutation");
+    assert!(disallowed_subcommand.is_error);
+    assert!(disallowed_subcommand.output().contains("refuses to run"));
+
+    let readonly_npm = NpmExecTool::new(readonly_security, runtime, bootstrap);
+    let blocked_npm = readonly_npm
+        .execute(json!({ "subcommand": "test" }))
+        .await
+        .expect("npm read-only block");
+    assert!(blocked_npm.is_error);
+    assert!(blocked_npm.output().contains("read-only mode"));
+
+    let disabled_npm = npm
+        .execute(json!({ "subcommand": "test", "timeout_secs": 1 }))
+        .await
+        .expect("npm disabled runtime");
+    assert!(disabled_npm.is_error);
+    assert!(disabled_npm
+        .output()
+        .contains("Node.js runtime unavailable"));
+}
+
+#[tokio::test]
+async fn doctor_channels_covers_no_channel_and_local_validation_paths() {
+    let mut empty = Config::default();
+    empty.channels_config = openhuman_core::openhuman::config::ChannelsConfig::default();
+    doctor_channels(empty)
+        .await
+        .expect("empty channel doctor is ok");
+
+    let mut config = Config::default();
+    config.channels_config = openhuman_core::openhuman::config::ChannelsConfig::default();
+    config.channels_config.imessage = Some(IMessageConfig {
+        allowed_contacts: Vec::new(),
+    });
+    config.channels_config.whatsapp = Some(WhatsAppConfig {
+        access_token: None,
+        phone_number_id: Some("phone-number-id".into()),
+        verify_token: None,
+        app_secret: None,
+        session_path: None,
+        pair_phone: None,
+        pair_code: None,
+        allowed_numbers: Vec::new(),
+    });
+    config.channels_config.webhook = Some(WebhookConfig {
+        port: 0,
+        secret: Some("secret".into()),
+    });
+
+    doctor_channels(config)
+        .await
+        .expect("doctor handles local iMessage check and invalid WhatsApp config");
 }
 
 #[tokio::test]
@@ -3612,11 +3704,9 @@ async fn web_fetch_and_gitbooks_tools_use_local_http_backends() {
         .await
         .expect("web fetch blocks loopback before network");
     assert!(loopback_block.is_error);
-    assert!(
-        loopback_block
-            .output()
-            .contains("Blocked local/private host")
-    );
+    assert!(loopback_block
+        .output()
+        .contains("Blocked local/private host"));
     let bad_scheme = fetch
         .execute(json!({ "url": "file:///tmp/secret" }))
         .await
@@ -3639,11 +3729,9 @@ async fn web_fetch_and_gitbooks_tools_use_local_http_backends() {
         .await
         .expect("gitbooks search");
     assert!(!searched.is_error, "{}", searched.output());
-    assert!(
-        searched
-            .output()
-            .contains("gitbooks mocked searchDocumentation")
-    );
+    assert!(searched
+        .output()
+        .contains("gitbooks mocked searchDocumentation"));
 
     let get_page = GitbooksGetPageTool::new(endpoint, 5);
     assert_eq!(get_page.name(), "gitbooks_get_page");
@@ -3677,12 +3765,11 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
     assert!(cfg.group_at_required);
     assert_eq!(cfg.max_message_length, 4500);
     assert_eq!(cfg.max_media_mb, 50);
-    assert!(
-        cfg.validate()
-            .expect_err("default config invalid")
-            .to_string()
-            .contains("app_key")
-    );
+    assert!(cfg
+        .validate()
+        .expect_err("default config invalid")
+        .to_string()
+        .contains("app_key"));
     cfg.env = "pre".into();
     cfg.apply_env_defaults();
     assert_eq!(cfg.api_domain, "https://bot-pre.yuanbao.tencent.com");
@@ -3690,19 +3777,17 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
         cfg.ws_domain,
         "wss://bot-wss-pre.yuanbao.tencent.com/wss/connection"
     );
-    assert!(
-        cfg.validate()
-            .expect_err("missing token or secret invalid")
-            .to_string()
-            .contains("app_key")
-    );
+    assert!(cfg
+        .validate()
+        .expect_err("missing token or secret invalid")
+        .to_string()
+        .contains("app_key"));
     cfg.app_key = "app-key".into();
-    assert!(
-        cfg.validate()
-            .expect_err("missing token or secret invalid")
-            .to_string()
-            .contains("token")
-    );
+    assert!(cfg
+        .validate()
+        .expect_err("missing token or secret invalid")
+        .to_string()
+        .contains("token"));
     cfg.token = "pre-provisioned-token".into();
     assert!(cfg.validate().is_ok());
 
@@ -3726,18 +3811,14 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
     encode_varint(300, &mut varint);
     assert_eq!(varint, vec![0xac, 0x02]);
     assert_eq!(decode_varint(&varint, 0).expect("decode varint"), (300, 2));
-    assert!(
-        decode_varint(&[0x80], 0)
-            .expect_err("truncated varint")
-            .to_string()
-            .contains("truncated varint")
-    );
-    assert!(
-        decode_varint(&[0xff; 10], 0)
-            .expect_err("overflow varint")
-            .to_string()
-            .contains("overflow")
-    );
+    assert!(decode_varint(&[0x80], 0)
+        .expect_err("truncated varint")
+        .to_string()
+        .contains("truncated varint"));
+    assert!(decode_varint(&[0xff; 10], 0)
+        .expect_err("overflow varint")
+        .to_string()
+        .contains("overflow"));
 
     let mut fields_buf = Vec::new();
     encode_field_varint(1, 42, &mut fields_buf);
@@ -3759,28 +3840,20 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
     assert_eq!(get_varint(&fields, 99), 0);
     assert_eq!(get_string(&fields, 99), "");
     assert!(get_bytes(&fields, 99).is_empty());
-    assert!(
-        fields
-            .iter()
-            .any(|(_, value)| matches!(value, FieldValue::Fixed32(0x1234_5678)))
-    );
-    assert!(
-        fields
-            .iter()
-            .any(|(_, value)| matches!(value, FieldValue::Fixed64(0x0102_0304_0506_0708)))
-    );
-    assert!(
-        parse_fields(&[((9 << 3) | 3) as u8])
-            .expect_err("unsupported wire type")
-            .to_string()
-            .contains("unsupported wire type")
-    );
-    assert!(
-        parse_fields(&[((9 << 3) | 2) as u8, 5, b'a'])
-            .expect_err("truncated len field")
-            .to_string()
-            .contains("truncated len field")
-    );
+    assert!(fields
+        .iter()
+        .any(|(_, value)| matches!(value, FieldValue::Fixed32(0x1234_5678))));
+    assert!(fields
+        .iter()
+        .any(|(_, value)| matches!(value, FieldValue::Fixed64(0x0102_0304_0506_0708))));
+    assert!(parse_fields(&[((9 << 3) | 3) as u8])
+        .expect_err("unsupported wire type")
+        .to_string()
+        .contains("unsupported wire type"));
+    assert!(parse_fields(&[((9 << 3) | 2) as u8, 5, b'a'])
+        .expect_err("truncated len field")
+        .to_string()
+        .contains("truncated len field"));
 
     assert_eq!(split_markdown("short", 100), vec!["short"]);
     let fenced = "intro\n```rust\nfn alpha() {}\nfn beta() {}\n```\noutro\n";
@@ -3975,12 +4048,10 @@ fn yuanbao_media_and_proto_helpers_cover_public_roundtrips() {
     );
     assert_eq!(decoded_json.recall_msg_seq_list[0].msg_seq, 11);
     assert_eq!(decoded_json.trace_id, "trace-json");
-    assert!(
-        decode_inbound_json(b"[]")
-            .expect_err("json root must be object")
-            .to_string()
-            .contains("json root is not an object")
-    );
+    assert!(decode_inbound_json(b"[]")
+        .expect_err("json root must be object")
+        .to_string()
+        .contains("json root is not an object"));
 }
 
 #[tokio::test]

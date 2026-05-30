@@ -21,7 +21,13 @@ use tempfile::{tempdir, TempDir};
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::channels::email_channel::EmailConfig;
+use openhuman_core::openhuman::channels::irc::IrcChannelConfig;
 use openhuman_core::openhuman::channels::traits::ChannelMessage;
+use openhuman_core::openhuman::channels::yuanbao::config::YuanbaoConfig;
+use openhuman_core::openhuman::channels::yuanbao::errors::{
+    AUTH_FAILED_CODES, AUTH_RETRYABLE_CODES, NO_RECONNECT_CLOSE_CODES,
+};
+use openhuman_core::openhuman::channels::yuanbao::splitter::split_markdown;
 use openhuman_core::openhuman::channels::yuanbao::types::{
     Account as YuanbaoAccount, ConnFrame as YuanbaoConnFrame,
     ConnectionState as YuanbaoConnectionState, GroupInfo as YuanbaoGroupInfo,
@@ -31,8 +37,12 @@ use openhuman_core::openhuman::channels::yuanbao::types::{
     MsgBodyElement as YuanbaoMsgBodyElement, MsgContent as YuanbaoMsgContent,
     Source as YuanbaoSource,
 };
+use openhuman_core::openhuman::channels::yuanbao::wire::{
+    decode_varint, encode_field_bytes, encode_field_string, encode_field_varint, encode_varint,
+    get_bytes, get_repeated_bytes, get_string, get_varint, next_seq_no, parse_fields, FieldValue,
+};
 use openhuman_core::openhuman::channels::{
-    Channel, CliChannel, DingTalkChannel, EmailChannel, IMessageChannel, LinqChannel,
+    Channel, CliChannel, DingTalkChannel, EmailChannel, IMessageChannel, IrcChannel, LinqChannel,
     MattermostChannel, QQChannel, SendMessage, SignalChannel, SlackChannel, WhatsAppChannel,
 };
 use openhuman_core::openhuman::composio::all_composio_agent_tools;
@@ -64,8 +74,9 @@ use openhuman_core::openhuman::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
     decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
     write_bytes_to_path, BrowserAction, CleaningStrategy, ComputerUseConfig, DefaultToolPolicy,
-    PermissionLevel, PolicyDecision, ReadDiffTool, SchemaCleanr, Tool, ToolCallOptions,
-    ToolCategory, ToolPolicy, ToolResult, ToolScope,
+    InsertSqlRecordTool, PermissionLevel, PolicyDecision, ReadDiffTool, RunLinterTool,
+    SchemaCleanr, Tool, ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope,
+    UpdateMemoryMdTool, WorkspaceStateTool,
 };
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
@@ -1362,8 +1373,7 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert!(default_tool.generated_runtime_context(&json!({})).is_none());
     assert!(default_tool.max_result_size_chars().is_none());
 
-    let png_data_url =
-        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    let png_data_url = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
     let raw_screenshot = format!(
         "noise\nScreenshot saved to: {}\n{png_data_url}\n",
         dir.path().join("shot.png").display()
@@ -2179,4 +2189,325 @@ async fn generated_tools_raw_paths_cover_admission_validation_and_execution() {
         Ok(_) => panic!("adapter mismatch should fail"),
         Err(error) => assert!(error.to_string().contains("requires adapter")),
     }
+}
+
+#[tokio::test]
+async fn filesystem_and_system_tool_edges_cover_deterministic_error_and_success_paths() {
+    let dir = tempdir().expect("tempdir");
+
+    let memory_tool = UpdateMemoryMdTool::new(dir.path().to_path_buf());
+    assert_eq!(memory_tool.name(), "update_memory_md");
+    assert_eq!(memory_tool.permission_level(), PermissionLevel::Write);
+    assert_eq!(
+        memory_tool
+            .parameters_schema()
+            .pointer("/properties/file/enum/0"),
+        Some(&json!("MEMORY.md"))
+    );
+
+    let bad_file = memory_tool
+        .execute(json!({
+            "file": "NOTES.md",
+            "action": "append",
+            "content": "ignored"
+        }))
+        .await
+        .expect("bad memory file returns tool error");
+    assert!(bad_file.is_error);
+    assert!(bad_file.output().contains("not allowed"));
+
+    let appended = memory_tool
+        .execute(json!({
+            "file": "MEMORY.md",
+            "action": "append",
+            "content": "first note"
+        }))
+        .await
+        .expect("append memory note");
+    assert!(!appended.is_error, "{}", appended.output());
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("MEMORY.md")).expect("read MEMORY.md"),
+        "first note\n"
+    );
+
+    let replaced_new = memory_tool
+        .execute(json!({
+            "file": "MEMORY.md",
+            "action": "replace_section",
+            "section_title": "Facts",
+            "content": "alpha"
+        }))
+        .await
+        .expect("append missing section");
+    assert!(!replaced_new.is_error, "{}", replaced_new.output());
+    assert!(std::fs::read_to_string(dir.path().join("MEMORY.md"))
+        .expect("read MEMORY.md after section append")
+        .contains("## Facts\nalpha\n"));
+
+    let replaced_existing = memory_tool
+        .execute(json!({
+            "file": "MEMORY.md",
+            "action": "replace_section",
+            "section_title": "Facts",
+            "content": "beta"
+        }))
+        .await
+        .expect("replace existing section");
+    assert!(
+        !replaced_existing.is_error,
+        "{}",
+        replaced_existing.output()
+    );
+    let memory_md = std::fs::read_to_string(dir.path().join("MEMORY.md"))
+        .expect("read MEMORY.md after replace");
+    assert!(memory_md.contains("## Facts\nbeta\n"));
+    assert!(!memory_md.contains("alpha"));
+
+    let missing_section_title = memory_tool
+        .execute(json!({
+            "file": "SKILL.md",
+            "action": "replace_section",
+            "content": "body"
+        }))
+        .await
+        .expect_err("missing section_title is argument error");
+    assert!(missing_section_title.to_string().contains("section_title"));
+
+    let unknown_action = memory_tool
+        .execute(json!({
+            "file": "SKILL.md",
+            "action": "rewrite",
+            "content": "body"
+        }))
+        .await
+        .expect("unknown action returns tool error");
+    assert!(unknown_action.is_error);
+    assert!(unknown_action.output().contains("Unknown action"));
+
+    let linter = RunLinterTool::new(dir.path().to_path_buf());
+    assert_eq!(linter.name(), "run_linter");
+    assert_eq!(linter.permission_level(), PermissionLevel::Execute);
+    assert_eq!(
+        linter
+            .parameters_schema()
+            .pointer("/properties/linter/default"),
+        Some(&json!("auto"))
+    );
+    let auto = linter
+        .execute(json!({ "linter": "auto" }))
+        .await
+        .expect("auto linter without project files");
+    assert!(auto.is_error);
+    assert!(auto.output().contains("Could not detect project type"));
+    let bad_eslint_path = linter
+        .execute(json!({ "linter": "eslint", "path": "../escape.js" }))
+        .await
+        .expect("eslint rejects escaping path before spawn");
+    assert!(bad_eslint_path.is_error);
+    assert!(bad_eslint_path.output().contains("relative path"));
+    let unknown_linter = linter
+        .execute(json!({ "linter": "rubocop" }))
+        .await
+        .expect("unknown linter");
+    assert!(unknown_linter.is_error);
+    assert!(unknown_linter.output().contains("Unknown linter"));
+
+    std::fs::write(dir.path().join("visible.txt"), "hello").expect("write visible file");
+    std::fs::create_dir(dir.path().join("visible_dir")).expect("create visible dir");
+    let workspace = WorkspaceStateTool::new(dir.path().to_path_buf());
+    assert_eq!(workspace.name(), "read_workspace_state");
+    assert_eq!(workspace.permission_level(), PermissionLevel::ReadOnly);
+    let state = workspace
+        .execute(json!({ "include_tree": true, "recent_commits": 2 }))
+        .await
+        .expect("workspace state");
+    assert!(!state.is_error, "{}", state.output());
+    assert!(state.output().contains("## Git Status"));
+    assert!(state.output().contains("visible.txt"));
+    assert!(state.output().contains("visible_dir/"));
+    let no_tree = workspace
+        .execute(json!({ "include_tree": false }))
+        .await
+        .expect("workspace state without tree");
+    assert!(!no_tree.output().contains("Directory Tree"));
+
+    let insert = InsertSqlRecordTool::new();
+    assert_eq!(insert.name(), "insert_sql_record");
+    assert_eq!(insert.permission_level(), PermissionLevel::Write);
+    let missing_session = insert
+        .execute(json!({ "role": "user", "content": "hello" }))
+        .await
+        .expect_err("missing session_id");
+    assert!(missing_session.to_string().contains("session_id"));
+    let invalid_role = insert
+        .execute(json!({
+            "session_id": "s1",
+            "role": "system",
+            "content": "hello"
+        }))
+        .await
+        .expect("invalid role returns tool error");
+    assert!(invalid_role.is_error);
+    assert!(invalid_role.output().contains("Invalid role"));
+    let blank_content = insert
+        .execute(json!({
+            "session_id": "s1",
+            "role": "tool",
+            "content": "   "
+        }))
+        .await
+        .expect("blank content returns tool error");
+    assert!(blank_content.is_error);
+    assert!(blank_content.output().contains("content"));
+    let staged = insert
+        .execute(json!({
+            "session_id": "s1",
+            "role": "assistant",
+            "content": "remember this",
+            "lesson": "short lesson"
+        }))
+        .await
+        .expect("valid insert is currently pending implementation");
+    assert!(staged.is_error);
+    assert!(staged.output().contains("FTS5/SQLite insert pending"));
+}
+
+#[tokio::test]
+async fn irc_channel_public_constructor_and_preconnect_send_are_deterministic() {
+    let irc = IrcChannel::new(IrcChannelConfig {
+        server: "irc.example.test".into(),
+        port: 6697,
+        nickname: "openhuman".into(),
+        username: None,
+        channels: vec!["#coverage".into()],
+        allowed_users: vec!["Alice".into()],
+        server_password: None,
+        nickserv_password: Some("nickserv-secret".into()),
+        sasl_password: Some("sasl-secret".into()),
+        verify_tls: false,
+    });
+
+    assert_eq!(irc.name(), "irc");
+    assert_eq!(
+        irc.send(&SendMessage::new("hello", "#coverage"))
+            .await
+            .expect_err("send before listen should not hit network")
+            .to_string(),
+        "IRC not connected"
+    );
+}
+
+#[test]
+fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
+    assert!(NO_RECONNECT_CLOSE_CODES.contains(&4012));
+    assert!(AUTH_FAILED_CODES.contains(&40001));
+    assert!(AUTH_RETRYABLE_CODES.contains(&40010));
+
+    let mut cfg = YuanbaoConfig::default();
+    assert_eq!(cfg.env, "prod");
+    assert_eq!(cfg.bot_version, "0.1.0");
+    assert_eq!(cfg.dm_access, "open");
+    assert_eq!(cfg.group_access, "allowlist");
+    assert!(cfg.group_at_required);
+    assert_eq!(cfg.max_message_length, 4500);
+    assert_eq!(cfg.max_media_mb, 50);
+    assert!(cfg
+        .validate()
+        .expect_err("default config invalid")
+        .to_string()
+        .contains("app_key"));
+    cfg.env = "pre".into();
+    cfg.apply_env_defaults();
+    assert_eq!(cfg.api_domain, "https://bot-pre.yuanbao.tencent.com");
+    assert_eq!(
+        cfg.ws_domain,
+        "wss://bot-wss-pre.yuanbao.tencent.com/wss/connection"
+    );
+    assert!(cfg
+        .validate()
+        .expect_err("missing token or secret invalid")
+        .to_string()
+        .contains("app_key"));
+    cfg.app_key = "app-key".into();
+    assert!(cfg
+        .validate()
+        .expect_err("missing token or secret invalid")
+        .to_string()
+        .contains("token"));
+    cfg.token = "pre-provisioned-token".into();
+    assert!(cfg.validate().is_ok());
+
+    let mut explicit = YuanbaoConfig {
+        app_key: "app-key".into(),
+        token: "token".into(),
+        api_domain: "https://custom-api.example.test".into(),
+        ws_domain: "wss://custom-ws.example.test".into(),
+        ..YuanbaoConfig::default()
+    };
+    explicit.apply_env_defaults();
+    assert_eq!(explicit.api_domain, "https://custom-api.example.test");
+    assert_eq!(explicit.ws_domain, "wss://custom-ws.example.test");
+    assert!(explicit.validate().is_ok());
+
+    let seq_a = next_seq_no();
+    let seq_b = next_seq_no();
+    assert_eq!(seq_b, seq_a + 1);
+
+    let mut varint = Vec::new();
+    encode_varint(300, &mut varint);
+    assert_eq!(varint, vec![0xac, 0x02]);
+    assert_eq!(decode_varint(&varint, 0).expect("decode varint"), (300, 2));
+    assert!(decode_varint(&[0x80], 0)
+        .expect_err("truncated varint")
+        .to_string()
+        .contains("truncated varint"));
+    assert!(decode_varint(&[0xff; 10], 0)
+        .expect_err("overflow varint")
+        .to_string()
+        .contains("overflow"));
+
+    let mut fields_buf = Vec::new();
+    encode_field_varint(1, 42, &mut fields_buf);
+    encode_field_string(2, "hello", &mut fields_buf);
+    encode_field_bytes(2, b"again", &mut fields_buf);
+    fields_buf.push((3 << 3) | 5);
+    fields_buf.extend_from_slice(&0x1234_5678_u32.to_le_bytes());
+    fields_buf.push((4 << 3) | 1);
+    fields_buf.extend_from_slice(&0x0102_0304_0506_0708_u64.to_le_bytes());
+
+    let fields = parse_fields(&fields_buf).expect("parse mixed fields");
+    assert_eq!(get_varint(&fields, 1), 42);
+    assert_eq!(get_string(&fields, 2), "hello");
+    assert_eq!(get_bytes(&fields, 2), b"hello".to_vec());
+    assert_eq!(
+        get_repeated_bytes(&fields, 2),
+        vec![b"hello".to_vec(), b"again".to_vec()]
+    );
+    assert_eq!(get_varint(&fields, 99), 0);
+    assert_eq!(get_string(&fields, 99), "");
+    assert!(get_bytes(&fields, 99).is_empty());
+    assert!(fields
+        .iter()
+        .any(|(_, value)| matches!(value, FieldValue::Fixed32(0x1234_5678))));
+    assert!(fields
+        .iter()
+        .any(|(_, value)| matches!(value, FieldValue::Fixed64(0x0102_0304_0506_0708))));
+    assert!(parse_fields(&[((9 << 3) | 3) as u8])
+        .expect_err("unsupported wire type")
+        .to_string()
+        .contains("unsupported wire type"));
+    assert!(parse_fields(&[((9 << 3) | 2) as u8, 5, b'a'])
+        .expect_err("truncated len field")
+        .to_string()
+        .contains("truncated len field"));
+
+    assert_eq!(split_markdown("short", 100), vec!["short"]);
+    let fenced = "intro\n```rust\nfn alpha() {}\nfn beta() {}\n```\noutro\n";
+    let chunks = split_markdown(fenced, 32);
+    assert!(chunks.len() > 1);
+    assert!(chunks.iter().any(|chunk| chunk.contains("```rust")));
+    assert!(chunks.iter().all(|chunk| !chunk.trim().is_empty()));
+    let hard_split = split_markdown("é".repeat(8).as_str(), 3);
+    assert!(hard_split.len() > 1);
+    assert!(hard_split.iter().all(|chunk| chunk.len() <= 4));
 }

@@ -474,6 +474,31 @@ const it2: TranslationMap = {
   'settings.agents.editor.save': 'Save',
   'settings.agents.editor.create': 'Create agent',
   'settings.agents.editor.saving': 'Saving…',
+  'settings.agentsSection.title': 'Agents',
+  'settings.agentsSection.description':
+    'Manage your agents, their autonomy, and what they can access on this computer.',
+  'settings.agentsSection.menuDesc': 'Registry, autonomy & OS access',
+  'settings.agents.editor.notFound': 'Agent not found.',
+  'settings.agents.editor.modelInherit': 'Inherit (platform default)',
+  'settings.agents.editor.modelHints': 'Route hints',
+  'settings.agents.editor.modelTiers': 'Model tiers',
+  'settings.agents.editor.modelCustom': 'Custom model id…',
+  'settings.agents.editor.modelCustomPlaceholder': 'e.g. anthropic/claude-sonnet-4',
+  'settings.agents.editor.selectTools': 'Add tools',
+  'settings.agents.editor.toolsAllSelected': 'All tools',
+  'settings.agents.editor.toolsNoneSelected': 'No tools selected',
+  'settings.agents.editor.removeToolAria': 'Remove {tool}',
+  'settings.agents.editor.toolsModalTitle': 'Allowed tools',
+  'settings.agents.editor.toolsSelectedCount': '{count} selected',
+  'settings.agents.editor.toolsSearchPlaceholder': 'Search tools…',
+  'settings.agents.editor.toolsAllowAll': 'Allow all tools (*)',
+  'settings.agents.editor.toolsAllowAllHint': 'This agent can use every available tool.',
+  'settings.agents.editor.toolsLoading': 'Loading tools…',
+  'settings.agents.editor.toolsLoadError': 'Couldn’t load tools',
+  'settings.agents.editor.toolsEmpty': 'No tools match your search.',
+  'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'Built-in agents can’t be edited. You can enable, disable, or reset them from the agents list.',
 };
 
 export default it2;

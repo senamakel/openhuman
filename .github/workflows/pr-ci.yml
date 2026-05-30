@@ -153,7 +153,10 @@ jobs:
             . -> target
             app/src-tauri -> target
           cache-on-failure: true
-          key: pr-e2e-build-linux
+          # Donor for the shared tauri build cache (pr-rust-tauri-v2): this lane
+          # compiles the full Tauri shell, so rust-tauri-coverage restores a warm
+          # dependency tree instead of rebuilding it.
+          key: pr-rust-tauri-v2
 
       - name: Restore sccache compiler cache
         id: sccache-cache
@@ -286,7 +289,10 @@ jobs:
         with:
           workspaces: . -> target
           cache-on-failure: true
-          key: pr-playwright-build-linux
+          # Donor for the shared core build cache (pr-rust-core-v2): this lane
+          # compiles the openhuman crate in full, so rust-e2e and core coverage
+          # restore a warm tree instead of each rebuilding it.
+          key: pr-rust-core-v2
 
       - name: Restore sccache compiler cache
         id: sccache-cache
@@ -372,7 +378,7 @@ jobs:
 
   frontend-coverage:
     name: Frontend Coverage (Vitest)
-    needs: [frontend-quality, rust-quality]
+    needs: [frontend-quality]
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
@@ -424,14 +430,13 @@ jobs:
 
   rust-core-coverage:
     name: Rust Core Coverage (cargo-llvm-cov)
-    needs: [frontend-quality, rust-quality]
+    needs: [rust-quality]
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     env:
       CARGO_INCREMENTAL: "0"
-      CARGO_BUILD_JOBS: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -445,7 +450,11 @@ jobs:
         with:
           workspaces: . -> target
           cache-on-failure: true
-          key: pr-core-coverage
+          # Shared core build cache: the playwright/core builders compile the
+          # openhuman crate's full dependency tree here; coverage restores it and
+          # only re-instruments the workspace crates (deps are never instrumented),
+          # so the bulk of the compile is reused rather than rebuilt per job.
+          key: pr-rust-core-v2
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -463,7 +472,7 @@ jobs:
 
   rust-tauri-coverage:
     name: Rust Tauri Coverage (cargo-llvm-cov)
-    needs: [frontend-quality, rust-quality]
+    needs: [rust-quality]
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     container:
@@ -485,7 +494,10 @@ jobs:
             . -> target
             app/src-tauri -> target
           cache-on-failure: true
-          key: pr-tauri-coverage
+          # Shared tauri build cache (see build-linux-desktop-e2e-artifact, the
+          # donor that compiles the full shell). Coverage restores the warm
+          # dependency tree and only re-instruments workspace crates.
+          key: pr-rust-tauri-v2
 
       - name: Cache CEF binary distribution
         id: cef-cache
@@ -523,7 +535,7 @@ jobs:
 
   rust-e2e:
     name: Rust E2E (mock backend)
-    needs: [frontend-quality, rust-quality]
+    needs: [rust-quality]
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
@@ -554,7 +566,9 @@ jobs:
         with:
           workspaces: . -> target
           cache-on-failure: true
-          key: pr-rust-e2e-linux
+          # Shared core build cache (see pr-rust-core-v2): reuse the warm
+          # openhuman dependency/build tree instead of recompiling from scratch.
+          key: pr-rust-core-v2
 
       - name: Restore sccache compiler cache
         id: sccache-cache

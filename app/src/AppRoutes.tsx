@@ -16,6 +16,7 @@ import Onboarding from './pages/onboarding/Onboarding';
 import Rewards from './pages/Rewards';
 import Routines from './pages/Routines';
 import Settings from './pages/Settings';
+import AgentWorkflows from './pages/AgentWorkflows';
 import SkillNew from './pages/SkillNew';
 import Skills from './pages/Skills';
 import SkillsRun from './pages/SkillsRun';
@@ -170,6 +171,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requireAuth={true}>
             <Rewards />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/workflows"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <AgentWorkflows />
           </ProtectedRoute>
         }
       />

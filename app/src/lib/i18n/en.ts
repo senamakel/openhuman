@@ -4283,6 +4283,12 @@ const en: TranslationMap = {
   'settings.cryptoSection.description':
     'Manage your recovery phrase and view balances across your wallet accounts.',
   'settings.cryptoSection.menuDesc': 'Recovery phrase & wallet balances',
+  'settings.notificationsHub.title': 'Notifications',
+  'settings.notificationsHub.description':
+    'View your alerts inbox and manage notification preferences and routing.',
+  'settings.notificationsHub.menuDesc': 'Alerts inbox & notification preferences',
+  'settings.notificationsHub.settingsItem': 'Notification settings',
+  'settings.notificationsHub.settingsItemDesc': 'Preferences & routing',
   'settings.agents.editor.notFound': 'Agent not found.',
   'settings.agents.editor.modelInherit': 'Inherit (platform default)',
   'settings.agents.editor.modelHints': 'Route hints',

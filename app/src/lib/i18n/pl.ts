@@ -4132,6 +4132,12 @@ const messages: TranslationMap = {
   'settings.cryptoSection.description':
     'Zarządzaj frazą odzyskiwania i sprawdzaj salda na kontach portfela.',
   'settings.cryptoSection.menuDesc': 'Fraza odzyskiwania i salda portfela',
+  'settings.notificationsHub.title': 'Powiadomienia',
+  'settings.notificationsHub.description':
+    'Przeglądaj skrzynkę alertów oraz zarządzaj preferencjami powiadomień i routingiem.',
+  'settings.notificationsHub.menuDesc': 'Skrzynka alertów i preferencje powiadomień',
+  'settings.notificationsHub.settingsItem': 'Ustawienia powiadomień',
+  'settings.notificationsHub.settingsItemDesc': 'Preferencje i routing',
   'settings.agents.editor.notFound': 'Nie znaleziono agenta.',
   'settings.agents.editor.modelInherit': 'Dziedzicz (domyślne platformy)',
   'settings.agents.editor.modelHints': 'Wskazówki trasowania',

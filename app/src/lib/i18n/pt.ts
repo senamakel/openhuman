@@ -4131,6 +4131,12 @@ const messages: TranslationMap = {
   'settings.cryptoSection.description':
     'Gerencie sua frase de recuperação e veja os saldos das suas contas de carteira.',
   'settings.cryptoSection.menuDesc': 'Frase de recuperação e saldos da carteira',
+  'settings.notificationsHub.title': 'Notificações',
+  'settings.notificationsHub.description':
+    'Veja a sua caixa de entrada de alertas e gira as preferências de notificação e o encaminhamento.',
+  'settings.notificationsHub.menuDesc': 'Caixa de entrada de alertas e preferências de notificação',
+  'settings.notificationsHub.settingsItem': 'Configurações de notificação',
+  'settings.notificationsHub.settingsItemDesc': 'Preferências e encaminhamento',
   'settings.agents.editor.notFound': 'Agente não encontrado.',
   'settings.agents.editor.modelInherit': 'Herdar (padrão da plataforma)',
   'settings.agents.editor.modelHints': 'Dicas de roteamento',

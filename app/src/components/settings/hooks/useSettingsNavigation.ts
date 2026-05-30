@@ -35,6 +35,7 @@ export type SettingsRoute =
   | 'voice-debug'
   | 'local-model-debug'
   | 'notifications'
+  | 'notifications-hub'
   | 'notification-routing'
   | 'mascot'
   | 'persona'
@@ -121,6 +122,9 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     // specific `notification-routing` path doesn't get swallowed by the
     // shorter `notifications` prefix.
     if (path.includes('/settings/notification-routing')) return 'notification-routing';
+    // `notifications-hub` must be checked before the shorter `notifications`
+    // prefix (the tabbed settings panel) so it isn't swallowed.
+    if (path.includes('/settings/notifications-hub')) return 'notifications-hub';
     if (path.includes('/settings/notifications')) return 'notifications';
     if (path.includes('/settings/devices')) return 'devices';
     if (path.includes('/settings/mascot')) return 'mascot';
@@ -199,6 +203,11 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     onClick: () => navigate('/settings/crypto'),
   };
 
+  const notificationsHubCrumb: BreadcrumbItem = {
+    label: 'Notifications',
+    onClick: () => navigate('/settings/notifications-hub'),
+  };
+
   const getBreadcrumbs = (): BreadcrumbItem[] => {
     switch (currentRoute) {
       // Section pages
@@ -263,15 +272,17 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
       case 'notification-routing':
       case 'mcp-server':
       case 'dev-workflow':
+      case 'notifications-hub': // Notifications hub section page lives under Advanced.
         return [settingsCrumb, developerCrumb];
 
       // Developer options section page
       case 'developer-options':
         return [settingsCrumb];
 
-      // Notifications panel sits at the top level of Settings.
+      // Notification preferences panel is a leaf under the Advanced →
+      // Notifications hub.
       case 'notifications':
-        return [settingsCrumb];
+        return [settingsCrumb, developerCrumb, notificationsHubCrumb];
 
       case 'devices':
         return [settingsCrumb];

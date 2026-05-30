@@ -4131,6 +4131,12 @@ const messages: TranslationMap = {
   'settings.cryptoSection.description':
     'Gestisci la tua frase di recupero e visualizza i saldi dei tuoi account wallet.',
   'settings.cryptoSection.menuDesc': 'Frase di recupero e saldi del wallet',
+  'settings.notificationsHub.title': 'Notifiche',
+  'settings.notificationsHub.description':
+    'Visualizza la tua casella degli avvisi e gestisci le preferenze di notifica e l’instradamento.',
+  'settings.notificationsHub.menuDesc': 'Casella degli avvisi e preferenze di notifica',
+  'settings.notificationsHub.settingsItem': 'Impostazioni di notifica',
+  'settings.notificationsHub.settingsItemDesc': 'Preferenze e instradamento',
   'settings.agents.editor.notFound': 'Agente non trovato.',
   'settings.agents.editor.modelInherit': 'Eredita (predefinito della piattaforma)',
   'settings.agents.editor.modelHints': 'Suggerimenti di instradamento',

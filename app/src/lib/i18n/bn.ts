@@ -4060,6 +4060,12 @@ const messages: TranslationMap = {
   'settings.cryptoSection.description':
     'আপনার রিকভারি ফ্রেজ পরিচালনা করুন এবং আপনার ওয়ালেট অ্যাকাউন্টগুলির ব্যালেন্স দেখুন।',
   'settings.cryptoSection.menuDesc': 'রিকভারি ফ্রেজ ও ওয়ালেট ব্যালেন্স',
+  'settings.notificationsHub.title': 'বিজ্ঞপ্তি',
+  'settings.notificationsHub.description':
+    'আপনার অ্যালার্ট ইনবক্স দেখুন এবং বিজ্ঞপ্তির পছন্দ ও রাউটিং পরিচালনা করুন।',
+  'settings.notificationsHub.menuDesc': 'অ্যালার্ট ইনবক্স ও বিজ্ঞপ্তির পছন্দ',
+  'settings.notificationsHub.settingsItem': 'বিজ্ঞপ্তি সেটিংস',
+  'settings.notificationsHub.settingsItemDesc': 'পছন্দ ও রাউটিং',
   'settings.agents.editor.notFound': 'এজেন্ট পাওয়া যায়নি।',
   'settings.agents.editor.modelInherit': 'উত্তরাধিকার (প্ল্যাটফর্ম ডিফল্ট)',
   'settings.agents.editor.modelHints': 'রুট হিন্টস',

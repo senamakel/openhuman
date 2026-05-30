@@ -4100,6 +4100,12 @@ const messages: TranslationMap = {
   'settings.cryptoSection.description':
     'Управляйте секретной фразой восстановления и просматривайте балансы своих кошельковых счетов.',
   'settings.cryptoSection.menuDesc': 'Фраза восстановления и балансы кошелька',
+  'settings.notificationsHub.title': 'Уведомления',
+  'settings.notificationsHub.description':
+    'Просматривайте папку оповещений и управляйте настройками уведомлений и маршрутизацией.',
+  'settings.notificationsHub.menuDesc': 'Папка оповещений и настройки уведомлений',
+  'settings.notificationsHub.settingsItem': 'Настройки уведомлений',
+  'settings.notificationsHub.settingsItemDesc': 'Настройки и маршрутизация',
   'settings.agents.editor.notFound': 'Агент не найден.',
   'settings.agents.editor.modelInherit': 'Унаследовать (системное по умолчанию)',
   'settings.agents.editor.modelHints': 'Подсказки маршрутизации',

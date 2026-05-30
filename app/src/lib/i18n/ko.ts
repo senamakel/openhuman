@@ -4028,6 +4028,12 @@ const messages: TranslationMap = {
   'settings.cryptoSection.title': 'Crypto',
   'settings.cryptoSection.description': '복구 문구를 관리하고 지갑 계정 전반의 잔액을 확인하세요.',
   'settings.cryptoSection.menuDesc': '복구 문구 및 지갑 잔액',
+  'settings.notificationsHub.title': '알림',
+  'settings.notificationsHub.description':
+    '알림 받은 편지함을 확인하고 알림 환경설정과 라우팅을 관리하세요.',
+  'settings.notificationsHub.menuDesc': '알림 받은 편지함 및 알림 환경설정',
+  'settings.notificationsHub.settingsItem': '알림 설정',
+  'settings.notificationsHub.settingsItemDesc': '환경설정 및 라우팅',
   'settings.agents.editor.notFound': '에이전트를 찾을 수 없습니다.',
   'settings.agents.editor.modelInherit': '상속 (플랫폼 기본값)',
   'settings.agents.editor.modelHints': '라우트 힌트',

@@ -4067,6 +4067,12 @@ const messages: TranslationMap = {
   'settings.cryptoSection.description':
     'अपना रिकवरी फ्रेज़ प्रबंधित करें और अपने वॉलेट खातों के बैलेंस देखें।',
   'settings.cryptoSection.menuDesc': 'रिकवरी फ्रेज़ और वॉलेट बैलेंस',
+  'settings.notificationsHub.title': 'सूचनाएं',
+  'settings.notificationsHub.description':
+    'अपना अलर्ट इनबॉक्स देखें और सूचना प्राथमिकताएं व रूटिंग प्रबंधित करें।',
+  'settings.notificationsHub.menuDesc': 'अलर्ट इनबॉक्स और सूचना प्राथमिकताएं',
+  'settings.notificationsHub.settingsItem': 'सूचना सेटिंग्स',
+  'settings.notificationsHub.settingsItemDesc': 'प्राथमिकताएं और रूटिंग',
   'settings.agents.editor.notFound': 'एजेंट नहीं मिला।',
   'settings.agents.editor.modelInherit': 'इनहेरिट करें (प्लेटफ़ॉर्म डिफ़ॉल्ट)',
   'settings.agents.editor.modelHints': 'रूट संकेत',

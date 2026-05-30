@@ -241,7 +241,7 @@ jobs:
           key: ${{ steps.desktop-artifact-cache.outputs.cache-primary-key }}
 
       - name: Save sccache compiler cache
-        if: always()
+        if: always() && steps.desktop-artifact-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .sccache
@@ -356,7 +356,7 @@ jobs:
           key: ${{ steps.playwright-artifact-cache.outputs.cache-primary-key }}
 
       - name: Save sccache compiler cache
-        if: always()
+        if: always() && steps.playwright-artifact-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .sccache

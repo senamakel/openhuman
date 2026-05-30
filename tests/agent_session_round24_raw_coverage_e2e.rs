@@ -452,7 +452,8 @@ async fn max_iteration_checkpoint_uses_deterministic_fallback_and_hooks() {
     let answer = agent.turn("hit the cap").await.unwrap();
 
     assert!(answer.contains("I reached the tool-call limit for this turn (1 steps)"));
-    assert!(answer.contains("`round24_echo`"));
+    // The unified TurnEngine digest uses `- round24_echo [ok]: ...` format (no backticks).
+    assert!(answer.contains("round24_echo"));
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     wait_for_hook_calls(&hook_calls, 1).await;
     let contexts = hook_contexts.lock();

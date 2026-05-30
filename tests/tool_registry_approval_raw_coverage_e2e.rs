@@ -259,18 +259,16 @@ fn approval_db_path(config: &Config) -> PathBuf {
 
 fn pending(
     request_id: &str,
-    session_id: &str,
+    _session_id: &str,
     expires_at: Option<chrono::DateTime<chrono::Utc>>,
 ) -> PendingApproval {
-    PendingApproval {
-        request_id: request_id.to_string(),
-        tool_name: "tools.composio_execute".to_string(),
-        action_summary: "tools.composio_execute(action=execute, 42 bytes)".to_string(),
-        args_redacted: json!({ "action": "execute", "tool_slug": "GMAIL_SEND_EMAIL" }),
-        session_id: session_id.to_string(),
-        created_at: chrono::Utc::now(),
+    PendingApproval::new(
+        request_id,
+        "tools.composio_execute",
+        "tools.composio_execute(action=execute, 42 bytes)",
+        json!({ "action": "execute", "tool_slug": "GMAIL_SEND_EMAIL" }),
         expires_at,
-    }
+    )
 }
 
 fn test_mcp_server() -> InstalledServer {
@@ -852,6 +850,7 @@ fn approval_redaction_and_store_cover_shape_expiry_migration_and_audit_branches(
             "session-a",
             Some(chrono::Utc::now() - chrono::Duration::minutes(5)),
         ),
+        "session-a",
     )
     .expect("insert expired");
     approval_store::insert_pending(
@@ -861,10 +860,15 @@ fn approval_redaction_and_store_cover_shape_expiry_migration_and_audit_branches(
             "session-a",
             Some(chrono::Utc::now() + chrono::Duration::minutes(5)),
         ),
+        "session-a",
     )
     .expect("insert active");
-    approval_store::insert_pending(&config, &pending("other-session", "session-b", None))
-        .expect("insert no-ttl");
+    approval_store::insert_pending(
+        &config,
+        &pending("other-session", "session-b", None),
+        "session-b",
+    )
+    .expect("insert no-ttl");
 
     let rows = approval_store::list_pending(&config).expect("list pending");
     let ids = rows

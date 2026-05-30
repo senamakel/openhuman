@@ -39,10 +39,12 @@ use openhuman_core::openhuman::memory::{
     rpc_models::{
         ApiEnvelope, ApiError, ApiMeta, AppendConversationMessageRequest,
         ConversationMessageRecord, ConversationMessagesRequest, CreateConversationThreadRequest,
-        DeleteConversationThreadRequest, EmptyRequest, GenerateConversationThreadTitleRequest,
-        PaginationMeta, QueryNamespaceRequest, RecallContextRequest, RecallMemoriesRequest,
-        UpdateConversationMessageRequest, UpdateConversationThreadLabelsRequest,
-        UpdateConversationThreadTitleRequest, UpsertConversationThreadRequest,
+        DeleteConversationThreadRequest, DeleteDocumentRequest, EmptyRequest,
+        GenerateConversationThreadTitleRequest, ListDocumentsRequest, ListMemoryFilesRequest,
+        MemoryInitRequest, PaginationMeta, QueryNamespaceRequest, ReadMemoryFileRequest,
+        RecallContextRequest, RecallMemoriesRequest, UpdateConversationMessageRequest,
+        UpdateConversationThreadLabelsRequest, UpdateConversationThreadTitleRequest,
+        UpsertConversationThreadRequest, WriteMemoryFileRequest,
     },
     traits::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts},
     util::redact::{redact, redact_endpoint},
@@ -2386,7 +2388,7 @@ async fn memory_sync_provider_trait_defaults_and_connection_hook_are_determinist
             display_name: Some("No client".into()),
             ..Default::default()
         }),
-        0
+        1
     );
 
     provider
@@ -3266,4 +3268,394 @@ async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
             .value
             .removed
     );
+}
+
+#[tokio::test]
+async fn memory_ops_public_handlers_cover_document_file_kv_graph_and_envelopes() {
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+
+    let init = openhuman_core::openhuman::memory::ops::memory_init(MemoryInitRequest {
+        jwt_token: Some("ignored-token".into()),
+    })
+    .await
+    .expect("memory init")
+    .value
+    .data
+    .expect("init data");
+    assert!(init.initialized);
+    assert!(init.memory_dir.ends_with("/memory"));
+    let memory_dir = std::path::PathBuf::from(&init.memory_dir);
+
+    let write =
+        openhuman_core::openhuman::memory::ops::ai_write_memory_file(WriteMemoryFileRequest {
+            relative_path: "notes/raw.md".into(),
+            content: "Memory file coverage".into(),
+        })
+        .await
+        .expect("write memory file")
+        .value
+        .data
+        .expect("write data");
+    assert!(write.written);
+    assert_eq!(write.bytes_written, "Memory file coverage".len());
+
+    let read = openhuman_core::openhuman::memory::ops::ai_read_memory_file(ReadMemoryFileRequest {
+        relative_path: "notes/raw.md".into(),
+    })
+    .await
+    .expect("read memory file")
+    .value
+    .data
+    .expect("read data");
+    assert_eq!(read.content, "Memory file coverage");
+
+    std::fs::write(memory_dir.join("root.md"), "root").expect("root note");
+    std::fs::write(memory_dir.join("memory.db"), "hidden").expect("sqlite stub");
+    let root_files =
+        openhuman_core::openhuman::memory::ops::ai_list_memory_files(ListMemoryFilesRequest {
+            relative_dir: "".into(),
+        })
+        .await
+        .expect("list root memory files")
+        .value
+        .data
+        .expect("root list data");
+    assert_eq!(root_files.files, vec!["root.md"]);
+
+    let listed =
+        openhuman_core::openhuman::memory::ops::ai_list_memory_files(ListMemoryFilesRequest {
+            relative_dir: "notes".into(),
+        })
+        .await
+        .expect("list memory files")
+        .value
+        .data
+        .expect("list data");
+    assert_eq!(listed.files, vec!["raw.md"]);
+    assert!(
+        openhuman_core::openhuman::memory::ops::ai_list_memory_files(ListMemoryFilesRequest {
+            relative_dir: "../escape".into(),
+        })
+        .await
+        .unwrap_err()
+        .contains("traversal")
+    );
+
+    let namespace = "ops-raw-coverage";
+    let document_id = openhuman_core::openhuman::memory::ops::doc_put(
+        openhuman_core::openhuman::memory::ops::PutDocParams {
+            namespace: namespace.into(),
+            key: "doc-1".into(),
+            title: "Ops coverage document".into(),
+            content: "Alice owns deterministic coverage for memory ops.".into(),
+            source_type: "test".into(),
+            priority: "high".into(),
+            tags: vec!["coverage".into()],
+            metadata: json!({ "fixture": true }),
+            category: "core".into(),
+            session_id: Some("session-ops".into()),
+            document_id: Some("doc-ops-raw".into()),
+        },
+    )
+    .await
+    .expect("doc put")
+    .value
+    .document_id;
+    assert_eq!(document_id, "doc-ops-raw");
+
+    let namespaces = openhuman_core::openhuman::memory::ops::namespace_list()
+        .await
+        .expect("namespace list")
+        .value;
+    assert!(namespaces.iter().any(|candidate| candidate == namespace));
+
+    let direct_docs = openhuman_core::openhuman::memory::ops::doc_list(Some(
+        openhuman_core::openhuman::memory::ops::NamespaceOnlyParams {
+            namespace: namespace.into(),
+        },
+    ))
+    .await
+    .expect("doc list")
+    .value;
+    assert!(direct_docs["documents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|doc| doc["documentId"] == "doc-ops-raw"));
+
+    let envelope_docs =
+        openhuman_core::openhuman::memory::ops::memory_list_documents(ListDocumentsRequest {
+            namespace: Some(namespace.into()),
+        })
+        .await
+        .expect("memory list documents")
+        .value;
+    assert_eq!(envelope_docs.data.as_ref().unwrap().count, 1);
+    assert_eq!(
+        envelope_docs
+            .meta
+            .counts
+            .as_ref()
+            .unwrap()
+            .get("num_documents"),
+        Some(&1)
+    );
+
+    let query = openhuman_core::openhuman::memory::ops::context_query(
+        openhuman_core::openhuman::memory::ops::QueryNamespaceParams {
+            namespace: namespace.into(),
+            query: "who owns deterministic coverage".into(),
+            limit: Some(5),
+        },
+    )
+    .await
+    .expect("context query")
+    .value;
+    assert!(query.to_lowercase().contains("coverage"));
+    let recalled = openhuman_core::openhuman::memory::ops::context_recall(
+        openhuman_core::openhuman::memory::ops::RecallNamespaceParams {
+            namespace: namespace.into(),
+            limit: Some(5),
+        },
+    )
+    .await
+    .expect("context recall")
+    .value
+    .expect("recall text");
+    assert!(recalled.contains("Ops coverage document"));
+
+    openhuman_core::openhuman::memory::ops::kv_set(
+        openhuman_core::openhuman::memory::ops::KvSetParams {
+            namespace: Some(namespace.into()),
+            key: "state".into(),
+            value: json!({ "covered": true }),
+        },
+    )
+    .await
+    .expect("kv set");
+    let kv = openhuman_core::openhuman::memory::ops::kv_get(
+        openhuman_core::openhuman::memory::ops::KvGetDeleteParams {
+            namespace: Some(namespace.into()),
+            key: "state".into(),
+        },
+    )
+    .await
+    .expect("kv get")
+    .value;
+    assert_eq!(kv, Some(json!({ "covered": true })));
+    let kv_rows = openhuman_core::openhuman::memory::ops::kv_list_namespace(
+        openhuman_core::openhuman::memory::ops::NamespaceOnlyParams {
+            namespace: namespace.into(),
+        },
+    )
+    .await
+    .expect("kv list")
+    .value;
+    assert!(kv_rows.iter().any(|row| row["key"] == "state"));
+    assert!(
+        openhuman_core::openhuman::memory::ops::kv_delete(
+            openhuman_core::openhuman::memory::ops::KvGetDeleteParams {
+                namespace: Some(namespace.into()),
+                key: "state".into(),
+            },
+        )
+        .await
+        .expect("kv delete")
+        .value
+    );
+
+    openhuman_core::openhuman::memory::ops::graph_upsert(
+        openhuman_core::openhuman::memory::ops::GraphUpsertParams {
+            namespace: Some(namespace.into()),
+            subject: "Alice".into(),
+            predicate: "OWNS".into(),
+            object: "Memory Ops Coverage".into(),
+            attrs: json!({ "source": "raw-test" }),
+        },
+    )
+    .await
+    .expect("graph upsert");
+    let relations = openhuman_core::openhuman::memory::ops::graph_query(
+        openhuman_core::openhuman::memory::ops::GraphQueryParams {
+            namespace: Some(namespace.into()),
+            subject: Some("Alice".into()),
+            predicate: Some("OWNS".into()),
+        },
+    )
+    .await
+    .expect("graph query")
+    .value;
+    assert_eq!(relations[0]["object"], "MEMORY OPS COVERAGE");
+
+    let delete_missing =
+        openhuman_core::openhuman::memory::ops::memory_delete_document(DeleteDocumentRequest {
+            namespace: namespace.into(),
+            document_id: "missing".into(),
+        })
+        .await
+        .expect("delete missing")
+        .value
+        .data
+        .expect("delete missing data");
+    assert_eq!(delete_missing.status, "not_found");
+
+    let deleted = openhuman_core::openhuman::memory::ops::doc_delete(
+        openhuman_core::openhuman::memory::ops::DeleteDocParams {
+            namespace: namespace.into(),
+            document_id,
+        },
+    )
+    .await
+    .expect("doc delete")
+    .value;
+    assert_eq!(deleted["deleted"], true);
+    let cleared = openhuman_core::openhuman::memory::ops::clear_namespace(
+        openhuman_core::openhuman::memory::ops::ClearNamespaceParams {
+            namespace: namespace.into(),
+        },
+    )
+    .await
+    .expect("clear namespace")
+    .value;
+    assert!(cleared.cleared);
+}
+
+#[tokio::test]
+async fn memory_tree_retrieval_rpc_and_schema_wrappers_cover_empty_and_invalid_paths() {
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let config = config_in(&tmp);
+
+    let schemas =
+        openhuman_core::openhuman::memory_tree::retrieval::schemas::all_controller_schemas();
+    let controllers =
+        openhuman_core::openhuman::memory_tree::retrieval::schemas::all_registered_controllers();
+    assert_eq!(schemas.len(), 6);
+    assert_eq!(schemas.len(), controllers.len());
+    assert_eq!(
+        openhuman_core::openhuman::memory_tree::retrieval::schemas::schemas("missing").function,
+        "unknown"
+    );
+    assert!(schemas
+        .iter()
+        .find(|schema| schema.function == "fetch_leaves")
+        .unwrap()
+        .description
+        .contains("Batch-fetch"));
+
+    let source = openhuman_core::openhuman::memory_tree::retrieval::rpc::query_source_rpc(
+        &config,
+        openhuman_core::openhuman::memory_tree::retrieval::rpc::QuerySourceRequest {
+            source_id: Some("slack:#raw".into()),
+            source_kind: Some("chat".into()),
+            time_window_days: Some(7),
+            query: None,
+            limit: Some(2),
+        },
+    )
+    .await
+    .expect("query source rpc");
+    assert!(source.value.hits.is_empty());
+    assert!(source.logs[0].contains("has_source_id=true"));
+    assert!(!source.logs[0].contains("slack:#raw"));
+    assert!(
+        openhuman_core::openhuman::memory_tree::retrieval::rpc::query_source_rpc(
+            &config,
+            openhuman_core::openhuman::memory_tree::retrieval::rpc::QuerySourceRequest {
+                source_id: None,
+                source_kind: Some("bogus".into()),
+                time_window_days: None,
+                query: None,
+                limit: None,
+            },
+        )
+        .await
+        .unwrap_err()
+        .contains("unknown source kind")
+    );
+
+    let global = openhuman_core::openhuman::memory_tree::retrieval::rpc::query_global_rpc(
+        &config,
+        serde_json::from_value(json!({ "window_days": 3 })).expect("global alias"),
+    )
+    .await
+    .expect("query global rpc");
+    assert_eq!(global.value.total, 0);
+
+    let topic = openhuman_core::openhuman::memory_tree::retrieval::rpc::query_topic_rpc(
+        &config,
+        openhuman_core::openhuman::memory_tree::retrieval::rpc::QueryTopicRequest {
+            entity_id: "email:alice@example.com".into(),
+            time_window_days: Some(30),
+            query: None,
+            limit: Some(5),
+        },
+    )
+    .await
+    .expect("query topic rpc");
+    assert!(topic.value.hits.is_empty());
+    assert!(topic.logs[0].contains("entity_kind=email"));
+
+    let search = openhuman_core::openhuman::memory_tree::retrieval::rpc::search_entities_rpc(
+        &config,
+        openhuman_core::openhuman::memory_tree::retrieval::rpc::SearchEntitiesRequest {
+            query: "alice".into(),
+            kinds: Some(vec!["email".into()]),
+            limit: Some(10),
+        },
+    )
+    .await
+    .expect("search entities rpc");
+    assert!(search.value.matches.is_empty());
+    assert!(search.logs[0].contains("has_kinds=true"));
+    assert!(
+        openhuman_core::openhuman::memory_tree::retrieval::rpc::search_entities_rpc(
+            &config,
+            openhuman_core::openhuman::memory_tree::retrieval::rpc::SearchEntitiesRequest {
+                query: "alice".into(),
+                kinds: Some(vec!["missing".into()]),
+                limit: None,
+            },
+        )
+        .await
+        .unwrap_err()
+        .contains("unknown entity kind")
+    );
+
+    let drill = openhuman_core::openhuman::memory_tree::retrieval::rpc::drill_down_rpc(
+        &config,
+        openhuman_core::openhuman::memory_tree::retrieval::rpc::DrillDownRequest {
+            node_id: "summary:source:redacted".into(),
+            max_depth: None,
+            query: None,
+            limit: Some(3),
+        },
+    )
+    .await
+    .expect("drill down rpc");
+    assert!(drill.value.hits.is_empty());
+    assert!(drill.logs[0].contains("node_kind=summary"));
+    assert!(!drill.logs[0].contains("redacted"));
+
+    let fetch = openhuman_core::openhuman::memory_tree::retrieval::rpc::fetch_leaves_rpc(
+        &config,
+        openhuman_core::openhuman::memory_tree::retrieval::rpc::FetchLeavesRequest {
+            chunk_ids: vec!["missing-1".into(), "missing-2".into()],
+        },
+    )
+    .await
+    .expect("fetch leaves rpc");
+    assert!(fetch.value.hits.is_empty());
+
+    let fetch_controller = controllers
+        .iter()
+        .find(|controller| controller.schema.function == "fetch_leaves")
+        .expect("fetch controller");
+    let mut bad_params = Map::new();
+    bad_params.insert("chunk_ids".into(), json!("not-an-array"));
+    assert!((fetch_controller.handler)(bad_params)
+        .await
+        .unwrap_err()
+        .contains("invalid params"));
 }

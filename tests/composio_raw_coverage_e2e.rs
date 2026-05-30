@@ -15,7 +15,9 @@ use serde_json::{json, Value};
 use tempfile::tempdir;
 
 use openhuman_core::core::all::RegisteredController;
-use openhuman_core::openhuman::composio::client::{create_composio_client, ComposioClientKind};
+use openhuman_core::openhuman::composio::client::{
+    create_composio_client, direct_execute, ComposioClientKind,
+};
 use openhuman_core::openhuman::composio::error_mapping::{
     classify_composio_error, format_provider_error, remap_transport_error, ComposioErrorClass,
 };
@@ -55,6 +57,9 @@ use openhuman_core::openhuman::composio::{
 };
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
+use openhuman_core::openhuman::credentials::{
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 use openhuman_core::openhuman::integrations::IntegrationClient;
 use openhuman_core::openhuman::security::{AutonomyLevel, SecurityPolicy};
 use openhuman_core::openhuman::tools::{
@@ -607,6 +612,216 @@ fn composio_client_factory_modes_are_deterministic_without_network() {
         Err(error) => error,
     };
     assert!(unknown.to_string().contains("unknown composio mode"));
+}
+
+#[tokio::test]
+async fn composio_backend_client_local_validation_rejects_bad_inputs_before_http() {
+    let client = ComposioClient::new(Arc::new(IntegrationClient::new(
+        "http://127.0.0.1:9".to_string(),
+        "unused-token".to_string(),
+    )));
+
+    let blank_authorize = client
+        .authorize(" ", None)
+        .await
+        .expect_err("blank toolkit should fail before HTTP");
+    assert!(blank_authorize
+        .to_string()
+        .contains("toolkit must not be empty"));
+
+    let non_object_extra = client
+        .authorize("gmail", Some(json!("bad")))
+        .await
+        .expect_err("extra params must be an object");
+    assert!(non_object_extra
+        .to_string()
+        .contains("extra_params must be a JSON object"));
+
+    let reserved_extra = client
+        .authorize("gmail", Some(json!({ "toolkit": "slack" })))
+        .await
+        .expect_err("reserved keys cannot be overridden");
+    assert!(reserved_extra
+        .to_string()
+        .contains("cannot override reserved key"));
+
+    let blank_delete = client
+        .delete_connection("\t")
+        .await
+        .expect_err("blank connection id should fail before HTTP");
+    assert!(blank_delete.to_string().contains("connectionId"));
+
+    let blank_execute = client
+        .execute_tool(" ", Some(json!({})))
+        .await
+        .expect_err("blank tool should fail before HTTP");
+    assert!(blank_execute.to_string().contains("tool slug"));
+
+    let blank_create = client
+        .create_trigger(" ", None, None)
+        .await
+        .expect_err("blank trigger slug should fail before HTTP");
+    assert!(blank_create.to_string().contains("slug must not be empty"));
+
+    let blank_available = client
+        .list_available_triggers(" ", None)
+        .await
+        .expect_err("blank toolkit should fail before HTTP");
+    assert!(blank_available.to_string().contains("toolkit"));
+
+    let blank_enable_connection = client
+        .enable_trigger(" ", "GMAIL_NEW_GMAIL_MESSAGE", None)
+        .await
+        .expect_err("blank connection id should fail before HTTP");
+    assert!(blank_enable_connection.to_string().contains("connectionId"));
+
+    let blank_enable_slug = client
+        .enable_trigger("conn-1", " ", None)
+        .await
+        .expect_err("blank trigger slug should fail before HTTP");
+    assert!(blank_enable_slug.to_string().contains("slug"));
+
+    let blank_disable = client
+        .disable_trigger(" ")
+        .await
+        .expect_err("blank trigger id should fail before HTTP");
+    assert!(blank_disable.to_string().contains("triggerId"));
+
+    let direct_tool = Arc::new(ComposioTool::new(
+        "direct-api-key",
+        Some("entity-1"),
+        Arc::new(SecurityPolicy::default()),
+    ));
+    let blank_direct_execute = direct_execute(&direct_tool, " ", None, "entity-1")
+        .await
+        .expect_err("blank direct tool should fail before HTTP");
+    assert!(blank_direct_execute.to_string().contains("tool slug"));
+}
+
+#[tokio::test]
+async fn composio_backend_client_surfaces_get_post_envelope_and_status_errors() {
+    async fn handler(request: Request) -> Response {
+        let method = request.method().clone();
+        let path = request.uri().path().to_string();
+        match (method, path.as_str()) {
+            (Method::GET, "/agent-integrations/composio/toolkits") => Json(json!({
+                "success": false,
+                "error": "Toolkit allowlist unavailable"
+            }))
+            .into_response(),
+            (Method::GET, "/agent-integrations/composio/tools") => {
+                Json(json!({ "success": true })).into_response()
+            }
+            (Method::POST, "/agent-integrations/composio/authorize") => {
+                Json(json!({ "success": true })).into_response()
+            }
+            (Method::POST, "/agent-integrations/composio/execute") => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "success": false, "error": "upstream maintenance" })),
+            )
+                .into_response(),
+            _ => (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "success": false, "error": format!("unhandled {path}") })),
+            )
+                .into_response(),
+        }
+    }
+
+    let base = start_composio_round8_backend(Router::new().fallback(any(handler))).await;
+    let client = ComposioClient::new(Arc::new(IntegrationClient::new(
+        base,
+        "round13-token".into(),
+    )));
+
+    let toolkits = client
+        .list_toolkits()
+        .await
+        .expect_err("success=false GET envelopes should error");
+    assert!(toolkits.to_string().contains("Backend error for GET"));
+    assert!(toolkits
+        .to_string()
+        .contains("Toolkit allowlist unavailable"));
+
+    let tools = client
+        .list_tools(None, None)
+        .await
+        .expect_err("success=true without data should error");
+    assert!(tools
+        .to_string()
+        .contains("Backend returned success but no data for GET"));
+
+    let authorize = client
+        .authorize("slack", None)
+        .await
+        .expect_err("POST success=true without data should error");
+    assert!(authorize
+        .to_string()
+        .contains("Backend returned success but no data for POST"));
+
+    let execute = client
+        .execute_tool("SLACK_POST_MESSAGE", Some(json!({ "text": "hello" })))
+        .await
+        .expect_err("non-2xx POST should error");
+    assert!(execute.to_string().contains("Backend returned 503"));
+    assert!(execute.to_string().contains("upstream maintenance"));
+}
+
+#[tokio::test]
+async fn composio_backend_factory_uses_stored_session_and_configured_backend() {
+    async fn handler(request: Request) -> Response {
+        let auth = request
+            .headers()
+            .get("authorization")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_string();
+        let method = request.method().clone();
+        let path = request.uri().path().to_string();
+
+        if auth != "Bearer stored-session-token" {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "success": false, "error": format!("bad auth: {auth}") })),
+            )
+                .into_response();
+        }
+
+        match (method, path.as_str()) {
+            (Method::GET, "/agent-integrations/composio/toolkits") => ok(json!({
+                "toolkits": ["gmail"]
+            })),
+            _ => (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "success": false, "error": format!("unhandled {path}") })),
+            )
+                .into_response(),
+        }
+    }
+
+    let base = start_composio_round8_backend(Router::new().fallback(any(handler))).await;
+    let dir = tempdir().expect("tempdir");
+    let mut config = Config {
+        workspace_dir: dir.path().join("workspace"),
+        config_path: dir.path().join("config.toml"),
+        api_url: Some(base.clone()),
+        ..Config::default()
+    };
+    config.composio.mode = "backend".into();
+    store_app_session_token(&config, "  stored-session-token  ");
+
+    let client = match create_composio_client(&config).expect("backend client from stored session")
+    {
+        ComposioClientKind::Backend(client) => client,
+        ComposioClientKind::Direct(_) => panic!("backend mode should not create direct client"),
+    };
+    assert_eq!(client.inner().backend_url, base);
+
+    let toolkits = client
+        .list_toolkits()
+        .await
+        .expect("factory client should call local backend with stored bearer");
+    assert_eq!(toolkits.toolkits, vec!["gmail"]);
 }
 
 #[tokio::test]
@@ -1848,6 +2063,18 @@ async fn start_composio_round8_backend(app: Router) -> String {
         let _ = axum::serve(listener, app).await;
     });
     format!("http://127.0.0.1:{}", addr.port())
+}
+
+fn store_app_session_token(config: &Config, token: &str) {
+    AuthService::from_config(config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            token,
+            std::collections::HashMap::new(),
+            true,
+        )
+        .expect("store app session token");
 }
 
 async fn composio_round8_backend_handler(request: Request) -> Response {

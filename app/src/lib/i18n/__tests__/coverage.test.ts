@@ -16,6 +16,7 @@ const LOCALES = [
   'id',
   'it',
   'ko',
+  'pl',
 ] as const;
 
 interface ChunkModule {

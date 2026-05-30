@@ -114,7 +114,7 @@ const pl2: TranslationMap = {
   'devOptions.sidecarSpawned': 'Uruchamiany w procesie powłoki Tauri przy starcie aplikacji.',
   'devOptions.cloud': 'Chmura',
   'devOptions.remoteCoreRpc': 'Zdalne RPC rdzenia',
-  'devOptions.token': 'Token',
+  'devOptions.token': 'Token dostępu',
   'devOptions.tokenNotSet': 'nie ustawiony — RPC zwróci 401',
   'devOptions.triggerSentryTest': 'Wyzwól test Sentry (staging)',
   'devOptions.triggerSentryTestDesc':
@@ -442,7 +442,7 @@ const pl2: TranslationMap = {
   'devOptions.menuLocalModelDebug': 'Debug modelu lokalnego',
   'devOptions.menuLocalModelDebugDesc':
     'Konfiguracja Ollama, pobieranie zasobów, testy modeli i diagnostyka',
-  'devOptions.menuWebhooksDebug': 'Webhooks',
+  'devOptions.menuWebhooksDebug': 'Webhooki',
   'devOptions.menuWebhooksDebugDesc':
     'Sprawdź rejestracje webhooków w runtime i logi przechwyconych żądań',
   'devOptions.menuIntelligence': 'Inteligencja',
@@ -458,6 +458,44 @@ const pl2: TranslationMap = {
   'devOptions.menuComposioTriggers': 'Wyzwalacze integracji',
   'devOptions.menuComposioTriggersDesc':
     'Konfiguruj ustawienia klasyfikacji AI dla wyzwalaczy integracji Composio',
+  // settings.agents
+  'settings.agents.title': 'Agenci',
+  'settings.agents.subtitle':
+    'Zarządzaj agentami dostępnymi do delegowania — wbudowanymi domyślnymi i własnymi niestandardowymi agentami.',
+  'settings.agents.menuDesc': 'Zarządzaj wbudowanymi i niestandardowymi agentami',
+  'settings.agents.newAgent': 'Nowy agent',
+  'settings.agents.loadError': 'Nie udało się wczytać agentów',
+  'settings.agents.empty': 'Brak agentów',
+  'settings.agents.sourceDefault': 'Wbudowany',
+  'settings.agents.sourceCustom': 'Niestandardowy',
+  'settings.agents.enable': 'Włącz agenta',
+  'settings.agents.disable': 'Wyłącz agenta',
+  'settings.agents.edit': 'Edytuj',
+  'settings.agents.delete': 'Usuń',
+  'settings.agents.reset': 'Przywróć domyślne',
+  'settings.agents.modelLabel': 'Model agenta',
+  'settings.agents.toolsLabel': 'Narzędzia',
+  'settings.agents.toolsAll': 'Wszystkie narzędzia',
+  'settings.agents.toolsCount': '{count} narzędzi',
+  'settings.agents.actionFailed': 'Nie udało się zaktualizować agenta',
+  'settings.agents.orchestratorLocked': 'Orkiestrator jest zawsze włączony.',
+  'settings.agents.editor.createTitle': 'Nowy agent',
+  'settings.agents.editor.editTitle': 'Edytuj agenta',
+  'settings.agents.editor.id': 'Identyfikator',
+  'settings.agents.editor.idHint': 'Tylko małe litery, cyfry, _ i -.',
+  'settings.agents.editor.name': 'Nazwa',
+  'settings.agents.editor.description': 'Opis',
+  'settings.agents.editor.model': 'Model (opcjonalnie)',
+  'settings.agents.editor.modelPlaceholder': 'np. inherit, hint:fast albo identyfikator modelu',
+  'settings.agents.editor.systemPrompt': 'Prompt systemowy (opcjonalnie)',
+  'settings.agents.editor.tools': 'Dozwolone narzędzia',
+  'settings.agents.editor.toolsHint':
+    'Jedna nazwa narzędzia w wierszu. Użyj * dla wszystkich narzędzi.',
+  'settings.agents.editor.defaultsNote':
+    'Edycja wbudowanego agenta zapisuje nadpisanie, które możesz później zresetować.',
+  'settings.agents.editor.save': 'Zapisz',
+  'settings.agents.editor.create': 'Utwórz agenta',
+  'settings.agents.editor.saving': 'Zapisywanie…',
 };
 
 export default pl2;

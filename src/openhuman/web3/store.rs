@@ -63,7 +63,10 @@ pub struct Web3ExecutionResult {
     pub transaction_hash: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub explorer_url: Option<String>,
-    pub fee_raw: String,
+    /// Simulated fee in the chain's smallest unit; `None` when not known at
+    /// broadcast time (e.g. Solana's dynamic fee).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fee_raw: Option<String>,
 }
 
 /// The prepared-quote envelope returned to the caller.

@@ -365,10 +365,22 @@ async fn tron_post(path: &str, body: Value) -> Result<Value, String> {
 /// TronGrid `/wallet/gettransactioninfobyid` → normalized status.
 pub async fn tx_status(hash: &str) -> Result<TxStatusInfo, String> {
     let info = tron_post("wallet/gettransactioninfobyid", json!({ "value": hash })).await?;
-    // An empty object means the tx is unknown or still pending.
     let block_number = info.get("blockNumber").and_then(Value::as_u64);
     let (state, block_number) = match block_number {
-        None => (TxState::NotFound, None),
+        None => {
+            // The info endpoint only has a row once the tx is mined. A freshly
+            // broadcast tx is still pending — disambiguate via gettransactionbyid.
+            let tx = tron_post("wallet/gettransactionbyid", json!({ "value": hash })).await?;
+            let seen = tx.get("txID").is_some() || tx.get("raw_data").is_some();
+            (
+                if seen {
+                    TxState::Pending
+                } else {
+                    TxState::NotFound
+                },
+                None,
+            )
+        }
         Some(bn) => {
             // `receipt.result` carries SUCCESS / REVERT / FAILED for contract txs;
             // a bare TRX transfer omits it but is successful once mined.
@@ -796,10 +808,15 @@ mod tests {
         let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        let app = Router::new().route(
-            "/wallet/gettransactioninfobyid",
-            post(|| async { axum::Json(json!({})) }),
-        );
+        let app = Router::new()
+            .route(
+                "/wallet/gettransactioninfobyid",
+                post(|| async { axum::Json(json!({})) }),
+            )
+            .route(
+                "/wallet/gettransactionbyid",
+                post(|| async { axum::Json(json!({})) }),
+            );
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {

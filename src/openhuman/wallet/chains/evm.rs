@@ -202,7 +202,7 @@ pub(crate) async fn sign_and_broadcast_evm(
     Ok(RawBroadcastResult {
         transaction_hash: tx_hash.clone(),
         explorer_url: explorer_tx_url_for_evm_network(network, &tx_hash),
-        fee_raw: fee.to_string(),
+        fee_raw: Some(fee.to_string()),
     })
 }
 
@@ -268,11 +268,15 @@ pub async fn tx_receipt(network: EvmNetwork, hash: &str) -> Result<TxReceiptInfo
     let receipt: serde_json::Value =
         rpc_call_to(&rpc_url, "eth_getTransactionReceipt", json!([hash])).await?;
     if receipt.is_null() {
+        // No receipt yet — a freshly broadcast tx is still "found" if the node
+        // knows the tx hash; only report not-found when both calls are null.
+        let tx: serde_json::Value =
+            rpc_call_to(&rpc_url, "eth_getTransactionByHash", json!([hash])).await?;
         return Ok(TxReceiptInfo {
             chain: WalletChain::Evm,
             evm_network: Some(network),
             hash: hash.to_string(),
-            found: false,
+            found: !tx.is_null(),
             success: None,
             block_number: None,
             gas_used: None,
@@ -470,6 +474,23 @@ mod tests {
         assert_eq!(info.gas_used.as_deref(), Some("21000"));
         // 21000 * 1_000_000_000 = 21_000_000_000_000
         assert_eq!(info.fee_raw.as_deref(), Some("21000000000000"));
+    }
+
+    #[tokio::test]
+    async fn tx_receipt_pending_is_found_when_tx_known() {
+        let _guard = TEST_LOCK.lock();
+        let _env = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        // No receipt yet, but the node knows the tx hash → pending, found=true.
+        let (addr, _calls) =
+            start_evm_mock(JsonValue::Null, serde_json::json!({"hash": "0xabc"})).await;
+        set_evm_rpc(addr);
+        let info = tx_receipt(EvmNetwork::EthereumMainnet, "0xabc")
+            .await
+            .unwrap();
+        assert!(info.found);
+        assert_eq!(info.success, None);
     }
 
     #[tokio::test]

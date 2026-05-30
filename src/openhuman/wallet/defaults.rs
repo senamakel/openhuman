@@ -296,7 +296,7 @@ pub fn asset_catalog(chain: WalletChain) -> Vec<WalletAssetDefinition> {
 
 pub fn evm_asset_catalog(network: EvmNetwork) -> Vec<WalletAssetDefinition> {
     let (native_symbol, native_name) = match network {
-        EvmNetwork::PolygonMainnet => ("ETH", "Polygon (MATIC)"),
+        EvmNetwork::PolygonMainnet => ("POL", "Polygon"),
         EvmNetwork::BscMainnet => ("BNB", "BNB"),
         _ => ("ETH", "Ether"),
     };

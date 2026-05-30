@@ -198,8 +198,11 @@ pub async fn prepare_dapp_call(params: DappCallParams) -> Result<RpcOutcome<Web3
         return Err("contract_address is empty".to_string());
     }
     let calldata = params.calldata.trim();
-    if !calldata.starts_with("0x") {
-        return Err("calldata must be 0x-prefixed hex".to_string());
+    let hex_body = calldata
+        .strip_prefix("0x")
+        .ok_or_else(|| "calldata must be 0x-prefixed hex".to_string())?;
+    if hex_body.len() % 2 != 0 || !hex_body.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("calldata must be valid even-length hex".to_string());
     }
     let value = params.value_raw.clone().unwrap_or_else(|| "0".to_string());
     // Confirm the wallet has an EVM account before quoting.

@@ -179,6 +179,9 @@ fn decode_shortvec(bytes: &[u8]) -> Result<(u16, usize), String> {
         }
         value |= u32::from(byte & 0x7f) << shift;
         if byte & 0x80 == 0 {
+            if value > u16::MAX as u32 {
+                return Err("shortvec exceeds u16 range".to_string());
+            }
             return Ok((value as u16, i + 1));
         }
         shift += 7;
@@ -525,8 +528,9 @@ pub(crate) async fn sign_and_broadcast_versioned(
     Ok(RawBroadcastResult {
         transaction_hash: tx_sig.clone(),
         explorer_url: explorer_tx_url(WalletChain::Solana, &tx_sig),
-        // Solana fees are dynamic (priority + base); not computed here.
-        fee_raw: "0".to_string(),
+        // Solana fees are dynamic (base + priority) and only known once the tx
+        // is confirmed — leave unset rather than misreporting a free transfer.
+        fee_raw: None,
     })
 }
 

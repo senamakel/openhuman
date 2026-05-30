@@ -1,6 +1,13 @@
 use super::store::{self, execute_quote};
 use super::types::{chain_family, ChainFamily, ExecuteQuoteParams, UnsignedTx, Web3QuoteKind};
 use crate::openhuman::wallet::EvmNetwork;
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
+
+/// Serializes tests that touch the process-global web3 quote store so parallel
+/// `cargo test` runs can't interleave `reset_store_for_tests` /
+/// `stored_quote_count` and make count assertions flaky.
+static STORE_TEST_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 #[test]
 fn chain_family_maps_known_ids() {
@@ -27,6 +34,7 @@ fn chain_family_rejects_unsignable_chain() {
 
 #[tokio::test]
 async fn execute_requires_confirmation() {
+    let _g = STORE_TEST_LOCK.lock();
     store::reset_store_for_tests();
     let quote = store::store_quote(
         Web3QuoteKind::DappCall,
@@ -49,6 +57,7 @@ async fn execute_requires_confirmation() {
 
 #[tokio::test]
 async fn execute_unknown_quote_is_not_found() {
+    let _g = STORE_TEST_LOCK.lock();
     store::reset_store_for_tests();
     let err = execute_quote(ExecuteQuoteParams {
         quote_id: "w3_missing".to_string(),
@@ -61,6 +70,7 @@ async fn execute_unknown_quote_is_not_found() {
 
 #[test]
 fn store_quote_is_retained_and_counted() {
+    let _g = STORE_TEST_LOCK.lock();
     store::reset_store_for_tests();
     assert_eq!(store::stored_quote_count(), 0);
     let _ = store::store_quote(

@@ -48,7 +48,9 @@ impl CryptoClient {
 
     /// `POST /agent-integrations/crypto/swap` — single-chain swap quote + tx.
     pub async fn swap_tx(&self, body: &Value) -> Result<Value, String> {
-        tracing::debug!("{LOG_PREFIX} swap_tx body={body}");
+        // Log only non-sensitive correlation fields — the body embeds wallet
+        // addresses (sender / recipient) which must not be emitted in full.
+        tracing::debug!("{LOG_PREFIX} swap_tx chain_id={:?}", body.get("chainId"));
         self.inner
             .post::<Value>("/agent-integrations/crypto/swap", body)
             .await
@@ -57,7 +59,13 @@ impl CryptoClient {
 
     /// `POST /agent-integrations/crypto/bridge` — cross-chain bridge quote + tx.
     pub async fn bridge_tx(&self, body: &Value) -> Result<Value, String> {
-        tracing::debug!("{LOG_PREFIX} bridge_tx body={body}");
+        // Log only chain ids — the body embeds recipient / order-authority
+        // wallet addresses which must not be emitted in full.
+        tracing::debug!(
+            "{LOG_PREFIX} bridge_tx src={:?} dst={:?}",
+            body.get("srcChainId"),
+            body.get("dstChainId")
+        );
         self.inner
             .post::<Value>("/agent-integrations/crypto/bridge", body)
             .await

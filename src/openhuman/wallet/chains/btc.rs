@@ -392,12 +392,15 @@ pub async fn tx_receipt(hash: &str) -> Result<TxReceiptInfo, String> {
         .get("fee")
         .and_then(serde_json::Value::as_u64)
         .map(|f| f.to_string());
+    // Leave `success` unset until the tx is confirmed — an unconfirmed mempool
+    // tx is pending (see tx_status), not a failure.
+    let success = if confirmed { Some(true) } else { None };
     Ok(TxReceiptInfo {
         chain: WalletChain::Btc,
         evm_network: None,
         hash: hash.to_string(),
         found: true,
-        success: Some(confirmed),
+        success,
         block_number,
         gas_used: None,
         fee_raw,

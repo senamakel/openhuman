@@ -155,7 +155,11 @@ pub(crate) struct RawBroadcastResult {
     pub transaction_hash: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub explorer_url: Option<String>,
-    pub fee_raw: String,
+    /// Simulated fee in the chain's smallest unit. `None` when the fee is not
+    /// known at broadcast time (e.g. Solana's dynamic base+priority fee, which
+    /// must be read back from the confirmed transaction).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fee_raw: Option<String>,
 }
 
 /// Normalized lifecycle state of a broadcast transaction.

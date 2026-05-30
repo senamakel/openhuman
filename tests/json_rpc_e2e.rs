@@ -4170,7 +4170,9 @@ async fn json_rpc_wallet_tx_reads_and_web3_gates_round_trip() {
     let result = body.get("result").unwrap_or(&body);
     assert_eq!(result.get("found").and_then(Value::as_bool), Some(true));
 
-    // web3_bridge rejects same-chain requests before touching the network.
+    // web3_bridge rejects same-chain requests. This gate runs *before* any
+    // auth / backend call, so no session setup is needed — assert the
+    // gate-specific message (not just any error) to rule out auth false-positives.
     let same_chain = post_json_rpc(
         &rpc_base,
         2104,
@@ -4181,12 +4183,17 @@ async fn json_rpc_wallet_tx_reads_and_web3_gates_round_trip() {
         }),
     )
     .await;
+    let same_chain_msg = same_chain
+        .get("error")
+        .and_then(|e| e.get("message").or_else(|| e.get("data")))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     assert!(
-        same_chain.get("error").is_some(),
-        "expected same-chain bridge rejection: {same_chain}"
+        same_chain_msg.contains("different source and destination"),
+        "expected same-chain bridge gate rejection, got: {same_chain}"
     );
 
-    // web3_swap rejects a chain id the wallet can't sign for.
+    // web3_swap rejects a chain id the wallet can't sign for — also a pre-auth gate.
     let unsignable = post_json_rpc(
         &rpc_base,
         2105,
@@ -4196,9 +4203,14 @@ async fn json_rpc_wallet_tx_reads_and_web3_gates_round_trip() {
         }),
     )
     .await;
+    let unsignable_msg = unsignable
+        .get("error")
+        .and_then(|e| e.get("message").or_else(|| e.get("data")))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     assert!(
-        unsignable.get("error").is_some(),
-        "expected unsignable-chain swap rejection: {unsignable}"
+        unsignable_msg.contains("not signable"),
+        "expected unsignable-chain swap gate rejection, got: {unsignable}"
     );
 
     mock_join.abort();

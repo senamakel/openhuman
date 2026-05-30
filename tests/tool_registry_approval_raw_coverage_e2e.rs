@@ -586,6 +586,50 @@ fn capability_provider_public_api_normalizes_lookup_and_error_branches() {
     assert!(invalid_diagnostics.registry_errors[0].contains("invalid provider id"));
 }
 
+#[test]
+fn tool_registry_diagnostics_for_config_reports_audit_success_and_policy_shape() {
+    let dir = tempdir().expect("tempdir");
+    let config = Config {
+        workspace_dir: dir.path().to_path_buf(),
+        ..Config::default()
+    };
+
+    let diagnostics =
+        openhuman_core::openhuman::tool_registry::ops::diagnostics_for_config(&config)
+            .into_cli_compatible_json()
+            .expect("diagnostics json");
+    assert!(diagnostics
+        .get("total_tools")
+        .and_then(Value::as_u64)
+        .is_some_and(|count| count > 0));
+    assert_eq!(
+        diagnostics.pointer("/mcp_write_audit/enabled"),
+        Some(&json!(true))
+    );
+    assert_eq!(
+        diagnostics.pointer("/mcp_write_audit/last_error"),
+        Some(&Value::Null)
+    );
+    assert!(diagnostics
+        .pointer("/mcp_write_audit/recent_rows")
+        .and_then(Value::as_u64)
+        .is_some());
+    assert_eq!(
+        diagnostics.pointer("/posture/autonomy_level"),
+        Some(&json!("supervised"))
+    );
+    assert!(diagnostics
+        .pointer("/policy_surfaces")
+        .and_then(Value::as_array)
+        .expect("policy surfaces")
+        .iter()
+        .any(|surface| surface.as_str() == Some("tool_registry.diagnostics")));
+    assert_eq!(
+        diagnostics.pointer("/mcp_allowlists/server_count"),
+        Some(&json!(0))
+    );
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn tool_registry_entries_fall_back_on_current_thread_runtime() {
     let entries = registry_entries();

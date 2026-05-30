@@ -25,6 +25,7 @@ use openhuman_core::api::config::{
     OPENHUMAN_INFERENCE_PATH, VITE_APP_ENV_VAR,
 };
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
+use openhuman_core::core::event_bus::{DomainEvent, EventHandler};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::app_state::app_state_schemas;
 use openhuman_core::openhuman::config::schema::{
@@ -43,6 +44,7 @@ use openhuman_core::openhuman::config::{
     user_openhuman_dir, write_active_user_id, AgentConfig, ChannelsConfig, Config, DaemonConfig,
     DictationActivationMode, LlmBackend, ReflectionSource, TeamModelConfig, UpdateRestartStrategy,
 };
+use openhuman_core::openhuman::credentials::bus::SessionExpiredSubscriber;
 use openhuman_core::openhuman::credentials::cli::{
     cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
 };
@@ -1086,11 +1088,13 @@ fn api_config_url_resolution_classifies_backend_and_inference_paths() {
         "https://api.tinyhumans.ai/auth/me"
     );
     assert_eq!(api_url("not a url/", "auth/me"), "not a url/auth/me");
+    assert_eq!(api_url("not a url/", "/auth/me"), "not a url/auth/me");
     assert_eq!(
         api_url(" https://api.tinyhumans.ai/ ", ""),
         "https://api.tinyhumans.ai"
     );
 
+    assert!(!looks_like_local_ai_endpoint(""));
     assert!(looks_like_local_ai_endpoint("http://localhost:11434"));
     assert!(looks_like_local_ai_endpoint(
         "http://10.0.0.2/v1/chat/completions"
@@ -1102,6 +1106,7 @@ fn api_config_url_resolution_classifies_backend_and_inference_paths() {
     assert!(looks_like_local_ai_endpoint("http://service.localhost/v1"));
     assert!(looks_like_local_ai_endpoint("http://192.168.1.7:9000/v1"));
     assert!(!looks_like_local_ai_endpoint("http://127.0.0.1:45678"));
+    assert!(!looks_like_local_ai_endpoint("https://api.example.test/v1"));
     assert!(!looks_like_local_ai_endpoint(
         "https://api.example.test/audit/v1/chat/completions-logs"
     ));
@@ -1138,6 +1143,10 @@ fn api_config_url_resolution_classifies_backend_and_inference_paths() {
         effective_backend_api_url(&Some("api.tinyhumans.ai/openai/v1/chat/completions".into())),
         "https://api.tinyhumans.ai"
     );
+    assert_eq!(
+        effective_backend_api_url(&Some(" http://backend.example.test/path?q=1#frag ".into())),
+        "http://backend.example.test"
+    );
 
     std::env::set_var("BACKEND_URL", "");
     std::env::set_var(
@@ -1159,6 +1168,24 @@ fn api_config_url_resolution_classifies_backend_and_inference_paths() {
         default_api_base_url_for_env(app_env_from_env().as_deref()),
         DEFAULT_STAGING_API_BASE_URL
     );
+
+    std::env::remove_var(APP_ENV_VAR);
+    std::env::set_var(VITE_APP_ENV_VAR, " Production ");
+    assert_eq!(app_env_from_env().as_deref(), Some("production"));
+}
+
+#[tokio::test]
+async fn credentials_session_expired_subscriber_ignores_unrelated_events() {
+    let subscriber = SessionExpiredSubscriber::new();
+    assert_eq!(subscriber.name(), "credentials::session_expired_handler");
+    assert_eq!(subscriber.domains(), Some(&["auth"][..]));
+
+    subscriber
+        .handle(&DomainEvent::AgentTurnStarted {
+            session_id: "worker-a-session".to_string(),
+            channel: "e2e".to_string(),
+        })
+        .await;
 }
 
 #[tokio::test]
@@ -3356,6 +3383,19 @@ async fn app_state_update_persists_and_snapshot_reads_local_state() {
             .get("encryptionKey")
             .is_none(),
         "blank encryption key should also clear the optional value: {blank_cleared}"
+    );
+
+    let invalid_patch = rpc(
+        &harness.rpc_base,
+        30_005,
+        "openhuman.app_state_update_local_state",
+        json!({ "onboardingTasks": "not-an-object" }),
+    )
+    .await;
+    assert_error_contains(
+        &invalid_patch,
+        "app_state_update_local_state invalid onboardingTasks",
+        "invalid params",
     );
 
     harness.join.abort();

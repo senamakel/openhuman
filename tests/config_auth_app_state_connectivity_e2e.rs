@@ -106,7 +106,11 @@ impl Drop for EnvVarGuard {
     }
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+// `pub` so binaries that `#[path]`-include this file as a module (e.g.
+// `config_credentials_raw_coverage_e2e.rs` as `base_coverage`) can route their
+// own env-mutating tests through the SAME lock, serializing all
+// OPENHUMAN_WORKSPACE/BACKEND_URL mutations in the combined binary.
+pub fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     let mutex = ENV_LOCK.get_or_init(|| Mutex::new(()));
     match mutex.lock() {
         Ok(guard) => guard,

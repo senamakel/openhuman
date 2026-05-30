@@ -2,7 +2,6 @@
 mod base_coverage;
 
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
 
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
@@ -14,8 +13,6 @@ use openhuman_core::openhuman::credentials::{
     remove_provider_credentials, store_provider_credentials, store_session, AuthService,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
-static ROUND13_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 struct Round13EnvVarGuard {
     key: &'static str,
@@ -71,11 +68,12 @@ impl Round13Harness {
 }
 
 fn round13_env_lock() -> std::sync::MutexGuard<'static, ()> {
-    let mutex = ROUND13_ENV_LOCK.get_or_init(|| Mutex::new(()));
-    match mutex.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
+    // Delegate to the lock owned by the included `base_coverage` (config_auth)
+    // module so round13 env mutations serialize against every other
+    // OPENHUMAN_WORKSPACE/BACKEND_URL-mutating test in this combined binary.
+    // Two separate mutexes let the two groups race and quarantine the wrong
+    // workspace (flaky `!state_file.exists()` / spurious JSON-RPC errors).
+    base_coverage::env_lock()
 }
 
 fn write_round13_min_config(openhuman_dir: &Path) {

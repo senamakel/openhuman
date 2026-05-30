@@ -23,8 +23,8 @@ use openhuman_core::core::event_bus::{DomainEvent, EventHandler};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::core::socketio::WebChannelEvent;
 use openhuman_core::openhuman::agent::harness::definition::{
-    AgentDefinition, AgentDefinitionRegistry, AgentTier, DefinitionSource, ModelSpec,
-    PromptSource, SandboxMode, SkillsWildcard, SubagentEntry, ToolScope as AgentToolScope,
+    AgentDefinition, AgentDefinitionRegistry, AgentTier, DefinitionSource, ModelSpec, PromptSource,
+    SandboxMode, SkillsWildcard, SubagentEntry, ToolScope as AgentToolScope,
 };
 use openhuman_core::openhuman::channels::email_channel::EmailConfig;
 use openhuman_core::openhuman::channels::irc::IrcChannelConfig;
@@ -33,6 +33,9 @@ use openhuman_core::openhuman::channels::traits::ChannelMessage;
 use openhuman_core::openhuman::channels::yuanbao::config::YuanbaoConfig;
 use openhuman_core::openhuman::channels::yuanbao::errors::{
     AUTH_FAILED_CODES, AUTH_RETRYABLE_CODES, NO_RECONNECT_CLOSE_CODES,
+};
+use openhuman_core::openhuman::channels::yuanbao::inbound::{
+    InboundPipeline, PipelineOutcome, PipelineState,
 };
 use openhuman_core::openhuman::channels::yuanbao::media::{
     build_file_msg_body, build_image_msg_body, guess_mime_type, image_format_code, is_image,
@@ -61,6 +64,7 @@ use openhuman_core::openhuman::channels::yuanbao::wire::{
     decode_varint, encode_field_bytes, encode_field_string, encode_field_varint, encode_varint,
     get_bytes, get_repeated_bytes, get_string, get_varint, next_seq_no, parse_fields, FieldValue,
 };
+use openhuman_core::openhuman::channels::yuanbao::YuanbaoChannel;
 use openhuman_core::openhuman::channels::{
     Channel, CliChannel, DingTalkChannel, EmailChannel, IMessageChannel, IrcChannel, LinqChannel,
     MattermostChannel, QQChannel, SendMessage, SignalChannel, SlackChannel, WhatsAppChannel,
@@ -97,8 +101,8 @@ use openhuman_core::openhuman::tools::{
     decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
     write_bytes_to_path, BrowserAction, BrowserTool, CleaningStrategy, ComputerUseConfig,
     CurrentTimeTool, DefaultToolPolicy, DetectToolsTool, GrepTool, InsertSqlRecordTool, LspTool,
-    PermissionLevel, PolicyDecision, ReadDiffTool, RunLinterTool, SchemaCleanr, Tool,
-    ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope, UpdateMemoryMdTool,
+    PermissionLevel, PolicyDecision, ProxyConfigTool, ReadDiffTool, RunLinterTool, SchemaCleanr,
+    Tool, ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope, UpdateMemoryMdTool,
     WorkspaceStateTool,
 };
 
@@ -1532,13 +1536,14 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
         Some("research"),
     ));
 
-    let mut orchestrator =
-        coverage_agent_definition("orchestrator", "Route to specialists.", None);
+    let mut orchestrator = coverage_agent_definition("orchestrator", "Route to specialists.", None);
     orchestrator.subagents = vec![
         SubagentEntry::AgentId("researcher".into()),
         SubagentEntry::AgentId("summarizer".into()),
         SubagentEntry::AgentId("missing-agent".into()),
-        SubagentEntry::Skills(SkillsWildcard { skills: "gmail".into() }),
+        SubagentEntry::Skills(SkillsWildcard {
+            skills: "gmail".into(),
+        }),
         SubagentEntry::Skills(SkillsWildcard { skills: "*".into() }),
     ];
 
@@ -1546,11 +1551,7 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
         &orchestrator,
         &registry,
         &[
-            coverage_connected_integration(
-                "GMail Pro",
-                "Send and triage mail.",
-                true,
-            ),
+            coverage_connected_integration("GMail Pro", "Send and triage mail.", true),
             coverage_connected_integration("Slack-Bot", "", true),
             coverage_connected_integration(
                 "Slack.Bot",
@@ -1565,7 +1566,9 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
     assert_eq!(names, vec!["research", "delegate_to_integrations_agent"]);
 
     let research = &tools[0];
-    assert!(research.description().contains("direct tools are insufficient"));
+    assert!(research
+        .description()
+        .contains("direct tools are insufficient"));
     assert!(research
         .description()
         .contains("careful public-source research"));
@@ -1590,9 +1593,7 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
     );
     let description = integrations.description();
     assert!(description.contains("gmail_pro: Send and triage mail."));
-    assert!(description.contains(
-        "slack_bot: External integration via Slack-Bot"
-    ));
+    assert!(description.contains("slack_bot: External integration via Slack-Bot"));
     assert!(!description.contains("Slack.Bot"));
     assert!(!description.contains("Disconnected"));
 
@@ -2336,6 +2337,226 @@ fn yuanbao_shared_types_cover_message_extractors_and_state_variants() {
     );
 }
 
+fn yuanbao_pipeline_config() -> YuanbaoConfig {
+    YuanbaoConfig {
+        app_key: "app-key".into(),
+        app_secret: String::new(),
+        token: "token".into(),
+        ws_domain: "wss://yuanbao.example.test/ws".into(),
+        api_domain: "https://yuanbao.example.test".into(),
+        bot_id: "bot-uid".into(),
+        bot_name: "CoverageBot".into(),
+        owner_id: "owner-uid".into(),
+        dm_access: "open".into(),
+        group_access: "open".into(),
+        group_at_required: true,
+        ..YuanbaoConfig::default()
+    }
+}
+
+fn yuanbao_pipeline(config: &YuanbaoConfig) -> InboundPipeline {
+    let state = PipelineState::new(config, config.bot_id.clone());
+    InboundPipeline::new(state)
+}
+
+fn yuanbao_inbound_json(fields: Value) -> Vec<u8> {
+    let mut base = json!({
+        "callback_command": "C2C.Callback",
+        "from_account": "alice-uid",
+        "to_account": "bot-uid",
+        "sender_nickname": "Alice",
+        "msg_seq": 1,
+        "msg_time": 1_780_000_000u64,
+        "msg_id": "msg-coverage-1",
+        "msg_body": [{
+            "msg_type": "TIMTextElem",
+            "msg_content": { "text": "hello CoverageBot" }
+        }]
+    });
+    let obj = base.as_object_mut().expect("base object");
+    for (key, value) in fields.as_object().expect("fields object") {
+        obj.insert(key.clone(), value.clone());
+    }
+    serde_json::to_vec(&base).expect("serialize yuanbao inbound json")
+}
+
+#[tokio::test]
+async fn yuanbao_channel_and_inbound_pipeline_cover_dispatch_filter_and_error_paths() {
+    let mut config = yuanbao_pipeline_config();
+    config.apply_env_defaults();
+    assert!(config.validate().is_ok());
+    assert_eq!(config.api_domain, "https://yuanbao.example.test");
+    assert_eq!(config.ws_domain, "wss://yuanbao.example.test/ws");
+
+    let channel = YuanbaoChannel::new(config.clone()).expect("construct yuanbao channel");
+    assert_eq!(channel.name(), "yuanbao");
+    assert!(channel.supports_draft_updates());
+    assert!(!channel.supports_reactions());
+    assert!(!channel.health_check().await);
+    let draft = channel
+        .send_draft(&SendMessage::new("draft body", "alice-uid"))
+        .await
+        .expect("yuanbao draft marker");
+    assert_eq!(draft.as_deref(), Some("yb-draft:alice-uid"));
+    assert!(channel
+        .update_draft("alice-uid", "yb-draft:alice-uid", "partial")
+        .await
+        .is_ok());
+
+    let pipeline = yuanbao_pipeline(&config);
+    match pipeline
+        .process(&yuanbao_inbound_json(json!({
+            "msg_id": "dm-1",
+            "msg_body": [{
+                "msg_type": "TIMTextElem",
+                "msg_content": { "text": "plain dm" }
+            }]
+        })))
+        .await
+    {
+        PipelineOutcome::Dispatch(ctx) => {
+            assert_eq!(ctx.text, "plain dm");
+            assert_eq!(ctx.source.reply_target(), "alice-uid");
+            assert_eq!(ctx.kind, YuanbaoMessageKind::Text);
+            assert!(!ctx.is_owner_command);
+        }
+        other => panic!("expected DM dispatch, got {other:?}"),
+    }
+
+    let duplicate = pipeline
+        .process(&yuanbao_inbound_json(json!({
+            "msg_id": "dm-1",
+            "msg_body": [{
+                "msg_type": "TIMTextElem",
+                "msg_content": { "text": "plain dm duplicate" }
+            }]
+        })))
+        .await;
+    assert!(matches!(duplicate, PipelineOutcome::Filtered("dedup")));
+
+    let recall = pipeline
+        .process(&yuanbao_inbound_json(json!({
+            "msg_id": "recall-1",
+            "recall_msg_seq_list": [{ "msg_seq": 1, "msg_id": "old" }]
+        })))
+        .await;
+    assert!(matches!(recall, PipelineOutcome::Filtered("recall_guard")));
+
+    let placeholder = pipeline
+        .process(&yuanbao_inbound_json(json!({
+            "msg_id": "placeholder-1",
+            "msg_body": [{
+                "msg_type": "TIMTextElem",
+                "msg_content": { "text": "[image]" }
+            }]
+        })))
+        .await;
+    assert!(matches!(
+        placeholder,
+        PipelineOutcome::Filtered("placeholder_filter")
+    ));
+
+    let mut closed_config = config.clone();
+    closed_config.dm_access = "closed".into();
+    let closed = yuanbao_pipeline(&closed_config)
+        .process(&yuanbao_inbound_json(json!({ "msg_id": "closed-1" })))
+        .await;
+    assert!(matches!(closed, PipelineOutcome::Filtered("access_guard")));
+
+    let group_without_mention = pipeline
+        .process(&yuanbao_inbound_json(json!({
+            "callback_command": "Group.Callback",
+            "from_account": "group-user",
+            "group_code": "group-1",
+            "msg_id": "group-no-at",
+            "msg_body": [{
+                "msg_type": "TIMTextElem",
+                "msg_content": { "text": "hello group" }
+            }]
+        })))
+        .await;
+    assert!(matches!(
+        group_without_mention,
+        PipelineOutcome::Filtered("group_at_guard")
+    ));
+
+    match pipeline
+        .process(&yuanbao_inbound_json(json!({
+            "callback_command": "Group.Callback",
+            "from_account": "group-user",
+            "group_code": "group-1",
+            "sender_nickname": "Group Alice",
+            "msg_id": "group-at-1",
+            "msg_body": [{
+                "msg_type": "TIMTextElem",
+                "msg_content": { "text": "@CoverageBot summarize this" }
+            }]
+        })))
+        .await
+    {
+        PipelineOutcome::Dispatch(ctx) => {
+            assert!(ctx.source.is_group);
+            assert_eq!(ctx.source.reply_target(), "g:group-1");
+            assert_eq!(ctx.text, "summarize this");
+            assert!(ctx.is_at_bot);
+        }
+        other => panic!("expected group dispatch, got {other:?}"),
+    }
+
+    match pipeline
+        .process(&yuanbao_inbound_json(json!({
+            "callback_command": "Group.Callback",
+            "from_account": "owner-uid",
+            "group_code": "group-1",
+            "msg_id": "owner-command-1",
+            "msg_body": [{
+                "msg_type": "TIMTextElem",
+                "msg_content": { "text": "/status" }
+            }]
+        })))
+        .await
+    {
+        PipelineOutcome::Dispatch(ctx) => {
+            assert!(ctx.is_owner_command);
+            assert_eq!(ctx.text, "/status");
+        }
+        other => panic!("expected owner command dispatch, got {other:?}"),
+    }
+
+    match pipeline
+        .process(&yuanbao_inbound_json(json!({
+            "msg_id": "mixed-1",
+            "msg_body": [{
+                "msg_type": "TIMTextElem",
+                "msg_content": { "text": "caption" }
+            }, {
+                "msg_type": "TIMImageElem",
+                "msg_content": {
+                    "image_info_array": [{
+                        "image_type": 1,
+                        "size": 10,
+                        "width": 4,
+                        "height": 3,
+                        "url": "https://cdn.example.test/cat.png"
+                    }]
+                }
+            }]
+        })))
+        .await
+    {
+        PipelineOutcome::Dispatch(ctx) => {
+            assert_eq!(ctx.kind, YuanbaoMessageKind::Mixed);
+            assert_eq!(ctx.image_urls, vec!["https://cdn.example.test/cat.png"]);
+        }
+        other => panic!("expected mixed dispatch, got {other:?}"),
+    }
+
+    match pipeline.process(b"{not valid json").await {
+        PipelineOutcome::Failed(err) => assert!(err.to_string().contains("decode")),
+        other => panic!("expected decode failure, got {other:?}"),
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn tool_registry_rpc_controllers_cover_list_get_diagnostics_and_errors() {
     let _lock = env_lock();
@@ -2833,6 +3054,127 @@ async fn filesystem_and_system_tool_edges_cover_deterministic_error_and_success_
         .expect("valid insert is currently pending implementation");
     assert!(staged.is_error);
     assert!(staged.output().contains("FTS5/SQLite insert pending"));
+}
+
+#[tokio::test]
+async fn proxy_config_tool_covers_temp_config_runtime_env_and_validation_paths() {
+    let _lock = env_lock();
+    let dir = tempdir().expect("tempdir");
+    let _http_guard = EnvVarGuard::unset("HTTP_PROXY");
+    let _https_guard = EnvVarGuard::unset("HTTPS_PROXY");
+    let _all_guard = EnvVarGuard::unset("ALL_PROXY");
+    let _no_guard = EnvVarGuard::unset("NO_PROXY");
+
+    let mut config = Config {
+        workspace_dir: dir.path().join("workspace"),
+        config_path: dir.path().join("config.toml"),
+        ..Config::default()
+    };
+    config.autonomy.level = openhuman_core::openhuman::security::AutonomyLevel::Full;
+    config.save().await.expect("write temp config");
+
+    let security = Arc::new(SecurityPolicy::from_config(
+        &config.autonomy,
+        &config.workspace_dir,
+    ));
+    let tool = ProxyConfigTool::new(Arc::new(config.clone()), security);
+    assert_eq!(tool.name(), "proxy_config");
+    assert_eq!(tool.permission_level(), PermissionLevel::ReadOnly);
+    assert_eq!(
+        tool.parameters_schema().pointer("/properties/action/enum/0"),
+        Some(&json!("get"))
+    );
+
+    let initial = tool.execute(json!({ "action": "get" })).await.expect("get");
+    assert!(!initial.is_error, "{}", initial.output());
+    assert!(initial.output().contains("\"proxy\""));
+
+    let services = tool
+        .execute(json!({ "action": "list_services" }))
+        .await
+        .expect("list services");
+    assert!(!services.is_error, "{}", services.output());
+    assert!(services.output().contains("provider.openai"));
+    assert!(services.output().contains("tool.http_request"));
+
+    let invalid_scope = tool
+        .execute(json!({ "action": "set", "scope": "elsewhere" }))
+        .await
+        .expect("invalid scope is tool error");
+    assert!(invalid_scope.is_error);
+    assert!(invalid_scope.output().contains("Invalid scope"));
+
+    let bad_no_proxy = tool
+        .execute(json!({ "action": "set", "no_proxy": [123] }))
+        .await
+        .expect("bad no_proxy is tool error");
+    assert!(bad_no_proxy.is_error);
+    assert!(bad_no_proxy.output().contains("array must only contain strings"));
+
+    let set_services = tool
+        .execute(json!({
+            "action": "set",
+            "enabled": true,
+            "scope": "services",
+            "http_proxy": "http://127.0.0.1:8888",
+            "https_proxy": null,
+            "no_proxy": "localhost, 127.0.0.1",
+            "services": [" provider.openai ", "tool.http_request", ""]
+        }))
+        .await
+        .expect("set services proxy");
+    assert!(!set_services.is_error, "{}", set_services.output());
+    assert!(set_services.output().contains("Proxy configuration updated"));
+    assert!(set_services.output().contains("provider.openai"));
+
+    let apply_wrong_scope = tool
+        .execute(json!({ "action": "apply_env" }))
+        .await
+        .expect("apply_env wrong scope is tool error");
+    assert!(apply_wrong_scope.is_error);
+    assert!(apply_wrong_scope.output().contains("environment"));
+
+    let set_environment = tool
+        .execute(json!({
+            "action": "set",
+            "enabled": true,
+            "scope": "environment",
+            "http_proxy": "http://127.0.0.1:8888",
+            "https_proxy": "http://127.0.0.1:8889",
+            "all_proxy": "",
+            "no_proxy": ["localhost", "127.0.0.1"]
+        }))
+        .await
+        .expect("set environment proxy");
+    assert!(!set_environment.is_error, "{}", set_environment.output());
+    assert_eq!(
+        std::env::var("HTTP_PROXY").as_deref(),
+        Ok("http://127.0.0.1:8888")
+    );
+    assert_eq!(
+        std::env::var("HTTPS_PROXY").as_deref(),
+        Ok("http://127.0.0.1:8889")
+    );
+
+    let clear_env = tool
+        .execute(json!({ "action": "clear_env" }))
+        .await
+        .expect("clear env");
+    assert!(!clear_env.is_error, "{}", clear_env.output());
+    assert!(std::env::var("HTTP_PROXY").is_err());
+
+    let disable = tool
+        .execute(json!({ "action": "disable", "clear_env": true }))
+        .await
+        .expect("disable proxy");
+    assert!(!disable.is_error, "{}", disable.output());
+    assert!(disable.output().contains("Proxy disabled"));
+
+    let unknown = tool
+        .execute(json!({ "action": "unknown" }))
+        .await
+        .expect_err("unknown action is an argument error");
+    assert!(unknown.to_string().contains("Unknown action"));
 }
 
 #[tokio::test]

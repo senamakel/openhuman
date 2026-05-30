@@ -168,6 +168,71 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(timeline[0]?.subagent?.prompt).toContain('Research Q3 revenue');
     });
 
+    it('appends streamed subagent text & thinking deltas to the subagent transcript', () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        listeners.onSubagentSpawned?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'researcher',
+          skill_id: 'sub-1',
+          message: 'spawned',
+          subagent: { mode: 'typed' },
+        });
+        listeners.onSubagentThinkingDelta?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          delta: 'let me think',
+          subagent: { task_id: 'sub-1', agent_id: 'researcher', child_iteration: 1 },
+        });
+        listeners.onSubagentTextDelta?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          delta: 'the answer',
+          subagent: { task_id: 'sub-1', agent_id: 'researcher', child_iteration: 1 },
+        });
+      });
+
+      const row = (store.getState().chatRuntime.toolTimelineByThread['t1'] ?? []).find(
+        e => e.subagent?.taskId === 'sub-1'
+      );
+      expect(row?.subagent?.transcript).toEqual([
+        { kind: 'thinking', iteration: 1, text: 'let me think' },
+        { kind: 'text', iteration: 1, text: 'the answer' },
+      ]);
+    });
+
+    it('ignores subagent deltas missing task/agent/delta', () => {
+      const listeners = renderProvider();
+      act(() => {
+        listeners.onSubagentSpawned?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'researcher',
+          skill_id: 'sub-1',
+          message: 'spawned',
+          subagent: { mode: 'typed' },
+        });
+        // No agent_id → dropped.
+        listeners.onSubagentTextDelta?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          delta: 'x',
+          subagent: { task_id: 'sub-1' },
+        });
+      });
+      const row = (store.getState().chatRuntime.toolTimelineByThread['t1'] ?? []).find(
+        e => e.subagent?.taskId === 'sub-1'
+      );
+      expect(row?.subagent?.transcript).toEqual([]);
+    });
+
     it('drops duplicate chat_done events with the same thread/request', async () => {
       const listeners = renderProvider();
 

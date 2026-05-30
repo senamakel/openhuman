@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use axum::extract::State;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{header as http_header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -16,7 +16,11 @@ use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::all::RegisteredController;
+use openhuman_core::core::event_bus::register_native_global;
 use openhuman_core::openhuman::agent::agents::BUILTINS;
+use openhuman_core::openhuman::agent::bus::{
+    AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
+};
 use openhuman_core::openhuman::agent::dispatcher::{
     NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, ToolExecutionResult,
     XmlToolDispatcher,
@@ -59,7 +63,10 @@ use openhuman_core::openhuman::agent::tool_policy::{
 };
 use openhuman_core::openhuman::agent::tools::PlanExitTool;
 use openhuman_core::openhuman::agent::triage::envelope::{TriggerEnvelope, TriggerSource};
-use openhuman_core::openhuman::agent::triage::routing::build_local_provider_with_config;
+use openhuman_core::openhuman::agent::triage::evaluator::{run_triage_with_arms, TriageOutcome};
+use openhuman_core::openhuman::agent::triage::routing::{
+    build_local_provider_with_config, ResolvedProvider,
+};
 use openhuman_core::openhuman::agent::triage::{parse_triage_decision, ParseError, TriageAction};
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
@@ -83,6 +90,9 @@ use openhuman_core::openhuman::inference::presets::{
     supports_screen_summary, vision_mode_for_config, vision_mode_for_tier, ModelTier, VisionMode,
     MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER,
 };
+use openhuman_core::openhuman::inference::provider::compatible::{
+    AuthStyle as CompatibleAuthStyle, OpenAiCompatibleProvider,
+};
 use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
     BYOK_INCOMPLETE_SENTINEL,
@@ -98,7 +108,7 @@ use openhuman_core::openhuman::inference::provider::{
     is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
 };
 use openhuman_core::openhuman::inference::provider::{
-    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, ToolCall,
+    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, ProviderDelta, ToolCall,
     ToolResultMessage, UsageInfo,
 };
 use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
@@ -306,6 +316,7 @@ async fn serve_provider_mock() -> (String, ProviderMockState) {
     let app = Router::new()
         .route("/v1/models", get(provider_models))
         .route("/v1/chat/completions", post(provider_chat))
+        .route("/v1/responses", post(provider_responses))
         .route("/missing/models", get(provider_missing_models))
         .route("/api/tags", get(ollama_tags))
         .with_state(state.clone());
@@ -360,11 +371,79 @@ async fn provider_chat(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Response {
+    let model = body
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
     state.requests.lock().expect("requests").push((
         "chat".to_string(),
         header(&headers, "authorization"),
         body,
     ));
+
+    if model == "responses-fallback" {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "message": "chat path disabled" } })),
+        )
+            .into_response();
+    }
+
+    if model == "stream-native" && stream {
+        let body = [
+            r#"data: {"choices":[{"delta":{"content":"hello "},"finish_reason":null}]}"#,
+            r#"data: {"choices":[{"delta":{"reasoning_content":"thinking "},"finish_reason":null}]}"#,
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-stream","type":"function","function":{"name":"search_docs","arguments":"{\"query\""}}]},"finish_reason":null}]}"#,
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":":\"coverage\"}"}}]},"finish_reason":null}],"usage":{"prompt_tokens":11,"completion_tokens":13,"total_tokens":24},"openhuman":{"usage":{"input_tokens":17,"output_tokens":19,"cached_input_tokens":5},"billing":{"charged_amount_usd":0.03}}}"#,
+            "data: [DONE]",
+            "",
+        ]
+        .join("\n\n");
+        return ([(http_header::CONTENT_TYPE, "text/event-stream")], body).into_response();
+    }
+
+    if model == "tool-content-json" {
+        return Json(json!({
+            "id": "chatcmpl-tool-content",
+            "object": "chat.completion",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "{\"content\":\"visible from json content\",\"tool_calls\":[{\"id\":\"call-json\",\"name\":\"search_docs\",\"arguments\":\"{\\\"query\\\":\\\"json content\\\"}\"}]}"
+                },
+                "finish_reason": "tool_calls"
+            }]
+        }))
+        .into_response();
+    }
+
+    if model == "function-call" {
+        return Json(json!({
+            "id": "chatcmpl-function",
+            "object": "chat.completion",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "<think>private</think> visible",
+                    "reasoning_content": "  retained reasoning  ",
+                    "function_call": { "name": "legacy_tool", "arguments": { "ok": true } }
+                },
+                "finish_reason": "tool_calls"
+            }],
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 4,
+                "total_tokens": 7,
+                "prompt_tokens_details": { "cached_tokens": 2 }
+            }
+        }))
+        .into_response();
+    }
+
     Json(json!({
         "id": "chatcmpl-coverage",
         "object": "chat.completion",
@@ -374,6 +453,25 @@ async fn provider_chat(
             "finish_reason": "stop"
         }],
         "usage": { "prompt_tokens": 4, "completion_tokens": 5, "total_tokens": 9 }
+    }))
+    .into_response()
+}
+
+async fn provider_responses(
+    State(state): State<ProviderMockState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    state.requests.lock().expect("requests").push((
+        "responses".to_string(),
+        header(&headers, "x-api-key").or_else(|| header(&headers, "authorization")),
+        body,
+    ));
+    Json(json!({
+        "output_text": "responses fallback reply",
+        "output": [{
+            "content": [{ "type": "output_text", "text": "nested fallback reply" }]
+        }]
     }))
     .into_response()
 }
@@ -1470,6 +1568,189 @@ async fn inference_provider_trait_defaults_cover_prompt_guided_paths() {
     assert!(StreamChunk::error("boom").is_final);
 }
 
+#[tokio::test]
+async fn inference_openai_compatible_provider_covers_native_streaming_and_fallbacks() {
+    use futures_util::StreamExt;
+
+    let (provider_base, provider_state) = serve_provider_mock().await;
+    let provider = OpenAiCompatibleProvider::new(
+        "mock-compatible",
+        &format!("{provider_base}/v1"),
+        None,
+        CompatibleAuthStyle::None,
+    )
+    .with_temperature_unsupported_models(vec!["stream-*".into()]);
+
+    let tool_spec = ToolSpec {
+        name: "search_docs".into(),
+        description: "Search docs".into(),
+        parameters: json!({
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"]
+        }),
+    };
+    let (delta_tx, mut delta_rx) = tokio::sync::mpsc::channel(8);
+    let streamed = provider
+        .chat(
+            ChatRequest {
+                messages: &[
+                    ChatMessage::system("system one"),
+                    ChatMessage::user("stream please"),
+                ],
+                tools: Some(&[tool_spec.clone(), tool_spec.clone()]),
+                stream: Some(&delta_tx),
+            },
+            "stream-native",
+            0.9,
+        )
+        .await
+        .expect("streaming native chat");
+    drop(delta_tx);
+    assert_eq!(streamed.text_or_empty(), "hello");
+    assert_eq!(streamed.reasoning_content.as_deref(), Some("thinking"));
+    assert_eq!(streamed.tool_calls.len(), 1);
+    assert_eq!(streamed.tool_calls[0].id, "call-stream");
+    assert_eq!(streamed.tool_calls[0].name, "search_docs");
+    assert_eq!(streamed.tool_calls[0].arguments, r#"{"query":"coverage"}"#);
+    let usage = streamed.usage.expect("openhuman usage");
+    assert_eq!(usage.input_tokens, 17);
+    assert_eq!(usage.cached_input_tokens, 5);
+    assert_eq!(usage.charged_amount_usd, 0.03);
+
+    let mut deltas = Vec::new();
+    while let Some(delta) = delta_rx.recv().await {
+        deltas.push(delta);
+    }
+    assert!(deltas
+        .iter()
+        .any(|delta| matches!(delta, ProviderDelta::TextDelta { delta } if delta == "hello ")));
+    assert!(deltas.iter().any(|delta| {
+        matches!(delta, ProviderDelta::ThinkingDelta { delta } if delta == "thinking ")
+    }));
+    assert!(deltas.iter().any(|delta| {
+        matches!(delta, ProviderDelta::ToolCallStart { call_id, tool_name }
+            if call_id == "call-stream" && tool_name == "search_docs")
+    }));
+
+    let content_tool = provider
+        .chat(
+            ChatRequest {
+                messages: &[ChatMessage::user("json encoded tool call")],
+                tools: None,
+                stream: None,
+            },
+            "tool-content-json",
+            0.2,
+        )
+        .await
+        .expect("content-json tool call");
+    assert_eq!(content_tool.text_or_empty(), "visible from json content");
+    assert_eq!(
+        content_tool.tool_calls[0].arguments,
+        r#"{"query":"json content"}"#
+    );
+
+    let legacy_tool = provider
+        .chat_with_tools(
+            &[ChatMessage::user("legacy function_call")],
+            &[json!({
+                "type": "function",
+                "function": {
+                    "name": "legacy_tool",
+                    "description": "legacy",
+                    "parameters": { "type": "object" }
+                }
+            })],
+            "function-call",
+            0.4,
+        )
+        .await
+        .expect("legacy function_call response");
+    assert_eq!(legacy_tool.text_or_empty(), "visible");
+    assert_eq!(
+        legacy_tool.reasoning_content.as_deref(),
+        Some("retained reasoning")
+    );
+    assert_eq!(
+        legacy_tool
+            .usage
+            .expect("standard usage")
+            .cached_input_tokens,
+        2
+    );
+
+    let fallback = provider
+        .chat_with_system(Some("sys"), "fallback", "responses-fallback", 0.1)
+        .await
+        .expect("responses fallback");
+    assert_eq!(fallback, "responses fallback reply");
+
+    let x_api_provider = OpenAiCompatibleProvider::new(
+        "mock-compatible",
+        &format!("{provider_base}/v1"),
+        Some("x-api-secret"),
+        CompatibleAuthStyle::XApiKey,
+    );
+    assert_eq!(
+        x_api_provider
+            .chat_with_system(None, "x-api-key", "responses-fallback", 0.1)
+            .await
+            .expect("x-api-key responses fallback"),
+        "responses fallback reply"
+    );
+
+    let no_fallback = OpenAiCompatibleProvider::new_no_responses_fallback(
+        "mock-compatible",
+        &format!("{provider_base}/v1"),
+        None,
+        CompatibleAuthStyle::None,
+    );
+    let missing = no_fallback
+        .chat_with_system(None, "missing", "responses-fallback", 0.1)
+        .await
+        .expect_err("404 without fallback");
+    assert!(missing
+        .to_string()
+        .contains("check that your endpoint URL is correct"));
+
+    let mut chunks = provider.stream_chat_with_system(
+        Some("sys"),
+        "plain stream",
+        "stream-native",
+        0.3,
+        openhuman_core::openhuman::inference::provider::traits::StreamOptions::new(true)
+            .with_token_count(),
+    );
+    let first = chunks
+        .next()
+        .await
+        .expect("first stream chunk")
+        .expect("stream chunk ok");
+    assert_eq!(first.delta, "hello ");
+    assert!(first.token_count > 0);
+
+    let requests = provider_state.requests.lock().expect("requests").clone();
+    let stream_body = requests
+        .iter()
+        .find(|(_, _, body)| body.pointer("/model") == Some(&json!("stream-native")))
+        .expect("captured stream request")
+        .2
+        .clone();
+    assert!(stream_body.pointer("/temperature").is_none());
+    assert_eq!(
+        stream_body
+            .pointer("/tools")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(1),
+        "duplicate tool specs are dropped at the provider boundary"
+    );
+    assert!(requests
+        .iter()
+        .any(|(kind, auth, _)| kind == "responses" && auth.as_deref() == Some("x-api-secret")));
+}
+
 fn provider_factory_error(role: &str, provider: &str, config: &Config) -> String {
     match create_chat_provider_from_string(role, provider, config) {
         Ok((_, model)) => panic!("provider factory unexpectedly succeeded with model {model}"),
@@ -1756,6 +2037,119 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
     assert_eq!(local.provider_name, "custom_openai");
     assert_eq!(local.model, "local-chat");
     assert!(local.used_local);
+}
+
+#[tokio::test]
+async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_paths() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    AgentDefinitionRegistry::init_global_builtins().expect("init builtins");
+
+    register_native_global::<AgentTurnRequest, AgentTurnResponse, _, _>(
+        AGENT_RUN_TURN_METHOD,
+        |req| async move {
+            assert_eq!(req.channel_name, "triage");
+            assert_eq!(req.target_agent_id.as_deref(), Some("trigger_triage"));
+            assert!(req.history.iter().any(|msg| {
+                msg.role == "user"
+                    && msg.content.contains("SOURCE: webhook")
+                    && msg.content.contains("PAYLOAD:")
+            }));
+            Ok(AgentTurnResponse {
+                text: r#"{"action":"drop","reason":"already handled"}"#.into(),
+            })
+        },
+    );
+    let cloud = ResolvedProvider {
+        provider: Arc::new(EchoProvider),
+        provider_name: "cloud-mock".into(),
+        model: "triage-cloud".into(),
+        used_local: false,
+    };
+    let envelope = TriggerEnvelope::from_webhook(
+        "tunnel-coverage",
+        "POST",
+        "/hooks/triage",
+        json!({ "subject": "coverage" }),
+    );
+    let decision = run_triage_with_arms(cloud, None, &envelope)
+        .await
+        .expect("triage decision")
+        .into_decision()
+        .expect("decision outcome");
+    assert_eq!(decision.decision.action, TriageAction::Drop);
+    assert_eq!(decision.resolution_path.as_str(), "cloud");
+    assert!(!decision.used_local);
+
+    register_native_global::<AgentTurnRequest, AgentTurnResponse, _, _>(
+        AGENT_RUN_TURN_METHOD,
+        |_req| async move { Err("budget exceeded: add credits before retrying".into()) },
+    );
+    let deferred = run_triage_with_arms(
+        ResolvedProvider {
+            provider: Arc::new(EchoProvider),
+            provider_name: "cloud-mock".into(),
+            model: "triage-cloud".into(),
+            used_local: false,
+        },
+        None,
+        &TriggerEnvelope::from_cron("job-coverage", "daily", "done"),
+    )
+    .await
+    .expect("budget becomes deferred without local arm");
+    match deferred {
+        TriageOutcome::Deferred {
+            defer_until_ms,
+            reason,
+        } => {
+            assert!(defer_until_ms > chrono::Utc::now().timestamp_millis());
+            assert_eq!(reason, "cloud budget exhausted; local arm unavailable");
+        }
+        TriageOutcome::Decision(_) => panic!("budget exhaustion should defer"),
+    }
+
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let attempts_for_handler = Arc::clone(&attempts);
+    register_native_global::<AgentTurnRequest, AgentTurnResponse, _, _>(
+        AGENT_RUN_TURN_METHOD,
+        move |_req| {
+            let attempts_for_handler = Arc::clone(&attempts_for_handler);
+            async move {
+                let attempt = attempts_for_handler.fetch_add(1, Ordering::SeqCst);
+                match attempt {
+                    0 | 1 => Ok(AgentTurnResponse {
+                        text: "not json".into(),
+                    }),
+                    _ => Ok(AgentTurnResponse {
+                        text: r#"{"action":"escalate","target_agent":"orchestrator","prompt":"follow up","reason":"needs work"}"#.into(),
+                    }),
+                }
+            }
+        },
+    );
+    let fallback = run_triage_with_arms(
+        ResolvedProvider {
+            provider: Arc::new(EchoProvider),
+            provider_name: "cloud-mock".into(),
+            model: "triage-cloud".into(),
+            used_local: false,
+        },
+        Some(ResolvedProvider {
+            provider: Arc::new(EchoProvider),
+            provider_name: "local-mock".into(),
+            model: "triage-local".into(),
+            used_local: true,
+        }),
+        &TriggerEnvelope::from_external("caller", "manual replay", json!({ "x": 1 })),
+    )
+    .await
+    .expect("local fallback after parse failures")
+    .into_decision()
+    .expect("fallback decision");
+    assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    assert_eq!(fallback.decision.action, TriageAction::Escalate);
+    assert_eq!(fallback.resolution_path.as_str(), "local-fallback");
+    assert!(fallback.used_local);
 }
 
 #[tokio::test]

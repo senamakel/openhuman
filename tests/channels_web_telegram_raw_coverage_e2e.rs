@@ -363,6 +363,9 @@ async fn web_channel_approval_bridge_forced_errors_and_newer_request_cancellatio
             .expect("cancel second"),
         Some(second_id)
     );
+
+    // Clear the forced error so subsequent tests in this binary are not affected.
+    web_test_support::set_forced_run_chat_task_error_for_test(None).await;
 }
 
 #[tokio::test]

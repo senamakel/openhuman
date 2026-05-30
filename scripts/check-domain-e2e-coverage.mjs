@@ -3,7 +3,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const THRESHOLD = Number(process.env.DOMAIN_E2E_COVERAGE_THRESHOLD ?? '90');
+const rawThreshold = process.env.DOMAIN_E2E_COVERAGE_THRESHOLD ?? '90';
+const THRESHOLD = Number(rawThreshold);
+if (!Number.isFinite(THRESHOLD) || THRESHOLD < 0 || THRESHOLD > 100) {
+  // A non-numeric value would make THRESHOLD NaN, turning every `percent <
+  // THRESHOLD` comparison false and silently disabling the gate. Fail loudly.
+  console.error(
+    `Invalid DOMAIN_E2E_COVERAGE_THRESHOLD="${rawThreshold}". Expected a number between 0 and 100.`,
+  );
+  process.exit(2);
+}
 
 const MODULES = [
   { label: 'config', namespaces: ['config'] },

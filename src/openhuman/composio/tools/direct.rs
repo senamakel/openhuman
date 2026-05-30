@@ -29,9 +29,27 @@ fn ensure_https(url: &str) -> anyhow::Result<()> {
 }
 
 fn is_loopback_http_url(url: &str) -> bool {
-    url.starts_with("http://127.0.0.1:")
-        || url.starts_with("http://localhost:")
-        || url.starts_with("http://[::1]:")
+    // Parse rather than prefix-match: a raw `starts_with("http://127.0.0.1:")`
+    // is fooled by userinfo smuggling like
+    // `http://127.0.0.1:8080@evil.com/api/v3/tools`, which reqwest routes to the
+    // *parsed* host (`evil.com`). Verify the actual scheme + host and reject any
+    // embedded credentials so the insecure-loopback path can never leak the
+    // `x-api-key` header to a non-loopback host.
+    let Ok(parsed) = url::Url::parse(url) else {
+        return false;
+    };
+    if parsed.scheme() != "http" {
+        return false;
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return false;
+    }
+    match parsed.host() {
+        Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
+        None => false,
+    }
 }
 
 #[cfg(debug_assertions)]

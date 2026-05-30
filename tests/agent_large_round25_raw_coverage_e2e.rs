@@ -44,6 +44,16 @@ impl Drop for EnvGuard {
     }
 }
 
+/// Serialize tests in this binary that mutate process-global `OPENHUMAN_WORKSPACE`
+/// (read by `apply_env_overrides` during config load), so parallel test threads
+/// can't observe each other's workspace override mid-run.
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
 #[derive(Clone, Debug)]
 struct CapturedRequest {
     messages: Vec<ChatMessage>,
@@ -302,6 +312,7 @@ fn parent(workspace_dir: PathBuf, provider: Arc<ScriptedProvider>) -> ParentExec
 
 #[tokio::test]
 async fn integrations_text_mode_handoffs_oversized_result_and_extracts_from_cache() -> Result<()> {
+    let _env = env_lock();
     let workspace = tempfile::tempdir()?;
     let _workspace_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", workspace.path());
     let provider = ScriptedProvider::new(vec![

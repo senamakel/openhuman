@@ -651,6 +651,7 @@ async fn thread_ops_welcome_migration_and_turn_state_cover_error_and_cleanup_pat
         mode: "typed".into(),
         dedicated_thread: true,
         prompt_chars: 42,
+        worker_thread_id: None,
     }));
     assert!(mirror.observe(&AgentProgress::SubagentCompleted {
         agent_id: "researcher".into(),

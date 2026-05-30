@@ -152,6 +152,9 @@ async fn web_channel_validation_cancellation_and_error_events_are_observable() {
         .await
         .expect("cancel non-inflight");
     assert!(missing.is_none());
+
+    // Clear the forced error so subsequent tests in this binary are not affected.
+    web_support::set_forced_run_chat_task_error_for_test(None).await;
 }
 
 #[tokio::test]

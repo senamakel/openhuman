@@ -43,8 +43,12 @@ impl CohereEmbedding {
     ///
     /// This keeps the public provider usable with local mocks and compatible
     /// deployments while preserving Cohere's hosted endpoint as the default.
+    ///
+    /// Input is trimmed of surrounding whitespace and trailing slashes so the
+    /// endpoint built in [`Self::embed`] (`{base}/v2/embed`) never produces a
+    /// doubled slash when callers pass `https://host/`.
     pub fn with_base_url(mut self, base: impl Into<String>) -> Self {
-        self.base_url = base.into();
+        self.base_url = base.into().trim().trim_end_matches('/').to_string();
         self
     }
 

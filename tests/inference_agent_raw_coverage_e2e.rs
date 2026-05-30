@@ -3311,6 +3311,7 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
         personality_soul_md: None,
         personality_memory_md: None,
         personality_roster: vec![],
+        workflows: &[],
     };
 
     let tools_md = render_tools(&ctx).expect("render tools");
@@ -3425,6 +3426,7 @@ fn agent_builtin_prompt_builders_cover_all_registered_archetypes() {
                 description: "Default assistant".into(),
                 memory_summary: Some("Recent planner context".into()),
             }],
+            workflows: &[],
         };
         let body = (builtin.prompt_fn)(&ctx)
             .unwrap_or_else(|err| panic!("built-in prompt {} should render: {err}", builtin.id));

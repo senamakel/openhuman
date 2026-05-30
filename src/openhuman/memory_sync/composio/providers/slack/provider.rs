@@ -116,14 +116,21 @@ const RATELIMIT_MAX_ATTEMPTS: u32 = 6;
 const INTER_CALL_PACING: Duration = Duration::from_secs(20);
 
 fn inter_call_pacing() -> Duration {
+    // Read per call so the slack sync e2e tests can control pacing at runtime
+    // via the env var. The only repeated-cost concern is the misconfiguration
+    // warning, which we emit at most once to avoid log spam on every
+    // `execute_tool`.
     match std::env::var("OPENHUMAN_SLACK_INTER_CALL_PACING_MS") {
         Ok(s) => match s.trim().parse::<u64>() {
             Ok(ms) => Duration::from_millis(ms),
             _ => {
-                log::warn!(
-                    "[composio:slack] OPENHUMAN_SLACK_INTER_CALL_PACING_MS={s:?} not a \
-                     non-negative integer; falling back to default {INTER_CALL_PACING:?}"
-                );
+                static WARNED: std::sync::Once = std::sync::Once::new();
+                WARNED.call_once(|| {
+                    log::warn!(
+                        "[composio:slack] OPENHUMAN_SLACK_INTER_CALL_PACING_MS={s:?} not a \
+                         non-negative integer; falling back to default {INTER_CALL_PACING:?}"
+                    );
+                });
                 INTER_CALL_PACING
             }
         },

@@ -283,6 +283,16 @@ fn memory_entry(input: TestMemoryEntry) -> MemoryEntry {
 }
 
 pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHarnessObservation {
+    // `init_global` + `register_native_global` mutate process-global state, so
+    // concurrent harness runs in the same process can overwrite each other's
+    // handlers mid-run and produce flaky assertions. Serialize the whole run
+    // (handler registration through observation capture) behind a single lock.
+    static HARNESS_GUARD: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    let _harness_guard = HARNESS_GUARD
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
+
     init_global(DEFAULT_CAPACITY);
     let _ =
         crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins(

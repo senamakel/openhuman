@@ -35,6 +35,35 @@ use tempfile::TempDir;
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 use tokio::time::{timeout, Duration};
 
+struct EnvGuard {
+    key: &'static str,
+    previous: Option<std::ffi::OsString>,
+}
+
+impl EnvGuard {
+    fn set_path(key: &'static str, value: &std::path::Path) -> Self {
+        let previous = std::env::var_os(key);
+        unsafe { std::env::set_var(key, value) };
+        Self { key, previous }
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        match self.previous.take() {
+            Some(value) => unsafe { std::env::set_var(self.key, value) },
+            None => unsafe { std::env::remove_var(self.key) },
+        }
+    }
+}
+
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
 #[derive(Clone, Debug)]
 struct CapturedRequest {
     model: String,
@@ -523,8 +552,9 @@ fn agent_with(
 
 #[tokio::test]
 async fn turn_native_tool_progress_reasoning_usage_and_resume_seed_paths() {
+    let _env = env_lock();
     let (_temp, workspace_path) = workspace("native-progress");
-    std::env::set_var("OPENHUMAN_WORKSPACE", &workspace_path);
+    let _workspace_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", &workspace_path);
     let calls = Arc::new(AtomicUsize::new(0));
     let provider = Arc::new(ScriptedProvider {
         responses: Mutex::new(
@@ -642,6 +672,7 @@ async fn turn_native_tool_progress_reasoning_usage_and_resume_seed_paths() {
                 && message.content.contains("**echo-output:alpha**"))
     );
 
+    let (_seeded_tmp, seeded_workspace) = workspace("seeded-resume");
     let mut seeded = agent_with(
         ScriptedProvider::new(vec![text_response("seeded final")]),
         vec![Round17Tool::boxed(
@@ -649,7 +680,7 @@ async fn turn_native_tool_progress_reasoning_usage_and_resume_seed_paths() {
             "unused",
             Arc::new(AtomicUsize::new(0)),
         )],
-        workspace("seeded-resume").1,
+        seeded_workspace,
         Box::new(XmlToolDispatcher),
         AgentConfig {
             max_history_messages: 3,
@@ -673,8 +704,9 @@ async fn turn_native_tool_progress_reasoning_usage_and_resume_seed_paths() {
 
 #[tokio::test]
 async fn turn_xml_failures_checkpoint_policy_visibility_and_hooks_are_publicly_exercised() {
+    let _env = env_lock();
     let (_temp, workspace_path) = workspace("xml-failures");
-    std::env::set_var("OPENHUMAN_WORKSPACE", &workspace_path);
+    let _workspace_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", &workspace_path);
     let ok_calls = Arc::new(AtomicUsize::new(0));
     let err_calls = Arc::new(AtomicUsize::new(0));
     let boom_calls = Arc::new(AtomicUsize::new(0));
@@ -798,11 +830,12 @@ async fn turn_xml_failures_checkpoint_policy_visibility_and_hooks_are_publicly_e
     assert!(joined.contains("Error executing round17_boom"));
     assert!(joined.contains("denied by policy 'round17-deny'"));
 
+    let (_failing_tmp, failing_workspace) = workspace("provider-error");
     let provider_error = ScriptedProvider::failing("provider offline");
     let mut failing_agent = agent_with(
         provider_error,
         vec![],
-        workspace("provider-error").1,
+        failing_workspace,
         Box::new(XmlToolDispatcher),
         AgentConfig::default(),
         ContextConfig::default(),
@@ -813,6 +846,7 @@ async fn turn_xml_failures_checkpoint_policy_visibility_and_hooks_are_publicly_e
 
 #[tokio::test]
 async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_errors() {
+    let _env = env_lock();
     let no_parent = run_subagent(
         &definition("round17_child", ToolScope::Wildcard, None, 3),
         "outside turn",
@@ -823,7 +857,7 @@ async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_er
     assert!(matches!(no_parent, SubagentRunError::NoParentContext));
 
     let (_temp, workspace_path) = workspace("subagent");
-    std::env::set_var("OPENHUMAN_WORKSPACE", &workspace_path);
+    let _workspace_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", &workspace_path);
     let echo_calls = Arc::new(AtomicUsize::new(0));
     let hidden_calls = Arc::new(AtomicUsize::new(0));
     let provider = Arc::new(ScriptedProvider {

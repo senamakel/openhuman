@@ -172,6 +172,21 @@ impl Drop for EnvGuard {
     }
 }
 
+impl EnvGuard {
+    fn unset(key: &'static str) -> Self {
+        let prior = std::env::var(key).ok();
+        std::env::remove_var(key);
+        Self { key, prior }
+    }
+}
+
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
 fn text_body(text: &str) -> Vec<MsgBodyElement> {
     vec![MsgBodyElement {
         msg_type: "TIMTextElem".to_string(),
@@ -184,9 +199,10 @@ fn text_body(text: &str) -> Vec<MsgBodyElement> {
 
 #[tokio::test]
 async fn telegram_loopback_covers_reaction_text_fallback_and_media_send_paths() {
+    let _env = env_lock();
     let (base, state) = spawn_telegram_mock().await;
     let _guard = EnvGuard::set("OPENHUMAN_TELEGRAM_BOT_API_BASE", base);
-    std::env::remove_var("OPENHUMAN_TELEGRAM_API_BASE");
+    let _legacy_guard = EnvGuard::unset("OPENHUMAN_TELEGRAM_API_BASE");
     let channel = TelegramChannel::new("round26".to_string(), vec!["alice".to_string()], false);
 
     channel

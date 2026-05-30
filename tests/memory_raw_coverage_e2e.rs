@@ -594,6 +594,7 @@ fn threads_turn_state_store_skips_corrupt_entries_and_marks_interrupted() {
             iterations: Some(1),
             elapsed_ms: Some(25),
             output_chars: Some(128),
+            worker_thread_id: None,
             tool_calls: vec![SubagentToolCall {
                 call_id: "call-1".into(),
                 tool_name: "memory.search".into(),

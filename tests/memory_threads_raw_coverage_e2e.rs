@@ -3182,6 +3182,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         mode: "typed".into(),
         dedicated_thread: true,
         prompt_chars: 99,
+        worker_thread_id: None,
     }));
     assert!(!mirror.observe(&AgentProgress::SubagentIterationStarted {
         agent_id: "researcher".into(),
@@ -3454,6 +3455,7 @@ fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
             iterations: Some(1),
             elapsed_ms: Some(250),
             output_chars: Some(42),
+            worker_thread_id: None,
             tool_calls: vec![SubagentToolCall {
                 call_id: "call-1".into(),
                 tool_name: "memory.search".into(),

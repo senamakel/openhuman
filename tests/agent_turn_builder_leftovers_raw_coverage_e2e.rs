@@ -21,6 +21,35 @@ use std::sync::Arc;
 use tempfile::TempDir;
 use tokio::time::{sleep, Duration, Instant};
 
+struct EnvGuard {
+    key: &'static str,
+    previous: Option<std::ffi::OsString>,
+}
+
+impl EnvGuard {
+    fn set_path(key: &'static str, value: &std::path::Path) -> Self {
+        let previous = std::env::var_os(key);
+        unsafe { std::env::set_var(key, value) };
+        Self { key, previous }
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        match self.previous.take() {
+            Some(value) => unsafe { std::env::set_var(self.key, value) },
+            None => unsafe { std::env::remove_var(self.key) },
+        }
+    }
+}
+
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
 #[derive(Clone, Debug)]
 struct CapturedRequest {
     messages: Vec<ChatMessage>,
@@ -322,8 +351,9 @@ fn tool(
 
 #[tokio::test]
 async fn native_turn_dedups_duplicate_tool_specs_and_recovers_invalid_arguments() {
+    let _env = env_lock();
     let (_temp, workspace_path) = workspace("native-dedup-invalid-args");
-    std::env::set_var("OPENHUMAN_WORKSPACE", &workspace_path);
+    let _workspace_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", &workspace_path);
 
     let first_calls = Arc::new(AtomicUsize::new(0));
     let second_calls = Arc::new(AtomicUsize::new(0));
@@ -384,8 +414,9 @@ async fn native_turn_dedups_duplicate_tool_specs_and_recovers_invalid_arguments(
 
 #[tokio::test]
 async fn xml_turn_persists_tool_cycle_and_fires_failure_hook_context() {
+    let _env = env_lock();
     let (_temp, workspace_path) = workspace("xml-hook-persistence");
-    std::env::set_var("OPENHUMAN_WORKSPACE", &workspace_path);
+    let _workspace_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", &workspace_path);
     let hook_calls = Arc::new(AtomicUsize::new(0));
     let hook_contexts = Arc::new(Mutex::new(Vec::new()));
     let failure_calls = Arc::new(AtomicUsize::new(0));
@@ -453,8 +484,9 @@ async fn xml_turn_persists_tool_cycle_and_fires_failure_hook_context() {
 
 #[tokio::test]
 async fn session_memory_threshold_path_runs_only_after_successful_turn() {
+    let _env = env_lock();
     let (_temp, workspace_path) = workspace("session-memory-threshold");
-    std::env::set_var("OPENHUMAN_WORKSPACE", &workspace_path);
+    let _workspace_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", &workspace_path);
     let hook_calls = Arc::new(AtomicUsize::new(0));
     let hook_contexts = Arc::new(Mutex::new(Vec::new()));
     let calls = Arc::new(AtomicUsize::new(0));
@@ -521,13 +553,14 @@ async fn session_memory_threshold_path_runs_only_after_successful_turn() {
     wait_for_hook_calls(&hook_calls, 1).await;
     assert_eq!(hook_contexts.lock()[0].iteration_count, 2);
 
+    let (_empty_tmp, empty_workspace) = workspace("empty-failed-turn");
     let empty_provider = ScriptedProvider::new(vec![text_response("   ", None)], false);
     let mut failed_agent = Agent::builder()
         .provider_arc(empty_provider)
         .tools(Vec::new())
         .memory(RecordingMemory::new())
         .tool_dispatcher(Box::new(XmlToolDispatcher))
-        .workspace_dir(workspace("empty-failed-turn").1)
+        .workspace_dir(empty_workspace)
         .event_context("round20-empty-session", "round20-empty-channel")
         .agent_definition_name("round20/empty")
         .explicit_preferences_enabled(false)

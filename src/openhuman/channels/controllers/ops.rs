@@ -627,7 +627,11 @@ pub async fn channel_status(
                 channel_id: def.id.to_string(),
                 auth_mode: spec.mode,
                 connected,
-                has_credentials: connected,
+                // Reflect actual credential presence, not connection state:
+                // a config-only channel is `connected` but has no stored
+                // credentials. Collapsing these misleads callers that branch on
+                // credential presence (e.g. "needs re-auth" surfaces).
+                has_credentials: has_creds,
             });
         }
     }

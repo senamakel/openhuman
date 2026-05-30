@@ -50,6 +50,13 @@ impl Drop for EnvGuard {
     }
 }
 
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
 #[derive(Clone, Debug)]
 struct CapturedRequest {
     messages: Vec<ChatMessage>,
@@ -277,6 +284,7 @@ fn prompt_context<'a>(
             description: "Checks cold prompt paths".to_string(),
             memory_summary: Some("x".repeat(240)),
         }],
+        workflows: &[],
     }
 }
 
@@ -473,6 +481,7 @@ async fn builder_dedupes_visible_native_tools_and_seed_resume_bounds_history() -
 
 #[tokio::test]
 async fn debug_dump_integrations_agent_reports_missing_toolkit_without_network() -> Result<()> {
+    let _env = env_lock();
     let workspace = tempfile::tempdir()?;
     let _workspace_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", workspace.path());
 

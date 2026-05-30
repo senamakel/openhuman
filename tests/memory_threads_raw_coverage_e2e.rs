@@ -14,9 +14,11 @@ use serde_json::json;
 use serde_json::{Map, Value};
 use std::ffi::OsString;
 use std::path::Path;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 use openhuman_core::openhuman::config::Config;
+use openhuman_core::openhuman::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::tree_policy::TreePolicy;
 use openhuman_core::openhuman::memory::tree_source;
 use openhuman_core::openhuman::memory::{
@@ -30,6 +32,7 @@ use openhuman_core::openhuman::memory::{
         UpdateConversationThreadTitleRequest, UpsertConversationThreadRequest,
     },
     traits::{MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts},
+    MemoryIngestionConfig, MemoryIngestionRequest,
 };
 use openhuman_core::openhuman::memory_sources::readers::reader_for;
 use openhuman_core::openhuman::memory_sources::registry;
@@ -49,6 +52,7 @@ use openhuman_core::openhuman::memory_store::chunks::types::{
 use openhuman_core::openhuman::memory_store::trees::types::{
     SummaryNode, Tree, TreeKind, TreeStatus as StoredTreeStatus,
 };
+use openhuman_core::openhuman::memory_store::{NamespaceDocumentInput, UnifiedMemory};
 use openhuman_core::openhuman::memory_sync::canonicalize::chat::{
     canonicalise as canonicalise_chat, ChatBatch, ChatMessage,
 };
@@ -350,6 +354,131 @@ async fn canonicalizers_clean_sort_and_preserve_metadata() {
         Some("n@example.com")
     );
     assert_eq!(email_clean::md_escape("a*b_c|d"), "a\\*b\\_c\\|d");
+}
+
+#[tokio::test]
+async fn memory_ingestion_pipeline_extracts_graph_preferences_and_recall_hits() {
+    let tmp = TempDir::new().expect("tempdir");
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).expect("memory");
+    let content = r#"
+From: Alice Morgan <alice@example.test>
+To: Bob Stone <bob@example.test>, Cara Park <cara@example.test>
+Cc: OpenHuman Core <core@example.test>
+Subject: OpenHuman coverage memory plan
+Date: 2026-05-29
+
+# Project Alpha
+Project name: OpenHuman
+Subproject: memory-coverage
+Owner: Alice Morgan
+Name: Thread raw coverage
+Due date: 2026-06-01
+Target milestone: 2026-06-15
+Preferred embedding model for local experiments: text-embedding-3-small
+Preferred extraction mode to try first: sentence
+
+Alice Morgan owns memory-coverage.
+Bob Stone works_on memory-coverage.
+OpenHuman uses JSON-RPC.
+Cara Park prefers deterministic fixtures.
+Alice Morgan will review the ingestion assertions.
+Bob Stone sent draft notes to Cara Park.
+Kitchen is north of Garden.
+"#;
+
+    let result = memory
+        .ingest_document(MemoryIngestionRequest {
+            document: NamespaceDocumentInput {
+                namespace: "memory-raw-ingestion".into(),
+                key: "plan-1".into(),
+                title: "OpenHuman coverage memory plan".into(),
+                content: content.into(),
+                source_type: "test".into(),
+                priority: "high".into(),
+                tags: vec!["seed".into()],
+                metadata: json!({ "fixture": "raw-memory-e2e" }),
+                category: "core".into(),
+                session_id: Some("session-coverage".into()),
+                document_id: Some("doc-memory-raw-ingestion".into()),
+            },
+            config: MemoryIngestionConfig::default(),
+        })
+        .await
+        .expect("ingest document");
+
+    assert_eq!(result.document_id, "doc-memory-raw-ingestion");
+    assert_eq!(result.namespace, "memory-raw-ingestion");
+    assert!(result.tags.contains(&"deadline".to_string()));
+    assert!(result.tags.contains(&"decision".to_string()));
+    assert!(result.tags.contains(&"preference".to_string()));
+    assert!(result.entity_count >= 5);
+    assert!(result.relation_count >= 8);
+    assert!(result.preference_count >= 1);
+    assert!(result.decision_count >= 2);
+    assert!(result
+        .entities
+        .iter()
+        .any(|entity| entity.name == "ALICE MORGAN"));
+    assert!(result
+        .relations
+        .iter()
+        .any(|relation| relation.subject.contains("OPENHUMAN")
+            && relation.predicate == "USES"
+            && relation.object.contains("TEXT-EMBEDDING")));
+
+    let rows = memory
+        .graph_query_namespace("memory-raw-ingestion", Some("ALICE MORGAN"), Some("OWNS"))
+        .await
+        .expect("query graph");
+    assert!(rows.iter().any(|row| row["object"] == "MEMORY-COVERAGE"));
+
+    let context = memory
+        .query_namespace_context_data(
+            "memory-raw-ingestion",
+            "who owns memory coverage and what uses text embedding",
+            5,
+        )
+        .await
+        .expect("query context");
+    assert!(context
+        .hits
+        .iter()
+        .flat_map(|hit| hit.supporting_relations.iter())
+        .any(|relation| relation.predicate == "OWNS" || relation.predicate == "USES"));
+
+    let recall = memory
+        .recall_namespace_memories("memory-raw-ingestion", 5)
+        .await
+        .expect("recall memories");
+    assert!(recall
+        .iter()
+        .any(|hit| hit.document_id.as_deref() == Some("doc-memory-raw-ingestion")));
+
+    let extract_again = memory
+        .extract_graph(
+            "doc-memory-raw-ingestion",
+            &NamespaceDocumentInput {
+                namespace: "memory-raw-ingestion".into(),
+                key: "plan-1".into(),
+                title: "OpenHuman coverage memory plan".into(),
+                content: "OpenHuman uses JSON-RPC.\nAlice Morgan prefers small tests.".into(),
+                source_type: "test".into(),
+                priority: "high".into(),
+                tags: Vec::new(),
+                metadata: Value::Null,
+                category: "core".into(),
+                session_id: None,
+                document_id: Some("doc-memory-raw-ingestion".into()),
+            },
+            &MemoryIngestionConfig {
+                extraction_mode: openhuman_core::openhuman::memory::ExtractionMode::Chunk,
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("extract graph again");
+    assert_eq!(extract_again.extraction_mode, "chunk");
+    assert!(extract_again.preference_count >= 1);
 }
 
 #[tokio::test]

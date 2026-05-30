@@ -80,6 +80,14 @@ pub(crate) trait TurnObserver: Send {
     /// persistence point) — both after the final response and after each tool
     /// round's results are appended.
     fn after_iteration(&mut self, _history: &[ChatMessage], _iteration: usize) {}
+
+    /// Whether an empty final response (no text, no tool calls) is acceptable.
+    /// The channel/subagent loops return it as `Ok("")`; `Agent::turn` treats
+    /// it as a degenerate/poisoned completion and surfaces an error instead of
+    /// a silent blank reply (bug-report-2026-05-26 A1). Default: allowed.
+    fn allow_empty_final(&self) -> bool {
+        true
+    }
 }
 
 /// No-op observer for the channel/CLI/triage loop, which keeps no extra state.

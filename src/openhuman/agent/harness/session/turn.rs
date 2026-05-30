@@ -36,6 +36,7 @@ use crate::openhuman::agent_tool_policy::render_tool_policy_boundary;
 use crate::openhuman::context::prompt::{
     LearnedContextData, NamespaceSummary, PromptContext, PromptTool,
 };
+use super::turn_engine_adapter::{AgentCheckpoint, AgentObserver, AgentToolSource};
 use crate::openhuman::context::{ReductionOutcome, ARCHIVIST_EXTRACTION_PROMPT};
 use crate::openhuman::inference::model_context::context_window_for_model;
 use crate::openhuman::inference::provider::{
@@ -62,9 +63,7 @@ use std::sync::Arc;
 /// detect those at the `ChatMessage` boundary (where `bound_cached_transcript_messages`
 /// operates) we have to peek inside the JSON. See TAURI-RUST-7 for the
 /// failure mode this guards against.
-#[path = "turn_checkpoint.rs"]
-mod turn_checkpoint;
-use turn_checkpoint::{
+use super::turn_checkpoint::{
     assistant_message_has_tool_calls, build_deterministic_checkpoint,
     MAX_ITER_CHECKPOINT_INSTRUCTION,
 };
@@ -459,660 +458,135 @@ impl Agent {
         // background archivist fork at end-of-turn.
         self.context.tick_turn();
 
-        // Collect tool call records across all iterations for post-turn hooks
-        let mut all_tool_records: Vec<ToolCallRecord> = Vec::new();
-
-        // Trim-robust digest of THIS turn's tool calls + results, compiled as
-        // the loop runs. Used as the *only* context for the max-iteration
-        // checkpoint summary, so it compiles "what I did this turn" without
-        // the prior conversation or system prompt bleeding in — and it's
-        // immune to history trimming (which drops/reorders from the front).
-        // The persisted transcript is unaffected (bug-report-2026-05-26 A1).
-        // Bounded: each entry truncates the result to 800 chars, so at the
-        // default 10-iteration cap the digest is ~8 KB — revisit if
-        // `max_tool_iterations` is raised substantially.
-        let mut turn_tool_digest = String::new();
-
-        // Capture the last `Vec<ChatMessage>` sent to the provider so we
-        // can persist it as a session transcript after the turn completes.
-        let mut last_provider_messages: Option<Vec<ChatMessage>> = None;
-
-        // Accumulate usage stats across iterations for the transcript.
-        let mut cumulative_input_tokens: u64 = 0;
-        let mut cumulative_output_tokens: u64 = 0;
-        let mut cumulative_cached_input_tokens: u64 = 0;
-        let mut cumulative_charged_usd: f64 = 0.0;
-
-        // Per-turn usage from the final provider response, attached to the
-        // last assistant message in the persisted transcript.
-        let mut last_turn_usage: Option<transcript::TurnUsage> = None;
-
         let turn_body = async {
-            for iteration in 0..self.config.max_tool_iterations {
-                self.emit_progress(AgentProgress::IterationStarted {
-                    iteration: (iteration + 1) as u32,
-                    max_iterations: self.config.max_tool_iterations as u32,
-                })
-                .await;
-                log::info!(
-                    "[agent_loop] iteration start i={} history_len={}",
-                    iteration + 1,
-                    self.history.len()
-                );
+            // Capture everything the engine seams need as locals/clones *before*
+            // the observer takes `&mut self`, so the borrow checker is happy:
+            // the tool source + parser + checkpoint hold clones disjoint from
+            // the `Agent`, and the observer alone borrows it mutably.
+            let dispatcher = self.tool_dispatcher.clone();
+            let provider = self.provider.clone();
+            let provider_name = self.event_channel().to_string();
+            let temperature = self.temperature;
+            let max_iterations = self.config.max_tool_iterations;
+            let multimodal = crate::openhuman::config::MultimodalConfig::default();
+            let mut tool_source = AgentToolSource {
+                tools: self.tools.clone(),
+                visible_tool_names: self.visible_tool_names.clone(),
+                tool_policy_session: self.tool_policy_session.clone(),
+                tool_policy: self.tool_policy.clone(),
+                payload_summarizer: self.payload_summarizer.clone(),
+                event_session_id: self.event_session_id().to_string(),
+                event_channel: self.event_channel().to_string(),
+                agent_definition_id: self.agent_definition_id.clone(),
+                prefer_markdown: self.context.prefer_markdown_tool_output(),
+                budget_bytes: self.context.tool_result_budget_bytes(),
+                should_send_specs: self.tool_dispatcher.should_send_tool_specs(),
+                advertised_specs: self.visible_tool_specs.as_ref().clone(),
+                records: Vec::new(),
+            };
+            let progress = super::super::engine::TurnProgress::new(self.on_progress.clone());
+            let parser = super::super::engine::DispatcherParser {
+                dispatcher: dispatcher.as_ref(),
+            };
+            let checkpoint = AgentCheckpoint {
+                provider: self.provider.clone(),
+                dispatcher: self.tool_dispatcher.clone(),
+                model: effective_model.clone(),
+                temperature,
+                on_progress: self.on_progress.clone(),
+                user_message: user_message.to_string(),
+                max_iterations,
+            };
+            let cached_prefix = self.cached_transcript_messages.take();
+            let mut observer = AgentObserver {
+                agent: self,
+                effective_model: effective_model.clone(),
+                cumulative_input: 0,
+                cumulative_output: 0,
+                cumulative_cached: 0,
+                cumulative_charged: 0.0,
+                last_turn_usage: None,
+                cached_prefix,
+                pending_results: Vec::new(),
+                did_push_final: false,
+            };
+            let mut buf: Vec<ChatMessage> = Vec::new();
 
-                if let Some(context_window) = context_window_for_model(&effective_model) {
-                    let budget_outcome =
-                        trim_conversation_history_to_budget(&mut self.history, context_window);
-                    if budget_outcome.trimmed {
-                        log::warn!(
-                            "[agent_loop] pre-dispatch history trimmed model={} context_window={} original_tokens={} final_tokens={} messages_removed={}",
-                            effective_model,
-                            context_window,
-                            budget_outcome.original_tokens,
-                            budget_outcome.final_tokens,
-                            budget_outcome.messages_removed
-                        );
-                    }
-                }
+            let outcome = super::super::engine::run_turn_engine(
+                provider.as_ref(),
+                &mut buf,
+                &mut tool_source,
+                &progress,
+                &mut observer,
+                &checkpoint,
+                &parser,
+                &provider_name,
+                &effective_model,
+                temperature,
+                true, // silent — the channel/UI renders via progress + the return value
+                &multimodal,
+                max_iterations,
+                None, // the web bridge streams via on_progress deltas, not on_delta
+            )
+            .await?;
 
-                // Global context management: run the reduction chain
-                // before every provider hit. Cheap when the guard is
-                // healthy; executes the summarizer LLM call
-                // internally when the pipeline asks for autocompaction
-                // (summarization, microcompact, and the circuit
-                // breaker all live inside [`ContextManager`]).
-                let outcome = self.context.reduce_before_call(&mut self.history).await?;
-                match &outcome {
-                    ReductionOutcome::NoOp => {}
-                    ReductionOutcome::Microcompacted {
-                        envelopes_cleared,
-                        entries_cleared,
-                        bytes_freed,
-                    } => {
-                        log::info!(
-                            "[agent_loop] context microcompact i={} envelopes={} entries={} bytes_freed={}",
-                            iteration + 1,
-                            envelopes_cleared,
-                            entries_cleared,
-                            bytes_freed
-                        );
-                    }
-                    ReductionOutcome::Summarized(stats) => {
-                        log::info!(
-                            "[agent_loop] context autocompact summarized i={} messages_removed={} approx_tokens_freed={} summary_chars={}",
-                            iteration + 1,
-                            stats.messages_removed,
-                            stats.approx_tokens_freed,
-                            stats.summary_chars
-                        );
-                    }
-                    ReductionOutcome::SummarizationFailed {
-                        utilisation_pct,
-                        reason,
-                    } => {
-                        log::warn!(
-                            "[agent_loop] context summarizer failed i={} utilisation_pct={} reason={}",
-                            iteration + 1,
-                            utilisation_pct,
-                            reason
-                        );
-                    }
-                    ReductionOutcome::NotAttempted { utilisation_pct } => {
-                        log::warn!(
-                            "[agent_loop] context autocompact disabled in config i={} utilisation_pct={}",
-                            iteration + 1,
-                            utilisation_pct
-                        );
-                    }
-                    ReductionOutcome::Exhausted {
-                        utilisation_pct,
-                        reason,
-                    } => {
-                        log::error!(
-                            "[agent_loop] context exhausted i={} utilisation_pct={} reason={}",
-                            iteration + 1,
-                            utilisation_pct,
-                            reason
-                        );
-                        return Err(anyhow::anyhow!(
-                            "Context window exhausted ({utilisation_pct}% full): {reason}"
-                        ));
-                    }
-                }
+            // Pull the observer's accounting out, then drop it to release the
+            // `&mut self` borrow so the epilogue can use `self`.
+            let did_push_final = observer.did_push_final;
+            let cumulative_input = observer.cumulative_input;
+            let cumulative_output = observer.cumulative_output;
+            let cumulative_cached = observer.cumulative_cached;
+            let cumulative_charged = observer.cumulative_charged;
+            let last_turn_usage = observer.last_turn_usage.take();
+            drop(observer);
+            let records = std::mem::take(&mut tool_source.records);
 
-                // Use cached transcript messages on the first iteration of
-                // a resumed session to provide a byte-identical prefix for
-                // KV cache reuse. After `.take()` the cache is consumed;
-                // subsequent iterations rebuild from history normally.
-                let mut messages = if let Some(mut cached) = self.cached_transcript_messages.take()
-                {
-                    // Append only the delta (new user message) from the
-                    // end of the current history.
-                    let new_tail = self.tool_dispatcher.to_provider_messages(
-                        &self.history[self.history.len().saturating_sub(1)..],
-                    );
-                    cached.extend(new_tail);
-                    log::info!(
-                        "[transcript] resumed from cached transcript prefix_len={} new_tail={}",
-                        cached.len() - 1,
-                        1
-                    );
-                    cached
-                } else {
-                    self.tool_dispatcher.to_provider_messages(&self.history)
-                };
-                if let Some(context_window) = context_window_for_model(&effective_model) {
-                    let budget_outcome =
-                        trim_chat_messages_to_budget(&mut messages, context_window);
-                    if budget_outcome.trimmed {
-                        log::warn!(
-                            "[agent_loop] pre-dispatch provider messages trimmed model={} context_window={} original_tokens={} final_tokens={} messages_removed={}",
-                            effective_model,
-                            context_window,
-                            budget_outcome.original_tokens,
-                            budget_outcome.final_tokens,
-                            budget_outcome.messages_removed
-                        );
-                    }
-                }
+            self.context.record_tool_calls(records.len());
 
-                last_provider_messages = Some(messages.clone());
-
-                log::info!(
-                    "[agent] iteration {}/{} — sending request to provider model={}",
-                    iteration + 1,
-                    self.config.max_tool_iterations,
-                    effective_model
-                );
-                log::info!(
-                    "[agent_loop] provider request i={} messages={} send_tool_specs={}",
-                    iteration + 1,
-                    messages.len(),
-                    self.tool_dispatcher.should_send_tool_specs()
-                );
-                let provider_started = std::time::Instant::now();
-                // Only set up the streaming sink when someone is
-                // listening for progress events. Without a listener the
-                // channel buffer would fill up and back-pressure the
-                // provider; skipping it also keeps the non-streaming
-                // HTTP path alive for providers that don't implement
-                // SSE.
-                let (delta_tx_opt, delta_forwarder) =
-                    crate::openhuman::agent::harness::engine::spawn_delta_forwarder(
-                        self.on_progress.clone(),
-                        (iteration + 1) as u32,
-                    );
-                let response = match self
-                    .provider
-                    .chat(
-                        ChatRequest {
-                            messages: &messages,
-                            tools: if self.tool_dispatcher.should_send_tool_specs() {
-                                Some(self.visible_tool_specs.as_slice())
-                            } else {
-                                None
-                            },
-                            stream: delta_tx_opt.as_ref(),
-                        },
-                        &effective_model,
-                        self.temperature,
-                    )
-                    .await
-                {
-                    Ok(resp) => {
-                        log::info!(
-                            "[agent_loop] provider response i={} elapsed_ms={} text_chars={} native_tool_calls={}",
-                            iteration + 1,
-                            provider_started.elapsed().as_millis(),
-                            resp.text.as_ref().map_or(0, |t| t.chars().count()),
-                            resp.tool_calls.len()
-                        );
-                        log::debug!("[agent_loop] provider response: {resp:?}");
-                        // Feed the context manager (guard +
-                        // session-memory token accounting). No-op when
-                        // the provider doesn't return usage.
-                        if let Some(ref usage) = resp.usage {
-                            self.context.record_usage(usage);
-                            // Feed the dashboard tracker. This always records
-                            // (model + usage) when the process-global tracker
-                            // is available — independent of `cost.enabled`,
-                            // which gates budget enforcement only. The call
-                            // is a no-op only when `init_global` has not yet
-                            // run (before bootstrap) or failed; errors are
-                            // logged and swallowed so cost telemetry never
-                            // breaks a turn.
-                            crate::openhuman::cost::record_provider_usage(&effective_model, usage);
-                            cumulative_input_tokens += usage.input_tokens;
-                            cumulative_output_tokens += usage.output_tokens;
-                            cumulative_cached_input_tokens += usage.cached_input_tokens;
-                            cumulative_charged_usd += usage.charged_amount_usd;
-                            // Snapshot this turn's usage so the transcript
-                            // writer can attribute it to the last assistant
-                            // message.
-                            last_turn_usage = Some(transcript::TurnUsage {
-                                model: effective_model.clone(),
-                                usage: transcript::MessageUsage {
-                                    input: usage.input_tokens,
-                                    output: usage.output_tokens,
-                                    cached_input: usage.cached_input_tokens,
-                                    cost_usd: usage.charged_amount_usd,
-                                },
-                                ts: chrono::Utc::now().to_rfc3339(),
-                            });
-                        } else {
-                            // Missing usage on this iteration: clear any
-                            // snapshot carried from a prior iteration so
-                            // the transcript doesn't attribute stale
-                            // numbers to the final assistant message.
-                            last_turn_usage = None;
-                        }
-                        resp
-                    }
-                    Err(err) => {
-                        drop(delta_tx_opt);
-                        if let Some(handle) = delta_forwarder {
-                            let _ = handle.await;
-                        }
-                        return Err(err);
-                    }
-                };
-                drop(delta_tx_opt);
-                if let Some(handle) = delta_forwarder {
-                    let _ = handle.await;
-                }
-
-                let (text, calls) = self.tool_dispatcher.parse_response(&response);
-                let calls = Self::with_fallback_tool_call_ids(calls, iteration);
-                log::info!(
-                    "[agent] provider responded — parsed tool_calls={} text_chars={}",
-                    calls.len(),
-                    text.chars().count()
-                );
-                log::info!(
-                    "[agent_loop] parsed response i={} parsed_text_chars={} parsed_tool_calls={}",
-                    iteration + 1,
-                    text.chars().count(),
-                    calls.len()
-                );
-                if calls.is_empty() {
-                    // Capture reasoning_content before response.text is moved.
-                    // Thinking models (DeepSeek-R1, Qwen3, GLM-4) return
-                    // chain-of-thought in this field; the API contract requires
-                    // it to be echoed back verbatim in subsequent turns or it
-                    // returns HTTP 400. We stash it in extra_metadata so
-                    // convert_messages_for_native can include it when building
-                    // the next request's message list.
-                    let turn_reasoning_content = response.reasoning_content.clone();
-                    let final_text = if text.is_empty() {
-                        response.text.unwrap_or_default()
-                    } else {
-                        text
-                    };
-                    // Defense-in-depth (bug-report-2026-05-26 A1): a
-                    // completion with no text *and* no tool calls is never a
-                    // valid final answer — it's a degenerate/poisoned
-                    // response. Surfacing it as an error is visible; the old
-                    // behaviour returned `Ok("")`, which rendered as a blank
-                    // reply and silently wedged the thread.
-                    if final_text.trim().is_empty() {
-                        log::warn!(
-                            "[agent_loop] provider returned an empty final response (i={}, no text, no tool calls) — surfacing as error instead of a silent blank reply",
-                            iteration + 1
-                        );
-                        // Typed variant so `run_single` can route this
-                        // through `AgentError::skips_sentry()` and demote
-                        // to a `log::info!` instead of escalating to
-                        // Sentry (TAURI-RUST-4JX). The `Display` impl
-                        // still renders the canonical user-facing string
-                        // for UI surfaces, so the user behaviour is
-                        // unchanged.
-                        return Err(AgentError::EmptyProviderResponse {
-                            iteration: iteration + 1,
-                        }
-                        .into());
-                    }
-                    log::info!(
-                        "[agent] no tool calls — returning final response after {} iteration(s)",
-                        iteration + 1
-                    );
-                    log::info!(
-                        "[agent_loop] final response i={} final_chars={} has_reasoning_content={}",
-                        iteration + 1,
-                        final_text.chars().count(),
-                        turn_reasoning_content.is_some()
-                    );
-
+            // For a clean final response the observer already pushed the
+            // assistant message + persisted. For a max-iteration checkpoint or
+            // circuit-breaker halt the engine returned the text without pushing
+            // it, so finish the history + transcript here (mirrors the old
+            // final/max-iter branches).
+            if !did_push_final {
+                self.history
+                    .push(ConversationMessage::Chat(ChatMessage::assistant(
+                        outcome.text.clone(),
+                    )));
+                self.trim_history();
+                if outcome.hit_cap {
                     self.emit_progress(AgentProgress::TurnCompleted {
-                        iterations: (iteration + 1) as u32,
+                        iterations: self.config.max_tool_iterations as u32,
                     })
                     .await;
-
-                    let mut assistant_msg = ChatMessage::assistant(final_text.clone());
-                    if let Some(rc) = turn_reasoning_content {
-                        // Store reasoning_content in extra_metadata so it
-                        // survives in history and is passed back to the
-                        // provider on the next turn.
-                        assistant_msg.extra_metadata =
-                            Some(serde_json::json!({ "reasoning_content": rc }));
-                        log::debug!(
-                            "[agent_loop] stored reasoning_content in extra_metadata for next turn (chars={})",
-                            assistant_msg
-                                .extra_metadata
-                                .as_ref()
-                                .and_then(|m| m.get("reasoning_content"))
-                                .and_then(|v| v.as_str())
-                                .map_or(0, |s| s.chars().count())
-                        );
-                    }
-                    self.history.push(ConversationMessage::Chat(assistant_msg));
-                    self.trim_history();
-
-                    // Mirror the final assistant reply into the transcript
-                    // snapshot so the JSONL persisted below captures the
-                    // response (not just the prompt that was sent).
-                    if let Some(ref mut msgs) = last_provider_messages {
-                        msgs.push(ChatMessage::assistant(final_text.clone()));
-                    }
-
-                    // Persist the transcript **now** — right after the
-                    // provider response lands — so a crash during hooks
-                    // / memory-extraction / the outer epilogue can't
-                    // lose the assistant's reply.
-                    if let Some(ref messages) = last_provider_messages {
-                        self.persist_session_transcript(
-                            messages,
-                            cumulative_input_tokens,
-                            cumulative_output_tokens,
-                            cumulative_cached_input_tokens,
-                            cumulative_charged_usd,
-                            last_turn_usage.as_ref(),
-                        );
-                    }
-
-                    if self.auto_save {
-                        let summary = truncate_with_ellipsis(&final_text, 100);
-                        let _ = self
-                            .memory
-                            .store("", "assistant_resp", &summary, MemoryCategory::Daily, None)
-                            .await;
-                    }
-
-                    // Session-memory tool-call accounting. The actual
-                    // background extraction spawn happens *outside*
-                    // `turn_body` so the spawned task can take an owned
-                    // parent context without fighting the borrow
-                    // checker against `self`. We capture the decision
-                    // here and surface it via the manager's session
-                    // state — the epilogue (below) reads
-                    // `should_extract_session_memory()`.
-                    self.context.record_tool_calls(all_tool_records.len());
-
-                    // Fire post-turn hooks (non-blocking)
-                    if !self.post_turn_hooks.is_empty() {
-                        let ctx = TurnContext {
-                            user_message: user_message.to_string(),
-                            assistant_response: final_text.clone(),
-                            tool_calls: all_tool_records,
-                            turn_duration_ms: turn_started.elapsed().as_millis() as u64,
-                            session_id: Some(self.event_session_id.clone())
-                                .filter(|session_id| !session_id.trim().is_empty()),
-                            agent_id: Some(self.agent_definition_id.clone())
-                                .filter(|agent_id| !agent_id.trim().is_empty()),
-                            entrypoint: Some(self.event_channel.clone())
-                                .filter(|entrypoint| !entrypoint.trim().is_empty()),
-                            iteration_count: iteration + 1,
-                        };
-                        hooks::fire_hooks(&self.post_turn_hooks, ctx);
-                    }
-
-                    return Ok(final_text);
                 }
-
-                if !text.is_empty() {
-                    log::info!(
-                        "[agent_loop] assistant pre-tool text i={} chars={}",
-                        iteration + 1,
-                        text.chars().count()
-                    );
-                    // Push the assistant text into history; rendering is
-                    // the caller's responsibility (the CLI loop walks
-                    // `agent.history()` after each turn, sub-agents and
-                    // library consumers get whatever they need through
-                    // the returned value / history accessors).
-                    self.history
-                        .push(ConversationMessage::Chat(ChatMessage::assistant(
-                            text.clone(),
-                        )));
-                }
-                let tool_names: Vec<&str> = calls.iter().map(|call| call.name.as_str()).collect();
-                log::info!(
-                    "[agent] dispatching {} tool(s): {:?}",
-                    calls.len(),
-                    tool_names
-                );
-                log::info!(
-                    "[agent_loop] executing tools i={} names={:?}",
-                    iteration + 1,
-                    tool_names
-                );
-                let persisted_tool_calls =
-                    Self::persisted_tool_calls_for_history(&response, &calls, iteration);
-                log::info!(
-                    "[agent_loop] persisting assistant tool calls i={} persisted_tool_calls={} parsed_tool_calls={}",
-                    iteration + 1,
-                    persisted_tool_calls.len(),
-                    calls.len()
-                );
-                self.history.push(ConversationMessage::AssistantToolCalls {
-                    text: if text.is_empty() {
-                        None
-                    } else {
-                        Some(text.clone())
-                    },
-                    tool_calls: persisted_tool_calls,
-                    reasoning_content: response
-                        .reasoning_content
-                        .as_deref()
-                        .map(str::trim)
-                        .filter(|s| !s.is_empty())
-                        .map(ToString::to_string),
-                });
-
-                // Persist the transcript **right after** the provider
-                // response lands — before executing tools — so if the
-                // session crashes mid-tool-call we still have the
-                // assistant's response + tool-call intents on disk.
-                // Rebuild `last_provider_messages` from the current
-                // history so the snapshot includes whatever the
-                // assistant just emitted (plain text + tool calls).
-                last_provider_messages =
-                    Some(self.tool_dispatcher.to_provider_messages(&self.history));
-                if let Some(ref messages) = last_provider_messages {
-                    self.persist_session_transcript(
-                        messages,
-                        cumulative_input_tokens,
-                        cumulative_output_tokens,
-                        cumulative_cached_input_tokens,
-                        cumulative_charged_usd,
-                        last_turn_usage.as_ref(),
-                    );
-                }
-
-                let (results, records) = self.execute_tools(&calls, iteration).await;
-                all_tool_records.extend(records);
-                log::info!(
-                    "[agent_loop] tool results complete i={} result_count={}",
-                    iteration + 1,
-                    results.len()
-                );
-                for r in &results {
-                    log::info!(
-                        "[agent] tool response name={} success={} output_chars={}",
-                        r.name,
-                        r.success,
-                        r.output.chars().count(),
-                    );
-                    log::debug!(
-                        "[agent] tool response body name={}: {}",
-                        r.name,
-                        truncate_with_ellipsis(&r.output, 300)
-                    );
-                    // Record this call in the turn digest (output truncated to
-                    // bound size) for a possible max-iteration checkpoint.
-                    turn_tool_digest.push_str(&format!(
-                        "- {} [{}]: {}\n",
-                        r.name,
-                        if r.success { "ok" } else { "failed" },
-                        truncate_with_ellipsis(&r.output, 800)
-                    ));
-                }
-                log::info!(
-                    "[agent] all tools complete for iteration {} — looping back to provider",
-                    iteration + 1
-                );
-                let formatted = self.tool_dispatcher.format_results(&results);
-                self.history.push(formatted);
-                self.trim_history();
-                // Flush the transcript again now that tool results have
-                // been appended — the pre-tool persist above only
-                // captured the assistant's tool-call intents. A crash
-                // or early-exit between iterations would otherwise lose
-                // the tool output from the on-disk session record.
-                let post_tool_messages = self.tool_dispatcher.to_provider_messages(&self.history);
+                let messages = self.tool_dispatcher.to_provider_messages(&self.history);
                 self.persist_session_transcript(
-                    &post_tool_messages,
-                    cumulative_input_tokens,
-                    cumulative_output_tokens,
-                    cumulative_cached_input_tokens,
-                    cumulative_charged_usd,
+                    &messages,
+                    cumulative_input,
+                    cumulative_output,
+                    cumulative_cached,
+                    cumulative_charged,
                     last_turn_usage.as_ref(),
                 );
-                last_provider_messages = Some(post_tool_messages);
-                log::info!(
-                    "[agent_loop] iteration end i={} history_len={}",
-                    iteration + 1,
-                    self.history.len()
-                );
             }
 
-            // Tool-call iteration cap reached. Instead of aborting the turn
-            // — which left the persisted transcript on an unterminated tool
-            // cycle and silently wedged the thread on the next message
-            // (bug-report-2026-05-26 A1) — emit a *resumable checkpoint*:
-            // ask the model (tools disabled) to summarize what it did and
-            // what comes next, persist that as the final assistant message,
-            // and return it. The full tool-call history stays in the
-            // transcript, so the user's next message naturally resumes the
-            // task — no heuristic "continue" detection needed.
-            log::warn!(
-                "[agent_loop] reached max tool iterations max={} — emitting resumable checkpoint instead of aborting",
-                self.config.max_tool_iterations
-            );
-
-            let base_messages = last_provider_messages
-                .clone()
-                .unwrap_or_else(|| self.tool_dispatcher.to_provider_messages(&self.history));
-            // Summarize ONLY this turn's work: feed the compiled tool-call
-            // digest (no system prompt, no prior conversation), not the full
-            // conversation. `base_messages` above is still used for the
-            // transcript persist below, so the saved transcript is unchanged
-            // (bug-report-2026-05-26 A1). `user_message` below is the
-            // `turn(&mut self, message: &str)` parameter (the turn's request).
-            let turn_summary_input = vec![ChatMessage::user(format!(
-                "You were working on this user request:\n{user_message}\n\nHere are the tool calls you made this turn and their results — compile your checkpoint from these:\n{}",
-                if turn_tool_digest.is_empty() {
-                    "(no tool calls recorded)"
-                } else {
-                    turn_tool_digest.as_str()
-                }
-            ))];
-            let checkpoint_iteration = (self.config.max_tool_iterations + 1) as u32;
-            let (mut checkpoint, checkpoint_usage) = self
-                .summarize_iteration_checkpoint(
-                    &turn_summary_input,
-                    &effective_model,
-                    checkpoint_iteration,
-                )
-                .await;
-
-            // Fold the checkpoint call's usage into the turn's cumulative
-            // accounting. The provider call happens regardless of whether we
-            // keep its prose, so dropping its tokens would undercount the
-            // turn and mis-attribute the prior iteration's usage to the
-            // checkpoint message (mirrors the normal final-response path).
-            if let Some(ref usage) = checkpoint_usage {
-                self.context.record_usage(usage);
-                crate::openhuman::cost::record_provider_usage(&effective_model, usage);
-                cumulative_input_tokens += usage.input_tokens;
-                cumulative_output_tokens += usage.output_tokens;
-                cumulative_cached_input_tokens += usage.cached_input_tokens;
-                cumulative_charged_usd += usage.charged_amount_usd;
-                last_turn_usage = Some(transcript::TurnUsage {
-                    model: effective_model.clone(),
-                    usage: transcript::MessageUsage {
-                        input: usage.input_tokens,
-                        output: usage.output_tokens,
-                        cached_input: usage.cached_input_tokens,
-                        cost_usd: usage.charged_amount_usd,
-                    },
-                    ts: chrono::Utc::now().to_rfc3339(),
-                });
-            } else {
-                // No usage on the checkpoint call: don't attribute a stale
-                // prior-iteration snapshot to the checkpoint assistant message.
-                last_turn_usage = None;
+            // Auto-save a short memory of the final reply (not on a capped turn,
+            // matching the prior behavior).
+            if self.auto_save && !outcome.hit_cap {
+                let summary = truncate_with_ellipsis(&outcome.text, 100);
+                let _ = self
+                    .memory
+                    .store("", "assistant_resp", &summary, MemoryCategory::Daily, None)
+                    .await;
             }
 
-            if checkpoint.trim().is_empty() {
-                log::warn!("[agent_loop] checkpoint summary empty — using deterministic fallback");
-                checkpoint = build_deterministic_checkpoint(
-                    &all_tool_records,
-                    self.config.max_tool_iterations,
-                );
-            }
-            log::info!(
-                "[agent_loop] max-iter checkpoint emitted chars={}",
-                checkpoint.chars().count()
-            );
-
-            self.emit_progress(AgentProgress::TurnCompleted {
-                iterations: self.config.max_tool_iterations as u32,
-            })
-            .await;
-
-            self.history
-                .push(ConversationMessage::Chat(ChatMessage::assistant(
-                    checkpoint.clone(),
-                )));
-            self.trim_history();
-
-            // Persist the checkpoint so the transcript ends on a
-            // well-formed assistant message (never a dangling tool cycle).
-            // Note: `base_messages` ends before the final (capped) iteration's
-            // tool results — those landed after the last `last_provider_messages`
-            // snapshot — so the persisted transcript omits them. That's fine:
-            // the checkpoint prose covers the work done, and the transcript
-            // stays structurally correct (ends on an assistant message).
-            let mut checkpoint_messages = base_messages;
-            checkpoint_messages.push(ChatMessage::assistant(checkpoint.clone()));
-            self.persist_session_transcript(
-                &checkpoint_messages,
-                cumulative_input_tokens,
-                cumulative_output_tokens,
-                cumulative_cached_input_tokens,
-                cumulative_charged_usd,
-                last_turn_usage.as_ref(),
-            );
-
-            self.context.record_tool_calls(all_tool_records.len());
-
-            // Fire post-turn hooks with the checkpoint as the assistant
-            // response (mirrors the normal final-response path).
+            // Fire post-turn hooks (non-blocking).
             if !self.post_turn_hooks.is_empty() {
                 let ctx = TurnContext {
                     user_message: user_message.to_string(),
-                    assistant_response: checkpoint.clone(),
-                    tool_calls: all_tool_records,
+                    assistant_response: outcome.text.clone(),
+                    tool_calls: records,
                     turn_duration_ms: turn_started.elapsed().as_millis() as u64,
                     session_id: Some(self.event_session_id.clone())
                         .filter(|session_id| !session_id.trim().is_empty()),
@@ -1120,12 +594,12 @@ impl Agent {
                         .filter(|agent_id| !agent_id.trim().is_empty()),
                     entrypoint: Some(self.event_channel.clone())
                         .filter(|entrypoint| !entrypoint.trim().is_empty()),
-                    iteration_count: self.config.max_tool_iterations,
+                    iteration_count: outcome.iterations as usize,
                 };
                 hooks::fire_hooks(&self.post_turn_hooks, ctx);
             }
 
-            Ok(checkpoint)
+            Ok(outcome.text)
         }; // end of `turn_body` async block
 
         // Run the turn body inside the parent-execution-context scope so

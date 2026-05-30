@@ -333,11 +333,33 @@ pub(crate) async fn run_turn_engine(
 
         if tool_calls.is_empty() {
             tracing::debug!(iteration, "[agent_loop] no tool calls — returning final response");
+            // The final answer is the narrative text, falling back to the raw
+            // response text when the parser stripped everything (mirrors the
+            // legacy `Agent::turn` `final_text` logic).
+            let final_out = if display_text.is_empty() {
+                response_text.clone()
+            } else {
+                display_text.clone()
+            };
+            // A completion with no text *and* no tool calls is a degenerate
+            // response. Callers that disallow it (Agent::turn) surface a typed
+            // error instead of a silent blank reply; the channel/subagent loops
+            // return it verbatim.
+            if final_out.trim().is_empty() && !observer.allow_empty_final() {
+                log::warn!(
+                    "[agent_loop] provider returned an empty final response (i={}, no text, no tool calls) — surfacing as error",
+                    iteration + 1
+                );
+                return Err(crate::openhuman::agent::error::AgentError::EmptyProviderResponse {
+                    iteration: iteration + 1,
+                }
+                .into());
+            }
             // No tool calls — final response. Relay the text in small chunks
             // when a streaming draft sink exists.
             if let Some(ref tx) = on_delta {
                 let mut chunk = String::new();
-                for word in display_text.split_inclusive(char::is_whitespace) {
+                for word in final_out.split_inclusive(char::is_whitespace) {
                     chunk.push_str(word);
                     if chunk.len() >= STREAM_CHUNK_MIN_CHARS
                         && tx.send(std::mem::take(&mut chunk)).await.is_err()
@@ -351,7 +373,7 @@ pub(crate) async fn run_turn_engine(
             }
             history.push(ChatMessage::assistant(response_text.clone()));
             observer.on_assistant(
-                &display_text,
+                &final_out,
                 &response_text,
                 reasoning_content.as_deref(),
                 &[],
@@ -371,7 +393,7 @@ pub(crate) async fn run_turn_engine(
             );
             progress.turn_completed((iteration + 1) as u32).await;
             return Ok(TurnEngineOutcome {
-                text: display_text,
+                text: final_out,
                 iterations: (iteration + 1) as u32,
                 cost: turn_cost,
                 hit_cap: false,

@@ -4,56 +4,60 @@
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    Arc, Mutex, OnceLock,
     atomic::{AtomicUsize, Ordering},
+    Arc, Mutex, OnceLock,
 };
 use std::time::Duration;
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::{HeaderMap, header::AUTHORIZATION};
+use axum::http::{header::AUTHORIZATION, HeaderMap};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use reqwest::StatusCode;
-use serde_json::{Value, json};
-use tempfile::{TempDir, tempdir};
+use serde_json::{json, Value};
+use tempfile::{tempdir, TempDir};
 
 use openhuman_core::api::config::{
-    APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL, OPENHUMAN_INFERENCE_PATH,
-    VITE_APP_ENV_VAR, api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env,
-    effective_api_url, effective_backend_api_url, effective_inference_url,
-    looks_like_local_ai_endpoint, normalize_api_base_url,
+    api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env, effective_api_url,
+    effective_backend_api_url, effective_inference_url, looks_like_local_ai_endpoint,
+    normalize_api_base_url, APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL,
+    OPENHUMAN_INFERENCE_PATH, VITE_APP_ENV_VAR,
 };
-use openhuman_core::core::auth::{CORE_TOKEN_ENV_VAR, init_rpc_token};
+use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::event_bus::{DomainEvent, EventHandler};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::app_state::app_state_schemas;
 use openhuman_core::openhuman::config::schema::{
-    AuditConfig, AuthStyle, CapabilityProviderConfig, CapabilityProviderTrustState,
-    CloudProviderCreds, CloudProviderType, DashboardConfig, EventStreamConfig, MemoryConfig,
-    MemoryContextWindow, ModelHealthConfig, OrchestratorModelConfig, ProxyConfig, ProxyScope,
-    ResourceLimitsConfig, SandboxConfig, SecurityConfig, TelegramConfig, VoiceCapability,
-    VoiceProviderCreds, WhatsAppConfig, generate_provider_id, generate_voice_provider_id,
-    is_slug_reserved, is_voice_slug_reserved, migrate_legacy_fields,
+    generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
+    migrate_legacy_fields, AuditConfig, AuthStyle, CapabilityProviderConfig,
+    CapabilityProviderTrustState, CloudProviderCreds, CloudProviderType, DashboardConfig,
+    EventStreamConfig, MemoryConfig, MemoryContextWindow, ModelHealthConfig,
+    OrchestratorModelConfig, ProxyConfig, ProxyScope, ResourceLimitsConfig, SandboxConfig,
+    SecurityConfig, TelegramConfig, VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
 };
 use openhuman_core::openhuman::config::settings_cli::{
-    ConfigSnapshotFields, settings_section_json,
+    settings_section_json, ConfigSnapshotFields,
 };
 use openhuman_core::openhuman::config::{
-    AgentConfig, ChannelsConfig, Config, DaemonConfig, DictationActivationMode, LlmBackend,
-    ReflectionSource, TeamModelConfig, UpdateRestartStrategy, clear_active_user,
-    output_language_directive, pre_login_user_dir, read_active_user_id, user_openhuman_dir,
-    write_active_user_id,
+    clear_active_user, output_language_directive, pre_login_user_dir, read_active_user_id,
+    user_openhuman_dir, write_active_user_id, AgentConfig, ChannelsConfig, Config, DaemonConfig,
+    DictationActivationMode, LlmBackend, ReflectionSource, TeamModelConfig, UpdateRestartStrategy,
 };
 use openhuman_core::openhuman::credentials::bus::SessionExpiredSubscriber;
 use openhuman_core::openhuman::credentials::cli::{
     cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
 };
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
+use openhuman_core::openhuman::credentials::session_support::{
+    build_session_state, get_session_token, is_local_session_token, load_app_session_profile,
+    parse_fields_value, profile_name_or_default, session_state_from_profile,
+    session_token_from_profile, summarize_auth_profile,
+};
 use openhuman_core::openhuman::credentials::{
-    APP_SESSION_PROVIDER, AuthService, COMPOSIO_DIRECT_PROVIDER, clear_composio_api_key,
-    decrypt_secret, encrypt_secret, get_composio_api_key, list_provider_credentials_by_prefix,
-    normalize_provider, rpc_store_composio_api_key, store_composio_api_key,
+    clear_composio_api_key, decrypt_secret, encrypt_secret, get_composio_api_key,
+    list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
+    store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
 };
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
@@ -400,10 +404,10 @@ async fn mock_client_key(AxumPath(integration_id): AxumPath<String>) -> Json<Val
 }
 
 fn encrypt_handoff_blob(key: &str, plaintext: &str) -> String {
-    use aes_gcm::AesGcm;
     use aes_gcm::aead::generic_array::typenum::U16;
     use aes_gcm::aead::{Aead, KeyInit};
     use aes_gcm::aes::Aes256;
+    use aes_gcm::AesGcm;
     use base64::Engine;
 
     type Aes256Gcm16 = AesGcm<Aes256, U16>;
@@ -692,12 +696,10 @@ encrypt = false
     )
     .expect("minimal config should deserialize with defaults");
     assert_eq!(minimal_config.default_temperature, 0.7);
-    assert!(
-        minimal_config
-            .temperature_unsupported_models
-            .iter()
-            .any(|pattern| pattern == "gpt-5*")
-    );
+    assert!(minimal_config
+        .temperature_unsupported_models
+        .iter()
+        .any(|pattern| pattern == "gpt-5*"));
 
     assert_eq!(
         output_language_directive(Some("zh_CN")).as_deref(),
@@ -749,12 +751,10 @@ encrypt = false
     assert!(config.workload_uses_local("subconscious"));
     assert!(!config.workload_uses_local("unknown"));
     config.output_language = Some("fr".into());
-    assert!(
-        config
-            .output_language_directive()
-            .expect("language directive")
-            .contains("French")
-    );
+    assert!(config
+        .output_language_directive()
+        .expect("language directive")
+        .contains("French"));
 
     config.orchestrator = OrchestratorModelConfig {
         model: Some(" orchestrator-model ".into()),
@@ -904,6 +904,73 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
         openhuman_core::openhuman::config::schema::SchedulerGateMode::Off.as_str(),
         "off"
     );
+
+    let multimodal = openhuman_core::openhuman::config::schema::MultimodalConfig {
+        max_images: 99,
+        max_image_size_mb: 0,
+        allow_remote_fetch: true,
+    };
+    assert_eq!(multimodal.effective_limits(), (16, 1));
+    assert_eq!(multimodal.clamp_image_count(120), 99);
+
+    let mut local_ai = openhuman_core::openhuman::config::schema::LocalAiConfig {
+        runtime_enabled: false,
+        usage: openhuman_core::openhuman::config::schema::LocalAiUsage {
+            embeddings: true,
+            heartbeat: true,
+            learning_reflection: true,
+            subconscious: true,
+        },
+        ..Default::default()
+    };
+    assert!(!local_ai.is_active());
+    #[allow(deprecated)]
+    {
+        assert!(!local_ai.use_local_for_embeddings());
+        local_ai.runtime_enabled = true;
+        assert!(local_ai.is_active());
+        assert!(local_ai.use_local_for_embeddings());
+        assert!(local_ai.use_local_for_heartbeat());
+        assert!(local_ai.use_local_for_learning());
+        assert!(local_ai.use_local_for_subconscious());
+    }
+
+    let mut search = openhuman_core::openhuman::config::schema::SearchConfig {
+        engine: " Parallel ".into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        search.effective_engine(),
+        openhuman_core::openhuman::config::schema::SearchEngine::Managed
+    );
+    search.parallel = openhuman_core::openhuman::config::schema::SearchEngineCredentials {
+        api_key: Some(" parallel-key ".into()),
+    };
+    assert_eq!(
+        search.parallel.key(),
+        Some("parallel-key"),
+        "search credential keys should be trimmed at read time"
+    );
+    assert_eq!(
+        search.effective_engine(),
+        openhuman_core::openhuman::config::schema::SearchEngine::Parallel
+    );
+    assert_eq!(search.requested_engine_str(), "Parallel");
+    search.engine = "   ".into();
+    assert_eq!(search.requested_engine_str(), "managed");
+
+    let integration = openhuman_core::openhuman::config::schema::IntegrationToggle {
+        enabled: true,
+        mode: "byo".into(),
+        api_key: Some("   ".into()),
+    };
+    assert!(!integration.is_active());
+    let managed_integration = openhuman_core::openhuman::config::schema::IntegrationToggle {
+        enabled: true,
+        mode: "managed".into(),
+        api_key: None,
+    };
+    assert!(managed_integration.is_active());
 }
 
 #[test]
@@ -978,11 +1045,9 @@ fn config_settings_cli_sections_project_snapshots_and_missing_fields() {
     }
 
     let unknown = settings_section_json("unknown", &snap, vec![]);
-    assert!(
-        unknown
-            .pointer("/result/settings")
-            .is_some_and(Value::is_null)
-    );
+    assert!(unknown
+        .pointer("/result/settings")
+        .is_some_and(Value::is_null));
 
     let missing = ConfigSnapshotFields {
         config: json!({ "default_model": "partial-model" }),
@@ -994,17 +1059,13 @@ fn config_settings_cli_sections_project_snapshots_and_missing_fields() {
         missing_model.pointer("/result/settings/default_model"),
         Some(&json!("partial-model"))
     );
-    assert!(
-        missing_model
-            .pointer("/result/settings/api_url")
-            .is_some_and(Value::is_null)
-    );
+    assert!(missing_model
+        .pointer("/result/settings/api_url")
+        .is_some_and(Value::is_null));
     let missing_memory = settings_section_json("memory", &missing, vec![]);
-    assert!(
-        missing_memory
-            .pointer("/result/settings")
-            .is_some_and(Value::is_null)
-    );
+    assert!(missing_memory
+        .pointer("/result/settings")
+        .is_some_and(Value::is_null));
 }
 
 #[test]
@@ -1019,16 +1080,12 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
     let _all_lower = EnvVarGuard::unset("all_proxy");
     let _no_lower = EnvVarGuard::unset("no_proxy");
 
-    assert!(
-        ProxyConfig::supported_service_keys()
-            .iter()
-            .any(|key| *key == "memory.embeddings")
-    );
-    assert!(
-        ProxyConfig::supported_service_selectors()
-            .iter()
-            .any(|selector| *selector == "tool.*")
-    );
+    assert!(ProxyConfig::supported_service_keys()
+        .iter()
+        .any(|key| *key == "memory.embeddings"));
+    assert!(ProxyConfig::supported_service_selectors()
+        .iter()
+        .any(|selector| *selector == "tool.*"));
 
     let services = ProxyConfig {
         enabled: true,
@@ -1117,10 +1174,8 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
     }
 
     openhuman_core::openhuman::config::set_runtime_proxy_config(services.clone());
-    assert!(
-        openhuman_core::openhuman::config::runtime_proxy_config()
-            .should_apply_to_service("tool.browser")
-    );
+    assert!(openhuman_core::openhuman::config::runtime_proxy_config()
+        .should_apply_to_service("tool.browser"));
     let _cached = openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
     let _cached_again =
         openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
@@ -1616,6 +1671,7 @@ async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
 fn auth_service_direct_paths_cover_profile_selection_and_validation() {
     let tmp = tempdir().expect("tempdir");
     let auth = AuthService::new(tmp.path(), false);
+    let store = AuthProfilesStore::new(tmp.path(), false);
 
     assert_eq!(normalize_provider("  GitHub  ").unwrap(), "github");
     assert!(normalize_provider("   ").is_err());
@@ -1653,14 +1709,152 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
         .set_active_profile("GitHub", "personal")
         .expect("set active by profile name");
     assert_eq!(active_id, stored.id);
-    assert!(
-        auth.remove_profile("GitHub", "personal")
-            .expect("remove stored profile")
+    assert!(auth
+        .remove_profile("GitHub", "personal")
+        .expect("remove stored profile"));
+    assert!(!auth
+        .remove_profile("GitHub", "personal")
+        .expect("remove missing profile"));
+
+    let oauth_profile = AuthProfile::new_oauth(
+        "gitlab",
+        "main",
+        TokenSet {
+            access_token: "gitlab-access-token".to_string(),
+            refresh_token: Some("gitlab-refresh-token".to_string()),
+            id_token: None,
+            expires_at: None,
+            token_type: Some("Bearer".to_string()),
+            scope: Some("read_user".to_string()),
+        },
+    );
+    let oauth_id = oauth_profile.id.clone();
+    store
+        .upsert_profile(oauth_profile, true)
+        .expect("store oauth profile through shared store");
+    assert_eq!(
+        auth.get_provider_bearer_token("gitlab", None)
+            .expect("oauth bearer lookup"),
+        Some("gitlab-access-token".to_string())
     );
     assert!(
-        !auth
-            .remove_profile("GitHub", "personal")
-            .expect("remove missing profile")
+        auth.get_profile("gitlab", Some("missing"))
+            .expect("missing override lookup")
+            .is_none()
+    );
+    let wrong_provider_err = auth
+        .set_active_profile("github", &oauth_id)
+        .expect_err("full profile id from another provider should fail")
+        .to_string();
+    assert!(
+        wrong_provider_err.contains("belongs to provider gitlab"),
+        "full profile ids must still match the requested provider: {wrong_provider_err}"
+    );
+}
+
+#[test]
+fn credentials_session_support_public_helpers_normalize_tokens_fields_and_summaries() {
+    let tmp = tempdir().expect("tempdir");
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    config.secrets.encrypt = false;
+    std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
+        .expect("create config parent");
+
+    assert_eq!(profile_name_or_default(None), "default");
+    assert_eq!(profile_name_or_default(Some("   ")), "default");
+    assert_eq!(profile_name_or_default(Some("  work  ")), "work");
+    assert!(is_local_session_token(" header.payload.local "));
+    assert!(!is_local_session_token("header.payload.remote"));
+    assert!(parse_fields_value(Some(json!("bad"))).is_err());
+    assert!(parse_fields_value(Some(json!({ "   ": "bad" }))).is_err());
+    let fields = parse_fields_value(Some(json!({
+        "string": "value",
+        "number": 42,
+        "bool": true,
+        "empty": null
+    })))
+    .expect("fields object should parse");
+    assert_eq!(fields.get("number").map(String::as_str), Some("42"));
+    assert_eq!(fields.get("bool").map(String::as_str), Some("true"));
+    assert_eq!(fields.get("empty").map(String::as_str), Some(""));
+
+    assert!(!session_state_from_profile(None).is_authenticated);
+    assert_eq!(session_token_from_profile(None), None);
+
+    let auth = AuthService::from_config(&config);
+    let mut profile = AuthProfile::new_token(
+        APP_SESSION_PROVIDER,
+        "default",
+        "  header.payload.local  ".to_string(),
+    );
+    profile
+        .metadata
+        .insert("user_id".to_string(), "session-user".to_string());
+    profile.metadata.insert(
+        "user_json".to_string(),
+        json!({
+            "id": "session-user",
+            "name": "Session Worker",
+            "email": "session-worker@example.test"
+        })
+        .to_string(),
+    );
+    profile
+        .metadata
+        .insert("zeta".to_string(), "last".to_string());
+    profile
+        .metadata
+        .insert("alpha".to_string(), "first".to_string());
+    auth.load_profiles().expect("profile store should be empty");
+    AuthProfilesStore::new(
+        config.config_path.parent().expect("config parent"),
+        config.secrets.encrypt,
+    )
+    .upsert_profile(profile.clone(), true)
+    .expect("store app session profile");
+
+    let loaded = load_app_session_profile(&config)
+        .expect("load app session profile")
+        .expect("stored app session profile");
+    let state = session_state_from_profile(Some(&loaded));
+    assert!(state.is_authenticated);
+    assert_eq!(state.user_id.as_deref(), Some("session-user"));
+    assert_eq!(
+        state
+            .user
+            .as_ref()
+            .and_then(|user| user.get("email"))
+            .and_then(Value::as_str),
+        Some("session-worker@example.test")
+    );
+    assert_eq!(
+        session_token_from_profile(Some(&loaded)),
+        Some("header.payload.local".to_string())
+    );
+    assert_eq!(
+        get_session_token(&config).expect("session token from config"),
+        Some("header.payload.local".to_string())
+    );
+    assert!(
+        build_session_state(&config)
+            .expect("session state from config")
+            .is_authenticated
+    );
+
+    let summary = summarize_auth_profile(&loaded);
+    assert_eq!(summary.provider, APP_SESSION_PROVIDER);
+    assert_eq!(summary.kind, "token");
+    assert!(summary.has_token);
+    assert!(!summary.has_token_set);
+    assert!(
+        summary
+            .metadata_keys
+            .windows(2)
+            .all(|pair| pair[0] <= pair[1]),
+        "metadata keys should be sorted for stable UI output: {:?}",
+        summary.metadata_keys
     );
 }
 
@@ -3818,28 +4012,24 @@ fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_files(
     let empty = store.load().expect("empty store load");
     assert!(empty.profiles.is_empty());
 
-    assert!(
-        TokenSet {
-            access_token: "soon".to_string(),
-            refresh_token: None,
-            id_token: None,
-            expires_at: Some(chrono::Utc::now() + chrono::Duration::seconds(1)),
-            token_type: None,
-            scope: None,
-        }
-        .is_expiring_within(Duration::from_secs(5))
-    );
-    assert!(
-        !TokenSet {
-            access_token: "no-expiry".to_string(),
-            refresh_token: None,
-            id_token: None,
-            expires_at: None,
-            token_type: None,
-            scope: None,
-        }
-        .is_expiring_within(Duration::from_secs(5))
-    );
+    assert!(TokenSet {
+        access_token: "soon".to_string(),
+        refresh_token: None,
+        id_token: None,
+        expires_at: Some(chrono::Utc::now() + chrono::Duration::seconds(1)),
+        token_type: None,
+        scope: None,
+    }
+    .is_expiring_within(Duration::from_secs(5)));
+    assert!(!TokenSet {
+        access_token: "no-expiry".to_string(),
+        refresh_token: None,
+        id_token: None,
+        expires_at: None,
+        token_type: None,
+        scope: None,
+    }
+    .is_expiring_within(Duration::from_secs(5)));
 
     let mut token_profile = AuthProfile::new_token("openai", "work", "sk-worker-a".to_string());
     token_profile
@@ -4151,20 +4341,16 @@ fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_e
 
     let public_api_dir = tmp.path().join("public-api-errors");
     let public_store = AuthProfilesStore::new(&public_api_dir, false);
-    assert!(
-        public_store
-            .set_active_profile("github", "github:missing")
-            .expect_err("missing active profile should fail")
-            .to_string()
-            .contains("Auth profile not found")
-    );
-    assert!(
-        public_store
-            .update_profile("github:missing", |_| Ok(()))
-            .expect_err("missing update profile should fail")
-            .to_string()
-            .contains("Auth profile not found")
-    );
+    assert!(public_store
+        .set_active_profile("github", "github:missing")
+        .expect_err("missing active profile should fail")
+        .to_string()
+        .contains("Auth profile not found"));
+    assert!(public_store
+        .update_profile("github:missing", |_| Ok(()))
+        .expect_err("missing update profile should fail")
+        .to_string()
+        .contains("Auth profile not found"));
 }
 
 #[test]

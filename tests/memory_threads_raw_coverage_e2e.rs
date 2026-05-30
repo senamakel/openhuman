@@ -3659,3 +3659,158 @@ async fn memory_tree_retrieval_rpc_and_schema_wrappers_cover_empty_and_invalid_p
         .unwrap_err()
         .contains("invalid params"));
 }
+
+#[tokio::test]
+async fn memory_query_backend_and_tree_flush_wrappers_cover_public_edges() {
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let mut config = Config::load_or_init().await.expect("init isolated config");
+    config.memory_tree.embedding_endpoint = None;
+    config.memory_tree.embedding_model = None;
+    config.memory_tree.embedding_strict = false;
+
+    let source_result = MemoryTreeQuerySourceTool
+        .execute(json!({
+            "source_id": "slack:#backend",
+            "time_window_days": 1,
+            "limit": 0
+        }))
+        .await
+        .expect("source query tool");
+    let source_response: retrieval::types::QueryResponse =
+        serde_json::from_str(&source_result.text()).expect("source response json");
+    assert!(source_response.hits.is_empty());
+    assert_eq!(source_response.total, 0);
+
+    let global_result = MemoryTreeQueryGlobalTool
+        .execute(json!({ "time_window_days": 1 }))
+        .await
+        .expect("global query tool");
+    let global_response: retrieval::types::QueryResponse =
+        serde_json::from_str(&global_result.text()).expect("global response json");
+    assert!(global_response.hits.is_empty());
+
+    let missing_topic = MemoryTreeQueryTopicTool
+        .execute(json!({}))
+        .await
+        .unwrap_err();
+    assert!(missing_topic
+        .to_string()
+        .contains("missing field `entity_id`"));
+
+    let kind_result = MemoryTreeQuerySourceTool
+        .execute(json!({ "source_kind": "chat", "limit": 3 }))
+        .await
+        .expect("query source kind");
+    let kind_response: retrieval::types::QueryResponse =
+        serde_json::from_str(&kind_result.text()).expect("kind response json");
+    assert!(kind_response.hits.is_empty());
+
+    let drill_result = MemoryTreeDrillDownTool
+        .execute(json!({
+            "node_id": "summary:missing",
+            "max_depth": 1,
+            "limit": 2
+        }))
+        .await
+        .expect("drill down tool");
+    let drill: Vec<retrieval::types::RetrievalHit> =
+        serde_json::from_str(&drill_result.text()).expect("drill response json");
+    assert!(drill.is_empty());
+    let leaves_result = MemoryTreeFetchLeavesTool
+        .execute(json!({ "chunk_ids": [] }))
+        .await
+        .expect("fetch leaves tool");
+    let leaves: Vec<retrieval::types::RetrievalHit> =
+        serde_json::from_str(&leaves_result.text()).expect("leaves response json");
+    assert!(leaves.is_empty());
+
+    let no_stale =
+        openhuman_core::openhuman::memory_tree::tree::flush::flush_stale_buffers_default(
+            &config,
+            &openhuman_core::openhuman::memory_tree::tree::LabelStrategy::Empty,
+        )
+        .await
+        .expect("flush empty buffers");
+    assert_eq!(no_stale, 0);
+    let missing_flush = openhuman_core::openhuman::memory_tree::tree::flush::force_flush_tree(
+        &config,
+        "tree:missing",
+        None,
+        &openhuman_core::openhuman::memory_tree::tree::LabelStrategy::Empty,
+    )
+    .await
+    .unwrap_err();
+    assert!(missing_flush.to_string().contains("no tree with id"));
+}
+
+#[tokio::test]
+async fn tree_summarizer_ops_cover_validation_query_and_local_provider_guards() {
+    let tmp = TempDir::new().expect("tempdir");
+    let mut config = config_in(&tmp);
+    config.local_ai.runtime_enabled = false;
+
+    let empty_content =
+        openhuman_core::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_ingest(
+            &config, "ops_ns", "   ", None, None,
+        )
+        .await
+        .unwrap_err();
+    assert!(empty_content.contains("content must not be empty"));
+
+    let ts = Utc.with_ymd_and_hms(2026, 5, 29, 17, 0, 0).unwrap();
+    let ingest = openhuman_core::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_ingest(
+        &config,
+        " ops_ns ",
+        "buffered raw content for summarizer ops",
+        Some(ts),
+        Some(&json!({ "source": "coverage" })),
+    )
+    .await
+    .expect("ingest buffer");
+    assert_eq!(ingest.value["buffered"], true);
+    assert_eq!(ingest.value["namespace"], "ops_ns");
+    assert_eq!(ingest.value["has_metadata"], true);
+
+    let status = openhuman_core::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_status(
+        &config, "ops_ns",
+    )
+    .await
+    .expect("status");
+    assert_eq!(status.value["namespace"], "ops_ns");
+    assert_eq!(status.value["total_nodes"], 0);
+
+    let node = tree_node("ops_ns", "root", "Root summary from ops");
+    tree_runtime_store::write_node(&config, &node).expect("write ops node");
+    let query = openhuman_core::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_query(
+        &config, "ops_ns", None,
+    )
+    .await
+    .expect("query root");
+    assert_eq!(query.value["node"]["node_id"], "root");
+    assert!(query.logs[0].contains("queried node 'root'"));
+
+    let missing = openhuman_core::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_query(
+        &config,
+        "ops_ns",
+        Some("2026/05/29/17"),
+    )
+    .await
+    .unwrap_err();
+    assert!(missing.contains("node '2026/05/29/17' not found"));
+
+    let provider_guard =
+        openhuman_core::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_run(
+            &config, "ops_ns",
+        )
+        .await
+        .unwrap_err();
+    assert!(provider_guard.contains("local_ai"));
+    let rebuild_guard =
+        openhuman_core::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_rebuild(
+            &config, "ops_ns",
+        )
+        .await
+        .unwrap_err();
+    assert!(rebuild_guard.contains("local_ai"));
+}

@@ -3,10 +3,10 @@
 //! These tests avoid live Composio/backend calls and exercise public helper
 //! surfaces that feed the JSON-RPC and agent-tool paths.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use axum::body::to_bytes;
-use axum::extract::Request;
+use axum::extract::{Request, State};
 use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::any;
@@ -24,8 +24,9 @@ use openhuman_core::openhuman::composio::execute_dispatch::{
 };
 use openhuman_core::openhuman::composio::execute_prepare::prepare_execute_arguments;
 use openhuman_core::openhuman::composio::oauth_handoff::{
-    is_authorize_rate_limited, is_clearable_oauth_status, is_inflight_oauth_status,
-    is_meta_oauth_toolkit, meta_oauth_rate_limit_message, wrap_authorize_rate_limit_error,
+    clear_non_active_connections, is_authorize_rate_limited, is_clearable_oauth_status,
+    is_inflight_oauth_status, is_meta_oauth_toolkit, meta_oauth_rate_limit_message,
+    wrap_authorize_rate_limit_error,
 };
 use openhuman_core::openhuman::composio::providers::{
     classify_unknown, find_curated, toolkit_from_slug, CuratedTool, ToolScope, UserScopePref,
@@ -1192,6 +1193,33 @@ fn composio_types_roundtrip_connection_tool_trigger_and_history_shapes() {
     }))
     .unwrap();
     assert_eq!(active_without_state.state, None);
+    let active_string_state: ComposioActiveTrigger = serde_json::from_value(json!({
+        "id": "trigger-2b",
+        "slug": "SLACK_NEW_MESSAGE",
+        "toolkit": "slack",
+        "connectionId": "conn-2",
+        "state": "READY"
+    }))
+    .unwrap();
+    assert_eq!(active_string_state.state.as_deref(), Some("READY"));
+    let active_null_state: ComposioActiveTrigger = serde_json::from_value(json!({
+        "id": "trigger-2c",
+        "slug": "SLACK_NEW_MESSAGE",
+        "toolkit": "slack",
+        "connectionId": "conn-2",
+        "state": null
+    }))
+    .unwrap();
+    assert_eq!(active_null_state.state, None);
+    let active_numeric_state: ComposioActiveTrigger = serde_json::from_value(json!({
+        "id": "trigger-2d",
+        "slug": "SLACK_NEW_MESSAGE",
+        "toolkit": "slack",
+        "connectionId": "conn-2",
+        "state": 12
+    }))
+    .unwrap();
+    assert_eq!(active_numeric_state.state, None);
     assert!(serde_json::from_value::<ComposioActiveTrigger>(json!({
         "id": ["bad"],
         "slug": "x",
@@ -1554,6 +1582,121 @@ async fn composio_backend_client_methods_build_requests_and_parse_local_envelope
         .await
         .expect_err("delete success needs data");
     assert!(delete_no_data.to_string().contains("success but no data"));
+}
+
+#[tokio::test]
+async fn composio_authorize_scope_merging_and_meta_cleanup_use_local_backend() {
+    #[derive(Clone, Default)]
+    struct CleanupState {
+        deleted: Arc<Mutex<Vec<String>>>,
+        authorize_bodies: Arc<Mutex<Vec<Value>>>,
+    }
+
+    async fn handler(State(state): State<CleanupState>, request: Request) -> Response {
+        let method = request.method().clone();
+        let path = request.uri().path().to_string();
+        let body = to_bytes(request.into_body(), usize::MAX)
+            .await
+            .expect("mock request body");
+        let body: Value = if body.is_empty() {
+            json!({})
+        } else {
+            serde_json::from_slice(&body).expect("json request body")
+        };
+
+        match (method, path.as_str()) {
+            (Method::GET, "/agent-integrations/composio/connections") => ok(json!({
+                "connections": [
+                    { "id": "ig-active", "toolkit": "instagram", "status": "ACTIVE" },
+                    { "id": "ig-failed", "toolkit": "instagram", "status": "FAILED" },
+                    { "id": "ig-pending", "toolkit": " Instagram ", "status": "pending" },
+                    { "id": "ig-expired", "toolkit": "instagram", "status": "EXPIRED" },
+                    { "id": "fb-pending", "toolkit": "facebook", "status": "PENDING" },
+                    { "id": "gmail-pending", "toolkit": "gmail", "status": "PENDING" }
+                ]
+            })),
+            (Method::DELETE, path)
+                if path.starts_with("/agent-integrations/composio/connections/") =>
+            {
+                state
+                    .deleted
+                    .lock()
+                    .expect("deleted ids")
+                    .push(path.rsplit('/').next().unwrap_or_default().to_string());
+                ok(json!({ "deleted": true, "memory_chunks_deleted": 0 }))
+            }
+            (Method::POST, "/agent-integrations/composio/authorize") => {
+                state
+                    .authorize_bodies
+                    .lock()
+                    .expect("authorize bodies")
+                    .push(body.clone());
+                ok(json!({
+                    "connectUrl": format!(
+                        "https://connect.example/{}",
+                        body.get("toolkit").and_then(Value::as_str).unwrap_or("unknown")
+                    ),
+                    "connectionId": "conn-authorize"
+                }))
+            }
+            _ => (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "success": false, "error": format!("unhandled {path}") })),
+            )
+                .into_response(),
+        }
+    }
+
+    let state = CleanupState::default();
+    let app = Router::new()
+        .fallback(any(handler))
+        .with_state(state.clone());
+    let base = start_composio_round8_backend(app).await;
+    let client = ComposioClient::new(Arc::new(IntegrationClient::new(
+        base,
+        "round12-token".into(),
+    )));
+
+    assert_eq!(
+        clear_non_active_connections(&client, "gmail")
+            .await
+            .expect("non-meta cleanup is a no-op"),
+        0
+    );
+    assert_eq!(
+        clear_non_active_connections(&client, " Instagram ")
+            .await
+            .expect("stale instagram rows are deleted"),
+        3
+    );
+    let mut deleted = state.deleted.lock().expect("deleted ids").clone();
+    deleted.sort();
+    assert_eq!(deleted, vec!["ig-expired", "ig-failed", "ig-pending"]);
+
+    client
+        .authorize("gmail", Some(json!({ "oauth_scopes": null })))
+        .await
+        .expect("null scopes are replaced with required gmail scopes");
+    client
+        .authorize("gmail", None)
+        .await
+        .expect("missing scopes get required gmail scope");
+    client
+        .authorize("slack", Some(json!({ "bot_scope": "chat:write" })))
+        .await
+        .expect("non-gmail authorize passes through extra params");
+
+    let bodies = state.authorize_bodies.lock().expect("authorize bodies");
+    assert_eq!(
+        bodies[0]["oauth_scopes"],
+        json!(["https://www.googleapis.com/auth/gmail.readonly"])
+    );
+    assert_eq!(
+        bodies[1]["oauth_scopes"],
+        json!(["https://www.googleapis.com/auth/gmail.readonly"])
+    );
+    assert!(bodies[2].get("oauth_scopes").is_none());
+    assert_eq!(bodies[2]["bot_scope"], "chat:write");
 }
 
 #[tokio::test]

@@ -61,9 +61,11 @@ use openhuman_core::openhuman::tools::generated::{
 };
 use openhuman_core::openhuman::tools::local_cli::tools_wrappers_list_json;
 use openhuman_core::openhuman::tools::{
-    all_tools, all_tools_controller_schemas, all_tools_registered_controllers, default_tools,
-    CleaningStrategy, DefaultToolPolicy, PermissionLevel, PolicyDecision, SchemaCleanr, Tool,
-    ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope,
+    all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
+    decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
+    write_bytes_to_path, BrowserAction, CleaningStrategy, ComputerUseConfig, DefaultToolPolicy,
+    PermissionLevel, PolicyDecision, ReadDiffTool, SchemaCleanr, Tool, ToolCallOptions,
+    ToolCategory, ToolPolicy, ToolResult, ToolScope,
 };
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
@@ -1359,6 +1361,105 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert!(!default_tool.external_effect_with_args(&json!({})));
     assert!(default_tool.generated_runtime_context(&json!({})).is_none());
     assert!(default_tool.max_result_size_chars().is_none());
+
+    let png_data_url =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    let raw_screenshot = format!(
+        "noise\nScreenshot saved to: {}\n{png_data_url}\n",
+        dir.path().join("shot.png").display()
+    );
+    assert_eq!(
+        extract_data_url(&raw_screenshot).as_deref(),
+        Some(png_data_url)
+    );
+    assert_eq!(
+        extract_saved_path(&raw_screenshot).as_deref(),
+        Some(dir.path().join("shot.png").as_path())
+    );
+    let decoded = decode_data_url_bytes(png_data_url).expect("decode png");
+    assert_eq!(&decoded[..4], b"\x89PNG");
+    assert!(decode_data_url_bytes("data:text/plain;base64,aGVsbG8=")
+        .expect_err("non-image data URL rejected")
+        .contains("invalid data URL"));
+    let nested = dir.path().join("screens").join("nested").join("shot.png");
+    write_bytes_to_path(&nested, &decoded).expect("write screenshot bytes");
+    assert_eq!(
+        std::fs::read(&nested).expect("read screenshot bytes"),
+        decoded
+    );
+
+    let computer = ComputerUseConfig {
+        api_key: Some("secret-key".into()),
+        window_allowlist: vec!["OpenHuman".into()],
+        max_coordinate_x: Some(1920),
+        max_coordinate_y: Some(1080),
+        ..ComputerUseConfig::default()
+    };
+    let debug = format!("{computer:?}");
+    assert!(debug.contains("[REDACTED]"));
+    assert!(!debug.contains("secret-key"));
+    let action = serde_json::to_value(BrowserAction::Screenshot {
+        path: Some("shot.png".into()),
+        full_page: true,
+    })
+    .expect("serialize browser action");
+    assert_eq!(action.pointer("/screenshot/path"), Some(&json!("shot.png")));
+    assert_eq!(action.pointer("/screenshot/full_page"), Some(&json!(true)));
+}
+
+#[tokio::test]
+async fn read_diff_tool_reports_empty_diff_and_git_errors() {
+    let dir = tempdir().expect("tempdir");
+    std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("git init");
+    std::fs::write(dir.path().join("README.md"), "coverage\n").expect("write fixture");
+    std::process::Command::new("git")
+        .args(["add", "README.md"])
+        .current_dir(dir.path())
+        .output()
+        .expect("git add");
+    std::process::Command::new("git")
+        .args([
+            "-c",
+            "user.email=coverage@example.test",
+            "-c",
+            "user.name=Coverage",
+            "commit",
+            "-m",
+            "initial",
+        ])
+        .current_dir(dir.path())
+        .output()
+        .expect("git commit");
+
+    let tool = ReadDiffTool::new(dir.path().to_path_buf());
+    assert_eq!(tool.name(), "read_diff");
+    assert_eq!(tool.permission_level(), PermissionLevel::ReadOnly);
+    assert_eq!(
+        tool.parameters_schema().pointer("/properties/staged/type"),
+        Some(&json!("boolean"))
+    );
+    let empty = tool.execute(json!({})).await.expect("empty diff");
+    assert!(!empty.is_error);
+    assert!(empty.output().contains("No changes found"));
+
+    std::fs::write(dir.path().join("README.md"), "coverage\nchanged\n").expect("edit fixture");
+    let diff = tool
+        .execute(json!({ "path_filter": "README.md" }))
+        .await
+        .expect("diff");
+    assert!(!diff.is_error);
+    assert!(diff.output().contains("+changed"));
+
+    let missing_ref = tool
+        .execute(json!({ "base": "refs/heads/does-not-exist" }))
+        .await
+        .expect("git error is a tool result");
+    assert!(missing_ref.is_error);
+    assert!(missing_ref.output().contains("does-not-exist"));
 }
 
 #[tokio::test]

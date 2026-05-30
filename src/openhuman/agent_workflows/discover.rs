@@ -105,8 +105,20 @@ fn scan_root(root: &Path, scope: WorkflowScope) -> Vec<Workflow> {
 
 fn load_workflow_dir(dir: &Path, dir_name: &str, scope: WorkflowScope) -> Option<Workflow> {
     let path: PathBuf = dir.join(WORKFLOW_MD);
-    if !path.exists() {
-        return None;
+    // Use `symlink_metadata` (not `exists()`, which dereferences) so a symlinked
+    // WORKFLOW.md inside an otherwise-trusted directory is not followed and read.
+    // This keeps the marker-file check consistent with the non-symlink parent-dir
+    // guard in `scan_root`.
+    match std::fs::symlink_metadata(&path) {
+        Ok(meta) if meta.file_type().is_file() => {}
+        Ok(_) => {
+            log::debug!(
+                "[workflows] skipping non-regular WORKFLOW.md at {}",
+                path.display()
+            );
+            return None;
+        }
+        Err(_) => return None,
     }
     let (frontmatter, _body, warnings) = match parse_workflow_md(&path) {
         Some(parts) => parts,

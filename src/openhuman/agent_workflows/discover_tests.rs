@@ -94,3 +94,33 @@ fn dot_dirs_and_missing_marker_file_ignored() {
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].name, "real");
 }
+
+#[cfg(unix)]
+#[test]
+fn symlinked_workflow_md_is_not_followed() {
+    use std::os::unix::fs::symlink;
+
+    let home = TempDir::new().unwrap();
+    let root = home.path().join(".openhuman").join("workflows");
+
+    // A real workflow elsewhere whose WORKFLOW.md we try to alias into a
+    // discovery directory via symlink — discovery must refuse to follow it.
+    let real = TempDir::new().unwrap();
+    let real_md = real.path().join("WORKFLOW.md");
+    fs::write(
+        &real_md,
+        "---\nname: sneaky\ndescription: d\n---\n# sneaky\n",
+    )
+    .unwrap();
+
+    let attacker_dir = root.join("attacker");
+    fs::create_dir_all(&attacker_dir).unwrap();
+    symlink(&real_md, attacker_dir.join(WORKFLOW_MD)).unwrap();
+
+    let found = discover_workflows(Some(home.path()), None, false);
+    assert!(
+        found.iter().all(|w| w.name != "sneaky"),
+        "symlinked WORKFLOW.md must not be followed: {:?}",
+        found.iter().map(|w| &w.name).collect::<Vec<_>>()
+    );
+}

@@ -166,7 +166,7 @@ CEF cache preflight before Tauri's deep-link forwarding path is installed.
 
 ### Push / PR checks
 
-The default pull-request gate is `.github/workflows/pr-ci.yml`. It builds one Linux E2E-compatible desktop artifact, then runs the Linux Appium/Chromium `mega-flow` lane and the Playwright web lane in parallel with Rust and coverage jobs.
+The default pull-request gate is `.github/workflows/pr-ci.yml`. It builds one Linux E2E-compatible desktop artifact, then runs the Linux Appium/Chromium `mega-flow` lane and the Playwright web lane in parallel with Rust and coverage jobs. The Playwright web lane defaults to the Gmail Composio connector spec; pass explicit spec paths to `app/scripts/e2e-web-session.sh` for broader manual coverage.
 
 macOS and Windows desktop E2E do not run on every PR. Use the manually dispatched E2E workflow, or release pretest workflows, when cross-platform desktop signal is needed.
 

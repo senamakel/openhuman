@@ -126,4 +126,9 @@ export PW_BASE_URL
 export PW_CORE_RPC_URL
 export PW_CORE_RPC_TOKEN
 
+if [ "$#" -eq 0 ]; then
+  set -- test/playwright/specs/connector-gmail-composio.spec.ts
+fi
+
+echo "Running Playwright web E2E specs: $*"
 pnpm exec playwright test "$@"

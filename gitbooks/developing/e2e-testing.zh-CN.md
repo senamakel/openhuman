@@ -160,7 +160,7 @@ docker compose -f e2e/docker-compose.yml run --rm e2e \
 
 ### Push / PR 检查
 
-默认的 pull-request 门禁是 `.github/workflows/pr-ci.yml`。它先构建一个 Linux E2E 兼容的桌面 artifact，然后并行运行 Linux Appium/Chromium `mega-flow` lane、Playwright web lane、Rust 和 coverage jobs。
+默认的 pull-request 门禁是 `.github/workflows/pr-ci.yml`。它先构建一个 Linux E2E 兼容的桌面 artifact，然后并行运行 Linux Appium/Chromium `mega-flow` lane、Playwright web lane、Rust 和 coverage jobs。Playwright web lane 默认只跑 Gmail Composio connector spec；如需更广的手动覆盖，可以给 `app/scripts/e2e-web-session.sh` 传入明确的 spec 路径。
 
 macOS 和 Windows 桌面 E2E 不会在每个 PR 上运行。需要跨平台桌面信号时，请使用手动触发的 E2E workflow 或 release pretest workflow。
 

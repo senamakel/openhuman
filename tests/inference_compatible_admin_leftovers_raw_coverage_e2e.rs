@@ -82,6 +82,19 @@ impl Drop for EnvVarGuard {
     }
 }
 
+/// Serialize tests in this binary that mutate process-global env
+/// (OPENHUMAN_WORKSPACE / OPENHUMAN_OLLAMA_BASE_URL / PATH / OLLAMA_BIN …). The
+/// `EnvVarGuard` restores values on drop but provides no mutual exclusion, so
+/// under cargo-llvm-cov's default multi-threaded run the tests clobber each
+/// other's env (e.g. one test's workspace/ollama base leaking into another),
+/// producing order-dependent failures. One lock makes the env sections atomic.
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
 #[tokio::test]
 async fn compatible_native_leftovers_cover_tool_history_function_call_and_stream_ordering() {
     let (base, state) = serve_mock().await;
@@ -239,6 +252,7 @@ async fn compatible_native_leftovers_cover_tool_history_function_call_and_stream
 
 #[tokio::test]
 async fn provider_ops_leftovers_cover_model_listing_error_shapes_and_auth_styles() {
+    let _env = env_lock();
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -335,7 +349,7 @@ async fn provider_ops_leftovers_cover_model_listing_error_shapes_and_auth_styles
     let missing_data = list_configured_models("missing-data")
         .await
         .expect_err("missing data field");
-    assert!(missing_data.contains("missing `data` field"));
+    assert!(missing_data.contains("missing `data` or `models` field"));
 
     let wrong_data = list_configured_models("wrong-data")
         .await
@@ -379,6 +393,7 @@ async fn provider_ops_leftovers_cover_model_listing_error_shapes_and_auth_styles
 
 #[tokio::test]
 async fn factory_leftovers_cover_routes_byok_fail_closed_local_and_cloud_edges() {
+    let _env = env_lock();
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -584,6 +599,7 @@ async fn factory_leftovers_cover_routes_byok_fail_closed_local_and_cloud_edges()
 
 #[tokio::test]
 async fn local_admin_leftovers_cover_status_binary_paths_lmstudio_and_ops_skip_branches() {
+    let _env = env_lock();
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -635,11 +651,14 @@ async fn local_admin_leftovers_cover_status_binary_paths_lmstudio_and_ops_skip_b
     let mut bad_show = config.clone();
     bad_show.local_ai.base_url = Some(format!("{base}/show-bad"));
     let bad_show_diag = service.diagnostics(&bad_show).await.expect("bad show diag");
+    // `/show-bad/api/show` returns no `context_length`, so context can't be
+    // determined — the verdict is `unknown` (not a rejection), not
+    // `below_minimum`, per `evaluate_context(None)`.
     assert!(bad_show_diag["installed_models"]
         .as_array()
         .unwrap()
         .iter()
-        .any(|model| model["eligibility"]["status"] == "below_minimum"));
+        .any(|model| model["eligibility"]["status"] == "unknown"));
 
     let mut lm_reachable_error = config.clone();
     lm_reachable_error.local_ai.provider = "lmstudio".to_string();

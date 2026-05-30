@@ -579,11 +579,10 @@ impl SearchEngineCredentials {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct SearchConfig {
-    /// Active search engine. One of [`SEARCH_ENGINE_MANAGED`],
+    /// Active search engine. One of [`SEARCH_ENGINE_DISABLED`],
     /// [`SEARCH_ENGINE_MANAGED`], [`SEARCH_ENGINE_PARALLEL`],
-    /// [`SEARCH_ENGINE_BRAVE`], [`SEARCH_ENGINE_QUERIT`], or
-    /// [`SEARCH_ENGINE_DISABLED`]. Unknown values fall back to managed at
-    /// registration time.
+    /// [`SEARCH_ENGINE_BRAVE`], or [`SEARCH_ENGINE_QUERIT`]. Unknown values
+    /// fall back to managed at registration time.
     #[serde(default = "default_search_engine")]
     pub engine: String,
 

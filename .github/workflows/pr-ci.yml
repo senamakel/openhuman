@@ -99,8 +99,8 @@ jobs:
       - name: Run clippy (core crate)
         run: bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman
 
-  build-linux-e2e-artifacts:
-    name: Build Linux E2E Artifacts
+  build-linux-desktop-e2e-artifact:
+    name: Build Linux Desktop E2E Artifact
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
@@ -155,15 +155,8 @@ jobs:
           path: .ci/artifacts/e2e-desktop-linux.tar.gz
           key: e2e-desktop-linux-${{ hashFiles('src/**', 'Cargo.toml', 'Cargo.lock', 'app/src-tauri/src/**', 'app/src-tauri/capabilities/**', 'app/src-tauri/icons/**', 'app/src-tauri/build.rs', 'app/src-tauri/Cargo.toml', 'app/src-tauri/Cargo.lock', 'app/src-tauri/tauri.conf.json', 'app/src-tauri/vendor/tauri-cef/Cargo.lock', 'rust-toolchain.toml', 'app/src/**', 'app/public/**', 'app/index.html', 'app/vite.config.*', 'app/tailwind.config.*', 'app/postcss.config.*', 'app/package.json', 'pnpm-lock.yaml', 'app/scripts/e2e-build.sh') }}
 
-      - name: Restore cached Playwright E2E artifact
-        id: playwright-artifact-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: .ci/artifacts/e2e-playwright-linux.tar.gz
-          key: e2e-playwright-linux-${{ hashFiles('src/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'app/src/**', 'app/public/**', 'app/index.html', 'app/vite.config.*', 'app/tailwind.config.*', 'app/postcss.config.*', 'app/package.json', 'pnpm-lock.yaml', 'app/scripts/e2e-web-build.sh') }}
-
       - name: Install dependencies
-        if: steps.desktop-artifact-cache.outputs.cache-hit != 'true' || steps.playwright-artifact-cache.outputs.cache-hit != 'true'
+        if: steps.desktop-artifact-cache.outputs.cache-hit != 'true'
         run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
 
       - name: Save pnpm store cache
@@ -174,7 +167,7 @@ jobs:
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Ensure .env exists for E2E builds
-        if: steps.desktop-artifact-cache.outputs.cache-hit != 'true' || steps.playwright-artifact-cache.outputs.cache-hit != 'true'
+        if: steps.desktop-artifact-cache.outputs.cache-hit != 'true'
         run: |
           touch .env
           touch app/.env
@@ -197,6 +190,95 @@ jobs:
           tar -czf .ci/artifacts/e2e-desktop-linux.tar.gz -C "$STAGE" repo home
           ls -lh .ci/artifacts/e2e-desktop-linux.tar.gz
 
+      - name: Verify build artifacts exist
+        run: |
+          set -euo pipefail
+          test -f .ci/artifacts/e2e-desktop-linux.tar.gz
+
+      - name: Save CEF binary distribution cache
+        if: always() && steps.cef-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ~/Library/Caches/tauri-cef
+          key: ${{ steps.cef-cache.outputs.cache-primary-key }}
+
+      - name: Save Linux desktop E2E artifact cache
+        if: always() && steps.desktop-artifact-cache.outputs.cache-hit != 'true' && hashFiles('.ci/artifacts/e2e-desktop-linux.tar.gz') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: .ci/artifacts/e2e-desktop-linux.tar.gz
+          key: ${{ steps.desktop-artifact-cache.outputs.cache-primary-key }}
+
+      - name: Upload Linux desktop E2E artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-desktop-linux-${{ github.run_id }}
+          path: .ci/artifacts/e2e-desktop-linux.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+  build-playwright-e2e-artifact:
+    name: Build Playwright E2E Artifact
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/tinyhumansai/openhuman_ci:latest
+    timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: "0"
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Cache pnpm store
+        id: pnpm-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+          cache-on-failure: true
+          key: pr-playwright-build-linux
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Restore cached Playwright E2E artifact
+        id: playwright-artifact-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .ci/artifacts/e2e-playwright-linux.tar.gz
+          key: e2e-playwright-linux-${{ hashFiles('src/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'app/src/**', 'app/public/**', 'app/index.html', 'app/vite.config.*', 'app/tailwind.config.*', 'app/postcss.config.*', 'app/package.json', 'pnpm-lock.yaml', 'app/scripts/e2e-web-build.sh') }}
+
+      - name: Install dependencies
+        if: steps.playwright-artifact-cache.outputs.cache-hit != 'true'
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
+
+      - name: Save pnpm store cache
+        if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
+
+      - name: Ensure .env exists for E2E build
+        if: steps.playwright-artifact-cache.outputs.cache-hit != 'true'
+        run: |
+          touch .env
+          touch app/.env
+
       - name: Build and package Playwright E2E artifact
         if: steps.playwright-artifact-cache.outputs.cache-hit != 'true'
         run: |
@@ -215,26 +297,10 @@ jobs:
           tar -czf .ci/artifacts/e2e-playwright-linux.tar.gz -C "$STAGE" repo
           ls -lh .ci/artifacts/e2e-playwright-linux.tar.gz
 
-      - name: Verify build artifacts exist
+      - name: Verify build artifact exists
         run: |
           set -euo pipefail
-          test -f .ci/artifacts/e2e-desktop-linux.tar.gz
           test -f .ci/artifacts/e2e-playwright-linux.tar.gz
-
-      - name: Save CEF binary distribution cache
-        if: always() && steps.cef-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: |
-            ~/Library/Caches/tauri-cef
-          key: ${{ steps.cef-cache.outputs.cache-primary-key }}
-
-      - name: Save Linux desktop E2E artifact cache
-        if: always() && steps.desktop-artifact-cache.outputs.cache-hit != 'true' && hashFiles('.ci/artifacts/e2e-desktop-linux.tar.gz') != ''
-        uses: actions/cache/save@v5
-        with:
-          path: .ci/artifacts/e2e-desktop-linux.tar.gz
-          key: ${{ steps.desktop-artifact-cache.outputs.cache-primary-key }}
 
       - name: Save Playwright E2E artifact cache
         if: always() && steps.playwright-artifact-cache.outputs.cache-hit != 'true' && hashFiles('.ci/artifacts/e2e-playwright-linux.tar.gz') != ''
@@ -242,14 +308,6 @@ jobs:
         with:
           path: .ci/artifacts/e2e-playwright-linux.tar.gz
           key: ${{ steps.playwright-artifact-cache.outputs.cache-primary-key }}
-
-      - name: Upload Linux desktop E2E artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: e2e-desktop-linux-${{ github.run_id }}
-          path: .ci/artifacts/e2e-desktop-linux.tar.gz
-          retention-days: 1
-          if-no-files-found: error
 
       - name: Upload Playwright E2E artifact
         uses: actions/upload-artifact@v5
@@ -261,7 +319,7 @@ jobs:
 
   frontend-coverage:
     name: Frontend Coverage (Vitest)
-    needs: [frontend-quality, rust-quality, build-linux-e2e-artifacts]
+    needs: [frontend-quality, rust-quality]
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
@@ -313,7 +371,7 @@ jobs:
 
   rust-core-coverage:
     name: Rust Core Coverage (cargo-llvm-cov)
-    needs: [frontend-quality, rust-quality, build-linux-e2e-artifacts]
+    needs: [frontend-quality, rust-quality]
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     container:
@@ -352,7 +410,7 @@ jobs:
 
   rust-tauri-coverage:
     name: Rust Tauri Coverage (cargo-llvm-cov)
-    needs: [frontend-quality, rust-quality, build-linux-e2e-artifacts]
+    needs: [frontend-quality, rust-quality]
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     container:
@@ -412,7 +470,7 @@ jobs:
 
   rust-e2e:
     name: Rust E2E (mock backend)
-    needs: [frontend-quality, rust-quality, build-linux-e2e-artifacts]
+    needs: [frontend-quality, rust-quality]
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
@@ -469,7 +527,7 @@ jobs:
 
   desktop-e2e-linux:
     name: Desktop E2E (Linux / mega-flow)
-    needs: [frontend-quality, rust-quality, build-linux-e2e-artifacts]
+    needs: [frontend-quality, rust-quality, build-linux-desktop-e2e-artifact]
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
@@ -575,7 +633,7 @@ jobs:
 
   playwright-e2e:
     name: E2E (Playwright / web lane)
-    needs: [frontend-quality, rust-quality, build-linux-e2e-artifacts]
+    needs: [frontend-quality, rust-quality, build-playwright-e2e-artifact]
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest

@@ -109,6 +109,7 @@ pub mod util;
 pub mod vault;
 pub mod voice;
 pub mod wallet;
+pub mod web3;
 pub mod webhooks;
 pub mod webview_accounts;
 pub mod webview_apis;

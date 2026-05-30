@@ -1404,7 +1404,15 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
 #[test]
 fn api_config_url_resolution_classifies_backend_and_inference_paths() {
     let _lock = env_lock();
-    let _backend = EnvVarGuard::unset("BACKEND_URL");
+    // Integration-test binaries link the library compiled WITHOUT `cfg(test)`,
+    // so `compile_time_api_base_env_values()` resolves `option_env!("BACKEND_URL")`
+    // / `option_env!("VITE_BACKEND_URL")`. The mock test harness bakes
+    // `BACKEND_URL` at build time, which would make the blank / local-AI override
+    // fall-throughs below resolve to the baked URL instead of the compile
+    // default. Pin `BACKEND_URL` at runtime — runtime resolution wins over the
+    // compile-time bake — so env/default resolution is deterministic regardless
+    // of what CI baked into the binary.
+    let _backend = EnvVarGuard::set("BACKEND_URL", DEFAULT_API_BASE_URL);
     let _vite_backend = EnvVarGuard::unset("VITE_BACKEND_URL");
     let _app_env = EnvVarGuard::unset(APP_ENV_VAR);
     let _vite_app_env = EnvVarGuard::unset(VITE_APP_ENV_VAR);
@@ -4839,6 +4847,25 @@ async fn app_state_snapshot_keeps_unquarantinable_local_state_path_but_uses_defa
     let mut read_only_permissions = original_permissions.clone();
     read_only_permissions.set_mode(0o500);
     std::fs::set_permissions(&state_dir, read_only_permissions).expect("make state dir unwritable");
+
+    // Unix permission bits only block writes for non-root users. CI containers
+    // frequently run as root, where 0o500 does NOT prevent rename/removal — the
+    // quarantine would succeed and this test's precondition (an *unquarantinable*
+    // path) can't be established. Probe whether the mode is actually enforced;
+    // if writes still succeed, skip rather than assert a guarantee the OS isn't
+    // providing.
+    let probe = state_dir.join(".perm-probe");
+    if std::fs::write(&probe, b"x").is_ok() {
+        let _ = std::fs::remove_file(&probe);
+        std::fs::set_permissions(&state_dir, original_permissions)
+            .expect("restore state dir permissions");
+        eprintln!(
+            "[skip] app_state_snapshot_keeps_unquarantinable_local_state_path_but_uses_defaults: \
+             filesystem permissions not enforced (running as root?); cannot make state dir unwritable"
+        );
+        harness.join.abort();
+        return;
+    }
 
     let snapshot = rpc(
         &harness.rpc_base,

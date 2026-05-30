@@ -2872,6 +2872,76 @@ async fn threads_rpc_ops_cover_crud_title_fallback_and_turn_state_cleanup() {
 }
 
 #[tokio::test]
+async fn threads_title_generation_branches_cover_noop_and_not_found_paths() {
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+    Config::load_or_init().await.expect("init isolated config");
+
+    let manual = thread_ops::thread_upsert(UpsertConversationThreadRequest {
+        id: "thread/manual-title".into(),
+        title: "Manual launch review".into(),
+        created_at: "2026-05-29T13:00:00Z".into(),
+        parent_thread_id: None,
+        labels: None,
+        personality_id: None,
+    })
+    .await
+    .expect("upsert manual thread")
+    .value
+    .data
+    .expect("manual thread");
+    assert_eq!(manual.title, "Manual launch review");
+
+    let unchanged_manual =
+        thread_ops::thread_generate_title(GenerateConversationThreadTitleRequest {
+            thread_id: "thread/manual-title".into(),
+            assistant_message: Some("Assistant reply that should not be used".into()),
+        })
+        .await
+        .expect("manual title skips generation")
+        .value
+        .data
+        .expect("manual title response");
+    assert_eq!(unchanged_manual.title, "Manual launch review");
+
+    let placeholder = thread_ops::thread_upsert(UpsertConversationThreadRequest {
+        id: "thread/no-user-message".into(),
+        title: "Chat Jan 1 1:23 AM".into(),
+        created_at: "2026-05-29T13:01:00Z".into(),
+        parent_thread_id: None,
+        labels: None,
+        personality_id: None,
+    })
+    .await
+    .expect("upsert placeholder thread")
+    .value
+    .data
+    .expect("placeholder thread");
+    assert_eq!(placeholder.title, "Chat Jan 1 1:23 AM");
+
+    let no_user_message =
+        thread_ops::thread_generate_title(GenerateConversationThreadTitleRequest {
+            thread_id: "thread/no-user-message".into(),
+            assistant_message: None,
+        })
+        .await
+        .expect("no user message leaves placeholder")
+        .value
+        .data
+        .expect("no user response");
+    assert_eq!(no_user_message.title, "Chat Jan 1 1:23 AM");
+
+    let missing = thread_ops::thread_generate_title(GenerateConversationThreadTitleRequest {
+        thread_id: "thread/missing-title".into(),
+        assistant_message: None,
+    })
+    .await
+    .unwrap_err();
+    let missing_text: String = missing.into();
+    assert!(missing_text.contains("ThreadNotFound"));
+}
+
+#[tokio::test]
 async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());

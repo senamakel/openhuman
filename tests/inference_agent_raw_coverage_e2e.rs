@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::all::RegisteredController;
+use openhuman_core::openhuman::agent::agents::BUILTINS;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::agent::personality_paths::{
     filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
@@ -30,8 +31,9 @@ use openhuman_core::openhuman::agent::profiles::{
 };
 use openhuman_core::openhuman::agent::prompts::{
     render_ambient_environment, render_subagent_system_prompt, render_tools, ConnectedIntegration,
-    GatedIntegrationTool, LearnedContextData, NamespaceSummary, PromptContext, PromptTool,
-    SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat, UserIdentity,
+    GatedIntegrationTool, LearnedContextData, NamespaceSummary, PersonalityRosterEntry,
+    PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat,
+    UserIdentity,
 };
 use openhuman_core::openhuman::agent::task_board::{
     TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
@@ -53,7 +55,7 @@ use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
 use openhuman_core::openhuman::config::schema::LocalAiConfig;
-use openhuman_core::openhuman::config::Config;
+use openhuman_core::openhuman::config::{Config, DelegateAgentConfig};
 use openhuman_core::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
 use openhuman_core::openhuman::inference::context_window_for_model;
 use openhuman_core::openhuman::inference::presets::{
@@ -69,6 +71,9 @@ use openhuman_core::openhuman::inference::provider::factory::{
 use openhuman_core::openhuman::inference::provider::temperature::{
     glob_match, temperature_for_model,
 };
+use openhuman_core::openhuman::inference::provider::thread_context::{
+    current_thread_id, with_thread_id,
+};
 use openhuman_core::openhuman::inference::provider::UsageInfo;
 use openhuman_core::openhuman::inference::provider::{
     format_anyhow_chain, is_budget_exhausted_message, is_openai_compatible_unknown_model_message,
@@ -78,10 +83,12 @@ use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
 use openhuman_core::openhuman::inference::voice::hallucination::{
     is_hallucinated_output, HallucinationMode,
 };
+use openhuman_core::openhuman::inference::voice::postprocess::cleanup_transcription;
 use openhuman_core::openhuman::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
     all_local_ai_controller_schemas, all_local_ai_registered_controllers, DeviceProfile,
 };
+use openhuman_core::openhuman::security::SecurityPolicy;
 use openhuman_core::openhuman::todos::ops::BoardLocation;
 use openhuman_core::openhuman::tools::Tool;
 
@@ -385,6 +392,30 @@ async fn inference_registry_drives_config_oauth_models_and_provider_chat() {
         models.pointer("/result/models/0/id"),
         Some(&json!("demo-chat"))
     );
+
+    let provider_schemas =
+        openhuman_core::openhuman::inference::provider::schemas::all_controller_schemas();
+    let provider_registered =
+        openhuman_core::openhuman::inference::provider::schemas::all_registered_controllers();
+    assert_eq!(provider_schemas.len(), provider_registered.len());
+    assert_eq!(
+        provider_registered[0].rpc_method_name(),
+        "openhuman.providers_list_models"
+    );
+    let provider_models = call(
+        controller(&provider_registered, "list_models"),
+        json!({ "provider_id": "mock-id" }),
+    )
+    .await
+    .expect("provider namespace lists models");
+    assert_eq!(
+        provider_models.pointer("/result/models/1/id"),
+        Some(&json!("demo-coder"))
+    );
+    let provider_missing_arg = call(controller(&provider_registered, "list_models"), json!({}))
+        .await
+        .expect_err("provider id is required");
+    assert!(provider_missing_arg.contains("provider_id"));
 
     let unknown = call(
         controller(&registered, "list_models"),
@@ -956,6 +987,27 @@ async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks(
     assert_eq!(empty.value.emotion, "neutral");
     assert_eq!(empty.value.valence, "neutral");
     assert_eq!(empty.value.confidence, 1.0);
+
+    assert!(current_thread_id().is_none());
+    let scoped = with_thread_id("  thread-coverage  ", async {
+        assert_eq!(current_thread_id().as_deref(), Some("thread-coverage"));
+        with_thread_id("   ", async { current_thread_id() }).await
+    })
+    .await;
+    assert!(scoped.is_none());
+    assert!(current_thread_id().is_none());
+
+    let mut cleanup_config = Config::default();
+    assert_eq!(cleanup_transcription(&cleanup_config, "", None).await, "");
+    cleanup_config.local_ai.voice_llm_cleanup_enabled = false;
+    let raw = "um send this exactly";
+    let skipped = cleanup_transcription(
+        &cleanup_config,
+        raw,
+        Some("Conversation context that should not matter while LLM is unavailable"),
+    )
+    .await;
+    assert_eq!(skipped, raw);
 }
 
 #[tokio::test]
@@ -1706,6 +1758,188 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     assert!(options.include_skills_catalog);
     assert!(!options.include_profile);
     assert!(options.include_memory_md);
+}
+
+#[test]
+fn agent_builtin_prompt_builders_cover_all_registered_archetypes() {
+    let workspace = tempdir().expect("prompt workspace");
+    std::fs::write(workspace.path().join("SOUL.md"), "coverage soul").expect("write soul");
+    std::fs::write(workspace.path().join("IDENTITY.md"), "coverage identity")
+        .expect("write identity");
+    std::fs::write(workspace.path().join("PROFILE.md"), "coverage profile").expect("write profile");
+    std::fs::write(workspace.path().join("MEMORY.md"), "coverage memory").expect("write memory");
+
+    let visible_tool_names = HashSet::from(["plan_exit".to_string()]);
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(PlanExitTool::new())];
+    let prompt_tools = PromptTool::from_tools(&tools);
+    let skills = Vec::new();
+    let integrations = Vec::new();
+
+    for builtin in BUILTINS {
+        let ctx = PromptContext {
+            workspace_dir: workspace.path(),
+            model_name: "agentic-v1",
+            agent_id: builtin.id,
+            tools: &prompt_tools,
+            skills: &skills,
+            dispatcher_instructions: "Use available tools when needed.",
+            learned: LearnedContextData::default(),
+            visible_tool_names: &visible_tool_names,
+            tool_call_format: ToolCallFormat::Json,
+            connected_integrations: &integrations,
+            connected_identities_md: String::new(),
+            include_profile: true,
+            include_memory_md: true,
+            curated_snapshot: None,
+            user_identity: Some(UserIdentity {
+                id: Some("user-coverage".into()),
+                name: Some("Coverage User".into()),
+                email: None,
+            }),
+            personality_soul_md: None,
+            personality_memory_md: None,
+            personality_roster: vec![PersonalityRosterEntry {
+                id: "default".into(),
+                name: "Default".into(),
+                description: "Default assistant".into(),
+                memory_summary: Some("Recent planner context".into()),
+            }],
+        };
+        let body = (builtin.prompt_fn)(&ctx)
+            .unwrap_or_else(|err| panic!("built-in prompt {} should render: {err}", builtin.id));
+        assert!(
+            body.contains("plan_exit") || body.contains("coverage") || !body.trim().is_empty(),
+            "built-in prompt {} rendered empty body",
+            builtin.id
+        );
+    }
+}
+
+#[tokio::test]
+async fn agent_public_tools_cover_validation_and_metadata_paths() {
+    use openhuman_core::openhuman::agent::tools::{
+        ArchetypeDelegationTool, AskClarificationTool, DelegateToPersonalityTool, DelegateTool,
+        RunSkillTool, SkillDelegationTool, TodoTool, RUN_SKILL_TOOL_NAME,
+    };
+
+    let ask = AskClarificationTool::new();
+    assert_eq!(ask.name(), "ask_user_clarification");
+    let clarification = ask
+        .execute(json!({
+            "question": "Which target?",
+            "options": ["unit", "coverage"]
+        }))
+        .await
+        .expect("ask clarification");
+    assert!(clarification.output().contains("Which target?"));
+    assert!(clarification.output().contains("unit, coverage"));
+
+    let run_skill = RunSkillTool::new();
+    assert_eq!(run_skill.name(), RUN_SKILL_TOOL_NAME);
+    assert_eq!(
+        run_skill.parameters_schema().pointer("/required/0"),
+        Some(&json!("skill_id"))
+    );
+    let missing_skill = run_skill
+        .execute(json!({ "inputs": {} }))
+        .await
+        .expect("missing skill id returns tool error");
+    assert!(missing_skill.is_error);
+    assert!(missing_skill.output().contains("skill_id"));
+
+    let delegate_personality = DelegateToPersonalityTool::new();
+    assert_eq!(delegate_personality.name(), "delegate_to_personality");
+    let missing_personality = delegate_personality
+        .execute(json!({ "prompt": "do work" }))
+        .await
+        .expect("missing personality id");
+    assert!(missing_personality.is_error);
+    let no_parent_context = delegate_personality
+        .execute(json!({
+            "personality_id": "research",
+            "prompt": "Summarize the thread",
+            "context": "caller context"
+        }))
+        .await
+        .expect("no parent context");
+    assert!(no_parent_context
+        .output()
+        .contains("no parent execution context"));
+
+    let archetype = ArchetypeDelegationTool {
+        tool_name: "delegate_researcher".into(),
+        agent_id: "researcher".into(),
+        tool_description: "Use for research.".into(),
+    };
+    assert_eq!(
+        archetype.parameters_schema().pointer("/required/0"),
+        Some(&json!("prompt"))
+    );
+    let missing_prompt = archetype
+        .execute(json!({ "model": "agentic-v1" }))
+        .await
+        .expect("missing archetype prompt");
+    assert!(missing_prompt.is_error);
+
+    assert!(SkillDelegationTool::for_connected(vec![]).is_none());
+    let skill_delegate = SkillDelegationTool::for_connected(vec![
+        ("gmail".into(), "Email access.".into()),
+        ("notion".into(), "Docs.".into()),
+    ])
+    .expect("connected tool");
+    assert!(skill_delegate.description().contains("gmail"));
+    let unknown_toolkit = skill_delegate
+        .execute(json!({ "toolkit": "slack", "prompt": "search" }))
+        .await
+        .expect("unknown toolkit");
+    assert!(unknown_toolkit.is_error);
+    assert!(unknown_toolkit
+        .output()
+        .contains("allowed: [gmail, notion]"));
+    let blank_skill_prompt = skill_delegate
+        .execute(json!({ "toolkit": "gmail", "prompt": "   " }))
+        .await
+        .expect("blank prompt");
+    assert!(blank_skill_prompt.output().contains("`prompt` is required"));
+
+    let todo = TodoTool::new();
+    assert_eq!(todo.name(), "todo");
+    let bad_todo_op = todo
+        .execute(json!({ "op": "not_real" }))
+        .await
+        .expect("unknown todo op");
+    assert!(bad_todo_op.is_error);
+    let missing_todo_op = todo.execute(json!({})).await.expect_err("op required");
+    assert!(missing_todo_op.to_string().contains("op"));
+
+    let delegate = DelegateTool::new(HashMap::new(), Arc::new(SecurityPolicy::default()));
+    assert!(delegate.description().contains("Delegate a subtask"));
+    let unknown_agent = delegate
+        .execute(json!({ "agent": "worker", "prompt": "do work" }))
+        .await
+        .expect("unknown delegate agent returns tool error");
+    assert!(unknown_agent.output().contains("Unknown agent 'worker'"));
+
+    let depth_limited = DelegateTool::with_depth(
+        HashMap::from([(
+            "worker".to_string(),
+            DelegateAgentConfig {
+                model: "agentic-v1".to_string(),
+                system_prompt: Some("You are a worker.".to_string()),
+                temperature: Some(0.2),
+                max_depth: 0,
+            },
+        )]),
+        Arc::new(SecurityPolicy::default()),
+        0,
+    );
+    let depth_error = depth_limited
+        .execute(json!({ "agent": "worker", "prompt": "do work" }))
+        .await
+        .expect("depth limit returns tool error");
+    assert!(depth_error
+        .output()
+        .contains("Delegation depth limit reached"));
 }
 
 fn test_device(total_ram_gb: u64) -> DeviceProfile {

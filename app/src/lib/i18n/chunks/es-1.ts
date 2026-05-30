@@ -1627,6 +1627,9 @@ const es1: TranslationMap = {
   'graphCentrality.bridgeBadge': 'connector',
   'graphCentrality.bridgeTitle': 'Connector — more influential than its link count suggests',
   'graphCentrality.degreeTitle': '{in} in · {out} out',
+  'settings.search.engineDisabledLabel': 'Disabled',
+  'settings.search.engineDisabledDesc':
+    'Remove search tools from the agent context and available tool list.',
 };
 
 export default es1;

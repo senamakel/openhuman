@@ -97,7 +97,6 @@ export default function Intelligence() {
         id: 'workflows',
         label: t('memory.tab.workflows'),
         description: t('memory.tab.workflowsDescription'),
-        comingSoon: true,
       },
       { id: 'diagram', label: t('memory.tab.diagram') },
       { id: 'centrality', label: t('memory.tab.centrality') },

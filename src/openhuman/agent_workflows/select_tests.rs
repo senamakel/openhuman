@@ -100,7 +100,11 @@ fn effective_tool_scope_falls_back_to_workflow_or_phase_only() {
 
 #[test]
 fn best_match_scores_when_to_use() {
-    let a = wf_with("a", "a user reports a bug or something is broken", HashMap::new());
+    let a = wf_with(
+        "a",
+        "a user reports a bug or something is broken",
+        HashMap::new(),
+    );
     let b = wf_with("b", "deploy the release to production", HashMap::new());
     let list = vec![a, b];
     let m = best_match(&list, "I think there is a bug, something broken").unwrap();

@@ -65,7 +65,10 @@ pub fn best_match<'a>(workflows: &'a [Workflow], query: &str) -> Option<&'a Work
             continue;
         }
         let hint_words = tokenize(&wf.when_to_use);
-        let score = hint_words.iter().filter(|w| query_words.contains(*w)).count();
+        let score = hint_words
+            .iter()
+            .filter(|w| query_words.contains(*w))
+            .count();
         if score == 0 {
             continue;
         }

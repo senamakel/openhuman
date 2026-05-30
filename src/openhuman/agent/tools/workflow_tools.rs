@@ -99,7 +99,11 @@ impl Tool for WorkflowLoadTool {
 
         match read_workflow(id) {
             Err(e) => {
-                log::warn!("[workflows][phase] workflow_load failed id={:?} err={}", id, e);
+                log::warn!(
+                    "[workflows][phase] workflow_load failed id={:?} err={}",
+                    id,
+                    e
+                );
                 Ok(ToolResult::error(format!(
                     "workflow not found or could not be read: {e}"
                 )))

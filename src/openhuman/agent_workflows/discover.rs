@@ -35,7 +35,10 @@ pub fn discover_workflows(
     if let Some(home) = home_dir {
         absorb(
             &mut by_name,
-            scan_root(&home.join(".openhuman").join("workflows"), WorkflowScope::User),
+            scan_root(
+                &home.join(".openhuman").join("workflows"),
+                WorkflowScope::User,
+            ),
         );
     }
 

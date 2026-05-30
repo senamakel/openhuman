@@ -29,11 +29,7 @@ pub const PHASE_ENTER_DIRECTORY: &str = "on_enter_directory";
 
 /// The three well-known v1 phases, in lifecycle order. Custom phase names are
 /// tolerated; these are the ones the harness auto-detects from task events.
-pub const KNOWN_PHASES: &[&str] = &[
-    PHASE_ENTER_DIRECTORY,
-    PHASE_PICK_UP_TASK,
-    PHASE_CLOSE_TASK,
-];
+pub const KNOWN_PHASES: &[&str] = &[PHASE_ENTER_DIRECTORY, PHASE_PICK_UP_TASK, PHASE_CLOSE_TASK];
 
 /// Tool-scoping directive for a workflow or a single phase.
 ///

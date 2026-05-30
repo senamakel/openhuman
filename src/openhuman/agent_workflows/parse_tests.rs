@@ -33,7 +33,10 @@ fn parses_full_frontmatter_and_body() {
     let (fm, body, warnings) = parse_workflow_md_str(FULL).expect("should parse");
     assert!(warnings.is_empty(), "warnings: {warnings:?}");
     assert_eq!(fm.name, "bug-triage");
-    assert_eq!(fm.when_to_use, "a user reports a bug or something is broken");
+    assert_eq!(
+        fm.when_to_use,
+        "a user reports a bug or something is broken"
+    );
     assert_eq!(fm.tags, vec!["support", "debugging"]);
     assert_eq!(
         fm.tools.as_ref().unwrap().allow,
@@ -46,7 +49,10 @@ fn parses_full_frontmatter_and_body() {
 fn parses_phase_scripts_tools_and_context() {
     let (fm, _body, _w) = parse_workflow_md_str(FULL).unwrap();
     let pickup = fm.phases.get("on_pick_up_task").expect("phase present");
-    assert_eq!(pickup.rules, vec!["Always reproduce before proposing a fix."]);
+    assert_eq!(
+        pickup.rules,
+        vec!["Always reproduce before proposing a fix."]
+    );
     assert_eq!(pickup.scripts, vec!["git fetch"]);
     let scope = pickup.tools.as_ref().unwrap();
     assert_eq!(scope.allow, vec!["shell", "file_read"]);
@@ -77,7 +83,9 @@ fn malformed_yaml_yields_warning_and_default_frontmatter() {
     let (fm, _body, warnings) = parse_workflow_md_str(content).unwrap();
     assert_eq!(fm.name, ""); // fell back to default on error
     assert!(
-        warnings.iter().any(|w| w.contains("frontmatter parse error")),
+        warnings
+            .iter()
+            .any(|w| w.contains("frontmatter parse error")),
         "warnings: {warnings:?}"
     );
 }

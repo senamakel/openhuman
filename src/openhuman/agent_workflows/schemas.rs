@@ -8,9 +8,9 @@
 use serde::de::DeserializeOwned;
 use serde_json::{json, Map, Value};
 
+use super::WorkflowSummary;
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
-use super::WorkflowSummary;
 use crate::rpc::RpcOutcome;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -202,7 +202,10 @@ fn handle_list(_params: Map<String, Value>) -> ControllerFuture {
         let workflows = super::discover_workflows(dirs::home_dir().as_deref(), None, false);
         let summaries: Vec<WorkflowSummary> = workflows.iter().map(WorkflowSummary::from).collect();
         log::debug!("[workflows][rpc] list -> {} workflow(s)", summaries.len());
-        to_json(RpcOutcome::new(json!({ "workflows": summaries }), Vec::new()))
+        to_json(RpcOutcome::new(
+            json!({ "workflows": summaries }),
+            Vec::new(),
+        ))
     })
 }
 

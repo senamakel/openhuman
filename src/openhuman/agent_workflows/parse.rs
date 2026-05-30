@@ -18,14 +18,16 @@ pub fn parse_workflow_md(path: &Path) -> Option<(WorkflowFrontmatter, String, Ve
 }
 
 /// Content-only variant of [`parse_workflow_md`].
-pub fn parse_workflow_md_str(
-    content: &str,
-) -> Option<(WorkflowFrontmatter, String, Vec<String>)> {
+pub fn parse_workflow_md_str(content: &str) -> Option<(WorkflowFrontmatter, String, Vec<String>)> {
     let mut lines = content.lines();
     let first = lines.next()?;
     if first.trim() != "---" {
         // No frontmatter — treat the whole file as body.
-        return Some((WorkflowFrontmatter::default(), content.to_string(), Vec::new()));
+        return Some((
+            WorkflowFrontmatter::default(),
+            content.to_string(),
+            Vec::new(),
+        ));
     }
 
     let mut yaml = String::new();

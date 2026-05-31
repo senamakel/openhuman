@@ -1807,5 +1807,8 @@ async fn vault_list_through_registry_returns_envelope() {
         .await
         .expect("vault_list");
     let body = out.output_for_llm(false);
-    assert!(body.starts_with('['), "expected a JSON array of vaults: {body}");
+    assert!(
+        body.starts_with('['),
+        "expected a JSON array of vaults: {body}"
+    );
 }

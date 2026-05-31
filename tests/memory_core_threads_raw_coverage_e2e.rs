@@ -31,7 +31,6 @@ use openhuman_core::openhuman::memory_store::chunks::types::{
     approx_token_count, chunk_id, Chunk, Metadata, SourceKind, SourceRef,
 };
 use openhuman_core::openhuman::memory_store::content;
-use openhuman_core::openhuman::memory_store::trees::registry::get_or_create_global_tree;
 use openhuman_core::openhuman::memory_store::trees::store as tree_store;
 use openhuman_core::openhuman::memory_store::trees::types::{SummaryNode, TreeKind};
 use openhuman_core::openhuman::memory_tree::score::embed::pack_embedding;

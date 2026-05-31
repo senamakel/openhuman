@@ -206,7 +206,7 @@ pub fn append_leaf_deferred(config: &Config, tree: &Tree, leaf: &LeafRef) -> Res
 }
 
 /// Transactionally append a single item to `(tree_id, level)`'s buffer.
-fn append_to_buffer(
+pub fn append_to_buffer(
     config: &Config,
     tree_id: &str,
     level: u32,

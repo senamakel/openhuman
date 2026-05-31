@@ -20,6 +20,7 @@ use crate::openhuman::memory::ingest_pipeline::{
     ingest_document, ingest_document_with_scope, IngestResult,
 };
 use crate::openhuman::memory::sync::{emit_sync_stage, MemorySyncStage, MemorySyncTrigger};
+use crate::openhuman::memory::tree_source::get_or_create_source_tree;
 use crate::openhuman::memory_sources::readers;
 use crate::openhuman::memory_sources::readers::github;
 use crate::openhuman::memory_sources::types::{
@@ -29,6 +30,9 @@ use crate::openhuman::memory_store::chunks::store::{set_chunk_raw_refs, RawRef};
 use crate::openhuman::memory_store::content::raw::{self as raw_store, raw_rel_path, RawItem};
 use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
 use crate::openhuman::memory_sync::composio::{self, SyncReason};
+use crate::openhuman::memory_tree::tree::bucket_seal::{self, LeafRef, LabelStrategy};
+use crate::openhuman::memory_tree::tree::flush::force_flush_tree;
+use crate::openhuman::memory_tree::tree::TreeFactory;
 
 const SYNC_CONCURRENCY: usize = 10;
 
@@ -181,6 +185,138 @@ async fn sync_via_reader(source: &MemorySourceEntry, config: Config) -> Result<u
         Some(format!("{total} item(s) discovered")),
     );
 
+    if source.kind == SourceKind::GithubRepo {
+        return sync_github_bulk(source, &config, reader.as_ref(), &items).await;
+    }
+
+    sync_items_individually(source, &config, &items).await
+}
+
+/// GitHub bulk path: read all items, push them directly into the L0
+/// buffer, then force-seal. One LLM call for the summary instead of
+/// one per chunk.
+async fn sync_github_bulk(
+    source: &MemorySourceEntry,
+    config: &Config,
+    reader: &(dyn readers::SourceReader + '_),
+    items: &[SourceItem],
+) -> Result<usize, String> {
+    let total = items.len();
+    let kind_str = source.kind.as_str();
+
+    let repo_scope = source
+        .url
+        .as_deref()
+        .and_then(github::repo_chunk_scope)
+        .ok_or("github source missing url for repo scope")?;
+
+    emit_sync_stage(
+        MemorySyncTrigger::Manual,
+        MemorySyncStage::Ingesting,
+        Some(kind_str),
+        Some(&source.id),
+        Some(format!("reading {total} items")),
+    );
+
+    let mut leaves: Vec<LeafRef> = Vec::with_capacity(total);
+    for (idx, item) in items.iter().enumerate() {
+        let content = match reader.read_item(source, &item.id, config).await {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!(
+                    item_id = %item.id,
+                    error = %e,
+                    "[memory_sources:sync] skipping item — read failed"
+                );
+                continue;
+            }
+        };
+
+        let token_count = (content.body.len() / 4).max(1) as u32;
+        let priority = github_item_is_high_priority(&item.id, &content);
+        leaves.push(LeafRef {
+            chunk_id: format!("{}:{}", source.id, item.id),
+            token_count,
+            timestamp: item
+                .updated_at_ms
+                .map(|ms| chrono::DateTime::from_timestamp_millis(ms).unwrap_or_else(chrono::Utc::now))
+                .unwrap_or_else(chrono::Utc::now),
+            content: content.body,
+            entities: Vec::new(),
+            topics: vec!["memory_sources".to_string(), kind_str.to_string()],
+            score: if priority { 0.8 } else { 0.5 },
+        });
+
+        if (idx + 1) % 50 == 0 || idx + 1 == total {
+            emit_sync_stage(
+                MemorySyncTrigger::Manual,
+                MemorySyncStage::Ingesting,
+                Some(kind_str),
+                Some(&source.id),
+                Some(format!("{}/{total} read", idx + 1)),
+            );
+        }
+    }
+
+    if leaves.is_empty() {
+        return Ok(0);
+    }
+
+    let leaf_count = leaves.len();
+
+    emit_sync_stage(
+        MemorySyncTrigger::Manual,
+        MemorySyncStage::Ingesting,
+        Some(kind_str),
+        Some(&source.id),
+        Some(format!("buffering {leaf_count} items into tree")),
+    );
+
+    let tree = get_or_create_source_tree(config, &repo_scope)
+        .map_err(|e| format!("get_or_create_source_tree: {e:#}"))?;
+
+    for leaf in &leaves {
+        bucket_seal::append_to_buffer(
+            config,
+            &tree.id,
+            0,
+            &leaf.chunk_id,
+            leaf.token_count as i64,
+            leaf.timestamp,
+        )
+        .map_err(|e| format!("append_to_buffer: {e:#}"))?;
+    }
+
+    emit_sync_stage(
+        MemorySyncTrigger::Manual,
+        MemorySyncStage::Ingesting,
+        Some(kind_str),
+        Some(&source.id),
+        Some(format!("sealing tree ({leaf_count} items buffered)")),
+    );
+
+    let strategy = TreeFactory::from_tree(&tree).label_strategy(config);
+    let sealed = force_flush_tree(config, &tree.id, Some(chrono::Utc::now()), &strategy)
+        .await
+        .map_err(|e| format!("force_flush_tree: {e:#}"))?;
+
+    tracing::info!(
+        source_id = %source.id,
+        leaves = leaf_count,
+        seals = sealed.len(),
+        "[memory_sources:sync] github bulk sync complete"
+    );
+
+    Ok(leaf_count)
+}
+
+/// Default per-item sync path for non-GitHub sources.
+async fn sync_items_individually(
+    source: &MemorySourceEntry,
+    config: &Config,
+    items: &[SourceItem],
+) -> Result<usize, String> {
+    let total = items.len();
     let ingested = Arc::new(AtomicUsize::new(0));
     let processed = Arc::new(AtomicUsize::new(0));
     let source_id = source.id.clone();

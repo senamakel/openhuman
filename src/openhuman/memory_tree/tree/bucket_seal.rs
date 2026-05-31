@@ -3,8 +3,10 @@
 //! `append_leaf` pushes a persisted chunk into the L0 buffer of a tree.
 //! Seal gates differ by level:
 //!
-//! - **L0 (leaves → L1)**: seal when `token_sum >= INPUT_TOKEN_BUDGET`. Bounds
-//!   the summariser's raw input.
+//! - **L0 (leaves → L1)**: seal when `token_sum >= INPUT_TOKEN_BUDGET`.
+//!   Token-only gating lets small-token items (e.g. commit messages at
+//!   ~20-50 tokens each) accumulate into large batches so summaries
+//!   cover meaningful spans of activity.
 //! - **L≥1 (summaries → next level)**: seal when `item_ids.len() >=
 //!   SUMMARY_FANOUT`. Per-summary token size depends on summariser
 //!   quality, so a token-based gate collapses to a 1:1:1 chain when the
@@ -324,7 +326,7 @@ pub(crate) fn should_seal(buf: &Buffer) -> bool {
         return false;
     }
     if buf.level == 0 {
-        buf.token_sum >= INPUT_TOKEN_BUDGET as i64 || (buf.item_ids.len() as u32) >= SUMMARY_FANOUT
+        buf.token_sum >= INPUT_TOKEN_BUDGET as i64
     } else {
         (buf.item_ids.len() as u32) >= SUMMARY_FANOUT
     }

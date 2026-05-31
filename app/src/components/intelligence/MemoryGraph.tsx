@@ -174,6 +174,10 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint }: MemoryGraphProps)
   const [grabbing, setGrabbing] = useState(false);
   // Bumped by "Reset view" — the Pixi renderer watches it to recentre.
   const [resetSignal, bumpReset] = useReducer((c: number) => c + 1, 0);
+  // Flips true if Pixi fails to init at runtime → fall back to SVG even
+  // though supportsWebGL() was true at module load.
+  const [pixiFailed, setPixiFailed] = useState(false);
+  const useWebGL = HAS_WEBGL && !pixiFailed;
   const dragRef = useRef<
     | { kind: 'node'; node: SimNode; dx: number; dy: number }
     | { kind: 'pan'; vbStartX: number; vbStartY: number; tx0: number; ty0: number }
@@ -331,9 +335,9 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint }: MemoryGraphProps)
         edgeIndices.push([a, b]);
       }
     }
-    if (!HAS_WEBGL) relaxLayout(sim, edgeIndices);
+    if (!useWebGL) relaxLayout(sim, edgeIndices);
     return { sim, edges: edgeIndices };
-  }, [nodes, edges, mode]);
+  }, [nodes, edges, mode, useWebGL]);
 
   if (nodes.length === 0) {
     return (
@@ -403,7 +407,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint }: MemoryGraphProps)
           </button>
         </div>
       </div>
-      {HAS_WEBGL ? (
+      {useWebGL ? (
         <PixiGraph
           nodes={nodes}
           edges={edges}
@@ -416,6 +420,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint }: MemoryGraphProps)
           onOpen={n => {
             if (n.kind === 'summary') void openSummary(n);
           }}
+          onError={() => setPixiFailed(true)}
         />
       ) : (
         <svg

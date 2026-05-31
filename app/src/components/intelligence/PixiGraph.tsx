@@ -21,6 +21,9 @@ interface PixiGraphProps {
   resetSignal: number;
   onHover: (node: GraphNode | null) => void;
   onOpen: (node: GraphNode) => void;
+  /** Called if Pixi fails to initialise at runtime so the parent can
+   *  fall back to the SVG renderer. */
+  onError?: () => void;
 }
 
 export function PixiGraph({
@@ -31,14 +34,17 @@ export function PixiGraph({
   resetSignal,
   onHover,
   onOpen,
+  onError,
 }: PixiGraphProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<PixiGraphHandle | null>(null);
   const onHoverRef = useRef(onHover);
   const onOpenRef = useRef(onOpen);
+  const onErrorRef = useRef(onError);
   const darkRef = useRef(dark);
   onHoverRef.current = onHover;
   onOpenRef.current = onOpen;
+  onErrorRef.current = onError;
   darkRef.current = dark;
 
   // (Re)mount the renderer whenever the graph data or mode changes.
@@ -63,7 +69,10 @@ export function PixiGraph({
         return handle;
       })
       .catch(err => {
-        console.error('[memory-graph] Pixi init failed', err);
+        // Runtime WebGL failure (driver / lost context) even though
+        // supportsWebGL() was true — let the parent fall back to SVG.
+        console.error('[memory-graph] Pixi init failed; falling back to SVG', err);
+        if (!cancelled) onErrorRef.current?.();
         return null;
       });
     return () => {

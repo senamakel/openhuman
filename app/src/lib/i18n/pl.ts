@@ -2523,6 +2523,7 @@ const messages: TranslationMap = {
   'conversations.subagent.statusRunning': 'w toku',
   'conversations.subagent.statusCompleted': 'zakończono',
   'conversations.subagent.statusFailed': 'niepowodzenie',
+  'conversations.subagent.statusAwaitingUser': 'oczekiwanie na użytkownika',
   'daemon.serviceBlockingGate.body':
     'Rdzeń OpenHuman nie odpowiada. Spróbuj ponownie lub pobierz najnowszą wersję aplikacji.',
   'daemon.serviceBlockingGate.downloadHint':

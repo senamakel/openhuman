@@ -50,6 +50,11 @@ pub(crate) struct TurnEngineOutcome {
     /// or an early circuit-breaker halt. `Agent::turn` keys its checkpoint-only
     /// history/transcript handling off this.
     pub hit_cap: bool,
+    /// When set, the turn exited early because a specific tool requested
+    /// it (e.g. `ask_user_clarification` inside a sub-agent). The tool
+    /// result is in `text`. Callers use this to propagate pause semantics
+    /// without modifying the checkpoint strategy.
+    pub early_exit_tool: Option<String>,
 }
 
 /// Truncate a digest entry's body so a huge tool result can't blow up the
@@ -411,6 +416,7 @@ pub(crate) async fn run_turn_engine(
                 iterations: (iteration + 1) as u32,
                 cost: turn_cost,
                 hit_cap: false,
+                early_exit_tool: None,
             });
         }
 
@@ -425,6 +431,7 @@ pub(crate) async fn run_turn_engine(
         // message per call with the correct id.
         let mut tool_results = String::new();
         let mut individual_results: Vec<String> = Vec::new();
+        let mut early_exit_tool: Option<String> = None;
         for (call_idx, call) in tool_calls.iter().enumerate() {
             // Stable id threaded through the start/complete pair. The fallback
             // includes `call_idx` to stay unique when the same tool name
@@ -478,6 +485,18 @@ pub(crate) async fn run_turn_engine(
                 );
                 halt_reason = Some(reason);
             }
+
+            // Early-exit when a sub-agent calls ask_user_clarification:
+            // the tool returned successfully with the question text — stop
+            // the loop so the runner can checkpoint and surface the pause.
+            if call.name == "ask_user_clarification" && outcome.success {
+                tracing::info!(
+                    iteration,
+                    "[agent_loop] ask_user_clarification detected — requesting early exit"
+                );
+                early_exit_tool = Some(call.name.clone());
+                break;
+            }
         }
 
         // Add assistant message with tool calls + tool results to history.
@@ -510,6 +529,27 @@ pub(crate) async fn run_turn_engine(
 
         observer.after_iteration(history, iteration);
 
+        // Early-exit for ask_user_clarification: history already has the
+        // tool call + result appended, observer persisted the transcript.
+        // Return the clarification output so the sub-agent runner can
+        // checkpoint and propagate the pause to the orchestrator.
+        if let Some(ref exit_tool) = early_exit_tool {
+            tracing::info!(
+                iteration,
+                tool = exit_tool.as_str(),
+                "[agent_loop] early exit — returning with tool result as output"
+            );
+            let exit_text = individual_results.last().cloned().unwrap_or_default();
+            progress.turn_completed((iteration + 1) as u32).await;
+            return Ok(TurnEngineOutcome {
+                text: exit_text,
+                iterations: (iteration + 1) as u32,
+                cost: turn_cost,
+                hit_cap: false,
+                early_exit_tool,
+            });
+        }
+
         // Circuit breaker tripped this iteration: return the root-cause summary
         // instead of looping to `max_iterations`. Tool results are already in
         // `history`, so the caller still has full context.
@@ -522,6 +562,7 @@ pub(crate) async fn run_turn_engine(
                 iterations: (iteration + 1) as u32,
                 cost: turn_cost,
                 hit_cap: false,
+                early_exit_tool: None,
             });
         }
     }
@@ -550,5 +591,6 @@ pub(crate) async fn run_turn_engine(
         iterations: max_iterations as u32,
         cost: turn_cost,
         hit_cap: true,
+        early_exit_tool: None,
     })
 }

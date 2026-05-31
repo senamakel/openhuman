@@ -854,8 +854,11 @@ fn dotfile_in_workspace_allowed() {
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
     };
+    // .gitignore is a regular dotfile — allowed.
     assert!(p.is_path_string_allowed(".gitignore"));
-    assert!(p.is_path_string_allowed(".env"));
+    // .env is in WORKSPACE_INTERNAL_FILES: the agent must not read/write the
+    // workspace's .env (may hold secrets / persona config).
+    assert!(!p.is_path_string_allowed(".env"));
 }
 
 // -- is_path_allowed — symlink safety (#1927) ---------------------
@@ -1885,6 +1888,7 @@ async fn validate_path_blocks_symlink_to_outside_workspace() {
     std::os::unix::fs::symlink(&secret, &link).unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: false,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
@@ -1901,6 +1905,7 @@ async fn validate_path_blocks_symlink_to_forbidden_path() {
     std::os::unix::fs::symlink("/etc/hostname", &link).unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec!["/etc".to_string()],
         ..SecurityPolicy::default()
@@ -1915,6 +1920,7 @@ async fn validate_path_allows_regular_file_in_workspace() {
     std::fs::write(&file, "hello").unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
@@ -1929,6 +1935,7 @@ async fn validate_path_returns_err_for_nonexistent_path() {
     let workspace = tempfile::tempdir().unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
@@ -1941,6 +1948,7 @@ async fn validate_parent_path_allows_new_file() {
     let workspace = tempfile::tempdir().unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
@@ -1958,6 +1966,7 @@ async fn validate_parent_path_blocks_symlinked_parent_dir() {
     std::os::unix::fs::symlink(outside.path(), &link_dir).unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
@@ -1983,6 +1992,7 @@ async fn validate_path_blocks_symlink_to_relative_forbidden_entry() {
     std::os::unix::fs::symlink(&secrets_dir, &link).unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec!["secrets".to_string()],
         ..SecurityPolicy::default()
@@ -2002,6 +2012,7 @@ async fn validate_parent_path_blocks_forbidden_path() {
     std::fs::create_dir_all(&secrets_dir).unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec!["secrets".to_string()],
         ..SecurityPolicy::default()
@@ -2029,6 +2040,7 @@ async fn validate_path_expands_tilde_before_workspace_join() {
     std::fs::write(&target, "test").unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: false,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
@@ -2053,6 +2065,7 @@ async fn validate_parent_path_expands_tilde_before_workspace_join() {
     let workspace = tempfile::tempdir().unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: false,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
@@ -2076,6 +2089,7 @@ use std::path::PathBuf as StdPathBuf;
 fn trusted_policy(workspace: StdPathBuf, roots: Vec<TrustedRoot>) -> SecurityPolicy {
     SecurityPolicy {
         autonomy: AutonomyLevel::Supervised,
+        action_dir: workspace.clone(),
         workspace_dir: workspace,
         workspace_only: true,
         trusted_roots: roots,
@@ -2354,6 +2368,7 @@ async fn validate_path_caches_canonical_workspace_root() {
 
     let policy = SecurityPolicy {
         workspace_dir: workspace.clone(),
+        action_dir: workspace.clone(),
         // Disable workspace_only so we can refer to the temp workspace via
         // its absolute path (the default policy blocks any absolute path
         // when workspace_only=true). Clear forbidden_paths for the same
@@ -2408,6 +2423,7 @@ async fn validate_parent_path_uses_same_cache_as_validate_path() {
 
     let policy = SecurityPolicy {
         workspace_dir: workspace.clone(),
+        action_dir: workspace.clone(),
         // Disable workspace_only so we can refer to the temp workspace via
         // its absolute path (the default policy blocks any absolute path
         // when workspace_only=true). Clear forbidden_paths for the same

@@ -39,7 +39,7 @@ use openhuman_core::openhuman::agent::harness::definition::{
 };
 use openhuman_core::openhuman::agent::harness::subagent_runner::{
     autonomous_iter_cap, with_autonomous_iter_cap, SubagentMode, SubagentRunError,
-    SubagentRunOptions, SubagentRunOutcome,
+    SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
 };
 use openhuman_core::openhuman::agent::harness::{
     check_interrupt, current_sandbox_mode, with_current_sandbox_mode, InterruptFence,
@@ -1570,6 +1570,7 @@ named = ["todo", "plan_exit"]
         skill_filter: None,
         extra_tools: Vec::new(),
         max_iterations: 8,
+        iteration_policy: Default::default(),
         max_result_chars: None,
         timeout_secs: None,
         sandbox_mode: SandboxMode::None,
@@ -4623,6 +4624,7 @@ async fn agent_subagent_public_types_cover_task_local_and_error_display_paths() 
         iterations: 3,
         elapsed: Duration::from_millis(12),
         mode: SubagentMode::Typed,
+        status: SubagentRunStatus::Completed,
     };
     assert_eq!(outcome.mode.as_str(), "typed");
     assert_eq!(outcome.elapsed.as_millis(), 12);

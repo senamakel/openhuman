@@ -2433,6 +2433,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.deleteCard': 'Delete',
   'conversations.taskKanban.updateFailed': 'ولم يتمكن من استكمال المهمة؛ ولم يتم توفير التغييرات.',
   'conversations.toolTimeline.turn': 'دور',
+  'conversations.toolTimeline.step': 'خطوة',
   'conversations.toolTimeline.workerThread': 'محادثة عامل',
   'conversations.subagent.viewProcessing': 'عرض المعالجة الكاملة',
   'conversations.subagent.parent': 'الأصل',

@@ -2480,6 +2480,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.deleteCard': 'Delete',
   'conversations.taskKanban.updateFailed': 'কাজটি সংরক্ষণ করা যায়নি।',
   'conversations.toolTimeline.turn': 'টার্ন',
+  'conversations.toolTimeline.step': 'ধাপ',
   'conversations.toolTimeline.workerThread': 'ওয়ার্কার থ্রেড',
   'conversations.subagent.viewProcessing': 'সম্পূর্ণ প্রক্রিয়া দেখুন',
   'conversations.subagent.parent': 'মূল',

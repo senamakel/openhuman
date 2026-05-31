@@ -2739,6 +2739,7 @@ const en: TranslationMap = {
   'conversations.taskKanban.deleteCard': 'Delete',
   'conversations.taskKanban.updateFailed': 'Could not update task; changes were not saved.',
   'conversations.toolTimeline.turn': 'turn',
+  'conversations.toolTimeline.step': 'step',
   'conversations.toolTimeline.workerThread': 'worker thread',
   'conversations.subagent.viewProcessing': 'View full processing',
   'conversations.subagent.parent': 'Parent',

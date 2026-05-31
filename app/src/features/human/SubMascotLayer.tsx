@@ -91,7 +91,7 @@ function activityForEntry(entry: ToolTimelineEntry): string {
   if (subagent.childIteration) {
     return subagent.childMaxIterations
       ? `Iteration ${subagent.childIteration}/${subagent.childMaxIterations}`
-      : `Iteration ${subagent.childIteration}`;
+      : `Step ${subagent.childIteration}`;
   }
 
   if (entry.detail?.trim()) {

@@ -2484,6 +2484,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.deleteCard': 'Delete',
   'conversations.taskKanban.updateFailed': 'कार्य अद्यतन नहीं कर सका; परिवर्तन बचाया नहीं गया।',
   'conversations.toolTimeline.turn': 'टर्न',
+  'conversations.toolTimeline.step': 'चरण',
   'conversations.toolTimeline.workerThread': 'वर्कर थ्रेड',
   'conversations.subagent.viewProcessing': 'पूरी प्रोसेसिंग देखें',
   'conversations.subagent.parent': 'मूल',

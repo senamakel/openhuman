@@ -217,6 +217,9 @@ fn source(kind: SourceKind, id: &str) -> MemorySourceEntry {
         query: None,
         since_days: None,
         max_items: None,
+        max_commits: None,
+        max_issues: None,
+        max_prs: None,
         selector: None,
     }
 }
@@ -3183,12 +3186,14 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         dedicated_thread: true,
         prompt_chars: 99,
         worker_thread_id: None,
+        display_name: Some("Researcher".into()),
     }));
     assert!(!mirror.observe(&AgentProgress::SubagentIterationStarted {
         agent_id: "researcher".into(),
         task_id: "task-1".into(),
         iteration: 1,
         max_iterations: 3,
+        extended_policy: false,
     }));
     assert!(!mirror.observe(&AgentProgress::SubagentToolCallStarted {
         agent_id: "researcher".into(),
@@ -3831,6 +3836,9 @@ async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
         query: None,
         since_days: None,
         max_items: None,
+        max_commits: None,
+        max_issues: None,
+        max_prs: None,
         selector: None,
     })
     .await
@@ -3851,6 +3859,9 @@ async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
         query: None,
         since_days: None,
         max_items: Some(4),
+        max_commits: None,
+        max_issues: None,
+        max_prs: None,
         selector: None,
     })
     .await
@@ -3872,6 +3883,9 @@ async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
         query: None,
         since_days: None,
         max_items: None,
+        max_commits: None,
+        max_issues: None,
+        max_prs: None,
         selector: None,
     })
     .await

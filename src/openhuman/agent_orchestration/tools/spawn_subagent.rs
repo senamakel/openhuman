@@ -791,6 +791,7 @@ mod tests {
             elapsed: Duration::from_millis(120),
             iterations: 3,
             mode: SubagentMode::Typed,
+            status: SubagentRunStatus::Completed,
         }
     }
 

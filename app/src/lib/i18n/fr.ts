@@ -2536,6 +2536,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.updateFailed':
     "Impossible de mettre à jour la tâche; les modifications n'ont pas été enregistrées.",
   'conversations.toolTimeline.turn': 'tour',
+  'conversations.toolTimeline.step': 'Étape',
   'conversations.toolTimeline.workerThread': 'fil worker',
   'conversations.subagent.viewProcessing': 'Voir le traitement complet',
   'conversations.subagent.parent': 'Parent',

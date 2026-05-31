@@ -51,10 +51,14 @@ export function SubagentActivityBlock({
   const headerBits: string[] = [];
   if (subagent.mode) headerBits.push(subagent.mode);
   if (subagent.dedicatedThread) headerBits.push(t('conversations.toolTimeline.workerThread'));
-  if (subagent.childIteration != null && subagent.childMaxIterations != null) {
-    headerBits.push(
-      `${t('conversations.toolTimeline.turn')} ${subagent.childIteration}/${subagent.childMaxIterations}`
-    );
+  if (subagent.childIteration != null) {
+    if (subagent.childMaxIterations != null) {
+      headerBits.push(
+        `${t('conversations.toolTimeline.turn')} ${subagent.childIteration}/${subagent.childMaxIterations}`
+      );
+    } else {
+      headerBits.push(`${t('conversations.toolTimeline.step')} ${subagent.childIteration}`);
+    }
   } else if (subagent.iterations != null) {
     headerBits.push(
       subagent.iterations === 1

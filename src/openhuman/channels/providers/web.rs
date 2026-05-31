@@ -1259,21 +1259,28 @@ fn spawn_progress_bridge(
                     task_id,
                     iteration,
                     max_iterations,
+                    extended_policy,
                 } => {
                     publish_web_channel_event(WebChannelEvent {
                         event: "subagent_iteration_start".to_string(),
                         client_id: client_id.clone(),
                         thread_id: thread_id.clone(),
                         request_id: request_id.clone(),
-                        message: Some(format!(
-                            "Sub-agent '{agent_id}' iteration {iteration}/{max_iterations}"
-                        )),
+                        message: Some(if extended_policy {
+                            format!("Sub-agent '{agent_id}' step {iteration}")
+                        } else {
+                            format!("Sub-agent '{agent_id}' iteration {iteration}/{max_iterations}")
+                        }),
                         tool_name: Some(agent_id),
                         skill_id: Some(task_id),
                         round: Some(round),
                         subagent: Some(SubagentProgressDetail {
                             child_iteration: Some(iteration),
-                            child_max_iterations: Some(max_iterations),
+                            child_max_iterations: if extended_policy {
+                                None
+                            } else {
+                                Some(max_iterations)
+                            },
                             ..Default::default()
                         }),
                         ..Default::default()

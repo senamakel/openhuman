@@ -123,6 +123,9 @@ pub enum AgentProgress {
         iteration: u32,
         /// Maximum iterations configured for this child run.
         max_iterations: u32,
+        /// `true` when the agent uses [`IterationPolicy::Extended`](crate::openhuman::agent::harness::definition::IterationPolicy::Extended).
+        /// The UI uses this to show "step N" instead of "turn N/M".
+        extended_policy: bool,
     },
 
     /// A sub-agent is about to execute a tool. Distinct from

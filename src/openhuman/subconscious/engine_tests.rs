@@ -1,4 +1,5 @@
 use super::*;
+use crate::openhuman::subconscious::reflection::ReflectionKind;
 
 #[test]
 fn parse_thoughts_from_envelope() {
@@ -8,8 +9,8 @@ fn parse_thoughts_from_envelope() {
     ]}"#;
     let drafts = parse_thoughts(json);
     assert_eq!(drafts.len(), 2);
-    assert_eq!(drafts[0].kind, reflection::ReflectionKind::HotnessSpike);
-    assert_eq!(drafts[1].kind, reflection::ReflectionKind::Risk);
+    assert_eq!(drafts[0].kind, ReflectionKind::HotnessSpike);
+    assert_eq!(drafts[1].kind, ReflectionKind::Risk);
 }
 
 #[test]

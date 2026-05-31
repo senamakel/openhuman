@@ -7,7 +7,9 @@
 
 use async_trait::async_trait;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::openhuman::config::Config;
@@ -19,6 +21,22 @@ use crate::openhuman::memory_store::content::raw::RawKind;
 use super::SourceReader;
 
 const DEFAULT_BRANCH: &str = "main";
+
+/// Cache of issue/PR data populated during `list_items` so `read_item`
+/// doesn't re-fetch each one individually. The paginated list endpoints
+/// already return the full body, state, labels, etc. — caching them
+/// halves the API calls (from N individual fetches down to ceil(N/100)
+/// paginated pages).
+///
+/// Keyed by `"<owner>/<repo>:<item_id>"` (e.g. `"org/repo:issue:42"`).
+/// Cleared at the start of each `list_items` call for the same repo.
+static LIST_CACHE: std::sync::LazyLock<Mutex<HashMap<String, CachedItem>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+enum CachedItem {
+    Issue(GhIssue),
+    Pr(GhPr),
+}
 
 /// Default number of items of **each** type (commits, issues, PRs) to pull
 /// when the source entry doesn't override it. Tunable per-source via
@@ -215,7 +233,7 @@ struct GhAuthor {
     date: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct GhIssue {
     number: u64,
     title: String,
@@ -228,17 +246,17 @@ struct GhIssue {
     pull_request: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct GhUser {
     login: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct GhLabel {
     name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct GhPr {
     number: u64,
     title: String,
@@ -289,6 +307,12 @@ impl SourceReader for GithubReader {
             cache = %cache_dir.display(),
             "[memory_sources:github] listing items"
         );
+
+        // Clear the list cache so stale data from a prior sync doesn't
+        // leak into this run.
+        if let Ok(mut cache) = LIST_CACHE.lock() {
+            cache.clear();
+        }
 
         let mut items = Vec::new();
         let mut errors = Vec::new();
@@ -668,12 +692,6 @@ async fn list_issues(
     max: u32,
     use_gh: bool,
 ) -> Result<Vec<SourceItem>, String> {
-    // The `/issues` endpoint interleaves PRs. Page through FULL pages
-    // (per_page=100) and accumulate only non-PR items until we've collected
-    // `max` actual issues or the endpoint is exhausted — otherwise a repo with
-    // many interleaved PRs would yield fewer than `max` issues. We can't reuse
-    // `fetch_all_pages` here because it shrinks `per_page` to the raw-row
-    // remainder and counts PRs against the budget.
     let mut out: Vec<SourceItem> = Vec::new();
     let mut page = 1u32;
 
@@ -687,20 +705,24 @@ async fn list_issues(
 
         for i in batch {
             if i.pull_request.is_some() {
-                continue; // drop PRs surfaced by the issues endpoint
+                continue;
             }
             let ts = i.updated_at.as_deref().and_then(parse_iso_ts);
+            let item_id = format!("issue:{}", i.number);
+            let cache_key = format!("{owner}/{repo}:{item_id}");
             out.push(SourceItem {
-                id: format!("issue:{}", i.number),
+                id: item_id,
                 title: format!("#{} {}", i.number, i.title),
                 updated_at_ms: ts,
             });
+            if let Ok(mut cache) = LIST_CACHE.lock() {
+                cache.insert(cache_key, CachedItem::Issue(i));
+            }
             if out.len() as u32 >= max {
                 break;
             }
         }
 
-        // Short page ⇒ no more rows upstream.
         if got < GH_PAGE_SIZE as usize {
             break;
         }
@@ -718,17 +740,25 @@ async fn list_prs(
 ) -> Result<Vec<SourceItem>, String> {
     let prs: Vec<GhPr> = fetch_all_pages(owner, repo, "pulls", "state=all", max, use_gh).await?;
 
-    Ok(prs
+    let items: Vec<SourceItem> = prs
         .into_iter()
         .map(|p| {
             let ts = p.updated_at.as_deref().and_then(parse_iso_ts);
-            SourceItem {
-                id: format!("pr:{}", p.number),
+            let item_id = format!("pr:{}", p.number);
+            let cache_key = format!("{owner}/{repo}:{item_id}");
+            let item = SourceItem {
+                id: item_id,
                 title: format!("PR #{} {}", p.number, p.title),
                 updated_at_ms: ts,
+            };
+            if let Ok(mut cache) = LIST_CACHE.lock() {
+                cache.insert(cache_key, CachedItem::Pr(p));
             }
+            item
         })
-        .collect())
+        .collect();
+
+    Ok(items)
 }
 
 // ── Read helpers ────────────────────────────────────────────────────
@@ -818,10 +848,19 @@ async fn read_issue(
     number: u64,
     use_gh: bool,
 ) -> Result<SourceContent, String> {
-    let json_str = fetch_github(&format!("repos/{owner}/{repo}/issues/{number}"), use_gh).await?;
-
-    let issue: GhIssue =
-        serde_json::from_str(&json_str).map_err(|e| format!("parse issue: {e}"))?;
+    let cache_key = format!("{owner}/{repo}:issue:{number}");
+    let issue: GhIssue = if let Some(cached) = LIST_CACHE.lock().ok().and_then(|mut c| c.remove(&cache_key)) {
+        match cached {
+            CachedItem::Issue(i) => i,
+            _ => {
+                let json_str = fetch_github(&format!("repos/{owner}/{repo}/issues/{number}"), use_gh).await?;
+                serde_json::from_str(&json_str).map_err(|e| format!("parse issue: {e}"))?
+            }
+        }
+    } else {
+        let json_str = fetch_github(&format!("repos/{owner}/{repo}/issues/{number}"), use_gh).await?;
+        serde_json::from_str(&json_str).map_err(|e| format!("parse issue: {e}"))?
+    };
 
     let author = issue
         .user
@@ -891,9 +930,19 @@ async fn read_pr(
     number: u64,
     use_gh: bool,
 ) -> Result<SourceContent, String> {
-    let json_str = fetch_github(&format!("repos/{owner}/{repo}/pulls/{number}"), use_gh).await?;
-
-    let pr: GhPr = serde_json::from_str(&json_str).map_err(|e| format!("parse PR: {e}"))?;
+    let cache_key = format!("{owner}/{repo}:pr:{number}");
+    let pr: GhPr = if let Some(cached) = LIST_CACHE.lock().ok().and_then(|mut c| c.remove(&cache_key)) {
+        match cached {
+            CachedItem::Pr(p) => p,
+            _ => {
+                let json_str = fetch_github(&format!("repos/{owner}/{repo}/pulls/{number}"), use_gh).await?;
+                serde_json::from_str(&json_str).map_err(|e| format!("parse PR: {e}"))?
+            }
+        }
+    } else {
+        let json_str = fetch_github(&format!("repos/{owner}/{repo}/pulls/{number}"), use_gh).await?;
+        serde_json::from_str(&json_str).map_err(|e| format!("parse PR: {e}"))?
+    };
 
     let author = pr
         .user

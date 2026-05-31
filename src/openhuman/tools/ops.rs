@@ -350,6 +350,28 @@ pub fn all_tools_with_runtime(
         Box::new(TaskSourceAddTool::new(config.clone())),
         Box::new(TaskSourceUpdateTool::new(config.clone())),
         Box::new(TaskSourceRemoveTool::new(config.clone())),
+        // System & self-management: observability (default-ON) + service
+        // lifecycle. doctor/health/cost/dashboard/security reads are default-ON.
+        // service_status / daemon_host_prefs_get default-ON; the lifecycle
+        // mutators ship default-OFF via `tools::user_filter` (service_lifecycle).
+        Box::new(DoctorHealthTool::new(config.clone())),
+        Box::new(DoctorModelsTool::new(config.clone())),
+        Box::new(HealthSnapshotTool),
+        Box::new(HealthSystemInfoTool),
+        Box::new(CostDashboardTool::new(config.clone())),
+        Box::new(CostDailyHistoryTool::new(config.clone())),
+        Box::new(CostSummaryTool::new(config.clone())),
+        Box::new(DashboardModelHealthTool::new(config.clone())),
+        Box::new(SecurityPolicyInfoTool::new(config.clone())),
+        Box::new(ServiceStatusTool::new(config.clone())),
+        Box::new(DaemonHostPrefsGetTool::new(config.clone())),
+        Box::new(ServiceStartTool::new(config.clone())),
+        Box::new(ServiceStopTool::new(config.clone())),
+        Box::new(ServiceRestartTool),
+        Box::new(ServiceShutdownTool),
+        Box::new(ServiceInstallTool::new(config.clone())),
+        Box::new(ServiceUninstallTool::new(config.clone())),
+        Box::new(DaemonHostPrefsSetTool::new(config.clone())),
     ];
 
     if browser_config.enabled {

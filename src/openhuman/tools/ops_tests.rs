@@ -1834,3 +1834,98 @@ async fn vault_list_through_registry_returns_envelope() {
         "expected a JSON array of vaults: {body}"
     );
 }
+
+// ── Theme: System & self-management (observability + service) ───────────────
+
+const SYSTEM_TOOLS: &[&str] = &[
+    "doctor_health",
+    "doctor_models",
+    "health_snapshot",
+    "health_system_info",
+    "cost_get_dashboard",
+    "cost_get_daily_history",
+    "cost_get_summary",
+    "dashboard_model_health",
+    "security_policy_info",
+    "service_status",
+    "daemon_host_prefs_get",
+    "service_start",
+    "service_stop",
+    "service_restart",
+    "service_shutdown",
+    "service_install",
+    "service_uninstall",
+    "daemon_host_prefs_set",
+];
+
+const SYSTEM_DEFAULT_OFF: &[&str] = &[
+    "service_start",
+    "service_stop",
+    "service_restart",
+    "service_shutdown",
+    "service_install",
+    "service_uninstall",
+    "daemon_host_prefs_set",
+];
+
+const SYSTEM_ALWAYS_ON: &[&str] = &[
+    "doctor_health",
+    "health_snapshot",
+    "cost_get_summary",
+    "dashboard_model_health",
+    "security_policy_info",
+    "service_status",
+    "daemon_host_prefs_get",
+];
+
+#[test]
+fn system_tools_are_registered() {
+    let tmp = TempDir::new().unwrap();
+    let names = tool_names(&expansion_tools_for(&tmp));
+    assert_contains_all(&names, SYSTEM_TOOLS);
+}
+
+#[test]
+fn system_default_off_tools_are_filtered_when_not_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = expansion_tools_for(&tmp);
+    filter_tools_by_user_preference(&mut tools, &["file_read".to_string()]);
+    let names = tool_names(&tools);
+    for off in SYSTEM_DEFAULT_OFF {
+        assert!(
+            !names.iter().any(|n| n == off),
+            "default-off tool `{off}` must be filtered out when not opted in; got: {names:?}"
+        );
+    }
+    for on in SYSTEM_ALWAYS_ON {
+        assert!(
+            names.iter().any(|n| n == on),
+            "always-on tool `{on}` must be retained regardless of preferences"
+        );
+    }
+}
+
+#[test]
+fn system_default_off_tools_retained_when_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = expansion_tools_for(&tmp);
+    filter_tools_by_user_preference(&mut tools, &["service_lifecycle".to_string()]);
+    let names = tool_names(&tools);
+    for on in SYSTEM_DEFAULT_OFF {
+        assert!(
+            names.iter().any(|n| n == on),
+            "opted-in tool `{on}` must be retained; got: {names:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn health_system_info_through_registry() {
+    let tmp = TempDir::new().unwrap();
+    let tools = expansion_tools_for(&tmp);
+    let out = find_tool(&tools, "health_system_info")
+        .execute(serde_json::json!({}))
+        .await
+        .expect("health_system_info");
+    assert!(out.output_for_llm(false).contains("os"));
+}

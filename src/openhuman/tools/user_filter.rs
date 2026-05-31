@@ -53,6 +53,18 @@ const TOOL_ID_TO_RUST_NAMES: &[(&str, &[&str])] = &[
     ),
     ("thread_destructive", &["thread_delete", "thread_purge_all"]),
     (
+        "service_lifecycle",
+        &[
+            "service_start",
+            "service_stop",
+            "service_restart",
+            "service_shutdown",
+            "service_install",
+            "service_uninstall",
+            "daemon_host_prefs_set",
+        ],
+    ),
+    (
         "learning_manage",
         &[
             "learning_update_facet",

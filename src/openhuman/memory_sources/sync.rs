@@ -193,9 +193,8 @@ async fn sync_via_reader(source: &MemorySourceEntry, config: Config) -> Result<u
     sync_items_individually(source, &config, &items).await
 }
 
-/// GitHub bulk path: read all items, build SummaryInputs, call the
-/// summariser once. No per-chunk queue, no per-chunk extraction — one
-/// LLM call produces the merged summary.
+/// GitHub bulk path: read all items, write raw archive, build
+/// SummaryInputs, call the summariser once, write summary to disk.
 async fn sync_github_bulk(
     source: &MemorySourceEntry,
     config: &Config,
@@ -204,12 +203,18 @@ async fn sync_github_bulk(
 ) -> Result<usize, String> {
     let total = items.len();
     let kind_str = source.kind.as_str();
+    let content_root = config.memory_tree_content_root();
 
     let repo_scope = source
         .url
         .as_deref()
         .and_then(github::repo_chunk_scope)
         .ok_or("github source missing url for repo scope")?;
+
+    let raw_source_id = source
+        .url
+        .as_deref()
+        .and_then(github::repo_archive_source_id);
 
     emit_sync_stage(
         MemorySyncTrigger::Manual,
@@ -232,6 +237,30 @@ async fn sync_github_bulk(
                 continue;
             }
         };
+
+        // Write raw archive file
+        if let Some(ref raw_sid) = raw_source_id {
+            if let Some((kind, uid)) = github::raw_archive_coords(&item.id) {
+                let created_at_ms = item.updated_at_ms.unwrap_or(0);
+                let raw_item = RawItem {
+                    uid: &uid,
+                    created_at_ms,
+                    markdown: &content.body,
+                    kind,
+                };
+                if let Err(e) = raw_store::write_raw_items(
+                    &content_root,
+                    raw_sid,
+                    std::slice::from_ref(&raw_item),
+                ) {
+                    tracing::warn!(
+                        item_id = %item.id,
+                        error = %e,
+                        "[memory_sources:sync] raw archive write failed"
+                    );
+                }
+            }
+        }
 
         let token_count = (content.body.len() / 4).max(1) as u32;
         let priority = github_item_is_high_priority(&item.id, &content);
@@ -297,10 +326,40 @@ async fn sync_github_bulk(
         }
     };
 
+    // Write summary to disk as a markdown file in the wiki
+    let summary_dir = content_root
+        .join("wiki")
+        .join("summaries")
+        .join(crate::openhuman::memory_store::content::paths::slugify_source_id(&repo_scope));
+    std::fs::create_dir_all(&summary_dir)
+        .map_err(|e| format!("create summary dir: {e}"))?;
+
+    let now = chrono::Utc::now();
+    let filename = format!("bulk-summary-{}.md", now.format("%Y%m%d-%H%M%S"));
+    let time_start = inputs.iter().map(|i| i.time_range_start).min().unwrap_or(now);
+    let time_end = inputs.iter().map(|i| i.time_range_end).max().unwrap_or(now);
+
+    let summary_md = format!(
+        "---\nkind: bulk_summary\ntree_scope: \"{repo_scope}\"\n\
+         items: {input_count}\ntokens: {tokens}\n\
+         time_range_start: {start}\ntime_range_end: {end}\n\
+         sealed_at: {now}\n---\n{content}\n",
+        tokens = output.token_count,
+        start = time_start.to_rfc3339(),
+        end = time_end.to_rfc3339(),
+        now = now.to_rfc3339(),
+        content = output.content,
+    );
+
+    let summary_path = summary_dir.join(&filename);
+    std::fs::write(&summary_path, &summary_md)
+        .map_err(|e| format!("write summary: {e}"))?;
+
     tracing::info!(
         source_id = %source.id,
         inputs = input_count,
         summary_tokens = output.token_count,
+        path = %summary_path.display(),
         "[memory_sources:sync] github bulk summary complete"
     );
 

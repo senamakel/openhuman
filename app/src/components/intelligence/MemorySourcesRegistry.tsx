@@ -31,6 +31,21 @@ interface MemorySourcesRegistryProps {
   pollIntervalMs?: number;
 }
 
+interface SyncProgress {
+  stage: string;
+  detail: string | null;
+  percent: number | null;
+}
+
+function parseSyncProgress(detail: string | null): number | null {
+  if (!detail) return null;
+  const match = detail.match(/^(\d+)\/(\d+)\s/);
+  if (!match) return null;
+  const current = parseInt(match[1], 10);
+  const total = parseInt(match[2], 10);
+  return total > 0 ? Math.round((current / total) * 100) : null;
+}
+
 export function MemorySourcesRegistry({
   onToast,
   pollIntervalMs = 5000,
@@ -41,6 +56,42 @@ export function MemorySourcesRegistry({
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [syncProgress, setSyncProgress] = useState<Map<string, SyncProgress>>(new Map());
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const data = (e as CustomEvent).detail as {
+        stage?: string;
+        connection_id?: string;
+        detail?: string;
+      } | null;
+      if (!data?.connection_id) return;
+      const sourceId = data.connection_id;
+      const stage = data.stage ?? '';
+
+      if (stage === 'completed' || stage === 'failed') {
+        setSyncProgress(prev => {
+          const next = new Map(prev);
+          next.delete(sourceId);
+          return next;
+        });
+        setSyncingId(prev => (prev === sourceId ? null : prev));
+        return;
+      }
+
+      const percent = parseSyncProgress(data.detail ?? null);
+      setSyncProgress(prev => {
+        const next = new Map(prev);
+        next.set(sourceId, { stage, detail: data.detail ?? null, percent });
+        return next;
+      });
+      if (stage === 'requested' || stage === 'fetching' || stage === 'ingesting') {
+        setSyncingId(sourceId);
+      }
+    };
+    window.addEventListener('openhuman:memory-sync-stage', handler);
+    return () => window.removeEventListener('openhuman:memory-sync-stage', handler);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -176,6 +227,7 @@ export function MemorySourcesRegistry({
               source={source}
               status={statusById.get(source.id) ?? null}
               isSyncing={syncingId === source.id}
+              progress={syncProgress.get(source.id) ?? null}
               onToggle={handleToggle}
               onRemove={handleRemove}
               onSync={handleSync}
@@ -197,12 +249,13 @@ interface SourceRowProps {
   source: MemorySourceEntry;
   status: SourceStatus | null;
   isSyncing: boolean;
+  progress: SyncProgress | null;
   onToggle: (source: MemorySourceEntry) => void;
   onRemove: (source: MemorySourceEntry) => void;
   onSync: (source: MemorySourceEntry) => void;
 }
 
-function SourceRow({ source, status, isSyncing, onToggle, onRemove, onSync }: SourceRowProps) {
+function SourceRow({ source, status, isSyncing, progress, onToggle, onRemove, onSync }: SourceRowProps) {
   const { t } = useT();
   const icon = SOURCE_KIND_ICONS[source.kind] ?? '📄';
   const kindLabel = t(SOURCE_KIND_LABEL_KEYS[source.kind] ?? source.kind);
@@ -234,7 +287,30 @@ function SourceRow({ source, status, isSyncing, onToggle, onRemove, onSync }: So
             {detail}
           </p>
         )}
-        {status && (status.chunks_synced > 0 || status.chunks_pending > 0) && (
+        {progress && (
+          <div className="mt-2 pl-7">
+            <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-neutral-400">
+              <span className="capitalize">{progress.stage}</span>
+              {progress.percent !== null && (
+                <span className="font-medium text-primary-600 dark:text-primary-400">
+                  {progress.percent}%
+                </span>
+              )}
+              {progress.detail && (
+                <span className="truncate text-stone-400 dark:text-neutral-500">
+                  {progress.detail}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-neutral-700">
+              <div
+                className="h-full rounded-full bg-primary-500 transition-all duration-300"
+                style={{ width: `${progress.percent ?? (progress.stage === 'fetching' ? 10 : 5)}%` }}
+              />
+            </div>
+          </div>
+        )}
+        {!progress && status && (status.chunks_synced > 0 || status.chunks_pending > 0) && (
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-7 text-xs text-stone-500 dark:text-neutral-400">
             <span>
               {status.chunks_synced.toLocaleString()} {t('sync.chunks')}

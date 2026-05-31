@@ -53,7 +53,7 @@ describe('SubagentActivityBlock', () => {
     expect(block.textContent).toContain('4.2s');
   });
 
-  it('renders one row per child tool call with status + timing', () => {
+  it('renders one row per child tool call with formatted names, status + timing', () => {
     renderInStore(
       <SubagentActivityBlock
         subagent={{
@@ -62,18 +62,20 @@ describe('SubagentActivityBlock', () => {
           toolCalls: [
             { callId: 'c1', toolName: 'web_search', status: 'success', elapsedMs: 312 },
             { callId: 'c2', toolName: 'composio_execute', status: 'running', iteration: 2 },
-            { callId: 'c3', toolName: 'noisy', status: 'error', elapsedMs: 50 },
+            { callId: 'c3', toolName: 'file_read', status: 'error', elapsedMs: 50 },
           ],
         }}
       />
     );
     const calls = screen.getAllByTestId('subagent-tool-call');
     expect(calls).toHaveLength(3);
-    expect(calls[0].textContent).toContain('web_search');
+    expect(calls[0].textContent).toContain('Searching the web');
     expect(calls[0].textContent).toContain('success');
     expect(calls[0].textContent).toContain('312ms');
+    expect(calls[1].textContent).toContain('Composio Execute');
     expect(calls[1].textContent).toContain('running');
     expect(calls[1].textContent).toContain('·t2');
+    expect(calls[2].textContent).toContain('Reading file');
     expect(calls[2].textContent).toContain('error');
   });
 
@@ -154,7 +156,7 @@ describe('ToolTimelineBlock — subagent rendering', () => {
 
     const calls = screen.getAllByTestId('subagent-tool-call');
     expect(calls).toHaveLength(1);
-    expect(calls[0].textContent).toContain('web_search');
+    expect(calls[0].textContent).toContain('Searching the web');
     expect(screen.getByTestId('subagent-activity').textContent).toContain('turn 1/5');
   });
 

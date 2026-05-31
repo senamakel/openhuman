@@ -58,6 +58,7 @@ pub(crate) async fn dispatch_subagent(
                 dedicated_thread: false,
                 prompt_chars: prompt.chars().count(),
                 worker_thread_id: None,
+                display_name: Some(definition.display_name().to_string()),
             })
             .await;
     }

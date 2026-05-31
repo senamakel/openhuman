@@ -433,6 +433,7 @@ impl Tool for SpawnSubagentTool {
                     dedicated_thread,
                     prompt_chars: prompt.chars().count(),
                     worker_thread_id: worker_thread_id.clone(),
+                    display_name: Some(definition.display_name().to_string()),
                 })
                 .await;
         }

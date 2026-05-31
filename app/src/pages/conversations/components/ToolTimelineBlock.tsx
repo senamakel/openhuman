@@ -1,6 +1,6 @@
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { SubagentActivity, ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
-import { formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
+import { formatTimelineEntry, formatToolName } from '../../../utils/toolTimelineFormatting';
 import { parseWorkerThreadRef } from '../utils/workerThreadRef';
 import { WorkerThreadRefCard, type WorkerThreadStatus } from './WorkerThreadRefCard';
 
@@ -115,8 +115,8 @@ export function SubagentActivityBlock({
                 className="flex items-center gap-1.5"
                 data-testid="subagent-tool-call">
                 <span className={`text-[9px] ${tone}`}>•</span>
-                <span className="font-mono text-[10px] text-stone-700 dark:text-neutral-200">
-                  {call.toolName}
+                <span className="text-[10px] text-stone-700 dark:text-neutral-200">
+                  {formatToolName(call.toolName)}
                 </span>
                 {call.iteration != null ? (
                   <span className="text-[9px] text-stone-400 dark:text-neutral-500">

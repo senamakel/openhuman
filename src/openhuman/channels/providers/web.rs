@@ -1154,13 +1154,15 @@ fn spawn_progress_bridge(
                     dedicated_thread,
                     prompt_chars,
                     worker_thread_id,
+                    display_name,
                 } => {
+                    let label = display_name.as_deref().unwrap_or(&agent_id);
                     publish_web_channel_event(WebChannelEvent {
                         event: "subagent_spawned".to_string(),
                         client_id: client_id.clone(),
                         thread_id: thread_id.clone(),
                         request_id: request_id.clone(),
-                        message: Some(format!("Sub-agent '{agent_id}' spawned")),
+                        message: Some(format!("Sub-agent '{label}' spawned")),
                         tool_name: Some(agent_id),
                         skill_id: Some(task_id),
                         round: Some(round),
@@ -1169,6 +1171,7 @@ fn spawn_progress_bridge(
                             dedicated_thread: Some(dedicated_thread),
                             prompt_chars: Some(prompt_chars as u64),
                             worker_thread_id,
+                            display_name,
                             ..Default::default()
                         }),
                         ..Default::default()

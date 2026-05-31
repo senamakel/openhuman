@@ -311,16 +311,6 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: LOCAL_RAW,
     },
     Capability {
-        id: "intelligence.vault_markdown_writes",
-        name: "Vault Markdown Writes",
-        domain: "intelligence",
-        category: CapabilityCategory::Intelligence,
-        description: "Show whether a user-added local vault is writable, and write explicitly approved markdown/wiki artifacts back into that vault without leaving the device.",
-        how_to: "Intelligence > Memory > Knowledge vaults",
-        status: CapabilityStatus::Beta,
-        privacy: LOCAL_RAW,
-    },
-    Capability {
         id: "intelligence.embedding_provider_config",
         name: "Configure Embedding Provider",
         domain: "embeddings",

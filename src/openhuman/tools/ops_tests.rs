@@ -178,43 +178,6 @@ fn all_tools_includes_spawn_parallel_agents() {
 }
 
 #[test]
-fn all_tools_includes_vault_write_markdown() {
-    let tmp = TempDir::new().unwrap();
-    let security = Arc::new(SecurityPolicy::default());
-    let mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
-    let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory_store::create_memory(&mem_cfg, tmp.path()).unwrap());
-    let browser = BrowserConfig {
-        enabled: false,
-        allowed_domains: vec![],
-        session_name: None,
-        ..BrowserConfig::default()
-    };
-    let http = crate::openhuman::config::HttpRequestConfig::default();
-    let cfg = test_config(&tmp);
-
-    let tools = all_tools(
-        Arc::new(cfg.clone()),
-        &security,
-        AuditLogger::disabled(),
-        mem,
-        &browser,
-        &http,
-        tmp.path(),
-        &HashMap::new(),
-        &cfg,
-    );
-    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
-    assert!(
-        names.contains(&"vault_write_markdown"),
-        "vault_write_markdown must be registered so agents can write approved markdown into user vaults; got: {names:?}"
-    );
-}
-
-#[test]
 fn all_tools_always_registers_curl() {
     // Regression guard: `curl` is always registered (gated only by
     // the shared `http_request.allowed_domains` allowlist at call
@@ -419,7 +382,6 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
             "shell",
             "file_read",
             "file_write",
-            "vault_write_markdown",
             "grep",
             "glob",
             "list",
@@ -1688,13 +1650,6 @@ async fn artifact_list_through_registry_returns_envelope() {
 // ── Theme: Knowledge & memory ───────────────────────────────────────────────
 
 const KNOWLEDGE_TOOLS: &[&str] = &[
-    "vault_list",
-    "vault_get",
-    "vault_files",
-    "vault_create",
-    "vault_sync",
-    "vault_sync_status",
-    "vault_remove",
     "people_list",
     "people_resolve",
     "people_score",
@@ -1740,7 +1695,6 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
 ];
 
 const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
-    "vault_remove",
     "people_refresh_address_book",
     "skill_create",
     "skill_install_from_url",
@@ -1758,8 +1712,6 @@ const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
 ];
 
 const KNOWLEDGE_ALWAYS_ON: &[&str] = &[
-    "vault_list",
-    "vault_create",
     "people_list",
     "people_resolve",
     "skill_list",
@@ -1804,7 +1756,6 @@ fn knowledge_default_off_tools_retained_when_opted_in() {
     filter_tools_by_user_preference(
         &mut tools,
         &[
-            "vault_remove".to_string(),
             "people_refresh_address_book".to_string(),
             "skill_manage".to_string(),
             "thread_destructive".to_string(),
@@ -1818,21 +1769,6 @@ fn knowledge_default_off_tools_retained_when_opted_in() {
             "opted-in tool `{on}` must be retained; got: {names:?}"
         );
     }
-}
-
-#[tokio::test]
-async fn vault_list_through_registry_returns_envelope() {
-    let tmp = TempDir::new().unwrap();
-    let tools = expansion_tools_for(&tmp);
-    let out = find_tool(&tools, "vault_list")
-        .execute(serde_json::json!({}))
-        .await
-        .expect("vault_list");
-    let body = out.output_for_llm(false);
-    assert!(
-        body.starts_with('['),
-        "expected a JSON array of vaults: {body}"
-    );
 }
 
 // ── Theme: System & self-management (observability + service) ───────────────

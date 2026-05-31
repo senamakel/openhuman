@@ -133,10 +133,6 @@ pub fn all_tools_with_runtime(
         shell,
         Box::new(FileReadTool::new(security.clone())),
         Box::new(FileWriteTool::new(security.clone())),
-        Box::new(VaultWriteMarkdownTool::new(
-            config.clone(),
-            security.clone(),
-        )),
         // Coding-harness baseline tools (issue #1205): file navigation
         // + atomic editing primitives. Use these instead of falling
         // through to `shell` for grep/find/sed work.
@@ -254,17 +250,9 @@ pub fn all_tools_with_runtime(
             Arc::clone(&audit),
         )),
         // Knowledge & memory tools (agent-tool expansion). Read/bounded-write
-        // ship default-ON; the overextending siblings (vault_remove —
-        // irreversible unregister+purge; people_refresh_address_book — bulk
-        // OS contacts ingest with a permission prompt) ship default-OFF via
-        // `tools::user_filter`. `vault_write_markdown` already registered above.
-        Box::new(VaultListTool::new(config.clone())),
-        Box::new(VaultGetTool::new(config.clone())),
-        Box::new(VaultFilesTool::new(config.clone())),
-        Box::new(VaultCreateTool::new(config.clone())),
-        Box::new(VaultSyncTool::new(config.clone())),
-        Box::new(VaultSyncStatusTool),
-        Box::new(VaultRemoveTool::new(config.clone())),
+        // ship default-ON; the overextending siblings (people_refresh_address_book —
+        // bulk OS contacts ingest with a permission prompt) ship default-OFF via
+        // `tools::user_filter`. (The vault domain was removed upstream in #3040.)
         Box::new(PeopleListTool),
         Box::new(PeopleResolveTool),
         Box::new(PeopleScoreTool),

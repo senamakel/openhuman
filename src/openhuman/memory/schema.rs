@@ -45,6 +45,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("reset_tree"),
         schemas("pipeline_status"),
         schemas("set_enabled"),
+        schemas("smart_walk"),
     ]
 }
 
@@ -127,6 +128,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("set_enabled"),
             handler: handle_set_enabled,
+        },
+        RegisteredController {
+            schema: schemas("smart_walk"),
+            handler: handle_smart_walk,
         },
     ]
 }
@@ -788,6 +793,66 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
+        "smart_walk" => ControllerSchema {
+            namespace: NAMESPACE,
+            function: "smart_walk",
+            description: "Multi-strategy memory retrieval — combines vector \
+                search, keyword search, entity lookup, and tree browsing to \
+                answer natural-language queries across raw files, wiki \
+                summaries, documents, and episodic memories.",
+            inputs: vec![
+                FieldSchema {
+                    name: "query",
+                    ty: TypeSchema::String,
+                    comment: "Natural-language question to answer.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "namespace",
+                    ty: TypeSchema::String,
+                    comment: "Memory namespace. Default: \"default\".",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "max_turns",
+                    ty: TypeSchema::U64,
+                    comment: "Max LLM turns. Default 12, hard cap 25.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "model",
+                    ty: TypeSchema::String,
+                    comment: "Provider:model override (e.g. 'deepseek:deepseek-chat').",
+                    required: false,
+                },
+            ],
+            outputs: vec![
+                FieldSchema {
+                    name: "answer",
+                    ty: TypeSchema::String,
+                    comment: "Synthesized answer with evidence citations.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "turns_used",
+                    ty: TypeSchema::U64,
+                    comment: "Number of LLM turns consumed.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "evidence_count",
+                    ty: TypeSchema::U64,
+                    comment: "Number of evidence items collected.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "stopped_reason",
+                    ty: TypeSchema::String,
+                    comment: "Why the walk stopped (answered/max_turns/llm_gave_up/error).",
+                    required: true,
+                },
+            ],
+        },
         _ => ControllerSchema {
             namespace: NAMESPACE,
             function: "unknown",
@@ -1001,6 +1066,119 @@ fn handle_set_enabled(params: Map<String, Value>) -> ControllerFuture {
         let req = parse_value::<rpc::SetEnabledRequest>(Value::Object(params))?;
         let mut config = config_rpc::load_config_with_timeout().await?;
         to_json(rpc::set_enabled_rpc(&mut config, req).await?)
+    })
+}
+
+fn handle_smart_walk(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        use crate::openhuman::memory::chat::build_chat_provider;
+        use crate::openhuman::memory::query::smart_walk::{
+            run_smart_walk, SmartWalkOptions, SmartWalkStopReason,
+        };
+
+        #[derive(serde::Deserialize)]
+        struct Req {
+            query: String,
+            #[serde(default = "default_namespace")]
+            namespace: String,
+            #[serde(default)]
+            max_turns: Option<u64>,
+            #[serde(default)]
+            model: Option<String>,
+        }
+        fn default_namespace() -> String {
+            "default".into()
+        }
+
+        let req = parse_value::<Req>(Value::Object(params))?;
+        let config = config_rpc::load_config_with_timeout().await?;
+
+        let chat_provider = build_chat_provider(&config)
+            .map_err(|e| format!("smart_walk: build chat provider failed: {e}"))?;
+
+        struct Adapter {
+            inner: std::sync::Arc<dyn crate::openhuman::memory::chat::ChatProvider>,
+        }
+
+        #[async_trait::async_trait]
+        impl crate::openhuman::inference::provider::traits::Provider for Adapter {
+            async fn chat_with_system(
+                &self,
+                system: Option<&str>,
+                message: &str,
+                _model: &str,
+                temperature: f64,
+            ) -> anyhow::Result<String> {
+                let prompt = crate::openhuman::memory::chat::ChatPrompt {
+                    system: system.unwrap_or("").to_string(),
+                    user: message.to_string(),
+                    temperature,
+                    kind: "memory_smart_walk_rpc",
+                };
+                self.inner.chat_for_text(&prompt).await
+            }
+
+            async fn chat_with_history(
+                &self,
+                messages: &[crate::openhuman::inference::provider::traits::ChatMessage],
+                model: &str,
+                temperature: f64,
+            ) -> anyhow::Result<String> {
+                let system = messages
+                    .iter()
+                    .find(|m| m.role == "system")
+                    .map(|m| m.content.as_str());
+                let user: String = messages
+                    .iter()
+                    .filter(|m| m.role != "system")
+                    .map(|m| m.content.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                self.chat_with_system(system, &user, model, temperature)
+                    .await
+            }
+        }
+
+        let adapter = Adapter {
+            inner: chat_provider,
+        };
+
+        let opts = SmartWalkOptions {
+            max_turns: req.max_turns.map(|n| n as usize).unwrap_or(12),
+            namespace: req.namespace,
+            model: req.model,
+            content_root: None,
+        };
+
+        let outcome = run_smart_walk(&config, &adapter, &req.query, opts)
+            .await
+            .map_err(|e| format!("smart_walk error: {e}"))?;
+
+        let stopped = match outcome.stopped_reason {
+            SmartWalkStopReason::Answered => "answered",
+            SmartWalkStopReason::MaxTurnsReached => "max_turns",
+            SmartWalkStopReason::LlmGaveUp => "llm_gave_up",
+            SmartWalkStopReason::Error(_) => "error",
+        };
+
+        let result = serde_json::json!({
+            "answer": outcome.answer,
+            "turns_used": outcome.turns_used,
+            "evidence_count": outcome.evidence.len(),
+            "stopped_reason": stopped,
+            "evidence": outcome.evidence.iter().map(|e| serde_json::json!({
+                "source_path": e.source_path,
+                "snippet": e.snippet,
+                "relevance": e.relevance,
+            })).collect::<Vec<_>>(),
+            "trace": outcome.trace.iter().map(|s| serde_json::json!({
+                "turn": s.turn,
+                "action": s.action,
+                "args_summary": s.args_summary,
+                "result_preview": s.result_preview,
+            })).collect::<Vec<_>>(),
+        });
+        to_json(RpcOutcome::new(result, vec![]))
     })
 }
 

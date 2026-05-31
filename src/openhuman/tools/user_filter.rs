@@ -53,6 +53,34 @@ const TOOL_ID_TO_RUST_NAMES: &[(&str, &[&str])] = &[
     ),
     ("thread_destructive", &["thread_delete", "thread_purge_all"]),
     (
+        "billing_writes",
+        &[
+            "billing_purchase_plan",
+            "billing_top_up_credits",
+            "billing_create_coinbase_charge",
+            "billing_create_setup_intent",
+            "billing_update_card",
+            "billing_delete_card",
+            "billing_redeem_coupon",
+            "billing_update_auto_recharge",
+        ],
+    ),
+    (
+        "team_admin",
+        &[
+            "team_create",
+            "team_update",
+            "team_delete",
+            "team_switch",
+            "team_join",
+            "team_leave",
+            "team_create_invite",
+            "team_revoke_invite",
+            "team_remove_member",
+            "team_change_member_role",
+        ],
+    ),
+    (
         "service_lifecycle",
         &[
             "service_start",

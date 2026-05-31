@@ -1938,3 +1938,121 @@ async fn health_system_info_through_registry() {
         .expect("health_system_info");
     assert!(out.output_for_llm(false).contains("os"));
 }
+
+// ── Theme: Account & money ──────────────────────────────────────────────────
+
+const MONEY_TOOLS: &[&str] = &[
+    "referral_get_stats",
+    "referral_claim",
+    "billing_get_plan",
+    "billing_get_balance",
+    "billing_list_transactions",
+    "billing_get_auto_recharge",
+    "billing_list_cards",
+    "billing_list_coupons",
+    "billing_create_stripe_portal",
+    "billing_purchase_plan",
+    "billing_top_up_credits",
+    "billing_create_coinbase_charge",
+    "billing_create_setup_intent",
+    "billing_update_card",
+    "billing_delete_card",
+    "billing_redeem_coupon",
+    "billing_update_auto_recharge",
+    "team_list",
+    "team_get_usage",
+    "team_get",
+    "team_list_members",
+    "team_list_invites",
+    "team_create",
+    "team_update",
+    "team_delete",
+    "team_switch",
+    "team_join",
+    "team_leave",
+    "team_create_invite",
+    "team_revoke_invite",
+    "team_remove_member",
+    "team_change_member_role",
+    "credential_list",
+    "session_state",
+    "session_get_user",
+    "oauth_connect_url",
+    "oauth_list",
+];
+
+const MONEY_DEFAULT_OFF: &[&str] = &[
+    "billing_purchase_plan",
+    "billing_top_up_credits",
+    "billing_create_coinbase_charge",
+    "billing_create_setup_intent",
+    "billing_update_card",
+    "billing_delete_card",
+    "billing_redeem_coupon",
+    "billing_update_auto_recharge",
+    "team_create",
+    "team_update",
+    "team_delete",
+    "team_switch",
+    "team_join",
+    "team_leave",
+    "team_create_invite",
+    "team_revoke_invite",
+    "team_remove_member",
+    "team_change_member_role",
+];
+
+const MONEY_ALWAYS_ON: &[&str] = &[
+    "billing_get_plan",
+    "billing_list_cards",
+    "team_list",
+    "team_get",
+    "credential_list",
+    "session_state",
+    "oauth_list",
+    "referral_get_stats",
+];
+
+#[test]
+fn money_tools_are_registered() {
+    let tmp = TempDir::new().unwrap();
+    let names = tool_names(&expansion_tools_for(&tmp));
+    assert_contains_all(&names, MONEY_TOOLS);
+}
+
+#[test]
+fn money_default_off_tools_are_filtered_when_not_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = expansion_tools_for(&tmp);
+    filter_tools_by_user_preference(&mut tools, &["file_read".to_string()]);
+    let names = tool_names(&tools);
+    for off in MONEY_DEFAULT_OFF {
+        assert!(
+            !names.iter().any(|n| n == off),
+            "default-off tool `{off}` must be filtered out when not opted in; got: {names:?}"
+        );
+    }
+    for on in MONEY_ALWAYS_ON {
+        assert!(
+            names.iter().any(|n| n == on),
+            "always-on tool `{on}` must be retained regardless of preferences"
+        );
+    }
+}
+
+#[test]
+fn money_default_off_tools_retained_when_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = expansion_tools_for(&tmp);
+    filter_tools_by_user_preference(
+        &mut tools,
+        &["billing_writes".to_string(), "team_admin".to_string()],
+    );
+    let names = tool_names(&tools);
+    for on in MONEY_DEFAULT_OFF {
+        assert!(
+            names.iter().any(|n| n == on),
+            "opted-in tool `{on}` must be retained; got: {names:?}"
+        );
+    }
+}

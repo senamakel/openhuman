@@ -120,20 +120,33 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
     let scoring_cfg = score::ScoringConfig::from_config(config);
     let result = score::score_chunk(&chunk_with_body, &scoring_cfg).await?;
     let chunk_embedding: Option<Vec<f32>> = if result.kept {
-        let embedder =
-            build_embedder_from_config(config).context("build embedder in extract handler")?;
-        // Reuse the body already read — avoid a second disk read.
-        let vector = embedder
-            .embed(&body)
-            .await
-            .with_context(|| format!("embed chunk_id={} in extract handler", chunk.id))?;
-        // Preserve the pre-cutover dimension guard (the job fails fast on a
-        // misconfigured embedder) even though #1574 no longer persists the
-        // packed blob to the legacy `mem_tree_chunks.embedding` column —
-        // the vector now goes to the per-model sidecar instead.
-        pack_checked(&vector)
-            .with_context(|| format!("validate embedding dims for chunk_id={}", chunk.id))?;
-        Some(vector)
+        match build_embedder_from_config(config) {
+            Ok(embedder) => match embedder.embed(&body).await {
+                Ok(vector) => match pack_checked(&vector) {
+                    Ok(_) => Some(vector),
+                    Err(e) => {
+                        log::warn!(
+                            "[memory::jobs] embed dim check failed chunk_id={} err={e:#} — skipping embedding",
+                            chunk.id
+                        );
+                        None
+                    }
+                },
+                Err(e) => {
+                    log::warn!(
+                        "[memory::jobs] embed failed chunk_id={} err={e:#} — continuing without embedding",
+                        chunk.id
+                    );
+                    None
+                }
+            },
+            Err(e) => {
+                log::warn!(
+                    "[memory::jobs] build embedder failed err={e:#} — continuing without embedding"
+                );
+                None
+            }
+        }
     } else {
         None
     };

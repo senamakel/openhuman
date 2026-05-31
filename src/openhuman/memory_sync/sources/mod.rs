@@ -8,4 +8,5 @@
 //! Embeddings are temporarily disabled — leaves land without vectors and
 //! the seal cascade uses `LabelStrategy::Empty`.
 
+pub mod audit;
 pub mod github;

@@ -15,6 +15,9 @@ use crate::openhuman::memory_sources::types::{MemorySourceEntry, SourceContent, 
 use crate::openhuman::memory_store::content::raw::{self as raw_store, RawItem};
 use crate::openhuman::memory_store::trees::types::TreeKind;
 use crate::openhuman::memory_store::trees::types::INPUT_TOKEN_BUDGET;
+use crate::openhuman::memory_sync::sources::audit::{
+    append_audit_entry, estimate_cost_usd, SyncAuditEntry,
+};
 use crate::openhuman::memory_sync::traits::{SyncOutcome, SyncPipeline, SyncPipelineKind};
 use crate::openhuman::memory_tree::ingest::{ingest_summary, SummaryIngestInput};
 use crate::openhuman::memory_tree::summarise::{
@@ -56,6 +59,7 @@ pub async fn run_github_sync(
     source: &MemorySourceEntry,
     config: &Config,
 ) -> anyhow::Result<SyncOutcome> {
+    let start = std::time::Instant::now();
     let source_id = &source.id;
     let kind_str = source.kind.as_str();
 
@@ -207,7 +211,13 @@ pub async fn run_github_sync(
         )),
     );
 
+    let mut total_input_tokens: u64 = 0;
+    let mut total_output_tokens: u64 = 0;
+
     for (batch_idx, (batch_inputs, batch_labels, batch_basenames)) in batches.into_iter().enumerate() {
+        let batch_input_tokens: u64 = batch_inputs.iter().map(|i| i.token_count as u64).sum();
+        total_input_tokens += batch_input_tokens;
+
         let ctx = SummaryContext {
             tree_id: &tree.id,
             tree_kind: TreeKind::Source,
@@ -226,6 +236,8 @@ pub async fn run_github_sync(
                 fallback_summary(&batch_inputs, ctx.token_budget)
             }
         };
+
+        total_output_tokens += output.token_count as u64;
 
         let time_start = batch_inputs
             .iter()
@@ -263,18 +275,43 @@ pub async fn run_github_sync(
         );
     }
 
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let cost = estimate_cost_usd(total_input_tokens, total_output_tokens);
+
+    append_audit_entry(
+        config,
+        &SyncAuditEntry {
+            timestamp: chrono::Utc::now(),
+            source_id: source_id.to_string(),
+            source_kind: kind_str.to_string(),
+            scope: repo_scope.clone(),
+            items_fetched: input_count as u32,
+            batches: batch_count as u32,
+            input_tokens: total_input_tokens,
+            output_tokens: total_output_tokens,
+            estimated_cost_usd: cost,
+            duration_ms,
+            success: true,
+            error: None,
+        },
+    );
+
     emit_sync_stage(
         MemorySyncTrigger::Manual,
         MemorySyncStage::Completed,
         Some(kind_str),
         Some(source_id),
-        Some(format!("{input_count} items → {batch_count} summary(ies)")),
+        Some(format!(
+            "{input_count} items → {batch_count} summary(ies) ({total_input_tokens} in / {total_output_tokens} out tokens, ${cost:.4})"
+        )),
     );
 
     Ok(SyncOutcome {
         records_ingested: input_count as u32,
         more_pending: false,
-        note: Some(format!("{input_count} items → {batch_count} summary(ies)")),
+        note: Some(format!(
+            "{input_count} items → {batch_count} summary(ies) (${cost:.4})"
+        )),
     })
 }
 

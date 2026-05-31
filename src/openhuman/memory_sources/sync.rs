@@ -8,9 +8,13 @@
 //!
 //! Sync runs in a `tokio::spawn`-ed task so the RPC returns immediately.
 //! Progress is published as `MemorySyncStageChanged` events.
+//!
+//! A per-source mutex prevents duplicate concurrent syncs when the user
+//! presses the sync button multiple times.
 
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use futures::stream::{self, StreamExt};
 
@@ -24,12 +28,27 @@ use crate::openhuman::memory_sync::composio::{self, SyncReason};
 
 const SYNC_CONCURRENCY: usize = 10;
 
+static ACTIVE_SYNCS: std::sync::LazyLock<Mutex<HashSet<String>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashSet::new()));
+
 /// Trigger a sync for one source. Spawns work in the background and
 /// returns immediately. Progress is published as `MemorySyncStageChanged`
 /// events with `connection_id = Some(source.id)`.
 pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<(), String> {
     if !source.enabled {
         return Err(format!("source '{}' is disabled", source.id));
+    }
+
+    // Per-source mutex: reject if this source is already syncing.
+    {
+        let mut active = ACTIVE_SYNCS.lock().unwrap_or_else(|e| e.into_inner());
+        if !active.insert(source.id.clone()) {
+            tracing::debug!(
+                source_id = %source.id,
+                "[memory_sources:sync] already syncing — skipping duplicate"
+            );
+            return Ok(());
+        }
     }
 
     let source_id = source.id.clone();
@@ -119,6 +138,11 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                     "[memory_sources:sync] sync task panicked"
                 );
             }
+        }
+
+        // Release the per-source lock so future syncs can proceed.
+        if let Ok(mut active) = ACTIVE_SYNCS.lock() {
+            active.remove(&source_id_for_panic);
         }
     });
 

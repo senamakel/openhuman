@@ -3453,6 +3453,7 @@ fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
         subagent: Some(SubagentActivity {
             task_id: "task-1".into(),
             agent_id: "agent-1".into(),
+            status: Some("running".into()),
             mode: Some("focused".into()),
             dedicated_thread: Some(true),
             child_iteration: Some(1),

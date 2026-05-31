@@ -898,6 +898,24 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     });
                     let _ = io_memory_sync.emit("memory:tree_completed", &payload);
                 }
+                crate::core::event_bus::DomainEvent::MemoryTreeBuildProgress {
+                    phase,
+                    step,
+                    tree_scope,
+                    level,
+                    item_count,
+                    detail,
+                } => {
+                    let payload = serde_json::json!({
+                        "phase": phase,
+                        "step": step,
+                        "tree_scope": tree_scope,
+                        "level": level,
+                        "item_count": item_count,
+                        "detail": detail,
+                    });
+                    let _ = io_memory_sync.emit("memory:build_progress", &payload);
+                }
                 _ => {}
             }
         }

@@ -389,7 +389,17 @@ pub(crate) async fn seal_one_level(
         .fold(f32::NEG_INFINITY, f32::max)
         .max(0.0);
 
-    // Run summariser — async, OUTSIDE any DB transaction.
+    crate::core::event_bus::publish_global(
+        crate::core::event_bus::DomainEvent::MemoryTreeBuildProgress {
+            phase: "seal".to_string(),
+            step: "summarising".to_string(),
+            tree_scope: Some(tree.scope.clone()),
+            level: Some(level),
+            item_count: Some(inputs.len() as u32),
+            detail: Some(format!("{} inputs → L{}", inputs.len(), level + 1)),
+        },
+    );
+
     let ctx = SummaryContext {
         tree_id: &tree.id,
         tree_kind: tree.kind,
@@ -425,6 +435,17 @@ pub(crate) async fn seal_one_level(
     // we still truncate the input passed to `embed()` to leave
     // headroom for tokenizer drift (the persisted summary content
     // stays full; only the embedding's "view" of it is clamped).
+    crate::core::event_bus::publish_global(
+        crate::core::event_bus::DomainEvent::MemoryTreeBuildProgress {
+            phase: "seal".to_string(),
+            step: "embedding".to_string(),
+            tree_scope: Some(tree.scope.clone()),
+            level: Some(level),
+            item_count: None,
+            detail: None,
+        },
+    );
+
     let embedder = build_embedder_from_config(config).context("build embedder during seal")?;
     // Conservative cap. Slack-style chat content (URLs, mentions,
     // emoji) tokenizes 2-4× higher than the 4-chars/token heuristic.
@@ -476,6 +497,17 @@ pub(crate) async fn seal_one_level(
         deleted: false,
         embedding: Some(embedding),
     };
+
+    crate::core::event_bus::publish_global(
+        crate::core::event_bus::DomainEvent::MemoryTreeBuildProgress {
+            phase: "seal".to_string(),
+            step: "persisting".to_string(),
+            tree_scope: Some(tree.scope.clone()),
+            level: Some(target_level),
+            item_count: None,
+            detail: Some(format!("summary {} ({} tokens)", &summary_id[..summary_id.len().min(16)], output.token_count)),
+        },
+    );
 
     // Phase MD-content: stage the summary .md file BEFORE opening the write
     // tx. A staging failure aborts the seal cleanly — nothing is persisted

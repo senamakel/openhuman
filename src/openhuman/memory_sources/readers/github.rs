@@ -849,17 +849,13 @@ async fn read_issue(
     use_gh: bool,
 ) -> Result<SourceContent, String> {
     let cache_key = format!("{owner}/{repo}:issue:{number}");
-    let issue: GhIssue = if let Some(cached) = LIST_CACHE.lock().ok().and_then(|mut c| c.remove(&cache_key)) {
-        match cached {
-            CachedItem::Issue(i) => i,
-            _ => {
-                let json_str = fetch_github(&format!("repos/{owner}/{repo}/issues/{number}"), use_gh).await?;
-                serde_json::from_str(&json_str).map_err(|e| format!("parse issue: {e}"))?
-            }
+    let from_cache = LIST_CACHE.lock().ok().and_then(|mut c| c.remove(&cache_key));
+    let issue: GhIssue = match from_cache {
+        Some(CachedItem::Issue(i)) => i,
+        _ => {
+            let json_str = fetch_github(&format!("repos/{owner}/{repo}/issues/{number}"), use_gh).await?;
+            serde_json::from_str(&json_str).map_err(|e| format!("parse issue: {e}"))?
         }
-    } else {
-        let json_str = fetch_github(&format!("repos/{owner}/{repo}/issues/{number}"), use_gh).await?;
-        serde_json::from_str(&json_str).map_err(|e| format!("parse issue: {e}"))?
     };
 
     let author = issue
@@ -870,19 +866,10 @@ async fn read_issue(
     let labels: Vec<&str> = issue.labels.iter().map(|l| l.name.as_str()).collect();
     let issue_body = issue.body.as_deref().unwrap_or("");
 
-    // Fetch comments
-    let comments = fetch_issue_comments(owner, repo, number, use_gh).await;
-
-    // Unique participants (author + commenters), rendered as `@handle`s so
-    // each becomes a `handle:` entity in the memory tree.
-    let participants =
-        unique_handles(std::iter::once(author).chain(comments.iter().map(|c| c.user.as_str())));
-
-    let mut body = format!(
+    let body = format!(
         "# Issue #{number}: {title}\n\n\
          **State:** {state}\n\
          **Author:** @{author}\n\
-         **Participants:** {participants}\n\
          **Labels:** {label_str}\n\
          **Created:** {created}\n\
          **Updated:** {updated}\n\n\
@@ -898,16 +885,6 @@ async fn read_issue(
         created = issue.created_at.as_deref().unwrap_or("unknown"),
         updated = issue.updated_at.as_deref().unwrap_or("unknown"),
     );
-
-    if !comments.is_empty() {
-        body.push_str("\n\n## Comments\n");
-        for comment in &comments {
-            body.push_str(&format!(
-                "\n### @{} ({})\n\n{}\n",
-                comment.user, comment.created_at, comment.body
-            ));
-        }
-    }
 
     Ok(SourceContent {
         id: format!("issue:{number}"),
@@ -931,17 +908,13 @@ async fn read_pr(
     use_gh: bool,
 ) -> Result<SourceContent, String> {
     let cache_key = format!("{owner}/{repo}:pr:{number}");
-    let pr: GhPr = if let Some(cached) = LIST_CACHE.lock().ok().and_then(|mut c| c.remove(&cache_key)) {
-        match cached {
-            CachedItem::Pr(p) => p,
-            _ => {
-                let json_str = fetch_github(&format!("repos/{owner}/{repo}/pulls/{number}"), use_gh).await?;
-                serde_json::from_str(&json_str).map_err(|e| format!("parse PR: {e}"))?
-            }
+    let from_cache = LIST_CACHE.lock().ok().and_then(|mut c| c.remove(&cache_key));
+    let pr: GhPr = match from_cache {
+        Some(CachedItem::Pr(p)) => p,
+        _ => {
+            let json_str = fetch_github(&format!("repos/{owner}/{repo}/pulls/{number}"), use_gh).await?;
+            serde_json::from_str(&json_str).map_err(|e| format!("parse PR: {e}"))?
         }
-    } else {
-        let json_str = fetch_github(&format!("repos/{owner}/{repo}/pulls/{number}"), use_gh).await?;
-        serde_json::from_str(&json_str).map_err(|e| format!("parse PR: {e}"))?
     };
 
     let author = pr
@@ -957,19 +930,10 @@ async fn read_pr(
         None => "not merged".to_string(),
     };
 
-    // Fetch review comments
-    let comments = fetch_issue_comments(owner, repo, number, use_gh).await;
-
-    // Unique participants (author + commenters), rendered as `@handle`s so
-    // each becomes a `handle:` entity in the memory tree.
-    let participants =
-        unique_handles(std::iter::once(author).chain(comments.iter().map(|c| c.user.as_str())));
-
-    let mut body = format!(
+    let body = format!(
         "# PR #{number}: {title}\n\n\
          **State:** {state} ({merged})\n\
          **Author:** @{author}\n\
-         **Participants:** {participants}\n\
          **Labels:** {label_str}\n\
          **Created:** {created}\n\
          **Updated:** {updated}\n\n\
@@ -986,16 +950,6 @@ async fn read_pr(
         created = pr.created_at.as_deref().unwrap_or("unknown"),
         updated = pr.updated_at.as_deref().unwrap_or("unknown"),
     );
-
-    if !comments.is_empty() {
-        body.push_str("\n\n## Comments\n");
-        for comment in &comments {
-            body.push_str(&format!(
-                "\n### @{} ({})\n\n{}\n",
-                comment.user, comment.created_at, comment.body
-            ));
-        }
-    }
 
     Ok(SourceContent {
         id: format!("pr:{number}"),

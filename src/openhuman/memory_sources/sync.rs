@@ -10,6 +10,11 @@
 //! after queueing. Progress is published as `MemorySyncStageChanged`
 //! events on the global bus and UI subscribers stream them per source id.
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+
+use futures::stream::{self, StreamExt};
+
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::ingest_pipeline::{
     ingest_document, ingest_document_with_scope, IngestResult,
@@ -24,6 +29,8 @@ use crate::openhuman::memory_store::chunks::store::{set_chunk_raw_refs, RawRef};
 use crate::openhuman::memory_store::content::raw::{self as raw_store, raw_rel_path, RawItem};
 use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
 use crate::openhuman::memory_sync::composio::{self, SyncReason};
+
+const SYNC_CONCURRENCY: usize = 10;
 
 /// Trigger a sync for one source. Spawns work in the background and
 /// returns immediately. Progress is published as `MemorySyncStageChanged`
@@ -174,92 +181,113 @@ async fn sync_via_reader(source: &MemorySourceEntry, config: Config) -> Result<u
         Some(format!("{total} item(s) discovered")),
     );
 
-    let mut ingested = 0usize;
-    for (idx, item) in items.iter().enumerate() {
-        let content = match reader.read_item(source, &item.id, &config).await {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::warn!(
-                    item_id = %item.id,
-                    error = %e,
-                    "[memory_sources:sync] skipping item — read failed"
-                );
-                continue;
-            }
-        };
+    let ingested = Arc::new(AtomicUsize::new(0));
+    let processed = Arc::new(AtomicUsize::new(0));
+    let source_id = source.id.clone();
+    let source_kind = source.kind.clone();
+    let source_url = source.url.clone();
+    let kind_str = source.kind.as_str().to_string();
 
-        let doc = DocumentInput {
-            provider: format!("memory_sources:{}", source.kind.as_str()),
-            title: content.title.clone(),
-            body: content.body.clone(),
-            modified_at: chrono::Utc::now(),
-            source_ref: Some(format!("{}:{}", source.id, item.id)),
-        };
+    stream::iter(items.iter().enumerate())
+        .for_each_concurrent(SYNC_CONCURRENCY, |(idx, item)| {
+            let config = config.clone();
+            let source_kind = source_kind.clone();
+            let reader = readers::reader_for(&source_kind);
+            let source_clone = source.clone();
+            let ingested = Arc::clone(&ingested);
+            let processed = Arc::clone(&processed);
+            let source_id = source_id.clone();
+            let kind_str = kind_str.clone();
+            let source_url = source_url.clone();
 
-        // GitHub items use a per-item dedup key but share one repo-scoped
-        // directory in the chunk store so Obsidian shows a single folder
-        // per repo instead of thousands of per-commit directories.
-        let (composite_source_id, path_scope) = if source.kind == SourceKind::GithubRepo {
-            let per_item = source
-                .url
-                .as_deref()
-                .and_then(|url| github::chunk_source_id(url, &item.id))
-                .unwrap_or_else(|| format!("mem_src:{}:{}", source.id, item.id));
-            let repo_scope = source
-                .url
-                .as_deref()
-                .and_then(github::repo_chunk_scope);
-            (per_item, repo_scope)
-        } else {
-            (format!("mem_src:{}:{}", source.id, item.id), None)
-        };
-        let mut tags = vec![
-            "memory_sources".to_string(),
-            source.kind.as_str().to_string(),
-        ];
-        if source.kind == SourceKind::GithubRepo && github_item_is_high_priority(&item.id, &content)
-        {
-            tags.push(crate::openhuman::memory_tree::score::PRIORITY_TAG.to_string());
-        }
+            async move {
+                let content = match reader.read_item(&source_clone, &item.id, &config).await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        tracing::warn!(
+                            item_id = %item.id,
+                            error = %e,
+                            "[memory_sources:sync] skipping item — read failed"
+                        );
+                        processed.fetch_add(1, Ordering::Relaxed);
+                        return;
+                    }
+                };
 
-        match ingest_document_with_scope(&config, &composite_source_id, "user", tags, doc, path_scope).await {
-            Ok(result) => {
-                if !result.already_ingested {
-                    ingested += 1;
+                let doc = DocumentInput {
+                    provider: format!("memory_sources:{kind_str}"),
+                    title: content.title.clone(),
+                    body: content.body.clone(),
+                    modified_at: chrono::Utc::now(),
+                    source_ref: Some(format!("{source_id}:{}", item.id)),
+                };
+
+                let (composite_source_id, path_scope) = if source_kind == SourceKind::GithubRepo {
+                    let per_item = source_url
+                        .as_deref()
+                        .and_then(|url| github::chunk_source_id(url, &item.id))
+                        .unwrap_or_else(|| format!("mem_src:{source_id}:{}", item.id));
+                    let repo_scope = source_url
+                        .as_deref()
+                        .and_then(github::repo_chunk_scope);
+                    (per_item, repo_scope)
+                } else {
+                    (format!("mem_src:{source_id}:{}", item.id), None)
+                };
+
+                let mut tags = vec![
+                    "memory_sources".to_string(),
+                    kind_str.clone(),
+                ];
+                if source_kind == SourceKind::GithubRepo
+                    && github_item_is_high_priority(&item.id, &content)
+                {
+                    tags.push(crate::openhuman::memory_tree::score::PRIORITY_TAG.to_string());
                 }
-                // Mirror GitHub items into a browsable, repo-grouped raw
-                // archive (`raw/github-com-<owner>-<repo>/{commits,issues,prs}/`)
-                // and point the chunks at it. Best-effort: archiving never
-                // fails the sync.
-                if source.kind == SourceKind::GithubRepo {
-                    archive_github_raw(&config, source, item, &content, &result);
+
+                match ingest_document_with_scope(
+                    &config,
+                    &composite_source_id,
+                    "user",
+                    tags,
+                    doc,
+                    path_scope,
+                )
+                .await
+                {
+                    Ok(result) => {
+                        if !result.already_ingested {
+                            ingested.fetch_add(1, Ordering::Relaxed);
+                        }
+                        if source_kind == SourceKind::GithubRepo {
+                            archive_github_raw(&config, &source_clone, item, &content, &result);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            item_id = %item.id,
+                            error = %e,
+                            "[memory_sources:sync] ingest failed for item"
+                        );
+                    }
+                }
+
+                let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
+                let new = ingested.load(Ordering::Relaxed);
+                if done % 10 == 0 || done == total {
+                    emit_sync_stage(
+                        MemorySyncTrigger::Manual,
+                        MemorySyncStage::Ingesting,
+                        Some(&kind_str),
+                        Some(&source_id),
+                        Some(format!("{done}/{total} processed ({new} new)")),
+                    );
                 }
             }
-            Err(e) => {
-                tracing::warn!(
-                    item_id = %item.id,
-                    error = %e,
-                    "[memory_sources:sync] ingest failed for item"
-                );
-            }
-        }
+        })
+        .await;
 
-        // Emit progress. GitHub items do individual API/git reads per
-        // item so emit on every item for responsive UI; other kinds are
-        // faster so batch every 5.
-        let emit_interval = if source.kind == SourceKind::GithubRepo { 1 } else { 5 };
-        if (idx + 1) % emit_interval == 0 || idx + 1 == total {
-            emit_sync_stage(
-                MemorySyncTrigger::Manual,
-                MemorySyncStage::Ingesting,
-                Some(source.kind.as_str()),
-                Some(&source.id),
-                Some(format!("{}/{total} processed ({ingested} new)", idx + 1)),
-            );
-        }
-    }
-
-    Ok(ingested)
+    Ok(ingested.load(Ordering::Relaxed))
 }
 
 /// Whether a GitHub item should be treated as high-priority source

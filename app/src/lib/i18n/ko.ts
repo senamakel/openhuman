@@ -2461,6 +2461,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.updateFailed':
     '작업을 업데이트할 수 없어 변경 사항이 저장되지 않았습니다.',
   'conversations.toolTimeline.turn': '턴',
+  'conversations.toolTimeline.step': '단계',
   'conversations.toolTimeline.workerThread': '워커 스레드',
   'conversations.subagent.viewProcessing': '전체 처리 과정 보기',
   'conversations.subagent.parent': '상위',

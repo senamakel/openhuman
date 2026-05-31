@@ -2486,6 +2486,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.deleteCard': 'Hapus',
   'conversations.taskKanban.updateFailed': 'Tak bisa memutakhirkan tugas; perubahan tak disimpan.',
   'conversations.toolTimeline.turn': 'giliran',
+  'conversations.toolTimeline.step': 'Langkah',
   'conversations.toolTimeline.workerThread': 'thread worker',
   'conversations.subagent.viewProcessing': 'Lihat proses lengkap',
   'conversations.subagent.parent': 'Induk',

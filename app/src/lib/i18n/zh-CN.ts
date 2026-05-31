@@ -2361,6 +2361,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.deleteCard': '删除',
   'conversations.taskKanban.updateFailed': '无法更新任务；更改未保存。',
   'conversations.toolTimeline.turn': '轮次',
+  'conversations.toolTimeline.step': '步骤',
   'conversations.toolTimeline.workerThread': '工作线程',
   'conversations.subagent.viewProcessing': '查看完整处理过程',
   'conversations.subagent.parent': '父级',

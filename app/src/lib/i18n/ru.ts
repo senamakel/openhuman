@@ -2498,6 +2498,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.deleteCard': 'Удалить',
   'conversations.taskKanban.updateFailed': 'Не удалось обновить задачу; изменения не сохранились.',
   'conversations.toolTimeline.turn': 'ход',
+  'conversations.toolTimeline.step': 'Шаг',
   'conversations.toolTimeline.workerThread': 'чат воркера',
   'conversations.subagent.viewProcessing': 'Посмотреть весь процесс',
   'conversations.subagent.parent': 'Родительский',

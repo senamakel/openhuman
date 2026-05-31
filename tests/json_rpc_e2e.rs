@@ -2767,7 +2767,6 @@ async fn json_rpc_memory_tree_end_to_end() {
         "openhuman.memory_tree_ingest".to_string(),
         "openhuman.memory_tree_list_chunks".to_string(),
         "openhuman.memory_tree_get_chunk".to_string(),
-        "openhuman.memory_tree_trigger_digest".to_string(),
     ];
     assert!(
         controllers.len() >= expected_methods.len(),

@@ -36,6 +36,110 @@ const TOOL_ID_TO_RUST_NAMES: &[(&str, &[&str])] = &[
     // `update_check` is read-only; `update_apply` is gated by both the
     // tool-level autonomy check and `config.update.rpc_mutations_enabled`.
     ("update", &["update_check", "update_apply"]),
+    // Knowledge & memory — overextending tools (agent-tool expansion). Listed
+    // so onboarding can default them OFF; read/bounded-write siblings are not
+    // listed and stay always-retained.
+    (
+        "people_refresh_address_book",
+        &["people_refresh_address_book"],
+    ),
+    (
+        "skill_manage",
+        &["skill_create", "skill_install_from_url", "skill_uninstall"],
+    ),
+    ("thread_destructive", &["thread_delete", "thread_purge_all"]),
+    (
+        "billing_writes",
+        &[
+            "billing_purchase_plan",
+            "billing_top_up_credits",
+            "billing_create_coinbase_charge",
+            "billing_create_setup_intent",
+            "billing_update_card",
+            "billing_delete_card",
+            "billing_redeem_coupon",
+            "billing_update_auto_recharge",
+        ],
+    ),
+    (
+        "team_admin",
+        &[
+            "team_create",
+            "team_update",
+            "team_delete",
+            "team_switch",
+            "team_join",
+            "team_leave",
+            "team_create_invite",
+            "team_revoke_invite",
+            "team_remove_member",
+            "team_change_member_role",
+        ],
+    ),
+    (
+        "service_lifecycle",
+        &[
+            "service_start",
+            "service_stop",
+            "service_restart",
+            "service_shutdown",
+            "service_install",
+            "service_uninstall",
+            "daemon_host_prefs_set",
+        ],
+    ),
+    (
+        "screen_permissions",
+        &[
+            "screen_intelligence_request_permissions",
+            "screen_intelligence_request_permission",
+        ],
+    ),
+    (
+        "mcp_manage",
+        &["mcp_registry_install", "mcp_registry_uninstall"],
+    ),
+    (
+        "workspace_manage",
+        &[
+            "workspace_update_persona",
+            "workspace_reset_persona",
+            "workspace_init",
+        ],
+    ),
+    (
+        "learning_manage",
+        &[
+            "learning_update_facet",
+            "learning_pin_facet",
+            "learning_unpin_facet",
+            "learning_forget_facet",
+            "learning_rebuild_cache",
+            "learning_reset_cache",
+            "learning_save_profile",
+            "learning_enrich_profile",
+        ],
+    ),
+    // Task & workflow productivity — overextending tools (agent-tool
+    // expansion). Only the destructive/persistent-config mutators are listed
+    // here so the onboarding toggle surface can default them OFF and let users
+    // opt in; the read-only + bounded-write siblings (e.g. `artifact_list`,
+    // `todo_add`, `task_source_fetch`) are intentionally NOT listed, so they
+    // are always-retained infrastructure. Grouped one toggle per risk family.
+    ("agent_workflow_uninstall", &["agent_workflow_uninstall"]),
+    ("artifact_delete", &["artifact_delete"]),
+    (
+        "todo_destructive",
+        &["todo_remove", "todo_replace", "todo_clear"],
+    ),
+    (
+        "task_source_manage",
+        &[
+            "task_source_add",
+            "task_source_update",
+            "task_source_remove",
+        ],
+    ),
 ];
 
 /// All Rust tool names that are filterable (union of all mapping values).

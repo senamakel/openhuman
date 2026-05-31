@@ -10,6 +10,7 @@ mod integration_test_support;
 fn test_config(tmp: &TempDir) -> Config {
     Config {
         workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
     }

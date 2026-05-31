@@ -473,6 +473,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };
@@ -588,6 +589,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             autonomy: crate::openhuman::config::AutonomyConfig {
                 level: AutonomyLevel::ReadOnly,
@@ -638,6 +640,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };
@@ -664,6 +667,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };
@@ -691,6 +695,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };
@@ -709,6 +714,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };
@@ -753,6 +759,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };

@@ -394,6 +394,7 @@ mod tests {
     async fn test_config(tmp: &TempDir) -> Arc<Config> {
         let config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };
@@ -474,6 +475,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let mut config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };
@@ -582,6 +584,7 @@ mod tests {
     fn cfg_with_telegram(tmp: &TempDir, allowed: Vec<String>) -> Arc<Config> {
         let mut config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };
@@ -805,6 +808,7 @@ mod tests {
     fn test_config_sync(tmp: &TempDir) -> Arc<Config> {
         let config = Config {
             workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
             config_path: tmp.path().join("config.toml"),
             ..Config::default()
         };

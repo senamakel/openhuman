@@ -1156,7 +1156,7 @@ fn count_files_recursive(dir: &Path) -> usize {
 
 // ── Model resolution ────────────────────────────────────────────────────────
 
-const DEFAULT_SMART_WALK_MODEL: &str = "summarization-v1";
+const DEFAULT_SMART_WALK_MODEL: &str = "hint:summarization";
 
 fn resolve_walk_model(config: &Config) -> String {
     // 1. Explicit smart_walk_model config takes priority

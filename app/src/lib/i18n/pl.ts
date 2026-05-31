@@ -2513,6 +2513,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.updateFailed':
     'Nie udało się zaktualizować zadania; zmian nie zapisano.',
   'conversations.toolTimeline.turn': 'tura',
+  'conversations.toolTimeline.step': 'Krok',
   'conversations.toolTimeline.workerThread': 'wątek workera',
   'conversations.subagent.viewProcessing': 'Zobacz pełne przetwarzanie',
   'conversations.subagent.parent': 'Nadrzędny',

@@ -73,6 +73,10 @@ pub enum AgentProgress {
         /// full parent↔subagent conversation from memory after the live
         /// turn ends. `None` for live-only runs (no parent context).
         worker_thread_id: Option<String>,
+        /// Human-readable display name from the agent registry (e.g.
+        /// "Researcher", "Coding Agent"). Falls back to `agent_id` in
+        /// the UI when absent.
+        display_name: Option<String>,
     },
 
     /// A sub-agent completed successfully.
@@ -109,6 +113,9 @@ pub enum AgentProgress {
         iteration: u32,
         /// Maximum iterations configured for this child run.
         max_iterations: u32,
+        /// `true` when the agent uses [`IterationPolicy::Extended`](crate::openhuman::agent::harness::definition::IterationPolicy::Extended).
+        /// The UI uses this to show "step N" instead of "turn N/M".
+        extended_policy: bool,
     },
 
     /// A sub-agent is about to execute a tool. Distinct from

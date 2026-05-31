@@ -38,6 +38,8 @@ export interface SubagentActivity {
   taskId: string;
   /** Sub-agent definition id (e.g. `researcher`). */
   agentId: string;
+  /** Human-readable display name from the agent registry (e.g. "Researcher"). */
+  displayName?: string;
   /**
    * Persistent worker sub-thread id (`worker-<uuid>`) backing this
    * delegation, when one was created. Lets the drawer reopen the full

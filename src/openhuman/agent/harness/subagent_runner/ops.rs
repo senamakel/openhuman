@@ -23,7 +23,9 @@ use super::tool_prep::{
     load_prompt_source, top_k_for_toolkit,
 };
 use super::types::{SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome};
-use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource};
+use crate::openhuman::agent::harness::definition::{
+    AgentDefinition, IterationPolicy, PromptSource,
+};
 use crate::openhuman::agent::harness::{
     current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
 };
@@ -976,7 +978,8 @@ async fn run_typed_mode(
         agent_id = %definition.id,
         model = %model,
         tool_count = allowed_names.len(),
-        max_iterations = definition.max_iterations,
+        max_iterations = definition.effective_max_iterations(),
+        iteration_policy = ?definition.iteration_policy,
         "[subagent_runner:typed] resolved configuration"
     );
 
@@ -1172,12 +1175,13 @@ async fn run_typed_mode(
         lazy_resolver,
         &model,
         temperature,
-        definition.max_iterations,
+        definition.effective_max_iterations(),
         task_id,
         &definition.id,
         options.worker_thread_id.clone(),
         handoff_cache.as_deref(),
         parent,
+        definition.iteration_policy == IterationPolicy::Extended,
     )
     .await?;
 
@@ -1231,6 +1235,7 @@ async fn run_inner_loop(
     worker_thread_id: Option<String>,
     handoff_cache: Option<&ResultHandoffCache>,
     parent: &ParentExecutionContext,
+    extended_policy: bool,
 ) -> Result<(String, usize, AggregatedUsage), SubagentRunError> {
     // An autonomous skill run (set via `with_autonomous_iter_cap`) lifts the
     // per-agent cap so sub-agents run until done / the circuit breaker trips.
@@ -1333,6 +1338,7 @@ async fn run_inner_loop(
         sink: parent.on_progress.clone(),
         agent_id: agent_id.to_string(),
         task_id: task_id.to_string(),
+        extended_policy,
     };
 
     let parser = super::super::engine::DefaultParser;

@@ -85,6 +85,37 @@ export async function mountPixiGraph(
   let dark = opts.dark;
   let dirty = true;
   let hoveredId: string | null = null;
+  // Auto-fit the whole graph into view until the user pans/zooms/drags,
+  // so the initial frame is zoomed out to show as much as possible.
+  let userInteracted = false;
+
+  /** Scale + centre the world so every node's disc fits the viewport. */
+  const fitToView = () => {
+    if (opts.simNodes.length === 0) return;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const n of opts.simNodes) {
+      const r = nodeRadius(n) + 6;
+      if (n.x - r < minX) minX = n.x - r;
+      if (n.y - r < minY) minY = n.y - r;
+      if (n.x + r > maxX) maxX = n.x + r;
+      if (n.y + r > maxY) maxY = n.y + r;
+    }
+    if (!Number.isFinite(minX)) return;
+    const pad = 48;
+    const w = Math.max(1, maxX - minX);
+    const h = Math.max(1, maxY - minY);
+    const scale = Math.min(
+      ZOOM_MAX,
+      Math.max(ZOOM_MIN, Math.min((app.screen.width - pad) / w, (app.screen.height - pad) / h))
+    );
+    world.scale.set(scale);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    world.position.set(app.screen.width / 2 - cx * scale, app.screen.height / 2 - cy * scale);
+  };
 
   const draw = () => {
     edgeG.clear();
@@ -120,6 +151,9 @@ export async function mountPixiGraph(
       changed = true;
     }
     if (changed) {
+      // Keep the whole graph framed while it settles, until the user
+      // takes over the camera.
+      if (!userInteracted) fitToView();
       draw();
       dirty = false;
     }
@@ -138,6 +172,7 @@ export async function mountPixiGraph(
   };
 
   app.stage.on('pointerdown', (e: FederatedPointerEvent) => {
+    userInteracted = true; // hand the camera to the user
     const p = world.toLocal(e.global);
     const node = pickNode(opts.simNodes, p.x, p.y);
     if (node) {
@@ -200,6 +235,7 @@ export async function mountPixiGraph(
 
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
+    userInteracted = true;
     const gx = e.offsetX;
     const gy = e.offsetY;
     // Graph point under the cursor, kept fixed across the zoom.
@@ -221,8 +257,8 @@ export async function mountPixiGraph(
 
   return {
     resetView() {
-      world.scale.set(1);
-      recenter();
+      // Re-enable auto-fit and reheat so the graph re-frames itself.
+      userInteracted = false;
       sim.alpha(0.3);
       dirty = true;
     },

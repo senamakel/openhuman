@@ -1687,6 +1687,89 @@ pub async fn reset_tree_rpc(config: &Config) -> Result<RpcOutcome<ResetTreeRespo
     Ok(RpcOutcome::single_log(resp, log))
 }
 
+// ── flush_source_tree (per-source immediate seal) ───────────────────────
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FlushSourceTreeResponse {
+    pub tree_scope: String,
+    pub seals_fired: u32,
+}
+
+/// `memory_tree_flush_source` — seal one source tree's L0 buffer immediately,
+/// bypassing the job queue. Mutex per tree_scope so concurrent clicks are
+/// serialised.
+pub async fn flush_source_tree_rpc(
+    config: &Config,
+    source_scope: &str,
+) -> Result<RpcOutcome<FlushSourceTreeResponse>, String> {
+    use crate::openhuman::memory::tree_source::get_or_create_source_tree;
+    use crate::openhuman::memory_tree::tree::bucket_seal::LabelStrategy;
+    use crate::openhuman::memory_tree::tree::flush::force_flush_tree;
+    use crate::openhuman::memory_tree::tree::TreeFactory;
+    use std::collections::HashSet;
+    use std::sync::Mutex;
+
+    static ACTIVE: std::sync::LazyLock<Mutex<HashSet<String>>> =
+        std::sync::LazyLock::new(|| Mutex::new(HashSet::new()));
+
+    let scope = source_scope.to_string();
+
+    {
+        let mut active = ACTIVE.lock().unwrap_or_else(|e| e.into_inner());
+        if !active.insert(scope.clone()) {
+            return Ok(RpcOutcome::single_log(
+                FlushSourceTreeResponse {
+                    tree_scope: scope,
+                    seals_fired: 0,
+                },
+                "memory_tree::read: flush_source_tree already running for this scope".to_string(),
+            ));
+        }
+    }
+
+    let cfg = config.clone();
+    let scope_for_task = scope.clone();
+    let result = tokio::task::spawn_blocking(move || -> Result<FlushSourceTreeResponse> {
+        let tree = get_or_create_source_tree(&cfg, &scope_for_task)
+            .context("get_or_create_source_tree")?;
+        let strategy = TreeFactory::from_tree(&tree).label_strategy(&cfg);
+        Ok(FlushSourceTreeResponse {
+            tree_scope: scope_for_task,
+            seals_fired: 0,
+        })
+    })
+    .await
+    .map_err(|e| format!("flush_source_tree join error: {e}"))?;
+
+    let tree_info = result.map_err(|e| format!("flush_source_tree: {e:#}"))?;
+
+    let cfg2 = config.clone();
+    let scope2 = scope.clone();
+    let resp = tokio::spawn(async move {
+        let tree = get_or_create_source_tree(&cfg2, &scope2)?;
+        let strategy = TreeFactory::from_tree(&tree).label_strategy(&cfg2);
+        let sealed = force_flush_tree(&cfg2, &tree.id, Some(chrono::Utc::now()), &strategy).await?;
+        Ok::<_, anyhow::Error>(FlushSourceTreeResponse {
+            tree_scope: scope2,
+            seals_fired: sealed.len() as u32,
+        })
+    })
+    .await
+    .map_err(|e| format!("flush_source_tree join error: {e}"))?
+    .map_err(|e| format!("flush_source_tree: {e:#}"))?;
+
+    {
+        let mut active = ACTIVE.lock().unwrap_or_else(|e| e.into_inner());
+        active.remove(&scope);
+    }
+
+    let log = format!(
+        "memory_tree::read: flush_source_tree scope={} seals={}",
+        resp.tree_scope, resp.seals_fired
+    );
+    Ok(RpcOutcome::single_log(resp, log))
+}
+
 // ── flush_now (manual "Build summary trees" trigger) ────────────────────
 
 /// Response shape for [`flush_now_rpc`].

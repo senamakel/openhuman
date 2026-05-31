@@ -2196,6 +2196,11 @@ const en: TranslationMap = {
   'memorySources.pageUrl': 'Page URL',
   'memorySources.cssSelector': 'CSS selector (optional)',
   'memorySources.searchQuery': 'Search query',
+  'memorySources.build.title': 'Build',
+  'memorySources.build.building': 'Building…',
+  'memorySources.build.successTitle': 'Tree built',
+  'memorySources.build.failedTitle': 'Build failed',
+  'memorySources.build.sealsMessage': 'seal(s) completed',
 
   // Backend
   'backend.aiBackend': 'AI Backend',

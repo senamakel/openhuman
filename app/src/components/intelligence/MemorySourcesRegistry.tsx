@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
+import { memoryTreeFlushSource } from '../../utils/tauriCommands/memoryTree';
 import {
   type FreshnessLabel,
   listMemorySources,
@@ -56,6 +57,7 @@ export function MemorySourcesRegistry({
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [buildingId, setBuildingId] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState<Map<string, SyncProgress>>(new Map());
 
   useEffect(() => {
@@ -187,6 +189,31 @@ export function MemorySourcesRegistry({
     [onToast, refresh, t]
   );
 
+  const handleBuild = useCallback(
+    async (source: MemorySourceEntry) => {
+      const scope = sourceTreeScope(source);
+      if (!scope) return;
+      setBuildingId(source.id);
+      try {
+        const resp = await memoryTreeFlushSource(scope);
+        onToast?.({
+          type: 'success',
+          title: t('memorySources.build.successTitle'),
+          message: `${resp.seals_fired} ${t('memorySources.build.sealsMessage')}`,
+        });
+      } catch (err) {
+        onToast?.({
+          type: 'error',
+          title: t('memorySources.build.failedTitle'),
+          message: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        setBuildingId(prev => (prev === source.id ? null : prev));
+      }
+    },
+    [onToast, t]
+  );
+
   const handleAdded = useCallback(
     (source: MemorySourceEntry) => {
       setSources(prev => [...prev, source]);
@@ -227,10 +254,12 @@ export function MemorySourcesRegistry({
               source={source}
               status={statusById.get(source.id) ?? null}
               isSyncing={syncingId === source.id}
+              isBuilding={buildingId === source.id}
               progress={syncProgress.get(source.id) ?? null}
               onToggle={handleToggle}
               onRemove={handleRemove}
               onSync={handleSync}
+              onBuild={handleBuild}
             />
           ))}
         </ul>
@@ -249,13 +278,15 @@ interface SourceRowProps {
   source: MemorySourceEntry;
   status: SourceStatus | null;
   isSyncing: boolean;
+  isBuilding: boolean;
   progress: SyncProgress | null;
   onToggle: (source: MemorySourceEntry) => void;
   onRemove: (source: MemorySourceEntry) => void;
   onSync: (source: MemorySourceEntry) => void;
+  onBuild: (source: MemorySourceEntry) => void;
 }
 
-function SourceRow({ source, status, isSyncing, progress, onToggle, onRemove, onSync }: SourceRowProps) {
+function SourceRow({ source, status, isSyncing, isBuilding, progress, onToggle, onRemove, onSync, onBuild }: SourceRowProps) {
   const { t } = useT();
   const icon = SOURCE_KIND_ICONS[source.kind] ?? '📄';
   const kindLabel = t(SOURCE_KIND_LABEL_KEYS[source.kind] ?? source.kind);
@@ -344,6 +375,21 @@ function SourceRow({ source, status, isSyncing, progress, onToggle, onRemove, on
         </button>
         <button
           type="button"
+          onClick={() => onBuild(source)}
+          disabled={!source.enabled || isBuilding || isSyncing}
+          title={t('memorySources.build.title')}
+          className="inline-flex items-center gap-1 rounded-md border border-primary-300
+                     bg-white px-3 py-1.5 text-xs font-semibold text-primary-600
+                     shadow-sm transition-colors hover:bg-primary-50
+                     disabled:cursor-not-allowed disabled:opacity-50
+                     dark:border-primary-500/30 dark:bg-neutral-900 dark:text-primary-400
+                     dark:hover:bg-primary-500/10
+                     focus:outline-none focus:ring-2 focus:ring-primary-200">
+          {isBuilding ? <Spinner /> : <BuildIcon />}
+          {isBuilding ? t('memorySources.build.building') : t('memorySources.build.title')}
+        </button>
+        <button
+          type="button"
           onClick={() => onToggle(source)}
           title={source.enabled ? t('memorySources.disable') : t('memorySources.enable')}
           className={`relative h-5 w-9 rounded-full transition-colors ${
@@ -400,6 +446,14 @@ function relativeTimestamp(epochMs: number | null, t: (k: string) => string): st
   return `${days}${t('time.daysAgoSuffix')}`;
 }
 
+function sourceTreeScope(source: MemorySourceEntry): string | null {
+  if (source.kind === 'github_repo' && source.url) {
+    const m = source.url.match(/github\.com\/([^/]+)\/([^/.]+)/);
+    if (m) return `github:${m[1]}/${m[2]}`;
+  }
+  return source.id;
+}
+
 function sourceDetail(source: MemorySourceEntry): string | null {
   switch (source.kind) {
     case 'composio': {
@@ -451,6 +505,24 @@ function TrashIcon() {
       strokeLinejoin="round"
       aria-hidden="true">
       <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+    </svg>
+  );
+}
+
+function BuildIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true">
+      <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+      <path d="M22 4L12 14.01l-3-3" />
     </svg>
   );
 }

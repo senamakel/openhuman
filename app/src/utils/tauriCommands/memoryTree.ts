@@ -564,6 +564,26 @@ export interface FlushNowResponse {
  * Safe to spam — same UTC-day dedupe key as the scheduled flush, so
  * duplicate clicks return `enqueued=false` rather than queuing twice.
  */
+interface FlushSourceResponse {
+  tree_scope: string;
+  seals_fired: number;
+}
+
+export async function memoryTreeFlushSource(sourceScope: string): Promise<FlushSourceResponse> {
+  console.debug('[memory-tree-rpc] memoryTreeFlushSource: entry scope=%s', sourceScope);
+  const resp = await callCoreRpc<FlushSourceResponse | ResultEnvelope<FlushSourceResponse>>({
+    method: 'openhuman.memory_tree_flush_source',
+    params: { source_scope: sourceScope },
+  });
+  const out = unwrapResult(resp);
+  console.debug(
+    '[memory-tree-rpc] memoryTreeFlushSource: exit scope=%s seals=%d',
+    out.tree_scope,
+    out.seals_fired
+  );
+  return out;
+}
+
 export async function memoryTreeFlushNow(): Promise<FlushNowResponse> {
   console.debug('[memory-tree-rpc] memoryTreeFlushNow: entry');
   const resp = await callCoreRpc<FlushNowResponse | ResultEnvelope<FlushNowResponse>>({

@@ -684,19 +684,9 @@ pub(crate) async fn seal_one_level(
                 };
                 enqueue_job_tx(&tx, &NewJob::seal(&parent_seal)?)?;
             }
-            // Source-tree summary routing: feed the new summary's
-            // entities back into the topic-tree spawn pipeline. Topic
-            // and global trees are sinks — no fan-out from their seals.
-            if matches!(tree_kind, TreeKind::Source) {
-                use crate::openhuman::memory_queue::store::enqueue_tx as enqueue_job_tx;
-                use crate::openhuman::memory_queue::types::{NewJob, NodeRef, TopicRoutePayload};
-                let route = TopicRoutePayload {
-                    node: NodeRef::Summary {
-                        summary_id: summary_id_for_closure.clone(),
-                    },
-                };
-                enqueue_job_tx(&tx, &NewJob::topic_route(&route)?)?;
-            }
+            // (Topic-tree routing removed: the topic/global trees were
+            // deleted — source trees plus the entity index are the
+            // substrate, so a source seal no longer fans out anywhere.)
         }
 
         // Update tree root / max_level if we just climbed.

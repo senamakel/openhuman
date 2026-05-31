@@ -32,6 +32,19 @@ use crate::openhuman::memory_tree::tree::{LeafRef, TreeFactory};
 /// 1 hour means low-volume sources get summaries within a working session.
 const L0_DEFAULT_FLUSH_AGE_SECS: i64 = 60 * 60;
 
+/// Derive the tree scope from a source_id. For GitHub per-item ids like
+/// `github:owner/repo:commit:sha` or `github:owner/repo:issue:42`,
+/// strips the item suffix and returns `github:owner/repo` so all items
+/// from one repo share a single tree. Non-GitHub ids pass through as-is.
+fn derive_tree_scope(source_id: &str) -> String {
+    if let Some(rest) = source_id.strip_prefix("github:") {
+        if let Some(idx) = rest.find(':') {
+            return format!("github:{}", &rest[..idx]);
+        }
+    }
+    source_id.to_string()
+}
+
 fn emit_build_progress(
     phase: &str,
     step: &str,
@@ -137,7 +150,7 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
                     .metadata
                     .path_scope
                     .clone()
-                    .unwrap_or_else(|| chunk.metadata.source_id.clone()),
+                    .unwrap_or_else(|| derive_tree_scope(&chunk.metadata.source_id)),
             },
         })?)
     } else {

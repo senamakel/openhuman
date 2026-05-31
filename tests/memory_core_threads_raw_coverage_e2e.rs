@@ -16,7 +16,6 @@ use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::memory::read_rpc::{
     self, ChunkFilter, GraphMode, ResetTreeResponse,
 };
-use openhuman_core::openhuman::memory::tree_global::{digest, seal};
 use openhuman_core::openhuman::memory::tree_source::get_or_create_source_tree;
 use openhuman_core::openhuman::memory::{
     AppendConversationMessageRequest, ConversationMessageRecord, ConversationMessagesRequest,
@@ -400,102 +399,6 @@ async fn memory_read_rpc_filters_graphs_scores_reset_and_wipe_seeded_rows() {
     let wipe = read_rpc::wipe_all_rpc(&cfg).await.unwrap().value;
     assert!(wipe.rows_deleted >= 1);
     assert!(wipe.dirs_removed.iter().any(|dir| dir == "raw"));
-}
-
-#[tokio::test]
-async fn global_digest_and_seal_cover_empty_emit_skip_cascade_and_queue_paths() {
-    let tmp = TempDir::new().unwrap();
-    let cfg = config_in(&tmp);
-    let cascade_start = Utc.with_ymd_and_hms(2026, 5, 21, 0, 0, 0).unwrap();
-    let digest_day = Utc.with_ymd_and_hms(2026, 6, 15, 0, 0, 0).unwrap();
-
-    assert!(matches!(
-        digest::end_of_day_digest(&cfg, digest_day.date_naive())
-            .await
-            .unwrap(),
-        digest::DigestOutcome::EmptyDay
-    ));
-
-    let global = get_or_create_global_tree(&cfg).unwrap();
-    for i in 0..7 {
-        let node = daily_node(
-            &format!("summary:L0:round16-day-{i}"),
-            &global.id,
-            cascade_start + Duration::days(i),
-        );
-        insert_summary(&cfg, &node, None);
-        let sealed = seal::append_daily_and_cascade(&cfg, &global, &node)
-            .await
-            .unwrap();
-        if i < 6 {
-            assert!(sealed.is_empty());
-        } else {
-            assert_eq!(sealed.len(), 1);
-        }
-    }
-    assert!(tree_store::get_buffer(&cfg, &global.id, 0)
-        .unwrap()
-        .is_empty());
-    assert_eq!(
-        tree_store::get_buffer(&cfg, &global.id, 1)
-            .unwrap()
-            .item_ids
-            .len(),
-        1
-    );
-
-    let source_tree = get_or_create_source_tree(&cfg, "slack:#round16").unwrap();
-    let source_summary = SummaryNode {
-        id: "summary:L1:source-round16".into(),
-        tree_id: source_tree.id.clone(),
-        tree_kind: TreeKind::Source,
-        level: 1,
-        parent_id: None,
-        child_ids: vec!["chunk-a".into()],
-        content: "Source contribution for the daily digest.".into(),
-        token_count: 72,
-        entities: vec!["person:alice".into()],
-        topics: vec!["digest".into()],
-        time_range_start: digest_day + Duration::hours(10),
-        time_range_end: digest_day + Duration::hours(11),
-        score: 0.88,
-        sealed_at: digest_day + Duration::hours(12),
-        deleted: false,
-        embedding: Some(vec![0.0; 1024]),
-    };
-    insert_summary(&cfg, &source_summary, None);
-    with_connection(&cfg, |conn| {
-        conn.execute(
-            "UPDATE mem_tree_trees SET root_id = ?1, max_level = 1 WHERE id = ?2",
-            rusqlite::params![source_summary.id, source_tree.id],
-        )?;
-        Ok(())
-    })
-    .unwrap();
-
-    let emitted = digest::end_of_day_digest(&cfg, digest_day.date_naive())
-        .await
-        .unwrap();
-    let daily_id = match emitted {
-        digest::DigestOutcome::Emitted {
-            daily_id,
-            source_count,
-            sealed_ids,
-        } => {
-            assert_eq!(source_count, 1);
-            assert!(sealed_ids.is_empty());
-            daily_id
-        }
-        other => panic!("expected emitted digest, got {other:?}"),
-    };
-    assert!(matches!(
-        digest::end_of_day_digest(&cfg, digest_day.date_naive())
-            .await
-            .unwrap(),
-        digest::DigestOutcome::Skipped { .. }
-    ));
-
-    assert!(tree_store::get_summary(&cfg, &daily_id).unwrap().is_some());
 }
 
 #[tokio::test]

@@ -4349,6 +4349,41 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': '평균 군집계수 {avg} · 전이성 {transitivity}',
   'graphCohesion.title': '그래프 응집도',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': '보안 저장소를 사용할 수 없음',
+  'keyring.consent.description':
+    '운영 체제 키체인에 접근할 수 없습니다. OpenHuman이 로컬 암호화 저장소를 사용하여 비밀을 저장하려면 귀하의 허가가 필요합니다.',
+  'keyring.consent.reasonPrefix': '이유:',
+  'keyring.consent.showDetails': '이것은 무엇을 의미하나요?',
+  'keyring.consent.hideDetails': '세부 정보 숨기기',
+  'keyring.consent.tradeoffTitle': '보안 절충',
+  'keyring.consent.tradeoffBody':
+    '로컬 암호화 저장소에서는 데이터와 함께 저장된 마스터 키를 사용하여 비밀이 디스크에 암호화됩니다. 이는 하드웨어 기반 보호를 사용하는 OS 키체인보다 덜 안전합니다. 백업이나 파일 동기화에 암호화된 데이터가 포함될 수 있습니다.',
+  'keyring.consent.consentButton': '로컬 암호화 저장소 사용',
+  'keyring.consent.retryButton': 'OS Keychain 재시도',
+  'keyring.consent.declineButton': '건너뛰기',
+  'keyring.consent.retrying': '재시도 중…',
+  'keyring.consent.error': '설정을 저장하지 못했습니다. 다시 시도해 주세요.',
+  'keyring.consent.retryFailed': '키체인이 여전히 사용할 수 없습니다.',
+  'keyring.settings.title': '보안',
+  'keyring.settings.storageMode': '비밀 저장 모드',
+  'keyring.settings.mode.osKeychain': 'OS Keychain',
+  'keyring.settings.mode.encryptedFile': '로컬 암호화',
+  'keyring.settings.mode.consentPending': '구성되지 않음',
+  'keyring.settings.mode.declined': '거부됨',
+  'keyring.settings.availability': '키체인 가용성',
+  'keyring.settings.available': 'OS 키체인 사용 가능',
+  'keyring.settings.unavailable': 'OS 키체인 사용 불가',
+  'keyring.settings.backend': 'Backend',
+  'keyring.settings.retryButton': '키체인 감지 재시도',
+  'keyring.settings.retryFailed': '재시도 실패. 키체인이 여전히 사용할 수 없습니다.',
+  'keyring.settings.consentTitle': '저장소 동의',
+  'keyring.settings.consentDescription':
+    'OS 키체인을 사용할 수 없을 때 비밀을 저장하는 방법을 선택하세요.',
+  'keyring.settings.grantConsent': '로컬 암호화 저장소 허용',
+  'keyring.settings.revokeConsent': '로컬 저장소 거부',
+  'pages.settings.account.security': '보안',
+  'pages.settings.account.securityDesc': '비밀 저장 모드 및 키체인 상태',
 };
 
 export default messages;

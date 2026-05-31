@@ -4306,6 +4306,41 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'متوسط التجميع {avg} · التعدّي {transitivity}',
   'graphCohesion.title': 'تماسك الرسم البياني',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'التخزين الآمن غير متاح',
+  'keyring.consent.description':
+    'سلسلة مفاتيح نظام التشغيل غير متاحة. يحتاج OpenHuman إلى إذنك لتخزين الأسرار باستخدام التخزين المشفّر المحلي بدلاً من ذلك.',
+  'keyring.consent.reasonPrefix': 'السبب:',
+  'keyring.consent.showDetails': 'ماذا يعني هذا؟',
+  'keyring.consent.hideDetails': 'إخفاء التفاصيل',
+  'keyring.consent.tradeoffTitle': 'مقايضة أمنية',
+  'keyring.consent.tradeoffBody':
+    'مع التخزين المشفّر المحلي، تُشفَّر أسرارك على القرص باستخدام مفتاح رئيسي مخزَّن بجانب البيانات. يُعدّ هذا أقل أماناً من OS Keychain الذي يستخدم حماية مدعومة بالأجهزة. قد تتضمن النسخ الاحتياطية أو مزامنة الملفات البيانات المشفّرة.',
+  'keyring.consent.consentButton': 'استخدام التخزين المشفّر المحلي',
+  'keyring.consent.retryButton': 'إعادة المحاولة مع OS Keychain',
+  'keyring.consent.declineButton': 'تخطّ',
+  'keyring.consent.retrying': 'جارٍ إعادة المحاولة…',
+  'keyring.consent.error': 'فشل حفظ التفضيل. يرجى المحاولة مرة أخرى.',
+  'keyring.consent.retryFailed': 'سلسلة المفاتيح لا تزال غير متاحة.',
+  'keyring.settings.title': 'الأمان',
+  'keyring.settings.storageMode': 'وضع تخزين الأسرار',
+  'keyring.settings.mode.osKeychain': 'OS Keychain',
+  'keyring.settings.mode.encryptedFile': 'مشفَّر محلياً',
+  'keyring.settings.mode.consentPending': 'غير مُهيَّأ',
+  'keyring.settings.mode.declined': 'مرفوض',
+  'keyring.settings.availability': 'توفّر سلسلة المفاتيح',
+  'keyring.settings.available': 'OS Keychain متاح',
+  'keyring.settings.unavailable': 'OS Keychain غير متاح',
+  'keyring.settings.backend': 'Backend',
+  'keyring.settings.retryButton': 'إعادة محاولة الكشف عن سلسلة المفاتيح',
+  'keyring.settings.retryFailed': 'فشلت إعادة المحاولة. سلسلة المفاتيح لا تزال غير متاحة.',
+  'keyring.settings.consentTitle': 'موافقة التخزين',
+  'keyring.settings.consentDescription':
+    'اختر كيفية تخزين الأسرار عندما لا تكون سلسلة مفاتيح نظام التشغيل متاحة.',
+  'keyring.settings.grantConsent': 'السماح بالتخزين المشفّر المحلي',
+  'keyring.settings.revokeConsent': 'رفض التخزين المحلي',
+  'pages.settings.account.security': 'الأمان',
+  'pages.settings.account.securityDesc': 'وضع تخزين الأسرار وحالة سلسلة المفاتيح',
 };
 
 export default messages;

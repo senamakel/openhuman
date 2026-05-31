@@ -4381,6 +4381,42 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'গড় ক্লাস্টারিং {avg} · সংক্রমণতা {transitivity}',
   'graphCohesion.title': 'গ্রাফ সংসক্তি',
   'memory.tab.cohesion': 'Cohesion',
+
+  // Keyring consent & security
+  'keyring.consent.title': 'নিরাপদ সঞ্চয়স্থান অনুপলব্ধ',
+  'keyring.consent.description':
+    'আপনার অপারেটিং সিস্টেমের কিচেন অ্যাক্সেসযোগ্য নয়। OpenHuman-এর পরিবর্তে স্থানীয় এনক্রিপ্টেড সঞ্চয়স্থান ব্যবহার করে গোপনীয়তা সংরক্ষণ করতে আপনার অনুমতি প্রয়োজন।',
+  'keyring.consent.reasonPrefix': 'কারণ:',
+  'keyring.consent.showDetails': 'এটার মানে কী?',
+  'keyring.consent.hideDetails': 'বিবরণ লুকান',
+  'keyring.consent.tradeoffTitle': 'নিরাপত্তা বিনিময়',
+  'keyring.consent.tradeoffBody':
+    'স্থানীয় এনক্রিপ্টেড সঞ্চয়স্থানে, আপনার গোপনীয়তা ডিস্কে একটি মাস্টার কী দিয়ে এনক্রিপ্ট করা হয় যা ডেটার পাশাপাশি সংরক্ষিত থাকে। এটি OS কিচেনের চেয়ে কম নিরাপদ, যা হার্ডওয়্যার-সমর্থিত সুরক্ষা ব্যবহার করে। ব্যাকআপ বা ফাইল সিঙ্কিংয়ে এনক্রিপ্টেড ডেটা অন্তর্ভুক্ত হতে পারে।',
+  'keyring.consent.consentButton': 'স্থানীয় এনক্রিপ্টেড সঞ্চয়স্থান ব্যবহার করুন',
+  'keyring.consent.retryButton': 'OS Keychain পুনরায় চেষ্টা করুন',
+  'keyring.consent.declineButton': 'এড়িয়ে যান',
+  'keyring.consent.retrying': 'পুনরায় চেষ্টা হচ্ছে…',
+  'keyring.consent.error': 'পছন্দ সংরক্ষণ ব্যর্থ। অনুগ্রহ করে আবার চেষ্টা করুন।',
+  'keyring.consent.retryFailed': 'কিচেন এখনও অনুপলব্ধ।',
+  'keyring.settings.title': 'নিরাপত্তা',
+  'keyring.settings.storageMode': 'গোপনীয়তা সঞ্চয়স্থান মোড',
+  'keyring.settings.mode.osKeychain': 'OS Keychain',
+  'keyring.settings.mode.encryptedFile': 'স্থানীয় এনক্রিপ্টেড',
+  'keyring.settings.mode.consentPending': 'কনফিগার করা হয়নি',
+  'keyring.settings.mode.declined': 'প্রত্যাখ্যান করা হয়েছে',
+  'keyring.settings.availability': 'কিচেন প্রাপ্যতা',
+  'keyring.settings.available': 'OS কিচেন উপলব্ধ',
+  'keyring.settings.unavailable': 'OS কিচেন অনুপলব্ধ',
+  'keyring.settings.backend': 'Backend',
+  'keyring.settings.retryButton': 'কিচেন সনাক্তকরণ পুনরায় চেষ্টা করুন',
+  'keyring.settings.retryFailed': 'পুনরায় চেষ্টা ব্যর্থ। কিচেন এখনও অনুপলব্ধ।',
+  'keyring.settings.consentTitle': 'সঞ্চয়স্থান সম্মতি',
+  'keyring.settings.consentDescription':
+    'OS কিচেন অনুপলব্ধ থাকলে গোপনীয়তা কীভাবে সংরক্ষণ করা হবে তা বেছে নিন।',
+  'keyring.settings.grantConsent': 'স্থানীয় এনক্রিপ্টেড সঞ্চয়স্থান অনুমতি দিন',
+  'keyring.settings.revokeConsent': 'স্থানীয় সঞ্চয়স্থান প্রত্যাখ্যান করুন',
+  'pages.settings.account.security': 'নিরাপত্তা',
+  'pages.settings.account.securityDesc': 'গোপনীয়তা সঞ্চয়স্থান মোড এবং কিচেন অবস্থা',
 };
 
 export default messages;

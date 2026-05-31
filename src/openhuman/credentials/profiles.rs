@@ -204,18 +204,16 @@ pub struct AuthProfilesStore {
 impl AuthProfilesStore {
     pub fn new(state_dir: &Path, encrypt_secrets: bool) -> Self {
         let user_id = user_id_from_state_dir(state_dir);
-        let use_keychain = crate::openhuman::keyring::is_available();
+        let policy = crate::openhuman::keyring_consent::policy::check_secret_access();
+        let use_keychain = policy == crate::openhuman::keyring_consent::PolicyDecision::Proceed
+            && crate::openhuman::keyring::is_available();
         log::debug!(
-            "[auth] AuthProfilesStore::new state_dir={} user_id={user_id} use_keychain={use_keychain}",
+            "[auth] AuthProfilesStore::new state_dir={} user_id={user_id} use_keychain={use_keychain} policy={policy:?}",
             state_dir.display()
         );
         if !use_keychain {
-            // Surface the consequence of a failed keychain probe at info: auth
-            // secrets will be read/written via the encrypted JSON fallback, not
-            // the OS keychain. This is the state change that drove the
-            // "logged out / no backend session token" confusion.
             log::info!(
-                "[auth] keychain unavailable (is_available=false) — using encrypted JSON for auth profiles user_id={user_id}"
+                "[auth] keychain unavailable or consent pending — using encrypted JSON for auth profiles user_id={user_id} policy={policy:?}"
             );
         }
         Self {

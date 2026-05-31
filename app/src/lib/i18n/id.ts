@@ -4398,6 +4398,41 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'Pengelompokan rata-rata {avg} · transitivitas {transitivity}',
   'graphCohesion.title': 'Kohesi Graf',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'Penyimpanan aman tidak tersedia',
+  'keyring.consent.description':
+    'Keychain sistem operasi Anda tidak dapat diakses. OpenHuman memerlukan izin Anda untuk menyimpan rahasia menggunakan penyimpanan lokal terenkripsi.',
+  'keyring.consent.reasonPrefix': 'Alasan:',
+  'keyring.consent.showDetails': 'Apa artinya ini?',
+  'keyring.consent.hideDetails': 'Sembunyikan detail',
+  'keyring.consent.tradeoffTitle': 'Kompromi keamanan',
+  'keyring.consent.tradeoffBody':
+    'Dengan penyimpanan lokal terenkripsi, rahasia Anda dienkripsi di disk menggunakan kunci master yang disimpan bersama data. Ini kurang aman dibandingkan keychain OS yang menggunakan perlindungan berbasis perangkat keras. Pencadangan atau sinkronisasi file mungkin menyertakan data terenkripsi.',
+  'keyring.consent.consentButton': 'Gunakan penyimpanan lokal terenkripsi',
+  'keyring.consent.retryButton': 'Coba ulang OS Keychain',
+  'keyring.consent.declineButton': 'Lewati',
+  'keyring.consent.retrying': 'Mencoba ulang…',
+  'keyring.consent.error': 'Gagal menyimpan preferensi. Silakan coba lagi.',
+  'keyring.consent.retryFailed': 'Keychain masih tidak tersedia.',
+  'keyring.settings.title': 'Keamanan',
+  'keyring.settings.storageMode': 'Mode penyimpanan rahasia',
+  'keyring.settings.mode.osKeychain': 'OS Keychain',
+  'keyring.settings.mode.encryptedFile': 'Lokal terenkripsi',
+  'keyring.settings.mode.consentPending': 'Belum dikonfigurasi',
+  'keyring.settings.mode.declined': 'Ditolak',
+  'keyring.settings.availability': 'Ketersediaan keychain',
+  'keyring.settings.available': 'OS keychain tersedia',
+  'keyring.settings.unavailable': 'OS keychain tidak tersedia',
+  'keyring.settings.backend': 'Backend',
+  'keyring.settings.retryButton': 'Coba ulang deteksi keychain',
+  'keyring.settings.retryFailed': 'Percobaan ulang gagal. Keychain masih tidak tersedia.',
+  'keyring.settings.consentTitle': 'Persetujuan penyimpanan',
+  'keyring.settings.consentDescription':
+    'Pilih bagaimana rahasia disimpan saat keychain OS tidak tersedia.',
+  'keyring.settings.grantConsent': 'Izinkan penyimpanan lokal terenkripsi',
+  'keyring.settings.revokeConsent': 'Tolak penyimpanan lokal',
+  'pages.settings.account.security': 'Keamanan',
+  'pages.settings.account.securityDesc': 'Mode penyimpanan rahasia dan status keychain',
 };
 
 export default messages;

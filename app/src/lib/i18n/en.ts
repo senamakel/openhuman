@@ -4608,8 +4608,44 @@ const en: TranslationMap = {
   'settings.agents.editor.toolsLoadError': 'Couldn’t load tools',
   'settings.agents.editor.toolsEmpty': 'No tools match your search.',
   'settings.agents.editor.toolsDone': 'Done',
-  'settings.agents.editor.builtInReadonly':
-    'Built-in agents can’t be edited. You can enable, disable, or reset them from the agents list.',
+  ‘settings.agents.editor.builtInReadonly’:
+    ‘Built-in agents can’t be edited. You can enable, disable, or reset them from the agents list.’,
+
+  // Keyring consent & security
+  ‘keyring.consent.title’: ‘Secure Storage Unavailable’,
+  ‘keyring.consent.description’:
+    ‘Your operating system keychain is not accessible. OpenHuman needs your permission to store secrets using local encrypted storage instead.’,
+  ‘keyring.consent.reasonPrefix’: ‘Reason:’,
+  ‘keyring.consent.showDetails’: ‘What does this mean?’,
+  ‘keyring.consent.hideDetails’: ‘Hide details’,
+  ‘keyring.consent.tradeoffTitle’: ‘Security tradeoff’,
+  ‘keyring.consent.tradeoffBody’:
+    ‘With local encrypted storage, your secrets are encrypted on disk using a master key stored alongside the data. This is less secure than the OS keychain, which uses hardware-backed protection. Backups or file syncing may include the encrypted data.’,
+  ‘keyring.consent.consentButton’: ‘Use Local Encrypted Storage’,
+  ‘keyring.consent.retryButton’: ‘Retry OS Keychain’,
+  ‘keyring.consent.declineButton’: ‘Skip’,
+  ‘keyring.consent.retrying’: ‘Retrying…’,
+  ‘keyring.consent.error’: ‘Failed to save preference. Please try again.’,
+  ‘keyring.consent.retryFailed’: ‘Keychain is still unavailable.’,
+  ‘keyring.settings.title’: ‘Security’,
+  ‘keyring.settings.storageMode’: ‘Secret storage mode’,
+  ‘keyring.settings.mode.osKeychain’: ‘OS Keychain’,
+  ‘keyring.settings.mode.encryptedFile’: ‘Local Encrypted’,
+  ‘keyring.settings.mode.consentPending’: ‘Not configured’,
+  ‘keyring.settings.mode.declined’: ‘Declined’,
+  ‘keyring.settings.availability’: ‘Keychain availability’,
+  ‘keyring.settings.available’: ‘OS keychain is available’,
+  ‘keyring.settings.unavailable’: ‘OS keychain is unavailable’,
+  ‘keyring.settings.backend’: ‘Backend’,
+  ‘keyring.settings.retryButton’: ‘Retry keychain detection’,
+  ‘keyring.settings.retryFailed’: ‘Retry failed. Keychain is still unavailable.’,
+  ‘keyring.settings.consentTitle’: ‘Storage consent’,
+  ‘keyring.settings.consentDescription’:
+    ‘Choose how secrets are stored when the OS keychain is not available.’,
+  ‘keyring.settings.grantConsent’: ‘Allow local encrypted storage’,
+  ‘keyring.settings.revokeConsent’: ‘Decline local storage’,
+  ‘pages.settings.account.security’: ‘Security’,
+  ‘pages.settings.account.securityDesc’: ‘Secret storage mode and keychain status’,
 };
 
 export default en;

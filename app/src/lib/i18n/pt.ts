@@ -4454,6 +4454,41 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'Agrupamento médio {avg} · transitividade {transitivity}',
   'graphCohesion.title': 'Coesão do grafo',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'Armazenamento seguro indisponível',
+  'keyring.consent.description':
+    'O chaveiro do sistema operacional não está acessível. O OpenHuman precisa da sua permissão para armazenar segredos usando armazenamento local criptografado.',
+  'keyring.consent.reasonPrefix': 'Motivo:',
+  'keyring.consent.showDetails': 'O que isso significa?',
+  'keyring.consent.hideDetails': 'Ocultar detalhes',
+  'keyring.consent.tradeoffTitle': 'Compromisso de segurança',
+  'keyring.consent.tradeoffBody':
+    'Com o armazenamento local criptografado, seus segredos são criptografados no disco usando uma chave mestra armazenada junto aos dados. Isso é menos seguro que o chaveiro do SO, que usa proteção por hardware. Backups ou sincronização de arquivos podem incluir os dados criptografados.',
+  'keyring.consent.consentButton': 'Usar armazenamento local criptografado',
+  'keyring.consent.retryButton': 'Tentar novamente OS Keychain',
+  'keyring.consent.declineButton': 'Pular',
+  'keyring.consent.retrying': 'Tentando novamente…',
+  'keyring.consent.error': 'Falha ao salvar preferência. Tente novamente.',
+  'keyring.consent.retryFailed': 'O chaveiro ainda está indisponível.',
+  'keyring.settings.title': 'Segurança',
+  'keyring.settings.storageMode': 'Modo de armazenamento de segredos',
+  'keyring.settings.mode.osKeychain': 'OS Keychain',
+  'keyring.settings.mode.encryptedFile': 'Local criptografado',
+  'keyring.settings.mode.consentPending': 'Não configurado',
+  'keyring.settings.mode.declined': 'Recusado',
+  'keyring.settings.availability': 'Disponibilidade do chaveiro',
+  'keyring.settings.available': 'O chaveiro do SO está disponível',
+  'keyring.settings.unavailable': 'O chaveiro do SO está indisponível',
+  'keyring.settings.backend': 'Backend',
+  'keyring.settings.retryButton': 'Tentar novamente detecção do chaveiro',
+  'keyring.settings.retryFailed': 'Tentativa falhou. O chaveiro ainda está indisponível.',
+  'keyring.settings.consentTitle': 'Consentimento de armazenamento',
+  'keyring.settings.consentDescription':
+    'Escolha como os segredos são armazenados quando o chaveiro do SO não está disponível.',
+  'keyring.settings.grantConsent': 'Permitir armazenamento local criptografado',
+  'keyring.settings.revokeConsent': 'Recusar armazenamento local',
+  'pages.settings.account.security': 'Segurança',
+  'pages.settings.account.securityDesc': 'Modo de armazenamento de segredos e status do chaveiro',
 };
 
 export default messages;

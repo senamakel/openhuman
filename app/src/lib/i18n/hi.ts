@@ -4389,6 +4389,41 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'औसत क्लस्टरिंग {avg} · सकर्मकता {transitivity}',
   'graphCohesion.title': 'ग्राफ संसक्ति',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'सुरक्षित भंडारण अनुपलब्ध',
+  'keyring.consent.description':
+    'आपके ऑपरेटिंग सिस्टम का कीचेन सुलभ नहीं है। OpenHuman को इसके बजाय स्थानीय एन्क्रिप्टेड भंडारण का उपयोग करके रहस्य संग्रहीत करने के लिए आपकी अनुमति चाहिए।',
+  'keyring.consent.reasonPrefix': 'कारण:',
+  'keyring.consent.showDetails': 'इसका क्या मतलब है?',
+  'keyring.consent.hideDetails': 'विवरण छिपाएं',
+  'keyring.consent.tradeoffTitle': 'सुरक्षा समझौता',
+  'keyring.consent.tradeoffBody':
+    'स्थानीय एन्क्रिप्टेड भंडारण में, आपके रहस्य डिस्क पर एक मास्टर कुंजी से एन्क्रिप्ट किए जाते हैं जो डेटा के साथ संग्रहीत होती है। यह OS कीचेन से कम सुरक्षित है, जो हार्डवेयर-समर्थित सुरक्षा का उपयोग करता है। बैकअप या फ़ाइल सिंकिंग में एन्क्रिप्टेड डेटा शामिल हो सकता है।',
+  'keyring.consent.consentButton': 'स्थानीय एन्क्रिप्टेड भंडारण का उपयोग करें',
+  'keyring.consent.retryButton': 'OS Keychain पुनः प्रयास करें',
+  'keyring.consent.declineButton': 'छोड़ें',
+  'keyring.consent.retrying': 'पुनः प्रयास हो रहा है…',
+  'keyring.consent.error': 'प्राथमिकता सहेजने में विफल। कृपया पुनः प्रयास करें।',
+  'keyring.consent.retryFailed': 'कीचेन अभी भी अनुपलब्ध है।',
+  'keyring.settings.title': 'सुरक्षा',
+  'keyring.settings.storageMode': 'रहस्य भंडारण मोड',
+  'keyring.settings.mode.osKeychain': 'OS Keychain',
+  'keyring.settings.mode.encryptedFile': 'स्थानीय एन्क्रिप्टेड',
+  'keyring.settings.mode.consentPending': 'कॉन्फ़िगर नहीं किया गया',
+  'keyring.settings.mode.declined': 'अस्वीकृत',
+  'keyring.settings.availability': 'कीचेन उपलब्धता',
+  'keyring.settings.available': 'OS कीचेन उपलब्ध है',
+  'keyring.settings.unavailable': 'OS कीचेन अनुपलब्ध है',
+  'keyring.settings.backend': 'Backend',
+  'keyring.settings.retryButton': 'कीचेन पहचान पुनः प्रयास करें',
+  'keyring.settings.retryFailed': 'पुनः प्रयास विफल। कीचेन अभी भी अनुपलब्ध है।',
+  'keyring.settings.consentTitle': 'भंडारण सहमति',
+  'keyring.settings.consentDescription':
+    'चुनें कि OS कीचेन अनुपलब्ध होने पर रहस्य कैसे संग्रहीत किए जाएं।',
+  'keyring.settings.grantConsent': 'स्थानीय एन्क्रिप्टेड भंडारण की अनुमति दें',
+  'keyring.settings.revokeConsent': 'स्थानीय भंडारण अस्वीकार करें',
+  'pages.settings.account.security': 'सुरक्षा',
+  'pages.settings.account.securityDesc': 'रहस्य भंडारण मोड और कीचेन स्थिति',
 };
 
 export default messages;

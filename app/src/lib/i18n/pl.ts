@@ -4455,6 +4455,42 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'Średnia klasteryzacja {avg} · tranzytywność {transitivity}',
   'graphCohesion.title': 'Spójność grafu',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'Bezpieczne przechowywanie niedostępne',
+  'keyring.consent.description':
+    'Pęk kluczy systemu operacyjnego jest niedostępny. OpenHuman potrzebuje Twojej zgody na przechowywanie sekretów w lokalnym zaszyfrowanym magazynie.',
+  'keyring.consent.reasonPrefix': 'Powód:',
+  'keyring.consent.showDetails': 'Co to oznacza?',
+  'keyring.consent.hideDetails': 'Ukryj szczegóły',
+  'keyring.consent.tradeoffTitle': 'Kompromis bezpieczeństwa',
+  'keyring.consent.tradeoffBody':
+    'W przypadku lokalnego zaszyfrowanego magazynu sekrety są szyfrowane na dysku przy użyciu klucza głównego przechowywanego obok danych. Jest to mniej bezpieczne niż pęk kluczy systemu, który wykorzystuje ochronę sprzętową. Kopie zapasowe lub synchronizacja plików mogą zawierać zaszyfrowane dane.',
+  'keyring.consent.consentButton': 'Użyj lokalnego zaszyfrowanego magazynu',
+  'keyring.consent.retryButton': 'Ponów próbę OS Keychain',
+  'keyring.consent.declineButton': 'Pomiń',
+  'keyring.consent.retrying': 'Ponawiam próbę…',
+  'keyring.consent.error': 'Nie udało się zapisać preferencji. Spróbuj ponownie.',
+  'keyring.consent.retryFailed': 'Pęk kluczy jest nadal niedostępny.',
+  'keyring.settings.title': 'Bezpieczeństwo',
+  'keyring.settings.storageMode': 'Tryb przechowywania sekretów',
+  'keyring.settings.mode.osKeychain': 'OS Keychain',
+  'keyring.settings.mode.encryptedFile': 'Lokalnie zaszyfrowany',
+  'keyring.settings.mode.consentPending': 'Nie skonfigurowano',
+  'keyring.settings.mode.declined': 'Odrzucono',
+  'keyring.settings.availability': 'Dostępność pęku kluczy',
+  'keyring.settings.available': 'Pęk kluczy systemu jest dostępny',
+  'keyring.settings.unavailable': 'Pęk kluczy systemu jest niedostępny',
+  'keyring.settings.backend': 'Backend',
+  'keyring.settings.retryButton': 'Ponów wykrywanie pęku kluczy',
+  'keyring.settings.retryFailed':
+    'Ponowna próba nie powiodła się. Pęk kluczy jest nadal niedostępny.',
+  'keyring.settings.consentTitle': 'Zgoda na przechowywanie',
+  'keyring.settings.consentDescription':
+    'Wybierz sposób przechowywania sekretów, gdy pęk kluczy systemu jest niedostępny.',
+  'keyring.settings.grantConsent': 'Zezwól na lokalne zaszyfrowane przechowywanie',
+  'keyring.settings.revokeConsent': 'Odmów lokalnego przechowywania',
+  'pages.settings.account.security': 'Bezpieczeństwo',
+  'pages.settings.account.securityDesc': 'Tryb przechowywania sekretów i stan pęku kluczy',
 };
 
 export default messages;

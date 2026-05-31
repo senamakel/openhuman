@@ -4464,6 +4464,41 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'Agrupamiento promedio {avg} · transitividad {transitivity}',
   'graphCohesion.title': 'Cohesión del grafo',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'Almacenamiento seguro no disponible',
+  'keyring.consent.description':
+    'El llavero de su sistema operativo no está accesible. OpenHuman necesita su permiso para almacenar secretos usando almacenamiento local cifrado.',
+  'keyring.consent.reasonPrefix': 'Motivo:',
+  'keyring.consent.showDetails': '¿Qué significa esto?',
+  'keyring.consent.hideDetails': 'Ocultar detalles',
+  'keyring.consent.tradeoffTitle': 'Compromiso de seguridad',
+  'keyring.consent.tradeoffBody':
+    'Con el almacenamiento local cifrado, sus secretos se cifran en disco usando una clave maestra almacenada junto a los datos. Esto es menos seguro que el llavero del SO, que usa protección respaldada por hardware. Las copias de seguridad o la sincronización de archivos pueden incluir los datos cifrados.',
+  'keyring.consent.consentButton': 'Usar almacenamiento local cifrado',
+  'keyring.consent.retryButton': 'Reintentar OS Keychain',
+  'keyring.consent.declineButton': 'Omitir',
+  'keyring.consent.retrying': 'Reintentando…',
+  'keyring.consent.error': 'No se pudo guardar la preferencia. Inténtelo de nuevo.',
+  'keyring.consent.retryFailed': 'El llavero sigue sin estar disponible.',
+  'keyring.settings.title': 'Seguridad',
+  'keyring.settings.storageMode': 'Modo de almacenamiento de secretos',
+  'keyring.settings.mode.osKeychain': 'OS Keychain',
+  'keyring.settings.mode.encryptedFile': 'Local cifrado',
+  'keyring.settings.mode.consentPending': 'No configurado',
+  'keyring.settings.mode.declined': 'Rechazado',
+  'keyring.settings.availability': 'Disponibilidad del llavero',
+  'keyring.settings.available': 'El llavero del SO está disponible',
+  'keyring.settings.unavailable': 'El llavero del SO no está disponible',
+  'keyring.settings.backend': 'Backend',
+  'keyring.settings.retryButton': 'Reintentar detección del llavero',
+  'keyring.settings.retryFailed': 'Reintento fallido. El llavero sigue sin estar disponible.',
+  'keyring.settings.consentTitle': 'Consentimiento de almacenamiento',
+  'keyring.settings.consentDescription':
+    'Elija cómo se almacenan los secretos cuando el llavero del SO no está disponible.',
+  'keyring.settings.grantConsent': 'Permitir almacenamiento local cifrado',
+  'keyring.settings.revokeConsent': 'Rechazar almacenamiento local',
+  'pages.settings.account.security': 'Seguridad',
+  'pages.settings.account.securityDesc': 'Modo de almacenamiento de secretos y estado del llavero',
 };
 
 export default messages;

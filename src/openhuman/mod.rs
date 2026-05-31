@@ -107,7 +107,6 @@ pub mod tool_timeout;
 pub mod tools;
 pub mod update;
 pub mod util;
-pub mod vault;
 pub mod voice;
 pub mod wallet;
 pub mod web3;

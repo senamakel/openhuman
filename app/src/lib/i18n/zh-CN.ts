@@ -2380,6 +2380,7 @@ const messages: TranslationMap = {
   'conversations.subagent.statusRunning': '运行中',
   'conversations.subagent.statusCompleted': '已完成',
   'conversations.subagent.statusFailed': '失败',
+  'conversations.subagent.statusAwaitingUser': '等待用户',
   'daemon.serviceBlockingGate.body': '核心服务不可用，请等待或下载最新版本。',
   'daemon.serviceBlockingGate.downloadHint': '下载最新版本',
   'daemon.serviceBlockingGate.downloadLatest': '下载最新版本',

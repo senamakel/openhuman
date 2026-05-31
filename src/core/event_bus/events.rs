@@ -76,6 +76,15 @@ pub enum DomainEvent {
         agent_id: String,
         error: String,
     },
+    /// A sub-agent called `ask_user_clarification` and paused, waiting
+    /// for the orchestrator to relay the user's answer via
+    /// `continue_subagent`.
+    SubagentAwaitingUser {
+        parent_session: String,
+        task_id: String,
+        agent_id: String,
+        question: String,
+    },
     /// High-level orchestration accepted a child agent for execution.
     AgentOrchestrationSpawned {
         session_id: String,
@@ -723,6 +732,7 @@ impl DomainEvent {
             | Self::SubagentSpawned { .. }
             | Self::SubagentCompleted { .. }
             | Self::SubagentFailed { .. }
+            | Self::SubagentAwaitingUser { .. }
             | Self::AgentOrchestrationSpawned { .. }
             | Self::AgentOrchestrationCompleted { .. }
             | Self::AgentOrchestrationFailed { .. }
@@ -829,6 +839,7 @@ impl DomainEvent {
             Self::SubagentSpawned { .. } => "SubagentSpawned",
             Self::SubagentCompleted { .. } => "SubagentCompleted",
             Self::SubagentFailed { .. } => "SubagentFailed",
+            Self::SubagentAwaitingUser { .. } => "SubagentAwaitingUser",
             Self::AgentOrchestrationSpawned { .. } => "AgentOrchestrationSpawned",
             Self::AgentOrchestrationCompleted { .. } => "AgentOrchestrationCompleted",
             Self::AgentOrchestrationFailed { .. } => "AgentOrchestrationFailed",
@@ -919,6 +930,7 @@ impl DomainEvent {
             Self::SubagentSpawned { agent_id, .. }
             | Self::SubagentCompleted { agent_id, .. }
             | Self::SubagentFailed { agent_id, .. }
+            | Self::SubagentAwaitingUser { agent_id, .. }
             | Self::AgentOrchestrationSpawned { agent_id, .. }
             | Self::AgentOrchestrationCompleted { agent_id, .. }
             | Self::AgentOrchestrationFailed { agent_id, .. } => Some(agent_id.as_str()),

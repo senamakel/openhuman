@@ -305,6 +305,7 @@ pub(crate) async fn run_tool_call_loop(
         multimodal_config,
         max_iterations,
         on_delta,
+        &[],
     )
     .await
     .map(|outcome| outcome.text)

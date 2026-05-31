@@ -2519,6 +2519,7 @@ const messages: TranslationMap = {
   'conversations.subagent.statusRunning': 'выполняется',
   'conversations.subagent.statusCompleted': 'завершено',
   'conversations.subagent.statusFailed': 'ошибка',
+  'conversations.subagent.statusAwaitingUser': 'ожидание пользователя',
   'daemon.serviceBlockingGate.body': 'Текст',
   'daemon.serviceBlockingGate.downloadHint': 'Подсказка по загрузке',
   'daemon.serviceBlockingGate.downloadLatest': 'Скачать последнюю версию',

@@ -2453,6 +2453,7 @@ const messages: TranslationMap = {
   'conversations.subagent.statusRunning': 'قيد التشغيل',
   'conversations.subagent.statusCompleted': 'اكتمل',
   'conversations.subagent.statusFailed': 'فشل',
+  'conversations.subagent.statusAwaitingUser': 'في انتظار المستخدم',
   'daemon.serviceBlockingGate.body': 'المحتوى',
   'daemon.serviceBlockingGate.downloadHint': 'تلميح التنزيل',
   'daemon.serviceBlockingGate.downloadLatest': 'تنزيل أحدث إصدار',

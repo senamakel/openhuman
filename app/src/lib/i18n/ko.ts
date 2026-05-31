@@ -2481,6 +2481,7 @@ const messages: TranslationMap = {
   'conversations.subagent.statusRunning': '실행 중',
   'conversations.subagent.statusCompleted': '완료됨',
   'conversations.subagent.statusFailed': '실패',
+  'conversations.subagent.statusAwaitingUser': '사용자 대기 중',
   'daemon.serviceBlockingGate.body': '본문',
   'daemon.serviceBlockingGate.downloadHint': '다운로드 안내',
   'daemon.serviceBlockingGate.downloadLatest': '최신 버전 다운로드',

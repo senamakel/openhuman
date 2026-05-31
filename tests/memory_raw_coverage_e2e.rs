@@ -590,6 +590,7 @@ fn threads_turn_state_store_skips_corrupt_entries_and_marks_interrupted() {
         subagent: Some(SubagentActivity {
             task_id: "task-1".into(),
             agent_id: "researcher".into(),
+            status: Some("running".into()),
             mode: Some("read".into()),
             dedicated_thread: Some(false),
             child_iteration: Some(1),

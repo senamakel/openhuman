@@ -3140,7 +3140,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         dedicated_thread: true,
         prompt_chars: 99,
         worker_thread_id: None,
-        display_name: None,
+        display_name: Some("Researcher".into()),
     }));
     assert!(!mirror.observe(&AgentProgress::SubagentIterationStarted {
         agent_id: "researcher".into(),
@@ -3407,6 +3407,7 @@ fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
         subagent: Some(SubagentActivity {
             task_id: "task-1".into(),
             agent_id: "agent-1".into(),
+            status: Some("running".into()),
             mode: Some("focused".into()),
             dedicated_thread: Some(true),
             child_iteration: Some(1),

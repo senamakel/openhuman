@@ -2759,6 +2759,7 @@ const en: TranslationMap = {
   'conversations.subagent.statusRunning': 'running',
   'conversations.subagent.statusCompleted': 'completed',
   'conversations.subagent.statusFailed': 'failed',
+  'conversations.subagent.statusAwaitingUser': 'awaiting user',
   'daemon.serviceBlockingGate.body':
     'Retrying in the background. This usually resolves in a few seconds.',
   'daemon.serviceBlockingGate.downloadHint':

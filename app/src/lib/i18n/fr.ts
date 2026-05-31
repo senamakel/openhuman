@@ -2557,6 +2557,7 @@ const messages: TranslationMap = {
   'conversations.subagent.statusRunning': 'en cours',
   'conversations.subagent.statusCompleted': 'terminé',
   'conversations.subagent.statusFailed': 'échoué',
+  'conversations.subagent.statusAwaitingUser': "en attente de l'utilisateur",
   'daemon.serviceBlockingGate.body': 'Corps',
   'daemon.serviceBlockingGate.downloadHint': 'Indice de téléchargement',
   'daemon.serviceBlockingGate.downloadLatest': 'Télécharger la dernière version',

@@ -2501,6 +2501,7 @@ const messages: TranslationMap = {
   'conversations.subagent.statusRunning': 'চলছে',
   'conversations.subagent.statusCompleted': 'সম্পন্ন',
   'conversations.subagent.statusFailed': 'ব্যর্থ',
+  'conversations.subagent.statusAwaitingUser': 'ব্যবহারকারীর অপেক্ষায়',
   'daemon.serviceBlockingGate.body': 'বডি',
   'daemon.serviceBlockingGate.downloadHint': 'ডাউনলোড হিন্ট',
   'daemon.serviceBlockingGate.downloadLatest': 'সর্বশেষ সংস্করণ ডাউনলোড করুন',

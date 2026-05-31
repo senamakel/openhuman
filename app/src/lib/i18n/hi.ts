@@ -2505,6 +2505,7 @@ const messages: TranslationMap = {
   'conversations.subagent.statusRunning': 'चल रहा है',
   'conversations.subagent.statusCompleted': 'पूर्ण',
   'conversations.subagent.statusFailed': 'विफल',
+  'conversations.subagent.statusAwaitingUser': 'उपयोगकर्ता की प्रतीक्षा',
   'daemon.serviceBlockingGate.body': 'विवरण',
   'daemon.serviceBlockingGate.downloadHint': 'डाउनलोड संकेत',
   'daemon.serviceBlockingGate.downloadLatest': 'नवीनतम संस्करण डाउनलोड करें',

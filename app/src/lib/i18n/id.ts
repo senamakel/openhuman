@@ -2507,6 +2507,7 @@ const messages: TranslationMap = {
   'conversations.subagent.statusRunning': 'berjalan',
   'conversations.subagent.statusCompleted': 'selesai',
   'conversations.subagent.statusFailed': 'gagal',
+  'conversations.subagent.statusAwaitingUser': 'menunggu pengguna',
   'daemon.serviceBlockingGate.body': 'Isi',
   'daemon.serviceBlockingGate.downloadHint': 'Petunjuk unduhan',
   'daemon.serviceBlockingGate.downloadLatest': 'Unduh Versi Terbaru',

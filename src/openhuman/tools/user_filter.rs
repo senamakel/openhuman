@@ -52,6 +52,26 @@ const TOOL_ID_TO_RUST_NAMES: &[(&str, &[&str])] = &[
         &["skill_create", "skill_install_from_url", "skill_uninstall"],
     ),
     ("thread_destructive", &["thread_delete", "thread_purge_all"]),
+    // Task & workflow productivity — overextending tools (agent-tool
+    // expansion). Only the destructive/persistent-config mutators are listed
+    // here so the onboarding toggle surface can default them OFF and let users
+    // opt in; the read-only + bounded-write siblings (e.g. `artifact_list`,
+    // `todo_add`, `task_source_fetch`) are intentionally NOT listed, so they
+    // are always-retained infrastructure. Grouped one toggle per risk family.
+    ("agent_workflow_uninstall", &["agent_workflow_uninstall"]),
+    ("artifact_delete", &["artifact_delete"]),
+    (
+        "todo_destructive",
+        &["todo_remove", "todo_replace", "todo_clear"],
+    ),
+    (
+        "task_source_manage",
+        &[
+            "task_source_add",
+            "task_source_update",
+            "task_source_remove",
+        ],
+    ),
 ];
 
 /// All Rust tool names that are filterable (union of all mapping values).

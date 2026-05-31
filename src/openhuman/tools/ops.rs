@@ -303,6 +303,38 @@ pub fn all_tools_with_runtime(
         Box::new(ThreadTaskBoardWriteTool::new(config.clone())),
         Box::new(ThreadDeleteTool),
         Box::new(ThreadPurgeAllTool),
+        // Task & workflow productivity tools (issue: agent-tool expansion).
+        // Read/observe + bounded-write tools are registered here; the
+        // destructive/overextending siblings (artifact_delete, todo_remove/
+        // replace/clear, task_source_add/update/remove,
+        // agent_workflow_uninstall) are registered too but ship default-OFF
+        // via `tools::user_filter` (their toggle IDs default off in
+        // onboarding). The per-call permission ladder still gates them.
+        Box::new(AgentWorkflowListTool::new(config.clone())),
+        Box::new(AgentWorkflowReadTool),
+        Box::new(AgentWorkflowPhaseInfoTool),
+        Box::new(AgentWorkflowCreateTool),
+        Box::new(AgentWorkflowUninstallTool),
+        Box::new(ArtifactListTool::new(config.clone())),
+        Box::new(ArtifactGetTool::new(config.clone())),
+        Box::new(ArtifactDeleteTool::new(config.clone())),
+        Box::new(TodoListTool::new(config.clone())),
+        Box::new(TodoAddTool::new(config.clone())),
+        Box::new(TodoEditTool::new(config.clone())),
+        Box::new(TodoUpdateStatusTool::new(config.clone())),
+        Box::new(TodoDecidePlanTool::new(config.clone())),
+        Box::new(TodoRemoveTool::new(config.clone())),
+        Box::new(TodoReplaceTool::new(config.clone())),
+        Box::new(TodoClearTool::new(config.clone())),
+        Box::new(TaskSourceListTool::new(config.clone())),
+        Box::new(TaskSourceGetTool::new(config.clone())),
+        Box::new(TaskSourceFetchTool::new(config.clone())),
+        Box::new(TaskSourceListTasksTool::new(config.clone())),
+        Box::new(TaskSourcePreviewFilterTool::new(config.clone())),
+        Box::new(TaskSourceStatusTool::new(config.clone())),
+        Box::new(TaskSourceAddTool::new(config.clone())),
+        Box::new(TaskSourceUpdateTool::new(config.clone())),
+        Box::new(TaskSourceRemoveTool::new(config.clone())),
     ];
 
     if browser_config.enabled {

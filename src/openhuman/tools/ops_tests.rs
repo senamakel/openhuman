@@ -1513,14 +1513,17 @@ async fn readonly_acting_tools_carry_policy_blocked_marker() {
     }
 }
 
-// ── Agent-tool expansion: Knowledge & memory ────────────────────────────────
+// ── Agent-tool expansion: shared e2e harness ────────────────────────────────
 //
-// Registration + default-OFF user-filter posture for the knowledge theme
-// (vault / people / skills / threads). Learning lands in a follow-up.
+// Both themes (Task & workflow productivity; Knowledge & memory) exercise the
+// full `all_tools` registry: that every tool registers, that the overextending
+// siblings are stripped by the user-filter when not opted in (and restored
+// when opted in), and a couple of real executions through the boxed `dyn Tool`
+// surface.
 
-/// Build the full registry with a disabled browser + tmp workspace, for the
-/// knowledge-theme registration/filter tests.
-fn knowledge_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
+/// Build the full tool registry with a disabled browser and a tmp-scoped
+/// workspace — enough to exercise the expansion tools end-to-end.
+fn expansion_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
     let security = Arc::new(SecurityPolicy::default());
     let mem = test_memory(tmp);
     let browser = BrowserConfig {
@@ -1544,9 +1547,147 @@ fn knowledge_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
     )
 }
 
-/// All knowledge-theme tools that must be registered.
+// ── Theme: Task & workflow productivity ─────────────────────────────────────
+
+const PRODUCTIVITY_TOOLS: &[&str] = &[
+    "agent_workflow_list",
+    "agent_workflow_read",
+    "agent_workflow_phase_info",
+    "agent_workflow_create",
+    "agent_workflow_uninstall",
+    "artifact_list",
+    "artifact_get",
+    "artifact_delete",
+    "todo_list",
+    "todo_add",
+    "todo_edit",
+    "todo_update_status",
+    "todo_decide_plan",
+    "todo_remove",
+    "todo_replace",
+    "todo_clear",
+    "task_source_list",
+    "task_source_get",
+    "task_source_fetch",
+    "task_source_list_tasks",
+    "task_source_preview_filter",
+    "task_source_status",
+    "task_source_add",
+    "task_source_update",
+    "task_source_remove",
+];
+
+const PRODUCTIVITY_DEFAULT_OFF: &[&str] = &[
+    "agent_workflow_uninstall",
+    "artifact_delete",
+    "todo_remove",
+    "todo_replace",
+    "todo_clear",
+    "task_source_add",
+    "task_source_update",
+    "task_source_remove",
+];
+
+const PRODUCTIVITY_ALWAYS_ON: &[&str] = &[
+    "agent_workflow_list",
+    "agent_workflow_create",
+    "artifact_list",
+    "artifact_get",
+    "todo_list",
+    "todo_add",
+    "task_source_fetch",
+    "task_source_status",
+];
+
+#[test]
+fn productivity_tools_are_registered() {
+    let tmp = TempDir::new().unwrap();
+    let names = tool_names(&expansion_tools_for(&tmp));
+    assert_contains_all(&names, PRODUCTIVITY_TOOLS);
+}
+
+#[test]
+fn productivity_default_off_tools_are_filtered_when_not_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = expansion_tools_for(&tmp);
+    filter_tools_by_user_preference(&mut tools, &["file_read".to_string()]);
+    let names = tool_names(&tools);
+    for off in PRODUCTIVITY_DEFAULT_OFF {
+        assert!(
+            !names.iter().any(|n| n == off),
+            "default-off tool `{off}` must be filtered out when not opted in; got: {names:?}"
+        );
+    }
+    for on in PRODUCTIVITY_ALWAYS_ON {
+        assert!(
+            names.iter().any(|n| n == on),
+            "always-on tool `{on}` must be retained regardless of preferences"
+        );
+    }
+}
+
+#[test]
+fn productivity_default_off_tools_retained_when_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = expansion_tools_for(&tmp);
+    filter_tools_by_user_preference(
+        &mut tools,
+        &[
+            "todo_destructive".to_string(),
+            "task_source_manage".to_string(),
+            "artifact_delete".to_string(),
+            "agent_workflow_uninstall".to_string(),
+        ],
+    );
+    let names = tool_names(&tools);
+    for on in PRODUCTIVITY_DEFAULT_OFF {
+        assert!(
+            names.iter().any(|n| n == on),
+            "opted-in tool `{on}` must be retained; got: {names:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn todo_tools_add_then_list_through_registry() {
+    // Drive the boxed `dyn Tool` surface exactly as the agent loop would: add
+    // a card, then list it back. Thread-scoped (file-backed under the tmp
+    // workspace) so the board is isolated from the process-global scratch
+    // store and from parallel tests.
+    let tmp = TempDir::new().unwrap();
+    let tools = expansion_tools_for(&tmp);
+
+    let add = find_tool(&tools, "todo_add");
+    let added = add
+        .execute(serde_json::json!({ "thread_id": "e2e-thread", "content": "registry e2e task" }))
+        .await
+        .expect("todo_add execute");
+    assert!(added.output_for_llm(false).contains("registry e2e task"));
+
+    let list = find_tool(&tools, "todo_list");
+    let listed = list
+        .execute(serde_json::json!({ "thread_id": "e2e-thread" }))
+        .await
+        .expect("todo_list execute");
+    assert!(listed.output_for_llm(false).contains("registry e2e task"));
+}
+
+#[tokio::test]
+async fn artifact_list_through_registry_returns_envelope() {
+    let tmp = TempDir::new().unwrap();
+    let tools = expansion_tools_for(&tmp);
+    let out = find_tool(&tools, "artifact_list")
+        .execute(serde_json::json!({ "limit": 10 }))
+        .await
+        .expect("artifact_list execute");
+    let body = out.output_for_llm(false);
+    assert!(body.contains("artifacts"), "envelope missing: {body}");
+    assert!(body.contains("total"), "envelope missing total: {body}");
+}
+
+// ── Theme: Knowledge & memory ───────────────────────────────────────────────
+
 const KNOWLEDGE_TOOLS: &[&str] = &[
-    // vault
     "vault_list",
     "vault_get",
     "vault_files",
@@ -1554,7 +1695,6 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
     "vault_sync",
     "vault_sync_status",
     "vault_remove",
-    // people
     "people_list",
     "people_resolve",
     "people_score",
@@ -1562,7 +1702,6 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
     "people_add_alias",
     "people_record_interaction",
     "people_refresh_address_book",
-    // skills
     "skill_list",
     "skill_describe",
     "skill_read_resource",
@@ -1571,7 +1710,6 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
     "skill_create",
     "skill_install_from_url",
     "skill_uninstall",
-    // threads
     "thread_list",
     "thread_read",
     "thread_create",
@@ -1590,7 +1728,6 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
     "thread_purge_all",
 ];
 
-/// Overextending knowledge tools that ship default-OFF.
 const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
     "vault_remove",
     "people_refresh_address_book",
@@ -1601,7 +1738,6 @@ const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
     "thread_purge_all",
 ];
 
-/// Knowledge read/bounded-write siblings that stay always-on.
 const KNOWLEDGE_ALWAYS_ON: &[&str] = &[
     "vault_list",
     "vault_create",
@@ -1616,15 +1752,14 @@ const KNOWLEDGE_ALWAYS_ON: &[&str] = &[
 #[test]
 fn knowledge_tools_are_registered() {
     let tmp = TempDir::new().unwrap();
-    let tools = knowledge_tools_for(&tmp);
-    let names = tool_names(&tools);
+    let names = tool_names(&expansion_tools_for(&tmp));
     assert_contains_all(&names, KNOWLEDGE_TOOLS);
 }
 
 #[test]
 fn knowledge_default_off_tools_are_filtered_when_not_opted_in() {
     let tmp = TempDir::new().unwrap();
-    let mut tools = knowledge_tools_for(&tmp);
+    let mut tools = expansion_tools_for(&tmp);
     filter_tools_by_user_preference(&mut tools, &["file_read".to_string()]);
     let names = tool_names(&tools);
     for off in KNOWLEDGE_DEFAULT_OFF {
@@ -1644,7 +1779,7 @@ fn knowledge_default_off_tools_are_filtered_when_not_opted_in() {
 #[test]
 fn knowledge_default_off_tools_retained_when_opted_in() {
     let tmp = TempDir::new().unwrap();
-    let mut tools = knowledge_tools_for(&tmp);
+    let mut tools = expansion_tools_for(&tmp);
     filter_tools_by_user_preference(
         &mut tools,
         &[
@@ -1665,18 +1800,12 @@ fn knowledge_default_off_tools_retained_when_opted_in() {
 
 #[tokio::test]
 async fn vault_list_through_registry_returns_envelope() {
-    // A fresh workspace has no registered vaults; listing must still succeed
-    // end-to-end through the boxed registry and return a JSON array.
     let tmp = TempDir::new().unwrap();
-    let tools = knowledge_tools_for(&tmp);
-    let list = find_tool(&tools, "vault_list");
-    let out = list
+    let tools = expansion_tools_for(&tmp);
+    let out = find_tool(&tools, "vault_list")
         .execute(serde_json::json!({}))
         .await
         .expect("vault_list");
     let body = out.output_for_llm(false);
-    assert!(
-        body.starts_with('['),
-        "expected a JSON array of vaults: {body}"
-    );
+    assert!(body.starts_with('['), "expected a JSON array of vaults: {body}");
 }

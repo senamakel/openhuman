@@ -13,6 +13,8 @@ pub(crate) mod implementations;
 
 pub use crate::openhuman::agent::tools::*;
 pub use crate::openhuman::agent_orchestration::tools::*;
+pub use crate::openhuman::agent_workflows::tools::*;
+pub use crate::openhuman::artifacts::tools::*;
 pub use crate::openhuman::audio_toolkit::tools::*;
 pub use crate::openhuman::codegraph::tools::*;
 pub use crate::openhuman::composio::tools::*;
@@ -22,7 +24,9 @@ pub use crate::openhuman::memory::tools::*;
 pub use crate::openhuman::people::tools::*;
 pub use crate::openhuman::search::tools::*;
 pub use crate::openhuman::skills::tools::*;
+pub use crate::openhuman::task_sources::tools::*;
 pub use crate::openhuman::threads::tools::*;
+pub use crate::openhuman::todos::tools::*;
 pub use crate::openhuman::vault::tools::*;
 pub use crate::openhuman::wallet::tools::*;
 pub use crate::openhuman::whatsapp_data::tools::*;

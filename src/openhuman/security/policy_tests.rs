@@ -2463,11 +2463,12 @@ async fn validate_parent_path_uses_same_cache_as_validate_path() {
 
 #[test]
 fn is_workspace_internal_path_blocks_state_dirs() {
-    let ws = std::env::temp_dir().join("oh_test_ws_internal");
-    std::fs::create_dir_all(ws.join("memory")).ok();
-    std::fs::create_dir_all(ws.join("sessions")).ok();
-    std::fs::create_dir_all(ws.join("state")).ok();
-    std::fs::create_dir_all(ws.join("cron")).ok();
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let ws = tmp.path().to_path_buf();
+    std::fs::create_dir_all(ws.join("memory")).expect("create memory dir");
+    std::fs::create_dir_all(ws.join("sessions")).expect("create sessions dir");
+    std::fs::create_dir_all(ws.join("state")).expect("create state dir");
+    std::fs::create_dir_all(ws.join("cron")).expect("create cron dir");
     let policy = SecurityPolicy {
         workspace_dir: ws.clone(),
         action_dir: ws.join("action"),
@@ -2481,14 +2482,13 @@ fn is_workspace_internal_path_blocks_state_dirs() {
     assert!(policy.is_workspace_internal_path(&ws.join("memory_tree")));
     assert!(policy.is_workspace_internal_path(&ws.join("approval")));
     assert!(policy.is_workspace_internal_path(&ws.join("mcp_clients")));
-    std::fs::remove_dir_all(&ws).ok();
 }
 
 #[test]
 fn is_workspace_internal_path_blocks_state_files() {
-    let ws = std::env::temp_dir().join("oh_test_ws_internal_files");
-    std::fs::create_dir_all(&ws).ok();
-    std::fs::File::create(ws.join("core.token")).ok();
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let ws = tmp.path().to_path_buf();
+    std::fs::File::create(ws.join("core.token")).expect("create core.token");
     let policy = SecurityPolicy {
         workspace_dir: ws.clone(),
         action_dir: ws.join("action"),
@@ -2498,13 +2498,13 @@ fn is_workspace_internal_path_blocks_state_files() {
     assert!(policy.is_workspace_internal_path(&ws.join("dev-keychain.json")));
     assert!(policy.is_workspace_internal_path(&ws.join("SOUL.md")));
     assert!(policy.is_workspace_internal_path(&ws.join(".env")));
-    std::fs::remove_dir_all(&ws).ok();
 }
 
 #[test]
 fn is_workspace_internal_path_allows_non_internal() {
-    let ws = std::env::temp_dir().join("oh_test_ws_non_internal");
-    std::fs::create_dir_all(ws.join("projects")).ok();
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let ws = tmp.path().to_path_buf();
+    std::fs::create_dir_all(ws.join("projects")).expect("create projects dir");
     let policy = SecurityPolicy {
         workspace_dir: ws.clone(),
         action_dir: ws.join("action"),
@@ -2513,13 +2513,13 @@ fn is_workspace_internal_path_allows_non_internal() {
     assert!(!policy.is_workspace_internal_path(&ws.join("projects")));
     assert!(!policy.is_workspace_internal_path(&ws.join("projects").join("my-app")));
     assert!(!policy.is_workspace_internal_path(&std::env::temp_dir().join("other")));
-    std::fs::remove_dir_all(&ws).ok();
 }
 
 #[test]
 fn is_path_string_allowed_blocks_workspace_internal() {
-    let ws = std::env::temp_dir().join("oh_test_path_blocked");
-    std::fs::create_dir_all(ws.join("memory")).ok();
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let ws = tmp.path().to_path_buf();
+    std::fs::create_dir_all(ws.join("memory")).expect("create memory dir");
     let policy = SecurityPolicy {
         workspace_dir: ws.clone(),
         action_dir: ws.join("action"),
@@ -2531,7 +2531,6 @@ fn is_path_string_allowed_blocks_workspace_internal() {
         !policy.is_path_string_allowed(&memory_path.to_string_lossy()),
         "absolute path to workspace internal dir should be blocked"
     );
-    std::fs::remove_dir_all(&ws).ok();
 }
 
 #[test]

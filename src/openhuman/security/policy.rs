@@ -826,8 +826,19 @@ impl SecurityPolicy {
         let expanded = self.expand_tilde(path);
         let expanded_path = Path::new(&expanded);
 
-        // Block agent access to internal state paths under workspace_dir.
-        {
+        // Credential stores are never reachable, even via a trusted-root grant.
+        if Self::is_always_forbidden(expanded_path) {
+            return false;
+        }
+
+        // A trusted root grants access to its subtree, taking precedence over
+        // workspace_only and forbidden_paths. Read-vs-write is enforced by the
+        // operation-specific validators (validate_path / validate_parent_path).
+        let in_trusted_root = self.is_within_trusted_root(expanded_path, false);
+
+        // Block agent access to internal state paths under workspace_dir
+        // (unless the path falls under an explicitly granted trusted root).
+        if !in_trusted_root {
             let check = if expanded_path.is_absolute() {
                 expanded_path.to_path_buf()
             } else {
@@ -842,16 +853,6 @@ impl SecurityPolicy {
                 return false;
             }
         }
-
-        // Credential stores are never reachable, even via a trusted-root grant.
-        if Self::is_always_forbidden(expanded_path) {
-            return false;
-        }
-
-        // A trusted root grants access to its subtree, taking precedence over
-        // workspace_only and forbidden_paths. Read-vs-write is enforced by the
-        // operation-specific validators (validate_path / validate_parent_path).
-        let in_trusted_root = self.is_within_trusted_root(expanded_path, false);
 
         // Block absolute paths when workspace_only is set (unless trusted-rooted).
         if self.workspace_only && expanded_path.is_absolute() && !in_trusted_root {

@@ -772,7 +772,7 @@ async fn run_job_command_with_timeout(
     let child = match Command::new("sh")
         .arg("-lc")
         .arg(&job.command)
-        .current_dir(&config.workspace_dir)
+        .current_dir(&config.action_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

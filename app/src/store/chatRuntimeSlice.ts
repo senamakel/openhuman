@@ -40,6 +40,8 @@ export interface SubagentActivity {
   agentId: string;
   /** High-level status: `"running"`, `"awaiting_user"`, `"completed"`, `"failed"`. */
   status?: string;
+  /** Human-readable display name from the agent registry (e.g. "Researcher"). */
+  displayName?: string;
   /**
    * Persistent worker sub-thread id (`worker-<uuid>`) backing this
    * delegation, when one was created. Lets the drawer reopen the full

@@ -73,6 +73,10 @@ pub enum AgentProgress {
         /// full parent↔subagent conversation from memory after the live
         /// turn ends. `None` for live-only runs (no parent context).
         worker_thread_id: Option<String>,
+        /// Human-readable display name from the agent registry (e.g.
+        /// "Researcher", "Coding Agent"). Falls back to `agent_id` in
+        /// the UI when absent.
+        display_name: Option<String>,
     },
 
     /// A sub-agent completed successfully.

@@ -145,6 +145,7 @@ impl TurnStateMirror {
                 mode,
                 dedicated_thread,
                 worker_thread_id,
+                display_name,
                 ..
             } => {
                 self.state.phase = Some(TurnPhase::Subagent);
@@ -155,7 +156,7 @@ impl TurnStateMirror {
                     round: self.state.iteration,
                     status: ToolTimelineStatus::Running,
                     args_buffer: None,
-                    display_name: Some(agent_id.clone()),
+                    display_name: display_name.clone().or_else(|| Some(agent_id.clone())),
                     detail: None,
                     source_tool_name: Some("spawn_subagent".to_string()),
                     subagent: Some(SubagentActivity {

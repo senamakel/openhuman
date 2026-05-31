@@ -651,6 +651,26 @@ fn config_schema_helpers_cover_provider_voice_agent_and_channel_defaults() {
     migrate_legacy_fields(&mut custom_legacy);
     assert_eq!(custom_legacy.label, "Custom");
     assert!(custom_legacy.endpoint.is_empty());
+    let mut sumopod_legacy = CloudProviderCreds {
+        id: "provider-sumopod".to_string(),
+        legacy_type: Some("sumopod".to_string()),
+        ..CloudProviderCreds::default()
+    };
+    migrate_legacy_fields(&mut sumopod_legacy);
+    assert_eq!(sumopod_legacy.slug, "sumopod");
+    assert_eq!(sumopod_legacy.label, "SumoPod");
+    assert_eq!(sumopod_legacy.endpoint, "https://ai.sumopod.com/v1");
+    assert_eq!(sumopod_legacy.auth_style, AuthStyle::Bearer);
+    let mut minimax_legacy = CloudProviderCreds {
+        id: "provider-minimax".to_string(),
+        legacy_type: Some("minimax".to_string()),
+        ..CloudProviderCreds::default()
+    };
+    migrate_legacy_fields(&mut minimax_legacy);
+    assert_eq!(minimax_legacy.slug, "minimax");
+    assert_eq!(minimax_legacy.label, "MiniMax");
+    assert_eq!(minimax_legacy.endpoint, "https://api.minimax.io/anthropic");
+    assert_eq!(minimax_legacy.auth_style, AuthStyle::Anthropic);
     assert_eq!(AuthStyle::OpenhumanJwt.as_str(), "openhuman_jwt");
     assert_eq!(AuthStyle::Anthropic.as_str(), "anthropic");
     assert_eq!(AuthStyle::None.as_str(), "none");

@@ -3186,6 +3186,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         dedicated_thread: true,
         prompt_chars: 99,
         worker_thread_id: None,
+        display_name: None,
     }));
     assert!(!mirror.observe(&AgentProgress::SubagentIterationStarted {
         agent_id: "researcher".into(),

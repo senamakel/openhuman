@@ -3189,6 +3189,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         task_id: "task-1".into(),
         iteration: 1,
         max_iterations: 3,
+        extended_policy: false,
     }));
     assert!(!mirror.observe(&AgentProgress::SubagentToolCallStarted {
         agent_id: "researcher".into(),

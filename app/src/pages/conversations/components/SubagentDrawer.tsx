@@ -197,10 +197,11 @@ export function SubagentDrawer({
               <span className={`rounded-full px-1.5 py-0.5 ${tone.pill}`}>
                 {t(`conversations.subagent.${tone.label}`)}
               </span>
-              {subagent.childIteration != null && subagent.childMaxIterations != null ? (
+              {subagent.childIteration != null ? (
                 <span>
-                  {t('conversations.toolTimeline.turn')} {subagent.childIteration}/
-                  {subagent.childMaxIterations}
+                  {subagent.childMaxIterations != null
+                    ? `${t('conversations.toolTimeline.turn')} ${subagent.childIteration}/${subagent.childMaxIterations}`
+                    : `${t('conversations.toolTimeline.step')} ${subagent.childIteration}`}
                 </span>
               ) : subagent.iterations != null ? (
                 <span>

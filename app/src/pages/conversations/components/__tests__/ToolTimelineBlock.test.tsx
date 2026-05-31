@@ -36,6 +36,17 @@ describe('SubagentActivityBlock', () => {
     expect(block.textContent).toContain('turn 2/5');
   });
 
+  it('renders "step N" when childMaxIterations is null (extended policy)', () => {
+    renderInStore(
+      <SubagentActivityBlock
+        subagent={{ taskId: 't', agentId: 'code_executor', childIteration: 7, toolCalls: [] }}
+      />
+    );
+    const block = screen.getByTestId('subagent-activity');
+    expect(block.textContent).toContain('step 7');
+    expect(block.textContent).not.toContain('/');
+  });
+
   it('renders final-run statistics on a completed sub-agent', () => {
     renderInStore(
       <SubagentActivityBlock

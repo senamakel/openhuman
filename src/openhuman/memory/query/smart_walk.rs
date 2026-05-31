@@ -1156,6 +1156,8 @@ fn count_files_recursive(dir: &Path) -> usize {
 
 // ── Model resolution ────────────────────────────────────────────────────────
 
+const DEFAULT_SMART_WALK_MODEL: &str = "summarization-v1";
+
 fn resolve_walk_model(config: &Config) -> String {
     // 1. Explicit smart_walk_model config takes priority
     if let Some(ref swm) = config.memory_tree.smart_walk_model {
@@ -1163,14 +1165,8 @@ fn resolve_walk_model(config: &Config) -> String {
             return swm.clone();
         }
     }
-    // 2. Fall back to memory provider
-    if let Some(ref mp) = config.memory_provider {
-        if !mp.is_empty() && mp != "cloud" {
-            return mp.clone();
-        }
-    }
-    // 3. Fall back to chat model
-    config.local_ai.chat_model_id.clone()
+    // 2. Default to summarization-v1 (routed through the OpenHuman backend)
+    DEFAULT_SMART_WALK_MODEL.to_string()
 }
 
 // ── Tool call parser ────────────────────────────────────────────────────────

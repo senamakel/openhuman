@@ -213,6 +213,7 @@ impl Tool for ContinueSubagentTool {
                     dedicated_thread: false,
                     prompt_chars: message.chars().count(),
                     worker_thread_id: checkpoint.worker_thread_id.clone(),
+                    display_name: definition.display_name.clone(),
                 })
                 .await;
         }

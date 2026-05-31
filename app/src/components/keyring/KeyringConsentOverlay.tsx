@@ -59,7 +59,11 @@ const KeyringConsentOverlay = () => {
 
   return (
     <div className="fixed inset-0 z-[10000] bg-stone-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-amber-500/30 bg-stone-900 p-6 shadow-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyring-consent-title"
+        className="w-full max-w-lg rounded-2xl border border-amber-500/30 bg-stone-900 p-6 shadow-2xl">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
             <svg
@@ -75,7 +79,9 @@ const KeyringConsentOverlay = () => {
               />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-white">{t('keyring.consent.title')}</h2>
+          <h2 id="keyring-consent-title" className="text-lg font-semibold text-white">
+            {t('keyring.consent.title')}
+          </h2>
         </div>
 
         <p className="text-sm text-stone-300">{t('keyring.consent.description')}</p>

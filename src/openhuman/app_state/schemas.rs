@@ -166,7 +166,7 @@ mod tests {
         let s = app_state_schemas("update_local_state");
         assert_eq!(s.namespace, "app_state");
         assert_eq!(s.function, "update_local_state");
-        assert_eq!(s.inputs.len(), 2);
+        assert_eq!(s.inputs.len(), 3);
         for input in &s.inputs {
             assert!(!input.required, "input '{}' should be optional", input.name);
         }

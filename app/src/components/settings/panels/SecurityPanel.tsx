@@ -33,34 +33,33 @@ const SecurityPanel = () => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const { snapshot } = useCoreState();
   const { t } = useT();
-  const [isRetrying, setIsRetrying] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const keyringStatus = snapshot.keyringStatus;
   const modeBadge = MODE_BADGE[keyringStatus.activeMode] ?? MODE_BADGE.consent_pending;
 
   const handleRetryProbe = async () => {
-    setIsRetrying(true);
+    setIsLoading(true);
     setError(null);
     try {
       await retryKeyringProbe();
     } catch {
       setError(t('keyring.settings.retryFailed'));
     } finally {
-      setIsRetrying(false);
+      setIsLoading(false);
     }
   };
 
   const handleConsentChange = async (mode: 'local_encrypted' | 'declined') => {
-    setIsUpdating(true);
+    setIsLoading(true);
     setError(null);
     try {
       await decideKeyringConsent(mode);
     } catch {
       setError(t('keyring.consent.error'));
     } finally {
-      setIsUpdating(false);
+      setIsLoading(false);
     }
   };
 
@@ -113,9 +112,9 @@ const SecurityPanel = () => {
             <button
               type="button"
               onClick={handleRetryProbe}
-              disabled={isRetrying}
+              disabled={isLoading}
               className="mt-3 rounded-lg border border-stone-300 dark:border-stone-600 px-3 py-1.5 text-xs text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 disabled:opacity-60">
-              {isRetrying ? t('keyring.consent.retrying') : t('keyring.settings.retryButton')}
+              {isLoading ? t('keyring.consent.retrying') : t('keyring.settings.retryButton')}
             </button>
           </div>
         </section>
@@ -134,7 +133,7 @@ const SecurityPanel = () => {
                 <button
                   type="button"
                   onClick={() => handleConsentChange('local_encrypted')}
-                  disabled={isUpdating}
+                  disabled={isLoading}
                   className="rounded-lg bg-ocean-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-600 disabled:opacity-60">
                   {t('keyring.settings.grantConsent')}
                 </button>
@@ -143,7 +142,7 @@ const SecurityPanel = () => {
                 <button
                   type="button"
                   onClick={() => handleConsentChange('declined')}
-                  disabled={isUpdating}
+                  disabled={isLoading}
                   className="rounded-lg border border-stone-300 dark:border-stone-600 px-3 py-1.5 text-xs text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 disabled:opacity-60">
                   {t('keyring.settings.revokeConsent')}
                 </button>

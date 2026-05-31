@@ -89,24 +89,47 @@ pub fn current_status() -> KeyringStatus {
     }
 }
 
-/// Record the user's consent decision: update the in-memory cache and return
-/// the preference for the RPC caller to persist via `update_local_state`.
-pub fn record_consent(mode: &str) -> ConsentPreference {
+/// Build a consent preference value without touching the in-memory cache.
+///
+/// Callers that need to persist before caching should use this together with
+/// [`apply_consent`]: build → persist → apply. This ordering ensures the cache
+/// and disk never diverge (if persistence fails the cache is not updated).
+pub fn build_consent_preference(mode: &str) -> ConsentPreference {
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-
-    let pref = ConsentPreference {
+    ConsentPreference {
         storage_mode: mode.to_string(),
         consented_at_ms: Some(now_ms),
-    };
+    }
+}
 
-    info!("{LOG_PREFIX} record_consent mode={mode} at_ms={now_ms}");
-
+/// Apply a previously-built consent preference to the in-memory cache.
+///
+/// Call this only after the preference has been successfully persisted to disk.
+pub fn apply_consent(pref: &ConsentPreference) {
+    info!(
+        "{LOG_PREFIX} apply_consent mode={} at_ms={}",
+        pref.storage_mode,
+        pref.consented_at_ms.unwrap_or(0),
+    );
     *CONSENT_CACHE.write() = Some(pref.clone());
     CONSENT_EVENT_PUBLISHED.store(false, Ordering::SeqCst);
+}
 
+/// Record the user's consent decision: update the in-memory cache and return
+/// the preference for the RPC caller to persist via `update_local_state`.
+///
+/// Prefer the [`build_consent_preference`] + [`apply_consent`] pair when you
+/// need to guarantee persistence happens before the cache is updated.
+pub fn record_consent(mode: &str) -> ConsentPreference {
+    let pref = build_consent_preference(mode);
+    info!(
+        "{LOG_PREFIX} record_consent mode={mode} at_ms={}",
+        pref.consented_at_ms.unwrap_or(0)
+    );
+    apply_consent(&pref);
     pref
 }
 

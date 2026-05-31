@@ -3,19 +3,26 @@
 //! All public functions delegate to the active backend selected by [`crate::openhuman::keyring::store`].
 
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use chacha20poly1305::aead::{rand_core::RngCore, OsRng};
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 
 use crate::openhuman::keyring::error::KeyringError;
 use crate::openhuman::keyring::store::backend;
 
-// Cached result of the keychain probe. Uses RwLock<Option<bool>> instead of
-// OnceLock so the cache can be reset for retry-probe flows (the user retries
-// keychain access from Settings after granting OS permission).
-static AVAILABILITY_CACHE: RwLock<Option<bool>> = RwLock::new(None);
-static AVAILABILITY_PROBED: AtomicBool = AtomicBool::new(false);
+// Cached result of the keychain probe. A single Mutex<Option<bool>> is used
+// instead of a separate AtomicBool + RwLock pair to eliminate the race where
+// thread A sets AVAILABILITY_PROBED=true before writing the result, causing
+// thread B to read None from the cache and incorrectly return false.
+//
+// With a single Mutex the first thread to acquire it runs the probe and stores
+// the result; all other threads block on the Mutex until the result is ready,
+// then read it on the same lock acquisition.
+//
+// The Mutex is never held across async suspension points so contention is
+// bounded to the probe duration (a single keychain round-trip on the first
+// call, a pointer read on every subsequent call).
+static AVAILABILITY_CACHE: Mutex<Option<bool>> = Mutex::new(None);
 
 // ── Outcome type ─────────────────────────────────────────────────────────────
 
@@ -96,20 +103,15 @@ pub fn delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
 /// the macOS access-permission dialogs they trigger) when polled by
 /// wallet guards or snapshot loops.
 pub fn is_available() -> bool {
-    {
-        let cached = AVAILABILITY_CACHE.read();
-        if let Some(val) = *cached {
-            return val;
-        }
+    let mut cached = AVAILABILITY_CACHE.lock();
+    if let Some(val) = *cached {
+        return val;
     }
-    if !AVAILABILITY_PROBED.swap(true, Ordering::SeqCst) {
-        let result = probe_availability();
-        *AVAILABILITY_CACHE.write() = Some(result);
-        result
-    } else {
-        let cached = AVAILABILITY_CACHE.read();
-        cached.unwrap_or(false)
-    }
+    // First caller: run the probe under the lock so concurrent callers block
+    // until the result is ready rather than racing on a separate atomic flag.
+    let result = probe_availability();
+    *cached = Some(result);
+    result
 }
 
 /// Reset the cached probe result so the next [`is_available`] call re-runs
@@ -117,8 +119,7 @@ pub fn is_available() -> bool {
 /// keychain access from Settings.
 pub fn reset_availability_cache() {
     log::info!("[keyring] reset_availability_cache: clearing cached probe result");
-    AVAILABILITY_PROBED.store(false, Ordering::SeqCst);
-    *AVAILABILITY_CACHE.write() = None;
+    *AVAILABILITY_CACHE.lock() = None;
 }
 
 /// Returns the name of the active keyring backend (e.g. `"os"`, `"file"`,

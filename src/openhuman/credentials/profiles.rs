@@ -211,10 +211,28 @@ impl AuthProfilesStore {
             "[auth] AuthProfilesStore::new state_dir={} user_id={user_id} use_keychain={use_keychain} policy={policy:?}",
             state_dir.display()
         );
-        if !use_keychain {
-            log::info!(
-                "[auth] keychain unavailable or consent pending — using encrypted JSON for auth profiles user_id={user_id} policy={policy:?}"
-            );
+        match policy {
+            crate::openhuman::keyring_consent::PolicyDecision::Proceed => {
+                if !use_keychain {
+                    // OS keychain unavailable despite Proceed policy (probe failed).
+                    log::info!(
+                        "[auth] OS keychain unavailable — using encrypted JSON for auth profiles user_id={user_id}"
+                    );
+                }
+            }
+            crate::openhuman::keyring_consent::PolicyDecision::ConsentRequired => {
+                log::warn!(
+                    "[auth] keyring consent has not been given — secrets will NOT be persisted \
+                     to the OS keychain until the user grants consent. \
+                     Falling back to encrypted JSON for auth profiles user_id={user_id}"
+                );
+            }
+            crate::openhuman::keyring_consent::PolicyDecision::Declined => {
+                log::warn!(
+                    "[auth] user explicitly declined OS keychain storage — \
+                     using encrypted JSON for auth profiles user_id={user_id}"
+                );
+            }
         }
         Self {
             path: state_dir.join(PROFILES_FILENAME),

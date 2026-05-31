@@ -26,9 +26,15 @@ pub async fn keyring_consent_decide(mode: String) -> Result<RpcOutcome<ConsentPr
     }
     log::info!("{LOG_PREFIX} keyring_consent_decide mode={mode}");
 
-    let pref = policy::record_consent(&mode);
+    // Build the preference value without touching the in-memory cache yet.
+    let pref = policy::build_consent_preference(&mode);
 
+    // Persist to disk first. If this fails we return an error without
+    // updating the cache, so cache and disk stay consistent.
     persist_consent(&pref).await?;
+
+    // Only update the in-memory cache after a successful persist.
+    policy::apply_consent(&pref);
 
     Ok(RpcOutcome::single_log(
         pref,

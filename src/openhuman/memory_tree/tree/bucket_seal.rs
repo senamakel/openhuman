@@ -505,7 +505,11 @@ pub(crate) async fn seal_one_level(
             tree_scope: Some(tree.scope.clone()),
             level: Some(target_level),
             item_count: None,
-            detail: Some(format!("summary {} ({} tokens)", &summary_id[..summary_id.len().min(16)], output.token_count)),
+            detail: Some(format!(
+                "summary {} ({} tokens)",
+                &summary_id[..summary_id.len().min(16)],
+                output.token_count
+            )),
         },
     );
 

@@ -140,13 +140,12 @@ pub async fn ingest_document_with_scope(
         );
         return Ok(IngestResult::already_ingested(source_id));
     }
-    let canonical =
-        match document::canonicalise(source_id, owner, &tags, doc, path_scope)
-            .map_err(anyhow::Error::msg)?
-        {
-            Some(c) => c,
-            None => return Ok(IngestResult::empty(source_id)),
-        };
+    let canonical = match document::canonicalise(source_id, owner, &tags, doc, path_scope)
+        .map_err(anyhow::Error::msg)?
+    {
+        Some(c) => c,
+        None => return Ok(IngestResult::empty(source_id)),
+    };
     persist(config, source_id, canonical).await
 }
 

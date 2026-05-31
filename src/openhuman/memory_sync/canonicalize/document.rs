@@ -205,7 +205,9 @@ mod tests {
     fn blank_source_ref_is_dropped() {
         let mut input = doc("x", "y");
         input.source_ref = Some(" \n ".into());
-        let out = canonicalise("d1", "alice", &[], input, None).unwrap().unwrap();
+        let out = canonicalise("d1", "alice", &[], input, None)
+            .unwrap()
+            .unwrap();
         assert!(out.metadata.source_ref.is_none());
     }
 

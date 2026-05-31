@@ -111,7 +111,10 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
         None,
         None,
         None,
-        Some(format!("chunk {}", &payload.chunk_id[..payload.chunk_id.len().min(16)])),
+        Some(format!(
+            "chunk {}",
+            &payload.chunk_id[..payload.chunk_id.len().min(16)]
+        )),
     );
 
     let scoring_cfg = score::ScoringConfig::from_config(config);
@@ -163,7 +166,10 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
         None,
         None,
         None,
-        Some(format!("chunk {}", &payload.chunk_id[..payload.chunk_id.len().min(16)])),
+        Some(format!(
+            "chunk {}",
+            &payload.chunk_id[..payload.chunk_id.len().min(16)]
+        )),
     );
 
     let active_sig = chunk_store::tree_active_signature(config);
@@ -352,7 +358,11 @@ async fn handle_append_buffer(config: &Config, job: &Job) -> Result<JobOutcome> 
         Some(&tree.scope),
         Some(0),
         None,
-        Some(format!("leaf {} → tree {}", &leaf.chunk_id[..leaf.chunk_id.len().min(16)], &tree.scope)),
+        Some(format!(
+            "leaf {} → tree {}",
+            &leaf.chunk_id[..leaf.chunk_id.len().min(16)],
+            &tree.scope
+        )),
     );
 
     let leaf_for_tx = leaf.clone();
@@ -466,7 +476,11 @@ async fn handle_seal(config: &Config, job: &Job) -> Result<JobOutcome> {
         Some(&tree.scope),
         Some(payload.level),
         Some(buf.item_ids.len() as u32),
-        Some(format!("{} items, {} tokens", buf.item_ids.len(), buf.token_sum)),
+        Some(format!(
+            "{} items, {} tokens",
+            buf.item_ids.len(),
+            buf.token_sum
+        )),
     );
 
     let summary_id = seal_one_level(config, &tree, &buf, &strategy, true).await?;
@@ -477,7 +491,10 @@ async fn handle_seal(config: &Config, job: &Job) -> Result<JobOutcome> {
         Some(&tree.scope),
         Some(payload.level),
         Some(buf.item_ids.len() as u32),
-        Some(format!("summary {}", &summary_id[..summary_id.len().min(16)])),
+        Some(format!(
+            "summary {}",
+            &summary_id[..summary_id.len().min(16)]
+        )),
     );
 
     // Phase MD-content: rewrite the `tags:` block in the sealed summary's

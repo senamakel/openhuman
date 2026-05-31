@@ -314,9 +314,11 @@ async fn canonicalizers_clean_sort_and_preserve_metadata() {
         modified_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
         source_ref: Some(" ".into()),
     };
-    assert!(canonicalise_document("doc:empty", "alice", &[], empty_doc, None)
-        .unwrap()
-        .is_none());
+    assert!(
+        canonicalise_document("doc:empty", "alice", &[], empty_doc, None)
+            .unwrap()
+            .is_none()
+    );
 
     let older = Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
     let newer = Utc.timestamp_millis_opt(1_700_000_060_000).unwrap();

@@ -511,8 +511,7 @@ async fn ensure_bare_clone(owner: &str, repo: &str, cache_dir: &Path) -> Result<
     }
 
     if let Some(parent) = cache_dir.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("create cache dir: {e}"))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("create cache dir: {e}"))?;
     }
 
     let clone_url = format!("https://github.com/{owner}/{repo}.git");
@@ -849,11 +848,15 @@ async fn read_issue(
     use_gh: bool,
 ) -> Result<SourceContent, String> {
     let cache_key = format!("{owner}/{repo}:issue:{number}");
-    let from_cache = LIST_CACHE.lock().ok().and_then(|mut c| c.remove(&cache_key));
+    let from_cache = LIST_CACHE
+        .lock()
+        .ok()
+        .and_then(|mut c| c.remove(&cache_key));
     let issue: GhIssue = match from_cache {
         Some(CachedItem::Issue(i)) => i,
         _ => {
-            let json_str = fetch_github(&format!("repos/{owner}/{repo}/issues/{number}"), use_gh).await?;
+            let json_str =
+                fetch_github(&format!("repos/{owner}/{repo}/issues/{number}"), use_gh).await?;
             serde_json::from_str(&json_str).map_err(|e| format!("parse issue: {e}"))?
         }
     };
@@ -908,11 +911,15 @@ async fn read_pr(
     use_gh: bool,
 ) -> Result<SourceContent, String> {
     let cache_key = format!("{owner}/{repo}:pr:{number}");
-    let from_cache = LIST_CACHE.lock().ok().and_then(|mut c| c.remove(&cache_key));
+    let from_cache = LIST_CACHE
+        .lock()
+        .ok()
+        .and_then(|mut c| c.remove(&cache_key));
     let pr: GhPr = match from_cache {
         Some(CachedItem::Pr(p)) => p,
         _ => {
-            let json_str = fetch_github(&format!("repos/{owner}/{repo}/pulls/{number}"), use_gh).await?;
+            let json_str =
+                fetch_github(&format!("repos/{owner}/{repo}/pulls/{number}"), use_gh).await?;
             serde_json::from_str(&json_str).map_err(|e| format!("parse PR: {e}"))?
         }
     };

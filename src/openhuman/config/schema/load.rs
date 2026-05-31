@@ -133,6 +133,9 @@ pub fn default_root_openhuman_dir() -> Result<PathBuf> {
 /// Environment override for the agent's default projects directory.
 pub const PROJECTS_DIR_ENV_VAR: &str = "OPENHUMAN_PROJECTS_DIR";
 
+/// Environment override for the agent action sandbox directory.
+pub const ACTION_DIR_ENV_VAR: &str = "OPENHUMAN_ACTION_DIR";
+
 /// The agent's default **projects home** — a visible, read-write directory
 /// (`~/OpenHuman/projects`) where the coding agent creates and saves projects,
 /// kept distinct from the hidden internal state dir (`~/.openhuman/workspace`,
@@ -150,6 +153,20 @@ pub fn default_projects_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
         .join("OpenHuman")
         .join("projects")
+}
+
+/// The agent's default **action sandbox** — the directory where shell, file,
+/// and git tools run by default. Separate from the internal workspace state
+/// dir. Defaults to `default_projects_dir()` (`~/OpenHuman/projects`);
+/// overridable via `OPENHUMAN_ACTION_DIR`.
+pub fn default_action_dir() -> PathBuf {
+    if let Ok(p) = std::env::var(ACTION_DIR_ENV_VAR) {
+        let trimmed = p.trim();
+        if !trimmed.is_empty() {
+            return PathBuf::from(trimmed);
+        }
+    }
+    default_projects_dir()
 }
 
 fn active_workspace_state_path(default_dir: &Path) -> PathBuf {
@@ -1019,6 +1036,7 @@ impl Config {
             let mut config = Config {
                 config_path: config_path.clone(),
                 workspace_dir: workspace_dir.clone(),
+                action_dir: default_action_dir(),
                 ..Default::default()
             };
             config.apply_env_overrides_from(env);
@@ -1115,6 +1133,7 @@ impl Config {
                 parse_config_with_recovery(&config_path, &contents).await;
             config.config_path = config_path.clone();
             config.workspace_dir = workspace_dir;
+            config.action_dir = default_action_dir();
             migrate_legacy_autocomplete_disabled_apps(&mut config);
             migrate_legacy_inference_url(&mut config);
             migrate_cloud_provider_slugs(&mut config);
@@ -1177,6 +1196,7 @@ impl Config {
             let mut config = Config {
                 config_path: config_path.clone(),
                 workspace_dir,
+                action_dir: default_action_dir(),
                 schema_version: crate::openhuman::migrations::CURRENT_SCHEMA_VERSION,
                 ..Default::default()
             };
@@ -1225,6 +1245,7 @@ impl Config {
             let mut config = Config {
                 config_path,
                 workspace_dir,
+                action_dir: default_action_dir(),
                 ..Default::default()
             };
             config.apply_env_overrides();
@@ -1239,6 +1260,7 @@ impl Config {
         let (mut config, _was_corrupted) = parse_config_with_recovery(&config_path, &raw).await;
         config.config_path = config_path;
         config.workspace_dir = workspace_dir;
+        config.action_dir = default_action_dir();
         config.apply_env_overrides();
         decrypt_config_secrets(&mut config, &openhuman_dir)?;
         Ok(config)
@@ -1261,6 +1283,7 @@ impl Config {
             let mut config = Config {
                 config_path,
                 workspace_dir,
+                action_dir: default_action_dir(),
                 ..Default::default()
             };
             config.apply_env_overrides_from(&ProcessEnvWithoutWorkspace);
@@ -1274,6 +1297,7 @@ impl Config {
             parse_config_with_recovery(&config_path, &raw).await;
         config.config_path = config_path;
         config.workspace_dir = workspace_dir;
+        config.action_dir = default_action_dir();
         migrate_legacy_autocomplete_disabled_apps(&mut config);
         migrate_legacy_inference_url(&mut config);
         migrate_cloud_provider_slugs(&mut config);
@@ -1348,6 +1372,13 @@ impl Config {
                 let (_, workspace_dir) =
                     resolve_config_dir_for_workspace(&PathBuf::from(workspace));
                 self.workspace_dir = workspace_dir;
+            }
+        }
+
+        if let Some(v) = env.get("OPENHUMAN_ACTION_DIR") {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                self.action_dir = PathBuf::from(trimmed);
             }
         }
 

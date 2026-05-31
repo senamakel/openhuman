@@ -1348,6 +1348,7 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
             ..SecurityPolicy::default()
         }),
         config.workspace_dir.clone(),
+        config.workspace_dir.clone(),
     );
     let live_policy_auto_approved = APPROVAL_CHAT_CONTEXT
         .scope(

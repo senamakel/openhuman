@@ -186,7 +186,7 @@ fn allowed_commands_include_windows_read_equivalents() {
 #[test]
 fn config_default_policy_includes_windows_read_equivalents() {
     let cfg = crate::openhuman::config::AutonomyConfig::default();
-    let p = SecurityPolicy::from_config(&cfg, std::path::Path::new("."));
+    let p = SecurityPolicy::from_config(&cfg, std::path::Path::new("."), std::path::Path::new("."));
     for command in [
         "dir",
         "type README.md",
@@ -205,7 +205,7 @@ fn config_default_policy_includes_windows_read_equivalents() {
 #[test]
 fn config_default_policy_allows_prompt_date_command() {
     let cfg = crate::openhuman::config::AutonomyConfig::default();
-    let p = SecurityPolicy::from_config(&cfg, std::path::Path::new("."));
+    let p = SecurityPolicy::from_config(&cfg, std::path::Path::new("."), std::path::Path::new("."));
 
     assert!(
         p.is_command_allowed("date"),
@@ -999,7 +999,7 @@ fn from_config_maps_all_fields() {
         ..crate::openhuman::config::AutonomyConfig::default()
     };
     let workspace = PathBuf::from("/tmp/test-workspace");
-    let policy = SecurityPolicy::from_config(&autonomy_config, &workspace);
+    let policy = SecurityPolicy::from_config(&autonomy_config, &workspace, &workspace);
 
     assert_eq!(policy.autonomy, AutonomyLevel::Full);
     assert!(!policy.workspace_only);
@@ -1492,7 +1492,7 @@ fn from_config_creates_fresh_tracker() {
         ..crate::openhuman::config::AutonomyConfig::default()
     };
     let workspace = PathBuf::from("/tmp/test");
-    let policy = SecurityPolicy::from_config(&autonomy_config, &workspace);
+    let policy = SecurityPolicy::from_config(&autonomy_config, &workspace, &workspace);
     assert_eq!(policy.tracker.count(), 0);
     assert!(!policy.is_rate_limited());
 }
@@ -2296,7 +2296,8 @@ fn supervised_runs_approved_redirects_but_blocks_hidden_execution() {
 #[test]
 fn from_config_grants_default_projects_dir_as_readwrite_root() {
     let cfg = crate::openhuman::config::AutonomyConfig::default();
-    let policy = SecurityPolicy::from_config(&cfg, StdPath::new("/tmp/ws"));
+    let policy =
+        SecurityPolicy::from_config(&cfg, StdPath::new("/tmp/ws"), StdPath::new("/tmp/ws"));
     let projects = crate::openhuman::config::default_projects_dir()
         .to_string_lossy()
         .to_string();
@@ -2323,7 +2324,8 @@ fn from_config_does_not_duplicate_user_granted_projects_root() {
         }],
         ..crate::openhuman::config::AutonomyConfig::default()
     };
-    let policy = SecurityPolicy::from_config(&cfg, StdPath::new("/tmp/ws"));
+    let policy =
+        SecurityPolicy::from_config(&cfg, StdPath::new("/tmp/ws"), StdPath::new("/tmp/ws"));
     let matches: Vec<_> = policy
         .trusted_roots
         .iter()
@@ -2439,4 +2441,85 @@ async fn validate_parent_path_uses_same_cache_as_validate_path() {
         Some(&cached),
         "validate_path must reuse the cache hydrated by validate_parent_path"
     );
+}
+
+// ── action sandbox (issue #3052) ──────────────────────────────────────────
+
+#[test]
+fn is_workspace_internal_path_blocks_state_dirs() {
+    let ws = std::env::temp_dir().join("oh_test_ws_internal");
+    std::fs::create_dir_all(ws.join("memory")).ok();
+    std::fs::create_dir_all(ws.join("sessions")).ok();
+    std::fs::create_dir_all(ws.join("state")).ok();
+    std::fs::create_dir_all(ws.join("cron")).ok();
+    let policy = SecurityPolicy {
+        workspace_dir: ws.clone(),
+        action_dir: ws.join("action"),
+        ..SecurityPolicy::default()
+    };
+    assert!(policy.is_workspace_internal_path(&ws.join("memory")));
+    assert!(policy.is_workspace_internal_path(&ws.join("memory").join("namespaces")));
+    assert!(policy.is_workspace_internal_path(&ws.join("sessions")));
+    assert!(policy.is_workspace_internal_path(&ws.join("state")));
+    assert!(policy.is_workspace_internal_path(&ws.join("cron")));
+    assert!(policy.is_workspace_internal_path(&ws.join("memory_tree")));
+    assert!(policy.is_workspace_internal_path(&ws.join("approval")));
+    assert!(policy.is_workspace_internal_path(&ws.join("mcp_clients")));
+    std::fs::remove_dir_all(&ws).ok();
+}
+
+#[test]
+fn is_workspace_internal_path_blocks_state_files() {
+    let ws = std::env::temp_dir().join("oh_test_ws_internal_files");
+    std::fs::create_dir_all(&ws).ok();
+    std::fs::File::create(ws.join("core.token")).ok();
+    let policy = SecurityPolicy {
+        workspace_dir: ws.clone(),
+        action_dir: ws.join("action"),
+        ..SecurityPolicy::default()
+    };
+    assert!(policy.is_workspace_internal_path(&ws.join("core.token")));
+    assert!(policy.is_workspace_internal_path(&ws.join("dev-keychain.json")));
+    assert!(policy.is_workspace_internal_path(&ws.join("SOUL.md")));
+    assert!(policy.is_workspace_internal_path(&ws.join(".env")));
+    std::fs::remove_dir_all(&ws).ok();
+}
+
+#[test]
+fn is_workspace_internal_path_allows_non_internal() {
+    let ws = std::env::temp_dir().join("oh_test_ws_non_internal");
+    std::fs::create_dir_all(ws.join("projects")).ok();
+    let policy = SecurityPolicy {
+        workspace_dir: ws.clone(),
+        action_dir: ws.join("action"),
+        ..SecurityPolicy::default()
+    };
+    assert!(!policy.is_workspace_internal_path(&ws.join("projects")));
+    assert!(!policy.is_workspace_internal_path(&ws.join("projects").join("my-app")));
+    assert!(!policy.is_workspace_internal_path(&std::env::temp_dir().join("other")));
+    std::fs::remove_dir_all(&ws).ok();
+}
+
+#[test]
+fn is_path_string_allowed_blocks_workspace_internal() {
+    let ws = std::env::temp_dir().join("oh_test_path_blocked");
+    std::fs::create_dir_all(ws.join("memory")).ok();
+    let policy = SecurityPolicy {
+        workspace_dir: ws.clone(),
+        action_dir: ws.join("action"),
+        workspace_only: false,
+        ..SecurityPolicy::default()
+    };
+    let memory_path = ws.join("memory").join("test.db");
+    assert!(
+        !policy.is_path_string_allowed(&memory_path.to_string_lossy()),
+        "absolute path to workspace internal dir should be blocked"
+    );
+    std::fs::remove_dir_all(&ws).ok();
+}
+
+#[test]
+fn action_dir_in_default_policy() {
+    let policy = SecurityPolicy::default();
+    assert_eq!(policy.action_dir, std::path::PathBuf::from("."));
 }

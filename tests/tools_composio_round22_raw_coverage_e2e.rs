@@ -353,6 +353,7 @@ async fn round22_cron_add_tool_covers_validation_and_markdown_edges() {
     let security = Arc::new(SecurityPolicy::from_config(
         &harness.config.autonomy,
         &harness.config.workspace_dir,
+        &harness.config.workspace_dir,
     ));
 
     harness.config.cron.enabled = false;
@@ -459,6 +460,7 @@ async fn round22_tool_registry_covers_config_gated_registration() {
 
     let security = Arc::new(SecurityPolicy::from_config(
         &harness.config.autonomy,
+        &harness.workspace,
         &harness.workspace,
     ));
     let memory: Arc<dyn Memory> = Arc::new(StubMemory);

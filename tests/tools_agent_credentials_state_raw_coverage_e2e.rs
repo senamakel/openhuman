@@ -447,6 +447,7 @@ fn browser_tool(endpoint: String, workspace: &Path) -> BrowserTool {
     let security = Arc::new(SecurityPolicy::from_config(
         &Config::default().autonomy,
         workspace,
+        workspace,
     ));
     BrowserTool::new_with_backend(
         security,
@@ -571,6 +572,7 @@ fn round16_all_tools_registry_branches_and_browser_allowlist() {
         Arc::new(cfg.clone()),
         &Arc::new(SecurityPolicy::from_config(
             &cfg.autonomy,
+            &harness.workspace,
             &harness.workspace,
         )),
         AuditLogger::disabled(),

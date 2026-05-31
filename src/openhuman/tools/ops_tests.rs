@@ -1436,6 +1436,7 @@ async fn readonly_acting_tools_carry_policy_blocked_marker() {
     let sec = Arc::new(SecurityPolicy {
         autonomy: AutonomyLevel::ReadOnly,
         workspace_dir: tmp.path().to_path_buf(),
+        action_dir: tmp.path().to_path_buf(),
         ..SecurityPolicy::default()
     });
 

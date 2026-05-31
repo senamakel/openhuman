@@ -482,6 +482,7 @@ mod tests {
         let security = Arc::new(SecurityPolicy::from_config(
             &config.autonomy,
             &config.workspace_dir,
+            &config.workspace_dir,
         ));
         (tmp, config, security)
     }
@@ -600,6 +601,7 @@ mod tests {
         let security = Arc::new(SecurityPolicy::from_config(
             &config.autonomy,
             &config.workspace_dir,
+            &config.workspace_dir,
         ));
 
         let tool = ScheduleTool::new(security, config);
@@ -643,6 +645,7 @@ mod tests {
         let security = Arc::new(SecurityPolicy::from_config(
             &config.autonomy,
             &config.workspace_dir,
+            &config.workspace_dir,
         ));
         let tool = ScheduleTool::new(security, config);
 
@@ -667,6 +670,7 @@ mod tests {
         std::fs::create_dir_all(&config.workspace_dir).unwrap();
         let security = Arc::new(SecurityPolicy::from_config(
             &config.autonomy,
+            &config.workspace_dir,
             &config.workspace_dir,
         ));
         let tool = ScheduleTool::new(security, config);
@@ -694,6 +698,7 @@ mod tests {
         let security = Arc::new(SecurityPolicy::from_config(
             &config.autonomy,
             &config.workspace_dir,
+            &config.workspace_dir,
         ));
         let tool = ScheduleTool::new(security, config);
         assert_eq!(tool.permission_level(), PermissionLevel::ReadOnly);
@@ -710,6 +715,7 @@ mod tests {
         std::fs::create_dir_all(&config.workspace_dir).unwrap();
         let security = Arc::new(SecurityPolicy::from_config(
             &config.autonomy,
+            &config.workspace_dir,
             &config.workspace_dir,
         ));
         let tool = ScheduleTool::new(security, config);
@@ -753,6 +759,7 @@ mod tests {
         std::fs::create_dir_all(&config.workspace_dir).unwrap();
         let security = Arc::new(SecurityPolicy::from_config(
             &config.autonomy,
+            &config.workspace_dir,
             &config.workspace_dir,
         ));
         let tool = ScheduleTool::new(security, config);

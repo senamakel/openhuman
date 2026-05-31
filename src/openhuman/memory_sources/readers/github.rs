@@ -457,24 +457,46 @@ async fn list_issues(
     max: u32,
     use_gh: bool,
 ) -> Result<Vec<SourceItem>, String> {
-    // The issues endpoint interleaves PRs; we fetch `max` rows then drop PRs,
-    // so the issue count may be < max. That mirrors "most recent N items"
-    // semantics without a second pass.
-    let issues: Vec<GhIssue> =
-        fetch_all_pages(owner, repo, "issues", "state=all", max, use_gh).await?;
+    // The `/issues` endpoint interleaves PRs. Page through FULL pages
+    // (per_page=100) and accumulate only non-PR items until we've collected
+    // `max` actual issues or the endpoint is exhausted — otherwise a repo with
+    // many interleaved PRs would yield fewer than `max` issues. We can't reuse
+    // `fetch_all_pages` here because it shrinks `per_page` to the raw-row
+    // remainder and counts PRs against the budget.
+    let mut out: Vec<SourceItem> = Vec::new();
+    let mut page = 1u32;
 
-    Ok(issues
-        .into_iter()
-        .filter(|i| i.pull_request.is_none()) // filter out PRs from issues endpoint
-        .map(|i| {
+    while (out.len() as u32) < max && page <= GH_MAX_PAGES {
+        let path =
+            format!("repos/{owner}/{repo}/issues?per_page={GH_PAGE_SIZE}&page={page}&state=all");
+        let json_str = fetch_github(&path, use_gh).await?;
+        let batch: Vec<GhIssue> = serde_json::from_str(&json_str)
+            .map_err(|e| format!("parse issues page {page}: {e}"))?;
+        let got = batch.len();
+
+        for i in batch {
+            if i.pull_request.is_some() {
+                continue; // drop PRs surfaced by the issues endpoint
+            }
             let ts = i.updated_at.as_deref().and_then(parse_iso_ts);
-            SourceItem {
+            out.push(SourceItem {
                 id: format!("issue:{}", i.number),
                 title: format!("#{} {}", i.number, i.title),
                 updated_at_ms: ts,
+            });
+            if out.len() as u32 >= max {
+                break;
             }
-        })
-        .collect())
+        }
+
+        // Short page ⇒ no more rows upstream.
+        if got < GH_PAGE_SIZE as usize {
+            break;
+        }
+        page += 1;
+    }
+
+    Ok(out)
 }
 
 async fn list_prs(

@@ -2,18 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import type { GraphEdge, GraphNode } from '../../utils/tauriCommands';
 import {
+  buildGraph,
   CONTACT_COLOR,
+  createSimulation,
   LEAF_COLOR,
   LEVEL_COLOR,
-  buildGraph,
-  createSimulation,
   levelColor,
   nodeColor,
   nodeGlows,
   nodeRadius,
   pickNode,
-  supportsWebGL,
   type SimNode,
+  supportsWebGL,
 } from './memoryGraphLayout';
 
 function summary(overrides: Partial<GraphNode> = {}): GraphNode {

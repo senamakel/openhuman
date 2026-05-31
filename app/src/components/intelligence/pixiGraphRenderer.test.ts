@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SimLink, SimNode } from './memoryGraphLayout';
+import { mountPixiGraph } from './pixiGraphRenderer';
 
 // Minimal Pixi stubs that record the handlers the renderer wires up so we
 // can drive them from the test. Shared with the mock via vi.hoisted.
@@ -62,7 +63,10 @@ const h = vi.hoisted(() => {
       this.children.push(c);
     }
     toLocal(p: { x: number; y: number }) {
-      return { x: (p.x - this.position.x) / this.scale.x, y: (p.y - this.position.y) / this.scale.y };
+      return {
+        x: (p.x - this.position.x) / this.scale.x,
+        y: (p.y - this.position.y) / this.scale.y,
+      };
     }
     on(ev: string, cb: (e: unknown) => void) {
       state.stageHandlers[ev] = cb;
@@ -101,8 +105,6 @@ vi.mock('pixi.js', () => ({
   Container: h.Container,
   Graphics: h.Graphics,
 }));
-
-import { mountPixiGraph } from './pixiGraphRenderer';
 
 function makeNodes(): SimNode[] {
   return [

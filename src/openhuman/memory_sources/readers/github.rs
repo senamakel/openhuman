@@ -902,6 +902,16 @@ mod tests {
     }
 
     #[test]
+    fn unique_handles_dedups_and_skips_unknown() {
+        assert_eq!(
+            unique_handles(["alice", "bob", "alice", "unknown", ""].into_iter()),
+            "@alice @bob"
+        );
+        assert_eq!(unique_handles(["unknown", ""].into_iter()), "none");
+        assert_eq!(unique_handles(std::iter::empty()), "none");
+    }
+
+    #[test]
     fn raw_archive_coords_maps_kind_and_uid() {
         assert_eq!(
             raw_archive_coords("commit:deadbeef"),

@@ -356,3 +356,47 @@ fn archive_github_raw(
         "[memory_sources:github] archived raw item"
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::github_item_is_high_priority;
+    use crate::openhuman::memory_sources::types::{ContentType, SourceContent};
+
+    fn content_with(meta: serde_json::Value) -> SourceContent {
+        SourceContent {
+            id: "x".into(),
+            title: "t".into(),
+            body: "b".into(),
+            content_type: ContentType::Markdown,
+            metadata: meta,
+        }
+    }
+
+    #[test]
+    fn commits_are_always_high_priority() {
+        let c = content_with(serde_json::json!({}));
+        assert!(github_item_is_high_priority("commit:abc123", &c));
+    }
+
+    #[test]
+    fn closed_issue_is_high_priority_open_is_not() {
+        let closed = content_with(serde_json::json!({ "state": "closed" }));
+        assert!(github_item_is_high_priority("issue:1", &closed));
+        let open = content_with(serde_json::json!({ "state": "open" }));
+        assert!(!github_item_is_high_priority("issue:1", &open));
+    }
+
+    #[test]
+    fn merged_pr_is_high_priority_even_when_open_state() {
+        let merged = content_with(serde_json::json!({ "state": "open", "merged": true }));
+        assert!(github_item_is_high_priority("pr:7", &merged));
+        let unmerged = content_with(serde_json::json!({ "state": "open", "merged": false }));
+        assert!(!github_item_is_high_priority("pr:7", &unmerged));
+    }
+
+    #[test]
+    fn missing_metadata_defaults_to_low_priority() {
+        let c = content_with(serde_json::json!({}));
+        assert!(!github_item_is_high_priority("issue:9", &c));
+    }
+}

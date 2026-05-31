@@ -51,6 +51,7 @@ const TOOL_ID_TO_RUST_NAMES: &[(&str, &[&str])] = &[
         "skill_manage",
         &["skill_create", "skill_install_from_url", "skill_uninstall"],
     ),
+    ("thread_destructive", &["thread_delete", "thread_purge_all"]),
 ];
 
 /// All Rust tool names that are filterable (union of all mapping values).

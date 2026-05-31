@@ -284,6 +284,25 @@ pub fn all_tools_with_runtime(
         Box::new(SkillCreateTool::new(config.clone())),
         Box::new(SkillInstallFromUrlTool::new(config.clone())),
         Box::new(SkillUninstallTool),
+        // Threads (conversation) tools. Read/bounded-write ship default-ON;
+        // the destructive thread_delete / thread_purge_all ship default-OFF
+        // via `tools::user_filter` (thread_destructive toggle).
+        Box::new(ThreadListTool),
+        Box::new(ThreadReadTool),
+        Box::new(ThreadCreateTool),
+        Box::new(ThreadUpdateTitleTool),
+        Box::new(ThreadUpdateLabelsTool),
+        Box::new(ThreadMessageListTool),
+        Box::new(ThreadMessageAppendTool),
+        Box::new(ThreadMessageUpdateTool),
+        Box::new(ThreadTitleGenerateTool),
+        Box::new(ThreadTurnStateGetTool),
+        Box::new(ThreadTurnStateListTool),
+        Box::new(ThreadTurnStateClearTool),
+        Box::new(ThreadTaskBoardReadTool::new(config.clone())),
+        Box::new(ThreadTaskBoardWriteTool::new(config.clone())),
+        Box::new(ThreadDeleteTool),
+        Box::new(ThreadPurgeAllTool),
     ];
 
     if browser_config.enabled {

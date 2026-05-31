@@ -1512,3 +1512,171 @@ async fn readonly_acting_tools_carry_policy_blocked_marker() {
         );
     }
 }
+
+// ── Agent-tool expansion: Knowledge & memory ────────────────────────────────
+//
+// Registration + default-OFF user-filter posture for the knowledge theme
+// (vault / people / skills / threads). Learning lands in a follow-up.
+
+/// Build the full registry with a disabled browser + tmp workspace, for the
+/// knowledge-theme registration/filter tests.
+fn knowledge_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
+    let security = Arc::new(SecurityPolicy::default());
+    let mem = test_memory(tmp);
+    let browser = BrowserConfig {
+        enabled: false,
+        allowed_domains: vec![],
+        session_name: None,
+        ..BrowserConfig::default()
+    };
+    let http = crate::openhuman::config::HttpRequestConfig::default();
+    let cfg = test_config(tmp);
+    all_tools(
+        Arc::new(cfg.clone()),
+        &security,
+        AuditLogger::disabled(),
+        mem,
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    )
+}
+
+/// All knowledge-theme tools that must be registered.
+const KNOWLEDGE_TOOLS: &[&str] = &[
+    // vault
+    "vault_list",
+    "vault_get",
+    "vault_files",
+    "vault_create",
+    "vault_sync",
+    "vault_sync_status",
+    "vault_remove",
+    // people
+    "people_list",
+    "people_resolve",
+    "people_score",
+    "people_get",
+    "people_add_alias",
+    "people_record_interaction",
+    "people_refresh_address_book",
+    // skills
+    "skill_list",
+    "skill_describe",
+    "skill_read_resource",
+    "skill_recent_runs",
+    "skill_read_run_log",
+    "skill_create",
+    "skill_install_from_url",
+    "skill_uninstall",
+    // threads
+    "thread_list",
+    "thread_read",
+    "thread_create",
+    "thread_update_title",
+    "thread_update_labels",
+    "thread_message_list",
+    "thread_message_append",
+    "thread_message_update",
+    "thread_title_generate",
+    "thread_turn_state_get",
+    "thread_turn_state_list",
+    "thread_turn_state_clear",
+    "thread_task_board_read",
+    "thread_task_board_write",
+    "thread_delete",
+    "thread_purge_all",
+];
+
+/// Overextending knowledge tools that ship default-OFF.
+const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
+    "vault_remove",
+    "people_refresh_address_book",
+    "skill_create",
+    "skill_install_from_url",
+    "skill_uninstall",
+    "thread_delete",
+    "thread_purge_all",
+];
+
+/// Knowledge read/bounded-write siblings that stay always-on.
+const KNOWLEDGE_ALWAYS_ON: &[&str] = &[
+    "vault_list",
+    "vault_create",
+    "people_list",
+    "people_resolve",
+    "skill_list",
+    "skill_recent_runs",
+    "thread_list",
+    "thread_create",
+];
+
+#[test]
+fn knowledge_tools_are_registered() {
+    let tmp = TempDir::new().unwrap();
+    let tools = knowledge_tools_for(&tmp);
+    let names = tool_names(&tools);
+    assert_contains_all(&names, KNOWLEDGE_TOOLS);
+}
+
+#[test]
+fn knowledge_default_off_tools_are_filtered_when_not_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = knowledge_tools_for(&tmp);
+    filter_tools_by_user_preference(&mut tools, &["file_read".to_string()]);
+    let names = tool_names(&tools);
+    for off in KNOWLEDGE_DEFAULT_OFF {
+        assert!(
+            !names.iter().any(|n| n == off),
+            "default-off tool `{off}` must be filtered out when not opted in; got: {names:?}"
+        );
+    }
+    for on in KNOWLEDGE_ALWAYS_ON {
+        assert!(
+            names.iter().any(|n| n == on),
+            "always-on tool `{on}` must be retained regardless of preferences"
+        );
+    }
+}
+
+#[test]
+fn knowledge_default_off_tools_retained_when_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = knowledge_tools_for(&tmp);
+    filter_tools_by_user_preference(
+        &mut tools,
+        &[
+            "vault_remove".to_string(),
+            "people_refresh_address_book".to_string(),
+            "skill_manage".to_string(),
+            "thread_destructive".to_string(),
+        ],
+    );
+    let names = tool_names(&tools);
+    for on in KNOWLEDGE_DEFAULT_OFF {
+        assert!(
+            names.iter().any(|n| n == on),
+            "opted-in tool `{on}` must be retained; got: {names:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn vault_list_through_registry_returns_envelope() {
+    // A fresh workspace has no registered vaults; listing must still succeed
+    // end-to-end through the boxed registry and return a JSON array.
+    let tmp = TempDir::new().unwrap();
+    let tools = knowledge_tools_for(&tmp);
+    let list = find_tool(&tools, "vault_list");
+    let out = list
+        .execute(serde_json::json!({}))
+        .await
+        .expect("vault_list");
+    let body = out.output_for_llm(false);
+    assert!(
+        body.starts_with('['),
+        "expected a JSON array of vaults: {body}"
+    );
+}

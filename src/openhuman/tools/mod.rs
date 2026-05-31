@@ -22,6 +22,7 @@ pub use crate::openhuman::memory::tools::*;
 pub use crate::openhuman::people::tools::*;
 pub use crate::openhuman::search::tools::*;
 pub use crate::openhuman::skills::tools::*;
+pub use crate::openhuman::threads::tools::*;
 pub use crate::openhuman::vault::tools::*;
 pub use crate::openhuman::wallet::tools::*;
 pub use crate::openhuman::whatsapp_data::tools::*;

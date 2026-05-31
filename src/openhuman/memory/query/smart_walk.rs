@@ -1456,4 +1456,182 @@ mod tests {
         assert!(inventory.contains("Documents"));
         assert!(inventory.contains("Wiki summaries"));
     }
+
+    // ── Staging integration tests (run with --ignored) ────────────────
+
+    fn staging_content_root() -> Option<std::path::PathBuf> {
+        let path = std::path::PathBuf::from(
+            "/Users/enamakel/.openhuman-staging/users/69d9cb73e61f755583c3671f/workspace/memory_tree/content",
+        );
+        if path.exists() {
+            Some(path)
+        } else {
+            None
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn staging_keyword_search_finds_steven() {
+        let content_root = staging_content_root().expect("staging content not available");
+        let mut results = Vec::new();
+        search_dir_recursive(
+            &content_root.join("raw"),
+            "steven",
+            &mut results,
+            &content_root,
+        );
+        println!("keyword 'steven': {} results", results.len());
+        for r in results.iter().take(5) {
+            println!("  {}", r);
+        }
+        assert!(!results.is_empty(), "should find 'steven' in staging raw content");
+    }
+
+    #[test]
+    #[ignore]
+    fn staging_content_inventory() {
+        let content_root = staging_content_root().expect("staging content not available");
+        let inventory = build_content_inventory(&content_root);
+        println!("Inventory:\n{}", inventory);
+        assert!(inventory.contains("Raw content"));
+        assert!(inventory.contains("Documents"));
+    }
+
+    #[test]
+    #[ignore]
+    fn staging_list_sources_shows_github() {
+        let content_root = staging_content_root().expect("staging content not available");
+        let call = InnerCall {
+            name: "list_sources".into(),
+            args: serde_json::json!({"content_type": "all"}),
+        };
+        let (_, result, _, _) = dispatch_list_sources(&content_root, &call);
+        println!("list_sources:\n{}", result);
+        assert!(result.contains("raw/"), "should list raw sources");
+    }
+
+    #[test]
+    #[ignore]
+    fn staging_read_wiki_summary() {
+        let content_root = staging_content_root().expect("staging content not available");
+        let wiki_dir = content_root.join("wiki").join("summaries");
+        if !wiki_dir.exists() {
+            println!("no wiki summaries found — skipping");
+            return;
+        }
+        // Find first summary file
+        let first = walkdir_first_md(&wiki_dir);
+        if let Some(path) = first {
+            let rel = path
+                .strip_prefix(&content_root)
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            println!("Reading wiki: {}", rel);
+            let call = InnerCall {
+                name: "read_content".into(),
+                args: serde_json::json!({"path": rel}),
+            };
+            let (_, result, _, _) = dispatch_read_content(&content_root, &call);
+            println!("Content preview: {}", &result[..result.len().min(300)]);
+            assert!(
+                !result.starts_with("error"),
+                "should read wiki file without error"
+            );
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn staging_read_episodic_memory() {
+        let content_root = staging_content_root().expect("staging content not available");
+        let ep_dir = content_root.join("episodic");
+        if !ep_dir.exists() {
+            println!("no episodic memories — skipping");
+            return;
+        }
+        let first = walkdir_first_md(&ep_dir);
+        if let Some(path) = first {
+            let rel = path
+                .strip_prefix(&content_root)
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            println!("Reading episodic: {}", rel);
+            let call = InnerCall {
+                name: "read_content".into(),
+                args: serde_json::json!({"path": rel}),
+            };
+            let (_, result, _, _) = dispatch_read_content(&content_root, &call);
+            println!("Content preview: {}", &result[..result.len().min(300)]);
+            assert!(
+                !result.starts_with("error"),
+                "should read episodic file without error"
+            );
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn staging_full_smart_walk_keyword_pipeline() {
+        let content_root = staging_content_root().expect("staging content not available");
+
+        // Simulate the pipeline: list_sources → keyword_search → read_content
+        let call = InnerCall {
+            name: "list_sources".into(),
+            args: serde_json::json!({"content_type": "raw"}),
+        };
+        let (_, sources, _, _) = dispatch_list_sources(&content_root, &call);
+        println!("Step 1 - Sources:\n{}", sources);
+
+        let call = InnerCall {
+            name: "keyword_search".into(),
+            args: serde_json::json!({"pattern": "memory", "content_type": "all"}),
+        };
+        let (_, search_result, _, _) = dispatch_keyword_search(&content_root, &call);
+        println!("Step 2 - Search 'memory':\n{}", search_result);
+
+        if search_result.contains("[") {
+            // Extract first file path from results
+            if let Some(path_start) = search_result.find('[') {
+                if let Some(path_end) = search_result[path_start + 1..].find(']') {
+                    let file_path =
+                        &search_result[path_start + 1..path_start + 1 + path_end];
+                    println!("Step 3 - Reading: {}", file_path);
+                    let call = InnerCall {
+                        name: "read_content".into(),
+                        args: serde_json::json!({"path": file_path}),
+                    };
+                    let (_, content, _, _) = dispatch_read_content(&content_root, &call);
+                    println!(
+                        "Step 3 - Content ({} chars): {}",
+                        content.len(),
+                        &content[..content.len().min(200)]
+                    );
+                    assert!(
+                        !content.starts_with("error"),
+                        "pipeline should complete without errors"
+                    );
+                }
+            }
+        }
+    }
+
+    fn walkdir_first_md(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+        fn recurse(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+            for entry in std::fs::read_dir(dir).ok()?.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    if let Some(found) = recurse(&path) {
+                        return Some(found);
+                    }
+                } else if path.extension().map_or(false, |e| e == "md") {
+                    return Some(path);
+                }
+            }
+            None
+        }
+        recurse(dir)
+    }
 }

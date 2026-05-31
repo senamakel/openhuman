@@ -269,3 +269,4 @@ pub async fn status_list_rpc() -> Result<RpcOutcome<StatusListResponse>, String>
     let statuses = crate::openhuman::memory_sources::status::status_list(&config).await?;
     Ok(RpcOutcome::new(StatusListResponse { statuses }, vec![]))
 }
+

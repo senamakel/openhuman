@@ -407,6 +407,7 @@ fn handle_status_list(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move { to_json(rpc::status_list_rpc().await?) })
 }
 
+
 fn parse_value<T: DeserializeOwned>(v: Value) -> Result<T, String> {
     serde_json::from_value(v).map_err(|e| format!("invalid params: {e}"))
 }

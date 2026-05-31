@@ -78,7 +78,7 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                 "[memory_sources:sync] dispatching by kind"
             );
             let outcome = match source.kind {
-                SourceKind::Composio => sync_composio(&source, config).await,
+                SourceKind::Composio => sync_composio(&source, config.clone()).await,
                 SourceKind::GithubRepo => {
                     crate::openhuman::memory_sync::sources::github::run_github_sync(
                         &source, &config,
@@ -111,6 +111,10 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                         Some(&source.id),
                         Some(format!("ingested {items} item(s)")),
                     );
+
+                    // Auto-rebuild: if raw files exist but the tree has
+                    // no summaries, build the tree now.
+                    check_and_rebuild_tree(&source, &config).await;
                 }
                 Err(error) => {
                     emit_sync_stage(
@@ -282,4 +286,100 @@ async fn sync_items_individually(
         .await;
 
     Ok(ingested.load(Ordering::Relaxed))
+}
+
+/// Derive the tree scope(s) for a source and rebuild from raw if needed.
+async fn check_and_rebuild_tree(source: &MemorySourceEntry, config: &Config) {
+    use crate::openhuman::memory_sync::sources::rebuild::{needs_rebuild, rebuild_tree_from_raw};
+
+    let scopes = derive_scopes(source, config);
+    for scope in scopes {
+        if !needs_rebuild(config, &scope) {
+            continue;
+        }
+        tracing::info!(
+            source_id = %source.id,
+            scope = %scope,
+            "[memory_sources:sync] auto-rebuilding tree from raw"
+        );
+        match rebuild_tree_from_raw(config, &scope).await {
+            Ok(outcome) => {
+                tracing::info!(
+                    scope = %scope,
+                    files = outcome.files_read,
+                    batches = outcome.batches,
+                    cost = %format!("${:.4}", outcome.estimated_cost_usd),
+                    "[memory_sources:sync] rebuild complete"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(
+                    scope = %scope,
+                    error = %format!("{e:#}"),
+                    "[memory_sources:sync] rebuild failed"
+                );
+            }
+        }
+    }
+}
+
+/// Derive the tree scope string(s) that a source maps to.
+fn derive_scopes(source: &MemorySourceEntry, config: &Config) -> Vec<String> {
+    use crate::openhuman::memory_sources::readers::github;
+    use crate::openhuman::memory_store::content::raw::slug_account_email;
+
+    match source.kind {
+        SourceKind::GithubRepo => {
+            // GitHub sync already builds its own tree — but check anyway.
+            source
+                .url
+                .as_deref()
+                .and_then(github::repo_chunk_scope)
+                .into_iter()
+                .collect()
+        }
+        SourceKind::Composio => {
+            // Composio sources scope by toolkit + connection email.
+            // Gmail: "gmail:<slug_account_email>"
+            // Others: "composio:<toolkit>:<connection_id>"
+            let toolkit = source.toolkit.as_deref().unwrap_or("unknown");
+            match toolkit {
+                "gmail" | "GMAIL" => {
+                    // The scope for gmail is "gmail:<slugified_email>".
+                    // We scan the raw directory to find it.
+                    let content_root = config.memory_tree_content_root();
+                    let raw_dir = content_root.join("raw");
+                    if let Ok(entries) = std::fs::read_dir(&raw_dir) {
+                        entries
+                            .filter_map(|e| e.ok())
+                            .filter(|e| {
+                                e.file_name()
+                                    .to_str()
+                                    .map(|n| n.starts_with("gmail-"))
+                                    .unwrap_or(false)
+                            })
+                            .filter_map(|e| {
+                                // Read _source.md to get the scope.
+                                let source_md = e.path().join("_source.md");
+                                let content = std::fs::read_to_string(&source_md).ok()?;
+                                content
+                                    .lines()
+                                    .find(|l| l.starts_with("scope:"))
+                                    .map(|l| {
+                                        l.trim_start_matches("scope:")
+                                            .trim()
+                                            .trim_matches('"')
+                                            .to_string()
+                                    })
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    }
+                }
+                _ => Vec::new(),
+            }
+        }
+        _ => Vec::new(),
+    }
 }

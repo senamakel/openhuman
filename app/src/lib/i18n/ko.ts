@@ -1899,6 +1899,7 @@ const messages: TranslationMap = {
   'reflections.proposedAction': '제안된 작업',
   'reflections.act': '실행',
   'reflections.dismiss': '닫기',
+  'reflections.viewConversation': '보기',
   'whatsapp.chatsSynced': '채팅 동기화됨',
   'whatsapp.chatSynced': '채팅 동기화됨',
   'sync.active': '활성',

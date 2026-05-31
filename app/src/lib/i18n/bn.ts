@@ -1919,6 +1919,7 @@ const messages: TranslationMap = {
   'reflections.proposedAction': 'প্রস্তাবিত কাজ',
   'reflections.act': 'কাজ করুন',
   'reflections.dismiss': 'বাদ দিন',
+  'reflections.viewConversation': 'দেখুন',
   'whatsapp.chatsSynced': 'চ্যাট সিঙ্ক হয়েছে',
   'whatsapp.chatSynced': 'চ্যাট সিঙ্ক হয়েছে',
   'sync.active': 'সক্রিয়',

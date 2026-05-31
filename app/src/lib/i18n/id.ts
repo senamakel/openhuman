@@ -1922,6 +1922,7 @@ const messages: TranslationMap = {
   'reflections.proposedAction': 'Tindakan yang Diusulkan',
   'reflections.act': 'Tindakan',
   'reflections.dismiss': 'Abaikan',
+  'reflections.viewConversation': 'Lihat',
   'whatsapp.chatsSynced': 'obrolan disinkronkan',
   'whatsapp.chatSynced': 'obrolan disinkronkan',
   'sync.active': 'Aktif',

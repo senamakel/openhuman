@@ -1965,6 +1965,7 @@ const messages: TranslationMap = {
   'reflections.proposedAction': 'Action proposée',
   'reflections.act': 'Agir',
   'reflections.dismiss': 'Ignorer',
+  'reflections.viewConversation': 'Voir',
   'whatsapp.chatsSynced': 'conversations synchronisées',
   'whatsapp.chatSynced': 'conversation synchronisée',
   'sync.active': 'Actif',

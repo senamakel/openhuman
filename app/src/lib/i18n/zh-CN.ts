@@ -1822,6 +1822,7 @@ const messages: TranslationMap = {
   'reflections.proposedAction': '建议操作',
   'reflections.act': '执行',
   'reflections.dismiss': '忽略',
+  'reflections.viewConversation': '查看',
   'whatsapp.chatsSynced': '个对话已同步',
   'whatsapp.chatSynced': '个对话已同步',
   'sync.active': '活跃',

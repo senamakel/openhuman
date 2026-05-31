@@ -1881,6 +1881,7 @@ const messages: TranslationMap = {
   'reflections.proposedAction': 'الإجراء المقترح',
   'reflections.act': 'تنفيذ',
   'reflections.dismiss': 'تجاهل',
+  'reflections.viewConversation': 'عرض',
   'whatsapp.chatsSynced': 'محادثات مزامنة',
   'whatsapp.chatSynced': 'محادثة مزامنة',
   'sync.active': 'نشط',

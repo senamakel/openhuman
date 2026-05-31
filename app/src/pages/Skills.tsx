@@ -47,7 +47,7 @@ import type { ChannelConnectionStatus, ChannelDefinition, ChannelType } from '..
 import type { ToastNotification } from '../types/intelligence';
 import { IS_DEV } from '../utils/config';
 import { isLocalSessionToken } from '../utils/localSession';
-import { openhumanComposioGetMode, subconsciousEscalationsDismiss } from '../utils/tauriCommands';
+import { openhumanComposioGetMode } from '../utils/tauriCommands';
 import SkillsDashboard from './SkillsDashboard';
 
 function channelStatusLabel(status: ChannelConnectionStatus, t: (key: string) => string): string {
@@ -445,7 +445,8 @@ export default function Skills() {
         resolution,
       });
       try {
-        await subconsciousEscalationsDismiss(pendingEscalationId);
+        // Escalation dismiss removed — subconscious no longer manages tasks
+        void pendingEscalationId;
         console.debug('[skills][subconscious] dismiss escalation:success', {
           escalationId: pendingEscalationId,
           resolution,

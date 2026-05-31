@@ -1,23 +1,10 @@
-import type { Dispatch, FormEvent, SetStateAction } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { setSelectedThread } from '../../store/threadSlice';
-import type {
-  SubconsciousEscalation,
-  SubconsciousLogEntry,
-  SubconsciousStatus,
-  SubconsciousTask,
-} from '../../utils/tauriCommands/subconscious';
+import type { SubconsciousStatus } from '../../utils/tauriCommands/subconscious';
 import SubconsciousReflectionCards from './SubconsciousReflectionCards';
-
-const SKILL_KEYWORDS =
-  /\bskill\b|\boauth\b|\bnotion\b|\bgmail\b|\bintegration\b|\bdisconnect|\breconnect|\bre-?auth/i;
-
-function isSkillRelated(title: string, description: string): boolean {
-  return SKILL_KEYWORDS.test(title) || SKILL_KEYWORDS.test(description);
-}
 
 function formatInterval(minutes: number, t: (key: string) => string): string {
   switch (minutes) {
@@ -42,58 +29,14 @@ function formatInterval(minutes: number, t: (key: string) => string): string {
   }
 }
 
-function formatPriority(priority: string, t: (key: string) => string): string {
-  switch (priority) {
-    case 'critical':
-      return t('subconscious.priority.critical');
-    case 'important':
-      return t('subconscious.priority.important');
-    default:
-      return t('subconscious.priority.normal');
-  }
-}
-
-function formatDuration(durationMs: number, t: (key: string) => string): string {
-  if (durationMs > 1000) {
-    return t('subconscious.durationSeconds').replace('{seconds}', (durationMs / 1000).toFixed(1));
-  }
-  return t('subconscious.durationMilliseconds').replace('{milliseconds}', String(durationMs));
-}
-
 interface IntelligenceSubconsciousTabProps {
-  addSubconsciousTask: (title: string) => Promise<void>;
-  approveEscalation: (escalationId: string) => Promise<void>;
-  dismissEscalation: (escalationId: string) => Promise<void>;
-  expandedLogIds: Set<string>;
-  logEntries: SubconsciousLogEntry[];
-  newTaskTitle: string;
-  removeSubconsciousTask: (taskId: string) => Promise<void>;
-  setExpandedLogIds: Dispatch<SetStateAction<Set<string>>>;
-  setNewTaskTitle: (value: string) => void;
   status: SubconsciousStatus | null;
-  tasks: SubconsciousTask[];
-  toggleSubconsciousTask: (taskId: string, enabled: boolean) => Promise<void>;
   triggerTick: () => Promise<void>;
   triggering: boolean;
-  escalations: SubconsciousEscalation[];
-  loading: boolean;
 }
 
 export default function IntelligenceSubconsciousTab({
-  addSubconsciousTask,
-  approveEscalation,
-  dismissEscalation,
-  escalations,
-  expandedLogIds,
-  loading,
-  logEntries,
-  newTaskTitle,
-  removeSubconsciousTask,
-  setExpandedLogIds,
-  setNewTaskTitle,
   status,
-  tasks,
-  toggleSubconsciousTask,
   triggerTick,
   triggering,
 }: IntelligenceSubconsciousTabProps) {
@@ -105,44 +48,10 @@ export default function IntelligenceSubconsciousTab({
     ? (status?.provider_unavailable_reason ?? t('subconscious.providerUnavailableTitle'))
     : null;
 
-  // Reflection "Act" callback — sets the freshly-spawned thread as the
-  // selected one and navigates the user to the chat surface so they
-  // land in the new conversation. Reflections never write into existing
-  // threads (#623), so every act starts its own conversation.
-  //
-  // We dispatch `setSelectedThread` (NOT `setActiveThread`): the
-  // Conversations page reads `selectedThreadId` from the thread slice on
-  // mount and resumes that thread if present in the fetched list,
-  // falling back to the most recent thread otherwise. `activeThreadId`
-  // is a separate, runtime-only field used for in-flight chat-turn
-  // routing — setting it without `selectedThreadId` would not affect
-  // which thread the user lands on.
-  //
-  // Route is `/chat`, NOT `/conversations`. The repo's CLAUDE.md hash-
-  // route list is stale — `BottomTabBar` and `OpenhumanLinkModal` both
-  // navigate to `/chat`. Using `/conversations` falls through to a home
-  // redirect so the user ends up on `/home` instead of the new thread.
-  const handleNavigateToReflectionThread = (threadId: string) => {
-    console.debug('[subconscious-ui] reflection navigate:thread', { threadId });
+  const handleNavigateToThread = (threadId: string) => {
+    console.debug('[subconscious-ui] navigate:thread', { threadId });
     dispatch(setSelectedThread(threadId));
     navigate('/chat');
-  };
-
-  const handleAddTask = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const title = newTaskTitle.trim();
-    if (!title) return;
-    console.debug('[subconscious-ui] add task:start', { title });
-    try {
-      await addSubconsciousTask(title);
-      setNewTaskTitle('');
-      console.debug('[subconscious-ui] add task:success', { title });
-    } catch (error) {
-      console.debug('[subconscious-ui] add task:error', {
-        title,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
   };
 
   const handleRunTick = async () => {
@@ -157,76 +66,12 @@ export default function IntelligenceSubconsciousTab({
     }
   };
 
-  const handleApproveEscalation = async (escalationId: string) => {
-    console.debug('[subconscious-ui] escalation approve:start', { escalationId });
-    try {
-      await approveEscalation(escalationId);
-      console.debug('[subconscious-ui] escalation approve:success', { escalationId });
-    } catch (error) {
-      console.debug('[subconscious-ui] escalation approve:error', {
-        escalationId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-
-  const handleDismissEscalation = async (escalationId: string) => {
-    console.debug('[subconscious-ui] escalation dismiss:start', { escalationId });
-    try {
-      await dismissEscalation(escalationId);
-      console.debug('[subconscious-ui] escalation dismiss:success', { escalationId });
-    } catch (error) {
-      console.debug('[subconscious-ui] escalation dismiss:error', {
-        escalationId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-
-  const handleFixInSkills = (escalationId: string) => {
-    console.debug('[subconscious-ui] escalation fix in skills:navigate', { escalationId });
-    navigate('/skills', { state: { subconsciousEscalationId: escalationId } });
-  };
-
-  const handleToggleTask = async (taskId: string, enabled: boolean, title: string) => {
-    console.debug('[subconscious-ui] task toggle:start', { taskId, enabled, title });
-    try {
-      await toggleSubconsciousTask(taskId, enabled);
-      console.debug('[subconscious-ui] task toggle:success', { taskId, enabled, title });
-    } catch (error) {
-      console.debug('[subconscious-ui] task toggle:error', {
-        taskId,
-        enabled,
-        title,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-
-  const handleRemoveTask = async (taskId: string, title: string) => {
-    console.debug('[subconscious-ui] task remove:start', { taskId, title });
-    try {
-      await removeSubconsciousTask(taskId);
-      console.debug('[subconscious-ui] task remove:success', { taskId, title });
-    } catch (error) {
-      console.debug('[subconscious-ui] task remove:error', {
-        taskId,
-        title,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-
   return (
     <div className="space-y-6 animate-fade-up">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-neutral-500">
           {status && (
             <>
-              <span>
-                {status.task_count} {t('subconscious.tasks')}
-              </span>
-              <span className="text-stone-300 dark:text-neutral-600">|</span>
               <span>
                 {status.total_ticks} {t('subconscious.ticks')}
               </span>
@@ -266,9 +111,7 @@ export default function IntelligenceSubconsciousTab({
             </svg>
             <select
               value={status?.interval_minutes ?? 5}
-              onChange={() => {
-                // Config update would require restart — show as read-only for now
-              }}
+              onChange={() => {}}
               disabled
               title={t('subconscious.tickInterval')}
               className="text-xs bg-stone-50 dark:bg-neutral-800/60 border border-stone-200 dark:border-neutral-800 rounded px-1.5 py-0.5 text-stone-500 dark:text-neutral-400 cursor-not-allowed">
@@ -277,9 +120,6 @@ export default function IntelligenceSubconsciousTab({
               <option value={15}>{formatInterval(15, t)}</option>
               <option value={30}>{formatInterval(30, t)}</option>
               <option value={60}>{formatInterval(60, t)}</option>
-              <option value={360}>{formatInterval(360, t)}</option>
-              <option value={720}>{formatInterval(720, t)}</option>
-              <option value={1440}>{formatInterval(1440, t)}</option>
             </select>
           </div>
           <button
@@ -326,255 +166,9 @@ export default function IntelligenceSubconsciousTab({
       )}
 
       <SubconsciousReflectionCards
-        onNavigateToThread={handleNavigateToReflectionThread}
+        onNavigateToThread={handleNavigateToThread}
         pollIntervalMs={15_000}
       />
-
-      {escalations.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            {t('subconscious.approvalNeeded')}
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300">
-              {escalations.length}
-            </span>
-          </h3>
-          <div className="space-y-2">
-            {escalations.map(esc => (
-              <div
-                key={esc.id}
-                className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-                      {esc.title}
-                    </p>
-                    <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">
-                      {esc.description}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full ${
-                          esc.priority === 'critical'
-                            ? 'bg-coral-100 dark:bg-coral-500/20 text-coral-700 dark:text-coral-300'
-                            : esc.priority === 'important'
-                              ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                              : 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300'
-                        }`}>
-                        {formatPriority(esc.priority, t)}
-                      </span>
-                      <span className="text-[10px] text-stone-400 dark:text-neutral-500">
-                        {t('subconscious.requiresApproval')}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 ml-3 flex-shrink-0">
-                    {isSkillRelated(esc.title, esc.description) ? (
-                      <button
-                        onClick={() => handleFixInSkills(esc.id)}
-                        className="px-3 py-1.5 text-xs bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
-                        {t('subconscious.fixInConnections')}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => void handleApproveEscalation(esc.id)}
-                        className="px-3 py-1.5 text-xs bg-sage-500 hover:bg-sage-600 text-white rounded-lg transition-colors">
-                        {t('subconscious.goAhead')}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => void handleDismissEscalation(esc.id)}
-                      className="px-3 py-1.5 text-xs bg-stone-100 dark:bg-neutral-800 hover:bg-stone-200  text-stone-600 dark:text-neutral-300 rounded-lg transition-colors">
-                      {t('common.skip')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-3">
-          {t('subconscious.activeTasks')}
-        </h3>
-        {loading && tasks.length === 0 ? (
-          <div className="text-center py-4">
-            <div className="w-6 h-6 mx-auto border-2 border-stone-300 dark:border-neutral-700 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : tasks.filter(t => !t.completed).length === 0 ? (
-          <p className="text-xs text-stone-400 dark:text-neutral-500 py-3">
-            {t('subconscious.noActiveTasks')}
-          </p>
-        ) : (
-          <div className="space-y-1.5">
-            {tasks
-              .filter(t => !t.completed && t.source === 'system')
-              .map(task => (
-                <div
-                  key={task.id}
-                  className="flex items-center py-2 px-3 bg-stone-50 dark:bg-neutral-800/60 rounded-lg">
-                  <div className="w-1.5 h-1.5 rounded-full bg-sage-400 flex-shrink-0 mr-2.5" />
-                  <span className="text-sm text-stone-900 dark:text-neutral-100 truncate flex-1">
-                    {task.title}
-                  </span>
-                  <span className="text-[10px] text-stone-400 dark:text-neutral-500 flex-shrink-0 px-1.5 py-0.5 rounded bg-stone-100 dark:bg-neutral-800">
-                    {t('subconscious.default')}
-                  </span>
-                </div>
-              ))}
-            {tasks
-              .filter(t => !t.completed && t.source !== 'system')
-              .map(task => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between py-2 px-3 bg-stone-50 dark:bg-neutral-800/60 rounded-lg group">
-                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                    <button
-                      type="button"
-                      aria-pressed={task.enabled}
-                      aria-label={`${task.enabled ? t('common.disable') : t('common.enable')} ${task.title}`}
-                      onClick={() => void handleToggleTask(task.id, !task.enabled, task.title)}
-                      className={`relative w-7 h-4 rounded-full flex-shrink-0 transition-colors ${
-                        task.enabled ? 'bg-sage-500' : 'bg-stone-300'
-                      }`}>
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white dark:bg-neutral-900 shadow transition-transform ${
-                          task.enabled ? 'translate-x-3' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                    <span
-                      className={`text-sm truncate ${task.enabled ? 'text-stone-900 dark:text-neutral-100' : 'text-stone-400 dark:text-neutral-500'}`}>
-                      {task.title}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label={`${t('common.remove')} ${task.title}`}
-                    onClick={() => void handleRemoveTask(task.id, task.title)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-stone-400 dark:text-neutral-500 hover:text-coral-500 transition-all">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-          </div>
-        )}
-
-        <form onSubmit={e => void handleAddTask(e)} className="flex gap-2 mt-3">
-          <input
-            type="text"
-            placeholder={t('subconscious.addTaskPlaceholder')}
-            value={newTaskTitle}
-            onChange={e => setNewTaskTitle(e.target.value)}
-            className="flex-1 px-3 py-2 text-sm bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 rounded-lg text-stone-900 dark:text-neutral-100 placeholder-stone-400 focus:outline-none focus:border-primary-500/50 transition-colors"
-          />
-          <button
-            type="submit"
-            disabled={!newTaskTitle.trim()}
-            className="px-3 py-2 text-sm bg-primary-500 hover:bg-primary-600 disabled:opacity-40 text-white rounded-lg transition-colors">
-            {t('common.add')}
-          </button>
-        </form>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-3">
-          {t('subconscious.activityLog')}
-        </h3>
-        {logEntries.length === 0 ? (
-          <p className="text-xs text-stone-400 dark:text-neutral-500 py-3">
-            {t('subconscious.noActivity')}
-          </p>
-        ) : (
-          <div className="space-y-1 max-h-64 overflow-y-auto">
-            {logEntries.map(entry => (
-              <div key={entry.id} className="flex items-start gap-2 py-1.5 px-2 text-xs">
-                <span className="text-stone-400 dark:text-neutral-500 flex-shrink-0 w-14">
-                  {new Date(entry.tick_at * 1000).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-                <span
-                  className={`flex-shrink-0 w-1.5 h-1.5 rounded-full mt-1.5 ${
-                    entry.decision === 'act'
-                      ? 'bg-sage-400'
-                      : entry.decision === 'in_progress'
-                        ? 'bg-primary-400 animate-pulse'
-                        : entry.decision === 'escalate'
-                          ? 'bg-amber-400'
-                          : entry.decision === 'failed'
-                            ? 'bg-coral-400'
-                            : entry.decision === 'cancelled'
-                              ? 'bg-stone-300'
-                              : entry.decision === 'dismissed'
-                                ? 'bg-stone-300'
-                                : 'bg-stone-200 dark:bg-neutral-800'
-                  }`}
-                />
-                <span
-                  className={`break-words min-w-0 ${
-                    entry.decision === 'in_progress'
-                      ? 'text-stone-400 dark:text-neutral-500'
-                      : entry.decision === 'failed'
-                        ? 'text-coral-500'
-                        : 'text-stone-600 dark:text-neutral-300'
-                  } ${entry.result && entry.result.length > 120 ? 'cursor-pointer hover:text-stone-900 dark:hover:text-neutral-100 dark:text-neutral-100' : ''}`}
-                  onClick={() => {
-                    if (entry.result && entry.result.length > 120) {
-                      setExpandedLogIds(prev => {
-                        const next = new Set(prev);
-                        if (next.has(entry.id)) next.delete(entry.id);
-                        else next.add(entry.id);
-                        return next;
-                      });
-                    }
-                  }}>
-                  {entry.result
-                    ? expandedLogIds.has(entry.id)
-                      ? entry.result
-                      : entry.result.length > 120
-                        ? `${entry.result.substring(0, 120)}...`
-                        : entry.result
-                    : entry.decision === 'noop'
-                      ? t('subconscious.decision.nothingNew')
-                      : entry.decision === 'act'
-                        ? t('subconscious.decision.completed')
-                        : entry.decision === 'in_progress'
-                          ? t('subconscious.decision.evaluating')
-                          : entry.decision === 'escalate'
-                            ? t('subconscious.decision.waitingApproval')
-                            : entry.decision === 'failed'
-                              ? t('subconscious.decision.failed')
-                              : entry.decision === 'cancelled'
-                                ? t('subconscious.decision.cancelled')
-                                : entry.decision === 'dismissed'
-                                  ? t('subconscious.decision.skipped')
-                                  : entry.decision}
-                </span>
-                {entry.duration_ms != null && (
-                  <span className="text-stone-300 dark:text-neutral-600 flex-shrink-0 ml-auto">
-                    {formatDuration(entry.duration_ms, t)}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

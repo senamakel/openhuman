@@ -41,21 +41,10 @@ export default function Intelligence() {
 
   // Subconscious engine data
   const {
-    tasks: subconsciousTasks,
-    escalations,
-    logEntries,
     status: subconsciousEngineStatus,
-    loading: subconsciousLoading,
     triggering: subconsciousTriggering,
     triggerTick,
-    addTask: addSubconsciousTask,
-    removeTask: removeSubconsciousTask,
-    toggleTask: toggleSubconsciousTask,
-    approveEscalation,
-    dismissEscalation,
   } = useSubconscious();
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [expandedLogIds, setExpandedLogIds] = useState<Set<string>>(new Set());
 
   // Socket integration
   const socketManager = useIntelligenceSocketManager();
@@ -162,20 +151,7 @@ export default function Intelligence() {
 
             {activeTab === 'subconscious' && (
               <IntelligenceSubconsciousTab
-                addSubconsciousTask={addSubconsciousTask}
-                approveEscalation={approveEscalation}
-                dismissEscalation={dismissEscalation}
-                escalations={escalations}
-                expandedLogIds={expandedLogIds}
-                loading={subconsciousLoading}
-                logEntries={logEntries}
-                newTaskTitle={newTaskTitle}
-                removeSubconsciousTask={removeSubconsciousTask}
-                setExpandedLogIds={setExpandedLogIds}
-                setNewTaskTitle={setNewTaskTitle}
                 status={subconsciousEngineStatus}
-                tasks={subconsciousTasks}
-                toggleSubconsciousTask={toggleSubconsciousTask}
                 triggerTick={triggerTick}
                 triggering={subconsciousTriggering}
               />

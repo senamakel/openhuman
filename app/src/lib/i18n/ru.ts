@@ -1932,6 +1932,7 @@ const messages: TranslationMap = {
   'reflections.proposedAction': 'Предлагаемое действие',
   'reflections.act': 'Выполнить',
   'reflections.dismiss': 'Закрыть',
+  'reflections.viewConversation': 'Просмотр',
   'whatsapp.chatsSynced': 'чатов синхронизировано',
   'whatsapp.chatSynced': 'чат синхронизирован',
   'sync.active': 'Активно',

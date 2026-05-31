@@ -62,7 +62,6 @@ vi.mock('../../utils/tauriCommands', async () => {
   return {
     ...actual,
     openhumanComposioGetMode: vi.fn(async () => composioModeStatus),
-    subconsciousEscalationsDismiss: vi.fn(),
   };
 });
 

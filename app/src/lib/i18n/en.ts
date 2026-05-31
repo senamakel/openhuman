@@ -2119,6 +2119,7 @@ const en: TranslationMap = {
   'reflections.proposedAction': 'Proposed Action',
   'reflections.act': 'Act',
   'reflections.dismiss': 'Dismiss',
+  'reflections.viewConversation': 'View',
 
   // WhatsApp
   'whatsapp.chatsSynced': 'chats synced',

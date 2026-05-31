@@ -1919,6 +1919,7 @@ const messages: TranslationMap = {
   'reflections.proposedAction': 'प्रस्तावित एक्शन',
   'reflections.act': 'करें',
   'reflections.dismiss': 'हटाएं',
+  'reflections.viewConversation': 'देखें',
   'whatsapp.chatsSynced': 'चैट्स सिंक हुईं',
   'whatsapp.chatSynced': 'चैट सिंक हुई',
   'sync.active': 'एक्टिव',

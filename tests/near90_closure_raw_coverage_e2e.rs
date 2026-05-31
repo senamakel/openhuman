@@ -760,17 +760,17 @@ if [[ "${1:-}" != "api" ]]; then
   exit 2
 fi
 case "${2:-}" in
-  repos/tinyhumansai/openhuman/commits?per_page=30)
+  repos/tinyhumansai/openhuman/commits\?*)
     cat <<'JSON'
 [{"sha":"def456","commit":{"message":"Round20 commit fixture","author":{"name":"Ada","email":"ada@example.test","date":"2026-05-29T00:00:00Z"},"committer":{"name":"Ada","email":"ada@example.test","date":"2026-05-29T00:00:00Z"}}}]
 JSON
     ;;
-  repos/tinyhumansai/openhuman/issues?per_page=30\&state=all)
+  repos/tinyhumansai/openhuman/issues\?*)
     cat <<'JSON'
 [{"number":20,"title":"Round20 issue","body":null,"state":"closed","user":null,"labels":[],"created_at":null,"updated_at":"2026-05-29T00:30:00Z","pull_request":null}]
 JSON
     ;;
-  repos/tinyhumansai/openhuman/pulls?per_page=30\&state=all)
+  repos/tinyhumansai/openhuman/pulls\?*)
     cat <<'JSON'
 [{"number":21,"title":"Round20 merged PR","body":null,"state":"closed","user":null,"labels":[],"created_at":null,"updated_at":"2026-05-29T01:00:00Z","merged_at":"2026-05-29T01:00:00Z","comments":0}]
 JSON
@@ -780,7 +780,7 @@ JSON
 {"number":21,"title":"Round20 merged PR","body":null,"state":"closed","user":null,"labels":[],"created_at":null,"updated_at":"2026-05-29T01:00:00Z","merged_at":"2026-05-29T01:00:00Z","comments":0}
 JSON
     ;;
-  repos/tinyhumansai/openhuman/issues/21/comments?per_page=50)
+  repos/tinyhumansai/openhuman/issues/21/comments\?*)
     cat <<'JSON'
 []
 JSON

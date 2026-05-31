@@ -30,9 +30,10 @@ use crate::openhuman::memory_store::chunks::store::{set_chunk_raw_refs, RawRef};
 use crate::openhuman::memory_store::content::raw::{self as raw_store, raw_rel_path, RawItem};
 use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
 use crate::openhuman::memory_sync::composio::{self, SyncReason};
-use crate::openhuman::memory_tree::tree::bucket_seal::{self, LeafRef, LabelStrategy};
-use crate::openhuman::memory_tree::tree::flush::force_flush_tree;
-use crate::openhuman::memory_tree::tree::TreeFactory;
+use crate::openhuman::memory_tree::summarise::{
+    fallback_summary, summarise, SummaryContext, SummaryInput,
+};
+use crate::openhuman::memory_store::trees::types::TreeKind;
 
 const SYNC_CONCURRENCY: usize = 10;
 
@@ -192,9 +193,9 @@ async fn sync_via_reader(source: &MemorySourceEntry, config: Config) -> Result<u
     sync_items_individually(source, &config, &items).await
 }
 
-/// GitHub bulk path: read all items, push them directly into the L0
-/// buffer, then force-seal. One LLM call for the summary instead of
-/// one per chunk.
+/// GitHub bulk path: read all items, build SummaryInputs, call the
+/// summariser once. No per-chunk queue, no per-chunk extraction — one
+/// LLM call produces the merged summary.
 async fn sync_github_bulk(
     source: &MemorySourceEntry,
     config: &Config,
@@ -218,7 +219,7 @@ async fn sync_github_bulk(
         Some(format!("reading {total} items")),
     );
 
-    let mut leaves: Vec<LeafRef> = Vec::with_capacity(total);
+    let mut inputs: Vec<SummaryInput> = Vec::with_capacity(total);
     for (idx, item) in items.iter().enumerate() {
         let content = match reader.read_item(source, &item.id, config).await {
             Ok(c) => c,
@@ -234,20 +235,23 @@ async fn sync_github_bulk(
 
         let token_count = (content.body.len() / 4).max(1) as u32;
         let priority = github_item_is_high_priority(&item.id, &content);
-        leaves.push(LeafRef {
-            chunk_id: format!("{}:{}", source.id, item.id),
-            token_count,
-            timestamp: item
-                .updated_at_ms
-                .map(|ms| chrono::DateTime::from_timestamp_millis(ms).unwrap_or_else(chrono::Utc::now))
-                .unwrap_or_else(chrono::Utc::now),
+        let ts = item
+            .updated_at_ms
+            .and_then(chrono::DateTime::from_timestamp_millis)
+            .unwrap_or_else(chrono::Utc::now);
+
+        inputs.push(SummaryInput {
+            id: item.id.clone(),
             content: content.body,
+            token_count,
             entities: Vec::new(),
             topics: vec!["memory_sources".to_string(), kind_str.to_string()],
+            time_range_start: ts,
+            time_range_end: ts,
             score: if priority { 0.8 } else { 0.5 },
         });
 
-        if (idx + 1) % 50 == 0 || idx + 1 == total {
+        if (idx + 1) % 100 == 0 || idx + 1 == total {
             emit_sync_stage(
                 MemorySyncTrigger::Manual,
                 MemorySyncStage::Ingesting,
@@ -258,56 +262,60 @@ async fn sync_github_bulk(
         }
     }
 
-    if leaves.is_empty() {
+    if inputs.is_empty() {
         return Ok(0);
     }
 
-    let leaf_count = leaves.len();
+    let input_count = inputs.len();
 
     emit_sync_stage(
         MemorySyncTrigger::Manual,
         MemorySyncStage::Ingesting,
         Some(kind_str),
         Some(&source.id),
-        Some(format!("buffering {leaf_count} items into tree")),
+        Some(format!("summarising {input_count} items (1 LLM call)")),
     );
 
     let tree = get_or_create_source_tree(config, &repo_scope)
         .map_err(|e| format!("get_or_create_source_tree: {e:#}"))?;
 
-    for leaf in &leaves {
-        bucket_seal::append_to_buffer(
-            config,
-            &tree.id,
-            0,
-            &leaf.chunk_id,
-            leaf.token_count as i64,
-            leaf.timestamp,
-        )
-        .map_err(|e| format!("append_to_buffer: {e:#}"))?;
-    }
+    let ctx = SummaryContext {
+        tree_id: &tree.id,
+        tree_kind: TreeKind::Source,
+        target_level: 1,
+        token_budget: 5_000,
+    };
 
-    emit_sync_stage(
-        MemorySyncTrigger::Manual,
-        MemorySyncStage::Ingesting,
-        Some(kind_str),
-        Some(&source.id),
-        Some(format!("sealing tree ({leaf_count} items buffered)")),
-    );
-
-    let strategy = TreeFactory::from_tree(&tree).label_strategy(config);
-    let sealed = force_flush_tree(config, &tree.id, Some(chrono::Utc::now()), &strategy)
-        .await
-        .map_err(|e| format!("force_flush_tree: {e:#}"))?;
+    let output = match summarise(config, &inputs, &ctx).await {
+        Ok(o) => o,
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "[memory_sources:sync] summarise failed, using fallback"
+            );
+            fallback_summary(&inputs, ctx.token_budget)
+        }
+    };
 
     tracing::info!(
         source_id = %source.id,
-        leaves = leaf_count,
-        seals = sealed.len(),
-        "[memory_sources:sync] github bulk sync complete"
+        inputs = input_count,
+        summary_tokens = output.token_count,
+        "[memory_sources:sync] github bulk summary complete"
     );
 
-    Ok(leaf_count)
+    emit_sync_stage(
+        MemorySyncTrigger::Manual,
+        MemorySyncStage::Completed,
+        Some(kind_str),
+        Some(&source.id),
+        Some(format!(
+            "{input_count} items → 1 summary ({} tokens)",
+            output.token_count
+        )),
+    );
+
+    Ok(input_count)
 }
 
 /// Default per-item sync path for non-GitHub sources.

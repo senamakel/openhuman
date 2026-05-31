@@ -93,6 +93,25 @@ const TOOL_ID_TO_RUST_NAMES: &[(&str, &[&str])] = &[
         ],
     ),
     (
+        "screen_permissions",
+        &[
+            "screen_intelligence_request_permissions",
+            "screen_intelligence_request_permission",
+        ],
+    ),
+    (
+        "mcp_manage",
+        &["mcp_registry_install", "mcp_registry_uninstall"],
+    ),
+    (
+        "workspace_manage",
+        &[
+            "workspace_update_persona",
+            "workspace_reset_persona",
+            "workspace_init",
+        ],
+    ),
+    (
         "learning_manage",
         &[
             "learning_update_facet",

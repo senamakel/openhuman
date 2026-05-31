@@ -2056,3 +2056,104 @@ fn money_default_off_tools_retained_when_opted_in() {
         );
     }
 }
+
+// ── Theme: Desktop perception, MCP registry, workspace ──────────────────────
+
+const DESKTOP_TOOLS: &[&str] = &[
+    "screen_intelligence_status",
+    "screen_intelligence_capture_image_ref",
+    "screen_intelligence_vision_recent",
+    "screen_intelligence_vision_flush",
+    "screen_intelligence_refresh_permissions",
+    "screen_intelligence_capture_now",
+    "screen_intelligence_capture_test",
+    "screen_intelligence_session_start",
+    "screen_intelligence_session_stop",
+    "screen_intelligence_input_action",
+    "screen_intelligence_globe_listener_start",
+    "screen_intelligence_globe_listener_poll",
+    "screen_intelligence_globe_listener_stop",
+    "screen_intelligence_request_permissions",
+    "screen_intelligence_request_permission",
+    "mcp_registry_search",
+    "mcp_registry_get",
+    "mcp_registry_installed_list",
+    "mcp_registry_status",
+    "mcp_registry_connect",
+    "mcp_registry_disconnect",
+    "mcp_registry_tool_call",
+    "mcp_registry_config_assist",
+    "mcp_registry_install",
+    "mcp_registry_uninstall",
+    "workspace_read_persona",
+    "workspace_update_persona",
+    "workspace_reset_persona",
+    "workspace_init",
+];
+
+const DESKTOP_DEFAULT_OFF: &[&str] = &[
+    "screen_intelligence_request_permissions",
+    "screen_intelligence_request_permission",
+    "mcp_registry_install",
+    "mcp_registry_uninstall",
+    "workspace_update_persona",
+    "workspace_reset_persona",
+    "workspace_init",
+];
+
+const DESKTOP_ALWAYS_ON: &[&str] = &[
+    "screen_intelligence_status",
+    "screen_intelligence_capture_now",
+    "mcp_registry_search",
+    "mcp_registry_tool_call",
+    "mcp_registry_connect",
+    "workspace_read_persona",
+];
+
+#[test]
+fn desktop_tools_are_registered() {
+    let tmp = TempDir::new().unwrap();
+    let names = tool_names(&expansion_tools_for(&tmp));
+    assert_contains_all(&names, DESKTOP_TOOLS);
+}
+
+#[test]
+fn desktop_default_off_tools_are_filtered_when_not_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = expansion_tools_for(&tmp);
+    filter_tools_by_user_preference(&mut tools, &["file_read".to_string()]);
+    let names = tool_names(&tools);
+    for off in DESKTOP_DEFAULT_OFF {
+        assert!(
+            !names.iter().any(|n| n == off),
+            "default-off tool `{off}` must be filtered out when not opted in; got: {names:?}"
+        );
+    }
+    for on in DESKTOP_ALWAYS_ON {
+        assert!(
+            names.iter().any(|n| n == on),
+            "always-on tool `{on}` must be retained regardless of preferences"
+        );
+    }
+}
+
+#[test]
+fn desktop_default_off_tools_retained_when_opted_in() {
+    let tmp = TempDir::new().unwrap();
+    let mut tools = expansion_tools_for(&tmp);
+    filter_tools_by_user_preference(
+        &mut tools,
+        &[
+            "screen_permissions".to_string(),
+            "mcp_manage".to_string(),
+            "workspace_manage".to_string(),
+        ],
+    );
+    let names = tool_names(&tools);
+    for on in DESKTOP_DEFAULT_OFF {
+        assert!(
+            names.iter().any(|n| n == on),
+            "opted-in tool `{on}` must be retained; got: {names:?}"
+        );
+    }
+}

@@ -320,8 +320,7 @@ pub async fn run_smart_walk(
             );
 
             let (args_summary, tool_result, is_answer, answer_text) =
-                dispatch_call(config, &opts.namespace, &content_root, call, &mut evidence)
-                    .await;
+                dispatch_call(config, &opts.namespace, &content_root, call, &mut evidence).await;
 
             let result_preview: String = tool_result.chars().take(200).collect();
             trace.push(SmartWalkStep {
@@ -552,12 +551,7 @@ fn dispatch_keyword_search(
     }
 }
 
-fn search_dir_recursive(
-    dir: &Path,
-    pattern: &str,
-    results: &mut Vec<String>,
-    content_root: &Path,
-) {
+fn search_dir_recursive(dir: &Path, pattern: &str, results: &mut Vec<String>, content_root: &Path) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,
@@ -606,16 +600,16 @@ async fn dispatch_entity_search(
         .unwrap_or("")
         .to_string();
 
-    let kinds: Option<Vec<EntityKind>> = call
-        .args
-        .get("kinds")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str())
-                .filter_map(|s| EntityKind::parse(s).ok())
-                .collect()
-        });
+    let kinds: Option<Vec<EntityKind>> =
+        call.args
+            .get("kinds")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .filter_map(|s| EntityKind::parse(s).ok())
+                    .collect()
+            });
 
     if query.is_empty() {
         return (
@@ -629,12 +623,16 @@ async fn dispatch_entity_search(
     log::debug!(
         "[smart_walk] entity_search query={} kinds={:?}",
         query,
-        kinds.as_ref().map(|ks| ks.iter().map(|k| k.as_str()).collect::<Vec<_>>())
+        kinds
+            .as_ref()
+            .map(|ks| ks.iter().map(|k| k.as_str()).collect::<Vec<_>>())
     );
     let args_summary = format!(
         "query=\"{}\" kinds={:?}",
         query,
-        kinds.as_ref().map(|ks| ks.iter().map(|k| k.as_str()).collect::<Vec<_>>())
+        kinds
+            .as_ref()
+            .map(|ks| ks.iter().map(|k| k.as_str()).collect::<Vec<_>>())
     );
 
     match retrieval::search_entities(config, &query, kinds, 10).await {
@@ -662,7 +660,11 @@ async fn dispatch_entity_search(
                     .collect();
                 (
                     args_summary,
-                    format!("{} entities found:\n{}", formatted.len(), formatted.join("\n")),
+                    format!(
+                        "{} entities found:\n{}",
+                        formatted.len(),
+                        formatted.join("\n")
+                    ),
                     false,
                     String::new(),
                 )
@@ -679,10 +681,7 @@ async fn dispatch_entity_search(
 
 // ── list_sources ────────────────────────────────────────────────────────────
 
-fn dispatch_list_sources(
-    content_root: &Path,
-    call: &InnerCall,
-) -> (String, String, bool, String) {
+fn dispatch_list_sources(content_root: &Path, call: &InnerCall) -> (String, String, bool, String) {
     let content_type = call
         .args
         .get("content_type")
@@ -741,10 +740,7 @@ fn dispatch_list_sources(
 
 // ── read_content ────────────────────────────────────────────────────────────
 
-fn dispatch_read_content(
-    content_root: &Path,
-    call: &InnerCall,
-) -> (String, String, bool, String) {
+fn dispatch_read_content(content_root: &Path, call: &InnerCall) -> (String, String, bool, String) {
     let path_str = call
         .args
         .get("path")
@@ -917,8 +913,15 @@ async fn dispatch_vector_search(
         time_window_days
     );
 
-    match retrieval::query_source(config, None, source_kind, time_window_days, Some(&query), 10)
-        .await
+    match retrieval::query_source(
+        config,
+        None,
+        source_kind,
+        time_window_days,
+        Some(&query),
+        10,
+    )
+    .await
     {
         Ok(resp) => {
             if resp.hits.is_empty() {
@@ -1485,7 +1488,10 @@ mod tests {
         for r in results.iter().take(5) {
             println!("  {}", r);
         }
-        assert!(!results.is_empty(), "should find 'steven' in staging raw content");
+        assert!(
+            !results.is_empty(),
+            "should find 'steven' in staging raw content"
+        );
     }
 
     #[test]
@@ -1596,8 +1602,7 @@ mod tests {
             // Extract first file path from results
             if let Some(path_start) = search_result.find('[') {
                 if let Some(path_end) = search_result[path_start + 1..].find(']') {
-                    let file_path =
-                        &search_result[path_start + 1..path_start + 1 + path_end];
+                    let file_path = &search_result[path_start + 1..path_start + 1 + path_end];
                     println!("Step 3 - Reading: {}", file_path);
                     let call = InnerCall {
                         name: "read_content".into(),

@@ -23,8 +23,8 @@ use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::query::{
     MemoryQueryTool, MemoryTreeDrillDownTool, MemoryTreeFetchLeavesTool,
-    MemoryTreeIngestDocumentTool, MemoryTreeQueryGlobalTool, MemoryTreeQuerySourceTool,
-    MemoryTreeQueryTopicTool, MemoryTreeSearchEntitiesTool, MemoryTreeWalkTool,
+    MemoryTreeIngestDocumentTool, MemoryTreeQuerySourceTool, MemoryTreeSearchEntitiesTool,
+    MemoryTreeWalkTool,
 };
 use openhuman_core::openhuman::memory::tools::{
     MemoryForgetTool, MemoryRecallTool, MemoryStoreTool,
@@ -55,9 +55,8 @@ use openhuman_core::openhuman::memory::{
 };
 use openhuman_core::openhuman::memory_queue::types::ReembedBackfillPayload;
 use openhuman_core::openhuman::memory_queue::{
-    self, AppendBufferPayload, AppendTarget, DigestDailyPayload, ExtractChunkPayload,
-    FlushStalePayload, JobKind, JobStatus, NewJob, NodeRef, SealPayload, TopicRoutePayload,
-    DEFAULT_LOCK_DURATION_MS,
+    self, AppendBufferPayload, AppendTarget, ExtractChunkPayload, FlushStalePayload, JobKind,
+    JobStatus, NewJob, NodeRef, SealPayload, DEFAULT_LOCK_DURATION_MS,
 };
 use openhuman_core::openhuman::memory_sources::readers::reader_for;
 use openhuman_core::openhuman::memory_sources::registry;
@@ -988,13 +987,12 @@ fn memory_schema_registries_and_query_tool_metadata_cover_public_surfaces() {
     let legacy_tree_schemas = openhuman_core::openhuman::memory::schema::all_controller_schemas();
     let legacy_tree_controllers =
         openhuman_core::openhuman::memory::schema::all_registered_controllers();
-    assert_eq!(legacy_tree_schemas.len(), 20);
+    assert_eq!(legacy_tree_schemas.len(), 19);
     assert_eq!(legacy_tree_schemas.len(), legacy_tree_controllers.len());
     for function in [
         "ingest",
         "list_chunks",
         "get_chunk",
-        "trigger_digest",
         "memory_backfill_status",
         "list_sources",
         "search",
@@ -1037,9 +1035,7 @@ fn memory_schema_registries_and_query_tool_metadata_cover_public_surfaces() {
 
     for tool in [
         &MemoryTreeSearchEntitiesTool as &dyn Tool,
-        &MemoryTreeQueryTopicTool,
         &MemoryTreeQuerySourceTool,
-        &MemoryTreeQueryGlobalTool,
         &MemoryTreeDrillDownTool,
         &MemoryTreeFetchLeavesTool,
         &MemoryTreeIngestDocumentTool,
@@ -1092,35 +1088,6 @@ fn memory_tree_policy_and_source_registry_write_metadata_mirror() {
     assert!(body.contains("kind: source"));
     assert!(body.contains("scope: \"gmail:user@example.com\""));
     assert!(body.contains("last_sealed_at: null"));
-
-    let cold = openhuman_core::openhuman::memory::tree_topic::hotness::hotness_at(
-        "email:cold@example.com",
-        &openhuman_core::openhuman::memory_store::trees::types::EntityIndexStats {
-            mention_count_30d: 0,
-            distinct_sources: 0,
-            last_seen_ms: None,
-            query_hits_30d: 0,
-            graph_centrality: None,
-        },
-        now,
-    );
-    assert_eq!(cold, 0.0);
-    let warm = openhuman_core::openhuman::memory::tree_topic::hotness::hotness_at(
-        "email:warm@example.com",
-        &stats,
-        now,
-    );
-    assert!(warm > cold);
-    assert_eq!(
-        openhuman_core::openhuman::memory::tree_topic::hotness::recency_decay(None, now),
-        0.0
-    );
-    assert!(
-        openhuman_core::openhuman::memory::tree_topic::hotness::hotness(
-            "email:live@example.com",
-            &stats
-        ) > 0.0
-    );
 }
 
 #[test]
@@ -2354,8 +2321,6 @@ async fn memory_queue_and_tool_memory_public_stores_cover_persistence_edges() {
         JobKind::ExtractChunk,
         JobKind::AppendBuffer,
         JobKind::Seal,
-        JobKind::TopicRoute,
-        JobKind::DigestDaily,
         JobKind::FlushStale,
         JobKind::ReembedBackfill,
     ] {
@@ -2406,17 +2371,6 @@ async fn memory_queue_and_tool_memory_public_stores_cover_persistence_edges() {
         }
         .dedupe_key(),
         "seal:tree-1:2"
-    );
-    assert_eq!(
-        TopicRoutePayload { node: leaf.clone() }.dedupe_key(),
-        "topic_route:leaf:chunk-tool-memory"
-    );
-    assert_eq!(
-        DigestDailyPayload {
-            date_iso: "2026-05-29".into()
-        }
-        .dedupe_key(),
-        "digest_daily:2026-05-29"
     );
     assert_eq!(
         FlushStalePayload {
@@ -3186,7 +3140,11 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         dedicated_thread: true,
         prompt_chars: 99,
         worker_thread_id: None,
+<<<<<<< HEAD
         display_name: Some("Researcher".into()),
+=======
+        display_name: None,
+>>>>>>> upstream/main
     }));
     assert!(!mirror.observe(&AgentProgress::SubagentIterationStarted {
         agent_id: "researcher".into(),
@@ -4385,7 +4343,7 @@ async fn memory_tree_retrieval_rpc_and_schema_wrappers_cover_empty_and_invalid_p
         openhuman_core::openhuman::memory_tree::retrieval::schemas::all_controller_schemas();
     let controllers =
         openhuman_core::openhuman::memory_tree::retrieval::schemas::all_registered_controllers();
-    assert_eq!(schemas.len(), 6);
+    assert_eq!(schemas.len(), 4);
     assert_eq!(schemas.len(), controllers.len());
     assert_eq!(
         openhuman_core::openhuman::memory_tree::retrieval::schemas::schemas("missing").function,
@@ -4428,28 +4386,6 @@ async fn memory_tree_retrieval_rpc_and_schema_wrappers_cover_empty_and_invalid_p
         .unwrap_err()
         .contains("unknown source kind")
     );
-
-    let global = openhuman_core::openhuman::memory_tree::retrieval::rpc::query_global_rpc(
-        &config,
-        serde_json::from_value(json!({ "window_days": 3 })).expect("global alias"),
-    )
-    .await
-    .expect("query global rpc");
-    assert_eq!(global.value.total, 0);
-
-    let topic = openhuman_core::openhuman::memory_tree::retrieval::rpc::query_topic_rpc(
-        &config,
-        openhuman_core::openhuman::memory_tree::retrieval::rpc::QueryTopicRequest {
-            entity_id: "email:alice@example.com".into(),
-            time_window_days: Some(30),
-            query: None,
-            limit: Some(5),
-        },
-    )
-    .await
-    .expect("query topic rpc");
-    assert!(topic.value.hits.is_empty());
-    assert!(topic.logs[0].contains("entity_kind=email"));
 
     let search = openhuman_core::openhuman::memory_tree::retrieval::rpc::search_entities_rpc(
         &config,
@@ -4535,22 +4471,6 @@ async fn memory_query_backend_and_tree_flush_wrappers_cover_public_edges() {
         serde_json::from_str(&source_result.text()).expect("source response json");
     assert!(source_response.hits.is_empty());
     assert_eq!(source_response.total, 0);
-
-    let global_result = MemoryTreeQueryGlobalTool
-        .execute(json!({ "time_window_days": 1 }))
-        .await
-        .expect("global query tool");
-    let global_response: retrieval::types::QueryResponse =
-        serde_json::from_str(&global_result.text()).expect("global response json");
-    assert!(global_response.hits.is_empty());
-
-    let missing_topic = MemoryTreeQueryTopicTool
-        .execute(json!({}))
-        .await
-        .unwrap_err();
-    assert!(missing_topic
-        .to_string()
-        .contains("missing field `entity_id`"));
 
     let kind_result = MemoryTreeQuerySourceTool
         .execute(json!({ "source_kind": "chat", "limit": 3 }))

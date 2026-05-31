@@ -18,6 +18,7 @@ pub use crate::openhuman::artifacts::tools::*;
 pub use crate::openhuman::audio_toolkit::tools::*;
 pub use crate::openhuman::codegraph::tools::*;
 pub use crate::openhuman::composio::tools::*;
+pub use crate::openhuman::config::tools::*;
 pub use crate::openhuman::cost::tools::*;
 pub use crate::openhuman::cron::tools::*;
 pub use crate::openhuman::dashboard::tools::*;

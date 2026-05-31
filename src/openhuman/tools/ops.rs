@@ -372,6 +372,16 @@ pub fn all_tools_with_runtime(
         Box::new(ServiceInstallTool::new(config.clone())),
         Box::new(ServiceUninstallTool::new(config.clone())),
         Box::new(DaemonHostPrefsSetTool::new(config.clone())),
+        // Config: read-only surface (default-ON). The config_update_* mutators
+        // are deferred (their apply fns take non-Deserialize patch structs);
+        // see config/tools.rs.
+        Box::new(ConfigSnapshotTool::new(config.clone())),
+        Box::new(ConfigClientConfigTool),
+        Box::new(ConfigAutonomyTool),
+        Box::new(ConfigSearchTool),
+        Box::new(ConfigRuntimeFlagsTool),
+        Box::new(ConfigResolveApiUrlTool),
+        Box::new(ConfigDataPathsTool),
     ];
 
     if browser_config.enabled {

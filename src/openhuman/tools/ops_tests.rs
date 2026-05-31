@@ -1856,6 +1856,13 @@ const SYSTEM_TOOLS: &[&str] = &[
     "service_install",
     "service_uninstall",
     "daemon_host_prefs_set",
+    "config_snapshot",
+    "config_get_client_config",
+    "config_get_autonomy",
+    "config_get_search",
+    "config_get_runtime_flags",
+    "config_resolve_api_url",
+    "config_get_data_paths",
 ];
 
 const SYSTEM_DEFAULT_OFF: &[&str] = &[
@@ -1876,6 +1883,8 @@ const SYSTEM_ALWAYS_ON: &[&str] = &[
     "security_policy_info",
     "service_status",
     "daemon_host_prefs_get",
+    "config_snapshot",
+    "config_get_autonomy",
 ];
 
 #[test]

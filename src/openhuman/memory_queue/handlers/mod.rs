@@ -104,7 +104,11 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
                 chunk_id: chunk.id.clone(),
             },
             target: AppendTarget::Source {
-                source_id: chunk.metadata.source_id.clone(),
+                source_id: chunk
+                    .metadata
+                    .path_scope
+                    .clone()
+                    .unwrap_or_else(|| chunk.metadata.source_id.clone()),
             },
         })?)
     } else {

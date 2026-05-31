@@ -32,6 +32,10 @@ const MAX_EVIDENCE_ITEMS: usize = 30;
 const MAX_KEYWORD_RESULTS: usize = 15;
 const MAX_FILE_READ_BYTES: usize = 8000;
 
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    value.chars().take(max_chars).collect()
+}
+
 // ── Public output types ─────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
@@ -194,7 +198,7 @@ impl Tool for SmartMemoryWalkTool {
                     i + 1,
                     ev.source_path,
                     ev.relevance,
-                    &ev.snippet[..ev.snippet.len().min(200)]
+                    truncate_chars(&ev.snippet, 200)
                 ));
             }
         }
@@ -246,7 +250,10 @@ pub async fn run_smart_walk(
     let system = build_system_prompt();
     let inner_tools = build_inner_tools_text();
 
-    let inventory = build_content_inventory(&content_root);
+    let cr = content_root.clone();
+    let inventory = tokio::task::spawn_blocking(move || build_content_inventory(&cr))
+        .await
+        .unwrap_or_else(|_| "error building content inventory".into());
 
     let mut history: Vec<ChatMessage> = vec![
         ChatMessage::system(format!("{system}\n\n{inner_tools}")),
@@ -368,7 +375,7 @@ pub async fn run_smart_walk(
         if !text_before.trim().is_empty() {
             log::debug!(
                 "[smart_walk] turn={turn} text before tool calls: {}",
-                &text_before[..text_before.len().min(80)]
+                truncate_chars(&text_before, 80)
             );
         }
     }
@@ -430,6 +437,7 @@ impl Provider for ChatProviderAdapter {
 
 // ── Inner call types ────────────────────────────────────────────────────────
 
+#[derive(Clone)]
 struct InnerCall {
     name: String,
     args: serde_json::Value,
@@ -445,10 +453,28 @@ async fn dispatch_call(
     evidence: &mut Vec<Evidence>,
 ) -> (String, String, bool, String) {
     match call.name.as_str() {
-        "keyword_search" => dispatch_keyword_search(content_root, call),
+        "keyword_search" => {
+            let cr = content_root.to_path_buf();
+            let c = call.clone();
+            tokio::task::spawn_blocking(move || dispatch_keyword_search(&cr, &c))
+                .await
+                .unwrap_or_else(|e| (String::new(), format!("error: {e}"), false, String::new()))
+        }
         "entity_search" => dispatch_entity_search(config, call).await,
-        "list_sources" => dispatch_list_sources(content_root, call),
-        "read_content" => dispatch_read_content(content_root, call),
+        "list_sources" => {
+            let cr = content_root.to_path_buf();
+            let c = call.clone();
+            tokio::task::spawn_blocking(move || dispatch_list_sources(&cr, &c))
+                .await
+                .unwrap_or_else(|e| (String::new(), format!("error: {e}"), false, String::new()))
+        }
+        "read_content" => {
+            let cr = content_root.to_path_buf();
+            let c = call.clone();
+            tokio::task::spawn_blocking(move || dispatch_read_content(&cr, &c))
+                .await
+                .unwrap_or_else(|e| (String::new(), format!("error: {e}"), false, String::new()))
+        }
         "browse_tree" => dispatch_browse_tree(config, namespace, call).await,
         "collect_evidence" => dispatch_collect_evidence(call, evidence),
         "answer" => dispatch_answer(call),
@@ -757,11 +783,11 @@ fn dispatch_read_content(content_root: &Path, call: &InnerCall) -> (String, Stri
         );
     }
 
-    // Prevent path traversal
-    if path_str.contains("..") {
+    let requested = Path::new(&path_str);
+    if requested.is_absolute() || path_str.contains("..") {
         return (
             format!("path={path_str}"),
-            "error: path must not contain '..'".into(),
+            "error: path must stay within the content root".into(),
             false,
             String::new(),
         );
@@ -769,7 +795,7 @@ fn dispatch_read_content(content_root: &Path, call: &InnerCall) -> (String, Stri
 
     log::debug!("[smart_walk] read_content path={}", path_str);
 
-    let full_path = content_root.join(&path_str);
+    let full_path = content_root.join(requested);
     if !full_path.exists() {
         return (
             format!("path={path_str}"),
@@ -779,7 +805,38 @@ fn dispatch_read_content(content_root: &Path, call: &InnerCall) -> (String, Stri
         );
     }
 
-    match std::fs::read_to_string(&full_path) {
+    let canonical_root = match content_root.canonicalize() {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                format!("path={path_str}"),
+                format!("error resolving content root: {e}"),
+                false,
+                String::new(),
+            );
+        }
+    };
+    let canonical_path = match full_path.canonicalize() {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                format!("path={path_str}"),
+                format!("error resolving path: {e}"),
+                false,
+                String::new(),
+            );
+        }
+    };
+    if !canonical_path.starts_with(&canonical_root) {
+        return (
+            format!("path={path_str}"),
+            "error: path escapes content root".into(),
+            false,
+            String::new(),
+        );
+    }
+
+    match std::fs::read_to_string(&canonical_path) {
         Ok(content) => {
             let truncated: String = content.chars().take(MAX_FILE_READ_BYTES).collect();
             let was_truncated = content.len() > MAX_FILE_READ_BYTES;
@@ -908,7 +965,7 @@ async fn dispatch_vector_search(
     );
     let args_summary = format!(
         "query=\"{}\" kind={:?} window={:?}",
-        &query[..query.len().min(40)],
+        truncate_chars(&query, 40),
         source_kind,
         time_window_days
     );
@@ -1233,7 +1290,7 @@ fn synthesize_fallback(trace: &[SmartWalkStep], evidence: &[Evidence]) -> String
                 i + 1,
                 ev.source_path,
                 ev.relevance,
-                &ev.snippet[..ev.snippet.len().min(150)]
+                truncate_chars(&ev.snippet, 150)
             ));
         }
     } else if !trace.is_empty() {
@@ -1243,7 +1300,7 @@ fn synthesize_fallback(trace: &[SmartWalkStep], evidence: &[Evidence]) -> String
                 "- Turn {}: {} → {}\n",
                 s.turn,
                 s.action,
-                &s.result_preview[..s.result_preview.len().min(100)]
+                truncate_chars(&s.result_preview, 100)
             ));
         }
     } else {

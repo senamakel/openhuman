@@ -851,6 +851,18 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Why the walk stopped (answered/max_turns/llm_gave_up/error).",
                     required: true,
                 },
+                FieldSchema {
+                    name: "evidence",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                    comment: "Array of {source_path, snippet, relevance} evidence items.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "trace",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                    comment: "Array of {turn, action, args_summary, result_preview} trace steps.",
+                    required: true,
+                },
             ],
         },
         _ => ControllerSchema {

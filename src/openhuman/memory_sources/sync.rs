@@ -11,7 +11,9 @@
 //! events on the global bus and UI subscribers stream them per source id.
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::ingest_pipeline::{ingest_document, IngestResult};
+use crate::openhuman::memory::ingest_pipeline::{
+    ingest_document, ingest_document_with_scope, IngestResult,
+};
 use crate::openhuman::memory::sync::{emit_sync_stage, MemorySyncStage, MemorySyncTrigger};
 use crate::openhuman::memory_sources::readers;
 use crate::openhuman::memory_sources::readers::github;
@@ -194,32 +196,33 @@ async fn sync_via_reader(source: &MemorySourceEntry, config: Config) -> Result<u
             source_ref: Some(format!("{}:{}", source.id, item.id)),
         };
 
-        // GitHub items use a clean, repo-scoped chunk source id
-        // (`github:<owner>/<repo>:<item_id>`) instead of the opaque
-        // `mem_src:src_<uuid>:…` form. Other reader kinds keep the
-        // generic composite id.
-        let composite_source_id = if source.kind == SourceKind::GithubRepo {
-            source
+        // GitHub items use a per-item dedup key but share one repo-scoped
+        // directory in the chunk store so Obsidian shows a single folder
+        // per repo instead of thousands of per-commit directories.
+        let (composite_source_id, path_scope) = if source.kind == SourceKind::GithubRepo {
+            let per_item = source
                 .url
                 .as_deref()
                 .and_then(|url| github::chunk_source_id(url, &item.id))
-                .unwrap_or_else(|| format!("mem_src:{}:{}", source.id, item.id))
+                .unwrap_or_else(|| format!("mem_src:{}:{}", source.id, item.id));
+            let repo_scope = source
+                .url
+                .as_deref()
+                .and_then(github::repo_chunk_scope);
+            (per_item, repo_scope)
         } else {
-            format!("mem_src:{}:{}", source.id, item.id)
+            (format!("mem_src:{}:{}", source.id, item.id), None)
         };
         let mut tags = vec![
             "memory_sources".to_string(),
             source.kind.as_str().to_string(),
         ];
-        // Prioritise GitHub commit messages and closed/merged issues & PRs
-        // when building the memory tree — the scorer boosts PRIORITY_TAG
-        // chunks (see `memory_tree::score`).
         if source.kind == SourceKind::GithubRepo && github_item_is_high_priority(&item.id, &content)
         {
             tags.push(crate::openhuman::memory_tree::score::PRIORITY_TAG.to_string());
         }
 
-        match ingest_document(&config, &composite_source_id, "user", tags, doc).await {
+        match ingest_document_with_scope(&config, &composite_source_id, "user", tags, doc, path_scope).await {
             Ok(result) => {
                 if !result.already_ingested {
                     ingested += 1;
@@ -241,14 +244,17 @@ async fn sync_via_reader(source: &MemorySourceEntry, config: Config) -> Result<u
             }
         }
 
-        // Emit progress every 5 items or at the end
-        if (idx + 1) % 5 == 0 || idx + 1 == total {
+        // Emit progress. GitHub items do individual API/git reads per
+        // item so emit on every item for responsive UI; other kinds are
+        // faster so batch every 5.
+        let emit_interval = if source.kind == SourceKind::GithubRepo { 1 } else { 5 };
+        if (idx + 1) % emit_interval == 0 || idx + 1 == total {
             emit_sync_stage(
                 MemorySyncTrigger::Manual,
                 MemorySyncStage::Ingesting,
                 Some(source.kind.as_str()),
                 Some(&source.id),
-                Some(format!("{}/{total} processed", idx + 1)),
+                Some(format!("{}/{total} processed ({ingested} new)", idx + 1)),
             );
         }
     }

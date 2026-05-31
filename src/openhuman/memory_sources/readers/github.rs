@@ -7,6 +7,7 @@
 
 use async_trait::async_trait;
 use serde::Deserialize;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::openhuman::config::Config;
@@ -110,15 +111,21 @@ pub(crate) fn repo_archive_source_id(url: &str) -> Option<String> {
     Some(format!("github.com/{owner}/{repo}"))
 }
 
-/// Chunk-store source id for a single repo item.
+/// Chunk-store source id for a single repo item (dedup key).
 ///
-/// `github:<owner>/<repo>:<item_id>` keeps the per-item dedup key (each
-/// commit/issue/PR is an immutable document) while producing a clean
-/// `chunks/document/github-<owner>-<repo>-…` scope instead of the opaque
-/// `mem_src:src_<uuid>:…` form.
+/// `github:<owner>/<repo>:<item_id>` keeps per-item uniqueness for the
+/// `mem_tree_ingested_sources` dedup table while the separate
+/// [`repo_chunk_scope`] drives a shared directory.
 pub(crate) fn chunk_source_id(url: &str, item_id: &str) -> Option<String> {
     let (owner, repo) = parse_github_url(url).ok()?;
     Some(format!("github:{owner}/{repo}:{item_id}"))
+}
+
+/// Repo-scoped chunk path scope so all items from one repo share a
+/// single directory in the content store (e.g. `document/github-org-repo/`).
+pub(crate) fn repo_chunk_scope(url: &str) -> Option<String> {
+    let (owner, repo) = parse_github_url(url).ok()?;
+    Some(format!("github:{owner}/{repo}"))
 }
 
 /// Map a [`SourceItem`] id (`commit:<sha>`, `issue:<n>`, `pr:<n>`) to its
@@ -257,7 +264,7 @@ impl SourceReader for GithubReader {
     async fn list_items(
         &self,
         source: &MemorySourceEntry,
-        _config: &Config,
+        config: &Config,
     ) -> Result<Vec<SourceItem>, String> {
         let url = source
             .url
@@ -266,11 +273,11 @@ impl SourceReader for GithubReader {
         let (owner, repo) = parse_github_url(url)?;
         let use_gh = gh_available();
 
-        // Per-type sync caps. Default to the last DEFAULT_GITHUB_ITEM_LIMIT
-        // of each type; a source entry may override any of them.
         let max_commits = source.max_commits.unwrap_or(DEFAULT_GITHUB_ITEM_LIMIT);
         let max_issues = source.max_issues.unwrap_or(DEFAULT_GITHUB_ITEM_LIMIT);
         let max_prs = source.max_prs.unwrap_or(DEFAULT_GITHUB_ITEM_LIMIT);
+
+        let cache_dir = git_cache_dir(config, &owner, &repo);
 
         tracing::debug!(
             owner = %owner,
@@ -279,22 +286,29 @@ impl SourceReader for GithubReader {
             max_commits,
             max_issues,
             max_prs,
+            cache = %cache_dir.display(),
             "[memory_sources:github] listing items"
         );
 
         let mut items = Vec::new();
         let mut errors = Vec::new();
 
-        // Commits (most recent `max_commits`)
-        match list_commits(&owner, &repo, max_commits, use_gh).await {
+        // Commits via local git (clone/fetch bare repo, then git log)
+        match list_commits_git(&owner, &repo, max_commits, &cache_dir).await {
             Ok(commits) => items.extend(commits),
             Err(e) => {
-                tracing::warn!(error = %e, "[memory_sources:github] failed to list commits");
-                errors.push(e);
+                tracing::warn!(error = %e, "[memory_sources:github] git commit list failed, falling back to API");
+                match list_commits_api(&owner, &repo, max_commits, use_gh).await {
+                    Ok(commits) => items.extend(commits),
+                    Err(e2) => {
+                        tracing::warn!(error = %e2, "[memory_sources:github] API commit list also failed");
+                        errors.push(e2);
+                    }
+                }
             }
         }
 
-        // Issues (most recent `max_issues`, open + closed)
+        // Issues and PRs via gh CLI / API (no local equivalent)
         match list_issues(&owner, &repo, max_issues, use_gh).await {
             Ok(issues) => items.extend(issues),
             Err(e) => {
@@ -303,7 +317,6 @@ impl SourceReader for GithubReader {
             }
         }
 
-        // Pull requests (most recent `max_prs`, open + closed)
         match list_prs(&owner, &repo, max_prs, use_gh).await {
             Ok(prs) => items.extend(prs),
             Err(e) => {
@@ -327,7 +340,7 @@ impl SourceReader for GithubReader {
         &self,
         source: &MemorySourceEntry,
         item_id: &str,
-        _config: &Config,
+        config: &Config,
     ) -> Result<SourceContent, String> {
         let url = source
             .url
@@ -346,7 +359,20 @@ impl SourceReader for GithubReader {
         );
 
         match kind {
-            ItemKind::Commit => read_commit(&owner, &repo, ref_id, use_gh).await,
+            ItemKind::Commit => {
+                let cache_dir = git_cache_dir(config, &owner, &repo);
+                match read_commit_git(&owner, &repo, ref_id, &cache_dir).await {
+                    Ok(content) => Ok(content),
+                    Err(e) => {
+                        tracing::debug!(
+                            sha = %ref_id,
+                            error = %e,
+                            "[memory_sources:github] git read_commit failed, falling back to API"
+                        );
+                        read_commit_api(&owner, &repo, ref_id, use_gh).await
+                    }
+                }
+            }
             ItemKind::Issue => {
                 let num: u64 = ref_id
                     .parse()
@@ -424,7 +450,192 @@ async fn fetch_all_pages<T: serde::de::DeserializeOwned>(
     Ok(out)
 }
 
-async fn list_commits(
+// ── Git-based commit helpers ───────────────────────────────────────
+
+const GIT_CLONE_TIMEOUT: Duration = Duration::from_secs(120);
+const GIT_LOG_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn git_cache_dir(config: &Config, owner: &str, repo: &str) -> PathBuf {
+    config
+        .workspace_dir
+        .join("git_cache")
+        .join(owner)
+        .join(format!("{repo}.git"))
+}
+
+async fn ensure_bare_clone(owner: &str, repo: &str, cache_dir: &Path) -> Result<(), String> {
+    if cache_dir.join("HEAD").exists() {
+        tracing::debug!(
+            cache = %cache_dir.display(),
+            "[memory_sources:github:git] fetching into existing bare clone"
+        );
+        let output = tokio::time::timeout(
+            GIT_CLONE_TIMEOUT,
+            tokio::process::Command::new("git")
+                .args(["fetch", "--prune", "--quiet"])
+                .current_dir(cache_dir)
+                .output(),
+        )
+        .await
+        .map_err(|_| "git fetch timed out".to_string())?
+        .map_err(|e| format!("git fetch failed: {e}"))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git fetch exited {}: {stderr}", output.status));
+        }
+        return Ok(());
+    }
+
+    if let Some(parent) = cache_dir.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("create cache dir: {e}"))?;
+    }
+
+    let clone_url = format!("https://github.com/{owner}/{repo}.git");
+    tracing::info!(
+        url = %clone_url,
+        cache = %cache_dir.display(),
+        "[memory_sources:github:git] cloning bare repo"
+    );
+
+    let output = tokio::time::timeout(
+        GIT_CLONE_TIMEOUT,
+        tokio::process::Command::new("git")
+            .args(["clone", "--bare", "--quiet", &clone_url])
+            .arg(cache_dir)
+            .output(),
+    )
+    .await
+    .map_err(|_| "git clone timed out".to_string())?
+    .map_err(|e| format!("git clone failed: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("git clone exited {}: {stderr}", output.status));
+    }
+
+    Ok(())
+}
+
+async fn list_commits_git(
+    owner: &str,
+    repo: &str,
+    max: u32,
+    cache_dir: &Path,
+) -> Result<Vec<SourceItem>, String> {
+    ensure_bare_clone(owner, repo, cache_dir).await?;
+
+    // git log with a custom format: sha\tsubject\ttimestamp (ISO 8601)
+    let output = tokio::time::timeout(
+        GIT_LOG_TIMEOUT,
+        tokio::process::Command::new("git")
+            .args([
+                "log",
+                "--all",
+                &format!("--max-count={max}"),
+                "--format=%H\t%s\t%aI",
+            ])
+            .current_dir(cache_dir)
+            .output(),
+    )
+    .await
+    .map_err(|_| "git log timed out".to_string())?
+    .map_err(|e| format!("git log failed: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("git log exited {}: {stderr}", output.status));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let items: Vec<SourceItem> = stdout
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| {
+            let parts: Vec<&str> = line.splitn(3, '\t').collect();
+            let sha = parts.first().unwrap_or(&"");
+            let subject = parts.get(1).unwrap_or(&"");
+            let date = parts.get(2).unwrap_or(&"");
+            SourceItem {
+                id: format!("commit:{sha}"),
+                title: subject.to_string(),
+                updated_at_ms: parse_iso_ts(date),
+            }
+        })
+        .collect();
+
+    tracing::debug!(
+        count = items.len(),
+        "[memory_sources:github:git] listed commits via local git"
+    );
+    Ok(items)
+}
+
+async fn read_commit_git(
+    owner: &str,
+    repo: &str,
+    sha: &str,
+    cache_dir: &Path,
+) -> Result<SourceContent, String> {
+    if !cache_dir.join("HEAD").exists() {
+        return Err("bare clone not present".to_string());
+    }
+
+    // git show with a custom format for author, date, and full message
+    let output = tokio::time::timeout(
+        GIT_LOG_TIMEOUT,
+        tokio::process::Command::new("git")
+            .args(["show", "--no-patch", "--format=%H%n%aN%n%aE%n%aI%n%B", sha])
+            .current_dir(cache_dir)
+            .output(),
+    )
+    .await
+    .map_err(|_| "git show timed out".to_string())?
+    .map_err(|e| format!("git show failed: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("git show exited {}: {stderr}", output.status));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+    let full_sha = lines.next().unwrap_or(sha);
+    let author_name = lines.next().unwrap_or("unknown");
+    let author_email = lines.next().unwrap_or("");
+    let date = lines.next().unwrap_or("unknown");
+    let message: String = lines.collect::<Vec<&str>>().join("\n");
+    let message = message.trim();
+
+    let title = message.lines().next().unwrap_or("").to_string();
+    let author = format!("{author_name} <{author_email}>");
+
+    let body = format!(
+        "# Commit: {title}\n\n\
+         **SHA:** {full_sha}\n\
+         **Author:** {author}\n\
+         **Date:** {date}\n\n\
+         ## Message\n\n\
+         {message}",
+    );
+
+    Ok(SourceContent {
+        id: format!("commit:{sha}"),
+        title,
+        body,
+        content_type: ContentType::Markdown,
+        metadata: serde_json::json!({
+            "owner": owner,
+            "repo": repo,
+            "sha": full_sha,
+            "author": author,
+        }),
+    })
+}
+
+// ── API-based commit helpers (fallback) ───────────────────────────
+
+async fn list_commits_api(
     owner: &str,
     repo: &str,
     max: u32,
@@ -522,7 +733,7 @@ async fn list_prs(
 
 // ── Read helpers ────────────────────────────────────────────────────
 
-async fn read_commit(
+async fn read_commit_api(
     owner: &str,
     repo: &str,
     sha: &str,

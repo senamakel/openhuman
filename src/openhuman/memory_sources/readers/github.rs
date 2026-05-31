@@ -22,7 +22,7 @@ const DEFAULT_BRANCH: &str = "main";
 /// Default number of items of **each** type (commits, issues, PRs) to pull
 /// when the source entry doesn't override it. Tunable per-source via
 /// `max_commits` / `max_issues` / `max_prs` on [`MemorySourceEntry`].
-pub(crate) const DEFAULT_GITHUB_ITEM_LIMIT: u32 = 2000;
+pub(crate) const DEFAULT_GITHUB_ITEM_LIMIT: u32 = 1000;
 
 /// GitHub REST API maximum page size (`per_page`).
 const GH_PAGE_SIZE: u32 = 100;

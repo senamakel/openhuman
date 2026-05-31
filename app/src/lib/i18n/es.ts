@@ -1170,6 +1170,14 @@ const messages: TranslationMap = {
   'mcp.detail.confirmUninstallAction': 'Sí, desinstalar',
   'mcp.detail.uninstall': 'Desinstalar',
   'mcp.detail.envVars': 'Variables ambientales',
+  'mcp.detail.reconfigure': 'Reconfigurar',
+  'mcp.detail.reconfigureHint':
+    'Introduce nuevos valores para cada variable y vuelve a conectar. Esto reemplaza los valores guardados.',
+  'mcp.detail.saveReconnect': 'Guardar y reconectar',
+  'mcp.detail.reconfigureSaving': 'Guardando…',
+  'mcp.detail.reconfigureSuccess': 'Entorno actualizado y reconectado.',
+  'mcp.detail.reconfigureReconnectFailed':
+    'Guardado, pero no se pudo reconectar con los nuevos valores.',
   'mcp.detail.tools': 'Herramientas',
   'onboarding.skipForNow': 'Saltar por ahora',
   'onboarding.localAI.continueWithCloud': 'Continuar con la nube',
@@ -4474,6 +4482,41 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'Agrupamiento promedio {avg} · transitividad {transitivity}',
   'graphCohesion.title': 'Cohesión del grafo',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'Almacenamiento seguro no disponible',
+  'keyring.consent.description':
+    'El llavero de su sistema operativo no está accesible. OpenHuman necesita su permiso para almacenar secretos usando almacenamiento local cifrado.',
+  'keyring.consent.reasonPrefix': 'Motivo:',
+  'keyring.consent.showDetails': '¿Qué significa esto?',
+  'keyring.consent.hideDetails': 'Ocultar detalles',
+  'keyring.consent.tradeoffTitle': 'Compromiso de seguridad',
+  'keyring.consent.tradeoffBody':
+    'Con el almacenamiento local cifrado, sus secretos se cifran en disco usando una clave maestra almacenada junto a los datos. Esto es menos seguro que el llavero del SO, que usa protección respaldada por hardware. Las copias de seguridad o la sincronización de archivos pueden incluir los datos cifrados.',
+  'keyring.consent.consentButton': 'Usar almacenamiento local cifrado',
+  'keyring.consent.retryButton': 'Reintentar OS Keychain',
+  'keyring.consent.declineButton': 'Rechazar',
+  'keyring.consent.retrying': 'Reintentando…',
+  'keyring.consent.error': 'No se pudo guardar la preferencia. Inténtelo de nuevo.',
+  'keyring.consent.retryFailed': 'El llavero sigue sin estar disponible.',
+  'keyring.settings.title': 'Seguridad',
+  'keyring.settings.storageMode': 'Modo de almacenamiento de secretos',
+  'keyring.settings.mode.osKeychain': 'Llavero del SO',
+  'keyring.settings.mode.encryptedFile': 'Local cifrado',
+  'keyring.settings.mode.consentPending': 'No configurado',
+  'keyring.settings.mode.declined': 'Rechazado',
+  'keyring.settings.availability': 'Disponibilidad del llavero',
+  'keyring.settings.available': 'El llavero del SO está disponible',
+  'keyring.settings.unavailable': 'El llavero del SO no está disponible',
+  'keyring.settings.backend': 'Motor',
+  'keyring.settings.retryButton': 'Reintentar detección del llavero',
+  'keyring.settings.retryFailed': 'Reintento fallido. El llavero sigue sin estar disponible.',
+  'keyring.settings.consentTitle': 'Consentimiento de almacenamiento',
+  'keyring.settings.consentDescription':
+    'Elija cómo se almacenan los secretos cuando el llavero del SO no está disponible.',
+  'keyring.settings.grantConsent': 'Permitir almacenamiento local cifrado',
+  'keyring.settings.revokeConsent': 'Rechazar almacenamiento local',
+  'pages.settings.account.security': 'Seguridad',
+  'pages.settings.account.securityDesc': 'Modo de almacenamiento de secretos y estado del llavero',
 };
 
 export default messages;

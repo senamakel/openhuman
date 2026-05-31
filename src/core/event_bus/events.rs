@@ -652,6 +652,17 @@ pub enum DomainEvent {
     /// A component restart was observed.
     HealthRestarted { component: String },
 
+    // ── Keyring ─────────────────────────────────────────────────────────
+    /// The OS keyring is unavailable and no user consent for local fallback
+    /// has been recorded. Published once (deduplicated) when a secret
+    /// operation hits the consent gate. The frontend surfaces a consent
+    /// dialog in response.
+    KeyringConsentRequired,
+    /// A secret field failed to decrypt (rotated master key, corrupted
+    /// ciphertext, keychain reset). Published so the frontend can surface
+    /// a recovery prompt instead of silently clearing the field.
+    KeyringDecryptFailed { field_name: String, reason: String },
+
     // ── Auth ────────────────────────────────────────────────────────────
     /// The local app session is no longer valid — typically detected when
     /// the backend returns 401 to an LLM inference call or a JSON-RPC
@@ -789,6 +800,8 @@ impl DomainEvent {
             | Self::HealthChanged { .. }
             | Self::HealthRestarted { .. } => "system",
 
+            Self::KeyringConsentRequired | Self::KeyringDecryptFailed { .. } => "keyring",
+
             Self::SessionExpired { .. } => "auth",
 
             Self::TaskSourceFetched { .. }
@@ -879,6 +892,8 @@ impl DomainEvent {
             Self::AutonomyConfigChanged => "AutonomyConfigChanged",
             Self::HealthChanged { .. } => "HealthChanged",
             Self::HealthRestarted { .. } => "HealthRestarted",
+            Self::KeyringConsentRequired => "KeyringConsentRequired",
+            Self::KeyringDecryptFailed { .. } => "KeyringDecryptFailed",
             Self::SessionExpired { .. } => "SessionExpired",
             Self::ApprovalRequested { .. } => "ApprovalRequested",
             Self::ApprovalDecided { .. } => "ApprovalDecided",

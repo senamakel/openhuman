@@ -853,6 +853,7 @@ async fn round16_app_state_config_and_session_snapshot_edges() {
     std::fs::write(harness.app_state_file(), "{broken").expect("write corrupt app state");
 
     let stored = update_local_state(StoredAppStatePatch {
+        keyring_consent: None,
         encryption_key: Some(Some("  round16-key  ".to_string())),
         onboarding_tasks: Some(Some(StoredOnboardingTasks {
             accessibility_permission_granted: true,
@@ -921,6 +922,7 @@ async fn round16_app_state_config_and_session_snapshot_edges() {
     );
 
     let cleared = update_local_state(StoredAppStatePatch {
+        keyring_consent: None,
         encryption_key: Some(None),
         onboarding_tasks: Some(None),
     })

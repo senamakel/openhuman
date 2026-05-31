@@ -1173,6 +1173,14 @@ const messages: TranslationMap = {
   'mcp.detail.confirmUninstallAction': 'Ja, deinstallieren',
   'mcp.detail.uninstall': 'Deinstallieren',
   'mcp.detail.envVars': 'Umgebungsvariablen',
+  'mcp.detail.reconfigure': 'Neu konfigurieren',
+  'mcp.detail.reconfigureHint':
+    'Geben Sie neue Werte für jede Variable ein und stellen Sie die Verbindung wieder her. Dadurch werden die gespeicherten Werte ersetzt.',
+  'mcp.detail.saveReconnect': 'Speichern und neu verbinden',
+  'mcp.detail.reconfigureSaving': 'Wird gespeichert…',
+  'mcp.detail.reconfigureSuccess': 'Umgebung aktualisiert und neu verbunden.',
+  'mcp.detail.reconfigureReconnectFailed':
+    'Gespeichert, aber das Neuverbinden mit den neuen Werten ist fehlgeschlagen.',
   'mcp.detail.tools': 'Werkzeuge',
   'onboarding.skipForNow': 'Vorerst überspringen',
   'onboarding.localAI.continueWithCloud': 'Fahren Sie mit der Cloud fort.',
@@ -4507,6 +4515,42 @@ const messages: TranslationMap = {
     'Durchschnittliches Clustering {avg} · Transitivität {transitivity}',
   'graphCohesion.title': 'Graph-Kohäsion',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'Sicherer Speicher nicht verfügbar',
+  'keyring.consent.description':
+    'Der Schlüsselbund Ihres Betriebssystems ist nicht erreichbar. OpenHuman benötigt Ihre Erlaubnis, Geheimnisse stattdessen in einem lokal verschlüsselten Speicher abzulegen.',
+  'keyring.consent.reasonPrefix': 'Grund:',
+  'keyring.consent.showDetails': 'Was bedeutet das?',
+  'keyring.consent.hideDetails': 'Details ausblenden',
+  'keyring.consent.tradeoffTitle': 'Sicherheitskompromiss',
+  'keyring.consent.tradeoffBody':
+    'Bei lokal verschlüsseltem Speicher werden Ihre Geheimnisse mit einem Hauptschlüssel verschlüsselt, der neben den Daten gespeichert wird. Dies ist weniger sicher als der OS-Schlüsselbund, der hardwaregestützten Schutz bietet. Backups oder Dateisynchronisation können die verschlüsselten Daten enthalten.',
+  'keyring.consent.consentButton': 'Lokal verschlüsselten Speicher verwenden',
+  'keyring.consent.retryButton': 'OS Keychain erneut versuchen',
+  'keyring.consent.declineButton': 'Ablehnen',
+  'keyring.consent.retrying': 'Erneuter Versuch…',
+  'keyring.consent.error': 'Einstellung konnte nicht gespeichert werden. Bitte erneut versuchen.',
+  'keyring.consent.retryFailed': 'Schlüsselbund ist weiterhin nicht verfügbar.',
+  'keyring.settings.title': 'Sicherheit',
+  'keyring.settings.storageMode': 'Geheimnisspeicher-Modus',
+  'keyring.settings.mode.osKeychain': 'OS-Schlüsselbund',
+  'keyring.settings.mode.encryptedFile': 'Lokal verschlüsselt',
+  'keyring.settings.mode.consentPending': 'Nicht konfiguriert',
+  'keyring.settings.mode.declined': 'Abgelehnt',
+  'keyring.settings.availability': 'Schlüsselbund-Verfügbarkeit',
+  'keyring.settings.available': 'OS-Schlüsselbund ist verfügbar',
+  'keyring.settings.unavailable': 'OS-Schlüsselbund ist nicht verfügbar',
+  'keyring.settings.backend': 'Backend',
+  'keyring.settings.retryButton': 'Schlüsselbund-Erkennung wiederholen',
+  'keyring.settings.retryFailed':
+    'Erneuter Versuch fehlgeschlagen. Schlüsselbund weiterhin nicht verfügbar.',
+  'keyring.settings.consentTitle': 'Speicherzustimmung',
+  'keyring.settings.consentDescription':
+    'Wählen Sie, wie Geheimnisse gespeichert werden, wenn der OS-Schlüsselbund nicht verfügbar ist.',
+  'keyring.settings.grantConsent': 'Lokal verschlüsselten Speicher erlauben',
+  'keyring.settings.revokeConsent': 'Lokalen Speicher ablehnen',
+  'pages.settings.account.security': 'Sicherheit',
+  'pages.settings.account.securityDesc': 'Geheimnisspeicher-Modus und Schlüsselbund-Status',
 };
 
 export default messages;

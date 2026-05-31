@@ -1172,6 +1172,14 @@ const messages: TranslationMap = {
   'mcp.detail.confirmUninstallAction': 'Oui, désinstaller',
   'mcp.detail.uninstall': 'Désinstaller',
   'mcp.detail.envVars': "Variables d'environnement",
+  'mcp.detail.reconfigure': 'Reconfigurer',
+  'mcp.detail.reconfigureHint':
+    'Saisissez de nouvelles valeurs pour chaque variable, puis reconnectez-vous. Cela remplace les valeurs enregistrées.',
+  'mcp.detail.saveReconnect': 'Enregistrer et reconnecter',
+  'mcp.detail.reconfigureSaving': 'Enregistrement…',
+  'mcp.detail.reconfigureSuccess': 'Environnement mis à jour et reconnecté.',
+  'mcp.detail.reconfigureReconnectFailed':
+    'Enregistré, mais la reconnexion avec les nouvelles valeurs a échoué.',
   'mcp.detail.tools': 'Outils',
   'onboarding.skipForNow': "Passer pour l'instant",
   'onboarding.localAI.continueWithCloud': 'Continuer avec Cloud',
@@ -4489,6 +4497,41 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'Regroupement moyen {avg} · transitivité {transitivity}',
   'graphCohesion.title': 'Cohésion du graphe',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'Stockage sécurisé indisponible',
+  'keyring.consent.description':
+    "Le trousseau de votre système d'exploitation n'est pas accessible. OpenHuman a besoin de votre autorisation pour stocker les secrets en utilisant un stockage local chiffré.",
+  'keyring.consent.reasonPrefix': 'Raison :',
+  'keyring.consent.showDetails': "Qu'est-ce que cela signifie ?",
+  'keyring.consent.hideDetails': 'Masquer les détails',
+  'keyring.consent.tradeoffTitle': 'Compromis de sécurité',
+  'keyring.consent.tradeoffBody':
+    "Avec le stockage local chiffré, vos secrets sont chiffrés sur disque à l'aide d'une clé maître stockée à côté des données. C'est moins sécurisé que le trousseau du système, qui utilise une protection matérielle. Les sauvegardes ou la synchronisation de fichiers peuvent inclure les données chiffrées.",
+  'keyring.consent.consentButton': 'Utiliser le stockage local chiffré',
+  'keyring.consent.retryButton': 'Réessayer OS Keychain',
+  'keyring.consent.declineButton': 'Refuser',
+  'keyring.consent.retrying': 'Nouvelle tentative…',
+  'keyring.consent.error': "Impossible d'enregistrer la préférence. Veuillez réessayer.",
+  'keyring.consent.retryFailed': 'Le trousseau est toujours indisponible.',
+  'keyring.settings.title': 'Sécurité',
+  'keyring.settings.storageMode': 'Mode de stockage des secrets',
+  'keyring.settings.mode.osKeychain': 'Trousseau du système',
+  'keyring.settings.mode.encryptedFile': 'Local chiffré',
+  'keyring.settings.mode.consentPending': 'Non configuré',
+  'keyring.settings.mode.declined': 'Refusé',
+  'keyring.settings.availability': 'Disponibilité du trousseau',
+  'keyring.settings.available': 'Le trousseau du système est disponible',
+  'keyring.settings.unavailable': 'Le trousseau du système est indisponible',
+  'keyring.settings.backend': 'Moteur',
+  'keyring.settings.retryButton': 'Réessayer la détection du trousseau',
+  'keyring.settings.retryFailed': 'Échec de la tentative. Le trousseau est toujours indisponible.',
+  'keyring.settings.consentTitle': 'Consentement de stockage',
+  'keyring.settings.consentDescription':
+    "Choisissez comment les secrets sont stockés lorsque le trousseau du système n'est pas disponible.",
+  'keyring.settings.grantConsent': 'Autoriser le stockage local chiffré',
+  'keyring.settings.revokeConsent': 'Refuser le stockage local',
+  'pages.settings.account.security': 'Sécurité',
+  'pages.settings.account.securityDesc': 'Mode de stockage des secrets et état du trousseau',
 };
 
 export default messages;

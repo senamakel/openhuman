@@ -1166,6 +1166,14 @@ const messages: TranslationMap = {
   'mcp.detail.confirmUninstallAction': 'Sì, disinstalla',
   'mcp.detail.uninstall': 'Disinstalla',
   'mcp.detail.envVars': 'Variabili di ambiente',
+  'mcp.detail.reconfigure': 'Riconfigura',
+  'mcp.detail.reconfigureHint':
+    'Inserisci nuovi valori per ogni variabile, quindi riconnetti. Questo sostituisce i valori memorizzati.',
+  'mcp.detail.saveReconnect': 'Salva e riconnetti',
+  'mcp.detail.reconfigureSaving': 'Salvataggio…',
+  'mcp.detail.reconfigureSuccess': 'Ambiente aggiornato e riconnesso.',
+  'mcp.detail.reconfigureReconnectFailed':
+    'Salvato, ma la riconnessione con i nuovi valori non è riuscita.',
   'mcp.detail.tools': 'Strumenti',
   'onboarding.skipForNow': 'Salta per ora',
   'onboarding.localAI.continueWithCloud': 'Continua con Cloud',
@@ -4466,6 +4474,41 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'Raggruppamento medio {avg} · transitività {transitivity}',
   'graphCohesion.title': 'Coesione del grafo',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'Archivio sicuro non disponibile',
+  'keyring.consent.description':
+    "Il portachiavi del sistema operativo non è accessibile. OpenHuman necessita del tuo permesso per archiviare i segreti utilizzando l'archiviazione locale crittografata.",
+  'keyring.consent.reasonPrefix': 'Motivo:',
+  'keyring.consent.showDetails': 'Cosa significa?',
+  'keyring.consent.hideDetails': 'Nascondi dettagli',
+  'keyring.consent.tradeoffTitle': 'Compromesso di sicurezza',
+  'keyring.consent.tradeoffBody':
+    "Con l'archiviazione locale crittografata, i tuoi segreti vengono crittografati su disco utilizzando una chiave master archiviata insieme ai dati. Questo è meno sicuro del portachiavi del SO, che utilizza protezione hardware. I backup o la sincronizzazione dei file possono includere i dati crittografati.",
+  'keyring.consent.consentButton': 'Usa archiviazione locale crittografata',
+  'keyring.consent.retryButton': 'Riprova OS Keychain',
+  'keyring.consent.declineButton': 'Rifiuta',
+  'keyring.consent.retrying': 'Nuovo tentativo…',
+  'keyring.consent.error': 'Impossibile salvare la preferenza. Riprova.',
+  'keyring.consent.retryFailed': 'Il portachiavi è ancora non disponibile.',
+  'keyring.settings.title': 'Sicurezza',
+  'keyring.settings.storageMode': 'Modalità archiviazione segreti',
+  'keyring.settings.mode.osKeychain': 'Portachiavi del SO',
+  'keyring.settings.mode.encryptedFile': 'Locale crittografato',
+  'keyring.settings.mode.consentPending': 'Non configurato',
+  'keyring.settings.mode.declined': 'Rifiutato',
+  'keyring.settings.availability': 'Disponibilità portachiavi',
+  'keyring.settings.available': 'Il portachiavi del SO è disponibile',
+  'keyring.settings.unavailable': 'Il portachiavi del SO non è disponibile',
+  'keyring.settings.backend': 'Motore',
+  'keyring.settings.retryButton': 'Riprova rilevamento portachiavi',
+  'keyring.settings.retryFailed': 'Tentativo fallito. Il portachiavi è ancora non disponibile.',
+  'keyring.settings.consentTitle': 'Consenso archiviazione',
+  'keyring.settings.consentDescription':
+    'Scegli come vengono archiviati i segreti quando il portachiavi del SO non è disponibile.',
+  'keyring.settings.grantConsent': 'Consenti archiviazione locale crittografata',
+  'keyring.settings.revokeConsent': 'Rifiuta archiviazione locale',
+  'pages.settings.account.security': 'Sicurezza',
+  'pages.settings.account.securityDesc': 'Modalità archiviazione segreti e stato del portachiavi',
 };
 
 export default messages;

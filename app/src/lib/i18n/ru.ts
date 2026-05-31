@@ -1153,6 +1153,14 @@ const messages: TranslationMap = {
   'mcp.detail.confirmUninstallAction': 'Да, удалить',
   'mcp.detail.uninstall': 'Удалить',
   'mcp.detail.envVars': 'Переменные среды',
+  'mcp.detail.reconfigure': 'Перенастроить',
+  'mcp.detail.reconfigureHint':
+    'Введите новые значения для каждой переменной, затем переподключитесь. Это заменит сохранённые значения.',
+  'mcp.detail.saveReconnect': 'Сохранить и переподключиться',
+  'mcp.detail.reconfigureSaving': 'Сохранение…',
+  'mcp.detail.reconfigureSuccess': 'Окружение обновлено, выполнено переподключение.',
+  'mcp.detail.reconfigureReconnectFailed':
+    'Сохранено, но переподключиться с новыми значениями не удалось.',
   'mcp.detail.tools': 'Инструменты',
   'onboarding.skipForNow': 'Пропустить сейчас',
   'onboarding.localAI.continueWithCloud': 'Продолжить с Облако',
@@ -4433,6 +4441,42 @@ const messages: TranslationMap = {
   'graphCohesion.summaryCaption': 'Средняя кластеризация {avg} · транзитивность {transitivity}',
   'graphCohesion.title': 'Связность графа',
   'memory.tab.cohesion': 'Cohesion',
+
+  'keyring.consent.title': 'Безопасное хранилище недоступно',
+  'keyring.consent.description':
+    'Связка ключей вашей операционной системы недоступна. OpenHuman необходимо ваше разрешение на хранение секретов в локальном зашифрованном хранилище.',
+  'keyring.consent.reasonPrefix': 'Причина:',
+  'keyring.consent.showDetails': 'Что это значит?',
+  'keyring.consent.hideDetails': 'Скрыть подробности',
+  'keyring.consent.tradeoffTitle': 'Компромисс безопасности',
+  'keyring.consent.tradeoffBody':
+    'При локальном зашифрованном хранении ваши секреты шифруются на диске с помощью мастер-ключа, который хранится рядом с данными. Это менее безопасно, чем связка ключей ОС, которая использует аппаратную защиту. Резервные копии или синхронизация файлов могут включать зашифрованные данные.',
+  'keyring.consent.consentButton': 'Использовать локальное зашифрованное хранилище',
+  'keyring.consent.retryButton': 'Повторить OS Keychain',
+  'keyring.consent.declineButton': 'Отклонить',
+  'keyring.consent.retrying': 'Повторная попытка…',
+  'keyring.consent.error': 'Не удалось сохранить настройку. Попробуйте снова.',
+  'keyring.consent.retryFailed': 'Связка ключей по-прежнему недоступна.',
+  'keyring.settings.title': 'Безопасность',
+  'keyring.settings.storageMode': 'Режим хранения секретов',
+  'keyring.settings.mode.osKeychain': 'Связка ключей ОС',
+  'keyring.settings.mode.encryptedFile': 'Локальное шифрование',
+  'keyring.settings.mode.consentPending': 'Не настроено',
+  'keyring.settings.mode.declined': 'Отклонено',
+  'keyring.settings.availability': 'Доступность связки ключей',
+  'keyring.settings.available': 'Связка ключей ОС доступна',
+  'keyring.settings.unavailable': 'Связка ключей ОС недоступна',
+  'keyring.settings.backend': 'Движок',
+  'keyring.settings.retryButton': 'Повторить обнаружение связки ключей',
+  'keyring.settings.retryFailed':
+    'Повторная попытка не удалась. Связка ключей по-прежнему недоступна.',
+  'keyring.settings.consentTitle': 'Согласие на хранение',
+  'keyring.settings.consentDescription':
+    'Выберите способ хранения секретов, когда связка ключей ОС недоступна.',
+  'keyring.settings.grantConsent': 'Разрешить локальное зашифрованное хранилище',
+  'keyring.settings.revokeConsent': 'Отклонить локальное хранилище',
+  'pages.settings.account.security': 'Безопасность',
+  'pages.settings.account.securityDesc': 'Режим хранения секретов и статус связки ключей',
 };
 
 export default messages;

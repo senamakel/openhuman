@@ -248,6 +248,7 @@ async fn round20_app_state_quarantines_directory_state_and_uses_stored_user_on_h
         .expect("seed app session");
 
     let first = update_local_state(StoredAppStatePatch {
+        keyring_consent: None,
         encryption_key: None,
         onboarding_tasks: Some(Some(StoredOnboardingTasks {
             accessibility_permission_granted: false,

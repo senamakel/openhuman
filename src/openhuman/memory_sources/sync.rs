@@ -72,6 +72,19 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
         let source_id_for_panic = source.id.clone();
         let kind_for_panic = source.kind.as_str();
         let inner = tokio::spawn(async move {
+            // Retry any previously-failed pipeline jobs so the worker
+            // resumes processing through all documents.
+            if let Ok(retried) =
+                crate::openhuman::memory_queue::store::retry_all_failed(&config)
+            {
+                if retried > 0 {
+                    tracing::info!(
+                        retried = retried,
+                        "[memory_sources:sync] retried {retried} failed pipeline job(s)"
+                    );
+                }
+            }
+
             tracing::debug!(
                 source_id = %source.id,
                 kind = %source.kind.as_str(),

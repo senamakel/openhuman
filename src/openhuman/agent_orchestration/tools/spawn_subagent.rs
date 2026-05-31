@@ -132,7 +132,7 @@ impl Tool for SpawnSubagentTool {
                 },
                 "dedicated_thread": {
                     "type": "boolean",
-                    "description": "Temporarily disabled (see tinyhumansai/openhuman#1624). Passing `true` causes this tool to return an explicit error. Omit the field or pass `false` until the worker-thread UI surface lands."
+                    "description": "Legacy compatibility flag. Delegations now always create a persistent worker thread when parent context is available, so this flag no longer gates thread creation."
                 }
             }
         })
@@ -965,7 +965,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dedicated_thread_flag_is_rejected_explicitly() {
+    async fn dedicated_thread_flag_no_longer_returns_disabled_error() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
         let tool = SpawnSubagentTool;
         let result = tool
             .execute(json!({
@@ -976,7 +977,7 @@ mod tests {
             .await
             .unwrap();
         assert!(result.is_error);
-        assert!(result.output().contains("temporarily disabled"));
+        assert!(!result.output().contains("temporarily disabled"));
     }
 
     #[tokio::test]

@@ -1435,6 +1435,7 @@ async fn run_inner_loop(
         &crate::openhuman::config::MultimodalConfig::default(),
         max_iterations,
         None, // sub-agents don't stream a draft
+        &["ask_user_clarification"],
     )
     .await?;
 

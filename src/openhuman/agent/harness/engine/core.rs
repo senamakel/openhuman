@@ -86,6 +86,7 @@ pub(crate) async fn run_turn_engine(
     multimodal_config: &crate::openhuman::config::MultimodalConfig,
     max_iterations: usize,
     on_delta: Option<tokio::sync::mpsc::Sender<String>>,
+    early_exit_tool_names: &[&str],
 ) -> Result<TurnEngineOutcome> {
     let mut context_guard = context_window_for_model(model)
         .map(ContextGuard::with_context_window)
@@ -489,10 +490,11 @@ pub(crate) async fn run_turn_engine(
             // Early-exit when a sub-agent calls ask_user_clarification:
             // the tool returned successfully with the question text — stop
             // the loop so the runner can checkpoint and surface the pause.
-            if call.name == "ask_user_clarification" && outcome.success {
+            if early_exit_tool_names.contains(&call.name.as_str()) && outcome.success {
                 tracing::info!(
                     iteration,
-                    "[agent_loop] ask_user_clarification detected — requesting early exit"
+                    tool = call.name.as_str(),
+                    "[agent_loop] early-exit tool detected — requesting early exit"
                 );
                 early_exit_tool = Some(call.name.clone());
                 break;

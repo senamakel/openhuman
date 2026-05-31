@@ -272,6 +272,18 @@ pub fn all_tools_with_runtime(
         Box::new(PeopleAddAliasTool),
         Box::new(PeopleRecordInteractionTool),
         Box::new(PeopleRefreshAddressBookTool),
+        // Skills metadata tools. `skill_run` is already exposed by RunSkillTool
+        // above, so it is not duplicated. Reads ship default-ON; the
+        // create/install/uninstall mutators ship default-OFF via
+        // `tools::user_filter` (install also fetches remote content).
+        Box::new(SkillListTool::new(config.clone())),
+        Box::new(SkillDescribeTool::new(config.clone())),
+        Box::new(SkillReadResourceTool::new(config.clone())),
+        Box::new(SkillRecentRunsTool::new(config.clone())),
+        Box::new(SkillReadRunLogTool::new(config.clone())),
+        Box::new(SkillCreateTool::new(config.clone())),
+        Box::new(SkillInstallFromUrlTool::new(config.clone())),
+        Box::new(SkillUninstallTool),
     ];
 
     if browser_config.enabled {

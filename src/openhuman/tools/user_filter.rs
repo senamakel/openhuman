@@ -47,6 +47,10 @@ const TOOL_ID_TO_RUST_NAMES: &[(&str, &[&str])] = &[
         "people_refresh_address_book",
         &["people_refresh_address_book"],
     ),
+    (
+        "skill_manage",
+        &["skill_create", "skill_install_from_url", "skill_uninstall"],
+    ),
 ];
 
 /// All Rust tool names that are filterable (union of all mapping values).

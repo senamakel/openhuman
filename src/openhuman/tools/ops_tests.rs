@@ -1726,6 +1726,17 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
     "thread_task_board_write",
     "thread_delete",
     "thread_purge_all",
+    "learning_list_facets",
+    "learning_get_facet",
+    "learning_cache_stats",
+    "learning_update_facet",
+    "learning_pin_facet",
+    "learning_unpin_facet",
+    "learning_forget_facet",
+    "learning_rebuild_cache",
+    "learning_reset_cache",
+    "learning_save_profile",
+    "learning_enrich_profile",
 ];
 
 const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
@@ -1736,6 +1747,14 @@ const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
     "skill_uninstall",
     "thread_delete",
     "thread_purge_all",
+    "learning_update_facet",
+    "learning_pin_facet",
+    "learning_unpin_facet",
+    "learning_forget_facet",
+    "learning_rebuild_cache",
+    "learning_reset_cache",
+    "learning_save_profile",
+    "learning_enrich_profile",
 ];
 
 const KNOWLEDGE_ALWAYS_ON: &[&str] = &[
@@ -1747,6 +1766,8 @@ const KNOWLEDGE_ALWAYS_ON: &[&str] = &[
     "skill_recent_runs",
     "thread_list",
     "thread_create",
+    "learning_list_facets",
+    "learning_cache_stats",
 ];
 
 #[test]
@@ -1787,6 +1808,7 @@ fn knowledge_default_off_tools_retained_when_opted_in() {
             "people_refresh_address_book".to_string(),
             "skill_manage".to_string(),
             "thread_destructive".to_string(),
+            "learning_manage".to_string(),
         ],
     );
     let names = tool_names(&tools);

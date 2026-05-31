@@ -52,6 +52,19 @@ const TOOL_ID_TO_RUST_NAMES: &[(&str, &[&str])] = &[
         &["skill_create", "skill_install_from_url", "skill_uninstall"],
     ),
     ("thread_destructive", &["thread_delete", "thread_purge_all"]),
+    (
+        "learning_manage",
+        &[
+            "learning_update_facet",
+            "learning_pin_facet",
+            "learning_unpin_facet",
+            "learning_forget_facet",
+            "learning_rebuild_cache",
+            "learning_reset_cache",
+            "learning_save_profile",
+            "learning_enrich_profile",
+        ],
+    ),
     // Task & workflow productivity — overextending tools (agent-tool
     // expansion). Only the destructive/persistent-config mutators are listed
     // here so the onboarding toggle surface can default them OFF and let users

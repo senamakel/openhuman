@@ -20,6 +20,7 @@ pub use crate::openhuman::codegraph::tools::*;
 pub use crate::openhuman::composio::tools::*;
 pub use crate::openhuman::cron::tools::*;
 pub use crate::openhuman::integrations::tools::*;
+pub use crate::openhuman::learning::tools::*;
 pub use crate::openhuman::memory::tools::*;
 pub use crate::openhuman::people::tools::*;
 pub use crate::openhuman::search::tools::*;

@@ -303,6 +303,21 @@ pub fn all_tools_with_runtime(
         Box::new(ThreadTaskBoardWriteTool::new(config.clone())),
         Box::new(ThreadDeleteTool),
         Box::new(ThreadPurgeAllTool),
+        // Learning (user-profile facet cache) tools. Reads ship default-ON;
+        // every mutator ships default-OFF via `tools::user_filter`
+        // (learning_manage toggle) — they persistently rewrite the assistant's
+        // model of the user. enrich_profile also flags external_effect.
+        Box::new(LearningListFacetsTool),
+        Box::new(LearningGetFacetTool),
+        Box::new(LearningCacheStatsTool),
+        Box::new(LearningUpdateFacetTool),
+        Box::new(LearningPinFacetTool),
+        Box::new(LearningUnpinFacetTool),
+        Box::new(LearningForgetFacetTool),
+        Box::new(LearningRebuildCacheTool),
+        Box::new(LearningResetCacheTool),
+        Box::new(LearningSaveProfileTool),
+        Box::new(LearningEnrichProfileTool),
         // Task & workflow productivity tools (issue: agent-tool expansion).
         // Read/observe + bounded-write tools are registered here; the
         // destructive/overextending siblings (artifact_delete, todo_remove/

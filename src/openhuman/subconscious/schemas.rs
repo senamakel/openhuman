@@ -72,11 +72,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     "Epoch seconds — only return thoughts newer than this.",
                 ),
             ],
-            outputs: vec![field(
-                "reflections",
-                TypeSchema::Json,
-                "Thought records.",
-            )],
+            outputs: vec![field("reflections", TypeSchema::Json, "Thought records.")],
         },
         "reflections_act" => ControllerSchema {
             namespace: "subconscious",
@@ -123,10 +119,9 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
         let config = load_config().await?;
         let hb = &config.heartbeat;
 
-        let last_tick_at = store::with_connection(&config.workspace_dir, |conn| {
-            store::get_last_tick_at(conn)
-        })
-        .ok();
+        let last_tick_at =
+            store::with_connection(&config.workspace_dir, |conn| store::get_last_tick_at(conn))
+                .ok();
 
         let provider_unavailable_reason = if hb.enabled && hb.inference_enabled {
             super::engine::subconscious_provider_unavailable_reason(&config)

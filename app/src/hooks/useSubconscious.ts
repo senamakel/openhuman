@@ -6,11 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  isTauri,
-  subconsciousStatus,
-  subconsciousTrigger,
-} from '../utils/tauriCommands';
+import { isTauri, subconsciousStatus, subconsciousTrigger } from '../utils/tauriCommands';
 import type { SubconsciousStatus } from '../utils/tauriCommands/subconscious';
 
 export interface UseSubconsciousResult {
@@ -66,14 +62,7 @@ export function useSubconscious(): UseSubconsciousResult {
     };
   }, [refresh]);
 
-  return {
-    status,
-    loading,
-    triggering,
-    refresh,
-    triggerTick,
-    error,
-  };
+  return { status, loading, triggering, refresh, triggerTick, error };
 }
 
 const RPC_TIMEOUT_MS = 2500;

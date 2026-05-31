@@ -51,9 +51,7 @@ impl SubconsciousEngine {
         let last_tick_at = match store::with_connection(&workspace_dir, store::get_last_tick_at) {
             Ok(v) => {
                 if v > 0.0 {
-                    info!(
-                        "[subconscious] resumed last_tick_at={v} from disk"
-                    );
+                    info!("[subconscious] resumed last_tick_at={v} from disk");
                 }
                 v
             }
@@ -285,10 +283,7 @@ impl SubconsciousEngine {
         let thread_id = uuid::Uuid::new_v4().to_string();
         let dt = chrono::DateTime::from_timestamp(tick_at as i64, 0)
             .unwrap_or_else(|| chrono::Utc::now());
-        let thread_title = format!(
-            "Subconscious — {}",
-            dt.format("%b %d, %H:%M")
-        );
+        let thread_title = format!("Subconscious — {}", dt.format("%b %d, %H:%M"));
         let now_iso = chrono::Utc::now().to_rfc3339();
 
         if let Err(e) = crate::openhuman::memory_conversations::ensure_thread(
@@ -315,7 +310,12 @@ impl SubconsciousEngine {
                     .as_deref()
                     .map(|a| format!("\n\n_Proposed action_: {a}"))
                     .unwrap_or_default();
-                format!("**{}** — {}{}", d.kind.as_str().replace('_', " "), d.body, action)
+                format!(
+                    "**{}** — {}{}",
+                    d.kind.as_str().replace('_', " "),
+                    d.body,
+                    action
+                )
             })
             .collect::<Vec<_>>()
             .join("\n\n---\n\n");

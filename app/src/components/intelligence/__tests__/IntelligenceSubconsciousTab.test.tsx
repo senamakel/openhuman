@@ -29,11 +29,7 @@ vi.mock('../SubconsciousReflectionCards', () => ({
 }));
 
 function baseProps(): ComponentProps<typeof IntelligenceSubconsciousTab> {
-  return {
-    status: null,
-    triggerTick: vi.fn(),
-    triggering: false,
-  };
+  return { status: null, triggerTick: vi.fn(), triggering: false };
 }
 
 describe('IntelligenceSubconsciousTab', () => {

@@ -141,7 +141,6 @@ fn build_identifiers_section() -> String {
 
 fn build_tasks_section(_workspace_dir: &Path) -> String {
     String::new()
-
 }
 
 /// Append a section, truncating at a UTF-8 char boundary if it overflows

@@ -666,9 +666,12 @@ fn legacy_embeddings_migrate_to_sidecar_once() {
         let v: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
+        // A full init runs every one-shot migration in sequence, so the gate
+        // lands on the latest version (the global/topic purge), not just the
+        // embedding migration's.
         assert_eq!(
-            v, TREE_EMBEDDING_MIGRATION_VERSION,
-            "version gate must be set"
+            v, GLOBAL_TOPIC_PURGE_MIGRATION_VERSION,
+            "version gate must be set to the latest migration"
         );
         Ok(())
     })

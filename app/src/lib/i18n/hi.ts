@@ -1903,6 +1903,7 @@ const messages: TranslationMap = {
   'graph.children': 'चाइल्ड',
   'graph.clickToOpenObsidian': 'Obsidian में खोलने के लिए क्लिक करें',
   'graph.person': 'व्यक्ति',
+  'graph.resetView': 'व्यू रीसेट करें',
   'modal.dontShowAgain': 'ऐसे सुझाव फिर न दिखाएं',
   'reflections.loading': 'रिफ्लेक्शन लोड हो रहे हैं...',
   'reflections.empty': 'अभी कोई रिफ्लेक्शन नहीं',

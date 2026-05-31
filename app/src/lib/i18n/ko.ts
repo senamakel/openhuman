@@ -1884,6 +1884,7 @@ const messages: TranslationMap = {
   'graph.children': '자식',
   'graph.clickToOpenObsidian': '클릭하여 Obsidian에서 열기',
   'graph.person': '사람',
+  'graph.resetView': '보기 초기화',
   'modal.dontShowAgain': '비슷한 제안을 다시 표시하지 않기',
   'reflections.loading': '반영을 불러오는 중...',
   'reflections.empty': '아직 반영이 없습니다',

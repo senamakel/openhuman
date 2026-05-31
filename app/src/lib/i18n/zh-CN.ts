@@ -1808,6 +1808,7 @@ const messages: TranslationMap = {
   'graph.children': '个子节点',
   'graph.clickToOpenObsidian': '点击在 Obsidian 中打开',
   'graph.person': '人物',
+  'graph.resetView': '重置视图',
   'modal.dontShowAgain': '不再显示',
   'reflections.loading': '正在加载反思...',
   'reflections.empty': '暂无反思',

@@ -1906,6 +1906,7 @@ const messages: TranslationMap = {
   'graph.children': 'anak',
   'graph.clickToOpenObsidian': 'Klik untuk membuka di Obsidian',
   'graph.person': 'Orang',
+  'graph.resetView': 'Atur ulang tampilan',
   'modal.dontShowAgain': 'Jangan tampilkan saran serupa',
   'reflections.loading': 'Memuat refleksi...',
   'reflections.empty': 'Belum ada refleksi',

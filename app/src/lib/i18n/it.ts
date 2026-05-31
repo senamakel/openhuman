@@ -1934,6 +1934,7 @@ const messages: TranslationMap = {
   'graph.children': 'figli',
   'graph.clickToOpenObsidian': 'Clic per aprire in Obsidian',
   'graph.person': 'Persona',
+  'graph.resetView': 'Reimposta vista',
   'modal.dontShowAgain': 'Non mostrare suggerimenti simili',
   'reflections.loading': 'Caricamento riflessioni...',
   'reflections.empty': 'Nessuna riflessione',

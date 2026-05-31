@@ -1866,6 +1866,7 @@ const messages: TranslationMap = {
   'graph.children': 'أبناء',
   'graph.clickToOpenObsidian': 'انقر للفتح في Obsidian',
   'graph.person': 'شخص',
+  'graph.resetView': 'إعادة ضبط العرض',
   'modal.dontShowAgain': 'لا تظهر اقتراحات مماثلة',
   'reflections.loading': 'جارٍ تحميل التأملات...',
   'reflections.empty': 'لا توجد تأملات بعد',

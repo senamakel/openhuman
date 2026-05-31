@@ -2100,6 +2100,7 @@ const en: TranslationMap = {
   'graph.children': 'children',
   'graph.clickToOpenObsidian': 'Click to open in Obsidian',
   'graph.person': 'Person',
+  'graph.resetView': 'Reset view',
 
   // Modal
   'modal.dontShowAgain': "Don't show similar suggestions",

@@ -1943,6 +1943,7 @@ const messages: TranslationMap = {
   'graph.children': 'hijos',
   'graph.clickToOpenObsidian': 'Clic para abrir en Obsidian',
   'graph.person': 'Persona',
+  'graph.resetView': 'Restablecer vista',
   'modal.dontShowAgain': 'No mostrar sugerencias similares',
   'reflections.loading': 'Cargando reflexiones...',
   'reflections.empty': 'Sin reflexiones aún',

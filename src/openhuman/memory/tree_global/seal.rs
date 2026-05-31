@@ -241,9 +241,9 @@ async fn seal_one_level(config: &Config, tree: &Tree, buf: &Buffer) -> Result<St
     };
 
     // Phase MD-content: stage the global summary .md file before opening the
-    // write tx. date_for_global = time_range_start date (daily for L0, or
-    // the start of the range for higher levels).
-    let global_date = Some(time_range_start);
+    // write tx. The global tree is a singleton — every sealed level lands
+    // under the shared `global/L<level>/` folder; the period it covers is
+    // recorded by the node's time range, not the folder name.
     let compose_input_global = SummaryComposeInput {
         summary_id: &node.id,
         tree_kind: SummaryTreeKind::Global,
@@ -270,7 +270,6 @@ async fn seal_one_level(config: &Config, tree: &Tree, buf: &Buffer) -> Result<St
         &content_root_global,
         &compose_input_global,
         &global_scope_slug,
-        global_date,
     )
     .with_context(|| {
         format!(

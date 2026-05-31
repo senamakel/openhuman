@@ -199,7 +199,9 @@ pub async fn end_of_day_digest(config: &Config, day: NaiveDate) -> Result<Digest
     };
 
     // Phase MD-content: stage the L0 daily .md file before the write tx.
-    // `date_for_global` = day_start (the calendar day this digest covers).
+    // The global tree is a singleton — the daily node lands under the shared
+    // `global/L0/` folder; the calendar day it covers is recorded by the
+    // node's time range, not by the folder name.
     let daily_compose_input = SummaryComposeInput {
         summary_id: &daily.id,
         tree_kind: SummaryTreeKind::Global,
@@ -223,7 +225,6 @@ pub async fn end_of_day_digest(config: &Config, day: NaiveDate) -> Result<Digest
         &content_root_daily,
         &daily_compose_input,
         &global_scope_slug,
-        Some(day_start),
     )
     .with_context(|| {
         format!(

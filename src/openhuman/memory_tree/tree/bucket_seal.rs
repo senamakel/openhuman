@@ -576,13 +576,12 @@ pub(crate) async fn seal_one_level(
              continuing seal without vault defaults"
         );
     }
-    let staged =
-        stage_summary(&content_root, &compose_input, &scope_slug, None).with_context(|| {
-            format!(
-                "stage_summary failed for {}; seal aborted, buffer stays unsealed for retry",
-                node.id
-            )
-        })?;
+    let staged = stage_summary(&content_root, &compose_input, &scope_slug).with_context(|| {
+        format!(
+            "stage_summary failed for {}; seal aborted, buffer stays unsealed for retry",
+            node.id
+        )
+    })?;
     log::debug!(
         "[tree::bucket_seal] staged summary {} → {}",
         node.id,

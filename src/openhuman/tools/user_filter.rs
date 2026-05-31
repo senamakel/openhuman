@@ -39,6 +39,14 @@ const TOOL_ID_TO_RUST_NAMES: &[(&str, &[&str])] = &[
     // `update_check` is read-only; `update_apply` is gated by both the
     // tool-level autonomy check and `config.update.rpc_mutations_enabled`.
     ("update", &["update_check", "update_apply"]),
+    // Knowledge & memory — overextending tools (agent-tool expansion). Listed
+    // so onboarding can default them OFF; read/bounded-write siblings are not
+    // listed and stay always-retained.
+    ("vault_remove", &["vault_remove"]),
+    (
+        "people_refresh_address_book",
+        &["people_refresh_address_book"],
+    ),
 ];
 
 /// All Rust tool names that are filterable (union of all mapping values).

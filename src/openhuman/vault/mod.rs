@@ -10,6 +10,7 @@ mod schemas;
 pub(crate) mod state;
 mod store;
 mod sync;
+pub mod tools;
 mod types;
 
 pub use schemas::{

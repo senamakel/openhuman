@@ -43,8 +43,11 @@ export default function Intelligence() {
   // Subconscious engine data
   const {
     status: subconsciousEngineStatus,
+    mode: subconsciousMode,
     triggering: subconsciousTriggering,
+    settingMode: subconsciousSettingMode,
     triggerTick,
+    setMode: setSubconsciousMode,
   } = useSubconscious();
 
   // Socket integration
@@ -165,8 +168,11 @@ export default function Intelligence() {
             {activeTab === 'subconscious' && (
               <IntelligenceSubconsciousTab
                 status={subconsciousEngineStatus}
+                mode={subconsciousMode}
                 triggerTick={triggerTick}
                 triggering={subconsciousTriggering}
+                settingMode={subconsciousSettingMode}
+                setMode={setSubconsciousMode}
               />
             )}
 

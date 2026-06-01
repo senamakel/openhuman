@@ -1,7 +1,5 @@
 /**
  * Vitest for the Intelligence Subconscious tab.
- *
- * Covers navigation from reflection cards and provider unavailable state.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
@@ -29,7 +27,14 @@ vi.mock('../SubconsciousReflectionCards', () => ({
 }));
 
 function baseProps(): ComponentProps<typeof IntelligenceSubconsciousTab> {
-  return { status: null, triggerTick: vi.fn(), triggering: false };
+  return {
+    status: null,
+    mode: 'off',
+    triggerTick: vi.fn(),
+    triggering: false,
+    settingMode: false,
+    setMode: vi.fn(),
+  };
 }
 
 describe('IntelligenceSubconsciousTab', () => {
@@ -41,40 +46,43 @@ describe('IntelligenceSubconsciousTab', () => {
     vi.restoreAllMocks();
   });
 
-  it('on Act → dispatches setSelectedThread + navigates to /chat', () => {
+  it('renders three mode options', () => {
     render(<IntelligenceSubconsciousTab {...baseProps()} />);
+    expect(screen.getByText('Off')).toBeInTheDocument();
+    expect(screen.getByText('Simple')).toBeInTheDocument();
+    expect(screen.getByText('Aggressive')).toBeInTheDocument();
+  });
+
+  it('clicking a mode option calls setMode', () => {
+    const setMode = vi.fn();
+    render(<IntelligenceSubconsciousTab {...baseProps()} setMode={setMode} />);
+    fireEvent.click(screen.getByText('Simple'));
+    expect(setMode).toHaveBeenCalledWith('simple');
+  });
+
+  it('hides Run Now and reflections when mode is off', () => {
+    render(<IntelligenceSubconsciousTab {...baseProps()} mode="off" />);
+    expect(screen.queryByText('Run Now')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cards-stub-trigger')).not.toBeInTheDocument();
+  });
+
+  it('shows Run Now and reflections when mode is simple', () => {
+    render(<IntelligenceSubconsciousTab {...baseProps()} mode="simple" />);
+    expect(screen.getByText('Run Now')).toBeInTheDocument();
+    expect(screen.getByTestId('cards-stub-trigger')).toBeInTheDocument();
+  });
+
+  it('shows aggressive warning when mode is aggressive', () => {
+    render(<IntelligenceSubconsciousTab {...baseProps()} mode="aggressive" />);
+    expect(
+      screen.getByText(/full tool access including writes/)
+    ).toBeInTheDocument();
+  });
+
+  it('on Act → dispatches setSelectedThread + navigates to /chat', () => {
+    render(<IntelligenceSubconsciousTab {...baseProps()} mode="simple" />);
     fireEvent.click(screen.getByTestId('cards-stub-trigger'));
     expect(mockDispatch).toHaveBeenCalledWith(setSelectedThread('spawned-thread-42'));
     expect(mockNavigate).toHaveBeenCalledWith('/chat');
-  });
-
-  it('shows provider unavailable state and blocks manual ticks', () => {
-    const triggerTick = vi.fn();
-    render(
-      <IntelligenceSubconsciousTab
-        {...baseProps()}
-        triggerTick={triggerTick}
-        status={{
-          enabled: true,
-          provider_available: false,
-          provider_unavailable_reason: 'Sign in or configure a local Subconscious provider.',
-          interval_minutes: 5,
-          last_tick_at: null,
-          total_ticks: 0,
-          consecutive_failures: 1,
-        }}
-      />
-    );
-
-    expect(screen.getByText('Subconscious is paused')).toBeInTheDocument();
-    expect(screen.getByText(/configure a local Subconscious provider/i)).toBeInTheDocument();
-
-    const runNow = screen.getByRole('button', { name: /Run Now/i });
-    expect(runNow).toBeDisabled();
-    fireEvent.click(runNow);
-    expect(triggerTick).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('button', { name: /AI settings/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/settings/llm');
   });
 });

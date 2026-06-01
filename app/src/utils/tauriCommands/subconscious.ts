@@ -8,6 +8,7 @@ import { type CommandResponse, isTauri } from './common';
 
 export interface SubconsciousStatus {
   enabled: boolean;
+  mode: 'off' | 'simple' | 'aggressive';
   provider_available: boolean;
   provider_unavailable_reason: string | null;
   interval_minutes: number;

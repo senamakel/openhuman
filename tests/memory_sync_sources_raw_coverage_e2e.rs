@@ -306,6 +306,17 @@ async fn rss_reader_lists_reads_and_reports_feed_errors_from_loopback() {
 #[tokio::test]
 async fn github_reader_uses_fake_gh_for_list_and_read_paths() {
     let _guard = env_lock();
+    if std::process::Command::new("gh")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| !s.success())
+        .unwrap_or(true)
+    {
+        eprintln!("skipping: gh CLI not available");
+        return;
+    }
     let tmp = TempDir::new().expect("tempdir");
     let config = config_in(&tmp);
     let bin = tmp.path().join("bin");

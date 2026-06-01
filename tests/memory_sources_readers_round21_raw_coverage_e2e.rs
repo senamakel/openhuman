@@ -175,6 +175,20 @@ async fn round21_rss_reader_covers_http_body_guards_and_invalid_utf8() {
 #[tokio::test]
 async fn round21_github_reader_covers_commit_issue_comments_and_error_paths() {
     let _lock = env_lock();
+    // This test requires a fake `gh` on PATH. If the real `gh` is not
+    // installed (CI containers), gh_available() returns false and the reader
+    // falls through to the real GitHub API which rate-limits. Skip gracefully.
+    if std::process::Command::new("gh")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| !s.success())
+        .unwrap_or(true)
+    {
+        eprintln!("skipping: gh CLI not available");
+        return;
+    }
     let tmp = tempdir();
     let config = config(&tmp);
     let bin = tmp.path().join("bin");

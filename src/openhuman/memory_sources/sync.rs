@@ -90,9 +90,13 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                 kind = %source.kind.as_str(),
                 "[memory_sources:sync] dispatching by kind"
             );
+            let sync_start = std::time::Instant::now();
             let outcome = match source.kind {
                 SourceKind::Composio => sync_composio(&source, config.clone()).await,
                 SourceKind::GithubRepo => {
+                    // GitHub path writes its own detailed audit entry
+                    // with token breakdowns; skip the dispatcher-level
+                    // audit for this kind.
                     crate::openhuman::memory_sync::sources::github::run_github_sync(
                         &source, &config,
                     )
@@ -108,6 +112,7 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                         .to_string(),
                 ),
             };
+            let duration_ms = sync_start.elapsed().as_millis() as u64;
 
             match outcome {
                 Ok(items) => {
@@ -125,11 +130,60 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                         Some(format!("ingested {items} item(s)")),
                     );
 
+                    // Write audit entry (GitHub writes its own with
+                    // token detail; other kinds get a simpler entry).
+                    if source.kind != SourceKind::GithubRepo {
+                        use crate::openhuman::memory_sync::sources::audit::{
+                            append_audit_entry, SyncAuditEntry,
+                        };
+                        append_audit_entry(
+                            &config,
+                            &SyncAuditEntry {
+                                timestamp: chrono::Utc::now(),
+                                source_id: source.id.clone(),
+                                source_kind: source.kind.as_str().to_string(),
+                                scope: source.url.clone().or(source.toolkit.clone())
+                                    .unwrap_or_else(|| source.id.clone()),
+                                items_fetched: items as u32,
+                                batches: 0,
+                                input_tokens: 0,
+                                output_tokens: 0,
+                                estimated_cost_usd: 0.0,
+                                duration_ms,
+                                success: true,
+                                error: None,
+                            },
+                        );
+                    }
+
                     // Auto-rebuild: if raw files exist but the tree has
                     // no summaries, build the tree now.
                     check_and_rebuild_tree(&source, &config).await;
                 }
                 Err(error) => {
+                    // Audit failed syncs too.
+                    use crate::openhuman::memory_sync::sources::audit::{
+                        append_audit_entry, SyncAuditEntry,
+                    };
+                    append_audit_entry(
+                        &config,
+                        &SyncAuditEntry {
+                            timestamp: chrono::Utc::now(),
+                            source_id: source.id.clone(),
+                            source_kind: source.kind.as_str().to_string(),
+                            scope: source.url.clone().or(source.toolkit.clone())
+                                .unwrap_or_else(|| source.id.clone()),
+                            items_fetched: 0,
+                            batches: 0,
+                            input_tokens: 0,
+                            output_tokens: 0,
+                            estimated_cost_usd: 0.0,
+                            duration_ms,
+                            success: false,
+                            error: Some(error.clone()),
+                        },
+                    );
+
                     emit_sync_stage(
                         MemorySyncTrigger::Manual,
                         MemorySyncStage::Failed,

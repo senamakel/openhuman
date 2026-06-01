@@ -12,7 +12,6 @@ use super::store;
 use super::types::{SubconsciousStatus, TickResult};
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
-use crate::openhuman::memory::chat::{build_chat_provider, ChatPrompt, ChatProvider};
 use crate::openhuman::memory_store::MemoryClientRef;
 use anyhow::Result;
 use std::path::PathBuf;
@@ -236,36 +235,51 @@ impl SubconsciousEngine {
         }
     }
 
-    /// Run the subconscious agent and parse thoughts from the output.
+    /// Run the subconscious agent with real tool access (memory, research,
+    /// orchestration) and parse thoughts from its final response.
     async fn run_agent(&self, config: &Config, prompt_text: &str) -> Vec<ReflectionDraft> {
-        let provider: Arc<dyn ChatProvider> = match build_subconscious_chat_provider(config) {
-            Ok(p) => p,
-            Err(e) => {
-                warn!("[subconscious] chat provider init failed: {e}");
-                return vec![];
-            }
-        };
+        use crate::openhuman::agent::Agent;
 
-        let chat_prompt = ChatPrompt {
-            system: prompt_text.to_string(),
-            user: "Observe the current state and surface your thoughts. Reply with JSON only."
-                .to_string(),
-            temperature: 0.0,
-            kind: "subconscious_tick",
-        };
+        let mut effective = config.clone();
+        effective.agent.max_tool_iterations = 8;
 
-        debug!(
-            "[subconscious] running agent via provider={}",
-            provider.name()
-        );
-        match provider.chat_for_json(&chat_prompt).await {
-            Ok(raw) => {
-                let drafts = parse_thoughts(&raw);
-                debug!("[subconscious] agent produced {} thoughts", drafts.len());
-                drafts
+        match Agent::from_config(&effective) {
+            Ok(mut agent) => {
+                agent.set_event_context(
+                    format!("subconscious:tick:{}", now_secs() as u64),
+                    "subconscious",
+                );
+
+                let user_message = format!(
+                    "{prompt_text}\n\n\
+                     Use your tools to look up any relevant memory, recent activity, or \
+                     context that would help you produce insightful observations. When \
+                     you're done researching, end your final message with a JSON block \
+                     of your thoughts:\n\n\
+                     ```json\n\
+                     {{\"thoughts\": [...]}}\n\
+                     ```"
+                );
+
+                debug!("[subconscious] spawning agent with tool access");
+                match agent.run_single(&user_message).await {
+                    Ok(response) => {
+                        let drafts = parse_thoughts(&response);
+                        info!(
+                            "[subconscious] agent produced {} thoughts (response {} chars)",
+                            drafts.len(),
+                            response.len()
+                        );
+                        drafts
+                    }
+                    Err(e) => {
+                        warn!("[subconscious] agent run failed: {e}");
+                        vec![]
+                    }
+                }
             }
             Err(e) => {
-                warn!("[subconscious] agent call failed: {e}");
+                warn!("[subconscious] agent init failed: {e}");
                 vec![]
             }
         }
@@ -401,16 +415,6 @@ fn resolve_subconscious_route(config: &Config) -> SubconsciousProviderRoute {
     } else {
         SubconsciousProviderRoute::Other(raw.to_string())
     }
-}
-
-fn build_subconscious_chat_provider(config: &Config) -> Result<Arc<dyn ChatProvider>> {
-    let mut routed = config.clone();
-    routed.memory_provider = match resolve_subconscious_route(config) {
-        SubconsciousProviderRoute::LocalOllama { model } => Some(format!("ollama:{model}")),
-        SubconsciousProviderRoute::OpenHumanCloud => Some("cloud".to_string()),
-        SubconsciousProviderRoute::Other(provider) => Some(provider),
-    };
-    build_chat_provider(&routed)
 }
 
 // ── Thought parsing ─────────────────────────────────────────────────────────

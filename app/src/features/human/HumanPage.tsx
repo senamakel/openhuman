@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { MeetingBotsModal } from '../../components/skills/MeetingBotsCard';
 import { useT } from '../../lib/i18n/I18nContext';
+import { IS_DEV } from '../../utils/config';
 import Conversations from '../../pages/Conversations';
 import { useAppSelector } from '../../store/hooks';
 import {
@@ -72,18 +73,20 @@ const HumanPage = () => {
         {t('voice.pushToTalk')}
       </label>
 
-      {/* "Send OpenHuman to a meeting" — opens the Flow A modal which spawns
-          an off-screen CEF webview pointed at the Meet URL with the mascot
-          canvas as the outbound camera and synthesized speech as the
-          outbound mic. The user's OS mic is never wired to the meeting. */}
-      <button
-        type="button"
-        onClick={() => setJoinMeetingOpen(true)}
-        data-testid="human-join-meeting-pill"
-        className="absolute top-4 left-44 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-500 text-white text-xs font-medium shadow-soft hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300">
-        <span aria-hidden="true">📞</span>
-        {t('skills.meetingBots.modalTitle')}
-      </button>
+      {/* "Send OpenHuman to a meeting" — dev-only; opens the Flow A modal
+          which spawns an off-screen CEF webview pointed at the Meet URL with
+          the mascot canvas as the outbound camera and synthesized speech as
+          the outbound mic. The user's OS mic is never wired to the meeting. */}
+      {IS_DEV && (
+        <button
+          type="button"
+          onClick={() => setJoinMeetingOpen(true)}
+          data-testid="human-join-meeting-pill"
+          className="absolute top-4 left-44 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-500 text-white text-xs font-medium shadow-soft hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300">
+          <span aria-hidden="true">📞</span>
+          {t('skills.meetingBots.modalTitle')}
+        </button>
+      )}
 
       {joinMeetingOpen && <MeetingBotsModal onClose={() => setJoinMeetingOpen(false)} />}
 

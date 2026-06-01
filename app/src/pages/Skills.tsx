@@ -659,7 +659,7 @@ export default function Skills() {
     for (const { meta } of composioGridEntries) {
       cats.add(meta.category);
     }
-    return SKILL_CATEGORY_ORDER.filter(c => c !== 'Channels' && cats.has(c));
+    return SKILL_CATEGORY_ORDER.filter(c => c !== 'Channels' && cats.has(c) && (IS_DEV || c !== 'Other'));
   }, [allItems, composioGridEntries]);
 
   const filteredItems = useMemo(() => {
@@ -941,7 +941,7 @@ export default function Skills() {
                 { value: 'composio', label: t('skills.tabs.composio') },
                 { value: 'channels', label: t('skills.tabs.channels') },
                 { value: 'mcp', label: t('skills.tabs.mcp') },
-                { value: 'runners', label: t('skills.tabs.runners') },
+                ...(IS_DEV ? [{ value: 'runners' as const, label: t('skills.tabs.runners') }] : []),
               ]}
             />
             {
@@ -1102,12 +1102,21 @@ export default function Skills() {
                         {t('channels.mcp.description')}
                       </p>
                     </div>
-                    {/* The real browse/install/manage surface (issue #3039).
-                        McpServersTab manages its own height via h-full, so it
-                        needs a sized container to fill. */}
-                    <div className="h-[72vh] min-h-[480px]">
-                      <McpServersTab />
-                    </div>
+                    {IS_DEV ? (
+                      <div className="h-[72vh] min-h-[480px]">
+                        <McpServersTab />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <div className="text-3xl mb-3">🔌</div>
+                        <p className="text-sm font-medium text-stone-700 dark:text-neutral-300">
+                          {t('misc.comingSoon')}
+                        </p>
+                        <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+                          {t('channels.mcp.description')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </>

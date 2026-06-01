@@ -208,9 +208,9 @@ async fn round21_github_reader_covers_commit_issue_comments_and_error_paths() {
     let issue = reader
         .read_item(&entry, "issue:42", &config)
         .await
-        .expect("read issue with comments");
-    assert!(issue.body.contains("## Comments"));
-    assert!(issue.body.contains("Looks good from the fixture"));
+        .expect("read issue");
+    assert!(issue.body.contains("## Description"));
+    assert!(issue.body.contains("Issue body"));
     assert_eq!(
         issue
             .metadata

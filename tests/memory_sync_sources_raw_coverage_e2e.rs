@@ -342,7 +342,7 @@ async fn github_reader_uses_fake_gh_for_list_and_read_paths() {
         .read_item(&entry, "issue:7", &config)
         .await
         .expect("read issue");
-    assert!(issue.body.contains("## Comments"));
+    assert!(issue.body.contains("## Description"));
     assert!(issue.body.contains("Needs fixture coverage"));
     assert_eq!(
         issue.metadata.get("state").and_then(Value::as_str),

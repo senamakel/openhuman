@@ -446,31 +446,38 @@ pub(crate) async fn seal_one_level(
         },
     );
 
-    let embedder = build_embedder_from_config(config).context("build embedder during seal")?;
-    // Conservative cap. Slack-style chat content (URLs, mentions,
-    // emoji) tokenizes 2-4× higher than the 4-chars/token heuristic.
-    // 1000 approx-tokens (~4000 chars) is comfortably under 8192
-    // even at 4× tokenizer ratio.
-    let embed_input = truncate_for_embed(&output.content, 1_000);
-    log::info!(
-        "[tree::bucket_seal] embed input: original_chars={} truncated_chars={}",
-        output.content.len(),
-        embed_input.len()
-    );
-    let embedding = embedder.embed(&embed_input).await.with_context(|| {
-        format!(
-            "embed summary during seal tree_id={} level={}",
-            tree.id, level
-        )
-    })?;
-    log::debug!(
-        "[tree::bucket_seal] embedded summary tree_id={} level={}→{} bytes={} provider={}",
-        tree.id,
-        level,
-        target_level,
-        output.content.len(),
-        embedder.name()
-    );
+    let embedding: Option<Vec<f32>> = match build_embedder_from_config(config) {
+        Ok(embedder) => {
+            let embed_input = truncate_for_embed(&output.content, 1_000);
+            log::info!(
+                "[tree::bucket_seal] embed input: original_chars={} truncated_chars={}",
+                output.content.len(),
+                embed_input.len()
+            );
+            match embedder.embed(&embed_input).await {
+                Ok(vector) => {
+                    log::debug!(
+                        "[tree::bucket_seal] embedded summary tree_id={} level={}→{} provider={}",
+                        tree.id, level, target_level, embedder.name()
+                    );
+                    Some(vector)
+                }
+                Err(e) => {
+                    log::warn!(
+                        "[tree::bucket_seal] embed failed during seal tree_id={} level={}: {e:#} — sealing without embedding",
+                        tree.id, level
+                    );
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!(
+                "[tree::bucket_seal] build embedder failed during seal: {e:#} — sealing without embedding"
+            );
+            None
+        }
+    };
 
     // Build the new summary node.
     let now = Utc::now();
@@ -495,7 +502,7 @@ pub(crate) async fn seal_one_level(
         score,
         sealed_at: now,
         deleted: false,
-        embedding: Some(embedding),
+        embedding,
     };
 
     crate::core::event_bus::publish_global(

@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
@@ -27,22 +28,45 @@ const MODE_OPTIONS: ModeOption[] = [
   },
 ];
 
+const INTERVAL_STOPS = [5, 10, 15, 30, 60, 120, 360, 720, 1440];
+
+function formatMinutes(minutes: number, t: (key: string) => string): string {
+  if (minutes < 60) return t('subconscious.interval.minutes').replace('{n}', String(minutes));
+  const hours = minutes / 60;
+  if (hours === 1) return t('subconscious.interval.oneHour');
+  if (hours === 24) return t('subconscious.interval.oneDay');
+  return t('subconscious.interval.hours').replace('{n}', String(hours));
+}
+
+function minutesToSlider(minutes: number): number {
+  const idx = INTERVAL_STOPS.indexOf(minutes);
+  return idx >= 0 ? idx : 0;
+}
+
+function sliderToMinutes(value: number): number {
+  return INTERVAL_STOPS[value] ?? 30;
+}
+
 interface IntelligenceSubconsciousTabProps {
   status: SubconsciousStatus | null;
   mode: SubconsciousMode;
+  intervalMinutes: number;
   triggerTick: () => Promise<void>;
   triggering: boolean;
   settingMode: boolean;
   setMode: (mode: SubconsciousMode) => Promise<void>;
+  setIntervalMinutes: (minutes: number) => Promise<void>;
 }
 
 export default function IntelligenceSubconsciousTab({
   status,
   mode,
+  intervalMinutes,
   triggerTick,
   triggering,
   settingMode,
   setMode,
+  setIntervalMinutes,
 }: IntelligenceSubconsciousTabProps) {
   const { t } = useT();
   const navigate = useNavigate();
@@ -52,6 +76,23 @@ export default function IntelligenceSubconsciousTab({
     ? (status?.provider_unavailable_reason ?? t('subconscious.providerUnavailableTitle'))
     : null;
   const isEnabled = mode !== 'off';
+
+  const [localSlider, setLocalSlider] = useState(() => minutesToSlider(intervalMinutes));
+
+  const handleSliderChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = Number(e.target.value);
+      setLocalSlider(val);
+    },
+    []
+  );
+
+  const handleSliderCommit = useCallback(() => {
+    const minutes = sliderToMinutes(localSlider);
+    if (minutes !== intervalMinutes) {
+      void setIntervalMinutes(minutes);
+    }
+  }, [localSlider, intervalMinutes, setIntervalMinutes]);
 
   const handleNavigateToThread = (threadId: string) => {
     dispatch(setSelectedThread(threadId));
@@ -69,37 +110,35 @@ export default function IntelligenceSubconsciousTab({
   };
 
   return (
-    <div className="space-y-6 animate-fade-up">
+    <div className="space-y-5 animate-fade-up">
       {/* Mode selector */}
       <div>
         <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-2">
           {t('subconscious.mode.label')}
         </h3>
-        <div className="grid gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {MODE_OPTIONS.map(opt => (
             <button
               key={opt.id}
               type="button"
               disabled={settingMode}
               onClick={() => void setMode(opt.id)}
-              className={`text-left rounded-lg border p-3 transition ${
+              className={`flex flex-col items-center text-center rounded-lg border p-3 transition ${
                 mode === opt.id
                   ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10'
                   : 'border-stone-200 dark:border-neutral-800 hover:border-primary-300 dark:hover:border-primary-500/40'
               } ${settingMode ? 'opacity-60 cursor-wait' : ''}`}>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`inline-block w-3 h-3 rounded-full border-2 ${
-                    mode === opt.id
-                      ? 'bg-primary-500 border-primary-500'
-                      : 'border-stone-300 dark:border-neutral-600'
-                  }`}
-                />
-                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-                  {t(opt.titleKey)}
-                </span>
-              </div>
-              <p className="mt-1 ml-5 text-xs text-stone-500 dark:text-neutral-400">
+              <span
+                className={`inline-block w-3 h-3 rounded-full border-2 mb-1.5 ${
+                  mode === opt.id
+                    ? 'bg-primary-500 border-primary-500'
+                    : 'border-stone-300 dark:border-neutral-600'
+                }`}
+              />
+              <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                {t(opt.titleKey)}
+              </span>
+              <p className="mt-1 text-[11px] leading-tight text-stone-500 dark:text-neutral-400">
                 {t(opt.descKey)}
               </p>
             </button>
@@ -111,6 +150,36 @@ export default function IntelligenceSubconsciousTab({
           </p>
         )}
       </div>
+
+      {/* Frequency slider */}
+      {isEnabled && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-medium text-stone-700 dark:text-neutral-300">
+              {t('subconscious.interval.label')}
+            </label>
+            <span className="text-xs text-stone-500 dark:text-neutral-400">
+              {formatMinutes(sliderToMinutes(localSlider), t)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={INTERVAL_STOPS.length - 1}
+            step={1}
+            value={localSlider}
+            onChange={handleSliderChange}
+            onMouseUp={handleSliderCommit}
+            onTouchEnd={handleSliderCommit}
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-stone-200 dark:bg-neutral-700 accent-primary-500"
+          />
+          <div className="flex justify-between mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+            <span>5m</span>
+            <span>1h</span>
+            <span>24h</span>
+          </div>
+        </div>
+      )}
 
       {/* Status bar + Run Now */}
       {isEnabled && (

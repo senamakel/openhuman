@@ -30,10 +30,12 @@ function baseProps(): ComponentProps<typeof IntelligenceSubconsciousTab> {
   return {
     status: null,
     mode: 'off',
+    intervalMinutes: 30,
     triggerTick: vi.fn(),
     triggering: false,
     settingMode: false,
     setMode: vi.fn(),
+    setIntervalMinutes: vi.fn(),
   };
 }
 

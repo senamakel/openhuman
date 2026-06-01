@@ -19,18 +19,21 @@ import type { SubconsciousStatus } from '../utils/tauriCommands/subconscious';
 export interface UseSubconsciousResult {
   status: SubconsciousStatus | null;
   mode: SubconsciousMode;
+  intervalMinutes: number;
   loading: boolean;
   triggering: boolean;
   settingMode: boolean;
   refresh: () => Promise<void>;
   triggerTick: () => Promise<void>;
   setMode: (mode: SubconsciousMode) => Promise<void>;
+  setIntervalMinutes: (minutes: number) => Promise<void>;
   error: string | null;
 }
 
 export function useSubconscious(): UseSubconsciousResult {
   const [status, setStatus] = useState<SubconsciousStatus | null>(null);
   const [mode, setModeState] = useState<SubconsciousMode>('off');
+  const [intervalMinutes, setIntervalState] = useState(30);
   const [loading, setLoading] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [settingMode, setSettingMode] = useState(false);
@@ -48,9 +51,16 @@ export function useSubconscious(): UseSubconsciousResult {
         withTimeout(openhumanHeartbeatSettingsGet()),
       ]);
       if (statusRes) setStatus(unwrap(statusRes) ?? null);
-      const settings = settingsRes ? unwrap<{ settings: { subconscious_mode: SubconsciousMode } }>(settingsRes) : null;
-      if (settings?.settings?.subconscious_mode) {
-        setModeState(settings.settings.subconscious_mode);
+      const settings = settingsRes
+        ? unwrap<{ settings: { subconscious_mode: SubconsciousMode; interval_minutes: number } }>(settingsRes)
+        : null;
+      if (settings?.settings) {
+        if (settings.settings.subconscious_mode) {
+          setModeState(settings.settings.subconscious_mode);
+        }
+        if (settings.settings.interval_minutes) {
+          setIntervalState(settings.settings.interval_minutes);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load subconscious data');
@@ -90,6 +100,19 @@ export function useSubconscious(): UseSubconsciousResult {
     [refresh]
   );
 
+  const setIntervalMinutes = useCallback(
+    async (minutes: number) => {
+      if (!isTauri()) return;
+      setIntervalState(minutes);
+      try {
+        await openhumanHeartbeatSettingsSet({ interval_minutes: minutes });
+      } catch (err) {
+        console.warn('[subconscious] setInterval failed:', err);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     refresh();
     const interval = setInterval(refresh, 5000);
@@ -102,12 +125,14 @@ export function useSubconscious(): UseSubconsciousResult {
   return {
     status,
     mode,
+    intervalMinutes,
     loading,
     triggering,
     settingMode,
     refresh,
     triggerTick,
     setMode,
+    setIntervalMinutes,
     error,
   };
 }

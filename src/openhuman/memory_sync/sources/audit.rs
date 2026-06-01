@@ -89,11 +89,11 @@ pub fn read_audit_log(config: &Config) -> Vec<SyncAuditEntry> {
 
 /// Estimate cost in USD for a given token count.
 ///
-/// Uses conservative pricing: $3/M input, $15/M output (Anthropic Sonnet-tier).
-/// Adjust as the model changes.
+/// Uses DeepSeek v4 flash pricing (the summarization-v1 backing model):
+/// $0.07/M input, $0.28/M output.
 pub fn estimate_cost_usd(input_tokens: u64, output_tokens: u64) -> f64 {
-    let input_cost = input_tokens as f64 * 3.0 / 1_000_000.0;
-    let output_cost = output_tokens as f64 * 15.0 / 1_000_000.0;
+    let input_cost = input_tokens as f64 * 0.07 / 1_000_000.0;
+    let output_cost = output_tokens as f64 * 0.28 / 1_000_000.0;
     input_cost + output_cost
 }
 
@@ -103,10 +103,10 @@ mod tests {
 
     #[test]
     fn estimate_cost_reasonable() {
-        // 50k input + 5k output
+        // 50k input + 5k output at DeepSeek flash pricing
         let cost = estimate_cost_usd(50_000, 5_000);
-        // $0.15 input + $0.075 output = $0.225
-        assert!((cost - 0.225).abs() < 0.001);
+        // $0.0035 input + $0.0014 output = $0.0049
+        assert!((cost - 0.0049).abs() < 0.0001);
     }
 
     #[test]

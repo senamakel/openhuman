@@ -2126,9 +2126,9 @@ const en: TranslationMap = {
   'subconscious.mode.off.title': 'Off',
   'subconscious.mode.off.desc': 'Subconscious is disabled.',
   'subconscious.mode.simple.title': 'Simple',
-  'subconscious.mode.simple.desc': 'Read-only observation every 30 minutes. Memory and file access only.',
+  'subconscious.mode.simple.desc': 'Read-only observation. Memory and file access only.',
   'subconscious.mode.aggressive.title': 'Aggressive',
-  'subconscious.mode.aggressive.desc': 'Full tool access every 5 minutes. Can write, spawn agents, and delegate tasks.',
+  'subconscious.mode.aggressive.desc': 'Full tool access. Can write, spawn agents, and delegate tasks.',
   'subconscious.mode.aggressiveWarning': 'Aggressive mode gives the subconscious full tool access including writes and sub-agent spawning.',
 
   // WhatsApp

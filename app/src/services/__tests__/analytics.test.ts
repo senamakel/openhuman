@@ -381,6 +381,8 @@ const originalCreateElement = document.createElement.bind(document);
 async function freshAnalytics() {
   vi.resetModules();
   createdScripts = [];
+  delete (window as Partial<Window>).gtag;
+  delete (window as Partial<Window>).dataLayer;
   vi.stubGlobal(
     'fetch',
     vi.fn(() =>
@@ -447,6 +449,30 @@ describe('initGA (OpenPanel)', () => {
     expect(createdScripts).toHaveLength(1);
     expect(createdScripts[0].src).toBe('https://www.googletagmanager.com/gtag/js?id=G-TEST12345');
     expect(window.gtag).toBeDefined();
+  });
+
+  test('does not initialize vendors until consent is enabled', async () => {
+    hoisted.analyticsEnabled = false;
+    const { initGA } = await freshAnalytics();
+    initGA();
+    expect(createdScripts).toHaveLength(0);
+    expect(window.gtag).toBeUndefined();
+  });
+
+  test('initializes vendors when consent flips on after startup', async () => {
+    hoisted.analyticsEnabled = false;
+    const { initGA, syncAnalyticsConsent, trackEvent } = await freshAnalytics();
+    initGA();
+    syncAnalyticsConsent(true);
+    trackEvent('app_open');
+    expect(createdScripts).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      'https://panel.tinyhumans.ai/api/track',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"name":"app_open"'),
+      })
+    );
   });
 
   test('is idempotent — second call does not inject additional scripts', async () => {
@@ -549,6 +575,20 @@ describe('trackEvent (OpenPanel)', () => {
     expect(openPanelPayload().payload.profileId).toBe('user-123');
     expectAnalyticsContext(openPanelPayload().payload.properties);
     expect(openPanelPayload().payload.properties.__timestamp).toEqual(expect.any(String));
+  });
+
+  test('redacts user_id from event debug logs', async () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+    hoisted.currentUserId = 'user-123';
+    const { initGA, trackEvent } = await freshAnalytics();
+    initGA();
+    trackEvent('app_open', { version: '1.0.0' });
+    const trackLog = debugSpy.mock.calls.find(call => call[0] === '[analytics] trackEvent');
+    expect(trackLog?.[1]).toMatchObject({
+      eventName: 'app_open',
+      params: expect.not.objectContaining({ user_id: 'user-123' }),
+    });
+    debugSpy.mockRestore();
   });
 
   test('drops events not in the allowlist and logs a warning', async () => {

@@ -697,7 +697,7 @@ const messages: TranslationMap = {
   'privacy.autoHandoffMeetDesc':
     '当 Google Meet 通话结束时，OpenHuman 的编排器可以阅读转录内容，并可能执行起草消息、安排跟进、或将摘要发布到已连接的 Slack 工作区等操作。默认关闭。',
   'privacy.analyticsDisclaimer':
-    '所有分析和错误报告完全匿名。启用后，我们仅收集崩溃信息、设备类型和错误的文件位置。我们永远不会访问你的消息、会话数据、钱包密钥、API 密钥或任何个人可识别信息。你可以随时更改此设置。',
+    '启用后，产品分析和诊断可能包括受隐私限制的崩溃报告和使用事件、稳定的账号 ID，以及应用版本元数据。我们绝不会收集消息、钱包密钥、API 密钥或会话令牌。你可以随时更改此设置。',
   'settings.about.version': '版本',
   'settings.about.updateAvailable': '可用',
   'settings.about.softwareUpdates': '软件更新',

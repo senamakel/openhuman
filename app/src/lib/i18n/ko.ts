@@ -730,7 +730,7 @@ const messages: TranslationMap = {
   'privacy.autoHandoffMeetDesc':
     'Google Meet 통화가 끝나면 OpenHuman의 오케스트레이터가 transcript를 읽고 메시지 초안 작성, 후속 일정 예약, 연결된 Slack 워크스페이스에 요약 게시 같은 작업을 수행할 수 있습니다. 기본값은 꺼짐입니다.',
   'privacy.analyticsDisclaimer':
-    '모든 분석 및 버그 보고서는 완전히 익명화됩니다. 활성화하면 충돌 정보, 기기 유형, 오류 파일 위치만 수집합니다. 메시지, 세션 데이터, 지갑 키, API 키 또는 개인 식별 정보에는 절대 접근하지 않습니다. 이 설정은 언제든지 변경할 수 있습니다.',
+    '활성화하면 제품 분석 및 진단에 개인정보가 제한된 충돌 보고서와 사용 이벤트, 안정적인 계정 ID, 앱 버전 메타데이터가 포함될 수 있습니다. 메시지, 지갑 키, API 키, 세션 토큰은 절대 수집되지 않습니다. 이 설정은 언제든지 변경할 수 있습니다.',
   'settings.about.version': '버전',
   'settings.about.updateAvailable': '사용 가능',
   'settings.about.softwareUpdates': '소프트웨어 업데이트',

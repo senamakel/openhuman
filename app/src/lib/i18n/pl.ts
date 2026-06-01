@@ -745,7 +745,7 @@ const messages: TranslationMap = {
   'privacy.autoHandoffMeetDesc':
     'Gdy spotkanie Google Meet się kończy, orchestrator OpenHuman może odczytać transkrypcję i wykonać akcje, np. przygotować wiadomości, zaplanować działania lub opublikować podsumowanie w podłączonym workspace Slack. Domyślnie wyłączone.',
   'privacy.analyticsDisclaimer':
-    'Wszystkie raporty analityczne i błędów są w pełni anonimowe. Po włączeniu zbieramy informacje o awariach i typie urządzenia (Sentry) oraz anonimową analitykę (Google Analytics — odsłony, używane funkcje). Nigdy nie uzyskujemy dostępu do Twoich wiadomości, danych sesji, kluczy portfela, kluczy API ani danych osobowych. Możesz zmienić to ustawienie w dowolnym momencie.',
+    'Po włączeniu analityka produktu i diagnostyka mogą obejmować raporty awarii i zdarzenia użycia o ograniczonej prywatności, stabilny identyfikator konta oraz metadane wersji aplikacji. Wiadomości, klucze portfela, klucze API i tokeny sesji nigdy nie są zbierane. Możesz zmienić to ustawienie w dowolnym momencie.',
   'settings.about.version': 'Wersja',
   'settings.about.updateAvailable': 'jest dostępna',
   'settings.about.softwareUpdates': 'Aktualizacje oprogramowania',

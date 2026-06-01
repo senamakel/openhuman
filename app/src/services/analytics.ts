@@ -1,14 +1,14 @@
 /**
  * Analytics & Sentry service
  *
- * Initializes Sentry for error reporting and OpenPanel for anonymous
+ * Initializes Sentry for error reporting and OpenPanel for privacy-limited
  * usage tracking. Both are gated on user analytics consent.
  *
  * Sentry privacy guarantees enforced in `beforeSend`:
  *   - No breadcrumbs, requests, extras, or arbitrary contexts (only OS /
  *     browser / device metadata kept)
  *   - No frame-level locals or source-context snippets
- *   - No PII — `user` is reduced to a stable anonymous id (or omitted)
+ *   - No PII — `user` is reduced to a stable account id (or omitted)
  *   - `sendDefaultPii: false` (no IP, no cookies)
  *   - All breadcrumb-producing integrations disabled
  *
@@ -208,7 +208,7 @@ export function initSentry(): void {
       // Tag with surface so events filter cleanly inside `openhuman-react`.
       event.tags = { ...(event.tags ?? {}), surface: 'react' };
 
-      // Strip PII; keep a stable anonymous user id only.
+      // Strip PII; keep a stable account id only.
       const userId = getCoreStateSnapshot().snapshot.currentUser?._id;
       event.user = userId ? { id: userId } : undefined;
 
@@ -271,6 +271,7 @@ export function syncAnalyticsConsent(enabled: boolean): void {
     console.debug(`[analytics] consent updated: enabled=${enabled}`);
   }
   if (enabled) {
+    initializeAnalyticsProviders();
     flushPendingAnalyticsEvents();
   } else {
     pendingAnalyticsEvents.length = 0;
@@ -315,21 +316,25 @@ function initOpenPanel(): void {
   });
 }
 
+function initializeAnalyticsProviders(): void {
+  initGoogleAnalytics();
+  initOpenPanel();
+}
+
 /**
  * Initialize all analytics providers (GA4 + OpenPanel).
  * Idempotent — each provider initializes at most once.
  */
 export function initGA(): void {
-  initGoogleAnalytics();
-  initOpenPanel();
   analyticsEnabled = isAnalyticsEnabled();
   if (analyticsEnabled) {
+    initializeAnalyticsProviders();
     flushPendingAnalyticsEvents();
   }
 }
 
 /**
- * Send an anonymous page view to all initialized providers.
+ * Send a privacy-limited page view to all initialized providers.
  */
 export function trackPageView(path: string): void {
   const pagePath = normalizeAnalyticsPagePath(path);
@@ -357,7 +362,7 @@ export function trackPageView(path: string): void {
 }
 
 /**
- * Send an anonymous feature-engagement event to all initialized providers.
+ * Send a privacy-limited feature-engagement event to all initialized providers.
  *
  * Event names must appear in `ALLOWED_EVENTS`. Calls with unlisted names
  * are dropped and a console warning is emitted.
@@ -377,7 +382,9 @@ export function trackEvent(eventName: string, params?: AnalyticsParams): void {
   if (!gaInitialized && !opInitialized) return;
 
   const properties = { ...(params ?? {}), ...analyticsContextProperties() };
-  console.debug('[analytics] trackEvent', { eventName, params: properties });
+  const loggableProperties = { ...properties };
+  delete loggableProperties.user_id;
+  console.debug('[analytics] trackEvent', { eventName, params: loggableProperties });
   if (gaInitialized) window.gtag('event', eventName, properties);
   if (opInitialized) {
     void sendOpenPanelTrack(eventName, properties);

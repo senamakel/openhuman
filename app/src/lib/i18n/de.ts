@@ -753,7 +753,7 @@ const messages: TranslationMap = {
   'privacy.autoHandoffMeetDesc':
     'Wenn ein Google Meet-Anruf endet, kann der Orchestrator von OpenHuman das Transkript lesen und Maßnahmen wie das Verfassen von Nachrichten, das Planen von Folgemaßnahmen oder das Veröffentlichen von Zusammenfassungen in deinem verbundenen Slack-Arbeitsbereich ergreifen. Standardmäßig deaktiviert.',
   'privacy.analyticsDisclaimer':
-    'Alle Analysen und Fehlerberichte sind vollständig anonymisiert. Wenn diese Option aktiviert ist, erfassen wir nur Absturzinformationen, den Gerätetyp und den Dateispeicherort von Fehlern. Wir greifen niemals auf deine Nachrichten, Sitzungsdaten, Wallet-Schlüssel, API-Schlüssel oder andere persönlich identifizierbare Informationen zu. Du kannst diese Einstellung jederzeit ändern.',
+    'Wenn diese Option aktiviert ist, können Produktanalysen und Diagnosen datensparsame Absturzberichte und Nutzungsereignisse, eine stabile Konto-ID und App-Versionsmetadaten enthalten. Nachrichten, Wallet-Schlüssel, API-Schlüssel und Sitzungstokens werden nie erfasst. Du kannst diese Einstellung jederzeit ändern.',
   'settings.about.version': 'Version',
   'settings.about.updateAvailable': 'ist vorhanden',
   'settings.about.softwareUpdates': 'Software-Updates',

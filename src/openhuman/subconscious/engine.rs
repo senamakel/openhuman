@@ -10,6 +10,7 @@ use super::situation_report::build_situation_report;
 use super::source_chunk::resolve_chunks;
 use super::store;
 use super::types::{SubconsciousStatus, TickResult};
+use crate::openhuman::config::schema::SubconsciousMode;
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
 use crate::openhuman::memory_store::MemoryClientRef;
@@ -22,6 +23,7 @@ use tracing::{debug, info, warn};
 
 pub struct SubconsciousEngine {
     workspace_dir: PathBuf,
+    mode: SubconsciousMode,
     interval_minutes: u32,
     context_budget_tokens: u32,
     enabled: bool,
@@ -60,11 +62,14 @@ impl SubconsciousEngine {
             }
         };
 
+        let mode = heartbeat.effective_subconscious_mode();
+
         Self {
             workspace_dir,
-            interval_minutes: heartbeat.interval_minutes.max(5),
+            mode,
+            interval_minutes: mode.default_interval_minutes().max(5),
             context_budget_tokens: heartbeat.context_budget_tokens,
-            enabled: heartbeat.enabled && heartbeat.inference_enabled,
+            enabled: mode.is_enabled(),
             memory,
             state: Mutex::new(EngineState {
                 last_tick_at,
@@ -222,6 +227,7 @@ impl SubconsciousEngine {
 
         SubconsciousStatus {
             enabled: self.enabled,
+            mode: self.mode.as_str().to_string(),
             provider_available: state.provider_unavailable_reason.is_none(),
             provider_unavailable_reason: state.provider_unavailable_reason.clone(),
             interval_minutes: self.interval_minutes,
@@ -235,13 +241,25 @@ impl SubconsciousEngine {
         }
     }
 
-    /// Run the subconscious agent with real tool access (memory, research,
-    /// orchestration) and parse thoughts from its final response.
+    /// Run the subconscious agent with mode-appropriate tool access and
+    /// parse thoughts from its final response.
     async fn run_agent(&self, config: &Config, prompt_text: &str) -> Vec<ReflectionDraft> {
         use crate::openhuman::agent::Agent;
 
         let mut effective = config.clone();
-        effective.agent.max_tool_iterations = 8;
+        match self.mode {
+            SubconsciousMode::Simple => {
+                effective.autonomy.level =
+                    crate::openhuman::security::AutonomyLevel::ReadOnly;
+                effective.agent.max_tool_iterations = 4;
+            }
+            SubconsciousMode::Aggressive => {
+                effective.autonomy.level =
+                    crate::openhuman::security::AutonomyLevel::Full;
+                effective.agent.max_tool_iterations = 8;
+            }
+            SubconsciousMode::Off => return vec![],
+        }
 
         match Agent::from_config(&effective) {
             Ok(mut agent) => {

@@ -128,11 +128,13 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
         } else {
             None
         };
+        let mode = hb.effective_subconscious_mode();
         let status = super::types::SubconsciousStatus {
-            enabled: hb.enabled && hb.inference_enabled,
+            enabled: mode.is_enabled(),
+            mode: mode.as_str().to_string(),
             provider_available: provider_unavailable_reason.is_none(),
             provider_unavailable_reason,
-            interval_minutes: hb.interval_minutes.max(5),
+            interval_minutes: mode.default_interval_minutes().max(5),
             last_tick_at: last_tick_at.filter(|v| *v > 0.0),
             total_ticks: 0,
             consecutive_failures: 0,

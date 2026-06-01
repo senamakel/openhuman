@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubconsciousStatus {
     pub enabled: bool,
+    pub mode: String,
     pub provider_available: bool,
     pub provider_unavailable_reason: Option<String>,
     pub interval_minutes: u32,

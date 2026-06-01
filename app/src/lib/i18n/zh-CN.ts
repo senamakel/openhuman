@@ -688,10 +688,10 @@ const messages: TranslationMap = {
   'privacy.sentTo': '发送至',
   'privacy.leavesDevice': '离开设备',
   'privacy.staysLocal': '留在本地',
-  'privacy.anonymizedAnalytics': '匿名分析',
-  'privacy.shareAnonymizedData': '分享匿名使用数据',
+  'privacy.anonymizedAnalytics': '产品分析',
+  'privacy.shareAnonymizedData': '分享产品分析和诊断数据',
   'privacy.shareAnonymizedDataDesc':
-    '通过分享匿名崩溃报告和使用分析来帮助改进 OpenHuman。所有数据完全匿名——不会收集任何个人数据、消息、钱包密钥或会话信息。',
+    '通过分享受隐私限制的崩溃报告和使用事件来帮助改进 OpenHuman，其中包括稳定的账号 ID 和应用版本元数据。我们绝不会收集消息、钱包密钥、API 密钥或会话令牌。',
   'privacy.meetingFollowUps': '会议跟进',
   'privacy.autoHandoffMeet': '自动将 Google Meet 转录交给编排器',
   'privacy.autoHandoffMeetDesc':

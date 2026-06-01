@@ -87,7 +87,7 @@ const emptySnapshot: CoreAppSnapshot = {
   currentUser: null,
   onboardingCompleted: false,
   chatOnboardingCompleted: false,
-  analyticsEnabled: false,
+  analyticsEnabled: true,
   meetAutoOrchestratorHandoff: false,
   localState: { encryptionKey: null, onboardingTasks: null, keyringConsent: null },
   keyringStatus: {

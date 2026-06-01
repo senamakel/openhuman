@@ -730,10 +730,10 @@ const messages: TranslationMap = {
   'privacy.sentTo': 'Отправляется в',
   'privacy.leavesDevice': 'Покидает устройство',
   'privacy.staysLocal': 'Остаётся локально',
-  'privacy.anonymizedAnalytics': 'Анонимная аналитика',
-  'privacy.shareAnonymizedData': 'Делиться анонимными данными об использовании',
+  'privacy.anonymizedAnalytics': 'Аналитика продукта',
+  'privacy.shareAnonymizedData': 'Отправлять аналитику продукта и диагностику',
   'privacy.shareAnonymizedDataDesc':
-    'Помоги улучшить OpenHuman, отправляя анонимные отчёты об ошибках и данные об использовании. Все данные полностью анонимизированы — личные данные, сообщения, ключи кошелька и информация о сессии никогда не собираются.',
+    'Помоги улучшить OpenHuman, отправляя ограниченные по приватности отчёты о сбоях и события использования, включая стабильный ID аккаунта и метаданные версии приложения. Сообщения, ключи кошелька, API-ключи и токены сессии никогда не собираются.',
   'privacy.meetingFollowUps': 'Действия после встреч',
   'privacy.autoHandoffMeet': 'Автоматически передавать транскрипты Google Meet оркестратору',
   'privacy.autoHandoffMeetDesc':

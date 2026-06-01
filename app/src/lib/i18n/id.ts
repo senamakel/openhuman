@@ -725,10 +725,10 @@ const messages: TranslationMap = {
   'privacy.sentTo': 'Dikirim ke',
   'privacy.leavesDevice': 'Keluar dari perangkat',
   'privacy.staysLocal': 'Tetap lokal',
-  'privacy.anonymizedAnalytics': 'Analitik Anonim',
-  'privacy.shareAnonymizedData': 'Bagikan Data Penggunaan Anonim',
+  'privacy.anonymizedAnalytics': 'Analitik Produk',
+  'privacy.shareAnonymizedData': 'Bagikan Analitik Produk dan Diagnostik',
   'privacy.shareAnonymizedDataDesc':
-    'Bantu meningkatkan OpenHuman dengan membagikan laporan crash dan analitik penggunaan anonim. Semua data sepenuhnya anonim; tidak ada data pribadi, pesan, kunci dompet, atau informasi sesi yang dikumpulkan.',
+    'Bantu meningkatkan OpenHuman dengan membagikan laporan crash dan peristiwa penggunaan yang dibatasi privasi, termasuk ID akun stabil dan metadata versi aplikasi. Pesan, kunci dompet, kunci API, dan token sesi tidak pernah dikumpulkan.',
   'privacy.meetingFollowUps': 'Tindak lanjut rapat',
   'privacy.autoHandoffMeet': 'Serahkan transkrip Google Meet otomatis ke orchestrator',
   'privacy.autoHandoffMeetDesc':

@@ -714,10 +714,10 @@ const messages: TranslationMap = {
   'privacy.sentTo': 'مُرسَل إلى',
   'privacy.leavesDevice': 'يغادر الجهاز',
   'privacy.staysLocal': 'يبقى محليًا',
-  'privacy.anonymizedAnalytics': 'تحليلات مجهولة الهوية',
-  'privacy.shareAnonymizedData': 'مشاركة بيانات الاستخدام المجهولة',
+  'privacy.anonymizedAnalytics': 'تحليلات المنتج',
+  'privacy.shareAnonymizedData': 'مشاركة تحليلات المنتج والتشخيصات',
   'privacy.shareAnonymizedDataDesc':
-    'ساعد في تحسين OpenHuman من خلال مشاركة تقارير الأعطال وتحليلات الاستخدام المجهولة. جميع البيانات مجهولة الهوية تمامًا — لا يُجمع أي بيانات شخصية أو رسائل أو مفاتيح محفظة أو معلومات جلسة.',
+    'ساعد في تحسين OpenHuman من خلال مشاركة تقارير أعطال وأحداث استخدام محدودة الخصوصية، بما في ذلك معرّف حساب ثابت وبيانات إصدار التطبيق. لا تُجمع الرسائل أو مفاتيح المحافظ أو مفاتيح API أو رموز الجلسات أبدًا.',
   'privacy.meetingFollowUps': 'متابعات الاجتماعات',
   'privacy.autoHandoffMeet': 'تسليم نسخ Google Meet تلقائيًا إلى المنسق',
   'privacy.autoHandoffMeetDesc':

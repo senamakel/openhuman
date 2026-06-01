@@ -721,10 +721,10 @@ const messages: TranslationMap = {
   'privacy.sentTo': '전송 대상',
   'privacy.leavesDevice': '기기를 떠남',
   'privacy.staysLocal': '로컬에 유지됨',
-  'privacy.anonymizedAnalytics': '익명화된 분석',
-  'privacy.shareAnonymizedData': '익명화된 사용 데이터 공유',
+  'privacy.anonymizedAnalytics': '제품 분석',
+  'privacy.shareAnonymizedData': '제품 분석 및 진단 공유',
   'privacy.shareAnonymizedDataDesc':
-    '익명 충돌 보고서와 사용 분석을 공유하여 OpenHuman 개선을 도와주세요. 모든 데이터는 완전히 익명화되며, 개인 데이터, 메시지, 지갑 키 또는 세션 정보는 절대 수집되지 않습니다.',
+    '안정적인 계정 ID와 앱 버전 메타데이터를 포함한 개인정보 제한 충돌 보고서와 사용 이벤트를 공유하여 OpenHuman 개선을 도와주세요. 메시지, 지갑 키, API 키, 세션 토큰은 절대 수집되지 않습니다.',
   'privacy.meetingFollowUps': '회의 후속 조치',
   'privacy.autoHandoffMeet': 'Google Meet transcript를 오케스트레이터에 자동 전달',
   'privacy.autoHandoffMeetDesc':

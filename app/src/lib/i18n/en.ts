@@ -848,10 +848,10 @@ const en: TranslationMap = {
   'privacy.sentTo': 'Sent to',
   'privacy.leavesDevice': 'Leaves device',
   'privacy.staysLocal': 'Stays local',
-  'privacy.anonymizedAnalytics': 'Anonymized Analytics',
-  'privacy.shareAnonymizedData': 'Share Anonymized Usage Data',
+  'privacy.anonymizedAnalytics': 'Product Analytics',
+  'privacy.shareAnonymizedData': 'Share Product Analytics and Diagnostics',
   'privacy.shareAnonymizedDataDesc':
-    'Help improve OpenHuman by sharing anonymous crash reports and usage analytics. All data is fully anonymized — no personal data, messages, wallet keys, or session information is ever collected.',
+    'Help improve OpenHuman by sharing privacy-limited crash reports and usage events, including a stable account ID and app version metadata. Messages, wallet keys, API keys, and session tokens are never collected.',
   'privacy.meetingFollowUps': 'Meeting follow-ups',
   'privacy.autoHandoffMeet': 'Auto-handoff Google Meet transcripts to the orchestrator',
   'privacy.autoHandoffMeetDesc':

@@ -722,10 +722,10 @@ const messages: TranslationMap = {
   'privacy.sentTo': 'भेजा गया',
   'privacy.leavesDevice': 'डिवाइस से बाहर जाता है',
   'privacy.staysLocal': 'लोकल रहता है',
-  'privacy.anonymizedAnalytics': 'अनॉनिमाइज़्ड एनालिटिक्स',
-  'privacy.shareAnonymizedData': 'अनॉनिमाइज़्ड यूसेज डेटा शेयर करें',
+  'privacy.anonymizedAnalytics': 'प्रोडक्ट एनालिटिक्स',
+  'privacy.shareAnonymizedData': 'प्रोडक्ट एनालिटिक्स और डायग्नॉस्टिक्स शेयर करें',
   'privacy.shareAnonymizedDataDesc':
-    'अनॉनिमस क्रैश रिपोर्ट और यूसेज एनालिटिक्स शेयर करके OpenHuman को बेहतर बनाने में मदद करें। सभी डेटा पूरी तरह अनॉनिमाइज़्ड है — कोई पर्सनल डेटा, मैसेज, वॉलेट keys या सेशन जानकारी कभी कलेक्ट नहीं होती।',
+    'प्राइवेसी-लिमिटेड क्रैश रिपोर्ट और यूसेज इवेंट शेयर करके OpenHuman को बेहतर बनाने में मदद करें, जिनमें स्थिर अकाउंट ID और ऐप वर्ज़न मेटाडेटा शामिल होता है। मैसेज, वॉलेट keys, API keys और सेशन tokens कभी कलेक्ट नहीं होते।',
   'privacy.meetingFollowUps': 'मीटिंग फॉलो-अप',
   'privacy.autoHandoffMeet': 'Google Meet ट्रांसक्रिप्ट ऑटो-हैंडऑफ ऑर्केस्ट्रेटर को करें',
   'privacy.autoHandoffMeetDesc':

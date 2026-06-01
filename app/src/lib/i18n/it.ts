@@ -736,10 +736,10 @@ const messages: TranslationMap = {
   'privacy.sentTo': 'Inviato a',
   'privacy.leavesDevice': 'Esce dal dispositivo',
   'privacy.staysLocal': 'Rimane locale',
-  'privacy.anonymizedAnalytics': 'Analisi anonimizzate',
-  'privacy.shareAnonymizedData': 'Condividi dati di utilizzo anonimizzati',
+  'privacy.anonymizedAnalytics': 'Analisi del prodotto',
+  'privacy.shareAnonymizedData': 'Condividi analisi del prodotto e diagnostica',
   'privacy.shareAnonymizedDataDesc':
-    'Aiuta a migliorare OpenHuman condividendo report di crash anonimi e analisi di utilizzo. Tutti i dati sono completamente anonimizzati — nessun dato personale, messaggio, chiave wallet o informazione di sessione viene mai raccolto.',
+    'Aiuta a migliorare OpenHuman condividendo report di crash ed eventi di utilizzo limitati per la privacy, inclusi un ID account stabile e i metadati della versione dell’app. Messaggi, chiavi wallet, chiavi API e token di sessione non vengono mai raccolti.',
   'privacy.meetingFollowUps': 'Follow-up delle riunioni',
   'privacy.autoHandoffMeet':
     "Trasferimento automatico delle trascrizioni Google Meet all'orchestratore",

@@ -723,10 +723,10 @@ const messages: TranslationMap = {
   'privacy.sentTo': 'পাঠানো হয়েছে',
   'privacy.leavesDevice': 'ডিভাইস ছেড়ে যায়',
   'privacy.staysLocal': 'লোকালে থাকে',
-  'privacy.anonymizedAnalytics': 'অ্যানোনিমাইজড অ্যানালিটিক্স',
-  'privacy.shareAnonymizedData': 'অ্যানোনিমাইজড ব্যবহার ডেটা শেয়ার করুন',
+  'privacy.anonymizedAnalytics': 'প্রোডাক্ট অ্যানালিটিক্স',
+  'privacy.shareAnonymizedData': 'প্রোডাক্ট অ্যানালিটিক্স ও ডায়াগনস্টিকস শেয়ার করুন',
   'privacy.shareAnonymizedDataDesc':
-    'বেনামী ক্র্যাশ রিপোর্ট ও ব্যবহার অ্যানালিটিক্স শেয়ার করে OpenHuman উন্নত করতে সাহায্য করুন। সব ডেটা সম্পূর্ণ বেনামী — কোনো ব্যক্তিগত তথ্য, বার্তা, ওয়ালেট কী বা সেশন তথ্য কখনো সংগ্রহ করা হয় না।',
+    'গোপনীয়তা-সীমিত ক্র্যাশ রিপোর্ট ও ব্যবহার ইভেন্ট শেয়ার করে OpenHuman উন্নত করতে সাহায্য করুন, যার মধ্যে স্থিতিশীল অ্যাকাউন্ট ID ও অ্যাপ সংস্করণ মেটাডেটা থাকে। বার্তা, ওয়ালেট কী, API কী বা সেশন টোকেন কখনো সংগ্রহ করা হয় না।',
   'privacy.meetingFollowUps': 'মিটিং ফলো-আপ',
   'privacy.autoHandoffMeet': 'Google Meet ট্রান্সক্রিপ্ট স্বয়ংক্রিয়ভাবে অর্কেস্ট্রেটরে পাঠান',
   'privacy.autoHandoffMeetDesc':

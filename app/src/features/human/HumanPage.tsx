@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { MeetingBotsModal } from '../../components/skills/MeetingBotsCard';
 import { useT } from '../../lib/i18n/I18nContext';
-import { IS_DEV } from '../../utils/config';
 import Conversations from '../../pages/Conversations';
 import { useAppSelector } from '../../store/hooks';
 import {
@@ -11,6 +10,7 @@ import {
   selectCustomSecondaryColor,
   selectMascotColor,
 } from '../../store/mascotSlice';
+import { IS_DEV } from '../../utils/config';
 import { CustomGifMascot, getMascotPalette, hexToArgbInt, RiveMascot } from './Mascot';
 import { useHumanMascot } from './useHumanMascot';
 

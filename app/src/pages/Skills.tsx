@@ -659,7 +659,9 @@ export default function Skills() {
     for (const { meta } of composioGridEntries) {
       cats.add(meta.category);
     }
-    return SKILL_CATEGORY_ORDER.filter(c => c !== 'Channels' && cats.has(c) && (IS_DEV || c !== 'Other'));
+    return SKILL_CATEGORY_ORDER.filter(
+      c => c !== 'Channels' && cats.has(c) && (IS_DEV || c !== 'Other')
+    );
   }, [allItems, composioGridEntries]);
 
   const filteredItems = useMemo(() => {

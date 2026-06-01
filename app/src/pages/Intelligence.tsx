@@ -88,19 +88,29 @@ export default function Intelligence() {
     }
   }, [socketConnected, socketManager]);
 
-  const allTabs: { id: IntelligenceTab; label: string; description?: string; comingSoon?: boolean; devOnly?: boolean }[] =
-    [
-      { id: 'tasks', label: t('memory.tab.tasks'), description: t('memory.tab.tasksDescription'), devOnly: true },
-      { id: 'memory', label: t('memory.tab.memory') },
-      { id: 'subconscious', label: t('memory.tab.subconscious') },
-      {
-        id: 'workflows',
-        label: t('memory.tab.workflows'),
-        description: t('memory.tab.workflowsDescription'),
-        devOnly: true,
-      },
-      { id: 'council', label: t('memory.tab.council'), devOnly: true },
-    ];
+  const allTabs: {
+    id: IntelligenceTab;
+    label: string;
+    description?: string;
+    comingSoon?: boolean;
+    devOnly?: boolean;
+  }[] = [
+    {
+      id: 'tasks',
+      label: t('memory.tab.tasks'),
+      description: t('memory.tab.tasksDescription'),
+      devOnly: true,
+    },
+    { id: 'memory', label: t('memory.tab.memory') },
+    { id: 'subconscious', label: t('memory.tab.subconscious') },
+    {
+      id: 'workflows',
+      label: t('memory.tab.workflows'),
+      description: t('memory.tab.workflowsDescription'),
+      devOnly: true,
+    },
+    { id: 'council', label: t('memory.tab.council'), devOnly: true },
+  ];
   const tabs = allTabs.filter(tab => !tab.devOnly || IS_DEV);
   const activeTabDef = tabs.find(tab => tab.id === activeTab);
 

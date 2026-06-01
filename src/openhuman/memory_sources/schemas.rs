@@ -354,7 +354,8 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "sync_audit_log" => ControllerSchema {
             namespace: NAMESPACE,
             function: "sync_audit_log",
-            description: "Sync audit history — timestamp, tokens consumed, cost, duration for each sync run.",
+            description:
+                "Sync audit history — timestamp, tokens consumed, cost, duration for each sync run.",
             inputs: vec![],
             outputs: vec![FieldSchema {
                 name: "entries",
@@ -427,7 +428,6 @@ fn handle_status_list(_params: Map<String, Value>) -> ControllerFuture {
 fn handle_sync_audit_log(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move { to_json(rpc::sync_audit_log_rpc().await?) })
 }
-
 
 fn parse_value<T: DeserializeOwned>(v: Value) -> Result<T, String> {
     serde_json::from_value(v).map_err(|e| format!("invalid params: {e}"))

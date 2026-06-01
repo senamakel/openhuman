@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import { type SyncAuditEntry, memorySyncAuditLog } from '../../utils/tauriCommands';
+import { memorySyncAuditLog, type SyncAuditEntry } from '../../utils/tauriCommands';
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -91,11 +91,17 @@ export function SyncAuditPanel() {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-4 text-xs text-stone-500 dark:text-neutral-400">
-        <span>{entries.length} {t('sync.runs', 'sync runs')}</span>
+        <span>
+          {entries.length} {t('sync.runs', 'sync runs')}
+        </span>
         <span className="text-stone-300 dark:text-neutral-600">·</span>
-        <span>{formatTokens(totalInput)} in / {formatTokens(totalOutput)} out</span>
+        <span>
+          {formatTokens(totalInput)} in / {formatTokens(totalOutput)} out
+        </span>
         <span className="text-stone-300 dark:text-neutral-600">·</span>
-        <span className="font-medium">${totalCost.toFixed(4)} {t('sync.totalCost', 'total')}</span>
+        <span className="font-medium">
+          ${totalCost.toFixed(4)} {t('sync.totalCost', 'total')}
+        </span>
       </div>
       <div className="max-h-48 overflow-y-auto rounded-md border border-stone-100 dark:border-neutral-800">
         <table className="w-full text-xs">
@@ -106,7 +112,9 @@ export function SyncAuditPanel() {
               <th className="px-3 py-1.5 text-right font-medium">{t('sync.items', 'Items')}</th>
               <th className="px-3 py-1.5 text-right font-medium">{t('sync.tokens', 'Tokens')}</th>
               <th className="px-3 py-1.5 text-right font-medium">{t('sync.cost', 'Cost')}</th>
-              <th className="px-3 py-1.5 text-right font-medium">{t('sync.duration', 'Duration')}</th>
+              <th className="px-3 py-1.5 text-right font-medium">
+                {t('sync.duration', 'Duration')}
+              </th>
               <th className="px-3 py-1.5 text-center font-medium"></th>
             </tr>
           </thead>
@@ -114,18 +122,23 @@ export function SyncAuditPanel() {
             {entries.map((e, i) => (
               <tr
                 key={`${e.timestamp}-${i}`}
-                className="hover:bg-stone-50 dark:hover:bg-neutral-800/50"
-              >
-                <td className="px-3 py-1.5 text-stone-600 dark:text-neutral-300 whitespace-nowrap" title={e.timestamp}>
+                className="hover:bg-stone-50 dark:hover:bg-neutral-800/50">
+                <td
+                  className="px-3 py-1.5 text-stone-600 dark:text-neutral-300 whitespace-nowrap"
+                  title={e.timestamp}>
                   {timeAgo(e.timestamp)}
                 </td>
-                <td className="px-3 py-1.5 text-stone-700 dark:text-neutral-200 truncate max-w-[180px]" title={e.scope}>
+                <td
+                  className="px-3 py-1.5 text-stone-700 dark:text-neutral-200 truncate max-w-[180px]"
+                  title={e.scope}>
                   {scopeLabel(e.scope)}
                 </td>
                 <td className="px-3 py-1.5 text-right tabular-nums text-stone-600 dark:text-neutral-300">
                   {e.items_fetched}
                 </td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-stone-600 dark:text-neutral-300" title={`${e.input_tokens} in / ${e.output_tokens} out`}>
+                <td
+                  className="px-3 py-1.5 text-right tabular-nums text-stone-600 dark:text-neutral-300"
+                  title={`${e.input_tokens} in / ${e.output_tokens} out`}>
                   {formatTokens(e.input_tokens + e.output_tokens)}
                 </td>
                 <td className="px-3 py-1.5 text-right tabular-nums font-medium text-stone-700 dark:text-neutral-200">
@@ -136,9 +149,13 @@ export function SyncAuditPanel() {
                 </td>
                 <td className="px-3 py-1.5 text-center">
                   {e.success ? (
-                    <span className="text-green-500" title="Success">✓</span>
+                    <span className="text-green-500" title="Success">
+                      ✓
+                    </span>
                   ) : (
-                    <span className="text-red-500" title={e.error ?? 'Failed'}>✗</span>
+                    <span className="text-red-500" title={e.error ?? 'Failed'}>
+                      ✗
+                    </span>
                   )}
                 </td>
               </tr>

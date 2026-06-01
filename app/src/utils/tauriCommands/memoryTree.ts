@@ -835,9 +835,6 @@ export interface SyncAuditEntry {
 export async function memorySyncAuditLog(): Promise<SyncAuditEntry[]> {
   const resp = await callCoreRpc<
     { entries: SyncAuditEntry[] } | ResultEnvelope<{ entries: SyncAuditEntry[] }>
-  >({
-    method: 'openhuman.memory_sources_sync_audit_log',
-    params: {},
-  });
+  >({ method: 'openhuman.memory_sources_sync_audit_log', params: {} });
   return unwrapResult(resp).entries ?? [];
 }

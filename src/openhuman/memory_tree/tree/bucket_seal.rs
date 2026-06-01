@@ -458,7 +458,10 @@ pub(crate) async fn seal_one_level(
                 Ok(vector) => {
                     log::debug!(
                         "[tree::bucket_seal] embedded summary tree_id={} level={}→{} provider={}",
-                        tree.id, level, target_level, embedder.name()
+                        tree.id,
+                        level,
+                        target_level,
+                        embedder.name()
                     );
                     Some(vector)
                 }

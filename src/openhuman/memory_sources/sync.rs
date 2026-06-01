@@ -74,9 +74,7 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
         let inner = tokio::spawn(async move {
             // Retry any previously-failed pipeline jobs so the worker
             // resumes processing through all documents.
-            if let Ok(retried) =
-                crate::openhuman::memory_queue::store::retry_all_failed(&config)
-            {
+            if let Ok(retried) = crate::openhuman::memory_queue::store::retry_all_failed(&config) {
                 if retried > 0 {
                     tracing::info!(
                         retried = retried,
@@ -142,7 +140,10 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                                 timestamp: chrono::Utc::now(),
                                 source_id: source.id.clone(),
                                 source_kind: source.kind.as_str().to_string(),
-                                scope: source.url.clone().or(source.toolkit.clone())
+                                scope: source
+                                    .url
+                                    .clone()
+                                    .or(source.toolkit.clone())
                                     .unwrap_or_else(|| source.id.clone()),
                                 items_fetched: items as u32,
                                 batches: 0,
@@ -171,7 +172,10 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                             timestamp: chrono::Utc::now(),
                             source_id: source.id.clone(),
                             source_kind: source.kind.as_str().to_string(),
-                            scope: source.url.clone().or(source.toolkit.clone())
+                            scope: source
+                                .url
+                                .clone()
+                                .or(source.toolkit.clone())
                                 .unwrap_or_else(|| source.id.clone()),
                             items_fetched: 0,
                             batches: 0,
@@ -429,15 +433,12 @@ fn derive_scopes(source: &MemorySourceEntry, config: &Config) -> Vec<String> {
                                 // Read _source.md to get the scope.
                                 let source_md = e.path().join("_source.md");
                                 let content = std::fs::read_to_string(&source_md).ok()?;
-                                content
-                                    .lines()
-                                    .find(|l| l.starts_with("scope:"))
-                                    .map(|l| {
-                                        l.trim_start_matches("scope:")
-                                            .trim()
-                                            .trim_matches('"')
-                                            .to_string()
-                                    })
+                                content.lines().find(|l| l.starts_with("scope:")).map(|l| {
+                                    l.trim_start_matches("scope:")
+                                        .trim()
+                                        .trim_matches('"')
+                                        .to_string()
+                                })
                             })
                             .collect()
                     } else {

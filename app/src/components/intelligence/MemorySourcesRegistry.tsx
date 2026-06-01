@@ -11,7 +11,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import { memoryTreeFlushSource } from '../../utils/tauriCommands/memoryTree';
 import {
   type FreshnessLabel,
   listMemorySources,
@@ -25,6 +24,7 @@ import {
   updateMemorySource,
 } from '../../services/memorySourcesService';
 import type { ToastNotification } from '../../types/intelligence';
+import { memoryTreeFlushSource } from '../../utils/tauriCommands/memoryTree';
 import { AddMemorySourceDialog } from './AddMemorySourceDialog';
 
 interface MemorySourcesRegistryProps {
@@ -286,7 +286,17 @@ interface SourceRowProps {
   onBuild: (source: MemorySourceEntry) => void;
 }
 
-function SourceRow({ source, status, isSyncing, isBuilding, progress, onToggle, onRemove, onSync, onBuild }: SourceRowProps) {
+function SourceRow({
+  source,
+  status,
+  isSyncing,
+  isBuilding,
+  progress,
+  onToggle,
+  onRemove,
+  onSync,
+  onBuild,
+}: SourceRowProps) {
   const { t } = useT();
   const icon = SOURCE_KIND_ICONS[source.kind] ?? '📄';
   const kindLabel = t(SOURCE_KIND_LABEL_KEYS[source.kind] ?? source.kind);
@@ -336,7 +346,9 @@ function SourceRow({ source, status, isSyncing, isBuilding, progress, onToggle, 
             <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-neutral-700">
               <div
                 className="h-full rounded-full bg-primary-500 transition-all duration-300"
-                style={{ width: `${progress.percent ?? (progress.stage === 'fetching' ? 10 : 5)}%` }}
+                style={{
+                  width: `${progress.percent ?? (progress.stage === 'fetching' ? 10 : 5)}%`,
+                }}
               />
             </div>
           </div>

@@ -381,9 +381,7 @@ class SocketService {
     });
     this.socket.on('memory:build_progress', (data: unknown) => {
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('openhuman:memory-build-progress', { detail: data })
-        );
+        window.dispatchEvent(new CustomEvent('openhuman:memory-build-progress', { detail: data }));
       }
     });
 

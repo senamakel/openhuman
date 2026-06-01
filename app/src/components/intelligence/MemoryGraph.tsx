@@ -42,10 +42,10 @@ import { openWorkspacePath, previewWorkspaceText } from '../../utils/tauriComman
 import {
   CONTACT_COLOR,
   LEAF_COLOR,
-  SOURCE_COLOR,
   levelColor,
   nodeColor,
   nodeRadius,
+  SOURCE_COLOR,
   VIEWPORT_H,
   VIEWPORT_W,
   ZOOM_MAX,

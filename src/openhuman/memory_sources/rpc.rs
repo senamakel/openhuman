@@ -282,4 +282,3 @@ pub async fn sync_audit_log_rpc() -> Result<RpcOutcome<SyncAuditLogResponse>, St
     let entries = crate::openhuman::memory_sync::sources::audit::read_audit_log(&config);
     Ok(RpcOutcome::new(SyncAuditLogResponse { entries }, vec![]))
 }
-

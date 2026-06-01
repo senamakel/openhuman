@@ -63,9 +63,8 @@ fn append_jsonl(path: &Path, entry: &SyncAuditEntry) -> std::io::Result<()> {
         .create(true)
         .append(true)
         .open(path)?;
-    let json = serde_json::to_string(entry).map_err(|e| {
-        std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-    })?;
+    let json = serde_json::to_string(entry)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     writeln!(file, "{json}")?;
     Ok(())
 }
@@ -73,7 +72,10 @@ fn append_jsonl(path: &Path, entry: &SyncAuditEntry) -> std::io::Result<()> {
 /// Read all audit entries, most recent first. Returns an empty vec if
 /// the file doesn't exist yet.
 pub fn read_audit_log(config: &Config) -> Vec<SyncAuditEntry> {
-    let path = config.workspace_dir.join("memory_tree").join(AUDIT_FILENAME);
+    let path = config
+        .workspace_dir
+        .join("memory_tree")
+        .join(AUDIT_FILENAME);
     let content = match std::fs::read_to_string(&path) {
         Ok(c) => c,
         Err(_) => return Vec::new(),

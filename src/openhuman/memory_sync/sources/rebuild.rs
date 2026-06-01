@@ -135,8 +135,7 @@ pub async fn rebuild_tree_from_raw(config: &Config, scope: &str) -> Result<Rebui
             .next()
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(0);
-        let ts = chrono::DateTime::from_timestamp_millis(ts_ms)
-            .unwrap_or_else(chrono::Utc::now);
+        let ts = chrono::DateTime::from_timestamp_millis(ts_ms).unwrap_or_else(chrono::Utc::now);
 
         let token_count = (body.len() / 4).max(1) as u32;
 
@@ -297,8 +296,8 @@ fn collect_raw_files(dir: &Path) -> Result<Vec<PathBuf>> {
 }
 
 fn collect_recursive(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
-    let entries = std::fs::read_dir(dir)
-        .map_err(|e| anyhow::anyhow!("read_dir {}: {e}", dir.display()))?;
+    let entries =
+        std::fs::read_dir(dir).map_err(|e| anyhow::anyhow!("read_dir {}: {e}", dir.display()))?;
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
@@ -364,7 +363,9 @@ mod tests {
 
         let files = collect_raw_files(tmp.path()).unwrap();
         assert_eq!(files.len(), 2);
-        assert!(files.iter().all(|f| !f.to_str().unwrap().contains("_source")));
+        assert!(files
+            .iter()
+            .all(|f| !f.to_str().unwrap().contains("_source")));
     }
 
     #[test]

@@ -189,7 +189,8 @@ pub async fn run_github_sync(
     let tree = get_or_create_source_tree(config, &repo_scope)
         .map_err(|e| anyhow::anyhow!("get_or_create_source_tree: {e:#}"))?;
 
-    let batches = batch_by_token_budget(&inputs, &child_labels, &child_basenames, INPUT_TOKEN_BUDGET);
+    let batches =
+        batch_by_token_budget(&inputs, &child_labels, &child_basenames, INPUT_TOKEN_BUDGET);
     let batch_count = batches.len();
     let input_count = inputs.len();
 
@@ -214,7 +215,9 @@ pub async fn run_github_sync(
     let mut total_input_tokens: u64 = 0;
     let mut total_output_tokens: u64 = 0;
 
-    for (batch_idx, (batch_inputs, batch_labels, batch_basenames)) in batches.into_iter().enumerate() {
+    for (batch_idx, (batch_inputs, batch_labels, batch_basenames)) in
+        batches.into_iter().enumerate()
+    {
         let batch_input_tokens: u64 = batch_inputs.iter().map(|i| i.token_count as u64).sum();
         total_input_tokens += batch_input_tokens;
 

@@ -656,8 +656,18 @@ async fn round16_spawn_subagent_tool_and_runner_error_success_paths() {
         }))
         .await
         .expect("dedicated thread returns tool result");
-    assert!(disabled_thread.is_error);
-    assert!(disabled_thread.output().contains("temporarily disabled"));
+    assert!(
+        disabled_thread.is_error,
+        "dedicated_thread should error: {}",
+        disabled_thread.output()
+    );
+    // #3049 superseded #1624: dedicated_thread is no longer "temporarily
+    // disabled" — it's accepted but the tool may still error for other
+    // reasons (e.g. no provider configured). Just verify it errors.
+    assert!(
+        !disabled_thread.output().is_empty(),
+        "error output should not be empty"
+    );
 
     let provider = Arc::new(ScriptedProvider::new(vec![response(
         Some("subagent final answer that will be clipped"),

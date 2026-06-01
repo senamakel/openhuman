@@ -178,8 +178,8 @@ async fn round21_github_reader_covers_commit_issue_comments_and_error_paths() {
     let config = config(&tmp);
     let bin = tmp.path().join("bin");
     std::fs::create_dir_all(&bin).expect("bin dir");
-    let script = bin.join("gh");
-    write_fake_gh(&script);
+    write_fake_gh(&bin.join("gh"));
+    write_fake_git(&bin.join("git"));
     let old_path = std::env::var("PATH").unwrap_or_default();
     let _path = EnvGuard::set_path("PATH", Path::new(&format!("{}:{old_path}", bin.display())));
 
@@ -238,17 +238,17 @@ if [[ "${1:-}" != "api" ]]; then
   exit 2
 fi
 case "${2:-}" in
-  repos/tinyhumansai/openhuman/commits?per_page=30)
+      repos/tinyhumansai/openhuman/commits\?*)
     cat <<'JSON'
 [{"sha":"abc123","commit":{"message":"Round21 commit subject\n\nBody line","author":{"name":"Ada","email":"ada@example.test","date":"2026-05-30T00:00:00Z"},"committer":{"name":"Ada","email":"ada@example.test","date":"2026-05-30T00:00:00Z"}}}]
 JSON
     ;;
-  repos/tinyhumansai/openhuman/issues?per_page=30\&state=all)
+      repos/tinyhumansai/openhuman/issues\?*)
     cat <<'JSON'
 [{"number":42,"title":"Round21 issue","body":"Issue body","state":"open","user":{"login":"octo"},"labels":[],"created_at":"2026-05-30T00:00:00Z","updated_at":"2026-05-30T00:01:00Z","pull_request":null}]
 JSON
     ;;
-  repos/tinyhumansai/openhuman/pulls?per_page=30\&state=all)
+      repos/tinyhumansai/openhuman/pulls\?*)
     cat <<'JSON'
 [{"number":43,"title":"Round21 PR","body":"PR body","state":"open","user":{"login":"octo"},"labels":[],"created_at":"2026-05-30T00:00:00Z","updated_at":"2026-05-30T00:02:00Z","merged_at":null,"comments":1}]
 JSON
@@ -281,5 +281,21 @@ esac
         let mut perms = std::fs::metadata(path).expect("metadata").permissions();
         perms.set_mode(0o755);
         std::fs::set_permissions(path, perms).expect("chmod fake gh");
+    }
+}
+
+fn write_fake_git(path: &PathBuf) {
+    let script = r#"#!/usr/bin/env bash
+set -euo pipefail
+echo "git disabled for github reader fixture" >&2
+exit 42
+"#;
+    std::fs::write(path, script).expect("write fake git");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(path).expect("metadata").permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(path, perms).expect("chmod fake git");
     }
 }

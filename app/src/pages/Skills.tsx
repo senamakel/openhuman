@@ -355,7 +355,8 @@ export default function Skills() {
   const initialTab: ConnectionsTab = (() => {
     const params = new URLSearchParams(location.search);
     const t = params.get('tab');
-    if (t === 'runners' || t === 'composio' || t === 'channels' || t === 'mcp') return t;
+    if (t === 'runners') return IS_DEV ? 'runners' : 'composio';
+    if (t === 'composio' || t === 'channels' || t === 'mcp') return t;
     return 'composio';
   })();
   const [activeTab, setActiveTab] = useState<ConnectionsTab>(initialTab);
@@ -692,7 +693,10 @@ export default function Skills() {
     return items.length > 0 ? { category: 'Channels' as SkillCategory, items } : undefined;
   }, [allItems]);
   const otherGroups = useMemo(
-    () => groupedItems.filter(g => g.category !== 'Channels'),
+    () =>
+      groupedItems.filter(
+        g => g.category !== 'Channels' && (IS_DEV || g.category !== 'Other')
+      ),
     [groupedItems]
   );
 
@@ -948,7 +952,7 @@ export default function Skills() {
             />
             {
               <>
-                {activeTab === 'runners' && (
+                {IS_DEV && activeTab === 'runners' && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft animate-fade-up">
                     {/* The Runners sub-tab IS the scheduled-skills dashboard:
                         header + [+ Create a Skill] + [▷ Run a Skill] CTAs

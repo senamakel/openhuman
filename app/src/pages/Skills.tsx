@@ -693,10 +693,7 @@ export default function Skills() {
     return items.length > 0 ? { category: 'Channels' as SkillCategory, items } : undefined;
   }, [allItems]);
   const otherGroups = useMemo(
-    () =>
-      groupedItems.filter(
-        g => g.category !== 'Channels' && (IS_DEV || g.category !== 'Other')
-      ),
+    () => groupedItems.filter(g => g.category !== 'Channels' && (IS_DEV || g.category !== 'Other')),
     [groupedItems]
   );
 

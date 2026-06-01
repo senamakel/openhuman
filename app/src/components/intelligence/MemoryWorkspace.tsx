@@ -70,7 +70,6 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
     console.debug('[ui-flow][memory-workspace] graph load: entry mode=%s v=%d', mode, graphVersion);
     let cancelled = false;
     setError(null);
-    setGraph(null);
     void (async () => {
       try {
         const resp = await memoryTreeGraphExport(mode);

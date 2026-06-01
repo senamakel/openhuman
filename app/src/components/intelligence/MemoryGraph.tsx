@@ -54,8 +54,18 @@ import {
 import { summaryWorkspacePath } from './memoryWorkspacePaths';
 import { PixiGraph } from './PixiGraph';
 
-/** Always use WebGL (Pixi) — SVG can't handle 10k nodes. */
-const HAS_WEBGL = true;
+/** Use WebGL (Pixi) in production; fall back to SVG in test (jsdom). */
+const HAS_WEBGL =
+  typeof document !== 'undefined' &&
+  typeof document.createElement === 'function' &&
+  (() => {
+    try {
+      const c = document.createElement('canvas');
+      return !!(c.getContext('webgl2') || c.getContext('webgl'));
+    } catch {
+      return false;
+    }
+  })();
 
 interface SimNode extends GraphNode {
   x: number;

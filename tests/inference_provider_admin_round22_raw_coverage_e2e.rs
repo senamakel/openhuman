@@ -43,6 +43,9 @@ use openhuman_core::openhuman::inference::provider::{
     list_configured_models, ChatMessage, ChatRequest, ChatResponse, Provider, ToolCall,
 };
 
+static ENV_LOCK: std::sync::LazyLock<tokio::sync::Mutex<()>> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
+
 #[derive(Clone, Default)]
 struct MockState {
     requests: Arc<Mutex<Vec<SeenRequest>>>,
@@ -209,6 +212,7 @@ async fn compatible_provider_covers_responses_fallback_auth_and_merge_system_edg
 
 #[tokio::test]
 async fn provider_admin_model_listing_covers_openrouter_validation_and_local_synthesis() {
+    let _env_lock = ENV_LOCK.lock().await;
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -291,6 +295,7 @@ async fn provider_admin_model_listing_covers_openrouter_validation_and_local_syn
 
 #[tokio::test]
 async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
+    let _env_lock = ENV_LOCK.lock().await;
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -491,6 +496,7 @@ async fn reliable_provider_covers_chat_tools_streaming_and_context_bail_edges() 
 
 #[tokio::test]
 async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_fake_bins() {
+    let _env_lock = ENV_LOCK.lock().await;
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);

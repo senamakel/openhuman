@@ -315,9 +315,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Run cargo llvm-cov for openhuman core
-        run: bash scripts/ci-cancel-aware.sh cargo llvm-cov -p openhuman --lcov --output-path lcov-core.info -- --test-threads=1
-        env:
-          CARGO_BUILD_JOBS: "2"
+        run: bash scripts/ci-cancel-aware.sh cargo llvm-cov -p openhuman --lcov --output-path lcov-core.info
 
       - name: Upload core lcov
         uses: actions/upload-artifact@v5

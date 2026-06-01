@@ -94,9 +94,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Run cargo llvm-cov for openhuman core
-        run: cargo llvm-cov -p openhuman --lcov --output-path lcov-core.info -- --test-threads=1
-        env:
-          CARGO_BUILD_JOBS: "2"
+        run: cargo llvm-cov -p openhuman --lcov --output-path lcov-core.info
       - name: Upload core lcov
         uses: actions/upload-artifact@v5
         with:

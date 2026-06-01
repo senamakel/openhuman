@@ -1206,7 +1206,7 @@ fn memory_sync_composio_catalog_scope_and_state_helpers_cover_edge_cases() {
     assert_eq!(classify_unknown("GMAIL_FETCH_EMAILS"), ToolScope::Read);
     assert_eq!(
         toolkit_from_slug(" MICROSOFT_TEAMS_SEND_MESSAGE "),
-        Some("microsoft".into())
+        Some("microsoft_teams".into())
     );
     assert_eq!(toolkit_from_slug(""), None);
     let catalog = &[CuratedTool {

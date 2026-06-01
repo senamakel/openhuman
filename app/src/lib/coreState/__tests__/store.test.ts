@@ -26,8 +26,8 @@ function makeSnapshot(overrides: Partial<CoreAppSnapshot> = {}): CoreAppSnapshot
 // [#1123] isWelcomeLocked now always returns false — welcome-agent onboarding
 // replaced by Joyride walkthrough. Tests updated to reflect the new behavior.
 describe('isWelcomeLocked', () => {
-  it('defaults analytics on before the first core snapshot arrives', () => {
-    expect(getCoreStateSnapshot().snapshot.analyticsEnabled).toBe(true);
+  it('keeps analytics off before the first core snapshot arrives', () => {
+    expect(getCoreStateSnapshot().snapshot.analyticsEnabled).toBe(false);
   });
 
   it('[#1123] always returns false — welcome lockdown replaced by Joyride walkthrough', () => {

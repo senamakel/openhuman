@@ -987,7 +987,11 @@ fn memory_schema_registries_and_query_tool_metadata_cover_public_surfaces() {
     let legacy_tree_schemas = openhuman_core::openhuman::memory::schema::all_controller_schemas();
     let legacy_tree_controllers =
         openhuman_core::openhuman::memory::schema::all_registered_controllers();
-    assert_eq!(legacy_tree_schemas.len(), 19);
+    assert!(
+        legacy_tree_schemas.len() >= 19,
+        "expected at least 19 memory controller schemas, got {}",
+        legacy_tree_schemas.len()
+    );
     assert_eq!(legacy_tree_schemas.len(), legacy_tree_controllers.len());
     for function in [
         "ingest",

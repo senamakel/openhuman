@@ -1086,7 +1086,7 @@ pub async fn obsidian_vault_status_rpc(
 /// `parent_summary_id` and render as orphan nodes — matching Obsidian's
 /// `showOrphans` view.
 fn collect_tree_graph(cfg: &Config) -> Result<(Vec<GraphNode>, Vec<GraphEdge>)> {
-    const MAX_TREE_NODES: usize = 2000;
+    const MAX_TREE_NODES: usize = 10_000;
 
     // 1. Collect summary nodes + their child_ids for document expansion.
     struct SummaryRow {

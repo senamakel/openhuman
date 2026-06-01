@@ -788,7 +788,11 @@ async fn tree_graph_includes_leaf_chunks_linked_to_their_summary() {
     let resp = graph_export_rpc(&cfg, GraphMode::Tree).await.unwrap().value;
 
     // 1 source root + 1 summary + 2 leaf chunks = 4 nodes.
-    assert_eq!(resp.nodes.len(), 4, "source root + summary + both leaf chunks");
+    assert_eq!(
+        resp.nodes.len(),
+        4,
+        "source root + summary + both leaf chunks"
+    );
 
     let source_root = resp.nodes.iter().find(|n| n.kind == "source").unwrap();
     assert!(source_root.id.starts_with("source:"));

@@ -14,7 +14,7 @@ use serde_json::json;
 use serde_json::{Map, Value};
 use std::ffi::OsString;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use tempfile::TempDir;
 
 use openhuman_core::openhuman::agent::progress::AgentProgress;
@@ -192,6 +192,15 @@ impl Drop for EnvVarGuard {
             }
         }
     }
+}
+
+static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn config_in(tmp: &TempDir) -> Config {
@@ -749,6 +758,7 @@ async fn memory_source_status_counts_reader_and_composio_prefixes() {
 
 #[tokio::test]
 async fn memory_thread_tree_and_sync_controller_schemas_execute_public_handlers() {
+    let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
     let config = Config::load_or_init().await.expect("init isolated config");
@@ -3480,6 +3490,7 @@ fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
 
 #[tokio::test]
 async fn threads_rpc_ops_cover_crud_title_fallback_and_turn_state_cleanup() {
+    let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
     let config = Config::load_or_init().await.expect("init isolated config");
@@ -3686,6 +3697,7 @@ async fn threads_rpc_ops_cover_crud_title_fallback_and_turn_state_cleanup() {
 
 #[tokio::test]
 async fn threads_title_generation_branches_cover_noop_and_not_found_paths() {
+    let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
     Config::load_or_init().await.expect("init isolated config");
@@ -3756,6 +3768,7 @@ async fn threads_title_generation_branches_cover_noop_and_not_found_paths() {
 
 #[tokio::test]
 async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
+    let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
     Config::load_or_init().await.expect("init isolated config");
@@ -3962,6 +3975,7 @@ async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
 
 #[tokio::test]
 async fn memory_ops_public_handlers_cover_document_file_kv_graph_and_envelopes() {
+    let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
 
@@ -4335,6 +4349,7 @@ async fn memory_ops_public_handlers_cover_document_file_kv_graph_and_envelopes()
 
 #[tokio::test]
 async fn memory_tree_retrieval_rpc_and_schema_wrappers_cover_empty_and_invalid_paths() {
+    let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
     let config = config_in(&tmp);
@@ -4452,6 +4467,7 @@ async fn memory_tree_retrieval_rpc_and_schema_wrappers_cover_empty_and_invalid_p
 
 #[tokio::test]
 async fn memory_query_backend_and_tree_flush_wrappers_cover_public_edges() {
+    let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
     let mut config = Config::load_or_init().await.expect("init isolated config");
@@ -4591,6 +4607,7 @@ async fn tree_summarizer_ops_cover_validation_query_and_local_provider_guards() 
 
 #[tokio::test]
 async fn memory_sources_types_registry_and_sync_state_cover_public_persistence_edges() {
+    let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
     let _config = Config::load_or_init().await.expect("init isolated config");

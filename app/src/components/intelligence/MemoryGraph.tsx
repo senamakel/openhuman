@@ -46,7 +46,6 @@ import {
   levelColor,
   nodeColor,
   nodeRadius,
-  supportsWebGL,
   VIEWPORT_H,
   VIEWPORT_W,
   ZOOM_MAX,

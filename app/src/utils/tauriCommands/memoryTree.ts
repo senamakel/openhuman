@@ -814,3 +814,30 @@ export async function memoryTreeSetEnabled(
   );
   return out;
 }
+
+// ── Sync Audit Log ─────────────────────────────────────────────────
+
+export interface SyncAuditEntry {
+  timestamp: string;
+  source_id: string;
+  source_kind: string;
+  scope: string;
+  items_fetched: number;
+  batches: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number;
+  duration_ms: number;
+  success: boolean;
+  error?: string;
+}
+
+export async function memorySyncAuditLog(): Promise<SyncAuditEntry[]> {
+  const resp = await callCoreRpc<
+    { entries: SyncAuditEntry[] } | ResultEnvelope<{ entries: SyncAuditEntry[] }>
+  >({
+    method: 'openhuman.memory_sources_sync_audit_log',
+    params: {},
+  });
+  return unwrapResult(resp).entries ?? [];
+}

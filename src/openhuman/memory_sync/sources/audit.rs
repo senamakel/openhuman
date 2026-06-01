@@ -11,7 +11,7 @@ use std::path::Path;
 
 use crate::openhuman::config::Config;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct SyncAuditEntry {
     pub timestamp: DateTime<Utc>,
     pub source_id: String,
@@ -68,6 +68,23 @@ fn append_jsonl(path: &Path, entry: &SyncAuditEntry) -> std::io::Result<()> {
     })?;
     writeln!(file, "{json}")?;
     Ok(())
+}
+
+/// Read all audit entries, most recent first. Returns an empty vec if
+/// the file doesn't exist yet.
+pub fn read_audit_log(config: &Config) -> Vec<SyncAuditEntry> {
+    let path = config.workspace_dir.join("memory_tree").join(AUDIT_FILENAME);
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let mut entries: Vec<SyncAuditEntry> = content
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
+    entries.reverse();
+    entries
 }
 
 /// Estimate cost in USD for a given token count.

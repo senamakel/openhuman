@@ -48,6 +48,7 @@ import { MemoryGraph } from './MemoryGraph';
 import { MemorySourcesRegistry } from './MemorySourcesRegistry';
 import { MemoryTreeStatusPanel } from './MemoryTreeStatusPanel';
 import { ObsidianVaultSection } from './ObsidianVaultSection';
+import { SyncAuditPanel } from './SyncAuditPanel';
 import { WhatsAppMemorySection } from './WhatsAppMemorySection';
 
 interface MemoryWorkspaceProps {
@@ -314,6 +315,13 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
       ) : (
         <MemoryGraph nodes={graph.nodes} edges={graph.edges} mode={mode} />
       )}
+
+      <div className="rounded-lg border border-stone-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+        <h3 className="mb-2 text-sm font-medium text-stone-700 dark:text-neutral-200">
+          {t('sync.auditTitle', 'Sync History')}
+        </h3>
+        <SyncAuditPanel />
+      </div>
     </div>
   );
 }

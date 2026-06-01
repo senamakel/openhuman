@@ -55,8 +55,8 @@ import {
 import { summaryWorkspacePath } from './memoryWorkspacePaths';
 import { PixiGraph } from './PixiGraph';
 
-/** Detected once — WebGL availability decides Pixi vs the SVG fallback. */
-const HAS_WEBGL = supportsWebGL();
+/** Always use WebGL (Pixi) — SVG can't handle 10k nodes. */
+const HAS_WEBGL = true;
 
 interface SimNode extends GraphNode {
   x: number;

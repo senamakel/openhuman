@@ -56,10 +56,10 @@ export function nodeColor(node: GraphNode): string {
 }
 
 export function nodeRadius(node: GraphNode): number {
-  if (node.kind === 'source') return 14;
-  if (node.kind === 'summary') return Math.max(4, 10 - (node.level ?? 0) * 0.8);
+  if (node.kind === 'source') return 16;
+  if (node.kind === 'summary') return 5 + (node.level ?? 0) * 2.5;
   if (node.kind === 'contact') return 9;
-  return 4; // chunk
+  return 3; // chunk / document leaf
 }
 
 /** Source / summary / contact nodes glow; leaves stay flat so the structure pops. */

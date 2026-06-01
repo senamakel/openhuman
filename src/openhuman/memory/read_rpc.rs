@@ -1291,13 +1291,7 @@ fn collect_tree_graph(cfg: &Config) -> Result<(Vec<GraphNode>, Vec<GraphEdge>)> 
             Ok(rows)
         })?;
 
-        for (mut chunk, source_id) in chunk_nodes {
-            // Orphan chunks (no parent_summary_id) link to their source root.
-            if chunk.parent_id.is_none() {
-                let scope = source_id_to_scope(&source_id);
-                chunk.parent_id = source_root_ids.get(&scope).cloned();
-                chunk.tree_scope = Some(scope);
-            }
+        for (chunk, _source_id) in chunk_nodes {
             nodes.push(chunk);
         }
     }

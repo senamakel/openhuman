@@ -93,6 +93,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("read_item"),
         schemas("sync"),
         schemas("status_list"),
+        schemas("sync_audit_log"),
     ]
 }
 

@@ -173,7 +173,9 @@ impl SubconsciousEngine {
 
         // 3. Run the subconscious agent
         let agent_prompt = prompt::build_agent_prompt(&report, &identity);
-        let drafts = self.run_agent(&config, &agent_prompt).await;
+        let agent_result = self.run_agent(&config, &agent_prompt).await;
+        let agent_failed = agent_result.is_err();
+        let drafts = agent_result.unwrap_or_default();
 
         // 4. Check if superseded
         if self.tick_generation.load(Ordering::SeqCst) != my_generation {
@@ -207,12 +209,19 @@ impl SubconsciousEngine {
 
         let thoughts_count = reflections.len();
 
-        // 6. Update state
+        // 6. Update state — only advance last_tick_at and reset failures
+        //    when the agent actually ran. Errors keep consecutive_failures
+        //    incrementing and leave last_tick_at unchanged so the next tick
+        //    re-fetches the same window.
         let mut state = self.state.lock().await;
         state.total_ticks += 1;
-        state.consecutive_failures = 0;
-        state.last_tick_at = tick_at;
-        persist_last_tick_at(&self.workspace_dir, tick_at);
+        if agent_failed {
+            state.consecutive_failures += 1;
+        } else {
+            state.consecutive_failures = 0;
+            state.last_tick_at = tick_at;
+            persist_last_tick_at(&self.workspace_dir, tick_at);
+        }
 
         Ok(TickResult {
             tick_at,
@@ -242,8 +251,14 @@ impl SubconsciousEngine {
     }
 
     /// Run the subconscious agent with mode-appropriate tool access and
-    /// parse thoughts from its final response.
-    async fn run_agent(&self, config: &Config, prompt_text: &str) -> Vec<ReflectionDraft> {
+    /// parse thoughts from its final response. Returns `Err` on agent
+    /// init/run failure so the caller can track consecutive failures
+    /// separately from an empty-but-successful tick.
+    async fn run_agent(
+        &self,
+        config: &Config,
+        prompt_text: &str,
+    ) -> Result<Vec<ReflectionDraft>, String> {
         use crate::openhuman::agent::Agent;
 
         let mut effective = config.clone();
@@ -256,49 +271,43 @@ impl SubconsciousEngine {
                 effective.autonomy.level = crate::openhuman::security::AutonomyLevel::Full;
                 effective.agent.max_tool_iterations = 8;
             }
-            SubconsciousMode::Off => return vec![],
+            SubconsciousMode::Off => return Ok(vec![]),
         }
 
-        match Agent::from_config(&effective) {
-            Ok(mut agent) => {
-                agent.set_event_context(
-                    format!("subconscious:tick:{}", now_secs() as u64),
-                    "subconscious",
-                );
+        let mut agent = Agent::from_config(&effective).map_err(|e| {
+            warn!("[subconscious] agent init failed: {e}");
+            format!("agent init: {e}")
+        })?;
 
-                let user_message = format!(
-                    "{prompt_text}\n\n\
-                     Use your tools to look up any relevant memory, recent activity, or \
-                     context that would help you produce insightful observations. When \
-                     you're done researching, end your final message with a JSON block \
-                     of your thoughts:\n\n\
-                     ```json\n\
-                     {{\"thoughts\": [...]}}\n\
-                     ```"
-                );
+        agent.set_event_context(
+            format!("subconscious:tick:{}", now_secs() as u64),
+            "subconscious",
+        );
 
-                debug!("[subconscious] spawning agent with tool access");
-                match agent.run_single(&user_message).await {
-                    Ok(response) => {
-                        let drafts = parse_thoughts(&response);
-                        info!(
-                            "[subconscious] agent produced {} thoughts (response {} chars)",
-                            drafts.len(),
-                            response.len()
-                        );
-                        drafts
-                    }
-                    Err(e) => {
-                        warn!("[subconscious] agent run failed: {e}");
-                        vec![]
-                    }
-                }
-            }
-            Err(e) => {
-                warn!("[subconscious] agent init failed: {e}");
-                vec![]
-            }
-        }
+        let user_message = format!(
+            "{prompt_text}\n\n\
+             Use your tools to look up any relevant memory, recent activity, or \
+             context that would help you produce insightful observations. When \
+             you're done researching, end your final message with a JSON block \
+             of your thoughts:\n\n\
+             ```json\n\
+             {{\"thoughts\": [...]}}\n\
+             ```"
+        );
+
+        debug!("[subconscious] spawning agent with tool access");
+        let response = agent.run_single(&user_message).await.map_err(|e| {
+            warn!("[subconscious] agent run failed: {e}");
+            format!("agent run: {e}")
+        })?;
+
+        let drafts = parse_thoughts(&response);
+        info!(
+            "[subconscious] agent produced {} thoughts (response {} chars)",
+            drafts.len(),
+            response.len()
+        );
+        Ok(drafts)
     }
 
     /// Create a conversation thread for this tick so the user can view the

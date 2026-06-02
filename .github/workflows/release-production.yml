@@ -28,15 +28,15 @@ on:
         default: patch
         type: choice
         options: [patch, minor, major]
-      skip_pretests:
+      commit_sha:
         description:
-          Skip the unit/rust pretest phase and continue directly to the build
-          matrix. Release workflows no longer run E2E. Use only when the
-          required pretest signal is already known and you need to unblock a
-          production cut.
+          Build from a specific commit SHA instead of main HEAD. Only
+          consulted when release_source = main_head; staging_tag promotions
+          resolve the commit from the tag. The commit must be reachable
+          from main. Leave empty to use main HEAD.
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: ""
       create_release:
         description:
           Create and publish the GitHub Release and attach release assets. When
@@ -57,8 +57,6 @@ concurrency:
 # Job dependency graph
 #
 #   prepare-build
-#        │
-#        ├─── pretest-tests   (reusable test-reusable.yml — unit + rust)
 #        │
 #        ├─── create-release   (optional no-op when `create_release=false`)
 #        │         │
@@ -179,8 +177,12 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
           git fetch origin --tags --prune --prune-tags
-          git checkout main
-          git pull origin main --ff-only
+          if [ "${{ inputs.release_source }}" = "main_head" ] && [ -n "${{ inputs.commit_sha }}" ]; then
+            git checkout "${{ inputs.commit_sha }}"
+          else
+            git checkout main
+            git pull origin main --ff-only
+          fi
 
       # ── Path A: main_head ────────────────────────────────────────────────
       # Bump version on main, commit, push, tag.
@@ -201,7 +203,7 @@ jobs:
           cargo update --workspace --manifest-path Cargo.toml
           cargo update --workspace --manifest-path app/src-tauri/Cargo.toml
       - name: Ensure tag does not already exist (main_head)
-        if: inputs.release_source == 'main_head'
+        if: inputs.release_source == 'main_head' && inputs.create_release
         env:
           TAG: ${{ steps.bump.outputs.tag }}
         run: |
@@ -213,18 +215,23 @@ jobs:
             echo "Tag already exists on origin: $TAG"
             exit 1
           fi
-      - name: Commit, push and tag (main_head)
+      - name: Commit and push version bump (main_head)
         if: inputs.release_source == 'main_head'
         id: push
         env:
           VERSION: ${{ steps.bump.outputs.version }}
           TAG: ${{ steps.bump.outputs.tag }}
+          CREATE_RELEASE: ${{ inputs.create_release }}
         run: |
           git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml app/src-tauri/Cargo.lock Cargo.lock
           git commit -m "chore(release): v${VERSION}"
-          git push origin main
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
+          git push origin HEAD:main
+          if [ "$CREATE_RELEASE" = "true" ]; then
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          else
+            echo "Skipping tag creation (create_release=false)"
+          fi
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       # ── Path B: staging_tag ──────────────────────────────────────────────
@@ -295,7 +302,7 @@ jobs:
           echo "prod_version=$PROD_VERSION" >> "$GITHUB_OUTPUT"
           echo "prod_tag=$PROD_TAG" >> "$GITHUB_OUTPUT"
       - name: Ensure production tag does not already exist (staging_tag)
-        if: inputs.release_source == 'staging_tag'
+        if: inputs.release_source == 'staging_tag' && inputs.create_release
         env:
           TAG: ${{ steps.stagingtag.outputs.prod_tag }}
         run: |
@@ -308,7 +315,7 @@ jobs:
             exit 1
           fi
       - name: Create production tag at staging commit (staging_tag)
-        if: inputs.release_source == 'staging_tag'
+        if: inputs.release_source == 'staging_tag' && inputs.create_release
         id: promote
         env:
           STAGING_TAG: ${{ steps.stagingtag.outputs.staging_tag }}
@@ -324,12 +331,14 @@ jobs:
         shell: bash
         env:
           RELEASE_SOURCE: ${{ inputs.release_source }}
+          CREATE_RELEASE: ${{ inputs.create_release }}
           BUMP_VERSION: ${{ steps.bump.outputs.version }}
           BUMP_TAG: ${{ steps.bump.outputs.tag }}
           PUSH_SHA: ${{ steps.push.outputs.sha }}
           PROMOTE_VERSION: ${{ steps.stagingtag.outputs.prod_version }}
           PROMOTE_TAG: ${{ steps.stagingtag.outputs.prod_tag }}
           PROMOTE_SHA: ${{ steps.promote.outputs.sha }}
+          STAGING_SHA: ${{ steps.stagingtag.outputs.staging_sha }}
         run: |
           if [ "$RELEASE_SOURCE" = "main_head" ]; then
             VERSION="$BUMP_VERSION"
@@ -338,14 +347,16 @@ jobs:
           else
             VERSION="$PROMOTE_VERSION"
             TAG="$PROMOTE_TAG"
-            SHA="$PROMOTE_SHA"
+            # When create_release=false on staging_tag path, promote step
+            # is skipped so PROMOTE_SHA is empty — fall back to staging SHA.
+            SHA="${PROMOTE_SHA:-$STAGING_SHA}"
           fi
-          BUILD_REF="$TAG"
+          if [ "$CREATE_RELEASE" = "true" ]; then
+            BUILD_REF="$TAG"
+          else
+            BUILD_REF="$SHA"
+          fi
           BASE_URL="https://api.tinyhumans.ai/"
-          # Match the 12-char truncation runtime code applies to
-          # VITE_BUILD_SHA / OPENHUMAN_BUILD_SHA when constructing the release
-          # tag at startup, so SENTRY_RELEASE assembled in CI agrees with
-          # the tag events emit.
           SHORT_SHA="${SHA:0:12}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -355,31 +366,13 @@ jobs:
           echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"
 
   # =========================================================================
-  # Phase 1b: Pretest gate — run unit + rust on the build ref before we spin up the release
-  # draft or any signed-build matrix. Pretest failures abort the workflow
-  # before `create-release` runs, so a busted commit never produces a
-  # half-finished GH Release that has to be cleaned up.
-  # =========================================================================
-  pretest-tests:
-    name: Pretest — unit + rust
-    needs: [prepare-build]
-    if: ${{ !inputs.skip_pretests }}
-    uses: ./.github/workflows/test-reusable.yml
-    with:
-      ref: ${{ needs.prepare-build.outputs.build_ref }}
-  # =========================================================================
   # Phase 2: Create draft GitHub release
   # =========================================================================
   create-release:
     name: Prepare GitHub release
     runs-on: ubuntu-latest
     environment: Production
-    needs: [prepare-build, pretest-tests]
-    if: >-
-      always()
-      && needs.prepare-build.result == 'success'
-      && (needs.pretest-tests.result == 'success'
-          || (inputs.skip_pretests && needs.pretest-tests.result == 'skipped'))
+    needs: [prepare-build]
     outputs:
       release_id: ${{ steps.create.outputs.release_id || steps.noop.outputs.release_id }}
       upload_url: ${{ steps.create.outputs.upload_url || steps.noop.outputs.upload_url }}
@@ -428,13 +421,6 @@ jobs:
   build-desktop:
     name: Build desktop matrix
     needs: [prepare-build, create-release]
-    # `always()` is load-bearing: when `skip_pretests=true` the pretest job is
-    # `skipped`, and GitHub propagates that skipped status transitively to any
-    # downstream job lacking an explicit status function — even though we only
-    # `needs` create-release here, the build would otherwise be skipped along
-    # with the pretests. Same pattern below for build-cli-linux / build-docker /
-    # publish-updater-manifest / publish-release / tag-docker-latest /
-    # record-sentry-deploy. See release-staging.yml for the working precedent.
     if: always() && needs.create-release.result == 'success'
     uses: ./.github/workflows/build-desktop.yml
     secrets: inherit
@@ -453,7 +439,6 @@ jobs:
       with_release_upload: ${{ inputs.create_release }}
       release_id: ${{ needs.create-release.outputs.release_id }}
       build_sidecar: false
-      skip_pretests: ${{ inputs.skip_pretests }}
 
   # =========================================================================
   # Phase 3b: Build & push Docker image (runs parallel with build-desktop).
@@ -835,37 +820,22 @@ jobs:
     environment: Production
     needs:
       - prepare-build
-      - pretest-tests
       - create-release
       - build-desktop
       - build-cli-linux
       - build-docker
       - publish-updater-manifest
-    # Two cleanup paths:
-    #   (a) pretest failed → no release yet, but `prepare-build` already
-    #       pushed a tag and (for main_head) a chore(release) commit; we
-    #       still need to delete the tag so a rerun doesn't trip the
-    #       "tag already exists" guard.
-    #   (b) any build phase failed after create-release succeeded — the
-    #       original behavior — delete the draft release, the tag, and any
-    #       pushed Docker image versions.
     if: >-
       always()
+      && inputs.create_release
       && needs.prepare-build.result == 'success'
-      && (
-        (needs.create-release.result != 'success'
-         && (needs.pretest-tests.result == 'failure' || needs.pretest-tests.result == 'cancelled'
-            ))
-        || (needs.create-release.result == 'success'
-            && (needs.build-desktop.result == 'failure' || needs.build-desktop.result == 'cancelled'
-                || needs.build-cli-linux.result == 'failure' || needs.build-cli-linux.result == 'cancelled'
-                || needs.build-docker.result == 'failure' || needs.build-docker.result == 'cancelled'
-                || needs.publish-updater-manifest.result == 'failure' || needs.publish-updater-manifest.result == 'cancelled'))
-      )
+      && needs.create-release.result == 'success'
+      && (needs.build-desktop.result == 'failure' || needs.build-desktop.result == 'cancelled'
+          || needs.build-cli-linux.result == 'failure' || needs.build-cli-linux.result == 'cancelled'
+          || needs.build-docker.result == 'failure' || needs.build-docker.result == 'cancelled'
+          || needs.publish-updater-manifest.result == 'failure' || needs.publish-updater-manifest.result == 'cancelled')
     steps:
       - name: Delete GitHub release
-        # Skip on the pretest-failure cleanup path: create-release didn't run,
-        # so there's no draft release to delete (only an orphaned tag).
         if: ${{ inputs.create_release && needs.create-release.result == 'success' }}
         uses: actions/github-script@v8
         with:
@@ -906,8 +876,7 @@ jobs:
         # `:v<version>` and `:<version>` tags we just pushed and remove the
         # underlying package version. `:latest` is left alone — the previous
         # release is still pointed at it, and clobbering the moving tag here
-        # would orphan downstream pulls. Skipped on the pretest-failure
-        # cleanup path where build-docker never ran.
+        # would orphan downstream pulls.
         if: needs.build-docker.result == 'success'
         continue-on-error: true
         env:

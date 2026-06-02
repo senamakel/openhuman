@@ -43,15 +43,15 @@ vi.mock('../../utils/tauriCommands', () => ({
   subconsciousStatus: vi.fn(async () => mockStatus),
   subconsciousTrigger: vi.fn(async () => ({ result: { triggered: true }, logs: [] })),
   openhumanHeartbeatSettingsGet: vi.fn(async () => ({
-    result: {
-      settings: { ...mockSettings.result.settings, subconscious_mode: currentMode },
-    },
+    result: { settings: { ...mockSettings.result.settings, subconscious_mode: currentMode } },
     logs: [],
   })),
   openhumanHeartbeatSettingsSet: vi.fn(async (patch: Record<string, unknown>) => {
     if (patch.subconscious_mode) currentMode = patch.subconscious_mode as string;
     return {
-      result: { settings: { ...mockSettings.result.settings, ...patch, subconscious_mode: currentMode } },
+      result: {
+        settings: { ...mockSettings.result.settings, ...patch, subconscious_mode: currentMode },
+      },
       logs: [],
     };
   }),
@@ -92,9 +92,7 @@ describe('useSubconscious', () => {
       await result.current.setMode('aggressive');
     });
 
-    expect(openhumanHeartbeatSettingsSet).toHaveBeenCalledWith({
-      subconscious_mode: 'aggressive',
-    });
+    expect(openhumanHeartbeatSettingsSet).toHaveBeenCalledWith({ subconscious_mode: 'aggressive' });
     expect(result.current.mode).toBe('aggressive');
   });
 
@@ -110,9 +108,7 @@ describe('useSubconscious', () => {
       await result.current.setIntervalMinutes(15);
     });
 
-    expect(openhumanHeartbeatSettingsSet).toHaveBeenCalledWith({
-      interval_minutes: 15,
-    });
+    expect(openhumanHeartbeatSettingsSet).toHaveBeenCalledWith({ interval_minutes: 15 });
   });
 
   it('triggerTick calls subconsciousTrigger', async () => {

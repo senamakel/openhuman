@@ -48,12 +48,9 @@ concurrency:
 # ---------------------------------------------------------------------------
 jobs:
   # =========================================================================
-  # Phase 1: Patch-bump on `main` and create the immutable
+  # Phase 1: Patch-bump on `main` and optionally create the immutable
   # `v<version>-staging` tag at that commit. The build matrix below then
   # checks out the tag (not main HEAD) so reruns reproduce byte-for-byte.
-  # Production promotion (`release-production.yml`,
-  # `release_source = staging_tag`) reads this tag verbatim and creates a
-  # `v<version>` tag at the same commit.
   # =========================================================================
   prepare-build:
     name: Prepare build context

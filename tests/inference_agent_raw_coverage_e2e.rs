@@ -1971,7 +1971,6 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
         "The supported API model names are native-a or native-b",
         "ModelNotAllowed",
         "invalid_authentication_error",
-        "unknown parameter: tools",
         "requires a subscription, upgrade for access",
         "No active credentials for provider: openai",
     ] {
@@ -1982,6 +1981,12 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
     }
     assert!(is_openai_compatible_unknown_model_message(
         "Model `gpt-unknown` is not available. Use GET /openai/v1/models to list available models."
+    ));
+    // PR #2959 reverted the "unknown parameter: tools" suppression: this shape
+    // is no longer demoted to user-config state, so it fires to Sentry again
+    // (root cause to be fixed separately).
+    assert!(!is_provider_config_rejection_message(
+        "unknown parameter: tools"
     ));
     assert!(!is_provider_config_rejection_message(
         "internal server error while streaming tokens"

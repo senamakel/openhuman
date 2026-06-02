@@ -26,8 +26,9 @@ pub fn with_connection<T>(
     let db_path = workspace_dir.join("subconscious").join("subconscious.db");
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent)
-            .with_context(|| format!("create subconscious dir: {}", parent.display()))?;
+            .with_context(|| format!("failed to create subconscious dir: {}", parent.display()))?;
     }
+
     let conn = open_and_initialize_with_retry(&db_path)?;
     f(&conn)
 }

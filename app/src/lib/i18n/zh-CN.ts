@@ -1830,7 +1830,8 @@ const messages: TranslationMap = {
   'subconscious.mode.simple.desc': '只读观察。仅可访问记忆和文件。',
   'subconscious.mode.aggressive.title': '积极',
   'subconscious.mode.aggressive.desc': '完整工具访问。可写入、创建代理和委派任务。',
-  'subconscious.mode.aggressiveWarning': '积极模式赋予潜意识完整的工具访问权限，包括写入和创建子代理。',
+  'subconscious.mode.aggressiveWarning':
+    '积极模式赋予潜意识完整的工具访问权限，包括写入和创建子代理。',
   'subconscious.interval.label': '频率',
   'subconscious.interval.minutes': '{n}分钟',
   'subconscious.interval.hours': '{n}小时',

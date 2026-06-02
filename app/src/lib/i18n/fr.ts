@@ -1970,10 +1970,13 @@ const messages: TranslationMap = {
   'subconscious.mode.off.title': 'Désactivé',
   'subconscious.mode.off.desc': 'Le subconscient est désactivé.',
   'subconscious.mode.simple.title': 'Simple',
-  'subconscious.mode.simple.desc': 'Observation en lecture seule. Accès mémoire et fichiers uniquement.',
+  'subconscious.mode.simple.desc':
+    'Observation en lecture seule. Accès mémoire et fichiers uniquement.',
   'subconscious.mode.aggressive.title': 'Agressif',
-  'subconscious.mode.aggressive.desc': 'Accès complet aux outils. Peut écrire, créer des agents et déléguer des tâches.',
-  'subconscious.mode.aggressiveWarning': "Le mode agressif donne au subconscient un accès complet aux outils, y compris l'écriture et la création de sous-agents.",
+  'subconscious.mode.aggressive.desc':
+    'Accès complet aux outils. Peut écrire, créer des agents et déléguer des tâches.',
+  'subconscious.mode.aggressiveWarning':
+    "Le mode agressif donne au subconscient un accès complet aux outils, y compris l'écriture et la création de sous-agents.",
   'subconscious.interval.label': 'Fréquence',
   'subconscious.interval.minutes': '{n} min',
   'subconscious.interval.hours': '{n}h',

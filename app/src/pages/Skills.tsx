@@ -426,44 +426,6 @@ export default function Skills() {
   const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
-  const pendingEscalationId =
-    location.state &&
-    typeof location.state === 'object' &&
-    'subconsciousEscalationId' in location.state &&
-    typeof location.state.subconsciousEscalationId === 'string'
-      ? location.state.subconsciousEscalationId
-      : null;
-
-  const clearPendingEscalationState = useCallback(() => {
-    navigate(location.pathname, { replace: true, state: null });
-  }, [location.pathname, navigate]);
-
-  const dismissPendingEscalationIfResolved = useCallback(
-    async (resolution: string) => {
-      if (!pendingEscalationId) return;
-      console.debug('[skills][subconscious] dismiss escalation:start', {
-        escalationId: pendingEscalationId,
-        resolution,
-      });
-      try {
-        // Escalation dismiss removed — subconscious no longer manages tasks
-        void pendingEscalationId;
-        console.debug('[skills][subconscious] dismiss escalation:success', {
-          escalationId: pendingEscalationId,
-          resolution,
-        });
-      } catch (error) {
-        console.debug('[skills][subconscious] dismiss escalation:error', {
-          escalationId: pendingEscalationId,
-          resolution,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        return;
-      }
-      clearPendingEscalationState();
-    },
-    [clearPendingEscalationState, pendingEscalationId]
-  );
 
   // Discover SKILL.md skills via the core RPC. Ignore failures — the rest of
   // the page still works when the sidecar is unreachable or no skills exist.
@@ -1157,7 +1119,6 @@ export default function Skills() {
           }
           onChanged={() => {
             void refreshComposio();
-            void dismissPendingEscalationIfResolved(`composio:${composioModalToolkit.slug}`);
           }}
           onClose={() => setComposioModalToolkit(null)}
         />

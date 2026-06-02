@@ -116,6 +116,20 @@ pub fn schemas(function: &str) -> ControllerSchema {
 
 fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
+        // Prefer live engine status (includes in-memory tick counters).
+        // Fall back to a config-derived snapshot when the engine is not yet
+        // initialised — the counters will read 0, which is accurate at that
+        // point because no ticks have run yet.
+        let engine_arc = get_or_init_engine().await.ok();
+        if let Some(arc) = engine_arc {
+            let guard = arc.lock().await;
+            if let Some(engine) = guard.as_ref() {
+                let status = engine.status().await;
+                return to_json(RpcOutcome::single_log(status, "subconscious status"));
+            }
+        }
+
+        // Engine not yet initialised — build a snapshot from config.
         let config = load_config().await?;
         let hb = &config.heartbeat;
 
@@ -129,6 +143,8 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
             None
         };
         let mode = hb.effective_subconscious_mode();
+        // total_ticks and consecutive_failures are 0 here because the engine
+        // has not started; the engine Mutex cannot be held during RPC.
         let status = super::types::SubconsciousStatus {
             enabled: mode.is_enabled(),
             mode: mode.as_str().to_string(),

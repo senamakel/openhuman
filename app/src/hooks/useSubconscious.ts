@@ -52,7 +52,9 @@ export function useSubconscious(): UseSubconsciousResult {
       ]);
       if (statusRes) setStatus(unwrap(statusRes) ?? null);
       const settings = settingsRes
-        ? unwrap<{ settings: { subconscious_mode: SubconsciousMode; interval_minutes: number } }>(settingsRes)
+        ? unwrap<{ settings: { subconscious_mode: SubconsciousMode; interval_minutes: number } }>(
+            settingsRes
+          )
         : null;
       if (settings?.settings) {
         if (settings.settings.subconscious_mode) {
@@ -100,18 +102,15 @@ export function useSubconscious(): UseSubconsciousResult {
     [refresh]
   );
 
-  const setIntervalMinutes = useCallback(
-    async (minutes: number) => {
-      if (!isTauri()) return;
-      setIntervalState(minutes);
-      try {
-        await openhumanHeartbeatSettingsSet({ interval_minutes: minutes });
-      } catch (err) {
-        console.warn('[subconscious] setInterval failed:', err);
-      }
-    },
-    []
-  );
+  const setIntervalMinutes = useCallback(async (minutes: number) => {
+    if (!isTauri()) return;
+    setIntervalState(minutes);
+    try {
+      await openhumanHeartbeatSettingsSet({ interval_minutes: minutes });
+    } catch (err) {
+      console.warn('[subconscious] setInterval failed:', err);
+    }
+  }, []);
 
   useEffect(() => {
     refresh();

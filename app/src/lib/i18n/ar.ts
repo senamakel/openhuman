@@ -1888,8 +1888,10 @@ const messages: TranslationMap = {
   'subconscious.mode.simple.title': 'بسيط',
   'subconscious.mode.simple.desc': 'مراقبة للقراءة فقط. الوصول للذاكرة والملفات فقط.',
   'subconscious.mode.aggressive.title': 'مكثف',
-  'subconscious.mode.aggressive.desc': 'وصول كامل للأدوات. يمكنه الكتابة وإنشاء وكلاء وتفويض المهام.',
-  'subconscious.mode.aggressiveWarning': 'الوضع المكثف يمنح اللاوعي وصولاً كاملاً للأدوات بما في ذلك الكتابة وإنشاء الوكلاء الفرعيين.',
+  'subconscious.mode.aggressive.desc':
+    'وصول كامل للأدوات. يمكنه الكتابة وإنشاء وكلاء وتفويض المهام.',
+  'subconscious.mode.aggressiveWarning':
+    'الوضع المكثف يمنح اللاوعي وصولاً كاملاً للأدوات بما في ذلك الكتابة وإنشاء الوكلاء الفرعيين.',
   'subconscious.interval.label': 'التردد',
   'subconscious.interval.minutes': '{n} د',
   'subconscious.interval.hours': '{n} س',

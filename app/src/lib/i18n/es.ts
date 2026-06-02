@@ -1966,8 +1966,10 @@ const messages: TranslationMap = {
   'subconscious.mode.simple.title': 'Simple',
   'subconscious.mode.simple.desc': 'Observación de solo lectura. Solo acceso a memoria y archivos.',
   'subconscious.mode.aggressive.title': 'Agresivo',
-  'subconscious.mode.aggressive.desc': 'Acceso completo a herramientas. Puede escribir, crear agentes y delegar tareas.',
-  'subconscious.mode.aggressiveWarning': 'El modo agresivo otorga al subconsciente acceso completo a herramientas, incluyendo escritura y creación de subagentes.',
+  'subconscious.mode.aggressive.desc':
+    'Acceso completo a herramientas. Puede escribir, crear agentes y delegar tareas.',
+  'subconscious.mode.aggressiveWarning':
+    'El modo agresivo otorga al subconsciente acceso completo a herramientas, incluyendo escritura y creación de subagentes.',
   'subconscious.interval.label': 'Frecuencia',
   'subconscious.interval.minutes': '{n} min',
   'subconscious.interval.hours': '{n}h',

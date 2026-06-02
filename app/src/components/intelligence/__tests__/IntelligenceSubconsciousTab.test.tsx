@@ -76,9 +76,7 @@ describe('IntelligenceSubconsciousTab', () => {
 
   it('shows aggressive warning when mode is aggressive', () => {
     render(<IntelligenceSubconsciousTab {...baseProps()} mode="aggressive" />);
-    expect(
-      screen.getByText(/full tool access including writes/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/full tool access including writes/)).toBeInTheDocument();
   });
 
   it('on Act → dispatches setSelectedThread + navigates to /chat', () => {

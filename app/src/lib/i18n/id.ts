@@ -1929,8 +1929,10 @@ const messages: TranslationMap = {
   'subconscious.mode.simple.title': 'Sederhana',
   'subconscious.mode.simple.desc': 'Pengamatan hanya-baca. Hanya akses memori dan file.',
   'subconscious.mode.aggressive.title': 'Agresif',
-  'subconscious.mode.aggressive.desc': 'Akses alat penuh. Dapat menulis, membuat agen, dan mendelegasikan tugas.',
-  'subconscious.mode.aggressiveWarning': 'Mode agresif memberikan alam bawah sadar akses alat penuh termasuk menulis dan membuat sub-agen.',
+  'subconscious.mode.aggressive.desc':
+    'Akses alat penuh. Dapat menulis, membuat agen, dan mendelegasikan tugas.',
+  'subconscious.mode.aggressiveWarning':
+    'Mode agresif memberikan alam bawah sadar akses alat penuh termasuk menulis dan membuat sub-agen.',
   'subconscious.interval.label': 'Frekuensi',
   'subconscious.interval.minutes': '{n} mnt',
   'subconscious.interval.hours': '{n} jam',

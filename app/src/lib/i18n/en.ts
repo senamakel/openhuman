@@ -2128,8 +2128,10 @@ const en: TranslationMap = {
   'subconscious.mode.simple.title': 'Simple',
   'subconscious.mode.simple.desc': 'Read-only observation. Memory and file access only.',
   'subconscious.mode.aggressive.title': 'Aggressive',
-  'subconscious.mode.aggressive.desc': 'Full tool access. Can write, spawn agents, and delegate tasks.',
-  'subconscious.mode.aggressiveWarning': 'Aggressive mode gives the subconscious full tool access including writes and sub-agent spawning.',
+  'subconscious.mode.aggressive.desc':
+    'Full tool access. Can write, spawn agents, and delegate tasks.',
+  'subconscious.mode.aggressiveWarning':
+    'Aggressive mode gives the subconscious full tool access including writes and sub-agent spawning.',
   'subconscious.interval.label': 'Frequency',
   'subconscious.interval.minutes': '{n} min',
   'subconscious.interval.hours': '{n}h',

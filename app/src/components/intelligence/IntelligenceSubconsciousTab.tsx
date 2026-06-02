@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
@@ -79,13 +79,15 @@ export default function IntelligenceSubconsciousTab({
 
   const [localSlider, setLocalSlider] = useState(() => minutesToSlider(intervalMinutes));
 
-  const handleSliderChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = Number(e.target.value);
-      setLocalSlider(val);
-    },
-    []
-  );
+  // Keep the local slider in sync when the prop changes from outside (e.g. after a refresh).
+  useEffect(() => {
+    setLocalSlider(minutesToSlider(intervalMinutes));
+  }, [intervalMinutes]);
+
+  const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setLocalSlider(val);
+  }, []);
 
   const handleSliderCommit = useCallback(() => {
     const minutes = sliderToMinutes(localSlider);

@@ -1907,7 +1907,8 @@ const messages: TranslationMap = {
   'subconscious.mode.simple.desc': '읽기 전용 관찰. 메모리 및 파일 접근만 가능.',
   'subconscious.mode.aggressive.title': '적극적',
   'subconscious.mode.aggressive.desc': '전체 도구 접근. 쓰기, 에이전트 생성, 작업 위임 가능.',
-  'subconscious.mode.aggressiveWarning': '적극적 모드는 잠재의식에 쓰기 및 하위 에이전트 생성을 포함한 전체 도구 접근 권한을 부여합니다.',
+  'subconscious.mode.aggressiveWarning':
+    '적극적 모드는 잠재의식에 쓰기 및 하위 에이전트 생성을 포함한 전체 도구 접근 권한을 부여합니다.',
   'subconscious.interval.label': '빈도',
   'subconscious.interval.minutes': '{n}분',
   'subconscious.interval.hours': '{n}시간',

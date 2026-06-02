@@ -1926,8 +1926,10 @@ const messages: TranslationMap = {
   'subconscious.mode.simple.title': 'सरल',
   'subconscious.mode.simple.desc': 'केवल-पठन अवलोकन। केवल मेमोरी और फ़ाइल एक्सेस।',
   'subconscious.mode.aggressive.title': 'आक्रामक',
-  'subconscious.mode.aggressive.desc': 'पूर्ण टूल एक्सेस। लिख सकता है, एजेंट बना सकता है और कार्य सौंप सकता है।',
-  'subconscious.mode.aggressiveWarning': 'आक्रामक मोड अवचेतन को लेखन और उप-एजेंट निर्माण सहित पूर्ण टूल एक्सेस देता है।',
+  'subconscious.mode.aggressive.desc':
+    'पूर्ण टूल एक्सेस। लिख सकता है, एजेंट बना सकता है और कार्य सौंप सकता है।',
+  'subconscious.mode.aggressiveWarning':
+    'आक्रामक मोड अवचेतन को लेखन और उप-एजेंट निर्माण सहित पूर्ण टूल एक्सेस देता है।',
   'subconscious.interval.label': 'आवृत्ति',
   'subconscious.interval.minutes': '{n} मि',
   'subconscious.interval.hours': '{n} घं',

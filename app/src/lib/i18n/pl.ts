@@ -1947,8 +1947,10 @@ const messages: TranslationMap = {
   'subconscious.mode.simple.title': 'Prosty',
   'subconscious.mode.simple.desc': 'Obserwacja tylko do odczytu. Tylko dostęp do pamięci i plików.',
   'subconscious.mode.aggressive.title': 'Agresywny',
-  'subconscious.mode.aggressive.desc': 'Pełny dostęp do narzędzi. Może pisać, tworzyć agentów i delegować zadania.',
-  'subconscious.mode.aggressiveWarning': 'Tryb agresywny daje podświadomości pełny dostęp do narzędzi, w tym pisanie i tworzenie podagentów.',
+  'subconscious.mode.aggressive.desc':
+    'Pełny dostęp do narzędzi. Może pisać, tworzyć agentów i delegować zadania.',
+  'subconscious.mode.aggressiveWarning':
+    'Tryb agresywny daje podświadomości pełny dostęp do narzędzi, w tym pisanie i tworzenie podagentów.',
   'subconscious.interval.label': 'Częstotliwość',
   'subconscious.interval.minutes': '{n} min',
   'subconscious.interval.hours': '{n} godz',

@@ -249,13 +249,11 @@ impl SubconsciousEngine {
         let mut effective = config.clone();
         match self.mode {
             SubconsciousMode::Simple => {
-                effective.autonomy.level =
-                    crate::openhuman::security::AutonomyLevel::ReadOnly;
+                effective.autonomy.level = crate::openhuman::security::AutonomyLevel::ReadOnly;
                 effective.agent.max_tool_iterations = 4;
             }
             SubconsciousMode::Aggressive => {
-                effective.autonomy.level =
-                    crate::openhuman::security::AutonomyLevel::Full;
+                effective.autonomy.level = crate::openhuman::security::AutonomyLevel::Full;
                 effective.agent.max_tool_iterations = 8;
             }
             SubconsciousMode::Off => return vec![],

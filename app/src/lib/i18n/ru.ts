@@ -1939,8 +1939,10 @@ const messages: TranslationMap = {
   'subconscious.mode.simple.title': 'Простой',
   'subconscious.mode.simple.desc': 'Наблюдение в режиме чтения. Только доступ к памяти и файлам.',
   'subconscious.mode.aggressive.title': 'Агрессивный',
-  'subconscious.mode.aggressive.desc': 'Полный доступ к инструментам. Может писать, создавать агентов и делегировать задачи.',
-  'subconscious.mode.aggressiveWarning': 'Агрессивный режим даёт подсознанию полный доступ к инструментам, включая запись и создание подагентов.',
+  'subconscious.mode.aggressive.desc':
+    'Полный доступ к инструментам. Может писать, создавать агентов и делегировать задачи.',
+  'subconscious.mode.aggressiveWarning':
+    'Агрессивный режим даёт подсознанию полный доступ к инструментам, включая запись и создание подагентов.',
   'subconscious.interval.label': 'Частота',
   'subconscious.interval.minutes': '{n} мин',
   'subconscious.interval.hours': '{n} ч',

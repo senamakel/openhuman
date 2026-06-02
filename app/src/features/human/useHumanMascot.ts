@@ -135,7 +135,7 @@ export function pickVisemeCode(delta: string): string {
     case 'r':
       return 'RR';
     default:
-      return 'DD';
+      return 'E';
   }
 }
 
@@ -177,7 +177,7 @@ const CAUTIOUS_TEXT_RE =
 const CELEBRATING_TEXT_RE =
   /\b(congrat(ulations|s)?|well done|bravo|hooray|woohoo|amazing|fantastic|incredible|awesome work)\b/i;
 const GREETING_TEXT_RE =
-  /^(hello|hey|hi there|good (morning|afternoon|evening)|welcome back|greetings|howdy)[!.,]?\s/i;
+  /^(hello|hey|hi there|good (morning|afternoon|evening)|welcome back|greetings|howdy)[!.,]?(?:\s|$)/i;
 
 /**
  * Map conversation-level meaning into the short acknowledgement face that

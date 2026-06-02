@@ -7,6 +7,7 @@ import {
   ACK_FACE_HOLD_MS,
   pickConversationAckFace,
   pickViseme,
+  pickVisemeCode,
   TTS_MAX_PLAYBACK_MS,
   useHumanMascot,
 } from './useHumanMascot';
@@ -136,6 +137,54 @@ describe('pickViseme', () => {
   it('falls back to E for unmapped consonants', () => {
     expect(pickViseme('z')).toBe(VISEMES.E);
     expect(pickViseme('')).toBe(VISEMES.E);
+  });
+});
+
+describe('pickVisemeCode', () => {
+  it('maps vowels to Oculus 15-set codes', () => {
+    expect(pickVisemeCode('a')).toBe('aa');
+    expect(pickVisemeCode('e')).toBe('E');
+    expect(pickVisemeCode('i')).toBe('I');
+    expect(pickVisemeCode('o')).toBe('O');
+    expect(pickVisemeCode('u')).toBe('U');
+  });
+
+  it('maps labials to PP', () => {
+    expect(pickVisemeCode('m')).toBe('PP');
+    expect(pickVisemeCode('b')).toBe('PP');
+    expect(pickVisemeCode('p')).toBe('PP');
+  });
+
+  it('maps fricatives to FF', () => {
+    expect(pickVisemeCode('f')).toBe('FF');
+    expect(pickVisemeCode('v')).toBe('FF');
+  });
+
+  it('maps sibilants to SS', () => {
+    expect(pickVisemeCode('s')).toBe('SS');
+    expect(pickVisemeCode('z')).toBe('SS');
+  });
+
+  it('maps other consonants to their Oculus codes', () => {
+    expect(pickVisemeCode('n')).toBe('nn');
+    expect(pickVisemeCode('t')).toBe('DD');
+    expect(pickVisemeCode('k')).toBe('kk');
+    expect(pickVisemeCode('r')).toBe('RR');
+  });
+
+  it('uses the trailing letter of multi-char deltas', () => {
+    expect(pickVisemeCode('hello')).toBe('O');
+    expect(pickVisemeCode('world')).toBe('DD');
+  });
+
+  it('ignores punctuation when picking the trailing letter', () => {
+    expect(pickVisemeCode('Hi!')).toBe('I');
+  });
+
+  it('falls back to E for unmapped consonants and empty input', () => {
+    expect(pickVisemeCode('x')).toBe('E');
+    expect(pickVisemeCode('')).toBe('E');
+    expect(pickVisemeCode('...')).toBe('E');
   });
 });
 
@@ -331,7 +380,7 @@ describe('useHumanMascot state machine', () => {
     act(() => {
       capturedListeners?.onDone?.(
         fakeEvent({
-          full_response: 'hello',
+          full_response: 'sure thing',
           rounds_used: 1,
           total_input_tokens: 1,
           total_output_tokens: 1,
@@ -643,7 +692,7 @@ describe('useHumanMascot TTS playback', () => {
 
     const { result } = renderHook(() => useHumanMascot({ speakReplies: true }));
     await act(async () => {
-      capturedListeners?.onDone?.(fakeDone('hello'));
+      capturedListeners?.onDone?.(fakeDone('sure thing'));
       // Let synthesizeSpeech and playBase64Audio resolve.
       await Promise.resolve();
       await Promise.resolve();

@@ -35,7 +35,7 @@ const FACE_TO_POSE: Record<MascotFace, string> = {
   thinking: 'thinking',
   confused: 'thinking',
   speaking: 'idle',
-  happy: 'hand_wave',
+  happy: 'idle',
   concerned: 'thinking',
   curious: 'bookreading',
   proud: 'celebration',

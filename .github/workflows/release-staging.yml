@@ -85,12 +85,6 @@ jobs:
         run: |
           echo "This workflow can only run from main. Current ref: $GITHUB_REF"
           exit 1
-      - name: Validate commit_sha is reachable from main
-        if: inputs.commit_sha != ''
-        env:
-          COMMIT_SHA: ${{ inputs.commit_sha }}
-        run: |
-          echo "Validating that $COMMIT_SHA is reachable from main..."
       - name: Generate GitHub App token
         id: app-token
         uses: actions/create-github-app-token@v2
@@ -114,13 +108,23 @@ jobs:
       - name: Configure Git
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
           git fetch origin --tags --prune --prune-tags
-          if [ -n "${{ inputs.commit_sha }}" ]; then
-            git checkout "${{ inputs.commit_sha }}"
+          if [ -n "$COMMIT_SHA" ]; then
+            [[ "$COMMIT_SHA" =~ ^[0-9a-fA-F]{7,40}$ ]] || {
+              echo "Invalid commit_sha: must be a hex SHA (7-40 chars)"
+              exit 1
+            }
+            git rev-parse --verify "${COMMIT_SHA}^{commit}" >/dev/null
+            git merge-base --is-ancestor "$COMMIT_SHA" origin/main || {
+              echo "commit_sha $COMMIT_SHA is not reachable from main"
+              exit 1
+            }
+            git checkout --detach "$COMMIT_SHA"
           else
             git checkout main
             git pull origin main --ff-only

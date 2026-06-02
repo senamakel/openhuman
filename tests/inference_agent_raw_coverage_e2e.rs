@@ -725,7 +725,7 @@ fn write_mock_piper(bin_dir: &std::path::Path, name: &str, exit_success: bool) -
         bin_dir,
         name,
         &format!(
-            "#!/bin/sh\nout=''\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--output_file\" ]; then\n    shift\n    out=\"$1\"\n  fi\n  shift\ndone\ncat >/dev/null\nif [ {exit_code} -ne 0 ]; then\n  echo 'mock piper failure' >&2\n  exit {exit_code}\nfi\nprintf 'RIFFmockWAVEfmt data' > \"$out\"\n"
+            "#!/bin/sh\nout=''\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--output_file\" ]; then\n    shift\n    out=\"$1\"\n  fi\n  shift\ndone\nwhile IFS= read -r _line; do\n  :\ndone\nif [ {exit_code} -ne 0 ]; then\n  echo 'mock piper failure' >&2\n  exit {exit_code}\nfi\nprintf 'RIFFmockWAVEfmt data' > \"$out\"\n"
         ),
     )
 }

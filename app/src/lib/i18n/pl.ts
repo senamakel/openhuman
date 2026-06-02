@@ -4550,6 +4550,31 @@ const messages: TranslationMap = {
   'chat.artifact.reveal': 'Pokaż w folderze',
   'chat.artifact.show_more': 'Pokaż więcej',
   'chat.artifact.show_less': 'Pokaż mniej',
+  // #002 memory-pipeline-hardening: degraded badges + typed remediation.
+  'memoryTree.status.statusDegraded': 'Ograniczony',
+  'memoryTree.status.degradedRecall': 'Wyszukiwanie semantyczne wyłączone',
+  'memoryTree.status.degradedStructure': 'Struktura wiki niekompletna',
+  'memoryTree.status.extractionCoverage': 'Pokrycie ekstrakcji: {pct}% fragmentów ma strukturę',
+  'memory.health.remediation.budget_exhausted':
+    'Osadzenia pamięci wyczerpały zarządzany budżet. Skonfiguruj lokalne osadzenia Ollama (Ustawienia → AI → Embeddings) lub dodaj własny klucz API osadzeń, aby kontynuować budowanie pamięci.',
+  'memory.health.remediation.auth_missing':
+    'Nie znaleziono poświadczeń osadzeń. Zaloguj się do OpenHuman lub skonfiguruj lokalne osadzenia Ollama w Ustawienia → AI → Embeddings.',
+  'memory.health.remediation.auth_invalid':
+    'Twoje poświadczenia osadzeń zostały odrzucone. Uwierzytelnij się ponownie lub przełącz na lokalne osadzenia Ollama w Ustawienia → AI → Embeddings.',
+  'memory.health.remediation.embeddings_unconfigured':
+    'Nie skonfigurowano dostawcy osadzeń, więc wyszukiwanie semantyczne jest wyłączone. Skonfiguruj lokalne osadzenia Ollama (zalecane) lub dodaj klucz osadzeń w Ustawienia → AI → Embeddings.',
+  'memory.health.remediation.embedding_dim_mismatch':
+    'Model osadzeń zwraca nieprawidłowy rozmiar wektora (pamięć oczekuje 1024 wymiarów). Wybierz model o 1024 wymiarach lub poproś dostawcę o 1024 wymiary.',
+  'memory.health.remediation.local_model_unavailable':
+    'Wymagany model lokalny jest niedostępny. Zainstaluj/uruchom Ollama i pobierz model albo przełącz to zadanie na dostawcę chmurowego w Ustawienia → AI.',
+  'memory.health.remediation.extraction_timeout':
+    'Model ekstrakcji pamięci przekracza limit czasu, więc wiki ma niewielką strukturę. Zmień model ekstrakcji pamięci na szybszy w Ustawienia → AI.',
+  'memory.health.remediation.summarizer_unavailable':
+    'Brak dostępnego dostawcy podsumowań dla funkcji Twórz drzewa podsumowań. Włącz lokalną AI (Ollama) lub włącz podsumowywanie w chmurze w Ustawienia → AI → Pamięć.',
+  'memory.health.remediation.transient':
+    'Tymczasowy błąd przerwał przetwarzanie pamięci. Ponowna próba nastąpi automatycznie.',
+  'memory.health.remediation.unknown':
+    'Przetwarzanie pamięci napotkało problem. Sprawdź Ustawienia → AI w celu konfiguracji.',
 
   // Chat composer toolbar
   'composer.attachFile': 'Dołącz plik',

@@ -4493,6 +4493,31 @@ const messages: TranslationMap = {
   'chat.artifact.reveal': 'Tampilkan di folder',
   'chat.artifact.show_more': 'Tampilkan selengkapnya',
   'chat.artifact.show_less': 'Tampilkan lebih sedikit',
+  // #002 memory-pipeline-hardening: degraded badges + typed remediation.
+  'memoryTree.status.statusDegraded': 'Terdegradasi',
+  'memoryTree.status.degradedRecall': 'Recall semantik dinonaktifkan',
+  'memoryTree.status.degradedStructure': 'Struktur wiki tidak lengkap',
+  'memoryTree.status.extractionCoverage': 'Cakupan ekstraksi: {pct}% bagian memiliki struktur',
+  'memory.health.remediation.budget_exhausted':
+    'Embedding memori mencapai batas anggaran terkelola. Siapkan embedding Ollama lokal (Pengaturan → AI → Sematan) atau tambahkan kunci API embedding Anda sendiri untuk terus membangun memori.',
+  'memory.health.remediation.auth_missing':
+    'Kredensial embedding tidak ditemukan. Masuk ke OpenHuman, atau siapkan embedding Ollama lokal di Pengaturan → AI → Sematan.',
+  'memory.health.remediation.auth_invalid':
+    'Kredensial embedding Anda ditolak. Autentikasi ulang, atau beralih ke embedding Ollama lokal di Pengaturan → AI → Sematan.',
+  'memory.health.remediation.embeddings_unconfigured':
+    'Tidak ada penyedia embedding yang dikonfigurasi, sehingga recall semantik nonaktif. Siapkan embedding Ollama lokal (disarankan) atau tambahkan kunci embedding di Pengaturan → AI → Sematan.',
+  'memory.health.remediation.embedding_dim_mismatch':
+    'Model embedding mengembalikan ukuran vektor yang salah (memori mengharapkan 1024 dimensi). Pilih model 1024 dimensi, atau minta 1024 dimensi dari penyedia Anda.',
+  'memory.health.remediation.local_model_unavailable':
+    'Model lokal yang diperlukan tidak tersedia. Instal/jalankan Ollama dan unduh model, atau alihkan beban kerja ini ke penyedia cloud di Pengaturan → AI.',
+  'memory.health.remediation.extraction_timeout':
+    'Model ekstraksi memori kehabisan waktu, sehingga wiki memiliki sedikit struktur. Ganti model ekstraksi memori ke yang lebih cepat di Pengaturan → AI.',
+  'memory.health.remediation.summarizer_unavailable':
+    'Tidak ada penyedia ringkasan yang tersedia untuk Buat Pohon Ringkasan. Aktifkan AI lokal (Ollama), atau aktifkan ringkasan cloud di Pengaturan → AI → Memori.',
+  'memory.health.remediation.transient':
+    'Kesalahan sementara mengganggu pemrosesan memori. Akan dicoba lagi secara otomatis.',
+  'memory.health.remediation.unknown':
+    'Pemrosesan memori mengalami masalah. Periksa Pengaturan → AI untuk konfigurasi.',
 
   // Chat composer toolbar
   'composer.attachFile': 'Lampirkan file',

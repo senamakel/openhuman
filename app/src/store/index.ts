@@ -14,6 +14,7 @@ import {
 import { E2E_RESTART_APP_AS_RELOAD, IS_DEV } from '../utils/config';
 import accountsReducer from './accountsSlice';
 import agentProfileReducer from './agentProfileSlice';
+import backendMeetReducer from './backendMeetSlice';
 import channelConnectionsReducer from './channelConnectionsSlice';
 import chatRuntimeReducer from './chatRuntimeSlice';
 import companionReducer from './companionSlice';
@@ -152,6 +153,7 @@ const persistedPersonaReducer = persistReducer(personaPersistConfig, personaRedu
 
 export const store = configureStore({
   reducer: {
+    backendMeet: backendMeetReducer,
     socket: socketReducer,
     connectivity: connectivityReducer,
     thread: persistedThreadReducer,

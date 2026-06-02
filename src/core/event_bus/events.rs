@@ -788,6 +788,37 @@ pub enum DomainEvent {
     /// deliberate follow-up; emitting the event now lets that bridge attach
     /// without a schema change.
     TaskPlanAwaitingApproval { card_id: String, thread_id: String },
+
+    // ── Backend Meet Bot ──────────────────────────────────────────────
+    /// Backend gmeet bot successfully joined the meeting.
+    BackendMeetJoined { meet_url: String },
+    /// Backend gmeet bot left the meeting.
+    BackendMeetLeft { reason: String },
+    /// Backend gmeet bot produced a spoken reply.
+    BackendMeetReply {
+        transcript: String,
+        reply: String,
+        emotion: String,
+    },
+    /// Backend gmeet bot needs the harness to execute a tool instruction.
+    BackendMeetHarness {
+        transcript: String,
+        instruction: String,
+        emotion: String,
+    },
+    /// Backend gmeet bot sent the full meeting transcript on close.
+    BackendMeetTranscript {
+        turns: Vec<BackendMeetTurn>,
+        duration_ms: u64,
+    },
+    /// Backend gmeet bot emitted an error.
+    BackendMeetError { error: String },
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct BackendMeetTurn {
+    pub role: String,
+    pub content: String,
 }
 
 impl DomainEvent {
@@ -899,6 +930,13 @@ impl DomainEvent {
             | Self::McpServerDisconnected { .. }
             | Self::McpClientToolExecuted { .. }
             | Self::McpSetupSecretRequested { .. } => "mcp_client",
+
+            Self::BackendMeetJoined { .. }
+            | Self::BackendMeetLeft { .. }
+            | Self::BackendMeetReply { .. }
+            | Self::BackendMeetHarness { .. }
+            | Self::BackendMeetTranscript { .. }
+            | Self::BackendMeetError { .. } => "agent_meetings",
         }
     }
 
@@ -994,6 +1032,12 @@ impl DomainEvent {
             Self::TaskSourceTaskIngested { .. } => "TaskSourceTaskIngested",
             Self::TaskSourceFetchFailed { .. } => "TaskSourceFetchFailed",
             Self::TaskPlanAwaitingApproval { .. } => "TaskPlanAwaitingApproval",
+            Self::BackendMeetJoined { .. } => "BackendMeetJoined",
+            Self::BackendMeetLeft { .. } => "BackendMeetLeft",
+            Self::BackendMeetReply { .. } => "BackendMeetReply",
+            Self::BackendMeetHarness { .. } => "BackendMeetHarness",
+            Self::BackendMeetTranscript { .. } => "BackendMeetTranscript",
+            Self::BackendMeetError { .. } => "BackendMeetError",
         }
     }
 

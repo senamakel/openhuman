@@ -264,6 +264,9 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::notifications::all_notifications_registered_controllers());
     // Google Meet call-join request validation (shell handles the webview)
     controllers.extend(crate::openhuman::meet::all_meet_registered_controllers());
+    // Agent meetings — backend-delegated Meet bot via Socket.IO
+    controllers
+        .extend(crate::openhuman::agent_meetings::all_agent_meetings_registered_controllers());
     // Live meet-agent loop: STT/LLM/TTS over the open call's audio.
     controllers.extend(crate::openhuman::meet_agent::all_meet_agent_registered_controllers());
     // Desktop companion — Clicky-style interaction loop.

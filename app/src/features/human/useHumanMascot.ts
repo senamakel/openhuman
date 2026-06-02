@@ -345,11 +345,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
         clearAckTimer();
         const activityFace = toolToActivityFace(e.tool_name);
         if (activityFace) {
-          mascotLog(
-            'voice-session transition → %s (tool_call %s)',
-            activityFace,
-            e.tool_name
-          );
+          mascotLog('voice-session transition → %s (tool_call %s)', activityFace, e.tool_name);
           setFace(activityFace);
         } else {
           mascotLog('voice-session transition → thinking (tool_call %s)', e.tool_name);

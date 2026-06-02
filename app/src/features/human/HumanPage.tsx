@@ -58,7 +58,12 @@ const HumanPage = () => {
           {customMascotGifUrl ? (
             <CustomGifMascot src={customMascotGifUrl} face={face} />
           ) : (
-            <RiveMascot face={face} primaryColor={primaryColor} secondaryColor={secondaryColor} visemeCode={visemeCode} />
+            <RiveMascot
+              face={face}
+              primaryColor={primaryColor}
+              secondaryColor={secondaryColor}
+              visemeCode={visemeCode}
+            />
           )}
         </div>
       </div>

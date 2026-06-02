@@ -257,24 +257,46 @@ describe('useHumanMascot state machine', () => {
     expect(result.current.face).toBe('thinking');
   });
 
-  it('moves to confused on tool_call', () => {
+  it('maps tool_call to activity face when tool has a visual association', () => {
     const { result } = renderHook(() => useHumanMascot());
     act(() => {
       capturedListeners?.onInferenceStart?.(fakeEvent({}));
       capturedListeners?.onToolCall?.(
-        fakeEvent({ tool_name: 'search', skill_id: 's', args: {}, round: 1 })
+        fakeEvent({ tool_name: 'file_write', skill_id: 's', args: {}, round: 1 })
       );
     });
-    expect(result.current.face).toBe('confused');
+    expect(result.current.face).toBe('writing');
   });
 
-  it('moves to confused on iteration_start beyond round 1', () => {
+  it('falls back to thinking on tool_call for unmapped tools', () => {
+    const { result } = renderHook(() => useHumanMascot());
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onToolCall?.(
+        fakeEvent({ tool_name: 'custom_tool', skill_id: 's', args: {}, round: 1 })
+      );
+    });
+    expect(result.current.face).toBe('thinking');
+  });
+
+  it('maps reading tools to reading face', () => {
+    const { result } = renderHook(() => useHumanMascot());
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onToolCall?.(
+        fakeEvent({ tool_name: 'web_search', skill_id: 's', args: {}, round: 1 })
+      );
+    });
+    expect(result.current.face).toBe('reading');
+  });
+
+  it('moves to drinking_coffee on iteration_start beyond round 1', () => {
     const { result } = renderHook(() => useHumanMascot());
     act(() => {
       capturedListeners?.onInferenceStart?.(fakeEvent({}));
       capturedListeners?.onIterationStart?.(fakeEvent({ round: 2, message: '' }));
     });
-    expect(result.current.face).toBe('confused');
+    expect(result.current.face).toBe('drinking_coffee');
   });
 
   it('does not flip to confused on iteration_start round 1', () => {
@@ -418,7 +440,7 @@ describe('useHumanMascot state machine', () => {
     expect(result.current.face).toBe('thinking');
   });
 
-  it('promotes to proud on chat_done when a tool succeeded in the same turn', () => {
+  it('promotes to celebrating on chat_done when a tool succeeded in the same turn', () => {
     const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
     act(() => {
       capturedListeners?.onInferenceStart?.(fakeEvent({}));
@@ -435,7 +457,7 @@ describe('useHumanMascot state machine', () => {
         })
       );
     });
-    expect(result.current.face).toBe('proud');
+    expect(result.current.face).toBe('celebrating');
     act(() => {
       vi.advanceTimersByTime(ACK_FACE_HOLD_MS + 1);
     });
@@ -459,7 +481,7 @@ describe('useHumanMascot state machine', () => {
     expect(result.current.face).toBe('happy');
   });
 
-  it('promotes to proud on chat_done when a subagent succeeded in the same turn', () => {
+  it('promotes to celebrating on chat_done when a subagent succeeded in the same turn', () => {
     const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
     act(() => {
       capturedListeners?.onInferenceStart?.(fakeEvent({}));
@@ -482,7 +504,7 @@ describe('useHumanMascot state machine', () => {
         })
       );
     });
-    expect(result.current.face).toBe('proud');
+    expect(result.current.face).toBe('celebrating');
   });
 
   it('shows concerned when a subagent fails', () => {
@@ -503,7 +525,7 @@ describe('useHumanMascot state machine', () => {
 
   it('resets work tracking on each new turn', () => {
     const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
-    // Turn 1: tool succeeded → proud
+    // Turn 1: tool succeeded → celebrating
     act(() => {
       capturedListeners?.onInferenceStart?.(fakeEvent({}));
       capturedListeners?.onToolResult?.(
@@ -519,7 +541,7 @@ describe('useHumanMascot state machine', () => {
         })
       );
     });
-    expect(result.current.face).toBe('proud');
+    expect(result.current.face).toBe('celebrating');
     act(() => {
       vi.advanceTimersByTime(ACK_FACE_HOLD_MS + 1);
     });

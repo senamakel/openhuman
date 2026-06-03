@@ -605,6 +605,10 @@ pub async fn start_chat(
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_millis() as u64,
+                model_override: model_override.clone(),
+                temperature,
+                profile_id: profile_id.clone(),
+                locale: locale.clone(),
             };
             existing.run_queue.push(queued_msg).await;
             let status = existing.run_queue.status().await;
@@ -889,11 +893,11 @@ fn dispatch_followups(followups: Vec<crate::openhuman::agent::harness::run_queue
                 &fup.client_id,
                 &fup.thread_id,
                 &fup.text,
-                None,
-                None,
-                None,
-                None,
-                None,
+                fup.model_override,
+                fup.temperature,
+                fup.profile_id,
+                fup.locale,
+                Some("followup".to_string()),
             )
             .await
             {

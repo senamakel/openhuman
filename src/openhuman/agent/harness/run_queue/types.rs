@@ -44,6 +44,10 @@ pub struct QueuedMessage {
     pub client_id: String,
     pub thread_id: String,
     pub queued_at_ms: u64,
+    pub model_override: Option<String>,
+    pub temperature: Option<f64>,
+    pub profile_id: Option<String>,
+    pub locale: Option<String>,
 }
 
 /// Snapshot of the queue state for introspection.

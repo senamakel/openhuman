@@ -7,6 +7,10 @@ fn msg(text: &str, mode: QueueMode) -> QueuedMessage {
         client_id: "c1".to_string(),
         thread_id: "t1".to_string(),
         queued_at_ms: 0,
+        model_override: None,
+        temperature: None,
+        profile_id: None,
+        locale: None,
     }
 }
 

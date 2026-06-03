@@ -56,7 +56,6 @@ test.describe('Onboarding custom configuration flow', () => {
       'onboarding-custom-search-step',
       'onboarding-custom-embeddings-step',
       'onboarding-custom-activity-step',
-      'onboarding-custom-vault-step',
     ]) {
       await expect(page.getByTestId(id)).toBeVisible({ timeout: 20_000 });
       const configure = page.getByRole('button', { name: /Configure/ });
@@ -71,7 +70,8 @@ test.describe('Onboarding custom configuration flow', () => {
       await page.getByTestId('onboarding-next-button').click();
     }
 
-    await expect(page.getByTestId('onboarding-custom-vault-step')).toBeVisible();
+    await expect(page.getByTestId('onboarding-custom-vault-step')).toBeVisible({ timeout: 20_000 });
+    await chooseConfigure(page);
     await expect(page.getByTestId('onboarding-next-button')).toBeEnabled();
   });
 });

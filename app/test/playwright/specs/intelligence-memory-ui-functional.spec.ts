@@ -42,8 +42,8 @@ test.describe('Intelligence memory UI', () => {
     page,
   }) => {
     const label = `Playwright Memory Source ${Date.now()}`;
-    await addFolderSource(label);
     await openMemory(page);
+    await addFolderSource(label);
 
     const row = page.getByTestId('memory-source-row-folder').filter({ hasText: label });
     await expect(row).toBeVisible({ timeout: 20_000 });

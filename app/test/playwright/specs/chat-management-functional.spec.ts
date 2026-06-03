@@ -95,6 +95,7 @@ test.describe('Chat management functional coverage', () => {
   });
 
   test('thread rename and delete remain usable from the conversation UI', async ({ page }) => {
+    await resetMock();
     await openChat(page, 'pw-chat-rename-delete');
     const threadId = await newThread(page);
     const title = `Playwright thread ${Date.now()}`;

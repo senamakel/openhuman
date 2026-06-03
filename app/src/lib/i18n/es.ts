@@ -4464,6 +4464,39 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsDone': 'Done',
   'settings.agents.editor.builtInReadonly':
     'Los agentes integrados no se pueden editar. Puedes activarlos, desactivarlos o restablecerlos desde la lista de agentes.',
+  // Chat — agent-generated artifacts (#2779)
+  'chat.artifact.aria': 'Artefacto: {title}',
+  'chat.artifact.generating': 'Generando {kind}…',
+  'chat.artifact.ready': 'Listo',
+  'chat.artifact.failed': 'Error al generar',
+  'chat.artifact.download': 'Descargar',
+  'chat.artifact.downloading': 'Descargando…',
+  'chat.artifact.downloaded': 'Guardado en {path}',
+  'chat.artifact.download_failed': 'Error al descargar: {reason}',
+  'chat.artifact.retry': 'Reintentar',
+  'chat.artifact.reveal': 'Mostrar en la carpeta',
+  'chat.artifact.show_more': 'Ver más',
+  'chat.artifact.show_less': 'Ver menos',
+
+  // Chat — files panel (#3024)
+  'chat.files.chip.aria.one': '{count} archivo en este chat',
+  'chat.files.chip.aria.other': '{count} archivos en este chat',
+  'chat.files.panel.aria': 'Archivos en este chat',
+  'chat.files.panel.title': 'Archivos ({count})',
+  'chat.files.panel.empty': 'Aún no hay archivos. Pídele al agente que genere uno.',
+  'chat.files.panel.close': 'Cerrar panel de archivos',
+  'chat.files.delete.aria': 'Eliminar {title}',
+  'chat.files.delete.confirm': '¿Eliminar este archivo?',
+  'chat.files.delete.cancel': 'Cancelar',
+  'chat.files.delete.action': 'Eliminar',
+  'chat.files.delete.failed': 'No se pudo eliminar el archivo. Inténtalo de nuevo.',
+  'chat.files.error.not_desktop': 'Las descargas solo están disponibles en la app de escritorio.',
+  'chat.files.error.missing_artifact_id': 'Falta el id del artefacto.',
+  'chat.files.error.missing_artifact_path':
+    'Falta la ruta del artefacto en la respuesta del núcleo.',
+  'chat.files.error.resolve_failed': 'No se pudo resolver el artefacto. Inténtalo de nuevo.',
+  'chat.files.error.download_failed': 'La descarga falló. Inténtalo de nuevo.',
+  'chat.files.error.delete_failed': 'No se pudo eliminar el archivo. Inténtalo de nuevo.',
   'autocomplete.debounceMs': 'Retardo (ms)',
   'autocomplete.maxChars': 'Máximo de caracteres de contexto',
   'autocomplete.overlayTtlMs': 'Tiempo de espera de superposición (ms)',
@@ -4578,18 +4611,6 @@ const messages: TranslationMap = {
   'memory.health.remediation.unknown':
     'El procesamiento de la memoria encontró un problema. Comprueba Configuración → IA para la configuración.',
   // Chat — agent-generated artifacts (#2779)
-  'chat.artifact.aria': 'Artefacto: {title}',
-  'chat.artifact.generating': 'Generando {kind}…',
-  'chat.artifact.ready': 'Listo',
-  'chat.artifact.failed': 'Error al generar',
-  'chat.artifact.download': 'Descargar',
-  'chat.artifact.downloading': 'Descargando…',
-  'chat.artifact.downloaded': 'Guardado en {path}',
-  'chat.artifact.download_failed': 'Error al descargar: {reason}',
-  'chat.artifact.retry': 'Reintentar',
-  'chat.artifact.reveal': 'Mostrar en la carpeta',
-  'chat.artifact.show_more': 'Ver más',
-  'chat.artifact.show_less': 'Ver menos',
 
   // Chat composer toolbar
   'composer.attachFile': 'Adjuntar archivo',

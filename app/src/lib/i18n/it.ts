@@ -4456,6 +4456,39 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsDone': 'Done',
   'settings.agents.editor.builtInReadonly':
     "Gli agenti integrati non possono essere modificati. Puoi abilitarli, disabilitarli o reimpostarli dall'elenco degli agenti.",
+  // Chat — agent-generated artifacts (#2779)
+  'chat.artifact.aria': 'Artefatto: {title}',
+  'chat.artifact.generating': 'Generazione {kind}…',
+  'chat.artifact.ready': 'Pronto',
+  'chat.artifact.failed': 'Generazione fallita',
+  'chat.artifact.download': 'Scarica',
+  'chat.artifact.downloading': 'Scaricamento…',
+  'chat.artifact.downloaded': 'Salvato in {path}',
+  'chat.artifact.download_failed': 'Download fallito: {reason}',
+  'chat.artifact.retry': 'Riprova',
+  'chat.artifact.reveal': 'Mostra nella cartella',
+  'chat.artifact.show_more': 'Mostra altro',
+  'chat.artifact.show_less': 'Mostra meno',
+
+  // Chat — files panel (#3024)
+  'chat.files.chip.aria.one': '{count} file in questa chat',
+  'chat.files.chip.aria.other': '{count} file in questa chat',
+  'chat.files.panel.aria': 'File in questa chat',
+  'chat.files.panel.title': 'File ({count})',
+  'chat.files.panel.empty': 'Ancora nessun file. Chiedi all’agente di generarne uno.',
+  'chat.files.panel.close': 'Chiudi pannello file',
+  'chat.files.delete.aria': 'Elimina {title}',
+  'chat.files.delete.confirm': 'Eliminare questo file?',
+  'chat.files.delete.cancel': 'Annulla',
+  'chat.files.delete.action': 'Elimina',
+  'chat.files.delete.failed': 'Impossibile eliminare il file. Riprova.',
+  'chat.files.error.not_desktop': 'I download sono disponibili solo nell’app desktop.',
+  'chat.files.error.missing_artifact_id': 'ID dell’artefatto mancante.',
+  'chat.files.error.missing_artifact_path':
+    'Percorso dell’artefatto mancante nella risposta del core.',
+  'chat.files.error.resolve_failed': 'Impossibile risolvere l’artefatto. Riprova.',
+  'chat.files.error.download_failed': 'Download non riuscito. Riprova.',
+  'chat.files.error.delete_failed': 'Impossibile eliminare il file. Riprova.',
   'autocomplete.debounceMs': 'Debounce (ms)',
   'autocomplete.maxChars': 'Caratteri massimi di contesto',
   'autocomplete.overlayTtlMs': 'Timeout overlay (ms)',
@@ -4570,18 +4603,6 @@ const messages: TranslationMap = {
   'memory.health.remediation.unknown':
     "L'elaborazione della memoria ha riscontrato un problema. Controlla Impostazioni → IA per la configurazione.",
   // Chat — agent-generated artifacts (#2779)
-  'chat.artifact.aria': 'Artefatto: {title}',
-  'chat.artifact.generating': 'Generazione {kind}…',
-  'chat.artifact.ready': 'Pronto',
-  'chat.artifact.failed': 'Generazione fallita',
-  'chat.artifact.download': 'Scarica',
-  'chat.artifact.downloading': 'Scaricamento…',
-  'chat.artifact.downloaded': 'Salvato in {path}',
-  'chat.artifact.download_failed': 'Download fallito: {reason}',
-  'chat.artifact.retry': 'Riprova',
-  'chat.artifact.reveal': 'Mostra nella cartella',
-  'chat.artifact.show_more': 'Mostra altro',
-  'chat.artifact.show_less': 'Mostra meno',
 
   // Chat composer toolbar
   'composer.attachFile': 'Allega file',

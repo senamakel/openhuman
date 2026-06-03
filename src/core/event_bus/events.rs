@@ -368,6 +368,14 @@ pub enum DomainEvent {
         kind: String,
         /// Human-readable title (also the on-disk filename stem).
         title: String,
+        /// Absolute workspace root the artifact belongs to (matches
+        /// the `workspace_dir` parameter passed to
+        /// `finalize_artifact`). Bound to the event so a subscriber
+        /// firing AFTER the user switched workspaces can detect the
+        /// mismatch and drop the surface — `path` is workspace-
+        /// relative and would otherwise resolve into the wrong
+        /// `<workspace>/artifacts/` tree.
+        workspace_dir: String,
         /// Relative path under `<workspace>/artifacts/`, e.g.
         /// `"<uuid>/deck.pptx"`. The absolute path is reachable via
         /// `ai_get_artifact` so the renderer never needs the
@@ -391,6 +399,9 @@ pub enum DomainEvent {
         artifact_id: String,
         kind: String,
         title: String,
+        /// Absolute workspace root the artifact belongs to — see
+        /// [`Self::ArtifactReady::workspace_dir`] for rationale.
+        workspace_dir: String,
         /// Producer-supplied failure reason. Already truncated by the
         /// producer (e.g. `PresentationError::truncate_stderr`).
         error: String,
@@ -704,6 +715,20 @@ pub enum DomainEvent {
         key_name: String,
         prompt: String,
     },
+    /// A remote MCP server returned a tool whose `description` or
+    /// `title` failed the input-validation scan and was dropped from
+    /// the registry before reaching the agent LLM context. Surfaced for
+    /// audit / observability only; carries no payload content because
+    /// the rejected text could itself be a vector.
+    McpToolRejected {
+        /// Registered MCP server name the tool came from.
+        server: String,
+        /// Remote tool name as advertised by the server.
+        tool: String,
+        /// Short pattern / rule code from the validator (e.g.
+        /// `"override.ignore_previous"`). Never the rejected payload.
+        reason: String,
+    },
 
     // ── System lifecycle ────────────────────────────────────────────────
     /// A system component started up.
@@ -929,7 +954,8 @@ impl DomainEvent {
             | Self::McpServerConnected { .. }
             | Self::McpServerDisconnected { .. }
             | Self::McpClientToolExecuted { .. }
-            | Self::McpSetupSecretRequested { .. } => "mcp_client",
+            | Self::McpSetupSecretRequested { .. }
+            | Self::McpToolRejected { .. } => "mcp_client",
 
             Self::BackendMeetJoined { .. }
             | Self::BackendMeetLeft { .. }
@@ -1027,6 +1053,7 @@ impl DomainEvent {
             Self::McpServerDisconnected { .. } => "McpServerDisconnected",
             Self::McpClientToolExecuted { .. } => "McpClientToolExecuted",
             Self::McpSetupSecretRequested { .. } => "McpSetupSecretRequested",
+            Self::McpToolRejected { .. } => "McpToolRejected",
             Self::EmbeddingModelUnhealthy { .. } => "EmbeddingModelUnhealthy",
             Self::TaskSourceFetched { .. } => "TaskSourceFetched",
             Self::TaskSourceTaskIngested { .. } => "TaskSourceTaskIngested",

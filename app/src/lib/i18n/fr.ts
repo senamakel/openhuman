@@ -4480,6 +4480,40 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsDone': 'Done',
   'settings.agents.editor.builtInReadonly':
     'Les agents intégrés ne peuvent pas être modifiés. Vous pouvez les activer, les désactiver ou les réinitialiser depuis la liste des agents.',
+  // Chat — agent-generated artifacts (#2779)
+  'chat.artifact.aria': 'Artefact : {title}',
+  'chat.artifact.generating': 'Génération de {kind}…',
+  'chat.artifact.ready': 'Prêt',
+  'chat.artifact.failed': 'Échec de la génération',
+  'chat.artifact.download': 'Télécharger',
+  'chat.artifact.downloading': 'Téléchargement…',
+  'chat.artifact.downloaded': 'Enregistré dans {path}',
+  'chat.artifact.download_failed': 'Échec du téléchargement : {reason}',
+  'chat.artifact.retry': 'Réessayer',
+  'chat.artifact.reveal': 'Afficher dans le dossier',
+  'chat.artifact.show_more': 'Voir plus',
+  'chat.artifact.show_less': 'Voir moins',
+
+  // Chat — files panel (#3024)
+  'chat.files.chip.aria.one': '{count} fichier dans cette discussion',
+  'chat.files.chip.aria.other': '{count} fichiers dans cette discussion',
+  'chat.files.panel.aria': 'Fichiers dans cette discussion',
+  'chat.files.panel.title': 'Fichiers ({count})',
+  'chat.files.panel.empty': 'Aucun fichier pour l’instant. Demandez à l’agent d’en générer un.',
+  'chat.files.panel.close': 'Fermer le panneau de fichiers',
+  'chat.files.delete.aria': 'Supprimer {title}',
+  'chat.files.delete.confirm': 'Supprimer ce fichier ?',
+  'chat.files.delete.cancel': 'Annuler',
+  'chat.files.delete.action': 'Supprimer',
+  'chat.files.delete.failed': 'Impossible de supprimer le fichier. Réessayez.',
+  'chat.files.error.not_desktop':
+    'Les téléchargements sont uniquement disponibles dans l’application bureau.',
+  'chat.files.error.missing_artifact_id': 'Identifiant d’artefact manquant.',
+  'chat.files.error.missing_artifact_path':
+    'Le chemin de l’artefact est absent de la réponse du cœur.',
+  'chat.files.error.resolve_failed': 'Impossible de résoudre l’artefact. Réessayez.',
+  'chat.files.error.download_failed': 'Échec du téléchargement. Réessayez.',
+  'chat.files.error.delete_failed': 'Impossible de supprimer le fichier. Réessayez.',
   'autocomplete.debounceMs': 'Anti-rebond (ms)',
   'autocomplete.maxChars': 'Caractères de contexte maximum',
   'autocomplete.overlayTtlMs': "Délai d'affichage (ms)",
@@ -4594,18 +4628,6 @@ const messages: TranslationMap = {
   'memory.health.remediation.unknown':
     'Le traitement de la mémoire a rencontré un problème. Vérifiez Paramètres → IA pour la configuration.',
   // Chat — agent-generated artifacts (#2779)
-  'chat.artifact.aria': 'Artefact : {title}',
-  'chat.artifact.generating': 'Génération de {kind}…',
-  'chat.artifact.ready': 'Prêt',
-  'chat.artifact.failed': 'Échec de la génération',
-  'chat.artifact.download': 'Télécharger',
-  'chat.artifact.downloading': 'Téléchargement…',
-  'chat.artifact.downloaded': 'Enregistré dans {path}',
-  'chat.artifact.download_failed': 'Échec du téléchargement : {reason}',
-  'chat.artifact.retry': 'Réessayer',
-  'chat.artifact.reveal': 'Afficher dans le dossier',
-  'chat.artifact.show_more': 'Voir plus',
-  'chat.artifact.show_less': 'Voir moins',
 
   // Chat composer toolbar
   'composer.attachFile': 'Joindre un fichier',

@@ -4786,6 +4786,41 @@ const en: TranslationMap = {
   'settings.agents.editor.builtInReadonly':
     "Built-in agents can't be edited. You can enable, disable, or reset them from the agents list.",
 
+  // Chat — agent-generated artifacts (#2779)
+  'chat.artifact.aria': 'Artifact: {title}',
+  'chat.artifact.generating': 'Generating {kind}…',
+  'chat.artifact.ready': 'Ready',
+  'chat.artifact.failed': 'Generation failed',
+  'chat.artifact.download': 'Download',
+  'chat.artifact.downloading': 'Downloading…',
+  'chat.artifact.downloaded': 'Saved to {path}',
+  'chat.artifact.download_failed': 'Download failed: {reason}',
+  'chat.artifact.retry': 'Retry',
+  'chat.artifact.reveal': 'Show in folder',
+  'chat.artifact.show_more': 'Show more',
+  'chat.artifact.show_less': 'Show less',
+
+  // Chat — files panel (#3024)
+  'chat.files.chip.aria.one': '{count} file in this chat',
+  'chat.files.chip.aria.other': '{count} files in this chat',
+  'chat.files.panel.aria': 'Files in this chat',
+  'chat.files.panel.title': 'Files ({count})',
+  'chat.files.panel.empty': 'No files yet. Ask the agent to generate one.',
+  'chat.files.panel.close': 'Close files panel',
+  'chat.files.delete.aria': 'Delete {title}',
+  'chat.files.delete.confirm': 'Delete this file?',
+  'chat.files.delete.cancel': 'Cancel',
+  'chat.files.delete.action': 'Delete',
+  'chat.files.delete.failed': 'Couldn’t delete the file. Try again.',
+  // Error labels for download/delete outcomes (#3024). Keyed off
+  // `ArtifactErrorCode` returned by artifactDownloadService.
+  'chat.files.error.not_desktop': 'Downloads are only available in the desktop app.',
+  'chat.files.error.missing_artifact_id': 'Missing artifact id.',
+  'chat.files.error.missing_artifact_path': 'The artifact path is missing from the core response.',
+  'chat.files.error.resolve_failed': 'Couldn’t resolve the artifact. Please try again.',
+  'chat.files.error.download_failed': 'Download failed. Please try again.',
+  'chat.files.error.delete_failed': 'Couldn’t delete the file. Please try again.',
+
   // Keyring consent & security
   'keyring.consent.title': 'Secure Storage Unavailable',
   'keyring.consent.description':
@@ -4823,18 +4858,6 @@ const en: TranslationMap = {
   'pages.settings.account.securityDesc': 'Secret storage mode and keychain status',
 
   // Chat — agent-generated artifacts (#2779)
-  'chat.artifact.aria': 'Artifact: {title}',
-  'chat.artifact.generating': 'Generating {kind}…',
-  'chat.artifact.ready': 'Ready',
-  'chat.artifact.failed': 'Generation failed',
-  'chat.artifact.download': 'Download',
-  'chat.artifact.downloading': 'Downloading…',
-  'chat.artifact.downloaded': 'Saved to {path}',
-  'chat.artifact.download_failed': 'Download failed: {reason}',
-  'chat.artifact.retry': 'Retry',
-  'chat.artifact.reveal': 'Show in folder',
-  'chat.artifact.show_more': 'Show more',
-  'chat.artifact.show_less': 'Show less',
   // Chat composer toolbar
   'composer.attachFile': 'Attach file',
   'composer.modelSelector': 'Model',

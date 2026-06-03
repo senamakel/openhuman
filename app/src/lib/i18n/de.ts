@@ -4496,6 +4496,39 @@ const messages: TranslationMap = {
   'settings.agents.editor.toolsDone': 'Done',
   'settings.agents.editor.builtInReadonly':
     'Integrierte Agenten können nicht bearbeitet werden. Sie können sie in der Agentenliste aktivieren, deaktivieren oder zurücksetzen.',
+  // Chat — agent-generated artifacts (#2779)
+  'chat.artifact.aria': 'Artefakt: {title}',
+  'chat.artifact.generating': 'Erstelle {kind}…',
+  'chat.artifact.ready': 'Bereit',
+  'chat.artifact.failed': 'Erstellung fehlgeschlagen',
+  'chat.artifact.download': 'Herunterladen',
+  'chat.artifact.downloading': 'Wird heruntergeladen…',
+  'chat.artifact.downloaded': 'Gespeichert unter {path}',
+  'chat.artifact.download_failed': 'Download fehlgeschlagen: {reason}',
+  'chat.artifact.retry': 'Erneut versuchen',
+  'chat.artifact.reveal': 'Im Ordner anzeigen',
+  'chat.artifact.show_more': 'Mehr anzeigen',
+  'chat.artifact.show_less': 'Weniger anzeigen',
+
+  // Chat — files panel (#3024)
+  'chat.files.chip.aria.one': '{count} Datei in diesem Chat',
+  'chat.files.chip.aria.other': '{count} Dateien in diesem Chat',
+  'chat.files.panel.aria': 'Dateien in diesem Chat',
+  'chat.files.panel.title': 'Dateien ({count})',
+  'chat.files.panel.empty': 'Noch keine Dateien. Bitten Sie den Agenten, eine zu erstellen.',
+  'chat.files.panel.close': 'Dateibereich schließen',
+  'chat.files.delete.aria': '{title} löschen',
+  'chat.files.delete.confirm': 'Diese Datei löschen?',
+  'chat.files.delete.cancel': 'Abbrechen',
+  'chat.files.delete.action': 'Löschen',
+  'chat.files.delete.failed': 'Datei konnte nicht gelöscht werden. Erneut versuchen.',
+  'chat.files.error.not_desktop': 'Downloads sind nur in der Desktop-App verfügbar.',
+  'chat.files.error.missing_artifact_id': 'Artefakt-ID fehlt.',
+  'chat.files.error.missing_artifact_path': 'Artefaktpfad fehlt in der Core-Antwort.',
+  'chat.files.error.resolve_failed':
+    'Das Artefakt konnte nicht aufgelöst werden. Bitte erneut versuchen.',
+  'chat.files.error.download_failed': 'Download fehlgeschlagen. Bitte erneut versuchen.',
+  'chat.files.error.delete_failed': 'Datei konnte nicht gelöscht werden. Bitte erneut versuchen.',
   'autocomplete.debounceMs': 'Entprellung (ms)',
   'autocomplete.maxChars': 'Maximale Kontextzeichen',
   'autocomplete.overlayTtlMs': 'Overlay-Timeout (ms)',
@@ -4612,18 +4645,6 @@ const messages: TranslationMap = {
   'memory.health.remediation.unknown':
     'Bei der Speicherverarbeitung ist ein Problem aufgetreten. Überprüfe Einstellungen → KI für die Konfiguration.',
   // Chat — agent-generated artifacts (#2779)
-  'chat.artifact.aria': 'Artefakt: {title}',
-  'chat.artifact.generating': 'Erstelle {kind}…',
-  'chat.artifact.ready': 'Bereit',
-  'chat.artifact.failed': 'Erstellung fehlgeschlagen',
-  'chat.artifact.download': 'Herunterladen',
-  'chat.artifact.downloading': 'Wird heruntergeladen…',
-  'chat.artifact.downloaded': 'Gespeichert unter {path}',
-  'chat.artifact.download_failed': 'Download fehlgeschlagen: {reason}',
-  'chat.artifact.retry': 'Erneut versuchen',
-  'chat.artifact.reveal': 'Im Ordner anzeigen',
-  'chat.artifact.show_more': 'Mehr anzeigen',
-  'chat.artifact.show_less': 'Weniger anzeigen',
 
   // Chat composer toolbar
   'composer.attachFile': 'Datei anhängen',

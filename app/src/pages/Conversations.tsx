@@ -29,13 +29,13 @@ import { useT } from '../lib/i18n/I18nContext';
 import { trackEvent } from '../services/analytics';
 import { threadApi } from '../services/api/threadApi';
 import { chatCancel, chatSend, useRustChat } from '../services/chatService';
+import { callCoreRpc } from '../services/coreRpcClient';
 import { store } from '../store';
 import {
   loadAgentProfiles,
   selectActiveAgentProfileId,
   selectAgentProfile,
   selectAgentProfiles,
-  upsertAgentProfile,
 } from '../store/agentProfileSlice';
 import {
   beginInferenceTurn,
@@ -59,7 +59,6 @@ import {
   THREAD_NOT_FOUND_MESSAGE,
   updateThreadTitle,
 } from '../store/threadSlice';
-import type { AgentProfile } from '../types/agentProfile';
 import type { ConfirmationModal as ConfirmationModalType } from '../types/intelligence';
 import type { ThreadMessage } from '../types/thread';
 import type { TaskBoardCard, TaskBoardCardStatus } from '../types/turnState';
@@ -110,12 +109,6 @@ type ReplyMode = 'text' | 'voice';
 const AUTOCOMPLETE_POLL_DEBOUNCE_MS = 320;
 const AUTOCOMPLETE_MIN_CONTEXT_CHARS = 3;
 const debug = debugFactory('conversations');
-const DEFAULT_PROFILE_DRAFT = {
-  name: '',
-  agentId: 'orchestrator',
-  systemPromptSuffix: '',
-  allowedTools: '',
-};
 
 interface ConversationsProps {
   /**
@@ -178,14 +171,6 @@ export function formatThreadLoadError(err: unknown): string {
   return String(err);
 }
 
-function formatAgentProfileAgentLabel(agentId: string): string {
-  return agentId
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
 const Conversations = ({
   variant = 'page',
   composer: composerProp = 'text',
@@ -218,8 +203,6 @@ const Conversations = ({
   const [attachError, setAttachError] = useState<ChatSendError | null>(null);
   const [sendAdvisory, setSendAdvisory] = useState<string | null>(null);
   const [pendingSendingThreadId, setPendingSendingThreadId] = useState<string | null>(null);
-  const [profileDraftOpen, setProfileDraftOpen] = useState(false);
-  const [profileDraft, setProfileDraft] = useState(DEFAULT_PROFILE_DRAFT);
   const socketStatus = useAppSelector(selectSocketStatus);
   const agentProfiles = useAppSelector(selectAgentProfiles);
   const selectedAgentProfileId = useAppSelector(selectActiveAgentProfileId);
@@ -264,48 +247,36 @@ const Conversations = ({
     onConfirm: () => {},
     onCancel: () => {},
   });
-  const activeModelLabel = useMemo(() => {
-    const profile = agentProfiles.find(p => p.id === selectedAgentProfileId);
-    const raw = profile?.modelOverride ?? 'reasoning-quick-v1';
-    const LABELS: Record<string, string> = {
-      'hint:reasoning': 'Reasoning',
-      'hint:chat': 'Chat',
-      'hint:agentic': 'Agentic',
-      'hint:coding': 'Coding',
-      'hint:summarization': 'Summarization',
-      'reasoning-v1': 'Reasoning',
-      'reasoning-quick-v1': 'Quick',
-      'agentic-v1': 'Agentic',
-      'coding-v1': 'Coding',
-      'chat-v1': 'Chat',
-      'summarization-v1': 'Summarization',
-    };
-    return LABELS[raw] ?? raw;
-  }, [agentProfiles, selectedAgentProfileId]);
+  const [resolvedModel, setResolvedModel] = useState<string | null>(null);
 
-  const agentProfileAgentOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const options: Array<{ id: string; label: string }> = [];
-    for (const profile of agentProfiles) {
-      const id = profile.agentId.trim();
-      if (!id || seen.has(id)) continue;
-      seen.add(id);
-      options.push({
-        id,
-        label: profile.builtIn ? profile.name : formatAgentProfileAgentLabel(id),
-      });
-    }
-    if (profileDraft.agentId && !seen.has(profileDraft.agentId)) {
-      options.push({
-        id: profileDraft.agentId,
-        label: formatAgentProfileAgentLabel(profileDraft.agentId),
-      });
-    }
-    if (options.length === 0) {
-      options.push({ id: 'orchestrator', label: t('chat.agentProfile.defaultAgentLabel') });
-    }
-    return options;
-  }, [agentProfiles, profileDraft.agentId, t]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await callCoreRpc<{ result: { default_model?: string | null; model_routes?: Array<{ hint: string; model: string }> }}>({
+          method: 'openhuman.inference_get_client_config',
+        });
+        if (cancelled) return;
+        const cfg = res.result;
+        const profile = agentProfiles.find(p => p.id === selectedAgentProfileId);
+        const override = profile?.modelOverride ?? null;
+        if (override) {
+          const hintKey = override.startsWith('hint:') ? override.slice(5) : null;
+          if (hintKey) {
+            const route = cfg.model_routes?.find(r => r.hint === hintKey);
+            setResolvedModel(route?.model ?? override);
+          } else {
+            setResolvedModel(override);
+          }
+        } else {
+          setResolvedModel(cfg.default_model ?? 'reasoning-quick-v1');
+        }
+      } catch {
+        // Config not available (e.g. core not ready yet)
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [agentProfiles, selectedAgentProfileId]);
 
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const isComposingTextRef = useRef(false);
@@ -370,42 +341,6 @@ const Conversations = ({
       await dispatch(selectAgentProfile(profileId)).unwrap();
     } catch (error) {
       debug('agent profile select failed: %o', error);
-    }
-  };
-
-  const handleCreateAgentProfile = async () => {
-    const name = profileDraft.name.trim();
-    if (!name) return;
-    const duplicate = agentProfiles.some(
-      profile => profile.name.trim().toLowerCase() === name.toLowerCase()
-    );
-    if (duplicate) {
-      setSendAdvisory(t('chat.agentProfile.exists').replace('{name}', name));
-      return;
-    }
-    const id = `profile-${globalThis.crypto.randomUUID().slice(0, 8)}`;
-    const allowedTools = profileDraft.allowedTools
-      .split(',')
-      .map(tool => tool.trim())
-      .filter(Boolean);
-    const profile: AgentProfile = {
-      id,
-      name,
-      description: t('chat.agentProfile.customDescription'),
-      agentId: profileDraft.agentId,
-      systemPromptSuffix: profileDraft.systemPromptSuffix.trim() || null,
-      allowedTools: allowedTools.length > 0 ? allowedTools : null,
-      builtIn: false,
-    };
-    try {
-      await dispatch(upsertAgentProfile(profile)).unwrap();
-      await dispatch(selectAgentProfile(id)).unwrap();
-      setProfileDraftOpen(false);
-      setProfileDraft(DEFAULT_PROFILE_DRAFT);
-      setSendAdvisory(null);
-    } catch (error) {
-      debug('agent profile create failed: %o', error);
-      setSendAdvisory(t('chat.agentProfile.createFailed'));
     }
   };
 
@@ -1533,9 +1468,11 @@ const Conversations = ({
                   )}
                 </div>
               )}
-              <span className="text-[10px] text-stone-400 dark:text-neutral-500 leading-none">
-                {activeModelLabel}
-              </span>
+              {resolvedModel && (
+                <span className="text-[10px] text-stone-400 dark:text-neutral-500 leading-none">
+                  {resolvedModel}
+                </span>
+              )}
             </div>
             <>
               <div
@@ -1582,67 +1519,6 @@ const Conversations = ({
                 {t('chat.new')}
               </button>
             </>
-          </div>
-        )}
-        {!isSidebar && profileDraftOpen && (
-          <div className="border-b border-stone-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px]">
-              <input
-                value={profileDraft.name}
-                onChange={event => setProfileDraft(prev => ({ ...prev, name: event.target.value }))}
-                placeholder={t('chat.agentProfile.namePlaceholder')}
-                className="h-8 rounded-lg border border-stone-200 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 px-3 text-xs outline-none focus:border-primary-400"
-              />
-              <select
-                value={profileDraft.agentId}
-                onChange={event =>
-                  setProfileDraft(prev => ({ ...prev, agentId: event.target.value }))
-                }
-                className="h-8 rounded-lg border border-stone-200 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 px-2 text-xs outline-none focus:border-primary-400">
-                {agentProfileAgentOptions.map(agent => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <textarea
-              value={profileDraft.systemPromptSuffix}
-              onChange={event =>
-                setProfileDraft(prev => ({ ...prev, systemPromptSuffix: event.target.value }))
-              }
-              placeholder={t('chat.agentProfile.promptStylePlaceholder')}
-              rows={2}
-              className="mt-2 w-full resize-none rounded-lg border border-stone-200 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 px-3 py-2 text-xs outline-none focus:border-primary-400"
-            />
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                value={profileDraft.allowedTools}
-                onChange={event =>
-                  setProfileDraft(prev => ({ ...prev, allowedTools: event.target.value }))
-                }
-                placeholder={t('chat.agentProfile.allowedToolsPlaceholder')}
-                className="h-8 min-w-0 flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 px-3 text-xs outline-none focus:border-primary-400"
-              />
-              <button
-                type="button"
-                data-analytics-id="chat-agent-profile-save"
-                onClick={() => void handleCreateAgentProfile()}
-                disabled={!profileDraft.name.trim()}
-                className="h-8 rounded-lg bg-primary-500 px-3 text-xs font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-40">
-                {t('common.save')}
-              </button>
-              <button
-                type="button"
-                data-analytics-id="chat-agent-profile-cancel"
-                onClick={() => {
-                  setProfileDraft(DEFAULT_PROFILE_DRAFT);
-                  setProfileDraftOpen(false);
-                }}
-                className="h-8 rounded-lg border border-stone-200 dark:border-neutral-800 px-3 text-xs font-medium text-stone-600 dark:text-neutral-300 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60">
-                {t('common.cancel')}
-              </button>
-            </div>
           </div>
         )}
         <div

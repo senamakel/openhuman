@@ -158,9 +158,7 @@ const Home = () => {
             message={t('home.usageExhaustedBody')}
             ctaLabel={t('home.usageExhaustedCta')}
             secondaryCtaLabel={
-              openRouterStatus === 'saving'
-                ? t('openrouterFree.saving')
-                : t('openrouterFree.cta')
+              openRouterStatus === 'saving' ? t('openrouterFree.saving') : t('openrouterFree.cta')
             }
             onSecondaryCtaClick={() => {
               if (openRouterStatus !== 'saving') {

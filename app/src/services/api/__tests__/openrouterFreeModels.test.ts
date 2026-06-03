@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  applyOpenRouterFreeModels,
-  OPENROUTER_FREE_MODEL,
-} from '../openrouterFreeModels';
+import { applyOpenRouterFreeModels, OPENROUTER_FREE_MODEL } from '../openrouterFreeModels';
 
 const {
   mockConnectOpenRouterViaOAuth,

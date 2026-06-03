@@ -1,13 +1,13 @@
-import { connectOpenRouterViaOAuth } from '../../utils/openrouterOAuth';
 import { requestUsageRefresh } from '../../hooks/usageRefresh';
+import { connectOpenRouterViaOAuth } from '../../utils/openrouterOAuth';
 import {
+  type AISettings,
   CHAT_WORKLOADS,
+  type CloudProviderView,
   loadAISettings,
+  type ProviderRef,
   saveAISettings,
   setCloudProviderKey,
-  type AISettings,
-  type CloudProviderView,
-  type ProviderRef,
 } from './aiSettingsApi';
 
 export const OPENROUTER_FREE_MODEL = 'openrouter/free';
@@ -33,10 +33,7 @@ function withOpenRouterProvider(settings: AISettings): AISettings {
       ),
     };
   }
-  return {
-    ...settings,
-    cloudProviders: [...settings.cloudProviders, openRouterProvider()],
-  };
+  return { ...settings, cloudProviders: [...settings.cloudProviders, openRouterProvider()] };
 }
 
 export async function applyOpenRouterFreeModels(): Promise<void> {
@@ -53,11 +50,7 @@ export async function applyOpenRouterFreeModels(): Promise<void> {
     routing: {
       ...withProvider.routing,
       ...CHAT_WORKLOADS.reduce<Record<string, ProviderRef>>((acc, workload) => {
-        acc[workload] = {
-          kind: 'cloud',
-          providerSlug: 'openrouter',
-          model: OPENROUTER_FREE_MODEL,
-        };
+        acc[workload] = { kind: 'cloud', providerSlug: 'openrouter', model: OPENROUTER_FREE_MODEL };
         return acc;
       }, {}),
     },

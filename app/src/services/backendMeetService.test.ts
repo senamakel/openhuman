@@ -1,11 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { callCoreRpc } from './coreRpcClient';
-import {
-  joinMeetViaBackendBot,
-  leaveBackendMeetBot,
-  sendHarnessResponse,
-} from './meetCallService';
+import { joinMeetViaBackendBot, leaveBackendMeetBot, sendHarnessResponse } from './meetCallService';
 
 vi.mock('./coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
@@ -23,9 +19,7 @@ describe('joinMeetViaBackendBot', () => {
       platform: 'gmeet',
     });
 
-    const result = await joinMeetViaBackendBot({
-      meetUrl: 'https://meet.google.com/abc-defg-hij',
-    });
+    const result = await joinMeetViaBackendBot({ meetUrl: 'https://meet.google.com/abc-defg-hij' });
 
     expect(mockCallCoreRpc).toHaveBeenCalledWith({
       method: 'openhuman.agent_meetings_join',
@@ -35,10 +29,7 @@ describe('joinMeetViaBackendBot', () => {
         platform: undefined,
       },
     });
-    expect(result).toEqual({
-      meetUrl: 'https://meet.google.com/abc-defg-hij',
-      platform: 'gmeet',
-    });
+    expect(result).toEqual({ meetUrl: 'https://meet.google.com/abc-defg-hij', platform: 'gmeet' });
   });
 
   it('trims whitespace from meetUrl', async () => {
@@ -67,9 +58,9 @@ describe('joinMeetViaBackendBot', () => {
   it('throws when core rejects', async () => {
     mockCallCoreRpc.mockResolvedValueOnce({ ok: false });
 
-    await expect(
-      joinMeetViaBackendBot({ meetUrl: 'https://meet.google.com/abc' })
-    ).rejects.toThrow('Core rejected');
+    await expect(joinMeetViaBackendBot({ meetUrl: 'https://meet.google.com/abc' })).rejects.toThrow(
+      'Core rejected'
+    );
   });
 
   it('forwards displayName and platform', async () => {
@@ -87,10 +78,7 @@ describe('joinMeetViaBackendBot', () => {
 
     expect(mockCallCoreRpc).toHaveBeenCalledWith(
       expect.objectContaining({
-        params: expect.objectContaining({
-          display_name: 'Bot',
-          platform: 'zoom',
-        }),
+        params: expect.objectContaining({ display_name: 'Bot', platform: 'zoom' }),
       })
     );
   });
@@ -114,9 +102,7 @@ describe('leaveBackendMeetBot', () => {
     await leaveBackendMeetBot();
 
     expect(mockCallCoreRpc).toHaveBeenCalledWith(
-      expect.objectContaining({
-        params: { reason: 'requested' },
-      })
+      expect.objectContaining({ params: { reason: 'requested' } })
     );
   });
 });

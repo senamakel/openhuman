@@ -11,14 +11,15 @@ use crate::openhuman::socket::global_socket_manager;
 use crate::rpc::RpcOutcome;
 
 use super::types::{
-    BackendMeetHarnessResponseRequest, BackendMeetJoinRequest, BackendMeetLeaveRequest,
+    BackendMeetHarnessResponseRequest, BackendMeetJoinRequest, BackendMeetJoinResponse,
+    BackendMeetLeaveRequest,
 };
 
-const ALLOWED_HOSTS: &[&str] = &[
-    "meet.google.com",
-    "zoom.us",
-    "teams.microsoft.com",
-    "webex.com",
+const ALLOWED_HOSTS: &[(&str, &str)] = &[
+    ("meet.google.com", "gmeet"),
+    ("zoom.us", "zoom"),
+    ("teams.microsoft.com", "teams"),
+    ("webex.com", "webex"),
 ];
 
 fn validate_meeting_url(raw: &str) -> Result<url::Url, String> {
@@ -37,7 +38,7 @@ fn validate_meeting_url(raw: &str) -> Result<url::Url, String> {
 
     let is_allowed = ALLOWED_HOSTS
         .iter()
-        .any(|allowed| host == *allowed || host.ends_with(&format!(".{allowed}")));
+        .any(|(allowed, _)| host == *allowed || host.ends_with(&format!(".{allowed}")));
 
     if !is_allowed {
         return Err(format!(
@@ -46,6 +47,16 @@ fn validate_meeting_url(raw: &str) -> Result<url::Url, String> {
     }
 
     Ok(url)
+}
+
+fn infer_platform(url: &url::Url) -> &'static str {
+    let host = url.host_str().unwrap_or("");
+    for (allowed, platform) in ALLOWED_HOSTS {
+        if host == *allowed || host.ends_with(&format!(".{allowed}")) {
+            return platform;
+        }
+    }
+    "gmeet"
 }
 
 /// Handle `openhuman.agent_meetings_join`.
@@ -61,7 +72,16 @@ pub async fn handle_join(params: Map<String, Value>) -> Result<Value, String> {
         None => "OpenHuman".to_string(),
     };
 
-    let platform = req.platform.as_deref().unwrap_or("gmeet");
+    let inferred = infer_platform(&normalized_url);
+    let platform = match req.platform.as_deref() {
+        Some(p) if p != inferred => {
+            return Err(format!(
+                "[agent_meetings] platform mismatch: URL implies `{inferred}` but `{p}` was supplied"
+            ));
+        }
+        Some(p) => p,
+        None => inferred,
+    };
 
     let mgr = global_socket_manager()
         .ok_or_else(|| "[agent_meetings] socket not connected to backend".to_string())?;
@@ -88,12 +108,13 @@ pub async fn handle_join(params: Map<String, Value>) -> Result<Value, String> {
     .await
     .map_err(|e| format!("[agent_meetings] emit failed: {e}"))?;
 
+    let response = BackendMeetJoinResponse {
+        ok: true,
+        meet_url: normalized_url.to_string(),
+        platform: platform.to_string(),
+    };
     let outcome = RpcOutcome::new(
-        json!({
-            "ok": true,
-            "meet_url": normalized_url.as_str(),
-            "platform": platform,
-        }),
+        serde_json::to_value(response).map_err(|e| format!("[agent_meetings] serialize: {e}"))?,
         vec![],
     );
     outcome.into_cli_compatible_json()
@@ -105,7 +126,11 @@ pub async fn handle_leave(params: Map<String, Value>) -> Result<Value, String> {
         .map_err(|e| format!("[agent_meetings] invalid leave params: {e}"))?;
 
     let mgr = global_socket_manager()
-        .ok_or_else(|| "[agent_meetings] socket not connected".to_string())?;
+        .ok_or_else(|| "[agent_meetings] socket not connected to backend".to_string())?;
+
+    if !mgr.is_connected() {
+        return Err("[agent_meetings] socket not connected to backend".to_string());
+    }
 
     let reason = req.reason.unwrap_or_else(|| "requested".to_string());
 
@@ -129,7 +154,11 @@ pub async fn handle_harness_response(params: Map<String, Value>) -> Result<Value
     }
 
     let mgr = global_socket_manager()
-        .ok_or_else(|| "[agent_meetings] socket not connected".to_string())?;
+        .ok_or_else(|| "[agent_meetings] socket not connected to backend".to_string())?;
+
+    if !mgr.is_connected() {
+        return Err("[agent_meetings] socket not connected to backend".to_string());
+    }
 
     tracing::info!(
         result_len = req.result.len(),
@@ -173,6 +202,24 @@ mod tests {
     #[test]
     fn rejects_unknown_host() {
         assert!(validate_meeting_url("https://example.com/meeting").is_err());
+    }
+
+    #[test]
+    fn infers_platform_from_host() {
+        let url = url::Url::parse("https://meet.google.com/abc-defg-hij").unwrap();
+        assert_eq!(infer_platform(&url), "gmeet");
+
+        let url = url::Url::parse("https://zoom.us/j/123").unwrap();
+        assert_eq!(infer_platform(&url), "zoom");
+
+        let url = url::Url::parse("https://teams.microsoft.com/l/meetup").unwrap();
+        assert_eq!(infer_platform(&url), "teams");
+
+        let url = url::Url::parse("https://meet.webex.com/meet/abc").unwrap();
+        assert_eq!(infer_platform(&url), "webex");
+
+        let url = url::Url::parse("https://company.zoom.us/j/123").unwrap();
+        assert_eq!(infer_platform(&url), "zoom");
     }
 
     #[tokio::test]

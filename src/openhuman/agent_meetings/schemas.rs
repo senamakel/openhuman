@@ -83,7 +83,13 @@ fn schema_join() -> ControllerSchema {
             FieldSchema {
                 name: "meet_url",
                 ty: TypeSchema::String,
-                comment: "Normalized Meet URL.",
+                comment: "Normalized meeting URL.",
+                required: true,
+            },
+            FieldSchema {
+                name: "platform",
+                ty: TypeSchema::String,
+                comment: "Resolved platform: gmeet, zoom, teams, or webex.",
                 required: true,
             },
         ],

@@ -69,7 +69,10 @@ function agentTaskThreadTitle(title: string): string {
   return `Agent task: ${base || 'Untitled task'}`;
 }
 
-function buildAgentTaskPrompt(card: TaskBoardCard): string {
+function buildAgentTaskPrompt(
+  card: TaskBoardCard,
+  t: (key: string, fallback?: string) => string
+): string {
   const lines: string[] = [
     'Work this approved agent task from the task board.',
     '',
@@ -98,15 +101,16 @@ function buildAgentTaskPrompt(card: TaskBoardCard): string {
   }
   const source = readSourceMetadata(card.sourceMetadata);
   if (source.url || source.repo || source.externalId) {
-    lines.push('', 'Source task:');
-    if (source.repo) lines.push(`- Repository: ${source.repo}`);
-    if (source.externalId) lines.push(`- External ID: ${source.externalId}`);
-    if (source.url) lines.push(`- URL: ${source.url}`);
+    lines.push('', t('intelligence.workTask.sourceTaskHeading'));
+    if (source.repo)
+      lines.push(t('intelligence.workTask.repositoryLine').replace('{repo}', source.repo));
+    if (source.externalId)
+      lines.push(
+        t('intelligence.workTask.externalIdLine').replace('{externalId}', source.externalId)
+      );
+    if (source.url) lines.push(t('intelligence.workTask.urlLine').replace('{url}', source.url));
   }
-  lines.push(
-    '',
-    'Start by restating the concrete implementation plan briefly, then execute it. Keep progress visible in this thread and update the task board when the work state changes.'
-  );
+  lines.push('', t('intelligence.workTask.closingInstruction'));
   return lines.join('\n');
 }
 
@@ -321,7 +325,7 @@ export default function IntelligenceTasksTab() {
       if (!personalBoard || workingCardId) return;
       setWorkingCardId(card.id);
       setActionError(null);
-      const launchPrompt = buildAgentTaskPrompt(card);
+      const launchPrompt = buildAgentTaskPrompt(card, t);
       const now = new Date().toISOString();
       const threadTitle = agentTaskThreadTitle(card.title);
       try {
@@ -403,7 +407,6 @@ export default function IntelligenceTasksTab() {
           : added;
         if (mountedRef.current) {
           setPersonalBoard(saved);
-          setRefiningCard(null);
         }
 
         const sourceSaved = await todosApi.updateStatus(
@@ -411,7 +414,10 @@ export default function IntelligenceTasksTab() {
           sourceCard.id,
           'done'
         );
-        if (mountedRef.current) setTaskSourcesBoard(sourceSaved);
+        if (mountedRef.current) {
+          setTaskSourcesBoard(sourceSaved);
+          setRefiningCard(null);
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log('source task approval failed: %s', msg);
@@ -627,14 +633,23 @@ function taskSourceLabel(card: TaskBoardCard, t: (key: string) => string): strin
   return provider;
 }
 
-function buildRefinedDraft(card: TaskBoardCard): RefinedTaskDraft {
+function buildRefinedDraft(
+  card: TaskBoardCard,
+  t: (key: string, fallback?: string) => string
+): RefinedTaskDraft {
   const source = readSourceMetadata(card.sourceMetadata);
   const objective =
     card.objective?.trim() ||
-    `Turn the source task into an implementation-ready agent task: ${card.title}`;
-  const sourceLine = source.url ? `Source: ${source.url}` : 'Source: task source intake';
-  const repoLine = source.repo ? `Repository: ${source.repo}` : null;
-  const externalLine = source.externalId ? `External task: ${source.externalId}` : null;
+    t('intelligence.refine.objectiveDefault').replace('{title}', card.title);
+  const sourceLine = source.url
+    ? t('intelligence.refine.sourceLine').replace('{url}', source.url)
+    : t('intelligence.refine.sourceIntake');
+  const repoLine = source.repo
+    ? t('intelligence.refine.repositoryLine').replace('{repo}', source.repo)
+    : null;
+  const externalLine = source.externalId
+    ? t('intelligence.refine.externalTaskLine').replace('{externalId}', source.externalId)
+    : null;
 
   return {
     title: card.title.replace(/^GitHub:\s*/i, '').trim() || card.title,
@@ -644,10 +659,10 @@ function buildRefinedDraft(card: TaskBoardCard): RefinedTaskDraft {
       card.plan && card.plan.length > 0
         ? card.plan
         : [
-            'Read the linked source task and confirm the exact requested behavior.',
-            'Inspect the relevant code paths and identify the smallest implementation boundary.',
-            'Implement the change with focused tests around the user-visible behavior.',
-            'Run targeted validation and capture any residual risks or follow-up work.',
+            t('intelligence.refine.planStep1'),
+            t('intelligence.refine.planStep2'),
+            t('intelligence.refine.planStep3'),
+            t('intelligence.refine.planStep4'),
           ],
     allowedTools:
       card.allowedTools && card.allowedTools.length > 0
@@ -657,9 +672,9 @@ function buildRefinedDraft(card: TaskBoardCard): RefinedTaskDraft {
       card.acceptanceCriteria && card.acceptanceCriteria.length > 0
         ? card.acceptanceCriteria
         : [
-            'The source task requirements are represented in the final implementation.',
-            'Relevant unit or integration tests cover the changed behavior.',
-            'Validation results and any unresolved risk are recorded on completion.',
+            t('intelligence.refine.acceptance1'),
+            t('intelligence.refine.acceptance2'),
+            t('intelligence.refine.acceptance3'),
           ],
     evidence:
       card.evidence && card.evidence.length > 0 ? card.evidence : source.url ? [source.url] : [],
@@ -774,7 +789,7 @@ function TaskSourceRefinementDialog({
   onApprove: (card: TaskBoardCard, draft: RefinedTaskDraft) => Promise<void>;
 }) {
   const { t } = useT();
-  const initialDraft = useMemo(() => buildRefinedDraft(card), [card]);
+  const initialDraft = useMemo(() => buildRefinedDraft(card, t), [card, t]);
   const [title, setTitle] = useState(initialDraft.title);
   const [objective, setObjective] = useState(initialDraft.objective);
   const [notes, setNotes] = useState(initialDraft.notes);

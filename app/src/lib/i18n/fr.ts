@@ -2720,6 +2720,32 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.creating': 'Création de la tâche…',
   'intelligence.tasks.sourcePlan.createFailed': "Impossible de créer la tâche d'agent",
   'intelligence.tasks.workTaskFailed': 'Impossible de démarrer le travail sur la tâche',
+  'intelligence.workTask.sourceTaskHeading': 'Tâche source :',
+  'intelligence.workTask.repositoryLine': '- Dépôt : {repo}',
+  'intelligence.workTask.externalIdLine': '- ID externe : {externalId}',
+  'intelligence.workTask.urlLine': '- URL : {url}',
+  'intelligence.workTask.closingInstruction':
+    "Commencez par reformuler brièvement le plan d'implémentation concret, puis exécutez-le. Gardez la progression visible dans ce fil et mettez à jour le tableau des tâches lorsque l'état du travail change.",
+  'intelligence.refine.objectiveDefault':
+    "Transformez la tâche source en une tâche d'agent prête à être implémentée : {title}",
+  'intelligence.refine.sourceLine': 'Source : {url}',
+  'intelligence.refine.sourceIntake': 'Source : réception des sources de tâches',
+  'intelligence.refine.repositoryLine': 'Dépôt : {repo}',
+  'intelligence.refine.externalTaskLine': 'Tâche externe : {externalId}',
+  'intelligence.refine.planStep1':
+    'Lisez la tâche source liée et confirmez le comportement exact demandé.',
+  'intelligence.refine.planStep2':
+    "Inspectez les chemins de code pertinents et identifiez la plus petite frontière d'implémentation.",
+  'intelligence.refine.planStep3':
+    "Implémentez le changement avec des tests ciblés autour du comportement visible par l'utilisateur.",
+  'intelligence.refine.planStep4':
+    'Exécutez une validation ciblée et notez les risques résiduels ou le travail de suivi.',
+  'intelligence.refine.acceptance1':
+    "Les exigences de la tâche source sont représentées dans l'implémentation finale.",
+  'intelligence.refine.acceptance2':
+    "Des tests unitaires ou d'intégration pertinents couvrent le comportement modifié.",
+  'intelligence.refine.acceptance3':
+    "Les résultats de la validation et tout risque non résolu sont consignés à l'achèvement.",
   'notifications.card.dismiss': 'Ignorer la notification',
   'notifications.card.importanceTitle': 'Importance : {pct} %',
   'notifications.center.empty': "Aucune notification pour l'instant",
@@ -4386,6 +4412,10 @@ const messages: TranslationMap = {
   'settings.taskSources.github.repo': 'Dépôt (propriétaire/nom, facultatif)',
   'settings.taskSources.github.labels': 'Étiquettes (séparées par des virgules)',
   'settings.taskSources.notion.database': 'ID de la base de données (tableau)',
+  'settings.taskSources.notion.browseDatabases': 'Parcourir les bases de données',
+  'settings.taskSources.notion.loadingDatabases': 'Chargement des bases de données…',
+  'settings.taskSources.notion.selectDatabase': 'Sélectionner une base de données…',
+  'settings.taskSources.notion.noDatabases': 'Aucune base de données trouvée pour cette connexion.',
   'settings.taskSources.linear.team': "ID de l'équipe (facultatif)",
   'settings.taskSources.clickup.team': 'ID de l’espace de travail (équipe) (optionnel)',
   'settings.taskSources.assignedToMe': 'Uniquement les éléments qui me sont attribués',

@@ -27,8 +27,8 @@ use super::ingest::ingest_issue_into_memory_tree;
 use super::sync;
 use crate::openhuman::memory_sync::composio::providers::sync_state::SyncState;
 use crate::openhuman::memory_sync::composio::providers::{
-    merge_extra, pick_str, ComposioProvider, CuratedTool, NormalizedTask, ProviderContext,
-    ProviderUserProfile, SyncOutcome, SyncReason, TaskFetchFilter,
+    merge_extra, pick_str, ComposioProvider, CuratedTool, GithubFetchMode, NormalizedTask,
+    ProviderContext, ProviderUserProfile, SyncOutcome, SyncReason, TaskFetchFilter, TaskKind,
 };
 
 pub(crate) const ACTION_GET_AUTHENTICATED_USER: &str = "GITHUB_GET_THE_AUTHENTICATED_USER";
@@ -423,11 +423,35 @@ impl ComposioProvider for GitHubProvider {
         tracing::debug!(
             connection_id = ?ctx.connection_id,
             max,
+            mode = ?filter.github_fetch_mode,
             query = %query,
             "[composio:github] fetch_tasks"
         );
 
-        let data = fetch_github_tasks_local(&query, max, &filter.extra).await?;
+        // Select the data source by the user-configured fetch mode. `Auto`
+        // (the default) keeps the shipped Composio path as primary and treats
+        // local `gh`/REST as a true fallback — only used when the Composio
+        // round-trip errors or is unavailable. `Composio` / `Local` force one
+        // path. Normalization happens ONCE below regardless of source.
+        let data = match filter.github_fetch_mode {
+            GithubFetchMode::Composio => {
+                fetch_github_tasks_composio(ctx, &query, max, &filter.extra).await?
+            }
+            GithubFetchMode::Local => fetch_github_tasks_local(&query, max, &filter.extra).await?,
+            GithubFetchMode::Auto => {
+                match fetch_github_tasks_composio(ctx, &query, max, &filter.extra).await {
+                    Ok(d) => d,
+                    Err(e) => {
+                        tracing::info!(
+                            error = %e,
+                            "[composio:github] Composio fetch unavailable; falling back to local gh/REST"
+                        );
+                        fetch_github_tasks_local(&query, max, &filter.extra).await?
+                    }
+                }
+            }
+        };
+
         let mut out: Vec<NormalizedTask> = Vec::new();
         for issue in sync::extract_issues(&data) {
             if out.len() >= max {
@@ -440,6 +464,43 @@ impl ComposioProvider for GitHubProvider {
         tracing::debug!(count = out.len(), "[composio:github] fetch_tasks complete");
         Ok(out)
     }
+}
+
+/// Fetch GitHub issues/PRs through the connected Composio account.
+///
+/// This is the original shipped `fetch_tasks` data path: it builds the
+/// `GITHUB_SEARCH_ISSUES_AND_PULL_REQUESTS` search args, merges any advanced
+/// `extra` query fragment, fires the action through the mode-aware
+/// `ctx.execute` chokepoint, and returns the raw response `data` for the
+/// shared normalization loop. Kept as a sibling of
+/// [`fetch_github_tasks_local`] so `fetch_tasks` can select between them by
+/// [`GithubFetchMode`].
+async fn fetch_github_tasks_composio(
+    ctx: &ProviderContext,
+    query: &str,
+    max: usize,
+    extra: &Value,
+) -> Result<Value, String> {
+    let mut args = json!({
+        "q": query,
+        "sort": "updated",
+        "order": "desc",
+        "per_page": max.min(100) as u32,
+        "page": 1,
+    });
+    merge_extra(&mut args, extra);
+
+    let resp = ctx
+        .execute(ACTION_SEARCH_ISSUES, Some(args))
+        .await
+        .map_err(|e| format!("[composio:github] {ACTION_SEARCH_ISSUES}: {e:#}"))?;
+    if !resp.successful {
+        return Err(format!(
+            "[composio:github] {ACTION_SEARCH_ISSUES}: {}",
+            resp.error.unwrap_or_else(|| "provider failure".into())
+        ));
+    }
+    Ok(resp.data)
 }
 
 async fn fetch_github_tasks_local(query: &str, max: usize, extra: &Value) -> Result<Value, String> {
@@ -525,7 +586,7 @@ async fn rest_search_issues(args: &Value) -> Result<Value, String> {
         .map_err(|e| format!("parse GitHub API response: {e}"))
 }
 
-fn github_env_token() -> Option<String> {
+pub(super) fn github_env_token() -> Option<String> {
     std::env::var("GH_TOKEN")
         .or_else(|_| std::env::var("GITHUB_TOKEN"))
         .ok()
@@ -630,9 +691,14 @@ pub(super) fn github_search_arg_pairs(args: &Value) -> Result<Vec<(String, Strin
 /// Build a GitHub Search-Issues query from a [`TaskFetchFilter`].
 ///
 /// Combines repo / label / state / assignee qualifiers. When the filter
-/// carries no constraints at all we fall back to `involves:@me` so a
-/// task source never accidentally pulls the entire public issue
-/// universe.
+/// carries no scoping constraints at all we fall back to `involves:@me` so a
+/// task source never accidentally pulls the entire public issue universe.
+///
+/// State bias: when the filter sets no explicit `state`, we append `is:open`
+/// so closed issues and merged/closed PRs aren't fetched in the first place
+/// (the unconditional skip in `normalize_github_issue` is the hard guarantee;
+/// this is the fetch-side optimization). An explicit `state` is respected and
+/// `is:open` is not double-added.
 pub(super) fn build_fetch_query(filter: &TaskFetchFilter) -> String {
     let mut parts: Vec<String> = Vec::new();
     if let Some(repo) = filter
@@ -652,19 +718,24 @@ pub(super) fn build_fetch_query(filter: &TaskFetchFilter) -> String {
     {
         parts.push(format!("label:\"{label}\""));
     }
-    if let Some(state) = filter
-        .state
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        parts.push(format!("state:{state}"));
-    }
     if filter.assignee_is_me {
         parts.push("assignee:@me".to_string());
     }
+    // If no repo/label/assignee scoping was supplied, fall back to
+    // `involves:@me` (plus the open bias) rather than the whole issue universe.
     if parts.is_empty() {
-        return "involves:@me".to_string();
+        parts.push("involves:@me".to_string());
+    }
+    let explicit_state = filter
+        .state
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    match explicit_state {
+        // Caller pinned a state — respect it verbatim, don't add `is:open`.
+        Some(state) => parts.push(format!("state:{state}")),
+        // No explicit state — bias the fetch toward open items.
+        None => parts.push("is:open".to_string()),
     }
     parts.join(" ")
 }
@@ -695,18 +766,46 @@ pub(super) fn normalize_github_repo_filter(raw: &str) -> String {
 }
 
 /// Map a raw GitHub issue/PR payload into a [`NormalizedTask`].
-fn normalize_github_issue(issue: &serde_json::Value) -> Option<NormalizedTask> {
+///
+/// GitHub's search-issues-and-PRs endpoint returns both shapes; a hit is a
+/// pull request iff it carries a `pull_request` object. We tag the kind here
+/// so enrichment can phrase the objective as "review" vs "resolve".
+///
+/// Returns `None` when the item's state is `"closed"` — a merged/closed PR
+/// and a closed issue both report `state == "closed"`, and there is no point
+/// ingesting work that is already done. This skip is unconditional (it does
+/// not depend on the fetch query), so even if a `closed` item slips through
+/// the query bias it is dropped here.
+pub(super) fn normalize_github_issue(issue: &serde_json::Value) -> Option<NormalizedTask> {
     let external_id = sync::extract_issue_id(issue)?;
+    let status = pick_str(issue, &["state", "data.state"]);
+    if status
+        .as_deref()
+        .map(|s| s.eq_ignore_ascii_case("closed"))
+        .unwrap_or(false)
+    {
+        tracing::debug!(
+            external_id = %external_id,
+            "[composio:github] normalize_github_issue: skipping closed item (merged PR / closed issue)"
+        );
+        return None;
+    }
     let title =
         sync::extract_issue_title(issue).unwrap_or_else(|| format!("GitHub issue {external_id}"));
+    let kind = if is_pull_request(issue) {
+        TaskKind::PullRequest
+    } else {
+        TaskKind::Issue
+    };
     Some(NormalizedTask {
         external_id,
         source_id: String::new(),
         provider: "github".to_string(),
+        kind,
         title,
         body: pick_str(issue, &["body", "data.body"]),
         url: pick_str(issue, &["html_url", "data.html_url"]),
-        status: pick_str(issue, &["state", "data.state"]),
+        status,
         assignee: pick_str(issue, &["assignee.login", "data.assignee.login"]),
         due: None,
         labels: extract_github_labels(issue),
@@ -714,6 +813,16 @@ fn normalize_github_issue(issue: &serde_json::Value) -> Option<NormalizedTask> {
         updated_at: sync::extract_issue_updated_at(issue),
         raw: issue.clone(),
     })
+}
+
+/// A GitHub search hit is a pull request iff it carries a non-null
+/// `pull_request` object (issues never do). Tolerant of the Composio `data`
+/// wrapper.
+fn is_pull_request(issue: &serde_json::Value) -> bool {
+    let pr = issue
+        .get("pull_request")
+        .or_else(|| issue.get("data").and_then(|d| d.get("pull_request")));
+    matches!(pr, Some(v) if !v.is_null())
 }
 
 /// Extract label names from a GitHub issue payload (`labels` is an array

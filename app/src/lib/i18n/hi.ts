@@ -2665,6 +2665,32 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.creating': 'कार्य बनाया जा रहा है…',
   'intelligence.tasks.sourcePlan.createFailed': 'एजेंट कार्य नहीं बन सका',
   'intelligence.tasks.workTaskFailed': 'कार्य पर काम शुरू नहीं हो सका',
+  'intelligence.workTask.sourceTaskHeading': 'स्रोत कार्य:',
+  'intelligence.workTask.repositoryLine': '- रिपॉज़िटरी: {repo}',
+  'intelligence.workTask.externalIdLine': '- बाहरी आईडी: {externalId}',
+  'intelligence.workTask.urlLine': '- यूआरएल: {url}',
+  'intelligence.workTask.closingInstruction':
+    'पहले ठोस कार्यान्वयन योजना को संक्षेप में दोहराएँ, फिर उसे निष्पादित करें। इस थ्रेड में प्रगति दिखती रहे और कार्य की स्थिति बदलने पर कार्य बोर्ड अपडेट करें।',
+  'intelligence.refine.objectiveDefault':
+    'स्रोत कार्य को कार्यान्वयन के लिए तैयार एजेंट कार्य में बदलें: {title}',
+  'intelligence.refine.sourceLine': 'स्रोत: {url}',
+  'intelligence.refine.sourceIntake': 'स्रोत: कार्य स्रोत प्रविष्टि',
+  'intelligence.refine.repositoryLine': 'रिपॉज़िटरी: {repo}',
+  'intelligence.refine.externalTaskLine': 'बाहरी कार्य: {externalId}',
+  'intelligence.refine.planStep1':
+    'जुड़े हुए स्रोत कार्य को पढ़ें और अनुरोधित सटीक व्यवहार की पुष्टि करें।',
+  'intelligence.refine.planStep2':
+    'संबंधित कोड पथों का निरीक्षण करें और सबसे छोटी कार्यान्वयन सीमा पहचानें।',
+  'intelligence.refine.planStep3':
+    'उपयोगकर्ता-दृश्य व्यवहार के इर्द-गिर्द केंद्रित परीक्षणों के साथ परिवर्तन लागू करें।',
+  'intelligence.refine.planStep4':
+    'लक्षित सत्यापन चलाएँ और किसी भी शेष जोखिम या अनुवर्ती कार्य को दर्ज करें।',
+  'intelligence.refine.acceptance1':
+    'स्रोत कार्य की आवश्यकताएँ अंतिम कार्यान्वयन में दर्शाई गई हैं।',
+  'intelligence.refine.acceptance2':
+    'संबंधित यूनिट या इंटीग्रेशन परीक्षण बदले हुए व्यवहार को कवर करते हैं।',
+  'intelligence.refine.acceptance3':
+    'सत्यापन परिणाम और कोई भी अनसुलझा जोखिम पूर्ण होने पर दर्ज किया जाता है।',
   'notifications.card.dismiss': 'नोटिफिकेशन हटाएं',
   'notifications.card.importanceTitle': 'महत्व: {pct}%',
   'notifications.center.empty': 'अभी कोई नोटिफिकेशन नहीं',
@@ -4292,6 +4318,10 @@ const messages: TranslationMap = {
   'settings.taskSources.github.repo': 'रिपॉज़िटरी (owner/name, वैकल्पिक)',
   'settings.taskSources.github.labels': 'लेबल (comma-separated)',
   'settings.taskSources.notion.database': 'डेटाबेस (बोर्ड) ID',
+  'settings.taskSources.notion.browseDatabases': 'डेटाबेस ब्राउज़ करें',
+  'settings.taskSources.notion.loadingDatabases': 'डेटाबेस लोड हो रहे हैं…',
+  'settings.taskSources.notion.selectDatabase': 'एक डेटाबेस चुनें…',
+  'settings.taskSources.notion.noDatabases': 'इस कनेक्शन के लिए कोई डेटाबेस नहीं मिला।',
   'settings.taskSources.linear.team': 'टीम आईडी (वैकल्पिक)',
   'settings.taskSources.clickup.team': 'कार्यक्षेत्र (टीम) आईडी (वैकल्पिक)',
   'settings.taskSources.assignedToMe': 'केवल मुझे सौंपा गया आइटम',

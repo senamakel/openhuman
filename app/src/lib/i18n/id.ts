@@ -2666,6 +2666,31 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.creating': 'Membuat tugas…',
   'intelligence.tasks.sourcePlan.createFailed': 'Gagal membuat tugas agen',
   'intelligence.tasks.workTaskFailed': 'Gagal memulai pengerjaan tugas',
+  'intelligence.workTask.sourceTaskHeading': 'Tugas sumber:',
+  'intelligence.workTask.repositoryLine': '- Repositori: {repo}',
+  'intelligence.workTask.externalIdLine': '- ID eksternal: {externalId}',
+  'intelligence.workTask.urlLine': '- Tautan: {url}',
+  'intelligence.workTask.closingInstruction':
+    'Mulailah dengan menyatakan kembali rencana implementasi konkret secara singkat, lalu jalankan. Jaga agar kemajuan tetap terlihat di utas ini dan perbarui papan tugas ketika status pekerjaan berubah.',
+  'intelligence.refine.objectiveDefault':
+    'Ubah tugas sumber menjadi tugas agen yang siap diimplementasikan: {title}',
+  'intelligence.refine.sourceLine': 'Sumber: {url}',
+  'intelligence.refine.sourceIntake': 'Sumber: penerimaan sumber tugas',
+  'intelligence.refine.repositoryLine': 'Repositori: {repo}',
+  'intelligence.refine.externalTaskLine': 'Tugas eksternal: {externalId}',
+  'intelligence.refine.planStep1':
+    'Baca tugas sumber yang ditautkan dan konfirmasikan perilaku persis yang diminta.',
+  'intelligence.refine.planStep2':
+    'Periksa jalur kode yang relevan dan identifikasi batas implementasi terkecil.',
+  'intelligence.refine.planStep3':
+    'Implementasikan perubahan dengan pengujian terfokus pada perilaku yang terlihat oleh pengguna.',
+  'intelligence.refine.planStep4':
+    'Jalankan validasi tertarget dan catat risiko yang tersisa atau pekerjaan lanjutan.',
+  'intelligence.refine.acceptance1': 'Persyaratan tugas sumber terwakili dalam implementasi akhir.',
+  'intelligence.refine.acceptance2':
+    'Pengujian unit atau integrasi yang relevan mencakup perilaku yang diubah.',
+  'intelligence.refine.acceptance3':
+    'Hasil validasi dan risiko yang belum terselesaikan dicatat saat penyelesaian.',
   'notifications.card.dismiss': 'Abaikan notifikasi',
   'notifications.card.importanceTitle': 'Tingkat penting: {pct}%',
   'notifications.center.empty': 'Belum ada notifikasi',
@@ -4301,6 +4326,10 @@ const messages: TranslationMap = {
   'settings.taskSources.github.repo': 'Repositori (pemilik/nama, opsional)',
   'settings.taskSources.github.labels': 'Label (koma - dipisahkan)',
   'settings.taskSources.notion.database': 'ID Basis Data (papan)',
+  'settings.taskSources.notion.browseDatabases': 'Jelajahi basis data',
+  'settings.taskSources.notion.loadingDatabases': 'Memuat basis data…',
+  'settings.taskSources.notion.selectDatabase': 'Pilih basis data…',
+  'settings.taskSources.notion.noDatabases': 'Tidak ada basis data untuk koneksi ini.',
   'settings.taskSources.linear.team': 'ID tim (opsional)',
   'settings.taskSources.clickup.team': 'ID workspace (tim) (opsional)',
   'settings.taskSources.assignedToMe': 'Hanya item yang ditugaskan kepada saya',

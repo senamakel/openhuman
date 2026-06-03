@@ -2680,6 +2680,31 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.creating': 'Создание задачи…',
   'intelligence.tasks.sourcePlan.createFailed': 'Не удалось создать задачу агента',
   'intelligence.tasks.workTaskFailed': 'Не удалось начать работу над задачей',
+  'intelligence.workTask.sourceTaskHeading': 'Исходная задача:',
+  'intelligence.workTask.repositoryLine': '- Репозиторий: {repo}',
+  'intelligence.workTask.externalIdLine': '- Внешний ID: {externalId}',
+  'intelligence.workTask.urlLine': '- Ссылка: {url}',
+  'intelligence.workTask.closingInstruction':
+    'Начните с краткого повторения конкретного плана реализации, затем выполните его. Поддерживайте видимость прогресса в этой ветке и обновляйте доску задач при изменении состояния работы.',
+  'intelligence.refine.objectiveDefault':
+    'Превратите исходную задачу в готовую к реализации задачу агента: {title}',
+  'intelligence.refine.sourceLine': 'Источник: {url}',
+  'intelligence.refine.sourceIntake': 'Источник: приём источников задач',
+  'intelligence.refine.repositoryLine': 'Репозиторий: {repo}',
+  'intelligence.refine.externalTaskLine': 'Внешняя задача: {externalId}',
+  'intelligence.refine.planStep1':
+    'Прочитайте связанную исходную задачу и подтвердите точно запрошенное поведение.',
+  'intelligence.refine.planStep2':
+    'Изучите соответствующие пути кода и определите наименьшую границу реализации.',
+  'intelligence.refine.planStep3':
+    'Реализуйте изменение с целевыми тестами вокруг видимого пользователю поведения.',
+  'intelligence.refine.planStep4':
+    'Запустите целевую проверку и зафиксируйте оставшиеся риски или последующую работу.',
+  'intelligence.refine.acceptance1': 'Требования исходной задачи отражены в итоговой реализации.',
+  'intelligence.refine.acceptance2':
+    'Соответствующие модульные или интеграционные тесты покрывают изменённое поведение.',
+  'intelligence.refine.acceptance3':
+    'Результаты проверки и любые нерешённые риски фиксируются при завершении.',
   'notifications.card.dismiss': 'Закрыть уведомление',
   'notifications.card.importanceTitle': 'Важность: {pct}%',
   'notifications.center.empty': 'Уведомлений пока нет',
@@ -4325,6 +4350,10 @@ const messages: TranslationMap = {
   'settings.taskSources.github.repo': 'Репозиторий (владелец/имя, необязательно)',
   'settings.taskSources.github.labels': 'Ярлыки (через запятую)',
   'settings.taskSources.notion.database': 'Идентификатор базы данных (доски)',
+  'settings.taskSources.notion.browseDatabases': 'Обзор баз данных',
+  'settings.taskSources.notion.loadingDatabases': 'Загрузка баз данных…',
+  'settings.taskSources.notion.selectDatabase': 'Выберите базу данных…',
+  'settings.taskSources.notion.noDatabases': 'Базы данных для этого подключения не найдены.',
   'settings.taskSources.linear.team': 'Идентификатор команды (необязательно)',
   'settings.taskSources.clickup.team': 'Идентификатор рабочей области (команды) (необязательно)',
   'settings.taskSources.assignedToMe': 'Только элементы, назначенные мне',

@@ -2710,6 +2710,32 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.creating': 'Creando tarea…',
   'intelligence.tasks.sourcePlan.createFailed': 'No se pudo crear la tarea del agente',
   'intelligence.tasks.workTaskFailed': 'No se pudo iniciar el trabajo en la tarea',
+  'intelligence.workTask.sourceTaskHeading': 'Tarea de origen:',
+  'intelligence.workTask.repositoryLine': '- Repositorio: {repo}',
+  'intelligence.workTask.externalIdLine': '- ID externo: {externalId}',
+  'intelligence.workTask.urlLine': '- Dirección: {url}',
+  'intelligence.workTask.closingInstruction':
+    'Empieza reformulando brevemente el plan de implementación concreto y luego ejecútalo. Mantén el progreso visible en este hilo y actualiza el tablero de tareas cuando cambie el estado del trabajo.',
+  'intelligence.refine.objectiveDefault':
+    'Convierte la tarea de origen en una tarea de agente lista para implementar: {title}',
+  'intelligence.refine.sourceLine': 'Origen: {url}',
+  'intelligence.refine.sourceIntake': 'Origen: recepción de fuentes de tareas',
+  'intelligence.refine.repositoryLine': 'Repositorio: {repo}',
+  'intelligence.refine.externalTaskLine': 'Tarea externa: {externalId}',
+  'intelligence.refine.planStep1':
+    'Lee la tarea de origen vinculada y confirma el comportamiento exacto solicitado.',
+  'intelligence.refine.planStep2':
+    'Inspecciona las rutas de código relevantes e identifica el límite de implementación más pequeño.',
+  'intelligence.refine.planStep3':
+    'Implementa el cambio con pruebas centradas en el comportamiento visible para el usuario.',
+  'intelligence.refine.planStep4':
+    'Ejecuta una validación específica y registra los riesgos residuales o el trabajo de seguimiento.',
+  'intelligence.refine.acceptance1':
+    'Los requisitos de la tarea de origen están representados en la implementación final.',
+  'intelligence.refine.acceptance2':
+    'Las pruebas unitarias o de integración relevantes cubren el comportamiento modificado.',
+  'intelligence.refine.acceptance3':
+    'Los resultados de la validación y cualquier riesgo sin resolver se registran al finalizar.',
   'notifications.card.dismiss': 'Descartar notificación',
   'notifications.card.importanceTitle': 'Importancia: {pct}%',
   'notifications.center.empty': 'Sin notificaciones aún',
@@ -4370,6 +4396,10 @@ const messages: TranslationMap = {
   'settings.taskSources.github.repo': 'Repositorio (propietario/nombre, opcional)',
   'settings.taskSources.github.labels': 'Etiquetas (separadas por comas)',
   'settings.taskSources.notion.database': 'ID de la base de datos (tablero)',
+  'settings.taskSources.notion.browseDatabases': 'Explorar bases de datos',
+  'settings.taskSources.notion.loadingDatabases': 'Cargando bases de datos…',
+  'settings.taskSources.notion.selectDatabase': 'Selecciona una base de datos…',
+  'settings.taskSources.notion.noDatabases': 'No se encontraron bases de datos para esta conexión.',
   'settings.taskSources.linear.team': 'ID del equipo (opcional)',
   'settings.taskSources.clickup.team': 'ID del espacio de trabajo (equipo) (opcional)',
   'settings.taskSources.assignedToMe': 'Solo los elementos asignados a mí',

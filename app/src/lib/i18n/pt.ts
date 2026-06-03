@@ -2708,6 +2708,32 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.creating': 'Criando tarefa…',
   'intelligence.tasks.sourcePlan.createFailed': 'Não foi possível criar a tarefa de agente',
   'intelligence.tasks.workTaskFailed': 'Não foi possível iniciar o trabalho na tarefa',
+  'intelligence.workTask.sourceTaskHeading': 'Tarefa de origem:',
+  'intelligence.workTask.repositoryLine': '- Repositório: {repo}',
+  'intelligence.workTask.externalIdLine': '- ID externo: {externalId}',
+  'intelligence.workTask.urlLine': '- Endereço: {url}',
+  'intelligence.workTask.closingInstruction':
+    'Comece reformulando brevemente o plano de implementação concreto e depois execute-o. Mantenha o progresso visível neste tópico e atualize o quadro de tarefas quando o estado do trabalho mudar.',
+  'intelligence.refine.objectiveDefault':
+    'Transforme a tarefa de origem em uma tarefa de agente pronta para implementação: {title}',
+  'intelligence.refine.sourceLine': 'Origem: {url}',
+  'intelligence.refine.sourceIntake': 'Origem: recepção de fontes de tarefas',
+  'intelligence.refine.repositoryLine': 'Repositório: {repo}',
+  'intelligence.refine.externalTaskLine': 'Tarefa externa: {externalId}',
+  'intelligence.refine.planStep1':
+    'Leia a tarefa de origem vinculada e confirme o comportamento exato solicitado.',
+  'intelligence.refine.planStep2':
+    'Inspecione os caminhos de código relevantes e identifique o menor limite de implementação.',
+  'intelligence.refine.planStep3':
+    'Implemente a mudança com testes focados no comportamento visível ao usuário.',
+  'intelligence.refine.planStep4':
+    'Execute validação direcionada e registre quaisquer riscos remanescentes ou trabalho de acompanhamento.',
+  'intelligence.refine.acceptance1':
+    'Os requisitos da tarefa de origem estão representados na implementação final.',
+  'intelligence.refine.acceptance2':
+    'Testes unitários ou de integração relevantes cobrem o comportamento alterado.',
+  'intelligence.refine.acceptance3':
+    'Os resultados da validação e qualquer risco não resolvido são registrados na conclusão.',
   'notifications.card.dismiss': 'Dispensar notificação',
   'notifications.card.importanceTitle': 'Importância: {pct}%',
   'notifications.center.empty': 'Nenhuma notificação ainda',
@@ -4360,6 +4386,10 @@ const messages: TranslationMap = {
   'settings.taskSources.github.repo': 'Repositório (proprietário/nome, opcional)',
   'settings.taskSources.github.labels': 'Etiquetas (separadas por vírgula)',
   'settings.taskSources.notion.database': 'ID do banco de dados (quadro)',
+  'settings.taskSources.notion.browseDatabases': 'Explorar bancos de dados',
+  'settings.taskSources.notion.loadingDatabases': 'Carregando bancos de dados…',
+  'settings.taskSources.notion.selectDatabase': 'Selecione um banco de dados…',
+  'settings.taskSources.notion.noDatabases': 'Nenhum banco de dados encontrado para esta conexão.',
   'settings.taskSources.linear.team': 'ID da equipe (opcional)',
   'settings.taskSources.clickup.team': 'ID do espaço de trabalho (equipe) (opcional)',
   'settings.taskSources.assignedToMe': 'Apenas itens atribuídos a mim',

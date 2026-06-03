@@ -2659,6 +2659,32 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.creating': 'কাজ তৈরি হচ্ছে...',
   'intelligence.tasks.sourcePlan.createFailed': 'এজেন্ট কাজ তৈরি করা যায়নি',
   'intelligence.tasks.workTaskFailed': 'কাজ শুরু করা যায়নি',
+  'intelligence.workTask.sourceTaskHeading': 'উৎস টাস্ক:',
+  'intelligence.workTask.repositoryLine': '- রিপোজিটরি: {repo}',
+  'intelligence.workTask.externalIdLine': '- বাহ্যিক আইডি: {externalId}',
+  'intelligence.workTask.urlLine': '- ইউআরএল: {url}',
+  'intelligence.workTask.closingInstruction':
+    'প্রথমে সুনির্দিষ্ট বাস্তবায়ন পরিকল্পনাটি সংক্ষেপে পুনরায় বলুন, তারপর তা সম্পাদন করুন। এই থ্রেডে অগ্রগতি দৃশ্যমান রাখুন এবং কাজের অবস্থা পরিবর্তিত হলে টাস্ক বোর্ড আপডেট করুন।',
+  'intelligence.refine.objectiveDefault':
+    'উৎস টাস্কটিকে বাস্তবায়নের জন্য প্রস্তুত একটি এজেন্ট টাস্কে রূপান্তর করুন: {title}',
+  'intelligence.refine.sourceLine': 'উৎস: {url}',
+  'intelligence.refine.sourceIntake': 'উৎস: টাস্ক উৎস গ্রহণ',
+  'intelligence.refine.repositoryLine': 'রিপোজিটরি: {repo}',
+  'intelligence.refine.externalTaskLine': 'বাহ্যিক টাস্ক: {externalId}',
+  'intelligence.refine.planStep1':
+    'সংযুক্ত উৎস টাস্কটি পড়ুন এবং ঠিক কোন আচরণ চাওয়া হয়েছে তা নিশ্চিত করুন।',
+  'intelligence.refine.planStep2':
+    'প্রাসঙ্গিক কোড পাথগুলি পরিদর্শন করুন এবং সবচেয়ে ছোট বাস্তবায়ন সীমানা চিহ্নিত করুন।',
+  'intelligence.refine.planStep3':
+    'ব্যবহারকারী-দৃশ্যমান আচরণ ঘিরে কেন্দ্রীভূত পরীক্ষাসহ পরিবর্তনটি বাস্তবায়ন করুন।',
+  'intelligence.refine.planStep4':
+    'লক্ষ্যভিত্তিক যাচাই চালান এবং অবশিষ্ট কোনো ঝুঁকি বা পরবর্তী কাজ নথিভুক্ত করুন।',
+  'intelligence.refine.acceptance1':
+    'উৎস টাস্কের প্রয়োজনীয়তা চূড়ান্ত বাস্তবায়নে প্রতিফলিত হয়েছে।',
+  'intelligence.refine.acceptance2':
+    'প্রাসঙ্গিক ইউনিট বা ইন্টিগ্রেশন পরীক্ষা পরিবর্তিত আচরণ কভার করে।',
+  'intelligence.refine.acceptance3':
+    'যাচাইয়ের ফলাফল এবং যেকোনো অমীমাংসিত ঝুঁকি সমাপ্তির সময় নথিভুক্ত করা হয়।',
   'notifications.card.dismiss': 'বিজ্ঞপ্তি বাদ দিন',
   'notifications.card.importanceTitle': 'গুরুত্ব: {pct}%',
   'notifications.center.empty': 'এখনো কোনো বিজ্ঞপ্তি নেই',
@@ -4282,6 +4308,10 @@ const messages: TranslationMap = {
   'settings.taskSources.github.repo': 'ডক ( xqxqx, ঐচ্ছিক)',
   'settings.taskSources.github.labels': 'লেবেল (মাউন্ট করা যায় না)',
   'settings.taskSources.notion.database': 'ডাটাবেস (board) আইডি',
+  'settings.taskSources.notion.browseDatabases': 'ডেটাবেস ব্রাউজ করুন',
+  'settings.taskSources.notion.loadingDatabases': 'ডেটাবেস লোড হচ্ছে…',
+  'settings.taskSources.notion.selectDatabase': 'একটি ডেটাবেস নির্বাচন করুন…',
+  'settings.taskSources.notion.noDatabases': 'এই সংযোগের জন্য কোনো ডেটাবেস পাওয়া যায়নি।',
   'settings.taskSources.linear.team': 'দল ID (ঐচ্ছিক)',
   'settings.taskSources.clickup.team': 'কর্মক্ষেত্র (ঐচ্ছিক)',
   'settings.taskSources.assignedToMe': 'শুধুমাত্র আমার করা আইটেমগুলি',

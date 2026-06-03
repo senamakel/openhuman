@@ -4277,6 +4277,8 @@ const messages: TranslationMap = {
   'chat.agentProfile.defaultAgentLabel': 'Orchestrator',
   'chat.agentProfile.exists': "Le profil d'agent « {name} » existe déjà.",
   'chat.agentProfile.label': "Profil d'agent",
+  'chat.agentProfile.quick': 'Rapide',
+  'chat.agentProfile.reasoning': 'Raisonnement',
   'chat.agentProfile.namePlaceholder': 'Nom du profil',
   'chat.agentProfile.promptStylePlaceholder': 'Style de prompt',
   'chat.agentProfile.allowedToolsPlaceholder': 'Outils autorisés',

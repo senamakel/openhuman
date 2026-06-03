@@ -4106,6 +4106,8 @@ const messages: TranslationMap = {
   'chat.agentProfile.defaultAgentLabel': 'المنسق',
   'chat.agentProfile.exists': 'ملف تعريف الوكيل "{name}" موجود بالفعل.',
   'chat.agentProfile.label': 'ملف تعريف الوكيل',
+  'chat.agentProfile.quick': 'سريع',
+  'chat.agentProfile.reasoning': 'تفكير',
   'chat.agentProfile.namePlaceholder': 'اسم ملف التعريف',
   'chat.agentProfile.promptStylePlaceholder': 'نمط المطالبة',
   'chat.agentProfile.allowedToolsPlaceholder': 'الأدوات المسموح بها',

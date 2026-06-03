@@ -4182,6 +4182,8 @@ const messages: TranslationMap = {
   'chat.agentProfile.defaultAgentLabel': 'অর্কেস্ট্রেটর',
   'chat.agentProfile.exists': 'এজেন্ট প্রোফাইল "{name}" ইতিমধ্যেই বিদ্যমান৷',
   'chat.agentProfile.label': 'এজেন্ট প্রোফাইল',
+  'chat.agentProfile.quick': 'দ্রুত',
+  'chat.agentProfile.reasoning': 'যুক্তি',
   'chat.agentProfile.namePlaceholder': 'প্রোফাইল নাম',
   'chat.agentProfile.promptStylePlaceholder': 'প্রম্পট স্টাইল',
   'chat.agentProfile.allowedToolsPlaceholder': 'অনুমোদিত টুল',

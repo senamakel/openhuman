@@ -3983,6 +3983,8 @@ const messages: TranslationMap = {
   'chat.agentProfile.defaultAgentLabel': '协调者',
   'chat.agentProfile.exists': '代理配置文件“{name}”已存在。',
   'chat.agentProfile.label': '代理简介',
+  'chat.agentProfile.quick': '快速',
+  'chat.agentProfile.reasoning': '推理',
   'chat.agentProfile.namePlaceholder': '个人资料名称',
   'chat.agentProfile.promptStylePlaceholder': '提示风格',
   'chat.agentProfile.allowedToolsPlaceholder': '允许使用的工具',

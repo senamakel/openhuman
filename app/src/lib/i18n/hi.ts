@@ -4192,6 +4192,8 @@ const messages: TranslationMap = {
   'chat.agentProfile.defaultAgentLabel': 'ऑर्केस्ट्रेटर',
   'chat.agentProfile.exists': 'एजेंट प्रोफ़ाइल "{name}" पहले से मौजूद है।',
   'chat.agentProfile.label': 'एजेंट प्रोफ़ाइल',
+  'chat.agentProfile.quick': 'त्वरित',
+  'chat.agentProfile.reasoning': 'तर्क',
   'chat.agentProfile.namePlaceholder': 'प्रोफ़ाइल नाम',
   'chat.agentProfile.promptStylePlaceholder': 'शीघ्र शैली',
   'chat.agentProfile.allowedToolsPlaceholder': 'अनुमत उपकरण',

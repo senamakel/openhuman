@@ -4146,6 +4146,8 @@ const messages: TranslationMap = {
   'chat.agentProfile.defaultAgentLabel': 'Orchestrator',
   'chat.agentProfile.exists': '에이전트 프로필 "{name}"이(가) 이미 존재합니다.',
   'chat.agentProfile.label': '에이전트 프로필',
+  'chat.agentProfile.quick': '빠름',
+  'chat.agentProfile.reasoning': '추론',
   'chat.agentProfile.namePlaceholder': '프로필 이름',
   'chat.agentProfile.promptStylePlaceholder': '프롬프트 스타일',
   'chat.agentProfile.allowedToolsPlaceholder': '허용된 도구',

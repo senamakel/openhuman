@@ -1517,26 +1517,35 @@ const Conversations = ({
               )}
             </div>
             <>
-              <div className="flex items-center gap-1">
-                <select
-                  aria-label={t('chat.agentProfile.label')}
-                  value={selectedAgentProfileId}
-                  onChange={event => void handleSelectAgentProfile(event.target.value)}
-                  className="h-7 max-w-[120px] rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 text-xs text-stone-700 dark:text-neutral-200 outline-none transition-colors focus:border-primary-400">
-                  {agentProfiles.map(profile => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.name}
-                    </option>
-                  ))}
-                </select>
+              <div
+                className="flex items-center h-7 rounded-full border border-stone-200 dark:border-neutral-700 bg-stone-100 dark:bg-neutral-800 p-0.5"
+                role="radiogroup"
+                aria-label={t('chat.agentProfile.label')}>
                 <button
                   type="button"
-                  data-analytics-id="chat-header-create-agent-profile-toggle"
-                  onClick={() => setProfileDraftOpen(prev => !prev)}
-                  className="h-7 w-7 rounded-lg text-xs font-medium text-stone-500 dark:text-neutral-400 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200"
-                  title={t('chat.agentProfile.create')}
-                  aria-label={t('chat.agentProfile.create')}>
-                  +
+                  role="radio"
+                  aria-checked={selectedAgentProfileId === 'default'}
+                  data-analytics-id="chat-header-mode-quick"
+                  onClick={() => void handleSelectAgentProfile('default')}
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-all ${
+                    selectedAgentProfileId === 'default'
+                      ? 'bg-white dark:bg-neutral-600 text-stone-800 dark:text-neutral-100 shadow-sm'
+                      : 'text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200'
+                  }`}>
+                  {t('chat.agentProfile.quick')}
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedAgentProfileId === 'reasoning'}
+                  data-analytics-id="chat-header-mode-reasoning"
+                  onClick={() => void handleSelectAgentProfile('reasoning')}
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-all ${
+                    selectedAgentProfileId === 'reasoning'
+                      ? 'bg-white dark:bg-neutral-600 text-stone-800 dark:text-neutral-100 shadow-sm'
+                      : 'text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200'
+                  }`}>
+                  {t('chat.agentProfile.reasoning')}
                 </button>
               </div>
               {(selectedThreadId ?? activeThreadId) && (

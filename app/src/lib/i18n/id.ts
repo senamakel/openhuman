@@ -4201,6 +4201,8 @@ const messages: TranslationMap = {
   'chat.agentProfile.defaultAgentLabel': 'Orchestrator',
   'chat.agentProfile.exists': 'Profil agen "{name}" sudah ada.',
   'chat.agentProfile.label': 'Profil agen',
+  'chat.agentProfile.quick': 'Cepat',
+  'chat.agentProfile.reasoning': 'Penalaran',
   'chat.agentProfile.namePlaceholder': 'Nama profil',
   'chat.agentProfile.promptStylePlaceholder': 'Gaya perintah',
   'chat.agentProfile.allowedToolsPlaceholder': 'Alat yang diizinkan',

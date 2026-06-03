@@ -9,7 +9,6 @@ import ApprovalRequestCard from '../components/chat/ApprovalRequestCard';
 import ArtifactCard from '../components/chat/ArtifactCard';
 import ChatComposer from '../components/chat/ChatComposer';
 import ChatFilesChip from '../components/chat/ChatFilesChip';
-import TokenUsagePill from '../components/chat/TokenUsagePill';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import PillTabBar from '../components/PillTabBar';
 import UpsellBanner from '../components/upsell/UpsellBanner';
@@ -1551,13 +1550,12 @@ const Conversations = ({
               {(selectedThreadId ?? activeThreadId) && (
                 <ChatFilesChip threadId={(selectedThreadId ?? activeThreadId) as string} />
               )}
-              <TokenUsagePill />
               <button
                 type="button"
                 data-testid="new-thread-button"
                 data-analytics-id="chat-header-new-thread"
                 onClick={() => void handleCreateNewThread()}
-                className="px-2.5 py-1 rounded-lg text-xs font-medium text-primary-600 hover:bg-primary-50 transition-colors"
+                className="px-2.5 py-1 rounded-lg text-xs font-medium text-white bg-primary-500 hover:bg-primary-600 shadow-sm transition-colors"
                 title={t('chat.newThreadShortcut')}>
                 {t('chat.new')}
               </button>

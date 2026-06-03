@@ -19,6 +19,7 @@
 use anyhow::Result;
 use std::fmt::Write as _;
 use std::io::Write as _;
+use std::sync::Arc;
 
 use crate::openhuman::agent::cost::TurnCost;
 use crate::openhuman::agent::multimodal;
@@ -30,6 +31,7 @@ use crate::openhuman::inference::provider::{
 };
 
 use super::super::parse::build_native_assistant_history;
+use super::super::run_queue::RunQueue;
 use super::super::token_budget::trim_chat_messages_to_budget;
 use super::super::tool_loop::{RepeatFailureGuard, STREAM_CHUNK_MIN_CHARS};
 use super::checkpoint::CheckpointStrategy;
@@ -88,6 +90,7 @@ pub(crate) async fn run_turn_engine(
     max_iterations: usize,
     on_delta: Option<tokio::sync::mpsc::Sender<String>>,
     early_exit_tool_names: &[&str],
+    run_queue: Option<Arc<RunQueue>>,
 ) -> Result<TurnEngineOutcome> {
     let mut context_guard = context_window_for_model(model)
         .map(ContextGuard::with_context_window)
@@ -113,6 +116,48 @@ pub(crate) async fn run_turn_engine(
         progress
             .iteration_started((iteration + 1) as u32, max_iterations as u32)
             .await;
+
+        // ── Run queue drain: inject steers/collects at safe boundary ──
+        if let Some(ref rq) = run_queue {
+            if rq.has_pending_injections().await {
+                let steers = rq.drain_steers().await;
+                let collects = rq.drain_collects().await;
+                for s in &steers {
+                    log::info!(
+                        "[run_queue] injecting steer iteration={} thread_id={} chars={}",
+                        iteration + 1,
+                        s.thread_id,
+                        s.text.len()
+                    );
+                    let steer_content = format!("[User steering message]: {}", s.text);
+                    history.push(ChatMessage::user(steer_content));
+                    crate::core::event_bus::publish_global(
+                        crate::core::event_bus::DomainEvent::RunQueueMessageDelivered {
+                            thread_id: s.thread_id.clone(),
+                            mode: "steer".to_string(),
+                            iteration: (iteration + 1) as u32,
+                        },
+                    );
+                }
+                for c in &collects {
+                    log::info!(
+                        "[run_queue] injecting collect iteration={} thread_id={} chars={}",
+                        iteration + 1,
+                        c.thread_id,
+                        c.text.len()
+                    );
+                    let collect_content = format!("[Additional context from user]: {}", c.text);
+                    history.push(ChatMessage::user(collect_content));
+                    crate::core::event_bus::publish_global(
+                        crate::core::event_bus::DomainEvent::RunQueueMessageDelivered {
+                            thread_id: c.thread_id.clone(),
+                            mode: "collect".to_string(),
+                            iteration: (iteration + 1) as u32,
+                        },
+                    );
+                }
+            }
+        }
 
         // ── Stop hooks: policy check before the next LLM call ──
         if !stop_hooks.is_empty() {

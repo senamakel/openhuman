@@ -602,6 +602,7 @@ impl AgentBuilder {
             cached_transcript_messages: None,
             context,
             on_progress: None,
+            run_queue: None,
             connected_integrations: Vec::new(),
             connected_integrations_initialized: false,
             integration_runtime_config: None,

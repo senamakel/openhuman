@@ -4758,6 +4758,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Jendela memori',
   'memoryData.windowUpdated': 'Jendela memori diperbarui',
   'memoryData.windowUpdatedMsg': 'Diatur ke {window}.',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'Interupsi',
+  'runQueue.mode.steer': 'Arahkan',
+  'runQueue.mode.followup': 'Tindak lanjut',
+  'runQueue.mode.collect': 'Tambah konteks',
+  'runQueue.queued': 'Pesan masuk antrean',
+  'runQueue.steerHint': 'Arahkan giliran saat ini',
+  'runQueue.followupHint': 'Masukkan ke antrean sebagai tindak lanjut',
+  'runQueue.collectHint': 'Tambahkan sebagai konteks tambahan',
+  'runQueue.status': '{total} dalam antrean',
+  'runQueue.cleared': 'Antrean dikosongkan',
 };
 
 export default messages;

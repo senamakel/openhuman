@@ -4874,6 +4874,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Speicherfenster',
   'memoryData.windowUpdated': 'Speicherfenster aktualisiert',
   'memoryData.windowUpdatedMsg': 'Auf {window} gesetzt.',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'Unterbrechen',
+  'runQueue.mode.steer': 'Steuern',
+  'runQueue.mode.followup': 'Nachfassen',
+  'runQueue.mode.collect': 'Kontext hinzufügen',
+  'runQueue.queued': 'Nachricht in Warteschlange',
+  'runQueue.steerHint': 'Aktuellen Durchlauf steuern',
+  'runQueue.followupHint': 'Als Nachfassen einreihen',
+  'runQueue.collectHint': 'Als zusätzlichen Kontext hinzufügen',
+  'runQueue.status': '{total} in der Warteschlange',
+  'runQueue.cleared': 'Warteschlange geleert',
 };
 
 export default messages;

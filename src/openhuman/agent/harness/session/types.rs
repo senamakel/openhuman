@@ -131,6 +131,9 @@ pub struct Agent {
     /// this channel so callers (e.g. web channel) can surface live
     /// tool-call and iteration updates to the UI.
     pub(super) on_progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
+    /// Optional active-run queue for mid-turn steering. When set, the
+    /// engine drains steers/collects at iteration boundaries.
+    pub(super) run_queue: Option<Arc<crate::openhuman::agent::harness::run_queue::RunQueue>>,
     /// Active Composio integrations the user has connected. Populated at
     /// agent build time and threaded into each agent's `prompt.rs` so
     /// the delegator / skill-executor voices can render their own

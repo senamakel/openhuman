@@ -4840,6 +4840,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Ventana de memoria',
   'memoryData.windowUpdated': 'Ventana de memoria actualizada',
   'memoryData.windowUpdatedMsg': 'Establecida en {window}.',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'Interrumpir',
+  'runQueue.mode.steer': 'Dirigir',
+  'runQueue.mode.followup': 'Seguimiento',
+  'runQueue.mode.collect': 'Añadir contexto',
+  'runQueue.queued': 'Mensaje en cola',
+  'runQueue.steerHint': 'Dirigir el turno actual',
+  'runQueue.followupHint': 'Poner en cola como seguimiento',
+  'runQueue.collectHint': 'Añadir como contexto adicional',
+  'runQueue.status': '{total} en cola',
+  'runQueue.cleared': 'Cola vaciada',
 };
 
 export default messages;

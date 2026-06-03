@@ -4649,6 +4649,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'نافذة الذاكرة',
   'memoryData.windowUpdated': 'تم تحديث نافذة الذاكرة',
   'memoryData.windowUpdatedMsg': 'تم الضبط على {window}.',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'مقاطعة',
+  'runQueue.mode.steer': 'توجيه',
+  'runQueue.mode.followup': 'متابعة',
+  'runQueue.mode.collect': 'إضافة سياق',
+  'runQueue.queued': 'تم وضع الرسالة في الانتظار',
+  'runQueue.steerHint': 'وجّه الدور الحالي',
+  'runQueue.followupHint': 'أضف إلى قائمة الانتظار كمتابعة',
+  'runQueue.collectHint': 'إضافة كسياق إضافي',
+  'runQueue.status': '{total} في الانتظار',
+  'runQueue.cleared': 'تم مسح قائمة الانتظار',
 };
 
 export default messages;

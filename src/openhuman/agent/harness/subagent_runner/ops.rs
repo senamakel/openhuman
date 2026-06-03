@@ -1473,6 +1473,7 @@ async fn run_inner_loop(
         max_iterations,
         None, // sub-agents don't stream a draft
         &["ask_user_clarification"],
+        None, // sub-agents don't support run-queue steering
     ))
     .await?;
 

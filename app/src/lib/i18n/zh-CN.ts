@@ -4509,6 +4509,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': '记忆时间窗口',
   'memoryData.windowUpdated': '记忆时间窗口已更新',
   'memoryData.windowUpdatedMsg': '已设置为 {window}。',
+
+  // Run queue
+  'runQueue.mode.interrupt': '中断',
+  'runQueue.mode.steer': '引导',
+  'runQueue.mode.followup': '后续跟进',
+  'runQueue.mode.collect': '添加上下文',
+  'runQueue.queued': '消息已加入队列',
+  'runQueue.steerHint': '引导当前轮次',
+  'runQueue.followupHint': '作为后续跟进加入队列',
+  'runQueue.collectHint': '作为额外上下文添加',
+  'runQueue.status': '已排队 {total} 条',
+  'runQueue.cleared': '队列已清空',
 };
 
 export default messages;

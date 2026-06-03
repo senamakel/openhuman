@@ -4985,6 +4985,18 @@ const en: TranslationMap = {
   // Monthly cost badge
   'monthlyCost.badge': '${amount} this month',
   'monthlyCost.noData': 'No syncs this month',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'Interrupt',
+  'runQueue.mode.steer': 'Steer',
+  'runQueue.mode.followup': 'Follow-up',
+  'runQueue.mode.collect': 'Add context',
+  'runQueue.queued': 'Message queued',
+  'runQueue.steerHint': 'Steer the current turn',
+  'runQueue.followupHint': 'Queue as follow-up',
+  'runQueue.collectHint': 'Add as extra context',
+  'runQueue.status': '{total} queued',
+  'runQueue.cleared': 'Queue cleared',
 };
 
 export default en;

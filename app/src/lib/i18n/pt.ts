@@ -4827,6 +4827,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Janela de memória',
   'memoryData.windowUpdated': 'Janela de memória atualizada',
   'memoryData.windowUpdatedMsg': 'Definida para {window}.',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'Interromper',
+  'runQueue.mode.steer': 'Direcionar',
+  'runQueue.mode.followup': 'Acompanhamento',
+  'runQueue.mode.collect': 'Adicionar contexto',
+  'runQueue.queued': 'Mensagem na fila',
+  'runQueue.steerHint': 'Direcionar o turno atual',
+  'runQueue.followupHint': 'Colocar na fila como acompanhamento',
+  'runQueue.collectHint': 'Adicionar como contexto extra',
+  'runQueue.status': '{total} na fila',
+  'runQueue.cleared': 'Fila limpa',
 };
 
 export default messages;

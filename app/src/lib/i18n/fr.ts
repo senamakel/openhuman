@@ -4856,6 +4856,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Fenêtre de mémoire',
   'memoryData.windowUpdated': 'Fenêtre de mémoire mise à jour',
   'memoryData.windowUpdatedMsg': 'Définie sur {window}.',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'Interrompre',
+  'runQueue.mode.steer': 'Orienter',
+  'runQueue.mode.followup': 'Suivi',
+  'runQueue.mode.collect': 'Ajouter du contexte',
+  'runQueue.queued': "Message en file d'attente",
+  'runQueue.steerHint': 'Orienter le tour en cours',
+  'runQueue.followupHint': "Mettre en file d'attente comme suivi",
+  'runQueue.collectHint': 'Ajouter comme contexte supplémentaire',
+  'runQueue.status': '{total} en attente',
+  'runQueue.cleared': "File d'attente vidée",
 };
 
 export default messages;

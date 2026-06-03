@@ -4739,6 +4739,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'মেমোরি উইন্ডো',
   'memoryData.windowUpdated': 'মেমোরি উইন্ডো আপডেট হয়েছে',
   'memoryData.windowUpdatedMsg': '{window}-এ সেট করা হয়েছে।',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'বাধা দিন',
+  'runQueue.mode.steer': 'পরিচালনা করুন',
+  'runQueue.mode.followup': 'ফলো-আপ',
+  'runQueue.mode.collect': 'প্রসঙ্গ যোগ করুন',
+  'runQueue.queued': 'বার্তা সারিবদ্ধ হয়েছে',
+  'runQueue.steerHint': 'বর্তমান পর্যায় পরিচালনা করুন',
+  'runQueue.followupHint': 'ফলো-আপ হিসেবে সারিতে যোগ করুন',
+  'runQueue.collectHint': 'অতিরিক্ত প্রসঙ্গ হিসেবে যোগ করুন',
+  'runQueue.status': '{total}টি সারিবদ্ধ',
+  'runQueue.cleared': 'সারি পরিষ্কার করা হয়েছে',
 };
 
 export default messages;

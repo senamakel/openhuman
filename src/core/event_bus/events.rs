@@ -115,6 +115,32 @@ pub enum DomainEvent {
         reason: Option<String>,
     },
 
+    // ── Run Queue ──────────────────────────────────────────────────────
+    /// A message was queued into the active-run queue instead of interrupting.
+    RunQueueMessageQueued {
+        thread_id: String,
+        mode: String,
+        queue_depth: usize,
+    },
+    /// A queued steer/collect message was delivered to the engine at an
+    /// iteration boundary.
+    RunQueueMessageDelivered {
+        thread_id: String,
+        mode: String,
+        iteration: u32,
+    },
+    /// A queued followup message was dispatched as a fresh turn after the
+    /// current turn completed.
+    RunQueueFollowupDispatched {
+        thread_id: String,
+        followup_count: usize,
+    },
+    /// The active turn was interrupted by a new message (default behavior).
+    RunQueueInterrupted {
+        thread_id: String,
+        cancelled_request_id: String,
+    },
+
     // ── Memory ──────────────────────────────────────────────────────────
     /// The configured embedding provider is unreachable or the requested model
     /// is not installed, so the memory pipeline fell back to an alternative.
@@ -902,7 +928,11 @@ impl DomainEvent {
             | Self::AgentOrchestrationSpawned { .. }
             | Self::AgentOrchestrationCompleted { .. }
             | Self::AgentOrchestrationFailed { .. }
-            | Self::AgentOrchestrationClosed { .. } => "agent",
+            | Self::AgentOrchestrationClosed { .. }
+            | Self::RunQueueMessageQueued { .. }
+            | Self::RunQueueMessageDelivered { .. }
+            | Self::RunQueueFollowupDispatched { .. }
+            | Self::RunQueueInterrupted { .. } => "agent",
 
             Self::EmbeddingModelUnhealthy { .. }
             | Self::MemoryStored { .. }
@@ -1024,6 +1054,10 @@ impl DomainEvent {
             Self::AgentOrchestrationCompleted { .. } => "AgentOrchestrationCompleted",
             Self::AgentOrchestrationFailed { .. } => "AgentOrchestrationFailed",
             Self::AgentOrchestrationClosed { .. } => "AgentOrchestrationClosed",
+            Self::RunQueueMessageQueued { .. } => "RunQueueMessageQueued",
+            Self::RunQueueMessageDelivered { .. } => "RunQueueMessageDelivered",
+            Self::RunQueueFollowupDispatched { .. } => "RunQueueFollowupDispatched",
+            Self::RunQueueInterrupted { .. } => "RunQueueInterrupted",
             Self::MemoryStored { .. } => "MemoryStored",
             Self::MemoryRecalled { .. } => "MemoryRecalled",
             Self::MemorySyncRequested { .. } => "MemorySyncRequested",

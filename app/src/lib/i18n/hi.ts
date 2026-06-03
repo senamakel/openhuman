@@ -4746,6 +4746,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'मेमोरी विंडो',
   'memoryData.windowUpdated': 'मेमोरी विंडो अपडेट हुई',
   'memoryData.windowUpdatedMsg': '{window} पर सेट किया गया।',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'बाधित करें',
+  'runQueue.mode.steer': 'दिशा दें',
+  'runQueue.mode.followup': 'अनुसरण',
+  'runQueue.mode.collect': 'संदर्भ जोड़ें',
+  'runQueue.queued': 'संदेश कतार में है',
+  'runQueue.steerHint': 'वर्तमान चरण को दिशा दें',
+  'runQueue.followupHint': 'अनुसरण के रूप में कतार में जोड़ें',
+  'runQueue.collectHint': 'अतिरिक्त संदर्भ के रूप में जोड़ें',
+  'runQueue.status': '{total} कतार में',
+  'runQueue.cleared': 'कतार साफ़ की गई',
 };
 
 export default messages;

@@ -32,6 +32,7 @@ pub(crate) mod memory_context;
 pub(crate) mod memory_context_safety;
 mod parse;
 pub(crate) mod payload_summarizer;
+pub mod run_queue;
 pub mod sandbox_context;
 pub(crate) mod self_healing;
 pub mod session;

@@ -4787,6 +4787,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Окно памяти',
   'memoryData.windowUpdated': 'Окно памяти обновлено',
   'memoryData.windowUpdatedMsg': 'Установлено значение {window}.',
+
+  // Run queue
+  'runQueue.mode.interrupt': 'Прервать',
+  'runQueue.mode.steer': 'Направить',
+  'runQueue.mode.followup': 'Продолжение',
+  'runQueue.mode.collect': 'Добавить контекст',
+  'runQueue.queued': 'Сообщение в очереди',
+  'runQueue.steerHint': 'Направить текущий ход',
+  'runQueue.followupHint': 'Добавить в очередь как продолжение',
+  'runQueue.collectHint': 'Добавить как дополнительный контекст',
+  'runQueue.status': '{total} в очереди',
+  'runQueue.cleared': 'Очередь очищена',
 };
 
 export default messages;

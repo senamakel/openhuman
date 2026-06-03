@@ -513,6 +513,7 @@ impl Agent {
                 user_message: user_message.to_string(),
                 max_iterations,
             };
+            let turn_run_queue = self.run_queue.clone();
             let cached_prefix = self.cached_transcript_messages.take();
             let mut observer = AgentObserver {
                 agent: self,
@@ -556,6 +557,7 @@ impl Agent {
                 max_iterations,
                 None, // the web bridge streams via on_progress deltas, not on_delta
                 &[],
+                turn_run_queue,
             ))
             .await?;
 

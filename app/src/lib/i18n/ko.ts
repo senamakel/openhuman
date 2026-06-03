@@ -4694,6 +4694,18 @@ const messages: TranslationMap = {
   'memoryData.windowError': '메모리 창',
   'memoryData.windowUpdated': '메모리 창 업데이트됨',
   'memoryData.windowUpdatedMsg': '{window}(으)로 설정되었습니다.',
+
+  // Run queue
+  'runQueue.mode.interrupt': '중단',
+  'runQueue.mode.steer': '방향 조정',
+  'runQueue.mode.followup': '후속 조치',
+  'runQueue.mode.collect': '컨텍스트 추가',
+  'runQueue.queued': '메시지가 대기열에 추가됨',
+  'runQueue.steerHint': '현재 턴 방향 조정',
+  'runQueue.followupHint': '후속 조치로 대기열에 추가',
+  'runQueue.collectHint': '추가 컨텍스트로 추가',
+  'runQueue.status': '{total}개 대기 중',
+  'runQueue.cleared': '대기열이 비워졌습니다',
 };
 
 export default messages;

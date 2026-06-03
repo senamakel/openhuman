@@ -1,17 +1,16 @@
-import { describe, it, expect } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
+import { describe, expect, it } from 'vitest';
+
 import chatRuntimeReducer, {
-  setQueueStatusForThread,
+  clearAllChatRuntime,
   clearQueueStatusForThread,
   clearRuntimeForThread,
-  clearAllChatRuntime,
   type QueueStatus,
+  setQueueStatusForThread,
 } from './chatRuntimeSlice';
 
 function makeStore() {
-  return configureStore({
-    reducer: { chatRuntime: chatRuntimeReducer },
-  });
+  return configureStore({ reducer: { chatRuntime: chatRuntimeReducer } });
 }
 
 describe('chatRuntimeSlice queue status', () => {

@@ -20,7 +20,8 @@
 //! "fetch-what-the-user-sees" model gmail / notion already follow.
 
 use async_trait::async_trait;
-use serde_json::json;
+use serde_json::{json, Value};
+use std::time::Duration;
 
 use super::ingest::ingest_issue_into_memory_tree;
 use super::sync;
@@ -42,6 +43,9 @@ const INITIAL_PAGE_SIZE: u32 = 100;
 /// Maximum pages per sync pass. Caps initial-backfill churn; the rest rolls
 /// over to the next scheduled interval.
 const MAX_PAGES: u32 = 20;
+
+const GH_CLI_TIMEOUT: Duration = Duration::from_secs(30);
+const GITHUB_TASK_SEARCH_TIMEOUT: Duration = Duration::from_secs(20);
 
 pub struct GitHubProvider;
 
@@ -423,28 +427,9 @@ impl ComposioProvider for GitHubProvider {
             "[composio:github] fetch_tasks"
         );
 
-        let mut args = json!({
-            "q": query,
-            "sort": "updated",
-            "order": "desc",
-            "per_page": max.min(100) as u32,
-            "page": 1,
-        });
-        merge_extra(&mut args, &filter.extra);
-
-        let resp = ctx
-            .execute(ACTION_SEARCH_ISSUES, Some(args))
-            .await
-            .map_err(|e| format!("[composio:github] {ACTION_SEARCH_ISSUES}: {e:#}"))?;
-        if !resp.successful {
-            return Err(format!(
-                "[composio:github] {ACTION_SEARCH_ISSUES}: {}",
-                resp.error.unwrap_or_else(|| "provider failure".into())
-            ));
-        }
-
+        let data = fetch_github_tasks_local(&query, max, &filter.extra).await?;
         let mut out: Vec<NormalizedTask> = Vec::new();
-        for issue in sync::extract_issues(&resp.data) {
+        for issue in sync::extract_issues(&data) {
             if out.len() >= max {
                 break;
             }
@@ -455,6 +440,191 @@ impl ComposioProvider for GitHubProvider {
         tracing::debug!(count = out.len(), "[composio:github] fetch_tasks complete");
         Ok(out)
     }
+}
+
+async fn fetch_github_tasks_local(query: &str, max: usize, extra: &Value) -> Result<Value, String> {
+    let mut args = json!({
+        "q": query,
+        "sort": "updated",
+        "order": "desc",
+        "per_page": max.min(100) as u32,
+        "page": 1,
+    });
+    merge_extra(&mut args, extra);
+    expand_me_in_github_search_args(&mut args).await;
+
+    match gh_search_issues(&args).await {
+        Ok(data) => Ok(data),
+        Err(gh_err) => {
+            tracing::debug!(
+                error = %gh_err,
+                "[task_sources:github] gh api search failed, falling back to REST"
+            );
+            rest_search_issues(&args).await.map_err(|rest_err| {
+                format!("[task_sources:github] local GitHub search failed: gh: {gh_err}; REST: {rest_err}")
+            })
+        }
+    }
+}
+
+async fn gh_search_issues(args: &Value) -> Result<Value, String> {
+    let mut cmd = tokio::process::Command::new("gh");
+    cmd.arg("api")
+        .arg("--method")
+        .arg("GET")
+        .arg("search/issues");
+    for (key, value) in github_search_arg_pairs(args)? {
+        cmd.arg("-f").arg(format!("{key}={value}"));
+    }
+
+    let output = tokio::time::timeout(GH_CLI_TIMEOUT, cmd.output())
+        .await
+        .map_err(|_| format!("gh command timed out after {}s", GH_CLI_TIMEOUT.as_secs()))?
+        .map_err(|e| format!("gh command failed: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("gh exited {}: {stderr}", output.status));
+    }
+
+    let stdout =
+        String::from_utf8(output.stdout).map_err(|e| format!("gh output not utf8: {e}"))?;
+    serde_json::from_str(&stdout).map_err(|e| format!("parse gh search response: {e}"))
+}
+
+async fn rest_search_issues(args: &Value) -> Result<Value, String> {
+    let client = reqwest::Client::builder()
+        .timeout(GITHUB_TASK_SEARCH_TIMEOUT)
+        .build()
+        .map_err(|e| format!("failed to build GitHub client: {e}"))?;
+
+    let mut request = client
+        .get("https://api.github.com/search/issues")
+        .header("User-Agent", "openhuman")
+        .header("Accept", "application/vnd.github+json");
+
+    if let Some(token) = github_env_token() {
+        request = request.header("Authorization", format!("Bearer {token}"));
+    }
+
+    let pairs = github_search_arg_pairs(args)?;
+    let resp = request
+        .query(&pairs)
+        .send()
+        .await
+        .map_err(|e| format!("GitHub API request failed: {e}"))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("GitHub API returned {status}: {body}"));
+    }
+
+    resp.json::<Value>()
+        .await
+        .map_err(|e| format!("parse GitHub API response: {e}"))
+}
+
+fn github_env_token() -> Option<String> {
+    std::env::var("GH_TOKEN")
+        .or_else(|_| std::env::var("GITHUB_TOKEN"))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+async fn expand_me_in_github_search_args(args: &mut Value) {
+    let Some(query) = args.get("q").and_then(Value::as_str).map(str::to_string) else {
+        return;
+    };
+    if !query.contains("@me") {
+        return;
+    }
+    let Some(login) = resolve_github_login().await else {
+        return;
+    };
+    if let Some(obj) = args.as_object_mut() {
+        obj.insert("q".to_string(), Value::String(query.replace("@me", &login)));
+    }
+}
+
+async fn resolve_github_login() -> Option<String> {
+    if let Some(login) = resolve_github_login_with_gh().await {
+        return Some(login);
+    }
+    resolve_github_login_with_rest().await
+}
+
+async fn resolve_github_login_with_gh() -> Option<String> {
+    let output = tokio::time::timeout(
+        GH_CLI_TIMEOUT,
+        tokio::process::Command::new("gh")
+            .arg("api")
+            .arg("user")
+            .arg("--jq")
+            .arg(".login")
+            .output(),
+    )
+    .await
+    .ok()?
+    .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8(output.stdout)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+async fn resolve_github_login_with_rest() -> Option<String> {
+    let token = github_env_token()?;
+    let client = reqwest::Client::builder()
+        .timeout(GITHUB_TASK_SEARCH_TIMEOUT)
+        .build()
+        .ok()?;
+    let resp = client
+        .get("https://api.github.com/user")
+        .header("User-Agent", "openhuman")
+        .header("Accept", "application/vnd.github+json")
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    resp.json::<Value>()
+        .await
+        .ok()
+        .and_then(|value| {
+            value
+                .get("login")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+pub(super) fn github_search_arg_pairs(args: &Value) -> Result<Vec<(String, String)>, String> {
+    let obj = args
+        .as_object()
+        .ok_or_else(|| "GitHub search args must be a JSON object".to_string())?;
+    let mut out = Vec::with_capacity(obj.len());
+    for (key, value) in obj {
+        let rendered = match value {
+            Value::String(s) => s.trim().to_string(),
+            Value::Number(n) => n.to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Null => continue,
+            other => other.to_string(),
+        };
+        if !rendered.is_empty() {
+            out.push((key.clone(), rendered));
+        }
+    }
+    Ok(out)
 }
 
 /// Build a GitHub Search-Issues query from a [`TaskFetchFilter`].
@@ -470,6 +640,7 @@ pub(super) fn build_fetch_query(filter: &TaskFetchFilter) -> String {
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
+        .map(normalize_github_repo_filter)
     {
         parts.push(format!("repo:{repo}"));
     }
@@ -496,6 +667,31 @@ pub(super) fn build_fetch_query(filter: &TaskFetchFilter) -> String {
         return "involves:@me".to_string();
     }
     parts.join(" ")
+}
+
+pub(super) fn normalize_github_repo_filter(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let without_scheme = trimmed
+        .strip_prefix("https://github.com/")
+        .or_else(|| trimmed.strip_prefix("http://github.com/"))
+        .or_else(|| trimmed.strip_prefix("git@github.com:"))
+        .unwrap_or(trimmed);
+    let cleaned = without_scheme
+        .trim_start_matches('/')
+        .trim_end_matches('/')
+        .trim_end_matches(".git");
+    let mut parts = cleaned.split('/').filter(|part| !part.is_empty());
+    match (parts.next(), parts.next()) {
+        (Some(owner), Some(repo)) => {
+            let repo = repo.trim_end_matches(".git");
+            if owner.is_empty() || repo.is_empty() {
+                trimmed.to_string()
+            } else {
+                format!("{owner}/{repo}")
+            }
+        }
+        _ => trimmed.to_string(),
+    }
 }
 
 /// Map a raw GitHub issue/PR payload into a [`NormalizedTask`].

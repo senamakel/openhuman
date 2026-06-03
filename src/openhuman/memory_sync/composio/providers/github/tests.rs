@@ -1,6 +1,9 @@
 //! Unit tests for the GitHub Composio provider.
 
-use super::provider::{build_search_query, ACTION_GET_AUTHENTICATED_USER, ACTION_SEARCH_ISSUES};
+use super::provider::{
+    build_fetch_query, build_search_query, github_search_arg_pairs, normalize_github_repo_filter,
+    ACTION_GET_AUTHENTICATED_USER, ACTION_SEARCH_ISSUES,
+};
 use super::sync::{
     extract_issue_id, extract_issue_title, extract_issue_updated_at, extract_issues,
     extract_user_login,
@@ -8,6 +11,7 @@ use super::sync::{
 use super::tools::GITHUB_CURATED;
 use super::GitHubProvider;
 use crate::openhuman::memory_sync::composio::providers::ComposioProvider;
+use crate::openhuman::memory_sync::composio::providers::TaskFetchFilter;
 use serde_json::json;
 
 // ── extract_issues ───────────────────────────────────────────────────────────
@@ -231,6 +235,79 @@ fn build_search_query_interpolates_login_verbatim() {
     let query = build_search_query("Hyphen-User_99", Some("2026-01-02T03:04:05Z"));
     assert!(query.contains("involves:Hyphen-User_99"));
     assert!(query.contains("updated:>2026-01-02T03:04:05Z"));
+}
+
+#[test]
+fn build_fetch_query_scopes_repo_labels_state_and_assignee() {
+    let query = build_fetch_query(&TaskFetchFilter {
+        repo: Some("tinyhumansai/openhuman".to_string()),
+        labels: vec!["bug".to_string(), "agent harness".to_string()],
+        state: Some("open".to_string()),
+        assignee_is_me: true,
+        ..Default::default()
+    });
+
+    assert_eq!(
+        query,
+        "repo:tinyhumansai/openhuman label:\"bug\" label:\"agent harness\" state:open assignee:@me"
+    );
+}
+
+#[test]
+fn build_fetch_query_normalizes_github_repo_urls() {
+    let query = build_fetch_query(&TaskFetchFilter {
+        repo: Some("https://github.com/tinyhumansai/openhuman/pull/3267".to_string()),
+        state: Some("open".to_string()),
+        ..Default::default()
+    });
+
+    assert_eq!(query, "repo:tinyhumansai/openhuman state:open");
+}
+
+#[test]
+fn normalize_github_repo_filter_accepts_common_repo_inputs() {
+    assert_eq!(
+        normalize_github_repo_filter("tinyhumansai/openhuman"),
+        "tinyhumansai/openhuman"
+    );
+    assert_eq!(
+        normalize_github_repo_filter("https://github.com/tinyhumansai/openhuman.git"),
+        "tinyhumansai/openhuman"
+    );
+    assert_eq!(
+        normalize_github_repo_filter("git@github.com:tinyhumansai/openhuman.git"),
+        "tinyhumansai/openhuman"
+    );
+}
+
+#[test]
+fn build_fetch_query_falls_back_to_involves_me_when_unscoped() {
+    assert_eq!(
+        build_fetch_query(&TaskFetchFilter::default()),
+        "involves:@me"
+    );
+}
+
+#[test]
+fn github_search_arg_pairs_render_cli_and_rest_params() {
+    let args = json!({
+        "q": "repo:tinyhumansai/openhuman state:open",
+        "sort": "updated",
+        "order": "desc",
+        "per_page": 25,
+        "page": 1,
+        "include_prs": true,
+        "skip": null
+    });
+
+    let pairs = github_search_arg_pairs(&args).expect("pairs");
+    assert!(pairs.contains(&(
+        "q".to_string(),
+        "repo:tinyhumansai/openhuman state:open".to_string()
+    )));
+    assert!(pairs.contains(&("per_page".to_string(), "25".to_string())));
+    assert!(pairs.contains(&("include_prs".to_string(), "true".to_string())));
+    assert!(!pairs.iter().any(|(key, _)| key == "skip"));
 }
 
 // ── slug regression tests (#2768) ───────────────────────────────────────────

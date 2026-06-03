@@ -32,6 +32,7 @@ vi.mock('../../../services/api/threadApi', () => ({
 }));
 
 vi.mock('../../../services/api/todosApi', () => ({
+  TASK_SOURCES_THREAD_ID: 'task-sources',
   USER_TASKS_THREAD_ID: 'user-tasks',
   todosApi: {
     list: hoisted.todosList,
@@ -81,14 +82,18 @@ vi.mock('../UserTaskComposer', () => ({
 vi.mock('../../../pages/conversations/components/TaskKanbanBoard', () => ({
   TaskKanbanBoard: ({
     board,
+    headerTitleKey,
     onMove,
     onDeleteCard,
   }: {
-    board: { cards: { id: string; title: string; status: string }[] };
+    board: { threadId: string; cards: { id: string; title: string; status: string }[] };
+    headerTitleKey?: string;
     onMove?: (card: unknown, status: string) => void;
     onDeleteCard?: (card: unknown) => void;
   }) => (
     <div data-testid="kanban-stub">
+      <span>{board.threadId}</span>
+      {headerTitleKey && <span>{headerTitleKey}</span>}
       {board.cards.map(c => (
         <span key={c.id}>{c.title}</span>
       ))}
@@ -143,7 +148,9 @@ describe('IntelligenceTasksTab', () => {
     hoisted.selectorResult.thread.threads = [];
     // Sensible defaults: empty personal board, no agent boards.
     hoisted.listTurnStates.mockResolvedValue([]);
-    hoisted.todosList.mockResolvedValue(makeBoard('user-tasks', []));
+    hoisted.todosList.mockImplementation((threadId: string) =>
+      Promise.resolve(makeBoard(threadId, []))
+    );
   });
 
   test('shows loading spinner while fetching', async () => {
@@ -173,6 +180,17 @@ describe('IntelligenceTasksTab', () => {
     });
     expect(screen.getByText('Agent Tasks')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /New task/ }).length).toBeGreaterThan(0);
+  });
+
+  test('renders the task sources board even when it is empty', async () => {
+    vi.resetModules();
+    const Tab = await importTab();
+    renderTab(Tab);
+    await waitFor(() => {
+      expect(screen.getByText('settings.taskSources.title')).toBeInTheDocument();
+    });
+    expect(screen.getByText('task-sources')).toBeInTheDocument();
+    expect(hoisted.todosList).toHaveBeenCalledWith('task-sources');
   });
 
   test('renders persisted agent boards from the turn-state list', async () => {
@@ -220,7 +238,13 @@ describe('IntelligenceTasksTab', () => {
   });
 
   test('renders personal cards and moves one via the todos RPC', async () => {
-    hoisted.todosList.mockResolvedValue(makeBoard('user-tasks', ['My personal task']));
+    hoisted.todosList.mockImplementation((threadId: string) =>
+      Promise.resolve(
+        threadId === 'user-tasks'
+          ? makeBoard('user-tasks', ['My personal task'])
+          : makeBoard(threadId, [])
+      )
+    );
     hoisted.todosUpdateStatus.mockResolvedValue(makeBoard('user-tasks', ['My personal task']));
     vi.resetModules();
     const Tab = await importTab();
@@ -234,7 +258,13 @@ describe('IntelligenceTasksTab', () => {
   });
 
   test('deletes a personal card via the todos RPC', async () => {
-    hoisted.todosList.mockResolvedValue(makeBoard('user-tasks', ['Disposable']));
+    hoisted.todosList.mockImplementation((threadId: string) =>
+      Promise.resolve(
+        threadId === 'user-tasks'
+          ? makeBoard('user-tasks', ['Disposable'])
+          : makeBoard(threadId, [])
+      )
+    );
     hoisted.todosRemove.mockResolvedValue(makeBoard('user-tasks', []));
     vi.resetModules();
     const Tab = await importTab();

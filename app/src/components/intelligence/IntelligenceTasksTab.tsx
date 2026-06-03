@@ -20,7 +20,11 @@ import { LuPlus } from 'react-icons/lu';
 import { useT } from '../../lib/i18n/I18nContext';
 import { TaskKanbanBoard } from '../../pages/conversations/components/TaskKanbanBoard';
 import { threadApi } from '../../services/api/threadApi';
-import { todosApi, USER_TASKS_THREAD_ID } from '../../services/api/todosApi';
+import {
+  TASK_SOURCES_THREAD_ID,
+  todosApi,
+  USER_TASKS_THREAD_ID,
+} from '../../services/api/todosApi';
 import { useAppSelector } from '../../store/hooks';
 import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../types/turnState';
 import { UserTaskComposer } from './UserTaskComposer';
@@ -45,6 +49,7 @@ export default function IntelligenceTasksTab() {
 
   const [persistedBoards, setPersistedBoards] = useState<Record<string, TaskBoard>>({});
   const [personalBoard, setPersonalBoard] = useState<TaskBoard | null>(null);
+  const [taskSourcesBoard, setTaskSourcesBoard] = useState<TaskBoard | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,16 +98,40 @@ export default function IntelligenceTasksTab() {
     }
   }, []);
 
+  const fetchTaskSourcesBoard = useCallback(async () => {
+    log('fetchTaskSourcesBoard: entry');
+    try {
+      const board = await todosApi.list(TASK_SOURCES_THREAD_ID);
+      if (mountedRef.current) {
+        setTaskSourcesBoard(board);
+        log('fetchTaskSourcesBoard: cards=%d', board.cards.length);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log('fetchTaskSourcesBoard: error %s', msg);
+      if (mountedRef.current) {
+        setTaskSourcesBoard({ threadId: TASK_SOURCES_THREAD_ID, cards: [], updatedAt: '' });
+      }
+    }
+  }, []);
+
   const loadAll = useCallback(async () => {
     // `loading` defaults to true; flip it off once both fetches settle.
-    await Promise.allSettled([fetchPersistedBoards(), fetchPersonalBoard()]);
+    await Promise.allSettled([
+      fetchPersistedBoards(),
+      fetchPersonalBoard(),
+      fetchTaskSourcesBoard(),
+    ]);
     if (mountedRef.current) setLoading(false);
-  }, [fetchPersistedBoards, fetchPersonalBoard]);
+  }, [fetchPersistedBoards, fetchPersonalBoard, fetchTaskSourcesBoard]);
 
   useEffect(() => {
     mountedRef.current = true;
-    void loadAll();
+    const handle = window.setTimeout(() => {
+      void loadAll();
+    }, 0);
     return () => {
+      window.clearTimeout(handle);
       mountedRef.current = false;
     };
   }, [loadAll]);
@@ -221,6 +250,7 @@ export default function IntelligenceTasksTab() {
   const boardEntries: ThreadTaskBoard[] = [];
   for (const threadId of allThreadIds) {
     if (threadId === USER_TASKS_THREAD_ID) continue; // personal board rendered separately
+    if (threadId === TASK_SOURCES_THREAD_ID) continue; // task sources rendered separately
     const liveBoard = liveBoards[threadId];
     const persistedBoard = persistedBoards[threadId];
     const board = liveBoard ?? persistedBoard;
@@ -291,6 +321,16 @@ export default function IntelligenceTasksTab() {
           </div>
         )}
       </section>
+
+      {taskSourcesBoard && (
+        <section className="space-y-2">
+          <TaskKanbanBoard
+            board={taskSourcesBoard}
+            headerTitleKey="settings.taskSources.title"
+            disabled={loading}
+          />
+        </section>
+      )}
 
       {loading && (
         <div className="flex items-center justify-center py-6 text-stone-400 dark:text-neutral-500">

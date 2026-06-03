@@ -205,6 +205,10 @@ const messages: TranslationMap = {
   'home.usageExhaustedBody':
     'Twój limit użycia na ten moment został wyczerpany. Wykup subskrypcję, aby odblokować większą ciągłą pojemność.',
   'home.usageExhaustedCta': 'Wykup subskrypcję',
+  'openrouterFree.cta': 'Użyj darmowych modeli OpenRouter',
+  'openrouterFree.saving': 'Łączenie z OpenRouter...',
+  'openrouterFree.error':
+    'Nie udało się przełączyć na darmowe modele OpenRouter. Sprawdź logowanie do OpenRouter i spróbuj ponownie.',
   'home.routinesCard': 'Twoje Rutyny',
   'home.routinesActive': '{count} aktywnych',
   'routines.title': 'Twoje rutyny',

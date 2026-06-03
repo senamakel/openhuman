@@ -220,6 +220,10 @@ const en: TranslationMap = {
   'home.usageExhaustedBody':
     "You're out of included usage for now. Start a subscription to unlock more ongoing capacity.",
   'home.usageExhaustedCta': 'Get a subscription',
+  'openrouterFree.cta': 'Use OpenRouter free models',
+  'openrouterFree.saving': 'Connecting OpenRouter...',
+  'openrouterFree.error':
+    'Could not switch to OpenRouter free models. Check your OpenRouter sign-in and try again.',
   'home.routinesCard': 'Your Routines',
   'home.routinesActive': '{count} active',
 

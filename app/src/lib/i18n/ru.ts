@@ -203,6 +203,10 @@ const messages: TranslationMap = {
   'home.usageExhaustedBody':
     'Включённый объём использования пока исчерпан. Оформите подписку, чтобы получить больше постоянной мощности.',
   'home.usageExhaustedCta': 'Оформить подписку',
+  'openrouterFree.cta': 'Использовать бесплатные модели OpenRouter',
+  'openrouterFree.saving': 'Подключение OpenRouter...',
+  'openrouterFree.error':
+    'Не удалось переключиться на бесплатные модели OpenRouter. Проверьте вход в OpenRouter и повторите попытку.',
   'home.routinesCard': 'Ваши подпрограммы',
   'home.routinesActive': '{count} активных',
   'routines.title': 'Ваши рутины',

@@ -201,6 +201,10 @@ const messages: TranslationMap = {
   'home.usageExhaustedBody':
     'আপাতত আপনার অন্তর্ভুক্ত ব্যবহার শেষ। আরও ধারাবাহিক সক্ষমতা আনলক করতে একটি সাবস্ক্রিপশন শুরু করুন।',
   'home.usageExhaustedCta': 'সাবস্ক্রিপশন শুরু করুন',
+  'openrouterFree.cta': 'OpenRouter-এর বিনামূল্যের মডেল ব্যবহার করুন',
+  'openrouterFree.saving': 'OpenRouter সংযুক্ত হচ্ছে...',
+  'openrouterFree.error':
+    'OpenRouter-এর বিনামূল্যের মডেলে স্যুইচ করা যায়নি। আপনার OpenRouter সাইন-ইন পরীক্ষা করে আবার চেষ্টা করুন।',
   'home.routinesCard': 'আপনার রুটিন',
   'home.routinesActive': '{count}টি সক্রিয়',
   'routines.title': 'তোমার বিদ্বান',

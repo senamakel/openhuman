@@ -50,6 +50,7 @@ const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(
     refresh: vi.fn(),
   })),
 }));
+const mockUseOpenRouterFreeModels = vi.hoisted(() => vi.fn());
 
 // ── Module mocks ───────────────────────────────────────────────────────────
 
@@ -116,6 +117,10 @@ vi.mock('../../services/api/agentProfilesApi', () => ({
     upsert: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
     delete: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
   },
+}));
+
+vi.mock('../../services/api/openrouterFreeModels', () => ({
+  applyOpenRouterFreeModels: () => mockUseOpenRouterFreeModels(),
 }));
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
@@ -428,6 +433,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
 
     // Budget-exceeded banner (lines 1417-1439) — cycleBudgetUsd=0 gives "included budget" message
     expect(screen.getByText(/Your included budget is complete/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Use OpenRouter free models/i })).toBeInTheDocument();
 
     // LimitPill renders with the cycle label
     expect(screen.getByText('Cycle')).toBeInTheDocument();
@@ -623,6 +629,37 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
 
     expect(openUrl).toHaveBeenCalled();
+  });
+
+  it('clicking OpenRouter free models in the budget banner routes chat workloads', async () => {
+    const teamUsage = { cycleBudgetUsd: 10, remainingUsd: 0, cycleSpentUsd: 10, cycleEndsAt: null };
+    mockUseOpenRouterFreeModels.mockResolvedValueOnce(undefined);
+
+    mockUseUsageState.mockReturnValue({
+      teamUsage,
+      currentPlan: null,
+      currentTier: 'PRO' as const,
+      isFreeTier: false,
+      usagePct: 1.0,
+      isNearLimit: true,
+      isAtLimit: true,
+      isBudgetExhausted: true,
+      shouldShowBudgetCompletedMessage: true,
+      isLoading: false,
+      refresh: vi.fn(),
+    });
+
+    await act(async () => {
+      await renderConversations({ thread: emptyThreadState });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Use OpenRouter free models/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockUseOpenRouterFreeModels).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('handles /new from the composer without a selected thread or sending chat text', async () => {

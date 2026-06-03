@@ -203,6 +203,10 @@ const messages: TranslationMap = {
   'home.usageExhaustedBody':
     'Kuota penggunaan yang termasuk saat ini sudah habis. Mulai langganan untuk membuka kapasitas berkelanjutan yang lebih besar.',
   'home.usageExhaustedCta': 'Mulai berlangganan',
+  'openrouterFree.cta': 'Gunakan model gratis OpenRouter',
+  'openrouterFree.saving': 'Menghubungkan OpenRouter...',
+  'openrouterFree.error':
+    'Tidak dapat beralih ke model gratis OpenRouter. Periksa login OpenRouter Anda dan coba lagi.',
   'home.routinesCard': 'Rutinitas Anda',
   'home.routinesActive': '{count} aktif',
   'routines.title': 'Rutinitas Anda',

@@ -28,6 +28,7 @@ import {
 } from '../lib/attachments';
 import { useT } from '../lib/i18n/I18nContext';
 import { trackEvent } from '../services/analytics';
+import { applyOpenRouterFreeModels } from '../services/api/openrouterFreeModels';
 import { threadApi } from '../services/api/threadApi';
 import { chatCancel, chatSend, useRustChat } from '../services/chatService';
 import { store } from '../store';
@@ -218,6 +219,7 @@ const Conversations = ({
   const [sendError, setSendError] = useState<ChatSendError | null>(null);
   const [attachError, setAttachError] = useState<ChatSendError | null>(null);
   const [sendAdvisory, setSendAdvisory] = useState<string | null>(null);
+  const [openRouterStatus, setOpenRouterStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [pendingSendingThreadId, setPendingSendingThreadId] = useState<string | null>(null);
   const [profileDraftOpen, setProfileDraftOpen] = useState(false);
   const [profileDraft, setProfileDraft] = useState(DEFAULT_PROFILE_DRAFT);
@@ -328,6 +330,17 @@ const Conversations = ({
     const thread = await dispatch(createNewThread()).unwrap();
     dispatch(setSelectedThread(thread.id));
     void dispatch(loadThreadMessages(thread.id));
+  };
+
+  const handleUseOpenRouterFree = async () => {
+    setOpenRouterStatus('saving');
+    try {
+      await applyOpenRouterFreeModels();
+      setOpenRouterStatus('idle');
+    } catch (err) {
+      console.warn('[chat] applyOpenRouterFreeModels failed', err);
+      setOpenRouterStatus('error');
+    }
   };
 
   const handleStartEditTitle = () => {
@@ -2036,7 +2049,7 @@ const Conversations = ({
                 </div>
               )}
             {teamUsage && shouldShowBudgetCompletedMessage && (
-              <div className="mb-3 p-3 rounded-xl bg-coral-50 border border-coral-200 flex items-center justify-between gap-3">
+              <div className="mb-3 p-3 rounded-xl bg-coral-50 border border-coral-200 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
                   <svg
                     className="w-4 h-4 text-coral-400 flex-shrink-0"
@@ -2050,21 +2063,40 @@ const Conversations = ({
                       d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                     />
                   </svg>
-                  <p className="text-xs text-coral-600 truncate">
+                  <p className="text-xs text-coral-600">
                     {teamUsage.cycleBudgetUsd > 0
                       ? `${t('chat.weeklyLimitHit')}${teamUsage.cycleEndsAt ? ` ${t('chat.resets')} ${formatResetTime(teamUsage.cycleEndsAt)}.` : ''} ${t('chat.topUpToContinue')}`
                       : t('chat.budgetComplete')}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  data-analytics-id="chat-budget-top-up"
-                  onClick={() => {
-                    void openUrl(BILLING_DASHBOARD_URL);
-                  }}
-                  className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-white text-xs font-medium transition-colors">
-                  {t('chat.topUp')}
-                </button>
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    data-analytics-id="chat-budget-openrouter-free"
+                    disabled={openRouterStatus === 'saving'}
+                    onClick={() => {
+                      void handleUseOpenRouterFree();
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-coral-300 bg-white text-coral-700 hover:bg-coral-100 disabled:cursor-wait disabled:opacity-70 text-xs font-medium transition-colors">
+                    {openRouterStatus === 'saving'
+                      ? t('openrouterFree.saving')
+                      : t('openrouterFree.cta')}
+                  </button>
+                  <button
+                    type="button"
+                    data-analytics-id="chat-budget-top-up"
+                    onClick={() => {
+                      void openUrl(BILLING_DASHBOARD_URL);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-white text-xs font-medium transition-colors">
+                    {t('chat.topUp')}
+                  </button>
+                </div>
+              </div>
+            )}
+            {openRouterStatus === 'error' && (
+              <div className="mb-3 rounded-lg border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700">
+                {t('openrouterFree.error')}
               </div>
             )}
 

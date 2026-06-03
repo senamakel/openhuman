@@ -201,6 +201,10 @@ const messages: TranslationMap = {
   'home.usageExhaustedBody':
     'आपकी शामिल उपयोग सीमा अभी समाप्त हो चुकी है। अधिक निरंतर क्षमता अनलॉक करने के लिए सदस्यता शुरू करें।',
   'home.usageExhaustedCta': 'सदस्यता शुरू करें',
+  'openrouterFree.cta': 'OpenRouter के मुफ्त मॉडल इस्तेमाल करें',
+  'openrouterFree.saving': 'OpenRouter कनेक्ट हो रहा है...',
+  'openrouterFree.error':
+    'OpenRouter के मुफ्त मॉडल पर स्विच नहीं हो सका। अपना OpenRouter साइन-इन जांचें और फिर कोशिश करें।',
   'home.routinesCard': 'आपकी रूटीन',
   'home.routinesActive': '{count} सक्रिय',
   'routines.title': 'आपका दिनचर्या',

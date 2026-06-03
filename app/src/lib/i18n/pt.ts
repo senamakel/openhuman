@@ -209,6 +209,10 @@ const messages: TranslationMap = {
   'home.usageExhaustedBody':
     'Seu uso incluído acabou por enquanto. Inicie uma assinatura para desbloquear mais capacidade contínua.',
   'home.usageExhaustedCta': 'Assinar',
+  'openrouterFree.cta': 'Usar modelos grátis da OpenRouter',
+  'openrouterFree.saving': 'Conectando à OpenRouter...',
+  'openrouterFree.error':
+    'Não foi possível mudar para os modelos grátis da OpenRouter. Verifique seu login da OpenRouter e tente novamente.',
   'home.routinesCard': 'Suas Rotinas',
   'home.routinesActive': '{count} ativas',
   'routines.title': 'Seus Hábitos',

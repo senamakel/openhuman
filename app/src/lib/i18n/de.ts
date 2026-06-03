@@ -210,6 +210,10 @@ const messages: TranslationMap = {
   'home.usageExhaustedBody':
     'Dein enthaltenes Nutzungskontingent ist vorerst aufgebraucht. Starte ein Abo, um mehr laufende Kapazität freizuschalten.',
   'home.usageExhaustedCta': 'Abo starten',
+  'openrouterFree.cta': 'Kostenlose OpenRouter-Modelle verwenden',
+  'openrouterFree.saving': 'OpenRouter wird verbunden...',
+  'openrouterFree.error':
+    'Der Wechsel zu kostenlosen OpenRouter-Modellen ist fehlgeschlagen. Prüfe deine OpenRouter-Anmeldung und versuche es erneut.',
   'home.routinesCard': 'Deine Routinen',
   'home.routinesActive': '{count} aktiv',
   'routines.title': 'Ihre Routinen',

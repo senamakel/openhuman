@@ -201,6 +201,10 @@ const messages: TranslationMap = {
   'home.usageExhaustedBody':
     '현재 포함된 사용량을 모두 소진했습니다. 더 많은 지속 용량을 사용하려면 구독을 시작하세요.',
   'home.usageExhaustedCta': '구독 시작',
+  'openrouterFree.cta': 'OpenRouter 무료 모델 사용',
+  'openrouterFree.saving': 'OpenRouter 연결 중...',
+  'openrouterFree.error':
+    'OpenRouter 무료 모델로 전환하지 못했습니다. OpenRouter 로그인을 확인하고 다시 시도하세요.',
   'home.routinesCard': '내 루틴',
   'home.routinesActive': '{count}개 활성',
   'routines.title': '내 루틴',

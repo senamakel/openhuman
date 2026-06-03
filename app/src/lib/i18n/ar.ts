@@ -199,6 +199,10 @@ const messages: TranslationMap = {
   'home.usageExhaustedTitle': 'لقد استنفدت حصتك',
   'home.usageExhaustedBody': 'لقد نفدت حصتك المضمنة حالياً. ابدأ اشتراكاً لفتح سعة إضافية مستمرة.',
   'home.usageExhaustedCta': 'ابدأ الاشتراك',
+  'openrouterFree.cta': 'استخدم نماذج OpenRouter المجانية',
+  'openrouterFree.saving': 'جارٍ الاتصال بـ OpenRouter...',
+  'openrouterFree.error':
+    'تعذر التبديل إلى نماذج OpenRouter المجانية. تحقق من تسجيل الدخول إلى OpenRouter وحاول مرة أخرى.',
   'home.routinesCard': 'روتيناتك',
   'home.routinesActive': '{count} نشطة',
   'routines.title': 'روتيناتك',

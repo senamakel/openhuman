@@ -123,6 +123,9 @@ fn build_front_matter(chunk: &Chunk) -> Vec<u8> {
     fm.push_str(&format!("source_kind: {}\n", meta.source_kind.as_str()));
     // Escape backslashes and quotes in source_id for safety.
     fm.push_str(&format!("source_id: {}\n", yaml_scalar(&meta.source_id)));
+    if let Some(path_scope) = meta.path_scope.as_deref() {
+        fm.push_str(&format!("path_scope: {}\n", yaml_scalar(path_scope)));
+    }
     fm.push_str(&format!("seq: {}\n", chunk.seq_in_source));
     fm.push_str(&format!("owner: {}\n", yaml_scalar(&meta.owner)));
     fm.push_str(&format!("timestamp: {ts}\n"));
@@ -137,6 +140,12 @@ fn build_front_matter(chunk: &Chunk) -> Vec<u8> {
     // up `source/<slug>` for every chunk regardless of what the
     // ingest-side tag list contained.
     let source_scope = meta.path_scope.as_deref().unwrap_or(&meta.source_id);
+    log::debug!(
+        "[content_store::compose] seeding source tag source_id={} source_scope={} path_scope={}",
+        meta.source_id,
+        source_scope,
+        meta.path_scope.is_some()
+    );
     let seeded_tags = with_source_tag(source_scope, &meta.tags);
     fm.push_str("tags:\n");
     for tag in &seeded_tags {
@@ -667,6 +676,21 @@ mod tests {
             body,
             b"## 2026-01-01T00:00:00Z \xe2\x80\x94 alice\nhello world"
         );
+    }
+
+    #[test]
+    fn compose_persists_path_scope_and_seeds_scoped_source_tag() {
+        let mut chunk = sample_chunk();
+        chunk.metadata.source_id = "notion:conn-1:page-123".into();
+        chunk.metadata.path_scope = Some("notion:conn-1".into());
+
+        let (full, _) = compose_chunk_file(&chunk);
+        let full_str = std::str::from_utf8(&full).unwrap();
+
+        assert!(full_str.contains("source_id: \"notion:conn-1:page-123\""));
+        assert!(full_str.contains("path_scope: \"notion:conn-1\""));
+        assert!(full_str.contains("  - source/notion-conn-1"));
+        assert!(!full_str.contains("  - source/notion-conn-1-page-123"));
     }
 
     #[test]

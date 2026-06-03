@@ -83,6 +83,60 @@ pub fn auth_key_for_slug(slug: &str) -> String {
     format!("provider:{slug}")
 }
 
+/// Resolve a model hint (e.g. `"hint:reasoning"`) or tier name to the
+/// concrete model string that the provider router would use — without
+/// constructing the actual provider.  Returns the provider-string prefix
+/// (e.g. `"openai"`) concatenated with the model when a BYOK provider is
+/// active, or the bare tier name for the managed OpenHuman backend.
+pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
+    let HINT_TO_TIER: &[(&str, &str)] = &[
+        ("reasoning", crate::openhuman::config::MODEL_REASONING_V1),
+        ("chat", crate::openhuman::config::MODEL_REASONING_QUICK_V1),
+        ("agentic", crate::openhuman::config::MODEL_AGENTIC_V1),
+        ("coding", crate::openhuman::config::MODEL_CODING_V1),
+        ("summarization", "summarization-v1"),
+    ];
+    let TIER_TO_ROLE: &[(&str, &str)] = &[
+        (crate::openhuman::config::MODEL_REASONING_V1, "reasoning"),
+        (crate::openhuman::config::MODEL_REASONING_QUICK_V1, "chat"),
+        (crate::openhuman::config::MODEL_AGENTIC_V1, "agentic"),
+        (crate::openhuman::config::MODEL_CODING_V1, "coding"),
+        ("chat-v1", "chat"),
+        ("summarization-v1", "summarization"),
+    ];
+
+    let (tier, role) = if let Some(hint_key) = hint_or_tier.strip_prefix("hint:") {
+        let tier = HINT_TO_TIER
+            .iter()
+            .find(|(k, _)| *k == hint_key)
+            .map(|(_, v)| *v)
+            .unwrap_or(hint_or_tier);
+        let role = TIER_TO_ROLE
+            .iter()
+            .find(|(k, _)| *k == tier)
+            .map(|(_, v)| *v)
+            .unwrap_or(hint_key);
+        (tier, role)
+    } else {
+        let role = TIER_TO_ROLE
+            .iter()
+            .find(|(k, _)| *k == hint_or_tier)
+            .map(|(_, v)| *v)
+            .unwrap_or("chat");
+        (hint_or_tier, role)
+    };
+
+    let provider_string = provider_for_role(role, config);
+    let ps = provider_string.trim();
+    if ps.is_empty() || ps == "cloud" || ps == PROVIDER_OPENHUMAN {
+        tier.to_string()
+    } else if let Some(idx) = ps.find(':') {
+        ps[idx + 1..].to_string()
+    } else {
+        ps.to_string()
+    }
+}
+
 /// Return whether `model` is a recognized OpenHuman backend tier name.
 ///
 /// Used to guard against stale `default_model` values (e.g. set by older UI

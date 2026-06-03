@@ -58,6 +58,20 @@ pub(crate) struct NativeChatRequest {
     /// streamed sessions (typically the orchestrator).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) stream_options: Option<OpenAiStreamOptions>,
+    /// Ollama-specific `options` block (e.g. `{"num_ctx": 32768}`).
+    /// Injected by the factory when the provider profile declares a
+    /// `num_ctx` override. Ignored (skipped) for non-Ollama providers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) options: Option<OllamaOptions>,
+}
+
+/// Ollama-specific request options passed in the `options` field.
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct OllamaOptions {
+    /// Context window size override. Ollama defaults to 2048 for many
+    /// models; setting this ensures the model allocates enough KV-cache.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) num_ctx: Option<u32>,
 }
 
 /// OpenAI-spec `stream_options` payload (sent on the wire). Distinct from

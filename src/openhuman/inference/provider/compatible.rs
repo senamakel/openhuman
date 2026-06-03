@@ -88,6 +88,14 @@ pub struct OpenAiCompatibleProvider {
     /// HTTP 400 on `tools` for many models — making prompt-guided text
     /// tool specs the only path that works across the Ollama model zoo.
     native_tool_calling: bool,
+    /// Ollama-specific `options.num_ctx` override. When set, every request
+    /// to this provider includes `"options": {"num_ctx": <value>}` in the
+    /// body so Ollama allocates the requested KV-cache size.
+    pub(crate) ollama_num_ctx: Option<u32>,
+    /// The local provider kind, if this is a local provider.
+    /// Used for profile-aware context window resolution and diagnostics.
+    pub(crate) local_provider_kind:
+        Option<crate::openhuman::inference::local::profile::LocalProviderKind>,
 }
 
 /// How the provider expects the API key to be sent.
@@ -241,6 +249,8 @@ impl OpenAiCompatibleProvider {
             temperature_unsupported_models: Vec::new(),
             temperature_override: None,
             native_tool_calling: true,
+            ollama_num_ctx: None,
+            local_provider_kind: None,
         }
     }
 
@@ -266,6 +276,23 @@ impl OpenAiCompatibleProvider {
     /// Set by the factory when the provider string carries an `@<temp>` suffix.
     pub fn with_temperature_override(mut self, temperature: Option<f64>) -> Self {
         self.temperature_override = temperature;
+        self
+    }
+
+    /// Set the Ollama `options.num_ctx` override. When set, the provider
+    /// includes `"options": {"num_ctx": <value>}` in every request body.
+    pub fn with_ollama_num_ctx(mut self, num_ctx: Option<u32>) -> Self {
+        self.ollama_num_ctx = num_ctx;
+        self
+    }
+
+    /// Tag this provider with its local provider kind for profile-aware
+    /// context window resolution and diagnostics.
+    pub fn with_local_provider_kind(
+        mut self,
+        kind: crate::openhuman::inference::local::profile::LocalProviderKind,
+    ) -> Self {
+        self.local_provider_kind = Some(kind);
         self
     }
 
@@ -1832,6 +1859,7 @@ impl Provider for OpenAiCompatibleProvider {
                 stream_options: Some(OpenAiStreamOptions {
                     include_usage: true,
                 }),
+                options: self.build_ollama_options(),
             };
             let stream_dump_seq = reserve_dump_seq();
             dump_prompt_if_enabled(&self.name, model, stream_dump_seq, &native_request);
@@ -1902,6 +1930,7 @@ impl Provider for OpenAiCompatibleProvider {
             tools,
             thread_id,
             stream_options: None,
+            options: self.build_ollama_options(),
         };
         let dump_seq = reserve_dump_seq();
         dump_prompt_if_enabled(&self.name, model, dump_seq, &native_request);

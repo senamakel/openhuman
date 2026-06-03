@@ -65,6 +65,7 @@ fn native_request_emits_thread_id_when_present() {
         tool_choice: None,
         thread_id: Some("thread-abc".to_string()),
         stream_options: None,
+        options: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert_eq!(
@@ -82,6 +83,7 @@ fn native_request_emits_thread_id_when_present() {
         tool_choice: None,
         thread_id: None,
         stream_options: None,
+        options: None,
     };
     let json_no_thread = serde_json::to_value(&req_no_thread).unwrap();
     assert!(
@@ -108,6 +110,7 @@ fn streaming_request_sets_stream_options_include_usage() {
         stream_options: Some(super::compatible_types::OpenAiStreamOptions {
             include_usage: true,
         }),
+        options: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert_eq!(
@@ -129,11 +132,56 @@ fn non_streaming_request_omits_stream_options() {
         tool_choice: None,
         thread_id: None,
         stream_options: None,
+        options: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert!(
         json.get("stream_options").is_none(),
         "non-streaming requests must not emit stream_options (OpenAI rejects it on stream=false)"
+    );
+}
+
+#[test]
+fn ollama_options_num_ctx_serializes_correctly() {
+    let req = super::NativeChatRequest {
+        model: "qwen3:14b".to_string(),
+        messages: Vec::new(),
+        temperature: Some(0.7),
+        stream: Some(false),
+        tools: None,
+        tool_choice: None,
+        thread_id: None,
+        stream_options: None,
+        options: Some(super::compatible_types::OllamaOptions {
+            num_ctx: Some(32768),
+        }),
+    };
+    let json = serde_json::to_value(&req).unwrap();
+    assert_eq!(
+        json.pointer("/options/num_ctx")
+            .and_then(|v| v.as_u64()),
+        Some(32768),
+        "Ollama num_ctx must appear at options.num_ctx in serialized body"
+    );
+}
+
+#[test]
+fn ollama_options_none_is_omitted() {
+    let req = super::NativeChatRequest {
+        model: "gpt-4o".to_string(),
+        messages: Vec::new(),
+        temperature: Some(0.7),
+        stream: Some(false),
+        tools: None,
+        tool_choice: None,
+        thread_id: None,
+        stream_options: None,
+        options: None,
+    };
+    let json = serde_json::to_value(&req).unwrap();
+    assert!(
+        json.get("options").is_none(),
+        "options field must be omitted when None (non-Ollama providers)"
     );
 }
 
@@ -544,6 +592,7 @@ async fn streaming_chat_config_rejection_propagates_error_without_sentry_report(
         stream_options: Some(super::compatible_types::OpenAiStreamOptions {
             include_usage: true,
         }),
+        options: None,
     };
     let (delta_tx, _delta_rx) = tokio::sync::mpsc::channel(8);
 

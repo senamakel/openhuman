@@ -1686,3 +1686,77 @@ fn config_api_key_fallback_inert_without_inference_url() {
         "without inference_url there is no legacy slug — fallback must stay inert",
     );
 }
+
+// ── Local provider profile tests ─────────────────────────────────────────────
+
+#[test]
+fn mlx_provider_string_resolves() {
+    let config = Config::default();
+    let result = create_chat_provider_from_string("chat", "mlx:llama-3.1-8b", &config);
+    assert!(result.is_ok(), "mlx provider must resolve");
+    let (_, model) = result.unwrap();
+    assert_eq!(model, "llama-3.1-8b");
+}
+
+#[test]
+fn local_openai_provider_string_resolves() {
+    let config = Config::default();
+    let result = create_chat_provider_from_string("chat", "local-openai:phi3", &config);
+    assert!(result.is_ok(), "local-openai provider must resolve");
+    let (_, model) = result.unwrap();
+    assert_eq!(model, "phi3");
+}
+
+#[test]
+fn mlx_provider_empty_model_errors() {
+    let config = Config::default();
+    let result = create_chat_provider_from_string("chat", "mlx:", &config);
+    let err = result.err().expect("mlx: with empty model must error");
+    assert!(err.to_string().contains("empty model"));
+}
+
+#[test]
+fn local_openai_provider_empty_model_errors() {
+    let config = Config::default();
+    let result = create_chat_provider_from_string("chat", "local-openai:", &config);
+    let err = result
+        .err()
+        .expect("local-openai: with empty model must error");
+    assert!(err.to_string().contains("empty model"));
+}
+
+#[test]
+fn ollama_provider_passes_num_ctx() {
+    let mut config = Config::default();
+    config.local_ai.num_ctx = Some(32768);
+    let result = create_chat_provider_from_string("chat", "ollama:qwen3:14b", &config);
+    assert!(result.is_ok());
+    // The provider is constructed — num_ctx is set on the provider instance.
+    // Full integration test verifying the serialized body is in the JSON-RPC
+    // E2E suite; here we just confirm the factory doesn't reject it.
+}
+
+#[test]
+fn byok_fallback_skips_mlx_and_local_openai() {
+    let mut config = Config::default();
+    config.chat_provider = Some("mlx:llama3".to_string());
+    config.reasoning_provider = Some("local-openai:phi3".to_string());
+    // Neither should be picked up as a BYOK fallback
+    let result = resolve_byok_fallback_provider_string(&config);
+    assert!(
+        result.is_none(),
+        "local providers must not be BYOK fallbacks"
+    );
+}
+
+#[test]
+fn local_provider_string_detection() {
+    use crate::openhuman::inference::local::profile::is_local_provider_string;
+    assert!(is_local_provider_string("ollama:phi3"));
+    assert!(is_local_provider_string("lmstudio:model"));
+    assert!(is_local_provider_string("mlx:llama"));
+    assert!(is_local_provider_string("local-openai:qwen2"));
+    assert!(!is_local_provider_string("openai:gpt-4o"));
+    assert!(!is_local_provider_string("openhuman"));
+    assert!(!is_local_provider_string("cloud"));
+}

@@ -90,6 +90,7 @@ pub mod screen_intelligence;
 pub mod search;
 pub mod security;
 pub mod service;
+pub mod session_db;
 pub mod skills;
 pub mod socket;
 pub mod startup;

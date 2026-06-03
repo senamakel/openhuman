@@ -275,6 +275,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::whatsapp_data::all_whatsapp_data_registered_controllers());
     // Mobile device pairing and management
     controllers.extend(crate::openhuman::devices::all_devices_registered_controllers());
+    // Durable agent session database — queryable index over transcripts, lineage, tool calls
+    controllers.extend(crate::openhuman::session_db::all_session_db_registered_controllers());
     controllers
 }
 
@@ -391,6 +393,8 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::whatsapp_data::all_whatsapp_data_controller_schemas());
     // Mobile device pairing and management
     schemas.extend(crate::openhuman::devices::all_devices_controller_schemas());
+    // Durable agent session database
+    schemas.extend(crate::openhuman::session_db::all_session_db_controller_schemas());
     schemas
 }
 

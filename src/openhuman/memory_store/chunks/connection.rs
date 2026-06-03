@@ -314,6 +314,9 @@ fn apply_schema(conn: &Connection) -> Result<()> {
          ON mem_tree_chunks(lifecycle_status);",
     )
     .context("Failed to create mem_tree_chunks lifecycle index")?;
+    // Source grouping scope. Documents can keep item-level source_id for
+    // dedupe while grouping chunk files and source trees under this scope.
+    add_column_if_missing(conn, "mem_tree_chunks", "path_scope", "TEXT")?;
     // Phase MD-content (#TBD): pointer + integrity hash.
     add_column_if_missing(conn, "mem_tree_chunks", "content_path", "TEXT")?;
     add_column_if_missing(conn, "mem_tree_chunks", "content_sha256", "TEXT")?;

@@ -234,6 +234,7 @@ Watch out for Tauri plugins that inject JS by default. `tauri-plugin-opener` shi
 - **Controller-only exposure**: expose features to CLI and JSON-RPC via the controller registry. **Do not** add domain branches in `src/core/cli.rs` / `src/core/jsonrpc.rs`.
 - **Light `mod.rs`**: keep domain `mod.rs` export-focused. Operational code in `ops.rs`, `store.rs`, `types.rs`, etc. See **Canonical module shape** below for the full per-file contract.
 - **`src/core/`** — Transport only. Modules: `all`, `all_tests`, `auth`, `autocomplete_cli_adapter`, `cli`, `cli_tests`, `dispatch`, `event_bus/`, `jsonrpc`, `jsonrpc_tests`, `legacy_aliases`, `logging`, `memory_cli`, `observability`, `rpc_log`, `shutdown`, `socketio`, `types`, plus `agent_cli`. No heavy domain logic here. (There is no `src/core_server/` — older docs that reference `core_server` mean `src/core/`.)
+- **Memory source identity**: per-item selector IDs (Notion page, GitHub issue/PR, Linear issue, ClickUp task) are document dedupe keys only. Do not use them as source tree / raw archive / Obsidian source-tag identity; set `metadata.path_scope` via `ingest_document_with_scope` to the stable collection scope such as `<provider>:<connection_id>` or `github.com/<owner>/<repo>`.
 
 ### Canonical module shape
 

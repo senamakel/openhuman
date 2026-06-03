@@ -55,6 +55,20 @@ fn upsert_then_get() {
 }
 
 #[test]
+fn upsert_persists_path_scope() {
+    let (_tmp, cfg) = test_config();
+    let mut c = sample_chunk("notion:conn-1:page-abc", 0, 1_700_000_000_000);
+    c.metadata.source_kind = SourceKind::Document;
+    c.metadata.path_scope = Some("notion:conn-1".to_string());
+
+    assert_eq!(upsert_chunks(&cfg, &[c.clone()]).unwrap(), 1);
+
+    let got = get_chunk(&cfg, &c.id).unwrap().expect("chunk stored");
+    assert_eq!(got.metadata.source_id, "notion:conn-1:page-abc");
+    assert_eq!(got.metadata.path_scope.as_deref(), Some("notion:conn-1"));
+}
+
+#[test]
 fn upsert_is_idempotent() {
     let (_tmp, cfg) = test_config();
     let c = sample_chunk("slack:#eng", 0, 1_700_000_000_000);
@@ -866,10 +880,11 @@ fn empty_batch_is_noop() {
 
 #[test]
 fn schema_has_content_path_and_content_sha256_columns() {
-    // Phase MD-content: verify that with_connection applies the additive
-    // migrations for the new pointer + hash columns on a fresh DB.
+    // Verify that with_connection applies additive migrations for content
+    // pointers and source grouping scope on a fresh DB.
     let (_tmp, cfg) = test_config();
     with_connection(&cfg, |conn| {
+        let mut has_path_scope = false;
         let mut has_content_path = false;
         let mut has_content_sha256 = false;
         let mut stmt = conn.prepare("PRAGMA table_info(mem_tree_chunks)")?;
@@ -878,6 +893,9 @@ fn schema_has_content_path_and_content_sha256_columns() {
             .filter_map(|r| r.ok())
             .collect();
         for name in &names {
+            if name == "path_scope" {
+                has_path_scope = true;
+            }
             if name == "content_path" {
                 has_content_path = true;
             }
@@ -885,6 +903,10 @@ fn schema_has_content_path_and_content_sha256_columns() {
                 has_content_sha256 = true;
             }
         }
+        assert!(
+            has_path_scope,
+            "mem_tree_chunks must have path_scope column after migration; found: {names:?}"
+        );
         assert!(
             has_content_path,
             "mem_tree_chunks must have content_path column after migration; found: {names:?}"

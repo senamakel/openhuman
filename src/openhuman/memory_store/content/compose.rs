@@ -47,22 +47,22 @@ pub const MEMORY_ARTIFACT_FORMAT: u32 = 2;
 pub const OPENHUMAN_CORE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Build the canonical Obsidian `source/<slug>` tag for a given
-/// `source_id`. Used to seed the `tags:` block on every chunk and
+/// source scope. Used to seed the `tags:` block on every chunk and
 /// every source-tree summary so the Obsidian graph view can filter by
 /// source.
 ///
 /// Slug rules match `slugify_source_id` (lowercase ASCII, `-` separators,
 /// alphanumerics + `_` preserved) so the tag matches the on-disk
 /// `raw/<slug>/...` directory name byte-for-byte.
-pub fn source_tag(source_id: &str) -> String {
-    format!("source/{}", slugify_source_id(source_id))
+pub fn source_tag(scope: &str) -> String {
+    format!("source/{}", slugify_source_id(scope))
 }
 
 /// Prepend the source tag to `tags`, dedup, and return the new list.
 /// Order is preserved otherwise — `source/...` always comes first so
 /// it shows up at the top of the YAML block.
-pub fn with_source_tag(source_id: &str, tags: &[String]) -> Vec<String> {
-    let st = source_tag(source_id);
+pub fn with_source_tag(scope: &str, tags: &[String]) -> Vec<String> {
+    let st = source_tag(scope);
     let mut out = Vec::with_capacity(tags.len() + 1);
     out.push(st.clone());
     for t in tags {
@@ -136,7 +136,8 @@ fn build_front_matter(chunk: &Chunk) -> Vec<u8> {
     // Always seed the source tag so the Obsidian graph filter can pick
     // up `source/<slug>` for every chunk regardless of what the
     // ingest-side tag list contained.
-    let seeded_tags = with_source_tag(&meta.source_id, &meta.tags);
+    let source_scope = meta.path_scope.as_deref().unwrap_or(&meta.source_id);
+    let seeded_tags = with_source_tag(source_scope, &meta.tags);
     fm.push_str("tags:\n");
     for tag in &seeded_tags {
         fm.push_str(&format!("  - {}\n", yaml_scalar(tag)));

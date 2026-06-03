@@ -458,6 +458,53 @@ export async function openhumanUpdateAutonomySettings(
   });
 }
 
+// ── Sandbox execution backend settings ───────────────────────────────────────
+
+export type SandboxBackendId = 'auto' | 'docker' | 'landlock' | 'firejail' | 'bubblewrap' | 'none';
+
+/** Current sandbox settings returned by config_get_sandbox_settings. */
+export interface SandboxSettings {
+  enabled: boolean;
+  backend: SandboxBackendId;
+  docker_image: string;
+  docker_memory_limit_mb: number | null;
+  docker_cpu_limit: number | null;
+  docker_available: boolean;
+  detected_backend: string;
+  env_passthrough: string[];
+}
+
+/** Partial update — omitted fields are left unchanged. */
+export interface SandboxSettingsUpdate {
+  backend?: SandboxBackendId;
+  enabled?: boolean;
+  docker_image?: string;
+  docker_memory_limit_mb?: number;
+  docker_cpu_limit?: number;
+  env_passthrough?: string[];
+}
+
+export async function openhumanGetSandboxSettings(): Promise<CommandResponse<SandboxSettings>> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<SandboxSettings>>({
+    method: CORE_RPC_METHODS.configGetSandboxSettings,
+  });
+}
+
+export async function openhumanUpdateSandboxSettings(
+  update: SandboxSettingsUpdate
+): Promise<CommandResponse<ConfigSnapshot>> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
+    method: CORE_RPC_METHODS.configUpdateSandboxSettings,
+    params: update,
+  });
+}
+
 // ── Agent execution settings (action/tool timeout) ──────────────────────────
 
 /** Agent execution settings as returned by config_get_agent_settings. */

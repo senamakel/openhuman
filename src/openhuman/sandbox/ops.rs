@@ -15,7 +15,7 @@ use std::process::Command;
 use std::time::Duration;
 
 /// Safe environment variables forwarded into sandboxed execution.
-const SANDBOX_ENV_PASSTHROUGH: &[&str] = &[
+pub const SANDBOX_ENV_PASSTHROUGH: &[&str] = &[
     "PATH", "HOME", "TERM", "LANG", "LC_ALL", "LC_CTYPE", "USER", "SHELL", "TMPDIR",
 ];
 

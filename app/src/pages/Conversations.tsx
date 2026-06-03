@@ -253,24 +253,76 @@ const Conversations = ({
     let cancelled = false;
     (async () => {
       try {
-        const res = await callCoreRpc<{ result: { default_model?: string | null; model_routes?: Array<{ hint: string; model: string }> }}>({
+        const res = await callCoreRpc<{ result: {
+          default_model?: string | null;
+          model_routes?: Array<{ hint: string; model: string }>;
+          chat_provider?: string | null;
+          reasoning_provider?: string | null;
+          agentic_provider?: string | null;
+          coding_provider?: string | null;
+        }}>({
           method: 'openhuman.inference_get_client_config',
         });
         if (cancelled) return;
         const cfg = res.result;
         const profile = agentProfiles.find(p => p.id === selectedAgentProfileId);
         const override = profile?.modelOverride ?? null;
+
+        const HINT_TO_TIER: Record<string, string> = {
+          reasoning: 'reasoning-v1',
+          chat: 'reasoning-quick-v1',
+          agentic: 'agentic-v1',
+          coding: 'coding-v1',
+          summarization: 'summarization-v1',
+        };
+        const TIER_TO_ROLE: Record<string, string> = {
+          'reasoning-v1': 'reasoning',
+          'reasoning-quick-v1': 'chat',
+          'agentic-v1': 'agentic',
+          'coding-v1': 'coding',
+          'chat-v1': 'chat',
+          'summarization-v1': 'summarization',
+        };
+        const providerForRole = (role: string): string | null => {
+          const map: Record<string, string | null | undefined> = {
+            chat: cfg.chat_provider,
+            reasoning: cfg.reasoning_provider,
+            agentic: cfg.agentic_provider,
+            coding: cfg.coding_provider,
+          };
+          const p = map[role]?.trim();
+          return p && p !== 'cloud' ? p : null;
+        };
+        const extractModelFromProvider = (provider: string): string => {
+          const colon = provider.indexOf(':');
+          return colon > 0 ? provider.slice(colon + 1) : provider;
+        };
+
+        let model: string;
         if (override) {
           const hintKey = override.startsWith('hint:') ? override.slice(5) : null;
           if (hintKey) {
             const route = cfg.model_routes?.find(r => r.hint === hintKey);
-            setResolvedModel(route?.model ?? override);
+            if (route) {
+              model = route.model;
+            } else {
+              const tier = HINT_TO_TIER[hintKey];
+              const role = tier ? TIER_TO_ROLE[tier] : hintKey;
+              const providerStr = role ? providerForRole(role) : null;
+              model = providerStr ? extractModelFromProvider(providerStr) : (tier ?? override);
+            }
           } else {
-            setResolvedModel(override);
+            const role = TIER_TO_ROLE[override];
+            const providerStr = role ? providerForRole(role) : null;
+            model = providerStr ? extractModelFromProvider(providerStr) : override;
           }
         } else {
-          setResolvedModel(cfg.default_model ?? 'reasoning-quick-v1');
+          const providerStr = providerForRole('chat');
+          model = providerStr
+            ? extractModelFromProvider(providerStr)
+            : (cfg.default_model ?? 'reasoning-quick-v1');
         }
+        setResolvedModel(model);
       } catch {
         // Config not available (e.g. core not ready yet)
       }

@@ -16,6 +16,10 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const hoisted = vi.hoisted(() => ({
   listTurnStates: vi.fn(),
+  createNewThread: vi.fn(),
+  updateTitle: vi.fn(),
+  appendMessage: vi.fn(),
+  chatSend: vi.fn(),
   todosList: vi.fn(),
   todosAdd: vi.fn(),
   todosEdit: vi.fn(),
@@ -24,12 +28,21 @@ const hoisted = vi.hoisted(() => ({
   selectorResult: {
     chatRuntime: { taskBoardByThread: {} as Record<string, unknown> },
     thread: { threads: [] as unknown[] },
+    agentProfiles: { activeProfileId: 'agent-profile-1' },
+    locale: { current: 'en' },
   },
 }));
 
 vi.mock('../../../services/api/threadApi', () => ({
-  threadApi: { listTurnStates: hoisted.listTurnStates },
+  threadApi: {
+    listTurnStates: hoisted.listTurnStates,
+    createNewThread: hoisted.createNewThread,
+    updateTitle: hoisted.updateTitle,
+    appendMessage: hoisted.appendMessage,
+  },
 }));
+
+vi.mock('../../../services/chatService', () => ({ chatSend: hoisted.chatSend }));
 
 vi.mock('../../../services/api/todosApi', () => ({
   TASK_SOURCES_THREAD_ID: 'task-sources',
@@ -48,6 +61,11 @@ vi.mock('../../../store/hooks', () => ({
     selector(hoisted.selectorResult),
   useAppDispatch: () => vi.fn(),
 }));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => vi.fn() };
+});
 
 // Stub the composer so we can drive its `onCreated` callback without
 // exercising its internals.
@@ -85,11 +103,13 @@ vi.mock('../../../pages/conversations/components/TaskKanbanBoard', () => ({
     headerTitleKey,
     onMove,
     onDeleteCard,
+    onWorkTask,
   }: {
     board: { threadId: string; cards: { id: string; title: string; status: string }[] };
     headerTitleKey?: string;
     onMove?: (card: unknown, status: string) => void;
     onDeleteCard?: (card: unknown) => void;
+    onWorkTask?: (card: unknown) => void;
   }) => (
     <div data-testid="kanban-stub">
       <span>{board.threadId}</span>
@@ -105,6 +125,11 @@ vi.mock('../../../pages/conversations/components/TaskKanbanBoard', () => ({
       {onDeleteCard && (
         <button type="button" onClick={() => onDeleteCard(board.cards[0])}>
           stub-delete
+        </button>
+      )}
+      {onWorkTask && (
+        <button type="button" onClick={() => onWorkTask(board.cards[0])}>
+          stub-work-task
         </button>
       )}
     </div>
@@ -139,6 +164,10 @@ describe('IntelligenceTasksTab', () => {
   beforeEach(() => {
     vi.resetModules();
     hoisted.listTurnStates.mockReset();
+    hoisted.createNewThread.mockReset();
+    hoisted.updateTitle.mockReset();
+    hoisted.appendMessage.mockReset();
+    hoisted.chatSend.mockReset();
     hoisted.todosList.mockReset();
     hoisted.todosAdd.mockReset();
     hoisted.todosEdit.mockReset();
@@ -146,8 +175,39 @@ describe('IntelligenceTasksTab', () => {
     hoisted.todosRemove.mockReset();
     hoisted.selectorResult.chatRuntime.taskBoardByThread = {};
     hoisted.selectorResult.thread.threads = [];
+    hoisted.selectorResult.agentProfiles.activeProfileId = 'agent-profile-1';
+    hoisted.selectorResult.locale.current = 'en';
     // Sensible defaults: empty personal board, no agent boards.
     hoisted.listTurnStates.mockResolvedValue([]);
+    hoisted.createNewThread.mockResolvedValue({
+      id: 'thread-agent-task',
+      title: 'Agent task',
+      labels: ['agent-task'],
+      chatId: null,
+      isActive: true,
+      messageCount: 0,
+      lastMessageAt: '2026-01-01T00:00:00Z',
+      createdAt: '2026-01-01T00:00:00Z',
+    });
+    hoisted.updateTitle.mockResolvedValue({
+      id: 'thread-agent-task',
+      title: 'Agent task: My personal task',
+      labels: ['agent-task'],
+      chatId: null,
+      isActive: true,
+      messageCount: 0,
+      lastMessageAt: '2026-01-01T00:00:00Z',
+      createdAt: '2026-01-01T00:00:00Z',
+    });
+    hoisted.appendMessage.mockResolvedValue({
+      id: 'msg-1',
+      content: 'Work this approved agent task from the task board.',
+      type: 'text',
+      extraMetadata: {},
+      sender: 'user',
+      createdAt: '2026-01-01T00:00:00Z',
+    });
+    hoisted.chatSend.mockResolvedValue(undefined);
     hoisted.todosList.mockImplementation((threadId: string) =>
       Promise.resolve(makeBoard(threadId, []))
     );
@@ -345,6 +405,76 @@ describe('IntelligenceTasksTab', () => {
     fireEvent.click(screen.getByText('stub-move'));
     await waitFor(() => expect(hoisted.todosUpdateStatus).toHaveBeenCalledTimes(1));
     expect(hoisted.todosUpdateStatus).toHaveBeenCalledWith('user-tasks', 'card-0', 'in_progress');
+  });
+
+  test('starts a labeled agent-task thread from a personal task', async () => {
+    hoisted.todosList.mockImplementation((threadId: string) =>
+      Promise.resolve(
+        threadId === 'user-tasks'
+          ? {
+              threadId: 'user-tasks',
+              cards: [
+                {
+                  id: 'personal-1',
+                  title: 'Implement task source worker',
+                  status: 'todo',
+                  objective: 'Ship the task source worker flow',
+                  notes: 'Use the approved plan.',
+                  plan: ['Read the source issue', 'Implement the flow'],
+                  acceptanceCriteria: ['Agent thread is labeled'],
+                  allowedTools: ['shell', 'edit'],
+                  order: 0,
+                  updatedAt: '2026-01-01T00:00:00Z',
+                },
+              ],
+              updatedAt: '2026-01-01T00:00:00Z',
+            }
+          : makeBoard(threadId, [])
+      )
+    );
+    hoisted.todosUpdateStatus.mockResolvedValue(
+      makeBoard('user-tasks', ['Implement task source worker'])
+    );
+
+    vi.resetModules();
+    const Tab = await importTab();
+    renderTab(Tab);
+    await waitFor(() => {
+      expect(screen.getByText('Implement task source worker')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('stub-work-task'));
+
+    await waitFor(() => expect(hoisted.createNewThread).toHaveBeenCalledWith(['agent-task']));
+    expect(hoisted.updateTitle).toHaveBeenCalledWith(
+      'thread-agent-task',
+      'Agent task: Implement task source worker'
+    );
+    expect(hoisted.appendMessage).toHaveBeenCalledWith(
+      'thread-agent-task',
+      expect.objectContaining({
+        content: expect.stringContaining('Task: Implement task source worker'),
+        sender: 'user',
+        extraMetadata: expect.objectContaining({
+          source: 'agent-task-board',
+          taskCardId: 'personal-1',
+        }),
+      })
+    );
+    expect(hoisted.todosUpdateStatus).toHaveBeenCalledWith(
+      'user-tasks',
+      'personal-1',
+      'in_progress'
+    );
+    expect(hoisted.chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: 'thread-agent-task',
+        message: expect.stringContaining('Acceptance criteria:'),
+        model: 'reasoning-v1',
+        profileId: 'agent-profile-1',
+        locale: 'en',
+      })
+    );
   });
 
   test('deletes a personal card via the todos RPC', async () => {

@@ -7,6 +7,7 @@ import {
   LuClipboardList,
   LuDatabase,
   LuExternalLink,
+  LuPlay,
   LuRefreshCw,
   LuShieldCheck,
   LuWrench,
@@ -94,6 +95,9 @@ interface TaskKanbanBoardProps {
   onDeleteCard?: (card: TaskBoardCard) => void;
   /** Approve/reject a card awaiting plan approval. */
   onDecidePlan?: (card: TaskBoardCard, approve: boolean) => void;
+  /** Start work on a card from a higher-level task board. */
+  onWorkTask?: (card: TaskBoardCard) => void;
+  workingCardId?: string | null;
 }
 
 export function TaskKanbanBoard({
@@ -105,6 +109,8 @@ export function TaskKanbanBoard({
   onUpdateCard,
   onDeleteCard,
   onDecidePlan,
+  onWorkTask,
+  workingCardId = null,
 }: TaskKanbanBoardProps) {
   const { t } = useT();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -188,6 +194,8 @@ export function TaskKanbanBoard({
                   onMove={onMove ? moveCard : undefined}
                   hasBriefActions={Boolean(onUpdateCard || onDeleteCard)}
                   onDecidePlan={onDecidePlan}
+                  onWorkTask={onWorkTask}
+                  working={workingCardId === card.id}
                   onOpenBrief={() => setSelectedCardId(card.id)}
                 />
               ))}
@@ -215,6 +223,8 @@ function TaskBoardArticle({
   onMove,
   hasBriefActions,
   onDecidePlan,
+  onWorkTask,
+  working,
   onOpenBrief,
 }: {
   card: TaskBoardCard;
@@ -223,6 +233,8 @@ function TaskBoardArticle({
   onMove?: (card: TaskBoardCard, direction: -1 | 1) => void;
   hasBriefActions: boolean;
   onDecidePlan?: (card: TaskBoardCard, approve: boolean) => void;
+  onWorkTask?: (card: TaskBoardCard) => void;
+  working: boolean;
   onOpenBrief: () => void;
 }) {
   const { t } = useT();
@@ -253,6 +265,18 @@ function TaskBoardArticle({
               {t('chat.approval.deny')}
             </button>
           </div>
+        ) : onWorkTask && card.status !== 'done' ? (
+          <button
+            type="button"
+            title={t('conversations.taskKanban.workTask')}
+            disabled={disabled || working}
+            onClick={() => onWorkTask(card)}
+            className="inline-flex flex-shrink-0 items-center gap-1 rounded-md bg-ocean-600 px-1.5 py-0.5 text-[10px] font-medium text-white transition-colors hover:bg-ocean-700 disabled:opacity-40">
+            <LuPlay className="h-3 w-3" />
+            {working
+              ? t('conversations.taskKanban.startingTask')
+              : t('conversations.taskKanban.workTask')}
+          </button>
         ) : onMove && isColumnStatus(card.status) ? (
           <div className="flex flex-shrink-0 items-center gap-0.5">
             <button

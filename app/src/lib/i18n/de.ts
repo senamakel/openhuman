@@ -2571,6 +2571,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.field.title': 'Titel',
   'conversations.taskKanban.saveChanges': 'Änderungen speichern',
   'conversations.taskKanban.deleteCard': 'Löschen',
+  'conversations.taskKanban.workTask': 'Aufgabe bearbeiten',
+  'conversations.taskKanban.startingTask': 'Startet…',
   'conversations.taskKanban.updateFailed':
     'Aufgabe konnte nicht aktualisiert werden; Änderungen wurden nicht gespeichert.',
   'conversations.taskKanban.sourcesButton': 'Quellen',
@@ -2714,6 +2716,7 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.approve': 'Plan genehmigen',
   'intelligence.tasks.sourcePlan.creating': 'Aufgabe wird erstellt…',
   'intelligence.tasks.sourcePlan.createFailed': 'Die Agentenaufgabe konnte nicht erstellt werden',
+  'intelligence.tasks.workTaskFailed': 'Die Arbeit an der Aufgabe konnte nicht gestartet werden',
   'notifications.card.dismiss': 'Benachrichtigung verwerfen',
   'notifications.card.importanceTitle': 'Wichtigkeit: {pct}%',
   'notifications.center.empty': 'Noch keine Benachrichtigungen',

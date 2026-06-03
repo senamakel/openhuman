@@ -2545,6 +2545,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.field.title': 'Titolo',
   'conversations.taskKanban.saveChanges': 'Salva modifiche',
   'conversations.taskKanban.deleteCard': 'Elimina',
+  'conversations.taskKanban.workTask': "Lavora sull'attività",
+  'conversations.taskKanban.startingTask': 'Avvio…',
   'conversations.taskKanban.updateFailed':
     "Impossibile aggiornare l'attività; le modifiche non sono state salvate.",
   'conversations.taskKanban.sourcesButton': 'Fonti',
@@ -2689,6 +2691,7 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.approve': 'Approva piano',
   'intelligence.tasks.sourcePlan.creating': 'Creazione attività…',
   'intelligence.tasks.sourcePlan.createFailed': "Impossibile creare l'attività agente",
+  'intelligence.tasks.workTaskFailed': "Impossibile avviare il lavoro sull'attività",
   'notifications.card.dismiss': 'Ignora notifica',
   'notifications.card.importanceTitle': 'Importanza: {pct}%',
   'notifications.center.empty': 'Nessuna notifica',

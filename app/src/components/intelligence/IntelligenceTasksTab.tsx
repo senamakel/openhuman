@@ -24,6 +24,7 @@ import {
   LuSparkles,
   LuX,
 } from 'react-icons/lu';
+import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { TaskKanbanBoard } from '../../pages/conversations/components/TaskKanbanBoard';
@@ -33,11 +34,23 @@ import {
   todosApi,
   USER_TASKS_THREAD_ID,
 } from '../../services/api/todosApi';
-import { useAppSelector } from '../../store/hooks';
+import { chatSend } from '../../services/chatService';
+import { selectActiveAgentProfileId } from '../../store/agentProfileSlice';
+import { beginInferenceTurn, setToolTimelineForThread } from '../../store/chatRuntimeSlice';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import {
+  loadThreadMessages,
+  loadThreads,
+  setActiveThread,
+  setSelectedThread,
+} from '../../store/threadSlice';
+import type { ThreadMessage } from '../../types/thread';
 import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../types/turnState';
 import { UserTaskComposer } from './UserTaskComposer';
 
 const log = debug('intelligence:tasks');
+const AGENT_TASK_THREAD_LABEL = 'agent-task';
+const CHAT_MODEL_ID = 'reasoning-v1';
 
 interface ThreadTaskBoard {
   threadId: string;
@@ -50,16 +63,68 @@ function shortId(threadId: string): string {
   return threadId.length > 8 ? `…${threadId.slice(-8)}` : threadId;
 }
 
+function agentTaskThreadTitle(title: string): string {
+  const trimmed = title.trim();
+  const base = trimmed.length > 72 ? `${trimmed.slice(0, 69)}...` : trimmed;
+  return `Agent task: ${base || 'Untitled task'}`;
+}
+
+function buildAgentTaskPrompt(card: TaskBoardCard): string {
+  const lines: string[] = [
+    'Work this approved agent task from the task board.',
+    '',
+    `Task: ${card.title}`,
+  ];
+  if (card.objective?.trim()) {
+    lines.push('', 'Objective:', card.objective.trim());
+  }
+  if (card.notes?.trim()) {
+    lines.push('', 'Notes:', card.notes.trim());
+  }
+  if (card.plan && card.plan.length > 0) {
+    lines.push('', 'Plan:');
+    lines.push(...card.plan.map((step, index) => `${index + 1}. ${step}`));
+  }
+  if (card.acceptanceCriteria && card.acceptanceCriteria.length > 0) {
+    lines.push('', 'Acceptance criteria:');
+    lines.push(...card.acceptanceCriteria.map(item => `- ${item}`));
+  }
+  if (card.allowedTools && card.allowedTools.length > 0) {
+    lines.push('', `Allowed tools: ${card.allowedTools.join(', ')}`);
+  }
+  if (card.evidence && card.evidence.length > 0) {
+    lines.push('', 'Evidence / references:');
+    lines.push(...card.evidence.map(item => `- ${item}`));
+  }
+  const source = readSourceMetadata(card.sourceMetadata);
+  if (source.url || source.repo || source.externalId) {
+    lines.push('', 'Source task:');
+    if (source.repo) lines.push(`- Repository: ${source.repo}`);
+    if (source.externalId) lines.push(`- External ID: ${source.externalId}`);
+    if (source.url) lines.push(`- URL: ${source.url}`);
+  }
+  lines.push(
+    '',
+    'Start by restating the concrete implementation plan briefly, then execute it. Keep progress visible in this thread and update the task board when the work state changes.'
+  );
+  return lines.join('\n');
+}
+
 export default function IntelligenceTasksTab() {
   const { t } = useT();
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const liveBoards = useAppSelector(state => state.chatRuntime.taskBoardByThread);
   const threads = useAppSelector(state => state.thread.threads ?? []);
+  const selectedAgentProfileId = useAppSelector(selectActiveAgentProfileId);
+  const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
 
   const [persistedBoards, setPersistedBoards] = useState<Record<string, TaskBoard>>({});
   const [personalBoard, setPersonalBoard] = useState<TaskBoard | null>(null);
   const [taskSourcesBoard, setTaskSourcesBoard] = useState<TaskBoard | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [refiningCard, setRefiningCard] = useState<TaskBoardCard | null>(null);
+  const [workingCardId, setWorkingCardId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -251,6 +316,60 @@ export default function IntelligenceTasksTab() {
     [personalBoard, mutatePersonal]
   );
 
+  const handleWorkPersonal = useCallback(
+    async (card: TaskBoardCard) => {
+      if (!personalBoard || workingCardId) return;
+      setWorkingCardId(card.id);
+      setActionError(null);
+      const launchPrompt = buildAgentTaskPrompt(card);
+      const now = new Date().toISOString();
+      const threadTitle = agentTaskThreadTitle(card.title);
+      try {
+        const thread = await threadApi.createNewThread([AGENT_TASK_THREAD_LABEL]);
+        await threadApi.updateTitle(thread.id, threadTitle);
+        const userMessage: ThreadMessage = {
+          id: `msg_${globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`}`,
+          content: launchPrompt,
+          type: 'text',
+          extraMetadata: { source: 'agent-task-board', taskCardId: card.id },
+          sender: 'user',
+          createdAt: now,
+        };
+        await threadApi.appendMessage(thread.id, userMessage);
+
+        const startedBoard = await todosApi.updateStatus(
+          USER_TASKS_THREAD_ID,
+          card.id,
+          'in_progress'
+        );
+        if (mountedRef.current) setPersonalBoard(startedBoard);
+
+        dispatch(setSelectedThread(thread.id));
+        dispatch(setToolTimelineForThread({ threadId: thread.id, entries: [] }));
+        dispatch(beginInferenceTurn({ threadId: thread.id }));
+        dispatch(setActiveThread(thread.id));
+        void dispatch(loadThreads());
+        void dispatch(loadThreadMessages(thread.id));
+        navigate('/chat');
+
+        await chatSend({
+          threadId: thread.id,
+          message: launchPrompt,
+          model: CHAT_MODEL_ID,
+          profileId: selectedAgentProfileId,
+          locale: uiLocale,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log('work personal task failed: %s', msg);
+        if (mountedRef.current) setActionError(t('intelligence.tasks.workTaskFailed'));
+      } finally {
+        if (mountedRef.current) setWorkingCardId(null);
+      }
+    },
+    [dispatch, navigate, personalBoard, selectedAgentProfileId, t, uiLocale, workingCardId]
+  );
+
   const handleApproveSourcePlan = useCallback(
     async (sourceCard: TaskBoardCard, draft: RefinedTaskDraft) => {
       const now = new Date().toISOString();
@@ -367,6 +486,8 @@ export default function IntelligenceTasksTab() {
             onMove={handleMovePersonal}
             onUpdateCard={handleUpdatePersonal}
             onDeleteCard={handleDeletePersonal}
+            onWorkTask={handleWorkPersonal}
+            workingCardId={workingCardId}
           />
         ) : (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-stone-200 dark:border-neutral-800 py-8 text-center text-stone-400 dark:text-neutral-500">

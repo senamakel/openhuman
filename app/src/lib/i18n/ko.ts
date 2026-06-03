@@ -2486,6 +2486,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.field.title': '제목',
   'conversations.taskKanban.saveChanges': '변경 사항 저장',
   'conversations.taskKanban.deleteCard': '삭제',
+  'conversations.taskKanban.workTask': '작업 시작',
+  'conversations.taskKanban.startingTask': '시작 중…',
   'conversations.taskKanban.updateFailed':
     '작업을 업데이트할 수 없어 변경 사항이 저장되지 않았습니다.',
   'conversations.taskKanban.sourcesButton': '소스',
@@ -2627,6 +2629,7 @@ const messages: TranslationMap = {
   'intelligence.tasks.sourcePlan.approve': '계획 승인',
   'intelligence.tasks.sourcePlan.creating': '작업 만드는 중…',
   'intelligence.tasks.sourcePlan.createFailed': '에이전트 작업을 만들 수 없습니다',
+  'intelligence.tasks.workTaskFailed': '작업을 시작할 수 없습니다',
   'notifications.card.dismiss': '알림 닫기',
   'notifications.card.importanceTitle': '중요도: {pct}%',
   'notifications.center.empty': '아직 알림이 없습니다',

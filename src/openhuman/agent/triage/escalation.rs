@@ -620,6 +620,7 @@ mod tests {
         let envelope = envelope("esc-react-fail");
         let _ = init_global(32);
         let _ = AgentDefinitionRegistry::init_global_builtins();
+        let missing_target = format!("missing-agent-{}", uuid::Uuid::new_v4());
         let collect = tokio::spawn(collect_trigger_events_until("esc-react-fail", |events| {
             events.iter().any(|event| {
                 matches!(
@@ -634,18 +635,18 @@ mod tests {
                 matches!(
                     event,
                     DomainEvent::TriggerEscalationFailed { external_id, reason, .. }
-                        if external_id == "esc-react-fail" && reason.contains("missing-agent")
+                        if external_id == "esc-react-fail" && reason.contains("missing-agent-")
                 )
             })
         }));
 
         let err = apply_decision(
-            run_with_target(TriageAction::React, "missing-agent", "handle this"),
+            run_with_target(TriageAction::React, &missing_target, "handle this"),
             &envelope,
         )
         .await
         .expect_err("missing target agent should fail");
-        assert!(err.to_string().contains("missing-agent"));
+        assert!(err.to_string().contains(&missing_target));
 
         let captured = collect.await.expect("event collector should not panic");
         assert!(captured.iter().any(|event| matches!(
@@ -659,7 +660,7 @@ mod tests {
         assert!(captured.iter().any(|event| matches!(
             event,
             DomainEvent::TriggerEscalationFailed { external_id, reason, .. }
-                if external_id == "esc-react-fail" && reason.contains("missing-agent")
+                if external_id == "esc-react-fail" && reason.contains(&missing_target)
         )));
     }
 
@@ -669,6 +670,7 @@ mod tests {
         let envelope = envelope("esc-escalate-fail");
         let _ = init_global(32);
         let _ = AgentDefinitionRegistry::init_global_builtins();
+        let missing_target = format!("missing-agent-{}", uuid::Uuid::new_v4());
         let collect = tokio::spawn(collect_trigger_events_until(
             "esc-escalate-fail",
             |events| {
@@ -684,18 +686,18 @@ mod tests {
                 }) && events.iter().any(|event| matches!(
                 event,
                 DomainEvent::TriggerEscalationFailed { external_id, reason, .. }
-                    if external_id == "esc-escalate-fail" && reason.contains("missing-agent")
+                    if external_id == "esc-escalate-fail" && reason.contains("missing-agent-")
             ))
             },
         ));
 
         let err = apply_decision(
-            run_with_target(TriageAction::Escalate, "missing-agent", "escalate this"),
+            run_with_target(TriageAction::Escalate, &missing_target, "escalate this"),
             &envelope,
         )
         .await
         .expect_err("missing orchestrator target should fail");
-        assert!(err.to_string().contains("missing-agent"));
+        assert!(err.to_string().contains(&missing_target));
 
         let captured = collect.await.expect("event collector should not panic");
         assert!(captured.iter().any(|event| matches!(
@@ -709,7 +711,7 @@ mod tests {
         assert!(captured.iter().any(|event| matches!(
             event,
             DomainEvent::TriggerEscalationFailed { external_id, reason, .. }
-                if external_id == "esc-escalate-fail" && reason.contains("missing-agent")
+                if external_id == "esc-escalate-fail" && reason.contains(&missing_target)
         )));
     }
 }

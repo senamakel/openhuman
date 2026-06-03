@@ -158,8 +158,7 @@ fn ollama_options_num_ctx_serializes_correctly() {
     };
     let json = serde_json::to_value(&req).unwrap();
     assert_eq!(
-        json.pointer("/options/num_ctx")
-            .and_then(|v| v.as_u64()),
+        json.pointer("/options/num_ctx").and_then(|v| v.as_u64()),
         Some(32768),
         "Ollama num_ctx must appear at options.num_ctx in serialized body"
     );

@@ -3729,9 +3729,11 @@ const messages: TranslationMap = {
     'Review past Approve / Deny decisions the agent requested.',
   'settings.agentAccess.viewApprovalHistory': 'Ver histórico de aprovações',
   'settings.sandbox.title': 'Execução em sandbox',
-  'settings.sandbox.menuDesc': 'Configure backends de sandbox para isolamento das ferramentas do agente.',
+  'settings.sandbox.menuDesc':
+    'Configure backends de sandbox para isolamento das ferramentas do agente.',
   'settings.sandbox.loading': 'A carregar…',
-  'settings.sandbox.desktopOnly': 'As definições de sandbox estão disponíveis apenas na aplicação de ambiente de trabalho.',
+  'settings.sandbox.desktopOnly':
+    'As definições de sandbox estão disponíveis apenas na aplicação de ambiente de trabalho.',
   'settings.sandbox.loadError': 'Falha ao carregar as definições de sandbox.',
   'settings.sandbox.saveError': 'Falha ao guardar as definições de sandbox.',
   'settings.sandbox.saved': 'Guardado — aplica-se a novas sessões do agente.',
@@ -3744,7 +3746,8 @@ const messages: TranslationMap = {
   'settings.sandbox.enableLabel': 'Ativar execução em sandbox',
   'settings.sandbox.enableDesc': 'Execute as ferramentas do agente num ambiente sandbox isolado.',
   'settings.sandbox.backendLabel': 'Backend',
-  'settings.sandbox.backendDesc': 'Escolha qual backend de isolamento utilizar para a execução em sandbox.',
+  'settings.sandbox.backendDesc':
+    'Escolha qual backend de isolamento utilizar para a execução em sandbox.',
   'settings.sandbox.backend.auto': 'Automático (detetar o melhor disponível)',
   'settings.sandbox.backend.docker': 'Docker',
   'settings.sandbox.backend.landlock': 'Landlock (Linux)',

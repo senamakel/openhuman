@@ -38,9 +38,9 @@ import NotificationsTabbedPanel from '../components/settings/panels/Notification
 import PersonaPanel from '../components/settings/panels/PersonaPanel';
 import PrivacyPanel from '../components/settings/panels/PrivacyPanel';
 import RecoveryPhrasePanel from '../components/settings/panels/RecoveryPhrasePanel';
+import SandboxSettingsPanel from '../components/settings/panels/SandboxSettingsPanel';
 import ScreenAwarenessDebugPanel from '../components/settings/panels/ScreenAwarenessDebugPanel';
 import ScreenIntelligencePanel from '../components/settings/panels/ScreenIntelligencePanel';
-import SandboxSettingsPanel from '../components/settings/panels/SandboxSettingsPanel';
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import SecurityPanel from '../components/settings/panels/SecurityPanel';
 import SkillsRunnerPanel from '../components/settings/panels/SkillsRunnerPanel';

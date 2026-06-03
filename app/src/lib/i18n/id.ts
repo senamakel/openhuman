@@ -3698,7 +3698,8 @@ const messages: TranslationMap = {
   'settings.sandbox.enableLabel': 'Aktifkan eksekusi sandbox',
   'settings.sandbox.enableDesc': 'Jalankan alat agen di dalam lingkungan sandbox yang terisolasi.',
   'settings.sandbox.backendLabel': 'Backend',
-  'settings.sandbox.backendDesc': 'Pilih backend isolasi yang akan digunakan untuk eksekusi sandbox.',
+  'settings.sandbox.backendDesc':
+    'Pilih backend isolasi yang akan digunakan untuk eksekusi sandbox.',
   'settings.sandbox.backend.auto': 'Otomatis (deteksi yang terbaik tersedia)',
   'settings.sandbox.backend.docker': 'Docker',
   'settings.sandbox.backend.landlock': 'Landlock (Linux)',

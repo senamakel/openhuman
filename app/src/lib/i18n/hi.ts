@@ -3689,7 +3689,8 @@ const messages: TranslationMap = {
   'settings.sandbox.enableLabel': 'Sandbox निष्पादन सक्षम करें',
   'settings.sandbox.enableDesc': 'एक पृथक Sandbox वातावरण के अंदर एजेंट टूल चलाएं।',
   'settings.sandbox.backendLabel': 'बैकएंड',
-  'settings.sandbox.backendDesc': 'Sandbox निष्पादन के लिए उपयोग किया जाने वाला आइसोलेशन बैकएंड चुनें।',
+  'settings.sandbox.backendDesc':
+    'Sandbox निष्पादन के लिए उपयोग किया जाने वाला आइसोलेशन बैकएंड चुनें।',
   'settings.sandbox.backend.auto': 'स्वचालित (सर्वोत्तम उपलब्ध का पता लगाएं)',
   'settings.sandbox.backend.docker': 'Docker',
   'settings.sandbox.backend.landlock': 'Landlock (Linux)',

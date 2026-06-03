@@ -4071,8 +4071,7 @@ const en: TranslationMap = {
   'settings.sandbox.enableLabel': 'Enable sandbox execution',
   'settings.sandbox.enableDesc': 'Run agent tools inside an isolated sandbox environment.',
   'settings.sandbox.backendLabel': 'Backend',
-  'settings.sandbox.backendDesc':
-    'Choose which isolation backend to use for sandboxed execution.',
+  'settings.sandbox.backendDesc': 'Choose which isolation backend to use for sandboxed execution.',
   'settings.sandbox.backend.auto': 'Auto (detect best available)',
   'settings.sandbox.backend.docker': 'Docker',
   'settings.sandbox.backend.landlock': 'Landlock (Linux)',
@@ -4085,8 +4084,7 @@ const en: TranslationMap = {
   'settings.sandbox.cpuLimit': 'CPU limit',
   'settings.sandbox.cpuUnit': 'cores',
   'settings.sandbox.envPassthrough': 'Environment passthrough',
-  'settings.sandbox.envPassthroughDesc':
-    'Environment variables forwarded into the sandbox.',
+  'settings.sandbox.envPassthroughDesc': 'Environment variables forwarded into the sandbox.',
   'settings.sandbox.noEnvVars': 'No environment variables configured.',
 
   'settings.approvalHistory.title': 'Approval history',

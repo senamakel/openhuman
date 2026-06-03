@@ -3732,7 +3732,8 @@ const messages: TranslationMap = {
   'settings.sandbox.title': 'Wykonanie w piaskownicy',
   'settings.sandbox.menuDesc': 'Konfiguruj backendy piaskownicy do izolacji narzędzi agenta.',
   'settings.sandbox.loading': 'Ładowanie…',
-  'settings.sandbox.desktopOnly': 'Ustawienia piaskownicy są dostępne tylko w aplikacji desktopowej.',
+  'settings.sandbox.desktopOnly':
+    'Ustawienia piaskownicy są dostępne tylko w aplikacji desktopowej.',
   'settings.sandbox.loadError': 'Nie udało się załadować ustawień piaskownicy.',
   'settings.sandbox.saveError': 'Nie udało się zapisać ustawień piaskownicy.',
   'settings.sandbox.saved': 'Zapisano — dotyczy nowych sesji agenta.',
@@ -3745,7 +3746,8 @@ const messages: TranslationMap = {
   'settings.sandbox.enableLabel': 'Włącz wykonanie w piaskownicy',
   'settings.sandbox.enableDesc': 'Uruchamiaj narzędzia agenta w izolowanym środowisku piaskownicy.',
   'settings.sandbox.backendLabel': 'Backend',
-  'settings.sandbox.backendDesc': 'Wybierz backend izolacji do użycia przy wykonaniu w piaskownicy.',
+  'settings.sandbox.backendDesc':
+    'Wybierz backend izolacji do użycia przy wykonaniu w piaskownicy.',
   'settings.sandbox.backend.auto': 'Automatyczny (wykryj najlepszy dostępny)',
   'settings.sandbox.backend.docker': 'Docker',
   'settings.sandbox.backend.landlock': 'Landlock (Linux)',

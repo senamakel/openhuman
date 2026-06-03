@@ -3762,7 +3762,8 @@ const messages: TranslationMap = {
     'Review past Approve / Deny decisions the agent requested.',
   'settings.agentAccess.viewApprovalHistory': 'Genehmigungsverlauf anzeigen',
   'settings.sandbox.title': 'Sandbox-Ausführung',
-  'settings.sandbox.menuDesc': 'Sandbox-Backends für die Isolation von Agentenwerkzeugen konfigurieren.',
+  'settings.sandbox.menuDesc':
+    'Sandbox-Backends für die Isolation von Agentenwerkzeugen konfigurieren.',
   'settings.sandbox.loading': 'Wird geladen…',
   'settings.sandbox.desktopOnly': 'Sandbox-Einstellungen sind nur in der Desktop-App verfügbar.',
   'settings.sandbox.loadError': 'Sandbox-Einstellungen konnten nicht geladen werden.',
@@ -3790,7 +3791,8 @@ const messages: TranslationMap = {
   'settings.sandbox.cpuLimit': 'CPU-Limit',
   'settings.sandbox.cpuUnit': 'Kerne',
   'settings.sandbox.envPassthrough': 'Umgebungsvariablen-Durchleitung',
-  'settings.sandbox.envPassthroughDesc': 'Umgebungsvariablen, die in den Sandbox weitergeleitet werden.',
+  'settings.sandbox.envPassthroughDesc':
+    'Umgebungsvariablen, die in den Sandbox weitergeleitet werden.',
   'settings.sandbox.noEnvVars': 'Keine Umgebungsvariablen konfiguriert.',
   'settings.approvalHistory.title': 'Approval history',
   'settings.approvalHistory.subtitle': 'Recent tool-approval decisions, newest first.',

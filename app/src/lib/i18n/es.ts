@@ -3734,9 +3734,11 @@ const messages: TranslationMap = {
     'Review past Approve / Deny decisions the agent requested.',
   'settings.agentAccess.viewApprovalHistory': 'Ver historial de aprobaciones',
   'settings.sandbox.title': 'Ejecución en sandbox',
-  'settings.sandbox.menuDesc': 'Configurar backends de sandbox para el aislamiento de herramientas del agente.',
+  'settings.sandbox.menuDesc':
+    'Configurar backends de sandbox para el aislamiento de herramientas del agente.',
   'settings.sandbox.loading': 'Cargando…',
-  'settings.sandbox.desktopOnly': 'La configuración de sandbox solo está disponible en la aplicación de escritorio.',
+  'settings.sandbox.desktopOnly':
+    'La configuración de sandbox solo está disponible en la aplicación de escritorio.',
   'settings.sandbox.loadError': 'Error al cargar la configuración de sandbox.',
   'settings.sandbox.saveError': 'Error al guardar la configuración de sandbox.',
   'settings.sandbox.saved': 'Guardado — se aplica a las nuevas sesiones del agente.',
@@ -3747,9 +3749,11 @@ const messages: TranslationMap = {
   'settings.sandbox.unavailable': 'No disponible',
   'settings.sandbox.detectedBackend': 'Backend del SO',
   'settings.sandbox.enableLabel': 'Habilitar ejecución en sandbox',
-  'settings.sandbox.enableDesc': 'Ejecutar las herramientas del agente dentro de un entorno sandbox aislado.',
+  'settings.sandbox.enableDesc':
+    'Ejecutar las herramientas del agente dentro de un entorno sandbox aislado.',
   'settings.sandbox.backendLabel': 'Backend',
-  'settings.sandbox.backendDesc': 'Elige qué backend de aislamiento usar para la ejecución en sandbox.',
+  'settings.sandbox.backendDesc':
+    'Elige qué backend de aislamiento usar para la ejecución en sandbox.',
   'settings.sandbox.backend.auto': 'Automático (detectar el mejor disponible)',
   'settings.sandbox.backend.docker': 'Docker',
   'settings.sandbox.backend.landlock': 'Landlock (Linux)',

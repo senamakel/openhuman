@@ -142,8 +142,8 @@ fn build_front_matter(chunk: &Chunk) -> Vec<u8> {
     let source_scope = meta.path_scope.as_deref().unwrap_or(&meta.source_id);
     log::debug!(
         "[content_store::compose] seeding source tag source_id={} source_scope={} path_scope={}",
-        meta.source_id,
-        source_scope,
+        crate::openhuman::memory::util::redact::redact(&meta.source_id),
+        crate::openhuman::memory::util::redact::redact(source_scope),
         meta.path_scope.is_some()
     );
     let seeded_tags = with_source_tag(source_scope, &meta.tags);

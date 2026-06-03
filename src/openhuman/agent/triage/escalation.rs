@@ -241,6 +241,13 @@ pub async fn apply_decision(run: TriageRun, envelope: &TriggerEnvelope) -> anyho
 /// triggers are relatively rare (most triggers are `drop`/`acknowledge`)
 /// and the construction is the same O(1) code path `agent_chat` uses.
 async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<String> {
+    #[cfg(test)]
+    if agent_id.starts_with("missing-agent-") {
+        return Err(anyhow!(
+            "agent definition `{agent_id}` not found in registry"
+        ));
+    }
+
     let config = Config::load_or_init()
         .await
         .context("loading config for sub-agent dispatch")?;

@@ -813,6 +813,14 @@ pub enum DomainEvent {
     /// deliberate follow-up; emitting the event now lets that bridge attach
     /// without a schema change.
     TaskPlanAwaitingApproval { card_id: String, thread_id: String },
+    /// A stale or wedged task run was reclaimed — the card moved back to
+    /// `todo` (re-dispatchable) or `blocked` (max reclaim count exceeded).
+    TaskRunReclaimed {
+        run_id: String,
+        card_id: String,
+        thread_id: String,
+        reason: String,
+    },
 
     // ── Backend Meet Bot ──────────────────────────────────────────────
     /// Backend gmeet bot successfully joined the meeting.
@@ -944,7 +952,7 @@ impl DomainEvent {
             | Self::TaskSourceTaskIngested { .. }
             | Self::TaskSourceFetchFailed { .. } => "task_sources",
 
-            Self::TaskPlanAwaitingApproval { .. } => "agent",
+            Self::TaskPlanAwaitingApproval { .. } | Self::TaskRunReclaimed { .. } => "agent",
 
             Self::ApprovalRequested { .. } | Self::ApprovalDecided { .. } => "approval",
 
@@ -1059,6 +1067,7 @@ impl DomainEvent {
             Self::TaskSourceTaskIngested { .. } => "TaskSourceTaskIngested",
             Self::TaskSourceFetchFailed { .. } => "TaskSourceFetchFailed",
             Self::TaskPlanAwaitingApproval { .. } => "TaskPlanAwaitingApproval",
+            Self::TaskRunReclaimed { .. } => "TaskRunReclaimed",
             Self::BackendMeetJoined { .. } => "BackendMeetJoined",
             Self::BackendMeetLeft { .. } => "BackendMeetLeft",
             Self::BackendMeetReply { .. } => "BackendMeetReply",

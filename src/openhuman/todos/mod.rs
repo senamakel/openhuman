@@ -14,6 +14,7 @@
 //!   list directly without re-formatting.
 
 pub mod ops;
+pub mod runs;
 pub mod schemas;
 pub mod store;
 pub mod tools;

@@ -29,6 +29,7 @@ use crate::openhuman::agent::personality_paths::PersonalityContext;
 use crate::openhuman::agent::task_board::{TaskBoardCard, TaskCardStatus};
 use crate::openhuman::config::Config;
 use crate::openhuman::todos::ops::{self, BoardLocation, CardPatch};
+use crate::openhuman::todos::runs::{self, RunLimits, RunOutcome};
 
 /// Max chars of a personality SOUL.md / MEMORY.md or skill guideline block
 /// folded into the agent's system-prompt suffix.
@@ -214,10 +215,23 @@ pub async fn dispatch_card(
         "[task_dispatcher] card claimed (→in_progress), spawning autonomous run"
     );
 
+    if let Err(e) = runs::create_run(&location, &run_id, &card_id, &executor.label) {
+        tracing::warn!(
+            run_id = %run_id,
+            card_id = %card_id,
+            error = %e,
+            "[task_dispatcher] failed to create run record (proceeding without liveness tracking)"
+        );
+    }
+
+    let (hb_cancel_tx, hb_cancel_rx) = tokio::sync::watch::channel(false);
+    runs::spawn_heartbeat_task(location.clone(), run_id.clone(), hb_cancel_rx);
+
     let run_id_for_return = run_id.clone();
     let location_for_run = location.clone();
     tokio::spawn(async move {
         let outcome = run_autonomous(config, &executor, &prompt, &run_id).await;
+        let _ = hb_cancel_tx.send(true);
         write_back(&location_for_run, &card_id, &run_id, outcome);
     });
 
@@ -429,6 +443,26 @@ fn write_back(
             "[task_dispatcher] board write-back failed (run outcome lost from board)"
         );
     }
+
+    let (run_outcome, run_error, run_evidence) = match &outcome {
+        Ok(output) => (
+            RunOutcome::Success,
+            None,
+            vec![truncate_chars(output.trim(), EVIDENCE_MAX_CHARS)],
+        ),
+        Err(err) => (
+            RunOutcome::Failed,
+            Some(truncate_chars(err, EVIDENCE_MAX_CHARS)),
+            Vec::new(),
+        ),
+    };
+    if let Err(e) = runs::complete_run(location, run_id, run_outcome, run_error, run_evidence) {
+        tracing::warn!(
+            run_id = %run_id,
+            error = %e,
+            "[task_dispatcher] run record completion failed"
+        );
+    }
 }
 
 fn truncate_chars(s: &str, max: usize) -> String {
@@ -499,6 +533,27 @@ pub(crate) async fn poll_once() -> Result<(), String> {
         workspace_dir: config.workspace_dir.clone(),
         thread_id: crate::openhuman::task_sources::TASK_SOURCES_THREAD_ID.to_string(),
     };
+
+    // Reclaim stale/wedged runs before looking for new work. Reclaimed
+    // cards move back to `todo` (re-dispatchable) so they appear in the
+    // snapshot below and can be picked up in the same tick.
+    match runs::reclaim_stale(&location, &RunLimits::default()) {
+        Ok(result) if result.reclaimed_count > 0 || result.blocked_count > 0 => {
+            tracing::info!(
+                reclaimed = result.reclaimed_count,
+                blocked = result.blocked_count,
+                "[task_dispatcher:poller] stale runs reclaimed"
+            );
+        }
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "[task_dispatcher:poller] stale reclaim failed (continuing)"
+            );
+        }
+        _ => {}
+    }
+
     let snapshot = ops::list(&location)?;
 
     // `enforce_single_in_progress` caps the board at one running card, so if

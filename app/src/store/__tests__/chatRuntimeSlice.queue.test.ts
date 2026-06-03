@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import reducer, {
-  setQueueStatusForThread,
+  beginInferenceTurn,
+  clearAllChatRuntime,
   clearQueueStatusForThread,
   clearRuntimeForThread,
-  clearAllChatRuntime,
-  beginInferenceTurn,
   endInferenceTurn,
+  setQueueStatusForThread,
 } from '../chatRuntimeSlice';
 
 describe('chatRuntimeSlice — queue status', () => {

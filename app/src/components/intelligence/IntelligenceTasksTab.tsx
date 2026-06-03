@@ -14,8 +14,16 @@
  * the Conversations page where the agent write path lives.
  */
 import debug from 'debug';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { LuPlus } from 'react-icons/lu';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  LuArrowRight,
+  LuBot,
+  LuCheck,
+  LuExternalLink,
+  LuPlus,
+  LuSparkles,
+  LuX,
+} from 'react-icons/lu';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { TaskKanbanBoard } from '../../pages/conversations/components/TaskKanbanBoard';
@@ -51,6 +59,7 @@ export default function IntelligenceTasksTab() {
   const [personalBoard, setPersonalBoard] = useState<TaskBoard | null>(null);
   const [taskSourcesBoard, setTaskSourcesBoard] = useState<TaskBoard | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [refiningCard, setRefiningCard] = useState<TaskBoardCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -242,6 +251,57 @@ export default function IntelligenceTasksTab() {
     [personalBoard, mutatePersonal]
   );
 
+  const handleApproveSourcePlan = useCallback(
+    async (sourceCard: TaskBoardCard, draft: RefinedTaskDraft) => {
+      const now = new Date().toISOString();
+      setActionError(null);
+      try {
+        const added = await todosApi.add({
+          threadId: USER_TASKS_THREAD_ID,
+          content: draft.title,
+          status: 'todo',
+          objective: draft.objective,
+          notes: draft.notes,
+        });
+        const created =
+          added.cards.find(card => card.title === draft.title && card.updatedAt >= now) ??
+          added.cards[added.cards.length - 1];
+        const saved = created
+          ? await todosApi.edit({
+              threadId: USER_TASKS_THREAD_ID,
+              id: created.id,
+              content: draft.title,
+              status: 'todo',
+              objective: draft.objective,
+              notes: draft.notes,
+              assignedAgent: 'agent_coder',
+              approvalMode: 'not_required',
+              plan: draft.plan,
+              allowedTools: draft.allowedTools,
+              acceptanceCriteria: draft.acceptanceCriteria,
+              evidence: draft.evidence,
+            })
+          : added;
+        if (mountedRef.current) {
+          setPersonalBoard(saved);
+          setRefiningCard(null);
+        }
+
+        const sourceSaved = await todosApi.updateStatus(
+          TASK_SOURCES_THREAD_ID,
+          sourceCard.id,
+          'done'
+        );
+        if (mountedRef.current) setTaskSourcesBoard(sourceSaved);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log('source task approval failed: %s', msg);
+        if (mountedRef.current) setActionError(t('intelligence.tasks.sourcePlan.createFailed'));
+      }
+    },
+    [t]
+  );
+
   // ── derived agent board list (read-only) ─────────────────────────────
 
   const threadMap = new Map(threads.map(th => [th.id, th]));
@@ -324,10 +384,10 @@ export default function IntelligenceTasksTab() {
 
       {taskSourcesBoard && (
         <section className="space-y-2">
-          <TaskKanbanBoard
+          <TaskSourceTaskList
             board={taskSourcesBoard}
-            headerTitleKey="settings.taskSources.title"
             disabled={loading}
+            onWorkOnTask={setRefiningCard}
           />
         </section>
       )}
@@ -369,6 +429,371 @@ export default function IntelligenceTasksTab() {
       {composerOpen && (
         <UserTaskComposer onCreated={handleCreated} onClose={() => setComposerOpen(false)} />
       )}
+      {refiningCard && (
+        <TaskSourceRefinementDialog
+          card={refiningCard}
+          disabled={loading}
+          onClose={() => setRefiningCard(null)}
+          onApprove={handleApproveSourcePlan}
+        />
+      )}
     </div>
   );
+}
+
+interface SourceMetadata {
+  provider?: string;
+  externalId?: string;
+  url?: string;
+  repo?: string;
+  urgency?: number;
+}
+
+interface RefinedTaskDraft {
+  title: string;
+  objective: string;
+  notes: string;
+  plan: string[];
+  allowedTools: string[];
+  acceptanceCriteria: string[];
+  evidence: string[];
+}
+
+function readSourceMetadata(value: Record<string, unknown> | null | undefined): SourceMetadata {
+  if (!value) return {};
+  return {
+    provider: readString(value.provider),
+    externalId: readString(value.external_id) ?? readString(value.externalId),
+    url: readString(value.url),
+    repo: readString(value.repo),
+    urgency: readNumber(value.urgency),
+  };
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function readNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function sourceProviderLabel(provider: string | undefined, t: (key: string) => string): string {
+  switch (provider) {
+    case 'github':
+      return t('settings.taskSources.providers.github');
+    case 'notion':
+      return t('settings.taskSources.providers.notion');
+    case 'linear':
+      return t('settings.taskSources.providers.linear');
+    case 'clickup':
+      return t('settings.taskSources.providers.clickup');
+    default:
+      return provider ?? t('conversations.taskKanban.source.unknownProvider');
+  }
+}
+
+function taskSourceLabel(card: TaskBoardCard, t: (key: string) => string): string {
+  const source = readSourceMetadata(card.sourceMetadata);
+  const provider = sourceProviderLabel(source.provider, t);
+  if (source.repo && source.externalId) return `${provider} · ${source.repo}#${source.externalId}`;
+  if (source.externalId) return `${provider} · ${source.externalId}`;
+  return provider;
+}
+
+function buildRefinedDraft(card: TaskBoardCard): RefinedTaskDraft {
+  const source = readSourceMetadata(card.sourceMetadata);
+  const objective =
+    card.objective?.trim() ||
+    `Turn the source task into an implementation-ready agent task: ${card.title}`;
+  const sourceLine = source.url ? `Source: ${source.url}` : 'Source: task source intake';
+  const repoLine = source.repo ? `Repository: ${source.repo}` : null;
+  const externalLine = source.externalId ? `External task: ${source.externalId}` : null;
+
+  return {
+    title: card.title.replace(/^GitHub:\s*/i, '').trim() || card.title,
+    objective,
+    notes: [card.notes?.trim(), sourceLine, repoLine, externalLine].filter(Boolean).join('\n'),
+    plan:
+      card.plan && card.plan.length > 0
+        ? card.plan
+        : [
+            'Read the linked source task and confirm the exact requested behavior.',
+            'Inspect the relevant code paths and identify the smallest implementation boundary.',
+            'Implement the change with focused tests around the user-visible behavior.',
+            'Run targeted validation and capture any residual risks or follow-up work.',
+          ],
+    allowedTools:
+      card.allowedTools && card.allowedTools.length > 0
+        ? card.allowedTools
+        : ['code_search', 'shell', 'edit', 'tests'],
+    acceptanceCriteria:
+      card.acceptanceCriteria && card.acceptanceCriteria.length > 0
+        ? card.acceptanceCriteria
+        : [
+            'The source task requirements are represented in the final implementation.',
+            'Relevant unit or integration tests cover the changed behavior.',
+            'Validation results and any unresolved risk are recorded on completion.',
+          ],
+    evidence:
+      card.evidence && card.evidence.length > 0 ? card.evidence : source.url ? [source.url] : [],
+  };
+}
+
+function TaskSourceTaskList({
+  board,
+  disabled,
+  onWorkOnTask,
+}: {
+  board: TaskBoard;
+  disabled: boolean;
+  onWorkOnTask: (card: TaskBoardCard) => void;
+}) {
+  const { t } = useT();
+  const sortedCards = useMemo(
+    () => [...board.cards].sort((a, b) => a.order - b.order),
+    [board.cards]
+  );
+
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-stone-700 dark:text-neutral-200">
+            {t('settings.taskSources.title')}
+          </h3>
+          <p className="text-xs text-stone-400 dark:text-neutral-500">
+            {t('intelligence.tasks.sourceList.subtitle')}
+          </p>
+        </div>
+        <a
+          href="#/settings/task-sources"
+          className="text-xs font-medium text-ocean-600 hover:text-ocean-700 dark:text-ocean-300 dark:hover:text-ocean-200">
+          {t('conversations.taskKanban.sources.manage')}
+        </a>
+      </div>
+
+      {sortedCards.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-stone-200 py-7 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+          {t('intelligence.tasks.sourceList.empty')}
+        </div>
+      ) : (
+        <ul className="divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+          {sortedCards.map(card => {
+            const source = readSourceMetadata(card.sourceMetadata);
+            const done = card.status === 'done';
+            return (
+              <li key={card.id} className="p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-200">
+                        {taskSourceLabel(card, t)}
+                      </span>
+                      {done && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-sage-50 px-1.5 py-0.5 text-[10px] font-medium text-sage-700 dark:bg-sage-500/10 dark:text-sage-200">
+                          <LuCheck className="h-3 w-3" />
+                          {t('intelligence.tasks.sourceList.queued')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="break-words text-sm font-medium leading-snug text-stone-800 dark:text-neutral-100">
+                      {card.title}
+                    </p>
+                    {(card.objective || card.notes) && (
+                      <p className="line-clamp-2 break-words text-xs leading-snug text-stone-500 dark:text-neutral-400">
+                        {card.objective || card.notes}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-none items-center gap-2">
+                    {source.url && (
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={t('conversations.taskKanban.source.openExternal')}
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                        <LuExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => onWorkOnTask(card)}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700 disabled:opacity-40">
+                      <LuSparkles className="h-3.5 w-3.5" />
+                      {t('intelligence.tasks.sourceList.workOnTask')}
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function TaskSourceRefinementDialog({
+  card,
+  disabled,
+  onClose,
+  onApprove,
+}: {
+  card: TaskBoardCard;
+  disabled: boolean;
+  onClose: () => void;
+  onApprove: (card: TaskBoardCard, draft: RefinedTaskDraft) => Promise<void>;
+}) {
+  const { t } = useT();
+  const initialDraft = useMemo(() => buildRefinedDraft(card), [card]);
+  const [title, setTitle] = useState(initialDraft.title);
+  const [objective, setObjective] = useState(initialDraft.objective);
+  const [notes, setNotes] = useState(initialDraft.notes);
+  const [planText, setPlanText] = useState(initialDraft.plan.join('\n'));
+  const [criteriaText, setCriteriaText] = useState(initialDraft.acceptanceCriteria.join('\n'));
+  const [saving, setSaving] = useState(false);
+
+  const approve = async () => {
+    setSaving(true);
+    try {
+      await onApprove(card, {
+        title: title.trim() || card.title,
+        objective: objective.trim(),
+        notes: notes.trim(),
+        plan: lines(planText),
+        allowedTools: initialDraft.allowedTools,
+        acceptanceCriteria: lines(criteriaText),
+        evidence: initialDraft.evidence,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl dark:border-neutral-800 dark:bg-neutral-950">
+        <div className="flex items-start justify-between gap-3 border-b border-stone-100 px-4 py-3 dark:border-neutral-800">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
+              {t('intelligence.tasks.sourcePlan.title')}
+            </h3>
+            <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+              {t('intelligence.tasks.sourcePlan.subtitle')}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label={t('common.close')}
+            onClick={onClose}
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            <LuX className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(90vh-8rem)] space-y-4 overflow-y-auto px-4 py-4">
+          <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-200">
+            <div className="flex items-center gap-2 font-medium">
+              <LuBot className="h-3.5 w-3.5" />
+              {t('intelligence.tasks.sourcePlan.researchAgent')}
+            </div>
+          </div>
+
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              {t('conversations.taskKanban.field.title')}
+            </span>
+            <input
+              value={title}
+              onChange={event => setTitle(event.target.value)}
+              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+            />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              {t('conversations.taskKanban.field.objective')}
+            </span>
+            <textarea
+              value={objective}
+              onChange={event => setObjective(event.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+            />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              {t('conversations.taskKanban.field.plan')}
+            </span>
+            <textarea
+              value={planText}
+              onChange={event => setPlanText(event.target.value)}
+              rows={5}
+              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+            />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              {t('conversations.taskKanban.field.acceptanceCriteria')}
+            </span>
+            <textarea
+              value={criteriaText}
+              onChange={event => setCriteriaText(event.target.value)}
+              rows={4}
+              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+            />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              {t('conversations.taskKanban.field.notes')}
+            </span>
+            <textarea
+              value={notes}
+              onChange={event => setNotes(event.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-stone-100 px-4 py-3 dark:border-neutral-800">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void approve()}
+            disabled={disabled || saving}
+            className="inline-flex items-center gap-1.5 rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700 disabled:opacity-40">
+            <LuArrowRight className="h-3.5 w-3.5" />
+            {saving
+              ? t('intelligence.tasks.sourcePlan.creating')
+              : t('intelligence.tasks.sourcePlan.approve')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function lines(value: string): string[] {
+  return value
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
 }

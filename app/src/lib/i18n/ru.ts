@@ -2656,6 +2656,18 @@ const messages: TranslationMap = {
   'intelligence.tasks.composer.create': 'Создать задачу',
   'intelligence.tasks.composer.creating': 'Создание…',
   'intelligence.tasks.composer.createFailed': 'Не удалось создать задачу',
+  'intelligence.tasks.sourceList.subtitle':
+    'Задачи из источников, ожидающие превращения в работу агента.',
+  'intelligence.tasks.sourceList.empty': 'Нет ожидающих задач из источников.',
+  'intelligence.tasks.sourceList.queued': 'В очереди',
+  'intelligence.tasks.sourceList.workOnTask': 'Работать над задачей',
+  'intelligence.tasks.sourcePlan.title': 'Уточнить задачу из источника',
+  'intelligence.tasks.sourcePlan.subtitle':
+    'Проверьте черновик исследования перед созданием задачи агента.',
+  'intelligence.tasks.sourcePlan.researchAgent': 'Черновик исследовательского агента',
+  'intelligence.tasks.sourcePlan.approve': 'Утвердить план',
+  'intelligence.tasks.sourcePlan.creating': 'Создание задачи…',
+  'intelligence.tasks.sourcePlan.createFailed': 'Не удалось создать задачу агента',
   'notifications.card.dismiss': 'Закрыть уведомление',
   'notifications.card.importanceTitle': 'Важность: {pct}%',
   'notifications.center.empty': 'Уведомлений пока нет',

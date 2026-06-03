@@ -2684,6 +2684,18 @@ const messages: TranslationMap = {
   'intelligence.tasks.composer.create': 'Criar tarefa',
   'intelligence.tasks.composer.creating': 'Criando…',
   'intelligence.tasks.composer.createFailed': 'Não foi possível criar a tarefa',
+  'intelligence.tasks.sourceList.subtitle':
+    'Tarefas de fontes aguardando virar trabalho de agente.',
+  'intelligence.tasks.sourceList.empty': 'Nenhuma tarefa de fonte aguardando.',
+  'intelligence.tasks.sourceList.queued': 'Na fila',
+  'intelligence.tasks.sourceList.workOnTask': 'Trabalhar na tarefa',
+  'intelligence.tasks.sourcePlan.title': 'Refinar tarefa da fonte',
+  'intelligence.tasks.sourcePlan.subtitle':
+    'Revise o rascunho de pesquisa antes de criar uma tarefa de agente.',
+  'intelligence.tasks.sourcePlan.researchAgent': 'Rascunho do agente de pesquisa',
+  'intelligence.tasks.sourcePlan.approve': 'Aprovar plano',
+  'intelligence.tasks.sourcePlan.creating': 'Criando tarefa…',
+  'intelligence.tasks.sourcePlan.createFailed': 'Não foi possível criar a tarefa de agente',
   'notifications.card.dismiss': 'Dispensar notificação',
   'notifications.card.importanceTitle': 'Importância: {pct}%',
   'notifications.center.empty': 'Nenhuma notificação ainda',

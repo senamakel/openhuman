@@ -2674,6 +2674,18 @@ const messages: TranslationMap = {
   'intelligence.tasks.composer.create': 'Utwórz zadanie',
   'intelligence.tasks.composer.creating': 'Tworzenie…',
   'intelligence.tasks.composer.createFailed': 'Nie udało się utworzyć zadania',
+  'intelligence.tasks.sourceList.subtitle':
+    'Zadania ze źródeł czekające na przekształcenie w pracę agenta.',
+  'intelligence.tasks.sourceList.empty': 'Brak oczekujących zadań ze źródeł.',
+  'intelligence.tasks.sourceList.queued': 'W kolejce',
+  'intelligence.tasks.sourceList.workOnTask': 'Pracuj nad zadaniem',
+  'intelligence.tasks.sourcePlan.title': 'Dopracuj zadanie źródłowe',
+  'intelligence.tasks.sourcePlan.subtitle':
+    'Sprawdź szkic badawczy przed utworzeniem zadania agenta.',
+  'intelligence.tasks.sourcePlan.researchAgent': 'Szkic agenta badawczego',
+  'intelligence.tasks.sourcePlan.approve': 'Zatwierdź plan',
+  'intelligence.tasks.sourcePlan.creating': 'Tworzenie zadania…',
+  'intelligence.tasks.sourcePlan.createFailed': 'Nie udało się utworzyć zadania agenta',
   'notifications.card.dismiss': 'Odrzuć powiadomienie',
   'notifications.card.importanceTitle': 'Ważność: {pct}%',
   'notifications.center.empty': 'Brak powiadomień',

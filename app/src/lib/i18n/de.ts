@@ -2702,6 +2702,18 @@ const messages: TranslationMap = {
   'intelligence.tasks.composer.create': 'Aufgabe erstellen',
   'intelligence.tasks.composer.creating': 'Erstellen…',
   'intelligence.tasks.composer.createFailed': 'Die Aufgabe konnte nicht erstellt werden',
+  'intelligence.tasks.sourceList.subtitle':
+    'Quellaufgaben, die in Agentenarbeit umgewandelt werden sollen.',
+  'intelligence.tasks.sourceList.empty': 'Keine Quellaufgaben in der Warteschlange.',
+  'intelligence.tasks.sourceList.queued': 'Eingereiht',
+  'intelligence.tasks.sourceList.workOnTask': 'Aufgabe bearbeiten',
+  'intelligence.tasks.sourcePlan.title': 'Quellaufgabe verfeinern',
+  'intelligence.tasks.sourcePlan.subtitle':
+    'Prüfen Sie den Rechercheentwurf, bevor eine Agentenaufgabe erstellt wird.',
+  'intelligence.tasks.sourcePlan.researchAgent': 'Entwurf des Recherche-Agenten',
+  'intelligence.tasks.sourcePlan.approve': 'Plan genehmigen',
+  'intelligence.tasks.sourcePlan.creating': 'Aufgabe wird erstellt…',
+  'intelligence.tasks.sourcePlan.createFailed': 'Die Agentenaufgabe konnte nicht erstellt werden',
   'notifications.card.dismiss': 'Benachrichtigung verwerfen',
   'notifications.card.importanceTitle': 'Wichtigkeit: {pct}%',
   'notifications.center.empty': 'Noch keine Benachrichtigungen',

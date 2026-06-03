@@ -182,15 +182,105 @@ describe('IntelligenceTasksTab', () => {
     expect(screen.getAllByRole('button', { name: /New task/ }).length).toBeGreaterThan(0);
   });
 
-  test('renders the task sources board even when it is empty', async () => {
+  test('renders the task source list even when it is empty', async () => {
     vi.resetModules();
     const Tab = await importTab();
     renderTab(Tab);
     await waitFor(() => {
-      expect(screen.getByText('settings.taskSources.title')).toBeInTheDocument();
+      expect(screen.getByText('Task Sources')).toBeInTheDocument();
     });
-    expect(screen.getByText('task-sources')).toBeInTheDocument();
+    expect(screen.getByText('No source tasks waiting.')).toBeInTheDocument();
     expect(hoisted.todosList).toHaveBeenCalledWith('task-sources');
+  });
+
+  test('refines a source task and approves it into the personal agent board', async () => {
+    hoisted.todosList.mockImplementation((threadId: string) =>
+      Promise.resolve(
+        threadId === 'task-sources'
+          ? {
+              threadId,
+              cards: [
+                {
+                  id: 'source-1',
+                  title: 'GitHub: tinyhumansai/openhuman#42: Fix source task',
+                  status: 'todo',
+                  objective: 'Fix the source task flow',
+                  notes: 'Original notes',
+                  sourceMetadata: {
+                    provider: 'github',
+                    repo: 'tinyhumansai/openhuman',
+                    external_id: '42',
+                    url: 'https://github.com/tinyhumansai/openhuman/issues/42',
+                  },
+                  order: 0,
+                  updatedAt: '2026-01-01T00:00:00Z',
+                },
+              ],
+              updatedAt: '2026-01-01T00:00:00Z',
+            }
+          : makeBoard(threadId, [])
+      )
+    );
+    hoisted.todosAdd.mockResolvedValue({
+      threadId: 'user-tasks',
+      cards: [
+        {
+          id: 'agent-task-1',
+          title: 'tinyhumansai/openhuman#42: Fix source task',
+          status: 'todo',
+          order: 0,
+          updatedAt: '2026-06-03T00:00:00Z',
+        },
+      ],
+      updatedAt: '2026-06-03T00:00:00Z',
+    });
+    hoisted.todosEdit.mockResolvedValue(makeBoard('user-tasks', ['Queued agent task']));
+    hoisted.todosUpdateStatus.mockResolvedValue({
+      threadId: 'task-sources',
+      cards: [
+        {
+          id: 'source-1',
+          title: 'GitHub: tinyhumansai/openhuman#42: Fix source task',
+          status: 'done',
+          order: 0,
+          updatedAt: '2026-06-03T00:00:00Z',
+        },
+      ],
+      updatedAt: '2026-06-03T00:00:00Z',
+    });
+
+    vi.resetModules();
+    const Tab = await importTab();
+    renderTab(Tab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Fix source task/)).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Work on task' }));
+
+    expect(screen.getByText('Refine source task')).toBeInTheDocument();
+    expect(screen.getByText('Research agent draft')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve Plan' }));
+
+    await waitFor(() => expect(hoisted.todosAdd).toHaveBeenCalledTimes(1));
+    expect(hoisted.todosAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: 'user-tasks',
+        content: 'tinyhumansai/openhuman#42: Fix source task',
+        status: 'todo',
+      })
+    );
+    await waitFor(() => expect(hoisted.todosEdit).toHaveBeenCalledTimes(1));
+    expect(hoisted.todosEdit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: 'user-tasks',
+        id: 'agent-task-1',
+        assignedAgent: 'agent_coder',
+        approvalMode: 'not_required',
+      })
+    );
+    expect(hoisted.todosUpdateStatus).toHaveBeenCalledWith('task-sources', 'source-1', 'done');
   });
 
   test('renders persisted agent boards from the turn-state list', async () => {

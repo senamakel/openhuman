@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Thread } from '../../../types/thread';
-import { isThreadVisibleInTab, WORKERS_TAB_VALUE } from './threadFilter';
+import { GENERAL_TAB_VALUE, isThreadVisibleInTab, WORKERS_TAB_VALUE } from './threadFilter';
 
 // Issue #1624: this is the pure rule that backs the sidebar
 // `filteredThreads` memo + the `Workers` tab. The tests pin both halves
@@ -35,20 +35,25 @@ describe('isThreadVisibleInTab', () => {
     });
   });
 
-  describe('label-scoped tabs (work, briefing, notification, …)', () => {
+  describe('label-scoped tabs (general, briefing, notification, ...)', () => {
     it('keeps a non-worker thread that carries the matching label', () => {
-      const t = thread({ id: 'a', labels: ['work', 'urgent'] });
-      expect(isThreadVisibleInTab(t, 'work')).toBe(true);
+      const t = thread({ id: 'a', labels: [GENERAL_TAB_VALUE, 'urgent'] });
+      expect(isThreadVisibleInTab(t, GENERAL_TAB_VALUE)).toBe(true);
+    });
+
+    it('keeps legacy work-labeled threads in the General tab', () => {
+      const t = thread({ id: 'legacy', labels: ['work', 'urgent'] });
+      expect(isThreadVisibleInTab(t, GENERAL_TAB_VALUE)).toBe(true);
     });
 
     it('drops a non-worker thread that does not carry the matching label', () => {
       const t = thread({ id: 'a', labels: ['briefing'] });
-      expect(isThreadVisibleInTab(t, 'work')).toBe(false);
+      expect(isThreadVisibleInTab(t, GENERAL_TAB_VALUE)).toBe(false);
     });
 
     it('still hides worker threads even when the label would otherwise match', () => {
-      const t = thread({ id: 'w', parentThreadId: 'p', labels: ['work'] });
-      expect(isThreadVisibleInTab(t, 'work')).toBe(false);
+      const t = thread({ id: 'w', parentThreadId: 'p', labels: [GENERAL_TAB_VALUE] });
+      expect(isThreadVisibleInTab(t, GENERAL_TAB_VALUE)).toBe(false);
     });
 
     it('treats threads with no labels array as not matching', () => {

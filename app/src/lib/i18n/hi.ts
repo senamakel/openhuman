@@ -1713,7 +1713,7 @@ const messages: TranslationMap = {
   'chat.safetyTimeout':
     '2 मिनट बाद भी एजेंट से कोई जवाब नहीं मिला। दोबारा कोशिश करें या अपना कनेक्शन चेक करें।',
   'chat.filter.all': 'सभी',
-  'chat.filter.work': 'वर्क',
+  'chat.filter.general': 'सामान्य',
   'chat.filter.briefing': 'ब्रीफिंग',
   'chat.filter.notification': 'नोटिफिकेशन',
   'chat.filter.workers': 'वर्कर्स',

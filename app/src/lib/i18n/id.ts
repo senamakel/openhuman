@@ -1715,7 +1715,7 @@ const messages: TranslationMap = {
   'common.enable': 'Aktifkan',
   'chat.safetyTimeout': 'Tidak ada respons dari agen setelah 2 menit. Coba lagi atau cek koneksi.',
   'chat.filter.all': 'Semua',
-  'chat.filter.work': 'Kerja',
+  'chat.filter.general': 'Umum',
   'chat.filter.briefing': 'Ringkasan',
   'chat.filter.notification': 'Notifikasi',
   'chat.filter.workers': 'Worker',

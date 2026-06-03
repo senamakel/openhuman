@@ -1960,7 +1960,7 @@ const en: TranslationMap = {
   'chat.safetyTimeout':
     'No response from the agent after 2 minutes. Try again or check your connection.',
   'chat.filter.all': 'All',
-  'chat.filter.work': 'Work',
+  'chat.filter.general': 'General',
   'chat.filter.briefing': 'Briefing',
   'chat.filter.notification': 'Notification',
   'chat.filter.workers': 'Workers',

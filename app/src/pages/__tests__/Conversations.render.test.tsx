@@ -181,7 +181,7 @@ function makeThread(overrides: Partial<Thread> = {}): Thread {
     messageCount: 0,
     lastMessageAt: '2026-01-01T00:00:00.000Z',
     createdAt: '2026-01-01T00:00:00.000Z',
-    labels: [],
+    labels: ['general'],
     ...overrides,
   };
 }
@@ -322,13 +322,14 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
   });
 
   // Covers line 941 empty branch
-  it('shows "No threads yet" when thread list is empty', async () => {
+  it('shows "No threads yet" when All is selected and the thread list is empty', async () => {
     await act(async () => {
       await renderConversations({ thread: emptyThreadState });
     });
 
     // Sidebar is hidden by default — open it first.
     await openSidebar();
+    fireEvent.click(screen.getByRole('tab', { name: 'All' }));
 
     expect(screen.getByText('No threads yet')).toBeInTheDocument();
   });
@@ -1266,7 +1267,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
   //
   // The tab set is fixed so categories do not disappear when the thread list
   // is empty, and the active-filter state remains unambiguous.
-  it('renders all four fixed category tabs with stable labels', async () => {
+  it('renders all fixed category tabs with stable labels', async () => {
     await act(async () => {
       await renderConversations({ thread: emptyThreadState });
     });
@@ -1274,14 +1275,16 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // Sidebar is hidden by default — open it first.
     await openSidebar();
 
-    // All four tabs must be present regardless of thread count.
+    // All tabs must be present regardless of thread count.
     expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Work' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'General' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Briefing' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Notification' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Workers' })).toBeInTheDocument();
+    expect(screen.getByRole('tablist')).toHaveClass('flex-wrap');
   });
 
-  it('starts with the "All" tab selected', async () => {
+  it('starts with the "General" tab selected', async () => {
     await act(async () => {
       await renderConversations({ thread: emptyThreadState });
     });
@@ -1289,8 +1292,8 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // Sidebar is hidden by default — open it first.
     await openSidebar();
 
-    expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'Work' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'false');
   });
 
   it('shows "No threads yet" placeholder when All tab is active and list is empty', async () => {
@@ -1300,6 +1303,8 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
 
     // Sidebar is hidden by default — open it first.
     await openSidebar();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'All' }));
 
     expect(screen.getByText('No threads yet')).toBeInTheDocument();
   });
@@ -1312,10 +1317,10 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // Sidebar is hidden by default — open it first.
     await openSidebar();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Work' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'General' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/"work" threads/i)).toBeInTheDocument();
+      expect(screen.getByText(/"General" threads/i)).toBeInTheDocument();
     });
   });
 

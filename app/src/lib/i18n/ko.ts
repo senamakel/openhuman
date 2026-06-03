@@ -1693,7 +1693,7 @@ const messages: TranslationMap = {
   'common.enable': '활성화',
   'chat.safetyTimeout': '2분 후에도 에이전트의 응답이 없습니다. 다시 시도하거나 연결을 확인하세요.',
   'chat.filter.all': '전체',
-  'chat.filter.work': '업무',
+  'chat.filter.general': '일반',
   'chat.filter.briefing': '브리핑',
   'chat.filter.notification': '알림',
   'chat.filter.workers': '워커',

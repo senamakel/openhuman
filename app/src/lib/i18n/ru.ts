@@ -1726,7 +1726,7 @@ const messages: TranslationMap = {
   'chat.safetyTimeout':
     'Агент не ответил в течение 2 минут. Попробуй снова или проверь соединение.',
   'chat.filter.all': 'Все',
-  'chat.filter.work': 'Работа',
+  'chat.filter.general': 'Общее',
   'chat.filter.briefing': 'Брифинг',
   'chat.filter.notification': 'Уведомление',
   'chat.filter.workers': 'Воркеры',

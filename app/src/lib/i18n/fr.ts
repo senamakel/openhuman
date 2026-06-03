@@ -1755,7 +1755,7 @@ const messages: TranslationMap = {
   'chat.safetyTimeout':
     "Aucune réponse de l'agent après 2 minutes. Réessaie ou vérifie ta connexion.",
   'chat.filter.all': 'Tous',
-  'chat.filter.work': 'Travail',
+  'chat.filter.general': 'Général',
   'chat.filter.briefing': 'Briefing',
   'chat.filter.notification': 'Notification',
   'chat.filter.workers': 'Travailleurs',

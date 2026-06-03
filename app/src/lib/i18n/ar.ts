@@ -1678,7 +1678,7 @@ const messages: TranslationMap = {
   'common.enable': 'تفعيل',
   'chat.safetyTimeout': 'لا استجابة من الوكيل بعد دقيقتين. حاول مرة أخرى أو تحقق من اتصالك.',
   'chat.filter.all': 'الكل',
-  'chat.filter.work': 'العمل',
+  'chat.filter.general': 'عام',
   'chat.filter.briefing': 'الإحاطة',
   'chat.filter.notification': 'الإشعار',
   'chat.filter.workers': 'العمال',

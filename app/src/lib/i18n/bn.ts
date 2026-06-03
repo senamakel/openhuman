@@ -1712,7 +1712,7 @@ const messages: TranslationMap = {
   'chat.safetyTimeout':
     '২ মিনিট পরেও এজেন্টের কোনো সাড়া নেই। আবার চেষ্টা করুন বা সংযোগ পরীক্ষা করুন।',
   'chat.filter.all': 'সব',
-  'chat.filter.work': 'কাজ',
+  'chat.filter.general': 'সাধারণ',
   'chat.filter.briefing': 'ব্রিফিং',
   'chat.filter.notification': 'বিজ্ঞপ্তি',
   'chat.filter.workers': 'ওয়ার্কার',

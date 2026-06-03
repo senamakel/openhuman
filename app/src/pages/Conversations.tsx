@@ -96,7 +96,11 @@ import {
   formatResetTime,
   getInlineCompletionSuffix,
 } from './conversations/utils/format';
-import { isThreadVisibleInTab, WORKERS_TAB_VALUE } from './conversations/utils/threadFilter';
+import {
+  GENERAL_TAB_VALUE,
+  isThreadVisibleInTab,
+  WORKERS_TAB_VALUE,
+} from './conversations/utils/threadFilter';
 
 // Chat uses the reasoning model; `agentic-v1` is reserved for sub-agents
 // that execute tool calls, not the primary user-facing conversation.
@@ -213,7 +217,7 @@ const Conversations = ({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
   const [isPlayingReply, setIsPlayingReply] = useState(false);
-  const [selectedLabel, setSelectedLabel] = useState<string>('all');
+  const [selectedLabel, setSelectedLabel] = useState<string>(GENERAL_TAB_VALUE);
   const [inlineSuggestionValue, setInlineSuggestionValue] = useState('');
   const [sendError, setSendError] = useState<ChatSendError | null>(null);
   const [attachError, setAttachError] = useState<ChatSendError | null>(null);
@@ -399,11 +403,9 @@ const Conversations = ({
       .then(data => {
         if (cancelled) return;
         const threadStateForSelect = store.getState().thread;
-        // Worker/subagent threads are hidden from the conversation list
-        // (see tinyhumansai/openhuman#1624). Match the sidebar filter here so
-        // initial/resume selection can't auto-pick a hidden thread and leave
-        // the UI showing a thread that isn't in the list.
-        const visibleThreads = data.threads.filter(t => !t.parentThreadId);
+        // Match the sidebar's default General filter here so initial/resume
+        // selection can't auto-pick a thread hidden by the selected tab.
+        const visibleThreads = data.threads.filter(t => isThreadVisibleInTab(t, GENERAL_TAB_VALUE));
         if (visibleThreads.length > 0) {
           // Prefer the thread the user was last viewing (persisted across
           // reloads via redux-persist on the `thread` slice). Only fall
@@ -1248,11 +1250,13 @@ const Conversations = ({
   // transcript is the inline `WorkerThreadRefCard` inside the parent.
   const labelTabs = [
     { label: t('chat.filter.all'), value: 'all' },
-    { label: t('chat.filter.work'), value: 'work' },
+    { label: t('chat.filter.general'), value: GENERAL_TAB_VALUE },
     { label: t('chat.filter.briefing'), value: 'briefing' },
     { label: t('chat.filter.notification'), value: 'notification' },
     { label: t('chat.filter.workers'), value: WORKERS_TAB_VALUE },
   ];
+  const selectedLabelDisplay =
+    labelTabs.find(tab => tab.value === selectedLabel)?.label ?? selectedLabel;
 
   const isSidebar = variant === 'sidebar';
   const effectiveShowSidebar = showSidebar;
@@ -1321,7 +1325,7 @@ const Conversations = ({
               items={labelTabs}
               selected={selectedLabel}
               onChange={setSelectedLabel}
-              containerClassName="flex gap-1 overflow-x-auto py-1 scrollbar-hide"
+              containerClassName="flex flex-wrap gap-1 py-1"
             />
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -1331,7 +1335,7 @@ const Conversations = ({
                   ? t('chat.noThreads')
                   : selectedLabel === WORKERS_TAB_VALUE
                     ? t('chat.noWorkerThreads')
-                    : t('chat.noLabelThreads').replace('{label}', selectedLabel)}
+                    : t('chat.noLabelThreads').replace('{label}', selectedLabelDisplay)}
               </p>
             ) : (
               sortedThreads.map(thread => (

@@ -13,6 +13,8 @@ import type { Thread } from '../../../types/thread';
  * future rename can never silently desync the three.
  */
 export const WORKERS_TAB_VALUE = 'workers';
+export const GENERAL_TAB_VALUE = 'general';
+export const LEGACY_GENERAL_LABEL = 'work';
 
 /**
  * Pure, side-effect-free thread filter shared between
@@ -30,12 +32,18 @@ export const WORKERS_TAB_VALUE = 'workers';
  *     orchestrator-spawned background work.
  *   - Within the non-Workers tabs, `selectedLabel === 'all'` keeps every
  *     non-worker thread; any other value scopes by the existing thread
- *     `labels[]` array (`work`, `briefing`, `notification`, …).
+ *     `labels[]` array (`general`, `briefing`, `notification`, …). The
+ *     General tab also accepts legacy `work` labels from older cores.
  */
 export function isThreadVisibleInTab(thread: Thread, selectedLabel: string): boolean {
   const isWorker = Boolean(thread.parentThreadId);
   if (selectedLabel === WORKERS_TAB_VALUE) return isWorker;
   if (isWorker) return false;
   if (selectedLabel === 'all') return true;
+  if (selectedLabel === GENERAL_TAB_VALUE) {
+    return Boolean(
+      thread.labels?.includes(GENERAL_TAB_VALUE) || thread.labels?.includes(LEGACY_GENERAL_LABEL)
+    );
+  }
   return Boolean(thread.labels?.includes(selectedLabel));
 }

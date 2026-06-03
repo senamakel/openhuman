@@ -4426,6 +4426,20 @@ const messages: TranslationMap = {
   'memoryData.windowError': '记忆时间窗口',
   'memoryData.windowUpdated': '记忆时间窗口已更新',
   'memoryData.windowUpdatedMsg': '已设置为 {window}。',
+  // Queue controls
+  'chat.queueMode.label': '队列模式',
+  'chat.queueMode.interrupt': '中断',
+  'chat.queueMode.steer': '引导',
+  'chat.queueMode.followup': '跟进',
+  'chat.queueMode.collect': '收集',
+  'chat.queueMode.interrupt.description': '停止当前轮次并重新开始',
+  'chat.queueMode.steer.description': '注入正在运行的轮次',
+  'chat.queueMode.followup.description': '在当前轮次结束后排队',
+  'chat.queueMode.collect.description': '在不中断的情况下添加上下文',
+  'chat.queue.steered': '消息已引导至活动轮次',
+  'chat.queue.followupQueued': '跟进已加入队列',
+  'chat.queue.collected': '上下文已收集',
+  'chat.queue.interrupted': '轮次已中断',
 };
 
 export default messages;

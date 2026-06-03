@@ -4777,6 +4777,20 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Speicherfenster',
   'memoryData.windowUpdated': 'Speicherfenster aktualisiert',
   'memoryData.windowUpdatedMsg': 'Auf {window} gesetzt.',
+  // Queue controls
+  'chat.queueMode.label': 'Warteschlangenmodus',
+  'chat.queueMode.interrupt': 'Unterbrechen',
+  'chat.queueMode.steer': 'Steuern',
+  'chat.queueMode.followup': 'Nachfassen',
+  'chat.queueMode.collect': 'Sammeln',
+  'chat.queueMode.interrupt.description': 'Aktuellen Durchlauf stoppen und neu beginnen',
+  'chat.queueMode.steer.description': 'In den laufenden Durchlauf eingreifen',
+  'chat.queueMode.followup.description': 'Nach dem aktuellen Durchlauf einreihen',
+  'chat.queueMode.collect.description': 'Kontext hinzufügen ohne zu unterbrechen',
+  'chat.queue.steered': 'Nachricht in aktiven Durchlauf gesteuert',
+  'chat.queue.followupQueued': 'Nachfassen eingereiht',
+  'chat.queue.collected': 'Kontext gesammelt',
+  'chat.queue.interrupted': 'Durchlauf unterbrochen',
 };
 
 export default messages;

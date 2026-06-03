@@ -312,6 +312,7 @@ fn pick_target_agent_id(_config: &Config, profile: &AgentProfile) -> String {
 struct InFlightEntry {
     request_id: String,
     handle: tokio::task::JoinHandle<()>,
+    run_queue: std::sync::Arc<crate::openhuman::agent::harness::run_queue::RunQueue>,
 }
 
 #[derive(Debug, Clone)]
@@ -440,6 +441,7 @@ pub async fn start_chat(
     temperature: Option<f64>,
     profile_id: Option<String>,
     locale: Option<String>,
+    queue_mode: Option<crate::openhuman::agent::harness::run_queue::QueueMode>,
 ) -> Result<String, String> {
     let client_id = client_id.trim().to_string();
     let thread_id = thread_id.trim().to_string();
@@ -538,16 +540,62 @@ pub async fn start_chat(
     }
 
     let map_key = key_for(&thread_id);
+    let effective_mode =
+        queue_mode.unwrap_or(crate::openhuman::agent::harness::run_queue::QueueMode::Interrupt);
 
     {
+        use crate::openhuman::agent::harness::run_queue::{QueueEntry, QueueMode};
+
         let mut in_flight = IN_FLIGHT.lock().await;
+        if let Some(existing) = in_flight.get(&map_key) {
+            match effective_mode {
+                QueueMode::Steer | QueueMode::Followup | QueueMode::Collect => {
+                    let entry = QueueEntry {
+                        id: request_id.clone(),
+                        message: message.clone(),
+                        mode: effective_mode,
+                        enqueued_at: std::time::Instant::now(),
+                        client_id: client_id.clone(),
+                        thread_id: thread_id.clone(),
+                    };
+                    existing.run_queue.push(entry).await;
+                    crate::core::event_bus::publish_global(
+                        crate::core::event_bus::DomainEvent::RunQueueMessageQueued {
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            mode: effective_mode.as_str().to_string(),
+                        },
+                    );
+                    log::info!(
+                        "[web-channel] queued {} message thread_id={} request_id={}",
+                        effective_mode.as_str(),
+                        thread_id,
+                        request_id
+                    );
+                    return Ok(request_id);
+                }
+                QueueMode::Interrupt => {
+                    // Fall through to the abort path below.
+                }
+            }
+        }
+
+        // Interrupt path: abort any in-flight turn (existing behavior).
         if let Some(existing) = in_flight.remove(&map_key) {
+            let cancelled_id = existing.request_id.clone();
             existing.handle.abort();
+            crate::core::event_bus::publish_global(
+                crate::core::event_bus::DomainEvent::RunQueueInterrupted {
+                    thread_id: thread_id.clone(),
+                    cancelled_request_id: cancelled_id.clone(),
+                    new_request_id: request_id.clone(),
+                },
+            );
             publish_web_channel_event(WebChannelEvent {
                 event: "chat_error".to_string(),
                 client_id: client_id.clone(),
                 thread_id: thread_id.clone(),
-                request_id: existing.request_id,
+                request_id: cancelled_id,
                 full_response: None,
                 message: Some("Cancelled by newer request".to_string()),
                 error_type: Some("cancelled".to_string()),
@@ -725,6 +773,9 @@ pub async fn start_chat(
             InFlightEntry {
                 request_id: request_id.clone(),
                 handle,
+                run_queue: std::sync::Arc::new(
+                    crate::openhuman::agent::harness::run_queue::RunQueue::new(),
+                ),
             },
         );
     }
@@ -1794,6 +1845,22 @@ struct WebChatParams {
     /// default language (English) so existing integrations don't
     /// silently change behaviour.
     locale: Option<String>,
+    /// Queue behavior when a turn is already in flight for this thread:
+    /// `"interrupt"` (default), `"steer"`, `"followup"`, or `"collect"`.
+    queue_mode: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WebQueueStatusParams {
+    thread_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct WebQueueClearParams {
+    thread_id: String,
+    /// Optional mode filter: `"steer"`, `"followup"`, `"collect"`, or
+    /// omitted to clear all modes.
+    mode: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1810,6 +1877,7 @@ pub async fn channel_web_chat(
     temperature: Option<f64>,
     profile_id: Option<String>,
     locale: Option<String>,
+    queue_mode: Option<crate::openhuman::agent::harness::run_queue::QueueMode>,
 ) -> Result<RpcOutcome<Value>, String> {
     let request_id = start_chat(
         client_id,
@@ -1819,6 +1887,7 @@ pub async fn channel_web_chat(
         temperature,
         profile_id,
         locale,
+        queue_mode,
     )
     .await?;
 
@@ -1831,6 +1900,66 @@ pub async fn channel_web_chat(
         }),
         "web channel request accepted",
     ))
+}
+
+pub async fn channel_web_queue_status(thread_id: &str) -> Result<RpcOutcome<Value>, String> {
+    let map_key = key_for(thread_id);
+    let in_flight = IN_FLIGHT.lock().await;
+    if let Some(entry) = in_flight.get(&map_key) {
+        let counts = entry.run_queue.pending_counts().await;
+        Ok(RpcOutcome::single_log(
+            json!({
+                "has_inflight": true,
+                "steers_pending": counts.steers,
+                "followups_pending": counts.followups,
+                "collects_pending": counts.collects,
+            }),
+            "queue status retrieved",
+        ))
+    } else {
+        Ok(RpcOutcome::single_log(
+            json!({
+                "has_inflight": false,
+                "steers_pending": 0,
+                "followups_pending": 0,
+                "collects_pending": 0,
+            }),
+            "no in-flight turn",
+        ))
+    }
+}
+
+pub async fn channel_web_queue_clear(
+    thread_id: &str,
+    mode: Option<&str>,
+) -> Result<RpcOutcome<Value>, String> {
+    use crate::openhuman::agent::harness::run_queue::QueueMode;
+
+    let map_key = key_for(thread_id);
+    let in_flight = IN_FLIGHT.lock().await;
+    if let Some(entry) = in_flight.get(&map_key) {
+        let cleared = if let Some(mode_str) = mode {
+            let mode = QueueMode::from_str_opt(mode_str)
+                .ok_or_else(|| format!("unknown queue mode: {mode_str}"))?;
+            entry.run_queue.clear_mode(mode).await
+        } else {
+            entry.run_queue.clear().await
+        };
+        log::info!(
+            "[web-channel] cleared {} queued message(s) thread_id={}",
+            cleared,
+            thread_id
+        );
+        Ok(RpcOutcome::single_log(
+            json!({ "cleared": cleared }),
+            "queue cleared",
+        ))
+    } else {
+        Ok(RpcOutcome::single_log(
+            json!({ "cleared": 0 }),
+            "no in-flight turn to clear",
+        ))
+    }
 }
 
 pub async fn channel_web_cancel(
@@ -1851,7 +1980,12 @@ pub async fn channel_web_cancel(
 }
 
 pub fn all_web_channel_controller_schemas() -> Vec<ControllerSchema> {
-    vec![schemas("chat"), schemas("cancel")]
+    vec![
+        schemas("chat"),
+        schemas("cancel"),
+        schemas("queue_status"),
+        schemas("queue_clear"),
+    ]
 }
 
 pub fn all_web_channel_registered_controllers() -> Vec<RegisteredController> {
@@ -1863,6 +1997,14 @@ pub fn all_web_channel_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("cancel"),
             handler: handle_cancel,
+        },
+        RegisteredController {
+            schema: schemas("queue_status"),
+            handler: handle_queue_status,
+        },
+        RegisteredController {
+            schema: schemas("queue_clear"),
+            handler: handle_queue_clear,
         },
     ]
 }
@@ -1884,6 +2026,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     "locale",
                     "Optional BCP-47 UI locale (e.g. 'ar', 'zh-CN'). Drives the \"reply in this language\" system-prompt directive.",
                 ),
+                optional_string(
+                    "queue_mode",
+                    "Queue behavior when a turn is in flight: 'interrupt' (default), 'steer', 'followup', or 'collect'.",
+                ),
             ],
             outputs: vec![json_output("ack", "Acceptance payload.")],
         },
@@ -1896,6 +2042,25 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required_string("thread_id", "Thread identifier."),
             ],
             outputs: vec![json_output("ack", "Cancellation payload.")],
+        },
+        "queue_status" => ControllerSchema {
+            namespace: "channel",
+            function: "web_queue_status",
+            description: "Get the run-queue status for a thread (pending steers, followups, collects).",
+            inputs: vec![
+                required_string("thread_id", "Thread identifier."),
+            ],
+            outputs: vec![json_output("status", "Queue status payload.")],
+        },
+        "queue_clear" => ControllerSchema {
+            namespace: "channel",
+            function: "web_queue_clear",
+            description: "Clear queued messages for a thread.",
+            inputs: vec![
+                required_string("thread_id", "Thread identifier."),
+                optional_string("mode", "Optional mode filter: 'steer', 'followup', 'collect', or omitted to clear all."),
+            ],
+            outputs: vec![json_output("ack", "Clear result payload.")],
         },
         _ => ControllerSchema {
             namespace: "channel",
@@ -1915,6 +2080,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
 fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = deserialize_params::<WebChatParams>(params)?;
+        let queue_mode = p
+            .queue_mode
+            .as_deref()
+            .and_then(crate::openhuman::agent::harness::run_queue::QueueMode::from_str_opt);
         to_json(
             channel_web_chat(
                 &p.client_id,
@@ -1924,9 +2093,24 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
                 p.temperature,
                 p.profile_id,
                 p.locale,
+                queue_mode,
             )
             .await?,
         )
+    })
+}
+
+fn handle_queue_status(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = deserialize_params::<WebQueueStatusParams>(params)?;
+        to_json(channel_web_queue_status(&p.thread_id).await?)
+    })
+}
+
+fn handle_queue_clear(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = deserialize_params::<WebQueueClearParams>(params)?;
+        to_json(channel_web_queue_clear(&p.thread_id, p.mode.as_deref()).await?)
     })
 }
 

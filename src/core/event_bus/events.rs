@@ -730,6 +730,39 @@ pub enum DomainEvent {
         reason: String,
     },
 
+    // ── Run Queue ───────────────────────────────────────────────────────
+    /// A message was enqueued into a running turn's queue (steer,
+    /// followup, or collect). Published by the web channel handler.
+    RunQueueMessageQueued {
+        thread_id: String,
+        request_id: String,
+        /// `"steer"`, `"followup"`, or `"collect"`.
+        mode: String,
+    },
+    /// A queued steer or collect was injected into the engine's history
+    /// at a model boundary. Published by the engine loop.
+    RunQueueMessageDelivered {
+        thread_id: String,
+        request_id: String,
+        /// `"steer"` or `"collect"`.
+        mode: String,
+        iteration: u32,
+    },
+    /// A queued followup was dispatched as a new turn after the
+    /// current turn completed. Published by the web channel handler.
+    RunQueueFollowupDispatched {
+        thread_id: String,
+        request_id: String,
+    },
+    /// A running turn was interrupted (aborted) by a newer request.
+    /// This names the existing abort behavior so telemetry can track
+    /// it alongside the new queue modes.
+    RunQueueInterrupted {
+        thread_id: String,
+        cancelled_request_id: String,
+        new_request_id: String,
+    },
+
     // ── System lifecycle ────────────────────────────────────────────────
     /// A system component started up.
     SystemStartup { component: String },
@@ -897,6 +930,11 @@ impl DomainEvent {
             | Self::CompanionStateChanged { .. }
             | Self::CompanionSessionEnded { .. } => "companion",
 
+            Self::RunQueueMessageQueued { .. }
+            | Self::RunQueueMessageDelivered { .. }
+            | Self::RunQueueFollowupDispatched { .. }
+            | Self::RunQueueInterrupted { .. } => "run_queue",
+
             Self::SystemStartup { .. }
             | Self::SystemShutdown { .. }
             | Self::SystemRestartRequested { .. }
@@ -996,6 +1034,10 @@ impl DomainEvent {
             Self::CompanionSessionStarted { .. } => "CompanionSessionStarted",
             Self::CompanionStateChanged { .. } => "CompanionStateChanged",
             Self::CompanionSessionEnded { .. } => "CompanionSessionEnded",
+            Self::RunQueueMessageQueued { .. } => "RunQueueMessageQueued",
+            Self::RunQueueMessageDelivered { .. } => "RunQueueMessageDelivered",
+            Self::RunQueueFollowupDispatched { .. } => "RunQueueFollowupDispatched",
+            Self::RunQueueInterrupted { .. } => "RunQueueInterrupted",
             Self::SystemStartup { .. } => "SystemStartup",
             Self::SystemShutdown { .. } => "SystemShutdown",
             Self::SystemRestartRequested { .. } => "SystemRestartRequested",
@@ -1045,6 +1087,10 @@ impl DomainEvent {
             | Self::ChannelDisconnected { channel, .. } => Some(channel.as_str()),
             Self::ToolExecutionStarted { tool_name, .. }
             | Self::ToolExecutionCompleted { tool_name, .. } => Some(tool_name.as_str()),
+            Self::RunQueueMessageQueued { thread_id, .. }
+            | Self::RunQueueMessageDelivered { thread_id, .. }
+            | Self::RunQueueFollowupDispatched { thread_id, .. }
+            | Self::RunQueueInterrupted { thread_id, .. } => Some(thread_id.as_str()),
             _ => None,
         }
     }

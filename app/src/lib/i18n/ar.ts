@@ -4565,6 +4565,20 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'نافذة الذاكرة',
   'memoryData.windowUpdated': 'تم تحديث نافذة الذاكرة',
   'memoryData.windowUpdatedMsg': 'تم الضبط على {window}.',
+  // Queue controls
+  'chat.queueMode.label': 'وضع قائمة الانتظار',
+  'chat.queueMode.interrupt': 'مقاطعة',
+  'chat.queueMode.steer': 'توجيه',
+  'chat.queueMode.followup': 'متابعة',
+  'chat.queueMode.collect': 'تجميع',
+  'chat.queueMode.interrupt.description': 'إيقاف الدور الحالي والبدء من جديد',
+  'chat.queueMode.steer.description': 'حقن في الدور الجاري',
+  'chat.queueMode.followup.description': 'وضع في قائمة الانتظار بعد الدور الحالي',
+  'chat.queueMode.collect.description': 'إضافة سياق دون مقاطعة',
+  'chat.queue.steered': 'تم توجيه الرسالة إلى الدور النشط',
+  'chat.queue.followupQueued': 'تمت إضافة المتابعة إلى قائمة الانتظار',
+  'chat.queue.collected': 'تم تجميع السياق',
+  'chat.queue.interrupted': 'تمت مقاطعة الدور',
 };
 
 export default messages;

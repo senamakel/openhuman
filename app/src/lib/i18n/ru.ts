@@ -4693,6 +4693,20 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Окно памяти',
   'memoryData.windowUpdated': 'Окно памяти обновлено',
   'memoryData.windowUpdatedMsg': 'Установлено значение {window}.',
+  // Queue controls
+  'chat.queueMode.label': 'Режим очереди',
+  'chat.queueMode.interrupt': 'Прервать',
+  'chat.queueMode.steer': 'Направить',
+  'chat.queueMode.followup': 'Продолжение',
+  'chat.queueMode.collect': 'Собрать',
+  'chat.queueMode.interrupt.description': 'Остановить текущий ход и начать заново',
+  'chat.queueMode.steer.description': 'Вставить в текущий выполняемый ход',
+  'chat.queueMode.followup.description': 'Добавить в очередь после текущего хода',
+  'chat.queueMode.collect.description': 'Добавить контекст без прерывания',
+  'chat.queue.steered': 'Сообщение направлено в активный ход',
+  'chat.queue.followupQueued': 'Продолжение добавлено в очередь',
+  'chat.queue.collected': 'Контекст собран',
+  'chat.queue.interrupted': 'Ход прерван',
 };
 
 export default messages;

@@ -4889,6 +4889,21 @@ const en: TranslationMap = {
   // Monthly cost badge
   'monthlyCost.badge': '${amount} this month',
   'monthlyCost.noData': 'No syncs this month',
+
+  // Queue controls
+  'chat.queueMode.label': 'Queue mode',
+  'chat.queueMode.interrupt': 'Interrupt',
+  'chat.queueMode.steer': 'Steer',
+  'chat.queueMode.followup': 'Follow-up',
+  'chat.queueMode.collect': 'Collect',
+  'chat.queueMode.interrupt.description': 'Stop current turn and start fresh',
+  'chat.queueMode.steer.description': 'Inject into the running turn',
+  'chat.queueMode.followup.description': 'Queue for after current turn',
+  'chat.queueMode.collect.description': 'Add context without interrupting',
+  'chat.queue.steered': 'Message steered into active turn',
+  'chat.queue.followupQueued': 'Follow-up queued',
+  'chat.queue.collected': 'Context collected',
+  'chat.queue.interrupted': 'Turn interrupted',
 };
 
 export default en;

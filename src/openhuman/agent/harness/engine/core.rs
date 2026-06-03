@@ -19,6 +19,7 @@
 use anyhow::Result;
 use std::fmt::Write as _;
 use std::io::Write as _;
+use std::sync::Arc;
 
 use crate::openhuman::agent::cost::TurnCost;
 use crate::openhuman::agent::multimodal;
@@ -88,6 +89,7 @@ pub(crate) async fn run_turn_engine(
     max_iterations: usize,
     on_delta: Option<tokio::sync::mpsc::Sender<String>>,
     early_exit_tool_names: &[&str],
+    run_queue: Option<Arc<super::super::run_queue::RunQueue>>,
 ) -> Result<TurnEngineOutcome> {
     let mut context_guard = context_window_for_model(model)
         .map(ContextGuard::with_context_window)
@@ -113,6 +115,45 @@ pub(crate) async fn run_turn_engine(
         progress
             .iteration_started((iteration + 1) as u32, max_iterations as u32)
             .await;
+
+        // ── Run queue: drain steers + collects at model boundary ──
+        //
+        // Invariant: tool-call / tool-result pairs from the previous
+        // iteration are already committed to `history` before we reach
+        // here, so injecting user messages now cannot corrupt ordering.
+        if let Some(ref queue) = run_queue {
+            let collects = queue.drain_collects().await;
+            for entry in &collects {
+                tracing::info!(
+                    iteration,
+                    entry_id = %entry.id,
+                    chars = entry.message.len(),
+                    "[agent_loop] injecting collect context"
+                );
+                history.push(ChatMessage::user(format!(
+                    "[Additional context]: {}",
+                    entry.message
+                )));
+            }
+            let steers = queue.drain_steers().await;
+            for entry in &steers {
+                tracing::info!(
+                    iteration,
+                    entry_id = %entry.id,
+                    chars = entry.message.len(),
+                    "[agent_loop] injecting steer message"
+                );
+                history.push(ChatMessage::user(entry.message.clone()));
+            }
+            if !collects.is_empty() || !steers.is_empty() {
+                tracing::debug!(
+                    iteration,
+                    steers = steers.len(),
+                    collects = collects.len(),
+                    "[agent_loop] queue drain complete"
+                );
+            }
+        }
 
         // ── Stop hooks: policy check before the next LLM call ──
         if !stop_hooks.is_empty() {

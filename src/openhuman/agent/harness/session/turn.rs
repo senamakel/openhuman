@@ -556,6 +556,7 @@ impl Agent {
                 max_iterations,
                 None, // the web bridge streams via on_progress deltas, not on_delta
                 &[],
+                None, // run_queue — threaded by web channel when active
             ))
             .await?;
 

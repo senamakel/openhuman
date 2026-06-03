@@ -4729,6 +4729,20 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Janela de memória',
   'memoryData.windowUpdated': 'Janela de memória atualizada',
   'memoryData.windowUpdatedMsg': 'Definida para {window}.',
+  // Queue controls
+  'chat.queueMode.label': 'Modo de fila',
+  'chat.queueMode.interrupt': 'Interromper',
+  'chat.queueMode.steer': 'Direcionar',
+  'chat.queueMode.followup': 'Acompanhamento',
+  'chat.queueMode.collect': 'Coletar',
+  'chat.queueMode.interrupt.description': 'Parar o turno atual e começar de novo',
+  'chat.queueMode.steer.description': 'Injetar no turno em execução',
+  'chat.queueMode.followup.description': 'Enfileirar para após o turno atual',
+  'chat.queueMode.collect.description': 'Adicionar contexto sem interromper',
+  'chat.queue.steered': 'Mensagem direcionada ao turno ativo',
+  'chat.queue.followupQueued': 'Acompanhamento enfileirado',
+  'chat.queue.collected': 'Contexto coletado',
+  'chat.queue.interrupted': 'Turno interrompido',
 };
 
 export default messages;

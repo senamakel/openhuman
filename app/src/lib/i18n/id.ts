@@ -4666,6 +4666,20 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Jendela memori',
   'memoryData.windowUpdated': 'Jendela memori diperbarui',
   'memoryData.windowUpdatedMsg': 'Diatur ke {window}.',
+  // Queue controls
+  'chat.queueMode.label': 'Mode antrean',
+  'chat.queueMode.interrupt': 'Interupsi',
+  'chat.queueMode.steer': 'Arahkan',
+  'chat.queueMode.followup': 'Tindak lanjut',
+  'chat.queueMode.collect': 'Kumpulkan',
+  'chat.queueMode.interrupt.description': 'Hentikan giliran saat ini dan mulai dari awal',
+  'chat.queueMode.steer.description': 'Sisipkan ke dalam giliran yang sedang berjalan',
+  'chat.queueMode.followup.description': 'Antre setelah giliran saat ini',
+  'chat.queueMode.collect.description': 'Tambahkan konteks tanpa menginterupsi',
+  'chat.queue.steered': 'Pesan diarahkan ke giliran aktif',
+  'chat.queue.followupQueued': 'Tindak lanjut masuk antrean',
+  'chat.queue.collected': 'Konteks dikumpulkan',
+  'chat.queue.interrupted': 'Giliran diinterupsi',
 };
 
 export default messages;

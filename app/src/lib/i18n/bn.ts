@@ -4647,6 +4647,20 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'মেমোরি উইন্ডো',
   'memoryData.windowUpdated': 'মেমোরি উইন্ডো আপডেট হয়েছে',
   'memoryData.windowUpdatedMsg': '{window}-এ সেট করা হয়েছে।',
+  // Queue controls
+  'chat.queueMode.label': 'কিউ মোড',
+  'chat.queueMode.interrupt': 'বাধা দিন',
+  'chat.queueMode.steer': 'পরিচালনা করুন',
+  'chat.queueMode.followup': 'ফলো-আপ',
+  'chat.queueMode.collect': 'সংগ্রহ করুন',
+  'chat.queueMode.interrupt.description': 'বর্তমান পালা বন্ধ করুন এবং নতুন করে শুরু করুন',
+  'chat.queueMode.steer.description': 'চলমান পালায় প্রবেশ করান',
+  'chat.queueMode.followup.description': 'বর্তমান পালার পরে কিউতে রাখুন',
+  'chat.queueMode.collect.description': 'বাধা না দিয়ে প্রসঙ্গ যোগ করুন',
+  'chat.queue.steered': 'সক্রিয় পালায় বার্তা পরিচালিত হয়েছে',
+  'chat.queue.followupQueued': 'ফলো-আপ কিউতে যোগ হয়েছে',
+  'chat.queue.collected': 'প্রসঙ্গ সংগ্রহ করা হয়েছে',
+  'chat.queue.interrupted': 'পালা বাধাগ্রস্ত হয়েছে',
 };
 
 export default messages;

@@ -954,6 +954,11 @@ export interface ChatSendParams {
    * working unchanged.
    */
   locale?: string | null;
+  /**
+   * Queue behavior when a turn is already in flight for this thread:
+   * `'interrupt'` (default), `'steer'`, `'followup'`, or `'collect'`.
+   */
+  queueMode?: 'interrupt' | 'steer' | 'followup' | 'collect';
 }
 
 /**
@@ -979,6 +984,7 @@ export async function chatSend(params: ChatSendParams): Promise<void> {
       model_override: params.model ?? undefined,
       profile_id: params.profileId ?? undefined,
       locale: params.locale ?? undefined,
+      queue_mode: params.queueMode ?? undefined,
     },
   });
 }

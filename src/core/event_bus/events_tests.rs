@@ -399,6 +399,39 @@ fn all_variants_have_correct_domain() {
             },
             "notification",
         ),
+        // Run Queue
+        (
+            DomainEvent::RunQueueMessageQueued {
+                thread_id: "t".into(),
+                request_id: "r".into(),
+                mode: "steer".into(),
+            },
+            "run_queue",
+        ),
+        (
+            DomainEvent::RunQueueMessageDelivered {
+                thread_id: "t".into(),
+                request_id: "r".into(),
+                mode: "steer".into(),
+                iteration: 1,
+            },
+            "run_queue",
+        ),
+        (
+            DomainEvent::RunQueueFollowupDispatched {
+                thread_id: "t".into(),
+                request_id: "r".into(),
+            },
+            "run_queue",
+        ),
+        (
+            DomainEvent::RunQueueInterrupted {
+                thread_id: "t".into(),
+                cancelled_request_id: "old".into(),
+                new_request_id: "new".into(),
+            },
+            "run_queue",
+        ),
         // System
         (
             DomainEvent::SystemStartup {

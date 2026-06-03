@@ -4608,6 +4608,20 @@ const messages: TranslationMap = {
   'memoryData.windowError': '메모리 창',
   'memoryData.windowUpdated': '메모리 창 업데이트됨',
   'memoryData.windowUpdatedMsg': '{window}(으)로 설정되었습니다.',
+  // Queue controls
+  'chat.queueMode.label': '대기열 모드',
+  'chat.queueMode.interrupt': '중단',
+  'chat.queueMode.steer': '방향 전환',
+  'chat.queueMode.followup': '후속 조치',
+  'chat.queueMode.collect': '수집',
+  'chat.queueMode.interrupt.description': '현재 순서를 중지하고 새로 시작',
+  'chat.queueMode.steer.description': '진행 중인 순서에 삽입',
+  'chat.queueMode.followup.description': '현재 순서 이후 대기열에 추가',
+  'chat.queueMode.collect.description': '방해하지 않고 컨텍스트 추가',
+  'chat.queue.steered': '활성 순서로 메시지가 전달됨',
+  'chat.queue.followupQueued': '후속 조치가 대기열에 추가됨',
+  'chat.queue.collected': '컨텍스트가 수집됨',
+  'chat.queue.interrupted': '순서가 중단됨',
 };
 
 export default messages;

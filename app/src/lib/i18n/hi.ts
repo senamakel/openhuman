@@ -4652,6 +4652,20 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'मेमोरी विंडो',
   'memoryData.windowUpdated': 'मेमोरी विंडो अपडेट हुई',
   'memoryData.windowUpdatedMsg': '{window} पर सेट किया गया।',
+  // Queue controls
+  'chat.queueMode.label': 'कतार मोड',
+  'chat.queueMode.interrupt': 'बाधित करें',
+  'chat.queueMode.steer': 'मार्गदर्शन करें',
+  'chat.queueMode.followup': 'अनुवर्ती',
+  'chat.queueMode.collect': 'संग्रहित करें',
+  'chat.queueMode.interrupt.description': 'वर्तमान मोड़ रोकें और नए सिरे से शुरू करें',
+  'chat.queueMode.steer.description': 'चालू मोड़ में इंजेक्ट करें',
+  'chat.queueMode.followup.description': 'वर्तमान मोड़ के बाद कतार में रखें',
+  'chat.queueMode.collect.description': 'बाधा डाले बिना संदर्भ जोड़ें',
+  'chat.queue.steered': 'सक्रिय मोड़ में संदेश निर्देशित किया गया',
+  'chat.queue.followupQueued': 'अनुवर्ती कतार में जोड़ा गया',
+  'chat.queue.collected': 'संदर्भ संग्रहित किया गया',
+  'chat.queue.interrupted': 'मोड़ बाधित हुआ',
 };
 
 export default messages;

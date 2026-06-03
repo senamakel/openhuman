@@ -62,6 +62,124 @@ pub fn register_approval_surface_subscriber() {
     }
 }
 
+/// Handle for the artifact-surface subscriber. Set once on
+/// [`register_artifact_surface_subscriber`]; subsequent calls no-op.
+static ARTIFACT_SURFACE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
+
+/// Bridge artifact lifecycle events onto the web channel.
+/// `DomainEvent::ArtifactReady` / `ArtifactFailed` (published by
+/// `artifacts::store::{finalize,fail}_artifact` from #2778's producer
+/// surface) carry the thread_id + client_id when the producing turn
+/// ran under an `APPROVAL_CHAT_CONTEXT`. When present, fan out as an
+/// `artifact_ready` / `artifact_failed` socket event so the frontend
+/// `chatRuntimeSlice` can upsert the snapshot and the `ArtifactCard`
+/// can render in the message timeline. Sub-task #2779 of #1535.
+/// Idempotent. No-op for non-chat events (thread/client id absent).
+pub fn register_artifact_surface_subscriber() {
+    if ARTIFACT_SURFACE_HANDLE.get().is_some() {
+        return;
+    }
+    match crate::core::event_bus::subscribe_global(Arc::new(ArtifactSurfaceSubscriber)) {
+        Some(handle) => {
+            let _ = ARTIFACT_SURFACE_HANDLE.set(handle);
+            log::info!(
+                "[web-channel] artifact-surface subscriber registered (domain=artifact) — will bridge ArtifactReady/Failed → artifact_ready/artifact_failed socket events"
+            );
+        }
+        None => {
+            log::warn!(
+                "[web-channel] failed to register artifact-surface subscriber — bus not initialized"
+            );
+        }
+    }
+}
+
+struct ArtifactSurfaceSubscriber;
+
+#[async_trait]
+impl EventHandler for ArtifactSurfaceSubscriber {
+    fn name(&self) -> &str {
+        "channels::web::artifact_surface"
+    }
+
+    fn domains(&self) -> Option<&[&str]> {
+        Some(&["artifact"])
+    }
+
+    async fn handle(&self, event: &DomainEvent) {
+        match event {
+            DomainEvent::ArtifactReady {
+                artifact_id,
+                kind,
+                title,
+                workspace_dir,
+                path,
+                size_bytes,
+                thread_id,
+                client_id,
+            } => {
+                let (Some(thread_id), Some(client_id)) = (thread_id, client_id) else {
+                    log::debug!(
+                        "[web-channel] artifact-surface skip ArtifactReady id={artifact_id}: no chat context"
+                    );
+                    return;
+                };
+                log::info!(
+                    "[web-channel] artifact-surface emitting artifact_ready id={artifact_id} kind={kind} thread_id={thread_id} client_id={client_id}"
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "artifact_ready".to_string(),
+                    client_id: client_id.clone(),
+                    thread_id: thread_id.clone(),
+                    args: Some(serde_json::json!({
+                        "artifact_id": artifact_id,
+                        "kind": kind,
+                        "title": title,
+                        "workspace_dir": workspace_dir,
+                        "path": path,
+                        "size_bytes": size_bytes,
+                    })),
+                    ..Default::default()
+                });
+            }
+            DomainEvent::ArtifactFailed {
+                artifact_id,
+                kind,
+                title,
+                workspace_dir,
+                error,
+                thread_id,
+                client_id,
+            } => {
+                let (Some(thread_id), Some(client_id)) = (thread_id, client_id) else {
+                    log::debug!(
+                        "[web-channel] artifact-surface skip ArtifactFailed id={artifact_id}: no chat context"
+                    );
+                    return;
+                };
+                log::warn!(
+                    "[web-channel] artifact-surface emitting artifact_failed id={artifact_id} kind={kind} thread_id={thread_id} client_id={client_id} error_len={}",
+                    error.len()
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "artifact_failed".to_string(),
+                    client_id: client_id.clone(),
+                    thread_id: thread_id.clone(),
+                    args: Some(serde_json::json!({
+                        "artifact_id": artifact_id,
+                        "kind": kind,
+                        "title": title,
+                        "workspace_dir": workspace_dir,
+                        "error": error,
+                    })),
+                    ..Default::default()
+                });
+            }
+            _ => {}
+        }
+    }
+}
+
 struct ApprovalSurfaceSubscriber;
 
 #[async_trait]
@@ -473,8 +591,18 @@ pub async fn start_chat(
             thread_id: thread_id_task.clone(),
             client_id: client_id_task.clone(),
         };
-        let result = crate::openhuman::approval::APPROVAL_CHAT_CONTEXT
-            .scope(
+        // Scope the matching `AgentTurnOrigin::WebChat` alongside the chat
+        // context so the approval gate's origin-aware decision tree sees a
+        // web-routable turn. Both task-locals must wrap the same future —
+        // tokio task-locals do not cross `tokio::spawn`, and `intercept`
+        // runs inline within this task.
+        let origin = crate::openhuman::agent::turn_origin::AgentTurnOrigin::WebChat {
+            thread_id: thread_id_task.clone(),
+            client_id: client_id_task.clone(),
+        };
+        let result = crate::openhuman::agent::turn_origin::with_origin(
+            origin,
+            crate::openhuman::approval::APPROVAL_CHAT_CONTEXT.scope(
                 approval_ctx,
                 run_chat_task(
                     &client_id_task,
@@ -486,8 +614,9 @@ pub async fn start_chat(
                     profile_id,
                     locale,
                 ),
-            )
-            .await;
+            ),
+        )
+        .await;
 
         match result {
             Ok(chat_result) => {

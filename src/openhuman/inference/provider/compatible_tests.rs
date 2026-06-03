@@ -1,7 +1,7 @@
 use super::*;
 use sentry::test::TestTransport;
 use std::sync::Arc;
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{body_json, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn make_provider(name: &str, url: &str, key: Option<&str>) -> OpenAiCompatibleProvider {
@@ -65,6 +65,7 @@ fn native_request_emits_thread_id_when_present() {
         tool_choice: None,
         thread_id: Some("thread-abc".to_string()),
         stream_options: None,
+        options: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert_eq!(
@@ -82,6 +83,7 @@ fn native_request_emits_thread_id_when_present() {
         tool_choice: None,
         thread_id: None,
         stream_options: None,
+        options: None,
     };
     let json_no_thread = serde_json::to_value(&req_no_thread).unwrap();
     assert!(
@@ -108,6 +110,7 @@ fn streaming_request_sets_stream_options_include_usage() {
         stream_options: Some(super::compatible_types::OpenAiStreamOptions {
             include_usage: true,
         }),
+        options: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert_eq!(
@@ -129,11 +132,55 @@ fn non_streaming_request_omits_stream_options() {
         tool_choice: None,
         thread_id: None,
         stream_options: None,
+        options: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert!(
         json.get("stream_options").is_none(),
         "non-streaming requests must not emit stream_options (OpenAI rejects it on stream=false)"
+    );
+}
+
+#[test]
+fn ollama_options_num_ctx_serializes_correctly() {
+    let req = super::NativeChatRequest {
+        model: "qwen3:14b".to_string(),
+        messages: Vec::new(),
+        temperature: Some(0.7),
+        stream: Some(false),
+        tools: None,
+        tool_choice: None,
+        thread_id: None,
+        stream_options: None,
+        options: Some(super::compatible_types::OllamaOptions {
+            num_ctx: Some(32768),
+        }),
+    };
+    let json = serde_json::to_value(&req).unwrap();
+    assert_eq!(
+        json.pointer("/options/num_ctx").and_then(|v| v.as_u64()),
+        Some(32768),
+        "Ollama num_ctx must appear at options.num_ctx in serialized body"
+    );
+}
+
+#[test]
+fn ollama_options_none_is_omitted() {
+    let req = super::NativeChatRequest {
+        model: "gpt-4o".to_string(),
+        messages: Vec::new(),
+        temperature: Some(0.7),
+        stream: Some(false),
+        tools: None,
+        tool_choice: None,
+        thread_id: None,
+        stream_options: None,
+        options: None,
+    };
+    let json = serde_json::to_value(&req).unwrap();
+    assert!(
+        json.get("options").is_none(),
+        "options field must be omitted when None (non-Ollama providers)"
     );
 }
 
@@ -354,6 +401,15 @@ async fn responses_api_primary_posts_directly_to_responses() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/backend-api/codex/responses"))
+        .and(body_json(serde_json::json!({
+            "model": "gpt-5.5",
+            "input": [{
+                "role": "user",
+                "content": [{"type": "input_text", "text": "hello"}]
+            }],
+            "stream": false,
+            "store": false
+        })))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "output_text": "hello from responses",
             "output": []
@@ -535,6 +591,7 @@ async fn streaming_chat_config_rejection_propagates_error_without_sentry_report(
         stream_options: Some(super::compatible_types::OpenAiStreamOptions {
             include_usage: true,
         }),
+        options: None,
     };
     let (delta_tx, _delta_rx) = tokio::sync::mpsc::channel(8);
 
@@ -1292,6 +1349,69 @@ fn capabilities_reports_native_tool_calling() {
     let p = make_provider("test", "https://example.com", None);
     let caps = <OpenAiCompatibleProvider as Provider>::capabilities(&p);
     assert!(caps.native_tool_calling);
+}
+
+// Sub-issue 3 of #3098: Ollama's OpenAI-compat endpoint silently rejects the
+// `tools` parameter for many models, so we must let the factory opt the
+// Ollama provider out of native tool calling. The agent harness then falls
+// back to prompt-guided tool specs (embedded in the system prompt) which
+// any chat model can follow. The builder defaults to enabled so cloud
+// providers (OpenAI, BYOK slugs, OpenHuman backend) are unaffected.
+
+#[test]
+fn with_native_tool_calling_false_disables_capability() {
+    let p = make_provider("test", "https://example.com", None).with_native_tool_calling(false);
+    let caps = <OpenAiCompatibleProvider as Provider>::capabilities(&p);
+    assert!(
+        !caps.native_tool_calling,
+        "capabilities() must mirror the builder override; this is the gate the agent harness uses to decide between native vs prompt-guided tool specs"
+    );
+}
+
+#[test]
+fn with_native_tool_calling_true_preserves_default() {
+    let p = make_provider("test", "https://example.com", None).with_native_tool_calling(true);
+    let caps = <OpenAiCompatibleProvider as Provider>::capabilities(&p);
+    assert!(caps.native_tool_calling);
+}
+
+#[test]
+fn with_native_tool_calling_is_idempotent() {
+    let p = make_provider("test", "https://example.com", None)
+        .with_native_tool_calling(false)
+        .with_native_tool_calling(false);
+    let caps = <OpenAiCompatibleProvider as Provider>::capabilities(&p);
+    assert!(!caps.native_tool_calling);
+}
+
+/// `supports_native_tools()` is the gate the agent harness reads
+/// (`traits.rs:415`) when deciding whether to send tools natively or
+/// inject them into the prompt. It MUST agree with
+/// `capabilities().native_tool_calling`; otherwise
+/// `with_native_tool_calling(false)` silently fails to switch to
+/// prompt-guided and Ollama still receives a `tools` array (the exact
+/// regression sub-issue 3 of #3098 was meant to fix).
+#[test]
+fn supports_native_tools_mirrors_capabilities_flag() {
+    let default = make_provider("test", "https://example.com", None);
+    assert_eq!(
+        default.supports_native_tools(),
+        <OpenAiCompatibleProvider as Provider>::capabilities(&default).native_tool_calling,
+        "default provider: the two capability signals must match"
+    );
+    assert!(default.supports_native_tools(), "default must remain true");
+
+    let opted_out =
+        make_provider("test", "https://example.com", None).with_native_tool_calling(false);
+    assert_eq!(
+        opted_out.supports_native_tools(),
+        <OpenAiCompatibleProvider as Provider>::capabilities(&opted_out).native_tool_calling,
+        "after with_native_tool_calling(false): the two capability signals must match"
+    );
+    assert!(
+        !opted_out.supports_native_tools(),
+        "after with_native_tool_calling(false), supports_native_tools must report false so the harness picks the prompt-guided fallback"
+    );
 }
 
 #[test]
@@ -2108,4 +2228,124 @@ fn convert_tool_specs_dedups_many_duplicates() {
         .map(|t| t["function"]["name"].as_str().unwrap())
         .collect();
     assert_eq!(names, vec!["x", "y", "z"]);
+}
+
+// ── #3193: completion-only model 404 detection + actionable message ──────────
+
+#[test]
+fn completion_only_model_404_detected_from_openai_signature() {
+    // The exact body OpenAI returns when a completion-only/base model is sent
+    // to /v1/chat/completions.
+    let body = "This is not a chat model and thus not supported in the \
+                v1/chat/completions endpoint. Did you mean to use v1/completions?";
+    assert!(OpenAiCompatibleProvider::is_completion_only_model_404(
+        reqwest::StatusCode::NOT_FOUND,
+        body
+    ));
+}
+
+#[test]
+fn completion_only_model_404_ignores_ordinary_not_found() {
+    // A "model does not exist" 404 must NOT be misclassified — it should keep
+    // its existing fallback / enrich behaviour, not get the completion-only
+    // message.
+    let body = "The model `gpt-9o` does not exist or you do not have access to it.";
+    assert!(!OpenAiCompatibleProvider::is_completion_only_model_404(
+        reqwest::StatusCode::NOT_FOUND,
+        body
+    ));
+}
+
+#[test]
+fn completion_only_model_404_requires_404_status() {
+    // Same phrasing under a non-404 status is not the completion-only case.
+    let body = "not a chat model";
+    assert!(!OpenAiCompatibleProvider::is_completion_only_model_404(
+        reqwest::StatusCode::BAD_REQUEST,
+        body
+    ));
+}
+
+#[test]
+fn completion_only_message_names_model_and_remediation() {
+    let p = make_provider("openhuman", "https://api.example.com/v1", Some("k"));
+    let msg = p.completion_only_model_message(
+        "davinci-002",
+        "This is not a chat model ... Did you mean to use v1/completions?",
+    );
+    assert!(
+        msg.contains("davinci-002"),
+        "names the offending model: {msg}"
+    );
+    assert!(
+        msg.contains("completion-only") && msg.contains("chat-completions"),
+        "explains the capability mismatch: {msg}"
+    );
+    assert!(
+        msg.contains("chat-capable model"),
+        "states the remediation: {msg}"
+    );
+}
+
+#[test]
+fn completion_only_404_guard_fires_only_on_signature() {
+    let p = make_provider("openhuman", "https://api.example.com/v1", Some("k"));
+    // Matches → Some(actionable error).
+    let hit = p.completion_only_404_guard(
+        reqwest::StatusCode::NOT_FOUND,
+        "This is not a chat model. Did you mean to use v1/completions?",
+        "davinci-002",
+    );
+    let err = hit.expect("guard should fire on the completion-only signature");
+    assert!(err.to_string().contains("davinci-002"));
+    // Ordinary not-found → None (normal fallback/enrich path is preserved).
+    assert!(p
+        .completion_only_404_guard(
+            reqwest::StatusCode::NOT_FOUND,
+            "The model `gpt-9o` does not exist.",
+            "gpt-9o"
+        )
+        .is_none());
+}
+
+#[tokio::test]
+async fn completion_only_404_fails_fast_without_responses_fallback() {
+    // End-to-end over the wire: a completion-only 404 must short-circuit with
+    // the actionable message and NOT attempt /v1/responses (not mounted here —
+    // if the guard regressed, the error would instead read "responses fallback
+    // failed"). Provider has the fallback ENABLED (default `new`), proving the
+    // guard pre-empts it. #3193.
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({
+            "error": {
+                "message": "This is not a chat model and thus not supported in the \
+                            v1/chat/completions endpoint. Did you mean to use v1/completions?",
+                "type": "invalid_request_error"
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let provider = OpenAiCompatibleProvider::new(
+        "openhuman",
+        &format!("{}/v1", server.uri()),
+        Some("key"),
+        AuthStyle::Bearer,
+    );
+
+    let err = provider
+        .chat_with_history(&[ChatMessage::user("write a file")], "davinci-002", 0.0)
+        .await
+        .expect_err("completion-only model must error");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("davinci-002") && msg.contains("chat-capable model"),
+        "expected actionable completion-only message, got: {msg}"
+    );
+    assert!(
+        !msg.contains("responses fallback failed"),
+        "guard must pre-empt the responses fallback, got: {msg}"
+    );
 }

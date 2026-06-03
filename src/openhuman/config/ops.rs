@@ -2048,7 +2048,11 @@ pub async fn apply_sandbox_settings(
         config.sandbox.enabled = Some(enabled);
     }
     if let Some(ref image) = update.docker_image {
-        config.runtime.docker.image = image.clone();
+        let trimmed = image.trim();
+        if trimmed.is_empty() {
+            return Err("docker_image must not be blank".into());
+        }
+        config.runtime.docker.image = trimmed.to_string();
     }
     if let Some(memory) = update.docker_memory_limit_mb {
         config.runtime.docker.memory_limit_mb = Some(memory);
@@ -2089,17 +2093,16 @@ pub async fn load_and_apply_sandbox_settings(
     apply_sandbox_settings(&mut config, update).await
 }
 
-/// Probe Docker daemon availability via `docker info`.
+/// Probe Docker daemon availability via `docker info` with a 5s timeout.
 async fn is_docker_available() -> bool {
-    match tokio::process::Command::new("docker")
+    let fut = tokio::process::Command::new("docker")
         .arg("info")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status()
-        .await
-    {
-        Ok(status) => status.success(),
-        Err(_) => false,
+        .status();
+    match tokio::time::timeout(std::time::Duration::from_secs(5), fut).await {
+        Ok(Ok(status)) => status.success(),
+        _ => false,
     }
 }
 

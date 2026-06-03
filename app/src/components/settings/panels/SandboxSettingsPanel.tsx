@@ -23,7 +23,7 @@ const SandboxSettingsPanel = () => {
   const { t } = useT();
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(isTauri());
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
@@ -42,10 +42,7 @@ const SandboxSettingsPanel = () => {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      if (!isTauri()) {
-        setIsLoading(false);
-        return;
-      }
+      if (!isTauri()) return;
       try {
         const resp = await openhumanGetSandboxSettings();
         if (cancelled) return;
@@ -100,10 +97,16 @@ const SandboxSettingsPanel = () => {
   };
 
   const handleDockerImageBlur = () => {
-    void persist({ docker_image: dockerImage });
+    if (dockerImage.trim()) {
+      void persist({ docker_image: dockerImage.trim() });
+    }
   };
 
   const handleMemoryBlur = () => {
+    if (memoryLimitMb.trim() === '') {
+      void persist({ docker_memory_limit_mb: null });
+      return;
+    }
     const parsed = parseInt(memoryLimitMb, 10);
     if (!isNaN(parsed) && parsed > 0) {
       void persist({ docker_memory_limit_mb: parsed });
@@ -111,6 +114,10 @@ const SandboxSettingsPanel = () => {
   };
 
   const handleCpuBlur = () => {
+    if (cpuLimit.trim() === '') {
+      void persist({ docker_cpu_limit: null });
+      return;
+    }
     const parsed = parseFloat(cpuLimit);
     if (!isNaN(parsed) && parsed > 0) {
       void persist({ docker_cpu_limit: parsed });
@@ -264,7 +271,7 @@ const SandboxSettingsPanel = () => {
               onKeyDown={e => e.key === 'Enter' && handleDockerImageBlur()}
               className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 font-mono text-sm text-stone-700 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200"
               aria-label={t('settings.sandbox.dockerImage')}
-              placeholder="alpine:3.20"
+              placeholder={t('settings.sandbox.dockerImagePlaceholder')}
             />
           </div>
 
@@ -284,7 +291,9 @@ const SandboxSettingsPanel = () => {
                 aria-label={t('settings.sandbox.memoryLimit')}
                 min={64}
               />
-              <span className="text-xs text-stone-500 dark:text-stone-400">MB</span>
+              <span className="text-xs text-stone-500 dark:text-stone-400">
+                {t('settings.sandbox.memoryUnit')}
+              </span>
             </div>
           </div>
 

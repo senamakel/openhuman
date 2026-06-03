@@ -479,8 +479,8 @@ export interface SandboxSettingsUpdate {
   backend?: SandboxBackendId;
   enabled?: boolean;
   docker_image?: string;
-  docker_memory_limit_mb?: number;
-  docker_cpu_limit?: number;
+  docker_memory_limit_mb?: number | null;
+  docker_cpu_limit?: number | null;
   env_passthrough?: string[];
 }
 

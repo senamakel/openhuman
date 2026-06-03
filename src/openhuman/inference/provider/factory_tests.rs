@@ -230,18 +230,20 @@ fn ollama_provider_opts_out_of_native_tool_calling() {
 }
 
 #[test]
-fn lmstudio_provider_keeps_native_tool_calling_enabled() {
-    // LM Studio's OpenAI-compat endpoint supports the `tools` parameter for
-    // models that expose function calling. Only Ollama gets opted out by
-    // default — the LM Studio path stays on the native schema.
+fn lmstudio_provider_defaults_to_prompt_guided_tools() {
+    // All local providers (Ollama, LM Studio, MLX, local-openai) default to
+    // prompt-guided tool dispatch (#3246). This prevents HTTP 400 errors
+    // from models that don't support the native `tools` parameter. Users
+    // can override via `config.agent.tool_dispatcher = "native"` if their
+    // model supports it.
     let mut config = Config::default();
     config.local_ai.base_url = Some("http://127.0.0.1:1234".to_string());
     let (provider, _model) =
         create_chat_provider_from_string("chat", "lmstudio:google/gemma-4-e4b", &config)
             .expect("lmstudio:<model> must build");
     assert!(
-        provider.capabilities().native_tool_calling,
-        "lmstudio provider must keep native_tool_calling=true; only the ollama branch opts out"
+        !provider.capabilities().native_tool_calling,
+        "lmstudio provider must default to native_tool_calling=false (conservative local dispatch)"
     );
 }
 

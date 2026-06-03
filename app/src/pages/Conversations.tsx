@@ -264,6 +264,25 @@ const Conversations = ({
     onConfirm: () => {},
     onCancel: () => {},
   });
+  const activeModelLabel = useMemo(() => {
+    const profile = agentProfiles.find(p => p.id === selectedAgentProfileId);
+    const raw = profile?.modelOverride ?? 'reasoning-quick-v1';
+    const LABELS: Record<string, string> = {
+      'hint:reasoning': 'Reasoning',
+      'hint:chat': 'Chat',
+      'hint:agentic': 'Agentic',
+      'hint:coding': 'Coding',
+      'hint:summarization': 'Summarization',
+      'reasoning-v1': 'Reasoning',
+      'reasoning-quick-v1': 'Quick',
+      'agentic-v1': 'Agentic',
+      'coding-v1': 'Coding',
+      'chat-v1': 'Chat',
+      'summarization-v1': 'Summarization',
+    };
+    return LABELS[raw] ?? raw;
+  }, [agentProfiles, selectedAgentProfileId]);
+
   const agentProfileAgentOptions = useMemo(() => {
     const seen = new Set<string>();
     const options: Array<{ id: string; label: string }> = [];
@@ -1514,6 +1533,9 @@ const Conversations = ({
                   )}
                 </div>
               )}
+              <span className="text-[10px] text-stone-400 dark:text-neutral-500 leading-none">
+                {activeModelLabel}
+              </span>
             </div>
             <>
               <div

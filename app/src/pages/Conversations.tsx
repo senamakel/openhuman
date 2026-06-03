@@ -270,17 +270,16 @@ const Conversations = ({
 
         const HINT_TO_TIER: Record<string, string> = {
           reasoning: 'reasoning-v1',
-          chat: 'reasoning-quick-v1',
+          chat: 'chat-v1',
           agentic: 'agentic-v1',
           coding: 'coding-v1',
           summarization: 'summarization-v1',
         };
         const TIER_TO_ROLE: Record<string, string> = {
           'reasoning-v1': 'reasoning',
-          'reasoning-quick-v1': 'chat',
+          'chat-v1': 'chat',
           'agentic-v1': 'agentic',
           'coding-v1': 'coding',
-          'chat-v1': 'chat',
           'summarization-v1': 'summarization',
         };
         const providerForRole = (role: string): string | null => {
@@ -320,7 +319,7 @@ const Conversations = ({
           const providerStr = providerForRole('chat');
           model = providerStr
             ? extractModelFromProvider(providerStr)
-            : (cfg.default_model ?? 'reasoning-quick-v1');
+            : (cfg.default_model ?? 'chat-v1');
         }
         setResolvedModel(model);
       } catch {

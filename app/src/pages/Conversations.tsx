@@ -291,7 +291,7 @@ const Conversations = ({
             coding: cfg.coding_provider,
           };
           const p = map[role]?.trim();
-          return p && p !== 'cloud' ? p : null;
+          return p && p !== 'cloud' && p !== 'openhuman' ? p : null;
         };
         const extractModelFromProvider = (provider: string): string => {
           const colon = provider.indexOf(':');

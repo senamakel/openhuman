@@ -263,6 +263,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
         <button
           type="button"
           onClick={onClose}
+          data-analytics-id="chat-files-panel-close"
           aria-label={t('chat.files.panel.close')}
           className="w-6 h-6 flex items-center justify-center rounded hover:bg-stone-100 dark:hover:bg-neutral-800 text-stone-500 dark:text-neutral-400">
           <svg
@@ -307,12 +308,14 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteId(null)}
+                      data-analytics-id="chat-files-delete-cancel"
                       className="rounded-md bg-stone-100 dark:bg-neutral-800 hover:bg-stone-200 dark:hover:bg-neutral-700 text-stone-700 dark:text-neutral-200 text-[11px] font-medium px-2 py-1 transition-colors">
                       {t('chat.files.delete.cancel')}
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleDeleteConfirm(artifact)}
+                      data-analytics-id={`chat-files-delete-confirm-${artifact.kind}`}
                       data-testid={`chat-files-confirm-${artifact.artifactId}`}
                       className="rounded-md bg-coral-500 hover:bg-coral-600 text-white text-[11px] font-medium px-2 py-1 transition-colors">
                       {t('chat.files.delete.action')}
@@ -324,6 +327,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                       type="button"
                       onClick={() => void handleDownload(artifact)}
                       disabled={row.state === 'downloading'}
+                      data-analytics-id={`chat-files-download-${artifact.kind}`}
                       data-testid={`chat-files-download-${artifact.artifactId}`}
                       className="rounded-md bg-ocean-500 hover:bg-ocean-600 disabled:bg-stone-300 dark:disabled:bg-neutral-700 text-white text-[11px] font-medium px-2 py-1 transition-colors">
                       {row.state === 'downloading'
@@ -334,6 +338,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                       <button
                         type="button"
                         onClick={() => void handleReveal(row.path!)}
+                        data-analytics-id={`chat-files-reveal-${artifact.kind}`}
                         data-testid={`chat-files-reveal-${artifact.artifactId}`}
                         className="text-[11px] underline text-sage-700 dark:text-sage-300 hover:text-sage-900 dark:hover:text-sage-100">
                         {t('chat.artifact.reveal')}
@@ -342,6 +347,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteId(artifact.artifactId)}
+                      data-analytics-id={`chat-files-delete-${artifact.kind}`}
                       data-testid={`chat-files-delete-${artifact.artifactId}`}
                       aria-label={t('chat.files.delete.aria').replace('{title}', artifact.title)}
                       className="ml-auto rounded-md bg-transparent text-stone-500 dark:text-neutral-400 hover:bg-coral-50 dark:hover:bg-coral-900/20 hover:text-coral-700 dark:hover:text-coral-300 text-[11px] font-medium px-2 py-1 transition-colors">

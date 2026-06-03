@@ -1302,6 +1302,7 @@ const Conversations = ({
             </h2>
             <button
               data-testid="new-thread-sidebar-button"
+              data-analytics-id="chat-sidebar-new-thread"
               onClick={() => void handleCreateNewThread()}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors"
               title={t('chat.newThread')}>
@@ -1337,6 +1338,7 @@ const Conversations = ({
                 <div
                   key={thread.id}
                   data-testid={`thread-row-${thread.id}`}
+                  data-analytics-id="chat-sidebar-thread-row"
                   role="button"
                   tabIndex={0}
                   onClick={() => {
@@ -1366,6 +1368,8 @@ const Conversations = ({
                       {resolveThreadDisplayTitle(thread.id)}
                     </p>
                     <button
+                      type="button"
+                      data-analytics-id="chat-sidebar-delete-thread"
                       onClick={e => {
                         e.stopPropagation();
                         setDeleteModal({
@@ -1433,6 +1437,8 @@ const Conversations = ({
             className="flex items-center gap-2 px-4 py-2.5 border-b border-stone-100 dark:border-neutral-800"
             data-walkthrough="chat-agent-panel">
             <button
+              type="button"
+              data-analytics-id="chat-header-toggle-sidebar"
               onClick={() => setShowSidebar(prev => !prev)}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors"
               title={effectiveShowSidebar ? t('chat.hideSidebar') : t('chat.showSidebar')}>
@@ -1449,6 +1455,7 @@ const Conversations = ({
               {selectedThreadParent ? (
                 <button
                   type="button"
+                  data-analytics-id="chat-header-back-to-parent-thread"
                   onClick={() => {
                     dispatch(setSelectedThread(selectedThreadParent.id));
                     void dispatch(loadThreadMessages(selectedThreadParent.id));
@@ -1487,6 +1494,7 @@ const Conversations = ({
                   {selectedThreadId && (
                     <button
                       type="button"
+                      data-analytics-id="chat-header-edit-thread-title"
                       onClick={handleStartEditTitle}
                       aria-label={t('chat.editThreadTitle')}
                       title={t('chat.editThreadTitle')}
@@ -1523,6 +1531,7 @@ const Conversations = ({
                 </select>
                 <button
                   type="button"
+                  data-analytics-id="chat-header-create-agent-profile-toggle"
                   onClick={() => setProfileDraftOpen(prev => !prev)}
                   className="h-7 w-7 rounded-lg text-xs font-medium text-stone-500 dark:text-neutral-400 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200"
                   title={t('chat.agentProfile.create')}
@@ -1535,7 +1544,9 @@ const Conversations = ({
               )}
               <TokenUsagePill />
               <button
+                type="button"
                 data-testid="new-thread-button"
+                data-analytics-id="chat-header-new-thread"
                 onClick={() => void handleCreateNewThread()}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium text-primary-600 hover:bg-primary-50 transition-colors"
                 title={t('chat.newThreadShortcut')}>
@@ -1586,6 +1597,7 @@ const Conversations = ({
               />
               <button
                 type="button"
+                data-analytics-id="chat-agent-profile-save"
                 onClick={() => void handleCreateAgentProfile()}
                 disabled={!profileDraft.name.trim()}
                 className="h-8 rounded-lg bg-primary-500 px-3 text-xs font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-40">
@@ -1593,6 +1605,7 @@ const Conversations = ({
               </button>
               <button
                 type="button"
+                data-analytics-id="chat-agent-profile-cancel"
                 onClick={() => {
                   setProfileDraft(DEFAULT_PROFILE_DRAFT);
                   setProfileDraftOpen(false);
@@ -1639,6 +1652,8 @@ const Conversations = ({
                 {messagesError}
               </p>
               <button
+                type="button"
+                data-analytics-id="chat-messages-reload"
                 onClick={() => window.location.reload()}
                 className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
                 {t('common.reload')}
@@ -1764,6 +1779,8 @@ const Conversations = ({
                         </div>
                       )}
                       <button
+                        type="button"
+                        data-analytics-id="chat-message-copy"
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
                         className={`absolute -top-1 ${msg.sender === 'user' ? '-left-8' : '-right-8'} p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-all`}
                         title={t('chat.copyResponse')}>
@@ -1807,6 +1824,8 @@ const Conversations = ({
                             {myReactions.map(emoji => (
                               <button
                                 key={emoji}
+                                type="button"
+                                data-analytics-id="chat-message-reaction-remove"
                                 onClick={() =>
                                   selectedThreadId &&
                                   void dispatch(
@@ -1828,6 +1847,8 @@ const Conversations = ({
                                   {['👍', '❤️', '😂', '🔥', '👀', '🎯'].map(emoji => (
                                     <button
                                       key={emoji}
+                                      type="button"
+                                      data-analytics-id="chat-message-reaction-pick"
                                       onClick={() => {
                                         if (selectedThreadId) {
                                           void dispatch(
@@ -1846,6 +1867,8 @@ const Conversations = ({
                                     </button>
                                   ))}
                                   <button
+                                    type="button"
+                                    data-analytics-id="chat-message-reaction-close"
                                     onClick={() => setReactionPickerMsgId(null)}
                                     className="ml-0.5 text-stone-600 dark:text-neutral-300 hover:text-stone-400 dark:hover:text-neutral-500 text-xs px-0.5">
                                     ✕
@@ -1853,6 +1876,8 @@ const Conversations = ({
                                 </div>
                               ) : (
                                 <button
+                                  type="button"
+                                  data-analytics-id="chat-message-reaction-open"
                                   onClick={() => setReactionPickerMsgId(msg.id)}
                                   className="opacity-0 group-hover/msg:opacity-100 flex items-center px-1.5 py-0.5 rounded-full bg-stone-50 dark:bg-neutral-800/60 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-500 dark:text-neutral-400 hover:text-stone-300 dark:hover:text-neutral-600 text-xs transition-all"
                                   title={t('chat.addReaction')}>
@@ -1968,6 +1993,8 @@ const Conversations = ({
               {isSending && rustChat && (
                 <div className="flex justify-start px-1">
                   <button
+                    type="button"
+                    data-analytics-id="chat-cancel-generation"
                     onClick={() => {
                       if (selectedThreadId) void chatCancel(selectedThreadId);
                     }}
@@ -2030,6 +2057,8 @@ const Conversations = ({
                   </p>
                 </div>
                 <button
+                  type="button"
+                  data-analytics-id="chat-budget-top-up"
                   onClick={() => {
                     void openUrl(BILLING_DASHBOARD_URL);
                   }}
@@ -2048,6 +2077,8 @@ const Conversations = ({
                 {sendAdvisory}
               </p>
               <button
+                type="button"
+                data-analytics-id="chat-send-advisory-dismiss"
                 onClick={() => setSendAdvisory(null)}
                 className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors ml-2">
                 {t('common.dismiss')}
@@ -2061,6 +2092,8 @@ const Conversations = ({
                 {attachError.message}
               </p>
               <button
+                type="button"
+                data-analytics-id="chat-attach-error-dismiss"
                 onClick={() => setAttachError(null)}
                 className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors ml-2">
                 {t('common.dismiss')}
@@ -2079,6 +2112,8 @@ const Conversations = ({
                   sendError.code === 'tts_not_ready' ||
                   sendError.code === 'voice_synthesis') && (
                   <button
+                    type="button"
+                    data-analytics-id="chat-send-error-setup"
                     onClick={() => {
                       setSendError(null);
                       // STT/TTS provider settings live on the Voice panel
@@ -2091,6 +2126,8 @@ const Conversations = ({
                   </button>
                 )}
                 <button
+                  type="button"
+                  data-analytics-id="chat-send-error-dismiss"
                   onClick={() => setSendError(null)}
                   className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors">
                   {t('common.dismiss')}
@@ -2178,6 +2215,7 @@ const Conversations = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                data-analytics-id="chat-voice-switch-to-text"
                 onClick={() => setInputMode('text')}
                 disabled={isRecording || isTranscribing}
                 className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
@@ -2193,6 +2231,7 @@ const Conversations = ({
               </button>
               <button
                 type="button"
+                data-analytics-id="chat-voice-record-toggle"
                 onClick={() => {
                   void handleVoiceRecordToggle();
                 }}

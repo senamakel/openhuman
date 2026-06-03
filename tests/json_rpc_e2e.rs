@@ -1825,7 +1825,8 @@ async fn json_rpc_thread_labels_create_and_update() {
         "created thread should have labels=[\"custom\"]"
     );
 
-    // 2. Update labels on the thread.
+    // 2. Update labels on the thread. Legacy "work" input normalizes to
+    // "general" for backward compatibility with older callers.
     let update = post_json_rpc(
         &rpc_base,
         9002,
@@ -1846,8 +1847,8 @@ async fn json_rpc_thread_labels_create_and_update() {
             .iter()
             .map(|v| v.as_str().unwrap_or(""))
             .collect::<Vec<_>>(),
-        vec!["work", "briefing"],
-        "updated thread should have labels=[\"work\", \"briefing\"]"
+        vec!["general", "briefing"],
+        "updated thread should normalize legacy work label to general"
     );
 
     // 3. Verify the updated labels are reflected in threads_list.
@@ -1873,7 +1874,7 @@ async fn json_rpc_thread_labels_create_and_update() {
             .iter()
             .map(|v| v.as_str().unwrap_or(""))
             .collect::<Vec<_>>(),
-        vec!["work", "briefing"],
+        vec!["general", "briefing"],
         "threads_list must reflect the updated labels"
     );
 

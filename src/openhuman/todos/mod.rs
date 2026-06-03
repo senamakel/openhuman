@@ -19,6 +19,9 @@ pub mod schemas;
 pub mod store;
 pub mod tools;
 
+#[cfg(test)]
+mod invariant_tests;
+
 pub use schemas::{
     all_controller_schemas as all_todos_controller_schemas,
     all_registered_controllers as all_todos_registered_controllers,

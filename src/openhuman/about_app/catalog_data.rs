@@ -1555,6 +1555,21 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: None,
     },
     Capability {
+        id: "security.sandbox_backends",
+        name: "Sandbox Execution Backends",
+        domain: "security",
+        category: CapabilityCategory::Settings,
+        description: "Route agent tool execution (shell, filesystem, process) through sandbox \
+                      backends — Docker containers or OS-level jails (Landlock/Seatbelt) — for \
+                      reduced blast radius on remote, channel, cron, or background sessions. \
+                      Configurable per agent/session/channel with safe defaults for non-main sessions.",
+        how_to: "Set sandbox_mode = \"sandboxed\" in agent.toml, or configure runtime.kind = \
+                 \"docker\" in the TOML config. Use openhuman.sandbox_status / \
+                 openhuman.sandbox_resolve_policy RPC to inspect.",
+        status: CapabilityStatus::Beta,
+        privacy: None,
+    },
+    Capability {
         id: "intelligence.remember_preferences",
         name: "Remember Preferences",
         domain: "memory",

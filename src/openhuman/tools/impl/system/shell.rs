@@ -231,6 +231,16 @@ impl ShellTool {
             );
         }
 
+        // When the agent's sandbox mode is `Sandboxed`, route execution
+        // through the sandbox backend (Docker or OS-level jail) instead
+        // of the normal runtime. Security checks above still apply.
+        if matches!(
+            crate::openhuman::agent::harness::current_sandbox_mode(),
+            Some(crate::openhuman::agent::harness::definition::SandboxMode::Sandboxed)
+        ) {
+            return self.run_sandboxed(command).await;
+        }
+
         // Execute with timeout to prevent hanging commands.
         // Clear the environment to prevent leaking API keys and other secrets
         // (CWE-200), then re-add only safe, functional variables.
@@ -318,6 +328,79 @@ impl ShellTool {
             )),
         };
         (true, tool_result)
+    }
+
+    /// Execute a command through the sandbox backend. Called when the
+    /// agent's `SandboxMode` is `Sandboxed`.
+    async fn run_sandboxed(&self, command: &str) -> (bool, ToolResult) {
+        use crate::openhuman::sandbox;
+
+        let config = crate::openhuman::config::RuntimeConfig::default();
+        let policy = sandbox::resolve_sandbox_policy(
+            crate::openhuman::agent::harness::definition::SandboxMode::Sandboxed,
+            &self.security.action_dir,
+            &config,
+            false,
+        );
+
+        tracing::debug!(
+            backend = ?policy.backend,
+            command = command,
+            "[shell] routing to sandbox backend"
+        );
+
+        let mut extra_env = std::collections::HashMap::new();
+        if let Some(bootstrap) = self.node_bootstrap.as_ref() {
+            if let Some(resolved) = bootstrap.try_cached() {
+                let host_path = std::env::var("PATH").unwrap_or_default();
+                let sep = if cfg!(windows) { ";" } else { ":" };
+                let prepended = if host_path.is_empty() {
+                    resolved.bin_dir.to_string_lossy().into_owned()
+                } else {
+                    format!("{}{}{}", resolved.bin_dir.display(), sep, host_path)
+                };
+                extra_env.insert("PATH".to_string(), prepended);
+            }
+        }
+
+        match sandbox::execute_in_sandbox(
+            &policy,
+            command,
+            &self.security.action_dir,
+            extra_env,
+            Duration::from_secs(SHELL_TIMEOUT_SECS),
+        )
+        .await
+        {
+            Ok(result) => {
+                let tool_result = if result.timed_out {
+                    ToolResult::error(format!(
+                        "Command timed out after {SHELL_TIMEOUT_SECS}s and was killed"
+                    ))
+                } else if result.success() {
+                    if result.stderr.is_empty() {
+                        ToolResult::success(result.stdout)
+                    } else {
+                        ToolResult::success(format!(
+                            "{}\n[stderr]\n{}",
+                            result.stdout, result.stderr
+                        ))
+                    }
+                } else {
+                    let err_msg = if result.stderr.is_empty() {
+                        result.stdout
+                    } else {
+                        result.stderr
+                    };
+                    ToolResult::error(err_msg)
+                };
+                (true, tool_result)
+            }
+            Err(e) => (
+                true,
+                ToolResult::error(format!("Sandbox execution failed: {e}")),
+            ),
+        }
     }
 }
 
@@ -824,5 +907,34 @@ mod tests {
         let result = tool.execute(json!({"command": "echo test"})).await.unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("Rate limit"));
+    }
+
+    #[cfg(not(windows))]
+    #[tokio::test]
+    async fn shell_sandboxed_mode_routes_through_sandbox_backend() {
+        use crate::openhuman::agent::harness::definition::SandboxMode;
+        use crate::openhuman::agent::harness::with_current_sandbox_mode;
+
+        let tool = ShellTool::new(
+            test_security(AutonomyLevel::Supervised),
+            test_runtime(),
+            test_audit(),
+        );
+        let result = with_current_sandbox_mode(SandboxMode::Sandboxed, async {
+            tool.execute(json!({"command": "echo sandboxed-output"}))
+                .await
+                .unwrap()
+        })
+        .await;
+        assert!(
+            !result.is_error,
+            "sandboxed echo should succeed: {}",
+            result.output()
+        );
+        assert!(
+            result.output().contains("sandboxed-output"),
+            "expected 'sandboxed-output' in result, got: {:?}",
+            result.output()
+        );
     }
 }

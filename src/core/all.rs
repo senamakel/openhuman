@@ -186,6 +186,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(
         crate::openhuman::screen_intelligence::all_screen_intelligence_registered_controllers(),
     );
+    // Sandbox execution backends (Docker, local jail, policy, cleanup)
+    controllers.extend(crate::openhuman::sandbox::all_sandbox_registered_controllers());
     // Backend Socket.IO bridge + related runtime plumbing
     controllers.extend(crate::openhuman::socket::all_socket_registered_controllers());
     // Managed Node.js runtime bridge (tool listing + dispatch)
@@ -339,6 +341,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(
         crate::openhuman::screen_intelligence::all_screen_intelligence_controller_schemas(),
     );
+    schemas.extend(crate::openhuman::sandbox::all_sandbox_controller_schemas());
     schemas.extend(crate::openhuman::socket::all_socket_controller_schemas());
     schemas.extend(crate::openhuman::javascript::all_javascript_controller_schemas());
     schemas.extend(crate::openhuman::skills::all_skills_controller_schemas());

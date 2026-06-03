@@ -156,57 +156,49 @@ pub async fn dispatch_card(
         .await
         .map_err(|e| format!("load config: {e:#}"))?;
 
-    // Claim CAS: re-load the card's CURRENT status before acting. The passed-in
-    // `card` may be stale — the poller and the proactive triage arm can target
-    // the same card, and a re-triggered card may already be running or done.
-    // Only `Todo`/`Ready` are claimable. This is what actually dedupes a
-    // double-dispatch: `enforce_single_in_progress` alone does NOT, because
-    // re-flipping an already-`InProgress` card to `InProgress` keeps the count
-    // at one (→ `Ok`). Thread boards aren't lock-serialised, so a narrow TOCTOU
-    // window between this read and the write remains; a fully race-free claim
-    // needs a per-thread-locked compare-and-set `ops` primitive (follow-up).
-    // Re-load the full current card (not just its status): the passed-in `card`
-    // can be stale (edited between selection and claim), so the run must use the
-    // fresh objective / plan / assigned_agent, not the snapshot the caller held.
-    let fresh_card = ops::list(&location)
-        .map_err(|e| format!("[task_dispatcher] reload before claim failed for {card_id}: {e}"))?
-        .cards
-        .into_iter()
-        .find(|c| c.id == card_id)
-        .ok_or_else(|| format!("[task_dispatcher] card {card_id} not found on board; skipping"))?;
-    if !matches!(
-        fresh_card.status,
-        TaskCardStatus::Todo | TaskCardStatus::Ready
-    ) {
-        return Err(format!(
-            "[task_dispatcher] card {card_id} not claimable (status: {}); skipping",
-            fresh_card.status.as_str()
-        ));
+    // Plan-approval gate: when required, a `todo` card is parked for human
+    // approval before it can run. `Ready` (already approved) bypasses. We
+    // attempt the AwaitingApproval claim first so the gate is also atomic —
+    // two dispatchers racing the same Todo card won't both park it.
+    if config.autonomy.require_task_plan_approval {
+        match ops::claim_card(
+            &location,
+            &card_id,
+            &[TaskCardStatus::Todo],
+            TaskCardStatus::AwaitingApproval,
+        ) {
+            Ok(_parked) => {
+                if let Some(thread_id) = location.thread_id() {
+                    crate::core::event_bus::publish_global(
+                        crate::core::event_bus::DomainEvent::TaskPlanAwaitingApproval {
+                            card_id: card_id.clone(),
+                            thread_id: thread_id.to_string(),
+                        },
+                    );
+                }
+                tracing::info!(card_id = %card_id, "[task_dispatcher] parked card awaiting plan approval");
+                return Ok(DispatchOutcome::AwaitingApproval);
+            }
+            Err(_) => {
+                // Card wasn't `Todo` — fall through to the main claim path,
+                // which handles `Ready` cards and rejects everything else.
+            }
+        }
     }
 
-    // Plan-approval gate: when required, a `todo` card is parked for human
-    // approval before it can run. `Ready` (already approved) bypasses.
-    if config.autonomy.require_task_plan_approval && fresh_card.status == TaskCardStatus::Todo {
-        ops::update_status(&location, &card_id, TaskCardStatus::AwaitingApproval).map_err(|e| {
-            format!("[task_dispatcher] park-for-approval failed for {card_id}: {e}")
-        })?;
-        if let Some(thread_id) = location.thread_id() {
-            crate::core::event_bus::publish_global(
-                crate::core::event_bus::DomainEvent::TaskPlanAwaitingApproval {
-                    card_id: card_id.clone(),
-                    thread_id: thread_id.to_string(),
-                },
-            );
-        }
-        tracing::info!(card_id = %card_id, "[task_dispatcher] parked card awaiting plan approval");
-        return Ok(DispatchOutcome::AwaitingApproval);
-    }
+    // Atomic claim: transition Todo|Ready → InProgress under a per-board
+    // lock so concurrent dispatchers cannot both succeed. The returned card
+    // is the freshly-loaded snapshot — the prompt uses it, not the caller's
+    // potentially stale copy.
+    let fresh_card = ops::claim_card(
+        &location,
+        &card_id,
+        &[TaskCardStatus::Todo, TaskCardStatus::Ready],
+        TaskCardStatus::InProgress,
+    )
+    .map_err(|e| format!("[task_dispatcher] claim rejected for {card_id}: {e}"))?;
 
     let prompt = build_task_prompt(&fresh_card);
-
-    // Claim: Todo|Ready→InProgress.
-    ops::update_status(&location, &card_id, TaskCardStatus::InProgress)
-        .map_err(|e| format!("[task_dispatcher] claim failed for card {card_id}: {e}"))?;
 
     let run_id = uuid::Uuid::new_v4().to_string();
 

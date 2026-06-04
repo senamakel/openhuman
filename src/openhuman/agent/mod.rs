@@ -26,6 +26,7 @@ pub mod error;
 pub mod harness;
 pub mod hooks;
 pub mod host_runtime;
+pub mod library;
 pub mod memory_loader;
 pub mod multimodal;
 pub mod personality_paths;

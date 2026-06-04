@@ -459,6 +459,16 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: DERIVED_TO_BACKEND,
     },
     Capability {
+        id: "intelligence.agent_library",
+        name: "Agents Library",
+        domain: "intelligence",
+        category: CapabilityCategory::Intelligence,
+        description: "Browse safe display metadata for registered agent definitions, compare worker capabilities, and start a one-off task with an explicitly selected agent.",
+        how_to: "Intelligence > Agent Tasks > Agents Library",
+        status: CapabilityStatus::Beta,
+        privacy: DERIVED_TO_BACKEND,
+    },
+    Capability {
         id: "intelligence.slack_memory_ingest",
         name: "Slack Memory Ingestion",
         domain: "intelligence",

@@ -1044,6 +1044,40 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
         Some(true)
     );
 
+    let definitions = post_json_rpc(
+        &rpc_base,
+        2862_1_1,
+        "openhuman.agent_list_definitions",
+        json!({}),
+    )
+    .await;
+    let definitions_result = assert_no_jsonrpc_error(&definitions, "agent_list_definitions");
+    let definitions = definitions_result
+        .get("definitions")
+        .and_then(Value::as_array)
+        .expect("agent_list_definitions should return definitions array");
+    let researcher = definitions
+        .iter()
+        .find(|definition| definition.get("id").and_then(Value::as_str) == Some("researcher"))
+        .expect("safe agent library should include researcher");
+    assert_eq!(
+        researcher.get("display_name").and_then(Value::as_str),
+        Some("Researcher")
+    );
+    assert!(researcher
+        .get("when_to_use")
+        .and_then(Value::as_str)
+        .is_some());
+    assert!(researcher.get("system_prompt").is_none());
+    assert!(researcher
+        .get("direct_tool_count")
+        .and_then(Value::as_u64)
+        .is_some());
+    assert!(researcher
+        .get("can_run_as_user_facing_worker")
+        .and_then(Value::as_bool)
+        .is_some());
+
     let missing = post_json_rpc(
         &rpc_base,
         2862_10,

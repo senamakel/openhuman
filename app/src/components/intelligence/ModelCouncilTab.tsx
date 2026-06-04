@@ -104,10 +104,7 @@ function parseProviderModel(value: string): { provider: string; model: string } 
   if (colon <= 0) {
     return { provider: '', model: trimmed };
   }
-  return {
-    provider: trimmed.slice(0, colon),
-    model: trimmed.slice(colon + 1),
-  };
+  return { provider: trimmed.slice(0, colon), model: trimmed.slice(colon + 1) };
 }
 
 async function loadConnectedModelProviders(): Promise<ConnectedModelProvider[]> {
@@ -866,14 +863,14 @@ const ModelCouncilTab = () => {
     setView('edit');
   }, [applyCouncilDefinition]);
 
+  const selectedCouncilId = selectedCouncil?.id;
   const handleDeleteCouncil = useCallback(
     async (council: CouncilDefinition) => {
       setRegistryError(null);
       try {
         await councilRegistryApi.delete(council.id);
-        const next = councils.filter(item => item.id !== council.id);
-        setCouncils(next);
-        if (selectedCouncil?.id === council.id) {
+        setCouncils(prev => prev.filter(item => item.id !== council.id));
+        if (selectedCouncilId === council.id) {
           setSelectedCouncil(null);
           setView('list');
         }
@@ -881,7 +878,7 @@ const ModelCouncilTab = () => {
         setRegistryError(err instanceof Error ? err.message : String(err));
       }
     },
-    [councils, selectedCouncil?.id]
+    [selectedCouncilId]
   );
 
   const setSeatMode = useCallback(

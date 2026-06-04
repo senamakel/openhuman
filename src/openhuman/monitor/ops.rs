@@ -250,6 +250,8 @@ mod tests {
     use super::*;
     use crate::openhuman::security::AutonomyLevel;
 
+    static MONITOR_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
     fn test_security(tmp: &tempfile::TempDir, autonomy: AutonomyLevel) -> Arc<SecurityPolicy> {
         Arc::new(SecurityPolicy {
             autonomy,
@@ -261,6 +263,7 @@ mod tests {
 
     #[tokio::test]
     async fn start_denies_write_in_read_only() {
+        let _guard = MONITOR_TEST_LOCK.lock().await;
         let tmp = tempfile::tempdir().unwrap();
         let result = start(
             MonitorStartRequest {
@@ -281,6 +284,7 @@ mod tests {
     #[cfg(not(windows))]
     #[tokio::test]
     async fn monitor_streams_and_reads_output() {
+        let _guard = MONITOR_TEST_LOCK.lock().await;
         let tmp = tempfile::tempdir().unwrap();
         let store = global_store();
         store.clear().await;
@@ -316,6 +320,7 @@ mod tests {
     #[cfg(not(windows))]
     #[tokio::test]
     async fn monitor_stop_marks_running_monitor_stopped() {
+        let _guard = MONITOR_TEST_LOCK.lock().await;
         let tmp = tempfile::tempdir().unwrap();
         let store = global_store();
         store.clear().await;
@@ -346,6 +351,7 @@ mod tests {
     #[cfg(not(windows))]
     #[tokio::test]
     async fn monitor_timeout_marks_status() {
+        let _guard = MONITOR_TEST_LOCK.lock().await;
         let tmp = tempfile::tempdir().unwrap();
         let store = global_store();
         store.clear().await;
@@ -372,6 +378,7 @@ mod tests {
     #[cfg(not(windows))]
     #[tokio::test]
     async fn monitor_output_is_bounded() {
+        let _guard = MONITOR_TEST_LOCK.lock().await;
         let tmp = tempfile::tempdir().unwrap();
         let store = global_store();
         store.clear().await;

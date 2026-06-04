@@ -168,6 +168,7 @@ const messages: TranslationMap = {
   'clearData.failedLogout': 'Falha ao sair. Por favor, tente novamente.',
   'clearData.failedPersist':
     'Falha ao limpar o estado persistido do app. Por favor, tente novamente.',
+  'welcome.logoAlt': 'OpenHuman',
   'welcome.title': 'Bem-vindo ao OpenHuman',
   'welcome.subtitle':
     'Sua super inteligência artificial pessoal. Privada, simples e extremamente poderosa.',
@@ -2008,6 +2009,7 @@ const messages: TranslationMap = {
   'memorySources.loadingConnections': 'Carregando conexões…',
   'memorySources.noConnections':
     'Nenhuma conexão Composio ativa encontrada. Conecte uma integração primeiro.',
+  'memorySources.connectionAccount': 'Conta',
   'memorySources.pickConnection': 'Escolha uma conexão',
   'memorySources.selectConnection': '— Selecionar uma conexão —',
   'memorySources.composioListFailed': 'Falha ao carregar as conexões Composio.',

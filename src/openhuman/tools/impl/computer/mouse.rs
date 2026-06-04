@@ -152,6 +152,16 @@ impl Tool for MouseTool {
         PermissionLevel::Dangerous
     }
 
+    /// Route every call through the ApprovalGate. Raw coordinate input has no
+    /// app/element scoping (nothing to denylist), so the gate is the only real
+    /// boundary — and the gate fires on `external_effect_with_args`, NOT on
+    /// `PermissionLevel::Dangerous` (which is just a static channel-capability
+    /// filter). Without this, blind clicks could run unattended on an
+    /// auto-approved turn once `computer_control.enabled`.
+    fn external_effect(&self) -> bool {
+        true
+    }
+
     fn parameters_schema(&self) -> Value {
         json!({
             "type": "object",

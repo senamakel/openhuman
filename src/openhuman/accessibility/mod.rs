@@ -5,6 +5,8 @@
 //! Consumer modules (autocomplete, screen_intelligence, voice) call into this module
 //! instead of owning platform-specific code directly.
 
+pub mod app_fastpaths;
+pub mod automate;
 mod automation_state;
 pub mod ax_interact;
 mod capture;

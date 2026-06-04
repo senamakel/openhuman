@@ -165,6 +165,7 @@ const messages: TranslationMap = {
   'clearData.failedLogout': 'Nie udało się wylogować. Spróbuj ponownie.',
   'clearData.failedPersist':
     'Nie udało się wyczyścić utrwalonego stanu aplikacji. Spróbuj ponownie.',
+  'welcome.logoAlt': 'OpenHuman',
   'welcome.title': 'Witaj w OpenHuman',
   'welcome.subtitle': 'Twoja osobista superinteligencja AI. Prywatna, prosta i niezwykle potężna.',
   'welcome.connectPrompt': 'Skonfiguruj URL RPC (zaawansowane)',
@@ -1989,6 +1990,7 @@ const messages: TranslationMap = {
   'memorySources.loadingConnections': 'Wczytywanie połączeń…',
   'memorySources.noConnections':
     'Nie znaleziono aktywnych połączeń Composio. Najpierw połącz integrację.',
+  'memorySources.connectionAccount': 'Konto',
   'memorySources.pickConnection': 'Wybierz połączenie',
   'memorySources.selectConnection': '— Wybierz połączenie —',
   'memorySources.composioListFailed': 'Nie udało się wczytać połączeń Composio.',

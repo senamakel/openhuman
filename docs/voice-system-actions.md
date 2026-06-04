@@ -268,6 +268,112 @@ test ... ok
 
 ---
 
+### Change 1.14 — `automate(app, goal)`: Rust-driven multi-step automation 🔨 In progress (M1 done)
+
+**Status:** 🔨 In progress — **M1 + M2 + M3 shipped and M3 proven live on macOS**; M4–M6 pending. See **Phase 1.5** below and [`voice-automate-plan.md`](voice-automate-plan.md).
+
+**Agent-in-the-loop fixes (2026-06-03, from two live chat sessions):**
+- **Mutations were off** — the agent correctly called `automate` but it (and `ax_interact`) refused because `computer_control.ax_interact_mutations=false`. Enabled it; also rewrote both refusal messages to point at **Settings → Agent Access** instead of a config key (the agent had relayed "controls are locked down").
+- **Query mis-parse** — orchestrator goal `…search for "Highway to Hell" by AC/DC, and play it` made the after-"play" parser extract `"it"`. `extract_play_query` now prefers a **quoted title + `by <artist>`** and rejects bare pronouns. (Unit-tested with the exact failing goal.)
+- **General loop spun** — pressed "Search" 11× to budget exhaustion. Added a **no-progress guard**: 3 identical actions in a row → abort.
+- **Search-results timing** — the fast-path's retry burned out before catalog results rendered (`settle` reports count-stable while the network fetch is pending). Added a real, mockable `wait` between attempts (6 × ~800ms).
+
+**M5 finding — AXEnabled is unreliable:** plumbed an `enabled` field end-to-end (Swift `axEnabled` → `AXElement.enabled` → Windows stub), but Apple Music reports its **pressable** search-result rows as `enabled=Some(false)`. Gating `pick_row` on it broke playback. So `enabled` is kept **informational only** (documented on the struct); matchers never skip on it. The better future actionability signal is AXPress-action support, not AXEnabled.
+
+**M4 — live progress in the notch (2026-06-03):** the notch indicator (originally PR #3166) was cherry-picked onto this branch (`feat(notch)` + fmt commits → `notch_window.rs` NSPanel + `notch/NotchApp.tsx`, auto-shown on startup, transparent when idle). The `automate` loop and Music fast-path now call `overlay::publish_attention(...)` at each step (`Opening …`, `Searching Music for …`, `Pressing …`, `Typing …`, `Playing …`, plus done/fail), which the existing Socket.IO bridge emits as `overlay:attention` and the notch renders as a pill — so the user sees the automation happening live. Verified: app boots with `[notch-window] panel shown at top-center`; Tauri shell + frontend compile; 31 automate unit tests green.
+
+**M3 live proof (2026-06-03):** `music_fastpath_live` drives real Apple Music end-to-end and **hard-asserts `player state == playing`** — confirmed: pre-state `paused` → post-state `playing`. Three bugs the live runs surfaced, all fixed + tested:
+1. **Perceive filter was the whole multi-word query** — a substring filter can't match a full title → now filters by the first strong token and `pick_row` does the token match.
+2. **Search results render late (§1.13 race)** — retry perceive across up to 4 settles; `AC/DC` now percent-encodes correctly.
+3. **False success: pressed the toolbar Play, not the song's** — the first run reported success but *nothing played*. AX probing showed the search screen has only the toolbar transport Play (empty queue → silence); pressing the song row navigates to a detail page where a **second** Play appears (23→24 controls). Fix: capture the baseline Play count, **wait for the detail Play to render**, press it, then **verify real playback** via `osascript … player state` and retry (≤3×). Added `verify_playing()` to `AutomateBackend` (macOS osascript; `None` elsewhere = best-effort). `automate` now only reports a play success when audio is actually playing — the false-success class (§1.11) is closed.
+
+**M3 — shipped (Music fast-path):**
+- `src/openhuman/accessibility/app_fastpaths/{mod.rs,music.rs}` (new) — deterministic accelerators consulted by `run()` **before** the general loop. Music encodes the §1.11 proven sequence: launch → open `music://…/search?term=…` → settle → press the song row (navigate) → settle → press the detail-page **Play**. Pure helpers `matches` / `extract_play_query` (handles "play X by Y", "launch Music and play …", "play X in Apple Music").
+- **Structurally different from the removed `play_music` tool (§1.13):** this is *internal* to `automate`, not a tool the LLM selects, and on any failure/`None` the loop **falls through** to the general model-driven path — so it can only help. Added `open_url` to the `AutomateBackend` trait (cross-platform opener; fast-path only).
+- **Tests:** 9 unit (parser cases, full scripted sequence, no-row fallthrough, dispatch) + 1 `#[ignore]` macOS live test. **Live proof on a Mac:** `cargo test --lib music_fastpath_live -- --ignored --nocapture` (needs Music + Accessibility permission).
+
+**M2 — shipped (real settle):**
+- `src/openhuman/accessibility/ax_interact.rs` — new `ax_wait_settled(app, stable_ms, timeout_ms)`: polls the app's interactive-element count and returns once it holds steady for `stable_ms` (or `timeout_ms` elapses). Portable — rides on `ax_list_elements`, which already cfg-dispatches (macOS AX / Windows UIA). Pure decision core `counts_settled(history, n)` extracted and unit-tested (5 non-OS-gated tests).
+- `automate.rs` — `RealBackend::settle` now calls `ax_wait_settled` (240ms stable / 2s cap) via `spawn_blocking` instead of the M1 blind 450ms wait. This is the piece that removes the timing-race failure class (§1.11/§1.13): the next perceive always sees a settled tree. An AXObserver-driven settle can later sit behind the same signature.
+
+**M1 — shipped:**
+- `src/openhuman/accessibility/automate.rs` (new) — the perceive→decide→act→settle loop, generic over an injectable `AutomateBackend` (so the model + AX + launcher are all mockable). Strict JSON action schema (`launch`/`list`/`press`/`set_value`/`done`/`fail`) with a one-shot repair retry on unparseable output (never acts on a hallucinated guess), a step budget (default 12), and a snapshot cap (40 elements) mirroring `ax_interact`'s anti-truncation guard. `RealBackend` calls the existing AX primitives + `launch_platform`, and routes decisions through the **fast tier** (`create_chat_provider("memory", …)` for now; a dedicated `automation_provider` knob is a follow-up). Settle is a short fixed wait in M1 (M2 makes it AXObserver-driven).
+- `src/openhuman/tools/impl/computer/automate.rs` (new) — `AutomateTool { app, goal }`. Always `Dangerous` + `external_effect` (routes through the ApprovalGate); reuses `ax_interact`'s mutations opt-in (`computer_control.ax_interact_mutations`) and the shared `is_sensitive_app` denylist.
+- Registered everywhere: `tools/ops.rs`, `tools/user_filter.rs` (`automate` family), `orchestrator/agent.toml` (`named`), `app/src/utils/toolDefinitions.ts` (Settings → "App Automation").
+- **Tests:** 18 passing — loop happy path, navigate-then-activate, app override, budget exhaustion, repair retry (1 ok / 2 fail), explicit fail, non-fatal press failure, JSON parse (plain/fenced/garbage), snapshot cap/empty-hint; tool gating (missing args, mutations-off, sensitive-app refusal, schema).
+
+**Problem (the real-time bar):** The user's target is *"whatever I say happens, live, in front of me"* — e.g. *"Launch Music and play Numb by Linkin Park"* or *"open Slack and message Steven 'hi'"*. Today every UI step (`list` → `set_value` → `list` → `press` …) is a **separate chat-LLM turn**. A Slack message is ~7 turns; at 1–3 s each that's 15–25 s, and each turn is a fresh chance to hit a timing race (1.13) or hallucinate. The heavy chat model is sitting *inside* the click loop — the wrong place for it.
+
+**Root causes (all four documented earlier in Phase 1):**
+1. **Timing races** — `list`/`press` do a single AX walk with no settle/wait; the UI hasn't rendered yet (1.11/1.13).
+2. **Navigate-then-activate is re-reasoned every call** — pressing a row selects; you must then press the action control. That logic lives in prose, so it's re-derived (often wrongly) each turn (1.10/1.11).
+3. **Round-trip explosion** — N full chat turns per task = latency + cost + N chances to fail.
+4. **Weak element model + no verification** — `list` returns flat `[role, label]`; `press` reports success on `AXAction == .success` even when nothing changed.
+
+**Design — take the chat model out of the click loop:**
+- **New tool `automate { app, goal }`** — one call from the orchestrator. Rust then runs a tight **perceive → act → verify** loop internally: read a *filtered* AX snapshot → pick the next action → act → **wait for the UI to settle (AXObserver, not fixed sleeps)** → verify it took effect → repeat until the goal is met or a step budget is hit.
+- **A fast model drives the inner loop** (Haiku-class) with a *tiny* context: just the goal, the current small AX snapshot, and the last result — not the whole conversation. Each inner step is ~0.5–1 s and self-corrects, instead of one 3 s chat turn that falsely reports success.
+- **Settle + verify in Rust** between steps — deterministic, kills the timing-race class in one place.
+- **Native fast-paths for high-value apps** (skip the UI entirely where possible):
+  - **Music** — `music://` search URL → AX play (already explored in 1.11), or AppleScript for library.
+  - **Spotify** — Web API search → `spotify:track:…` URI + AppleScript `play`. Fully deterministic, no UI poking.
+  - **Slack** — deep link `slack://channel?…` to open the DM, then AX to type + send.
+  The general AX loop is the fallback for everything else.
+- **Vision fallback for Electron/Chromium apps** (Slack, Discord, VS Code, Spotify-desktop) whose AX/UIA tree is partial (documented limitation). Slack needs accessibility enabled (`defaults write com.tinyspeck.slackmacgap AccessibilityEnabled -bool true`, relaunch). Where AX returns empty, fall back to **screenshot → vision-locate → guarded click**. This is the reverted CGEventPost path (1.8) — but it crashed only when events hit *OpenHuman's own focused CEF window*; a guarded click into a *different, foregrounded* app does not have that failure mode.
+- **Stream progress events** to the UI / notch pill (PR #3166) so the user sees each step happen live.
+
+**Why a generic `automate`, not per-app tools:** Change 1.13 already established that app-specific tools (`play_music`) are the wrong abstraction. The abstraction that *is* generic is the **navigate-then-activate sequence itself** — `automate(app, goal)` encapsulates it once, in Rust, for every app, instead of asking the chat model to re-orchestrate fragile primitives every time.
+
+---
+
+## Phase 1.5 — Reliable, real-time multi-step automation ⏳ Not Started
+
+> The bridge between today's `ax_interact` primitives and the always-on voice work. **Prerequisite for Phase 3** — fast voice routing into a slow/fragile action loop still feels slow. This is where "whatever I say happens, live" actually gets delivered.
+
+**Detailed implementation plan:** [`voice-automate-plan.md`](voice-automate-plan.md) — decided approach: **Rust inner loop + fast model**, first proof target **Music**.
+
+**Planned files:**
+- `src/openhuman/accessibility/automate.rs` (new) — the perceive→act→verify loop + settle/verify primitives, reusing `ax_interact` helpers.
+- `src/openhuman/accessibility/app_fastpaths/` (new) — per-app deterministic paths (`music.rs`, `spotify.rs`, `slack.rs`), behind a generic dispatch.
+- `src/openhuman/tools/impl/computer/automate.rs` (new) — `AutomateTool { app, goal }`, gated like `ax_interact` (mutations opt-in, sensitive-app denylist reused).
+- macOS helper (`accessibility/helper.rs`) — AXObserver-based settle (`ax_wait_settled`) + post-action verify; richer element model (enabled/onscreen/actions).
+- Vision fallback — screenshot via `accessibility/capture.rs` → locate → guarded click (only when AX tree is empty, target app foregrounded, never OpenHuman's own window).
+
+**Acceptance criteria:**
+- [ ] One `automate{app, goal}` call performs a multi-step flow end-to-end (no per-step chat turns)
+- [ ] Settle/verify removes the timing-race + false-success failure classes (1.11/1.13 do not recur)
+- [ ] Music flow ("play <song>") works end-to-end via the inner loop
+- [ ] Spotify + Slack fast-paths land their action deterministically
+- [ ] Electron/partial-AX apps fall back to vision+guarded-click without the CEF crash
+- [ ] Step-by-step progress streamed to the UI / notch indicator
+
+---
+
+### Change 1.15 — Full computer control (mouse/keyboard/screenshot) ✅ Crash fixed (main-thread dispatch)
+
+**Status:** ✅ Keyboard/mouse now run on the app main thread → no CEF crash. Screenshot downscales for inline view. Live: `[computer] registered main-thread synthetic-input executor` on boot.
+
+**The fix:** the crash was enigo's `TSMGetInputSourceProperty` running on a tokio worker (`_dispatch_assert_queue_fail`/SIGTRAP). macOS TSM must run on the main thread. New `tools/impl/computer/main_thread.rs` (`MainThreadInputOp` + `run_input_on_main`) dispatches each enigo op over the native registry to a handler the Tauri shell registers at startup, which runs it via `AppHandle::run_on_main_thread`. Keyboard + mouse tools no longer `spawn_blocking` enigo on a worker. Headless/CLI (no executor) returns a clear error instead of crashing. 66 keyboard/mouse tests green.
+
+**Goal:** make the agent fully autonomous — when the accessibility tree is empty (Electron apps: Slack/Discord/VS Code), fall back to vision + synthetic input. Enabled `computer_control.enabled`, added `mouse`/`keyboard`/`screenshot` to the orchestrator `named` list + `autonomy.auto_approve`, and taught `prompt.md` a keyboard-first ladder (foreground via `launch_app` → `keyboard type` + Enter; Slack `Cmd+K` recipe).
+
+**Foreground-first:** `automate::run` now `open -a`s the target app at the very start, always, so AX/input hit the right window.
+
+**Screenshot fix:** oversized Retina captures were returned as "too large to base64-encode inline" (the model was blind). Now downscaled to a viewable JPEG (`downscale_to_jpeg`) with reported dimensions.
+
+**Root cause (now fixed) — `OpenHuman-2026-06-03-170058.ips`:** `EXC_BREAKPOINT/SIGTRAP` on a **`tokio-rt-worker`** thread:
+```text
+enigo::macos::get_layoutdependent_keycode → TSMGetInputSourceProperty
+→ dispatch_assert_queue → _dispatch_assert_queue_fail → SIGTRAP
+```
+enigo's keyboard-layout lookup (`TSMGetInputSourceProperty`) **must run on the app's main thread**; the keyboard tool ran on a tokio worker → macOS trapped. **Not** a focus issue (same §1.8 root cause); a frontmost-app guard would not have fixed it.
+
+**Fix applied:** enigo now runs on the Tauri **main thread** via `AppHandle::run_on_main_thread`, bridged to the core through a native-registry handler (see *The fix* above) and wrapped in `catch_unwind` so an FFI panic can't unwind across the main thread. (Alternative considered but not needed: TSM-free primitives — `CGEventKeyboardSetUnicodeString` for text + raw virtual keycodes for keys/hotkeys.)
+
+**Tests:** voice-actions + autonomy suite is exhaustive — 220 feature unit tests + a JSON-RPC E2E (`json_rpc_voice_server_settings_roundtrip_always_on_and_wake_word`). The E2E caught + fixed real gaps (`wake_word` missing from the get output and the update RPC path). Screenshot downscale unit-tested.
+
+---
+
 ## Windows port — app interaction 🪟 ✅ Implemented
 
 Phase 1's app-interaction layer is now ported to Windows. The macOS path uses the
@@ -416,19 +522,30 @@ Shipped on the Windows machine (2026-06-02):
 
 ---
 
-## Phase 2 — Always-On Listening ⏳ Not Started
+## Phase 2 — Always-On Listening ✅ Implemented
 
 > Continuous microphone listening without requiring a hotkey press.
 
-**Planned files:**
-- `src/openhuman/voice/always_on.rs` (new) — dedicated tokio task holding the mic open, running VAD, emitting utterances to the STT pipeline
-- `src/openhuman/config/schema/voice_server.rs` — add `always_on_enabled: bool` config flag
-- Privacy hook: pause always-on when screen is locked
+**Shipped:**
+- `src/openhuman/voice/always_on.rs` — pure `VadSegmenter` (onset / silence-hangover / min-speech / max-utterance, 7 unit tests) **plus** the continuous capture loop: a dedicated cpal thread streams 16 kHz mono frames → segmenter → each utterance is encoded (`encode_wav_16k`) → `voice_transcribe_bytes` → `publish_transcription` (so it reaches the agent's auto-send and the notch, exactly like hotkey dictation). Started at boot in `credentials::ops`.
+- `src/openhuman/config/schema/voice_server.rs` — `always_on_enabled` flag + VAD tuning (`vad_onset_threshold`, `vad_hangover_ms`, `vad_min_speech_ms`, `vad_max_utterance_secs`), opt-in/off by default.
+- **Settings toggle** — "Always-on listening" in the Voice debug panel, wired through `get/update_voice_server_settings` (RPC patch → apply → snapshot); i18n in en + all 13 locales.
+- **Privacy hook** — `spawn_lock_watcher` pauses capture + resets the segmenter while the screen is locked (macOS via `CGSessionCopyCurrentDictionary`, null/type-safe FFI; other platforms never pause yet).
+- Reused `audio_capture` helpers (`to_mono`/`resample`/`chunk_rms` made `pub(crate)` + new `encode_wav_16k`).
 
 **Acceptance criteria:**
-- [ ] User can speak without pressing any hotkey
-- [ ] VAD detects end of utterance and sends to agent
-- [ ] Toggle in Settings → Voice
+- [x] User can speak without pressing any hotkey
+- [x] VAD detects end of utterance and sends to agent
+- [x] Toggle in Settings → Voice
+
+**Wake word "Hey Tiny" (live-fix, 2026-06-03):** always-on now only delivers an utterance to the agent when its transcript contains the wake word (`config.voice_server.wake_word`, default "Hey Tiny"); the phrase is stripped and the remainder is sent. Tolerant match (case/punctuation/leading-filler), empty wake word = deliver everything. This is a **text-based** wake word (transcribe-then-gate) — a first cut of Phase 3's trigger phrase; it fixes the "sends every utterance" spam but still runs STT on all speech (an on-device audio wake-word model for efficiency is the Phase 3 follow-up).
+
+**Live-fixes found by running it:**
+- **Toggle did nothing** — `always_on_enabled` wasn't in the `update_voice_server_settings` RPC *param schema*, so validation rejected it before the handler. Added it; the config RPC now also calls `always_on::start_if_enabled` so the toggle starts/idles capture **live** (runtime `ENABLED` gate, no restart).
+- **`transcription failed: local ai is disabled`** — always-on used `voice_transcribe_bytes` (local whisper only). Now routes through `effective_stt_provider` + `create_stt_provider` (same factory dispatch as `voice.stt_dispatch`), honoring cloud STT.
+- Toggle surfaced in the reachable **VoicePanel** (Settings → Advanced → AI → Voice), not the hidden debug panel.
+
+**Pending live validation (mic-dependent, can't be CI-tested):** say "Hey Tiny, <command>" and confirm the command reaches the agent; tune `vad_onset_threshold`/`vad_hangover_ms` to the user's mic + room. Windows/Linux screen-lock pause is a follow-up (no signal wired).
 
 ---
 
@@ -457,6 +574,24 @@ Shipped on the Windows machine (2026-06-02):
 
 ---
 
+## Fine-tuning backlog ⏳ (deferred until all phases complete)
+
+From live agent-in-the-loop testing on 2026-06-03 (grounded in `~/.openhuman/logs/openhuman.2026-06-03.log`, `session_raw/*.jsonl`, and the dev run: **keyboard=69 / mouse=0 / screenshot=10** tool calls; **26 wake matches vs 93 misses**; emit=true utterances ranged 0.7s–28s). The feature works but needs tuning. **Do not implement until Phases 3–4 land.**
+
+### F1 — Listening window too short for long commands
+- **Observed:** `vad_hangover_ms = 800` closes an utterance on any pause > 0.8s, so multi-clause commands ("Hey Tiny, open Slack and message the team channel saying …") split across utterances — the tail lacks the wake word and is dropped. Compounded by the notch "Listening" pill TTL (2500ms) expiring mid-speech, so it *looks* like it stopped listening.
+- **Resolve:** (a) raise `vad_hangover_ms` to ~1500ms; (b) **two-stage capture** — once the wake word is detected, open a dedicated longer command window (until a longer silence / N-second cap) instead of relying on a single VAD utterance; (c) keep the "Listening" pill alive for the whole utterance (extend/re-emit on each voiced frame, clear on `SpeechEnd`) so the notch reflects real mic state.
+
+### F2 — Agent uses keyboard only, never the mouse
+- **Observed:** keyboard=69, mouse=0. Two causes: the orchestrator prompt is deliberately *keyboard-first*, **and** the downscaled screenshot's coordinates don't map to screen pixels — the capture is shrunk to ≤1568px while `mouse` expects absolute screen pixels (and Retina is 2× points), so any coordinate read from the image clicks the wrong spot. Vision-driven clicking is therefore currently unsafe and the agent (correctly) avoids it.
+- **Resolve:** (a) make `screenshot` emit a coordinate transform (shown WxH + real screen WxH + backing scale) **or** have `mouse` accept image-relative coordinates and convert internally; (b) once coordinates are trustworthy, soften the prompt so the agent uses screenshot→mouse to click specific elements, not just keyboard.
+
+### F3 — No periodic screenshot/verify + foreground re-check
+- **Observed:** the agent screenshots ad-hoc (0 in the last session); `automate` only foregrounds at the start.
+- **Resolve:** in the `automate` loop **and** the orchestrator prompt — screenshot + verify at **start, after every ~3 actions, and at the end**; before each action confirm the frontmost app is the target and re-`launch_app` (foreground) it if not, then proceed. Fold the actual-vs-expected check into the loop's `verify` step.
+
+---
+
 ## Summary
 
 | Phase | Item | Status |
@@ -472,9 +607,18 @@ Shipped on the Windows machine (2026-06-02):
 | 1 | AXUIElement app UI interaction (`ax_interact`) | ✅ Done |
 | 1 | Multi-step UI workflow guidance | ✅ Done |
 | 1 | Apple Music two-step play (navigate→play) | ✅ Done (playback best-effort) |
-| 2 | Always-on microphone loop | ⏳ Not started |
-| 2 | `always_on_enabled` config flag | ⏳ Not started |
-| 2 | Privacy hook (screen lock pause) | ⏳ Not started |
+| 1 | `automate(app, goal)` Rust-driven loop (Change 1.14) | 🔨 M1+M2+M3 done (37 tests; live proof pending) |
+| 1.5 | M1: automate loop skeleton + tool | ✅ Done |
+| 1.5 | M2: poll-until-stable settle | ✅ Done |
+| 1.5 | M3: Music fast-path | ✅ Done (proven live on macOS) |
+| 1.5 | Robustness: quoted-query parse + no-progress guard | ✅ Done (from live agent failures) |
+| 1.5 | M4: progress streaming to notch | ✅ Done — notch cherry-picked in; automate streams live steps |
+| 1.5 | M5: richer element model (`enabled`) | ✅ Plumbed; AXEnabled found unreliable → informational only |
+| 1.5 | Native fast-paths (Music/Spotify/Slack) | ⏳ Not started |
+| 1.5 | Vision fallback for Electron apps | ⏳ Not started |
+| 2 | Always-on microphone loop | ✅ Done (cpal → VAD → STT → agent) |
+| 2 | `always_on_enabled` config flag + Settings toggle | ✅ Done (RPC + UI + i18n) |
+| 2 | Privacy hook (screen lock pause) | ✅ Done (macOS; other OSes follow-up) |
 | 3 | Wake-word detection | ⏳ Not started |
 | 3 | Local command router | ⏳ Not started |
 | 4 | Voice confirmation loop | ⏳ Not started |

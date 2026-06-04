@@ -2822,7 +2822,16 @@ pub fn run() {
                             let run = req.run;
                             input_app
                                 .run_on_main_thread(move || {
-                                    let _ = tx.send((run)());
+                                    // Catch an enigo FFI panic so it can't unwind
+                                    // across the app main thread (which would be
+                                    // UB / abort). Convert it to a clean Err.
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(run),
+                                    )
+                                    .unwrap_or_else(|_| {
+                                        Err("synthetic input panicked on the main thread".to_string())
+                                    });
+                                    let _ = tx.send(result);
                                 })
                                 .map_err(|e| format!("run_on_main_thread dispatch failed: {e}"))?;
                             rx.await

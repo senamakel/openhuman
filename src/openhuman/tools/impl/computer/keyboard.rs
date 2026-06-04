@@ -115,6 +115,16 @@ impl Tool for KeyboardTool {
         PermissionLevel::Dangerous
     }
 
+    /// Route every call through the ApprovalGate. Arbitrary keystrokes can land
+    /// in a focused sudo/password field or Terminal, and there's no sensitive-app
+    /// denylist for raw input, so the gate is the only boundary — and it fires on
+    /// `external_effect_with_args`, NOT on `PermissionLevel::Dangerous`. Without
+    /// this, keystrokes could run unattended on an auto-approved turn once
+    /// `computer_control.enabled`.
+    fn external_effect(&self) -> bool {
+        true
+    }
+
     fn parameters_schema(&self) -> Value {
         json!({
             "type": "object",

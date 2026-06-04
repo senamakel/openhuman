@@ -177,6 +177,12 @@ pub fn all_tools_with_runtime(
         Box::new(AxInteractTool::new(
             root_config.computer_control.ax_interact_mutations,
         )),
+        // Multi-step UI automation in one call. Shares the ax_interact opt-in
+        // (mutations) and sensitive-app denylist; runs a Rust perceive→act→verify
+        // loop with a fast model so the chat model stays out of the click loop.
+        Box::new(AutomateTool::new(
+            root_config.computer_control.ax_interact_mutations,
+        )),
         Box::new(CodegraphIndexTool::new(
             config.clone(),
             action_dir.to_path_buf(),

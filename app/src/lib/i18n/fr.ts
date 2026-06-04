@@ -168,6 +168,7 @@ const messages: TranslationMap = {
   'clearData.failed': "Échec de l'effacement des données et de la déconnexion. Réessaie.",
   'clearData.failedLogout': 'Échec de la déconnexion. Réessaie.',
   'clearData.failedPersist': "Échec de l'effacement de l'état persisté. Réessaie.",
+  'welcome.logoAlt': 'OpenHuman',
   'welcome.title': 'Bienvenue sur OpenHuman',
   'welcome.subtitle':
     'Ton assistant IA personnel super-intelligent. Privé, simple et extrêmement puissant.',
@@ -2016,6 +2017,7 @@ const messages: TranslationMap = {
   'memorySources.loadingConnections': 'Chargement des connexions…',
   'memorySources.noConnections':
     "Aucune connexion Composio active trouvée. Connectez d'abord une intégration.",
+  'memorySources.connectionAccount': 'Compte',
   'memorySources.pickConnection': 'Choisissez une connexion',
   'memorySources.selectConnection': '— Sélectionnez une connexion —',
   'memorySources.composioListFailed': 'Échec du chargement des connexions Composio.',

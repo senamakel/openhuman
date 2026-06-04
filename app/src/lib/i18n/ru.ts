@@ -164,6 +164,7 @@ const messages: TranslationMap = {
   'clearData.failed': 'Не удалось очистить данные и выйти. Попробуй ещё раз.',
   'clearData.failedLogout': 'Не удалось выйти. Попробуй ещё раз.',
   'clearData.failedPersist': 'Не удалось сбросить состояние приложения. Попробуй ещё раз.',
+  'welcome.logoAlt': 'OpenHuman',
   'welcome.title': 'Добро пожаловать в OpenHuman',
   'welcome.subtitle': 'Твой персональный суперинтеллект. Приватный, простой и невероятно мощный.',
   'welcome.connectPrompt': 'Настроить RPC URL (дополнительно)',
@@ -1981,6 +1982,7 @@ const messages: TranslationMap = {
   'memorySources.loadingConnections': 'Загрузка подключений…',
   'memorySources.noConnections':
     'Активных соединений Composio не ​​найдено. Сначала подключите интеграцию.',
+  'memorySources.connectionAccount': 'Аккаунт',
   'memorySources.pickConnection': 'Выберите соединение',
   'memorySources.selectConnection': '— Выберите соединение —',
   'memorySources.composioListFailed': 'Не удалось загрузить соединения Composio.',

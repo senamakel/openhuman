@@ -167,6 +167,7 @@ const messages: TranslationMap = {
   'clearData.failed': 'Impossibile cancellare i dati ed effettuare il logout. Riprova.',
   'clearData.failedLogout': 'Impossibile effettuare il logout. Riprova.',
   'clearData.failedPersist': "Impossibile cancellare lo stato persistente dell'app. Riprova.",
+  'welcome.logoAlt': 'OpenHuman',
   'welcome.title': 'Benvenuto in OpenHuman',
   'welcome.subtitle':
     'La tua super intelligenza AI personale. Privata, semplice ed estremamente potente.',
@@ -2000,6 +2001,7 @@ const messages: TranslationMap = {
   'memorySources.loadingConnections': 'Caricamento delle connessioni…',
   'memorySources.noConnections':
     "Nessuna connessione Composio attiva trovata. Collega prima un'integrazione.",
+  'memorySources.connectionAccount': 'Account',
   'memorySources.pickConnection': 'Scegli una connessione',
   'memorySources.selectConnection': '— Seleziona una connessione —',
   'memorySources.composioListFailed': 'Impossibile caricare le connessioni Composio.',

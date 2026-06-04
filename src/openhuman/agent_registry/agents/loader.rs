@@ -603,8 +603,16 @@ mod tests {
         let desktop = find("desktop_control_agent");
         match &desktop.tools {
             ToolScope::Named(names) => {
-                assert!(names.iter().any(|name| name == "launch_app"));
-                assert!(names.iter().any(|name| name == "ax_interact"));
+                for required in [
+                    "launch_app",
+                    "ax_interact",
+                    "automate",
+                    "screenshot",
+                    "mouse",
+                    "keyboard",
+                ] {
+                    assert!(names.iter().any(|name| name == required));
+                }
             }
             other => panic!("desktop_control_agent must use Named tool scope, got {other:?}"),
         }

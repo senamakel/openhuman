@@ -9984,9 +9984,9 @@ async fn json_rpc_agent_profile_select_and_resolve_model_integration() {
     .await;
     let result = assert_no_jsonrpc_error(&res, "agent_profile_select reasoning");
     let active = result
-        .get("active_profile_id")
+        .get("activeProfileId")
         .and_then(Value::as_str)
-        .expect("active_profile_id");
+        .expect("activeProfileId");
     assert_eq!(active, "reasoning");
 
     // Verify the reasoning profile has hint:reasoning model override
@@ -9998,9 +9998,9 @@ async fn json_rpc_agent_profile_select_and_resolve_model_integration() {
         .find(|p| p.get("id").and_then(Value::as_str) == Some("reasoning"))
         .expect("reasoning profile in response");
     let model_override = reasoning_profile
-        .get("model_override")
+        .get("modelOverride")
         .and_then(Value::as_str)
-        .expect("model_override");
+        .expect("modelOverride");
     assert_eq!(model_override, "hint:reasoning");
 
     // Resolve the model for this profile's override
@@ -10029,7 +10029,7 @@ async fn json_rpc_agent_profile_select_and_resolve_model_integration() {
     let result = assert_no_jsonrpc_error(&res, "agent_profile_select default");
     assert_eq!(
         result
-            .get("active_profile_id")
+            .get("activeProfileId")
             .and_then(Value::as_str)
             .unwrap(),
         "default"

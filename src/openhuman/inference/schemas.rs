@@ -559,7 +559,7 @@ fn handle_inference_resolve_model(params: Map<String, Value>) -> ControllerFutur
         );
         to_json(RpcOutcome::new(
             serde_json::json!({ "model": resolved }),
-            vec!["model resolved".to_string()],
+            vec![],
         ))
     })
 }

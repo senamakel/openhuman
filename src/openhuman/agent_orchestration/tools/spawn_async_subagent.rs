@@ -204,7 +204,7 @@ impl Tool for SpawnAsyncSubagentTool {
                     agent_id: definition.id.clone(),
                     task_id: task_id.clone(),
                     mode: "async".to_string(),
-                    dedicated_thread: true,
+                    dedicated_thread: worker_thread_id.is_some(),
                     prompt_chars: prompt.chars().count(),
                     worker_thread_id: worker_thread_id.clone(),
                     display_name: Some(definition.display_name().to_string()),

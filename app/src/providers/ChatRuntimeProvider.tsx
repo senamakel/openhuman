@@ -156,6 +156,27 @@ function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | 
   return event.citations?.length ? { citations: event.citations } : undefined;
 }
 
+export function findPendingDelegationContext(
+  entries: ToolTimelineEntry[],
+  round: number
+): { sourceToolName?: string; prompt?: string; spawnEntryId?: string } {
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const entry = entries[i];
+    if (entry.status !== 'running' || entry.round !== round) continue;
+    if (
+      ['spawn_subagent', 'spawn_async_subagent'].includes(entry.name) ||
+      entry.name.startsWith('delegate_')
+    ) {
+      return {
+        sourceToolName: entry.name,
+        prompt: entry.detail ?? promptFromArgsBuffer(entry.argsBuffer),
+        spawnEntryId: entry.id,
+      };
+    }
+  }
+  return {};
+}
+
 const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
   const dispatch = useAppDispatch();
   const { refetch: refetchSnapshot } = useRefetchSnapshotOnTurnEnd();
@@ -299,27 +320,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       refetchSnapshot();
       dispatch(endInferenceTurn({ threadId: event.thread_id }));
       dispatch(setActiveThread(null));
-    };
-
-    const findPendingDelegationContext = (
-      entries: ToolTimelineEntry[],
-      round: number
-    ): { sourceToolName?: string; prompt?: string; spawnEntryId?: string } => {
-      for (let i = entries.length - 1; i >= 0; i -= 1) {
-        const entry = entries[i];
-        if (entry.status !== 'running' || entry.round !== round) continue;
-        if (
-          ['spawn_subagent', 'spawn_async_subagent'].includes(entry.name) ||
-          entry.name.startsWith('delegate_')
-        ) {
-          return {
-            sourceToolName: entry.name,
-            prompt: entry.detail ?? promptFromArgsBuffer(entry.argsBuffer),
-            spawnEntryId: entry.id,
-          };
-        }
-      }
-      return {};
     };
 
     rtLog('subscribe_chat_events', { socket: socketStatus });

@@ -9,7 +9,7 @@ import { store } from '../../store';
 import { clearAllChatRuntime } from '../../store/chatRuntimeSlice';
 import { setStatusForUser } from '../../store/socketSlice';
 import { clearAllThreads, loadThreads, setSelectedThread } from '../../store/threadSlice';
-import ChatRuntimeProvider from '../ChatRuntimeProvider';
+import ChatRuntimeProvider, { findPendingDelegationContext } from '../ChatRuntimeProvider';
 
 vi.mock('../../services/chatService', async () => {
   const actual = await vi.importActual<typeof chatService>('../../services/chatService');
@@ -80,6 +80,34 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
   });
 
   describe('dedupe', () => {
+    it('finds pending spawn and async delegation tool rows', () => {
+      const entries = [
+        { id: 'ignored', name: 'search', round: 0, status: 'running' },
+        {
+          id: 'spawn',
+          name: 'spawn_async_subagent',
+          round: 0,
+          status: 'running',
+          argsBuffer: '{"prompt":"Archive preferences."}',
+        },
+      ] as Parameters<typeof findPendingDelegationContext>[0];
+
+      expect(findPendingDelegationContext(entries, 0)).toEqual({
+        sourceToolName: 'spawn_async_subagent',
+        prompt: 'Archive preferences.',
+        spawnEntryId: 'spawn',
+      });
+
+      expect(
+        findPendingDelegationContext(
+          [{ id: 'sync', name: 'spawn_subagent', round: 1, status: 'running' }] as Parameters<
+            typeof findPendingDelegationContext
+          >[0],
+          1
+        )
+      ).toMatchObject({ sourceToolName: 'spawn_subagent', spawnEntryId: 'sync' });
+    });
+
     it('stores task board updates from socket events', () => {
       const listeners = renderProvider();
       const board = {

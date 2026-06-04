@@ -309,8 +309,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         const entry = entries[i];
         if (entry.status !== 'running' || entry.round !== round) continue;
         if (
-          entry.name === 'spawn_subagent' ||
-          entry.name === 'spawn_async_subagent' ||
+          ['spawn_subagent', 'spawn_async_subagent'].includes(entry.name) ||
           entry.name.startsWith('delegate_')
         ) {
           return {

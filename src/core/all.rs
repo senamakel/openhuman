@@ -482,6 +482,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
             "Shorten long tracking URLs to `openhuman://link/<id>` placeholders (SQLite-backed) to save tokens in prompts, with round-trip rewrite helpers.",
         ),
         "referral" => Some("Referral codes, stats, and apply flows via the hosted backend API."),
+        "run_ledger" => Some(
+            "Durable agent and workflow run state, child lineage, events, telemetry, and checkpoint references.",
+        ),
         "billing" => Some("Subscription plan, payment links, and credit top-up via the backend."),
         "team" => Some("Team member management, invites, and role changes via the backend."),
         "tool_registry" => Some(

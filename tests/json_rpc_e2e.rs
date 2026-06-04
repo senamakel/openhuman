@@ -2474,6 +2474,125 @@ async fn json_rpc_thread_turn_state_lifecycle() {
 }
 
 #[tokio::test]
+async fn json_rpc_run_ledger_lifecycle() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    let config = openhuman_core::openhuman::config::Config::load_or_init()
+        .await
+        .expect("load config");
+
+    openhuman_core::openhuman::session_db::run_ledger::upsert_agent_run(
+        &config,
+        openhuman_core::openhuman::session_db::run_ledger::AgentRunUpsert {
+            id: "sub-run-1".to_string(),
+            kind: openhuman_core::openhuman::session_db::run_ledger::AgentRunKind::WorkerThread,
+            parent_run_id: Some("req-run-1".to_string()),
+            parent_thread_id: Some("thread-run-1".to_string()),
+            agent_id: Some("researcher".to_string()),
+            status: openhuman_core::openhuman::session_db::run_ledger::AgentRunStatus::AwaitingUser,
+            prompt_ref: Some("thread:worker-1:message:seed".to_string()),
+            worker_thread_id: Some("worker-1".to_string()),
+            task_board_id: Some("thread-run-1".to_string()),
+            task_card_id: Some("card-1".to_string()),
+            checkpoint_path: Some("/tmp/sub-run-1.json".to_string()),
+            checkpoint: Some(json!({
+                "resumeTool": "continue_subagent",
+                "taskId": "sub-run-1"
+            })),
+            summary: Some("Which repo should I inspect?".to_string()),
+            error: None,
+            metadata: json!({ "source": "json_rpc_e2e" }),
+            started_at: None,
+            completed_at: None,
+        },
+    )
+    .expect("seed run");
+
+    openhuman_core::openhuman::session_db::run_ledger::append_run_event(
+        &config,
+        openhuman_core::openhuman::session_db::run_ledger::RunEventAppend {
+            run_id: "sub-run-1".to_string(),
+            event_type: "subagent_awaiting_user".to_string(),
+            payload: json!({ "question": "Which repo should I inspect?" }),
+        },
+    )
+    .expect("seed event");
+
+    let list = post_json_rpc(
+        &rpc_base,
+        9111,
+        "openhuman.run_ledger_list",
+        json!({ "parentThreadId": "thread-run-1" }),
+    )
+    .await;
+    let list_outer = assert_no_jsonrpc_error(&list, "run_ledger_list");
+    assert_eq!(
+        list_outer.get("count").and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        list_outer
+            .get("runs")
+            .and_then(|runs| runs.get(0))
+            .and_then(|run| run.get("status"))
+            .and_then(serde_json::Value::as_str),
+        Some("awaiting_user")
+    );
+
+    let get = post_json_rpc(
+        &rpc_base,
+        9112,
+        "openhuman.run_ledger_get",
+        json!({ "id": "sub-run-1" }),
+    )
+    .await;
+    let get_outer = assert_no_jsonrpc_error(&get, "run_ledger_get");
+    assert_eq!(
+        get_outer
+            .get("run")
+            .and_then(|run| run.get("workerThreadId"))
+            .and_then(serde_json::Value::as_str),
+        Some("worker-1")
+    );
+
+    let events = post_json_rpc(
+        &rpc_base,
+        9113,
+        "openhuman.run_ledger_events",
+        json!({ "runId": "sub-run-1" }),
+    )
+    .await;
+    let events_outer = assert_no_jsonrpc_error(&events, "run_ledger_events");
+    assert_eq!(
+        events_outer
+            .get("events")
+            .and_then(|events| events.get(0))
+            .and_then(|event| event.get("sequence"))
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_task_board_brief_roundtrips_across_todos_and_threads_rpc() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");

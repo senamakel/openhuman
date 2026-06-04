@@ -69,23 +69,56 @@ pub struct ModelCouncilResult {
     pub synthesis: String,
 }
 
-/// Normalize the requested member model list: trim each id, drop blanks, and
-/// de-duplicate while preserving first-seen order.
+/// Sentinel model id that means "use the configured default model".
 ///
-/// De-duplication matters because the result is keyed by model id in the UI;
-/// two identical seats would collide and also waste a model call. PURE.
+/// The council UI uses this for default-profile jurors and the default judge so
+/// it does not bypass the user's configured provider with a hard-coded model id.
+pub const DEFAULT_MODEL_SENTINEL: &str = "default";
+
+/// Normalize the requested member model list: trim each id and drop blanks
+/// while preserving seat order.
+///
+/// Repeated model ids are intentionally retained. The council UX can create
+/// several jurors that share a model but carry different profile/flavor context
+/// in the prompt, so deduplicating here would silently reduce the configured
+/// jury count. PURE.
 pub fn normalize_member_models(member_models: &[String]) -> Vec<String> {
-    let mut seen: Vec<String> = Vec::new();
-    for raw in member_models {
-        let trimmed = raw.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if !seen.iter().any(|m| m.as_str() == trimmed) {
-            seen.push(trimmed.to_string());
-        }
+    member_models
+        .iter()
+        .map(|raw| raw.trim())
+        .filter(|trimmed| !trimmed.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn is_default_model_sentinel(model: &str) -> bool {
+    model.trim().eq_ignore_ascii_case(DEFAULT_MODEL_SENTINEL)
+}
+
+fn configured_default_model(config: &Config) -> String {
+    config
+        .default_model
+        .as_deref()
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+        .unwrap_or(crate::openhuman::config::DEFAULT_MODEL)
+        .to_string()
+}
+
+fn model_override_for_call(model: &str) -> Option<String> {
+    if is_default_model_sentinel(model) {
+        None
+    } else {
+        Some(model.trim().to_string())
     }
-    seen
+}
+
+fn model_label_for_result(config: &Config, model: &str) -> String {
+    if is_default_model_sentinel(model) {
+        configured_default_model(config)
+    } else {
+        model.trim().to_string()
+    }
 }
 
 /// Validate a council request against the *normalized* member list. PURE.
@@ -210,16 +243,18 @@ pub async fn run_council(
     // single-shot completion. A per-member failure is captured in-band as an
     // error seat rather than aborting the whole council.
     let member_futures = models.iter().map(|model| {
-        let model = model.clone();
+        let requested_model = model.clone();
+        let result_model = model_label_for_result(config, &requested_model);
+        let model_override = model_override_for_call(&requested_model);
         async move {
-            match agent_chat_simple(config, question, Some(model.clone()), temperature).await {
+            match agent_chat_simple(config, question, model_override, temperature).await {
                 Ok(outcome) => CouncilMemberResult {
-                    model,
+                    model: result_model,
                     response: Some(outcome.value),
                     error: None,
                 },
                 Err(e) => CouncilMemberResult {
-                    model,
+                    model: result_model,
                     response: None,
                     error: Some(e),
                 },
@@ -241,16 +276,13 @@ pub async fn run_council(
     }
 
     let synthesis_prompt = build_synthesis_prompt(question, &members);
-    log::debug!("[model-council] convening chair model: {chair_model}");
-    let synthesis = agent_chat_simple(
-        config,
-        &synthesis_prompt,
-        Some(chair_model.to_string()),
-        temperature,
-    )
-    .await
-    .map_err(|e| format!("model council: chair synthesis failed: {e}"))?
-    .value;
+    let chair_model_label = model_label_for_result(config, chair_model);
+    let chair_model_override = model_override_for_call(chair_model);
+    log::debug!("[model-council] convening chair model: {chair_model_label}");
+    let synthesis = agent_chat_simple(config, &synthesis_prompt, chair_model_override, temperature)
+        .await
+        .map_err(|e| format!("model council: chair synthesis failed: {e}"))?
+        .value;
     log::debug!(
         "[model-council] synthesis complete: {} chars",
         synthesis.len()
@@ -259,7 +291,7 @@ pub async fn run_council(
     let result = ModelCouncilResult {
         question: question.to_string(),
         members,
-        chair_model: chair_model.to_string(),
+        chair_model: chair_model_label,
         synthesis,
     };
     Ok(RpcOutcome::single_log(
@@ -290,18 +322,33 @@ mod tests {
     }
 
     #[test]
-    fn normalize_trims_drops_blanks_and_dedups_preserving_order() {
+    fn normalize_trims_drops_blanks_and_preserves_repeated_seats() {
         let input = vec![
             " gpt ".to_string(),
             "claude".to_string(),
             "".to_string(),
             "   ".to_string(),
-            "gpt".to_string(), // dup of trimmed " gpt "
+            "gpt".to_string(), // repeated model: separate council seat
             "gemini".to_string(),
-            "claude".to_string(), // dup
+            "claude".to_string(), // repeated model: separate council seat
         ];
         let out = normalize_member_models(&input);
-        assert_eq!(out, vec!["gpt", "claude", "gemini"]);
+        assert_eq!(out, vec!["gpt", "claude", "gpt", "gemini", "claude"]);
+    }
+
+    #[test]
+    fn default_sentinel_resolves_to_configured_default_model() {
+        let mut config = Config::default();
+        config.default_model = Some("configured-model".to_string());
+        assert_eq!(
+            model_label_for_result(&config, DEFAULT_MODEL_SENTINEL),
+            "configured-model"
+        );
+        assert_eq!(model_override_for_call(DEFAULT_MODEL_SENTINEL), None);
+        assert_eq!(
+            model_override_for_call("explicit-model"),
+            Some("explicit-model".to_string())
+        );
     }
 
     #[test]

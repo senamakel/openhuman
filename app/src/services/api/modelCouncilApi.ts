@@ -35,7 +35,7 @@ export interface ModelCouncilResult {
 
 export interface RunCouncilParams {
   question: string;
-  /** Member model ids to consult (deduplicated + capped server-side). */
+  /** Member model ids or "default" seats to consult (repeated seats preserved; capped server-side). */
   member_models: string[];
   /** Model id that synthesizes the member answers. */
   chair_model: string;

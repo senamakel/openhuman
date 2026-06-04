@@ -1,134 +1,223 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ModelCouncilResult } from '../../services/api/modelCouncilApi';
 import ModelCouncilTab from './ModelCouncilTab';
 
 const mockRunCouncil = vi.fn();
+const mockDispatch = vi.fn();
+
+const mockState = {
+  agentProfiles: {
+    profiles: [
+      {
+        id: 'default',
+        name: 'Default Agent',
+        description: 'Default',
+        agentId: 'openhuman.default',
+        modelOverride: 'profile-model',
+        builtIn: true,
+      },
+      {
+        id: 'critic',
+        name: 'Critic',
+        description: 'Finds gaps',
+        agentId: 'critic-agent',
+        modelOverride: 'critic-model',
+        builtIn: false,
+      },
+    ],
+    activeProfileId: 'default',
+    status: 'idle',
+    error: null,
+  },
+};
+
 vi.mock('../../services/api/modelCouncilApi', () => ({
   modelCouncilApi: { runCouncil: (...args: unknown[]) => mockRunCouncil(...args) },
+}));
+
+vi.mock('../../store/hooks', () => ({
+  useAppDispatch: () => mockDispatch,
+  useAppSelector: (selector: (state: typeof mockState) => unknown) => selector(mockState),
+}));
+
+vi.mock('../../features/human/Mascot', () => ({
+  RiveMascot: ({ face }: { face?: string }) => <div data-testid="rive-mascot" data-face={face} />,
+  getMascotPalette: () => ({ bodyFill: '#F7D145', neckShadowColor: '#B23C05' }),
+  hexToArgbInt: () => 0xfff7d145,
 }));
 
 const RESULT: ModelCouncilResult = {
   question: 'What is the capital of France?',
   members: [
-    { model: 'model-a', response: 'Paris is the capital.', error: null },
-    { model: 'model-b', response: null, error: 'rate limited' },
+    { model: 'gpt-5.2', response: 'Paris is the capital.', error: null },
+    { model: 'critic-model', response: null, error: 'rate limited' },
   ],
-  chair_model: 'chair-model',
+  chair_model: 'claude-opus-4-8',
   synthesis: 'Both that answered agree: Paris. One seat failed.',
 };
 
-const fillValidForm = () => {
+const fillQuestion = () => {
   fireEvent.change(screen.getByLabelText('Question'), {
     target: { value: 'What is the capital of France?' },
   });
-  fireEvent.change(screen.getByLabelText('Member model 1'), { target: { value: 'model-a' } });
-  fireEvent.change(screen.getByLabelText('Member model 2'), { target: { value: 'model-b' } });
-  fireEvent.change(screen.getByLabelText('Chair model'), { target: { value: 'chair-model' } });
 };
 
 describe('ModelCouncilTab', () => {
   beforeEach(() => {
     mockRunCouncil.mockReset();
+    mockDispatch.mockReset();
   });
 
-  it('renders the compose surface with two member rows by default', () => {
+  it('renders settings, shared reasoning, and three Rive council seats by default', () => {
     render(<ModelCouncilTab />);
+
     expect(screen.getByText('Model Council')).toBeInTheDocument();
-    expect(screen.getByLabelText('Question')).toBeInTheDocument();
-    expect(screen.getByLabelText('Member model 1')).toBeInTheDocument();
-    expect(screen.getByLabelText('Member model 2')).toBeInTheDocument();
-    expect(screen.getByLabelText('Chair model')).toBeInTheDocument();
+    expect(screen.getByText('Council settings')).toBeInTheDocument();
+    expect(screen.getByText('shared_reasoning.md')).toBeInTheDocument();
+    expect(screen.getByLabelText('Shared reasoning file')).toHaveValue(
+      [
+        '# Shared reasoning',
+        '- Claims the council agrees on:',
+        '- Open disagreements:',
+        '- Evidence or constraints to preserve:',
+        '- Judge synthesis notes:',
+      ].join('\n')
+    );
+    expect(screen.getAllByTestId('rive-mascot')).toHaveLength(3);
+    expect(screen.getByText('Juror 1')).toBeInTheDocument();
+    expect(screen.getByText('Juror 3')).toBeInTheDocument();
   });
 
-  it('disables Convene until question + a member + chair are all filled', () => {
+  it('uses the jury count setting to resize the roster up to five', () => {
     render(<ModelCouncilTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: '5' }));
+
+    expect(screen.getAllByTestId('rive-mascot')).toHaveLength(5);
+    expect(screen.getAllByText('Juror 5')).toHaveLength(2);
+    expect(screen.getByLabelText('Juror 5 name')).toBeInTheDocument();
+  });
+
+  it('disables Convene until a question is filled because seats and judge have defaults', () => {
+    render(<ModelCouncilTab />);
+
     const run = screen.getByRole('button', { name: 'Convene council' });
     expect(run).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('Question'), { target: { value: 'q' } });
-    expect(run).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('Member model 1'), { target: { value: 'm' } });
-    expect(run).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('Chair model'), { target: { value: 'c' } });
+    fillQuestion();
     expect(run).not.toBeDisabled();
   });
 
-  it('adds member rows up to the max of 5 and stops', () => {
+  it('shows mascot deliberation and agent thoughts while the council is running', async () => {
+    let resolveRun: (value: ModelCouncilResult) => void = () => {};
+    mockRunCouncil.mockReturnValueOnce(
+      new Promise<ModelCouncilResult>(resolve => {
+        resolveRun = resolve;
+      })
+    );
     render(<ModelCouncilTab />);
-    const add = screen.getByRole('button', { name: '+ Add model' });
-    fireEvent.click(add); // 3
-    fireEvent.click(add); // 4
-    fireEvent.click(add); // 5
-    expect(screen.getByLabelText('Member model 5')).toBeInTheDocument();
-    expect(add).toBeDisabled();
-    expect(screen.queryByLabelText('Member model 6')).not.toBeInTheDocument();
-  });
+    fillQuestion();
 
-  it('removes member rows but never below one', () => {
-    render(<ModelCouncilTab />);
-    // Two rows initially; remove one → one left, remove button then disabled.
-    fireEvent.click(screen.getByRole('button', { name: 'Remove member model 2' }));
-    expect(screen.queryByLabelText('Member model 2')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Remove member model 1' })).toBeDisabled();
-  });
-
-  it('runs the council and renders member answers side-by-side + the synthesis', async () => {
-    mockRunCouncil.mockResolvedValueOnce(RESULT);
-    render(<ModelCouncilTab />);
-    fillValidForm();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
     });
-    expect(mockRunCouncil).toHaveBeenCalledWith({
-      question: 'What is the capital of France?',
-      member_models: ['model-a', 'model-b'],
-      chair_model: 'chair-model',
+
+    expect(screen.getByText('Council deliberation')).toBeInTheDocument();
+    expect(screen.getAllByText('Thinking')).toHaveLength(3);
+    expect(screen.getByText('Judge')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Waiting for juror answers, then reading the shared reasoning file/)
+    ).toBeInTheDocument();
+    expect(screen.getAllByTestId('rive-mascot')).toHaveLength(7);
+    expect(screen.getAllByTestId('rive-mascot')[0]).toHaveAttribute('data-face', 'thinking');
+
+    await act(async () => {
+      resolveRun(RESULT);
     });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Council deliberation')).not.toBeInTheDocument();
+    });
+  });
+
+  it('lets a council seat use a saved profile and submits that profile model', async () => {
+    mockRunCouncil.mockResolvedValueOnce(RESULT);
+    render(<ModelCouncilTab />);
+
+    const firstSeat = screen.getByLabelText('Juror 1 name').closest('article');
+    expect(firstSeat).not.toBeNull();
+    fireEvent.click(within(firstSeat as HTMLElement).getByRole('tab', { name: 'Profile' }));
+    fireEvent.change(screen.getByLabelText('Juror 1 profile'), { target: { value: 'critic' } });
+    fillQuestion();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
+    });
+
+    expect(mockRunCouncil).toHaveBeenCalledWith({
+      question: expect.stringContaining('shared_reasoning.md'),
+      member_models: ['critic-model', 'default', 'default'],
+      chair_model: 'default',
+    });
+    expect(mockRunCouncil.mock.calls[0][0].question).toContain('User question:');
+    expect(mockRunCouncil.mock.calls[0][0].question).toContain('What is the capital of France?');
+  });
+
+  it('lets the judge agent use a saved profile unless a model override is typed', async () => {
+    mockRunCouncil.mockResolvedValueOnce(RESULT);
+    render(<ModelCouncilTab />);
+
+    fireEvent.change(screen.getByLabelText('Judge agent'), { target: { value: 'profile' } });
+    fireEvent.change(screen.getByLabelText('Judge profile'), { target: { value: 'critic' } });
+    fillQuestion();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
+    });
+
+    expect(mockRunCouncil).toHaveBeenCalledWith({
+      question: expect.any(String),
+      member_models: ['default', 'default', 'default'],
+      chair_model: 'critic-model',
+    });
+  });
+
+  it('renders member answers side-by-side + the synthesis', async () => {
+    mockRunCouncil.mockResolvedValueOnce(RESULT);
+    render(<ModelCouncilTab />);
+    fillQuestion();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
+    });
+
     await waitFor(() => {
       expect(screen.getByText('Council results')).toBeInTheDocument();
     });
-    // Member A answered; Member B failed.
     expect(screen.getByText('Paris is the capital.')).toBeInTheDocument();
     expect(screen.getByText('rate limited')).toBeInTheDocument();
     expect(screen.getByText('Answered')).toBeInTheDocument();
     expect(screen.getByText('Failed')).toBeInTheDocument();
-    // Synthesis from the chair.
     expect(
       screen.getByText('Both that answered agree: Paris. One seat failed.')
     ).toBeInTheDocument();
-    expect(screen.getByText('by chair-model')).toBeInTheDocument();
-  });
-
-  it('trims whitespace and drops blank member rows before calling the API', async () => {
-    mockRunCouncil.mockResolvedValueOnce(RESULT);
-    render(<ModelCouncilTab />);
-    fireEvent.change(screen.getByLabelText('Question'), { target: { value: '  hi  ' } });
-    fireEvent.change(screen.getByLabelText('Member model 1'), { target: { value: ' model-a ' } });
-    // leave member 2 blank
-    fireEvent.change(screen.getByLabelText('Chair model'), { target: { value: ' chair ' } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
-    });
-    expect(mockRunCouncil).toHaveBeenCalledWith({
-      question: 'hi',
-      member_models: ['model-a'],
-      chair_model: 'chair',
-    });
+    expect(screen.getByText('by claude-opus-4-8')).toBeInTheDocument();
   });
 
   it('surfaces an error alert when the council run fails', async () => {
     mockRunCouncil.mockRejectedValueOnce(new Error('all member models failed to respond'));
     render(<ModelCouncilTab />);
-    fillValidForm();
+    fillQuestion();
+
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
     });
+
     await waitFor(() => {
       const alert = screen.getByRole('alert');
       expect(alert.textContent).toMatch(/all member models failed to respond/);
     });
-    // No results section on failure.
     expect(screen.queryByText('Council results')).not.toBeInTheDocument();
   });
 });

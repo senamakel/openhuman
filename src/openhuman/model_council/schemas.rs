@@ -1,7 +1,7 @@
 //! JSON-RPC controller surface for the Model Council.
 //!
 //! Exposes a single method, `openhuman.model_council_run`, which takes a
-//! question + a list of member model ids + a chair model id, runs the council
+//! question + a list of member model ids or `default` seats + a chair model id, runs the council
 //! (see [`crate::openhuman::model_council::council`]), and returns the
 //! aggregated result synchronously in the JSON-RPC response.
 
@@ -45,7 +45,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required_string("question", "The question to put to the council."),
                 required_string_array(
                     "member_models",
-                    "Member model ids to consult (deduplicated; max 5).",
+                    "Member model ids or `default` seats to consult (repeated seats preserved; max 5).",
                 ),
                 required_string(
                     "chair_model",

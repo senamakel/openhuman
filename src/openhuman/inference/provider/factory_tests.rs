@@ -1768,17 +1768,32 @@ fn local_provider_string_detection() {
 #[test]
 fn resolve_model_for_hint_maps_known_hints_to_tiers() {
     let config = Config::default();
-    assert_eq!(resolve_model_for_hint("hint:reasoning", &config), "reasoning-v1");
-    assert_eq!(resolve_model_for_hint("hint:chat", &config), "reasoning-quick-v1");
-    assert_eq!(resolve_model_for_hint("hint:agentic", &config), "agentic-v1");
+    assert_eq!(
+        resolve_model_for_hint("hint:reasoning", &config),
+        "reasoning-v1"
+    );
+    assert_eq!(
+        resolve_model_for_hint("hint:chat", &config),
+        "reasoning-quick-v1"
+    );
+    assert_eq!(
+        resolve_model_for_hint("hint:agentic", &config),
+        "agentic-v1"
+    );
     assert_eq!(resolve_model_for_hint("hint:coding", &config), "coding-v1");
-    assert_eq!(resolve_model_for_hint("hint:summarization", &config), "summarization-v1");
+    assert_eq!(
+        resolve_model_for_hint("hint:summarization", &config),
+        "summarization-v1"
+    );
 }
 
 #[test]
 fn resolve_model_for_hint_passes_through_tier_names() {
     let config = Config::default();
-    assert_eq!(resolve_model_for_hint("reasoning-v1", &config), "reasoning-v1");
+    assert_eq!(
+        resolve_model_for_hint("reasoning-v1", &config),
+        "reasoning-v1"
+    );
     assert_eq!(resolve_model_for_hint("agentic-v1", &config), "agentic-v1");
     assert_eq!(resolve_model_for_hint("coding-v1", &config), "coding-v1");
 }
@@ -1790,20 +1805,32 @@ fn resolve_model_for_hint_extracts_model_from_byok_provider() {
     assert_eq!(resolve_model_for_hint("hint:reasoning", &config), "gpt-4o");
 
     config.chat_provider = Some("anthropic:claude-sonnet-4-20250514".to_string());
-    assert_eq!(resolve_model_for_hint("hint:chat", &config), "claude-sonnet-4-20250514");
+    assert_eq!(
+        resolve_model_for_hint("hint:chat", &config),
+        "claude-sonnet-4-20250514"
+    );
 }
 
 #[test]
 fn resolve_model_for_hint_falls_through_openhuman_and_cloud_sentinels() {
     let mut config = Config::default();
     config.reasoning_provider = Some("openhuman".to_string());
-    assert_eq!(resolve_model_for_hint("hint:reasoning", &config), "reasoning-v1");
+    assert_eq!(
+        resolve_model_for_hint("hint:reasoning", &config),
+        "reasoning-v1"
+    );
 
     config.reasoning_provider = Some("cloud".to_string());
-    assert_eq!(resolve_model_for_hint("hint:reasoning", &config), "reasoning-v1");
+    assert_eq!(
+        resolve_model_for_hint("hint:reasoning", &config),
+        "reasoning-v1"
+    );
 
     config.reasoning_provider = Some("".to_string());
-    assert_eq!(resolve_model_for_hint("hint:reasoning", &config), "reasoning-v1");
+    assert_eq!(
+        resolve_model_for_hint("hint:reasoning", &config),
+        "reasoning-v1"
+    );
 }
 
 #[test]

@@ -149,6 +149,19 @@ const renderOpenCouncil = async () => {
   await screen.findByLabelText('Question');
 };
 
+const renderEditCouncil = async () => {
+  await renderOpenCouncil();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit current council' }));
+  await screen.findByLabelText('Council name');
+};
+
+const saveCouncilSettings = async () => {
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Save council' }));
+  });
+  await screen.findByLabelText('Question');
+};
+
 describe('ModelCouncilTab', () => {
   beforeEach(() => {
     mockListCouncils.mockReset();
@@ -175,16 +188,17 @@ describe('ModelCouncilTab', () => {
 
     await screen.findByLabelText('Question');
     expect(screen.getByText('Default council')).toBeInTheDocument();
-    expect(screen.getByText('Council settings')).toBeInTheDocument();
-    expect(screen.getByLabelText('Debate turns')).toHaveValue('3');
+    expect(screen.queryByText('Council settings')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Debate turns')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Shared reasoning file')).not.toBeInTheDocument();
-    expect(screen.getAllByTestId('rive-mascot')).toHaveLength(3);
-    expect(screen.getByText('Juror 1')).toBeInTheDocument();
-    expect(screen.getByText('Juror 3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Convene council' })).toBeInTheDocument();
   });
 
   it('uses the jury count setting to resize the roster up to five', async () => {
-    await renderOpenCouncil();
+    await renderEditCouncil();
+
+    expect(screen.queryByLabelText('Question')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Convene council' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '5' }));
 
@@ -246,7 +260,7 @@ describe('ModelCouncilTab', () => {
     expect(
       screen.getByText(/Waiting for juror answers, then reading the shared reasoning file/)
     ).toBeInTheDocument();
-    expect(screen.getAllByTestId('rive-mascot')).toHaveLength(7);
+    expect(screen.getAllByTestId('rive-mascot')).toHaveLength(4);
     expect(screen.getAllByTestId('rive-mascot')[0]).toHaveAttribute('data-face', 'thinking');
 
     await act(async () => {
@@ -371,11 +385,12 @@ describe('ModelCouncilTab', () => {
 
   it('lets a juror model be selected from routing hints', async () => {
     mockProgressiveSuccess();
-    await renderOpenCouncil();
+    await renderEditCouncil();
 
     fireEvent.click(screen.getByLabelText('Member model 1'));
     expect(screen.getByRole('dialog', { name: 'Member model 1' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Reasoning/ }));
+    await saveCouncilSettings();
     fillQuestion();
 
     await act(async () => {
@@ -391,12 +406,13 @@ describe('ModelCouncilTab', () => {
 
   it('lets a council seat use a saved profile and submits that profile model', async () => {
     mockProgressiveSuccess();
-    await renderOpenCouncil();
+    await renderEditCouncil();
 
     const firstSeat = screen.getByLabelText('Juror 1 name').closest('article');
     expect(firstSeat).not.toBeNull();
     fireEvent.click(within(firstSeat as HTMLElement).getByRole('tab', { name: 'Profile' }));
     fireEvent.change(screen.getByLabelText('Juror 1 profile'), { target: { value: 'critic' } });
+    await saveCouncilSettings();
     fillQuestion();
 
     await act(async () => {
@@ -427,10 +443,11 @@ describe('ModelCouncilTab', () => {
 
   it('lets the judge agent use a saved profile unless a model override is typed', async () => {
     mockProgressiveSuccess();
-    await renderOpenCouncil();
+    await renderEditCouncil();
 
     fireEvent.change(screen.getByLabelText('Judge agent'), { target: { value: 'profile' } });
     fireEvent.change(screen.getByLabelText('Judge profile'), { target: { value: 'critic' } });
+    await saveCouncilSettings();
     fillQuestion();
 
     await act(async () => {

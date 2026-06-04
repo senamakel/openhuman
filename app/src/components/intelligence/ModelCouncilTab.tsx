@@ -585,7 +585,7 @@ const ModelCouncilTab = () => {
     setJudgeMode(council.judge.mode);
     setJudgeProfileId(council.judge.profile_id || '');
     setJudgeName(council.judge.name || 'Chief Judge');
-    setJudgeModel(council.judge.model || DEFAULT_JUDGE_MODEL);
+    setJudgeModel(council.judge.model ?? DEFAULT_JUDGE_MODEL);
     setSharedReasoning(council.shared_reasoning || DEFAULT_SHARED_REASONING);
     setQuestion('');
     setLiveMembers([]);
@@ -1084,46 +1084,38 @@ const ModelCouncilTab = () => {
               className="text-xs font-medium text-stone-600 dark:text-neutral-300">
               {t('modelCouncil.councilDescriptionLabel')}
             </label>
-            <input
+            <textarea
               id="model-council-description"
               value={councilDescription}
               onChange={e => setCouncilDescription(e.target.value)}
               placeholder={t('modelCouncil.councilDescriptionPlaceholder')}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+              rows={3}
+              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
             />
           </div>
         </section>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      {view === 'run' && (
         <section className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-50">
-              {t('modelCouncil.title')}
-            </h2>
-            <p className="mt-1 max-w-3xl text-sm text-stone-600 dark:text-neutral-300">
-              {t('modelCouncil.intro')}
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label
-              htmlFor="model-council-question"
-              className="text-xs font-medium text-stone-600 dark:text-neutral-300">
-              {t('modelCouncil.questionLabel')}
-            </label>
-            <textarea
-              id="model-council-question"
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              rows={4}
-              placeholder={t('modelCouncil.questionPlaceholder')}
-              aria-label={t('modelCouncil.questionLabel')}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-            />
-          </div>
+          <label
+            htmlFor="model-council-question"
+            className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+            {t('modelCouncil.questionLabel')}
+          </label>
+          <textarea
+            id="model-council-question"
+            value={question}
+            onChange={e => setQuestion(e.target.value)}
+            rows={4}
+            placeholder={t('modelCouncil.questionPlaceholder')}
+            aria-label={t('modelCouncil.questionLabel')}
+            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+          />
         </section>
+      )}
 
+      {view === 'edit' && (
         <aside className="space-y-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
@@ -1287,151 +1279,158 @@ const ModelCouncilTab = () => {
             </button>
           </div>
         </aside>
-      </div>
+      )}
 
-      <section aria-labelledby="model-council-roster-heading" className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h3
-              id="model-council-roster-heading"
-              className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
-              {t('modelCouncil.rosterHeading')}
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-neutral-400">
-              {t('modelCouncil.rosterHelp')}
-            </p>
+      {view === 'edit' && (
+        <section aria-labelledby="model-council-roster-heading" className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3
+                id="model-council-roster-heading"
+                className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                {t('modelCouncil.rosterHeading')}
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-neutral-400">
+                {t('modelCouncil.rosterHelp')}
+              </p>
+            </div>
+            {profileStatus === 'loading' && (
+              <span className="text-xs text-stone-500 dark:text-neutral-400">
+                {t('modelCouncil.loadingProfiles')}
+              </span>
+            )}
           </div>
-          {profileStatus === 'loading' && (
-            <span className="text-xs text-stone-500 dark:text-neutral-400">
-              {t('modelCouncil.loadingProfiles')}
-            </span>
-          )}
-        </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {seats.map((seat, index) => {
-            const resolved = resolvedSeats[index];
-            const colors = mascotColors(index);
-            const activeFace = running
-              ? ACTIVE_SEAT_FACES[index % ACTIVE_SEAT_FACES.length]
-              : SEAT_FACES[index % SEAT_FACES.length];
-            return (
-              <article
-                key={seat.id}
-                className={`rounded-lg border bg-white p-3 shadow-sm transition-colors dark:bg-neutral-900 ${
-                  running
-                    ? 'border-primary-300 ring-2 ring-primary-100 dark:border-primary-500/50 dark:ring-primary-500/10'
-                    : 'border-stone-200 dark:border-neutral-800'
-                }`}>
-                <div className="flex gap-3">
-                  <div
-                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-stone-100 dark:bg-neutral-800 ${
-                      running ? 'animate-pulse' : ''
-                    }`}>
-                    <RiveMascot
-                      size="100%"
-                      face={activeFace}
-                      primaryColor={colors.primaryColor}
-                      secondaryColor={colors.secondaryColor}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-50">
-                        {resolved.label}
-                      </p>
-                      <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
-                        {t('modelCouncil.jurorLabel').replace('{n}', String(index + 1))}
-                      </span>
-                    </div>
-
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {seats.map((seat, index) => {
+              const resolved = resolvedSeats[index];
+              const colors = mascotColors(index);
+              const activeFace = running
+                ? ACTIVE_SEAT_FACES[index % ACTIVE_SEAT_FACES.length]
+                : SEAT_FACES[index % SEAT_FACES.length];
+              return (
+                <article
+                  key={seat.id}
+                  className={`rounded-lg border bg-white p-3 shadow-sm transition-colors dark:bg-neutral-900 ${
+                    running
+                      ? 'border-primary-300 ring-2 ring-primary-100 dark:border-primary-500/50 dark:ring-primary-500/10'
+                      : 'border-stone-200 dark:border-neutral-800'
+                  }`}>
+                  <div className="flex gap-3">
                     <div
-                      role="tablist"
-                      aria-label={t('modelCouncil.profileModeLabel')}
-                      className="grid grid-cols-3 gap-1">
-                      {(['default', 'profile', 'custom'] as SeatMode[]).map(mode => (
-                        <button
-                          key={mode}
-                          type="button"
-                          role="tab"
-                          aria-selected={seat.mode === mode}
-                          onClick={() => setSeatMode(seat, mode)}
-                          className={`rounded-md px-2 py-1 text-[11px] font-medium ${
-                            seat.mode === mode
-                              ? 'bg-primary-500 text-white'
-                              : 'bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
-                          }`}>
-                          {t(`modelCouncil.mode.${mode}`)}
-                        </button>
-                      ))}
+                      className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-stone-100 dark:bg-neutral-800 ${
+                        running ? 'animate-pulse' : ''
+                      }`}>
+                      <RiveMascot
+                        size="100%"
+                        face={activeFace}
+                        primaryColor={colors.primaryColor}
+                        secondaryColor={colors.secondaryColor}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-50">
+                          {resolved.label}
+                        </p>
+                        <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+                          {t('modelCouncil.jurorLabel').replace('{n}', String(index + 1))}
+                        </span>
+                      </div>
+
+                      <div
+                        role="tablist"
+                        aria-label={t('modelCouncil.profileModeLabel')}
+                        className="grid grid-cols-3 gap-1">
+                        {(['default', 'profile', 'custom'] as SeatMode[]).map(mode => (
+                          <button
+                            key={mode}
+                            type="button"
+                            role="tab"
+                            aria-selected={seat.mode === mode}
+                            onClick={() => setSeatMode(seat, mode)}
+                            className={`rounded-md px-2 py-1 text-[11px] font-medium ${
+                              seat.mode === mode
+                                ? 'bg-primary-500 text-white'
+                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
+                            }`}>
+                            {t(`modelCouncil.mode.${mode}`)}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-3 space-y-2">
-                  {seat.mode === 'profile' ? (
-                    <select
-                      value={seat.profileId}
-                      aria-label={t('modelCouncil.memberProfileAria').replace(
+                  <div className="mt-3 space-y-2">
+                    {seat.mode === 'profile' ? (
+                      <select
+                        value={seat.profileId}
+                        aria-label={t('modelCouncil.memberProfileAria').replace(
+                          '{n}',
+                          String(index + 1)
+                        )}
+                        onChange={e =>
+                          updateSeat(seat.id, { profileId: e.target.value, model: '' })
+                        }
+                        className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
+                        <option value="">{t('modelCouncil.chooseProfile')}</option>
+                        {profiles.map(profile => (
+                          <option key={profile.id} value={profile.id}>
+                            {profileLabel(profile)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={seat.name}
+                        onChange={e => updateSeat(seat.id, { name: e.target.value })}
+                        aria-label={t('modelCouncil.memberNameAria').replace(
+                          '{n}',
+                          String(index + 1)
+                        )}
+                        placeholder={t('modelCouncil.memberNamePlaceholder')}
+                        className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setModelPicker({
+                          title: t('modelCouncil.memberAria').replace('{n}', String(index + 1)),
+                          value: seat.model,
+                          onSelect: model => updateSeat(seat.id, { model }),
+                        })
+                      }
+                      aria-label={t('modelCouncil.memberAria').replace('{n}', String(index + 1))}
+                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-left font-mono text-sm text-stone-800 hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-900">
+                      <span className="truncate">{seat.model || DEFAULT_MODEL}</span>
+                      <span className="shrink-0 text-[11px] font-semibold text-primary-600 dark:text-primary-300">
+                        {t('modelCouncil.selectModel')}
+                      </span>
+                    </button>
+
+                    <textarea
+                      value={seat.brief}
+                      onChange={e => updateSeat(seat.id, { brief: e.target.value })}
+                      rows={2}
+                      aria-label={t('modelCouncil.memberBriefAria').replace(
                         '{n}',
                         String(index + 1)
                       )}
-                      onChange={e => updateSeat(seat.id, { profileId: e.target.value, model: '' })}
-                      className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
-                      <option value="">{t('modelCouncil.chooseProfile')}</option>
-                      {profiles.map(profile => (
-                        <option key={profile.id} value={profile.id}>
-                          {profileLabel(profile)}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={seat.name}
-                      onChange={e => updateSeat(seat.id, { name: e.target.value })}
-                      aria-label={t('modelCouncil.memberNameAria').replace(
-                        '{n}',
-                        String(index + 1)
-                      )}
-                      placeholder={t('modelCouncil.memberNamePlaceholder')}
-                      className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                      placeholder={t('modelCouncil.memberBriefPlaceholder')}
+                      className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-700 resize-none focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200"
                     />
-                  )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setModelPicker({
-                        title: t('modelCouncil.memberAria').replace('{n}', String(index + 1)),
-                        value: seat.model,
-                        onSelect: model => updateSeat(seat.id, { model }),
-                      })
-                    }
-                    aria-label={t('modelCouncil.memberAria').replace('{n}', String(index + 1))}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-left font-mono text-sm text-stone-800 hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-900">
-                    <span className="truncate">{seat.model || DEFAULT_MODEL}</span>
-                    <span className="shrink-0 text-[11px] font-semibold text-primary-600 dark:text-primary-300">
-                      {t('modelCouncil.selectModel')}
-                    </span>
-                  </button>
-
-                  <textarea
-                    value={seat.brief}
-                    onChange={e => updateSeat(seat.id, { brief: e.target.value })}
-                    rows={2}
-                    aria-label={t('modelCouncil.memberBriefAria').replace('{n}', String(index + 1))}
-                    placeholder={t('modelCouncil.memberBriefPlaceholder')}
-                    className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-700 resize-none focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200"
-                  />
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      {running && (
+      {view === 'run' && running && (
         <section
           aria-labelledby="model-council-deliberation-heading"
           className="space-y-3 rounded-lg border border-primary-200 bg-primary-50/60 p-3 dark:border-primary-500/30 dark:bg-primary-500/10">
@@ -1602,31 +1601,33 @@ const ModelCouncilTab = () => {
         </section>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void handleRun()}
-          disabled={!canRun}
-          className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
-          {running ? t('modelCouncil.running') : t('modelCouncil.run')}
-        </button>
-        {running && (
-          <span
-            role="status"
-            aria-live="polite"
-            className="text-xs text-stone-500 dark:text-neutral-400">
-            {t('modelCouncil.runningHint')}
-          </span>
-        )}
-      </div>
+      {view === 'run' && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleRun()}
+            disabled={!canRun}
+            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+            {running ? t('modelCouncil.running') : t('modelCouncil.run')}
+          </button>
+          {running && (
+            <span
+              role="status"
+              aria-live="polite"
+              className="text-xs text-stone-500 dark:text-neutral-400">
+              {t('modelCouncil.runningHint')}
+            </span>
+          )}
+        </div>
+      )}
 
-      {error && (
+      {view === 'run' && error && (
         <p role="alert" className="text-xs text-coral-700 dark:text-coral-300">
           {t('modelCouncil.errorPrefix')} {error}
         </p>
       )}
 
-      {result && (
+      {view === 'run' && result && (
         <section aria-labelledby="model-council-results-heading" className="space-y-3 pt-1">
           <h3
             id="model-council-results-heading"

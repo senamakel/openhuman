@@ -10,6 +10,9 @@ const mockUpsertCouncil = vi.fn();
 const mockDeleteCouncil = vi.fn();
 const mockAnswerMember = vi.fn();
 const mockSynthesizeCouncil = vi.fn();
+const mockLoadAISettings = vi.fn();
+const mockLoadLocalProviderSnapshot = vi.fn();
+const mockListProviderModels = vi.fn();
 const mockDispatch = vi.fn();
 
 const mockState = {
@@ -53,6 +56,12 @@ vi.mock('../../services/api/councilRegistryApi', () => ({
   },
 }));
 
+vi.mock('../../services/api/aiSettingsApi', () => ({
+  loadAISettings: (...args: unknown[]) => mockLoadAISettings(...args),
+  loadLocalProviderSnapshot: (...args: unknown[]) => mockLoadLocalProviderSnapshot(...args),
+  listProviderModels: (...args: unknown[]) => mockListProviderModels(...args),
+}));
+
 vi.mock('../../store/hooks', () => ({
   useAppDispatch: () => mockDispatch,
   useAppSelector: (selector: (state: typeof mockState) => unknown) => selector(mockState),
@@ -75,9 +84,9 @@ const RESULT: ModelCouncilResult = {
 };
 
 const DEFAULT_MEMBERS: CouncilMemberResult[] = [
-  { model: 'default', response: 'Paris is the capital.', error: null },
-  { model: 'default', response: 'France uses Paris as its capital.', error: null },
-  { model: 'default', response: 'The answer is Paris.', error: null },
+  { model: 'reasoning-v1', response: 'Paris is the capital.', error: null },
+  { model: 'reasoning-v1', response: 'France uses Paris as its capital.', error: null },
+  { model: 'reasoning-v1', response: 'The answer is Paris.', error: null },
 ];
 
 const DEFAULT_COUNCIL: CouncilDefinition = {
@@ -92,7 +101,7 @@ const DEFAULT_COUNCIL: CouncilDefinition = {
       mode: 'default',
       profile_id: '',
       name: 'Analyst',
-      model: 'default',
+      model: 'reasoning-v1',
       brief: 'Evidence, assumptions, and risk.',
     },
     {
@@ -100,7 +109,7 @@ const DEFAULT_COUNCIL: CouncilDefinition = {
       mode: 'default',
       profile_id: '',
       name: 'Builder',
-      model: 'default',
+      model: 'reasoning-v1',
       brief: 'Practical implementation path.',
     },
     {
@@ -108,11 +117,11 @@ const DEFAULT_COUNCIL: CouncilDefinition = {
       mode: 'default',
       profile_id: '',
       name: 'Skeptic',
-      model: 'default',
+      model: 'reasoning-v1',
       brief: 'Failure modes and missing context.',
     },
   ],
-  judge: { mode: 'default', profile_id: '', name: 'Chief Judge', model: 'default' },
+  judge: { mode: 'default', profile_id: '', name: 'Chief Judge', model: 'reasoning-v1' },
   shared_reasoning: [
     '# Shared reasoning',
     '- Claims the council agrees on:',
@@ -169,6 +178,9 @@ describe('ModelCouncilTab', () => {
     mockDeleteCouncil.mockReset();
     mockAnswerMember.mockReset();
     mockSynthesizeCouncil.mockReset();
+    mockLoadAISettings.mockReset();
+    mockLoadLocalProviderSnapshot.mockReset();
+    mockListProviderModels.mockReset();
     mockDispatch.mockReset();
     mockListCouncils.mockResolvedValue([DEFAULT_COUNCIL]);
     mockUpsertCouncil.mockImplementation(async council => ({
@@ -176,6 +188,38 @@ describe('ModelCouncilTab', () => {
       id: council.id || 'saved',
     }));
     mockDeleteCouncil.mockResolvedValue(true);
+    mockLoadAISettings.mockResolvedValue({
+      cloudProviders: [
+        {
+          id: 'openai-id',
+          slug: 'openai',
+          label: 'OpenAI',
+          endpoint: 'https://api.openai.com/v1',
+          auth_style: 'bearer',
+          has_api_key: true,
+        },
+        {
+          id: 'anthropic-id',
+          slug: 'anthropic',
+          label: 'Anthropic',
+          endpoint: 'https://api.anthropic.com/v1',
+          auth_style: 'anthropic',
+          has_api_key: false,
+        },
+      ],
+      routing: {},
+    });
+    mockLoadLocalProviderSnapshot.mockResolvedValue({
+      status: null,
+      diagnostics: null,
+      presets: null,
+      installedModels: [{ name: 'llama3.2:latest', chat_capable: true }],
+    });
+    mockListProviderModels.mockImplementation(async (provider: string) => {
+      if (provider === 'openhuman') return [{ id: 'managed-reasoning' }];
+      if (provider === 'openai') return [{ id: 'gpt-4o' }, { id: 'gpt-4o-mini' }];
+      return [];
+    });
   });
 
   it('renders the council list first, then opens the default council', async () => {
@@ -192,6 +236,18 @@ describe('ModelCouncilTab', () => {
     expect(screen.queryByLabelText('Debate turns')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Shared reasoning file')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Convene council' })).toBeInTheDocument();
+  });
+
+  it('allows the default council to be deleted from the persisted registry', async () => {
+    await renderCouncilList();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Delete Default council' }));
+    });
+
+    expect(mockDeleteCouncil).toHaveBeenCalledWith('default-council');
+    expect(screen.queryByText('Default council')).not.toBeInTheDocument();
+    expect(screen.getByText('No councils yet. Add one to get started.')).toBeInTheDocument();
   });
 
   it('uses the jury count setting to resize the roster up to five', async () => {
@@ -264,7 +320,11 @@ describe('ModelCouncilTab', () => {
     expect(screen.getAllByTestId('rive-mascot')[0]).toHaveAttribute('data-face', 'thinking');
 
     await act(async () => {
-      resolveFirst({ model: 'default', response: 'First juror live thought: Paris.', error: null });
+      resolveFirst({
+        model: 'reasoning-v1',
+        response: 'First juror live thought: Paris.',
+        error: null,
+      });
     });
 
     expect(screen.getByText('First juror live thought: Paris.')).toBeInTheDocument();
@@ -274,8 +334,8 @@ describe('ModelCouncilTab', () => {
     expect(screen.getByText('Judge')).toBeInTheDocument();
 
     await act(async () => {
-      resolveSecond({ model: 'default', response: 'Second juror agrees.', error: null });
-      resolveThird({ model: 'default', response: 'Third juror agrees.', error: null });
+      resolveSecond({ model: 'reasoning-v1', response: 'Second juror agrees.', error: null });
+      resolveThird({ model: 'reasoning-v1', response: 'Third juror agrees.', error: null });
     });
 
     await waitFor(() => {
@@ -325,7 +385,7 @@ describe('ModelCouncilTab', () => {
     });
 
     await act(async () => {
-      resolveFirst({ model: 'default', response: null, error: 'rate limited' });
+      resolveFirst({ model: 'reasoning-v1', response: null, error: 'rate limited' });
     });
 
     expect(screen.getByText('rate limited')).toBeInTheDocument();
@@ -333,8 +393,8 @@ describe('ModelCouncilTab', () => {
     expect(screen.getAllByText('Thinking')).toHaveLength(2);
 
     await act(async () => {
-      resolveSecond({ model: 'default', response: 'Second juror answer.', error: null });
-      resolveThird({ model: 'default', response: 'Third juror answer.', error: null });
+      resolveSecond({ model: 'reasoning-v1', response: 'Second juror answer.', error: null });
+      resolveThird({ model: 'reasoning-v1', response: 'Third juror answer.', error: null });
     });
 
     await waitFor(() => {
@@ -342,22 +402,22 @@ describe('ModelCouncilTab', () => {
         question: expect.any(String),
         members: [
           {
-            model: 'default',
+            model: 'reasoning-v1',
             response: expect.stringContaining('[failed: rate limited]'),
             error: null,
           },
           {
-            model: 'default',
+            model: 'reasoning-v1',
             response: expect.stringContaining('Second juror answer.'),
             error: null,
           },
           {
-            model: 'default',
+            model: 'reasoning-v1',
             response: expect.stringContaining('Third juror answer.'),
             error: null,
           },
         ],
-        chair_model: 'default',
+        chair_model: 'reasoning-v1',
       });
     });
   });
@@ -399,9 +459,48 @@ describe('ModelCouncilTab', () => {
 
     expect(mockAnswerMember.mock.calls.map(call => call[0].model).slice(0, 3)).toEqual([
       'hint:reasoning',
-      'default',
-      'default',
+      'reasoning-v1',
+      'reasoning-v1',
     ]);
+  });
+
+  it('enables provider and model dropdowns only after choosing Custom', async () => {
+    await renderEditCouncil();
+
+    fireEvent.click(screen.getByLabelText('Member model 1'));
+    const dialog = screen.getByRole('dialog', { name: 'Member model 1' });
+    const providerSelect = within(dialog).getByLabelText('Model provider');
+    const modelSelect = within(dialog).getByLabelText('Model id');
+
+    expect(providerSelect).toBeDisabled();
+    expect(modelSelect).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /Provider \+ model/ }));
+
+    await waitFor(() => expect(providerSelect).not.toBeDisabled());
+    expect(
+      within(providerSelect).getByRole('option', { name: 'Managed (openhuman)' })
+    ).toBeInTheDocument();
+    expect(
+      within(providerSelect).getByRole('option', { name: 'OpenAI (openai)' })
+    ).toBeInTheDocument();
+    expect(
+      within(providerSelect).queryByRole('option', { name: 'Anthropic (anthropic)' })
+    ).not.toBeInTheDocument();
+
+    await waitFor(() => expect(modelSelect).not.toBeDisabled());
+    expect(
+      within(modelSelect).getByRole('option', { name: 'managed-reasoning' })
+    ).toBeInTheDocument();
+
+    fireEvent.change(providerSelect, { target: { value: 'openai' } });
+    await waitFor(() => {
+      expect(within(modelSelect).getByRole('option', { name: 'gpt-4o' })).toBeInTheDocument();
+    });
+    fireEvent.change(modelSelect, { target: { value: 'gpt-4o' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Use provider model' }));
+
+    expect(screen.getByLabelText('Member model 1')).toHaveTextContent('openai:gpt-4o');
   });
 
   it('lets a council seat use a saved profile and submits that profile model', async () => {
@@ -421,19 +520,19 @@ describe('ModelCouncilTab', () => {
 
     expect(mockAnswerMember.mock.calls.map(call => call[0].model)).toEqual([
       'critic-model',
-      'default',
-      'default',
+      'reasoning-v1',
+      'reasoning-v1',
       'critic-model',
-      'default',
-      'default',
+      'reasoning-v1',
+      'reasoning-v1',
       'critic-model',
-      'default',
-      'default',
+      'reasoning-v1',
+      'reasoning-v1',
     ]);
     expect(mockSynthesizeCouncil).toHaveBeenCalledWith({
       question: expect.stringContaining('shared_reasoning.md'),
       members: expect.any(Array),
-      chair_model: 'default',
+      chair_model: 'reasoning-v1',
     });
     expect(mockAnswerMember.mock.calls[0][0].question).toContain('User question:');
     expect(mockAnswerMember.mock.calls[0][0].question).toContain('What is the capital of France?');
@@ -455,15 +554,15 @@ describe('ModelCouncilTab', () => {
     });
 
     expect(mockAnswerMember.mock.calls.map(call => call[0].model)).toEqual([
-      'default',
-      'default',
-      'default',
-      'default',
-      'default',
-      'default',
-      'default',
-      'default',
-      'default',
+      'reasoning-v1',
+      'reasoning-v1',
+      'reasoning-v1',
+      'reasoning-v1',
+      'reasoning-v1',
+      'reasoning-v1',
+      'reasoning-v1',
+      'reasoning-v1',
+      'reasoning-v1',
     ]);
     expect(mockSynthesizeCouncil).toHaveBeenCalledWith({
       question: expect.any(String),
@@ -498,15 +597,15 @@ describe('ModelCouncilTab', () => {
 
   it('renders council markdown instead of showing raw markdown markers', async () => {
     mockProgressiveSuccess([
-      { model: 'default', response: '**Paris** is the capital.', error: null },
-      { model: 'default', response: '- France\n- Paris', error: null },
-      { model: 'default', response: '`Paris` remains the answer.', error: null },
+      { model: 'reasoning-v1', response: '**Paris** is the capital.', error: null },
+      { model: 'reasoning-v1', response: '- France\n- Paris', error: null },
+      { model: 'reasoning-v1', response: '`Paris` remains the answer.', error: null },
     ]);
     mockSynthesizeCouncil.mockResolvedValueOnce({
       ...RESULT,
       members: [
-        { model: 'default', response: '**Paris** is the capital.', error: null },
-        { model: 'default', response: '- France\n- Paris', error: null },
+        { model: 'reasoning-v1', response: '**Paris** is the capital.', error: null },
+        { model: 'reasoning-v1', response: '- France\n- Paris', error: null },
       ],
       synthesis: '## Consensus\n\nThe answer is **Paris**.',
     });
@@ -529,7 +628,11 @@ describe('ModelCouncilTab', () => {
   });
 
   it('surfaces an error alert when the council run fails', async () => {
-    mockAnswerMember.mockResolvedValue({ model: 'default', response: null, error: 'downstream' });
+    mockAnswerMember.mockResolvedValue({
+      model: 'reasoning-v1',
+      response: null,
+      error: 'downstream',
+    });
     mockSynthesizeCouncil.mockRejectedValueOnce(new Error('all member models failed to respond'));
     await renderOpenCouncil();
     fillQuestion();

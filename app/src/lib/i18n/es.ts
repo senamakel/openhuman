@@ -4673,6 +4673,7 @@ const messages: TranslationMap = {
   'modelCouncil.savingCouncil': 'Saving…',
   'modelCouncil.cancelEdit': 'Cancel',
   'modelCouncil.loadingCouncils': 'Loading councils…',
+  'modelCouncil.noCouncils': 'No councils yet. Add one to get started.',
   'modelCouncil.noCouncilDescription': 'No description',
   'modelCouncil.registryErrorPrefix': 'Council registry failed:',
   'modelCouncil.councilNameLabel': 'Council name',
@@ -4773,6 +4774,7 @@ const messages: TranslationMap = {
   'modelCouncil.usageHeading': 'Debate usage',
   'modelCouncil.usageEstimated':
     'Estimated from debate prompts and responses until provider usage is attached to council RPC.',
+  'modelCouncil.usageEstimatedBadge': 'Estimated tokens',
   'modelCouncil.usageInputTokens': 'Input',
   'modelCouncil.usageOutputTokens': 'Output',
   'modelCouncil.usageTotalTokens': 'Total',

@@ -16,6 +16,12 @@ import {
 } from '../../features/human/Mascot';
 import { useT } from '../../lib/i18n/I18nContext';
 import { BubbleMarkdown } from '../../pages/conversations/components/AgentMessageBubble';
+import {
+  listProviderModels,
+  loadAISettings,
+  loadLocalProviderSnapshot,
+  type ModelInfo,
+} from '../../services/api/aiSettingsApi';
 import { type CouncilDefinition, councilRegistryApi } from '../../services/api/councilRegistryApi';
 import {
   type CouncilMemberResult,
@@ -35,7 +41,7 @@ const MAX_MEMBERS = 5;
 const MIN_MEMBERS = 1;
 const MAX_DEBATE_ROUNDS = 4;
 const MIN_DEBATE_ROUNDS = 2;
-const ESTIMATED_USD_PER_1K_TOKENS = 0.003;
+const DEFAULT_REASONING_MODEL = 'reasoning-v1';
 
 type SeatMode = 'default' | 'profile' | 'custom';
 
@@ -70,7 +76,6 @@ interface DebateUsageEstimate {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
-  estimatedCostUsd: number;
 }
 
 interface ModelPickerState {
@@ -87,7 +92,50 @@ const MODEL_HINTS = [
   { value: 'hint:summarize', label: 'Summarize' },
 ] as const;
 
-const PROVIDER_HINTS = ['openrouter', 'ollama', 'lmstudio', 'anthropic', 'openai'] as const;
+interface ConnectedModelProvider {
+  slug: string;
+  label: string;
+  models?: ModelInfo[];
+}
+
+function parseProviderModel(value: string): { provider: string; model: string } {
+  const trimmed = value.trim();
+  const colon = trimmed.indexOf(':');
+  if (colon <= 0) {
+    return { provider: '', model: trimmed };
+  }
+  return {
+    provider: trimmed.slice(0, colon),
+    model: trimmed.slice(colon + 1),
+  };
+}
+
+async function loadConnectedModelProviders(): Promise<ConnectedModelProvider[]> {
+  const [settings, localSnapshot] = await Promise.all([
+    loadAISettings(),
+    loadLocalProviderSnapshot().catch(() => null),
+  ]);
+  const providers: ConnectedModelProvider[] = [{ slug: 'openhuman', label: 'Managed' }];
+  const seen = new Set(providers.map(provider => provider.slug));
+
+  for (const provider of settings.cloudProviders) {
+    const slug = provider.slug.trim();
+    if (!slug || seen.has(slug)) continue;
+    if (!provider.has_api_key && provider.auth_style !== 'none') continue;
+    providers.push({ slug, label: provider.label || slug });
+    seen.add(slug);
+  }
+
+  const localModels =
+    localSnapshot?.installedModels
+      .filter(model => model.chat_capable !== false)
+      .map(model => ({ id: model.name, context_window: model.context_length ?? null })) ?? [];
+  if (localModels.length > 0 && !seen.has('ollama')) {
+    providers.push({ slug: 'ollama', label: 'Ollama', models: localModels });
+  }
+
+  return providers;
+}
 
 const Icon = ({
   name,
@@ -144,11 +192,89 @@ const ModelPickerDialog = ({
   onClose: () => void;
 }) => {
   const { t } = useT();
-  const initial = picker.value.includes(':') ? picker.value.split(':') : ['', picker.value];
-  const [provider, setProvider] = useState(initial.length > 1 ? initial[0] : '');
-  const [model, setModel] = useState(
-    initial.length > 1 ? initial.slice(1).join(':') : picker.value
+  const initial = parseProviderModel(picker.value);
+  const initialHint = MODEL_HINTS.some(hint => hint.value === picker.value);
+  const [selectionMode, setSelectionMode] = useState<'hint' | 'custom'>(
+    initial.provider && !initialHint ? 'custom' : 'hint'
   );
+  const [providers, setProviders] = useState<ConnectedModelProvider[]>([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
+  const [providersError, setProvidersError] = useState<string | null>(null);
+  const [provider, setProvider] = useState(initial.provider);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [model, setModel] = useState(initial.model);
+
+  useEffect(() => {
+    let active = true;
+    setProvidersLoading(true);
+    setProvidersError(null);
+    loadConnectedModelProviders()
+      .then(loaded => {
+        if (!active) return;
+        setProviders(loaded);
+        setProvidersLoading(false);
+        setProvider(current => {
+          if (current && loaded.some(item => item.slug === current)) return current;
+          return loaded[0]?.slug ?? '';
+        });
+      })
+      .catch(err => {
+        if (!active) return;
+        setProvidersError(err instanceof Error ? err.message : String(err));
+        setProvidersLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectionMode !== 'custom' || !provider) {
+      setModels([]);
+      setModelsError(null);
+      return;
+    }
+
+    const connectedProvider = providers.find(item => item.slug === provider);
+    if (!connectedProvider) {
+      setModels([]);
+      setModelsError(null);
+      return;
+    }
+
+    if (connectedProvider.models) {
+      setModels(connectedProvider.models);
+      setModelsError(null);
+      setModelsLoading(false);
+      setModel(current => current || connectedProvider.models?.[0]?.id || '');
+      return;
+    }
+
+    let active = true;
+    setModelsLoading(true);
+    setModels([]);
+    setModelsError(null);
+    listProviderModels(provider)
+      .then(loaded => {
+        if (!active) return;
+        setModels(loaded);
+        setModelsLoading(false);
+        setModel(current => {
+          if (current && loaded.some(item => item.id === current)) return current;
+          return loaded[0]?.id ?? '';
+        });
+      })
+      .catch(err => {
+        if (!active) return;
+        setModelsError(err instanceof Error ? err.message : String(err));
+        setModelsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [provider, providers, selectionMode]);
 
   const saveProviderModel = () => {
     const trimmedModel = model.trim();
@@ -194,6 +320,7 @@ const ModelPickerDialog = ({
                 key={hint.value}
                 type="button"
                 onClick={() => {
+                  setSelectionMode('hint');
                   picker.onSelect(hint.value);
                   onClose();
                 }}
@@ -212,44 +339,61 @@ const ModelPickerDialog = ({
         </div>
 
         <div className="mt-4 space-y-3 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
-          <p className="text-[11px] font-semibold uppercase text-stone-500 dark:text-neutral-400">
+          <button
+            type="button"
+            onClick={() => setSelectionMode('custom')}
+            aria-pressed={selectionMode === 'custom'}
+            className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
+              selectionMode === 'custom'
+                ? 'border-primary-500 bg-white text-primary-700 dark:bg-neutral-950 dark:text-primary-200'
+                : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-800'
+            }`}>
             {t('modelCouncil.modelPickerProviderModel')}
-          </p>
-          <div className="flex flex-wrap gap-1">
-            {PROVIDER_HINTS.map(item => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setProvider(item)}
-                className={`rounded-md border px-2 py-1 text-[11px] font-medium ${
-                  provider === item
-                    ? 'border-primary-500 bg-white text-primary-700 dark:bg-neutral-950 dark:text-primary-200'
-                    : 'border-stone-200 text-stone-500 hover:bg-white dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-950'
-                }`}>
-                {item}
-              </button>
-            ))}
-          </div>
-          <div className="grid gap-2 sm:grid-cols-[130px_minmax(0,1fr)]">
-            <input
+            <span className="block text-[11px] font-normal text-stone-500 dark:text-neutral-400">
+              {t('modelCouncil.mode.custom')}
+            </span>
+          </button>
+
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <select
               value={provider}
               onChange={e => setProvider(e.target.value)}
               aria-label={t('modelCouncil.modelProviderLabel')}
-              placeholder="provider"
-              className="rounded-lg border border-stone-200 bg-white px-3 py-2 font-mono text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
-            />
-            <input
+              disabled={selectionMode !== 'custom' || providersLoading || providers.length === 0}
+              className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
+              {providers.map(item => (
+                <option key={item.slug} value={item.slug}>
+                  {`${item.slug === 'openhuman' ? t('settings.ai.routing.managed') : item.label} (${item.slug})`}
+                </option>
+              ))}
+            </select>
+            <select
               value={model}
               onChange={e => setModel(e.target.value)}
               aria-label={t('modelCouncil.modelIdLabel')}
-              placeholder="model-id"
-              className="rounded-lg border border-stone-200 bg-white px-3 py-2 font-mono text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
-            />
+              disabled={selectionMode !== 'custom' || modelsLoading || models.length === 0}
+              className="rounded-lg border border-stone-200 bg-white px-3 py-2 font-mono text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
+              {models.map(item => (
+                <option key={item.id} value={item.id}>
+                  {item.id}
+                </option>
+              ))}
+            </select>
           </div>
+          {(providersLoading || modelsLoading) && (
+            <p className="text-[11px] text-stone-500 dark:text-neutral-400">
+              {t('skills.resource.preview.loading')}
+            </p>
+          )}
+          {(providersError || modelsError) && (
+            <p role="alert" className="text-[11px] text-coral-700 dark:text-coral-300">
+              {providersError || modelsError}
+            </p>
+          )}
           <button
             type="button"
             onClick={saveProviderModel}
-            disabled={!model.trim()}
+            disabled={selectionMode !== 'custom' || !provider.trim() || !model.trim()}
             className="w-full rounded-lg bg-primary-500 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
             {t('modelCouncil.useProviderModel')}
           </button>
@@ -259,8 +403,8 @@ const ModelPickerDialog = ({
   );
 };
 
-const DEFAULT_MODEL = 'default';
-const DEFAULT_JUDGE_MODEL = 'default';
+const DEFAULT_MODEL = DEFAULT_REASONING_MODEL;
+const DEFAULT_JUDGE_MODEL = DEFAULT_REASONING_MODEL;
 const SHARED_REASONING_FILE = 'shared_reasoning.md';
 const DEFAULT_SHARED_REASONING = [
   '# Shared reasoning',
@@ -463,15 +607,6 @@ function estimateTokens(text: string): number {
 
 function formatTokenCount(value: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
-}
-
-function formatEstimatedCost(value: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4,
-  }).format(value);
 }
 
 function buildMemberSynthesisInput(
@@ -878,7 +1013,6 @@ const ModelCouncilTab = () => {
         inputTokens: estimatedInputTokens,
         outputTokens: estimatedOutputTokens,
         totalTokens,
-        estimatedCostUsd: (totalTokens / 1000) * ESTIMATED_USD_PER_1K_TOKENS,
       });
       setResult(res);
     } catch (err) {
@@ -930,6 +1064,10 @@ const ModelCouncilTab = () => {
           <div className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-500 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
             {t('modelCouncil.loadingCouncils')}
           </div>
+        ) : councils.length === 0 ? (
+          <div className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-500 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+            {t('modelCouncil.noCouncils')}
+          </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {councils.map(council => (
@@ -956,18 +1094,16 @@ const ModelCouncilTab = () => {
                       className="rounded-md p-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
                       <Icon name="settings" size={16} />
                     </button>
-                    {council.id !== 'default-council' && (
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteCouncil(council)}
-                        aria-label={t('modelCouncil.deleteCouncilAria').replace(
-                          '{name}',
-                          council.name
-                        )}
-                        className="rounded-md p-1.5 text-stone-500 hover:bg-coral-50 hover:text-coral-700 dark:text-neutral-400 dark:hover:bg-coral-500/10 dark:hover:text-coral-300">
-                        <Icon name="trash" size={16} />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteCouncil(council)}
+                      aria-label={t('modelCouncil.deleteCouncilAria').replace(
+                        '{name}',
+                        council.name
+                      )}
+                      className="rounded-md p-1.5 text-stone-500 hover:bg-coral-50 hover:text-coral-700 dark:text-neutral-400 dark:hover:bg-coral-500/10 dark:hover:text-coral-300">
+                      <Icon name="trash" size={16} />
+                    </button>
                   </div>
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
@@ -1691,8 +1827,8 @@ const ModelCouncilTab = () => {
                     {t('modelCouncil.usageEstimated')}
                   </p>
                 </div>
-                <span className="rounded-md bg-stone-100 px-2 py-1 font-mono text-xs font-semibold text-stone-700 dark:bg-neutral-800 dark:text-neutral-200">
-                  {formatEstimatedCost(usageEstimate.estimatedCostUsd)}
+                <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-semibold text-stone-700 dark:bg-neutral-800 dark:text-neutral-200">
+                  {t('modelCouncil.usageEstimatedBadge')}
                 </span>
               </div>
               <dl className="mt-3 grid gap-2 sm:grid-cols-3">

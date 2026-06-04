@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_COUNCIL_ID: &str = "default-council";
-pub const DEFAULT_MODEL: &str = "default";
+pub const DEFAULT_MODEL: &str = crate::openhuman::config::MODEL_REASONING_V1;
 pub const DEFAULT_SHARED_REASONING: &str = "# Shared reasoning\n- Claims the council agrees on:\n- Open disagreements:\n- Evidence or constraints to preserve:\n- Judge synthesis notes:";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

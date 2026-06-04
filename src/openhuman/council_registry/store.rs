@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::council_registry::types::{
-    default_council, CouncilDefinition, DEFAULT_COUNCIL_ID,
+    default_council, CouncilDefinition, DEFAULT_COUNCIL_ID, DEFAULT_MODEL,
 };
 use crate::rpc::RpcOutcome;
 
@@ -24,8 +24,8 @@ struct CouncilStore {
 }
 
 pub fn list_councils(config: &Config) -> Result<RpcOutcome<Vec<CouncilDefinition>>, String> {
-    let mut store = load_store(&store_path(config))?;
-    ensure_default_council(&mut store);
+    let path = store_path(config);
+    let mut store = load_store_with_initial_default(&path)?;
     sort_councils(&mut store.councils);
     Ok(RpcOutcome::single_log(
         store.councils,
@@ -37,8 +37,8 @@ pub fn get_council(
     config: &Config,
     id: &str,
 ) -> Result<RpcOutcome<Option<CouncilDefinition>>, String> {
-    let mut store = load_store(&store_path(config))?;
-    ensure_default_council(&mut store);
+    let path = store_path(config);
+    let store = load_store_with_initial_default(&path)?;
     let council = store.councils.into_iter().find(|council| council.id == id);
     Ok(RpcOutcome::single_log(council, "council registry loaded"))
 }
@@ -48,8 +48,7 @@ pub fn upsert_council(
     council: CouncilDefinition,
 ) -> Result<RpcOutcome<CouncilDefinition>, String> {
     let path = store_path(config);
-    let mut store = load_store(&path)?;
-    ensure_default_council(&mut store);
+    let mut store = load_store_with_initial_default(&path)?;
 
     let now_ms = now_ms();
     let mut normalized = normalize_council(council, now_ms);
@@ -71,16 +70,11 @@ pub fn upsert_council(
 }
 
 pub fn delete_council(config: &Config, id: &str) -> Result<RpcOutcome<bool>, String> {
-    if id == DEFAULT_COUNCIL_ID {
-        return Err("the default council cannot be deleted".to_string());
-    }
-
     let path = store_path(config);
     let mut store = load_store(&path)?;
     let before = store.councils.len();
     store.councils.retain(|council| council.id != id);
-    let deleted = before != store.councils.len();
-    ensure_default_council(&mut store);
+    let deleted = before != store.councils.len() || (!path.exists() && id == DEFAULT_COUNCIL_ID);
     save_store(&path, &store)?;
     Ok(RpcOutcome::single_log(deleted, "council registry deleted"))
 }
@@ -100,6 +94,15 @@ fn load_store(path: &Path) -> Result<CouncilStore, String> {
     }
     serde_json::from_str(&contents)
         .map_err(|e| format!("failed to parse council registry {}: {e}", path.display()))
+}
+
+fn load_store_with_initial_default(path: &Path) -> Result<CouncilStore, String> {
+    if !path.exists() {
+        return Ok(CouncilStore {
+            councils: vec![default_council(now_ms())],
+        });
+    }
+    load_store(path)
 }
 
 fn save_store(path: &Path, store: &CouncilStore) -> Result<(), String> {
@@ -122,12 +125,6 @@ fn save_store(path: &Path, store: &CouncilStore) -> Result<(), String> {
     })?;
     fs::rename(&tmp_path, path)
         .map_err(|e| format!("failed to replace council registry {}: {e}", path.display()))
-}
-
-fn ensure_default_council(store: &mut CouncilStore) {
-    if store.councils.is_empty() {
-        store.councils.push(default_council(now_ms()));
-    }
 }
 
 fn normalize_council(mut council: CouncilDefinition, now_ms: i64) -> CouncilDefinition {
@@ -166,7 +163,7 @@ fn normalize_council(mut council: CouncilDefinition, now_ms: i64) -> CouncilDefi
                 mode: "default".to_string(),
                 profile_id: String::new(),
                 name: format!("Juror {}", council.seats.len() + 1),
-                model: "default".to_string(),
+                model: DEFAULT_MODEL.to_string(),
                 brief: String::new(),
             },
         );
@@ -201,7 +198,7 @@ fn normalize_mode(value: &str) -> String {
 fn normalize_model(value: &str) -> String {
     let trimmed = value.trim();
     if trimmed.is_empty() {
-        "default".to_string()
+        DEFAULT_MODEL.to_string()
     } else {
         trimmed.to_string()
     }
@@ -244,6 +241,8 @@ mod tests {
         assert_eq!(payload[0].id, DEFAULT_COUNCIL_ID);
         assert_eq!(payload[0].jury_count, 3);
         assert_eq!(payload[0].seats.len(), 3);
+        assert_eq!(payload[0].seats[0].model, DEFAULT_MODEL);
+        assert_eq!(payload[0].judge.model, DEFAULT_MODEL);
     }
 
     #[test]
@@ -272,12 +271,14 @@ mod tests {
     }
 
     #[test]
-    fn default_council_cannot_be_deleted() {
+    fn default_council_can_be_deleted_and_registry_stays_empty() {
         let tmp = tempfile::tempdir().unwrap();
         let config = config_for_workspace(tmp.path());
 
-        let err = delete_council(&config, DEFAULT_COUNCIL_ID).unwrap_err();
+        let deleted = delete_council(&config, DEFAULT_COUNCIL_ID).unwrap().value;
+        assert!(deleted);
 
-        assert!(err.contains("default council"));
+        let payload = list_councils(&config).unwrap().value;
+        assert!(payload.is_empty());
     }
 }

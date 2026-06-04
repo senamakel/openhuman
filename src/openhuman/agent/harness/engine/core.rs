@@ -117,48 +117,6 @@ pub(crate) async fn run_turn_engine(
             .iteration_started((iteration + 1) as u32, max_iterations as u32)
             .await;
 
-        // ── Run queue drain: inject steers/collects at safe boundary ──
-        if let Some(ref rq) = run_queue {
-            if rq.has_pending_injections().await {
-                let steers = rq.drain_steers().await;
-                let collects = rq.drain_collects().await;
-                for s in &steers {
-                    log::info!(
-                        "[run_queue] injecting steer iteration={} thread_id={} chars={}",
-                        iteration + 1,
-                        s.thread_id,
-                        s.text.len()
-                    );
-                    let steer_content = format!("[User steering message]: {}", s.text);
-                    history.push(ChatMessage::user(steer_content));
-                    crate::core::event_bus::publish_global(
-                        crate::core::event_bus::DomainEvent::RunQueueMessageDelivered {
-                            thread_id: s.thread_id.clone(),
-                            mode: "steer".to_string(),
-                            iteration: (iteration + 1) as u32,
-                        },
-                    );
-                }
-                for c in &collects {
-                    log::info!(
-                        "[run_queue] injecting collect iteration={} thread_id={} chars={}",
-                        iteration + 1,
-                        c.thread_id,
-                        c.text.len()
-                    );
-                    let collect_content = format!("[Additional context from user]: {}", c.text);
-                    history.push(ChatMessage::user(collect_content));
-                    crate::core::event_bus::publish_global(
-                        crate::core::event_bus::DomainEvent::RunQueueMessageDelivered {
-                            thread_id: c.thread_id.clone(),
-                            mode: "collect".to_string(),
-                            iteration: (iteration + 1) as u32,
-                        },
-                    );
-                }
-            }
-        }
-
         // ── Stop hooks: policy check before the next LLM call ──
         if !stop_hooks.is_empty() {
             let state = TurnState {
@@ -236,6 +194,53 @@ pub(crate) async fn run_turn_engine(
 
         // Caller-specific pre-dispatch work (e.g. Agent's ContextManager).
         observer.before_dispatch(history, tools, iteration).await?;
+
+        // ── Run queue drain: inject steers/collects at safe boundary ──
+        //
+        // Session-backed agents rebuild `history` from typed conversation state
+        // inside `before_dispatch`; draining before that rebuild loses injected
+        // messages. Drain here so background events and mid-turn messages are
+        // present in the exact provider request about to be sent.
+        if let Some(ref rq) = run_queue {
+            if rq.has_pending_injections().await {
+                let steers = rq.drain_steers().await;
+                let collects = rq.drain_collects().await;
+                for s in &steers {
+                    log::info!(
+                        "[run_queue] injecting steer iteration={} thread_id={} chars={}",
+                        iteration + 1,
+                        s.thread_id,
+                        s.text.len()
+                    );
+                    let steer_content = format!("[User steering message]: {}", s.text);
+                    history.push(ChatMessage::user(steer_content));
+                    crate::core::event_bus::publish_global(
+                        crate::core::event_bus::DomainEvent::RunQueueMessageDelivered {
+                            thread_id: s.thread_id.clone(),
+                            mode: "steer".to_string(),
+                            iteration: (iteration + 1) as u32,
+                        },
+                    );
+                }
+                for c in &collects {
+                    log::info!(
+                        "[run_queue] injecting collect iteration={} thread_id={} chars={}",
+                        iteration + 1,
+                        c.thread_id,
+                        c.text.len()
+                    );
+                    let collect_content = format!("[Additional context from user]: {}", c.text);
+                    history.push(ChatMessage::user(collect_content));
+                    crate::core::event_bus::publish_global(
+                        crate::core::event_bus::DomainEvent::RunQueueMessageDelivered {
+                            thread_id: c.thread_id.clone(),
+                            mode: "collect".to_string(),
+                            iteration: (iteration + 1) as u32,
+                        },
+                    );
+                }
+            }
+        }
 
         tracing::debug!(iteration, "[agent_loop] sending LLM request");
         let image_marker_count = multimodal::count_image_markers(history);

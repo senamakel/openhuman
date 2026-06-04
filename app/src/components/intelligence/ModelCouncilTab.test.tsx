@@ -365,6 +365,36 @@ describe('ModelCouncilTab', () => {
     expect(screen.getByText('Total')).toBeInTheDocument();
   });
 
+  it('renders council markdown instead of showing raw markdown markers', async () => {
+    mockProgressiveSuccess([
+      { model: 'default', response: '**Paris** is the capital.', error: null },
+      { model: 'default', response: '- France\n- Paris', error: null },
+      { model: 'default', response: '`Paris` remains the answer.', error: null },
+    ]);
+    mockSynthesizeCouncil.mockResolvedValueOnce({
+      ...RESULT,
+      members: [
+        { model: 'default', response: '**Paris** is the capital.', error: null },
+        { model: 'default', response: '- France\n- Paris', error: null },
+      ],
+      synthesis: '## Consensus\n\nThe answer is **Paris**.',
+    });
+    render(<ModelCouncilTab />);
+    fillQuestion();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Consensus' })).toBeInTheDocument();
+    });
+    expect(screen.getAllByText('Paris').some(node => node.tagName.toLowerCase() === 'strong')).toBe(
+      true
+    );
+    expect(screen.queryByText(/\*\*Paris\*\*/)).not.toBeInTheDocument();
+  });
+
   it('surfaces an error alert when the council run fails', async () => {
     mockAnswerMember.mockResolvedValue({ model: 'default', response: null, error: 'downstream' });
     mockSynthesizeCouncil.mockRejectedValueOnce(new Error('all member models failed to respond'));

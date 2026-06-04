@@ -15,6 +15,7 @@ import {
   RiveMascot,
 } from '../../features/human/Mascot';
 import { useT } from '../../lib/i18n/I18nContext';
+import { BubbleMarkdown } from '../../pages/conversations/components/AgentMessageBubble';
 import {
   type CouncilMemberResult,
   modelCouncilApi,
@@ -941,14 +942,15 @@ const ModelCouncilTab = () => {
                                   String(turn.round)
                                 )}
                               </p>
-                              <p
-                                className={`mt-0.5 line-clamp-4 whitespace-pre-wrap text-xs ${
-                                  turn.error
-                                    ? 'text-coral-600 dark:text-coral-300'
-                                    : 'text-stone-600 dark:text-neutral-300'
-                                }`}>
-                                {turn.response || turn.error}
-                              </p>
+                              {turn.error ? (
+                                <p className="mt-0.5 line-clamp-4 whitespace-pre-wrap text-xs text-coral-600 dark:text-coral-300">
+                                  {turn.error}
+                                </p>
+                              ) : (
+                                <div className="mt-0.5 text-stone-600 dark:text-neutral-300 [&_.prose]:text-xs [&_.prose]:leading-5 [&_.prose_p]:my-0">
+                                  <BubbleMarkdown content={turn.response || ''} />
+                                </div>
+                              )}
                             </div>
                           ))
                         ) : (
@@ -1051,9 +1053,9 @@ const ModelCouncilTab = () => {
                 {member.error ? (
                   <p className="text-xs text-coral-600 dark:text-coral-400">{member.error}</p>
                 ) : (
-                  <p className="whitespace-pre-wrap break-words text-xs text-stone-600 dark:text-neutral-300">
-                    {member.response}
-                  </p>
+                  <div className="break-words text-stone-600 dark:text-neutral-300 [&_.prose]:text-xs [&_.prose]:leading-5 [&_.prose_p]:my-0">
+                    <BubbleMarkdown content={member.response || ''} />
+                  </div>
                 )}
               </div>
             ))}
@@ -1068,9 +1070,9 @@ const ModelCouncilTab = () => {
                 {t('modelCouncil.synthesisBy').replace('{model}', result.chair_model)}
               </span>
             </div>
-            <p className="whitespace-pre-wrap break-words text-sm text-stone-700 dark:text-neutral-200">
-              {result.synthesis}
-            </p>
+            <div className="break-words text-stone-700 dark:text-neutral-200 [&_.prose]:text-sm [&_.prose]:leading-6">
+              <BubbleMarkdown content={result.synthesis} />
+            </div>
           </div>
 
           {usageEstimate && (

@@ -49,6 +49,27 @@ subagents = [
     "planner",
     "code_executor",
     "tools_agent",
+    # Task-board/source/workflow specialist. Route any request to create,
+    # edit, approve/reject, fetch, clear, remove, or summarize agent tasks,
+    # proactive task sources, workflow bundles, task evidence, or artifacts
+    # here instead of letting the generic tools agent see the full family.
+    "task_manager_agent",
+    # Settings/system specialist. Route app/core config, diagnostics,
+    # service lifecycle, update, proxy, health, model-health, and cost
+    # dashboard requests here so read-before-write and confirmation policy
+    # stays local to the risky tools.
+    "settings_agent",
+    # Persistent profile/memory/persona specialist. Route "remember",
+    # "forget", profile/persona edits, learned facets, and people alias
+    # management here.
+    "profile_memory_agent",
+    # Account/admin specialist. Route billing, team membership/invites/roles,
+    # OAuth/credential/session, and referral requests here.
+    "account_admin_agent",
+    # Screen-awareness specialist. Route screen-intelligence permissions,
+    # capture/session/listener state, and "what can you see" requests here;
+    # desktop app operation still goes to desktop_control_agent.
+    "screen_awareness_agent",
     "skill_creator",
     "critic",
     "archivist",
@@ -125,6 +146,7 @@ named = [
     "read_workspace_state",
     "ask_user_clarification",
     "spawn_worker_thread",
+    "spawn_async_subagent",
     "spawn_parallel_agents",
     "composio_list_connections",
     # Coding-harness coordination primitives from #1208. `todowrite`

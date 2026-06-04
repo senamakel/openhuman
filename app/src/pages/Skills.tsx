@@ -927,7 +927,9 @@ export default function Skills() {
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
                     <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-1">
                       <div className="min-w-0">
-                        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                        <h2
+                          className="text-sm font-semibold text-stone-900 dark:text-neutral-100"
+                          data-walkthrough="skills-grid">
                           {t('skills.explorer.title')}
                         </h2>
                         <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">

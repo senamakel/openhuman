@@ -4386,7 +4386,7 @@ async fn inference_router_provider_covers_hint_tier_and_passthrough_routing() {
     assert!(routed_hint.contains("model=fast-chat"));
 
     let routed_tier = router
-        .chat_with_history(&[ChatMessage::user("tier")], "reasoning-quick-v1", 0.3)
+        .chat_with_history(&[ChatMessage::user("tier")], "chat-v1", 0.3)
         .await
         .expect("tier route");
     assert!(routed_tier.contains("model=fast-chat"));

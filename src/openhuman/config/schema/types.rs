@@ -9,32 +9,19 @@ use std::path::PathBuf;
 /// Standard model identifiers matching the backend model registry.
 pub const MODEL_AGENTIC_V1: &str = "agentic-v1";
 pub const MODEL_REASONING_V1: &str = "reasoning-v1";
-/// Conversational tier (deprecated — retired from the backend strict model
-/// registry in migration 2→3). Do not use for new sessions; the backend now
-/// returns 400 for threads that send `chat-v1`. Retained here only for
-/// migration code that needs to identify and replace the old model identifier.
-/// Use [`MODEL_REASONING_QUICK_V1`] or [`DEFAULT_MODEL`] instead.
+/// Low-latency conversational tier.
 pub const MODEL_CHAT_V1: &str = "chat-v1";
-/// Low-latency chat tier. Backend maps this to Kimi K2.6 Turbo on
-/// Fireworks (128k context, `supportsThinking: false`) — tuned for
-/// time-to-first-token on conversational turns. See backend PR #760.
-/// The orchestrator (user-facing front-line agent) rides on this tier
-/// by default (via `hint:chat`) so chat responses feel snappy; reach
-/// for the slower `reasoning-v1` (DeepSeek V4 Pro) only when deep
-/// reasoning is needed.
+/// Legacy low-latency chat tier slug retained for older persisted configs.
 pub const MODEL_REASONING_QUICK_V1: &str = "reasoning-quick-v1";
 pub const MODEL_CODING_V1: &str = "coding-v1";
 pub const MODEL_SUMMARIZATION_V1: &str = "summarization-v1";
 /// Default model used when no explicit model is configured.
 ///
-/// Set to `reasoning-quick-v1` (Kimi K2.6 Turbo on Fireworks — low-latency,
-/// 128k context, tuned for time-to-first-token). `chat-v1` was the previous
-/// value here but was retired from the backend strict model registry; new
-/// session threads that sent `chat-v1` received a 400 error. Existing threads
-/// had it silently remapped to `reasoning-v1` by the backend, but sub-agent
-/// spawns (new threads) failed. Migration 2 → 3 (`retire_chat_v1_model`)
-/// upgrades any persisted `config.toml` that still holds `chat-v1`.
-pub const DEFAULT_MODEL: &str = MODEL_REASONING_QUICK_V1;
+/// Set to `chat-v1`, the backend's low-latency conversational tier. The
+/// orchestrator (user-facing front-line agent) rides on this tier by default
+/// via `hint:chat`; reach for the slower `reasoning-v1` only when deep
+/// reasoning is needed.
+pub const DEFAULT_MODEL: &str = MODEL_CHAT_V1;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ModelRegistryEntry {

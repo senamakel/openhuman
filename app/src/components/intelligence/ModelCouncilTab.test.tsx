@@ -1,9 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CouncilDefinition } from '../../services/api/councilRegistryApi';
 import type { CouncilMemberResult, ModelCouncilResult } from '../../services/api/modelCouncilApi';
 import ModelCouncilTab from './ModelCouncilTab';
 
+const mockListCouncils = vi.fn();
+const mockUpsertCouncil = vi.fn();
+const mockDeleteCouncil = vi.fn();
 const mockAnswerMember = vi.fn();
 const mockSynthesizeCouncil = vi.fn();
 const mockDispatch = vi.fn();
@@ -41,6 +45,14 @@ vi.mock('../../services/api/modelCouncilApi', () => ({
   },
 }));
 
+vi.mock('../../services/api/councilRegistryApi', () => ({
+  councilRegistryApi: {
+    list: (...args: unknown[]) => mockListCouncils(...args),
+    upsert: (...args: unknown[]) => mockUpsertCouncil(...args),
+    delete: (...args: unknown[]) => mockDeleteCouncil(...args),
+  },
+}));
+
 vi.mock('../../store/hooks', () => ({
   useAppDispatch: () => mockDispatch,
   useAppSelector: (selector: (state: typeof mockState) => unknown) => selector(mockState),
@@ -68,6 +80,50 @@ const DEFAULT_MEMBERS: CouncilMemberResult[] = [
   { model: 'default', response: 'The answer is Paris.', error: null },
 ];
 
+const DEFAULT_COUNCIL: CouncilDefinition = {
+  id: 'default-council',
+  name: 'Default council',
+  description: 'Balanced analyst, builder, and skeptic jury.',
+  jury_count: 3,
+  debate_rounds: 3,
+  seats: [
+    {
+      id: 0,
+      mode: 'default',
+      profile_id: '',
+      name: 'Analyst',
+      model: 'default',
+      brief: 'Evidence, assumptions, and risk.',
+    },
+    {
+      id: 1,
+      mode: 'default',
+      profile_id: '',
+      name: 'Builder',
+      model: 'default',
+      brief: 'Practical implementation path.',
+    },
+    {
+      id: 2,
+      mode: 'default',
+      profile_id: '',
+      name: 'Skeptic',
+      model: 'default',
+      brief: 'Failure modes and missing context.',
+    },
+  ],
+  judge: { mode: 'default', profile_id: '', name: 'Chief Judge', model: 'default' },
+  shared_reasoning: [
+    '# Shared reasoning',
+    '- Claims the council agrees on:',
+    '- Open disagreements:',
+    '- Evidence or constraints to preserve:',
+    '- Judge synthesis notes:',
+  ].join('\n'),
+  created_at_ms: 1,
+  updated_at_ms: 1,
+};
+
 const fillQuestion = () => {
   fireEvent.change(screen.getByLabelText('Question'), {
     target: { value: 'What is the capital of France?' },
@@ -82,36 +138,53 @@ const mockProgressiveSuccess = (members: CouncilMemberResult[] = DEFAULT_MEMBERS
   mockSynthesizeCouncil.mockResolvedValue(RESULT);
 };
 
+const renderCouncilList = async () => {
+  render(<ModelCouncilTab />);
+  await screen.findByRole('button', { name: 'Open council' });
+};
+
+const renderOpenCouncil = async () => {
+  await renderCouncilList();
+  fireEvent.click(screen.getByRole('button', { name: 'Open council' }));
+  await screen.findByLabelText('Question');
+};
+
 describe('ModelCouncilTab', () => {
   beforeEach(() => {
+    mockListCouncils.mockReset();
+    mockUpsertCouncil.mockReset();
+    mockDeleteCouncil.mockReset();
     mockAnswerMember.mockReset();
     mockSynthesizeCouncil.mockReset();
     mockDispatch.mockReset();
+    mockListCouncils.mockResolvedValue([DEFAULT_COUNCIL]);
+    mockUpsertCouncil.mockImplementation(async council => ({
+      ...council,
+      id: council.id || 'saved',
+    }));
+    mockDeleteCouncil.mockResolvedValue(true);
   });
 
-  it('renders settings, shared reasoning, and three Rive council seats by default', () => {
-    render(<ModelCouncilTab />);
+  it('renders the council list first, then opens the default council', async () => {
+    await renderCouncilList();
 
-    expect(screen.getByText('Model Council')).toBeInTheDocument();
+    expect(screen.getByText('Councils')).toBeInTheDocument();
+    expect(screen.getByText('Default council')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open council' }));
+
+    await screen.findByLabelText('Question');
+    expect(screen.getByText('Default council')).toBeInTheDocument();
     expect(screen.getByText('Council settings')).toBeInTheDocument();
     expect(screen.getByLabelText('Debate turns')).toHaveValue('3');
-    expect(screen.getByText('shared_reasoning.md')).toBeInTheDocument();
-    expect(screen.getByLabelText('Shared reasoning file')).toHaveValue(
-      [
-        '# Shared reasoning',
-        '- Claims the council agrees on:',
-        '- Open disagreements:',
-        '- Evidence or constraints to preserve:',
-        '- Judge synthesis notes:',
-      ].join('\n')
-    );
+    expect(screen.queryByLabelText('Shared reasoning file')).not.toBeInTheDocument();
     expect(screen.getAllByTestId('rive-mascot')).toHaveLength(3);
     expect(screen.getByText('Juror 1')).toBeInTheDocument();
     expect(screen.getByText('Juror 3')).toBeInTheDocument();
   });
 
-  it('uses the jury count setting to resize the roster up to five', () => {
-    render(<ModelCouncilTab />);
+  it('uses the jury count setting to resize the roster up to five', async () => {
+    await renderOpenCouncil();
 
     fireEvent.click(screen.getByRole('button', { name: '5' }));
 
@@ -120,8 +193,8 @@ describe('ModelCouncilTab', () => {
     expect(screen.getByLabelText('Juror 5 name')).toBeInTheDocument();
   });
 
-  it('disables Convene until a question is filled because seats and judge have defaults', () => {
-    render(<ModelCouncilTab />);
+  it('disables Convene until a question is filled because seats and judge have defaults', async () => {
+    await renderOpenCouncil();
 
     const run = screen.getByRole('button', { name: 'Convene council' });
     expect(run).toBeDisabled();
@@ -160,7 +233,7 @@ describe('ModelCouncilTab', () => {
         resolveSynthesis = resolve;
       })
     );
-    render(<ModelCouncilTab />);
+    await renderOpenCouncil();
     fillQuestion();
 
     await act(async () => {
@@ -230,7 +303,7 @@ describe('ModelCouncilTab', () => {
         })
       );
     mockSynthesizeCouncil.mockResolvedValueOnce(RESULT);
-    render(<ModelCouncilTab />);
+    await renderOpenCouncil();
     fillQuestion();
 
     await act(async () => {
@@ -282,7 +355,7 @@ describe('ModelCouncilTab', () => {
       error: null,
     }));
     mockSynthesizeCouncil.mockResolvedValueOnce(RESULT);
-    render(<ModelCouncilTab />);
+    await renderOpenCouncil();
     fillQuestion();
 
     await act(async () => {
@@ -292,17 +365,33 @@ describe('ModelCouncilTab', () => {
     await waitFor(() => {
       expect(mockSynthesizeCouncil).toHaveBeenCalled();
     });
-    const scratchpadValue = (screen.getByLabelText('Shared reasoning file') as HTMLTextAreaElement)
-      .value;
-    expect(scratchpadValue).toContain('## Round 1 updates');
-    expect(scratchpadValue).toContain('round 1 update');
     expect(mockAnswerMember.mock.calls[3][0].question).toContain('Round 1 updates');
     expect(mockAnswerMember.mock.calls[3][0].question).toContain('round 1 update');
   });
 
+  it('lets a juror model be selected from routing hints', async () => {
+    mockProgressiveSuccess();
+    await renderOpenCouncil();
+
+    fireEvent.click(screen.getByLabelText('Member model 1'));
+    expect(screen.getByRole('dialog', { name: 'Member model 1' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Reasoning/ }));
+    fillQuestion();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
+    });
+
+    expect(mockAnswerMember.mock.calls.map(call => call[0].model).slice(0, 3)).toEqual([
+      'hint:reasoning',
+      'default',
+      'default',
+    ]);
+  });
+
   it('lets a council seat use a saved profile and submits that profile model', async () => {
     mockProgressiveSuccess();
-    render(<ModelCouncilTab />);
+    await renderOpenCouncil();
 
     const firstSeat = screen.getByLabelText('Juror 1 name').closest('article');
     expect(firstSeat).not.toBeNull();
@@ -338,7 +427,7 @@ describe('ModelCouncilTab', () => {
 
   it('lets the judge agent use a saved profile unless a model override is typed', async () => {
     mockProgressiveSuccess();
-    render(<ModelCouncilTab />);
+    await renderOpenCouncil();
 
     fireEvent.change(screen.getByLabelText('Judge agent'), { target: { value: 'profile' } });
     fireEvent.change(screen.getByLabelText('Judge profile'), { target: { value: 'critic' } });
@@ -368,7 +457,7 @@ describe('ModelCouncilTab', () => {
 
   it('renders member answers side-by-side + the synthesis', async () => {
     mockProgressiveSuccess(RESULT.members);
-    render(<ModelCouncilTab />);
+    await renderOpenCouncil();
     fillQuestion();
 
     await act(async () => {
@@ -404,7 +493,7 @@ describe('ModelCouncilTab', () => {
       ],
       synthesis: '## Consensus\n\nThe answer is **Paris**.',
     });
-    render(<ModelCouncilTab />);
+    await renderOpenCouncil();
     fillQuestion();
 
     await act(async () => {
@@ -425,7 +514,7 @@ describe('ModelCouncilTab', () => {
   it('surfaces an error alert when the council run fails', async () => {
     mockAnswerMember.mockResolvedValue({ model: 'default', response: null, error: 'downstream' });
     mockSynthesizeCouncil.mockRejectedValueOnce(new Error('all member models failed to respond'));
-    render(<ModelCouncilTab />);
+    await renderOpenCouncil();
     fillQuestion();
 
     await act(async () => {

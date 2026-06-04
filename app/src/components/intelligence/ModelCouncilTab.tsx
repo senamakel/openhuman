@@ -16,6 +16,7 @@ import {
 } from '../../features/human/Mascot';
 import { useT } from '../../lib/i18n/I18nContext';
 import { BubbleMarkdown } from '../../pages/conversations/components/AgentMessageBubble';
+import { type CouncilDefinition, councilRegistryApi } from '../../services/api/councilRegistryApi';
 import {
   type CouncilMemberResult,
   modelCouncilApi,
@@ -72,9 +73,202 @@ interface DebateUsageEstimate {
   estimatedCostUsd: number;
 }
 
+interface ModelPickerState {
+  title: string;
+  value: string;
+  onSelect: (model: string) => void;
+}
+
+const MODEL_HINTS = [
+  { value: 'default', label: 'Default' },
+  { value: 'hint:chat', label: 'Chat' },
+  { value: 'hint:reasoning', label: 'Reasoning' },
+  { value: 'hint:code', label: 'Code' },
+  { value: 'hint:summarize', label: 'Summarize' },
+] as const;
+
+const PROVIDER_HINTS = ['openrouter', 'ollama', 'lmstudio', 'anthropic', 'openai'] as const;
+
+const Icon = ({
+  name,
+  size = 16,
+}: {
+  name: 'arrow-left' | 'plus' | 'settings' | 'trash';
+  size?: number;
+}) => {
+  const common = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    strokeWidth: 2,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" {...common}>
+      {name === 'arrow-left' && (
+        <>
+          <path d="M19 12H5" />
+          <path d="m12 19-7-7 7-7" />
+        </>
+      )}
+      {name === 'plus' && (
+        <>
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </>
+      )}
+      {name === 'settings' && (
+        <>
+          <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z" />
+        </>
+      )}
+      {name === 'trash' && (
+        <>
+          <path d="M3 6h18" />
+          <path d="M8 6V4h8v2" />
+          <path d="m6 6 1 16h10l1-16" />
+          <path d="M10 11v6" />
+          <path d="M14 11v6" />
+        </>
+      )}
+    </svg>
+  );
+};
+
+const ModelPickerDialog = ({
+  picker,
+  onClose,
+}: {
+  picker: ModelPickerState;
+  onClose: () => void;
+}) => {
+  const { t } = useT();
+  const initial = picker.value.includes(':') ? picker.value.split(':') : ['', picker.value];
+  const [provider, setProvider] = useState(initial.length > 1 ? initial[0] : '');
+  const [model, setModel] = useState(
+    initial.length > 1 ? initial.slice(1).join(':') : picker.value
+  );
+
+  const saveProviderModel = () => {
+    const trimmedModel = model.trim();
+    if (!trimmedModel) return;
+    const trimmedProvider = provider.trim();
+    picker.onSelect(trimmedProvider ? `${trimmedProvider}:${trimmedModel}` : trimmedModel);
+    onClose();
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="model-council-model-picker-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-md rounded-lg border border-stone-200 bg-white p-4 shadow-xl dark:border-neutral-800 dark:bg-neutral-950">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3
+              id="model-council-model-picker-title"
+              className="text-sm font-semibold text-stone-900 dark:text-neutral-50">
+              {picker.title}
+            </h3>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+              {t('modelCouncil.modelPickerHelp')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-xs font-semibold text-stone-500 hover:bg-stone-100 dark:text-neutral-400 dark:hover:bg-neutral-800">
+            {t('modelCouncil.closeModelPicker')}
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <p className="text-[11px] font-semibold uppercase text-stone-500 dark:text-neutral-400">
+            {t('modelCouncil.modelPickerHints')}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {MODEL_HINTS.map(hint => (
+              <button
+                key={hint.value}
+                type="button"
+                onClick={() => {
+                  picker.onSelect(hint.value);
+                  onClose();
+                }}
+                className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                  picker.value === hint.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-200'
+                    : 'border-stone-200 text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900'
+                }`}>
+                {hint.label}
+                <span className="block font-mono text-[11px] text-stone-500 dark:text-neutral-400">
+                  {hint.value}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
+          <p className="text-[11px] font-semibold uppercase text-stone-500 dark:text-neutral-400">
+            {t('modelCouncil.modelPickerProviderModel')}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {PROVIDER_HINTS.map(item => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setProvider(item)}
+                className={`rounded-md border px-2 py-1 text-[11px] font-medium ${
+                  provider === item
+                    ? 'border-primary-500 bg-white text-primary-700 dark:bg-neutral-950 dark:text-primary-200'
+                    : 'border-stone-200 text-stone-500 hover:bg-white dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-950'
+                }`}>
+                {item}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[130px_minmax(0,1fr)]">
+            <input
+              value={provider}
+              onChange={e => setProvider(e.target.value)}
+              aria-label={t('modelCouncil.modelProviderLabel')}
+              placeholder="provider"
+              className="rounded-lg border border-stone-200 bg-white px-3 py-2 font-mono text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+            />
+            <input
+              value={model}
+              onChange={e => setModel(e.target.value)}
+              aria-label={t('modelCouncil.modelIdLabel')}
+              placeholder="model-id"
+              className="rounded-lg border border-stone-200 bg-white px-3 py-2 font-mono text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={saveProviderModel}
+            disabled={!model.trim()}
+            className="w-full rounded-lg bg-primary-500 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+            {t('modelCouncil.useProviderModel')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DEFAULT_MODEL = 'default';
 const DEFAULT_JUDGE_MODEL = 'default';
 const SHARED_REASONING_FILE = 'shared_reasoning.md';
+const DEFAULT_SHARED_REASONING = [
+  '# Shared reasoning',
+  '- Claims the council agrees on:',
+  '- Open disagreements:',
+  '- Evidence or constraints to preserve:',
+  '- Judge synthesis notes:',
+].join('\n');
 const DEFAULT_SEATS: CouncilSeat[] = [
   {
     id: 0,
@@ -307,6 +501,40 @@ function buildMemberSynthesisInput(
   };
 }
 
+function councilSeatsFromDefinition(council: CouncilDefinition): CouncilSeat[] {
+  return council.seats.map(seat => ({
+    id: seat.id,
+    mode: seat.mode,
+    profileId: seat.profile_id,
+    name: seat.name,
+    model: seat.model,
+    brief: seat.brief,
+  }));
+}
+
+function createDraftCouncil(): CouncilDefinition {
+  const now = Date.now();
+  return {
+    id: '',
+    name: 'New council',
+    description: '',
+    jury_count: 3,
+    debate_rounds: 3,
+    seats: DEFAULT_SEATS.map(seat => ({
+      id: seat.id,
+      mode: seat.mode,
+      profile_id: seat.profileId,
+      name: seat.name,
+      model: seat.model,
+      brief: seat.brief,
+    })),
+    judge: { mode: 'default', profile_id: '', name: 'Chief Judge', model: DEFAULT_JUDGE_MODEL },
+    shared_reasoning: DEFAULT_SHARED_REASONING,
+    created_at_ms: now,
+    updated_at_ms: now,
+  };
+}
+
 const ModelCouncilTab = () => {
   const { t } = useT();
   const dispatch = useAppDispatch();
@@ -314,15 +542,15 @@ const ModelCouncilTab = () => {
   const profileStatus = useAppSelector(state => state.agentProfiles.status as AgentProfilesStatus);
 
   const [question, setQuestion] = useState('');
-  const [sharedReasoning, setSharedReasoning] = useState(
-    [
-      '# Shared reasoning',
-      '- Claims the council agrees on:',
-      '- Open disagreements:',
-      '- Evidence or constraints to preserve:',
-      '- Judge synthesis notes:',
-    ].join('\n')
-  );
+  const [view, setView] = useState<'list' | 'run' | 'edit'>('list');
+  const [councils, setCouncils] = useState<CouncilDefinition[]>([]);
+  const [selectedCouncil, setSelectedCouncil] = useState<CouncilDefinition | null>(null);
+  const [councilName, setCouncilName] = useState('Default council');
+  const [councilDescription, setCouncilDescription] = useState('');
+  const [registryLoading, setRegistryLoading] = useState(true);
+  const [registrySaving, setRegistrySaving] = useState(false);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+  const [sharedReasoning, setSharedReasoning] = useState(DEFAULT_SHARED_REASONING);
   const [liveScratchpad, setLiveScratchpad] = useState<string | null>(null);
   const [juryCount, setJuryCount] = useState(3);
   const [debateRounds, setDebateRounds] = useState(3);
@@ -335,6 +563,7 @@ const ModelCouncilTab = () => {
   const [liveMembers, setLiveMembers] = useState<LiveMemberThought[]>([]);
   const [judgeSynthesizing, setJudgeSynthesizing] = useState(false);
   const [usageEstimate, setUsageEstimate] = useState<DebateUsageEstimate | null>(null);
+  const [modelPicker, setModelPicker] = useState<ModelPickerState | null>(null);
   const [result, setResult] = useState<ModelCouncilResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -343,6 +572,46 @@ const ModelCouncilTab = () => {
       void dispatch(loadAgentProfiles());
     }
   }, [dispatch, profileStatus, profiles.length]);
+
+  const applyCouncilDefinition = useCallback((council: CouncilDefinition) => {
+    setSelectedCouncil(council);
+    setCouncilName(council.name || 'Untitled council');
+    setCouncilDescription(council.description || '');
+    setJuryCount(Math.min(MAX_MEMBERS, Math.max(MIN_MEMBERS, council.jury_count || 3)));
+    setDebateRounds(
+      Math.min(MAX_DEBATE_ROUNDS, Math.max(MIN_DEBATE_ROUNDS, council.debate_rounds || 3))
+    );
+    setSeats(councilSeatsFromDefinition(council).slice(0, council.jury_count || 3));
+    setJudgeMode(council.judge.mode);
+    setJudgeProfileId(council.judge.profile_id || '');
+    setJudgeName(council.judge.name || 'Chief Judge');
+    setJudgeModel(council.judge.model || DEFAULT_JUDGE_MODEL);
+    setSharedReasoning(council.shared_reasoning || DEFAULT_SHARED_REASONING);
+    setQuestion('');
+    setLiveMembers([]);
+    setLiveScratchpad(null);
+    setJudgeSynthesizing(false);
+    setUsageEstimate(null);
+    setResult(null);
+    setError(null);
+  }, []);
+
+  const loadCouncils = useCallback(async () => {
+    setRegistryLoading(true);
+    setRegistryError(null);
+    try {
+      const loaded = await councilRegistryApi.list();
+      setCouncils(loaded);
+    } catch (err) {
+      setRegistryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRegistryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCouncils();
+  }, [loadCouncils]);
 
   useEffect(() => {
     setSeats(prev => {
@@ -391,6 +660,94 @@ const ModelCouncilTab = () => {
   const updateSeat = useCallback((id: number, patch: Partial<CouncilSeat>) => {
     setSeats(prev => prev.map(seat => (seat.id === id ? { ...seat, ...patch } : seat)));
   }, []);
+
+  const buildCouncilDefinition = useCallback(
+    (base: CouncilDefinition | null): CouncilDefinition => {
+      const now = Date.now();
+      return {
+        id: base?.id || '',
+        name: councilName.trim() || 'Untitled council',
+        description: councilDescription.trim(),
+        jury_count: juryCount,
+        debate_rounds: debateRounds,
+        seats: seats
+          .slice(0, juryCount)
+          .map(seat => ({
+            id: seat.id,
+            mode: seat.mode,
+            profile_id: seat.profileId,
+            name: seat.name,
+            model: seat.model,
+            brief: seat.brief,
+          })),
+        judge: { mode: judgeMode, profile_id: judgeProfileId, name: judgeName, model: judgeModel },
+        shared_reasoning: sharedReasoning,
+        created_at_ms: base?.created_at_ms || now,
+        updated_at_ms: now,
+      };
+    },
+    [
+      councilDescription,
+      councilName,
+      debateRounds,
+      judgeMode,
+      judgeModel,
+      judgeName,
+      judgeProfileId,
+      juryCount,
+      seats,
+      sharedReasoning,
+    ]
+  );
+
+  const saveCouncil = useCallback(async () => {
+    setRegistrySaving(true);
+    setRegistryError(null);
+    try {
+      const saved = await councilRegistryApi.upsert(buildCouncilDefinition(selectedCouncil));
+      setCouncils(prev => {
+        const without = prev.filter(council => council.id !== saved.id);
+        return [saved, ...without].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      applyCouncilDefinition(saved);
+      setView('run');
+    } catch (err) {
+      setRegistryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRegistrySaving(false);
+    }
+  }, [applyCouncilDefinition, buildCouncilDefinition, selectedCouncil]);
+
+  const handleSelectCouncil = useCallback(
+    (council: CouncilDefinition) => {
+      applyCouncilDefinition(council);
+      setView('run');
+    },
+    [applyCouncilDefinition]
+  );
+
+  const handleCreateCouncil = useCallback(() => {
+    applyCouncilDefinition(createDraftCouncil());
+    setView('edit');
+  }, [applyCouncilDefinition]);
+
+  const handleDeleteCouncil = useCallback(
+    async (council: CouncilDefinition) => {
+      setRegistryError(null);
+      try {
+        await councilRegistryApi.delete(council.id);
+        const next = councils.filter(item => item.id !== council.id);
+        setCouncils(next);
+        if (selectedCouncil?.id === council.id) {
+          setSelectedCouncil(null);
+          setView('list');
+        }
+      } catch (err) {
+        setRegistryError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [councils, selectedCouncil?.id]
+  );
 
   const setSeatMode = useCallback(
     (seat: CouncilSeat, mode: SeatMode) => {
@@ -542,8 +899,202 @@ const ModelCouncilTab = () => {
     t,
   ]);
 
+  if (view === 'list') {
+    return (
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-50">
+              {t('modelCouncil.listTitle')}
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-stone-600 dark:text-neutral-300">
+              {t('modelCouncil.listIntro')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCreateCouncil}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-600">
+            <Icon name="plus" size={16} />
+            {t('modelCouncil.addCouncil')}
+          </button>
+        </div>
+
+        {registryError && (
+          <p role="alert" className="text-xs text-coral-700 dark:text-coral-300">
+            {t('modelCouncil.registryErrorPrefix')} {registryError}
+          </p>
+        )}
+
+        {registryLoading ? (
+          <div className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-500 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+            {t('modelCouncil.loadingCouncils')}
+          </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {councils.map(council => (
+              <article
+                key={council.id}
+                className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-primary-500/50">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-50">
+                      {council.name}
+                    </h3>
+                    <p className="mt-1 line-clamp-2 text-xs text-stone-500 dark:text-neutral-400">
+                      {council.description || t('modelCouncil.noCouncilDescription')}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        applyCouncilDefinition(council);
+                        setView('edit');
+                      }}
+                      aria-label={t('modelCouncil.editCouncilAria').replace('{name}', council.name)}
+                      className="rounded-md p-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
+                      <Icon name="settings" size={16} />
+                    </button>
+                    {council.id !== 'default-council' && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteCouncil(council)}
+                        aria-label={t('modelCouncil.deleteCouncilAria').replace(
+                          '{name}',
+                          council.name
+                        )}
+                        className="rounded-md p-1.5 text-stone-500 hover:bg-coral-50 hover:text-coral-700 dark:text-neutral-400 dark:hover:bg-coral-500/10 dark:hover:text-coral-300">
+                        <Icon name="trash" size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                    <dt className="text-stone-500 dark:text-neutral-400">
+                      {t('modelCouncil.juryCountLabel')}
+                    </dt>
+                    <dd className="font-mono font-semibold text-stone-800 dark:text-neutral-100">
+                      {council.jury_count}
+                    </dd>
+                  </div>
+                  <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                    <dt className="text-stone-500 dark:text-neutral-400">
+                      {t('modelCouncil.debateRoundsLabel')}
+                    </dt>
+                    <dd className="font-mono font-semibold text-stone-800 dark:text-neutral-100">
+                      {council.debate_rounds}
+                    </dd>
+                  </div>
+                </dl>
+                <button
+                  type="button"
+                  onClick={() => handleSelectCouncil(council)}
+                  className="mt-4 w-full rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100 dark:border-primary-500/30 dark:bg-primary-500/10 dark:text-primary-200 dark:hover:bg-primary-500/20">
+                  {t('modelCouncil.openCouncil')}
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            aria-label={t('modelCouncil.backToCouncils')}
+            className="rounded-md p-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
+            <Icon name="arrow-left" size={18} />
+          </button>
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold text-stone-900 dark:text-neutral-50">
+              {view === 'edit' ? t('modelCouncil.editCouncil') : councilName}
+            </h2>
+            {selectedCouncil && view === 'run' && (
+              <p className="truncate text-xs text-stone-500 dark:text-neutral-400">
+                {councilDescription || t('modelCouncil.noCouncilDescription')}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {view === 'edit' ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedCouncil) applyCouncilDefinition(selectedCouncil);
+                  setView(selectedCouncil ? 'run' : 'list');
+                }}
+                className="rounded-lg border border-stone-200 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800">
+                {t('modelCouncil.cancelEdit')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveCouncil()}
+                disabled={registrySaving}
+                className="rounded-lg bg-primary-500 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+                {registrySaving ? t('modelCouncil.savingCouncil') : t('modelCouncil.saveCouncil')}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setView('edit')}
+              aria-label={t('modelCouncil.editCurrentCouncil')}
+              className="inline-flex items-center gap-2 rounded-lg border border-stone-200 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800">
+              <Icon name="settings" size={16} />
+              {t('modelCouncil.editCouncil')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {registryError && (
+        <p role="alert" className="text-xs text-coral-700 dark:text-coral-300">
+          {t('modelCouncil.registryErrorPrefix')} {registryError}
+        </p>
+      )}
+
+      {view === 'edit' && (
+        <section className="grid gap-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <label
+              htmlFor="model-council-name"
+              className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              {t('modelCouncil.councilNameLabel')}
+            </label>
+            <input
+              id="model-council-name"
+              value={councilName}
+              onChange={e => setCouncilName(e.target.value)}
+              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="model-council-description"
+              className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              {t('modelCouncil.councilDescriptionLabel')}
+            </label>
+            <input
+              id="model-council-description"
+              value={councilDescription}
+              onChange={e => setCouncilDescription(e.target.value)}
+              placeholder={t('modelCouncil.councilDescriptionPlaceholder')}
+              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+            />
+          </div>
+        </section>
+      )}
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="space-y-3">
           <div>
@@ -718,39 +1269,25 @@ const ModelCouncilTab = () => {
               />
             )}
 
-            <input
-              type="text"
-              value={judgeModel}
-              onChange={e => setJudgeModel(e.target.value)}
+            <button
+              type="button"
+              onClick={() =>
+                setModelPicker({
+                  title: t('modelCouncil.chairLabel'),
+                  value: judgeModel,
+                  onSelect: setJudgeModel,
+                })
+              }
               aria-label={t('modelCouncil.chairLabel')}
-              placeholder={t('modelCouncil.chairPlaceholder')}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 font-mono text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
-            />
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-left font-mono text-sm text-stone-800 hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-900">
+              <span className="truncate">{judgeModel || DEFAULT_JUDGE_MODEL}</span>
+              <span className="shrink-0 text-[11px] font-semibold text-primary-600 dark:text-primary-300">
+                {t('modelCouncil.selectModel')}
+              </span>
+            </button>
           </div>
         </aside>
       </div>
-
-      <section
-        aria-labelledby="model-council-shared-reasoning-heading"
-        className="grid gap-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <div>
-          <p
-            id="model-council-shared-reasoning-heading"
-            className="font-mono text-sm font-semibold text-stone-900 dark:text-neutral-50">
-            {SHARED_REASONING_FILE}
-          </p>
-          <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-            {t('modelCouncil.sharedReasoningHelp')}
-          </p>
-        </div>
-        <textarea
-          value={sharedReasoning}
-          onChange={e => setSharedReasoning(e.target.value)}
-          rows={5}
-          aria-label={t('modelCouncil.sharedReasoningLabel')}
-          className="min-h-[132px] w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-mono text-xs text-stone-800 resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
-        />
-      </section>
 
       <section aria-labelledby="model-council-roster-heading" className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
@@ -862,18 +1399,22 @@ const ModelCouncilTab = () => {
                     />
                   )}
 
-                  <input
-                    type="text"
-                    value={seat.model}
-                    onChange={e => updateSeat(seat.id, { model: e.target.value })}
-                    aria-label={t('modelCouncil.memberAria').replace('{n}', String(index + 1))}
-                    placeholder={
-                      seat.mode === 'profile'
-                        ? t('modelCouncil.profileModelPlaceholder')
-                        : t('modelCouncil.memberPlaceholder')
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setModelPicker({
+                        title: t('modelCouncil.memberAria').replace('{n}', String(index + 1)),
+                        value: seat.model,
+                        onSelect: model => updateSeat(seat.id, { model }),
+                      })
                     }
-                    className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 font-mono text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
-                  />
+                    aria-label={t('modelCouncil.memberAria').replace('{n}', String(index + 1))}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-left font-mono text-sm text-stone-800 hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-900">
+                    <span className="truncate">{seat.model || DEFAULT_MODEL}</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-primary-600 dark:text-primary-300">
+                      {t('modelCouncil.selectModel')}
+                    </span>
+                  </button>
 
                   <textarea
                     value={seat.brief}
@@ -1182,6 +1723,10 @@ const ModelCouncilTab = () => {
             </div>
           )}
         </section>
+      )}
+
+      {modelPicker && (
+        <ModelPickerDialog picker={modelPicker} onClose={() => setModelPicker(null)} />
       )}
     </div>
   );

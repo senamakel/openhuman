@@ -47,6 +47,7 @@ pub fn metadata_from_definition(def: &AgentDefinition) -> AgentDefinitionDisplay
         when_to_use: def.when_to_use.clone(),
         tier: def.agent_tier.as_str().to_string(),
         model: model_metadata(&def.model),
+        tools: def.tools.clone(),
         direct_tool_count: direct_tool_names.len(),
         direct_tool_names,
         uses_wildcard_tools,
@@ -165,6 +166,15 @@ mod tests {
         assert_eq!(display.display_name, "Researcher");
         assert_eq!(display.model.kind, "hint");
         assert_eq!(display.model.value.as_deref(), Some("reasoning"));
+        match &display.tools {
+            ToolScope::Named(names) => {
+                assert_eq!(
+                    names,
+                    &vec!["web_search".to_string(), "file_read".to_string()]
+                );
+            }
+            ToolScope::Wildcard => panic!("expected named tool scope"),
+        }
         assert_eq!(
             display.direct_tool_names,
             vec!["memory_search", "web_search"]

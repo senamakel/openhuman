@@ -1069,6 +1069,7 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
         .and_then(Value::as_str)
         .is_some());
     assert!(researcher.get("system_prompt").is_none());
+    assert!(researcher.get("tools").is_some());
     assert!(researcher
         .get("direct_tool_count")
         .and_then(Value::as_u64)

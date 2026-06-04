@@ -1003,6 +1003,39 @@ async fn json_rpc_tool_registry_lists_and_gets_entries() {
 }
 
 #[tokio::test]
+async fn json_rpc_monitor_list_and_read_surface() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    let list = post_json_rpc(&rpc_base, 3371_1, "openhuman.monitor_list", json!({})).await;
+    let list_result = assert_no_jsonrpc_error(&list, "monitor_list");
+    let monitors = list_result
+        .get("monitors")
+        .and_then(Value::as_array)
+        .expect("monitor_list should return monitor array");
+    assert!(
+        monitors.is_empty(),
+        "fresh monitor list should start empty: {list_result}"
+    );
+
+    let missing = post_json_rpc(
+        &rpc_base,
+        3371_2,
+        "openhuman.monitor_read",
+        json!({ "monitor_id": "mon_missing" }),
+    )
+    .await;
+    let error = assert_jsonrpc_error(&missing, "monitor_read missing");
+    assert!(
+        error.to_string().contains("mon_missing"),
+        "missing monitor error should name id: {error}"
+    );
+
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");

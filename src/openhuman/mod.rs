@@ -77,6 +77,7 @@ pub mod memory_tree;
 pub mod migration;
 pub mod migrations;
 pub mod model_council;
+pub mod monitor;
 pub mod notifications;
 pub mod overlay;
 pub mod people;

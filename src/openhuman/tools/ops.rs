@@ -229,6 +229,14 @@ pub fn all_tools_with_runtime(
         // per-query recall). Written verbatim to user_pref_{general,situational};
         // bypasses the inference/stability pipeline. Always registered.
         Box::new(SavePreferenceTool::new(memory.clone(), security.clone())),
+        Box::new(MonitorTool::new(
+            security.clone(),
+            Arc::clone(&runtime),
+            Arc::clone(&audit),
+        )),
+        Box::new(MonitorListTool),
+        Box::new(MonitorStopTool),
+        Box::new(MonitorReadTool),
         // WhatsApp data store — read-only agent surface (issue #1341).
         // The matching `whatsapp_data_ingest` write-path stays internal-only
         // (registered in `src/core/all.rs::build_internal_only_controllers`)

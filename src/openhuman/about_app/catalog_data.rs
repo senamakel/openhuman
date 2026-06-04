@@ -198,6 +198,16 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: None,
     },
     Capability {
+        id: "conversation.background_monitors",
+        name: "Background Monitors",
+        domain: "conversation",
+        category: CapabilityCategory::Conversation,
+        description: "Start, inspect, and stop bounded background command monitors that stream new events into active agent work.",
+        how_to: "Conversations > ask the assistant to monitor a command or status source",
+        status: CapabilityStatus::Beta,
+        privacy: LOCAL_RAW,
+    },
+    Capability {
         id: "conversation.subagent_mascots",
         name: "Subagent Mascots",
         domain: "conversation",

@@ -439,6 +439,49 @@ fn read_skill_resource_happy_path() {
 }
 
 #[test]
+fn read_skill_resource_uses_directory_id_when_display_name_differs() {
+    let dir = tempfile::tempdir().unwrap();
+    let ws = dir.path();
+    let skill_dir = ws.join("skills").join("demo-slug");
+    write(
+        &skill_dir.join("SKILL.md"),
+        "---\nname: Demo Display\ndescription: test skill\n---\n",
+    );
+    write(&skill_dir.join("references").join("note.md"), "slug read");
+
+    let got = read_skill_resource(ws, "demo-slug", Path::new("references/note.md"))
+        .expect("directory id should resolve");
+    assert_eq!(got, "slug read");
+}
+
+#[test]
+fn read_skill_resource_rejects_directory_name_collision() {
+    let dir = tempfile::tempdir().unwrap();
+    let ws = dir.path();
+
+    let named_demo = ws.join("skills").join("alpha");
+    write(
+        &named_demo.join("SKILL.md"),
+        "---\nname: demo\ndescription: display-name collision\n---\n",
+    );
+    write(&named_demo.join("references").join("note.md"), "alpha");
+
+    let slug_demo = ws.join("skills").join("demo");
+    write(
+        &slug_demo.join("SKILL.md"),
+        "---\nname: slug-demo\ndescription: slug collision\n---\n",
+    );
+    write(&slug_demo.join("references").join("note.md"), "demo");
+
+    let err = read_skill_resource(ws, "demo", Path::new("references/note.md"))
+        .expect_err("ambiguous directory/name collision must be rejected");
+    assert!(
+        err.to_lowercase().contains("matches both"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn read_skill_resource_rejects_parent_dir_traversal() {
     let dir = tempfile::tempdir().unwrap();
     let ws = dir.path();

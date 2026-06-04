@@ -31,10 +31,11 @@ test.describe('Skills registry flow', () => {
   });
 
   test('navigates to /skills and renders the current tabs', async ({ page }) => {
+    await expect(page.getByRole('tab', { name: 'Skills' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Composio' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Channels' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'MCP Servers' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Composio Integrations' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Skills explorer' })).toBeVisible();
   });
 
   test('shows at least one known Composio integration name', async ({ page }) => {

@@ -4498,6 +4498,7 @@ const messages: TranslationMap = {
   'intelligence.agents.runTask': 'تشغيل المهمة',
   'intelligence.agents.running': 'قيد التشغيل…',
   'intelligence.agents.runFailed': 'تعذر بدء الوكيل المحدد',
+  'intelligence.agents.model.inherit': 'وراثة',
   'intelligence.agents.tier.chat': 'دردشة',
   'intelligence.agents.tier.reasoning': 'استدلال',
   'intelligence.agents.tier.worker': 'عامل',

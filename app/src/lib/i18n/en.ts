@@ -338,6 +338,7 @@ const en: TranslationMap = {
   'intelligence.agents.runTask': 'Run task',
   'intelligence.agents.running': 'Running...',
   'intelligence.agents.runFailed': 'Could not start the selected agent',
+  'intelligence.agents.model.inherit': 'Inherit',
   'intelligence.agents.tier.chat': 'Chat',
   'intelligence.agents.tier.reasoning': 'Reasoning',
   'intelligence.agents.tier.worker': 'Worker',

@@ -4592,6 +4592,7 @@ const messages: TranslationMap = {
   'intelligence.agents.runTask': 'काम चलाएं',
   'intelligence.agents.running': 'चल रहा है…',
   'intelligence.agents.runFailed': 'चुना गया एजेंट शुरू नहीं हो सका',
+  'intelligence.agents.model.inherit': 'इनहेरिट',
   'intelligence.agents.tier.chat': 'चैट',
   'intelligence.agents.tier.reasoning': 'तर्क',
   'intelligence.agents.tier.worker': 'वर्कर',

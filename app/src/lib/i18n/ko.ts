@@ -4541,6 +4541,7 @@ const messages: TranslationMap = {
   'intelligence.agents.runTask': '작업 실행',
   'intelligence.agents.running': '실행 중…',
   'intelligence.agents.runFailed': '선택한 에이전트를 시작할 수 없습니다',
+  'intelligence.agents.model.inherit': '상속',
   'intelligence.agents.tier.chat': '채팅',
   'intelligence.agents.tier.reasoning': '추론',
   'intelligence.agents.tier.worker': '작업자',

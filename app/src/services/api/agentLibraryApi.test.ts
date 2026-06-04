@@ -46,4 +46,9 @@ describe('agentLibraryApi', () => {
     mockCall.mockResolvedValueOnce({});
     await expect(agentLibraryApi.listDefinitions()).resolves.toEqual([]);
   });
+
+  it('tolerates a non-array definitions field', async () => {
+    mockCall.mockResolvedValueOnce({ definitions: { id: 'bad-shape' } });
+    await expect(agentLibraryApi.listDefinitions()).resolves.toEqual([]);
+  });
 });

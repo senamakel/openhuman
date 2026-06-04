@@ -4629,6 +4629,7 @@ const messages: TranslationMap = {
   'intelligence.agents.runTask': 'Запустить задачу',
   'intelligence.agents.running': 'Выполняется…',
   'intelligence.agents.runFailed': 'Не удалось запустить выбранного агента',
+  'intelligence.agents.model.inherit': 'Наследовать',
   'intelligence.agents.tier.chat': 'Чат',
   'intelligence.agents.tier.reasoning': 'Рассуждение',
   'intelligence.agents.tier.worker': 'Исполнитель',

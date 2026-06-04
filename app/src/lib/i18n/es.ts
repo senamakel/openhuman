@@ -4676,6 +4676,7 @@ const messages: TranslationMap = {
   'intelligence.agents.runTask': 'Ejecutar tarea',
   'intelligence.agents.running': 'Ejecutando…',
   'intelligence.agents.runFailed': 'No se pudo iniciar el agente seleccionado',
+  'intelligence.agents.model.inherit': 'Heredar',
   'intelligence.agents.tier.chat': 'Chat',
   'intelligence.agents.tier.reasoning': 'Razonamiento',
   'intelligence.agents.tier.worker': 'Trabajador',

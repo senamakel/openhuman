@@ -4360,6 +4360,7 @@ const messages: TranslationMap = {
   'intelligence.agents.runTask': '运行任务',
   'intelligence.agents.running': '正在运行…',
   'intelligence.agents.runFailed': '无法启动所选智能体',
+  'intelligence.agents.model.inherit': '继承',
   'intelligence.agents.tier.chat': '聊天',
   'intelligence.agents.tier.reasoning': '推理',
   'intelligence.agents.tier.worker': '工作者',

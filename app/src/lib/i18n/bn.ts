@@ -4582,6 +4582,7 @@ const messages: TranslationMap = {
   'intelligence.agents.runTask': 'কাজ চালান',
   'intelligence.agents.running': 'চলছে…',
   'intelligence.agents.runFailed': 'নির্বাচিত এজেন্ট শুরু করা যায়নি',
+  'intelligence.agents.model.inherit': 'উত্তরাধিকার',
   'intelligence.agents.tier.chat': 'চ্যাট',
   'intelligence.agents.tier.reasoning': 'যুক্তি',
   'intelligence.agents.tier.worker': 'ওয়ার্কার',

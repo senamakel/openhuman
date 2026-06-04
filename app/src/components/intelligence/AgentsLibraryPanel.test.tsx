@@ -58,7 +58,7 @@ describe('AgentsLibraryPanel', () => {
 
   it('renders safe metadata and filters non-runnable chat agents', async () => {
     mockListDefinitions.mockResolvedValueOnce([
-      agent(),
+      agent({ model: { kind: 'inherit' } }),
       agent({
         id: 'orchestrator',
         display_name: 'Orchestrator',
@@ -72,7 +72,7 @@ describe('AgentsLibraryPanel', () => {
       expect(screen.getByText('Researcher')).toBeInTheDocument();
     });
     expect(screen.queryByText('Orchestrator')).not.toBeInTheDocument();
-    expect(screen.getByText('hint:reasoning')).toBeInTheDocument();
+    expect(screen.getByText('Inherit')).toBeInTheDocument();
     expect(screen.getByText('Read-only')).toBeInTheDocument();
     expect(screen.getByText('1 tool')).toBeInTheDocument();
   });
@@ -106,5 +106,17 @@ describe('AgentsLibraryPanel', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /copy id/i }));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('researcher');
+  });
+
+  it('does not show copied when clipboard write is unavailable', async () => {
+    mockListDefinitions.mockResolvedValueOnce([agent()]);
+    Object.assign(navigator, { clipboard: {} });
+    render(<AgentsLibraryPanel onRunAgentTask={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Researcher')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /copy id/i }));
+    expect(screen.queryByRole('button', { name: /copied/i })).not.toBeInTheDocument();
   });
 });

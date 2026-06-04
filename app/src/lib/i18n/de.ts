@@ -4704,6 +4704,7 @@ const messages: TranslationMap = {
   'intelligence.agents.runTask': 'Aufgabe ausführen',
   'intelligence.agents.running': 'Läuft…',
   'intelligence.agents.runFailed': 'Der ausgewählte Agent konnte nicht gestartet werden',
+  'intelligence.agents.model.inherit': 'Übernehmen',
   'intelligence.agents.tier.chat': 'Chat',
   'intelligence.agents.tier.reasoning': 'Reasoning',
   'intelligence.agents.tier.worker': 'Worker',

@@ -36,7 +36,7 @@ export const agentLibraryApi = {
       method: 'openhuman.agent_list_definitions',
       params: {},
     });
-    const definitions = response?.definitions ?? [];
+    const definitions = Array.isArray(response?.definitions) ? response.definitions : [];
     log('[agent-library] listDefinitions exit count=%d', definitions.length);
     return definitions;
   },

@@ -12,8 +12,11 @@ interface AgentsLibraryPanelProps {
   runningAgentId?: string | null;
 }
 
-function modelLabel(agent: AgentDefinitionDisplay): string {
-  if (agent.model.kind === 'inherit') return 'inherit';
+function modelLabel(
+  agent: AgentDefinitionDisplay,
+  t: (key: string, fallback?: string) => string
+): string {
+  if (agent.model.kind === 'inherit') return t('intelligence.agents.model.inherit', 'inherit');
   return agent.model.value ? `${agent.model.kind}:${agent.model.value}` : agent.model.kind;
 }
 
@@ -88,7 +91,8 @@ export default function AgentsLibraryPanel({
 
   const handleCopy = useCallback(async (id: string) => {
     try {
-      await navigator.clipboard?.writeText(id);
+      if (!navigator.clipboard?.writeText) return;
+      await navigator.clipboard.writeText(id);
       setCopiedId(id);
       window.setTimeout(() => setCopiedId(current => (current === id ? null : current)), 1600);
     } catch (err) {
@@ -165,7 +169,7 @@ export default function AgentsLibraryPanel({
                         {agent.id}
                       </span>
                       <span className="rounded-md bg-ocean-50 px-1.5 py-0.5 text-[10px] font-medium text-ocean-700 dark:bg-ocean-500/10 dark:text-ocean-200">
-                        {modelLabel(agent)}
+                        {modelLabel(agent, t)}
                       </span>
                     </div>
                     <p className="text-xs leading-5 text-stone-500 dark:text-neutral-400">
@@ -207,6 +211,7 @@ export default function AgentsLibraryPanel({
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     type="text"
+                    aria-label={t('intelligence.agents.taskPlaceholder')}
                     value={draft}
                     onChange={event =>
                       setDrafts(prev => ({ ...prev, [agent.id]: event.target.value }))

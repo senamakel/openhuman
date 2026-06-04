@@ -4600,6 +4600,7 @@ const messages: TranslationMap = {
   'intelligence.agents.runTask': 'Jalankan tugas',
   'intelligence.agents.running': 'Berjalan…',
   'intelligence.agents.runFailed': 'Tidak dapat memulai agen yang dipilih',
+  'intelligence.agents.model.inherit': 'Warisi',
   'intelligence.agents.tier.chat': 'Chat',
   'intelligence.agents.tier.reasoning': 'Penalaran',
   'intelligence.agents.tier.worker': 'Pekerja',

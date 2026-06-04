@@ -325,6 +325,73 @@ describe('chatRuntimeSlice', () => {
     expect(row.subagent?.transcript).toEqual([]);
   });
 
+  it('maps durable run ledger status, kind, and optional metadata into timeline rows', () => {
+    const next = reducer(
+      undefined,
+      hydrateRuntimeFromRunLedger({
+        threadId: 'thread-runs',
+        runs: [
+          {
+            id: 'done-run',
+            kind: 'subagent',
+            parentThreadId: 'thread-runs',
+            agentId: 'writer',
+            status: 'completed',
+            metadata: {},
+            startedAt: '2026-06-04T12:00:00Z',
+            updatedAt: '2026-06-04T12:00:04Z',
+          },
+          {
+            id: 'failed-run',
+            kind: 'workflow_child',
+            parentThreadId: 'thread-runs',
+            agentId: 'reviewer',
+            status: 'failed',
+            error: 'Tool failed',
+            metadata: {},
+            startedAt: '2026-06-04T12:00:05Z',
+            updatedAt: '2026-06-04T12:00:07Z',
+          },
+          {
+            id: 'pending-run',
+            kind: 'team_member',
+            parentThreadId: 'thread-runs',
+            status: 'pending',
+            metadata: {},
+            startedAt: '2026-06-04T12:00:08Z',
+            updatedAt: '2026-06-04T12:00:09Z',
+          },
+          {
+            id: 'background-run',
+            kind: 'background_agent',
+            parentThreadId: 'thread-runs',
+            status: 'running',
+            metadata: {},
+            startedAt: '2026-06-04T12:00:10Z',
+            updatedAt: '2026-06-04T12:00:11Z',
+          },
+        ],
+      })
+    );
+
+    const rows = next.toolTimelineByThread['thread-runs'];
+    expect(rows).toHaveLength(3);
+    expect(rows.map(row => row.status)).toEqual(['success', 'error', 'running']);
+    expect(rows[1].detail).toBe('Tool failed');
+    expect(rows[2]).toMatchObject({
+      id: 'subagent:pending-run',
+      name: 'subagent:agent',
+      displayName: 'agent',
+      detail: undefined,
+    });
+    expect(rows[2].subagent).toMatchObject({
+      agentId: 'agent',
+      workerThreadId: undefined,
+      mode: undefined,
+      dedicatedThread: undefined,
+    });
+  });
+
   it('interrupted snapshot must NOT resurrect inferenceStatus / streamingAssistant from stale fields', () => {
     // Defensive: an interrupted snapshot can carry the iteration /
     // streaming buffer that was active at the moment the previous

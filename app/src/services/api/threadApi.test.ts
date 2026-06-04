@@ -193,6 +193,13 @@ describe('threadApi', () => {
       params: { parentThreadId: 'thread-1' },
     });
 
+    mockCallCoreRpc.mockResolvedValueOnce({ data: { runs: [], count: 0 } });
+    await expect(threadApi.listRuns()).resolves.toEqual([]);
+    expect(mockCallCoreRpc).toHaveBeenLastCalledWith({
+      method: 'openhuman.run_ledger_list',
+      params: {},
+    });
+
     mockCallCoreRpc.mockResolvedValueOnce({ data: { run } });
     await expect(threadApi.getRun('sub-1')).resolves.toEqual(run);
     expect(mockCallCoreRpc).toHaveBeenLastCalledWith({

@@ -4565,6 +4565,11 @@ const messages: TranslationMap = {
   'modelCouncil.sharedReasoningLabel': '공유 추론 파일',
   'modelCouncil.sharedReasoningHelp':
     '판사가 종합문을 쓰기 전에 위원회가 이 공유 초안으로 작업합니다.',
+  'modelCouncil.liveScratchpadHelp':
+    'Juror updates are appended here after each round, then fed into the next round.',
+  'modelCouncil.liveScratchpadBadge': 'Live',
+  'modelCouncil.scratchpadRoundHeading': 'Round {round} updates',
+  'modelCouncil.scratchpadNoResponse': 'No response',
   'modelCouncil.chairLabel': 'Chair model',
   'modelCouncil.chairPlaceholder': 'e.g. claude-opus-4-8',
   'modelCouncil.chairHelp': 'The chair reads every member answer and writes the synthesis.',

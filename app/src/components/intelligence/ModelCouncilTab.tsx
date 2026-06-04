@@ -238,6 +238,31 @@ function buildDebateTurnQuestion(
     .join('\n');
 }
 
+function appendScratchpadRound(
+  scratchpad: string,
+  round: number,
+  seats: ResolvedSeat[],
+  roundResults: Array<{ index: number; turn: CouncilDebateTurn }>,
+  t: (key: string) => string
+): string {
+  const existing = scratchpad.trim() || '# Shared reasoning';
+  const lines = [
+    '',
+    '',
+    `## ${t('modelCouncil.scratchpadRoundHeading').replace('{round}', String(round))}`,
+  ];
+  for (const { index, turn } of [...roundResults].sort((a, b) => a.index - b.index)) {
+    const seat = seats[index];
+    lines.push('', `### ${seat?.label || `Juror ${index + 1}`}`);
+    if (turn.response) {
+      lines.push(turn.response.trim());
+    } else {
+      lines.push(`_${t('modelCouncil.scratchpadNoResponse')}: ${turn.error || 'unknown'}_`);
+    }
+  }
+  return `${existing}${lines.join('\n')}`;
+}
+
 function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(text.length / 4));
 }
@@ -298,6 +323,7 @@ const ModelCouncilTab = () => {
       '- Judge synthesis notes:',
     ].join('\n')
   );
+  const [liveScratchpad, setLiveScratchpad] = useState<string | null>(null);
   const [juryCount, setJuryCount] = useState(3);
   const [debateRounds, setDebateRounds] = useState(3);
   const [seats, setSeats] = useState<CouncilSeat[]>(DEFAULT_SEATS);
@@ -388,17 +414,13 @@ const ModelCouncilTab = () => {
     setRunning(true);
     setJudgeSynthesizing(false);
     setLiveMembers(memberModels.map(() => ({ status: 'pending', member: null, turns: [] })));
+    setLiveScratchpad(sharedReasoning);
     setUsageEstimate(null);
     setError(null);
     setResult(null);
     try {
-      const councilQuestion = buildCouncilQuestion(
-        question,
-        sharedReasoning,
-        resolvedSeats,
-        resolvedJudgeName
-      );
       const transcript: CouncilDebateTurn[][] = memberModels.map(() => []);
+      let currentScratchpad = sharedReasoning;
       let estimatedInputTokens = 0;
       let estimatedOutputTokens = 0;
 
@@ -407,6 +429,12 @@ const ModelCouncilTab = () => {
 
         const roundResults = await Promise.all(
           memberModels.map(async (model, index) => {
+            const councilQuestion = buildCouncilQuestion(
+              question,
+              currentScratchpad,
+              resolvedSeats,
+              resolvedJudgeName
+            );
             const turnQuestion = buildDebateTurnQuestion(
               councilQuestion,
               resolvedSeats[index],
@@ -457,8 +485,23 @@ const ModelCouncilTab = () => {
         for (const { index, turn } of roundResults) {
           transcript[index].push(turn);
         }
+        currentScratchpad = appendScratchpadRound(
+          currentScratchpad,
+          round,
+          resolvedSeats,
+          roundResults,
+          t
+        );
+        setLiveScratchpad(currentScratchpad);
+        setSharedReasoning(currentScratchpad);
       }
 
+      const councilQuestion = buildCouncilQuestion(
+        question,
+        currentScratchpad,
+        resolvedSeats,
+        resolvedJudgeName
+      );
       const memberResults = memberModels.map((model, index) =>
         buildMemberSynthesisInput(resolvedSeats[index], model, transcript[index])
       );
@@ -486,6 +529,7 @@ const ModelCouncilTab = () => {
     } finally {
       setJudgeSynthesizing(false);
       setRunning(false);
+      setLiveScratchpad(null);
     }
   }, [
     debateRounds,
@@ -993,6 +1037,25 @@ const ModelCouncilTab = () => {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 className="font-mono text-sm font-semibold text-stone-900 dark:text-neutral-50">
+                  {SHARED_REASONING_FILE}
+                </h4>
+                <p className="text-xs text-stone-500 dark:text-neutral-400">
+                  {t('modelCouncil.liveScratchpadHelp')}
+                </p>
+              </div>
+              <span className="rounded bg-primary-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-primary-700 dark:bg-primary-500/20 dark:text-primary-200">
+                {t('modelCouncil.liveScratchpadBadge')}
+              </span>
+            </div>
+            <div className="mt-3 max-h-72 overflow-y-auto rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-stone-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 [&_.prose]:text-xs [&_.prose]:leading-5">
+              <BubbleMarkdown content={liveScratchpad || sharedReasoning} />
             </div>
           </div>
         </section>

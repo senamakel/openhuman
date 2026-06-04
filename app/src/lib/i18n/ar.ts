@@ -4522,6 +4522,11 @@ const messages: TranslationMap = {
   'modelCouncil.sharedReasoningLabel': 'ملف التفكير المشترك',
   'modelCouncil.sharedReasoningHelp':
     'يعمل المجلس على هذه المسودة المشتركة قبل أن يكتب القاضي الخلاصة.',
+  'modelCouncil.liveScratchpadHelp':
+    'Juror updates are appended here after each round, then fed into the next round.',
+  'modelCouncil.liveScratchpadBadge': 'Live',
+  'modelCouncil.scratchpadRoundHeading': 'Round {round} updates',
+  'modelCouncil.scratchpadNoResponse': 'No response',
   'modelCouncil.chairLabel': 'Chair model',
   'modelCouncil.chairPlaceholder': 'e.g. claude-opus-4-8',
   'modelCouncil.chairHelp': 'The chair reads every member answer and writes the synthesis.',

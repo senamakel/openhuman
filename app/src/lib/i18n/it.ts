@@ -4689,6 +4689,11 @@ const messages: TranslationMap = {
   'modelCouncil.sharedReasoningLabel': 'File di ragionamento condiviso',
   'modelCouncil.sharedReasoningHelp':
     'Il consiglio lavora su questa bozza condivisa prima che il giudice scriva la sintesi.',
+  'modelCouncil.liveScratchpadHelp':
+    'Juror updates are appended here after each round, then fed into the next round.',
+  'modelCouncil.liveScratchpadBadge': 'Live',
+  'modelCouncil.scratchpadRoundHeading': 'Round {round} updates',
+  'modelCouncil.scratchpadNoResponse': 'No response',
   'modelCouncil.chairLabel': 'Chair model',
   'modelCouncil.chairPlaceholder': 'e.g. claude-opus-4-8',
   'modelCouncil.chairHelp': 'The chair reads every member answer and writes the synthesis.',

@@ -275,6 +275,31 @@ describe('ModelCouncilTab', () => {
     });
   });
 
+  it('appends juror turns to the shared scratchpad before the next debate round', async () => {
+    mockAnswerMember.mockImplementation(async ({ model }: { model: string }) => ({
+      model,
+      response: `round ${mockAnswerMember.mock.calls.length} update`,
+      error: null,
+    }));
+    mockSynthesizeCouncil.mockResolvedValueOnce(RESULT);
+    render(<ModelCouncilTab />);
+    fillQuestion();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
+    });
+
+    await waitFor(() => {
+      expect(mockSynthesizeCouncil).toHaveBeenCalled();
+    });
+    const scratchpadValue = (screen.getByLabelText('Shared reasoning file') as HTMLTextAreaElement)
+      .value;
+    expect(scratchpadValue).toContain('## Round 1 updates');
+    expect(scratchpadValue).toContain('round 1 update');
+    expect(mockAnswerMember.mock.calls[3][0].question).toContain('Round 1 updates');
+    expect(mockAnswerMember.mock.calls[3][0].question).toContain('round 1 update');
+  });
+
   it('lets a council seat use a saved profile and submits that profile model', async () => {
     mockProgressiveSuccess();
     render(<ModelCouncilTab />);
@@ -389,10 +414,12 @@ describe('ModelCouncilTab', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Consensus' })).toBeInTheDocument();
     });
+    const results = screen.getByText('Council results').closest('section');
+    expect(results).not.toBeNull();
     expect(screen.getAllByText('Paris').some(node => node.tagName.toLowerCase() === 'strong')).toBe(
       true
     );
-    expect(screen.queryByText(/\*\*Paris\*\*/)).not.toBeInTheDocument();
+    expect(within(results as HTMLElement).queryByText(/\*\*Paris\*\*/)).not.toBeInTheDocument();
   });
 
   it('surfaces an error alert when the council run fails', async () => {

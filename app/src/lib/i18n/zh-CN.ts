@@ -4384,6 +4384,11 @@ const messages: TranslationMap = {
   'modelCouncil.jurorFallback': '陪审员',
   'modelCouncil.sharedReasoningLabel': '共享推理文件',
   'modelCouncil.sharedReasoningHelp': '委员会先围绕这个共享草稿工作，再由法官撰写综合结论。',
+  'modelCouncil.liveScratchpadHelp':
+    'Juror updates are appended here after each round, then fed into the next round.',
+  'modelCouncil.liveScratchpadBadge': 'Live',
+  'modelCouncil.scratchpadRoundHeading': 'Round {round} updates',
+  'modelCouncil.scratchpadNoResponse': 'No response',
   'modelCouncil.chairLabel': 'Chair model',
   'modelCouncil.chairPlaceholder': 'e.g. claude-opus-4-8',
   'modelCouncil.chairHelp': 'The chair reads every member answer and writes the synthesis.',

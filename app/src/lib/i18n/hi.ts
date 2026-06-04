@@ -4616,6 +4616,11 @@ const messages: TranslationMap = {
   'modelCouncil.sharedReasoningLabel': 'साझा रीजनिंग फ़ाइल',
   'modelCouncil.sharedReasoningHelp':
     'जज के संश्लेषण से पहले काउंसिल इस साझा ड्राफ़्ट पर काम करती है।',
+  'modelCouncil.liveScratchpadHelp':
+    'Juror updates are appended here after each round, then fed into the next round.',
+  'modelCouncil.liveScratchpadBadge': 'Live',
+  'modelCouncil.scratchpadRoundHeading': 'Round {round} updates',
+  'modelCouncil.scratchpadNoResponse': 'No response',
   'modelCouncil.chairLabel': 'Chair model',
   'modelCouncil.chairPlaceholder': 'e.g. claude-opus-4-8',
   'modelCouncil.chairHelp': 'The chair reads every member answer and writes the synthesis.',

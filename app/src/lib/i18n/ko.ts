@@ -1155,6 +1155,9 @@ const messages: TranslationMap = {
   'mcp.detail.reconfigureSaving': '저장 중…',
   'mcp.detail.reconfigureSuccess': '환경이 업데이트되고 다시 연결되었습니다.',
   'mcp.detail.reconfigureReconnectFailed': '저장했지만 새 값으로 다시 연결하지 못했습니다.',
+  'mcp.detail.enable': '활성화',
+  'mcp.detail.disable': '비활성화',
+  'mcp.status.disabled': '비활성화됨',
   'mcp.detail.tools': '도구',
   'onboarding.skipForNow': '지금 건너뛰기',
   'onboarding.localAI.continueWithCloud': '클라우드 계속하기',
@@ -2529,6 +2532,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.saveChanges': '변경 사항 저장',
   'conversations.taskKanban.deleteCard': '삭제',
   'conversations.taskKanban.workTask': '작업 시작',
+  'conversations.taskKanban.viewWork': '작업 보기',
   'conversations.taskKanban.startingTask': '시작 중…',
   'conversations.taskKanban.updateFailed':
     '작업을 업데이트할 수 없어 변경 사항이 저장되지 않았습니다.',

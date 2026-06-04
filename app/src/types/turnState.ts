@@ -34,6 +34,10 @@ export interface TaskBoardCard {
   evidence?: string[];
   notes?: string | null;
   blocker?: string | null;
+  /** Conversation thread id of the card's live/last agent session, if any —
+   *  drives the "View session" jump into Conversations. Set by the autonomous
+   *  dispatcher and the manual "Work" path. */
+  sessionThreadId?: string | null;
   /** Provider/source identifiers for a card ingested from a task source
    *  (`{provider, source_id, external_id, url, repo?, urgency}`); absent on
    *  agent/UI-authored cards. */

@@ -1174,6 +1174,9 @@ const messages: TranslationMap = {
   'mcp.detail.reconfigureSuccess': 'Окружение обновлено, выполнено переподключение.',
   'mcp.detail.reconfigureReconnectFailed':
     'Сохранено, но переподключиться с новыми значениями не удалось.',
+  'mcp.detail.enable': 'Включить',
+  'mcp.detail.disable': 'Отключить',
+  'mcp.status.disabled': 'Отключён',
   'mcp.detail.tools': 'Инструменты',
   'onboarding.skipForNow': 'Пропустить сейчас',
   'onboarding.localAI.continueWithCloud': 'Продолжить с Облако',
@@ -2572,6 +2575,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.saveChanges': 'Сохранить изменения',
   'conversations.taskKanban.deleteCard': 'Удалить',
   'conversations.taskKanban.workTask': 'Работать над задачей',
+  'conversations.taskKanban.viewWork': 'Показать работу',
   'conversations.taskKanban.startingTask': 'Запуск…',
   'conversations.taskKanban.updateFailed': 'Не удалось обновить задачу; изменения не сохранились.',
   'conversations.taskKanban.sourcesButton': 'Источники',

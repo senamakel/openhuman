@@ -186,6 +186,7 @@ const Conversations = ({
   const { t } = useT();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { threads, selectedThreadId, messages, isLoadingMessages, messagesError, activeThreadId } =
     useAppSelector(state => state.thread);
 
@@ -370,6 +371,27 @@ const Conversations = ({
         // Match the sidebar's default General filter here so initial/resume
         // selection can't auto-pick a thread hidden by the selected tab.
         const visibleThreads = data.threads.filter(t => isThreadVisibleInTab(t, GENERAL_TAB_VALUE));
+        // An explicit "open this session" intent (e.g. View work from the Agent
+        // Tasks board) wins over passive resume — and bypasses the General-tab
+        // visibility filter so a task-labelled session thread can actually be
+        // opened (the resume default below only considers General threads).
+        const openThreadId = (location.state as { openThreadId?: string } | null)?.openThreadId;
+        const openThread = openThreadId ? data.threads.find(t => t.id === openThreadId) : undefined;
+        if (openThread) {
+          // Switch the sidebar tab to the bucket that contains the opened
+          // thread (e.g. Tasks for a task session) so it's visible/selected in
+          // the list instead of hidden behind the default General tab.
+          setSelectedLabel(
+            isThreadVisibleInTab(openThread, TASKS_TAB_VALUE)
+              ? TASKS_TAB_VALUE
+              : isThreadVisibleInTab(openThread, SUBCONSCIOUS_TAB_VALUE)
+                ? SUBCONSCIOUS_TAB_VALUE
+                : GENERAL_TAB_VALUE
+          );
+          dispatch(setSelectedThread(openThread.id));
+          void dispatch(loadThreadMessages(openThread.id));
+          return;
+        }
         if (visibleThreads.length > 0) {
           // Prefer the thread the user was last viewing (persisted across
           // reloads via redux-persist on the `thread` slice). Only fall
@@ -423,7 +445,6 @@ const Conversations = ({
       });
   }, [dispatch]);
 
-  const location = useLocation();
   const { containerRef: messagesContainerRef, endRef: messagesEndRef } = useStickToBottom(
     messages,
     selectedThreadId,
@@ -1587,6 +1608,15 @@ const Conversations = ({
                       notify: setSendAdvisory,
                       t,
                     });
+                  }}
+                  onViewSession={card => {
+                    if (!card.sessionThreadId) return;
+                    // Navigation only — do NOT mark the thread active. activeThreadId
+                    // tracks a true in-flight turn (set on send, cleared on
+                    // done/error). A completed session never emits that lifecycle
+                    // event, so forcing it active would wedge the composer.
+                    dispatch(setSelectedThread(card.sessionThreadId));
+                    void dispatch(loadThreadMessages(card.sessionThreadId));
                   }}
                 />
               )}

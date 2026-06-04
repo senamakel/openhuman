@@ -1159,6 +1159,9 @@ const messages: TranslationMap = {
   'mcp.detail.reconfigureSuccess': 'एनवायरनमेंट अपडेट हो गया और पुन: कनेक्ट हो गया।',
   'mcp.detail.reconfigureReconnectFailed':
     'सहेजा गया, लेकिन नए मानों के साथ पुन: कनेक्ट करना विफल रहा।',
+  'mcp.detail.enable': 'सक्षम करें',
+  'mcp.detail.disable': 'अक्षम करें',
+  'mcp.status.disabled': 'अक्षम',
   'mcp.detail.tools': 'उपकरण',
   'onboarding.skipForNow': 'अभी के लिए छोड़ें',
   'onboarding.localAI.continueWithCloud': 'बादल के साथ जारी रखें',
@@ -2555,6 +2558,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.saveChanges': 'परिवर्तन सहेजें',
   'conversations.taskKanban.deleteCard': 'Delete',
   'conversations.taskKanban.workTask': 'कार्य शुरू करें',
+  'conversations.taskKanban.viewWork': 'कार्य देखें',
   'conversations.taskKanban.startingTask': 'शुरू हो रहा है…',
   'conversations.taskKanban.updateFailed': 'कार्य अद्यतन नहीं कर सका; परिवर्तन बचाया नहीं गया।',
   'conversations.taskKanban.sourcesButton': 'स्रोत',

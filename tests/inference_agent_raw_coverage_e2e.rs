@@ -1626,6 +1626,7 @@ fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes(
         acceptance_criteria: vec!["Focused tests pass".into()],
         evidence: vec![],
         notes: Some("Keep scope narrow".into()),
+        session_thread_id: None,
         blocker: None,
         source_metadata: Some(json!({
             "provider": "github",
@@ -1664,6 +1665,7 @@ fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes(
     let title_prompt = build_task_prompt(&TaskBoardCard {
         objective: Some("   ".into()),
         source_metadata: Some(json!({ "external_id": "123" })),
+        session_thread_id: None,
         ..loaded.cards[0].clone()
     });
     assert!(title_prompt.contains("Fallback title"));
@@ -4384,7 +4386,7 @@ async fn inference_router_provider_covers_hint_tier_and_passthrough_routing() {
     assert!(routed_hint.contains("model=fast-chat"));
 
     let routed_tier = router
-        .chat_with_history(&[ChatMessage::user("tier")], "reasoning-quick-v1", 0.3)
+        .chat_with_history(&[ChatMessage::user("tier")], "chat-v1", 0.3)
         .await
         .expect("tier route");
     assert!(routed_tier.contains("model=fast-chat"));

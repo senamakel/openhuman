@@ -120,7 +120,7 @@ subagents = [
 
 [model]
 # Front-line conversational agent: TTFT dominates UX. `hint:chat` resolves
-# to the fast chat tier (`reasoning-quick-v1` / Kimi K2.6 Turbo on
+# to the fast chat tier (`chat-v1` / Kimi K2.6 Turbo on
 # Fireworks via backend PR #760, 128k context, `supportsThinking: false`).
 # The orchestrator is a planner/router that picks a delegate and
 # synthesises sub-agent output — workload that doesn't benefit from the

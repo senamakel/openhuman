@@ -1192,6 +1192,9 @@ const messages: TranslationMap = {
   'mcp.detail.reconfigureSuccess': 'Environnement mis à jour et reconnecté.',
   'mcp.detail.reconfigureReconnectFailed':
     'Enregistré, mais la reconnexion avec les nouvelles valeurs a échoué.',
+  'mcp.detail.enable': 'Activer',
+  'mcp.detail.disable': 'Désactiver',
+  'mcp.status.disabled': 'Désactivé',
   'mcp.detail.tools': 'Outils',
   'onboarding.skipForNow': "Passer pour l'instant",
   'onboarding.localAI.continueWithCloud': 'Continuer avec Cloud',
@@ -2607,6 +2610,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.saveChanges': 'Enregistrer les modifications',
   'conversations.taskKanban.deleteCard': 'Supprimer',
   'conversations.taskKanban.workTask': 'Travailler la tâche',
+  'conversations.taskKanban.viewWork': 'Voir le travail',
   'conversations.taskKanban.startingTask': 'Démarrage…',
   'conversations.taskKanban.updateFailed':
     "Impossible de mettre à jour la tâche; les modifications n'ont pas été enregistrées.",

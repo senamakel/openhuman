@@ -2846,3 +2846,41 @@ fn convert_messages_for_native_promotes_image_marker() {
         ])
     );
 }
+
+#[test]
+fn stream_repeat_detector_trips_at_threshold() {
+    let mut d = StreamRepeatDetector::new();
+    // The degenerate pattern: one substantial sentence emitted with blank
+    // separators, over and over (exactly what we observed, 234×).
+    let chunk =
+        "Now I have a complete understanding. Let me also check the llm.rs extraction logic.\n\n";
+    let mut tripped_at = 0;
+    for i in 1..=(STREAM_REPEAT_THRESHOLD + 3) {
+        if d.observe(chunk) {
+            tripped_at = i;
+            break;
+        }
+    }
+    assert_eq!(
+        tripped_at, STREAM_REPEAT_THRESHOLD,
+        "should trip exactly at the threshold, ignoring blank separators"
+    );
+}
+
+#[test]
+fn stream_repeat_detector_ignores_varied_and_short_lines() {
+    let mut d = StreamRepeatDetector::new();
+    // Distinct substantial lines never trip (real, progressing output).
+    for i in 0..20 {
+        assert!(
+            !d.observe(&format!(
+                "This is distinct analysis step number {i} of the task.\n"
+            )),
+            "varied lines must not trip"
+        );
+    }
+    // Short identical lines (e.g. code braces) are below the min length → no trip.
+    for _ in 0..20 {
+        assert!(!d.observe("}\n"), "short repeated lines must not trip");
+    }
+}

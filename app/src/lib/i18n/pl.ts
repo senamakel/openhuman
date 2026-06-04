@@ -1179,6 +1179,9 @@ const messages: TranslationMap = {
   'mcp.detail.reconfigureSuccess': 'Środowisko zaktualizowane i połączone ponownie.',
   'mcp.detail.reconfigureReconnectFailed':
     'Zapisano, ale ponowne połączenie z nowymi wartościami nie powiodło się.',
+  'mcp.detail.enable': 'Włącz',
+  'mcp.detail.disable': 'Wyłącz',
+  'mcp.status.disabled': 'Wyłączony',
   'mcp.detail.tools': 'Narzędzia',
   'onboarding.skipForNow': 'Pomiń na razie',
   'onboarding.localAI.continueWithCloud': 'Kontynuuj z chmurą',
@@ -2584,6 +2587,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.saveChanges': 'Zapisz zmiany',
   'conversations.taskKanban.deleteCard': 'Usuń',
   'conversations.taskKanban.workTask': 'Pracuj nad zadaniem',
+  'conversations.taskKanban.viewWork': 'Zobacz pracę',
   'conversations.taskKanban.startingTask': 'Uruchamianie…',
   'conversations.taskKanban.updateFailed':
     'Nie udało się zaktualizować zadania; zmian nie zapisano.',

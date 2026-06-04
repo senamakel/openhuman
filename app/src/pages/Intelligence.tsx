@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import IntelligenceSubconsciousTab from '../components/intelligence/IntelligenceSubconsciousTab';
@@ -25,7 +26,28 @@ type IntelligenceTab = 'memory' | 'subconscious' | 'tasks' | 'workflows' | 'coun
 export default function Intelligence() {
   const { t } = useT();
 
-  const [activeTab, setActiveTab] = useState<IntelligenceTab>('memory');
+  // Tab is URL-backed (`/intelligence?tab=…`) so navigating away — e.g. to
+  // Settings → Task Sources from the Agent Tasks tab — and coming back via
+  // browser-back restores the same tab instead of resetting to Memory.
+  // `replace` so switching tabs doesn't stack history entries.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab: IntelligenceTab =
+    tabParam && ['memory', 'subconscious', 'tasks', 'workflows', 'council'].includes(tabParam)
+      ? (tabParam as IntelligenceTab)
+      : 'memory';
+  const setActiveTab = useCallback(
+    (tab: IntelligenceTab) => {
+      setSearchParams(
+        prev => {
+          prev.set('tab', tab);
+          return prev;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   // The legacy header pills (system-status + Ingesting/Queued chips) were
   // sourced from `useConsciousItems` + `useMemoryIngestionStatus`. They are

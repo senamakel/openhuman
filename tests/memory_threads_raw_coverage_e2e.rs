@@ -3213,6 +3213,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
             acceptance_criteria: Vec::new(),
             evidence: Vec::new(),
             notes: None,
+            session_thread_id: None,
             blocker: None,
             source_metadata: None,
             order: 0,

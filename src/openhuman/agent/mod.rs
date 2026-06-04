@@ -43,6 +43,7 @@ mod schemas;
 pub mod stop_hooks;
 pub mod task_board;
 pub mod task_dispatcher;
+pub(crate) mod task_session;
 pub mod tool_policy;
 pub mod tools;
 pub mod tree_loader;

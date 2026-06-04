@@ -1190,6 +1190,9 @@ const messages: TranslationMap = {
   'mcp.detail.reconfigureSaving': 'Salvando…',
   'mcp.detail.reconfigureSuccess': 'Ambiente atualizado e reconectado.',
   'mcp.detail.reconfigureReconnectFailed': 'Salvo, mas a reconexão com os novos valores falhou.',
+  'mcp.detail.enable': 'Ativar',
+  'mcp.detail.disable': 'Desativar',
+  'mcp.status.disabled': 'Desativado',
   'mcp.detail.tools': 'Ferramentas',
   'onboarding.skipForNow': 'Ignorar por agora',
   'onboarding.localAI.continueWithCloud': 'Continuar com a nuvem',
@@ -2596,6 +2599,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.saveChanges': 'Salvar alterações',
   'conversations.taskKanban.deleteCard': 'Excluir',
   'conversations.taskKanban.workTask': 'Trabalhar na tarefa',
+  'conversations.taskKanban.viewWork': 'Ver trabalho',
   'conversations.taskKanban.startingTask': 'Iniciando…',
   'conversations.taskKanban.updateFailed':
     'Não foi possível atualizar a tarefa; as alterações não foram salvas.',

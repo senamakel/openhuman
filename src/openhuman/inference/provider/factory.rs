@@ -62,7 +62,8 @@ pub const BYOK_INCOMPLETE_SENTINEL: &str = "__byok_incomplete__";
 
 fn is_abstract_tier_model(model: &str) -> bool {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1, MODEL_REASONING_V1,
+        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
+        MODEL_REASONING_V1,
     };
     // No dedicated constant for the summarization tier yet; keep the literal
     // in sync with the tier name used by the summarizer sub-agent.
@@ -70,6 +71,7 @@ fn is_abstract_tier_model(model: &str) -> bool {
     let trimmed = model.trim();
     trimmed == MODEL_REASONING_V1
         || trimmed == MODEL_REASONING_QUICK_V1
+        || trimmed == MODEL_CHAT_V1
         || trimmed == MODEL_AGENTIC_V1
         || trimmed == MODEL_CODING_V1
         || trimmed == MODEL_SUMMARIZATION_V1
@@ -91,17 +93,17 @@ pub fn auth_key_for_slug(slug: &str) -> String {
 pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
     let hint_to_tier: &[(&str, &str)] = &[
         ("reasoning", crate::openhuman::config::MODEL_REASONING_V1),
-        ("chat", crate::openhuman::config::MODEL_REASONING_QUICK_V1),
+        ("chat", crate::openhuman::config::MODEL_CHAT_V1),
         ("agentic", crate::openhuman::config::MODEL_AGENTIC_V1),
         ("coding", crate::openhuman::config::MODEL_CODING_V1),
         ("summarization", "summarization-v1"),
     ];
     let tier_to_role: &[(&str, &str)] = &[
         (crate::openhuman::config::MODEL_REASONING_V1, "reasoning"),
+        (crate::openhuman::config::MODEL_CHAT_V1, "chat"),
         (crate::openhuman::config::MODEL_REASONING_QUICK_V1, "chat"),
         (crate::openhuman::config::MODEL_AGENTIC_V1, "agentic"),
         (crate::openhuman::config::MODEL_CODING_V1, "coding"),
-        ("chat-v1", "chat"),
         ("summarization-v1", "summarization"),
     ];
 
@@ -616,7 +618,7 @@ fn make_openhuman_backend(config: &Config) -> anyhow::Result<(Box<dyn Provider>,
     // "deepseek-v4-pro", "claude-opus-4-7") fall back to the platform default.
     let model = match model.strip_prefix("hint:") {
         Some("reasoning") => crate::openhuman::config::MODEL_REASONING_V1.to_string(),
-        Some("chat") => crate::openhuman::config::MODEL_REASONING_QUICK_V1.to_string(),
+        Some("chat") => crate::openhuman::config::MODEL_CHAT_V1.to_string(),
         Some("agentic") => crate::openhuman::config::MODEL_AGENTIC_V1.to_string(),
         Some("coding") => crate::openhuman::config::MODEL_CODING_V1.to_string(),
         Some("summarization") => crate::openhuman::config::MODEL_SUMMARIZATION_V1.to_string(),

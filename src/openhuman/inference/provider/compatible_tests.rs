@@ -466,6 +466,60 @@ fn extra_headers_are_applied_with_auth_header() {
 }
 
 #[test]
+fn openrouter_requests_include_app_attribution_headers() {
+    let p = OpenAiCompatibleProvider::new(
+        "openrouter",
+        "https://openrouter.ai/api/v1",
+        Some("sk-or-test"),
+        AuthStyle::Bearer,
+    );
+
+    let req = p
+        .apply_auth_header(
+            p.http_client()
+                .post("https://openrouter.ai/api/v1/chat/completions"),
+            Some("sk-or-test"),
+        )
+        .build()
+        .unwrap();
+
+    assert_eq!(
+        req.headers()
+            .get("HTTP-Referer")
+            .and_then(|value| value.to_str().ok()),
+        Some("https://openhuman.ai")
+    );
+    assert_eq!(
+        req.headers()
+            .get("X-OpenRouter-Title")
+            .and_then(|value| value.to_str().ok()),
+        Some("OpenHuman")
+    );
+}
+
+#[test]
+fn non_openrouter_requests_do_not_include_openrouter_attribution_headers() {
+    let p = OpenAiCompatibleProvider::new(
+        "custom",
+        "https://api.example.com/v1",
+        Some("test-key"),
+        AuthStyle::Bearer,
+    );
+
+    let req = p
+        .apply_auth_header(
+            p.http_client()
+                .post("https://api.example.com/v1/chat/completions"),
+            Some("test-key"),
+        )
+        .build()
+        .unwrap();
+
+    assert!(req.headers().get("HTTP-Referer").is_none());
+    assert!(req.headers().get("X-OpenRouter-Title").is_none());
+}
+
+#[test]
 fn extra_query_params_are_applied_to_codex_urls() {
     let p = OpenAiCompatibleProvider::new(
         "openai",

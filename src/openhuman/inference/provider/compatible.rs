@@ -2182,6 +2182,7 @@ impl Provider for OpenAiCompatibleProvider {
         let client = self.http_client();
         let auth_header = self.auth_header.clone();
         let extra_headers = self.extra_headers.clone();
+        let openrouter_attribution_headers = self.openrouter_attribution_headers();
         let provider_name = self.name.clone();
         let model_owned = model.to_string();
 
@@ -2211,6 +2212,11 @@ impl Provider for OpenAiCompatibleProvider {
 
             for (name, value) in &extra_headers {
                 req_builder = req_builder.header(name.as_str(), value.as_str());
+            }
+            if let Some((referer, title)) = openrouter_attribution_headers {
+                req_builder = req_builder
+                    .header("HTTP-Referer", referer)
+                    .header("X-OpenRouter-Title", title);
             }
 
             // Set accept header for streaming
@@ -2354,6 +2360,8 @@ impl Provider for OpenAiCompatibleProvider {
         let url = self.chat_completions_url();
         let client = self.http_client();
         let auth_header = self.auth_header.clone();
+        let extra_headers = self.extra_headers.clone();
+        let openrouter_attribution_headers = self.openrouter_attribution_headers();
         let provider_name = self.name.clone();
         let model_owned = model.to_string();
 
@@ -2376,6 +2384,14 @@ impl Provider for OpenAiCompatibleProvider {
                     req_builder.header(header, credential)
                 }
             };
+            for (name, value) in &extra_headers {
+                req_builder = req_builder.header(name.as_str(), value.as_str());
+            }
+            if let Some((referer, title)) = openrouter_attribution_headers {
+                req_builder = req_builder
+                    .header("HTTP-Referer", referer)
+                    .header("X-OpenRouter-Title", title);
+            }
             req_builder = req_builder.header("Accept", "text/event-stream");
 
             let response = match req_builder.send().await {

@@ -57,6 +57,7 @@ import {
   persistReaction,
   setActiveThread,
   setSelectedThread,
+  setThreadSidebarVisible,
   THREAD_NOT_FOUND_MESSAGE,
   updateThreadTitle,
 } from '../store/threadSlice';
@@ -187,10 +188,16 @@ const Conversations = ({
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const { threads, selectedThreadId, messages, isLoadingMessages, messagesError, activeThreadId } =
-    useAppSelector(state => state.thread);
+  const {
+    threads,
+    selectedThreadId,
+    threadSidebarVisible = false,
+    messages,
+    isLoadingMessages,
+    messagesError,
+    activeThreadId,
+  } = useAppSelector(state => state.thread);
 
-  const [showSidebar, setShowSidebar] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1224,7 +1231,7 @@ const Conversations = ({
     labelTabs.find(tab => tab.value === selectedLabel)?.label ?? selectedLabel;
 
   const isSidebar = variant === 'sidebar';
-  const effectiveShowSidebar = showSidebar;
+  const effectiveShowSidebar = threadSidebarVisible;
 
   // Stable title resolver used by both the sidebar thread list and the header.
   const resolveThreadDisplayTitle = (threadId: string | null): string => {
@@ -1405,7 +1412,7 @@ const Conversations = ({
             <button
               type="button"
               data-analytics-id="chat-header-toggle-sidebar"
-              onClick={() => setShowSidebar(prev => !prev)}
+              onClick={() => dispatch(setThreadSidebarVisible(!effectiveShowSidebar))}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors"
               title={effectiveShowSidebar ? t('chat.hideSidebar') : t('chat.showSidebar')}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

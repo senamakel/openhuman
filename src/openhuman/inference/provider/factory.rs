@@ -128,10 +128,13 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
 
     let provider_string = provider_for_role(role, config);
     let ps = provider_string.trim();
-    if ps.is_empty() || ps == "cloud" || ps == PROVIDER_OPENHUMAN {
+    if ps.is_empty() || ps == "cloud" || ps == PROVIDER_OPENHUMAN || ps == BYOK_INCOMPLETE_SENTINEL
+    {
         tier.to_string()
     } else if let Some(idx) = ps.find(':') {
-        ps[idx + 1..].to_string()
+        let model_with_temp = &ps[idx + 1..];
+        let (model, _) = split_model_and_temperature(model_with_temp);
+        model
     } else {
         ps.to_string()
     }

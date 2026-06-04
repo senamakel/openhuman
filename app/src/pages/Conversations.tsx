@@ -255,13 +255,13 @@ const Conversations = ({
       try {
         const profile = agentProfiles.find(p => p.id === selectedAgentProfileId);
         const hint = profile?.modelOverride ?? 'hint:chat';
-        const res = await callCoreRpc<{ result: { model: string } }>({
+        const res = await callCoreRpc<{ model: string }>({
           method: 'openhuman.inference_resolve_model',
           params: { hint },
         });
-        if (!cancelled) setResolvedModel(res.result.model);
+        if (!cancelled) setResolvedModel(res.model);
       } catch {
-        // Core not ready yet
+        if (!cancelled) setResolvedModel(null);
       }
     })();
     return () => {

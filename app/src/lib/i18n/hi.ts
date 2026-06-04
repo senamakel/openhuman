@@ -4764,7 +4764,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'अतिरिक्त संदर्भ के रूप में जोड़ें',
   'runQueue.status': '{total} कतार में',
   'runQueue.cleared': 'कतार साफ़ की गई',
-
 };
 
 export default messages;

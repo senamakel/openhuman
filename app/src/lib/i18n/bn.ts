@@ -4757,7 +4757,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'অতিরিক্ত প্রসঙ্গ হিসেবে যোগ করুন',
   'runQueue.status': '{total}টি সারিবদ্ধ',
   'runQueue.cleared': 'সারি পরিষ্কার করা হয়েছে',
-
 };
 
 export default messages;

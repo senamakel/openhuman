@@ -4526,7 +4526,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': '作为额外上下文添加',
   'runQueue.status': '已排队 {total} 条',
   'runQueue.cleared': '队列已清空',
-
 };
 
 export default messages;

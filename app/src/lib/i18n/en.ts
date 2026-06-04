@@ -5003,7 +5003,6 @@ const en: TranslationMap = {
   'runQueue.collectHint': 'Add as extra context',
   'runQueue.status': '{total} queued',
   'runQueue.cleared': 'Queue cleared',
-
 };
 
 export default en;

@@ -4776,7 +4776,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'Tambahkan sebagai konteks tambahan',
   'runQueue.status': '{total} dalam antrean',
   'runQueue.cleared': 'Antrean dikosongkan',
-
 };
 
 export default messages;

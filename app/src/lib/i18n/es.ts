@@ -4859,7 +4859,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'Añadir como contexto adicional',
   'runQueue.status': '{total} en cola',
   'runQueue.cleared': 'Cola vaciada',
-
 };
 
 export default messages;

@@ -4892,7 +4892,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'Als zusätzlichen Kontext hinzufügen',
   'runQueue.status': '{total} in der Warteschlange',
   'runQueue.cleared': 'Warteschlange geleert',
-
 };
 
 export default messages;

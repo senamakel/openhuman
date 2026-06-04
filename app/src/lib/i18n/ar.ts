@@ -4667,7 +4667,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'إضافة كسياق إضافي',
   'runQueue.status': '{total} في الانتظار',
   'runQueue.cleared': 'تم مسح قائمة الانتظار',
-
 };
 
 export default messages;

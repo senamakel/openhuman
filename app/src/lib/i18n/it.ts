@@ -4849,7 +4849,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'Aggiungi come contesto extra',
   'runQueue.status': '{total} in coda',
   'runQueue.cleared': 'Coda svuotata',
-
 };
 
 export default messages;

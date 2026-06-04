@@ -429,9 +429,6 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                 );
 
                     // Trigger the web channel's chat logic.
-                    let queue_mode = payload.queue_mode.as_deref().and_then(
-                        crate::openhuman::agent::harness::run_queue::QueueMode::from_str_opt,
-                    );
                     match crate::openhuman::channels::providers::web::start_chat(
                         &client_id,
                         &payload.thread_id,

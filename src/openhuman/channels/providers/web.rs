@@ -581,8 +581,6 @@ pub async fn start_chat(
     }
 
     let map_key = key_for(&thread_id);
-    let effective_mode =
-        queue_mode.unwrap_or(crate::openhuman::agent::harness::run_queue::QueueMode::Interrupt);
 
     let parsed_mode = match queue_mode.as_deref() {
         Some("steer") => crate::openhuman::agent::harness::run_queue::QueueMode::Steer,
@@ -645,41 +643,7 @@ pub async fn start_chat(
     }
 
     {
-        use crate::openhuman::agent::harness::run_queue::{QueueEntry, QueueMode};
-
         let mut in_flight = IN_FLIGHT.lock().await;
-        if let Some(existing) = in_flight.get(&map_key) {
-            match effective_mode {
-                QueueMode::Steer | QueueMode::Followup | QueueMode::Collect => {
-                    let entry = QueueEntry {
-                        id: request_id.clone(),
-                        message: message.clone(),
-                        mode: effective_mode,
-                        enqueued_at: std::time::Instant::now(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                    };
-                    existing.run_queue.push(entry).await;
-                    crate::core::event_bus::publish_global(
-                        crate::core::event_bus::DomainEvent::RunQueueMessageQueued {
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            mode: effective_mode.as_str().to_string(),
-                        },
-                    );
-                    log::info!(
-                        "[web-channel] queued {} message thread_id={} request_id={}",
-                        effective_mode.as_str(),
-                        thread_id,
-                        request_id
-                    );
-                    return Ok(request_id);
-                }
-                QueueMode::Interrupt => {
-                    // Fall through to the abort path below.
-                }
-            }
-        }
 
         // Interrupt path: abort any in-flight turn (existing behavior).
         if let Some(existing) = in_flight.remove(&map_key) {

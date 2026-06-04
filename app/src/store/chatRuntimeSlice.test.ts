@@ -16,14 +16,14 @@ function makeStore() {
 describe('chatRuntimeSlice queue status', () => {
   it('sets queue status for a thread', () => {
     const store = makeStore();
-    const status: QueueStatus = { steersPending: 1, followupsPending: 2, collectsPending: 0 };
+    const status: QueueStatus = { active: true, steers: 1, followups: 2, collects: 0, total: 3 };
     store.dispatch(setQueueStatusForThread({ threadId: 't1', status }));
     expect(store.getState().chatRuntime.queueStatusByThread['t1']).toEqual(status);
   });
 
   it('clears queue status for a thread', () => {
     const store = makeStore();
-    const status: QueueStatus = { steersPending: 1, followupsPending: 0, collectsPending: 0 };
+    const status: QueueStatus = { active: true, steers: 1, followups: 0, collects: 0, total: 1 };
     store.dispatch(setQueueStatusForThread({ threadId: 't1', status }));
     store.dispatch(clearQueueStatusForThread({ threadId: 't1' }));
     expect(store.getState().chatRuntime.queueStatusByThread['t1']).toBeUndefined();
@@ -31,7 +31,7 @@ describe('chatRuntimeSlice queue status', () => {
 
   it('clearRuntimeForThread removes queue status', () => {
     const store = makeStore();
-    const status: QueueStatus = { steersPending: 1, followupsPending: 0, collectsPending: 0 };
+    const status: QueueStatus = { active: true, steers: 1, followups: 0, collects: 0, total: 1 };
     store.dispatch(setQueueStatusForThread({ threadId: 't1', status }));
     store.dispatch(clearRuntimeForThread({ threadId: 't1' }));
     expect(store.getState().chatRuntime.queueStatusByThread['t1']).toBeUndefined();
@@ -42,13 +42,13 @@ describe('chatRuntimeSlice queue status', () => {
     store.dispatch(
       setQueueStatusForThread({
         threadId: 't1',
-        status: { steersPending: 1, followupsPending: 0, collectsPending: 0 },
+        status: { active: true, steers: 1, followups: 0, collects: 0, total: 1 },
       })
     );
     store.dispatch(
       setQueueStatusForThread({
         threadId: 't2',
-        status: { steersPending: 0, followupsPending: 1, collectsPending: 0 },
+        status: { active: true, steers: 0, followups: 1, collects: 0, total: 1 },
       })
     );
     store.dispatch(clearAllChatRuntime());
@@ -60,19 +60,21 @@ describe('chatRuntimeSlice queue status', () => {
     store.dispatch(
       setQueueStatusForThread({
         threadId: 't1',
-        status: { steersPending: 1, followupsPending: 0, collectsPending: 0 },
+        status: { active: true, steers: 1, followups: 0, collects: 0, total: 1 },
       })
     );
     store.dispatch(
       setQueueStatusForThread({
         threadId: 't1',
-        status: { steersPending: 0, followupsPending: 0, collectsPending: 0 },
+        status: { active: true, steers: 0, followups: 0, collects: 0, total: 0 },
       })
     );
     expect(store.getState().chatRuntime.queueStatusByThread['t1']).toEqual({
-      steersPending: 0,
-      followupsPending: 0,
-      collectsPending: 0,
+      active: true,
+      steers: 0,
+      followups: 0,
+      collects: 0,
+      total: 0,
     });
   });
 
@@ -81,16 +83,16 @@ describe('chatRuntimeSlice queue status', () => {
     store.dispatch(
       setQueueStatusForThread({
         threadId: 't1',
-        status: { steersPending: 1, followupsPending: 0, collectsPending: 0 },
+        status: { active: true, steers: 1, followups: 0, collects: 0, total: 1 },
       })
     );
     store.dispatch(
       setQueueStatusForThread({
         threadId: 't2',
-        status: { steersPending: 0, followupsPending: 2, collectsPending: 0 },
+        status: { active: true, steers: 0, followups: 2, collects: 0, total: 2 },
       })
     );
-    expect(store.getState().chatRuntime.queueStatusByThread['t1']?.steersPending).toBe(1);
-    expect(store.getState().chatRuntime.queueStatusByThread['t2']?.followupsPending).toBe(2);
+    expect(store.getState().chatRuntime.queueStatusByThread['t1']?.steers).toBe(1);
+    expect(store.getState().chatRuntime.queueStatusByThread['t2']?.followups).toBe(2);
   });
 });

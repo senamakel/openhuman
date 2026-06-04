@@ -4805,7 +4805,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'Добавить как дополнительный контекст',
   'runQueue.status': '{total} в очереди',
   'runQueue.cleared': 'Очередь очищена',
-
 };
 
 export default messages;

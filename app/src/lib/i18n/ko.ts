@@ -4712,7 +4712,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': '추가 컨텍스트로 추가',
   'runQueue.status': '{total}개 대기 중',
   'runQueue.cleared': '대기열이 비워졌습니다',
-
 };
 
 export default messages;

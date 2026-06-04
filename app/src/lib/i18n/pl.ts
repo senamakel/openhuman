@@ -4840,7 +4840,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'Dodaj jako dodatkowy kontekst',
   'runQueue.status': '{total} w kolejce',
   'runQueue.cleared': 'Kolejka wyczyszczona',
-
 };
 
 export default messages;

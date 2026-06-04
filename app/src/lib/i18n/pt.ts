@@ -4845,7 +4845,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'Adicionar como contexto extra',
   'runQueue.status': '{total} na fila',
   'runQueue.cleared': 'Fila limpa',
-
 };
 
 export default messages;

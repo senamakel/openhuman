@@ -4874,7 +4874,6 @@ const messages: TranslationMap = {
   'runQueue.collectHint': 'Ajouter comme contexte supplémentaire',
   'runQueue.status': '{total} en attente',
   'runQueue.cleared': "File d'attente vidée",
-
 };
 
 export default messages;

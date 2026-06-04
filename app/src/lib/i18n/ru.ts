@@ -4623,6 +4623,9 @@ const messages: TranslationMap = {
   'modelCouncil.settingsTitle': 'Настройки совета',
   'modelCouncil.settingsSummary': '{count} присяжных · судья: {judge}',
   'modelCouncil.juryCountLabel': 'Число присяжных',
+  'modelCouncil.debateRoundsLabel': 'Debate turns',
+  'modelCouncil.debateRoundsHelp':
+    'Each juror keeps debating across turns before the judge writes the final synthesis.',
   'modelCouncil.judgeAgentLabel': 'Агент-судья',
   'modelCouncil.defaultJudge': 'Судья по умолчанию',
   'modelCouncil.savedProfile': 'Сохраненный профиль',
@@ -4659,6 +4662,12 @@ const messages: TranslationMap = {
   'modelCouncil.deliberationHeading': 'Council deliberation',
   'modelCouncil.deliberationHelp':
     'Mascots show each agent thinking while the shared reasoning file is in play.',
+  'modelCouncil.debateRoundInstruction':
+    'Respond to the other jurors so far. Preserve disagreements, revise your view when warranted, and keep your current conclusion explicit.',
+  'modelCouncil.debateFinalInstruction':
+    'This is your final juror turn. Converge where the evidence supports it, call out remaining disagreement, and hand the judge a clear conclusion.',
+  'modelCouncil.roundLabel': 'Round {round}',
+  'modelCouncil.currentRoundThinking': 'Continuing the next turn…',
   'modelCouncil.thinkingBadge': 'Thinking',
   'modelCouncil.thinkingWithBrief': 'Working from this perspective: {brief}',
   'modelCouncil.thought.evidence':
@@ -4673,12 +4682,21 @@ const messages: TranslationMap = {
   'modelCouncil.judgeWaitingBadge': 'Judge',
   'modelCouncil.judgeWaitingThought':
     'Waiting for juror answers, then reading the shared reasoning file to synthesize.',
+  'modelCouncil.judgeSynthesizingBadge': 'Synthesizing',
+  'modelCouncil.judgeSynthesizingThought':
+    'Reading the live juror thoughts and writing the final council synthesis.',
   'modelCouncil.errorPrefix': 'Council failed:',
   'modelCouncil.resultsHeading': 'Council results',
   'modelCouncil.memberAnswered': 'Answered',
   'modelCouncil.memberFailed': 'Failed',
   'modelCouncil.synthesisHeading': 'Synthesis',
   'modelCouncil.synthesisBy': 'by {model}',
+  'modelCouncil.usageHeading': 'Debate usage',
+  'modelCouncil.usageEstimated':
+    'Estimated from debate prompts and responses until provider usage is attached to council RPC.',
+  'modelCouncil.usageInputTokens': 'Input',
+  'modelCouncil.usageOutputTokens': 'Output',
+  'modelCouncil.usageTotalTokens': 'Total',
   'graphCohesion.brokerBadge': 'брокер',
   'graphCohesion.brokerTitle':
     'Структурная дыра: соседи этой сущности не связаны друг с другом — она единственная связь между ними.',

@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ModelCouncilResult } from '../../services/api/modelCouncilApi';
+import type { CouncilMemberResult, ModelCouncilResult } from '../../services/api/modelCouncilApi';
 import ModelCouncilTab from './ModelCouncilTab';
 
-const mockRunCouncil = vi.fn();
+const mockAnswerMember = vi.fn();
+const mockSynthesizeCouncil = vi.fn();
 const mockDispatch = vi.fn();
 
 const mockState = {
@@ -34,7 +35,10 @@ const mockState = {
 };
 
 vi.mock('../../services/api/modelCouncilApi', () => ({
-  modelCouncilApi: { runCouncil: (...args: unknown[]) => mockRunCouncil(...args) },
+  modelCouncilApi: {
+    answerMember: (...args: unknown[]) => mockAnswerMember(...args),
+    synthesizeCouncil: (...args: unknown[]) => mockSynthesizeCouncil(...args),
+  },
 }));
 
 vi.mock('../../store/hooks', () => ({
@@ -58,15 +62,30 @@ const RESULT: ModelCouncilResult = {
   synthesis: 'Both that answered agree: Paris. One seat failed.',
 };
 
+const DEFAULT_MEMBERS: CouncilMemberResult[] = [
+  { model: 'default', response: 'Paris is the capital.', error: null },
+  { model: 'default', response: 'France uses Paris as its capital.', error: null },
+  { model: 'default', response: 'The answer is Paris.', error: null },
+];
+
 const fillQuestion = () => {
   fireEvent.change(screen.getByLabelText('Question'), {
     target: { value: 'What is the capital of France?' },
   });
 };
 
+const mockProgressiveSuccess = (members: CouncilMemberResult[] = DEFAULT_MEMBERS) => {
+  mockAnswerMember.mockImplementation(async ({ model }: { model: string }) => {
+    const index = mockAnswerMember.mock.calls.length - 1;
+    return members[index] ?? { model, response: `answer ${index + 1}`, error: null };
+  });
+  mockSynthesizeCouncil.mockResolvedValue(RESULT);
+};
+
 describe('ModelCouncilTab', () => {
   beforeEach(() => {
-    mockRunCouncil.mockReset();
+    mockAnswerMember.mockReset();
+    mockSynthesizeCouncil.mockReset();
     mockDispatch.mockReset();
   });
 
@@ -75,6 +94,7 @@ describe('ModelCouncilTab', () => {
 
     expect(screen.getByText('Model Council')).toBeInTheDocument();
     expect(screen.getByText('Council settings')).toBeInTheDocument();
+    expect(screen.getByLabelText('Debate turns')).toHaveValue('3');
     expect(screen.getByText('shared_reasoning.md')).toBeInTheDocument();
     expect(screen.getByLabelText('Shared reasoning file')).toHaveValue(
       [
@@ -110,10 +130,34 @@ describe('ModelCouncilTab', () => {
   });
 
   it('shows mascot deliberation and agent thoughts while the council is running', async () => {
-    let resolveRun: (value: ModelCouncilResult) => void = () => {};
-    mockRunCouncil.mockReturnValueOnce(
+    let resolveFirst: (value: CouncilMemberResult) => void = () => {};
+    let resolveSecond: (value: CouncilMemberResult) => void = () => {};
+    let resolveThird: (value: CouncilMemberResult) => void = () => {};
+    let resolveSynthesis: (value: ModelCouncilResult) => void = () => {};
+    mockAnswerMember
+      .mockImplementation(async ({ model }: { model: string }) => ({
+        model,
+        response: `follow-up thought ${mockAnswerMember.mock.calls.length}`,
+        error: null,
+      }))
+      .mockReturnValueOnce(
+        new Promise<CouncilMemberResult>(resolve => {
+          resolveFirst = resolve;
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise<CouncilMemberResult>(resolve => {
+          resolveSecond = resolve;
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise<CouncilMemberResult>(resolve => {
+          resolveThird = resolve;
+        })
+      );
+    mockSynthesizeCouncil.mockReturnValueOnce(
       new Promise<ModelCouncilResult>(resolve => {
-        resolveRun = resolve;
+        resolveSynthesis = resolve;
       })
     );
     render(<ModelCouncilTab />);
@@ -133,7 +177,26 @@ describe('ModelCouncilTab', () => {
     expect(screen.getAllByTestId('rive-mascot')[0]).toHaveAttribute('data-face', 'thinking');
 
     await act(async () => {
-      resolveRun(RESULT);
+      resolveFirst({ model: 'default', response: 'First juror live thought: Paris.', error: null });
+    });
+
+    expect(screen.getByText('First juror live thought: Paris.')).toBeInTheDocument();
+    expect(screen.getByText('Round 1')).toBeInTheDocument();
+    expect(screen.getAllByText('Thinking')).toHaveLength(2);
+    expect(screen.getByText('Answered')).toBeInTheDocument();
+    expect(screen.getByText('Judge')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveSecond({ model: 'default', response: 'Second juror agrees.', error: null });
+      resolveThird({ model: 'default', response: 'Third juror agrees.', error: null });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Synthesizing')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      resolveSynthesis(RESULT);
     });
 
     await waitFor(() => {
@@ -141,8 +204,79 @@ describe('ModelCouncilTab', () => {
     });
   });
 
+  it('streams failed juror status without blocking other juror thoughts', async () => {
+    let resolveFirst: (value: CouncilMemberResult) => void = () => {};
+    let resolveSecond: (value: CouncilMemberResult) => void = () => {};
+    let resolveThird: (value: CouncilMemberResult) => void = () => {};
+    mockAnswerMember
+      .mockImplementation(async ({ model }: { model: string }) => ({
+        model,
+        response: `follow-up answer ${mockAnswerMember.mock.calls.length}`,
+        error: null,
+      }))
+      .mockReturnValueOnce(
+        new Promise<CouncilMemberResult>(resolve => {
+          resolveFirst = resolve;
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise<CouncilMemberResult>(resolve => {
+          resolveSecond = resolve;
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise<CouncilMemberResult>(resolve => {
+          resolveThird = resolve;
+        })
+      );
+    mockSynthesizeCouncil.mockResolvedValueOnce(RESULT);
+    render(<ModelCouncilTab />);
+    fillQuestion();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
+    });
+
+    await act(async () => {
+      resolveFirst({ model: 'default', response: null, error: 'rate limited' });
+    });
+
+    expect(screen.getByText('rate limited')).toBeInTheDocument();
+    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(screen.getAllByText('Thinking')).toHaveLength(2);
+
+    await act(async () => {
+      resolveSecond({ model: 'default', response: 'Second juror answer.', error: null });
+      resolveThird({ model: 'default', response: 'Third juror answer.', error: null });
+    });
+
+    await waitFor(() => {
+      expect(mockSynthesizeCouncil).toHaveBeenCalledWith({
+        question: expect.any(String),
+        members: [
+          {
+            model: 'default',
+            response: expect.stringContaining('[failed: rate limited]'),
+            error: null,
+          },
+          {
+            model: 'default',
+            response: expect.stringContaining('Second juror answer.'),
+            error: null,
+          },
+          {
+            model: 'default',
+            response: expect.stringContaining('Third juror answer.'),
+            error: null,
+          },
+        ],
+        chair_model: 'default',
+      });
+    });
+  });
+
   it('lets a council seat use a saved profile and submits that profile model', async () => {
-    mockRunCouncil.mockResolvedValueOnce(RESULT);
+    mockProgressiveSuccess();
     render(<ModelCouncilTab />);
 
     const firstSeat = screen.getByLabelText('Juror 1 name').closest('article');
@@ -155,17 +289,30 @@ describe('ModelCouncilTab', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
     });
 
-    expect(mockRunCouncil).toHaveBeenCalledWith({
+    expect(mockAnswerMember.mock.calls.map(call => call[0].model)).toEqual([
+      'critic-model',
+      'default',
+      'default',
+      'critic-model',
+      'default',
+      'default',
+      'critic-model',
+      'default',
+      'default',
+    ]);
+    expect(mockSynthesizeCouncil).toHaveBeenCalledWith({
       question: expect.stringContaining('shared_reasoning.md'),
-      member_models: ['critic-model', 'default', 'default'],
+      members: expect.any(Array),
       chair_model: 'default',
     });
-    expect(mockRunCouncil.mock.calls[0][0].question).toContain('User question:');
-    expect(mockRunCouncil.mock.calls[0][0].question).toContain('What is the capital of France?');
+    expect(mockAnswerMember.mock.calls[0][0].question).toContain('User question:');
+    expect(mockAnswerMember.mock.calls[0][0].question).toContain('What is the capital of France?');
+    expect(mockAnswerMember.mock.calls[0][0].question).toContain('Debate round 1 of 3.');
+    expect(mockAnswerMember.mock.calls[8][0].question).toContain('Debate round 3 of 3.');
   });
 
   it('lets the judge agent use a saved profile unless a model override is typed', async () => {
-    mockRunCouncil.mockResolvedValueOnce(RESULT);
+    mockProgressiveSuccess();
     render(<ModelCouncilTab />);
 
     fireEvent.change(screen.getByLabelText('Judge agent'), { target: { value: 'profile' } });
@@ -176,15 +323,26 @@ describe('ModelCouncilTab', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
     });
 
-    expect(mockRunCouncil).toHaveBeenCalledWith({
+    expect(mockAnswerMember.mock.calls.map(call => call[0].model)).toEqual([
+      'default',
+      'default',
+      'default',
+      'default',
+      'default',
+      'default',
+      'default',
+      'default',
+      'default',
+    ]);
+    expect(mockSynthesizeCouncil).toHaveBeenCalledWith({
       question: expect.any(String),
-      member_models: ['default', 'default', 'default'],
+      members: expect.any(Array),
       chair_model: 'critic-model',
     });
   });
 
   it('renders member answers side-by-side + the synthesis', async () => {
-    mockRunCouncil.mockResolvedValueOnce(RESULT);
+    mockProgressiveSuccess(RESULT.members);
     render(<ModelCouncilTab />);
     fillQuestion();
 
@@ -203,10 +361,13 @@ describe('ModelCouncilTab', () => {
       screen.getByText('Both that answered agree: Paris. One seat failed.')
     ).toBeInTheDocument();
     expect(screen.getByText('by claude-opus-4-8')).toBeInTheDocument();
+    expect(screen.getByText('Debate usage')).toBeInTheDocument();
+    expect(screen.getByText('Total')).toBeInTheDocument();
   });
 
   it('surfaces an error alert when the council run fails', async () => {
-    mockRunCouncil.mockRejectedValueOnce(new Error('all member models failed to respond'));
+    mockAnswerMember.mockResolvedValue({ model: 'default', response: null, error: 'downstream' });
+    mockSynthesizeCouncil.mockRejectedValueOnce(new Error('all member models failed to respond'));
     render(<ModelCouncilTab />);
     fillQuestion();
 

@@ -15,7 +15,11 @@ import {
   RiveMascot,
 } from '../../features/human/Mascot';
 import { useT } from '../../lib/i18n/I18nContext';
-import { modelCouncilApi, type ModelCouncilResult } from '../../services/api/modelCouncilApi';
+import {
+  type CouncilMemberResult,
+  modelCouncilApi,
+  type ModelCouncilResult,
+} from '../../services/api/modelCouncilApi';
 import {
   type AgentProfilesStatus,
   loadAgentProfiles,
@@ -27,6 +31,9 @@ import type { AgentProfile } from '../../types/agentProfile';
 /** Matches the server-side MAX_COUNCIL_MEMBERS cap. */
 const MAX_MEMBERS = 5;
 const MIN_MEMBERS = 1;
+const MAX_DEBATE_ROUNDS = 4;
+const MIN_DEBATE_ROUNDS = 2;
+const ESTIMATED_USD_PER_1K_TOKENS = 0.003;
 
 type SeatMode = 'default' | 'profile' | 'custom';
 
@@ -43,6 +50,25 @@ interface ResolvedSeat {
   label: string;
   model: string;
   brief: string;
+}
+
+interface LiveMemberThought {
+  status: 'pending' | 'answered' | 'failed';
+  member: CouncilMemberResult | null;
+  turns: CouncilDebateTurn[];
+}
+
+interface CouncilDebateTurn {
+  round: number;
+  response: string | null;
+  error: string | null;
+}
+
+interface DebateUsageEstimate {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
 }
 
 const DEFAULT_MODEL = 'default';
@@ -170,6 +196,91 @@ function buildCouncilQuestion(
   ].join('\n');
 }
 
+function buildDebateTurnQuestion(
+  baseQuestion: string,
+  seat: ResolvedSeat,
+  round: number,
+  totalRounds: number,
+  transcript: CouncilDebateTurn[][],
+  t: (key: string) => string
+): string {
+  const previousTurns = transcript
+    .map((turns, seatIndex) => {
+      if (turns.length === 0) return '';
+      const body = turns
+        .map(turn => {
+          const text = turn.response || `[${turn.error || 'no response'}]`;
+          return `Round ${turn.round}: ${text}`;
+        })
+        .join('\n');
+      return `Juror ${seatIndex + 1} previous turns:\n${body}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  const phase =
+    round === totalRounds
+      ? t('modelCouncil.debateFinalInstruction')
+      : t('modelCouncil.debateRoundInstruction');
+
+  return [
+    baseQuestion,
+    '',
+    `Debate round ${round} of ${totalRounds}.`,
+    `You are ${seat.label}. Perspective: ${seat.brief || 'independent council juror'}.`,
+    phase,
+    previousTurns ? ['', 'Debate so far:', previousTurns].join('\n') : '',
+    '',
+    'Write this turn as a concise council thought plus your current conclusion.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function estimateTokens(text: string): number {
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+function formatTokenCount(value: number): string {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatEstimatedCost(value: number): string {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  }).format(value);
+}
+
+function buildMemberSynthesisInput(
+  seat: ResolvedSeat,
+  model: string,
+  turns: CouncilDebateTurn[]
+): CouncilMemberResult {
+  const answeredTurns = turns.filter(turn => turn.response);
+  if (answeredTurns.length === 0) {
+    return {
+      model,
+      response: null,
+      error: turns.find(turn => turn.error)?.error || 'no debate turns completed',
+    };
+  }
+
+  return {
+    model,
+    response: [
+      `${seat.label} debate record:`,
+      ...turns.map(turn => {
+        const text = turn.response || `[failed: ${turn.error || 'unknown'}]`;
+        return `Round ${turn.round}: ${text}`;
+      }),
+    ].join('\n\n'),
+    error: null,
+  };
+}
+
 const ModelCouncilTab = () => {
   const { t } = useT();
   const dispatch = useAppDispatch();
@@ -187,12 +298,16 @@ const ModelCouncilTab = () => {
     ].join('\n')
   );
   const [juryCount, setJuryCount] = useState(3);
+  const [debateRounds, setDebateRounds] = useState(3);
   const [seats, setSeats] = useState<CouncilSeat[]>(DEFAULT_SEATS);
   const [judgeMode, setJudgeMode] = useState<SeatMode>('default');
   const [judgeProfileId, setJudgeProfileId] = useState('');
   const [judgeName, setJudgeName] = useState('Chief Judge');
   const [judgeModel, setJudgeModel] = useState(DEFAULT_JUDGE_MODEL);
   const [running, setRunning] = useState(false);
+  const [liveMembers, setLiveMembers] = useState<LiveMemberThought[]>([]);
+  const [judgeSynthesizing, setJudgeSynthesizing] = useState(false);
+  const [usageEstimate, setUsageEstimate] = useState<DebateUsageEstimate | null>(null);
   const [result, setResult] = useState<ModelCouncilResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -270,21 +385,117 @@ const ModelCouncilTab = () => {
       return;
     }
     setRunning(true);
+    setJudgeSynthesizing(false);
+    setLiveMembers(memberModels.map(() => ({ status: 'pending', member: null, turns: [] })));
+    setUsageEstimate(null);
     setError(null);
     setResult(null);
     try {
-      const res = await modelCouncilApi.runCouncil({
-        question: buildCouncilQuestion(question, sharedReasoning, resolvedSeats, resolvedJudgeName),
-        member_models: memberModels,
+      const councilQuestion = buildCouncilQuestion(
+        question,
+        sharedReasoning,
+        resolvedSeats,
+        resolvedJudgeName
+      );
+      const transcript: CouncilDebateTurn[][] = memberModels.map(() => []);
+      let estimatedInputTokens = 0;
+      let estimatedOutputTokens = 0;
+
+      for (let round = 1; round <= debateRounds; round += 1) {
+        setLiveMembers(prev => prev.map(entry => ({ ...entry, status: 'pending' })));
+
+        const roundResults = await Promise.all(
+          memberModels.map(async (model, index) => {
+            const turnQuestion = buildDebateTurnQuestion(
+              councilQuestion,
+              resolvedSeats[index],
+              round,
+              debateRounds,
+              transcript,
+              t
+            );
+            estimatedInputTokens += estimateTokens(turnQuestion);
+            try {
+              const member = await modelCouncilApi.answerMember({ question: turnQuestion, model });
+              const turn: CouncilDebateTurn = {
+                round,
+                response: member.response,
+                error: member.error,
+              };
+              estimatedOutputTokens += estimateTokens(member.response || member.error || '');
+              setLiveMembers(prev =>
+                prev.map((entry, entryIndex) =>
+                  entryIndex === index
+                    ? {
+                        status: member.error ? 'failed' : 'answered',
+                        member,
+                        turns: [...entry.turns, turn],
+                      }
+                    : entry
+                )
+              );
+              return { index, turn };
+            } catch (memberError) {
+              const errorText =
+                memberError instanceof Error ? memberError.message : String(memberError);
+              const failedMember: CouncilMemberResult = { model, response: null, error: errorText };
+              const turn: CouncilDebateTurn = { round, response: null, error: errorText };
+              estimatedOutputTokens += estimateTokens(errorText);
+              setLiveMembers(prev =>
+                prev.map((entry, entryIndex) =>
+                  entryIndex === index
+                    ? { status: 'failed', member: failedMember, turns: [...entry.turns, turn] }
+                    : entry
+                )
+              );
+              return { index, turn };
+            }
+          })
+        );
+
+        for (const { index, turn } of roundResults) {
+          transcript[index].push(turn);
+        }
+      }
+
+      const memberResults = memberModels.map((model, index) =>
+        buildMemberSynthesisInput(resolvedSeats[index], model, transcript[index])
+      );
+      const synthesisInputTokens = estimateTokens(
+        `${councilQuestion}\n${JSON.stringify(memberResults)}`
+      );
+      estimatedInputTokens += synthesisInputTokens;
+      setJudgeSynthesizing(true);
+      const res = await modelCouncilApi.synthesizeCouncil({
+        question: councilQuestion,
+        members: memberResults,
         chair_model: chairModel,
+      });
+      estimatedOutputTokens += estimateTokens(res.synthesis);
+      const totalTokens = estimatedInputTokens + estimatedOutputTokens;
+      setUsageEstimate({
+        inputTokens: estimatedInputTokens,
+        outputTokens: estimatedOutputTokens,
+        totalTokens,
+        estimatedCostUsd: (totalTokens / 1000) * ESTIMATED_USD_PER_1K_TOKENS,
       });
       setResult(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
+      setJudgeSynthesizing(false);
       setRunning(false);
     }
-  }, [resolvedJudgeModel, resolvedJudgeName, resolvedSeats, question, running, sharedReasoning]);
+  }, [
+    debateRounds,
+    resolvedJudgeModel,
+    resolvedJudgeName,
+    resolvedSeats,
+    question,
+    running,
+    sharedReasoning,
+    t,
+  ]);
 
   return (
     <div className="space-y-5">
@@ -366,6 +577,51 @@ const ModelCouncilTab = () => {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <label
+                htmlFor="model-council-debate-rounds"
+                className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+                {t('modelCouncil.debateRoundsLabel')}
+              </label>
+              <output className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-700 dark:bg-neutral-800 dark:text-neutral-200">
+                {debateRounds}
+              </output>
+            </div>
+            <input
+              id="model-council-debate-rounds"
+              type="range"
+              min={MIN_DEBATE_ROUNDS}
+              max={MAX_DEBATE_ROUNDS}
+              value={debateRounds}
+              aria-label={t('modelCouncil.debateRoundsLabel')}
+              onChange={e => setDebateRounds(Number(e.target.value))}
+              className="w-full accent-primary-500"
+            />
+            <div className="grid grid-cols-3 gap-1">
+              {Array.from(
+                { length: MAX_DEBATE_ROUNDS - MIN_DEBATE_ROUNDS + 1 },
+                (_, index) => index + MIN_DEBATE_ROUNDS
+              ).map(rounds => (
+                <button
+                  key={rounds}
+                  type="button"
+                  onClick={() => setDebateRounds(rounds)}
+                  aria-pressed={debateRounds === rounds}
+                  className={`rounded-md border px-2 py-1 text-xs font-medium ${
+                    debateRounds === rounds
+                      ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-200'
+                      : 'border-stone-200 text-stone-500 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800'
+                  }`}>
+                  {rounds}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] leading-4 text-stone-500 dark:text-neutral-400">
+              {t('modelCouncil.debateRoundsHelp')}
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -615,15 +871,36 @@ const ModelCouncilTab = () => {
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {resolvedSeats.map((seat, index) => {
               const colors = mascotColors(index);
+              const liveMember = liveMembers[index];
+              const answered = liveMember?.status === 'answered';
+              const failed = liveMember?.status === 'failed';
+              const turns = liveMember?.turns ?? [];
+              const hasTurns = turns.length > 0;
+              const waitingText = deliberationThought(seat, index, t);
               return (
                 <div
                   key={`${seat.label}-${index}`}
-                  className="rounded-lg border border-white/80 bg-white/90 p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-950/80">
+                  className={`rounded-lg border bg-white/90 p-3 shadow-sm dark:bg-neutral-950/80 ${
+                    failed
+                      ? 'border-coral-200 dark:border-coral-500/30'
+                      : answered
+                        ? 'border-sage-200 dark:border-sage-500/30'
+                        : 'border-white/80 dark:border-neutral-800'
+                  }`}>
                   <div className="flex items-start gap-3">
-                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-stone-100 dark:bg-neutral-800">
+                    <div
+                      className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-stone-100 dark:bg-neutral-800 ${
+                        liveMember?.status === 'pending' || !liveMember ? 'animate-pulse' : ''
+                      }`}>
                       <RiveMascot
                         size="100%"
-                        face={ACTIVE_SEAT_FACES[index % ACTIVE_SEAT_FACES.length]}
+                        face={
+                          failed
+                            ? 'curious'
+                            : answered
+                              ? 'proud'
+                              : ACTIVE_SEAT_FACES[index % ACTIVE_SEAT_FACES.length]
+                        }
                         primaryColor={colors.primaryColor}
                         secondaryColor={colors.secondaryColor}
                       />
@@ -633,13 +910,58 @@ const ModelCouncilTab = () => {
                         <p className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-50">
                           {seat.label}
                         </p>
-                        <span className="shrink-0 rounded bg-primary-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-primary-700 dark:bg-primary-500/20 dark:text-primary-200">
-                          {t('modelCouncil.thinkingBadge')}
+                        <span
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${
+                            failed
+                              ? 'bg-coral-100 text-coral-700 dark:bg-coral-500/20 dark:text-coral-300'
+                              : answered
+                                ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/20 dark:text-sage-300'
+                                : 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-200'
+                          }`}>
+                          {failed
+                            ? t('modelCouncil.memberFailed')
+                            : answered
+                              ? t('modelCouncil.memberAnswered')
+                              : t('modelCouncil.thinkingBadge')}
                         </span>
                       </div>
-                      <p className="mt-1 line-clamp-3 text-xs text-stone-600 dark:text-neutral-300">
-                        {deliberationThought(seat, index, t)}
-                      </p>
+                      <div className="mt-2 max-h-52 space-y-1.5 overflow-y-auto pr-1">
+                        {hasTurns ? (
+                          turns.map(turn => (
+                            <div
+                              key={`${seat.label}-${index}-${turn.round}`}
+                              className={`rounded-md border px-2 py-1.5 ${
+                                turn.error
+                                  ? 'border-coral-100 bg-coral-50/70 dark:border-coral-500/20 dark:bg-coral-500/10'
+                                  : 'border-stone-200 bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900'
+                              }`}>
+                              <p className="text-[10px] font-semibold uppercase text-stone-500 dark:text-neutral-400">
+                                {t('modelCouncil.roundLabel').replace(
+                                  '{round}',
+                                  String(turn.round)
+                                )}
+                              </p>
+                              <p
+                                className={`mt-0.5 line-clamp-4 whitespace-pre-wrap text-xs ${
+                                  turn.error
+                                    ? 'text-coral-600 dark:text-coral-300'
+                                    : 'text-stone-600 dark:text-neutral-300'
+                                }`}>
+                                {turn.response || turn.error}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="line-clamp-5 whitespace-pre-wrap text-xs text-stone-600 dark:text-neutral-300">
+                            {waitingText}
+                          </p>
+                        )}
+                        {liveMember?.status === 'pending' && hasTurns && (
+                          <p className="text-[11px] text-primary-700 dark:text-primary-200">
+                            {t('modelCouncil.currentRoundThinking')}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -657,11 +979,15 @@ const ModelCouncilTab = () => {
                       {resolvedJudgeName}
                     </p>
                     <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
-                      {t('modelCouncil.judgeWaitingBadge')}
+                      {judgeSynthesizing
+                        ? t('modelCouncil.judgeSynthesizingBadge')
+                        : t('modelCouncil.judgeWaitingBadge')}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-stone-600 dark:text-neutral-300">
-                    {t('modelCouncil.judgeWaitingThought')}
+                    {judgeSynthesizing
+                      ? t('modelCouncil.judgeSynthesizingThought')
+                      : t('modelCouncil.judgeWaitingThought')}
                   </p>
                 </div>
               </div>
@@ -746,6 +1072,50 @@ const ModelCouncilTab = () => {
               {result.synthesis}
             </p>
           </div>
+
+          {usageEstimate && (
+            <div className="rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-semibold text-stone-800 dark:text-neutral-100">
+                    {t('modelCouncil.usageHeading')}
+                  </h4>
+                  <p className="text-[11px] text-stone-500 dark:text-neutral-400">
+                    {t('modelCouncil.usageEstimated')}
+                  </p>
+                </div>
+                <span className="rounded-md bg-stone-100 px-2 py-1 font-mono text-xs font-semibold text-stone-700 dark:bg-neutral-800 dark:text-neutral-200">
+                  {formatEstimatedCost(usageEstimate.estimatedCostUsd)}
+                </span>
+              </div>
+              <dl className="mt-3 grid gap-2 sm:grid-cols-3">
+                <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                  <dt className="text-[10px] uppercase text-stone-500 dark:text-neutral-400">
+                    {t('modelCouncil.usageInputTokens')}
+                  </dt>
+                  <dd className="font-mono text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                    {formatTokenCount(usageEstimate.inputTokens)}
+                  </dd>
+                </div>
+                <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                  <dt className="text-[10px] uppercase text-stone-500 dark:text-neutral-400">
+                    {t('modelCouncil.usageOutputTokens')}
+                  </dt>
+                  <dd className="font-mono text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                    {formatTokenCount(usageEstimate.outputTokens)}
+                  </dd>
+                </div>
+                <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                  <dt className="text-[10px] uppercase text-stone-500 dark:text-neutral-400">
+                    {t('modelCouncil.usageTotalTokens')}
+                  </dt>
+                  <dd className="font-mono text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                    {formatTokenCount(usageEstimate.totalTokens)}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          )}
         </section>
       )}
     </div>

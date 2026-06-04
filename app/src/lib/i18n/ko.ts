@@ -4535,6 +4535,9 @@ const messages: TranslationMap = {
   'modelCouncil.settingsTitle': '위원회 설정',
   'modelCouncil.settingsSummary': '배심원 {count}명 · 판사: {judge}',
   'modelCouncil.juryCountLabel': '배심원 수',
+  'modelCouncil.debateRoundsLabel': 'Debate turns',
+  'modelCouncil.debateRoundsHelp':
+    'Each juror keeps debating across turns before the judge writes the final synthesis.',
   'modelCouncil.judgeAgentLabel': '판사 에이전트',
   'modelCouncil.defaultJudge': '기본 판사',
   'modelCouncil.savedProfile': '저장된 프로필',
@@ -4571,6 +4574,12 @@ const messages: TranslationMap = {
   'modelCouncil.deliberationHeading': 'Council deliberation',
   'modelCouncil.deliberationHelp':
     'Mascots show each agent thinking while the shared reasoning file is in play.',
+  'modelCouncil.debateRoundInstruction':
+    'Respond to the other jurors so far. Preserve disagreements, revise your view when warranted, and keep your current conclusion explicit.',
+  'modelCouncil.debateFinalInstruction':
+    'This is your final juror turn. Converge where the evidence supports it, call out remaining disagreement, and hand the judge a clear conclusion.',
+  'modelCouncil.roundLabel': 'Round {round}',
+  'modelCouncil.currentRoundThinking': 'Continuing the next turn…',
   'modelCouncil.thinkingBadge': 'Thinking',
   'modelCouncil.thinkingWithBrief': 'Working from this perspective: {brief}',
   'modelCouncil.thought.evidence':
@@ -4585,12 +4594,21 @@ const messages: TranslationMap = {
   'modelCouncil.judgeWaitingBadge': 'Judge',
   'modelCouncil.judgeWaitingThought':
     'Waiting for juror answers, then reading the shared reasoning file to synthesize.',
+  'modelCouncil.judgeSynthesizingBadge': 'Synthesizing',
+  'modelCouncil.judgeSynthesizingThought':
+    'Reading the live juror thoughts and writing the final council synthesis.',
   'modelCouncil.errorPrefix': 'Council failed:',
   'modelCouncil.resultsHeading': 'Council results',
   'modelCouncil.memberAnswered': 'Answered',
   'modelCouncil.memberFailed': 'Failed',
   'modelCouncil.synthesisHeading': 'Synthesis',
   'modelCouncil.synthesisBy': 'by {model}',
+  'modelCouncil.usageHeading': 'Debate usage',
+  'modelCouncil.usageEstimated':
+    'Estimated from debate prompts and responses until provider usage is attached to council RPC.',
+  'modelCouncil.usageInputTokens': 'Input',
+  'modelCouncil.usageOutputTokens': 'Output',
+  'modelCouncil.usageTotalTokens': 'Total',
   'graphCohesion.brokerBadge': '브로커',
   'graphCohesion.brokerTitle':
     '구조적 공백: 이 엔티티의 이웃들은 서로 연결되어 있지 않습니다 — 이들 사이의 유일한 연결고리입니다.',

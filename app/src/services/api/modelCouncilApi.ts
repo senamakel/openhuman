@@ -43,6 +43,19 @@ export interface RunCouncilParams {
   temperature?: number;
 }
 
+export interface RunCouncilMemberParams {
+  question: string;
+  model: string;
+  temperature?: number;
+}
+
+export interface SynthesizeCouncilParams {
+  question: string;
+  members: CouncilMemberResult[];
+  chair_model: string;
+  temperature?: number;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
@@ -71,6 +84,31 @@ export function unwrapCouncilEnvelope(payload: unknown): ModelCouncilResult {
 }
 
 export const modelCouncilApi = {
+  answerMember: async (params: RunCouncilMemberParams): Promise<CouncilMemberResult> => {
+    log('answer member question=%s model=%s', params.question.slice(0, 40), params.model);
+    const payload = await callCoreRpc<unknown>({
+      method: 'openhuman.model_council_answer_member',
+      params,
+      timeoutMs: 180_000,
+    });
+    return unwrapCouncilEnvelope(payload) as unknown as CouncilMemberResult;
+  },
+
+  synthesizeCouncil: async (params: SynthesizeCouncilParams): Promise<ModelCouncilResult> => {
+    log(
+      'synthesize question=%s members=%d chair=%s',
+      params.question.slice(0, 40),
+      params.members.length,
+      params.chair_model
+    );
+    const payload = await callCoreRpc<unknown>({
+      method: 'openhuman.model_council_synthesize',
+      params,
+      timeoutMs: 180_000,
+    });
+    return unwrapCouncilEnvelope(payload);
+  },
+
   runCouncil: async (params: RunCouncilParams): Promise<ModelCouncilResult> => {
     log(
       'run question=%s members=%o chair=%s',

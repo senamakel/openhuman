@@ -1851,6 +1851,124 @@ async fn json_rpc_model_council_runs_with_default_sentinel_and_repeated_jury_sea
 }
 
 #[tokio::test]
+async fn json_rpc_model_council_progressive_member_answers_then_synthesizes() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+    let user_scoped_dir = openhuman_home.join("users").join("e2e-user");
+    write_min_config(&user_scoped_dir, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+
+    let store = post_json_rpc(
+        &rpc_base,
+        18_050,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "e2e-test-jwt",
+            "user_id": "e2e-user"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&store, "store_session");
+
+    with_chat_completion_models(|models| models.clear());
+    with_chat_completion_requests(|requests| requests.clear());
+
+    let question =
+        "Council workspace: shared_reasoning.md\n\nUser question:\nStream juror thoughts";
+    let first = post_json_rpc(
+        &rpc_base,
+        18_051,
+        "openhuman.model_council_answer_member",
+        json!({
+            "question": question,
+            "model": "default",
+            "temperature": 0.2
+        }),
+    )
+    .await;
+    let first_outer = assert_no_jsonrpc_error(&first, "model_council_answer_member first");
+    let first_member = first_outer.get("result").unwrap_or(first_outer).clone();
+    assert_eq!(
+        first_member.get("model").and_then(Value::as_str),
+        Some("e2e-mock-model")
+    );
+    assert!(first_member
+        .get("response")
+        .and_then(Value::as_str)
+        .is_some_and(|response| response.contains("e2e mock")));
+
+    let second = post_json_rpc(
+        &rpc_base,
+        18_052,
+        "openhuman.model_council_answer_member",
+        json!({
+            "question": question,
+            "model": "critic-model"
+        }),
+    )
+    .await;
+    let second_outer = assert_no_jsonrpc_error(&second, "model_council_answer_member second");
+    let second_member = second_outer.get("result").unwrap_or(second_outer).clone();
+    assert_eq!(
+        second_member.get("model").and_then(Value::as_str),
+        Some("critic-model")
+    );
+
+    let synthesis = post_json_rpc(
+        &rpc_base,
+        18_053,
+        "openhuman.model_council_synthesize",
+        json!({
+            "question": question,
+            "members": [first_member, second_member],
+            "chair_model": "default"
+        }),
+    )
+    .await;
+    let outer = assert_no_jsonrpc_error(&synthesis, "model_council_synthesize");
+    let result = outer.get("result").unwrap_or(outer);
+    assert_eq!(
+        result.get("chair_model").and_then(Value::as_str),
+        Some("e2e-mock-model")
+    );
+    assert_eq!(
+        result
+            .get("members")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2)
+    );
+    assert!(result
+        .get("synthesis")
+        .and_then(Value::as_str)
+        .is_some_and(|text| text.contains("e2e mock")));
+
+    let captured_models = with_chat_completion_models(|models| models.clone());
+    assert_eq!(
+        captured_models,
+        vec!["e2e-mock-model", "critic-model", "e2e-mock-model"],
+        "two progressive member calls plus one default chair call should be made"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_model_council_reports_total_member_failure_before_synthesis() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");

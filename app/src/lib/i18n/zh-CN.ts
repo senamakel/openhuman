@@ -4355,6 +4355,9 @@ const messages: TranslationMap = {
   'modelCouncil.settingsTitle': '委员会设置',
   'modelCouncil.settingsSummary': '{count} 名陪审员 · 法官：{judge}',
   'modelCouncil.juryCountLabel': '陪审员数量',
+  'modelCouncil.debateRoundsLabel': 'Debate turns',
+  'modelCouncil.debateRoundsHelp':
+    'Each juror keeps debating across turns before the judge writes the final synthesis.',
   'modelCouncil.judgeAgentLabel': '法官代理',
   'modelCouncil.defaultJudge': '默认法官',
   'modelCouncil.savedProfile': '已保存配置',
@@ -4390,6 +4393,12 @@ const messages: TranslationMap = {
   'modelCouncil.deliberationHeading': 'Council deliberation',
   'modelCouncil.deliberationHelp':
     'Mascots show each agent thinking while the shared reasoning file is in play.',
+  'modelCouncil.debateRoundInstruction':
+    'Respond to the other jurors so far. Preserve disagreements, revise your view when warranted, and keep your current conclusion explicit.',
+  'modelCouncil.debateFinalInstruction':
+    'This is your final juror turn. Converge where the evidence supports it, call out remaining disagreement, and hand the judge a clear conclusion.',
+  'modelCouncil.roundLabel': 'Round {round}',
+  'modelCouncil.currentRoundThinking': 'Continuing the next turn…',
   'modelCouncil.thinkingBadge': 'Thinking',
   'modelCouncil.thinkingWithBrief': 'Working from this perspective: {brief}',
   'modelCouncil.thought.evidence':
@@ -4404,12 +4413,21 @@ const messages: TranslationMap = {
   'modelCouncil.judgeWaitingBadge': 'Judge',
   'modelCouncil.judgeWaitingThought':
     'Waiting for juror answers, then reading the shared reasoning file to synthesize.',
+  'modelCouncil.judgeSynthesizingBadge': 'Synthesizing',
+  'modelCouncil.judgeSynthesizingThought':
+    'Reading the live juror thoughts and writing the final council synthesis.',
   'modelCouncil.errorPrefix': 'Council failed:',
   'modelCouncil.resultsHeading': 'Council results',
   'modelCouncil.memberAnswered': 'Answered',
   'modelCouncil.memberFailed': 'Failed',
   'modelCouncil.synthesisHeading': 'Synthesis',
   'modelCouncil.synthesisBy': 'by {model}',
+  'modelCouncil.usageHeading': 'Debate usage',
+  'modelCouncil.usageEstimated':
+    'Estimated from debate prompts and responses until provider usage is attached to council RPC.',
+  'modelCouncil.usageInputTokens': 'Input',
+  'modelCouncil.usageOutputTokens': 'Output',
+  'modelCouncil.usageTotalTokens': 'Total',
   'graphCohesion.brokerBadge': '经纪者',
   'graphCohesion.brokerTitle': '结构洞:该实体的邻居彼此之间没有连接——它是它们之间唯一的链接。',
   'graphCohesion.colCohesion': '凝聚度',

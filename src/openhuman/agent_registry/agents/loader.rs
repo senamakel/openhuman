@@ -94,6 +94,21 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::tools_agent::prompt::build,
     },
     BuiltinAgent {
+        id: "scheduler_agent",
+        toml: include_str!("scheduler_agent/agent.toml"),
+        prompt_fn: super::scheduler_agent::prompt::build,
+    },
+    BuiltinAgent {
+        id: "presentation_agent",
+        toml: include_str!("presentation_agent/agent.toml"),
+        prompt_fn: super::presentation_agent::prompt::build,
+    },
+    BuiltinAgent {
+        id: "desktop_control_agent",
+        toml: include_str!("desktop_control_agent/agent.toml"),
+        prompt_fn: super::desktop_control_agent::prompt::build,
+    },
+    BuiltinAgent {
         id: "tool_maker",
         toml: include_str!("tool_maker/agent.toml"),
         prompt_fn: super::tool_maker::prompt::build,
@@ -558,6 +573,41 @@ mod tests {
     fn tools_agent_is_registered() {
         let def = find("tools_agent");
         assert!(matches!(def.tools, ToolScope::Wildcard));
+    }
+
+    #[test]
+    fn specialist_agents_are_registered_with_narrow_tools() {
+        let scheduler = find("scheduler_agent");
+        match &scheduler.tools {
+            ToolScope::Named(names) => {
+                for required in ["current_time", "cron_add", "cron_list", "cron_remove"] {
+                    assert!(
+                        names.iter().any(|name| name == required),
+                        "scheduler_agent missing `{required}`"
+                    );
+                }
+            }
+            other => panic!("scheduler_agent must use Named tool scope, got {other:?}"),
+        }
+
+        let presentation = find("presentation_agent");
+        match &presentation.tools {
+            ToolScope::Named(names) => {
+                assert!(names.iter().any(|name| name == "generate_presentation"));
+                assert!(names.iter().any(|name| name == "memory_tree"));
+                assert!(names.iter().any(|name| name == "web_search_tool"));
+            }
+            other => panic!("presentation_agent must use Named tool scope, got {other:?}"),
+        }
+
+        let desktop = find("desktop_control_agent");
+        match &desktop.tools {
+            ToolScope::Named(names) => {
+                assert!(names.iter().any(|name| name == "launch_app"));
+                assert!(names.iter().any(|name| name == "ax_interact"));
+            }
+            other => panic!("desktop_control_agent must use Named tool scope, got {other:?}"),
+        }
     }
 
     #[test]

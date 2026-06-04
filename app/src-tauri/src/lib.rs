@@ -18,6 +18,7 @@ mod cef_profile;
 // logic is unit-tested on any host; the Win32 glue is windows-only.
 #[cfg(any(target_os = "windows", test))]
 mod cef_singleton_wait;
+mod claude_code;
 mod companion_commands;
 mod core_process;
 mod core_rpc;
@@ -3166,7 +3167,8 @@ pub fn run() {
             mcp_commands::mcp_resolve_binary_path,
             mcp_commands::mcp_open_client_config,
             loopback_oauth::start_loopback_oauth_listener,
-            loopback_oauth::stop_loopback_oauth_listener
+            loopback_oauth::stop_loopback_oauth_listener,
+            claude_code::claude_code_login_launch
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -67,13 +67,22 @@ pub fn register_approval_surface_subscriber() {
 static ARTIFACT_SURFACE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 
 /// Bridge artifact lifecycle events onto the web channel.
-/// `DomainEvent::ArtifactReady` / `ArtifactFailed` (published by
-/// `artifacts::store::{finalize,fail}_artifact` from #2778's producer
-/// surface) carry the thread_id + client_id when the producing turn
-/// ran under an `APPROVAL_CHAT_CONTEXT`. When present, fan out as an
-/// `artifact_ready` / `artifact_failed` socket event so the frontend
-/// `chatRuntimeSlice` can upsert the snapshot and the `ArtifactCard`
-/// can render in the message timeline. Sub-task #2779 of #1535.
+/// `DomainEvent::ArtifactPending` / `ArtifactReady` / `ArtifactFailed`
+/// (published by `artifacts::store::{create,finalize,fail}_artifact`)
+/// carry the thread_id + client_id when the producing turn ran under an
+/// `APPROVAL_CHAT_CONTEXT`. When present, fan out as an
+/// `artifact_pending` / `artifact_ready` / `artifact_failed` socket
+/// event so the frontend `chatRuntimeSlice` can upsert the snapshot and
+/// the `ArtifactCard` can render in the message timeline:
+///
+/// - `artifact_pending` → render an in-progress "Generating…" card the
+///   moment the producing tool dispatches (#3162).
+/// - `artifact_ready` → swap the same card to a download surface when
+///   the file lands (#2779).
+/// - `artifact_failed` → swap to a retry-hint card on producer error.
+///
+/// The card is keyed on `artifact_id`, so the Pending → Ready/Failed
+/// transition reuses the same surface instead of flickering a new one.
 /// Idempotent. No-op for non-chat events (thread/client id absent).
 pub fn register_artifact_surface_subscriber() {
     if ARTIFACT_SURFACE_HANDLE.get().is_some() {
@@ -83,7 +92,7 @@ pub fn register_artifact_surface_subscriber() {
         Some(handle) => {
             let _ = ARTIFACT_SURFACE_HANDLE.set(handle);
             log::info!(
-                "[web-channel] artifact-surface subscriber registered (domain=artifact) — will bridge ArtifactReady/Failed → artifact_ready/artifact_failed socket events"
+                "[web-channel] artifact-surface subscriber registered (domain=artifact) — will bridge ArtifactPending/Ready/Failed → artifact_pending/artifact_ready/artifact_failed socket events"
             );
         }
         None => {
@@ -171,6 +180,38 @@ impl EventHandler for ArtifactSurfaceSubscriber {
                         "title": title,
                         "workspace_dir": workspace_dir,
                         "error": error,
+                    })),
+                    ..Default::default()
+                });
+            }
+            DomainEvent::ArtifactPending {
+                artifact_id,
+                kind,
+                title,
+                workspace_dir,
+                path,
+                thread_id,
+                client_id,
+            } => {
+                let (Some(thread_id), Some(client_id)) = (thread_id, client_id) else {
+                    log::debug!(
+                        "[web-channel] artifact-surface skip ArtifactPending id={artifact_id}: no chat context"
+                    );
+                    return;
+                };
+                log::info!(
+                    "[web-channel] artifact-surface emitting artifact_pending id={artifact_id} kind={kind} thread_id={thread_id} client_id={client_id}"
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "artifact_pending".to_string(),
+                    client_id: client_id.clone(),
+                    thread_id: thread_id.clone(),
+                    args: Some(serde_json::json!({
+                        "artifact_id": artifact_id,
+                        "kind": kind,
+                        "title": title,
+                        "workspace_dir": workspace_dir,
+                        "path": path,
                     })),
                     ..Default::default()
                 });
@@ -312,7 +353,7 @@ fn pick_target_agent_id(_config: &Config, profile: &AgentProfile) -> String {
 struct InFlightEntry {
     request_id: String,
     handle: tokio::task::JoinHandle<()>,
-    run_queue: std::sync::Arc<crate::openhuman::agent::harness::run_queue::RunQueue>,
+    run_queue: Arc<crate::openhuman::agent::harness::run_queue::RunQueue>,
 }
 
 #[derive(Debug, Clone)]
@@ -441,7 +482,7 @@ pub async fn start_chat(
     temperature: Option<f64>,
     profile_id: Option<String>,
     locale: Option<String>,
-    queue_mode: Option<crate::openhuman::agent::harness::run_queue::QueueMode>,
+    queue_mode: Option<String>,
 ) -> Result<String, String> {
     let client_id = client_id.trim().to_string();
     let thread_id = thread_id.trim().to_string();
@@ -543,6 +584,66 @@ pub async fn start_chat(
     let effective_mode =
         queue_mode.unwrap_or(crate::openhuman::agent::harness::run_queue::QueueMode::Interrupt);
 
+    let parsed_mode = match queue_mode.as_deref() {
+        Some("steer") => crate::openhuman::agent::harness::run_queue::QueueMode::Steer,
+        Some("followup") => crate::openhuman::agent::harness::run_queue::QueueMode::Followup,
+        Some("collect") => crate::openhuman::agent::harness::run_queue::QueueMode::Collect,
+        _ => crate::openhuman::agent::harness::run_queue::QueueMode::Interrupt,
+    };
+
+    // Non-interrupt modes: push into the running turn's queue and return.
+    if !matches!(
+        parsed_mode,
+        crate::openhuman::agent::harness::run_queue::QueueMode::Interrupt
+    ) {
+        let in_flight = IN_FLIGHT.lock().await;
+        if let Some(existing) = in_flight.get(&map_key) {
+            let queued_msg = crate::openhuman::agent::harness::run_queue::QueuedMessage {
+                text: message.clone(),
+                mode: parsed_mode,
+                client_id: client_id.clone(),
+                thread_id: thread_id.clone(),
+                queued_at_ms: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64,
+                model_override: model_override.clone(),
+                temperature,
+                profile_id: profile_id.clone(),
+                locale: locale.clone(),
+            };
+            existing.run_queue.push(queued_msg).await;
+            let status = existing.run_queue.status().await;
+            log::info!(
+                "[web-channel] queued {} message thread_id={} request_id={} queue_depth={}",
+                parsed_mode,
+                thread_id,
+                request_id,
+                status.total
+            );
+            crate::core::event_bus::publish_global(DomainEvent::RunQueueMessageQueued {
+                thread_id: thread_id.clone(),
+                mode: parsed_mode.to_string(),
+                queue_depth: status.total,
+            });
+            return Ok(json!({
+                "queued": true,
+                "queue_mode": parsed_mode.to_string(),
+                "client_id": client_id,
+                "thread_id": thread_id,
+                "request_id": request_id,
+                "queue_depth": status.total,
+            })
+            .to_string());
+        }
+        // No in-flight turn — fall through to start a fresh turn.
+        log::info!(
+            "[web-channel] no in-flight turn for {} mode thread_id={} — starting fresh",
+            parsed_mode,
+            thread_id
+        );
+    }
+
     {
         use crate::openhuman::agent::harness::run_queue::{QueueEntry, QueueMode};
 
@@ -584,13 +685,15 @@ pub async fn start_chat(
         if let Some(existing) = in_flight.remove(&map_key) {
             let cancelled_id = existing.request_id.clone();
             existing.handle.abort();
-            crate::core::event_bus::publish_global(
-                crate::core::event_bus::DomainEvent::RunQueueInterrupted {
-                    thread_id: thread_id.clone(),
-                    cancelled_request_id: cancelled_id.clone(),
-                    new_request_id: request_id.clone(),
-                },
+            log::info!(
+                "[web-channel] interrupted in-flight turn thread_id={} cancelled_request_id={}",
+                thread_id,
+                existing.request_id
             );
+            crate::core::event_bus::publish_global(DomainEvent::RunQueueInterrupted {
+                thread_id: thread_id.clone(),
+                cancelled_request_id: existing.request_id.clone(),
+            });
             publish_web_channel_event(WebChannelEvent {
                 event: "chat_error".to_string(),
                 client_id: client_id.clone(),
@@ -623,6 +726,9 @@ pub async fn start_chat(
         }
     }
 
+    let turn_run_queue = crate::openhuman::agent::harness::run_queue::RunQueue::new();
+    let turn_run_queue_task = turn_run_queue.clone();
+
     let client_id_task = client_id.clone();
     let thread_id_task = thread_id.clone();
     let request_id_task = request_id.clone();
@@ -639,8 +745,18 @@ pub async fn start_chat(
             thread_id: thread_id_task.clone(),
             client_id: client_id_task.clone(),
         };
-        let result = crate::openhuman::approval::APPROVAL_CHAT_CONTEXT
-            .scope(
+        // Scope the matching `AgentTurnOrigin::WebChat` alongside the chat
+        // context so the approval gate's origin-aware decision tree sees a
+        // web-routable turn. Both task-locals must wrap the same future —
+        // tokio task-locals do not cross `tokio::spawn`, and `intercept`
+        // runs inline within this task.
+        let origin = crate::openhuman::agent::turn_origin::AgentTurnOrigin::WebChat {
+            thread_id: thread_id_task.clone(),
+            client_id: client_id_task.clone(),
+        };
+        let result = crate::openhuman::agent::turn_origin::with_origin(
+            origin,
+            crate::openhuman::approval::APPROVAL_CHAT_CONTEXT.scope(
                 approval_ctx,
                 run_chat_task(
                     &client_id_task,
@@ -651,9 +767,11 @@ pub async fn start_chat(
                     temperature,
                     profile_id,
                     locale,
+                    turn_run_queue_task,
                 ),
-            )
-            .await;
+            ),
+        )
+        .await;
 
         match result {
             Ok(chat_result) => {
@@ -758,11 +876,37 @@ pub async fn start_chat(
             }
         }
 
-        let mut in_flight = IN_FLIGHT.lock().await;
-        if let Some(current) = in_flight.get(&map_key_task) {
-            if current.request_id == request_id_task {
-                in_flight.remove(&map_key_task);
-            }
+        // Drain followup messages queued during this turn.
+        let followups = {
+            let mut in_flight = IN_FLIGHT.lock().await;
+            let followups = if let Some(current) = in_flight.get(&map_key_task) {
+                if current.request_id == request_id_task {
+                    let fups = current.run_queue.drain_followups().await;
+                    in_flight.remove(&map_key_task);
+                    fups
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+            followups
+        };
+        if !followups.is_empty() {
+            log::info!(
+                "[web-channel] dispatching {} followup(s) thread_id={}",
+                followups.len(),
+                thread_id_task
+            );
+            crate::core::event_bus::publish_global(
+                crate::core::event_bus::DomainEvent::RunQueueFollowupDispatched {
+                    thread_id: thread_id_task.clone(),
+                    followup_count: followups.len(),
+                },
+            );
+            // Dispatch each followup as a fresh turn on a new task to avoid
+            // Send issues with the nested async closure.
+            dispatch_followups(followups);
         }
     });
 
@@ -773,14 +917,37 @@ pub async fn start_chat(
             InFlightEntry {
                 request_id: request_id.clone(),
                 handle,
-                run_queue: std::sync::Arc::new(
-                    crate::openhuman::agent::harness::run_queue::RunQueue::new(),
-                ),
+                run_queue: turn_run_queue,
             },
         );
     }
 
     Ok(request_id)
+}
+
+fn dispatch_followups(followups: Vec<crate::openhuman::agent::harness::run_queue::QueuedMessage>) {
+    for fup in followups {
+        tokio::spawn(async move {
+            if let Err(err) = start_chat(
+                &fup.client_id,
+                &fup.thread_id,
+                &fup.text,
+                fup.model_override,
+                fup.temperature,
+                fup.profile_id,
+                fup.locale,
+                Some("followup".to_string()),
+            )
+            .await
+            {
+                log::warn!(
+                    "[web-channel] failed to dispatch followup thread_id={} err={}",
+                    fup.thread_id,
+                    err
+                );
+            }
+        });
+    }
 }
 
 /// Invalidate all cached agent sessions for the given thread ID.
@@ -884,6 +1051,7 @@ async fn run_chat_task(
     temperature: Option<f64>,
     profile_id: Option<String>,
     locale: Option<String>,
+    run_queue: Arc<crate::openhuman::agent::harness::run_queue::RunQueue>,
 ) -> Result<WebChatTaskResult, String> {
     #[cfg(any(test, debug_assertions))]
     {
@@ -1029,6 +1197,7 @@ async fn run_chat_task(
     // (instead of retroactively after the loop finishes).
     let (progress_tx, progress_rx) = tokio::sync::mpsc::channel(64);
     agent.set_on_progress(Some(progress_tx));
+    agent.set_run_queue(Some(run_queue));
     let turn_state_store = TurnStateStore::new(config.workspace_dir.clone());
     spawn_progress_bridge(
         progress_rx,
@@ -1845,22 +2014,14 @@ struct WebChatParams {
     /// default language (English) so existing integrations don't
     /// silently change behaviour.
     locale: Option<String>,
-    /// Queue behavior when a turn is already in flight for this thread:
-    /// `"interrupt"` (default), `"steer"`, `"followup"`, or `"collect"`.
+    /// Queue mode for concurrent messages: `interrupt` (default), `steer`,
+    /// `followup`, or `collect`.
     queue_mode: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct WebQueueStatusParams {
+struct WebQueueParams {
     thread_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct WebQueueClearParams {
-    thread_id: String,
-    /// Optional mode filter: `"steer"`, `"followup"`, `"collect"`, or
-    /// omitted to clear all modes.
-    mode: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1877,9 +2038,9 @@ pub async fn channel_web_chat(
     temperature: Option<f64>,
     profile_id: Option<String>,
     locale: Option<String>,
-    queue_mode: Option<crate::openhuman::agent::harness::run_queue::QueueMode>,
+    queue_mode: Option<String>,
 ) -> Result<RpcOutcome<Value>, String> {
-    let request_id = start_chat(
+    let result = start_chat(
         client_id,
         thread_id,
         message,
@@ -1891,12 +2052,18 @@ pub async fn channel_web_chat(
     )
     .await?;
 
+    // start_chat returns either a plain request_id string or a JSON string
+    // (for queued messages). Try to parse as JSON first.
+    if let Ok(parsed) = serde_json::from_str::<Value>(&result) {
+        return Ok(RpcOutcome::single_log(parsed, "web channel message queued"));
+    }
+
     Ok(RpcOutcome::single_log(
         json!({
             "accepted": true,
             "client_id": client_id.trim(),
             "thread_id": thread_id.trim(),
-            "request_id": request_id,
+            "request_id": result,
         }),
         "web channel request accepted",
     ))
@@ -1906,58 +2073,60 @@ pub async fn channel_web_queue_status(thread_id: &str) -> Result<RpcOutcome<Valu
     let map_key = key_for(thread_id);
     let in_flight = IN_FLIGHT.lock().await;
     if let Some(entry) = in_flight.get(&map_key) {
-        let counts = entry.run_queue.pending_counts().await;
+        let status = entry.run_queue.status().await;
         Ok(RpcOutcome::single_log(
             json!({
-                "has_inflight": true,
-                "steers_pending": counts.steers,
-                "followups_pending": counts.followups,
-                "collects_pending": counts.collects,
+                "thread_id": thread_id.trim(),
+                "active": true,
+                "request_id": entry.request_id,
+                "steers": status.steers,
+                "followups": status.followups,
+                "collects": status.collects,
+                "total": status.total,
             }),
             "queue status retrieved",
         ))
     } else {
         Ok(RpcOutcome::single_log(
             json!({
-                "has_inflight": false,
-                "steers_pending": 0,
-                "followups_pending": 0,
-                "collects_pending": 0,
+                "thread_id": thread_id.trim(),
+                "active": false,
+                "steers": 0,
+                "followups": 0,
+                "collects": 0,
+                "total": 0,
             }),
-            "no in-flight turn",
+            "no active turn for thread",
         ))
     }
 }
 
-pub async fn channel_web_queue_clear(
-    thread_id: &str,
-    mode: Option<&str>,
-) -> Result<RpcOutcome<Value>, String> {
-    use crate::openhuman::agent::harness::run_queue::QueueMode;
-
+pub async fn channel_web_queue_clear(thread_id: &str) -> Result<RpcOutcome<Value>, String> {
     let map_key = key_for(thread_id);
     let in_flight = IN_FLIGHT.lock().await;
     if let Some(entry) = in_flight.get(&map_key) {
-        let cleared = if let Some(mode_str) = mode {
-            let mode = QueueMode::from_str_opt(mode_str)
-                .ok_or_else(|| format!("unknown queue mode: {mode_str}"))?;
-            entry.run_queue.clear_mode(mode).await
-        } else {
-            entry.run_queue.clear().await
-        };
+        let dropped = entry.run_queue.clear().await;
         log::info!(
-            "[web-channel] cleared {} queued message(s) thread_id={}",
-            cleared,
-            thread_id
+            "[web-channel] cleared queue thread_id={} dropped={}",
+            thread_id,
+            dropped
         );
         Ok(RpcOutcome::single_log(
-            json!({ "cleared": cleared }),
+            json!({
+                "thread_id": thread_id.trim(),
+                "cleared": true,
+                "dropped": dropped,
+            }),
             "queue cleared",
         ))
     } else {
         Ok(RpcOutcome::single_log(
-            json!({ "cleared": 0 }),
-            "no in-flight turn to clear",
+            json!({
+                "thread_id": thread_id.trim(),
+                "cleared": false,
+                "dropped": 0,
+            }),
+            "no active turn for thread",
         ))
     }
 }
@@ -2028,7 +2197,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 ),
                 optional_string(
                     "queue_mode",
-                    "Queue behavior when a turn is in flight: 'interrupt' (default), 'steer', 'followup', or 'collect'.",
+                    "Queue mode: 'interrupt' (default), 'steer', 'followup', or 'collect'.",
                 ),
             ],
             outputs: vec![json_output("ack", "Acceptance payload.")],
@@ -2046,21 +2215,16 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "queue_status" => ControllerSchema {
             namespace: "channel",
             function: "web_queue_status",
-            description: "Get the run-queue status for a thread (pending steers, followups, collects).",
-            inputs: vec![
-                required_string("thread_id", "Thread identifier."),
-            ],
+            description: "Get the run queue status for a thread.",
+            inputs: vec![required_string("thread_id", "Thread identifier.")],
             outputs: vec![json_output("status", "Queue status payload.")],
         },
         "queue_clear" => ControllerSchema {
             namespace: "channel",
             function: "web_queue_clear",
-            description: "Clear queued messages for a thread.",
-            inputs: vec![
-                required_string("thread_id", "Thread identifier."),
-                optional_string("mode", "Optional mode filter: 'steer', 'followup', 'collect', or omitted to clear all."),
-            ],
-            outputs: vec![json_output("ack", "Clear result payload.")],
+            description: "Clear the run queue for a thread.",
+            inputs: vec![required_string("thread_id", "Thread identifier.")],
+            outputs: vec![json_output("result", "Queue clear result.")],
         },
         _ => ControllerSchema {
             namespace: "channel",
@@ -2080,10 +2244,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
 fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = deserialize_params::<WebChatParams>(params)?;
-        let queue_mode = p
-            .queue_mode
-            .as_deref()
-            .and_then(crate::openhuman::agent::harness::run_queue::QueueMode::from_str_opt);
         to_json(
             channel_web_chat(
                 &p.client_id,
@@ -2093,7 +2253,7 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
                 p.temperature,
                 p.profile_id,
                 p.locale,
-                queue_mode,
+                p.queue_mode,
             )
             .await?,
         )
@@ -2102,15 +2262,15 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_queue_status(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let p = deserialize_params::<WebQueueStatusParams>(params)?;
+        let p = deserialize_params::<WebQueueParams>(params)?;
         to_json(channel_web_queue_status(&p.thread_id).await?)
     })
 }
 
 fn handle_queue_clear(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let p = deserialize_params::<WebQueueClearParams>(params)?;
-        to_json(channel_web_queue_clear(&p.thread_id, p.mode.as_deref()).await?)
+        let p = deserialize_params::<WebQueueParams>(params)?;
+        to_json(channel_web_queue_clear(&p.thread_id).await?)
     })
 }
 

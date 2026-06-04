@@ -39,6 +39,7 @@ export default function ChatFilesChip({ threadId }: ChatFilesChipProps) {
     <div className="relative inline-block">
       <button
         type="button"
+        data-analytics-id="chat-files-chip"
         onClick={() => setOpen(prev => !prev)}
         aria-haspopup="dialog"
         aria-expanded={open}

@@ -466,6 +466,7 @@ Kitchen is north of Garden.
                 category: "core".into(),
                 session_id: Some("session-coverage".into()),
                 document_id: Some("doc-memory-raw-ingestion".into()),
+                taint: openhuman_core::openhuman::memory::MemoryTaint::Internal,
             },
             config: MemoryIngestionConfig::default(),
         })
@@ -535,6 +536,7 @@ Kitchen is north of Garden.
                 category: "core".into(),
                 session_id: None,
                 document_id: Some("doc-memory-raw-ingestion".into()),
+                taint: openhuman_core::openhuman::memory::MemoryTaint::Internal,
             },
             &MemoryIngestionConfig {
                 extraction_mode: openhuman_core::openhuman::memory::ExtractionMode::Chunk,
@@ -2056,6 +2058,7 @@ fn memory_retrieval_embedding_and_rpc_model_helpers_round_trip() {
         timestamp: now.to_rfc3339(),
         session_id: Some("session-1".into()),
         score: Some(0.9),
+        taint: Default::default(),
     };
     assert_eq!(entry.category.to_string(), "testing");
     let opts = RecallOpts {

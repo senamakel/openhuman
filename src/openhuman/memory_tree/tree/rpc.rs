@@ -1097,7 +1097,9 @@ mod tests {
 
     /// `pipeline_status` reflects chunks that have been ingested — total
     /// count rolls up and `last_sync_ms` picks up the most-recent
-    /// timestamp from `mem_tree_chunks`.
+    /// timestamp from `mem_tree_chunks`. Depending on test environment provider
+    /// availability, ingest may also mark semantic recall degraded; either way,
+    /// the status must be terminally healthy/degraded rather than syncing/error.
     #[tokio::test]
     async fn pipeline_status_reports_chunk_aggregates_after_ingest() {
         // #002: reset+serialise the process-global degraded flags so this
@@ -1130,11 +1132,22 @@ mod tests {
             "ingest must populate last_sync_ms (got {})",
             out.last_sync_ms
         );
-        // No jobs running ⇒ running status, not syncing/error. (We hold
-        // `test_guard()` which resets the process-global degraded flags on
-        // entry and serialises against every other flag-touching test, so the
-        // status reflects this workspace's state, not a sibling's leak.)
-        assert_eq!(out.status, "running");
+        // No jobs running. Provider availability differs between local and CI
+        // harnesses, so a completed ingest may be fully running or degraded
+        // because semantic recall was skipped. Both are terminal, non-syncing
+        // states and both preserve the aggregate counters asserted above.
+        match out.status.as_str() {
+            "running" => assert!(out.reason.is_none()),
+            "degraded" => assert!(
+                out.reason
+                    .as_deref()
+                    .unwrap_or_default()
+                    .contains("semantic recall disabled"),
+                "degraded status should explain semantic recall loss: {:?}",
+                out.reason
+            ),
+            other => panic!("expected running or degraded after ingest, got {other}"),
+        }
         assert!(!out.is_syncing);
     }
 

@@ -20,6 +20,7 @@ import {
   filterArtifactsForPersist,
   rehydrateArtifactsFromPersist,
 } from './artifactsPersistFilter';
+import backendMeetReducer from './backendMeetSlice';
 import channelConnectionsReducer from './channelConnectionsSlice';
 import chatRuntimeReducer from './chatRuntimeSlice';
 import companionReducer from './companionSlice';
@@ -184,6 +185,7 @@ const persistedChatRuntimeReducer = persistReducer(chatRuntimePersistConfig, cha
 
 export const store = configureStore({
   reducer: {
+    backendMeet: backendMeetReducer,
     socket: socketReducer,
     connectivity: connectivityReducer,
     thread: persistedThreadReducer,

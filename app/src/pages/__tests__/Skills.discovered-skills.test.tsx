@@ -43,6 +43,11 @@ vi.mock('../../services/api/skillsApi', async () => {
           seeded({ id: 'user-skill', name: 'User Skill', scope: 'user' }),
           seeded({ id: 'project-skill', name: 'Project Skill', scope: 'project' }),
           seeded({ id: 'legacy-skill', name: 'Legacy Skill', scope: 'user', legacy: true }),
+          seeded({
+            id: 'resource-skill',
+            name: 'Resource Skill',
+            resources: ['templates/rare-template.md'],
+          }),
         ]),
     },
   };
@@ -100,5 +105,50 @@ describe('Skills page — discovered skill cards', () => {
     fireEvent.click(viewCta);
 
     expect(await screen.findByText('User Skill', { selector: 'h2' })).toBeInTheDocument();
+  });
+
+  it('filters discovered skills by bundled resource path', async () => {
+    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
+
+    expect(await screen.findByText('Resource Skill')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText(/Search skills/i), {
+      target: { value: 'rare-template' },
+    });
+
+    expect(screen.getByText('Resource Skill')).toBeInTheDocument();
+    expect(screen.queryByText('User Skill')).not.toBeInTheDocument();
+  });
+
+  it('opens install and create dialogs from the Explorer header', async () => {
+    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
+
+    await screen.findByRole('heading', { name: 'Skills explorer' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Install from URL' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Install skill from URL' })
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'New skill' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('New skill');
+  });
+
+  it('opens install dialog from the empty Explorer action', async () => {
+    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
+
+    await screen.findByRole('heading', { name: 'Skills explorer' });
+    fireEvent.change(screen.getByPlaceholderText(/Search skills/i), {
+      target: { value: 'no-such-skill' },
+    });
+
+    expect(screen.getByText('No skills found')).toBeInTheDocument();
+    const installButtons = screen.getAllByRole('button', { name: 'Install from URL' });
+    fireEvent.click(installButtons[installButtons.length - 1]);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Install skill from URL' })
+    ).toBeInTheDocument();
   });
 });

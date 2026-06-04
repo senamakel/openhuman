@@ -53,11 +53,12 @@ function buildSkill(overrides: Partial<SkillSummary> = {}): SkillSummary {
 describe('SkillDetailDrawer', () => {
   it('renders core metadata and scope pill', () => {
     const onClose = vi.fn();
-    render(<SkillDetailDrawer skill={buildSkill()} onClose={onClose} />);
+    render(<SkillDetailDrawer skill={buildSkill({ sourceFormat: 'hermes' })} onClose={onClose} />);
     expect(screen.getByText('demo')).toBeInTheDocument();
     expect(screen.getByText('A demonstration skill.')).toBeInTheDocument();
     expect(screen.getByText('v1.2.3')).toBeInTheDocument();
     expect(screen.getByText('Acme Labs')).toBeInTheDocument();
+    expect(screen.getByText('hermes')).toBeInTheDocument();
     // User scope pill
     expect(screen.getByText('User')).toBeInTheDocument();
     // Tools

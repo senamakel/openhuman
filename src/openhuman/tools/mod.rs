@@ -30,6 +30,7 @@ pub use crate::openhuman::integrations::tools::*;
 pub use crate::openhuman::learning::tools::*;
 pub use crate::openhuman::mcp_registry::tools::*;
 pub use crate::openhuman::memory::tools::*;
+pub use crate::openhuman::monitor::tools::*;
 pub use crate::openhuman::people::tools::*;
 pub use crate::openhuman::referral::tools::*;
 pub use crate::openhuman::screen_intelligence::tools::*;

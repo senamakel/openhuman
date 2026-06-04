@@ -175,6 +175,36 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         description: "Worker that guides the user through MCP client configuration.",
         content: include_str!("../agent_registry/agents/mcp_setup/prompt.md"),
     },
+    PromptResource {
+        uri: "openhuman://prompts/agents/task_manager_agent",
+        name: "task_manager_agent",
+        description: "Specialist worker for task planning, status, and task-board changes.",
+        content: include_str!("../agent_registry/agents/task_manager_agent/prompt.md"),
+    },
+    PromptResource {
+        uri: "openhuman://prompts/agents/settings_agent",
+        name: "settings_agent",
+        description: "Specialist worker for inspecting and updating OpenHuman settings.",
+        content: include_str!("../agent_registry/agents/settings_agent/prompt.md"),
+    },
+    PromptResource {
+        uri: "openhuman://prompts/agents/profile_memory_agent",
+        name: "profile_memory_agent",
+        description: "Specialist worker for profile and long-term memory updates.",
+        content: include_str!("../agent_registry/agents/profile_memory_agent/prompt.md"),
+    },
+    PromptResource {
+        uri: "openhuman://prompts/agents/account_admin_agent",
+        name: "account_admin_agent",
+        description: "Specialist worker for connected account and integration administration.",
+        content: include_str!("../agent_registry/agents/account_admin_agent/prompt.md"),
+    },
+    PromptResource {
+        uri: "openhuman://prompts/agents/screen_awareness_agent",
+        name: "screen_awareness_agent",
+        description: "Specialist worker for screen context and desktop state inspection.",
+        content: include_str!("../agent_registry/agents/screen_awareness_agent/prompt.md"),
+    },
 ];
 
 /// Returns the `resources/list` result payload listing every catalog entry.

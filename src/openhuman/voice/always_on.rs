@@ -312,7 +312,6 @@ pub fn stop() {
         log::info!("{LOG_PREFIX} stopped (logout) — capture idle, audio dropped");
     }
 }
-
 /// Push a listener status to the always-visible notch pill via the
 /// `overlay:attention` channel. The notch maps "Listening" / "Processing" to the
 /// right icon; when the message expires it falls back to "Ready". Fire-and-forget.
@@ -373,9 +372,10 @@ async fn transcribe_and_deliver(config: &Config, samples_16k: Vec<f32>) {
             // ("Hey Tiny, …"). Strip the wake phrase and deliver the command.
             match extract_command(&text, &config.voice_server.wake_word) {
                 Some(cmd) => {
-                    log::info!("{LOG_PREFIX} wake word matched → command={cmd:?} → dictation bus");
+                    // Redacted: never log the raw spoken command (always-on mic PII).
+                    log::info!("{LOG_PREFIX} wake word matched → cmd_len={}", cmd.len());
                     notch_status("Processing", 12000); // pill: running the command
-                    crate::openhuman::voice::dictation_listener::publish_transcription(cmd);
+                    deliver_command(config, cmd).await;
                 }
                 None => {
                     // Visible at info so the user can see WHAT was heard when the
@@ -388,6 +388,133 @@ async fn transcribe_and_deliver(config: &Config, samples_16k: Vec<f32>) {
             }
         }
         Err(e) => log::warn!("{LOG_PREFIX} transcription failed ({provider_name}): {e}"),
+    }
+}
+
+/// Route a recognized command: run high-confidence intents locally (the fast
+/// path, no LLM turn), and fall back to the agent for `Unknown` — or when a
+/// local execution fails, so routing can only shortcut, never drop a command.
+async fn deliver_command(config: &Config, cmd: String) {
+    use crate::openhuman::voice::command_router::{route, VoiceIntent};
+    let intent = route(&cmd);
+    // Log only the intent *kind* + lengths — never the transcript-derived query /
+    // app / result text (always-on mic PII).
+    if matches!(intent, VoiceIntent::Unknown) {
+        log::info!(
+            "{LOG_PREFIX} no fast intent → agent (cmd_len={})",
+            cmd.len()
+        );
+        crate::openhuman::voice::dictation_listener::publish_transcription(cmd);
+        return;
+    }
+    log::info!(
+        "{LOG_PREFIX} fast intent={} (local execution)",
+        intent.kind()
+    );
+    match execute_intent(config, intent).await {
+        Ok(msg) => {
+            log::info!("{LOG_PREFIX} fast route done (summary_len={})", msg.len());
+            notch_status(&msg, 2500);
+        }
+        Err(_e) => {
+            log::warn!("{LOG_PREFIX} fast route failed; falling back to agent");
+            crate::openhuman::voice::dictation_listener::publish_transcription(cmd);
+        }
+    }
+}
+
+/// Execute a fast-path [`VoiceIntent`] directly (no LLM). Media transport and
+/// volume go through `osascript`; app launch reuses the `launch_app` platform
+/// launcher; "play X" runs the `automate` Music fast-path.
+async fn execute_intent(
+    config: &Config,
+    intent: crate::openhuman::voice::command_router::VoiceIntent,
+) -> Result<String, String> {
+    use crate::openhuman::voice::command_router::VoiceIntent as VI;
+    match intent {
+        VI::Play { query } => {
+            let backend =
+                crate::openhuman::accessibility::automate::RealBackend::new(config.clone());
+            let out = crate::openhuman::accessibility::automate::run(
+                "Music",
+                &format!("play {query}"),
+                &backend,
+                crate::openhuman::accessibility::automate::AutomateOptions::default(),
+            )
+            .await;
+            if out.success {
+                Ok(out.summary)
+            } else {
+                Err(out.summary)
+            }
+        }
+        VI::OpenApp { app } => {
+            crate::openhuman::tools::implementations::system::launch_platform(&app).await
+        }
+        VI::Pause => osa("tell application \"Music\" to pause")
+            .await
+            .map(|_| "Paused".to_string()),
+        VI::Resume => osa("tell application \"Music\" to play")
+            .await
+            .map(|_| "Resumed".to_string()),
+        VI::Next => osa("tell application \"Music\" to next track")
+            .await
+            .map(|_| "Next track".to_string()),
+        VI::Previous => osa("tell application \"Music\" to previous track")
+            .await
+            .map(|_| "Previous track".to_string()),
+        VI::SetVolume { percent } => osa(&format!("set volume output volume {percent}"))
+            .await
+            .map(|_| format!("Volume {percent}%")),
+        VI::VolumeUp => {
+            osa("set volume output volume (output volume of (get volume settings) + 12)")
+                .await
+                .map(|_| "Louder".to_string())
+        }
+        VI::VolumeDown => {
+            osa("set volume output volume (output volume of (get volume settings) - 12)")
+                .await
+                .map(|_| "Quieter".to_string())
+        }
+        VI::Mute => osa("set volume with output muted")
+            .await
+            .map(|_| "Muted".to_string()),
+        VI::Unmute => osa("set volume without output muted")
+            .await
+            .map(|_| "Unmuted".to_string()),
+        VI::Unknown => Err("unknown intent".to_string()),
+    }
+}
+
+/// Run a one-line AppleScript (macOS). Used for media transport + volume.
+async fn osa(script: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        // Bound the subprocess so a hung osascript can't stall deliver_command
+        // (which would block the agent fallback). 5s is ample for a one-liner.
+        let out = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            tokio::process::Command::new("osascript")
+                .arg("-e")
+                .arg(script)
+                .output(),
+        )
+        .await
+        .map_err(|_| "osascript timed out".to_string())?
+        .map_err(|e| format!("osascript spawn failed: {e}"))?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "osascript error: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            ))
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = script;
+        Err("media/volume control is macOS-only".to_string())
     }
 }
 

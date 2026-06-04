@@ -533,6 +533,8 @@ fn seed_source_summary(
         sealed_at: ts,
         deleted: false,
         embedding: embedding.clone(),
+        doc_id: None,
+        version_ms: None,
     };
     let staged = stage_summary(
         &config.memory_tree_content_root(),

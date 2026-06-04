@@ -822,6 +822,7 @@ impl Agent {
             session_key: self.session_key.clone(),
             session_parent_prefix: self.session_parent_prefix.clone(),
             on_progress: self.on_progress.clone(),
+            run_queue: self.run_queue.clone(),
         }
     }
 

@@ -590,6 +590,8 @@ async fn composio_delete_connection_clear_memory_cascades_source_tree_and_conten
                 sealed_at: ts,
                 deleted: false,
                 embedding: None,
+                doc_id: None,
+                version_ms: None,
             },
             None,
             "test/model@3",

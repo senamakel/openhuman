@@ -12,6 +12,7 @@
 pub mod always_on;
 pub mod audio_capture;
 pub(crate) mod cli;
+pub mod command_router;
 pub mod dictation_listener;
 pub mod factory;
 pub mod hotkey;

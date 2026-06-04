@@ -1626,6 +1626,7 @@ fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes(
         acceptance_criteria: vec!["Focused tests pass".into()],
         evidence: vec![],
         notes: Some("Keep scope narrow".into()),
+        session_thread_id: None,
         blocker: None,
         source_metadata: Some(json!({
             "provider": "github",
@@ -1664,6 +1665,7 @@ fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes(
     let title_prompt = build_task_prompt(&TaskBoardCard {
         objective: Some("   ".into()),
         source_metadata: Some(json!({ "external_id": "123" })),
+        session_thread_id: None,
         ..loaded.cards[0].clone()
     });
     assert!(title_prompt.contains("Fallback title"));

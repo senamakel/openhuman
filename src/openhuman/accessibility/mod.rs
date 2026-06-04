@@ -20,6 +20,9 @@ mod permissions;
 mod terminal;
 mod text_util;
 mod types;
+// Vision fallback for `automate`: screenshot → vision-locate → guarded click,
+// for Electron/partial-AX apps. Consumed by `automate.rs`'s `RealBackend`.
+mod vision_click;
 // Windows accessibility backend for `ax_interact` (UI Automation). Sibling of
 // the macOS Swift-helper path; selected via cfg-dispatch in `ax_interact.rs`.
 #[cfg(target_os = "windows")]

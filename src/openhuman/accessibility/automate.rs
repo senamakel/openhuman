@@ -68,6 +68,9 @@ pub struct Action {
     /// Text to enter for `set_value`.
     #[serde(default)]
     pub value: String,
+    /// Natural-language target for `vision_click` (e.g. "the green Call button").
+    #[serde(default)]
+    pub description: String,
     /// Final message for `done` / `fail`.
     #[serde(default)]
     pub summary: String,
@@ -116,6 +119,38 @@ pub trait AutomateBackend: Send + Sync {
     async fn verify_playing(&self) -> Option<bool> {
         None
     }
+    /// Capture the target app's window + the geometry needed to map a click
+    /// from image pixels to screen points. Used by the `vision_click` fallback
+    /// for apps with no usable accessibility tree (Electron/Chromium). Default
+    /// errors so backends without screen access (tests, headless) opt out.
+    async fn screenshot(
+        &self,
+        _app: &str,
+    ) -> Result<(String, super::vision_click::CaptureGeometry), String> {
+        Err("screenshot unsupported by this backend".to_string())
+    }
+    /// Ask the vision model for the absolute *screen* coordinates of the
+    /// described element in `screenshot`. `Ok(None)` = not visible. Default
+    /// `Ok(None)` so non-vision backends never click.
+    async fn locate(
+        &self,
+        _screenshot: &str,
+        _geom: &super::vision_click::CaptureGeometry,
+        _description: &str,
+    ) -> Result<Option<(i32, i32)>, String> {
+        Ok(None)
+    }
+    /// Name of the frontmost application, if known. Used as the §1.8 safety
+    /// guard: a `vision_click` only fires when the target app is frontmost, so
+    /// synthetic input never lands on OpenHuman's own window. `None` = unknown.
+    async fn frontmost_app(&self) -> Option<String> {
+        None
+    }
+    /// Issue a single guarded left-click at absolute screen coordinates. Default
+    /// errors so backends without input access can't click.
+    async fn click(&self, _x: i32, _y: i32) -> Result<String, String> {
+        Err("click unsupported by this backend".to_string())
+    }
     /// Block until the UI settles after an action.
     async fn settle(&self, app: &str);
     /// Wait ~`ms` of real time. Used by fast-paths to let asynchronous content
@@ -155,6 +190,10 @@ fn system_prompt() -> String {
      • list       — re-read elements; set `filter` to a substring to narrow them\n\
      • press      — activate the element whose label matches `label`\n\
      • set_value  — type `value` into the field matching `label` (omit label = first field)\n\
+     • vision_click — click an element by sight; put a short `description` of the \
+     target (e.g. 'the green Call button'). Use this when the element list is \
+     EMPTY or missing your target — common for Electron apps (Slack, Discord, \
+     VS Code) that expose no accessibility tree.\n\
      • done       — goal achieved; put a short result in `summary`\n\
      • fail       — goal cannot be achieved; explain in `summary`\n\
      \n\
@@ -164,6 +203,8 @@ fn system_prompt() -> String {
      (e.g. open a song, THEN press its 'Play'). After such a press, `list` again \
      to see the new screen.\n\
      - Prefer an exact label match. Keep `filter` specific so the snapshot stays small.\n\
+     - If the app shows NO elements, prefer `vision_click` with a clear \
+     `description` over guessing labels.\n\
      - Output JSON only — no prose, no code fences."
         .to_string()
 }
@@ -319,7 +360,10 @@ pub async fn run(
 
         // ── no-progress guard ──
         if !matches!(action.action.as_str(), "done" | "fail") {
-            let sig = format!("{}|{}|{}", action.action, action.label, action.filter);
+            let sig = format!(
+                "{}|{}|{}|{}",
+                action.action, action.label, action.filter, action.description
+            );
             if sig == last_sig {
                 repeat_count += 1;
             } else {
@@ -411,6 +455,69 @@ pub async fn run(
                 }
                 backend.settle(target_app).await;
             }
+            "vision_click" => {
+                let description = action.description.trim();
+                if description.is_empty() {
+                    steps.push("vision_click skipped: empty description".to_string());
+                    continue;
+                }
+                // ── §1.8 safety guard ──
+                // Only click when the target app is frontmost, so synthetic
+                // input never lands on OpenHuman's own window (the CEF crash).
+                // `None` = can't tell → proceed best-effort (the loop already
+                // foregrounded the app at start). We only REFUSE on positive
+                // evidence that a different app is focused.
+                if let Some(front) = backend.frontmost_app().await {
+                    if !front.eq_ignore_ascii_case(target_app) {
+                        log::warn!(
+                            "{LOG_PREFIX} vision_click: {target_app:?} not frontmost ({front:?}); re-foregrounding"
+                        );
+                        let _ = backend.act_launch(target_app).await;
+                        backend.settle(target_app).await;
+                        let still_wrong = backend
+                            .frontmost_app()
+                            .await
+                            .map(|f| !f.eq_ignore_ascii_case(target_app))
+                            .unwrap_or(false);
+                        if still_wrong {
+                            steps.push(format!(
+                                "vision_click refused: {target_app} is not frontmost"
+                            ));
+                            continue;
+                        }
+                    }
+                }
+                progress(
+                    format!("Looking for {description}…"),
+                    OverlayAttentionTone::Accent,
+                );
+                let (shot, geom) = match backend.screenshot(target_app).await {
+                    Ok(pair) => pair,
+                    Err(e) => {
+                        steps.push(format!("vision_click FAILED: screenshot: {e}"));
+                        continue;
+                    }
+                };
+                match backend.locate(&shot, &geom, description).await {
+                    Ok(Some((x, y))) => {
+                        progress(
+                            format!("Clicking {description}…"),
+                            OverlayAttentionTone::Accent,
+                        );
+                        match backend.click(x, y).await {
+                            Ok(msg) => steps.push(format!("vision_click: {msg}")),
+                            Err(e) => steps.push(format!("vision_click FAILED: click: {e}")),
+                        }
+                        backend.settle(target_app).await;
+                    }
+                    Ok(None) => {
+                        steps.push(format!("vision_click: '{description}' not found on screen"));
+                    }
+                    Err(e) => {
+                        steps.push(format!("vision_click FAILED: locate: {e}"));
+                    }
+                }
+            }
             other => {
                 steps.push(format!("unknown action {other:?} ignored"));
             }
@@ -468,6 +575,60 @@ impl AutomateBackend for RealBackend {
 
     async fn act_set_value(&self, app: &str, label: &str, value: &str) -> Result<String, String> {
         ax::ax_set_field_value(app, label, value)
+    }
+
+    async fn screenshot(
+        &self,
+        app: &str,
+    ) -> Result<(String, super::vision_click::CaptureGeometry), String> {
+        // Capture whatever window is frontmost — the loop guarantees the target
+        // is frontmost before a vision_click, so this resolves to its window.
+        let ctx = super::foreground_context()
+            .ok_or_else(|| "could not resolve the foreground window for capture".to_string())?;
+        if let Some(name) = ctx.app_name.as_deref() {
+            if !name.eq_ignore_ascii_case(app) {
+                log::warn!(
+                    "{LOG_PREFIX} screenshot: frontmost {name:?} != target {app:?}; capturing frontmost"
+                );
+            }
+        }
+        // `capture_window_geometry` shells out to `screencapture` (blocking).
+        match tokio::task::spawn_blocking(move || {
+            super::vision_click::capture_window_geometry(&ctx)
+        })
+        .await
+        {
+            Ok(inner) => inner,
+            Err(e) => Err(format!("capture task join failed: {e}")),
+        }
+    }
+
+    async fn locate(
+        &self,
+        screenshot: &str,
+        geom: &super::vision_click::CaptureGeometry,
+        description: &str,
+    ) -> Result<Option<(i32, i32)>, String> {
+        // Use the main `chat` provider's vision model (per plan): reliable UI
+        // grounding, and the fallback only fires when AX is empty (rare).
+        let (provider, model) =
+            crate::openhuman::inference::provider::create_chat_provider("chat", &self.config)
+                .map_err(|e| format!("vision provider unavailable: {e}"))?;
+        let coords =
+            super::vision_click::locate_via_vision(&*provider, &model, screenshot, description)
+                .await?;
+        Ok(coords.map(|(px, py)| super::vision_click::image_to_screen(geom, px, py)))
+    }
+
+    async fn frontmost_app(&self) -> Option<String> {
+        tokio::task::spawn_blocking(|| super::foreground_context().and_then(|c| c.app_name))
+            .await
+            .ok()
+            .flatten()
+    }
+
+    async fn click(&self, x: i32, y: i32) -> Result<String, String> {
+        super::vision_click::guarded_click(x, y).await
     }
 
     async fn open_url(&self, url: &str) -> Result<String, String> {

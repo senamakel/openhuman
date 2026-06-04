@@ -45,6 +45,25 @@ fn derive_tree_scope(source_id: &str) -> String {
     source_id.to_string()
 }
 
+/// Whether a chunk's source uses the per-document rollup + versioning path
+/// (Notion). These chunks are deliberately **not** pushed into the flat L0
+/// buffer by `handle_extract` — their tree is built per document-version by
+/// a `SealDocument` job enqueued at ingest time, which rolls each document's
+/// chunks up to a single doc-root and merges it into the connection tree.
+/// Scoped to Notion for now; other `SourceKind::Document` sources
+/// (GitHub/Linear/ClickUp/vault) keep the existing flat behaviour.
+pub(crate) fn uses_document_subtree(
+    chunk: &crate::openhuman::memory_store::chunks::types::Chunk,
+) -> bool {
+    const DOC_SUBTREE_PREFIX: &str = "notion:";
+    chunk.metadata.source_id.starts_with(DOC_SUBTREE_PREFIX)
+        || chunk
+            .metadata
+            .path_scope
+            .as_deref()
+            .is_some_and(|s| s.starts_with(DOC_SUBTREE_PREFIX))
+}
+
 fn emit_build_progress(
     phase: &str,
     step: &str,
@@ -78,7 +97,74 @@ pub async fn handle_job(config: &Config, job: &Job) -> Result<JobOutcome> {
         JobKind::Seal => handle_seal(config, job).await,
         JobKind::FlushStale => handle_flush_stale(config, job).await,
         JobKind::ReembedBackfill => handle_reembed_backfill(config, job).await,
+        JobKind::SealDocument => handle_seal_document(config, job).await,
     }
+}
+
+/// Build (or re-build for a new version) one document's per-doc subtree and
+/// merge its doc-root into the connection tree. See
+/// [`crate::openhuman::memory_tree::tree::seal_document_subtree`].
+async fn handle_seal_document(config: &Config, job: &Job) -> Result<JobOutcome> {
+    use crate::openhuman::memory::util::redact::redact;
+    use crate::openhuman::memory_tree::tree::seal_document_subtree;
+
+    let payload: crate::openhuman::memory_queue::types::SealDocumentPayload =
+        serde_json::from_str(&job.payload_json).context("parse SealDocument payload")?;
+
+    // doc_id (notion:{conn}:{page}) and tree_scope (notion:{conn}) are
+    // recoverable source identifiers — redact them in all logs / error chains.
+    if payload.chunk_ids.is_empty() {
+        log::debug!(
+            "[memory::jobs] seal_document: empty chunk set doc_id={} — nothing to seal",
+            redact(&payload.doc_id)
+        );
+        return Ok(JobOutcome::Done);
+    }
+
+    // One physical tree per connection scope (e.g. notion:{connection_id}).
+    let tree = get_or_create_source_tree(config, &payload.tree_scope)?;
+    let strategy = TreeFactory::from_tree(&tree).label_strategy(config);
+
+    emit_build_progress(
+        "seal_document",
+        "started",
+        Some(&tree.scope),
+        None,
+        Some(payload.chunk_ids.len() as u32),
+        Some(format!(
+            "doc {} v={:?} ({} chunks)",
+            redact(&payload.doc_id),
+            payload.version_ms,
+            payload.chunk_ids.len()
+        )),
+    );
+
+    let doc_root_id = seal_document_subtree(
+        config,
+        &tree,
+        &payload.doc_id,
+        payload.version_ms,
+        &payload.chunk_ids,
+        &strategy,
+    )
+    .await
+    .with_context(|| {
+        format!(
+            "seal_document_subtree failed tree_scope={} doc_id={}",
+            redact(&payload.tree_scope),
+            redact(&payload.doc_id)
+        )
+    })?;
+
+    log::info!(
+        "[memory::jobs] seal_document done tree_scope={} doc_id={} version_ms={:?} doc_root_id={}",
+        redact(&payload.tree_scope),
+        redact(&payload.doc_id),
+        payload.version_ms,
+        doc_root_id
+    );
+    super::worker::wake_workers();
+    Ok(JobOutcome::Done)
 }
 
 async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
@@ -176,7 +262,11 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
     // enqueued inside the SAME transaction that commits the lifecycle update,
     // so a crash anywhere rolls everything back together and prevents the
     // "lifecycle committed but job lost" crash window.
-    let source_job = if result.kept {
+    // Per-document-versioned sources (Notion) skip the flat L0 buffer: their
+    // tree is built by a `SealDocument` job enqueued at ingest, not chunk by
+    // chunk here. We still score + embed the chunk above so chunk-level
+    // semantic search and the entity index stay populated.
+    let source_job = if result.kept && !uses_document_subtree(&chunk) {
         Some(NewJob::append_buffer(&AppendBufferPayload {
             node: NodeRef::Leaf {
                 chunk_id: chunk.id.clone(),

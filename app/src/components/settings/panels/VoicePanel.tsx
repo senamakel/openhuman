@@ -22,6 +22,7 @@ import {
   openhumanUpdateVoiceServerSettings,
   openhumanVoiceSetProviders,
   openhumanVoiceStatus,
+  syncNotchVisibility,
   type VoiceProvidersSnapshot,
   type VoiceServerSettings,
   type VoiceStatus,
@@ -512,6 +513,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                     );
                     try {
                       await openhumanUpdateVoiceServerSettings({ always_on_enabled: next });
+                      // The notch pill is the always-on listening HUD: show it
+                      // when listening is enabled, drop it when disabled.
+                      await syncNotchVisibility(next);
                     } catch (err) {
                       // Revert on failure so the UI reflects the persisted value.
                       setSettings(current =>

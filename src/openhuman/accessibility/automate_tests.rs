@@ -3,6 +3,7 @@
 //! with no mic, no AX tree, and no LLM.
 
 use super::*;
+use crate::openhuman::accessibility::vision_click::CaptureGeometry;
 use std::sync::Mutex;
 
 /// Scripted backend: `decide` returns the next queued response each call;
@@ -16,6 +17,10 @@ struct ScriptedBackend {
     acts: Mutex<Vec<String>>,
     /// Force act_press to error (to exercise the failure-recording path).
     press_errors: bool,
+    /// What `frontmost_app` returns (the §1.8 guard input). `None` = unknown.
+    frontmost: Option<String>,
+    /// What `locate` returns: `Some` screen coords = found; `None` = not found.
+    locate_coord: Option<(i32, i32)>,
 }
 
 impl ScriptedBackend {
@@ -28,10 +33,35 @@ impl ScriptedBackend {
             ],
             acts: Mutex::new(Vec::new()),
             press_errors: false,
+            frontmost: None,
+            locate_coord: None,
         }
     }
     fn acts(&self) -> Vec<String> {
         self.acts.lock().unwrap().clone()
+    }
+    /// Set the frontmost app name reported to the `vision_click` guard.
+    fn with_frontmost(mut self, app: &str) -> Self {
+        self.frontmost = Some(app.to_string());
+        self
+    }
+    /// Make `locate` report the element found at the given screen coords.
+    fn with_located(mut self, x: i32, y: i32) -> Self {
+        self.locate_coord = Some((x, y));
+        self
+    }
+}
+
+/// A throwaway geometry for the scripted `screenshot` — tests override `locate`
+/// directly, so the transform isn't exercised here (it has its own unit tests).
+fn dummy_geom() -> CaptureGeometry {
+    CaptureGeometry {
+        rect_x: 0,
+        rect_y: 0,
+        rect_w_pts: 1,
+        rect_h_pts: 1,
+        img_w_px: 1,
+        img_h_px: 1,
     }
 }
 
@@ -70,6 +100,29 @@ impl AutomateBackend for ScriptedBackend {
             .unwrap()
             .push(format!("set_value:{app}:{label}={value}"));
         Ok(format!("Set '{label}' in '{app}'."))
+    }
+    async fn screenshot(&self, app: &str) -> Result<(String, CaptureGeometry), String> {
+        self.acts.lock().unwrap().push(format!("screenshot:{app}"));
+        Ok(("data:image/png;base64,TEST".to_string(), dummy_geom()))
+    }
+    async fn locate(
+        &self,
+        _shot: &str,
+        _geom: &CaptureGeometry,
+        description: &str,
+    ) -> Result<Option<(i32, i32)>, String> {
+        self.acts
+            .lock()
+            .unwrap()
+            .push(format!("locate:{description}"));
+        Ok(self.locate_coord)
+    }
+    async fn frontmost_app(&self) -> Option<String> {
+        self.frontmost.clone()
+    }
+    async fn click(&self, x: i32, y: i32) -> Result<String, String> {
+        self.acts.lock().unwrap().push(format!("click:{x},{y}"));
+        Ok(format!("Clicked at ({x}, {y})"))
     }
     async fn open_url(&self, url: &str) -> Result<String, String> {
         self.acts.lock().unwrap().push(format!("open_url:{url}"));
@@ -263,4 +316,97 @@ fn render_snapshot_does_not_annotate_enabled() {
 fn render_snapshot_empty_hint() {
     let s = render_snapshot("Music", "zzz", &[]);
     assert!(s.contains("no elements"));
+}
+
+// ── vision_click fallback ────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn vision_click_locates_and_clicks_when_frontmost() {
+    let backend = ScriptedBackend::new(&[
+        r#"{"action":"vision_click","description":"the Call button"}"#,
+        r#"{"action":"done","summary":"clicked"}"#,
+    ])
+    .with_frontmost("Slack")
+    .with_located(640, 360);
+    let out = run("Slack", "click the call button", &backend, opts(5)).await;
+    assert!(out.success, "{out:?}");
+    let acts = backend.acts();
+    assert!(acts.contains(&"screenshot:Slack".to_string()), "{acts:?}");
+    assert!(
+        acts.contains(&"locate:the Call button".to_string()),
+        "{acts:?}"
+    );
+    assert!(acts.contains(&"click:640,360".to_string()), "{acts:?}");
+}
+
+#[tokio::test]
+async fn vision_click_proceeds_when_frontmost_unknown() {
+    // `None` frontmost (e.g. can't determine) is best-effort: the loop already
+    // foregrounded the app, so we still click.
+    let backend = ScriptedBackend::new(&[
+        r#"{"action":"vision_click","description":"X"}"#,
+        r#"{"action":"done"}"#,
+    ])
+    .with_located(10, 20);
+    let out = run("Slack", "x", &backend, opts(5)).await;
+    assert!(out.success);
+    assert!(backend.acts().contains(&"click:10,20".to_string()));
+}
+
+#[tokio::test]
+async fn vision_click_refused_when_other_app_frontmost() {
+    // Positive evidence a different app is focused → refuse (the §1.8 guard).
+    let backend = ScriptedBackend::new(&[
+        r#"{"action":"vision_click","description":"the Call button"}"#,
+        r#"{"action":"done","summary":"done"}"#,
+    ])
+    .with_frontmost("Finder")
+    .with_located(640, 360);
+    let out = run("Slack", "click call", &backend, opts(5)).await;
+    let acts = backend.acts();
+    assert!(
+        !acts.iter().any(|a| a.starts_with("click:")),
+        "must not click into a non-target app: {acts:?}"
+    );
+    assert!(
+        !acts.iter().any(|a| a.starts_with("screenshot:")),
+        "must not even screenshot when refused: {acts:?}"
+    );
+    let _ = out;
+}
+
+#[tokio::test]
+async fn vision_click_not_found_does_not_click() {
+    let backend = ScriptedBackend::new(&[
+        r#"{"action":"vision_click","description":"the Call button"}"#,
+        r#"{"action":"done","summary":"gave up"}"#,
+    ])
+    .with_frontmost("Slack"); // locate_coord stays None → not found
+    let out = run("Slack", "click call", &backend, opts(5)).await;
+    assert!(out.success);
+    let acts = backend.acts();
+    assert!(acts.contains(&"screenshot:Slack".to_string()), "{acts:?}");
+    assert!(
+        acts.contains(&"locate:the Call button".to_string()),
+        "{acts:?}"
+    );
+    assert!(
+        !acts.iter().any(|a| a.starts_with("click:")),
+        "no click when the element isn't found: {acts:?}"
+    );
+}
+
+#[tokio::test]
+async fn vision_click_empty_description_skipped() {
+    let backend = ScriptedBackend::new(&[
+        r#"{"action":"vision_click","description":"  "}"#,
+        r#"{"action":"done"}"#,
+    ])
+    .with_frontmost("Slack");
+    let out = run("Slack", "x", &backend, opts(5)).await;
+    assert!(out.success);
+    assert!(
+        !backend.acts().iter().any(|a| a.starts_with("screenshot:")),
+        "empty description must be skipped before any capture"
+    );
 }

@@ -293,6 +293,7 @@ pub fn add(
         evidence: patch.evidence.unwrap_or_default(),
         notes: patch.notes.and_then(non_empty),
         blocker: patch.blocker.and_then(non_empty),
+        session_thread_id: None,
         source_metadata: patch.source_metadata,
         order: cards.len() as u32,
         updated_at: Utc::now().to_rfc3339(),
@@ -360,6 +361,30 @@ pub fn edit(location: &BoardLocation, id: &str, patch: CardPatch) -> Result<Todo
     }
     card.updated_at = Utc::now().to_rfc3339();
     enforce_single_in_progress(&cards)?;
+    let cards = save_cards(location, cards)?;
+    emit_progress(location, &cards);
+    Ok(into_snapshot(location, cards))
+}
+
+/// Stamp (or clear) a card's `session_thread_id` — the conversation thread of
+/// its live/last agent run — so the UI can offer a "View session" jump into
+/// Conversations. Used by the autonomous dispatcher (`task_session`, direct
+/// call) and the manual "Work" path (via the `todos_set_session_thread` RPC).
+/// A blank id clears the link. Does NOT touch status or `enforce_single_in_progress`
+/// — this is pure session-link bookkeeping, orthogonal to the card lifecycle.
+pub fn set_session_thread(
+    location: &BoardLocation,
+    id: &str,
+    session_thread_id: Option<String>,
+) -> Result<TodosSnapshot, String> {
+    let _scratch_guard = maybe_scratch_lock(location);
+    let mut cards = load_cards(location)?;
+    let card = cards
+        .iter_mut()
+        .find(|c| c.id == id)
+        .ok_or_else(|| format!("todo id '{id}' not found"))?;
+    card.session_thread_id = session_thread_id.and_then(non_empty);
+    card.updated_at = Utc::now().to_rfc3339();
     let cards = save_cards(location, cards)?;
     emit_progress(location, &cards);
     Ok(into_snapshot(location, cards))
@@ -638,6 +663,28 @@ mod tests {
     }
 
     #[test]
+    fn set_session_thread_links_then_clears() {
+        let dir = tempdir().unwrap();
+        let loc = thread_loc(dir.path(), "t1");
+        let snap = add(&loc, "Do the thing", CardPatch::default()).unwrap();
+        let card_id = snap.cards[0].id.clone();
+
+        // Link a session thread → exposed on the card for the UI "View session".
+        let linked = set_session_thread(&loc, &card_id, Some("thread-xyz".into())).unwrap();
+        assert_eq!(
+            linked.cards[0].session_thread_id.as_deref(),
+            Some("thread-xyz")
+        );
+
+        // A blank id clears the link (non_empty trims to None).
+        let cleared = set_session_thread(&loc, &card_id, Some("   ".into())).unwrap();
+        assert!(cleared.cards[0].session_thread_id.is_none());
+
+        // Unknown card id is an error, not a silent no-op.
+        assert!(set_session_thread(&loc, "missing", Some("t".into())).is_err());
+    }
+
+    #[test]
     fn add_appends_and_returns_markdown() {
         let dir = tempdir().unwrap();
         let loc = thread_loc(dir.path(), "t1");
@@ -842,6 +889,7 @@ mod tests {
                 evidence: Vec::new(),
                 notes: None,
                 blocker: None,
+                session_thread_id: None,
                 source_metadata: None,
                 order: 0,
                 updated_at: String::new(),
@@ -859,6 +907,7 @@ mod tests {
                 evidence: Vec::new(),
                 notes: None,
                 blocker: None,
+                session_thread_id: None,
                 source_metadata: None,
                 order: 1,
                 updated_at: String::new(),

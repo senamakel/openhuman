@@ -141,6 +141,23 @@ pub enum DomainEvent {
         cancelled_request_id: String,
     },
 
+    // ── Monitor ───────────────────────────────────────────────────────
+    /// A background monitor changed lifecycle state.
+    MonitorStatusChanged {
+        monitor_id: String,
+        status: String,
+        thread_id: Option<String>,
+        description: String,
+    },
+    /// A background monitor emitted one bounded stdout/stderr line.
+    MonitorLine {
+        monitor_id: String,
+        thread_id: Option<String>,
+        timestamp_ms: u64,
+        stream: String,
+        line: String,
+    },
+
     // ── Memory ──────────────────────────────────────────────────────────
     /// The configured embedding provider is unreachable or the requested model
     /// is not installed, so the memory pipeline fell back to an alternative.
@@ -963,6 +980,8 @@ impl DomainEvent {
             | Self::RunQueueFollowupDispatched { .. }
             | Self::RunQueueInterrupted { .. } => "agent",
 
+            Self::MonitorStatusChanged { .. } | Self::MonitorLine { .. } => "monitor",
+
             Self::EmbeddingModelUnhealthy { .. }
             | Self::MemoryStored { .. }
             | Self::MemoryRecalled { .. }
@@ -1091,6 +1110,8 @@ impl DomainEvent {
             Self::RunQueueMessageDelivered { .. } => "RunQueueMessageDelivered",
             Self::RunQueueFollowupDispatched { .. } => "RunQueueFollowupDispatched",
             Self::RunQueueInterrupted { .. } => "RunQueueInterrupted",
+            Self::MonitorStatusChanged { .. } => "MonitorStatusChanged",
+            Self::MonitorLine { .. } => "MonitorLine",
             Self::MemoryStored { .. } => "MemoryStored",
             Self::MemoryRecalled { .. } => "MemoryRecalled",
             Self::MemorySyncRequested { .. } => "MemorySyncRequested",
@@ -1209,6 +1230,9 @@ impl DomainEvent {
             | Self::RunQueueMessageDelivered { thread_id, .. }
             | Self::RunQueueFollowupDispatched { thread_id, .. }
             | Self::RunQueueInterrupted { thread_id, .. } => Some(thread_id.as_str()),
+            Self::MonitorStatusChanged { thread_id, .. } | Self::MonitorLine { thread_id, .. } => {
+                thread_id.as_deref()
+            }
             _ => None,
         }
     }

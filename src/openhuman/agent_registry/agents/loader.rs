@@ -94,6 +94,31 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::tools_agent::prompt::build,
     },
     BuiltinAgent {
+        id: "task_manager_agent",
+        toml: include_str!("task_manager_agent/agent.toml"),
+        prompt_fn: super::task_manager_agent::prompt::build,
+    },
+    BuiltinAgent {
+        id: "settings_agent",
+        toml: include_str!("settings_agent/agent.toml"),
+        prompt_fn: super::settings_agent::prompt::build,
+    },
+    BuiltinAgent {
+        id: "profile_memory_agent",
+        toml: include_str!("profile_memory_agent/agent.toml"),
+        prompt_fn: super::profile_memory_agent::prompt::build,
+    },
+    BuiltinAgent {
+        id: "account_admin_agent",
+        toml: include_str!("account_admin_agent/agent.toml"),
+        prompt_fn: super::account_admin_agent::prompt::build,
+    },
+    BuiltinAgent {
+        id: "screen_awareness_agent",
+        toml: include_str!("screen_awareness_agent/agent.toml"),
+        prompt_fn: super::screen_awareness_agent::prompt::build,
+    },
+    BuiltinAgent {
         id: "scheduler_agent",
         toml: include_str!("scheduler_agent/agent.toml"),
         prompt_fn: super::scheduler_agent::prompt::build,
@@ -459,6 +484,10 @@ mod tests {
                 assert!(
                     tools.iter().any(|t| t == "spawn_worker_thread"),
                     "orchestrator must have spawn_worker_thread"
+                );
+                assert!(
+                    tools.iter().any(|t| t == "spawn_async_subagent"),
+                    "orchestrator must have spawn_async_subagent for sparse background work"
                 );
                 assert!(
                     !tools.iter().any(|t| t == "spawn_subagent"),
@@ -991,8 +1020,67 @@ mod tests {
         assert!(
             listed,
             "orchestrator.subagents must list `skill_creator` so the \
-             routing layer can synthesise `create_skill`"
+            routing layer can synthesise `create_skill`"
         );
+    }
+
+    #[test]
+    fn orchestrator_subagents_include_control_specialists() {
+        use crate::openhuman::agent::harness::definition::SubagentEntry;
+        let def = find("orchestrator");
+        let subagents: std::collections::HashSet<&str> = def
+            .subagents
+            .iter()
+            .filter_map(|entry| match entry {
+                SubagentEntry::AgentId(id) => Some(id.as_str()),
+                SubagentEntry::Skills(_) => None,
+            })
+            .collect();
+
+        for expected in [
+            "task_manager_agent",
+            "settings_agent",
+            "profile_memory_agent",
+            "account_admin_agent",
+            "screen_awareness_agent",
+        ] {
+            assert!(
+                subagents.contains(expected),
+                "orchestrator.subagents must list `{expected}` so the routing layer can synthesize its delegate tool"
+            );
+        }
+    }
+
+    #[test]
+    fn control_specialists_have_named_tools_and_are_worker_leaves() {
+        for expected in [
+            "task_manager_agent",
+            "settings_agent",
+            "profile_memory_agent",
+            "account_admin_agent",
+            "screen_awareness_agent",
+        ] {
+            let def = find(expected);
+            assert_eq!(def.agent_tier, AgentTier::Worker);
+            assert!(def.subagents.is_empty(), "{expected} must be a worker leaf");
+            match def.tools {
+                ToolScope::Named(tools) => {
+                    assert!(
+                        !tools.is_empty(),
+                        "{expected} must have a concrete tool allowlist"
+                    );
+                    assert!(
+                        tools.iter().any(|tool| tool == "ask_user_clarification"),
+                        "{expected} must be able to ask for confirmation before risky writes"
+                    );
+                    assert!(
+                        !tools.iter().any(|tool| tool == "shell"),
+                        "{expected} must not inherit shell access"
+                    );
+                }
+                ToolScope::Wildcard => panic!("{expected} must not use wildcard tools"),
+            }
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────

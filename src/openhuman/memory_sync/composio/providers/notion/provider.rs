@@ -31,6 +31,11 @@ use futures::StreamExt;
 
 pub(crate) const ACTION_GET_ABOUT_ME: &str = "NOTION_GET_ABOUT_ME";
 pub(crate) const ACTION_FETCH_DATA: &str = "NOTION_FETCH_DATA";
+/// Per-page action that returns the page's rendered **body** as markdown
+/// (paragraphs, headings, lists, body tables). `FETCH_DATA` only returns
+/// metadata + properties; this fills in the actual document content for
+/// free-form pages. One request per page (budget-counted).
+pub(crate) const ACTION_GET_PAGE_MARKDOWN: &str = "NOTION_GET_PAGE_MARKDOWN";
 pub(crate) const ACTION_QUERY_DATABASE: &str = "NOTION_QUERY_DATABASE";
 pub(crate) const ACTION_SEARCH_NOTION_PAGE: &str = "NOTION_SEARCH_NOTION_PAGE";
 
@@ -297,6 +302,78 @@ impl ComposioProvider for NotionProvider {
 
             // ctx.max_items: clamp the dedup'd batch to the remaining budget before ingest.
             cap.clamp_batch(&mut pending);
+
+            // ── Step 4a.5: fetch each pending page's BODY markdown ──
+            // FETCH_DATA only returned metadata + properties. Pull the
+            // rendered page body (paragraphs, lists, body tables) per page so
+            // free-form documents ingest as real content (multi-chunk) rather
+            // than a single metadata chunk. One request per page — budget
+            // counted. Runs AFTER the depth-floor + max-items cap so we only
+            // fetch bodies for pages we'll actually ingest. On budget
+            // exhaustion or error we leave `markdown_body` None and ingest
+            // falls back to the metadata-only body.
+            for (idx, p) in pending.iter_mut().enumerate() {
+                if state.budget_exhausted() {
+                    tracing::info!(
+                        page = page_num,
+                        "[composio:notion] budget exhausted before body fetch — \
+                         remaining pages ingest metadata-only"
+                    );
+                    break;
+                }
+                match ctx
+                    .execute(
+                        ACTION_GET_PAGE_MARKDOWN,
+                        Some(json!({ "page_id": p.page_id })),
+                    )
+                    .await
+                {
+                    Ok(resp) => {
+                        state.record_requests(1);
+                        if resp.successful {
+                            p.markdown_body = sync::extract_page_markdown(&resp.data);
+                            // Empirical visibility (INFO so it shows at default
+                            // log level): on the first body fetch, log the
+                            // markdown length + the raw envelope keys so we can
+                            // confirm the response field / arg name on a live
+                            // run and refine if needed.
+                            if page_num == 0 && idx == 0 {
+                                tracing::info!(
+                                    page_id = %p.page_id,
+                                    markdown_chars =
+                                        p.markdown_body.as_ref().map(|s| s.len()).unwrap_or(0),
+                                    raw_keys = ?resp
+                                        .data
+                                        .as_object()
+                                        .map(|o| o.keys().cloned().collect::<Vec<_>>()),
+                                    "[composio:notion] GET_PAGE_MARKDOWN sample (empirical check)"
+                                );
+                            }
+                            if p.markdown_body.is_none() {
+                                tracing::warn!(
+                                    page_id = %p.page_id,
+                                    "[composio:notion] GET_PAGE_MARKDOWN returned no markdown \
+                                     field — metadata-only fallback"
+                                );
+                            }
+                        } else {
+                            tracing::warn!(
+                                page_id = %p.page_id,
+                                error = ?resp.error,
+                                "[composio:notion] GET_PAGE_MARKDOWN failed — metadata-only fallback"
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            page_id = %p.page_id,
+                            error = %e,
+                            "[composio:notion] GET_PAGE_MARKDOWN execute error — \
+                             metadata-only fallback"
+                        );
+                    }
+                }
+            }
 
             // ── Step 4b: ingest queued pages (bounded concurrency) ──
             let ingestor = MemoryTreeIngestor {
@@ -678,6 +755,11 @@ struct PendingIngest<'a> {
     title: String,
     edited_time: Option<String>,
     page: &'a Value,
+    /// Rendered page body (markdown) fetched per-page via
+    /// `NOTION_GET_PAGE_MARKDOWN` after dedupe, before ingest. `None` when the
+    /// body fetch was skipped (budget) or failed — ingest falls back to the
+    /// metadata-only body.
+    markdown_body: Option<String>,
 }
 
 /// Folded result of [`ingest_pending_buffered`]. Every field is
@@ -704,6 +786,7 @@ trait PageIngestor {
         title: &str,
         edited_time: Option<&str>,
         page: &Value,
+        markdown_body: Option<&str>,
     ) -> anyhow::Result<usize>;
 }
 
@@ -722,6 +805,7 @@ impl PageIngestor for MemoryTreeIngestor<'_> {
         title: &str,
         edited_time: Option<&str>,
         page: &Value,
+        markdown_body: Option<&str>,
     ) -> anyhow::Result<usize> {
         ingest_page_into_memory_tree(
             self.config,
@@ -730,6 +814,7 @@ impl PageIngestor for MemoryTreeIngestor<'_> {
             title,
             edited_time,
             page,
+            markdown_body,
         )
         .await
     }
@@ -793,6 +878,7 @@ fn select_pending<'a>(
             title,
             edited_time,
             page,
+            markdown_body: None,
         });
     }
     (pending, hit_cursor_boundary)
@@ -815,7 +901,13 @@ async fn ingest_pending_buffered<I: PageIngestor + Sync>(
         .into_iter()
         .map(|p| async move {
             let res = ingestor
-                .ingest(&p.page_id, &p.title, p.edited_time.as_deref(), p.page)
+                .ingest(
+                    &p.page_id,
+                    &p.title,
+                    p.edited_time.as_deref(),
+                    p.page,
+                    p.markdown_body.as_deref(),
+                )
                 .await;
             (p.sync_key, p.page_id, res)
         })
@@ -877,6 +969,7 @@ mod buffered_tests {
             _title: &str,
             _edited_time: Option<&str>,
             _page: &Value,
+            _markdown_body: Option<&str>,
         ) -> anyhow::Result<usize> {
             let now = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
             self.peak.fetch_max(now, Ordering::SeqCst);
@@ -908,6 +1001,7 @@ mod buffered_tests {
                 title: format!("Notion: page {i}"),
                 edited_time: None,
                 page,
+                markdown_body: None,
             })
             .collect()
     }

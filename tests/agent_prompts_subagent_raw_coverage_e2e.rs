@@ -287,6 +287,7 @@ fn parent(workspace: PathBuf, provider: Arc<ScriptedProvider>) -> ParentExecutio
         session_key: "1700000000_round18_parent".to_string(),
         session_parent_prefix: None,
         on_progress: None,
+        run_queue: None,
     }
 }
 

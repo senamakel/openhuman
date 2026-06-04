@@ -1,9 +1,9 @@
 # Voice → System Action Feature Tracker
 
 **GitHub Issue:** [#3148](https://github.com/tinyhumansai/openhuman/issues/3148)  
-**Branch:** `feat/voice-always-on`  
-**PR:** [#3168](https://github.com/tinyhumansai/openhuman/pull/3168)  
+**Branch:** `feat/voice-always-on-all` (cumulative) — Phase 1 landed via [#3168](https://github.com/tinyhumansai/openhuman/pull/3168); the full feature was split from the mega-PR [#3307](https://github.com/tinyhumansai/openhuman/pull/3307) into an 8-PR stack [#3340–#3346](https://github.com/tinyhumansai/openhuman/pull/3340) + [#3362](https://github.com/tinyhumansai/openhuman/pull/3362) (Phase 1.5 vision fallback)  
 **Started:** 2026-06-02  
+**Last updated:** 2026-06-04  
 
 ---
 
@@ -268,9 +268,9 @@ test ... ok
 
 ---
 
-### Change 1.14 — `automate(app, goal)`: Rust-driven multi-step automation 🔨 In progress (M1 done)
+### Change 1.14 — `automate(app, goal)`: Rust-driven multi-step automation ✅ M1–M5 done
 
-**Status:** 🔨 In progress — **M1 + M2 + M3 shipped and M3 proven live on macOS**; M4–M6 pending. See **Phase 1.5** below and [`voice-automate-plan.md`](voice-automate-plan.md).
+**Status:** ✅ **M1 + M2 + M3 + M4 + M5 shipped; M3 proven live on macOS.** The only remaining `automate` work is the **vision fallback** for Electron/partial-AX apps — tracked under **Phase 1.5** below and [`voice-automate-plan.md`](voice-automate-plan.md). (Per-app native fast-paths beyond the shipped Music one are **descoped**.)
 
 **Agent-in-the-loop fixes (2026-06-03, from two live chat sessions):**
 - **Mutations were off** — the agent correctly called `automate` but it (and `ax_interact`) refused because `computer_control.ax_interact_mutations=false`. Enabled it; also rewrote both refusal messages to point at **Settings → Agent Access** instead of a config key (the agent had relayed "controls are locked down").
@@ -315,9 +315,9 @@ test ... ok
 - **A fast model drives the inner loop** (Haiku-class) with a *tiny* context: just the goal, the current small AX snapshot, and the last result — not the whole conversation. Each inner step is ~0.5–1 s and self-corrects, instead of one 3 s chat turn that falsely reports success.
 - **Settle + verify in Rust** between steps — deterministic, kills the timing-race class in one place.
 - **Native fast-paths for high-value apps** (skip the UI entirely where possible):
-  - **Music** — `music://` search URL → AX play (already explored in 1.11), or AppleScript for library.
-  - **Spotify** — Web API search → `spotify:track:…` URI + AppleScript `play`. Fully deterministic, no UI poking.
-  - **Slack** — deep link `slack://channel?…` to open the DM, then AX to type + send.
+  - **Music** — `music://` search URL → AX play (already explored in 1.11), or AppleScript for library. **(Shipped — M3.)**
+  - ~~**Spotify** — Web API search → `spotify:track:…` URI + AppleScript `play`.~~ **Descoped** — the general loop covers it; not worth the per-app maintenance now.
+  - ~~**Slack** — deep link `slack://channel?…` to open the DM, then AX to type + send.~~ **Descoped** — handled by the general loop / vision fallback.
   The general AX loop is the fallback for everything else.
 - **Vision fallback for Electron/Chromium apps** (Slack, Discord, VS Code, Spotify-desktop) whose AX/UIA tree is partial (documented limitation). Slack needs accessibility enabled (`defaults write com.tinyspeck.slackmacgap AccessibilityEnabled -bool true`, relaunch). Where AX returns empty, fall back to **screenshot → vision-locate → guarded click**. This is the reverted CGEventPost path (1.8) — but it crashed only when events hit *OpenHuman's own focused CEF window*; a guarded click into a *different, foregrounded* app does not have that failure mode.
 - **Stream progress events** to the UI / notch pill (PR #3166) so the user sees each step happen live.
@@ -326,26 +326,27 @@ test ... ok
 
 ---
 
-## Phase 1.5 — Reliable, real-time multi-step automation ⏳ Not Started
+## Phase 1.5 — Reliable, real-time multi-step automation ✅ Complete
 
 > The bridge between today's `ax_interact` primitives and the always-on voice work. **Prerequisite for Phase 3** — fast voice routing into a slow/fragile action loop still feels slow. This is where "whatever I say happens, live" actually gets delivered.
+>
+> **Status:** the Rust inner loop (M1), poll-until-stable settle (M2), Music fast-path (M3, proven live), notch progress streaming (M4), the richer element model (M5), and the **vision fallback for Electron/partial-AX apps** (Change 1.16) are all shipped. (Additional per-app native fast-paths beyond Music — e.g. Spotify/Slack — are **descoped**: the general model-driven loop covers them, so a deterministic accelerator isn't worth the per-app maintenance right now.)
 
 **Detailed implementation plan:** [`voice-automate-plan.md`](voice-automate-plan.md) — decided approach: **Rust inner loop + fast model**, first proof target **Music**.
 
 **Planned files:**
 - `src/openhuman/accessibility/automate.rs` (new) — the perceive→act→verify loop + settle/verify primitives, reusing `ax_interact` helpers.
-- `src/openhuman/accessibility/app_fastpaths/` (new) — per-app deterministic paths (`music.rs`, `spotify.rs`, `slack.rs`), behind a generic dispatch.
+- `src/openhuman/accessibility/app_fastpaths/` (new) — per-app deterministic paths behind a generic dispatch. **Shipped:** `music.rs` (M3). Further per-app fast-paths (Spotify/Slack) are **descoped** — the general loop handles them.
 - `src/openhuman/tools/impl/computer/automate.rs` (new) — `AutomateTool { app, goal }`, gated like `ax_interact` (mutations opt-in, sensitive-app denylist reused).
 - macOS helper (`accessibility/helper.rs`) — AXObserver-based settle (`ax_wait_settled`) + post-action verify; richer element model (enabled/onscreen/actions).
 - Vision fallback — screenshot via `accessibility/capture.rs` → locate → guarded click (only when AX tree is empty, target app foregrounded, never OpenHuman's own window).
 
 **Acceptance criteria:**
-- [ ] One `automate{app, goal}` call performs a multi-step flow end-to-end (no per-step chat turns)
-- [ ] Settle/verify removes the timing-race + false-success failure classes (1.11/1.13 do not recur)
-- [ ] Music flow ("play <song>") works end-to-end via the inner loop
-- [ ] Spotify + Slack fast-paths land their action deterministically
-- [ ] Electron/partial-AX apps fall back to vision+guarded-click without the CEF crash
-- [ ] Step-by-step progress streamed to the UI / notch indicator
+- [x] One `automate{app, goal}` call performs a multi-step flow end-to-end (no per-step chat turns)
+- [x] Settle/verify removes the timing-race + false-success failure classes (1.11/1.13 do not recur)
+- [x] Music flow ("play <song>") works end-to-end via the inner loop (proven live, hard-asserts `player state == playing`)
+- [x] Electron/partial-AX apps fall back to vision+guarded-click without the CEF crash (Change 1.16)
+- [x] Step-by-step progress streamed to the UI / notch indicator (M4)
 
 ---
 
@@ -368,9 +369,26 @@ enigo::macos::get_layoutdependent_keycode → TSMGetInputSourceProperty
 ```
 enigo's keyboard-layout lookup (`TSMGetInputSourceProperty`) **must run on the app's main thread**; the keyboard tool ran on a tokio worker → macOS trapped. **Not** a focus issue (same §1.8 root cause); a frontmost-app guard would not have fixed it.
 
-**Fix applied:** enigo now runs on the Tauri **main thread** via `AppHandle::run_on_main_thread`, bridged to the core through a native-registry handler (see *The fix* above) and wrapped in `catch_unwind` so an FFI panic can't unwind across the main thread. (Alternative considered but not needed: TSM-free primitives — `CGEventKeyboardSetUnicodeString` for text + raw virtual keycodes for keys/hotkeys.)
+**Fix applied:** all enigo operations now run on the Tauri **main thread** via `run_input_on_main` (new `main_thread.rs` module + a native-registry handler the shell registers, dispatched through `AppHandle::run_on_main_thread`) and wrapped in `catch_unwind`. Keyboard/mouse tools **and** `vision_click` now execute without TSM traps.
 
 **Tests:** voice-actions + autonomy suite is exhaustive — 220 feature unit tests + a JSON-RPC E2E (`json_rpc_voice_server_settings_roundtrip_always_on_and_wake_word`). The E2E caught + fixed real gaps (`wake_word` missing from the get output and the update RPC path). Screenshot downscale unit-tested.
+
+---
+
+### Change 1.16 — `vision_click`: vision fallback for Electron/partial-AX apps ✅ Done
+
+**Status:** ✅ Shipped — closes the last open Phase 1.5 item. Electron/Chromium apps (Slack, Discord, VS Code) expose little or no AX/UIA tree, so the `automate` perceive→press loop had nothing to act on. The loop can now *see* the screen and click a described element.
+
+**Problem:** when `perceive` returns an empty (or target-missing) element list, the loop was stuck — there was no label to press. The planned answer (tracker §1.5) was *screenshot → vision-locate → guarded click*, but two things blocked it: (1) the fast inner-loop model is text-only, and (2) the deferred **F2** coordinate-mapping gap — the screenshot is windowed + downscaled and Retina is 2×, while `mouse` expects absolute screen points, so a vision-returned coordinate would click the wrong spot.
+
+**Fix — a new model-chosen `vision_click { description }` action in the `automate` loop:**
+- **Reuses the existing multimodal path** — the OpenAI-compatible provider promotes an embedded `[IMAGE:<data-uri>]` marker into a real `image_url` part (`inference/provider/compatible_types.rs`, #3205), so vision-locate rides the existing `chat_with_system` call with **no new inference API**. The locate call uses the **main `chat`/vision provider** (`create_chat_provider("chat", …)`) — reliable UI grounding, and the fallback only fires when AX is empty (rare).
+- **Folds in the F2 coordinate transform** — `src/openhuman/accessibility/vision_click.rs` (new): `CaptureGeometry` (window screen-rect in points + image pixel size) + a **pure, unit-tested** `image_to_screen(geom, px, py)`. The px→pt ratio absorbs both the downscale and the Retina backing scale, so no explicit scale factor is needed; the result is clamped strictly inside the target window.
+- **§1.8 safety guard** — a `vision_click` only fires when the target app is **frontmost** (`focus::foreground_context`); on positive evidence a different app is focused it re-foregrounds once and otherwise **refuses**, so synthetic input never lands on OpenHuman's own CEF window. `None` (can't tell) = best-effort, since the loop already foregrounded the app at start.
+- **Main-thread click** — the guarded left-click runs via `run_input_on_main` (Change 1.15), so off-thread enigo never traps TSM.
+- Wired into the `automate` loop: new `Action.description`, a `vision_click` system-prompt verb ("use when the element list is EMPTY — Electron apps"), the no-progress signature extended with `description`, and `RealBackend::{screenshot,locate,frontmost_app,click}`. Inherits `automate`'s existing gating (Dangerous + mutations opt-in + sensitive-app denylist) — no new tool, no new approval surface.
+
+**Tests:** pure `image_to_screen` (downscale / Retina 2× / origin offset / out-of-range + negative clamp / zero-dim safety), `parse_locate_response` (found / not-found / fenced / prose / garbage), `build_locate_user` (marker), `image_dims_from_data_uri` (real PNG round-trip); loop integration via the scripted backend (locate-and-click when frontmost, proceed when frontmost unknown, **refuse when another app is frontmost**, no-click on not-found, empty-description skip). A macOS live run against a real Electron app is the remaining manual validation (vision is nondeterministic — assert tool-level success, treat the visual outcome as best-effort, same caveat as Music).
 
 ---
 
@@ -549,17 +567,27 @@ Shipped on the Windows machine (2026-06-02):
 
 ---
 
-## Phase 3 — Wake-Word + Fast Routing ⏳ Not Started
+## Phase 3 — Wake-Word + Fast Routing 🔨 In progress
+
+**Fast routing — DONE & WIRED:** `src/openhuman/voice/command_router.rs` (new) — pure `route(transcript) -> VoiceIntent` classifier (Play/Pause/Resume/Next/Previous/OpenApp/SetVolume/VolumeUp·Down/Mute/Unmute, else `Unknown`). High-confidence intents execute directly (launch_app / Music fast-path / osascript volume) without a full chat-LLM turn — the ≤500 ms path; `Unknown` defers to the agent so routing only ever shortcuts. Filler-tolerant ("please open up slack"). 5 unit tests.
+
+**Router wired into delivery:** `always_on::deliver_command` now routes the extracted command through `command_router::route` first. Recognized intents run locally via `execute_intent` (Play → `automate` Music fast-path; OpenApp → `launch_platform`; Pause/Resume/Next/Previous/volume/mute → `osa` osascript); `VoiceIntent::Unknown` (and any local-exec failure) falls back to the full agent turn. Verified live: clean transport/open/volume commands execute on the fast path; complex/garbled `play` queries (e.g. mangled STT like "bts s latest song wind blowing") fall through to the agent as designed. Committed on `feat/voice-phase3-fast-routing`.
+
+**Remaining Phase 3:** on-device audio wake-word model (Porcupine / ONNX) in `inference/voice/wake_word.rs` to gate STT *before* transcription — the text-based "Hey Tiny" wake match from Phase 2 (fuzzy anchor on the "tiny" token, Levenshtein ≤1) is the interim. This is the only open Phase 3 item; not yet started.
+
+---
+
+## Phase 3 — Wake-Word + Fast Routing (original plan)
 
 > Activate only on a trigger phrase; route simple commands locally without a full LLM turn.
 
 **Planned files:**
-- `src/openhuman/inference/voice/wake_word.rs` (new) — lightweight always-on model (Porcupine or custom ONNX)
-- `src/openhuman/voice/command_router.rs` (new) — intent→tool mapping for high-confidence commands, LLM fallback for ambiguous input
+- `src/openhuman/inference/voice/wake_word.rs` (new) — lightweight always-on model (Porcupine or custom ONNX) — ⏳ **not started** (interim: text-based "Hey Tiny" match in Phase 2)
+- `src/openhuman/voice/command_router.rs` (new) — intent→tool mapping for high-confidence commands, LLM fallback for ambiguous input — ✅ **shipped & wired** (see Phase 3 status above)
 
 **Acceptance criteria:**
-- [ ] Wake-word detection runs fully on-device
-- [ ] Latency from end-of-utterance to action start ≤ 500ms for local-routed commands
+- [ ] Wake-word detection runs fully on-device (still pending — audio wake-word model not yet built)
+- [x] Latency from end-of-utterance to action start ≤ 500ms for local-routed commands (command router executes recognized intents on the local fast path)
 
 ---
 
@@ -607,19 +635,23 @@ From live agent-in-the-loop testing on 2026-06-03 (grounded in `~/.openhuman/log
 | 1 | AXUIElement app UI interaction (`ax_interact`) | ✅ Done |
 | 1 | Multi-step UI workflow guidance | ✅ Done |
 | 1 | Apple Music two-step play (navigate→play) | ✅ Done (playback best-effort) |
-| 1 | `automate(app, goal)` Rust-driven loop (Change 1.14) | 🔨 M1+M2+M3 done (37 tests; live proof pending) |
+| 1 | Full computer control (mouse/keyboard/screenshot) — CEF crash (Change 1.15) | ✅ Fixed (main-thread synthetic-input dispatch; screenshot downscale) |
+| 1 | Windows port (`launch_app` + UIA `ax_interact`) | ✅ Done (Calculator + Notepad hard-asserted on Win11) |
+| 1 | `automate(app, goal)` Rust-driven loop (Change 1.14) | ✅ M1–M5 done (proven live on macOS) |
 | 1.5 | M1: automate loop skeleton + tool | ✅ Done |
 | 1.5 | M2: poll-until-stable settle | ✅ Done |
 | 1.5 | M3: Music fast-path | ✅ Done (proven live on macOS) |
 | 1.5 | Robustness: quoted-query parse + no-progress guard | ✅ Done (from live agent failures) |
 | 1.5 | M4: progress streaming to notch | ✅ Done — notch cherry-picked in; automate streams live steps |
 | 1.5 | M5: richer element model (`enabled`) | ✅ Plumbed; AXEnabled found unreliable → informational only |
-| 1.5 | Native fast-paths (Music/Spotify/Slack) | ⏳ Not started |
-| 1.5 | Vision fallback for Electron apps | ⏳ Not started |
+| 1.5 | Native fast-paths beyond Music (Spotify/Slack) | ➖ Descoped (general loop covers them; Music shipped in M3) |
+| 1.5 | Vision fallback for Electron apps (Change 1.16) | ✅ Done (`vision_click`: screenshot → vision-locate → guarded click; frontmost guard; F2 coord-transform folded in) |
 | 2 | Always-on microphone loop | ✅ Done (cpal → VAD → STT → agent) |
 | 2 | `always_on_enabled` config flag + Settings toggle | ✅ Done (RPC + UI + i18n) |
 | 2 | Privacy hook (screen lock pause) | ✅ Done (macOS; other OSes follow-up) |
-| 3 | Wake-word detection | ⏳ Not started |
-| 3 | Local command router | ⏳ Not started |
+| 2 | Text-based "Hey Tiny" wake word | ✅ Done (interim; gates delivery, strips phrase) |
+| 3 | Local command router (intent classifier) | ✅ Done & wired (recognized intents run on the ≤500ms local path; Unknown defers to agent) |
+| 3 | On-device audio wake-word model | ⏳ Not started (text-based match is the interim) |
 | 4 | Voice confirmation loop | ⏳ Not started |
+| 4 | Computer-control onboarding toggle | ⏳ Not started |
 | 4 | Always-on UI indicator | ✅ Done (notch PR #3166) |

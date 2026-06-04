@@ -281,6 +281,15 @@ const en: TranslationMap = {
   'skills.available': 'Available',
   'skills.addAccount': 'Add Account',
   'skills.channels': 'Channels',
+  'skills.explorer.emptyCta': 'Install from URL',
+  'skills.explorer.emptyDescription':
+    'Install a SKILL.md package or place Hermes-style folders under ~/.openhuman/skills.',
+  'skills.explorer.emptyTitle': 'No skills found',
+  'skills.explorer.installFromUrl': 'Install from URL',
+  'skills.explorer.newSkill': 'New skill',
+  'skills.explorer.subtitle':
+    'Browse SKILL.md packages, including Hermes-style markdown, scripts, references, templates, examples, and prompts.',
+  'skills.explorer.title': 'Skills explorer',
   'skills.integrations': 'Composio Integrations',
   'skills.integrationsSubtitle':
     'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
@@ -290,6 +299,7 @@ const en: TranslationMap = {
   'skills.composio.noApiKeyCta': 'Open in Settings',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
+  'skills.tabs.explorer': 'Skills',
   'skills.tabs.mcp': 'MCP Servers',
   'skills.tabs.runners': 'Runners',
   // Intelligence / Memory
@@ -4414,6 +4424,9 @@ const en: TranslationMap = {
   'skills.detail.closeAriaLabel': 'Close skill details',
   'skills.detail.location': 'Location',
   'skills.detail.noBundledResources': 'No bundled resources.',
+  'skills.detail.platforms': 'Platforms',
+  'skills.detail.relatedSkills': 'Related skills',
+  'skills.detail.sourceFormat': 'Format',
   'skills.detail.tags': 'Tags',
   'skills.detail.warnings': 'Warnings',
   'skills.install.errors.alreadyInstalledHint':
@@ -4500,7 +4513,14 @@ const en: TranslationMap = {
   'skills.resource.preview.closeAriaLabel': 'Close preview',
   'skills.resource.preview.failed': 'Preview failed',
   'skills.resource.preview.loading': 'Loading preview…',
+  'skills.resource.tree.assets': 'Assets',
   'skills.resource.tree.empty': 'No bundled resources.',
+  'skills.resource.tree.examples': 'Examples',
+  'skills.resource.tree.other': 'Other',
+  'skills.resource.tree.prompts': 'Prompts',
+  'skills.resource.tree.references': 'References',
+  'skills.resource.tree.scripts': 'Scripts',
+  'skills.resource.tree.templates': 'Templates',
   'skills.search.placeholder': 'Search skills…',
   'skills.setup.autocomplete.acceptKey': 'Accept key',
   'skills.setup.autocomplete.activeDesc': 'Inline completions are running and ready.',

@@ -49,6 +49,9 @@ export default function SkillDetailDrawer({ skill, onClose }: Props) {
   const [selectedResource, setSelectedResource] = useState<string | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const platforms = skill.platforms ?? [];
+  const relatedSkills = skill.relatedSkills ?? [];
+  const sourceFormat = skill.sourceFormat ?? (skill.legacy ? 'legacy' : 'openhuman');
 
   // Capture focus on mount, restore on unmount.
   useEffect(() => {
@@ -186,6 +189,40 @@ export default function SkillDetailDrawer({ skill, onClose }: Props) {
                       </span>
                     ))}
                   </dd>
+                </>
+              ) : null}
+              {platforms.length > 0 ? (
+                <>
+                  <dt className="font-medium text-stone-500 dark:text-neutral-400">{t('skills.detail.platforms')}</dt>
+                  <dd className="flex flex-wrap gap-1">
+                    {platforms.map(platform => (
+                      <span
+                        key={platform}
+                        className="inline-flex items-center rounded-md border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-1.5 py-0.5 font-mono text-[10px] text-stone-700 dark:text-neutral-200">
+                        {platform}
+                      </span>
+                    ))}
+                  </dd>
+                </>
+              ) : null}
+              {relatedSkills.length > 0 ? (
+                <>
+                  <dt className="font-medium text-stone-500 dark:text-neutral-400">{t('skills.detail.relatedSkills')}</dt>
+                  <dd className="flex flex-wrap gap-1">
+                    {relatedSkills.map(related => (
+                      <span
+                        key={related}
+                        className="inline-flex items-center rounded-md border border-sage-100 bg-sage-50 px-1.5 py-0.5 font-mono text-[10px] text-sage-700">
+                        {related}
+                      </span>
+                    ))}
+                  </dd>
+                </>
+              ) : null}
+              {sourceFormat ? (
+                <>
+                  <dt className="font-medium text-stone-500 dark:text-neutral-400">{t('skills.detail.sourceFormat')}</dt>
+                  <dd className="text-stone-800 dark:text-neutral-100 capitalize">{sourceFormat}</dd>
                 </>
               ) : null}
               {skill.tools.length > 0 ? (

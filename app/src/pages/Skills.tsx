@@ -341,7 +341,7 @@ interface SkillItem {
 
 // ─── Main Skills Page ──────────────────────────────────────────────────────────
 
-type ConnectionsTab = 'channels' | 'composio' | 'mcp' | 'runners';
+type ConnectionsTab = 'explorer' | 'channels' | 'composio' | 'mcp' | 'runners';
 
 export default function Skills() {
   const { t } = useT();
@@ -349,15 +349,16 @@ export default function Skills() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLocalSession = isLocalSessionToken(getCoreStateSnapshot().snapshot.sessionToken);
-  // Honour `?tab=<runners|composio|channels|mcp>` so `/skills?tab=runners`
+  // Honour `?tab=<explorer|runners|composio|channels|mcp>` so `/skills?tab=runners`
   // lands directly on the Runners sub-tab (used by SkillsRun's back button
   // so closing the runner returns to the dashboard, not Composio).
   const initialTab: ConnectionsTab = (() => {
     const params = new URLSearchParams(location.search);
     const t = params.get('tab');
+    if (t === 'explorer') return 'explorer';
     if (t === 'runners') return IS_DEV ? 'runners' : 'composio';
     if (t === 'composio' || t === 'channels' || t === 'mcp') return t;
-    return 'composio';
+    return 'explorer';
   })();
   const [activeTab, setActiveTab] = useState<ConnectionsTab>(initialTab);
   const dispatch = useAppDispatch();
@@ -633,7 +634,12 @@ export default function Skills() {
     return allItems.filter(item => {
       const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
       const matchesSearch =
-        !q || item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        item.description.toLowerCase().includes(q) ||
+        item.discoveredSkill?.tags?.some(tag => tag.toLowerCase().includes(q)) ||
+        item.discoveredSkill?.relatedSkills?.some(skill => skill.toLowerCase().includes(q)) ||
+        item.discoveredSkill?.resources?.some(resource => resource.toLowerCase().includes(q));
       return matchesCategory && matchesSearch;
     });
   }, [allItems, searchQuery, selectedCategory]);
@@ -657,6 +663,10 @@ export default function Skills() {
   }, [allItems]);
   const otherGroups = useMemo(
     () => groupedItems.filter(g => g.category !== 'Channels' && (IS_DEV || g.category !== 'Other')),
+    [groupedItems]
+  );
+  const explorerGroups = useMemo(
+    () => groupedItems.filter(g => g.category !== 'Channels'),
     [groupedItems]
   );
 
@@ -904,6 +914,7 @@ export default function Skills() {
               selected={activeTab}
               onChange={setActiveTab}
               items={[
+                { value: 'explorer', label: t('skills.tabs.explorer') },
                 { value: 'composio', label: t('skills.tabs.composio') },
                 { value: 'channels', label: t('skills.tabs.channels') },
                 { value: 'mcp', label: t('skills.tabs.mcp') },
@@ -912,6 +923,49 @@ export default function Skills() {
             />
             {
               <>
+                {activeTab === 'explorer' && (
+                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
+                    <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-1">
+                      <div className="min-w-0">
+                        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                          {t('skills.explorer.title')}
+                        </h2>
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
+                          {t('skills.explorer.subtitle')}
+                        </p>
+                      </div>
+                      <div className="flex flex-shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setInstallDialogOpen(true)}
+                          className="rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-xs font-medium text-stone-700 dark:text-neutral-200 shadow-soft transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
+                          {t('skills.explorer.installFromUrl')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCreateModalOpen(true)}
+                          className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
+                          {t('skills.explorer.newSkill')}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-3 px-1 pb-3">
+                      <SkillSearchBar value={searchQuery} onChange={setSearchQuery} />
+                    </div>
+                    {explorerGroups.length > 0 ? (
+                      <div className="space-y-3">{explorerGroups.map(renderGroup)}</div>
+                    ) : (
+                      <EmptyStateCard
+                        className="mx-1 py-10"
+                        icon={BUILT_IN_SKILL_ICONS.screenIntelligence}
+                        title={t('skills.explorer.emptyTitle')}
+                        description={t('skills.explorer.emptyDescription')}
+                        actionLabel={t('skills.explorer.emptyCta')}
+                        onAction={() => setInstallDialogOpen(true)}
+                      />
+                    )}
+                  </div>
+                )}
                 {IS_DEV && activeTab === 'runners' && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft animate-fade-up">
                     {/* The Runners sub-tab IS the scheduled-skills dashboard:

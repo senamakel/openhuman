@@ -36,6 +36,9 @@ function buildSkill(overrides: Partial<SkillSummary> = {}): SkillSummary {
     version: '1.2.3',
     author: 'Acme Labs',
     tags: ['alpha', 'beta'],
+    platforms: [],
+    relatedSkills: [],
+    sourceFormat: 'openhuman',
     tools: ['bash', 'python'],
     prompts: [],
     location: '/tmp/skills/demo/SKILL.md',
@@ -86,6 +89,27 @@ describe('SkillDetailDrawer', () => {
     );
     expect(screen.getByText('Warnings')).toBeInTheDocument();
     expect(screen.getByText('unknown frontmatter field: foo')).toBeInTheDocument();
+  });
+
+  it('renders Hermes metadata and resource groups', () => {
+    render(
+      <SkillDetailDrawer
+        skill={buildSkill({
+          platforms: ['linux', 'macos'],
+          relatedSkills: ['excel-author'],
+          sourceFormat: 'hermes',
+          resources: ['templates/model.xlsx', 'examples/demo.md', 'prompts/system.md'],
+        })}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByText('linux')).toBeInTheDocument();
+    expect(screen.getByText('macos')).toBeInTheDocument();
+    expect(screen.getByText('excel-author')).toBeInTheDocument();
+    expect(screen.getByText('hermes')).toBeInTheDocument();
+    expect(screen.getByText('Templates')).toBeInTheDocument();
+    expect(screen.getByText('Examples')).toBeInTheDocument();
+    expect(screen.getByText('Prompts')).toBeInTheDocument();
   });
 
   it('invokes onClose when Escape is pressed', () => {

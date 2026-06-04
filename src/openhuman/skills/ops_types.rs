@@ -9,7 +9,17 @@ pub(crate) const SKILL_MD: &str = "SKILL.md";
 pub(crate) const SKILL_JSON: &str = "skill.json";
 pub(crate) const MAX_NAME_LEN: usize = 64;
 pub(crate) const MAX_DESCRIPTION_LEN: usize = 1024;
-pub(crate) const RESOURCE_DIRS: &[&str] = &["scripts", "references", "assets"];
+pub(crate) const RESOURCE_DIRS: &[&str] = &[
+    "scripts",
+    "references",
+    "assets",
+    // Hermes-style skills commonly ship extra markdown/code under these
+    // directories. Treat them as browsable resources, not executable runtime
+    // entrypoints.
+    "templates",
+    "examples",
+    "prompts",
+];
 
 /// Upper bound on resource payload size (in bytes) returned by
 /// [`read_skill_resource`]. 128 KB is large enough for a typical SKILL-bundled
@@ -58,6 +68,10 @@ pub struct SkillFrontmatter {
     pub license: Option<String>,
     #[serde(default)]
     pub compatibility: Option<String>,
+    /// Platform compatibility hint used by Hermes-style skills. Absence means
+    /// all platforms.
+    #[serde(default)]
+    pub platforms: Vec<String>,
     /// Spec-compliant metadata map. Version, author, tags, and other
     /// non-required fields live here.
     #[serde(default)]
@@ -128,15 +142,53 @@ pub(crate) fn extract_author(fm: &SkillFrontmatter, warnings: &mut Vec<String>) 
 }
 
 pub(crate) fn extract_tags(fm: &SkillFrontmatter, warnings: &mut Vec<String>) -> Vec<String> {
+    let mut tags = Vec::new();
     if let Some(v) = fm.metadata.get("tags") {
-        return metadata_string_seq(v);
+        tags.extend(metadata_string_seq(v));
+    }
+    if let Some(hermes_tags) = fm
+        .metadata
+        .get("hermes")
+        .and_then(|v| v.as_mapping())
+        .and_then(|m| m.get(&serde_yaml::Value::String("tags".to_string())))
+    {
+        tags.extend(metadata_string_seq(hermes_tags));
     }
     if let Some(v) = fm.extra.get("tags") {
         log::warn!("[skills] top-level 'tags' is deprecated; move under 'metadata.tags'");
         warnings.push("top-level 'tags' is deprecated; move under 'metadata.tags'".to_string());
-        return metadata_string_seq(v);
+        tags.extend(metadata_string_seq(v));
     }
-    Vec::new()
+    tags.sort();
+    tags.dedup();
+    tags
+}
+
+pub(crate) fn extract_related_skills(fm: &SkillFrontmatter) -> Vec<String> {
+    let mut related = fm
+        .metadata
+        .get("related_skills")
+        .map(metadata_string_seq)
+        .unwrap_or_default();
+    if let Some(hermes_related) = fm
+        .metadata
+        .get("hermes")
+        .and_then(|v| v.as_mapping())
+        .and_then(|m| m.get(&serde_yaml::Value::String("related_skills".to_string())))
+    {
+        related.extend(metadata_string_seq(hermes_related));
+    }
+    related.sort();
+    related.dedup();
+    related
+}
+
+pub(crate) fn detect_source_format(fm: &SkillFrontmatter) -> String {
+    if fm.metadata.contains_key("hermes") || !fm.platforms.is_empty() {
+        "hermes".to_string()
+    } else {
+        "openhuman".to_string()
+    }
 }
 
 /// A discovered skill.
@@ -158,6 +210,15 @@ pub struct Skill {
     pub author: Option<String>,
     /// Tags declared in frontmatter.
     pub tags: Vec<String>,
+    /// Compatible platform hints from SKILL.md frontmatter.
+    #[serde(default)]
+    pub platforms: Vec<String>,
+    /// Related skill names declared by the ecosystem/catalog.
+    #[serde(default)]
+    pub related_skills: Vec<String>,
+    /// Normalized ecosystem format hint (`openhuman`, `hermes`, or `legacy`).
+    #[serde(default)]
+    pub source_format: String,
     /// Tool hint declared in frontmatter (`allowed-tools`).
     #[serde(default)]
     pub tools: Vec<String>,

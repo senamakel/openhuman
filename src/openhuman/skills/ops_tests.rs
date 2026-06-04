@@ -234,6 +234,60 @@ fn inventory_resources_lists_scripts_and_assets() {
 }
 
 #[test]
+fn inventory_resources_lists_hermes_resource_dirs() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = dir.path().join("s");
+    write(
+        &skill.join("SKILL.md"),
+        "---\nname: s\ndescription: d\n---\n",
+    );
+    write(&skill.join("templates").join("page.html"), "<html></html>");
+    write(&skill.join("examples").join("demo.md"), "demo");
+    write(&skill.join("prompts").join("system.md"), "prompt");
+
+    let mut res = inventory_resources(&skill);
+    res.sort();
+    assert_eq!(res.len(), 3);
+    assert!(res.iter().any(|p| p.ends_with("page.html")));
+    assert!(res.iter().any(|p| p.ends_with("demo.md")));
+    assert!(res.iter().any(|p| p.ends_with("system.md")));
+}
+
+#[test]
+fn nested_hermes_skill_tree_discovers_metadata_and_resources() {
+    let dir = tempfile::tempdir().unwrap();
+    let ws = dir.path();
+    write(&ws.join(".openhuman").join("trust"), "");
+    let skill_dir = ws
+        .join(".openhuman")
+        .join("skills")
+        .join("creative")
+        .join("concept-diagrams");
+    write(
+        &skill_dir.join("SKILL.md"),
+        "---\nname: concept-diagrams\ndescription: Generate diagrams\nversion: 0.1.0\nauthor: Nous\nplatforms: [linux, macos, windows]\nmetadata:\n  hermes:\n    tags: [diagrams, svg]\n    related_skills: [architecture-diagram]\n---\n",
+    );
+    write(
+        &skill_dir.join("templates").join("template.html"),
+        "<html></html>",
+    );
+    write(&skill_dir.join("examples").join("flow.md"), "flow");
+
+    let skills = load_skills_ws(ws);
+    assert_eq!(skills.len(), 1);
+    let s = &skills[0];
+    assert_eq!(s.name, "concept-diagrams");
+    assert_eq!(s.version, "0.1.0");
+    assert_eq!(s.author.as_deref(), Some("Nous"));
+    assert_eq!(s.platforms, vec!["linux", "macos", "windows"]);
+    assert_eq!(s.tags, vec!["diagrams", "svg"]);
+    assert_eq!(s.related_skills, vec!["architecture-diagram"]);
+    assert_eq!(s.source_format, "hermes");
+    assert!(s.resources.iter().any(|p| p.ends_with("template.html")));
+    assert!(s.resources.iter().any(|p| p.ends_with("flow.md")));
+}
+
+#[test]
 fn parse_skill_md_without_frontmatter_returns_body() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("SKILL.md");

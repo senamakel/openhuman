@@ -32,6 +32,12 @@ export interface SkillSummary {
   author: string | null;
   /** Tags declared in frontmatter metadata. */
   tags: string[];
+  /** Platform compatibility hints from SKILL.md frontmatter. */
+  platforms: string[];
+  /** Related skills declared by the originating ecosystem. */
+  relatedSkills: string[];
+  /** Normalized source format hint, e.g. openhuman, hermes, legacy. */
+  sourceFormat: string;
   /** Tool hint from `allowed-tools`. */
   tools: string[];
   /** Prompt files declared in the legacy manifest. */
@@ -49,8 +55,16 @@ export interface SkillSummary {
 }
 
 interface SkillsListResult {
-  skills: SkillSummary[];
+  skills: RawSkillSummary[];
 }
+
+type RawSkillSummary = Omit<SkillSummary, 'platforms' | 'relatedSkills' | 'sourceFormat'> & {
+  platforms?: string[];
+  related_skills?: string[];
+  relatedSkills?: string[];
+  source_format?: string;
+  sourceFormat?: string;
+};
 
 /**
  * Result of `openhuman.skills_read_resource`.
@@ -113,7 +127,7 @@ export interface CreateSkillInput {
 }
 
 interface RawSkillsCreateResult {
-  skill: SkillSummary;
+  skill: RawSkillSummary;
 }
 
 /**
@@ -183,6 +197,15 @@ function unwrapEnvelope<T>(response: Envelope<T> | T): T {
   return response as T;
 }
 
+function normalizeSkillSummary(raw: RawSkillSummary): SkillSummary {
+  return {
+    ...raw,
+    platforms: raw.platforms ?? [],
+    relatedSkills: raw.relatedSkills ?? raw.related_skills ?? [],
+    sourceFormat: raw.sourceFormat ?? raw.source_format ?? (raw.legacy ? 'legacy' : 'openhuman'),
+  };
+}
+
 export const skillsApi = {
   /** Enumerate SKILL.md / legacy skills visible in the active workspace. */
   listSkills: async (): Promise<SkillSummary[]> => {
@@ -191,7 +214,7 @@ export const skillsApi = {
       method: 'openhuman.skills_list',
     });
     const result = unwrapEnvelope(response);
-    const skills = result?.skills ?? [];
+    const skills = (result?.skills ?? []).map(normalizeSkillSummary);
     log('listSkills: response count=%d', skills.length);
     return skills;
   },
@@ -249,8 +272,9 @@ export const skillsApi = {
       },
     });
     const raw = unwrapEnvelope(response);
-    log('createSkill: response id=%s', raw.skill.id);
-    return raw.skill;
+    const skill = normalizeSkillSummary(raw.skill);
+    log('createSkill: response id=%s', skill.id);
+    return skill;
   },
 
   /**

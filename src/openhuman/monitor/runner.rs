@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
+use tokio::task::JoinHandle;
 
 const SAFE_ENV_VARS: &[&str] = &[
     "PATH",
@@ -132,8 +133,9 @@ async fn run_child(
     let stdout = child.stdout.take().context("capturing monitor stdout")?;
     let stderr = child.stderr.take().context("capturing monitor stderr")?;
     let (line_tx, mut line_rx) = mpsc::channel::<(MonitorStream, String)>(64);
-    spawn_reader(stdout, MonitorStream::Stdout, line_tx.clone());
-    spawn_reader(stderr, MonitorStream::Stderr, line_tx);
+    let stdout_handle = spawn_reader(stdout, MonitorStream::Stdout, line_tx.clone());
+    let stderr_handle = spawn_reader(stderr, MonitorStream::Stderr, line_tx.clone());
+    drop(line_tx);
 
     let mut output = tokio::fs::OpenOptions::new()
         .create(true)
@@ -152,49 +154,36 @@ async fn run_child(
             biased;
             _ = &mut stop_rx => {
                 let _ = child.kill().await;
+                join_readers(stdout_handle, stderr_handle, &snapshot.monitor_id).await;
+                drain_lines(ctx, snapshot, &mut output, &mut output_bytes, &mut dropped_bytes, &mut line_rx).await?;
                 return Ok(ChildOutcome::Stopped);
             }
             _ = &mut sleep => {
                 let _ = child.kill().await;
+                join_readers(stdout_handle, stderr_handle, &snapshot.monitor_id).await;
+                drain_lines(ctx, snapshot, &mut output, &mut output_bytes, &mut dropped_bytes, &mut line_rx).await?;
                 return Ok(ChildOutcome::TimedOut);
             }
             maybe = line_rx.recv() => {
                 if let Some((stream, line)) = maybe {
-                    let event = MonitorEvent {
-                        monitor_id: snapshot.monitor_id.clone(),
-                        thread_id: snapshot.thread_id.clone(),
-                        timestamp_ms: now_ms(),
-                        stream,
-                        line,
-                    };
-                    write_bounded_line(&mut output, &event, &mut output_bytes, &mut dropped_bytes).await?;
-                    ctx.store.push_event(event.clone(), output_bytes, dropped_bytes).await;
-                    publish_line(&event);
-                    enqueue_collect(ctx, snapshot, &event).await;
+                    record_line(ctx, snapshot, &mut output, &mut output_bytes, &mut dropped_bytes, stream, line).await?;
                 }
             }
             status = child.wait() => {
                 let status = status.context("waiting for monitor command")?;
-                while let Ok((stream, line)) = line_rx.try_recv() {
-                    let event = MonitorEvent {
-                        monitor_id: snapshot.monitor_id.clone(),
-                        thread_id: snapshot.thread_id.clone(),
-                        timestamp_ms: now_ms(),
-                        stream,
-                        line,
-                    };
-                    write_bounded_line(&mut output, &event, &mut output_bytes, &mut dropped_bytes).await?;
-                    ctx.store.push_event(event.clone(), output_bytes, dropped_bytes).await;
-                    publish_line(&event);
-                    enqueue_collect(ctx, snapshot, &event).await;
-                }
+                join_readers(stdout_handle, stderr_handle, &snapshot.monitor_id).await;
+                drain_lines(ctx, snapshot, &mut output, &mut output_bytes, &mut dropped_bytes, &mut line_rx).await?;
                 return Ok(ChildOutcome::Completed(status.code()));
             }
         }
     }
 }
 
-fn spawn_reader<R>(reader: R, stream: MonitorStream, tx: mpsc::Sender<(MonitorStream, String)>)
+fn spawn_reader<R>(
+    reader: R,
+    stream: MonitorStream,
+    tx: mpsc::Sender<(MonitorStream, String)>,
+) -> JoinHandle<()>
 where
     R: tokio::io::AsyncRead + Unpin + Send + 'static,
 {
@@ -214,7 +203,64 @@ where
                 }
             }
         }
-    });
+    })
+}
+
+async fn join_readers(stdout: JoinHandle<()>, stderr: JoinHandle<()>, monitor_id: &str) {
+    if let Err(error) = stdout.await {
+        tracing::warn!(monitor_id, %error, "[monitor] stdout reader task failed");
+    }
+    if let Err(error) = stderr.await {
+        tracing::warn!(monitor_id, %error, "[monitor] stderr reader task failed");
+    }
+}
+
+async fn drain_lines(
+    ctx: &RunnerContext,
+    snapshot: &MonitorSnapshot,
+    output: &mut tokio::fs::File,
+    output_bytes: &mut usize,
+    dropped_bytes: &mut usize,
+    line_rx: &mut mpsc::Receiver<(MonitorStream, String)>,
+) -> anyhow::Result<()> {
+    while let Ok((stream, line)) = line_rx.try_recv() {
+        record_line(
+            ctx,
+            snapshot,
+            output,
+            output_bytes,
+            dropped_bytes,
+            stream,
+            line,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+async fn record_line(
+    ctx: &RunnerContext,
+    snapshot: &MonitorSnapshot,
+    output: &mut tokio::fs::File,
+    output_bytes: &mut usize,
+    dropped_bytes: &mut usize,
+    stream: MonitorStream,
+    line: String,
+) -> anyhow::Result<()> {
+    let event = MonitorEvent {
+        monitor_id: snapshot.monitor_id.clone(),
+        thread_id: snapshot.thread_id.clone(),
+        timestamp_ms: now_ms(),
+        stream,
+        line,
+    };
+    write_bounded_line(output, &event, output_bytes, dropped_bytes).await?;
+    ctx.store
+        .push_event(event.clone(), *output_bytes, *dropped_bytes)
+        .await;
+    publish_line(&event);
+    enqueue_collect(ctx, snapshot, &event).await;
+    Ok(())
 }
 
 async fn write_bounded_line(

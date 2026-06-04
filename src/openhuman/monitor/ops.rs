@@ -3,11 +3,24 @@ use super::store::global_store;
 use super::types::*;
 use crate::openhuman::agent::host_runtime::{NativeRuntime, RuntimeAdapter};
 use crate::openhuman::inference::provider::thread_context::current_thread_id;
-use crate::openhuman::security::{AuditLogger, GateDecision, SecurityPolicy};
+use crate::openhuman::security::{AuditLogger, CommandClass, GateDecision, SecurityPolicy};
 use crate::rpc::RpcOutcome;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::oneshot;
+
+pub(crate) fn classify_monitor_command(
+    security: &SecurityPolicy,
+    command: &str,
+    declared_category: Option<&str>,
+) -> (CommandClass, GateDecision) {
+    let mut class = security.classify_command(command);
+    if let Some(declared) = declared_category.and_then(SecurityPolicy::parse_declared_class) {
+        class = class.max(declared);
+    }
+    let gate_decision = security.gate_decision(class);
+    (class, gate_decision)
+}
 
 pub async fn start(
     request: MonitorStartRequest,
@@ -15,27 +28,36 @@ pub async fn start(
     runtime: Arc<dyn RuntimeAdapter>,
     audit: Arc<AuditLogger>,
 ) -> Result<RpcOutcome<MonitorStartResponse>, String> {
+    tracing::debug!(
+        persistent = request.persistent,
+        timeout_ms = request.timeout_ms,
+        category = request.category.as_deref().unwrap_or(""),
+        "[monitor] ops:start entry"
+    );
     let command = request.command.trim();
     if command.is_empty() {
+        tracing::debug!("[monitor] ops:start rejected empty command");
         return Err("command is required".to_string());
     }
-    let mut class = security.classify_command(command);
-    if let Some(declared) = request
-        .category
-        .as_deref()
-        .and_then(SecurityPolicy::parse_declared_class)
-    {
-        class = class.max(declared);
+    let (class, gate_decision) =
+        classify_monitor_command(&security, command, request.category.as_deref());
+    tracing::debug!(
+        class = ?class,
+        gate_decision = ?gate_decision,
+        "[monitor] ops:start classified command"
+    );
+    if gate_decision == GateDecision::Block {
+        security.check_gated_command(command).map_err(|reason| {
+            tracing::debug!(class = ?class, reason = %reason, "[monitor] ops:start blocked");
+            reason.to_string()
+        })?;
     }
-    if security.gate_decision(class) == GateDecision::Block {
-        security
-            .check_gated_command(command)
-            .map_err(|reason| reason.to_string())?;
-    }
-    security
-        .check_gated_command(command)
-        .map_err(|reason| reason.to_string())?;
+    security.check_gated_command(command).map_err(|reason| {
+        tracing::debug!(class = ?class, reason = %reason, "[monitor] ops:start denied");
+        reason.to_string()
+    })?;
     if security.is_rate_limited() || !security.record_action() {
+        tracing::debug!("[monitor] ops:start rate limited");
         return Err("Rate limit exceeded: action budget exhausted".to_string());
     }
 
@@ -49,6 +71,13 @@ pub async fn start(
     let parent = crate::openhuman::agent::harness::current_parent();
     let thread_id = current_thread_id();
     let session_id = parent.as_ref().map(|p| p.session_id.clone());
+    tracing::debug!(
+        monitor_id = %monitor_id,
+        thread_id = thread_id.as_deref().unwrap_or(""),
+        session_id = session_id.as_deref().unwrap_or(""),
+        output_file = %output_file.display(),
+        "[monitor] ops:start creating snapshot"
+    );
     let now = now_ms();
     let description = request
         .description
@@ -61,8 +90,8 @@ pub async fn start(
         command: command.to_string(),
         output_file: output_file.clone(),
         persistent: request.persistent,
-        thread_id,
-        session_id,
+        thread_id: thread_id.clone(),
+        session_id: session_id.clone(),
         started_at_ms: now,
         updated_at_ms: now,
         exit_code: None,
@@ -91,6 +120,13 @@ pub async fn start(
         Duration::from_millis(timeout_ms),
         stop_rx,
     ));
+    tracing::debug!(
+        monitor_id = %monitor_id,
+        thread_id = thread_id.as_deref().unwrap_or(""),
+        session_id = session_id.as_deref().unwrap_or(""),
+        timeout_ms,
+        "[monitor] ops:start exit running"
+    );
     Ok(RpcOutcome::new(
         MonitorStartResponse {
             monitor_id,
@@ -106,14 +142,23 @@ pub async fn start(
 pub async fn start_default(
     request: MonitorStartRequest,
 ) -> Result<RpcOutcome<MonitorStartResponse>, String> {
+    tracing::debug!("[monitor] ops:start_default loading config");
     let config = crate::openhuman::config::Config::load_or_init()
         .await
-        .map_err(|e| format!("failed to load config: {e}"))?;
+        .map_err(|e| {
+            tracing::debug!(error = %e, "[monitor] ops:start_default config load failed");
+            format!("failed to load config: {e}")
+        })?;
     let security = Arc::new(SecurityPolicy::from_config(
         &config.autonomy,
         &config.workspace_dir,
         &config.action_dir,
     ));
+    tracing::debug!(
+        workspace_dir = %config.workspace_dir.display(),
+        action_dir = %config.action_dir.display(),
+        "[monitor] ops:start_default created security policy"
+    );
     start(
         request,
         security,
@@ -124,16 +169,26 @@ pub async fn start_default(
 }
 
 pub async fn list() -> Result<RpcOutcome<MonitorListResponse>, String> {
-    Ok(RpcOutcome::new(
-        MonitorListResponse {
-            monitors: global_store().list().await,
-        },
-        vec![],
-    ))
+    tracing::debug!("[monitor] ops:list entry");
+    let monitors = global_store().list().await;
+    tracing::debug!(count = monitors.len(), "[monitor] ops:list exit");
+    Ok(RpcOutcome::new(MonitorListResponse { monitors }, vec![]))
 }
 
 pub async fn stop(request: MonitorStopRequest) -> Result<RpcOutcome<MonitorStopResponse>, String> {
-    let snapshot = global_store().stop(&request.monitor_id).await?;
+    tracing::debug!(monitor_id = %request.monitor_id, "[monitor] ops:stop entry");
+    let snapshot = global_store()
+        .stop(&request.monitor_id)
+        .await
+        .map_err(|error| {
+            tracing::debug!(monitor_id = %request.monitor_id, %error, "[monitor] ops:stop failed");
+            error
+        })?;
+    tracing::debug!(
+        monitor_id = %snapshot.monitor_id,
+        status = ?snapshot.status,
+        "[monitor] ops:stop exit"
+    );
     Ok(RpcOutcome::new(
         MonitorStopResponse {
             monitor_id: snapshot.monitor_id,
@@ -144,13 +199,27 @@ pub async fn stop(request: MonitorStopRequest) -> Result<RpcOutcome<MonitorStopR
 }
 
 pub async fn read(request: MonitorReadRequest) -> Result<RpcOutcome<MonitorReadResponse>, String> {
+    tracing::debug!(
+        monitor_id = %request.monitor_id,
+        max_bytes = request.max_bytes,
+        "[monitor] ops:read entry"
+    );
     let path = global_store()
         .output_file(&request.monitor_id)
         .await
-        .ok_or_else(|| format!("monitor `{}` not found", request.monitor_id))?;
-    let bytes = tokio::fs::read(&path)
-        .await
-        .map_err(|e| format!("failed to read monitor output: {e}"))?;
+        .ok_or_else(|| {
+            tracing::debug!(monitor_id = %request.monitor_id, "[monitor] ops:read missing monitor");
+            format!("monitor `{}` not found", request.monitor_id)
+        })?;
+    let bytes = tokio::fs::read(&path).await.map_err(|e| {
+        tracing::debug!(
+            monitor_id = %request.monitor_id,
+            output_file = %path.display(),
+            error = %e,
+            "[monitor] ops:read file read failed"
+        );
+        format!("failed to read monitor output: {e}")
+    })?;
     let max = request.max_bytes.unwrap_or(64 * 1024).max(1);
     let truncated = bytes.len() > max;
     let slice = if truncated {
@@ -158,6 +227,13 @@ pub async fn read(request: MonitorReadRequest) -> Result<RpcOutcome<MonitorReadR
     } else {
         bytes.as_slice()
     };
+    tracing::debug!(
+        monitor_id = %request.monitor_id,
+        output_file = %path.display(),
+        bytes = slice.len(),
+        truncated,
+        "[monitor] ops:read exit"
+    );
     Ok(RpcOutcome::new(
         MonitorReadResponse {
             monitor_id: request.monitor_id,

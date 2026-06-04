@@ -1027,9 +1027,13 @@ async fn json_rpc_monitor_list_and_read_surface() {
     )
     .await;
     let error = assert_jsonrpc_error(&missing, "monitor_read missing");
+    let message = error
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     assert!(
-        error.to_string().contains("mon_missing"),
-        "missing monitor error should name id: {error}"
+        message.contains("mon_missing"),
+        "missing monitor error should name id in error.message: {error}"
     );
 
     rpc_join.abort();

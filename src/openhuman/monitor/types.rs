@@ -59,6 +59,7 @@ pub struct MonitorReadRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MonitorEvent {
     pub monitor_id: String,
     pub thread_id: Option<String>,
@@ -68,6 +69,7 @@ pub struct MonitorEvent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MonitorSnapshot {
     pub monitor_id: String,
     pub status: MonitorStatus,
@@ -87,31 +89,31 @@ pub struct MonitorSnapshot {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MonitorStartResponse {
-    #[serde(rename = "monitorId")]
     pub monitor_id: String,
     pub status: MonitorStatus,
     pub description: String,
-    #[serde(rename = "outputFile")]
     pub output_file: PathBuf,
     pub persistent: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MonitorListResponse {
     pub monitors: Vec<MonitorSnapshot>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MonitorStopResponse {
-    #[serde(rename = "monitorId")]
     pub monitor_id: String,
     pub status: MonitorStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MonitorReadResponse {
-    #[serde(rename = "monitorId")]
     pub monitor_id: String,
     pub output: String,
     pub truncated: bool,

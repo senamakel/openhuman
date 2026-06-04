@@ -60,19 +60,33 @@ impl Tool for MonitorTool {
 
     fn external_effect_with_args(&self, args: &serde_json::Value) -> bool {
         let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
-        let mut class = self.security.classify_command(command);
-        if let Some(declared) = args
-            .get("category")
-            .and_then(|v| v.as_str())
-            .and_then(SecurityPolicy::parse_declared_class)
-        {
-            class = class.max(declared);
-        }
-        self.security.gate_decision(class) == GateDecision::Prompt
+        let category = args.get("category").and_then(|v| v.as_str());
+        let (class, gate_decision) =
+            ops::classify_monitor_command(&self.security, command, category);
+        tracing::trace!(
+            class = ?class,
+            gate_decision = ?gate_decision,
+            "[monitor] tool:external_effect classified command"
+        );
+        gate_decision == GateDecision::Prompt
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        tracing::debug!("[monitor] tool:execute entry");
+        tracing::trace!(
+            has_command = args.get("command").is_some(),
+            has_description = args.get("description").is_some(),
+            has_timeout = args.get("timeout_ms").is_some(),
+            has_persistent = args.get("persistent").is_some(),
+            has_category = args.get("category").is_some(),
+            "[monitor] tool:execute parsing args"
+        );
         let request: MonitorStartRequest = serde_json::from_value(args)?;
+        tracing::debug!(
+            persistent = request.persistent,
+            timeout_ms = request.timeout_ms,
+            "[monitor] tool:execute calling ops:start"
+        );
         match ops::start(
             request,
             Arc::clone(&self.security),
@@ -81,8 +95,18 @@ impl Tool for MonitorTool {
         )
         .await
         {
-            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string(&outcome.value)?)),
-            Err(error) => Ok(ToolResult::error(error)),
+            Ok(outcome) => {
+                tracing::debug!(
+                    monitor_id = %outcome.value.monitor_id,
+                    status = ?outcome.value.status,
+                    "[monitor] tool:execute success"
+                );
+                Ok(ToolResult::success(serde_json::to_string(&outcome.value)?))
+            }
+            Err(error) => {
+                tracing::debug!(%error, "[monitor] tool:execute error");
+                Ok(ToolResult::error(error))
+            }
         }
     }
 }

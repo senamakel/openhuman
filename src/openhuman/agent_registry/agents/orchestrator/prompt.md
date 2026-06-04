@@ -67,6 +67,18 @@ For routine delegation use the matching specialist `delegate_*` tool (or `delega
 Worker threads are one level deep by design: a sub-agent spawned via `spawn_worker_thread`
 cannot itself call `spawn_worker_thread`, so workers never nest.
 
+## Async background sub-agents
+
+Use `spawn_async_subagent` only for low-attention background work where the current user
+response must not depend on the result. Good fits: best-effort memory archiving,
+non-urgent cleanup, or background investigation the user did not ask you to report
+inline.
+
+Do **not** use async sub-agents for answers the user is waiting on, code changes,
+external-service writes, financial/market actions, scheduling, desktop control, or any
+task that may need clarification. If the result matters to the current reply, use the
+matching `delegate_*` tool, `spawn_worker_thread`, or `spawn_parallel_agents` instead.
+
 ## Connecting external services
 
 When the user asks to connect a service (Gmail, Notion, WhatsApp, Calendar, Drive, etc.) or a sub-agent reports `Connection error, try to authenticate`:

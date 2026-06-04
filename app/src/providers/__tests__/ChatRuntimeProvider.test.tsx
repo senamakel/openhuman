@@ -168,6 +168,45 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(timeline[0]?.subagent?.prompt).toContain('Research Q3 revenue');
     });
 
+    it('collapses a spawn_async_subagent tool-call row into the subagent row', () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        listeners.onToolCall?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'spawn_async_subagent',
+          skill_id: 'orchestration',
+          args: {},
+          tool_call_id: 'call-spawn-async',
+        });
+        listeners.onToolArgsDelta?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          tool_call_id: 'call-spawn-async',
+          tool_name: 'spawn_async_subagent',
+          delta: '{"prompt":"Archive these preferences."}',
+        });
+        listeners.onSubagentSpawned?.({
+          thread_id: 't1',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'archivist',
+          skill_id: 'sub-async-1',
+          message: 'spawned',
+          subagent: { mode: 'async' },
+        });
+      });
+
+      const timeline = store.getState().chatRuntime.toolTimelineByThread['t1'] ?? [];
+      expect(timeline).toHaveLength(1);
+      expect(timeline[0]?.name).toBe('subagent:archivist');
+      expect(timeline[0]?.sourceToolName).toBe('spawn_async_subagent');
+      expect(timeline[0]?.subagent?.prompt).toContain('Archive these preferences');
+    });
+
     it('appends streamed subagent text & thinking deltas to the subagent transcript', () => {
       const listeners = renderProvider();
 

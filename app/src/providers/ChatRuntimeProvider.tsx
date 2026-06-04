@@ -308,7 +308,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       for (let i = entries.length - 1; i >= 0; i -= 1) {
         const entry = entries[i];
         if (entry.status !== 'running' || entry.round !== round) continue;
-        if (entry.name === 'spawn_subagent' || entry.name.startsWith('delegate_')) {
+        if (
+          entry.name === 'spawn_subagent' ||
+          entry.name === 'spawn_async_subagent' ||
+          entry.name.startsWith('delegate_')
+        ) {
           return {
             sourceToolName: entry.name,
             prompt: entry.detail ?? promptFromArgsBuffer(entry.argsBuffer),
@@ -464,7 +468,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
 
         const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
         const pendingContext = findPendingDelegationContext(existing, event.round);
-        // Collapse the parent's `spawn_subagent`/`delegate_*` tool-call row into
+        // Collapse the parent's `spawn_subagent`/`spawn_async_subagent`/`delegate_*` tool-call row into
         // the subagent row so the timeline shows ONE entry per delegation
         // instead of "Research" (the tool call) + "Researching" (the child).
         // The tool call's prompt is carried onto the subagent as the parent's

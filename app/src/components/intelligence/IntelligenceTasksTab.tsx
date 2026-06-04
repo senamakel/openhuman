@@ -49,7 +49,7 @@ import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../types/
 import { UserTaskComposer } from './UserTaskComposer';
 
 const log = debug('intelligence:tasks');
-const AGENT_TASK_THREAD_LABEL = 'agent-task';
+const AGENT_TASK_THREAD_LABEL = 'tasks';
 const CHAT_MODEL_ID = 'reasoning-v1';
 
 interface ThreadTaskBoard {

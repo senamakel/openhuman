@@ -182,7 +182,7 @@ describe('IntelligenceTasksTab', () => {
     hoisted.createNewThread.mockResolvedValue({
       id: 'thread-agent-task',
       title: 'Agent task',
-      labels: ['agent-task'],
+      labels: ['tasks'],
       chatId: null,
       isActive: true,
       messageCount: 0,
@@ -192,7 +192,7 @@ describe('IntelligenceTasksTab', () => {
     hoisted.updateTitle.mockResolvedValue({
       id: 'thread-agent-task',
       title: 'Agent task: My personal task',
-      labels: ['agent-task'],
+      labels: ['tasks'],
       chatId: null,
       isActive: true,
       messageCount: 0,
@@ -407,7 +407,7 @@ describe('IntelligenceTasksTab', () => {
     expect(hoisted.todosUpdateStatus).toHaveBeenCalledWith('user-tasks', 'card-0', 'in_progress');
   });
 
-  test('starts a labeled agent-task thread from a personal task', async () => {
+  test('starts a labeled Tasks thread from a personal task', async () => {
     hoisted.todosList.mockImplementation((threadId: string) =>
       Promise.resolve(
         threadId === 'user-tasks'
@@ -445,7 +445,7 @@ describe('IntelligenceTasksTab', () => {
 
     fireEvent.click(screen.getByText('stub-work-task'));
 
-    await waitFor(() => expect(hoisted.createNewThread).toHaveBeenCalledWith(['agent-task']));
+    await waitFor(() => expect(hoisted.createNewThread).toHaveBeenCalledWith(['tasks']));
     expect(hoisted.updateTitle).toHaveBeenCalledWith(
       'thread-agent-task',
       'Agent task: Implement task source worker'

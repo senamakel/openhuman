@@ -1963,16 +1963,13 @@ const en: TranslationMap = {
   // Chat (additional)
   'chat.safetyTimeout':
     'No response from the agent after 2 minutes. Try again or check your connection.',
-  'chat.filter.all': 'All',
   'chat.filter.general': 'General',
-  'chat.filter.briefing': 'Briefing',
-  'chat.filter.notification': 'Notification',
-  'chat.filter.workers': 'Workers',
+  'chat.filter.subconscious': 'Subconscious',
+  'chat.filter.tasks': 'Tasks',
   'chat.selectThread': 'Select a thread',
   'chat.threads': 'Threads',
   'chat.noThreads': 'No threads yet',
   'chat.noLabelThreads': 'No "{label}" threads',
-  'chat.noWorkerThreads': 'No worker threads yet',
   'chat.deleteThread': 'Delete thread',
   'chat.deleteThreadConfirm': 'Are you sure you want to delete "{title}"?',
   'chat.untitledThread': 'Untitled thread',

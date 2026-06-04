@@ -365,7 +365,7 @@ fn store_handles_labels_and_inference() {
         })
         .unwrap();
 
-    // 5. Legacy explicit "work" labels normalize into General.
+    // 5. Legacy explicit labels normalize into their canonical buckets.
     store
         .ensure_thread(CreateConversationThread {
             parent_thread_id: None,
@@ -377,6 +377,29 @@ fn store_handles_labels_and_inference() {
                 "urgent".to_string(),
                 "work".to_string(),
             ]),
+            personality_id: None,
+        })
+        .unwrap();
+    store
+        .ensure_thread(CreateConversationThread {
+            parent_thread_id: None,
+            id: "legacy-subconscious-thread".to_string(),
+            title: "Legacy Subconscious Chat".to_string(),
+            created_at: "2026-04-10T12:00:00Z".to_string(),
+            labels: Some(vec![
+                "from_reflection".to_string(),
+                "subconscious_tick".to_string(),
+            ]),
+            personality_id: None,
+        })
+        .unwrap();
+    store
+        .ensure_thread(CreateConversationThread {
+            parent_thread_id: None,
+            id: "legacy-task-thread".to_string(),
+            title: "Legacy Task Chat".to_string(),
+            created_at: "2026-04-10T12:00:00Z".to_string(),
+            labels: Some(vec!["agent-task".to_string(), "worker".to_string()]),
             personality_id: None,
         })
         .unwrap();
@@ -407,6 +430,20 @@ fn store_handles_labels_and_inference() {
             .find(|t| t.id == "legacy-work-thread")
             .unwrap();
         assert_eq!(legacy.labels, vec!["general", "urgent"]);
+    }
+    {
+        let legacy = threads
+            .iter()
+            .find(|t| t.id == "legacy-subconscious-thread")
+            .unwrap();
+        assert_eq!(legacy.labels, vec!["subconscious"]);
+    }
+    {
+        let legacy = threads
+            .iter()
+            .find(|t| t.id == "legacy-task-thread")
+            .unwrap();
+        assert_eq!(legacy.labels, vec!["tasks"]);
     }
 
     // 6. Update labels

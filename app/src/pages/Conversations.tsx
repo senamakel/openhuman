@@ -100,7 +100,8 @@ import {
 import {
   GENERAL_TAB_VALUE,
   isThreadVisibleInTab,
-  WORKERS_TAB_VALUE,
+  SUBCONSCIOUS_TAB_VALUE,
+  TASKS_TAB_VALUE,
 } from './conversations/utils/threadFilter';
 
 // Chat uses the reasoning model; `agentic-v1` is reserved for sub-agents
@@ -255,6 +256,7 @@ const Conversations = ({
   const [editingTitle, setEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
   const editTitleInputRef = useRef<HTMLInputElement>(null);
+  const ignoreNextTitleBlurRef = useRef(false);
 
   const {
     teamUsage,
@@ -351,9 +353,12 @@ const Conversations = ({
     if (!selectedThreadId) return;
     const thr = threads.find(t => t.id === selectedThreadId);
     setEditTitleValue(thr?.title ?? '');
+    ignoreNextTitleBlurRef.current = true;
     setEditingTitle(true);
-    window.requestAnimationFrame(() => {
+    const scheduleSelect = window.requestAnimationFrame ?? window.setTimeout;
+    scheduleSelect(() => {
       editTitleInputRef.current?.select();
+      ignoreNextTitleBlurRef.current = false;
     });
   };
 
@@ -361,6 +366,8 @@ const Conversations = ({
     const trimmed = editTitleValue.trim();
     setEditingTitle(false);
     if (!selectedThreadId || !trimmed) return;
+    const currentTitle = threads.find(t => t.id === selectedThreadId)?.title?.trim();
+    if (trimmed === currentTitle) return;
     void dispatch(updateThreadTitle({ threadId: selectedThreadId, title: trimmed }));
   };
 
@@ -1232,19 +1239,6 @@ const Conversations = ({
   };
 
   const filteredThreads = useMemo(() => {
-    // Worker/subagent threads (any thread with `parentThreadId`) are
-    // surfaced through two intentional paths (issue #1624):
-    //   1. The dedicated `Workers` tab in the sidebar — pick that tab to
-    //      see only background work and jump into a worker transcript.
-    //   2. Inline inside the parent thread via `WorkerThreadRefCard`,
-    //      which now also renders a live running/completed/failed badge
-    //      derived from the parent timeline entry's status.
-    // The default ("All") and label-scoped tabs hide them so the main
-    // sidebar is dominated by user-initiated conversations rather than
-    // background reasoning threads. The actual rule lives in
-    // `isThreadVisibleInTab` so it is pure, unit-testable, and stays
-    // in lockstep with the sidebar tab definition (`labelTabs` below)
-    // via the shared `WORKERS_TAB_VALUE` sentinel.
     return threads.filter(t => isThreadVisibleInTab(t, selectedLabel));
   }, [threads, selectedLabel]);
 
@@ -1254,19 +1248,12 @@ const Conversations = ({
     );
   }, [filteredThreads]);
 
-  // Fixed tab set so categories don't disappear when empty and the active
+  // Fixed bucket set so categories don't disappear when empty and the active
   // filter state remains unambiguous regardless of what threads exist.
-  // The `workers` tab (issue #1624) is the deliberate UI surface for
-  // background sub-agent / worker threads — selecting it inverts the
-  // default `parentThreadId` filter in `filteredThreads` above so only
-  // worker threads show. Without this tab the only way into a worker
-  // transcript is the inline `WorkerThreadRefCard` inside the parent.
   const labelTabs = [
-    { label: t('chat.filter.all'), value: 'all' },
     { label: t('chat.filter.general'), value: GENERAL_TAB_VALUE },
-    { label: t('chat.filter.briefing'), value: 'briefing' },
-    { label: t('chat.filter.notification'), value: 'notification' },
-    { label: t('chat.filter.workers'), value: WORKERS_TAB_VALUE },
+    { label: t('chat.filter.subconscious'), value: SUBCONSCIOUS_TAB_VALUE },
+    { label: t('chat.filter.tasks'), value: TASKS_TAB_VALUE },
   ];
   const selectedLabelDisplay =
     labelTabs.find(tab => tab.value === selectedLabel)?.label ?? selectedLabel;
@@ -1283,8 +1270,8 @@ const Conversations = ({
 
   // Resolve the parent of the currently-selected thread, if any. Used to
   // render the back-to-parent breadcrumb in the chat header so a user who
-  // dropped into a worker thread (via `WorkerThreadRefCard` or the
-  // `Workers` sidebar tab) can return to the conversation that spawned it
+  // dropped into a worker thread (via `WorkerThreadRefCard` or the Tasks
+  // bucket) can return to the conversation that spawned it
   // — issue #1624 acceptance criterion "Parent ↔ worker navigation is
   // bidirectional". Returns `null` when the active thread is a top-level
   // conversation (no parent), so the header stays unchanged in the
@@ -1339,16 +1326,13 @@ const Conversations = ({
               selected={selectedLabel}
               onChange={setSelectedLabel}
               containerClassName="flex flex-wrap gap-1 py-1"
+              itemClassName="px-2"
             />
           </div>
           <div className="flex-1 overflow-y-auto">
             {sortedThreads.length === 0 ? (
               <p className="px-4 py-6 text-xs text-stone-400 dark:text-neutral-500 text-center">
-                {selectedLabel === 'all'
-                  ? t('chat.noThreads')
-                  : selectedLabel === WORKERS_TAB_VALUE
-                    ? t('chat.noWorkerThreads')
-                    : t('chat.noLabelThreads').replace('{label}', selectedLabelDisplay)}
+                {t('chat.noLabelThreads').replace('{label}', selectedLabelDisplay)}
               </p>
             ) : (
               sortedThreads.map(thread => (
@@ -1498,7 +1482,13 @@ const Conversations = ({
                       setEditingTitle(false);
                     }
                   }}
-                  onBlur={handleCommitTitle}
+                  onBlur={() => {
+                    if (ignoreNextTitleBlurRef.current) {
+                      ignoreNextTitleBlurRef.current = false;
+                      return;
+                    }
+                    handleCommitTitle();
+                  }}
                   aria-label={t('chat.editThreadTitle')}
                   className="h-5 text-sm font-medium text-stone-700 dark:text-neutral-200 bg-transparent border-b border-primary-400 outline-none w-full min-w-0 leading-none py-0"
                   autoFocus
@@ -1512,6 +1502,10 @@ const Conversations = ({
                     <button
                       type="button"
                       data-analytics-id="chat-header-edit-thread-title"
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        handleStartEditTitle();
+                      }}
                       onClick={handleStartEditTitle}
                       aria-label={t('chat.editThreadTitle')}
                       title={t('chat.editThreadTitle')}

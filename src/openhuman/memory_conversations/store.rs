@@ -893,10 +893,11 @@ fn infer_labels(thread_id: &str) -> Vec<String> {
 fn normalize_labels(labels: Vec<String>) -> Vec<String> {
     let mut normalized = Vec::with_capacity(labels.len());
     for label in labels {
-        let next = if label == "work" {
-            "general".to_string()
-        } else {
-            label
+        let next = match label.as_str() {
+            "work" => "general".to_string(),
+            "from_reflection" | "subconscious_tick" => "subconscious".to_string(),
+            "agent-task" | "worker" => "tasks".to_string(),
+            _ => label,
         };
         if !normalized.contains(&next) {
             normalized.push(next);

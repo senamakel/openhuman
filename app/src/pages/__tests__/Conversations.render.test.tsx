@@ -327,16 +327,15 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
   });
 
   // Covers line 941 empty branch
-  it('shows "No threads yet" when All is selected and the thread list is empty', async () => {
+  it('shows the General empty message when the default bucket has no threads', async () => {
     await act(async () => {
       await renderConversations({ thread: emptyThreadState });
     });
 
     // Sidebar is hidden by default — open it first.
     await openSidebar();
-    fireEvent.click(screen.getByRole('tab', { name: 'All' }));
-
-    expect(screen.getByText('No threads yet')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('No "General" threads')).toBeInTheDocument();
   });
 
   // Covers lines 1002-1004, 1007, 1011-1012, 1014: thread list items rendered unconditionally
@@ -1304,7 +1303,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
   //
   // The tab set is fixed so categories do not disappear when the thread list
   // is empty, and the active-filter state remains unambiguous.
-  it('renders all fixed category tabs with stable labels', async () => {
+  it('renders the fixed chat bucket tabs with stable labels', async () => {
     await act(async () => {
       await renderConversations({ thread: emptyThreadState });
     });
@@ -1312,12 +1311,14 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // Sidebar is hidden by default — open it first.
     await openSidebar();
 
-    // All tabs must be present regardless of thread count.
-    expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument();
+    // Bucket tabs must be present regardless of thread count.
     expect(screen.getByRole('tab', { name: 'General' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Briefing' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Notification' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Workers' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Subconscious' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Tasks' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'All' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Briefing' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Notification' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Workers' })).not.toBeInTheDocument();
     expect(screen.getByRole('tablist')).toHaveClass('flex-wrap');
   });
 
@@ -1330,20 +1331,10 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     await openSidebar();
 
     expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'false');
-  });
-
-  it('shows "No threads yet" placeholder when All tab is active and list is empty', async () => {
-    await act(async () => {
-      await renderConversations({ thread: emptyThreadState });
-    });
-
-    // Sidebar is hidden by default — open it first.
-    await openSidebar();
-
-    fireEvent.click(screen.getByRole('tab', { name: 'All' }));
-
-    expect(screen.getByText('No threads yet')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Subconscious' })).toHaveAttribute(
+      'aria-selected',
+      'false'
+    );
   });
 
   it('shows category-specific empty message when a label tab is selected and no threads match', async () => {
@@ -1361,11 +1352,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
   });
 
-  // #1624 — Workers tab is the dedicated entry-point for sub-agent threads.
-  // When the active workspace has no worker threads (parentThreadId set), the
-  // empty state must use the friendly "No worker threads yet" copy rather
-  // than `No "workers" threads`.
-  it('shows the worker-specific empty message when the Workers tab is selected', async () => {
+  it('shows a category-specific empty message when the Tasks tab is selected', async () => {
     await act(async () => {
       await renderConversations({ thread: emptyThreadState });
     });
@@ -1373,10 +1360,10 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // Sidebar is hidden by default — open it first.
     await openSidebar();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Workers' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Tasks' }));
 
     await waitFor(() => {
-      expect(screen.getByText('No worker threads yet')).toBeInTheDocument();
+      expect(screen.getByText(/"Tasks" threads/i)).toBeInTheDocument();
     });
   });
 });
@@ -1409,10 +1396,9 @@ describe('Conversations — worker thread back-to-parent navigation (#1624)', ()
       });
     });
 
-    // The mount effect resumes onto a *visible* (non-worker) thread, so even
-    // though the preloaded state pointed at the child, the page auto-selects
-    // the parent. Re-select the worker thread now that mount has settled to
-    // mimic the user clicking through to a worker from the Workers tab.
+    // The mount effect resumes onto the first visible General thread. Re-select
+    // the worker thread now that mount has settled to mimic opening it from the
+    // Tasks bucket or parent reference card.
     await act(async () => {
       store!.dispatch(setSelectedThread('t-child'));
     });
@@ -1610,10 +1596,10 @@ describe('Conversations — thread title editing', () => {
     expect(editBtn).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(editBtn);
+      fireEvent.mouseDown(editBtn);
     });
 
-    const input = screen.getByLabelText('Edit thread title');
+    const input = screen.getByRole('textbox', { name: 'Edit thread title' });
     expect(input).toBeInTheDocument();
     expect(input).toHaveValue('Original Title');
   });
@@ -1635,10 +1621,10 @@ describe('Conversations — thread title editing', () => {
 
     const editBtn = screen.getByRole('button', { name: 'Edit thread title' });
     await act(async () => {
-      fireEvent.click(editBtn);
+      fireEvent.mouseDown(editBtn);
     });
 
-    const input = screen.getByLabelText('Edit thread title');
+    const input = screen.getByRole('textbox', { name: 'Edit thread title' });
     await act(async () => {
       fireEvent.change(input, { target: { value: 'New Title' } });
     });

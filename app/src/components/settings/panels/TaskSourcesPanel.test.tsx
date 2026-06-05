@@ -184,6 +184,27 @@ describe('<TaskSourcesPanel />', () => {
     ).toBeInTheDocument();
   });
 
+  it('disables refresh while sync is in progress', async () => {
+    let resolveSync: (value: Awaited<ReturnType<typeof syncMock>>) => void = () => {};
+    syncMock.mockReturnValue(
+      new Promise(resolve => {
+        resolveSync = resolve;
+      })
+    );
+
+    renderPanel();
+    await screen.findByTestId('task-source-s-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Sync all' }));
+
+    await waitFor(() => expect(syncMock).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+
+    resolveSync([
+      { sourceId: 's-1', provider: 'github', fetched: 3, routed: 2, skippedDupe: 1, pruned: 1 },
+    ]);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' })).toBeEnabled());
+  });
+
   it('surfaces a fetch outcome error', async () => {
     fetchMock.mockResolvedValue({
       sourceId: 's-1',

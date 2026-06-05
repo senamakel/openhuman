@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
@@ -102,6 +102,16 @@ const TaskSourcesPanel = () => {
   const [status, setStatus] = useState<TaskSourcesStatus | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const loadingRef = useRef(loading);
+  const busyKeyRef = useRef(busyKey);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    busyKeyRef.current = busyKey;
+  }, [busyKey]);
 
   // ── create-form state ────────────────────────────────────────────
   const [provider, setProvider] = useState<TaskSourceProvider>('github');
@@ -118,27 +128,31 @@ const TaskSourcesPanel = () => {
     setDatabases([]);
   }, [provider]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [list, stat] = await Promise.all([
-        openhumanTaskSourcesList(),
-        openhumanTaskSourcesStatus(),
-      ]);
-      setSources(list);
-      setStatus(stat);
-    } catch (err) {
-      setError(
-        `${t('settings.taskSources.loadError')}: ${err instanceof Error ? err.message : String(err)}`
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const load = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (!options?.force && (loadingRef.current || busyKeyRef.current !== null)) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const [list, stat] = await Promise.all([
+          openhumanTaskSourcesList(),
+          openhumanTaskSourcesStatus(),
+        ]);
+        setSources(list);
+        setStatus(stat);
+      } catch (err) {
+        setError(
+          `${t('settings.taskSources.loadError')}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [t]
+  );
 
   useEffect(() => {
-    void load();
+    void load({ force: true });
   }, [load]);
 
   const primaryLabel = useMemo(() => {
@@ -170,7 +184,7 @@ const TaskSourcesPanel = () => {
       setName('');
       setPrimary('');
       setLabels('');
-      await load();
+      await load({ force: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -240,7 +254,7 @@ const TaskSourcesPanel = () => {
       // Refresh the source list first (updates lastFetchAt/lastStatus);
       // `load()` resets the error/notice, so set the outcome message
       // *after* it so the message isn't immediately cleared.
-      await load();
+      await load({ force: true });
       if (outcome.error) {
         setError(outcome.error);
       } else {
@@ -265,7 +279,7 @@ const TaskSourcesPanel = () => {
     setNotice(null);
     try {
       const outcomes = await openhumanTaskSourcesSync();
-      await load();
+      await load({ force: true });
       const firstError = outcomes.find(outcome => outcome.error)?.error;
       if (firstError) {
         setError(firstError);
@@ -532,7 +546,11 @@ const TaskSourcesPanel = () => {
             </ul>
           )}
 
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => void load()}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={loading || busyKey !== null}
+            onClick={() => void load()}>
             {t('settings.taskSources.refresh')}
           </button>
         </section>

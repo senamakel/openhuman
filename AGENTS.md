@@ -266,7 +266,7 @@ Update `src/openhuman/about_app/` when adding/removing/renaming user-facing feat
 
 Contribute via your fork. Recommended remotes:
 
-```
+```text
 origin    git@github.com:<your-username>/openhuman.git  (push here)
 upstream  git@github.com:tinyhumansai/openhuman.git     (fetch-only)
 ```

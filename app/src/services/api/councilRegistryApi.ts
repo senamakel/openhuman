@@ -42,13 +42,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function unwrapEnvelope<T>(payload: unknown): T {
   const record = asRecord(payload);
-  if (
-    record &&
-    'result' in record &&
-    record.result != null &&
-    'logs' in record &&
-    Array.isArray(record.logs)
-  ) {
+  if (record && 'result' in record && 'logs' in record && Array.isArray(record.logs)) {
     return record.result as T;
   }
   return payload as T;

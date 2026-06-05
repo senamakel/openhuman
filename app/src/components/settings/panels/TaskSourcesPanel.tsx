@@ -9,6 +9,7 @@ import {
   openhumanTaskSourcesPreviewFilter,
   openhumanTaskSourcesRemove,
   openhumanTaskSourcesStatus,
+  openhumanTaskSourcesSync,
   openhumanTaskSourcesUpdate,
   type TaskContainer,
   type TaskSource,
@@ -74,6 +75,21 @@ function buildFilter(
     default:
       return { provider: 'github', assignee_is_me: fields.assignedToMe };
   }
+}
+
+function formatSyncNotice(outcomes: Array<{ fetched: number; routed: number; pruned?: number }>): {
+  fetched: number;
+  routed: number;
+  pruned: number;
+} {
+  return outcomes.reduce<{ fetched: number; routed: number; pruned: number }>(
+    (totals, outcome) => ({
+      fetched: totals.fetched + outcome.fetched,
+      routed: totals.routed + outcome.routed,
+      pruned: totals.pruned + (outcome.pruned ?? 0),
+    }),
+    { fetched: 0, routed: 0, pruned: 0 }
+  );
 }
 
 const TaskSourcesPanel = () => {
@@ -227,6 +243,33 @@ const TaskSourcesPanel = () => {
           t('settings.taskSources.fetchResult')
             .replace('{routed}', String(outcome.routed))
             .replace('{fetched}', String(outcome.fetched))
+            .replace('{pruned}', String(outcome.pruned ?? 0))
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const syncAll = async () => {
+    setBusyKey('sync');
+    setError(null);
+    setNotice(null);
+    try {
+      const outcomes = await openhumanTaskSourcesSync();
+      await load();
+      const firstError = outcomes.find(outcome => outcome.error)?.error;
+      if (firstError) {
+        setError(firstError);
+      } else {
+        const totals = formatSyncNotice(outcomes);
+        setNotice(
+          t('settings.taskSources.fetchResult')
+            .replace('{routed}', String(totals.routed))
+            .replace('{fetched}', String(totals.fetched))
+            .replace('{pruned}', String(totals.pruned))
         );
       }
     } catch (err) {
@@ -397,6 +440,15 @@ const TaskSourcesPanel = () => {
           <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             {t('settings.taskSources.configured')}
           </h3>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            disabled={loading || busyKey === 'sync' || sources.length === 0}
+            onClick={() => void syncAll()}>
+            {busyKey === 'sync'
+              ? t('settings.taskSources.syncing')
+              : t('settings.taskSources.syncAll')}
+          </button>
 
           {loading ? (
             <p className="text-sm text-stone-400 dark:text-neutral-500">{t('common.loading')}</p>

@@ -23,6 +23,7 @@ import {
   openhumanTaskSourcesFetch,
   openhumanTaskSourcesList,
   openhumanTaskSourcesStatus,
+  openhumanTaskSourcesSync,
   openhumanTaskSourcesUpdate,
   type TaskSource,
   type TaskSourcesStatus,
@@ -468,7 +469,23 @@ function formatUrgency(
 function formatFetchNotice(outcome: FetchOutcome, t: (key: string) => string): string {
   return t('settings.taskSources.fetchResult')
     .replace('{routed}', String(outcome.routed))
-    .replace('{fetched}', String(outcome.fetched));
+    .replace('{fetched}', String(outcome.fetched))
+    .replace('{pruned}', String(outcome.pruned ?? 0));
+}
+
+function formatSyncNotice(outcomes: FetchOutcome[], t: (key: string) => string): string {
+  const totals = outcomes.reduce(
+    (acc, outcome) => ({
+      fetched: acc.fetched + outcome.fetched,
+      routed: acc.routed + outcome.routed,
+      pruned: acc.pruned + (outcome.pruned ?? 0),
+    }),
+    { fetched: 0, routed: 0, pruned: 0 }
+  );
+  return t('settings.taskSources.fetchResult')
+    .replace('{routed}', String(totals.routed))
+    .replace('{fetched}', String(totals.fetched))
+    .replace('{pruned}', String(totals.pruned));
 }
 
 function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact: boolean }) {
@@ -545,6 +562,26 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
     }
   };
 
+  const syncSources = async () => {
+    setBusyKey('sync');
+    setError(null);
+    setNotice(null);
+    try {
+      const outcomes = await openhumanTaskSourcesSync();
+      await load();
+      const firstError = outcomes.find(outcome => outcome.error)?.error;
+      if (firstError) {
+        setError(firstError);
+      } else {
+        setNotice(formatSyncNotice(outcomes, t));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <section className="mb-3 rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -566,6 +603,16 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
             onClick={() => navigate('/settings/task-sources')}
             className="text-[11px] font-medium text-ocean-600 hover:text-ocean-700 dark:text-ocean-300 dark:hover:text-ocean-200">
             {t('conversations.taskKanban.sources.manage')}
+          </button>
+          <button
+            type="button"
+            disabled={disabled || loading || busyKey === 'sync' || sources.length === 0}
+            onClick={() => void syncSources()}
+            className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            <LuRefreshCw className="h-3 w-3" />
+            {busyKey === 'sync'
+              ? t('settings.taskSources.syncing')
+              : t('settings.taskSources.syncAll')}
           </button>
           <button
             type="button"

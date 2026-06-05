@@ -7,6 +7,7 @@ import {
   openhumanTaskSourcesFetch,
   openhumanTaskSourcesList,
   openhumanTaskSourcesStatus,
+  openhumanTaskSourcesSync,
   openhumanTaskSourcesUpdate,
 } from '../../../utils/tauriCommands';
 import { TaskKanbanBoard } from './TaskKanbanBoard';
@@ -18,6 +19,7 @@ vi.mock('../../../utils/tauriCommands', () => ({
   openhumanTaskSourcesFetch: vi.fn(),
   openhumanTaskSourcesList: vi.fn(),
   openhumanTaskSourcesStatus: vi.fn(),
+  openhumanTaskSourcesSync: vi.fn(),
   openhumanTaskSourcesUpdate: vi.fn(),
 }));
 
@@ -73,7 +75,11 @@ describe('TaskKanbanBoard approval surface', () => {
       fetched: 3,
       routed: 2,
       skippedDupe: 1,
+      pruned: 0,
     });
+    vi.mocked(openhumanTaskSourcesSync).mockResolvedValue([
+      { sourceId: 'src-1', provider: 'github', fetched: 3, routed: 2, skippedDupe: 1, pruned: 1 },
+    ]);
     vi.mocked(openhumanTaskSourcesUpdate).mockResolvedValue({
       id: 'src-1',
       provider: 'github',
@@ -185,6 +191,9 @@ describe('TaskKanbanBoard approval surface', () => {
 
     fireEvent.click(screen.getByText('settings.taskSources.fetchNow'));
     await waitFor(() => expect(openhumanTaskSourcesFetch).toHaveBeenCalledWith('src-1'));
+
+    fireEvent.click(screen.getByText('settings.taskSources.syncAll'));
+    await waitFor(() => expect(openhumanTaskSourcesSync).toHaveBeenCalled());
 
     fireEvent.click(screen.getByText('settings.taskSources.disable'));
     await waitFor(() =>

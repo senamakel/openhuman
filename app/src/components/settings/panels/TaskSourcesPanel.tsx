@@ -157,6 +157,7 @@ const TaskSourcesPanel = () => {
   }, [provider, t]);
 
   const addSource = async () => {
+    if (busyKey) return;
     setBusyKey('add');
     setError(null);
     setNotice(null);
@@ -178,6 +179,7 @@ const TaskSourcesPanel = () => {
   };
 
   const previewFilter = async () => {
+    if (busyKey) return;
     setBusyKey('preview');
     setError(null);
     setNotice(null);
@@ -197,6 +199,7 @@ const TaskSourcesPanel = () => {
   // Fetch the databases the connected account exposes (Notion) so the user can
   // pick one instead of pasting a raw id.
   const browseDatabases = async () => {
+    if (busyKey) return;
     setBusyKey('databases');
     setError(null);
     setNotice(null);
@@ -214,6 +217,7 @@ const TaskSourcesPanel = () => {
   };
 
   const toggleSource = async (source: TaskSource) => {
+    if (busyKey) return;
     setBusyKey(`toggle:${source.id}`);
     setError(null);
     try {
@@ -227,6 +231,7 @@ const TaskSourcesPanel = () => {
   };
 
   const fetchNow = async (source: TaskSource) => {
+    if (busyKey) return;
     setBusyKey(`fetch:${source.id}`);
     setError(null);
     setNotice(null);
@@ -254,6 +259,7 @@ const TaskSourcesPanel = () => {
   };
 
   const syncAll = async () => {
+    if (busyKey) return;
     setBusyKey('sync');
     setError(null);
     setNotice(null);
@@ -280,6 +286,7 @@ const TaskSourcesPanel = () => {
   };
 
   const removeSource = async (source: TaskSource) => {
+    if (busyKey) return;
     if (!window.confirm(t('settings.taskSources.removeConfirm'))) return;
     setBusyKey(`remove:${source.id}`);
     setError(null);
@@ -374,7 +381,7 @@ const TaskSourcesPanel = () => {
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
-                disabled={busyKey === 'databases'}
+                disabled={busyKey !== null}
                 onClick={() => void browseDatabases()}>
                 {busyKey === 'databases'
                   ? t('settings.taskSources.notion.loadingDatabases')
@@ -421,14 +428,14 @@ const TaskSourcesPanel = () => {
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              disabled={busyKey === 'add'}
+              disabled={busyKey !== null}
               onClick={() => void addSource()}>
               {busyKey === 'add' ? t('settings.taskSources.adding') : t('settings.taskSources.add')}
             </button>
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              disabled={busyKey === 'preview'}
+              disabled={busyKey !== null}
               onClick={() => void previewFilter()}>
               {t('settings.taskSources.preview')}
             </button>
@@ -443,7 +450,7 @@ const TaskSourcesPanel = () => {
           <button
             type="button"
             className="btn btn-outline btn-sm"
-            disabled={loading || busyKey === 'sync' || sources.length === 0}
+            disabled={loading || busyKey !== null || sources.length === 0}
             onClick={() => void syncAll()}>
             {busyKey === 'sync'
               ? t('settings.taskSources.syncing')
@@ -497,7 +504,7 @@ const TaskSourcesPanel = () => {
                     <button
                       type="button"
                       className="btn btn-outline btn-xs"
-                      disabled={busyKey === `toggle:${source.id}`}
+                      disabled={busyKey !== null}
                       onClick={() => void toggleSource(source)}>
                       {source.enabled
                         ? t('settings.taskSources.disable')
@@ -506,7 +513,7 @@ const TaskSourcesPanel = () => {
                     <button
                       type="button"
                       className="btn btn-outline btn-xs"
-                      disabled={busyKey === `fetch:${source.id}`}
+                      disabled={busyKey !== null}
                       onClick={() => void fetchNow(source)}>
                       {busyKey === `fetch:${source.id}`
                         ? t('settings.taskSources.fetching')
@@ -515,7 +522,7 @@ const TaskSourcesPanel = () => {
                     <button
                       type="button"
                       className="btn btn-ghost btn-xs text-red-600 dark:text-red-400"
-                      disabled={busyKey === `remove:${source.id}`}
+                      disabled={busyKey !== null}
                       onClick={() => void removeSource(source)}>
                       {t('settings.taskSources.remove')}
                     </button>

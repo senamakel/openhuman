@@ -235,6 +235,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                             comment: "True when the source was removed.",
                             required: true,
                         },
+                        FieldSchema {
+                            name: "pruned",
+                            ty: TypeSchema::U64,
+                            comment: "Count of ingested refs/cards pruned during removal.",
+                            required: true,
+                        },
                     ],
                 },
                 comment: "Removal result payload.",

@@ -4345,7 +4345,7 @@ const messages: TranslationMap = {
   'settings.taskSources.fetchResult':
     'تم توجيه {routed} من أصل {fetched} مهمة/مهام؛ تمت إزالة {pruned} مهمة/مهام قديمة',
   'settings.taskSources.syncAll': 'مزامنة الكل',
-  'settings.taskSources.syncing': 'جارٍت المزامنة…',
+  'settings.taskSources.syncing': 'جارٍ المزامنة…',
   'settings.taskSources.configured': 'المصادر المحظورة',
   'settings.taskSources.empty': 'لم يتم تشكيل مصادر المهمة بعد',
   'settings.taskSources.proactive': 'استباقي',

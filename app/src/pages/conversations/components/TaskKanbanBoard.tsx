@@ -530,6 +530,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
   }, [load]);
 
   const toggleSource = async (source: TaskSource) => {
+    if (busyKey) return;
     setBusyKey(`toggle:${source.id}`);
     setError(null);
     setNotice(null);
@@ -544,6 +545,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
   };
 
   const fetchSource = async (source: TaskSource) => {
+    if (busyKey) return;
     setBusyKey(`fetch:${source.id}`);
     setError(null);
     setNotice(null);
@@ -563,6 +565,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
   };
 
   const syncSources = async () => {
+    if (busyKey) return;
     setBusyKey('sync');
     setError(null);
     setNotice(null);
@@ -606,7 +609,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
           </button>
           <button
             type="button"
-            disabled={disabled || loading || busyKey === 'sync' || sources.length === 0}
+            disabled={disabled || loading || busyKey !== null || sources.length === 0}
             onClick={() => void syncSources()}
             className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
             <LuRefreshCw className="h-3 w-3" />
@@ -674,7 +677,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <button
                   type="button"
-                  disabled={disabled || busyKey === `fetch:${source.id}`}
+                  disabled={disabled || busyKey !== null}
                   onClick={() => void fetchSource(source)}
                   className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
                   <LuRefreshCw className="h-3 w-3" />
@@ -684,7 +687,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
                 </button>
                 <button
                   type="button"
-                  disabled={disabled || busyKey === `toggle:${source.id}`}
+                  disabled={disabled || busyKey !== null}
                   onClick={() => void toggleSource(source)}
                   className="rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
                   {source.enabled

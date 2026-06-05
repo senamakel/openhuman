@@ -384,7 +384,7 @@ mod tests {
         store.clear().await;
         let response = start(
             MonitorStartRequest {
-                command: "yes x | head -c 1100000".into(),
+                command: "printf '%1049600s\\n' x".into(),
                 description: None,
                 timeout_ms: Some(2_000),
                 persistent: false,

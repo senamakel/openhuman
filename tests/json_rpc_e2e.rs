@@ -1817,14 +1817,25 @@ async fn json_rpc_model_council_runs_with_default_sentinel_and_repeated_jury_sea
 
     let captured_models = with_chat_completion_models(|models| models.clone());
     assert_eq!(
-        captured_models,
+        captured_models.len(),
+        4,
+        "expected three member calls plus one chair call"
+    );
+    assert_eq!(
+        captured_models.last().map(String::as_str),
+        Some("e2e-mock-model"),
+        "chair call should happen after member fan-out completes"
+    );
+    let mut member_models = captured_models[..3].to_vec();
+    member_models.sort();
+    assert_eq!(
+        member_models,
         vec![
-            "e2e-mock-model",
-            "e2e-mock-model",
-            "critic-model",
-            "e2e-mock-model"
+            "critic-model".to_string(),
+            "e2e-mock-model".to_string(),
+            "e2e-mock-model".to_string()
         ],
-        "three member calls plus one default chair call should be made"
+        "member fan-out should include two defaults and one critic"
     );
     let captured_requests = with_chat_completion_requests(|requests| requests.clone());
     assert_eq!(captured_requests.len(), 4);

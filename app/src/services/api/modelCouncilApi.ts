@@ -85,7 +85,7 @@ export function unwrapCouncilEnvelope(payload: unknown): ModelCouncilResult {
 
 export const modelCouncilApi = {
   answerMember: async (params: RunCouncilMemberParams): Promise<CouncilMemberResult> => {
-    log('answer member question=%s model=%s', params.question.slice(0, 40), params.model);
+    log('answer member question_len=%d model=%s', params.question.length, params.model);
     const payload = await callCoreRpc<unknown>({
       method: 'openhuman.model_council_answer_member',
       params,
@@ -96,8 +96,8 @@ export const modelCouncilApi = {
 
   synthesizeCouncil: async (params: SynthesizeCouncilParams): Promise<ModelCouncilResult> => {
     log(
-      'synthesize question=%s members=%d chair=%s',
-      params.question.slice(0, 40),
+      'synthesize question_len=%d members=%d chair=%s',
+      params.question.length,
       params.members.length,
       params.chair_model
     );
@@ -111,9 +111,9 @@ export const modelCouncilApi = {
 
   runCouncil: async (params: RunCouncilParams): Promise<ModelCouncilResult> => {
     log(
-      'run question=%s members=%o chair=%s',
-      params.question.slice(0, 40),
-      params.member_models,
+      'run question_len=%d members_count=%d chair=%s',
+      params.question.length,
+      params.member_models.length,
       params.chair_model
     );
     const payload = await callCoreRpc<unknown>({

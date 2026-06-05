@@ -59,7 +59,7 @@ export const councilRegistryApi = {
   },
 
   get: async (id: string): Promise<CouncilDefinition | null> => {
-    log('get council id=%s', id);
+    log('get council id_present=%s id_len=%d', Boolean(id.trim()), id.length);
     const payload = await callCoreRpc<unknown>({
       method: 'openhuman.council_registry_get',
       params: { id },
@@ -68,7 +68,12 @@ export const councilRegistryApi = {
   },
 
   upsert: async (council: CouncilDefinition): Promise<CouncilDefinition> => {
-    log('upsert council id=%s name=%s', council.id, council.name);
+    log(
+      'upsert council id_present=%s id_len=%d name_len=%d',
+      Boolean(council.id?.trim()),
+      council.id?.length ?? 0,
+      council.name?.length ?? 0
+    );
     const payload = await callCoreRpc<unknown>({
       method: 'openhuman.council_registry_upsert',
       params: { council },
@@ -77,7 +82,7 @@ export const councilRegistryApi = {
   },
 
   delete: async (id: string): Promise<boolean> => {
-    log('delete council id=%s', id);
+    log('delete council id_present=%s id_len=%d', Boolean(id.trim()), id.length);
     const payload = await callCoreRpc<unknown>({
       method: 'openhuman.council_registry_delete',
       params: { id },

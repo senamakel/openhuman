@@ -5,7 +5,12 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const DEFAULT_MODEL = 'reasoning-v1';
-const CORE_BIN = process.env.OPENHUMAN_CORE_BIN || resolve('target/debug/openhuman-core');
+const defaultCoreBin = resolve(
+  'target',
+  'debug',
+  process.platform === 'win32' ? 'openhuman-core.exe' : 'openhuman-core'
+);
+const CORE_BIN = process.env.OPENHUMAN_CORE_BIN || defaultCoreBin;
 
 const SHARED_REASONING = [
   '# Shared reasoning',

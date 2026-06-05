@@ -74,8 +74,12 @@ pub fn delete_council(config: &Config, id: &str) -> Result<RpcOutcome<bool>, Str
     let mut store = load_store(&path)?;
     let before = store.councils.len();
     store.councils.retain(|council| council.id != id);
-    let deleted = before != store.councils.len() || (!path.exists() && id == DEFAULT_COUNCIL_ID);
-    save_store(&path, &store)?;
+    let removed_from_store = before != store.councils.len();
+    let deleted_implicit_default = !path.exists() && id == DEFAULT_COUNCIL_ID;
+    let deleted = removed_from_store || deleted_implicit_default;
+    if deleted {
+        save_store(&path, &store)?;
+    }
     Ok(RpcOutcome::single_log(deleted, "council registry deleted"))
 }
 
@@ -280,5 +284,20 @@ mod tests {
 
         let payload = list_councils(&config).unwrap().value;
         assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn deleting_missing_non_default_does_not_materialize_store() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = config_for_workspace(tmp.path());
+        let path = store_path(&config);
+
+        let deleted = delete_council(&config, "missing-council").unwrap().value;
+
+        assert!(!deleted);
+        assert!(!path.exists());
+        let payload = list_councils(&config).unwrap().value;
+        assert_eq!(payload.len(), 1);
+        assert_eq!(payload[0].id, DEFAULT_COUNCIL_ID);
     }
 }

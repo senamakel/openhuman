@@ -85,11 +85,11 @@ interface ModelPickerState {
 }
 
 const MODEL_HINTS = [
-  { value: 'default', label: 'Default' },
-  { value: 'hint:chat', label: 'Chat' },
-  { value: 'hint:reasoning', label: 'Reasoning' },
-  { value: 'hint:code', label: 'Code' },
-  { value: 'hint:summarize', label: 'Summarize' },
+  { value: 'default', labelKey: 'modelCouncil.modelHint.default' },
+  { value: 'hint:chat', labelKey: 'modelCouncil.modelHint.chat' },
+  { value: 'hint:reasoning', labelKey: 'modelCouncil.modelHint.reasoning' },
+  { value: 'hint:code', labelKey: 'modelCouncil.modelHint.code' },
+  { value: 'hint:summarize', labelKey: 'modelCouncil.modelHint.summarize' },
 ] as const;
 
 interface ConnectedModelProvider {
@@ -108,10 +108,13 @@ function parseProviderModel(value: string): { provider: string; model: string } 
 }
 
 async function loadConnectedModelProviders(): Promise<ConnectedModelProvider[]> {
-  const [settings, localSnapshot] = await Promise.all([
-    loadAISettings(),
-    loadLocalProviderSnapshot().catch(() => null),
-  ]);
+  const settings = await loadAISettings();
+  let localSnapshot: Awaited<ReturnType<typeof loadLocalProviderSnapshot>> | null = null;
+  try {
+    localSnapshot = await loadLocalProviderSnapshot();
+  } catch {
+    localSnapshot = null;
+  }
   const providers: ConnectedModelProvider[] = [{ slug: 'openhuman', label: 'Managed' }];
   const seen = new Set(providers.map(provider => provider.slug));
 
@@ -205,23 +208,27 @@ const ModelPickerDialog = ({
 
   useEffect(() => {
     let active = true;
-    setProvidersLoading(true);
-    setProvidersError(null);
-    loadConnectedModelProviders()
-      .then(loaded => {
+    const fetchProviders = async () => {
+      setProvidersLoading(true);
+      setProvidersError(null);
+      try {
+        const loaded = await loadConnectedModelProviders();
         if (!active) return;
         setProviders(loaded);
-        setProvidersLoading(false);
         setProvider(current => {
           if (current && loaded.some(item => item.slug === current)) return current;
           return loaded[0]?.slug ?? '';
         });
-      })
-      .catch(err => {
+      } catch (err) {
         if (!active) return;
         setProvidersError(err instanceof Error ? err.message : String(err));
-        setProvidersLoading(false);
-      });
+      } finally {
+        if (active) {
+          setProvidersLoading(false);
+        }
+      }
+    };
+    void fetchProviders();
     return () => {
       active = false;
     };
@@ -250,24 +257,28 @@ const ModelPickerDialog = ({
     }
 
     let active = true;
-    setModelsLoading(true);
-    setModels([]);
-    setModelsError(null);
-    listProviderModels(provider)
-      .then(loaded => {
+    const fetchModels = async () => {
+      setModelsLoading(true);
+      setModels([]);
+      setModelsError(null);
+      try {
+        const loaded = await listProviderModels(provider);
         if (!active) return;
         setModels(loaded);
-        setModelsLoading(false);
         setModel(current => {
           if (current && loaded.some(item => item.id === current)) return current;
           return loaded[0]?.id ?? '';
         });
-      })
-      .catch(err => {
+      } catch (err) {
         if (!active) return;
         setModelsError(err instanceof Error ? err.message : String(err));
-        setModelsLoading(false);
-      });
+      } finally {
+        if (active) {
+          setModelsLoading(false);
+        }
+      }
+    };
+    void fetchModels();
     return () => {
       active = false;
     };
@@ -326,7 +337,7 @@ const ModelPickerDialog = ({
                     ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-200'
                     : 'border-stone-200 text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900'
                 }`}>
-                {hint.label}
+                {t(hint.labelKey)}
                 <span className="block font-mono text-[11px] text-stone-500 dark:text-neutral-400">
                   {hint.value}
                 </span>
@@ -410,32 +421,34 @@ const DEFAULT_SHARED_REASONING = [
   '- Evidence or constraints to preserve:',
   '- Judge synthesis notes:',
 ].join('\n');
-const DEFAULT_SEATS: CouncilSeat[] = [
-  {
-    id: 0,
-    mode: 'default',
-    profileId: '',
-    name: 'Analyst',
-    model: DEFAULT_MODEL,
-    brief: 'Evidence, assumptions, and risk.',
-  },
-  {
-    id: 1,
-    mode: 'default',
-    profileId: '',
-    name: 'Builder',
-    model: DEFAULT_MODEL,
-    brief: 'Practical implementation path.',
-  },
-  {
-    id: 2,
-    mode: 'default',
-    profileId: '',
-    name: 'Skeptic',
-    model: DEFAULT_MODEL,
-    brief: 'Failure modes and missing context.',
-  },
-];
+function createDefaultSeats(t: (key: string) => string): CouncilSeat[] {
+  return [
+    {
+      id: 0,
+      mode: 'default',
+      profileId: '',
+      name: t('modelCouncil.defaultSeat.analyst.name'),
+      model: DEFAULT_MODEL,
+      brief: t('modelCouncil.defaultSeat.analyst.brief'),
+    },
+    {
+      id: 1,
+      mode: 'default',
+      profileId: '',
+      name: t('modelCouncil.defaultSeat.builder.name'),
+      model: DEFAULT_MODEL,
+      brief: t('modelCouncil.defaultSeat.builder.brief'),
+    },
+    {
+      id: 2,
+      mode: 'default',
+      profileId: '',
+      name: t('modelCouncil.defaultSeat.skeptic.name'),
+      model: DEFAULT_MODEL,
+      brief: t('modelCouncil.defaultSeat.skeptic.brief'),
+    },
+  ];
+}
 
 const SEAT_COLORS = ['yellow', 'burgundy', 'navy', 'black', 'yellow'] as const;
 const SEAT_FACES: MascotFace[] = ['thinking', 'writing', 'reading', 'curious', 'proud'];
@@ -644,15 +657,16 @@ function councilSeatsFromDefinition(council: CouncilDefinition): CouncilSeat[] {
   }));
 }
 
-function createDraftCouncil(): CouncilDefinition {
+function createDraftCouncil(t: (key: string) => string): CouncilDefinition {
   const now = Date.now();
+  const defaultSeats = createDefaultSeats(t);
   return {
     id: '',
-    name: 'New council',
+    name: t('modelCouncil.defaultCouncilName'),
     description: '',
     jury_count: 3,
     debate_rounds: 3,
-    seats: DEFAULT_SEATS.map(seat => ({
+    seats: defaultSeats.map(seat => ({
       id: seat.id,
       mode: seat.mode,
       profile_id: seat.profileId,
@@ -660,7 +674,12 @@ function createDraftCouncil(): CouncilDefinition {
       model: seat.model,
       brief: seat.brief,
     })),
-    judge: { mode: 'default', profile_id: '', name: 'Chief Judge', model: DEFAULT_JUDGE_MODEL },
+    judge: {
+      mode: 'default',
+      profile_id: '',
+      name: t('modelCouncil.defaultJudgeName'),
+      model: DEFAULT_JUDGE_MODEL,
+    },
     shared_reasoning: DEFAULT_SHARED_REASONING,
     created_at_ms: now,
     updated_at_ms: now,
@@ -686,10 +705,10 @@ const ModelCouncilTab = () => {
   const [liveScratchpad, setLiveScratchpad] = useState<string | null>(null);
   const [juryCount, setJuryCount] = useState(3);
   const [debateRounds, setDebateRounds] = useState(3);
-  const [seats, setSeats] = useState<CouncilSeat[]>(DEFAULT_SEATS);
+  const [seats, setSeats] = useState<CouncilSeat[]>(() => createDefaultSeats(t));
   const [judgeMode, setJudgeMode] = useState<SeatMode>('default');
   const [judgeProfileId, setJudgeProfileId] = useState('');
-  const [judgeName, setJudgeName] = useState('Chief Judge');
+  const [judgeName, setJudgeName] = useState(() => t('modelCouncil.defaultJudgeName'));
   const [judgeModel, setJudgeModel] = useState(DEFAULT_JUDGE_MODEL);
   const [running, setRunning] = useState(false);
   const [liveMembers, setLiveMembers] = useState<LiveMemberThought[]>([]);
@@ -705,28 +724,31 @@ const ModelCouncilTab = () => {
     }
   }, [dispatch, profileStatus, profiles.length]);
 
-  const applyCouncilDefinition = useCallback((council: CouncilDefinition) => {
-    setSelectedCouncil(council);
-    setCouncilName(council.name || 'Untitled council');
-    setCouncilDescription(council.description || '');
-    setJuryCount(Math.min(MAX_MEMBERS, Math.max(MIN_MEMBERS, council.jury_count || 3)));
-    setDebateRounds(
-      Math.min(MAX_DEBATE_ROUNDS, Math.max(MIN_DEBATE_ROUNDS, council.debate_rounds || 3))
-    );
-    setSeats(councilSeatsFromDefinition(council).slice(0, council.jury_count || 3));
-    setJudgeMode(council.judge.mode);
-    setJudgeProfileId(council.judge.profile_id || '');
-    setJudgeName(council.judge.name || 'Chief Judge');
-    setJudgeModel(council.judge.model ?? DEFAULT_JUDGE_MODEL);
-    setSharedReasoning(council.shared_reasoning || DEFAULT_SHARED_REASONING);
-    setQuestion('');
-    setLiveMembers([]);
-    setLiveScratchpad(null);
-    setJudgeSynthesizing(false);
-    setUsageEstimate(null);
-    setResult(null);
-    setError(null);
-  }, []);
+  const applyCouncilDefinition = useCallback(
+    (council: CouncilDefinition) => {
+      setSelectedCouncil(council);
+      setCouncilName(council.name || t('modelCouncil.untitledCouncilName'));
+      setCouncilDescription(council.description || '');
+      setJuryCount(Math.min(MAX_MEMBERS, Math.max(MIN_MEMBERS, council.jury_count || 3)));
+      setDebateRounds(
+        Math.min(MAX_DEBATE_ROUNDS, Math.max(MIN_DEBATE_ROUNDS, council.debate_rounds || 3))
+      );
+      setSeats(councilSeatsFromDefinition(council).slice(0, council.jury_count || 3));
+      setJudgeMode(council.judge.mode);
+      setJudgeProfileId(council.judge.profile_id || '');
+      setJudgeName(council.judge.name || t('modelCouncil.defaultJudgeName'));
+      setJudgeModel(council.judge.model ?? DEFAULT_JUDGE_MODEL);
+      setSharedReasoning(council.shared_reasoning || DEFAULT_SHARED_REASONING);
+      setQuestion('');
+      setLiveMembers([]);
+      setLiveScratchpad(null);
+      setJudgeSynthesizing(false);
+      setUsageEstimate(null);
+      setResult(null);
+      setError(null);
+    },
+    [t]
+  );
 
   const loadCouncils = useCallback(async () => {
     setRegistryLoading(true);
@@ -781,7 +803,9 @@ const ModelCouncilTab = () => {
     (judgeMode === 'profile' ? profileModel(judgeProfile) : '') ||
     DEFAULT_JUDGE_MODEL;
   const resolvedJudgeName =
-    judgeMode === 'profile' && judgeProfile ? judgeProfile.name : judgeName.trim() || 'Chief Judge';
+    judgeMode === 'profile' && judgeProfile
+      ? judgeProfile.name
+      : judgeName.trim() || t('modelCouncil.defaultJudgeName');
 
   const canRun =
     !running &&
@@ -798,7 +822,7 @@ const ModelCouncilTab = () => {
       const now = Date.now();
       return {
         id: base?.id || '',
-        name: councilName.trim() || 'Untitled council',
+        name: councilName.trim() || t('modelCouncil.untitledCouncilName'),
         description: councilDescription.trim(),
         jury_count: juryCount,
         debate_rounds: debateRounds,
@@ -829,6 +853,7 @@ const ModelCouncilTab = () => {
       juryCount,
       seats,
       sharedReasoning,
+      t,
     ]
   );
 
@@ -859,9 +884,9 @@ const ModelCouncilTab = () => {
   );
 
   const handleCreateCouncil = useCallback(() => {
-    applyCouncilDefinition(createDraftCouncil());
+    applyCouncilDefinition(createDraftCouncil(t));
     setView('edit');
-  }, [applyCouncilDefinition]);
+  }, [applyCouncilDefinition, t]);
 
   const selectedCouncilId = selectedCouncil?.id;
   const handleDeleteCouncil = useCallback(

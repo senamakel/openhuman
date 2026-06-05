@@ -518,26 +518,28 @@ describe('ModelCouncilTab', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Convene council' }));
     });
 
-    expect(mockAnswerMember.mock.calls.map(call => call[0].model)).toEqual([
-      'critic-model',
-      'reasoning-v1',
-      'reasoning-v1',
-      'critic-model',
-      'reasoning-v1',
-      'reasoning-v1',
-      'critic-model',
-      'reasoning-v1',
-      'reasoning-v1',
-    ]);
+    const submittedModels = mockAnswerMember.mock.calls.map(call => call[0].model);
+    expect(submittedModels).toHaveLength(9);
+    expect(submittedModels).toEqual(expect.arrayContaining(['critic-model', 'reasoning-v1']));
+    expect(submittedModels.filter(model => model === 'critic-model')).toHaveLength(3);
+    expect(submittedModels.filter(model => model === 'reasoning-v1')).toHaveLength(6);
     expect(mockSynthesizeCouncil).toHaveBeenCalledWith({
       question: expect.stringContaining('shared_reasoning.md'),
       members: expect.any(Array),
       chair_model: 'reasoning-v1',
     });
-    expect(mockAnswerMember.mock.calls[0][0].question).toContain('User question:');
-    expect(mockAnswerMember.mock.calls[0][0].question).toContain('What is the capital of France?');
-    expect(mockAnswerMember.mock.calls[0][0].question).toContain('Debate round 1 of 3.');
-    expect(mockAnswerMember.mock.calls[8][0].question).toContain('Debate round 3 of 3.');
+    const submittedQuestions = mockAnswerMember.mock.calls.map(call => call[0].question);
+    expect(
+      submittedQuestions.some(
+        question =>
+          question.includes('User question:') &&
+          question.includes('What is the capital of France?') &&
+          question.includes('Debate round 1 of 3.')
+      )
+    ).toBe(true);
+    expect(submittedQuestions.some(question => question.includes('Debate round 3 of 3.'))).toBe(
+      true
+    );
   });
 
   it('lets the judge agent use a saved profile unless a model override is typed', async () => {

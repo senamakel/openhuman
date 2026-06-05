@@ -1590,6 +1590,30 @@ const messages: TranslationMap = {
   'voice.externalProviders.apiKey': 'API-Schlüssel',
   'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
   'voice.externalProviders.add': 'Add',
+  'pttSettings.title': 'Push-to-Talk',
+  'pttSettings.description':
+    'Halte eine Taste gedrückt, um mit OpenHuman zu sprechen, während du eine andere App nutzt. Loslassen sendet die Aufnahme; wenn „Antworten vorlesen" aktiviert ist, antwortet OpenHuman per Sprachausgabe.',
+  'pttSettings.shortcutLabel': 'Tastenkürzel',
+  'pttSettings.shortcutPlaceholder': 'Taste drücken (z. B. F13)',
+  'pttSettings.shortcutUnsetHint':
+    'Push-to-Talk ist aus — wähle ein Tastenkürzel, um es zu aktivieren.',
+  'pttSettings.speakRepliesLabel': 'Antworten des Agenten vorlesen',
+  'pttSettings.showOverlayLabel': 'Overlay während des Haltens anzeigen',
+  'pttSettings.errorConflictsWithDictation':
+    'Dieses Tastenkürzel wird bereits für die Diktierfunktion verwendet. Wähle eine andere Taste.',
+  'pttSettings.errorModifierOnly':
+    'Wähle eine normale Taste (z. B. F13) — reine Modifikator-Kürzel funktionieren bei Push-to-Talk nicht.',
+  'pttSettings.errorEmpty': 'Wähle eine Taste zum Binden.',
+  'pttSettings.errorAccessibility':
+    'macOS benötigt für dieses Tastenkürzel die Bedienungshilfen-Berechtigung. Öffne Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen und aktiviere OpenHuman.',
+  'pttSettings.errorShortcutInUse':
+    'Eine andere App verwendet dieses Tastenkürzel bereits. Wähle ein anderes.',
+  'pttSettings.errorUnsupportedWayland':
+    'Wayland-Sitzungen unterstützen globale Tastenkürzel in OpenHuman noch nicht — wechsle zu einer X11-Sitzung oder nutze den In-App-Diktierschalter.',
+  'pttSettings.exclusiveFullscreenHint':
+    'In exklusivem Vollbild rendert das Overlay nicht — du hörst nur den Hinweiston. Wechsle zu randlosem Vollbild für das Overlay.',
+  'pttOverlay.listening': 'Höre zu…',
+  'pttOverlay.idle': 'Bereit',
   'autocomplete.title': 'Automatische Vervollständigung',
   'autocomplete.settings': 'Einstellungen',
   'autocomplete.acceptWithTab': 'Mit Tab akzeptieren',
@@ -4436,6 +4460,15 @@ const messages: TranslationMap = {
   'conversations.taskKanban.ready': 'Bereit',
   'conversations.taskKanban.rejected': 'Abgelehnt',
   'conversations.taskKanban.inProgress': 'In Bearbeitung',
+  'conversations.taskKanban.awaitingApprovalColumn': 'Wartet auf Genehmigung',
+  'conversations.taskKanban.blockedColumn': 'Blockiert',
+  'conversations.taskKanban.evidenceBadge': 'Belege ({count})',
+  'conversations.taskKanban.needsInput': 'Diese Aufgaben erfordern Ihre Eingabe',
+  'conversations.taskKanban.emptyColumn': 'Keine Aufgaben',
+  'conversations.taskKanban.dragHint': 'Ziehen zum Verschieben zwischen Spalten',
+  'conversations.taskKanban.movingCard': 'Wird verschoben…',
+  'conversations.taskKanban.statusBadge.ready': 'Bereit zum Start',
+  'conversations.taskKanban.statusBadge.rejected': 'Abgelehnt',
   'intelligence.memoryChunk.detail.copiedHint': 'kopiert',
   'settings.composio.notYetRouted': 'noch nicht geroutet',
   'settings.localModel.download.manageExternal':

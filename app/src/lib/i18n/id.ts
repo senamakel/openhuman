@@ -1554,6 +1554,29 @@ const messages: TranslationMap = {
   'voice.externalProviders.apiKey': 'Kunci API',
   'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
   'voice.externalProviders.add': 'Add',
+  'pttSettings.title': 'Tekan untuk bicara',
+  'pttSettings.description':
+    'Tahan sebuah tombol untuk berbicara dengan OpenHuman saat kamu sedang di aplikasi lain. Lepas tombol untuk mengirim; jika «Bacakan balasan» aktif, OpenHuman akan menyuarakan balasannya.',
+  'pttSettings.shortcutLabel': 'Pintasan',
+  'pttSettings.shortcutPlaceholder': 'Tekan sebuah tombol (mis. F13)',
+  'pttSettings.shortcutUnsetHint':
+    'Tekan untuk bicara mati — pilih pintasan untuk mengaktifkannya.',
+  'pttSettings.speakRepliesLabel': 'Suarakan balasan agen',
+  'pttSettings.showOverlayLabel': 'Tampilkan lapisan saat tombol ditahan',
+  'pttSettings.errorConflictsWithDictation':
+    'Pintasan ini sudah dipakai oleh dikte. Pilih tombol lain.',
+  'pttSettings.errorModifierOnly':
+    'Pilih tombol biasa (mis. F13) — pintasan hanya pengubah tidak berfungsi untuk tekan untuk bicara.',
+  'pttSettings.errorEmpty': 'Pilih tombol untuk diikat.',
+  'pttSettings.errorAccessibility':
+    'macOS memerlukan izin Aksesibilitas untuk pintasan ini. Buka Pengaturan Sistem → Privasi & Keamanan → Aksesibilitas lalu aktifkan OpenHuman.',
+  'pttSettings.errorShortcutInUse': 'Aplikasi lain sudah memakai pintasan ini. Pilih yang lain.',
+  'pttSettings.errorUnsupportedWayland':
+    'Sesi Wayland belum mendukung pintasan global di OpenHuman — beralihlah ke sesi X11 atau gunakan tombol dikte di dalam aplikasi.',
+  'pttSettings.exclusiveFullscreenHint':
+    'Pada game layar penuh eksklusif, lapisan tidak akan tampil — kamu hanya akan mendengar nada. Beralihlah ke layar penuh tanpa bingkai untuk melihat lapisan.',
+  'pttOverlay.listening': 'Mendengarkan…',
+  'pttOverlay.idle': 'Siaga',
   'autocomplete.title': 'Pelengkap Otomatis',
   'autocomplete.settings': 'Pengaturan',
   'autocomplete.acceptWithTab': 'Terima dengan Tab',
@@ -4342,6 +4365,15 @@ const messages: TranslationMap = {
   'conversations.taskKanban.ready': 'Siap',
   'conversations.taskKanban.rejected': 'Ditolak',
   'conversations.taskKanban.inProgress': 'Sedang berjalan',
+  'conversations.taskKanban.awaitingApprovalColumn': 'Menunggu Persetujuan',
+  'conversations.taskKanban.blockedColumn': 'Terhambat',
+  'conversations.taskKanban.evidenceBadge': 'Bukti ({count})',
+  'conversations.taskKanban.needsInput': 'Tugas-tugas ini membutuhkan masukan Anda',
+  'conversations.taskKanban.emptyColumn': 'Tidak ada tugas',
+  'conversations.taskKanban.dragHint': 'Seret untuk memindahkan antar kolom',
+  'conversations.taskKanban.movingCard': 'Memindahkan…',
+  'conversations.taskKanban.statusBadge.ready': 'Siap dimulai',
+  'conversations.taskKanban.statusBadge.rejected': 'Ditolak',
   'intelligence.memoryChunk.detail.copiedHint': 'disalin',
   'settings.composio.notYetRouted': 'belum dirutekan',
   'settings.localModel.download.manageExternal': 'Kelola model ini di runtime eksternal Anda.',

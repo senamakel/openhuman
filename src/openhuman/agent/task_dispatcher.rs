@@ -591,6 +591,7 @@ async fn run_autonomous(
             thread_id.to_string(),
             run_id.to_string(),
             crate::openhuman::threads::turn_state::TurnStateStore::new(workspace_dir.clone()),
+            crate::openhuman::channels::providers::web::ChatRequestMetadata::default(),
             config.clone(),
         );
     }

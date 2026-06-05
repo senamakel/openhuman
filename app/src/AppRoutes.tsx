@@ -13,6 +13,7 @@ import Intelligence from './pages/Intelligence';
 import Invites from './pages/Invites';
 import Notifications from './pages/Notifications';
 import Onboarding from './pages/onboarding/Onboarding';
+import { PttOverlayPage } from './pages/PttOverlayPage';
 import Rewards from './pages/Rewards';
 import Routines from './pages/Routines';
 import Settings from './pages/Settings';
@@ -188,6 +189,8 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+
+      <Route path="/ptt-overlay" element={<PttOverlayPage />} />
 
       {/* Default redirect based on auth status */}
       <Route path="*" element={<DefaultRedirect />} />

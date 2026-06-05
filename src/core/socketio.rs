@@ -438,6 +438,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         payload.profile_id,
                         payload.locale,
                         payload.queue_mode,
+                        crate::openhuman::channels::providers::web::ChatRequestMetadata::default(),
                     )
                     .await
                     {

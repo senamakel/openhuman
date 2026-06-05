@@ -103,7 +103,7 @@ describe('TaskKanbanBoard approval surface', () => {
     expect(onDecidePlan).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), false);
   });
 
-  it('buckets ready→todo and rejected→blocked columns so the cards still render', () => {
+  it('buckets ready→in_progress column and rejected→done column so the cards still render', () => {
     render(
       <TaskKanbanBoard
         board={board([

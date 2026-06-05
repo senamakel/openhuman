@@ -483,6 +483,7 @@ pub async fn start_chat(
     profile_id: Option<String>,
     locale: Option<String>,
     queue_mode: Option<String>,
+    metadata: ChatRequestMetadata,
 ) -> Result<String, String> {
     let client_id = client_id.trim().to_string();
     let thread_id = thread_id.trim().to_string();
@@ -732,6 +733,7 @@ pub async fn start_chat(
                     profile_id,
                     locale,
                     turn_run_queue_task,
+                    metadata,
                 ),
             ),
         )
@@ -901,6 +903,7 @@ fn dispatch_followups(followups: Vec<crate::openhuman::agent::harness::run_queue
                 fup.profile_id,
                 fup.locale,
                 Some("followup".to_string()),
+                ChatRequestMetadata::default(),
             )
             .await
             {
@@ -1016,6 +1019,7 @@ async fn run_chat_task(
     profile_id: Option<String>,
     locale: Option<String>,
     run_queue: Arc<crate::openhuman::agent::harness::run_queue::RunQueue>,
+    metadata: ChatRequestMetadata,
 ) -> Result<WebChatTaskResult, String> {
     #[cfg(any(test, debug_assertions))]
     {
@@ -1169,6 +1173,7 @@ async fn run_chat_task(
         thread_id.to_string(),
         request_id.to_string(),
         turn_state_store,
+        metadata.clone(),
         config.clone(),
     );
 
@@ -1209,6 +1214,64 @@ async fn run_chat_task(
         }
     };
 
+    // Voice / PTT integration (#3090 Task 4). When the chat was sent with
+    // `speak_reply: true`, drive the agent's full reply through
+    // `voice::reply_speech::synthesize_reply` so the renderer can play it.
+    // When the call originated as a PTT session, also publish
+    // `PttTranscriptCommitted` so screen-intelligence (and any future bus
+    // subscriber) can react to a completed PTT turn.
+    //
+    // Why here (not in the progress bridge): the bridge sees `TextDelta`s
+    // only when the inference provider streams. The non-streaming fallback
+    // (and the JSON-RPC E2E mocks) produce a single final response with no
+    // deltas — so buffering deltas alone loses the reply text in those
+    // paths. The full response is available right here, regardless of
+    // streaming mode, which makes this the most reliable hook point.
+    //
+    // Failures are non-fatal (TTS / observability are best-effort side
+    // channels).
+    if let Ok(ref task_result) = result {
+        let speak_reply = matches!(metadata.speak_reply, Some(true));
+        let trimmed_response = task_result.full_response.trim();
+        if speak_reply && !trimmed_response.is_empty() {
+            let opts = crate::openhuman::voice::reply_speech::ReplySpeechOptions::default();
+            match crate::openhuman::voice::reply_speech::synthesize_reply(
+                &config,
+                &task_result.full_response,
+                &opts,
+            )
+            .await
+            {
+                Ok(_) => log::debug!(
+                    "[web_channel] reply_speech dispatched chars={} client_id={} thread_id={} request_id={}",
+                    task_result.full_response.len(),
+                    client_id,
+                    thread_id,
+                    request_id,
+                ),
+                Err(err) => log::warn!(
+                    "[web_channel] reply_speech failed: {err} client_id={} thread_id={} request_id={}",
+                    client_id,
+                    thread_id,
+                    request_id,
+                ),
+            }
+        }
+        if metadata.source.as_deref() == Some("ptt") {
+            if let Some(session_id) = metadata.session_id {
+                // TODO(#3090 T11): held_ms will be supplied by the renderer once the PTT
+                // watchdog reports actual hold duration. 0 is a placeholder until then.
+                crate::openhuman::voice::publish_ptt_transcript_committed(
+                    thread_id.to_string(),
+                    session_id,
+                    task_result.full_response.chars().count(),
+                    0,
+                    false,
+                );
+            }
+        }
+    }
+
     // Clear the sender so it doesn't hold the channel open across sessions.
     agent.set_on_progress(None);
 
@@ -1230,12 +1293,21 @@ async fn run_chat_task(
 /// agent turn loop and translates them into [`WebChannelEvent`]s tagged
 /// with the correct client/thread/request IDs. The task runs until the
 /// sender is dropped (i.e. when the agent turn finishes).
+///
+/// `metadata` is logged on the bridge's diagnostic lines so PTT turns are
+/// easy to correlate across the stream of progress events. The
+/// authoritative TTS / PTT-commit dispatch (`speak_reply` →
+/// `voice::reply_speech::synthesize_reply`, `source == "ptt"` →
+/// `publish_ptt_transcript_committed`) is owned by `run_chat_task`, which
+/// sees the full assistant response even when the provider falls back to
+/// non-streaming.
 pub(crate) fn spawn_progress_bridge(
     mut rx: tokio::sync::mpsc::Receiver<crate::openhuman::agent::progress::AgentProgress>,
     client_id: String,
     thread_id: String,
     request_id: String,
     turn_state_store: TurnStateStore,
+    metadata: ChatRequestMetadata,
     config: crate::openhuman::config::Config,
 ) {
     use crate::openhuman::agent::progress::AgentProgress;
@@ -1246,10 +1318,13 @@ pub(crate) fn spawn_progress_bridge(
 
     tokio::spawn(async move {
         log::debug!(
-            "[web_channel][bridge] spawned client_id={} thread_id={} request_id={}",
+            "[web_channel][bridge] spawned client_id={} thread_id={} request_id={} speak_reply={:?} source={:?} session_id={:?}",
             client_id,
             thread_id,
             request_id,
+            metadata.speak_reply,
+            metadata.source,
+            metadata.session_id,
         );
         let mut round: u32 = 0;
         let mut events_seen: u64 = 0;
@@ -2104,7 +2179,11 @@ pub(crate) fn spawn_progress_bridge(
                     );
                     log::debug!(
                         "[web_channel] turn completed after {iterations} iteration(s) \
-                         client_id={client_id} thread_id={thread_id} request_id={request_id}"
+                         client_id={client_id} thread_id={thread_id} request_id={request_id} \
+                         speak_reply={:?} source={:?} session_id={:?}",
+                        metadata.speak_reply,
+                        metadata.source,
+                        metadata.session_id,
                     );
                 }
                 AgentProgress::TurnCostUpdated {
@@ -2389,9 +2468,32 @@ struct WebChatParams {
     /// default language (English) so existing integrations don't
     /// silently change behaviour.
     locale: Option<String>,
+    /// When `true`, the agent's final reply should be spoken via TTS
+    /// (for PTT and similar background voice flows). Accepted and
+    /// stored here; wired to TTS in Task 4.
+    #[serde(default)]
+    speak_reply: Option<bool>,
+    /// Origin of the message: `"ptt"` | `"dictation"` | `"type"` | other.
+    /// Used for analytics and downstream metadata.
+    #[serde(default)]
+    source: Option<String>,
+    /// Optional caller-provided correlation id (PTT session id).
+    #[serde(default)]
+    session_id: Option<u64>,
     /// Queue mode for concurrent messages: `interrupt` (default), `steer`,
     /// `followup`, or `collect`.
+    #[serde(default)]
     queue_mode: Option<String>,
+}
+
+/// Per-request metadata carried alongside a chat send. Currently used by the
+/// PTT flow (Task 4 wires it to `voice::reply_speech`); other voice surfaces
+/// can populate it the same way.
+#[derive(Debug, Default, Clone)]
+pub struct ChatRequestMetadata {
+    pub speak_reply: Option<bool>,
+    pub source: Option<String>,
+    pub session_id: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2414,6 +2516,7 @@ pub async fn channel_web_chat(
     profile_id: Option<String>,
     locale: Option<String>,
     queue_mode: Option<String>,
+    metadata: ChatRequestMetadata,
 ) -> Result<RpcOutcome<Value>, String> {
     let result = start_chat(
         client_id,
@@ -2424,6 +2527,7 @@ pub async fn channel_web_chat(
         profile_id,
         locale,
         queue_mode,
+        metadata,
     )
     .await?;
 
@@ -2580,6 +2684,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     "locale",
                     "Optional BCP-47 UI locale (e.g. 'ar', 'zh-CN'). Drives the \"reply in this language\" system-prompt directive.",
                 ),
+                optional_bool("speak_reply", "When true, the agent's final reply is spoken via TTS (for PTT and similar background voice flows)."),
+                optional_string("source", "Origin of the message: \"ptt\" | \"dictation\" | \"type\" | other. Used for analytics + downstream metadata."),
+                optional_u64("session_id", "Optional caller-provided correlation id (PTT session id)."),
                 optional_string(
                     "queue_mode",
                     "Queue mode: 'interrupt' (default), 'steer', 'followup', or 'collect'.",
@@ -2639,6 +2746,11 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
                 p.profile_id,
                 p.locale,
                 p.queue_mode,
+                ChatRequestMetadata {
+                    speak_reply: p.speak_reply,
+                    source: p.source,
+                    session_id: p.session_id,
+                },
             )
             .await?,
         )
@@ -2741,6 +2853,24 @@ fn optional_f64(name: &'static str, comment: &'static str) -> FieldSchema {
     FieldSchema {
         name,
         ty: TypeSchema::Option(Box::new(TypeSchema::F64)),
+        comment,
+        required: false,
+    }
+}
+
+fn optional_bool(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+        comment,
+        required: false,
+    }
+}
+
+fn optional_u64(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
         comment,
         required: false,
     }

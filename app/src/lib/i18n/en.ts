@@ -1901,6 +1901,30 @@ const en: TranslationMap = {
   'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
   'voice.externalProviders.add': 'Add',
 
+  // Push-to-talk (PTT)
+  'pttSettings.title': 'Push-to-talk',
+  'pttSettings.description':
+    "Hold a key to talk to OpenHuman while you're in another app. Release the key to send; OpenHuman speaks the reply if 'Speak agent replies' is on.",
+  'pttSettings.shortcutLabel': 'Hotkey',
+  'pttSettings.shortcutPlaceholder': 'Press a key (e.g. F13)',
+  'pttSettings.shortcutUnsetHint': 'Push-to-talk is off — pick a hotkey to enable.',
+  'pttSettings.speakRepliesLabel': 'Speak agent replies',
+  'pttSettings.showOverlayLabel': 'Show overlay while held',
+  'pttSettings.errorConflictsWithDictation':
+    'This shortcut is already used by dictation. Pick a different key.',
+  'pttSettings.errorModifierOnly':
+    "Pick a regular key (e.g. F13) — modifier-only shortcuts don't work for push-to-talk.",
+  'pttSettings.errorEmpty': 'Pick a key to bind.',
+  'pttSettings.errorAccessibility':
+    'macOS needs Accessibility permission for this shortcut. Open System Settings → Privacy & Security → Accessibility and enable OpenHuman.',
+  'pttSettings.errorShortcutInUse': 'Another app already uses this shortcut. Pick a different one.',
+  'pttSettings.errorUnsupportedWayland':
+    "Wayland sessions don't support global shortcuts in OpenHuman yet — switch to an X11 session or use the in-app dictation toggle.",
+  'pttSettings.exclusiveFullscreenHint':
+    "In exclusive-fullscreen games the overlay won't render — you'll only hear the chime. Switch to borderless fullscreen for the overlay.",
+  'pttOverlay.listening': 'Listening…',
+  'pttOverlay.idle': 'Idle',
+
   // Autocomplete
   'autocomplete.title': 'Autocomplete',
   'autocomplete.settings': 'Settings',
@@ -4855,6 +4879,15 @@ const en: TranslationMap = {
   'conversations.taskKanban.ready': 'Ready',
   'conversations.taskKanban.rejected': 'Rejected',
   'conversations.taskKanban.inProgress': 'In progress',
+  'conversations.taskKanban.awaitingApprovalColumn': 'Awaiting Approval',
+  'conversations.taskKanban.blockedColumn': 'Blocked',
+  'conversations.taskKanban.evidenceBadge': 'Evidence ({count})',
+  'conversations.taskKanban.needsInput': 'These tasks need your input',
+  'conversations.taskKanban.emptyColumn': 'No tasks',
+  'conversations.taskKanban.dragHint': 'Drag to move between columns',
+  'conversations.taskKanban.movingCard': 'Moving…',
+  'conversations.taskKanban.statusBadge.ready': 'Ready to start',
+  'conversations.taskKanban.statusBadge.rejected': 'Rejected',
   'intelligence.memoryChunk.detail.copiedHint': 'copied',
   'settings.composio.notYetRouted': 'not yet routed',
   'settings.localModel.download.manageExternal': 'Manage this model in your external runtime.',

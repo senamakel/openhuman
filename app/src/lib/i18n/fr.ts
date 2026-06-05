@@ -1588,6 +1588,30 @@ const messages: TranslationMap = {
   'voice.externalProviders.apiKey': 'Clé API',
   'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
   'voice.externalProviders.add': 'Add',
+  'pttSettings.title': 'Appuyer pour parler',
+  'pttSettings.description':
+    'Maintiens une touche pour parler à OpenHuman pendant que tu utilises une autre application. Relâcher envoie l’enregistrement ; si « Lire les réponses » est activé, OpenHuman lit la réponse à voix haute.',
+  'pttSettings.shortcutLabel': 'Raccourci',
+  'pttSettings.shortcutPlaceholder': 'Appuie sur une touche (par exemple F13)',
+  'pttSettings.shortcutUnsetHint':
+    'Appuyer pour parler est désactivé — choisis un raccourci pour l’activer.',
+  'pttSettings.speakRepliesLabel': 'Lire les réponses de l’agent à voix haute',
+  'pttSettings.showOverlayLabel': 'Afficher la surcouche pendant l’appui',
+  'pttSettings.errorConflictsWithDictation':
+    'Ce raccourci est déjà utilisé par la dictée. Choisis une autre touche.',
+  'pttSettings.errorModifierOnly':
+    'Choisis une touche ordinaire (par exemple F13) — les raccourcis composés uniquement de modificateurs ne fonctionnent pas pour appuyer pour parler.',
+  'pttSettings.errorEmpty': 'Choisis une touche à associer.',
+  'pttSettings.errorAccessibility':
+    'macOS exige l’autorisation Accessibilité pour ce raccourci. Ouvre Réglages système → Confidentialité et sécurité → Accessibilité et active OpenHuman.',
+  'pttSettings.errorShortcutInUse':
+    'Une autre application utilise déjà ce raccourci. Choisis-en un autre.',
+  'pttSettings.errorUnsupportedWayland':
+    'Les sessions Wayland ne prennent pas encore en charge les raccourcis globaux dans OpenHuman — passe à une session X11 ou utilise la commande de dictée intégrée à l’application.',
+  'pttSettings.exclusiveFullscreenHint':
+    'En plein écran exclusif des jeux, la surcouche ne s’affichera pas — tu entendras seulement le son. Passe en plein écran sans bordures pour voir la surcouche.',
+  'pttOverlay.listening': 'À l’écoute…',
+  'pttOverlay.idle': 'En attente',
   'autocomplete.title': 'Autocomplétion',
   'autocomplete.settings': 'Paramètres',
   'autocomplete.acceptWithTab': 'Accepter avec Tab',
@@ -4419,6 +4443,15 @@ const messages: TranslationMap = {
   'conversations.taskKanban.ready': 'Prêt',
   'conversations.taskKanban.rejected': 'rejeté',
   'conversations.taskKanban.inProgress': 'En cours',
+  'conversations.taskKanban.awaitingApprovalColumn': "En attente d'approbation",
+  'conversations.taskKanban.blockedColumn': 'Bloqué',
+  'conversations.taskKanban.evidenceBadge': 'Preuves ({count})',
+  'conversations.taskKanban.needsInput': 'Ces tâches nécessitent votre intervention',
+  'conversations.taskKanban.emptyColumn': 'Aucune tâche',
+  'conversations.taskKanban.dragHint': 'Glisser pour déplacer entre les colonnes',
+  'conversations.taskKanban.movingCard': 'Déplacement…',
+  'conversations.taskKanban.statusBadge.ready': 'Prêt à démarrer',
+  'conversations.taskKanban.statusBadge.rejected': 'Rejeté',
   'intelligence.memoryChunk.detail.copiedHint': 'copié',
   'settings.composio.notYetRouted': 'pas encore routé',
   'settings.localModel.download.manageExternal': 'Gérez ce modèle dans votre runtime externe.',

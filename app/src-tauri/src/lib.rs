@@ -51,6 +51,8 @@ mod notch_window;
 mod notification_settings;
 mod process_kill;
 mod process_recovery;
+mod ptt_hotkeys;
+mod ptt_overlay;
 #[cfg(target_os = "windows")]
 mod reset_reboot_schedule;
 mod screen_capture;
@@ -758,6 +760,18 @@ async fn register_dictation_hotkey(
         expanded_shortcuts.join(", ")
     );
 
+    // Reject overlap with the currently-registered PTT hotkey.
+    let ptt_current = {
+        let state = app.state::<ptt_hotkeys::PttHotkeyState>();
+        let guard = state.shortcut.lock().unwrap();
+        guard.clone()
+    };
+    if let Some(conflict) = ptt_hotkeys::first_conflict_with(&expanded_shortcuts, &ptt_current) {
+        return Err(format!(
+            "dictation shortcut '{conflict}' conflicts with the push-to-talk hotkey"
+        ));
+    }
+
     let register_shortcut = |shortcut_variant: &str| -> Result<(), String> {
         let app_clone = app.clone();
         app.global_shortcut()
@@ -849,6 +863,180 @@ async fn unregister_dictation_hotkey(app: AppHandle<AppRuntime>) -> Result<(), S
             log::info!("[dictation] shortcut unregistered: {old}");
         }
     }
+    Ok(())
+}
+
+/// Register (or re-register) the global push-to-talk hotkey. Emits
+/// `ptt://start { session_id }` on press and `ptt://stop { session_id }`
+/// on release.
+#[tauri::command]
+async fn register_ptt_hotkey(app: AppHandle<AppRuntime>, shortcut: String) -> Result<(), String> {
+    log::info!("[ptt] register_ptt_hotkey: shortcut={shortcut}");
+
+    let expanded = ptt_hotkeys::expand_ptt_shortcuts(&shortcut).map_err(|e| e.to_string())?;
+
+    // Reject overlap with the currently-registered dictation hotkey.
+    let dictation_current = {
+        let state = app.state::<dictation_hotkeys::DictationHotkeyState>();
+        let guard = state.0.lock().unwrap();
+        guard.clone()
+    };
+    if let Some(conflict) = ptt_hotkeys::first_conflict_with(&expanded, &dictation_current) {
+        return Err(ptt_hotkeys::PttError::ConflictsWithDictation(conflict).to_string());
+    }
+
+    let old_shortcuts = {
+        let state = app.state::<ptt_hotkeys::PttHotkeyState>();
+        let guard = state.shortcut.lock().unwrap();
+        guard.clone()
+    };
+
+    // Lazy-instantiate the overlay window so it's ready before the first press.
+    if let Err(e) = ptt_overlay::ensure_window(&app) {
+        log::warn!("[ptt] overlay window create failed (continuing): {e}");
+    }
+
+    let register_shortcut = |variant: &str| -> Result<(), String> {
+        let app_pressed = app.clone();
+        let app_released = app.clone();
+        let variant_owned = variant.to_string();
+        app.global_shortcut()
+            .on_shortcut(variant, move |app_inner, _sc, event| {
+                let state = app_inner.state::<ptt_hotkeys::PttHotkeyState>();
+                match event.state {
+                    ShortcutState::Pressed => {
+                        // Drop OS key-repeat events; only the first Pressed of a hold opens a session.
+                        if state
+                            .is_held
+                            .compare_exchange(
+                                false,
+                                true,
+                                std::sync::atomic::Ordering::AcqRel,
+                                std::sync::atomic::Ordering::Acquire,
+                            )
+                            .is_err()
+                        {
+                            log::trace!(
+                                "[ptt] press dropped (already held) shortcut={variant_owned}"
+                            );
+                            return;
+                        }
+                        let session_id = state
+                            .session_counter
+                            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                            + 1;
+                        log::debug!(
+                            "[ptt] pressed shortcut={variant_owned} session_id={session_id}"
+                        );
+                        if let Err(e) = app_pressed.emit(
+                            "ptt://start",
+                            serde_json::json!({
+                                "session_id": session_id,
+                            }),
+                        ) {
+                            log::warn!("[ptt] emit start failed: {e}");
+                        }
+                    }
+                    ShortcutState::Released => {
+                        if !state
+                            .is_held
+                            .swap(false, std::sync::atomic::Ordering::AcqRel)
+                        {
+                            // No corresponding Pressed in our state — stale event, drop.
+                            log::trace!(
+                                "[ptt] release dropped (not held) shortcut={variant_owned}"
+                            );
+                            return;
+                        }
+                        let session_id = state
+                            .session_counter
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        log::debug!(
+                            "[ptt] released shortcut={variant_owned} session_id={session_id}"
+                        );
+                        if let Err(e) = app_released.emit(
+                            "ptt://stop",
+                            serde_json::json!({
+                                "session_id": session_id,
+                            }),
+                        ) {
+                            log::warn!("[ptt] emit stop failed: {e}");
+                        }
+                    }
+                }
+            })
+            .map_err(|e| format!("Failed to register ptt shortcut '{variant}': {e}"))
+    };
+
+    // Unregister previous PTT variants.
+    let mut unregistered: Vec<String> = Vec::new();
+    for old in &old_shortcuts {
+        if let Err(e) = app.global_shortcut().unregister(old.as_str()) {
+            // Rollback already-unregistered ones.
+            for r in &unregistered {
+                if let Err(re) = register_shortcut(r) {
+                    log::warn!("[ptt] rollback failed for '{r}': {re}");
+                }
+            }
+            return Err(format!(
+                "Failed to unregister previous ptt shortcut '{old}': {e}"
+            ));
+        }
+        unregistered.push(old.clone());
+    }
+
+    // Register the new variants. Rollback on first failure.
+    let mut newly_registered: Vec<String> = Vec::new();
+    for v in &expanded {
+        if let Err(e) = register_shortcut(v) {
+            for r in &newly_registered {
+                if let Err(re) = app.global_shortcut().unregister(r.as_str()) {
+                    log::warn!("[ptt] rollback failed for '{r}': {re}");
+                }
+            }
+            for old in &old_shortcuts {
+                if let Err(re) = register_shortcut(old) {
+                    log::warn!("[ptt] rollback failed for '{old}': {re}");
+                }
+            }
+            return Err(e);
+        }
+        newly_registered.push(v.clone());
+    }
+
+    {
+        let state = app.state::<ptt_hotkeys::PttHotkeyState>();
+        let mut guard = state.shortcut.lock().unwrap();
+        *guard = expanded.clone();
+    }
+
+    log::info!("[ptt] registered: {}", expanded.join(", "));
+    Ok(())
+}
+
+/// Unregister the global PTT hotkey (if any).
+#[tauri::command]
+async fn unregister_ptt_hotkey(app: AppHandle<AppRuntime>) -> Result<(), String> {
+    log::info!("[ptt] unregister_ptt_hotkey: called");
+    let state = app.state::<ptt_hotkeys::PttHotkeyState>();
+    let old = {
+        let guard = state.shortcut.lock().unwrap();
+        guard.clone()
+    };
+    let mut still_registered: Vec<String> = Vec::new();
+    for s in &old {
+        if let Err(e) = app.global_shortcut().unregister(s.as_str()) {
+            log::warn!("[ptt] unregister '{s}' failed: {e}");
+            still_registered.push(s.clone());
+        }
+    }
+    // Only retain variants that genuinely failed to unregister; the rest are gone.
+    {
+        let mut guard = state.shortcut.lock().unwrap();
+        *guard = still_registered;
+    }
+    // Destroy the overlay window so resources are released.
+    ptt_overlay::destroy_window(&app);
     Ok(())
 }
 
@@ -2487,6 +2675,7 @@ pub fn run() {
         .manage(dictation_hotkeys::DictationHotkeyState(
             std::sync::Mutex::new(Vec::new()),
         ))
+        .manage(ptt_hotkeys::PttHotkeyState::new())
         .manage(companion_commands::CompanionHotkeyState(
             std::sync::Mutex::new(Vec::new()),
         ))
@@ -3240,6 +3429,9 @@ pub fn run() {
             schedule_cef_profile_purge,
             register_dictation_hotkey,
             unregister_dictation_hotkey,
+            register_ptt_hotkey,
+            unregister_ptt_hotkey,
+            ptt_overlay::show_ptt_overlay,
             webview_accounts::webview_account_open,
             webview_accounts::webview_account_prewarm,
             webview_accounts::webview_account_close,

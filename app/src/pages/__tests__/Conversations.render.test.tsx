@@ -1083,9 +1083,12 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         screen.getByText('Could not update task; changes were not saved.')
       ).toBeInTheDocument();
     });
+    // With the 5-column model, todo → right → awaiting_approval (not in_progress)
     expect(threadApi.putTaskBoard).toHaveBeenCalledWith(
       'board-thread',
-      expect.arrayContaining([expect.objectContaining({ id: 'task-1', status: 'in_progress' })])
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'task-1', status: 'awaiting_approval' }),
+      ])
     );
   });
 

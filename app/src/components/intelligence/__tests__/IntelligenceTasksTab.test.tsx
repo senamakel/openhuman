@@ -276,12 +276,13 @@ describe('IntelligenceTasksTab', () => {
     });
   });
 
-  test('always shows the personal board with an empty-state CTA', async () => {
+  test('always shows the personal board (even when empty) and the new-task button', async () => {
     vi.resetModules();
     const Tab = await importTab();
     renderTab(Tab);
     await waitFor(() => {
-      expect(screen.getByText('No personal tasks yet')).toBeInTheDocument();
+      // The personal board kanban stub is always rendered — the threadId is displayed
+      expect(screen.getByText('user-tasks')).toBeInTheDocument();
     });
     expect(screen.getByText('Agent Tasks')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /New task/ }).length).toBeGreaterThan(0);

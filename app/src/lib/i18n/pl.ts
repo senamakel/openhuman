@@ -277,10 +277,13 @@ const messages: TranslationMap = {
     'Brak wspomnień. Wspomnienia powstają automatycznie podczas korzystania z aplikacji.',
   'memory.tab.memory': 'Pamięć',
   'memory.tab.memoryTree': 'Drzewo pamięci',
-  'memory.tab.tasks': 'Zadania agenta',
+  'memory.tab.tasks': 'Zadania',
   'memory.tab.tasksDescription':
     'Twórz i śledź zadania — własne listy do zrobienia oraz tablice, które Twoi agenci budują w rozmowach.',
   'memory.tab.subconscious': 'Podświadomość',
+  'memory.tab.agents': 'Biblioteka',
+  'memory.tab.agentsDescription':
+    'Przeglądaj i uruchamiaj dostępnych agentów — każdy z własnymi narzędziami, możliwościami i obszarem specjalizacji.',
   'memory.tab.workflows': 'Workflows',
   'memory.tab.workflowsDescription':
     'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',

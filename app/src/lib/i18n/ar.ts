@@ -270,10 +270,13 @@ const messages: TranslationMap = {
   'memory.empty': 'لا توجد ذكريات بعد. تُنشأ الذكريات تلقائيًا أثناء تفاعلك.',
   'memory.tab.memory': 'الذاكرة',
   'memory.tab.memoryTree': 'شجرة الذاكرة',
-  'memory.tab.tasks': 'مهام الوكيل',
+  'memory.tab.tasks': 'المهام',
   'memory.tab.tasksDescription':
     'أنشئ المهام وتتبعها — مهامك الخاصة بالإضافة إلى اللوحات التي يبنيها وكلاؤك عبر المحادثات.',
   'memory.tab.subconscious': 'اللاوعي',
+  'memory.tab.agents': 'المكتبة',
+  'memory.tab.agentsDescription':
+    'تصفّح وشغّل الوكلاء المتاحين — لكل منهم أدواته وقدراته ومجال تركيزه.',
   'memory.tab.workflows': 'Workflows',
   'memory.tab.workflowsDescription':
     'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',

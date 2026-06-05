@@ -261,10 +261,13 @@ const messages: TranslationMap = {
   'memory.empty': '暂无记忆。记忆将在你交互时自动创建。',
   'memory.tab.memory': '记忆',
   'memory.tab.memoryTree': '记忆树',
-  'memory.tab.tasks': '智能体任务',
+  'memory.tab.tasks': '任务',
   'memory.tab.tasksDescription':
     '创建并跟踪任务——包括您自己的待办事项以及智能体在对话中创建的看板。',
   'memory.tab.subconscious': '潜意识',
+  'memory.tab.agents': '资料库',
+  'memory.tab.agentsDescription':
+    '浏览并运行可用的智能体——每个智能体都有自己的工具、能力和专注领域。',
   'memory.tab.workflows': 'Workflows',
   'memory.tab.workflowsDescription':
     'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',

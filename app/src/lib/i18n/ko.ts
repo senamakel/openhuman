@@ -272,10 +272,13 @@ const messages: TranslationMap = {
   'memory.empty': '아직 메모리가 없습니다. 메모리는 상호작용하면서 자동으로 생성됩니다.',
   'memory.tab.memory': '메모리',
   'memory.tab.memoryTree': '메모리 트리',
-  'memory.tab.tasks': '에이전트 작업',
+  'memory.tab.tasks': '작업',
   'memory.tab.tasksDescription':
     '작업을 만들고 추적하세요 — 본인의 할 일 목록과 에이전트가 대화를 통해 구성한 보드가 모두 포함됩니다.',
   'memory.tab.subconscious': '잠재의식',
+  'memory.tab.agents': '라이브러리',
+  'memory.tab.agentsDescription':
+    '사용 가능한 에이전트를 탐색하고 실행하세요 — 각 에이전트는 고유한 도구, 기능 및 전문 분야를 갖추고 있습니다.',
   'memory.tab.workflows': 'Workflows',
   'memory.tab.workflowsDescription':
     'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',

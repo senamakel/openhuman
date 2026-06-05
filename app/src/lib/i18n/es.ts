@@ -282,10 +282,13 @@ const messages: TranslationMap = {
   'memory.empty': 'Sin recuerdos aún. Los recuerdos se crean automáticamente mientras interactúas.',
   'memory.tab.memory': 'Memoria',
   'memory.tab.memoryTree': 'Árbol de memoria',
-  'memory.tab.tasks': 'Tareas del agente',
+  'memory.tab.tasks': 'Tareas',
   'memory.tab.tasksDescription':
     'Crea y realiza un seguimiento de tareas: tus propios pendientes más los tableros que tus agentes crean a lo largo de las conversaciones.',
   'memory.tab.subconscious': 'Subconsciente',
+  'memory.tab.agents': 'Biblioteca',
+  'memory.tab.agentsDescription':
+    'Explora y ejecuta los agentes disponibles — cada uno con sus propias herramientas, capacidades y área de enfoque.',
   'memory.tab.workflows': 'Workflows',
   'memory.tab.workflowsDescription':
     'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',

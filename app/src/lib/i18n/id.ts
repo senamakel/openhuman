@@ -274,10 +274,13 @@ const messages: TranslationMap = {
   'memory.empty': 'Belum ada memori. Memori dibuat otomatis saat Anda berinteraksi.',
   'memory.tab.memory': 'Memori',
   'memory.tab.memoryTree': 'Pohon Memori',
-  'memory.tab.tasks': 'Tugas Agen',
+  'memory.tab.tasks': 'Tugas',
   'memory.tab.tasksDescription':
     'Buat dan lacak tugas — to-do Anda sendiri beserta papan yang dibangun agen Anda di berbagai percakapan.',
   'memory.tab.subconscious': 'Bawah sadar',
+  'memory.tab.agents': 'Perpustakaan',
+  'memory.tab.agentsDescription':
+    'Telusuri dan jalankan agen yang tersedia — masing-masing dengan alat, kemampuan, dan area fokusnya sendiri.',
   'memory.tab.workflows': 'Workflows',
   'memory.tab.workflowsDescription':
     'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',

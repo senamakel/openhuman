@@ -298,10 +298,13 @@ const en: TranslationMap = {
   'memory.empty': 'No memories yet. Memories are created automatically as you interact.',
   'memory.tab.memory': 'Memory',
   'memory.tab.memoryTree': 'Memory Tree',
-  'memory.tab.tasks': 'Agent Tasks',
+  'memory.tab.tasks': 'Tasks',
   'memory.tab.tasksDescription':
     'Create and track tasks — your own to-dos plus the boards your agents build across conversations.',
   'memory.tab.subconscious': 'Subconscious',
+  'memory.tab.agents': 'Library',
+  'memory.tab.agentsDescription':
+    'Browse and run your available agents — each with its own tools, capabilities, and focus area.',
   'memory.tab.workflows': 'Workflows',
   'memory.tab.workflowsDescription':
     'Reusable, runnable procedures — a goal plus the steps to reach it. Create one, install from a URL, or open a workflow to run it.',

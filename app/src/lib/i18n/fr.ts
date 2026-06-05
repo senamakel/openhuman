@@ -281,10 +281,13 @@ const messages: TranslationMap = {
     "Aucun souvenir pour l'instant. Les souvenirs sont créés automatiquement au fil de tes interactions.",
   'memory.tab.memory': 'Mémoire',
   'memory.tab.memoryTree': 'Arbre de mémoire',
-  'memory.tab.tasks': "Tâches de l'agent",
+  'memory.tab.tasks': 'Tâches',
   'memory.tab.tasksDescription':
     'Créez et suivez des tâches — vos propres listes de choses à faire ainsi que les tableaux que vos agents construisent au fil des conversations.',
   'memory.tab.subconscious': 'Subconscient',
+  'memory.tab.agents': 'Bibliothèque',
+  'memory.tab.agentsDescription':
+    'Parcourez et exécutez vos agents disponibles — chacun avec ses propres outils, capacités et domaine de spécialisation.',
   'memory.tab.workflows': 'Workflows',
   'memory.tab.workflowsDescription':
     'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',

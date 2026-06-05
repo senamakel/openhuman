@@ -119,8 +119,8 @@ impl SubconsciousEngine {
             match self.tick().await {
                 Ok(result) => {
                     info!(
-                        "[subconscious] tick: thoughts={} thread={:?} duration={}ms",
-                        result.thoughts_count, result.thread_id, result.duration_ms
+                        "[subconscious] tick: thoughts={} thread={:?} duration={}ms response_chars={}",
+                        result.thoughts_count, result.thread_id, result.duration_ms, result.response_chars
                     );
                 }
                 Err(e) => {
@@ -149,6 +149,7 @@ impl SubconsciousEngine {
                     thoughts_count: 0,
                     thread_id: None,
                     duration_ms: started.elapsed().as_millis() as u64,
+                    response_chars: 0,
                 });
             }
         };
@@ -164,6 +165,7 @@ impl SubconsciousEngine {
                 thoughts_count: 0,
                 thread_id: None,
                 duration_ms: started.elapsed().as_millis() as u64,
+                response_chars: 0,
             });
         }
 
@@ -199,7 +201,10 @@ impl SubconsciousEngine {
             .run_agent(&config, &agent_prompt, has_external_content)
             .await;
         let agent_failed = agent_result.is_err();
-        let drafts = agent_result.unwrap_or_default();
+        let (drafts, response_chars) = match agent_result {
+            Ok((d, chars)) => (d, chars),
+            Err(_) => (vec![], 0),
+        };
 
         // 4. Check if superseded
         if self.tick_generation.load(Ordering::SeqCst) != my_generation {
@@ -211,6 +216,7 @@ impl SubconsciousEngine {
                 thoughts_count: 0,
                 thread_id: None,
                 duration_ms: started.elapsed().as_millis() as u64,
+                response_chars: 0,
             });
         }
 
@@ -252,6 +258,7 @@ impl SubconsciousEngine {
             thoughts_count,
             thread_id,
             duration_ms: started.elapsed().as_millis() as u64,
+            response_chars,
         })
     }
 
@@ -275,28 +282,28 @@ impl SubconsciousEngine {
     }
 
     /// Run the subconscious agent with mode-appropriate tool access and
-    /// parse thoughts from its final response. Returns `Err` on agent
-    /// init/run failure so the caller can track consecutive failures
-    /// separately from an empty-but-successful tick.
+    /// parse thoughts from its final response. Returns `(drafts, response_chars)`
+    /// on success, or `Err` on agent init/run failure so the caller can
+    /// track consecutive failures separately from an empty-but-successful tick.
     async fn run_agent(
         &self,
         config: &Config,
         prompt_text: &str,
         has_external_content: bool,
-    ) -> Result<Vec<ReflectionDraft>, String> {
+    ) -> Result<(Vec<ReflectionDraft>, usize), String> {
         use crate::openhuman::agent::Agent;
 
         let mut effective = config.clone();
         match self.mode {
             SubconsciousMode::Simple => {
                 effective.autonomy.level = crate::openhuman::security::AutonomyLevel::ReadOnly;
-                effective.agent.max_tool_iterations = 4;
+                effective.agent.max_tool_iterations = 12;
             }
             SubconsciousMode::Aggressive => {
                 effective.autonomy.level = crate::openhuman::security::AutonomyLevel::Full;
-                effective.agent.max_tool_iterations = 8;
+                effective.agent.max_tool_iterations = 20;
             }
-            SubconsciousMode::Off => return Ok(vec![]),
+            SubconsciousMode::Off => return Ok((vec![], 0)),
         }
 
         let mut agent = Agent::from_config(&effective).map_err(|e| {
@@ -311,9 +318,12 @@ impl SubconsciousEngine {
 
         let user_message = format!(
             "{prompt_text}\n\n\
-             Use your tools to look up any relevant memory, recent activity, or \
-             context that would help you produce insightful observations. When \
-             you're done researching, end your final message with a JSON block \
+             Begin your research now. Start by calling `memory_smart_walk` with a \
+             broad query about the user's recent activity and state. Then follow up \
+             with targeted tool calls based on what you find. Do NOT skip the \
+             research phase — use multiple tool calls across multiple turns to build \
+             a deep understanding before synthesizing your thoughts.\n\n\
+             When you're done researching, end your final message with a JSON block \
              of your thoughts:\n\n\
              ```json\n\
              {{\"thoughts\": [...]}}\n\
@@ -348,13 +358,14 @@ impl SubconsciousEngine {
             format!("agent run: {e}")
         })?;
 
+        let response_chars = response.len();
         let drafts = parse_thoughts(&response);
         info!(
             "[subconscious] agent produced {} thoughts (response {} chars)",
             drafts.len(),
-            response.len()
+            response_chars
         );
-        Ok(drafts)
+        Ok((drafts, response_chars))
     }
 
     /// Create a conversation thread for this tick so the user can view the

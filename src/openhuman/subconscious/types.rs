@@ -22,4 +22,6 @@ pub struct TickResult {
     pub thoughts_count: usize,
     pub thread_id: Option<String>,
     pub duration_ms: u64,
+    #[serde(default)]
+    pub response_chars: usize,
 }

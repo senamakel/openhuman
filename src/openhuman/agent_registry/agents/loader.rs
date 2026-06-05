@@ -190,8 +190,8 @@ pub const BUILTINS: &[BuiltinAgent] = &[
     },
     BuiltinAgent {
         id: "agent_memory",
-        toml: include_str!("agent_memory/agent.toml"),
-        prompt_fn: super::agent_memory::prompt::build,
+        toml: include_str!("../../agent_memory/agent/agent.toml"),
+        prompt_fn: crate::openhuman::agent_memory::agent::prompt::build,
     },
 ];
 

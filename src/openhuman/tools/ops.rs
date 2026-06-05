@@ -217,6 +217,7 @@ pub fn all_tools_with_runtime(
         Box::new(MemoryQueryTool),
         Box::new(MemoryQueryWalkTool),
         Box::new(SmartMemoryWalkTool),
+        Box::new(CallMemoryAgentTool::new()),
         // Explicit user-preference pinning — always registered so the model
         // can save user-stated preferences regardless of whether the full
         // inference-based learning subsystem is enabled.  The preference

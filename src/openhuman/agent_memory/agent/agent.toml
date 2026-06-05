@@ -14,7 +14,7 @@ omit_profile = false
 omit_memory_md = false
 
 [model]
-hint = "agentic"
+hint = "chat"
 
 [tools]
 named = [

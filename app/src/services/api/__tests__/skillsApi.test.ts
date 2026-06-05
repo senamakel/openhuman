@@ -51,7 +51,7 @@ describe('skillsApi.listSkills', () => {
 
     const result = await skillsApi.listSkills();
 
-    expect(callCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.skills_list' });
+    expect(callCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.workflows_list' });
     expect(result[0].relatedSkills).toEqual(['browser-automation']);
     expect(result[0].sourceFormat).toBe('hermes');
     expect(result[0].platforms).toEqual([]);

@@ -35,7 +35,6 @@ import socketReducer from './socketSlice';
 import themeReducer from './themeSlice';
 import threadReducer from './threadSlice';
 import { userScopedStorage } from './userScopedStorage';
-import workflowsReducer from './workflowsSlice';
 
 // Persisted slices write through `userScopedStorage` so each user's blob
 // lives at `${userId}:persist:<key>` instead of a single per-device blob
@@ -138,7 +137,11 @@ const persistedNotificationReducer = persistReducer(notificationPersistConfig, n
 // they were instead of falling through to "create a new thread". The
 // thread list and per-thread message caches are re-fetched from the core
 // on boot, so we deliberately don't persist them.
-const threadPersistConfig = { key: 'thread', storage, whitelist: ['selectedThreadId'] };
+const threadPersistConfig = {
+  key: 'thread',
+  storage,
+  whitelist: ['selectedThreadId', 'threadSidebarVisible'],
+};
 const persistedThreadReducer = persistReducer(threadPersistConfig, threadReducer);
 
 // Persist only previously persisted mascot appearance fields plus the custom
@@ -201,7 +204,6 @@ export const store = configureStore({
     mascot: persistedMascotReducer,
     persona: persistedPersonaReducer,
     theme: persistedThemeReducer,
-    workflows: workflowsReducer,
   },
   middleware: getDefaultMiddleware => {
     const middleware = getDefaultMiddleware({

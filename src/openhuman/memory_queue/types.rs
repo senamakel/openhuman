@@ -550,6 +550,7 @@ mod tests {
     fn llm_bound_kinds() {
         assert!(JobKind::ExtractChunk.is_llm_bound());
         assert!(JobKind::Seal.is_llm_bound());
+        assert!(JobKind::SealDocument.is_llm_bound());
         assert!(JobKind::ReembedBackfill.is_llm_bound());
         assert!(!JobKind::AppendBuffer.is_llm_bound());
         assert!(!JobKind::FlushStale.is_llm_bound());

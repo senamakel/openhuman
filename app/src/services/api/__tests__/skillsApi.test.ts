@@ -94,7 +94,7 @@ describe('skillsApi.createSkill', () => {
     });
 
     expect(callCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.skills_create',
+      method: 'openhuman.workflows_create',
       params: {
         name: 'My Skill',
         description: 'does stuff',
@@ -181,7 +181,7 @@ describe('skillsApi.installSkillFromUrl', () => {
     });
 
     expect(callCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.skills_install_from_url',
+      method: 'openhuman.workflows_install_from_url',
       params: { url: 'https://example.com/my-skill.tgz', timeout_secs: 120 },
     });
     expect(result.newSkills).toEqual(['my-skill']);

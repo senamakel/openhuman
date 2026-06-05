@@ -50,8 +50,11 @@
 //! Chunk IDs are content-hashed, so re-ingesting identical content is an
 //! UPSERT on the same chunk row — no duplicate chunks across syncs.
 
+use std::sync::OnceLock;
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use regex::Regex;
 use serde_json::Value;
 
 use crate::openhuman::config::Config;
@@ -85,6 +88,59 @@ pub(crate) fn notion_source_id(connection_id: &str, page_id: &str) -> String {
 /// for document dedupe, not in the user-visible source graph.
 pub(crate) fn notion_source_scope(connection_id: &str) -> String {
     format!("notion:{connection_id}")
+}
+
+/// Strip the noise `NOTION_GET_PAGE_MARKDOWN` bakes into the rendered body
+/// before it reaches [`render_page_body`] / the ingest pipeline.
+///
+/// The Composio markdown export is functional but token-expensive: image
+/// links carry S3 *signed* query strings (`?X-Amz-Algorithm=…&X-Amz-Signature=…`
+/// — hundreds of tokens of pure noise that also rotate every fetch, defeating
+/// content-hash idempotency), inline formatting is wrapped in HTML `<span>`
+/// tags that smuggle `discussion-urls=`/`color=` attributes, user @-mentions
+/// render as `<mention-user .../>` tags, and hard line breaks come through as
+/// `<br>`. None of that is useful retrieval signal. This collapses it to clean
+/// markdown so the chunked content is the actual prose, headings, and lists.
+///
+/// Regexes are compiled once and cached in process-global `OnceLock`s.
+/// Conservative by design — it only touches the specific noise patterns above
+/// and leaves ordinary markdown (headings, lists, links, fenced code) intact.
+fn clean_notion_markdown(md: &str) -> String {
+    // `![alt](https://host/file.png?X-Amz-...&...)` → `![alt](https://host/file.png)`.
+    // Match an image link whose URL has a query string, dropping everything
+    // from the `?` up to the closing paren. The URL itself can't contain `)`
+    // or whitespace, so `[^)\s?]*` for the path and `[^)]*` for the query is safe.
+    static IMG_QUERY: OnceLock<Regex> = OnceLock::new();
+    // `<span ...>inner</span>` → `inner`. Strips the open tag (with any
+    // attributes: `color=`, `discussion-urls=`, …) and the matching close tag,
+    // keeping the inner text. Non-greedy attribute match so adjacent spans
+    // don't get swallowed.
+    static SPAN_OPEN: OnceLock<Regex> = OnceLock::new();
+    static SPAN_CLOSE: OnceLock<Regex> = OnceLock::new();
+    // `<mention-user .../>` and `<mention-user ...></mention-user>` → removed.
+    static MENTION: OnceLock<Regex> = OnceLock::new();
+    // `<br>` / `<br/>` / `<br />` → newline.
+    static BR: OnceLock<Regex> = OnceLock::new();
+    // 3+ consecutive newlines (a run of blank lines) → exactly two.
+    static BLANKS: OnceLock<Regex> = OnceLock::new();
+
+    let img_query =
+        IMG_QUERY.get_or_init(|| Regex::new(r"(!\[[^\]]*\]\([^)\s?]+)\?[^)]*\)").unwrap());
+    let span_open = SPAN_OPEN.get_or_init(|| Regex::new(r"(?s)<span\b[^>]*>").unwrap());
+    let span_close = SPAN_CLOSE.get_or_init(|| Regex::new(r"</span>").unwrap());
+    let mention = MENTION.get_or_init(|| {
+        Regex::new(r"(?s)<mention-user\b[^>]*?/>|<mention-user\b[^>]*?>.*?</mention-user>").unwrap()
+    });
+    let br = BR.get_or_init(|| Regex::new(r"(?i)<br\s*/?>").unwrap());
+    let blanks = BLANKS.get_or_init(|| Regex::new(r"\n{3,}").unwrap());
+
+    let s = img_query.replace_all(md, "$1)");
+    let s = mention.replace_all(&s, "");
+    let s = span_open.replace_all(&s, "");
+    let s = span_close.replace_all(&s, "");
+    let s = br.replace_all(&s, "\n");
+    let s = blanks.replace_all(&s, "\n\n");
+    s.trim().to_string()
 }
 
 /// Pretty-printed JSON body for one Notion page. We persist the *full*
@@ -155,8 +211,11 @@ pub async fn ingest_page_into_memory_tree(
     // used for read-time latest-wins.
     let version_ms = modified_at.timestamp_millis();
     // Prefer the rendered page body (NOTION_GET_PAGE_MARKDOWN) when present;
-    // fall back to metadata-only when the caller didn't fetch it.
-    let body = render_page_body(title, page, markdown_body);
+    // fall back to metadata-only when the caller didn't fetch it. Strip the
+    // noise (signed image URLs, `<span>`/`<mention-user>` tags, `<br>`) from the
+    // body markdown before rendering — the metadata JSON path is untouched.
+    let cleaned = markdown_body.map(clean_notion_markdown);
+    let body = render_page_body(title, page, cleaned.as_deref());
     let source_ref = Some(format!("notion://page/{page_id}"));
 
     let doc = DocumentInput {
@@ -363,6 +422,73 @@ mod tests {
             "empty markdown → no body section"
         );
         assert!(body.contains("```json"));
+    }
+
+    /// Signed-image-URL query strings are stripped to bare URLs (keeping the
+    /// `.png`), so the hundreds of rotating `X-Amz-*` tokens don't pollute the
+    /// chunk body or defeat content-hash idempotency.
+    #[test]
+    fn clean_notion_markdown_strips_image_query() {
+        let md = "![diagram](https://prod-files.s3.amazonaws.com/a/b/file.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA%2F20260604&X-Amz-Signature=deadbeef)";
+        let out = clean_notion_markdown(md);
+        assert_eq!(
+            out,
+            "![diagram](https://prod-files.s3.amazonaws.com/a/b/file.png)"
+        );
+        assert!(out.contains(".png"), "the .png extension must be kept");
+        assert!(!out.contains("X-Amz-"), "no signed-query noise: {out}");
+    }
+
+    /// `<span ...>text</span>` collapses to its inner text, dropping the tag and
+    /// any `color=` / `discussion-urls=` attributes.
+    #[test]
+    fn clean_notion_markdown_collapses_spans() {
+        let out = clean_notion_markdown(r#"<span color="gray">text</span>"#);
+        assert_eq!(out, "text");
+
+        // Attributes like discussion-urls are dropped along with the tags.
+        let out2 = clean_notion_markdown(
+            r#"before <span discussion-urls="x" color="blue">middle</span> after"#,
+        );
+        assert_eq!(out2, "before middle after");
+    }
+
+    /// `<mention-user .../>` tags are removed entirely (both self-closing and
+    /// paired forms).
+    #[test]
+    fn clean_notion_markdown_removes_mentions() {
+        let out = clean_notion_markdown(r#"hi <mention-user url="user://x"/> there"#);
+        assert_eq!(out, "hi  there");
+        assert!(!out.contains("mention-user"));
+
+        let paired =
+            clean_notion_markdown(r#"<mention-user id="u1">@Alice</mention-user> owns it"#);
+        assert_eq!(paired, "owns it");
+    }
+
+    /// `<br>` / `<br/>` / `<br />` become newlines.
+    #[test]
+    fn clean_notion_markdown_converts_br_to_newline() {
+        assert_eq!(
+            clean_notion_markdown("line one<br>line two"),
+            "line one\nline two"
+        );
+        assert_eq!(clean_notion_markdown("a<br/>b"), "a\nb");
+        assert_eq!(clean_notion_markdown("a<br />b"), "a\nb");
+    }
+
+    /// Plain markdown (no noise patterns) passes through unchanged apart from
+    /// the trailing-whitespace trim.
+    #[test]
+    fn clean_notion_markdown_leaves_plain_markdown_unchanged() {
+        let md = "# Heading\n\nReal body text with a list:\n- one\n- two\n\n[link](https://example.com/page)";
+        assert_eq!(clean_notion_markdown(md), md);
+    }
+
+    /// 3+ consecutive blank lines collapse to a single blank line (two `\n`).
+    #[test]
+    fn clean_notion_markdown_collapses_blank_runs() {
+        assert_eq!(clean_notion_markdown("a\n\n\n\n\nb"), "a\n\nb");
     }
 
     /// The #2885 regression test.

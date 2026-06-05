@@ -95,7 +95,6 @@ impl AgentBuilder {
             workspace_dir: None,
             action_dir: None,
             skills: None,
-            workflows: None,
             auto_save: None,
             post_turn_hooks: Vec::new(),
             learning_enabled: false,
@@ -207,22 +206,8 @@ impl AgentBuilder {
     }
 
     /// Sets the skills available to the agent.
-    pub fn skills(mut self, skills: Vec<crate::openhuman::skills::Skill>) -> Self {
+    pub fn skills(mut self, skills: Vec<crate::openhuman::workflows::Workflow>) -> Self {
         self.skills = Some(skills);
-        self
-    }
-
-    /// Sets the agent workflows available to the agent.
-    ///
-    /// Populated at session start via
-    /// [`crate::openhuman::agent_workflows::load_workflows`]; defaults to empty
-    /// when not set so callers that do not participate in the workflow system
-    /// do not need to change.
-    pub fn workflows(
-        mut self,
-        workflows: Vec<crate::openhuman::agent_workflows::Workflow>,
-    ) -> Self {
-        self.workflows = Some(workflows);
         self
     }
 
@@ -573,7 +558,6 @@ impl AgentBuilder {
             workspace_dir,
             action_dir,
             skills: self.skills.unwrap_or_default(),
-            workflows: self.workflows.unwrap_or_default(),
             auto_save: self.auto_save.unwrap_or(false),
             last_memory_context: None,
             last_turn_citations: Vec::new(),
@@ -1496,7 +1480,7 @@ impl Agent {
         //   2. The `agent:` line inside each transcript's metadata
         //      header stamps `agent: main` instead of `agent: welcome`.
         //
-        // Skills_agent and every other typed sub-agent are unaffected
+        // Workflows_agent and every other typed sub-agent are unaffected
         // because they never build via `from_config_for_agent` — they
         // are spawned through `subagent_runner` which constructs its
         // prompt and history directly.
@@ -1586,16 +1570,9 @@ impl Agent {
             .temperature(effective_temperature)
             .workspace_dir(config.workspace_dir.clone())
             .action_dir(config.action_dir.clone())
-            .skills(crate::openhuman::skills::load_skills(&config.workspace_dir))
-            .workflows({
-                let wf = crate::openhuman::agent_workflows::load_workflows(&config.workspace_dir);
-                log::debug!(
-                    "[workflows][phase] loaded {} workflow(s) from workspace={}",
-                    wf.len(),
-                    config.workspace_dir.display()
-                );
-                wf
-            })
+            .skills(crate::openhuman::workflows::load_workflow_metadata(
+                &config.workspace_dir,
+            ))
             .auto_save(config.memory.auto_save)
             .post_turn_hooks(post_turn_hooks)
             .learning_enabled(config.learning.enabled)

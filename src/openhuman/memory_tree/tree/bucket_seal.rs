@@ -41,6 +41,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::Transaction;
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::util::redact::redact;
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::{
     atomic::stage_summary_with_layout,
@@ -1010,15 +1011,15 @@ pub async fn seal_document_subtree(
 ) -> Result<String> {
     if chunk_ids.is_empty() {
         anyhow::bail!(
-            "[tree::bucket_seal] seal_document_subtree: empty chunk set tree_id={} doc_id={}",
+            "[tree::bucket_seal] seal_document_subtree: empty chunk set tree_id={} doc_id_hash={}",
             tree.id,
-            doc_id
+            redact(doc_id)
         );
     }
     log::debug!(
-        "[tree::bucket_seal] seal_document_subtree tree_id={} doc_id={} version_ms={:?} chunks={}",
+        "[tree::bucket_seal] seal_document_subtree tree_id={} doc_id_hash={} version_ms={:?} chunks={}",
         tree.id,
-        doc_id,
+        redact(doc_id),
         version_ms,
         chunk_ids.len()
     );
@@ -1060,15 +1061,15 @@ pub async fn seal_document_subtree(
 
     let doc_root = doc_root.ok_or_else(|| {
         anyhow::anyhow!(
-            "[tree::bucket_seal] seal_document_subtree produced no doc-root tree_id={} doc_id={}",
+            "[tree::bucket_seal] seal_document_subtree produced no doc-root tree_id={} doc_id_hash={}",
             tree.id,
-            doc_id
+            redact(doc_id)
         )
     })?;
     log::debug!(
-        "[tree::bucket_seal] doc-root sealed tree_id={} doc_id={} root_id={} level={}",
+        "[tree::bucket_seal] doc-root sealed tree_id={} doc_id_hash={} root_id={} level={}",
         tree.id,
-        doc_id,
+        redact(doc_id),
         doc_root.id,
         doc_root.level
     );
@@ -1085,9 +1086,9 @@ pub async fn seal_document_subtree(
     )?;
     let merge_sealed = cascade_all_from(config, tree, MERGE_LEVEL_BASE, None, strategy).await?;
     log::debug!(
-        "[tree::bucket_seal] merge cascade tree_id={} doc_id={} merge_sealed={}",
+        "[tree::bucket_seal] merge cascade tree_id={} doc_id_hash={} merge_sealed={}",
         tree.id,
-        doc_id,
+        redact(doc_id),
         merge_sealed.len()
     );
 
@@ -1198,9 +1199,9 @@ async fn seal_explicit_children(
     // needs compression).
     let output = if inputs.len() == 1 && inputs[0].token_count <= OUTPUT_TOKEN_BUDGET {
         log::debug!(
-            "[tree::bucket_seal] doc-subtree passthrough (1 input, no LLM) tree_id={} doc_id={:?} level={}",
+            "[tree::bucket_seal] doc-subtree passthrough (1 input, no LLM) tree_id={} doc_id_hash={} level={}",
             tree.id,
-            doc_id,
+            doc_id.map(redact).unwrap_or_default(),
             level
         );
         let only = &inputs[0];
@@ -1218,8 +1219,8 @@ async fn seal_explicit_children(
             Ok(o) => o,
             Err(e) => {
                 log::warn!(
-                    "[tree::bucket_seal] doc-subtree summarise failed tree_id={} doc_id={:?} level={}: {e:#} — fallback",
-                    tree.id, doc_id, level,
+                    "[tree::bucket_seal] doc-subtree summarise failed tree_id={} doc_id_hash={} level={}: {e:#} — fallback",
+                    tree.id, doc_id.map(redact).unwrap_or_default(), level,
                 );
                 fallback_summary(&inputs, ctx.token_budget)
             }
@@ -1295,6 +1296,13 @@ async fn seal_explicit_children(
         body: &node.content,
     };
     let content_root = config.memory_tree_content_root();
+    if let Err(err) =
+        crate::openhuman::memory_store::content::obsidian::ensure_obsidian_defaults(&content_root)
+    {
+        log::warn!(
+            "[tree::bucket_seal] ensure_obsidian_defaults failed during doc-subtree seal: {err:#}"
+        );
+    }
     let doc_slug = doc_id.map(slugify_source_id);
     let layout = match doc_slug.as_deref() {
         Some(slug) => SummaryDiskLayout::DocSubtree {
@@ -1357,9 +1365,9 @@ async fn seal_explicit_children(
     })?;
 
     log::info!(
-        "[tree::bucket_seal] doc-subtree sealed tree_id={} doc_id={:?} level={}→{} summary_id={} children={}",
+        "[tree::bucket_seal] doc-subtree sealed tree_id={} doc_id_hash={} level={}→{} summary_id={} children={}",
         tree.id,
-        doc_id,
+        doc_id.map(redact).unwrap_or_default(),
         level,
         target_level,
         summary_id,

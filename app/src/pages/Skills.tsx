@@ -10,25 +10,19 @@ import {
   KNOWN_COMPOSIO_TOOLKITS,
 } from '../components/composio/toolkitMeta';
 import EmptyStateCard from '../components/EmptyStateCard';
-import { ToastContainer } from '../components/intelligence/Toast';
 import PillTabBar from '../components/PillTabBar';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
-import CreateSkillModal from '../components/skills/CreateSkillModal';
-import InstallSkillDialog from '../components/skills/InstallSkillDialog';
 // import MeetingBotsCard from '../components/skills/MeetingBotsCard';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
 import UnifiedSkillCard from '../components/skills/SkillCard';
 import { SKILL_CATEGORY_ORDER, type SkillCategory } from '../components/skills/skillCategories';
 import SkillCategoryFilter from '../components/skills/SkillCategoryFilter';
-import SkillDetailDrawer from '../components/skills/SkillDetailDrawer';
 import {
-  BUILT_IN_SKILL_ICONS,
   getChannelIcons,
   skillCategoryHeadingClassName,
   SkillCategoryIcon,
 } from '../components/skills/skillIcons';
 import SkillSearchBar from '../components/skills/SkillSearchBar';
-import UninstallSkillConfirmDialog from '../components/skills/UninstallSkillConfirmDialog';
 import VoiceSetupModal from '../components/skills/VoiceSetupModal';
 import { useAutocompleteSkillStatus } from '../features/autocomplete/useAutocompleteSkillStatus';
 import { useScreenIntelligenceSkillStatus } from '../features/screen-intelligence/useScreenIntelligenceSkillStatus';
@@ -40,15 +34,12 @@ import { type ComposioConnection, deriveComposioState } from '../lib/composio/ty
 import { getCoreStateSnapshot } from '../lib/coreState/store';
 import { useT } from '../lib/i18n/I18nContext';
 import { channelConnectionsApi } from '../services/api/channelConnectionsApi';
-import { skillsApi, type SkillSummary } from '../services/api/skillsApi';
 import { setDefaultMessagingChannel } from '../store/channelConnectionsSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import type { ChannelConnectionStatus, ChannelDefinition, ChannelType } from '../types/channels';
-import type { ToastNotification } from '../types/intelligence';
 import { IS_DEV } from '../utils/config';
 import { isLocalSessionToken } from '../utils/localSession';
 import { openhumanComposioGetMode } from '../utils/tauriCommands';
-import SkillsDashboard from './SkillsDashboard';
 
 function channelStatusLabel(status: ChannelConnectionStatus, t: (key: string) => string): string {
   switch (status) {
@@ -328,20 +319,18 @@ interface SkillItem {
   name: string;
   description: string;
   category: SkillCategory;
-  kind: 'builtin' | 'channel' | 'discovered';
+  kind: 'builtin' | 'channel';
   // For built-in
   route?: string;
   icon?: React.ReactNode;
   // For channel
   channelDef?: ChannelDefinition;
   channelStatus?: ChannelConnectionStatus;
-  // For discovered SKILL.md skills
-  discoveredSkill?: SkillSummary;
 }
 
 // ─── Main Skills Page ──────────────────────────────────────────────────────────
 
-type ConnectionsTab = 'explorer' | 'channels' | 'composio' | 'mcp' | 'runners';
+type ConnectionsTab = 'channels' | 'composio' | 'mcp';
 
 export default function Skills() {
   const { t } = useT();
@@ -349,16 +338,14 @@ export default function Skills() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLocalSession = isLocalSessionToken(getCoreStateSnapshot().snapshot.sessionToken);
-  // Honour `?tab=<explorer|runners|composio|channels|mcp>` so `/skills?tab=runners`
-  // lands directly on the Runners sub-tab (used by SkillsRun's back button
-  // so closing the runner returns to the dashboard, not Composio).
+  // Honour `?tab=<composio|channels|mcp>` so deep links land on the right
+  // sub-tab. (The legacy `runners` tab was removed; running a workflow now
+  // lives on its detail drawer → /skills/run.)
   const initialTab: ConnectionsTab = (() => {
     const params = new URLSearchParams(location.search);
     const t = params.get('tab');
-    if (t === 'explorer') return 'explorer';
-    if (t === 'runners') return IS_DEV ? 'runners' : 'composio';
     if (t === 'composio' || t === 'channels' || t === 'mcp') return t;
-    return 'explorer';
+    return 'composio';
   })();
   const [activeTab, setActiveTab] = useState<ConnectionsTab>(initialTab);
   const dispatch = useAppDispatch();
@@ -412,55 +399,8 @@ export default function Skills() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<SkillCategory>('All');
-  const [discoveredSkills, setDiscoveredSkills] = useState<SkillSummary[]>([]);
-  const [selectedSkill, setSelectedSkill] = useState<SkillSummary | null>(null);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [installDialogOpen, setInstallDialogOpen] = useState(false);
-  const [uninstallCandidate, setUninstallCandidate] = useState<SkillSummary | null>(null);
-  const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [hasComposioApiKey, setHasComposioApiKey] = useState<boolean | null>(null);
   const showLocalComposioApiKeyBanner = isLocalSession && hasComposioApiKey === false;
-  const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
-    const newToast: ToastNotification = { ...toast, id: `toast-${Date.now()}-${Math.random()}` };
-    setToasts(prev => [...prev, newToast]);
-  }, []);
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
-
-  // Discover SKILL.md skills via the core RPC. Ignore failures — the rest of
-  // the page still works when the sidecar is unreachable or no skills exist.
-  // Extracted so create/install flows can trigger a refresh on success.
-  const refreshDiscoveredSkills = useCallback(async (): Promise<SkillSummary[]> => {
-    try {
-      const skills = await skillsApi.listSkills();
-      console.debug('[skills][discovered] listSkills ok', { count: skills.length });
-      setDiscoveredSkills(skills);
-      return skills;
-    } catch (err) {
-      console.debug('[skills][discovered] listSkills error', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return [];
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const skills = await refreshDiscoveredSkills();
-      if (cancelled) {
-        // If the effect was cancelled mid-fetch, the state update still
-        // fired inside `refreshDiscoveredSkills`. That's fine — React
-        // will bail on the unmounted update; no retry needed.
-        return;
-      }
-      void skills;
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshDiscoveredSkills]);
 
   useEffect(() => {
     if (!isLocalSession) {
@@ -549,25 +489,14 @@ export default function Skills() {
 
     // Composio toolkits are rendered in a dedicated icon grid (see below)
     // so ~100+ connectors stay scannable without a vertical list per category.
-
-    // Discovered SKILL.md skills — surface each as a card whose CTA opens
-    // the detail drawer. They live under the generic "Other" category so
-    // they don't displace hand-curated built-ins or Channels.
-    for (const skill of discoveredSkills) {
-      items.push({
-        id: `discovered-${skill.id}`,
-        name: skill.name,
-        description: skill.description,
-        category: 'Other',
-        kind: 'discovered',
-        icon: BUILT_IN_SKILL_ICONS.screenIntelligence,
-        discoveredSkill: skill,
-      });
-    }
+    //
+    // NOTE: discovered SKILL.md workflows used to be surfaced here as cards.
+    // Workflows now live exclusively on the Intelligence → Workflows tab, so
+    // Connections is integrations-only (Composio / channels / MCP).
 
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelIcons, configurableChannels, channelConnections, discoveredSkills]);
+  }, [channelIcons, configurableChannels, channelConnections]);
 
   const composioGridEntries = useMemo(() => {
     const entries: Array<{
@@ -634,12 +563,7 @@ export default function Skills() {
     return allItems.filter(item => {
       const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
       const matchesSearch =
-        !q ||
-        item.name.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
-        item.discoveredSkill?.tags?.some(tag => tag.toLowerCase().includes(q)) ||
-        item.discoveredSkill?.relatedSkills?.some(skill => skill.toLowerCase().includes(q)) ||
-        item.discoveredSkill?.resources?.some(resource => resource.toLowerCase().includes(q));
+        !q || item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
       return matchesCategory && matchesSearch;
     });
   }, [allItems, searchQuery, selectedCategory]);
@@ -663,10 +587,6 @@ export default function Skills() {
   }, [allItems]);
   const otherGroups = useMemo(
     () => groupedItems.filter(g => g.category !== 'Channels' && (IS_DEV || g.category !== 'Other')),
-    [groupedItems]
-  );
-  const explorerGroups = useMemo(
-    () => groupedItems.filter(g => g.category !== 'Channels'),
     [groupedItems]
   );
 
@@ -790,71 +710,6 @@ export default function Skills() {
             );
             /* v8 ignore stop */
           }
-          if (item.kind === 'discovered') {
-            const skill = item.discoveredSkill!;
-            const scopeLabel = skill.legacy
-              ? t('scope.legacy')
-              : skill.scope === 'user'
-                ? t('scope.user')
-                : skill.scope === 'project'
-                  ? t('scope.project')
-                  : t('scope.legacy');
-            const scopeColor = skill.legacy
-              ? 'text-stone-600 dark:text-neutral-300'
-              : skill.scope === 'user'
-                ? 'text-sage-600'
-                : skill.scope === 'project'
-                  ? 'text-amber-600'
-                  : 'text-stone-600 dark:text-neutral-300';
-            const canUninstall = skill.scope === 'user' && !skill.legacy;
-            return (
-              <UnifiedSkillCard
-                key={item.id}
-                icon={item.icon}
-                title={item.name}
-                description={item.description}
-                statusLabel={scopeLabel}
-                statusColor={scopeColor}
-                ctaLabel={t('common.seeAll')}
-                testId={`skill-row-${skill.id}`}
-                ctaTestId={`skill-install-${skill.id}`}
-                onCtaClick={() => {
-                  console.debug('[skills][discovered] open drawer', { skillId: skill.id });
-                  setSelectedSkill(skill);
-                }}
-                secondaryActions={
-                  canUninstall
-                    ? [
-                        {
-                          label: t('skills.disconnect'),
-                          testId: `skill-uninstall-${skill.id}`,
-                          icon: (
-                            <svg
-                              className="h-3.5 w-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"
-                              />
-                            </svg>
-                          ),
-                          onClick: () => {
-                            console.debug('[skills][discovered] open uninstall', {
-                              skillId: skill.id,
-                            });
-                            setUninstallCandidate(skill);
-                          },
-                        },
-                      ]
-                    : undefined
-                }
-              />
-            );
-          }
         })}
       </div>
     </div>
@@ -914,71 +769,13 @@ export default function Skills() {
               selected={activeTab}
               onChange={setActiveTab}
               items={[
-                { value: 'explorer', label: t('skills.tabs.explorer') },
                 { value: 'composio', label: t('skills.tabs.composio') },
                 { value: 'channels', label: t('skills.tabs.channels') },
                 { value: 'mcp', label: t('skills.tabs.mcp') },
-                ...(IS_DEV ? [{ value: 'runners' as const, label: t('skills.tabs.runners') }] : []),
               ]}
             />
             {
               <>
-                {activeTab === 'explorer' && (
-                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
-                    <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-1">
-                      <div className="min-w-0">
-                        <h2
-                          className="text-sm font-semibold text-stone-900 dark:text-neutral-100"
-                          data-walkthrough="skills-grid">
-                          {t('skills.explorer.title')}
-                        </h2>
-                        <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
-                          {t('skills.explorer.subtitle')}
-                        </p>
-                      </div>
-                      <div className="flex flex-shrink-0 items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setInstallDialogOpen(true)}
-                          className="rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-xs font-medium text-stone-700 dark:text-neutral-200 shadow-soft transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
-                          {t('skills.explorer.installFromUrl')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCreateModalOpen(true)}
-                          className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
-                          {t('skills.explorer.newSkill')}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-3 px-1 pb-3">
-                      <SkillSearchBar value={searchQuery} onChange={setSearchQuery} />
-                    </div>
-                    {explorerGroups.length > 0 ? (
-                      <div className="space-y-3">{explorerGroups.map(renderGroup)}</div>
-                    ) : (
-                      <EmptyStateCard
-                        className="mx-1 py-10"
-                        icon={BUILT_IN_SKILL_ICONS.screenIntelligence}
-                        title={t('skills.explorer.emptyTitle')}
-                        description={t('skills.explorer.emptyDescription')}
-                        actionLabel={t('skills.explorer.emptyCta')}
-                        onAction={() => setInstallDialogOpen(true)}
-                      />
-                    )}
-                  </div>
-                )}
-                {IS_DEV && activeTab === 'runners' && (
-                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft animate-fade-up">
-                    {/* The Runners sub-tab IS the scheduled-skills dashboard:
-                        header + [+ Create a Skill] + [▷ Run a Skill] CTAs
-                        plus the list of enable/disable cards. The picker +
-                        runner UX itself lives at /skills/run (a focused
-                        single-purpose page reached via the "Run a Skill"
-                        button or a card click). */}
-                    <SkillsDashboard />
-                  </div>
-                )}
                 {activeTab === 'channels' && channelsGroup && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
                     <div className="px-1 pb-3 pt-1">
@@ -1179,80 +976,6 @@ export default function Skills() {
           onClose={() => setComposioModalToolkit(null)}
         />
       )}
-
-      {selectedSkill && (
-        <SkillDetailDrawer skill={selectedSkill} onClose={() => setSelectedSkill(null)} />
-      )}
-
-      {createModalOpen && (
-        <CreateSkillModal
-          onClose={() => setCreateModalOpen(false)}
-          onCreated={skill => {
-            console.debug('[skills][create] created', { id: skill.id, scope: skill.scope });
-            setCreateModalOpen(false);
-            // Optimistically append; then reconcile against a fresh list so
-            // version/author/warnings picked up by the Rust discoverer end
-            // up in state too.
-            setDiscoveredSkills(prev =>
-              prev.some(s => s.id === skill.id) ? prev : [...prev, skill]
-            );
-            setSelectedSkill(skill);
-            void refreshDiscoveredSkills();
-          }}
-        />
-      )}
-
-      {installDialogOpen && (
-        <InstallSkillDialog
-          onClose={() => setInstallDialogOpen(false)}
-          onInstalled={result => {
-            console.debug('[skills][install] complete', {
-              url: result.url,
-              newSkills: result.newSkills.length,
-            });
-            void (async () => {
-              const skills = await refreshDiscoveredSkills();
-              // Auto-select the first newly-installed skill, if any — matches
-              // the create flow's UX of landing the user in the detail view.
-              const firstNewId = result.newSkills[0];
-              if (firstNewId) {
-                const match = skills.find(s => s.id === firstNewId);
-                if (match) {
-                  setSelectedSkill(match);
-                }
-              }
-            })();
-          }}
-        />
-      )}
-
-      {uninstallCandidate && (
-        <UninstallSkillConfirmDialog
-          skill={uninstallCandidate}
-          onClose={() => setUninstallCandidate(null)}
-          onUninstalled={result => {
-            console.debug('[skills][uninstall] complete', {
-              name: result.name,
-              removedPath: result.removedPath,
-            });
-            addToast({
-              type: 'success',
-              title: t('skills.disconnect'),
-              message: `"${result.name}" ${t('common.success')}`,
-            });
-            // If the detail drawer was showing the skill we just removed,
-            // close it — the resource tree is now stale and any `read_resource`
-            // RPC would fail with a clean "not installed" error.
-            setSelectedSkill(prev => (prev && prev.id === result.name ? null : prev));
-            // Drop it from local state so the card disappears without a
-            // round-trip; refresh to pick up any side effects (e.g. a
-            // previously-shadowed project-scope skill now surfaces).
-            setDiscoveredSkills(prev => prev.filter(s => s.id !== result.name));
-            void refreshDiscoveredSkills();
-          }}
-        />
-      )}
-      <ToastContainer notifications={toasts} onRemove={removeToast} />
     </div>
   );
 }

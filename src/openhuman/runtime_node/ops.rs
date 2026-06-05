@@ -210,8 +210,10 @@ mod tests {
         async fn execute(
             &self,
             _args: serde_json::Value,
-        ) -> anyhow::Result<crate::openhuman::skills::types::ToolResult> {
-            Ok(crate::openhuman::skills::types::ToolResult::success("ok"))
+        ) -> anyhow::Result<crate::openhuman::workflows::types::ToolResult> {
+            Ok(crate::openhuman::workflows::types::ToolResult::success(
+                "ok",
+            ))
         }
     }
 

@@ -284,7 +284,6 @@ const messages: TranslationMap = {
   'skills.tabs.channels': 'Canaux',
   'skills.tabs.explorer': 'Skills',
   'skills.tabs.mcp': 'MCP Serveurs',
-  'skills.tabs.runners': 'Runners',
   'memory.title': 'Mémoire',
   'memory.search': 'Rechercher dans la mémoire…',
   'memory.noResults': 'Aucun souvenir trouvé',
@@ -3622,7 +3621,7 @@ const messages: TranslationMap = {
   'settings.skillsRunner.error.preflightGate': 'La porte de prévol a échoué',
   'settings.skillsRunner.schedule.heading': 'Planifier (récurrent)',
   'settings.skillsRunner.schedule.help':
-    "Enregistrez cette compétence + les entrées comme un travail cron récurrent. L'agent appellera run_skill à chaque tick.",
+    "Enregistrez cette compétence + les entrées comme un travail cron récurrent. L'agent appellera run_workflow à chaque tick.",
   'settings.skillsRunner.schedule.frequency': 'Fréquence',
   'settings.skillsRunner.schedule.every30min': 'Toutes les 30 minutes',
   'settings.skillsRunner.schedule.everyHour': 'Toutes les heures',
@@ -3637,6 +3636,8 @@ const messages: TranslationMap = {
   'settings.skillsRunner.schedule.noJobs':
     "Aucun emploi du temps n'a encore été enregistré pour cette compétence.",
   'settings.skillsRunner.schedule.existing': 'Tâches planifiées pour cette compétence:',
+  'settings.skillsRunner.schedule.inputsLabel': 'Entrées',
+  'settings.skillsRunner.schedule.inputsNone': 'Aucune entrée',
   'settings.skillsRunner.schedule.runNow': 'Courir',
   'settings.skillsRunner.schedule.remove': 'Supprimer',
   'settings.skillsRunner.scheduleEnabled': 'Activé',
@@ -4523,22 +4524,12 @@ const messages: TranslationMap = {
   'settings.taskSources.providers.notion': 'Notion',
   'settings.taskSources.providers.linear': 'Linéaire',
   'settings.taskSources.providers.clickup': 'ClickUp',
-  'skills.dashboard.title': 'Skills',
-  'skills.dashboard.scheduledHeading': 'Compétences planifiées',
-  'skills.dashboard.emptyTitle': 'Aucune compétence planifiée',
-  'skills.dashboard.emptyBody':
-    'Exécutez une compétence intégrée une fois ou enregistrez un calendrier récurrent pour la voir ici.',
-  'skills.dashboard.create': 'Créer une compétence',
-  'skills.dashboard.run': 'Exécuter une compétence',
-  'skills.dashboard.enable': 'Activer la compétence planifiée',
-  'skills.dashboard.disable': 'Désactiver la compétence planifiée',
+  'skills.dashboard.enable': 'Activer le workflow planifié',
+  'skills.dashboard.disable': 'Désactiver le workflow planifié',
   'skills.dashboard.lastRun': 'Dernière exécution',
   'skills.dashboard.nextRun': 'Prochaine exécution',
   'skills.dashboard.cardOpenRunner': 'Ouvrir dans le lanceur',
-  'skills.dashboard.loadError': 'Échec du chargement des compétences planifiées',
-  'skills.new.title': 'Créer une compétence',
-  'skills.new.placeholderBody':
-    "Le formulaire de création arrive bientôt. Pour l'instant, utilisez le bouton « Nouvelle compétence » sur la page du lanceur.",
+  'skills.new.title': 'Créer un workflow',
   'settings.agents.title': 'Agents',
   'settings.agents.subtitle':
     'Gérez les agents disponibles pour la délégation — les agents par défaut intégrés et vos propres agents personnalisés.',
@@ -4962,6 +4953,16 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Fenêtre de mémoire',
   'memoryData.windowUpdated': 'Fenêtre de mémoire mise à jour',
   'memoryData.windowUpdatedMsg': 'Définie sur {window}.',
+  'skills.create.whenToUse': "Quand l'utiliser",
+  'skills.create.whenToUsePlaceholder':
+    "p. ex. lorsque l'utilisateur demande de trier sa boîte de réception",
+  'skills.create.whenToUseHelp':
+    "Le déclencheur sur lequel un agent se base pour décider d'exécuter ce workflow. Laissez vide pour réutiliser la description.",
+  'skills.create.inputs.row.descriptionError': 'Une description est requise pour chaque entrée.',
+  'skills.detail.run': 'Exécuter',
+  'skills.detail.runAriaLabel': 'Exécuter ce workflow',
+  'skills.run.title': 'Workflow',
+  'workflows.installFromUrl': 'Installer depuis une URL',
   // Security banner (approval-gate host-aware boot state)
   'security.approvalGateDisabled.title': "Porte d'approbation désactivée",
   'security.approvalGateDisabled.body':

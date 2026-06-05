@@ -285,7 +285,6 @@ const messages: TranslationMap = {
   'skills.tabs.channels': 'Kanäle',
   'skills.tabs.explorer': 'Skills',
   'skills.tabs.mcp': 'MCP Server',
-  'skills.tabs.runners': 'Runners',
   'memory.title': 'Erinnerung',
   'memory.search': 'Erinnerungen suchen...',
   'memory.noResults': 'Keine Erinnerungen gefunden',
@@ -3634,7 +3633,7 @@ const messages: TranslationMap = {
   'settings.skillsRunner.error.preflightGate': 'Das Preflight-Gate ist ausgefallen',
   'settings.skillsRunner.schedule.heading': 'Zeitplan (wiederkehrend)',
   'settings.skillsRunner.schedule.help':
-    'Speichern Sie diesen Skill + Eingaben als wiederkehrenden Cronjob. Der Agent ruft bei jedem Tick run_skill auf.',
+    'Speichern Sie diesen Skill + Eingaben als wiederkehrenden Cronjob. Der Agent ruft bei jedem Tick run_workflow auf.',
   'settings.skillsRunner.schedule.frequency': 'Frequenz',
   'settings.skillsRunner.schedule.every30min': 'Alle 30 Minuten',
   'settings.skillsRunner.schedule.everyHour': 'Jede Stunde',
@@ -3649,6 +3648,8 @@ const messages: TranslationMap = {
   'settings.skillsRunner.schedule.noJobs':
     'Für diesen Skill sind noch keine Zeitpläne gespeichert.',
   'settings.skillsRunner.schedule.existing': 'Geplante Jobs für diesen Skill:',
+  'settings.skillsRunner.schedule.inputsLabel': 'Eingaben',
+  'settings.skillsRunner.schedule.inputsNone': 'Keine Eingaben',
   'settings.skillsRunner.schedule.runNow': 'Laufen',
   'settings.skillsRunner.schedule.remove': 'Entlassen',
   'settings.skillsRunner.scheduleEnabled': 'Aktiviert',
@@ -4539,22 +4540,12 @@ const messages: TranslationMap = {
   'settings.taskSources.providers.notion': 'Vorstellung',
   'settings.taskSources.providers.linear': 'Linear',
   'settings.taskSources.providers.clickup': 'ClickUp',
-  'skills.dashboard.title': 'Skills',
-  'skills.dashboard.scheduledHeading': 'Geplante Skills',
-  'skills.dashboard.emptyTitle': 'Keine geplanten Skills',
-  'skills.dashboard.emptyBody':
-    'Führe einen gebündelten Skill einmalig aus oder speichere einen wiederkehrenden Zeitplan, um ihn hier zu sehen.',
-  'skills.dashboard.create': 'Skill erstellen',
-  'skills.dashboard.run': 'Skill ausführen',
-  'skills.dashboard.enable': 'Geplanten Skill aktivieren',
-  'skills.dashboard.disable': 'Geplanten Skill deaktivieren',
+  'skills.dashboard.enable': 'Geplanten Workflow aktivieren',
+  'skills.dashboard.disable': 'Geplanten Workflow deaktivieren',
   'skills.dashboard.lastRun': 'Letzter Lauf',
   'skills.dashboard.nextRun': 'Nächster Lauf',
   'skills.dashboard.cardOpenRunner': 'Im Runner öffnen',
-  'skills.dashboard.loadError': 'Geplante Skills konnten nicht geladen werden',
-  'skills.new.title': 'Skill erstellen',
-  'skills.new.placeholderBody':
-    "Das Bearbeitungsformular erscheint in Kürze. Verwende vorerst die Schaltfläche 'Neuer Skill' auf der Runner-Seite.",
+  'skills.new.title': 'Workflow erstellen',
   'settings.agents.title': 'Agenten',
   'settings.agents.subtitle':
     'Verwalten Sie die für die Delegation verfügbaren Agenten — integrierte Standardeinstellungen und Ihre eigenen benutzerdefinierten Agenten.',
@@ -4979,6 +4970,17 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Speicherfenster',
   'memoryData.windowUpdated': 'Speicherfenster aktualisiert',
   'memoryData.windowUpdatedMsg': 'Auf {window} gesetzt.',
+  'skills.create.whenToUse': 'Wann verwenden',
+  'skills.create.whenToUsePlaceholder':
+    'z. B. wenn der Nutzer darum bittet, seinen Posteingang zu sichten',
+  'skills.create.whenToUseHelp':
+    'Der Auslöser, anhand dessen ein Agent entscheidet, diesen Workflow auszuführen. Leer lassen, um die Beschreibung zu verwenden.',
+  'skills.create.inputs.row.descriptionError':
+    'Für jede Eingabe ist eine Beschreibung erforderlich.',
+  'skills.detail.run': 'Ausführen',
+  'skills.detail.runAriaLabel': 'Diesen Workflow ausführen',
+  'skills.run.title': 'Workflow',
+  'workflows.installFromUrl': 'Von URL installieren',
   // Security banner (approval-gate host-aware boot state)
   'security.approvalGateDisabled.title': 'Genehmigungstor deaktiviert',
   'security.approvalGateDisabled.body':

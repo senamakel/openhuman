@@ -284,7 +284,6 @@ const messages: TranslationMap = {
   'skills.tabs.channels': 'Canais',
   'skills.tabs.explorer': 'Skills',
   'skills.tabs.mcp': 'MCP Servidores',
-  'skills.tabs.runners': 'Runners',
   'memory.title': 'Memória',
   'memory.search': 'Pesquisar memórias...',
   'memory.noResults': 'Nenhuma memória encontrada',
@@ -3604,7 +3603,7 @@ const messages: TranslationMap = {
   'settings.skillsRunner.error.preflightGate': 'Portão de embarque pré-voo falhou',
   'settings.skillsRunner.schedule.heading': 'Agenda (recorrente)',
   'settings.skillsRunner.schedule.help':
-    'Salve esta habilidade + entradas como um trabalho cron recorrente. O agente chamará run_skill a cada tick.',
+    'Salve esta habilidade + entradas como um trabalho cron recorrente. O agente chamará run_workflow a cada tick.',
   'settings.skillsRunner.schedule.frequency': 'Frequência',
   'settings.skillsRunner.schedule.every30min': 'A cada 30 minutos',
   'settings.skillsRunner.schedule.everyHour': 'A cada hora',
@@ -3618,6 +3617,8 @@ const messages: TranslationMap = {
   'settings.skillsRunner.schedule.loadingJobs': 'Carregando horários existentes…',
   'settings.skillsRunner.schedule.noJobs': 'Nenhum cronograma salvo para esta habilidade ainda.',
   'settings.skillsRunner.schedule.existing': 'Trabalhos agendados para esta habilidade:',
+  'settings.skillsRunner.schedule.inputsLabel': 'Entradas',
+  'settings.skillsRunner.schedule.inputsNone': 'Sem entradas',
   'settings.skillsRunner.schedule.runNow': 'Correr',
   'settings.skillsRunner.schedule.remove': 'Remover',
   'settings.skillsRunner.scheduleEnabled': 'Ativado',
@@ -4497,22 +4498,12 @@ const messages: TranslationMap = {
   'settings.taskSources.providers.notion': 'Noção',
   'settings.taskSources.providers.linear': 'Linear',
   'settings.taskSources.providers.clickup': 'ClickUp',
-  'skills.dashboard.title': 'Skills',
-  'skills.dashboard.scheduledHeading': 'Skills agendadas',
-  'skills.dashboard.emptyTitle': 'Nenhuma skill agendada',
-  'skills.dashboard.emptyBody':
-    'Execute uma skill disponível uma vez ou salve um agendamento recorrente para vê-la aqui.',
-  'skills.dashboard.create': 'Criar uma Skill',
-  'skills.dashboard.run': 'Executar uma Skill',
-  'skills.dashboard.enable': 'Ativar skill agendada',
-  'skills.dashboard.disable': 'Desativar skill agendada',
+  'skills.dashboard.enable': 'Ativar fluxo de trabalho agendado',
+  'skills.dashboard.disable': 'Desativar fluxo de trabalho agendado',
   'skills.dashboard.lastRun': 'Última execução',
   'skills.dashboard.nextRun': 'Próxima execução',
   'skills.dashboard.cardOpenRunner': 'Abrir no runner',
-  'skills.dashboard.loadError': 'Falha ao carregar skills agendadas',
-  'skills.new.title': 'Criar uma skill',
-  'skills.new.placeholderBody':
-    'O formulário de criação chegará em breve. Por enquanto, use o botão "Nova skill" na página do runner.',
+  'skills.new.title': 'Criar um fluxo de trabalho',
   'settings.agents.title': 'Agentes',
   'settings.agents.subtitle':
     'Gerencie os agentes disponíveis para delegação — padrões integrados e seus próprios agentes personalizados.',
@@ -4932,6 +4923,16 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Janela de memória',
   'memoryData.windowUpdated': 'Janela de memória atualizada',
   'memoryData.windowUpdatedMsg': 'Definida para {window}.',
+  'skills.create.whenToUse': 'Quando usar',
+  'skills.create.whenToUsePlaceholder':
+    'ex.: quando o usuário pede para organizar a caixa de entrada',
+  'skills.create.whenToUseHelp':
+    'O gatilho que um agente reconhece para decidir executar este fluxo de trabalho. Deixe em branco para reutilizar a descrição.',
+  'skills.create.inputs.row.descriptionError': 'É necessária uma descrição para cada entrada.',
+  'skills.detail.run': 'Executar',
+  'skills.detail.runAriaLabel': 'Executar este fluxo de trabalho',
+  'skills.run.title': 'Fluxo de trabalho',
+  'workflows.installFromUrl': 'Instalar a partir de URL',
   // Security banner (approval-gate host-aware boot state)
   'security.approvalGateDisabled.title': 'Portão de aprovação desativado',
   'security.approvalGateDisabled.body':

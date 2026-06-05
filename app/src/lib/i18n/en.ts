@@ -301,7 +301,6 @@ const en: TranslationMap = {
   'skills.tabs.channels': 'Channels',
   'skills.tabs.explorer': 'Skills',
   'skills.tabs.mcp': 'MCP Servers',
-  'skills.tabs.runners': 'Runners',
   // Intelligence / Memory
   'memory.title': 'Memory',
   'memory.search': 'Search memories...',
@@ -315,7 +314,7 @@ const en: TranslationMap = {
   'memory.tab.subconscious': 'Subconscious',
   'memory.tab.workflows': 'Workflows',
   'memory.tab.workflowsDescription':
-    'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
+    'Reusable, runnable procedures — a goal plus the steps to reach it. Create one, install from a URL, or open a workflow to run it.',
   'memory.tab.dreams': 'Dreams',
   'memory.tab.calls': 'Calls',
   'memory.tab.diagram': 'Diagram',
@@ -3942,7 +3941,7 @@ const en: TranslationMap = {
   'settings.developerMenu.skillsRunner.desc':
     'Run any bundled skill ad-hoc — fill its inputs and fire a background autonomous run',
   'settings.developerMenu.skillsRunner.panelDesc':
-    'Pick a bundled skill, fill in its declared inputs, and fire a fire-and-forget background run. Use Dev Workflow instead if you want a cron-scheduled recurring job.',
+    'Pick a bundled workflow, fill in its declared inputs, and fire a fire-and-forget background run. Use the Schedule section below if you want a cron-scheduled recurring job.',
   'settings.skillsRunner.skill': 'Skill',
   'settings.skillsRunner.selectSkill': 'Select a skill…',
   'settings.skillsRunner.loadingSkills': 'Loading skills…',
@@ -3960,7 +3959,7 @@ const en: TranslationMap = {
   'settings.skillsRunner.error.preflightGate': 'Preflight gate failed',
   'settings.skillsRunner.schedule.heading': 'Schedule (recurring)',
   'settings.skillsRunner.schedule.help':
-    'Save this skill + inputs as a recurring cron job. The agent will call run_skill at each tick.',
+    'Save this workflow + inputs as a recurring cron job. The agent will call run_workflow at each tick.',
   'settings.skillsRunner.schedule.frequency': 'Frequency',
   'settings.skillsRunner.schedule.every30min': 'Every 30 minutes',
   'settings.skillsRunner.schedule.everyHour': 'Every hour',
@@ -3974,6 +3973,8 @@ const en: TranslationMap = {
   'settings.skillsRunner.schedule.loadingJobs': 'Loading existing schedules…',
   'settings.skillsRunner.schedule.noJobs': 'No schedules saved for this skill yet.',
   'settings.skillsRunner.schedule.existing': 'Scheduled jobs for this skill:',
+  'settings.skillsRunner.schedule.inputsLabel': 'Inputs',
+  'settings.skillsRunner.schedule.inputsNone': 'No inputs',
   'settings.skillsRunner.schedule.runNow': 'Run',
   'settings.skillsRunner.schedule.remove': 'Remove',
   'settings.skillsRunner.scheduleEnabled': 'Enabled',
@@ -4418,11 +4419,15 @@ const en: TranslationMap = {
   'skills.create.createError': 'Could not create skill',
   'skills.create.creating': 'Creating…',
   'skills.create.description': 'Description',
-  'skills.create.descriptionPlaceholder': 'What does this skill do?',
+  'skills.create.descriptionPlaceholder': 'What does this workflow do?',
   'skills.create.optional': '(optional)',
+  'skills.create.whenToUse': 'When to use',
+  'skills.create.whenToUsePlaceholder': 'e.g. when the user asks to triage their inbox',
+  'skills.create.whenToUseHelp':
+    'The trigger an agent matches on to decide to run this workflow. Leave blank to reuse the description.',
   'skills.create.inputs.heading': 'Inputs',
   'skills.create.inputs.help':
-    'Declare parameters the skill needs. The Skills Runner will render a form for these at run time.',
+    'Declare parameters the workflow needs. Adding inputs is optional, but every input you add needs a description — it is shown to the agent and in the run form. Inputs are optional to fill unless you mark them Required.',
   'skills.create.inputs.add': 'Add input',
   'skills.create.inputs.row.name': 'Input name',
   'skills.create.inputs.row.namePlaceholder': 'e.g. repo',
@@ -4430,6 +4435,7 @@ const en: TranslationMap = {
     'Letters, digits, underscores, and dashes only; must start with a letter.',
   'skills.create.inputs.row.description': 'Input description',
   'skills.create.inputs.row.descriptionPlaceholder': 'What goes in this field?',
+  'skills.create.inputs.row.descriptionError': 'A description is required for each input.',
   'skills.create.inputs.row.type': 'Type',
   'skills.create.inputs.row.required': 'Required',
   'skills.create.inputs.row.remove': 'Remove input',
@@ -4452,6 +4458,9 @@ const en: TranslationMap = {
   'skills.detail.allowedTools': 'Allowed tools',
   'skills.detail.author': 'Author',
   'skills.detail.bundledResources': 'Bundled resources',
+  'skills.detail.run': 'Run',
+  'skills.detail.runAriaLabel': 'Run this workflow',
+  'skills.run.title': 'Workflow',
   'skills.detail.closeAriaLabel': 'Close skill details',
   'skills.detail.location': 'Location',
   'skills.detail.noBundledResources': 'No bundled resources.',
@@ -4849,26 +4858,15 @@ const en: TranslationMap = {
   'settings.taskSources.providers.linear': 'Linear',
   'settings.taskSources.providers.clickup': 'ClickUp',
 
-  // /skills IA restructure: landing-dashboard + /skills/new authoring page.
-  // The runner UX (existing Skills page → SkillsRunnerBody) moves to
-  // /skills/run; this dashboard surfaces currently-scheduled skills as
-  // DevWorkflowPanel-style cards.
-  'skills.dashboard.title': 'Skills',
-  'skills.dashboard.scheduledHeading': 'Scheduled skills',
-  'skills.dashboard.emptyTitle': 'No scheduled skills',
-  'skills.dashboard.emptyBody':
-    'Run a bundled skill once or save a recurring schedule to see it here.',
-  'skills.dashboard.create': 'Create a Skill',
-  'skills.dashboard.run': 'Run a Skill',
-  'skills.dashboard.enable': 'Enable scheduled skill',
-  'skills.dashboard.disable': 'Disable scheduled skill',
+  // Scheduled-workflow card controls (ScheduledCronCard on the workflow
+  // runner page). The standalone scheduled-workflows dashboard was phased
+  // out; only these per-card labels remain in use.
+  'skills.dashboard.enable': 'Enable scheduled workflow',
+  'skills.dashboard.disable': 'Disable scheduled workflow',
   'skills.dashboard.lastRun': 'Last run',
   'skills.dashboard.nextRun': 'Next run',
   'skills.dashboard.cardOpenRunner': 'Open in runner',
-  'skills.dashboard.loadError': 'Failed to load scheduled skills',
-  'skills.new.title': 'Create a skill',
-  'skills.new.placeholderBody':
-    'Authoring form arrives soon. For now, use the “New skill” button on the runner page.',
+  'skills.new.title': 'Create a workflow',
   'settings.agents.title': 'Agents',
   'settings.agents.subtitle':
     'Manage the agents available for delegation — built-in defaults and your own custom agents.',
@@ -4908,9 +4906,11 @@ const en: TranslationMap = {
 
   // ── Agent Workflows ──────────────────────────────────────────────────────
   'nav.workflows': 'Workflows',
-  'workflows.title': 'Agent Workflows',
-  'workflows.subtitle': 'Lifecycle-bound rule sets that guide how the agent behaves during tasks.',
-  'workflows.createNew': 'New Workflow',
+  'workflows.title': 'Workflows',
+  'workflows.subtitle':
+    'Reusable, runnable procedures — a goal plus the steps to reach it. Create one, install from a URL, or open a workflow to run it.',
+  'workflows.createNew': 'New workflow',
+  'workflows.installFromUrl': 'Install from URL',
   'workflows.listHeading': 'Workflows',
   'workflows.delete': 'Delete Workflow',
   'workflows.deleteError': 'Failed to delete workflow',

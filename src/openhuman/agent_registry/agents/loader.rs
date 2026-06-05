@@ -211,11 +211,11 @@ pub fn load_builtins() -> Result<Vec<AgentDefinition>> {
 /// * `Reasoning` agents MUST NOT list another `Reasoning` agent in
 ///   `subagents`.
 /// * `Worker` agents MUST NOT list any [`SubagentEntry::AgentId`]
-///   entries. (Skill wildcards are allowed: they expand to the generic
+///   entries. (Workflow wildcards are allowed: they expand to the generic
 ///   `integrations_agent`, which is itself a `Worker`, and the call
 ///   happens via a single delegation tool rather than recursive spawn.)
 ///
-/// Skill-wildcard entries (`{ skills = "*" }`) are intentionally
+/// Workflow-wildcard entries (`{ skills = "*" }`) are intentionally
 /// untouched: they collapse to one `delegate_to_integrations_agent`
 /// tool whose target is a `Worker` and whose use sites are well
 /// understood. Mis-tiering of the `integrations_agent` itself is still
@@ -234,7 +234,7 @@ pub fn validate_tier_hierarchy(defs: &[AgentDefinition]) -> Result<()> {
         for entry in &def.subagents {
             let child_id = match entry {
                 SubagentEntry::AgentId(id) => id.as_str(),
-                // Skill wildcards always route to `integrations_agent`
+                // Workflow wildcards always route to `integrations_agent`
                 // (a Worker) via a single collapsed delegation tool —
                 // not subject to the tier-mismatch rule.
                 SubagentEntry::Skills(_) => continue,
@@ -446,7 +446,6 @@ mod tests {
                         personality_soul_md: None,
                         personality_memory_md: None,
                         personality_roster: vec![],
-                        workflows: &[],
                     };
                     let body = build(&ctx)
                         .unwrap_or_else(|e| panic!("{} prompt build failed: {e}", def.id));

@@ -206,8 +206,7 @@ async function renderConversations(preload: Record<string, unknown> = {}) {
   return store;
 }
 
-/** Click the sidebar toggle so the thread list becomes visible.
- *  The sidebar starts hidden (showSidebar=false) in this PR. */
+/** Click the sidebar toggle so the thread list becomes visible. */
 async function openSidebar() {
   const toggleBtn = screen.getByTitle('Show sidebar');
   await act(async () => {
@@ -219,6 +218,7 @@ async function openSidebar() {
 const emptyThreadState = {
   threads: [],
   selectedThreadId: null,
+  threadSidebarVisible: false,
   activeThreadId: null,
   welcomeThreadId: null,
   messagesByThreadId: {},
@@ -312,7 +312,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
   });
 
-  // Covers line 906: const effectiveShowSidebar = showSidebar;
+  // Covers line 906: const effectiveShowSidebar = threadSidebarVisible;
   // Covers line 941: <div className="flex-1 overflow-y-auto"> (always rendered in page mode)
   it('renders the Threads sidebar header in page mode', async () => {
     await act(async () => {
@@ -324,6 +324,26 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
 
     // The "Threads" header is always rendered in page mode (sidebar guard removed)
     expect(screen.getByText('Threads')).toBeInTheDocument();
+  });
+
+  it('restores and updates the persisted thread sidebar visibility', async () => {
+    let renderedStore: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      renderedStore = await renderConversations({
+        thread: { ...emptyThreadState, threadSidebarVisible: true },
+      });
+    });
+
+    expect(screen.getByText('Threads')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('Hide sidebar'));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Threads')).not.toBeInTheDocument();
+    });
+    expect(renderedStore?.getState().thread.threadSidebarVisible).toBe(false);
   });
 
   // Covers line 941 empty branch

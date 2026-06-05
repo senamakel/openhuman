@@ -328,13 +328,13 @@ pub enum DomainEvent {
 
     // ── Skills ──────────────────────────────────────────────────────────
     /// A skill was loaded into the runtime.
-    SkillLoaded { skill_id: String, runtime: String },
+    WorkflowLoaded { skill_id: String, runtime: String },
     /// A skill was stopped.
-    SkillStopped { skill_id: String },
+    WorkflowStopped { skill_id: String },
     /// A skill failed to start.
-    SkillStartFailed { skill_id: String, error: String },
+    WorkflowStartFailed { skill_id: String, error: String },
     /// A skill tool was executed.
-    SkillExecuted {
+    WorkflowExecuted {
         skill_id: String,
         tool_name: String,
         arguments: serde_json::Value,
@@ -1006,10 +1006,10 @@ impl DomainEvent {
             | Self::CronDeliveryRequested { .. }
             | Self::ProactiveMessageRequested { .. } => "cron",
 
-            Self::SkillLoaded { .. }
-            | Self::SkillStopped { .. }
-            | Self::SkillStartFailed { .. }
-            | Self::SkillExecuted { .. } => "skill",
+            Self::WorkflowLoaded { .. }
+            | Self::WorkflowStopped { .. }
+            | Self::WorkflowStartFailed { .. }
+            | Self::WorkflowExecuted { .. } => "workflow",
 
             Self::ToolExecutionStarted { .. } | Self::ToolExecutionCompleted { .. } => "tool",
 
@@ -1131,10 +1131,10 @@ impl DomainEvent {
             Self::CronJobCompleted { .. } => "CronJobCompleted",
             Self::CronDeliveryRequested { .. } => "CronDeliveryRequested",
             Self::ProactiveMessageRequested { .. } => "ProactiveMessageRequested",
-            Self::SkillLoaded { .. } => "SkillLoaded",
-            Self::SkillStopped { .. } => "SkillStopped",
-            Self::SkillStartFailed { .. } => "SkillStartFailed",
-            Self::SkillExecuted { .. } => "SkillExecuted",
+            Self::WorkflowLoaded { .. } => "WorkflowLoaded",
+            Self::WorkflowStopped { .. } => "WorkflowStopped",
+            Self::WorkflowStartFailed { .. } => "WorkflowStartFailed",
+            Self::WorkflowExecuted { .. } => "WorkflowExecuted",
             Self::ToolExecutionStarted { .. } => "ToolExecutionStarted",
             Self::ToolExecutionCompleted { .. } => "ToolExecutionCompleted",
             Self::WebhookIncomingRequest { .. } => "WebhookIncomingRequest",

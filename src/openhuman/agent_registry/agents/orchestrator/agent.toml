@@ -120,7 +120,7 @@ subagents = [
 
 [model]
 # Front-line conversational agent: TTFT dominates UX. `hint:chat` resolves
-# to the fast chat tier (`reasoning-quick-v1` / Kimi K2.6 Turbo on
+# to the fast chat tier (`chat-v1` / Kimi K2.6 Turbo on
 # Fireworks via backend PR #760, 128k context, `supportsThinking: false`).
 # The orchestrator is a planner/router that picks a delegate and
 # synthesises sub-agent output — workload that doesn't benefit from the
@@ -165,6 +165,22 @@ named = [
     # `todowrite`, which only touches the current thread's board.
     "update_task",
     "plan_exit",
+    # Workflow composition. `run_workflow` runs another workflow as a
+    # subagent and (by default) waits on its result like a function call;
+    # `await_workflow` re-attaches to a run that outlived its inline wait.
+    # `list_workflows` / `describe_workflow` let the orchestrator discover
+    # what's installed and learn a workflow's inputs before running it; the
+    # `*_run*` read tools let it inspect a run's status + log. All route
+    # through `workflows::schemas::spawn_skill_run_background` +
+    # `await_run_outcome` — the same spawn path the `openhuman.workflows_run`
+    # JSON-RPC controller uses (iter cap, transcript isolation,
+    # degenerate-response detector all apply).
+    "list_workflows",
+    "describe_workflow",
+    "list_workflow_runs",
+    "read_workflow_run_log",
+    "run_workflow",
+    "await_workflow",
     # Self-update — lets the orchestrator answer "am I up to date" /
     # "update OpenHuman" without sending the user to Settings →
     # Developer Options. `update_check` is read-only; `update_apply`
@@ -174,10 +190,9 @@ named = [
     # `src/openhuman/update/` end-to-end — no parallel release logic.
     "update_check",
     "update_apply",
-    # Workflow tools — let the orchestrator inspect and activate installed
-    # WORKFLOW.md bundles.  `workflow_load` is read-only (inspect a workflow);
-    # `workflow_phase` activates a phase (runs gated scripts, surfaces guidance).
-    # Both are routed through the same security/approval gate as `shell`.
-    "workflow_load",
-    "workflow_phase",
+    # NOTE: `generate_presentation` is intentionally NOT listed here — deck
+    # generation policy (grounding, citations, image verification) belongs to
+    # `presentation_agent`, which the orchestrator reaches via
+    # `delegate_make_presentation`. Listing it directly is asserted against in
+    # tests/orchestrator_presentation_wiring.rs.
 ]

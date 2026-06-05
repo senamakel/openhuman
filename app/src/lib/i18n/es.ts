@@ -286,7 +286,6 @@ const messages: TranslationMap = {
   'skills.tabs.channels': 'Canales',
   'skills.tabs.explorer': 'Skills',
   'skills.tabs.mcp': 'MCP Servidores',
-  'skills.tabs.runners': 'Runners',
   'memory.title': 'Memoria',
   'memory.search': 'Buscar recuerdos...',
   'memory.noResults': 'No se encontraron recuerdos',
@@ -3611,7 +3610,7 @@ const messages: TranslationMap = {
   'settings.skillsRunner.error.preflightGate': 'La puerta de preembarque falló',
   'settings.skillsRunner.schedule.heading': 'Horario (recurrente)',
   'settings.skillsRunner.schedule.help':
-    'Guarda esta habilidad + entradas como un trabajo cron recurrente. El agente llamará a run_skill en cada tick.',
+    'Guarda esta habilidad + entradas como un trabajo cron recurrente. El agente llamará a run_workflow en cada tick.',
   'settings.skillsRunner.schedule.frequency': 'Frecuencia',
   'settings.skillsRunner.schedule.every30min': 'Cada 30 minutos',
   'settings.skillsRunner.schedule.everyHour': 'Cada hora',
@@ -3625,6 +3624,8 @@ const messages: TranslationMap = {
   'settings.skillsRunner.schedule.loadingJobs': 'Cargando horarios existentes…',
   'settings.skillsRunner.schedule.noJobs': 'Aún no hay horarios guardados para esta habilidad.',
   'settings.skillsRunner.schedule.existing': 'Trabajos programados para esta habilidad:',
+  'settings.skillsRunner.schedule.inputsLabel': 'Entradas',
+  'settings.skillsRunner.schedule.inputsNone': 'Sin entradas',
   'settings.skillsRunner.schedule.runNow': 'Correr',
   'settings.skillsRunner.schedule.remove': 'Eliminar',
   'settings.skillsRunner.scheduleEnabled': 'Habilitado',
@@ -4509,22 +4510,12 @@ const messages: TranslationMap = {
   'settings.taskSources.providers.notion': 'Noción',
   'settings.taskSources.providers.linear': 'Lineal',
   'settings.taskSources.providers.clickup': 'ClickUp',
-  'skills.dashboard.title': 'Skills',
-  'skills.dashboard.scheduledHeading': 'Habilidades programadas',
-  'skills.dashboard.emptyTitle': 'Sin habilidades programadas',
-  'skills.dashboard.emptyBody':
-    'Ejecuta una habilidad integrada una vez o guarda una programación recurrente para verla aquí.',
-  'skills.dashboard.create': 'Crear una habilidad',
-  'skills.dashboard.run': 'Ejecutar una habilidad',
-  'skills.dashboard.enable': 'Activar habilidad programada',
-  'skills.dashboard.disable': 'Desactivar habilidad programada',
+  'skills.dashboard.enable': 'Activar flujo de trabajo programado',
+  'skills.dashboard.disable': 'Desactivar flujo de trabajo programado',
   'skills.dashboard.lastRun': 'Última ejecución',
   'skills.dashboard.nextRun': 'Próxima ejecución',
   'skills.dashboard.cardOpenRunner': 'Abrir en el ejecutor',
-  'skills.dashboard.loadError': 'Error al cargar las habilidades programadas',
-  'skills.new.title': 'Crear una habilidad',
-  'skills.new.placeholderBody':
-    'El formulario de creación llegará pronto. Por ahora, usa el botón «Nueva habilidad» en la página del ejecutor.',
+  'skills.new.title': 'Crear un flujo de trabajo',
   'settings.agents.title': 'Agentes',
   'settings.agents.subtitle':
     'Administra los agentes disponibles para la delegación: los predeterminados integrados y tus propios agentes personalizados.',
@@ -4947,6 +4938,16 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Ventana de memoria',
   'memoryData.windowUpdated': 'Ventana de memoria actualizada',
   'memoryData.windowUpdatedMsg': 'Establecida en {window}.',
+  'skills.create.whenToUse': 'Cuándo usar',
+  'skills.create.whenToUsePlaceholder':
+    'p. ej., cuando el usuario pide organizar su bandeja de entrada',
+  'skills.create.whenToUseHelp':
+    'El desencadenante que un agente reconoce para decidir ejecutar este flujo de trabajo. Déjalo en blanco para reutilizar la descripción.',
+  'skills.create.inputs.row.descriptionError': 'Se requiere una descripción para cada entrada.',
+  'skills.detail.run': 'Ejecutar',
+  'skills.detail.runAriaLabel': 'Ejecutar este flujo de trabajo',
+  'skills.run.title': 'Flujo de trabajo',
+  'workflows.installFromUrl': 'Instalar desde URL',
   // Security banner (approval-gate host-aware boot state)
   'security.approvalGateDisabled.title': 'Puerta de aprobación desactivada',
   'security.approvalGateDisabled.body':

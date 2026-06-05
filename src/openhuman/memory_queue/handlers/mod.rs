@@ -16,7 +16,7 @@ use crate::openhuman::memory::tree_source::get_or_create_source_tree;
 use crate::openhuman::memory_queue::store;
 use crate::openhuman::memory_queue::types::{
     AppendBufferPayload, AppendTarget, ExtractChunkPayload, FlushStalePayload, Job, JobKind,
-    JobOutcome, NewJob, NodeRef, ReembedBackfillPayload, SealPayload,
+    JobOutcome, NewJob, NodeRef, ReembedBackfillPayload, SealDocumentPayload, SealPayload,
 };
 use crate::openhuman::memory_store::chunks::store as chunk_store;
 use crate::openhuman::memory_store::content::{
@@ -108,7 +108,7 @@ async fn handle_seal_document(config: &Config, job: &Job) -> Result<JobOutcome> 
     use crate::openhuman::memory::util::redact::redact;
     use crate::openhuman::memory_tree::tree::seal_document_subtree;
 
-    let payload: crate::openhuman::memory_queue::types::SealDocumentPayload =
+    let payload: SealDocumentPayload =
         serde_json::from_str(&job.payload_json).context("parse SealDocument payload")?;
 
     // doc_id (notion:{conn}:{page}) and tree_scope (notion:{conn}) are

@@ -165,14 +165,14 @@ pub fn all_tools_with_runtime(
         // thread, complementing `todo` which only touches the current thread.
         Box::new(UpdateTaskTool::new()),
         Box::new(PlanExitTool::new()),
-        // Skill chaining: let an in-flight autonomous skill (e.g.
-        // `github-issue-crusher`) kick off another bundled skill_run as a
-        // fresh background job (e.g. `pr-review-shepherd` against the PR it
-        // just opened) so each skill stays narrow + composable. Thin
-        // wrapper over `skills::schemas::spawn_skill_run_background` — the
-        // same helper `openhuman.skills_run` JSON-RPC uses, so RPC callers
-        // and tool callers share one spawn path.
-        Box::new(RunSkillTool::new()),
+        // Workflow composition: `run_workflow` runs another workflow as a
+        // subagent and (by default) waits on its result like a function call;
+        // `await_workflow` re-attaches to a run that outlived its inline wait.
+        // Both wrap `workflows::schemas::spawn_workflow_run_background` +
+        // `await_run_outcome` — the same spawn path `openhuman.workflows_run`
+        // JSON-RPC uses, so RPC and tool callers stay in sync.
+        Box::new(RunWorkflowTool::new()),
+        Box::new(AwaitWorkflowTool::new()),
         Box::new(CurrentTimeTool::new()),
         Box::new(LaunchAppTool::new()),
         Box::new(AxInteractTool::new(
@@ -267,17 +267,6 @@ pub fn all_tools_with_runtime(
             security.clone(),
         )),
         Box::new(GmailUnsubscribeTool),
-        // Workflow tools — let the agent load and activate installed agent
-        // workflows (WORKFLOW.md bundles). `workflow_load` is read-only;
-        // `workflow_phase` runs gated scripts and is Execute-class so the
-        // harness routes it through the ApprovalGate identically to `shell`.
-        Box::new(WorkflowLoadTool),
-        Box::new(WorkflowPhaseTool::new(
-            action_dir.to_path_buf(),
-            security.clone(),
-            Arc::clone(&runtime),
-            Arc::clone(&audit),
-        )),
         // Knowledge & memory tools (agent-tool expansion). Read/bounded-write
         // ship default-ON; the overextending siblings (people_refresh_address_book —
         // bulk OS contacts ingest with a permission prompt) ship default-OFF via
@@ -293,14 +282,14 @@ pub fn all_tools_with_runtime(
         // above, so it is not duplicated. Reads ship default-ON; the
         // create/install/uninstall mutators ship default-OFF via
         // `tools::user_filter` (install also fetches remote content).
-        Box::new(SkillListTool::new(config.clone())),
-        Box::new(SkillDescribeTool::new(config.clone())),
-        Box::new(SkillReadResourceTool::new(config.clone())),
-        Box::new(SkillRecentRunsTool::new(config.clone())),
-        Box::new(SkillReadRunLogTool::new(config.clone())),
-        Box::new(SkillCreateTool::new(config.clone())),
-        Box::new(SkillInstallFromUrlTool::new(config.clone())),
-        Box::new(SkillUninstallTool),
+        Box::new(WorkflowListTool::new(config.clone())),
+        Box::new(WorkflowDescribeTool::new(config.clone())),
+        Box::new(WorkflowReadResourceTool::new(config.clone())),
+        Box::new(WorkflowRecentRunsTool::new(config.clone())),
+        Box::new(WorkflowReadRunLogTool::new(config.clone())),
+        Box::new(WorkflowCreateTool::new(config.clone())),
+        Box::new(WorkflowInstallFromUrlTool::new(config.clone())),
+        Box::new(WorkflowUninstallTool),
         // Threads (conversation) tools. Read/bounded-write ship default-ON;
         // the destructive thread_delete / thread_purge_all ship default-OFF
         // via `tools::user_filter` (thread_destructive toggle).
@@ -335,18 +324,13 @@ pub fn all_tools_with_runtime(
         Box::new(LearningResetCacheTool),
         Box::new(LearningSaveProfileTool),
         Box::new(LearningEnrichProfileTool),
-        // Task & workflow productivity tools (issue: agent-tool expansion).
+        // Task & productivity tools (issue: agent-tool expansion).
         // Read/observe + bounded-write tools are registered here; the
         // destructive/overextending siblings (artifact_delete, todo_remove/
-        // replace/clear, task_source_add/update/remove,
-        // agent_workflow_uninstall) are registered too but ship default-OFF
-        // via `tools::user_filter` (their toggle IDs default off in
-        // onboarding). The per-call permission ladder still gates them.
-        Box::new(AgentWorkflowListTool::new(config.clone())),
-        Box::new(AgentWorkflowReadTool),
-        Box::new(AgentWorkflowPhaseInfoTool),
-        Box::new(AgentWorkflowCreateTool),
-        Box::new(AgentWorkflowUninstallTool),
+        // replace/clear, task_source_add/update/remove) are registered too
+        // but ship default-OFF via `tools::user_filter` (their toggle IDs
+        // default off in onboarding). The per-call permission ladder still
+        // gates them.
         Box::new(ArtifactListTool::new(config.clone())),
         Box::new(ArtifactGetTool::new(config.clone())),
         Box::new(ArtifactDeleteTool::new(config.clone())),

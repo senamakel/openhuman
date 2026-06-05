@@ -83,7 +83,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     let bus = event_bus::init_global(DEFAULT_CAPACITY);
     let _tracing_handle = bus.subscribe(Arc::new(TracingSubscriber));
     crate::openhuman::health::bus::register_health_subscriber();
-    crate::openhuman::skills::bus::register_skill_cleanup_subscriber();
+    crate::openhuman::workflows::bus::register_workflow_cleanup_subscriber();
     crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
         config.workspace_dir.clone(),
     );
@@ -354,7 +354,20 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         &config,
     ));
 
-    let skills = crate::openhuman::skills::load_skills(&workspace);
+    let skills = crate::openhuman::workflows::load_workflow_metadata(&workspace);
+
+    // Install the triggered-workflow subscriber now that workflows are
+    // discovered — otherwise any workflow declaring `triggers:` is silently
+    // ignored in the channel runtime. The handle is parked in a process static
+    // so the RAII SubscriptionHandle isn't dropped (which would cancel it).
+    {
+        use crate::core::event_bus::SubscriptionHandle;
+        use std::sync::OnceLock;
+        static TRIGGERED_WORKFLOW_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
+        TRIGGERED_WORKFLOW_HANDLE.get_or_init(|| {
+            crate::openhuman::workflows::bus::register_triggered_workflow_subscriber(&skills)
+        });
+    }
 
     // Collect tool descriptions for the prompt
     let mut tool_descs: Vec<(&str, &str)> = vec![
@@ -427,12 +440,12 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         bootstrap_max_chars,
         None,
     );
-    // Filter out Skill-category tools (e.g. Composio, Apify) from the
+    // Filter out Workflow-category tools (e.g. Composio, Apify) from the
     // main agent prompt — those are only available to the integrations_agent
     // subagent via category_filter = "skill".
     let non_skill_tools: Vec<&Box<dyn crate::openhuman::tools::Tool>> = tools_registry
         .iter()
-        .filter(|t| t.category() != crate::openhuman::tools::traits::ToolCategory::Skill)
+        .filter(|t| t.category() != crate::openhuman::tools::traits::ToolCategory::Workflow)
         .collect();
     let non_skill_refs: Vec<&dyn crate::openhuman::tools::Tool> =
         non_skill_tools.iter().map(|t| t.as_ref()).collect();

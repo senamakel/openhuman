@@ -278,7 +278,6 @@ const messages: TranslationMap = {
   'skills.tabs.channels': 'Saluran',
   'skills.tabs.explorer': 'Skill',
   'skills.tabs.mcp': 'MCP Server',
-  'skills.tabs.runners': 'Runners',
   'memory.title': 'Memori',
   'memory.search': 'Cari memori...',
   'memory.noResults': 'Memori tidak ditemukan',
@@ -3571,6 +3570,8 @@ const messages: TranslationMap = {
   'settings.skillsRunner.schedule.noJobs':
     'Tidak ada jadwal yang disimpan untuk keterampilan ini belum.',
   'settings.skillsRunner.schedule.existing': 'Tugas yang dijadwalkan untuk keterampilan ini:',
+  'settings.skillsRunner.schedule.inputsLabel': 'Masukan',
+  'settings.skillsRunner.schedule.inputsNone': 'Tidak ada masukan',
   'settings.skillsRunner.schedule.runNow': 'Lari',
   'settings.skillsRunner.schedule.remove': 'Hapus',
   'settings.skillsRunner.scheduleEnabled': 'Diaktifkan',
@@ -4436,22 +4437,12 @@ const messages: TranslationMap = {
   'settings.taskSources.providers.notion': 'Notion',
   'settings.taskSources.providers.linear': 'Linear',
   'settings.taskSources.providers.clickup': 'ClickUp',
-  'skills.dashboard.title': 'Skills',
-  'skills.dashboard.scheduledHeading': 'Skill terjadwal',
-  'skills.dashboard.emptyTitle': 'Tidak ada skill terjadwal',
-  'skills.dashboard.emptyBody':
-    'Jalankan skill bawaan sekali atau simpan jadwal berulang untuk melihatnya di sini.',
-  'skills.dashboard.create': 'Buat Skill',
-  'skills.dashboard.run': 'Jalankan Skill',
-  'skills.dashboard.enable': 'Aktifkan skill terjadwal',
-  'skills.dashboard.disable': 'Nonaktifkan skill terjadwal',
+  'skills.dashboard.enable': 'Aktifkan alur kerja terjadwal',
+  'skills.dashboard.disable': 'Nonaktifkan alur kerja terjadwal',
   'skills.dashboard.lastRun': 'Terakhir dijalankan',
   'skills.dashboard.nextRun': 'Dijalankan berikutnya',
   'skills.dashboard.cardOpenRunner': 'Buka di pemandu',
-  'skills.dashboard.loadError': 'Gagal memuat skill terjadwal',
-  'skills.new.title': 'Buat skill',
-  'skills.new.placeholderBody':
-    'Formulir pembuatan akan segera tersedia. Untuk saat ini, gunakan tombol "Skill baru" di halaman pemandu.',
+  'skills.new.title': 'Buat alur kerja',
   'settings.agents.title': 'Agen',
   'settings.agents.subtitle':
     'Atur agen yang tersedia untuk delegasi - membangun - dalam default dan agen custom Anda sendiri.',
@@ -4863,6 +4854,15 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Jendela memori',
   'memoryData.windowUpdated': 'Jendela memori diperbarui',
   'memoryData.windowUpdatedMsg': 'Diatur ke {window}.',
+  'skills.create.whenToUse': 'Kapan digunakan',
+  'skills.create.whenToUsePlaceholder': 'mis. saat pengguna meminta untuk memilah kotak masuk',
+  'skills.create.whenToUseHelp':
+    'Pemicu yang dikenali agen untuk memutuskan menjalankan alur kerja ini. Biarkan kosong untuk memakai deskripsi.',
+  'skills.create.inputs.row.descriptionError': 'Deskripsi diperlukan untuk setiap input.',
+  'skills.detail.run': 'Jalankan',
+  'skills.detail.runAriaLabel': 'Jalankan alur kerja ini',
+  'skills.run.title': 'Alur kerja',
+  'workflows.installFromUrl': 'Instal dari URL',
   // Security banner (approval-gate host-aware boot state)
   'security.approvalGateDisabled.title': 'Gerbang persetujuan dinonaktifkan',
   'security.approvalGateDisabled.body':

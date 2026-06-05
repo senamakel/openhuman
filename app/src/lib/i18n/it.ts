@@ -282,7 +282,6 @@ const messages: TranslationMap = {
   'skills.tabs.channels': 'Canali',
   'skills.tabs.explorer': 'Skill',
   'skills.tabs.mcp': 'MCP Server',
-  'skills.tabs.runners': 'Runners',
   'memory.title': 'Memoria',
   'memory.search': 'Cerca memorie...',
   'memory.noResults': 'Nessuna memoria trovata',
@@ -3602,7 +3601,7 @@ const messages: TranslationMap = {
   'settings.skillsRunner.error.preflightGate': 'Il gate di prevolo non è riuscito',
   'settings.skillsRunner.schedule.heading': 'Programma (ricorrente)',
   'settings.skillsRunner.schedule.help':
-    "Salva questa abilità + input come un lavoro cron ricorrente. L'agente chiamerà run_skill ad ogni ciclo.",
+    "Salva questa abilità + input come un lavoro cron ricorrente. L'agente chiamerà run_workflow ad ogni ciclo.",
   'settings.skillsRunner.schedule.frequency': 'Frequenza',
   'settings.skillsRunner.schedule.every30min': 'Ogni 30 minuti',
   'settings.skillsRunner.schedule.everyHour': 'Ogni ora',
@@ -3616,6 +3615,8 @@ const messages: TranslationMap = {
   'settings.skillsRunner.schedule.loadingJobs': 'Caricamento degli orari esistenti…',
   'settings.skillsRunner.schedule.noJobs': 'Nessun programma salvato per questa competenza ancora.',
   'settings.skillsRunner.schedule.existing': 'Attività programmate per questa competenza:',
+  'settings.skillsRunner.schedule.inputsLabel': 'Input',
+  'settings.skillsRunner.schedule.inputsNone': 'Nessun input',
   'settings.skillsRunner.schedule.runNow': 'Corri',
   'settings.skillsRunner.schedule.remove': 'Rimuovere',
   'settings.skillsRunner.scheduleEnabled': 'Abilitato',
@@ -4498,22 +4499,12 @@ const messages: TranslationMap = {
   'settings.taskSources.providers.notion': 'Nozione',
   'settings.taskSources.providers.linear': 'Lineare',
   'settings.taskSources.providers.clickup': 'ClickUp',
-  'skills.dashboard.title': 'Skills',
-  'skills.dashboard.scheduledHeading': 'Skill pianificate',
-  'skills.dashboard.emptyTitle': 'Nessuna skill pianificata',
-  'skills.dashboard.emptyBody':
-    'Esegui una skill inclusa una volta o salva una pianificazione ricorrente per vederla qui.',
-  'skills.dashboard.create': 'Crea una skill',
-  'skills.dashboard.run': 'Esegui una skill',
-  'skills.dashboard.enable': 'Abilita skill pianificata',
-  'skills.dashboard.disable': 'Disabilita skill pianificata',
+  'skills.dashboard.enable': 'Abilita workflow pianificato',
+  'skills.dashboard.disable': 'Disabilita workflow pianificato',
   'skills.dashboard.lastRun': 'Ultima esecuzione',
   'skills.dashboard.nextRun': 'Prossima esecuzione',
   'skills.dashboard.cardOpenRunner': 'Apri nel runner',
-  'skills.dashboard.loadError': 'Impossibile caricare le skill pianificate',
-  'skills.new.title': 'Crea una skill',
-  'skills.new.placeholderBody':
-    'Il modulo di creazione è in arrivo. Per ora, usa il pulsante "Nuova skill" nella pagina del runner.',
+  'skills.new.title': 'Crea un workflow',
   'settings.agents.title': 'Agenti',
   'settings.agents.subtitle':
     'Gestisci gli agenti disponibili per la delega — quelli predefiniti integrati e i tuoi agenti personalizzati.',
@@ -4937,6 +4928,16 @@ const messages: TranslationMap = {
   'memoryData.windowError': 'Finestra di memoria',
   'memoryData.windowUpdated': 'Finestra di memoria aggiornata',
   'memoryData.windowUpdatedMsg': 'Impostata su {window}.',
+  'skills.create.whenToUse': 'Quando usarlo',
+  'skills.create.whenToUsePlaceholder':
+    "es. quando l'utente chiede di organizzare la posta in arrivo",
+  'skills.create.whenToUseHelp':
+    "L'attivatore che un agente riconosce per decidere di eseguire questo workflow. Lascia vuoto per riutilizzare la descrizione.",
+  'skills.create.inputs.row.descriptionError': 'È richiesta una descrizione per ogni input.',
+  'skills.detail.run': 'Esegui',
+  'skills.detail.runAriaLabel': 'Esegui questo workflow',
+  'skills.run.title': 'Workflow',
+  'workflows.installFromUrl': 'Installa da URL',
   // Security banner (approval-gate host-aware boot state)
   'security.approvalGateDisabled.title': 'Porta di approvazione disattivata',
   'security.approvalGateDisabled.body':

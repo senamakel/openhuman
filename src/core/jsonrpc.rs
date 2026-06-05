@@ -1509,10 +1509,13 @@ async fn run_server_inner(
                     ),
                     Err(e) => log::warn!("[boot] whatsapp_data::global init failed: {e}"),
                 }
-                // Seed bundled default skills into <workspace>/skills/ so they
-                // ship with the system — discoverable (skills_list) and runnable
-                // — without a manual drop. Idempotent; never clobbers user edits.
-                crate::openhuman::skills::registry::seed_default_skills(&cfg.workspace_dir);
+                // Prune legacy bundled skills (dev-workflow / github-issue-crusher
+                // / pr-review-shepherd) that older builds seeded into
+                // <workspace>/skills/. OpenHuman no longer ships bundled defaults;
+                // this removes the stale dirs on upgrade. Idempotent.
+                crate::openhuman::workflows::registry::prune_legacy_default_workflows(
+                    &cfg.workspace_dir,
+                );
                 // Boot-time Sentry user binding — issue #3135. If the user is
                 // already signed in (typical desktop restart), the auth-profile
                 // store has their `user_id` *now*, before any background loop

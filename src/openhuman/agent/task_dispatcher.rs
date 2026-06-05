@@ -12,7 +12,7 @@
 //! - the **proactive triage** arm (`agent::triage::apply_decision`), once it has
 //!   decided to act on a task-board card.
 //!
-//! The runner mirrors `skills::spawn_skill_run_background`: build the
+//! The runner mirrors `skills::spawn_workflow_run_background`: build the
 //! `orchestrator` agent fresh inside a detached task, cap tool iterations, and
 //! run `agent.run_single` under `with_autonomous_iter_cap`. PR-4 generalises the
 //! executor from the default agent to a resolved personality/skill; this module
@@ -485,8 +485,9 @@ fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> ResolvedExe
         }
     }
 
-    // 2) Skill (#2824): the same autonomous run, seeded with SKILL.md.
-    if let Some(skill) = crate::openhuman::skills::registry::get_skill(workspace_dir, handle) {
+    // 2) Workflow (#2824): the same autonomous run, seeded with SKILL.md.
+    if let Some(skill) = crate::openhuman::workflows::registry::get_workflow(workspace_dir, handle)
+    {
         let guidelines = match &skill.definition.system_prompt {
             PromptSource::Inline(s) => truncate_chars(s, EXECUTOR_PREAMBLE_MAX_CHARS),
             _ => String::new(),
@@ -590,6 +591,7 @@ async fn run_autonomous(
             thread_id.to_string(),
             run_id.to_string(),
             crate::openhuman::threads::turn_state::TurnStateStore::new(workspace_dir.clone()),
+            config.clone(),
         );
     }
 

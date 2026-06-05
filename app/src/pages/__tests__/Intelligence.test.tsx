@@ -17,7 +17,9 @@ vi.mock('../../components/intelligence/IntelligenceTasksTab', () => ({
 vi.mock('../../components/intelligence/ModelCouncilTab', () => ({
   default: () => <div data-testid="tab-council" />,
 }));
-vi.mock('../AgentWorkflows', () => ({ default: () => <div data-testid="tab-workflows" /> }));
+vi.mock('../../components/intelligence/WorkflowsTab', () => ({
+  default: () => <div data-testid="tab-workflows" />,
+}));
 vi.mock('../../components/intelligence/Toast', () => ({ ToastContainer: () => null }));
 vi.mock('../../components/intelligence/ConfirmationModal', () => ({
   ConfirmationModal: () => null,
@@ -64,10 +66,10 @@ function renderAt(path: string) {
 describe('Intelligence URL-backed tab', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('defaults to the memory tab when no ?tab is present', () => {
+  it('defaults to the tasks tab when no ?tab is present', () => {
     renderAt('/intelligence');
-    expect(screen.getByTestId('tab-memory')).toBeInTheDocument();
-    expect(screen.getByText('selected:memory')).toBeInTheDocument();
+    expect(screen.getByTestId('tab-tasks')).toBeInTheDocument();
+    expect(screen.getByText('selected:tasks')).toBeInTheDocument();
   });
 
   it('honours ?tab=tasks from the URL', () => {
@@ -76,9 +78,9 @@ describe('Intelligence URL-backed tab', () => {
     expect(screen.getByText('selected:tasks')).toBeInTheDocument();
   });
 
-  it('falls back to memory for an unknown ?tab value', () => {
+  it('falls back to tasks for an unknown ?tab value', () => {
     renderAt('/intelligence?tab=bogus');
-    expect(screen.getByTestId('tab-memory')).toBeInTheDocument();
+    expect(screen.getByTestId('tab-tasks')).toBeInTheDocument();
   });
 
   it('switching tabs updates the active tab via the URL', () => {

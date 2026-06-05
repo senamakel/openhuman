@@ -1556,11 +1556,10 @@ fn expansion_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
 // ── Theme: Task & workflow productivity ─────────────────────────────────────
 
 const PRODUCTIVITY_TOOLS: &[&str] = &[
-    "agent_workflow_list",
-    "agent_workflow_read",
-    "agent_workflow_phase_info",
-    "agent_workflow_create",
-    "agent_workflow_uninstall",
+    // NOTE: the old `agent_workflow_*` tools were removed when the
+    // `agent_workflows` domain was dissolved into `workflows`; workflow
+    // discovery/run tools now live under the Knowledge theme
+    // (`list_workflows`, `run_workflow`, …).
     "artifact_list",
     "artifact_get",
     "artifact_delete",
@@ -1584,7 +1583,6 @@ const PRODUCTIVITY_TOOLS: &[&str] = &[
 ];
 
 const PRODUCTIVITY_DEFAULT_OFF: &[&str] = &[
-    "agent_workflow_uninstall",
     "artifact_delete",
     "todo_remove",
     "todo_replace",
@@ -1595,8 +1593,6 @@ const PRODUCTIVITY_DEFAULT_OFF: &[&str] = &[
 ];
 
 const PRODUCTIVITY_ALWAYS_ON: &[&str] = &[
-    "agent_workflow_list",
-    "agent_workflow_create",
     "artifact_list",
     "artifact_get",
     "todo_list",
@@ -1642,7 +1638,6 @@ fn productivity_default_off_tools_retained_when_opted_in() {
             "todo_destructive".to_string(),
             "task_source_manage".to_string(),
             "artifact_delete".to_string(),
-            "agent_workflow_uninstall".to_string(),
         ],
     );
     let names = tool_names(&tools);
@@ -1701,14 +1696,14 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
     "people_add_alias",
     "people_record_interaction",
     "people_refresh_address_book",
-    "skill_list",
-    "skill_describe",
-    "skill_read_resource",
-    "skill_recent_runs",
-    "skill_read_run_log",
-    "skill_create",
-    "skill_install_from_url",
-    "skill_uninstall",
+    "list_workflows",
+    "describe_workflow",
+    "read_workflow_resource",
+    "list_workflow_runs",
+    "read_workflow_run_log",
+    "create_workflow",
+    "install_workflow_from_url",
+    "uninstall_workflow",
     "thread_list",
     "thread_read",
     "thread_create",
@@ -1740,9 +1735,9 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
 
 const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
     "people_refresh_address_book",
-    "skill_create",
-    "skill_install_from_url",
-    "skill_uninstall",
+    "create_workflow",
+    "install_workflow_from_url",
+    "uninstall_workflow",
     "thread_delete",
     "thread_purge_all",
     "learning_update_facet",
@@ -1758,8 +1753,8 @@ const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
 const KNOWLEDGE_ALWAYS_ON: &[&str] = &[
     "people_list",
     "people_resolve",
-    "skill_list",
-    "skill_recent_runs",
+    "list_workflows",
+    "list_workflow_runs",
     "thread_list",
     "thread_create",
     "learning_list_facets",
@@ -1801,7 +1796,7 @@ fn knowledge_default_off_tools_retained_when_opted_in() {
         &mut tools,
         &[
             "people_refresh_address_book".to_string(),
-            "skill_manage".to_string(),
+            "workflow_manage".to_string(),
             "thread_destructive".to_string(),
             "learning_manage".to_string(),
         ],

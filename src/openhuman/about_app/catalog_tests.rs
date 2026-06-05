@@ -13,7 +13,7 @@ fn composio_direct_mode_capabilities_are_registered() {
     // capability are advertised in the catalog so downstream UI surfaces
     // (settings search, /about catalog dump) can find them.
     let direct = lookup("composio.direct_mode").expect("direct_mode entry exists");
-    assert_eq!(direct.category, CapabilityCategory::Skills);
+    assert_eq!(direct.category, CapabilityCategory::Workflows);
     // Direct mode itself is Beta (works for tool execution today).
     assert_eq!(direct.status, CapabilityStatus::Beta);
 
@@ -91,8 +91,8 @@ fn catalog_includes_additional_user_facing_surfaces() {
         .collect();
 
     for expected in [
-        "skills.open_connections_hub",
-        "skills.connect_google",
+        "workflows.open_connections_hub",
+        "workflows.connect_google",
         "auth.backup_recovery_phrase",
         "auth.configure_tool_access",
         "settings.manage_service",

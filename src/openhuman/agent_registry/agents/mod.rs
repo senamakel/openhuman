@@ -5,6 +5,7 @@ mod loader;
 // overrides), and a `prompt.rs` exposing a `pub fn build(&PromptContext)
 // -> Result<String>` that the loader wires into `PromptSource::Dynamic`.
 pub mod account_admin_agent;
+pub mod agent_memory;
 pub mod archivist;
 pub mod code_executor;
 pub mod critic;

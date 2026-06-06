@@ -30,7 +30,7 @@ concurrency:
 jobs:
   build-and-upload:
     name: Build and upload iOS IPA
-    runs-on: macos-26-arm64
+    runs-on: macos-26
     environment: App Development Production
     env:
       APP_IDENTIFIER: com.tinyhumansai.openhuman

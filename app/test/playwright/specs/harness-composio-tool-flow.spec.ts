@@ -211,7 +211,7 @@ test.describe('Harness - Composio tool-call prompt flow', () => {
 
     await sendMessage(page, 'list my GitHub repos');
     await expect(page.getByText(CANARY).first()).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText(/openhuman/i)).toBeVisible();
+    await expect(page.getByText(/openhuman/i).first()).toBeVisible();
 
     const log = await requests();
     const llmHits = log.filter(

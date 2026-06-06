@@ -3821,6 +3821,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'إظهار التسميات دائمًا',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'عند إيقاف التشغيل، تظهر التسميات فقط عند التمرير أو لعلامة التبويب النشطة.',
+  'settings.appearance.chatHeading': 'الدردشة',
+  'settings.appearance.assistantTextMode': 'ردود المساعد كنص',
+  'settings.appearance.assistantTextModeDesc':
+    'اعرض ردود المساعد كنص بلا إطار مع إبقاء رسائلك داخل فقاعات.',
   'settings.mascot.active': 'نشط',
   'settings.mascot.characterDesc': 'وصف الشخصية',
   'settings.mascot.characterHeading': 'عنوان الشخصية',

@@ -3857,6 +3857,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': '항상 레이블 표시',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     '끄면 레이블은 마우스를 가져가거나 활성 탭에 대해서만 표시됩니다.',
+  'settings.appearance.chatHeading': '채팅',
+  'settings.appearance.assistantTextMode': '어시스턴트 답변을 텍스트로 표시',
+  'settings.appearance.assistantTextModeDesc':
+    '사용자 메시지는 말풍선으로 유지하고 어시스턴트 답변은 프레임 없는 텍스트로 표시합니다.',
   'settings.mascot.active': '활성',
   'settings.mascot.characterDesc': '캐릭터 설명',
   'settings.mascot.characterHeading': '캐릭터 제목',

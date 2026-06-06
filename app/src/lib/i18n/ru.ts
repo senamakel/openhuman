@@ -3936,6 +3936,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Всегда показывать метки',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'Если этот параметр отключен, метки отображаются только при наведении курсора мыши или на активной вкладке.',
+  'settings.appearance.chatHeading': 'Чат',
+  'settings.appearance.assistantTextMode': 'Ответы ассистента текстом',
+  'settings.appearance.assistantTextModeDesc':
+    'Показывает ответы ассистента как текст без рамки, оставляя ваши сообщения в пузырьках.',
   'settings.mascot.active': 'Активно',
   'settings.mascot.characterDesc': 'Описание персонажа',
   'settings.mascot.characterHeading': 'Персонаж',

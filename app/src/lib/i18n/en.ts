@@ -4419,6 +4419,10 @@ const en: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Always show labels',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'When off, labels only appear on hover or for the active tab.',
+  'settings.appearance.chatHeading': 'Chat',
+  'settings.appearance.assistantTextMode': 'Plain assistant responses',
+  'settings.appearance.assistantTextModeDesc':
+    'Render assistant replies as unframed text while keeping your messages in bubbles.',
   'settings.mascot.active': 'Active',
   'settings.mascot.characterDesc': 'Choose your OpenHuman character.',
   'settings.mascot.characterHeading': 'Character',

@@ -3979,6 +3979,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Mostrar siempre etiquetas',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'Cuando está desactivado, las etiquetas solo aparecen al pasar el mouse o para la pestaña activa.',
+  'settings.appearance.chatHeading': 'Chat',
+  'settings.appearance.assistantTextMode': 'Respuestas del asistente en texto',
+  'settings.appearance.assistantTextModeDesc':
+    'Muestra las respuestas del asistente como texto sin marco y mantiene tus mensajes en burbujas.',
   'settings.mascot.active': 'Activo',
   'settings.mascot.characterDesc': 'Descripción del personaje',
   'settings.mascot.characterHeading': 'Encabezado del personaje',

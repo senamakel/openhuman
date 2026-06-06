@@ -3915,6 +3915,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Selalu tampilkan label',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'Saat nonaktif, label hanya muncul saat diarahkan atau untuk tab yang aktif.',
+  'settings.appearance.chatHeading': 'Chat',
+  'settings.appearance.assistantTextMode': 'Respons asisten sebagai teks',
+  'settings.appearance.assistantTextModeDesc':
+    'Tampilkan balasan asisten sebagai teks tanpa bingkai, sementara pesan Anda tetap dalam gelembung.',
   'settings.mascot.active': 'Aktif',
   'settings.mascot.characterDesc': 'Deskripsi karakter',
   'settings.mascot.characterHeading': 'Judul karakter',

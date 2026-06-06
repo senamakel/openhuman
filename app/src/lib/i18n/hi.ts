@@ -3907,6 +3907,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'हमेशा लेबल दिखाएं',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'बंद होने पर, लेबल केवल होवर पर या सक्रिय टैब के लिए दिखाई देते हैं।',
+  'settings.appearance.chatHeading': 'चैट',
+  'settings.appearance.assistantTextMode': 'असिस्टेंट जवाब टेक्स्ट में',
+  'settings.appearance.assistantTextModeDesc':
+    'असिस्टेंट के जवाबों को बिना फ्रेम वाले टेक्स्ट के रूप में दिखाएं और आपके संदेश बबल में रखें।',
   'settings.mascot.active': 'एक्टिव',
   'settings.mascot.characterDesc': 'कैरेक्टर विवरण',
   'settings.mascot.characterHeading': 'कैरेक्टर शीर्षक',

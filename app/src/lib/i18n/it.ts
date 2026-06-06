@@ -3971,6 +3971,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Mostra sempre le etichette',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'Quando disattivata, le etichette vengono visualizzate solo al passaggio del mouse o per la scheda attiva.',
+  'settings.appearance.chatHeading': 'Chat',
+  'settings.appearance.assistantTextMode': "Risposte dell'assistente in testo",
+  'settings.appearance.assistantTextModeDesc':
+    "Mostra le risposte dell'assistente come testo senza cornice mantenendo i tuoi messaggi nei fumetti.",
   'settings.mascot.active': 'Attivo',
   'settings.mascot.characterDesc': 'Descrizione personaggio',
   'settings.mascot.characterHeading': 'Intestazione personaggio',

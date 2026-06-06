@@ -91,18 +91,11 @@ export const CONSUMER_FIRST_SESSION_ENABLED =
   import.meta.env.VITE_CONSUMER_FIRST_SESSION === 'true';
 
 /**
- * Chat image attachments (the composer's attach button + file picker).
- *
- * **Default off.** The end-to-end attachment path is not usable yet: image
- * payloads are inlined as base64 into the chat message and rejected by the
- * managed backend (`413 Payload Too Large`), so attaching anything surfaces a
- * generic "Something went wrong" error (issue #3205). Until images are sent
- * out-of-band (uploaded + referenced by URL) and the backend accepts them, we
- * hide the entry point rather than ship a button that always fails.
- * Re-enable locally to work on the feature: `VITE_CHAT_ATTACHMENTS=true` in
- * `app/.env.local`.
+ * Chat multimodal attachments (image + supported file markers). Enabled by
+ * default now that core parses `[IMAGE:…]` / `[FILE:…]` payloads and the
+ * renderer runs a lossless compression pass before sending.
  */
-export const CHAT_ATTACHMENTS_ENABLED = import.meta.env.VITE_CHAT_ATTACHMENTS === 'true';
+export const CHAT_ATTACHMENTS_ENABLED = import.meta.env.VITE_CHAT_ATTACHMENTS !== 'false';
 
 export const SKILLS_GITHUB_REPO =
   import.meta.env.VITE_SKILLS_GITHUB_REPO || 'tinyhumansai/openhuman-skills';

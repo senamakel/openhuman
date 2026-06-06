@@ -1493,7 +1493,8 @@ async fn run_server_inner(
         // sets OPENHUMAN_WORKSPACE to a writable path, then restarts.
         match crate::openhuman::config::Config::load_or_init().await {
             Ok(cfg) => {
-                let keyring_dir = crate::openhuman::keyring::store::workspace_dir_for_file_backend();
+                let keyring_dir =
+                    crate::openhuman::keyring::store::workspace_dir_for_file_backend();
                 log::info!(
                     "[boot] paths: config={} workspace={} keyring_dir={} keyring_backend={}",
                     cfg.config_path.display(),

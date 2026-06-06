@@ -497,9 +497,14 @@ mod tests {
             content_root: Some(content_root),
         };
 
-        let outcome = run_smart_walk(&cfg, &provider, "What's happening with the auth service?", opts)
-            .await
-            .unwrap();
+        let outcome = run_smart_walk(
+            &cfg,
+            &provider,
+            "What's happening with the auth service?",
+            opts,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
         assert!(outcome.answer.contains("auth service"));
@@ -532,9 +537,14 @@ mod tests {
             content_root: Some(content_root),
         };
 
-        let outcome = run_smart_walk(&cfg, &provider, "What's the status of Project Phoenix?", opts)
-            .await
-            .unwrap();
+        let outcome = run_smart_walk(
+            &cfg,
+            &provider,
+            "What's the status of Project Phoenix?",
+            opts,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
         assert!(outcome.answer.contains("phase 2"));

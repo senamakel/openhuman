@@ -370,11 +370,11 @@ impl SubconsciousEngine {
         match self.mode {
             SubconsciousMode::Simple => {
                 effective.autonomy.level = crate::openhuman::security::AutonomyLevel::ReadOnly;
-                effective.agent.max_tool_iterations = 12;
+                effective.agent.max_tool_iterations = 15;
             }
             SubconsciousMode::Aggressive => {
                 effective.autonomy.level = crate::openhuman::security::AutonomyLevel::Full;
-                effective.agent.max_tool_iterations = 20;
+                effective.agent.max_tool_iterations = 30;
             }
             SubconsciousMode::Off => return Ok((vec![], 0)),
         }

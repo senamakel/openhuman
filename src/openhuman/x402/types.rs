@@ -133,9 +133,9 @@ impl PaymentRequired {
     /// Find the first `accepts` entry whose network starts with `"solana:"` and
     /// whose scheme is `"exact"`.
     pub fn solana_exact_requirement(&self) -> Option<&PaymentRequirements> {
-        self.accepts.iter().find(|r| {
-            r.scheme == "exact" && r.network.starts_with("solana:")
-        })
+        self.accepts
+            .iter()
+            .find(|r| r.scheme == "exact" && r.network.starts_with("solana:"))
     }
 }
 

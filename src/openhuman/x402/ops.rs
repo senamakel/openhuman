@@ -81,14 +81,16 @@ impl X402Client {
             .solana_exact_requirement()
             .ok_or_else(|| X402Error::NoSolanaOption)?;
 
-        let amount: u64 = requirement
-            .amount
-            .parse()
-            .map_err(|e| X402Error::Protocol(format!("invalid amount '{}': {e}", requirement.amount)))?;
+        let amount: u64 = requirement.amount.parse().map_err(|e| {
+            X402Error::Protocol(format!("invalid amount '{}': {e}", requirement.amount))
+        })?;
 
         if let Some(cap) = max_amount {
             if amount > cap {
-                return Err(X402Error::AmountExceedsCap { requested: amount, cap });
+                return Err(X402Error::AmountExceedsCap {
+                    requested: amount,
+                    cap,
+                });
             }
         }
 
@@ -115,10 +117,7 @@ impl X402Client {
         debug!("{LOG_PREFIX} retrying with payment proof");
         let paid_response = retry_req.send().await.map_err(X402Error::Transport)?;
 
-        if let Some(receipt_header) = paid_response
-            .headers()
-            .get(HEADER_PAYMENT_RESPONSE)
-        {
+        if let Some(receipt_header) = paid_response.headers().get(HEADER_PAYMENT_RESPONSE) {
             match parse_settlement_response(receipt_header.to_str().unwrap_or("")) {
                 Ok(receipt) => {
                     if receipt.success {
@@ -197,13 +196,12 @@ pub async fn handle_402_and_pay(
     let (challenge, idx) = handle_402(response_headers)?;
     let requirement = &challenge.accepts[idx];
 
-    let amount: u64 = requirement
-        .amount
-        .parse()
-        .map_err(|e| X402Error::Protocol(format!("invalid amount '{}': {e}", requirement.amount)))?;
+    let amount: u64 = requirement.amount.parse().map_err(|e| {
+        X402Error::Protocol(format!("invalid amount '{}': {e}", requirement.amount))
+    })?;
 
-    let budget_check = super::store::with_ledger(|l| l.check_budget(amount))
-        .map_err(|e| X402Error::Wallet(e))?;
+    let budget_check =
+        super::store::with_ledger(|l| l.check_budget(amount)).map_err(|e| X402Error::Wallet(e))?;
 
     match budget_check {
         super::store::BudgetCheck::Allowed => {}
@@ -257,13 +255,11 @@ async fn derive_wallet_signing_key() -> Result<SigningKey, X402Error> {
         .await
         .map_err(|e| X402Error::Wallet(format!("load config: {e}")))?;
 
-    let mnemonic = crate::openhuman::encryption::rpc::decrypt_secret(
-        &config,
-        &secret.encrypted_mnemonic,
-    )
-    .await
-    .map_err(|e| X402Error::Wallet(format!("decrypt mnemonic: {e}")))?
-    .value;
+    let mnemonic =
+        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
+            .await
+            .map_err(|e| X402Error::Wallet(format!("decrypt mnemonic: {e}")))?
+            .value;
 
     derive_solana_keypair_from_mnemonic(&mnemonic, &secret.derivation_path)
 }
@@ -318,7 +314,11 @@ fn parse_derivation_path(path: &str) -> Result<Vec<u32>, X402Error> {
     let mut iter = trimmed.split('/');
     match iter.next() {
         Some("m") => {}
-        _ => return Err(X402Error::Wallet(format!("path must start with 'm': {path}"))),
+        _ => {
+            return Err(X402Error::Wallet(format!(
+                "path must start with 'm': {path}"
+            )))
+        }
     }
     let mut out = Vec::new();
     for seg in iter {
@@ -342,8 +342,15 @@ pub enum X402Error {
     Transport(reqwest::Error),
     NoPaymentHeader,
     NoSolanaOption,
-    AmountExceedsCap { requested: u64, cap: u64 },
-    BudgetExceeded { period: &'static str, current: u64, cap: u64 },
+    AmountExceedsCap {
+        requested: u64,
+        cap: u64,
+    },
+    BudgetExceeded {
+        period: &'static str,
+        current: u64,
+        cap: u64,
+    },
     Protocol(String),
     Wallet(String),
 }
@@ -357,8 +364,15 @@ impl std::fmt::Display for X402Error {
             Self::AmountExceedsCap { requested, cap } => {
                 write!(f, "x402 amount {requested} exceeds per-request cap {cap}")
             }
-            Self::BudgetExceeded { period, current, cap } => {
-                write!(f, "x402 {period} budget exceeded: {current}/{cap} atomic units")
+            Self::BudgetExceeded {
+                period,
+                current,
+                cap,
+            } => {
+                write!(
+                    f,
+                    "x402 {period} budget exceeded: {current}/{cap} atomic units"
+                )
             }
             Self::Protocol(msg) => write!(f, "x402 protocol: {msg}"),
             Self::Wallet(msg) => write!(f, "x402 wallet: {msg}"),
@@ -398,8 +412,7 @@ fn parse_settlement_response(b64_str: &str) -> Result<SettlementResponse, String
     let json_bytes = B64
         .decode(b64_str.trim())
         .map_err(|e| format!("PAYMENT-RESPONSE base64 decode: {e}"))?;
-    serde_json::from_slice(&json_bytes)
-        .map_err(|e| format!("PAYMENT-RESPONSE JSON parse: {e}"))
+    serde_json::from_slice(&json_bytes).map_err(|e| format!("PAYMENT-RESPONSE JSON parse: {e}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -429,9 +442,10 @@ async fn build_solana_payment(
     req: &PaymentRequirements,
 ) -> Result<PaymentPayload, X402Error> {
     let our_pubkey = signing_key.verifying_key().to_bytes();
-    let amount: u64 = req.amount.parse().map_err(|e| {
-        X402Error::Protocol(format!("invalid amount '{}': {e}", req.amount))
-    })?;
+    let amount: u64 = req
+        .amount
+        .parse()
+        .map_err(|e| X402Error::Protocol(format!("invalid amount '{}': {e}", req.amount)))?;
 
     let fee_payer = req
         .fee_payer_pubkey()
@@ -454,14 +468,14 @@ async fn build_solana_payment(
 
     // -- account keys (order matters) --
     let account_keys: Vec<[u8; 32]> = vec![
-        fee_payer_bytes,  // 0: fee payer (signer, writable)
-        our_pubkey,       // 1: transfer authority (signer, writable)
-        src_ata,          // 2: source ATA (writable)
-        dst_ata,          // 3: destination ATA (writable)
-        mint_bytes,       // 4: mint (readonly)
-        token_program,    // 5: SPL Token program (readonly)
-        compute_budget,   // 6: Compute Budget program (readonly)
-        memo_program,     // 7: SPL Memo program (readonly)
+        fee_payer_bytes, // 0: fee payer (signer, writable)
+        our_pubkey,      // 1: transfer authority (signer, writable)
+        src_ata,         // 2: source ATA (writable)
+        dst_ata,         // 3: destination ATA (writable)
+        mint_bytes,      // 4: mint (readonly)
+        token_program,   // 5: SPL Token program (readonly)
+        compute_budget,  // 6: Compute Budget program (readonly)
+        memo_program,    // 7: SPL Memo program (readonly)
     ];
 
     // header: [num_required_sigs, num_readonly_signed, num_readonly_unsigned]
@@ -473,13 +487,12 @@ async fn build_solana_payment(
     let set_cu_limit = build_set_compute_unit_limit(6, DEFAULT_COMPUTE_UNITS);
     let set_cu_price = build_set_compute_unit_price(6, DEFAULT_COMPUTE_UNIT_PRICE);
     let transfer_checked = build_transfer_checked(
-        5,    // token_program index
-        2,    // src_ata index
-        4,    // mint index
-        3,    // dst_ata index
-        1,    // authority (our_pubkey) index
-        amount,
-        6,    // USDC decimals
+        5, // token_program index
+        2, // src_ata index
+        4, // mint index
+        3, // dst_ata index
+        1, // authority (our_pubkey) index
+        amount, 6, // USDC decimals
     );
     let memo = build_memo(7, &memo_data);
 
@@ -494,10 +507,10 @@ async fn build_solana_payment(
     // -- build wire: 2 signature slots, sign only ours (index 1) --
     let mut wire = Vec::with_capacity(1 + 128 + message.len());
     wire.extend(encode_shortvec(2)); // 2 required signatures
-    wire.extend([0u8; 64]);          // slot 0: fee_payer (left zeroed for facilitator)
+    wire.extend([0u8; 64]); // slot 0: fee_payer (left zeroed for facilitator)
 
     let sig = signing_key.sign(&message);
-    wire.extend(sig.to_bytes());     // slot 1: our signature
+    wire.extend(sig.to_bytes()); // slot 1: our signature
     wire.extend(&message);
 
     let tx_b64 = B64.encode(&wire);
@@ -511,7 +524,9 @@ async fn build_solana_payment(
         x402_version: X402_VERSION,
         resource: Some(challenge.resource.clone()),
         accepted: req.clone(),
-        payload: SolanaPaymentProof { transaction: tx_b64 },
+        payload: SolanaPaymentProof {
+            transaction: tx_b64,
+        },
         extensions: serde_json::Map::new(),
     })
 }

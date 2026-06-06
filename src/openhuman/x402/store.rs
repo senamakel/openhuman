@@ -264,12 +264,7 @@ impl PaymentLedger {
     }
 
     pub fn recent_payments(&self, limit: usize) -> Vec<PaymentRecord> {
-        self.records
-            .iter()
-            .rev()
-            .take(limit)
-            .cloned()
-            .collect()
+        self.records.iter().rev().take(limit).cloned().collect()
     }
 
     pub fn budget(&self) -> &SpendingBudget {
@@ -279,9 +274,7 @@ impl PaymentLedger {
     pub fn update_budget(&mut self, budget: SpendingBudget) {
         debug!(
             "{LOG_PREFIX} budget updated per_request={} daily={} monthly={}",
-            budget.per_request_max_atomic,
-            budget.daily_max_atomic,
-            budget.monthly_max_atomic
+            budget.per_request_max_atomic, budget.daily_max_atomic, budget.monthly_max_atomic
         );
         self.budget = budget;
     }
@@ -405,7 +398,9 @@ mod tests {
             budget: test_budget(),
             session_id: "test".into(),
         };
-        ledger.records.push(make_record(1_800_000, PaymentStatus::Settled));
+        ledger
+            .records
+            .push(make_record(1_800_000, PaymentStatus::Settled));
         assert_eq!(
             ledger.check_budget(400_000),
             BudgetCheck::ExceedsDailyBudget {
@@ -423,7 +418,9 @@ mod tests {
             budget: test_budget(),
             session_id: "test".into(),
         };
-        ledger.records.push(make_record(1_800_000, PaymentStatus::Failed));
+        ledger
+            .records
+            .push(make_record(1_800_000, PaymentStatus::Failed));
         assert_eq!(ledger.check_budget(400_000), BudgetCheck::Allowed);
     }
 
@@ -435,9 +432,15 @@ mod tests {
             budget: test_budget(),
             session_id: "test".into(),
         };
-        ledger.records.push(make_record(100_000, PaymentStatus::Settled));
-        ledger.records.push(make_record(200_000, PaymentStatus::Settled));
-        ledger.records.push(make_record(50_000, PaymentStatus::Failed));
+        ledger
+            .records
+            .push(make_record(100_000, PaymentStatus::Settled));
+        ledger
+            .records
+            .push(make_record(200_000, PaymentStatus::Settled));
+        ledger
+            .records
+            .push(make_record(50_000, PaymentStatus::Failed));
 
         let summary = ledger.summary();
         assert_eq!(summary.session_total_atomic, 300_000);

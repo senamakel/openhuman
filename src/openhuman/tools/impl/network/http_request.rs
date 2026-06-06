@@ -179,10 +179,7 @@ impl HttpRequestTool {
         );
 
         let mut retry_headers = headers;
-        retry_headers.push((
-            "PAYMENT-SIGNATURE".to_string(),
-            payment_result.header_value,
-        ));
+        retry_headers.push(("PAYMENT-SIGNATURE".to_string(), payment_result.header_value));
 
         let response = self
             .execute_request(url, method, retry_headers, body)
@@ -198,9 +195,7 @@ impl HttpRequestTool {
             .headers()
             .get("PAYMENT-RESPONSE")
             .and_then(|v| v.to_str().ok())
-            .and_then(|b64| {
-                base64::engine::general_purpose::STANDARD.decode(b64).ok()
-            })
+            .and_then(|b64| base64::engine::general_purpose::STANDARD.decode(b64).ok())
             .and_then(|bytes| serde_json::from_slice::<x402::SettlementResponse>(&bytes).ok())
             .and_then(|r| {
                 if r.success && !r.transaction.is_empty() {
@@ -211,7 +206,11 @@ impl HttpRequestTool {
             });
 
         let _ = x402::store::with_ledger_mut(|l| {
-            if let Some(rec) = l.recent_payments(100).into_iter().find(|r| r.id == record_id) {
+            if let Some(rec) = l
+                .recent_payments(100)
+                .into_iter()
+                .find(|r| r.id == record_id)
+            {
                 let mut updated = rec;
                 updated.status = settled_status;
                 updated.tx_signature = tx_sig.clone();

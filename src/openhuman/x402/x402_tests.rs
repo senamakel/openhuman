@@ -21,9 +21,7 @@ fn parse_payment_required_round_trips() {
             pay_to: "2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4".into(),
             max_timeout_seconds: 60,
             extra: Some(PaymentExtra {
-                fee_payer: Some(
-                    "EwWqGE4ZFKLofuestmU4LDdK7XM1N4ALgdZccwYugwGd".into(),
-                ),
+                fee_payer: Some("EwWqGE4ZFKLofuestmU4LDdK7XM1N4ALgdZccwYugwGd".into()),
                 memo: Some("pi_3abc123".into()),
             }),
         }],
@@ -34,7 +32,10 @@ fn parse_payment_required_round_trips() {
     assert_eq!(parsed.x402_version, 2);
     assert_eq!(parsed.accepts.len(), 1);
     assert_eq!(parsed.accepts[0].amount, "10000");
-    assert_eq!(parsed.accepts[0].pay_to, "2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4");
+    assert_eq!(
+        parsed.accepts[0].pay_to,
+        "2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4"
+    );
 }
 
 #[test]

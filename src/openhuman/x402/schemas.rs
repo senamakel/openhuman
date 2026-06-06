@@ -110,14 +110,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
     }
 }
 
-fn handle_get_summary(
-    _params: Map<String, Value>,
-) -> ControllerFuture {
+fn handle_get_summary(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let (summary, budget) = store::with_ledger(|l| {
-            (l.summary(), l.budget().clone())
-        })
-        .map_err(|e| format!("x402 get_summary: {e}"))?;
+        let (summary, budget) = store::with_ledger(|l| (l.summary(), l.budget().clone()))
+            .map_err(|e| format!("x402 get_summary: {e}"))?;
 
         Ok(json!({
             "summary": summary,
@@ -133,9 +129,7 @@ struct ListPaymentsParams {
     limit: Option<u64>,
 }
 
-fn handle_list_payments(
-    params: Map<String, Value>,
-) -> ControllerFuture {
+fn handle_list_payments(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p: ListPaymentsParams = serde_json::from_value(Value::Object(params))
             .map_err(|e| format!("x402 list_payments params: {e}"))?;
@@ -159,9 +153,7 @@ struct UpdateBudgetParams {
     monthly_max: Option<u64>,
 }
 
-fn handle_update_budget(
-    params: Map<String, Value>,
-) -> ControllerFuture {
+fn handle_update_budget(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p: UpdateBudgetParams = serde_json::from_value(Value::Object(params))
             .map_err(|e| format!("x402 update_budget params: {e}"))?;

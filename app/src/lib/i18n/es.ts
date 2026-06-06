@@ -4567,7 +4567,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': 'La(s) tarea(s) {count} coinciden con este filtro',
   'settings.taskSources.fetchNow': 'Trae ahora',
   'settings.taskSources.fetching': 'Obteniendo…',
-  'settings.taskSources.fetchResult': 'Enrutado {routed} de la(s) tarea(s) {fetched}',
+  'settings.taskSources.fetchResult':
+    'Se enrutaron {routed} de {fetched} tarea(s); se eliminaron {pruned} tarea(s) obsoletas',
+  'settings.taskSources.syncAll': 'Sincronizar todo',
+  'settings.taskSources.syncing': 'Sincronizando…',
   'settings.taskSources.configured': 'Fuentes configuradas',
   'settings.taskSources.empty': 'Aún no se han configurado fuentes de tareas.',
   'settings.taskSources.proactive': 'proactivo',

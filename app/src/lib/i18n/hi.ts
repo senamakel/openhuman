@@ -4485,7 +4485,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': '{count} कार्य इस फ़िल्टर से मेल खाता है',
   'settings.taskSources.fetchNow': 'अभी लेना',
   'settings.taskSources.fetching': '...',
-  'settings.taskSources.fetchResult': '{fetched} कार्य (s) के रूटेड {routed}',
+  'settings.taskSources.fetchResult':
+    '{fetched} कार्यों में से {routed} रूट किए गए; {pruned} पुराने कार्य हटाए गए',
+  'settings.taskSources.syncAll': 'सभी सिंक करें',
+  'settings.taskSources.syncing': 'सिंक हो रहा है...',
   'settings.taskSources.configured': 'संरूपित सूत्र',
   'settings.taskSources.empty': 'अभी तक कोई कार्य स्रोत नहीं है।',
   'settings.taskSources.proactive': 'सक्रिय',

@@ -19,6 +19,7 @@ pub mod accessibility;
 pub mod agent;
 pub mod agent_experience;
 pub mod agent_meetings;
+pub mod agent_memory;
 pub mod agent_orchestration;
 pub mod agent_registry;
 pub mod agent_tool_policy;

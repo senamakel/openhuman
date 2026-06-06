@@ -141,8 +141,7 @@ hint = "chat"
 # the orchestrator never calls composio_authorize / composio_list_tools
 # / composio_execute directly.
 named = [
-    "query_memory",
-    "memory_tree",
+    "call_memory_agent",
     "read_workspace_state",
     "ask_user_clarification",
     "spawn_worker_thread",

@@ -47,7 +47,7 @@ named = [
     "todowrite",
     "plan_exit",
     "web_fetch",
-    "memory_recall",
+    "call_memory_agent",
     "web_search_tool",
     # Grounded research + market-data lookups so plans can be anchored in
     # real numbers (stock/crypto prices) and current web context, not just

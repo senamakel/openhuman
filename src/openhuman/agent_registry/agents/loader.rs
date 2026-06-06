@@ -188,6 +188,11 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         toml: include_str!("mcp_setup/agent.toml"),
         prompt_fn: super::mcp_setup::prompt::build,
     },
+    BuiltinAgent {
+        id: "agent_memory",
+        toml: include_str!("../../agent_memory/agent/agent.toml"),
+        prompt_fn: crate::openhuman::agent_memory::agent::prompt::build,
+    },
 ];
 
 /// Parse every entry in [`BUILTINS`] into an [`AgentDefinition`].
@@ -327,8 +332,8 @@ mod tests {
         match &def.tools {
             ToolScope::Named(tools) => {
                 assert!(
-                    tools.iter().any(|t| t == "memory_recall"),
-                    "trigger_reactor needs memory_recall"
+                    tools.iter().any(|t| t == "call_memory_agent"),
+                    "trigger_reactor needs call_memory_agent"
                 );
                 assert!(
                     tools.iter().any(|t| t == "memory_store"),
@@ -492,10 +497,9 @@ mod tests {
                     !tools.iter().any(|t| t == "spawn_subagent"),
                     "spawn_subagent must not appear — removed in #1141"
                 );
-                // consolidated memory_tree* → single memory_tree with mode dispatch
                 assert!(
-                    tools.iter().any(|t| t == "memory_tree"),
-                    "orchestrator must have memory_tree"
+                    tools.iter().any(|t| t == "call_memory_agent"),
+                    "orchestrator must have call_memory_agent"
                 );
                 assert!(!tools.iter().any(|t| t == "shell"));
                 assert!(!tools.iter().any(|t| t == "file_write"));
@@ -622,7 +626,7 @@ mod tests {
         match &presentation.tools {
             ToolScope::Named(names) => {
                 assert!(names.iter().any(|name| name == "generate_presentation"));
-                assert!(names.iter().any(|name| name == "memory_tree"));
+                assert!(names.iter().any(|name| name == "call_memory_agent"));
                 assert!(names.iter().any(|name| name == "web_search_tool"));
             }
             other => panic!("presentation_agent must use Named tool scope, got {other:?}"),
@@ -679,8 +683,8 @@ mod tests {
                     "help needs gitbooks_get_page"
                 );
                 assert!(
-                    tools.iter().any(|t| t == "memory_recall"),
-                    "help needs memory_recall for personalisation"
+                    tools.iter().any(|t| t == "call_memory_agent"),
+                    "help needs call_memory_agent for personalisation"
                 );
                 // Help is docs-only — no write/exec tools.
                 assert!(!tools.iter().any(|t| t == "shell"));
@@ -808,7 +812,7 @@ mod tests {
                 );
                 // Market grounding + context helpers. Pin the full set so a
                 // TOML edit that silently drops `stock_quote`,
-                // `stock_exchange_rate`, `memory_recall`, or `current_time`
+                // `stock_exchange_rate`, `call_memory_agent`, or `current_time`
                 // gets caught here — the agent's quote-before-execute
                 // discipline and "ground in user preferences before re-asking"
                 // behaviour both depend on these being present.
@@ -816,7 +820,7 @@ mod tests {
                     "stock_quote",
                     "stock_exchange_rate",
                     "stock_crypto_series",
-                    "memory_recall",
+                    "call_memory_agent",
                     "current_time",
                 ] {
                     assert!(
@@ -909,10 +913,10 @@ mod tests {
                     "markets_agent needs ask_user_clarification to gate write ops"
                 );
                 // Context helpers. Pin the full set so a TOML edit that
-                // silently drops `memory_recall` or `current_time` gets
+                // silently drops `call_memory_agent` or `current_time` gets
                 // caught here — the agent's "ground in user preferences"
                 // and "as of <when>" framing depend on these.
-                for required in ["memory_recall", "current_time"] {
+                for required in ["call_memory_agent", "current_time"] {
                     assert!(
                         tools.iter().any(|t| t == required),
                         "markets_agent needs supporting tool `{required}`"

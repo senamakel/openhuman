@@ -4520,7 +4520,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': 'Задачи {count} соответствуют этому фильтру',
   'settings.taskSources.fetchNow': 'Получить сейчас',
   'settings.taskSources.fetching': 'Получение…',
-  'settings.taskSources.fetchResult': 'Маршрутизация {routed} из задач {fetched}',
+  'settings.taskSources.fetchResult':
+    'Направлено {routed} из {fetched} задач; удалено устаревших задач: {pruned}',
+  'settings.taskSources.syncAll': 'Синхронизировать все',
+  'settings.taskSources.syncing': 'Синхронизация…',
   'settings.taskSources.configured': 'Настроенные источники',
   'settings.taskSources.empty': 'Источники задач пока не настроены.',
   'settings.taskSources.proactive': 'Проактивный',

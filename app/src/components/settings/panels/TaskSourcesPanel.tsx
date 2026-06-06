@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
@@ -9,6 +9,7 @@ import {
   openhumanTaskSourcesPreviewFilter,
   openhumanTaskSourcesRemove,
   openhumanTaskSourcesStatus,
+  openhumanTaskSourcesSync,
   openhumanTaskSourcesUpdate,
   type TaskContainer,
   type TaskSource,
@@ -76,6 +77,21 @@ function buildFilter(
   }
 }
 
+function formatSyncNotice(outcomes: Array<{ fetched: number; routed: number; pruned?: number }>): {
+  fetched: number;
+  routed: number;
+  pruned: number;
+} {
+  return outcomes.reduce<{ fetched: number; routed: number; pruned: number }>(
+    (totals, outcome) => ({
+      fetched: totals.fetched + outcome.fetched,
+      routed: totals.routed + outcome.routed,
+      pruned: totals.pruned + (outcome.pruned ?? 0),
+    }),
+    { fetched: 0, routed: 0, pruned: 0 }
+  );
+}
+
 const TaskSourcesPanel = () => {
   const { t } = useT();
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
@@ -86,6 +102,16 @@ const TaskSourcesPanel = () => {
   const [status, setStatus] = useState<TaskSourcesStatus | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const loadingRef = useRef(loading);
+  const busyKeyRef = useRef(busyKey);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    busyKeyRef.current = busyKey;
+  }, [busyKey]);
 
   // ── create-form state ────────────────────────────────────────────
   const [provider, setProvider] = useState<TaskSourceProvider>('github');
@@ -102,27 +128,31 @@ const TaskSourcesPanel = () => {
     setDatabases([]);
   }, [provider]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [list, stat] = await Promise.all([
-        openhumanTaskSourcesList(),
-        openhumanTaskSourcesStatus(),
-      ]);
-      setSources(list);
-      setStatus(stat);
-    } catch (err) {
-      setError(
-        `${t('settings.taskSources.loadError')}: ${err instanceof Error ? err.message : String(err)}`
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const load = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (!options?.force && (loadingRef.current || busyKeyRef.current !== null)) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const [list, stat] = await Promise.all([
+          openhumanTaskSourcesList(),
+          openhumanTaskSourcesStatus(),
+        ]);
+        setSources(list);
+        setStatus(stat);
+      } catch (err) {
+        setError(
+          `${t('settings.taskSources.loadError')}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [t]
+  );
 
   useEffect(() => {
-    void load();
+    void load({ force: true });
   }, [load]);
 
   const primaryLabel = useMemo(() => {
@@ -141,6 +171,7 @@ const TaskSourcesPanel = () => {
   }, [provider, t]);
 
   const addSource = async () => {
+    if (busyKey) return;
     setBusyKey('add');
     setError(null);
     setNotice(null);
@@ -153,7 +184,7 @@ const TaskSourcesPanel = () => {
       setName('');
       setPrimary('');
       setLabels('');
-      await load();
+      await load({ force: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -162,6 +193,7 @@ const TaskSourcesPanel = () => {
   };
 
   const previewFilter = async () => {
+    if (busyKey) return;
     setBusyKey('preview');
     setError(null);
     setNotice(null);
@@ -181,6 +213,7 @@ const TaskSourcesPanel = () => {
   // Fetch the databases the connected account exposes (Notion) so the user can
   // pick one instead of pasting a raw id.
   const browseDatabases = async () => {
+    if (busyKey) return;
     setBusyKey('databases');
     setError(null);
     setNotice(null);
@@ -198,6 +231,7 @@ const TaskSourcesPanel = () => {
   };
 
   const toggleSource = async (source: TaskSource) => {
+    if (busyKey) return;
     setBusyKey(`toggle:${source.id}`);
     setError(null);
     try {
@@ -211,6 +245,7 @@ const TaskSourcesPanel = () => {
   };
 
   const fetchNow = async (source: TaskSource) => {
+    if (busyKey) return;
     setBusyKey(`fetch:${source.id}`);
     setError(null);
     setNotice(null);
@@ -219,7 +254,7 @@ const TaskSourcesPanel = () => {
       // Refresh the source list first (updates lastFetchAt/lastStatus);
       // `load()` resets the error/notice, so set the outcome message
       // *after* it so the message isn't immediately cleared.
-      await load();
+      await load({ force: true });
       if (outcome.error) {
         setError(outcome.error);
       } else {
@@ -227,6 +262,34 @@ const TaskSourcesPanel = () => {
           t('settings.taskSources.fetchResult')
             .replace('{routed}', String(outcome.routed))
             .replace('{fetched}', String(outcome.fetched))
+            .replace('{pruned}', String(outcome.pruned ?? 0))
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const syncAll = async () => {
+    if (busyKey) return;
+    setBusyKey('sync');
+    setError(null);
+    setNotice(null);
+    try {
+      const outcomes = await openhumanTaskSourcesSync();
+      await load({ force: true });
+      const firstError = outcomes.find(outcome => outcome.error)?.error;
+      if (firstError) {
+        setError(firstError);
+      } else {
+        const totals = formatSyncNotice(outcomes);
+        setNotice(
+          t('settings.taskSources.fetchResult')
+            .replace('{routed}', String(totals.routed))
+            .replace('{fetched}', String(totals.fetched))
+            .replace('{pruned}', String(totals.pruned))
         );
       }
     } catch (err) {
@@ -237,6 +300,7 @@ const TaskSourcesPanel = () => {
   };
 
   const removeSource = async (source: TaskSource) => {
+    if (busyKey) return;
     if (!window.confirm(t('settings.taskSources.removeConfirm'))) return;
     setBusyKey(`remove:${source.id}`);
     setError(null);
@@ -331,7 +395,7 @@ const TaskSourcesPanel = () => {
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
-                disabled={busyKey === 'databases'}
+                disabled={busyKey !== null}
                 onClick={() => void browseDatabases()}>
                 {busyKey === 'databases'
                   ? t('settings.taskSources.notion.loadingDatabases')
@@ -378,14 +442,14 @@ const TaskSourcesPanel = () => {
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              disabled={busyKey === 'add'}
+              disabled={busyKey !== null}
               onClick={() => void addSource()}>
               {busyKey === 'add' ? t('settings.taskSources.adding') : t('settings.taskSources.add')}
             </button>
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              disabled={busyKey === 'preview'}
+              disabled={busyKey !== null}
               onClick={() => void previewFilter()}>
               {t('settings.taskSources.preview')}
             </button>
@@ -397,6 +461,15 @@ const TaskSourcesPanel = () => {
           <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             {t('settings.taskSources.configured')}
           </h3>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            disabled={loading || busyKey !== null || sources.length === 0}
+            onClick={() => void syncAll()}>
+            {busyKey === 'sync'
+              ? t('settings.taskSources.syncing')
+              : t('settings.taskSources.syncAll')}
+          </button>
 
           {loading ? (
             <p className="text-sm text-stone-400 dark:text-neutral-500">{t('common.loading')}</p>
@@ -445,7 +518,7 @@ const TaskSourcesPanel = () => {
                     <button
                       type="button"
                       className="btn btn-outline btn-xs"
-                      disabled={busyKey === `toggle:${source.id}`}
+                      disabled={busyKey !== null}
                       onClick={() => void toggleSource(source)}>
                       {source.enabled
                         ? t('settings.taskSources.disable')
@@ -454,7 +527,7 @@ const TaskSourcesPanel = () => {
                     <button
                       type="button"
                       className="btn btn-outline btn-xs"
-                      disabled={busyKey === `fetch:${source.id}`}
+                      disabled={busyKey !== null}
                       onClick={() => void fetchNow(source)}>
                       {busyKey === `fetch:${source.id}`
                         ? t('settings.taskSources.fetching')
@@ -463,7 +536,7 @@ const TaskSourcesPanel = () => {
                     <button
                       type="button"
                       className="btn btn-ghost btn-xs text-red-600 dark:text-red-400"
-                      disabled={busyKey === `remove:${source.id}`}
+                      disabled={busyKey !== null}
                       onClick={() => void removeSource(source)}>
                       {t('settings.taskSources.remove')}
                     </button>
@@ -473,7 +546,11 @@ const TaskSourcesPanel = () => {
             </ul>
           )}
 
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => void load()}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={loading || busyKey !== null}
+            onClick={() => void load()}>
             {t('settings.taskSources.refresh')}
           </button>
         </section>

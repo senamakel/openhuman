@@ -4493,7 +4493,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': 'Tugas {count} cocok dengan penyaring ini',
   'settings.taskSources.fetchNow': 'Ambil sekarang',
   'settings.taskSources.fetching': 'Mengambil...',
-  'settings.taskSources.fetchResult': 'Karang tugas {routed} dari {fetched}',
+  'settings.taskSources.fetchResult':
+    'Merutekan {routed} dari {fetched} tugas; menghapus {pruned} tugas usang',
+  'settings.taskSources.syncAll': 'Sinkronkan semua',
+  'settings.taskSources.syncing': 'Menyinkronkan...',
   'settings.taskSources.configured': 'Sumber yang dikonfigurasi',
   'settings.taskSources.empty': 'Belum ada sumber tugas yang dikonfigurasi.',
   'settings.taskSources.proactive': 'Proaktif',

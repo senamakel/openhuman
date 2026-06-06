@@ -4434,7 +4434,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': '{count}개 작업이 이 필터와 일치합니다',
   'settings.taskSources.fetchNow': '지금 가져오기',
   'settings.taskSources.fetching': '가져오는 중…',
-  'settings.taskSources.fetchResult': '{fetched}개 작업 중 {routed}개 라우팅됨',
+  'settings.taskSources.fetchResult':
+    '{fetched}개 작업 중 {routed}개 라우팅됨; 오래된 작업 {pruned}개 제거됨',
+  'settings.taskSources.syncAll': '모두 동기화',
+  'settings.taskSources.syncing': '동기화 중…',
   'settings.taskSources.configured': '구성된 소스',
   'settings.taskSources.empty': '아직 구성된 작업 소스가 없습니다.',
   'settings.taskSources.proactive': '능동형',

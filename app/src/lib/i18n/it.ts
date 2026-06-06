@@ -4558,7 +4558,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': 'Il/i compito/i {count} corrispondono a questo filtro',
   'settings.taskSources.fetchNow': 'Prendi adesso',
   'settings.taskSources.fetching': 'Recupero…',
-  'settings.taskSources.fetchResult': 'Instradato {routed} di {fetched} attività',
+  'settings.taskSources.fetchResult':
+    'Instradate {routed} di {fetched} attività; rimosse {pruned} attività obsolete',
+  'settings.taskSources.syncAll': 'Sincronizza tutto',
+  'settings.taskSources.syncing': 'Sincronizzazione…',
   'settings.taskSources.configured': 'Fonti configurate',
   'settings.taskSources.empty': 'Nessuna fonte attività configurata ancora.',
   'settings.taskSources.proactive': 'Proattivo',

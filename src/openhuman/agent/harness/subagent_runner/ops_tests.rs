@@ -63,6 +63,7 @@ fn make_def_named_tools(names: &[&str]) -> AgentDefinition {
         timeout_secs: None,
         sandbox_mode: crate::openhuman::agent::harness::definition::SandboxMode::None,
         background: false,
+        trigger_memory_agent: Default::default(),
         subagents: vec![],
         delegate_name: None,
         agent_tier: crate::openhuman::agent::harness::definition::AgentTier::Worker,

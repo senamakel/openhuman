@@ -11,17 +11,14 @@ omit_safety_preamble = false
 omit_skills_catalog = true
 omit_profile = true
 omit_memory_md = true
+trigger_memory_agent = "always"
 
 [model]
 hint = "agentic"
 
-[subagents]
-allowlist = ["agent_memory"]
-
 [tools]
 named = [
     "generate_presentation",
-    "call_memory_agent",
     "web_search_tool",
     "web_fetch",
     "http_request",

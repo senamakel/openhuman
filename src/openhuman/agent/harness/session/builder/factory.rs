@@ -942,6 +942,9 @@ impl Agent {
         // `true` default (omit) for both files.
         let effective_omit_profile = target_def.map(|def| def.omit_profile).unwrap_or(true);
         let effective_omit_memory_md = target_def.map(|def| def.omit_memory_md).unwrap_or(true);
+        let effective_trigger_memory_agent = target_def
+            .map(|def| def.trigger_memory_agent)
+            .unwrap_or_default();
 
         // Stamp the resolved agent definition id onto the Agent via the
         // builder. Without this call, `agent_definition_name` falls
@@ -1056,7 +1059,8 @@ impl Agent {
             .explicit_preferences_enabled(config.learning.explicit_preferences_enabled)
             .agent_definition_name(agent_id.to_string())
             .omit_profile(effective_omit_profile)
-            .omit_memory_md(effective_omit_memory_md);
+            .omit_memory_md(effective_omit_memory_md)
+            .trigger_memory_agent(effective_trigger_memory_agent);
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
         }

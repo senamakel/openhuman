@@ -5,6 +5,8 @@ use super::super::turn_engine_adapter::{AgentCheckpoint, AgentObserver, AgentToo
 use super::super::types::Agent;
 use super::{integration_announcement_note, normalize_tool_call};
 use crate::openhuman::agent::harness;
+use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
+use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 use crate::openhuman::agent::hooks::{self, TurnContext};
 use crate::openhuman::agent::memory_loader::collect_recall_citations;
 use crate::openhuman::agent::progress::AgentProgress;
@@ -311,9 +313,6 @@ impl Agent {
             None => enriched,
         };
 
-        self.history
-            .push(ConversationMessage::Chat(ChatMessage::user(enriched)));
-
         // Pin the main agent to its configured model for the lifetime of
         // the session. Per-turn classification used to run here, but it
         // would flip `effective_model` mid-conversation (e.g. reasoning →
@@ -335,6 +334,13 @@ impl Agent {
         // model field with the post-classification effective model.
         let mut parent_context = self.build_parent_execution_context();
         parent_context.model_name = effective_model.clone();
+
+        let enriched = self
+            .inject_triggered_memory_agent_context(user_message, enriched, &parent_context)
+            .await;
+
+        self.history
+            .push(ConversationMessage::Chat(ChatMessage::user(enriched)));
 
         // Bump the session-memory turn counter. Used later by
         // `should_extract_session_memory` to decide whether to spawn a
@@ -608,6 +614,104 @@ impl Agent {
             }
             Err(err) => {
                 log::warn!("[agent-experience] retrieval failed (non-fatal): {err}");
+                enriched
+            }
+        }
+    }
+
+    async fn inject_triggered_memory_agent_context(
+        &self,
+        user_message: &str,
+        enriched: String,
+        parent_context: &ParentExecutionContext,
+    ) -> String {
+        const MEMORY_AGENT_ID: &str = "agent_memory";
+        const MAX_MEMORY_AGENT_BLOCK_CHARS: usize = 8000;
+
+        if self.trigger_memory_agent != TriggerMemoryAgent::Always {
+            log::debug!(
+                "[agent_memory:trigger] skipped agent_id={} policy={:?}",
+                self.agent_definition_id,
+                self.trigger_memory_agent
+            );
+            return enriched;
+        }
+
+        if self.agent_definition_id == MEMORY_AGENT_ID {
+            log::debug!("[agent_memory:trigger] skipped recursive memory agent invocation");
+            return enriched;
+        }
+
+        let Some(registry) = harness::AgentDefinitionRegistry::global() else {
+            log::warn!(
+                "[agent_memory:trigger] AgentDefinitionRegistry unavailable; continuing without memory agent context"
+            );
+            return enriched;
+        };
+        let Some(definition) = registry.get(MEMORY_AGENT_ID).cloned() else {
+            log::warn!(
+                "[agent_memory:trigger] `{MEMORY_AGENT_ID}` definition unavailable; continuing without memory agent context"
+            );
+            return enriched;
+        };
+
+        let task_id = format!("mem-trigger-{}", uuid::Uuid::new_v4());
+        let prompt = format!(
+            "Search the user's memory tree and return only context relevant to the next agent turn.\n\nUser prompt:\n{user_message}"
+        );
+        let options = harness::SubagentRunOptions {
+            task_id: Some(task_id.clone()),
+            ..Default::default()
+        };
+
+        log::debug!(
+            "[agent_memory:trigger] starting agent_id={} task_id={} user_message_chars={}",
+            self.agent_definition_id,
+            task_id,
+            user_message.chars().count()
+        );
+
+        let started = std::time::Instant::now();
+        let result = harness::with_parent_context(parent_context.clone(), async move {
+            harness::run_subagent(&definition, &prompt, options).await
+        })
+        .await;
+
+        match result {
+            Ok(outcome) => {
+                log::info!(
+                    "[agent_memory:trigger] completed agent_id={} task_id={} iterations={} elapsed={:?} status={:?} output_chars={}",
+                    self.agent_definition_id,
+                    task_id,
+                    outcome.iterations,
+                    started.elapsed(),
+                    outcome.status,
+                    outcome.output.chars().count()
+                );
+                let mut output =
+                    truncate_with_ellipsis(&outcome.output, MAX_MEMORY_AGENT_BLOCK_CHARS);
+                if output.trim().is_empty() {
+                    return enriched;
+                }
+                if let harness::subagent_runner::SubagentRunStatus::AwaitingUser {
+                    question, ..
+                } = outcome.status
+                {
+                    output.push_str("\n\nMemory agent needs clarification: ");
+                    output.push_str(&question);
+                }
+                format!(
+                    "## Memory agent context\n\n{}\n\n---\n\n{}",
+                    output.trim(),
+                    enriched
+                )
+            }
+            Err(err) => {
+                log::warn!(
+                    "[agent_memory:trigger] failed agent_id={} task_id={}: {err:#}",
+                    self.agent_definition_id,
+                    task_id
+                );
                 enriched
             }
         }

@@ -8,6 +8,7 @@
 
 use crate::openhuman::agent::dispatcher::ToolDispatcher;
 use crate::openhuman::agent::harness::archivist::ArchivistHook;
+use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
 use crate::openhuman::agent::hooks::PostTurnHook;
 use crate::openhuman::agent::memory_loader::MemoryLoader;
 use crate::openhuman::agent::progress::AgentProgress;
@@ -168,6 +169,10 @@ pub struct Agent {
     /// summarizer sub-agent before they enter agent history.
     pub(super) payload_summarizer:
         Option<Arc<dyn crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer>>,
+    /// Mirrors the agent definition's `trigger_memory_agent` policy.
+    /// `Always` runs the dedicated memory retrieval agent once before
+    /// the user's prompt is sent to this agent.
+    pub(super) trigger_memory_agent: TriggerMemoryAgent,
     /// Pre-execution policy hook for tool calls in this session. The
     /// default policy allows all calls so existing agents keep their
     /// behaviour unless a caller opts into stricter policy.
@@ -298,6 +303,8 @@ pub struct AgentBuilder {
     /// to a `SubagentPayloadSummarizer` instance.
     pub(super) payload_summarizer:
         Option<Arc<dyn crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer>>,
+    /// Forwarded to [`Agent::trigger_memory_agent`] at build time.
+    pub(super) trigger_memory_agent: Option<TriggerMemoryAgent>,
     /// Optional pre-execution tool policy. Defaults to allow-all.
     pub(super) tool_policy: Option<Arc<dyn ToolPolicy>>,
     /// Optional reference to the production `ArchivistHook`. Set when

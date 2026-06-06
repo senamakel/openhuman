@@ -217,7 +217,6 @@ pub fn all_tools_with_runtime(
         Box::new(MemoryQueryTool),
         Box::new(MemoryQueryWalkTool),
         Box::new(SmartMemoryWalkTool),
-        Box::new(CallMemoryAgentTool::new()),
         // memory_search tools — vector search, chunk context, hybrid search,
         // and previously unregistered raw store tools.
         Box::new(MemoryVectorSearchTool),

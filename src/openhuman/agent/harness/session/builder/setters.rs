@@ -5,6 +5,7 @@
 
 use super::{dedup_visible_tool_specs, visible_tool_specs_for_policy};
 use crate::openhuman::agent::harness::session::types::{Agent, AgentBuilder};
+use crate::openhuman::agent::harness::TriggerMemoryAgent;
 use crate::openhuman::agent::memory_loader::DefaultMemoryLoader;
 use crate::openhuman::agent_tool_policy::ToolPolicyEngine;
 use crate::openhuman::config::ContextConfig;
@@ -43,6 +44,7 @@ impl AgentBuilder {
             omit_profile: None,
             omit_memory_md: None,
             payload_summarizer: None,
+            trigger_memory_agent: None,
             tool_policy: None,
             archivist_hook: None,
             unified_compaction_enabled: true,
@@ -303,6 +305,12 @@ impl AgentBuilder {
         self
     }
 
+    /// Forward the target agent definition's pre-turn memory policy.
+    pub fn trigger_memory_agent(mut self, policy: TriggerMemoryAgent) -> Self {
+        self.trigger_memory_agent = Some(policy);
+        self
+    }
+
     /// Installs pre-execution policy middleware for tool calls.
     ///
     /// The default policy allows all calls. Custom policies can deny a call
@@ -558,6 +566,7 @@ impl AgentBuilder {
             omit_profile: self.omit_profile.unwrap_or(true),
             omit_memory_md: self.omit_memory_md.unwrap_or(true),
             payload_summarizer: self.payload_summarizer,
+            trigger_memory_agent: self.trigger_memory_agent.unwrap_or_default(),
             tool_policy: self.tool_policy.unwrap_or_else(|| {
                 Arc::new(crate::openhuman::agent::tool_policy::AllowAllToolPolicy)
             }),

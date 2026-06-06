@@ -45,5 +45,14 @@ pub(crate) fn parse_source_kind_str(
 }
 
 #[cfg(test)]
+pub(crate) use crate::openhuman::config::Config;
+#[cfg(test)]
+pub(crate) use crate::openhuman::memory_store::chunks::store::with_connection;
+#[cfg(test)]
+pub(crate) use crate::openhuman::memory_store::chunks::types::SourceKind;
+#[cfg(test)]
+pub(crate) use admin::clear_composio_sync_state;
+
+#[cfg(test)]
 #[path = "../read_rpc_tests.rs"]
 mod tests;

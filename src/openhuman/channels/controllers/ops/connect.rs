@@ -18,11 +18,11 @@ use super::yuanbao::{
 };
 
 /// Credential provider key for channel connections: `"channel:{id}:{mode}"`.
-pub(super) fn credential_provider(channel_id: &str, mode: ChannelAuthMode) -> String {
+pub(crate) fn credential_provider(channel_id: &str, mode: ChannelAuthMode) -> String {
     format!("channel:{}:{}", channel_id, mode)
 }
 
-pub(super) fn channel_config_connected(
+pub(crate) fn channel_config_connected(
     config: &Config,
     channel_id: &str,
     mode: ChannelAuthMode,
@@ -48,7 +48,7 @@ pub(super) fn channel_config_connected(
     }
 }
 
-pub(super) fn parse_allowed_users(value: Option<&Value>) -> Vec<String> {
+pub(crate) fn parse_allowed_users(value: Option<&Value>) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
 
     let mut push_identity = |raw: &str| {

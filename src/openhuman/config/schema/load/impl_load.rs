@@ -100,7 +100,7 @@ impl Config {
         .await
     }
 
-    async fn load_or_init_with_env_lookup(
+    pub(crate) async fn load_or_init_with_env_lookup(
         default_openhuman_dir: &Path,
         default_workspace_dir: &Path,
         env: &(dyn EnvLookup + Send + Sync),

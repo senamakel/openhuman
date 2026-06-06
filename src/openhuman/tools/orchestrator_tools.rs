@@ -4,7 +4,7 @@
 //! work. Rather than exposing a single generic
 //! `spawn_subagent(agent_id, prompt)` mega-tool, we synthesise one named
 //! tool per [`SubagentEntry::AgentId`] in the orchestrator's
-//! `subagents = [...]` TOML field, so the LLM's function-calling schema
+//! `[subagents] allowlist = [...]` TOML section, so the LLM's function-calling schema
 //! contains discoverable, well-named tools like `research`, `plan`,
 //! `run_code`, etc.
 //!

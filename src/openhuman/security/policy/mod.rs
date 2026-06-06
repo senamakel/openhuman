@@ -14,5 +14,8 @@ pub use types::{
 };
 
 #[cfg(test)]
+use std::path::{Path, PathBuf};
+
+#[cfg(test)]
 #[path = "policy_tests.rs"]
 mod tests;

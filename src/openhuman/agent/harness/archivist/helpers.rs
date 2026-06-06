@@ -102,7 +102,7 @@ pub(super) fn extract_lesson_from_tools(
 }
 
 /// Extract a short profile key from event content (first few meaningful words).
-pub(super) fn extract_profile_key(content: &str, prefix: &str) -> String {
+pub(crate) fn extract_profile_key(content: &str, prefix: &str) -> String {
     let words: Vec<&str> = content
         .split_whitespace()
         .filter(|w| w.len() > 2)

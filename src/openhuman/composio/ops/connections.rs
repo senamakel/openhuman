@@ -287,7 +287,7 @@ pub(super) async fn resolve_toolkit_for_connection(
 /// "Gmail · user@example.com" instead of a generic "Account N" label.
 ///
 /// This is best-effort — no live API calls are made (one SQLite read per poll).
-pub(super) fn enrich_connections_with_identity(
+pub(crate) fn enrich_connections_with_identity(
     mut resp: ComposioConnectionsResponse,
 ) -> ComposioConnectionsResponse {
     let identities = load_connected_identities();

@@ -151,5 +151,16 @@ pub(super) fn sanitize_learned_entry(content: &str) -> String {
 }
 
 #[cfg(test)]
+pub(crate) use super::types::Agent;
+#[cfg(test)]
+pub(crate) use super::transcript;
+#[cfg(test)]
+pub(crate) use super::turn_checkpoint::assistant_message_has_tool_calls;
+#[cfg(test)]
+pub(crate) use crate::openhuman::context::prompt::LearnedContextData;
+#[cfg(test)]
+pub(crate) use anyhow::Result;
+
+#[cfg(test)]
 #[path = "../turn_tests.rs"]
 mod tests;

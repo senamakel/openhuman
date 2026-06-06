@@ -13,6 +13,18 @@ pub use types::{
     DiscordLinkStartResult, TelegramLoginCheckResult, TelegramLoginStartResult,
 };
 
+// Re-export types needed by tests.
+#[cfg(test)]
+pub(crate) use crate::openhuman::channels::controllers::{ChannelAuthMode, ChannelDefinition};
+#[cfg(test)]
+pub(crate) use crate::openhuman::config::Config;
+#[cfg(test)]
+pub(crate) use connect::parse_allowed_users;
+#[cfg(test)]
+pub(crate) use connect::channel_config_connected;
+#[cfg(test)]
+pub(crate) use connect::credential_provider;
+
 // Re-export public ops functions.
 pub use connect::{
     channel_status, connect_channel, connected_channel_slugs, describe_channel, disconnect_channel,

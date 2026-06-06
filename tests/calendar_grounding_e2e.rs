@@ -141,6 +141,8 @@ async fn test_integrations_agent_has_current_date_context() -> Result<()> {
     let _ = openhuman_core::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
 
     let parent = openhuman_core::openhuman::agent::harness::ParentExecutionContext {
+        agent_definition_id: "orchestrator".into(),
+        allowed_subagent_ids: ["integrations_agent".to_string()].into_iter().collect(),
         provider: provider.clone(),
         all_tools: Arc::new(vec![Box::new(MockCalendarTool)]),
         all_tool_specs: Arc::new(vec![MockCalendarTool.spec()]),

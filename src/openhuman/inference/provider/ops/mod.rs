@@ -43,6 +43,13 @@ pub use provider_factory::{
     ProviderInfo, ProviderRuntimeOptions, INFERENCE_BACKEND_ID,
 };
 
+// ── test re-exports for ops_tests.rs ──
+
+#[cfg(test)]
+pub(crate) use super::openai_codex::openai_codex_client_version;
+#[cfg(test)]
+pub(crate) use super::openhuman_backend;
+
 // ── test companion ──
 
 #[cfg(test)]

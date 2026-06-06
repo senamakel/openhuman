@@ -17,7 +17,7 @@ pub(super) const CHAT_FREQUENCY_PENALTY: f64 = 0.3;
 /// `frequency_penalty` / stronger model tiers only lower the odds — they don't
 /// prevent it — so this is the deterministic, model-agnostic stop. Set well
 /// above any legitimate repetition.
-pub(super) const STREAM_REPEAT_THRESHOLD: u32 = 6;
+pub(crate) const STREAM_REPEAT_THRESHOLD: u32 = 6;
 /// Minimum trimmed length for a line to count toward [`STREAM_REPEAT_THRESHOLD`].
 /// Keeps short, legitimately-repeated lines (`}`, blank-ish code) from tripping
 /// it; degenerate spirals are long sentences well over this.
@@ -28,7 +28,7 @@ pub(super) const MIN_REPEAT_LINE_CHARS: usize = 16;
 /// [`STREAM_REPEAT_THRESHOLD`] consecutive identical substantial lines; blank
 /// separator lines are ignored, so `"sentence\n\nsentence\n\n…"` still trips.
 #[derive(Default)]
-pub(super) struct StreamRepeatDetector {
+pub(crate) struct StreamRepeatDetector {
     current_line: String,
     last_line: Option<String>,
     consecutive: u32,

@@ -38,7 +38,7 @@ impl EnvLookup for ProcessEnv {
 
 /// Process env lookup that preserves every override except
 /// `OPENHUMAN_WORKSPACE`.
-pub(super) struct ProcessEnvWithoutWorkspace;
+pub(crate) struct ProcessEnvWithoutWorkspace;
 
 impl EnvLookup for ProcessEnvWithoutWorkspace {
     fn get(&self, key: &str) -> Option<String> {

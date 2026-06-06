@@ -27,6 +27,8 @@ use helpers::{
 };
 #[cfg(test)]
 use serde_json::{Map, Value};
+#[cfg(test)]
+use crate::rpc::RpcOutcome;
 
 #[cfg(test)]
 #[path = "../schemas_tests.rs"]

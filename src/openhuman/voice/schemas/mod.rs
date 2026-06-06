@@ -29,6 +29,13 @@ use params::{
     VoiceUpdateProviderSettingsParams,
 };
 
+#[cfg(test)]
+use serde_json::Map;
+#[cfg(test)]
+use serde_json::Value;
+#[cfg(test)]
+use crate::rpc::RpcOutcome;
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

@@ -23,10 +23,23 @@ mod compatible_types;
 
 #[cfg(test)]
 pub(crate) use compatible_parse::{
-    parse_provider_tool_call_from_value, parse_sse_line, strip_think_tags,
+    build_responses_prompt, extract_responses_text, parse_chat_response_body,
+    parse_provider_tool_call_from_value, parse_responses_response_body, parse_sse_line,
+    strip_think_tags,
 };
 #[cfg(test)]
-pub(crate) use compatible_types::ResponsesResponse;
+pub(crate) use compatible_types::{
+    ApiChatRequest, ApiChatResponse, Choice, Function, Message, MessageContent, NativeChatRequest,
+    NativeMessage, ResponseMessage, ResponsesResponse, ToolCall,
+};
+#[cfg(test)]
+pub(crate) use super::traits::{ChatMessage, ConversationMessage, Provider};
+#[cfg(test)]
+pub(crate) use compatible_parse::normalize_function_arguments;
+#[cfg(test)]
+pub(crate) use compatible_repeat::{StreamRepeatDetector, STREAM_REPEAT_THRESHOLD};
+#[cfg(test)]
+pub(crate) use compatible_types::StreamChunkResponse;
 
 /// A provider that speaks the OpenAI-compatible chat completions API.
 /// Used by: Venice, Vercel AI Gateway, Cloudflare AI Gateway, Moonshot,

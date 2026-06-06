@@ -840,6 +840,20 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': 'Jours regroupés en UTC',
   'settings.costDashboard.stackedNote': 'Entrée + sortie empilées',
   'settings.costDashboard.modelBreakdownHint': 'Agrégé sur les 7 derniers jours.',
+  'settings.costDashboard.categoryDistribution': 'Dépenses par catégorie',
+  'settings.costDashboard.categoryDistributionHint':
+    'Déduit des enregistrements récents de chat, embeddings, voix, image et reranking.',
+  'settings.costDashboard.noCategories': 'Aucune dépense par catégorie enregistrée pour le moment.',
+  'settings.costDashboard.categoryMeta': '{requests} requêtes • {tokens} jetons',
+  'settings.costDashboard.usageLog': "Journal d'utilisation",
+  'settings.costDashboard.usageLogHint':
+    'Enregistrements les plus récents des {days} derniers jours, limités à {limit} lignes.',
+  'settings.costDashboard.logTotal': '{requests} requêtes • {cost}',
+  'settings.costDashboard.noUsageLog':
+    "Aucun enregistrement d'utilisation trouvé pour cette période.",
+  'settings.costDashboard.when': 'Quand',
+  'settings.costDashboard.category': 'Catégorie',
+  'settings.costDashboard.session': 'Session',
   'settings.costDashboard.noDataHint':
     "Envoyez un message agent — l'utilisation des jetons lors du prochain appel au fournisseur remplira le graphique en environ 10 secondes.",
   'settings.search.title': 'Moteur de recherche',

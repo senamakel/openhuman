@@ -828,6 +828,19 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': 'Дни, разбитые по UTC',
   'settings.costDashboard.stackedNote': 'Вход + выход сложены',
   'settings.costDashboard.modelBreakdownHint': 'Совокупно за последние 7 дней.',
+  'settings.costDashboard.categoryDistribution': 'Расходы по категориям',
+  'settings.costDashboard.categoryDistributionHint':
+    'Определено по последним записям вызовов чата, эмбеддингов, голоса, изображений и реранкинга.',
+  'settings.costDashboard.noCategories': 'Расходы по категориям пока не записаны.',
+  'settings.costDashboard.categoryMeta': '{requests} запросов • {tokens} токенов',
+  'settings.costDashboard.usageLog': 'Журнал использования',
+  'settings.costDashboard.usageLogHint':
+    'Новые записи за последние {days} дней, не более {limit} строк.',
+  'settings.costDashboard.logTotal': '{requests} запросов • {cost}',
+  'settings.costDashboard.noUsageLog': 'За этот период записи использования не найдены.',
+  'settings.costDashboard.when': 'Когда',
+  'settings.costDashboard.category': 'Категория',
+  'settings.costDashboard.session': 'Сессия',
   'settings.costDashboard.noDataHint':
     'Отправьте сообщение агенту — использование токена при следующем вызове провайдера заполнит диаграмму в течение примерно 10 секунд.',
   'settings.search.title': 'Поисковая система',

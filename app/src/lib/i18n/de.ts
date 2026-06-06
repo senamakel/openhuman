@@ -843,6 +843,20 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': 'Tage in UTC',
   'settings.costDashboard.stackedNote': 'Eingang + Ausgang gestapelt',
   'settings.costDashboard.modelBreakdownHint': 'Aggregiert über die letzten 7 Tage.',
+  'settings.costDashboard.categoryDistribution': 'Ausgaben nach Kategorie',
+  'settings.costDashboard.categoryDistributionHint':
+    'Aus aktuellen Nutzungsdatensätzen für Chat, Embeddings, Sprache, Bild und Reranking abgeleitet.',
+  'settings.costDashboard.noCategories': 'Noch keine Kategorieausgaben erfasst.',
+  'settings.costDashboard.categoryMeta': '{requests} Anfragen • {tokens} Token',
+  'settings.costDashboard.usageLog': 'Nutzungsprotokoll',
+  'settings.costDashboard.usageLogHint':
+    'Neueste Datensätze der letzten {days} Tage, begrenzt auf {limit} Zeilen.',
+  'settings.costDashboard.logTotal': '{requests} Anfragen • {cost}',
+  'settings.costDashboard.noUsageLog':
+    'Für diesen Zeitraum wurden keine Nutzungsdatensätze gefunden.',
+  'settings.costDashboard.when': 'Wann',
+  'settings.costDashboard.category': 'Kategorie',
+  'settings.costDashboard.session': 'Sitzung',
   'settings.costDashboard.noDataHint':
     'Senden Sie eine Agentennachricht — Die Tokenverwendung des nächsten Anbieteranrufs füllt das Diagramm innerhalb von ~10 Sekunden aus.',
   'settings.search.title': 'Suchmaschine',

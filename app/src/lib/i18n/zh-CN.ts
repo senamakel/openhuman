@@ -780,6 +780,18 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': '按 UTC 日期分组',
   'settings.costDashboard.stackedNote': '输入 + 输出堆叠',
   'settings.costDashboard.modelBreakdownHint': '汇总过去 7 天。',
+  'settings.costDashboard.categoryDistribution': '按类别的花费',
+  'settings.costDashboard.categoryDistributionHint':
+    '根据最近的聊天、嵌入、语音、图像和重排调用记录推断。',
+  'settings.costDashboard.noCategories': '尚未记录类别花费。',
+  'settings.costDashboard.categoryMeta': '{requests} 次请求 • {tokens} 个 token',
+  'settings.costDashboard.usageLog': '使用日志',
+  'settings.costDashboard.usageLogHint': '最近 {days} 天的最新记录，最多显示 {limit} 行。',
+  'settings.costDashboard.logTotal': '{requests} 次请求 • {cost}',
+  'settings.costDashboard.noUsageLog': '此期间没有找到使用记录。',
+  'settings.costDashboard.when': '时间',
+  'settings.costDashboard.category': '类别',
+  'settings.costDashboard.session': '会话',
   'settings.costDashboard.noDataHint':
     '发送一条智能体消息后，下一次提供商调用的 token 用量会在约 10 秒内填充图表。',
   'settings.search.title': '搜索引擎',

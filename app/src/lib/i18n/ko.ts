@@ -817,6 +817,19 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': '일자는 UTC 기준으로 묶입니다',
   'settings.costDashboard.stackedNote': '입력 + 출력 누적',
   'settings.costDashboard.modelBreakdownHint': '지난 7일 전체 집계입니다.',
+  'settings.costDashboard.categoryDistribution': '카테고리별 지출',
+  'settings.costDashboard.categoryDistributionHint':
+    '최근 채팅, 임베딩, 음성, 이미지, 재순위화 호출 기록에서 추정했습니다.',
+  'settings.costDashboard.noCategories': '아직 기록된 카테고리별 지출이 없습니다.',
+  'settings.costDashboard.categoryMeta': '{requests}개 요청 • {tokens}개 토큰',
+  'settings.costDashboard.usageLog': '사용 로그',
+  'settings.costDashboard.usageLogHint':
+    '최근 {days}일의 최신 기록이며 최대 {limit}행까지 표시합니다.',
+  'settings.costDashboard.logTotal': '{requests}개 요청 • {cost}',
+  'settings.costDashboard.noUsageLog': '이 기간의 사용 기록이 없습니다.',
+  'settings.costDashboard.when': '시간',
+  'settings.costDashboard.category': '카테고리',
+  'settings.costDashboard.session': '세션',
   'settings.costDashboard.noDataHint':
     '에이전트 메시지를 보내세요. 다음 제공업체 호출의 토큰 사용량이 약 10초 안에 차트에 표시됩니다.',
   'settings.search.title': '검색 엔진',

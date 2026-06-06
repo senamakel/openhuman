@@ -810,6 +810,18 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': '"يوماً مربوطاً في "إكسكساكس',
   'settings.costDashboard.stackedNote': 'الناتج + الناتج',
   'settings.costDashboard.modelBreakdownHint': 'تم تجميعها خلال السبعة أيام الماضية',
+  'settings.costDashboard.categoryDistribution': 'الإنفاق حسب الفئة',
+  'settings.costDashboard.categoryDistributionHint':
+    'مستنتج من سجلات حديثة لمكالمات الدردشة والتضمينات والصوت والصور وإعادة الترتيب.',
+  'settings.costDashboard.noCategories': 'لم يتم تسجيل إنفاق حسب الفئة بعد.',
+  'settings.costDashboard.categoryMeta': '{requests} طلب • {tokens} رمز',
+  'settings.costDashboard.usageLog': 'سجل الاستخدام',
+  'settings.costDashboard.usageLogHint': 'أحدث السجلات من آخر {days} يومًا، بحد أقصى {limit} صفًا.',
+  'settings.costDashboard.logTotal': '{requests} طلب • {cost}',
+  'settings.costDashboard.noUsageLog': 'لم يتم العثور على سجلات استخدام لهذه الفترة.',
+  'settings.costDashboard.when': 'الوقت',
+  'settings.costDashboard.category': 'الفئة',
+  'settings.costDashboard.session': 'الجلسة',
   'settings.costDashboard.noDataHint':
     'إرسال رسالة وكيل - الاستخدام المكسور من النداء القادم للمزود سينشر المخطط في غضون حوالي 10 ثوان.',
   'settings.search.title': 'محرك البحث',

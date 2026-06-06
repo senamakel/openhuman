@@ -822,6 +822,19 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': 'Hari libur di UTC',
   'settings.costDashboard.stackedNote': 'Masukan + keluaran ditumpuk',
   'settings.costDashboard.modelBreakdownHint': 'Diperburuk 7 hari terakhir.',
+  'settings.costDashboard.categoryDistribution': 'Pengeluaran per kategori',
+  'settings.costDashboard.categoryDistributionHint':
+    'Disimpulkan dari catatan terbaru untuk chat, embedding, suara, gambar, dan reranking.',
+  'settings.costDashboard.noCategories': 'Belum ada pengeluaran kategori yang dicatat.',
+  'settings.costDashboard.categoryMeta': '{requests} permintaan • {tokens} token',
+  'settings.costDashboard.usageLog': 'Log penggunaan',
+  'settings.costDashboard.usageLogHint':
+    'Catatan terbaru dari {days} hari terakhir, dibatasi {limit} baris.',
+  'settings.costDashboard.logTotal': '{requests} permintaan • {cost}',
+  'settings.costDashboard.noUsageLog': 'Tidak ada catatan penggunaan untuk periode ini.',
+  'settings.costDashboard.when': 'Waktu',
+  'settings.costDashboard.category': 'Kategori',
+  'settings.costDashboard.session': 'Sesi',
   'settings.costDashboard.noDataHint':
     'Kirim pesan agen - penggunaan token dari panggilan penyedia berikutnya akan mengisi bagan dalam waktu ~10.',
   'settings.search.title': 'Mesin pencari',

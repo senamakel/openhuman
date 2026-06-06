@@ -842,6 +842,19 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': 'Días agrupados en UTC',
   'settings.costDashboard.stackedNote': 'Entrada + salida apiladas',
   'settings.costDashboard.modelBreakdownHint': 'Agregado a lo largo de los últimos 7 días.',
+  'settings.costDashboard.categoryDistribution': 'Gasto por categoría',
+  'settings.costDashboard.categoryDistributionHint':
+    'Inferido de registros recientes de chat, embeddings, voz, imagen y reranking.',
+  'settings.costDashboard.noCategories': 'Aún no hay gasto por categoría registrado.',
+  'settings.costDashboard.categoryMeta': '{requests} solicitudes • {tokens} tokens',
+  'settings.costDashboard.usageLog': 'Registro de uso',
+  'settings.costDashboard.usageLogHint':
+    'Registros más recientes de los últimos {days} días, con límite de {limit} filas.',
+  'settings.costDashboard.logTotal': '{requests} solicitudes • {cost}',
+  'settings.costDashboard.noUsageLog': 'No se encontraron registros de uso para este periodo.',
+  'settings.costDashboard.when': 'Cuándo',
+  'settings.costDashboard.category': 'Categoría',
+  'settings.costDashboard.session': 'Sesión',
   'settings.costDashboard.noDataHint':
     'Envía un mensaje de agente: el uso de tokens de la próxima llamada al proveedor se mostrará en el gráfico en aproximadamente 10 segundos.',
   'settings.search.title': 'motor de búsqueda',

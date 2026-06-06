@@ -1018,6 +1018,19 @@ const en: TranslationMap = {
   'settings.costDashboard.utcNote': 'Days bucketed in UTC',
   'settings.costDashboard.stackedNote': 'Input + output stacked',
   'settings.costDashboard.modelBreakdownHint': 'Aggregated across the last 7 days.',
+  'settings.costDashboard.categoryDistribution': 'Spend by category',
+  'settings.costDashboard.categoryDistributionHint':
+    'Inferred from recent usage records across chat, embeddings, voice, image, and reranking calls.',
+  'settings.costDashboard.noCategories': 'No category spend recorded yet.',
+  'settings.costDashboard.categoryMeta': '{requests} requests • {tokens} tokens',
+  'settings.costDashboard.usageLog': 'Usage log',
+  'settings.costDashboard.usageLogHint':
+    'Newest records from the last {days} days, capped at {limit} rows.',
+  'settings.costDashboard.logTotal': '{requests} requests • {cost}',
+  'settings.costDashboard.noUsageLog': 'No usage records found for this period.',
+  'settings.costDashboard.when': 'When',
+  'settings.costDashboard.category': 'Category',
+  'settings.costDashboard.session': 'Session',
   'settings.costDashboard.noDataHint':
     'Send an agent message — token usage from the next provider call will populate the chart within ~10 seconds.',
   'settings.search.title': 'Search engine',

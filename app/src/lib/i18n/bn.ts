@@ -817,6 +817,18 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': 'xqxkx-এ অতিবাহিত দিন',
   'settings.costDashboard.stackedNote': 'ইনপুট + আউটপুট স্ট্যাক',
   'settings.costDashboard.modelBreakdownHint': 'গত ৭ দিনে পৃথকীকরণ।',
+  'settings.costDashboard.categoryDistribution': 'বিভাগ অনুযায়ী খরচ',
+  'settings.costDashboard.categoryDistributionHint':
+    'সাম্প্রতিক চ্যাট, এমবেডিং, ভয়েস, ছবি এবং রির্যাঙ্কিং কল রেকর্ড থেকে অনুমান করা।',
+  'settings.costDashboard.noCategories': 'এখনও কোনো বিভাগভিত্তিক খরচ নেই।',
+  'settings.costDashboard.categoryMeta': '{requests} অনুরোধ • {tokens} টোকেন',
+  'settings.costDashboard.usageLog': 'ব্যবহার লগ',
+  'settings.costDashboard.usageLogHint': 'গত {days} দিনের নতুন রেকর্ড, সর্বোচ্চ {limit} সারি।',
+  'settings.costDashboard.logTotal': '{requests} অনুরোধ • {cost}',
+  'settings.costDashboard.noUsageLog': 'এই সময়ের জন্য কোনো ব্যবহার রেকর্ড পাওয়া যায়নি।',
+  'settings.costDashboard.when': 'কখন',
+  'settings.costDashboard.category': 'বিভাগ',
+  'settings.costDashboard.session': 'সেশন',
   'settings.costDashboard.noDataHint': 'এর ফলে, আপনার সঙ্গে যোগাযোগ করুন ।',
   'settings.search.title': 'সার্চ ইঞ্জিন',
   'settings.search.menuDesc':

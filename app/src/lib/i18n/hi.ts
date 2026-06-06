@@ -819,6 +819,19 @@ const messages: TranslationMap = {
   'settings.costDashboard.utcNote': 'UTC में दिन की बाल्टी',
   'settings.costDashboard.stackedNote': 'इनपुट + आउटपुट स्टैक्ड',
   'settings.costDashboard.modelBreakdownHint': 'पिछले 7 दिनों में एकत्र हुआ।',
+  'settings.costDashboard.categoryDistribution': 'श्रेणी के अनुसार खर्च',
+  'settings.costDashboard.categoryDistributionHint':
+    'हाल के चैट, एम्बेडिंग, वॉइस, इमेज और री-रैंकिंग कॉल रिकॉर्ड से अनुमानित।',
+  'settings.costDashboard.noCategories': 'अभी तक कोई श्रेणी खर्च दर्ज नहीं है।',
+  'settings.costDashboard.categoryMeta': '{requests} अनुरोध • {tokens} टोकन',
+  'settings.costDashboard.usageLog': 'उपयोग लॉग',
+  'settings.costDashboard.usageLogHint':
+    'पिछले {days} दिनों के नवीनतम रिकॉर्ड, {limit} पंक्तियों तक सीमित।',
+  'settings.costDashboard.logTotal': '{requests} अनुरोध • {cost}',
+  'settings.costDashboard.noUsageLog': 'इस अवधि के लिए कोई उपयोग रिकॉर्ड नहीं मिला।',
+  'settings.costDashboard.when': 'कब',
+  'settings.costDashboard.category': 'श्रेणी',
+  'settings.costDashboard.session': 'सत्र',
   'settings.costDashboard.noDataHint':
     'एक एजेंट संदेश भेजें - अगले प्रदाता कॉल से टोकन का उपयोग ~ 10 सेकंड के भीतर चार्ट को पॉप्युलेट करेगा।',
   'settings.search.title': 'खोज इंजन',

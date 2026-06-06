@@ -43,30 +43,19 @@ export const skillRegistryApi = {
     log('browse: forceRefresh=%s', forceRefresh);
     const response = await callCoreRpc<
       Envelope<{ entries: CatalogEntry[] }> | { entries: CatalogEntry[] }
-    >({
-      method: 'openhuman.skill_registry_browse',
-      params: { force_refresh: forceRefresh },
-    });
+    >({ method: 'openhuman.skill_registry_browse', params: { force_refresh: forceRefresh } });
     const result = unwrap(response);
     log('browse: count=%d', result.entries.length);
     return result.entries;
   },
 
-  search: async (
-    query: string,
-    format?: string,
-    source?: string
-  ): Promise<CatalogEntry[]> => {
+  search: async (query: string, format?: string, source?: string): Promise<CatalogEntry[]> => {
     log('search: query=%s format=%s source=%s', query, format, source);
     const response = await callCoreRpc<
       Envelope<{ entries: CatalogEntry[] }> | { entries: CatalogEntry[] }
     >({
       method: 'openhuman.skill_registry_search',
-      params: {
-        query,
-        ...(format ? { format } : {}),
-        ...(source ? { source } : {}),
-      },
+      params: { query, ...(format ? { format } : {}), ...(source ? { source } : {}) },
     });
     const result = unwrap(response);
     log('search: count=%d', result.entries.length);
@@ -77,9 +66,7 @@ export const skillRegistryApi = {
     log('sources: request');
     const response = await callCoreRpc<
       Envelope<{ sources: RegistrySource[] }> | { sources: RegistrySource[] }
-    >({
-      method: 'openhuman.skill_registry_sources',
-    });
+    >({ method: 'openhuman.skill_registry_sources' });
     const result = unwrap(response);
     log('sources: count=%d', result.sources.length);
     return result.sources;
@@ -94,10 +81,7 @@ export const skillRegistryApi = {
     log('addSource: id=%s', params.id);
     const response = await callCoreRpc<
       Envelope<{ sources: RegistrySource[] }> | { sources: RegistrySource[] }
-    >({
-      method: 'openhuman.skill_registry_add_source',
-      params,
-    });
+    >({ method: 'openhuman.skill_registry_add_source', params });
     const result = unwrap(response);
     return result.sources;
   },
@@ -106,10 +90,7 @@ export const skillRegistryApi = {
     log('removeSource: id=%s', id);
     const response = await callCoreRpc<
       Envelope<{ sources: RegistrySource[] }> | { sources: RegistrySource[] }
-    >({
-      method: 'openhuman.skill_registry_remove_source',
-      params: { id },
-    });
+    >({ method: 'openhuman.skill_registry_remove_source', params: { id } });
     const result = unwrap(response);
     return result.sources;
   },

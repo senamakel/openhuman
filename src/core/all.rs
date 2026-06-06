@@ -197,7 +197,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     // Discovered SKILL.md skills and their bundled resources
     controllers.extend(crate::openhuman::workflows::all_workflows_registered_controllers());
     // Skill registry: browse, search, install from remote registries
-    controllers.extend(crate::openhuman::skill_registry::all_skill_registry_registered_controllers());
+    controllers
+        .extend(crate::openhuman::skill_registry::all_skill_registry_registered_controllers());
     // User workspace and file management
     controllers.extend(crate::openhuman::workspace::all_workspace_registered_controllers());
     // Workflow tool registry

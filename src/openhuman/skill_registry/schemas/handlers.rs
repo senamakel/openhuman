@@ -46,10 +46,7 @@ pub(super) fn handle_search(params: Map<String, Value>) -> ControllerFuture {
         );
         let entries =
             ops::search_catalog(&p.query, p.format.as_deref(), p.source.as_deref()).await?;
-        tracing::debug!(
-            count = entries.len(),
-            "[skill_registry][rpc] search result"
-        );
+        tracing::debug!(count = entries.len(), "[skill_registry][rpc] search result");
         to_json(RpcOutcome::new(SearchResult { entries }, Vec::new()))
     })
 }
@@ -109,8 +106,7 @@ pub(super) fn handle_install(params: Map<String, Value>) -> ControllerFuture {
                 )
             })?;
 
-        let workspace =
-            crate::openhuman::workflows::schemas::resolve_workspace_dir().await;
+        let workspace = crate::openhuman::workflows::schemas::resolve_workspace_dir().await;
         let outcome = ops::install_from_catalog(&workspace, entry).await?;
 
         to_json(RpcOutcome::new(

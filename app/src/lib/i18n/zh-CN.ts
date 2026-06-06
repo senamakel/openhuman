@@ -265,8 +265,7 @@ const messages: TranslationMap = {
   'skills.explorer.allFormats': '所有格式',
   'skills.explorer.refreshRegistry': '刷新注册表',
   'skills.explorer.registryEmptyTitle': '没有注册表条目',
-  'skills.explorer.registryEmptyDescription':
-    '无法加载技能注册表。请检查您的连接并尝试刷新。',
+  'skills.explorer.registryEmptyDescription': '无法加载技能注册表。请检查您的连接并尝试刷新。',
   'skills.integrations': '集成',
   'skills.integrationsSubtitle':
     '基于云端的 OAuth 连接——使用您的账户登录，Composio 代管令牌，让智能体能以您的名义读取数据并执行操作，无需管理 API 密钥。',

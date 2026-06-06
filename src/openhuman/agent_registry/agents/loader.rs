@@ -1088,6 +1088,8 @@ mod tests {
 
     #[test]
     fn control_specialists_have_named_tools_and_are_worker_leaves() {
+        use crate::openhuman::agent::harness::definition::SubagentEntry;
+
         for expected in [
             "task_manager_agent",
             "settings_agent",
@@ -1097,7 +1099,18 @@ mod tests {
         ] {
             let def = find(expected);
             assert_eq!(def.agent_tier, AgentTier::Worker);
-            assert!(def.subagents.is_empty(), "{expected} must be a worker leaf");
+            let visible_subagents: Vec<&str> = def
+                .subagents
+                .iter()
+                .filter_map(|entry| match entry {
+                    SubagentEntry::AgentId(id) if id != "agent_memory" => Some(id.as_str()),
+                    _ => None,
+                })
+                .collect();
+            assert!(
+                visible_subagents.is_empty(),
+                "{expected} must be a worker leaf except for hidden agent_memory lookup"
+            );
             match def.tools {
                 ToolScope::Named(tools) => {
                     assert!(
@@ -1135,13 +1148,13 @@ mod tests {
     #[test]
     fn other_builtins_default_to_worker_tier() {
         for def in load_builtins().unwrap() {
-            if def.id == "orchestrator" || def.id == "planner" {
+            if def.id == "orchestrator" || def.id == "planner" || def.id == "subconscious" {
                 continue;
             }
             assert_eq!(
                 def.agent_tier,
                 AgentTier::Worker,
-                "{} should default to worker tier (only orchestrator/planner are non-worker today)",
+                "{} should default to worker tier (only orchestrator/planner/subconscious are non-worker today)",
                 def.id
             );
         }

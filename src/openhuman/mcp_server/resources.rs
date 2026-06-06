@@ -211,6 +211,12 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         description: "Dedicated memory retrieval subagent using smart-walk strategies.",
         content: include_str!("../agent_memory/agent/prompt.md"),
     },
+    PromptResource {
+        uri: "openhuman://prompts/agents/subconscious",
+        name: "subconscious",
+        description: "Background reasoning agent that maintains subconscious scratchpad context.",
+        content: include_str!("../subconscious/agent/prompt.md"),
+    },
 ];
 
 /// Returns the `resources/list` result payload listing every catalog entry.

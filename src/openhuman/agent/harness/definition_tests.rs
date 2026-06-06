@@ -129,6 +129,35 @@ named = ["query_memory"]
     );
 }
 
+#[test]
+fn subagents_section_parses_allowlist_entries() {
+    let toml_src = r#"
+id = "orchestrator"
+when_to_use = "Routes work to the right specialist"
+temperature = 0.4
+max_iterations = 15
+
+[subagents]
+allowlist = [
+    "researcher",
+    "code_executor",
+    { skills = "*" },
+]
+
+[tools]
+named = ["query_memory"]
+"#;
+    let def: AgentDefinition = toml::from_str(toml_src).expect("toml parse");
+    assert_eq!(
+        def.subagents,
+        vec![
+            SubagentEntry::AgentId("researcher".into()),
+            SubagentEntry::AgentId("code_executor".into()),
+            SubagentEntry::Skills(SkillsWildcard { skills: "*".into() }),
+        ]
+    );
+}
+
 /// `subagents` is optional — omitting it should yield an empty Vec
 /// rather than a deserialization error. Most non-delegating agents
 /// (archivist, code_executor, etc.) will not list any.

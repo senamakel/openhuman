@@ -21,4 +21,4 @@ omit_memory_md = false
 hint = "agentic"
 
 [tools]
-named = ["gitbooks_search", "gitbooks_get_page", "memory_recall"]
+named = ["gitbooks_search", "gitbooks_get_page", "call_memory_agent"]

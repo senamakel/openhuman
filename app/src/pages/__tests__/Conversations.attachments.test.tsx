@@ -17,23 +17,46 @@ import type { Thread } from '../../types/thread';
 
 // ── Hoisted mock state ──────────────────────────────────────────────────────
 
-const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(() => ({
-  mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
-  mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
-  mockUseUsageState: vi.fn(() => ({
-    teamUsage: null,
-    currentPlan: null,
-    currentTier: 'FREE' as const,
-    isFreeTier: true,
-    usagePct: 0,
-    isNearLimit: false,
-    isAtLimit: false,
-    isBudgetExhausted: false,
-    shouldShowBudgetCompletedMessage: false,
-    isLoading: false,
-    refresh: vi.fn(),
-  })),
-}));
+const { mockGetThreads, mockGetThreadMessages, mockSelectAgentProfile, mockUseUsageState } =
+  vi.hoisted(() => ({
+    mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
+    mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
+    mockSelectAgentProfile: vi.fn().mockImplementation((profileId: string) =>
+      Promise.resolve({
+        activeProfileId: profileId,
+        profiles: [
+          {
+            id: 'default',
+            name: 'Default',
+            description: 'Default',
+            agentId: 'orchestrator',
+            builtIn: true,
+          },
+          {
+            id: 'reasoning',
+            name: 'Reasoning',
+            description: 'Reasoning',
+            agentId: 'orchestrator',
+            modelOverride: 'hint:reasoning',
+            builtIn: true,
+          },
+        ],
+      })
+    ),
+    mockUseUsageState: vi.fn(() => ({
+      teamUsage: null,
+      currentPlan: null,
+      currentTier: 'FREE' as const,
+      isFreeTier: true,
+      usagePct: 0,
+      isNearLimit: false,
+      isAtLimit: false,
+      isBudgetExhausted: false,
+      shouldShowBudgetCompletedMessage: false,
+      isLoading: false,
+      refresh: vi.fn(),
+    })),
+  }));
 
 // ── Module mocks ────────────────────────────────────────────────────────────
 
@@ -69,21 +92,27 @@ vi.mock('../../services/api/threadApi', () => ({
 
 vi.mock('../../services/api/agentProfilesApi', () => ({
   agentProfilesApi: {
-    list: vi
-      .fn()
-      .mockResolvedValue({
-        activeProfileId: 'default',
-        profiles: [
-          {
-            id: 'default',
-            name: 'Default',
-            description: 'Default',
-            agentId: 'orchestrator',
-            builtIn: true,
-          },
-        ],
-      }),
-    select: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
+    list: vi.fn().mockResolvedValue({
+      activeProfileId: 'default',
+      profiles: [
+        {
+          id: 'default',
+          name: 'Default',
+          description: 'Default',
+          agentId: 'orchestrator',
+          builtIn: true,
+        },
+        {
+          id: 'reasoning',
+          name: 'Reasoning',
+          description: 'Reasoning',
+          agentId: 'orchestrator',
+          modelOverride: 'hint:reasoning',
+          builtIn: true,
+        },
+      ],
+    }),
+    select: mockSelectAgentProfile,
     upsert: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
     delete: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
   },
@@ -91,9 +120,6 @@ vi.mock('../../services/api/agentProfilesApi', () => ({
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
-// Attachments are gated off by default (CHAT_ATTACHMENTS_ENABLED, #3205); force
-// the flag on so these tests still exercise the underlying attachment pipeline
-// (validation, preview, attachment-only send) that ships behind the flag.
 vi.mock('../../utils/config', async importActual => ({
   ...(await importActual<typeof import('../../utils/config')>()),
   CHAT_ATTACHMENTS_ENABLED: true,
@@ -264,7 +290,22 @@ describe('Conversations — attachment feature', () => {
     });
   });
 
-  it('shows unsupported type error for non-image files', async () => {
+  it('shows unsupported type error for unsupported files', async () => {
+    await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = makeFile('vector.svg', 'image/svg+xml', 512);
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Unsupported file type/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows attachment chip after selecting a supported document file', async () => {
     await renderWithSelectedThread();
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -275,7 +316,7 @@ describe('Conversations — attachment feature', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Unsupported file type/i)).toBeInTheDocument();
+      expect(screen.getByText('doc.pdf')).toBeInTheDocument();
     });
   });
 
@@ -333,6 +374,25 @@ describe('Conversations — attachment feature', () => {
     });
   });
 
+  it('switches to reasoning when a supported attachment is selected', async () => {
+    await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = makeFile('auto-reasoning.png', 'image/png', 512);
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    await waitFor(() => {
+      expect(mockSelectAgentProfile).toHaveBeenCalledWith('reasoning');
+      expect(screen.getByRole('radio', { name: 'Reasoning' })).toHaveAttribute(
+        'aria-checked',
+        'true'
+      );
+    });
+  });
+
   it('clears attachments and calls chatSend after sending with attachment + text', async () => {
     const { chatSend } = await import('../../services/chatService');
     const { textarea } = await renderWithSelectedThread();
@@ -358,7 +418,46 @@ describe('Conversations — attachment feature', () => {
 
     await waitFor(() => {
       expect(chatSend).toHaveBeenCalled();
+      expect(chatSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'hint:reasoning',
+          message: expect.stringContaining('[IMAGE:data:image/png;base64,'),
+        })
+      );
       expect(screen.queryByText('send.png')).not.toBeInTheDocument();
+    });
+  });
+
+  it('sends supported document files as FILE markers through the reasoning model', async () => {
+    const { chatSend } = await import('../../services/chatService');
+    const { textarea } = await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = makeFile('doc.pdf', 'application/pdf', 512);
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('doc.pdf')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'read this' } });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    });
+
+    await waitFor(() => {
+      expect(chatSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'hint:reasoning',
+          message: expect.stringContaining('[FILE:data:application/pdf;base64,'),
+        })
+      );
     });
   });
 

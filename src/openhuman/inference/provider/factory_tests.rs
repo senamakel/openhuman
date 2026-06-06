@@ -879,6 +879,18 @@ fn make_openhuman_backend_translates_summarization_hint() {
 }
 
 #[test]
+fn make_openhuman_backend_reports_vision_capability() {
+    let config = Config::default();
+    let (provider, _) = make_openhuman_backend(&config).expect("factory should succeed");
+    let caps = provider.capabilities();
+    assert!(caps.native_tool_calling);
+    assert!(
+        caps.vision,
+        "OpenHuman backend must report vision so attachment-driven reasoning turns clear the harness gate"
+    );
+}
+
+#[test]
 fn make_openhuman_backend_falls_back_for_invalid_model() {
     // An invalid default_model must not be forwarded to the backend.
     // The factory must silently fall back to reasoning-v1 (the platform default).

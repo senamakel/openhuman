@@ -726,7 +726,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(chatSend).toHaveBeenCalledWith({
       threadId: thread.id,
       message: 'hello cloud',
-      model: 'reasoning-v1',
+      model: 'hint:chat',
       profileId: 'default',
       locale: 'en',
     });
@@ -750,7 +750,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       expect(chatSend).toHaveBeenCalledWith({
         threadId: thread.id,
         message: 'play highway to hell',
-        model: 'reasoning-v1',
+        model: 'hint:chat',
         profileId: 'default',
         locale: 'en',
       });
@@ -802,7 +802,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(chatSend).toHaveBeenCalledWith({
       threadId: thread.id,
       message: 'slow backend',
-      model: 'reasoning-v1',
+      model: 'hint:chat',
       profileId: 'default',
       locale: 'en',
     });
@@ -1170,7 +1170,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       expect(chatSend).toHaveBeenCalledWith({
         threadId: thread.id,
         message: 'enter send',
-        model: 'reasoning-v1',
+        model: 'hint:chat',
         profileId: 'default',
         locale: 'en',
       });
@@ -1245,7 +1245,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       expect(chatSend).toHaveBeenCalledWith({
         threadId: thread.id,
         message: '안녕',
-        model: 'reasoning-v1',
+        model: 'hint:chat',
         profileId: 'default',
         locale: 'en',
       });

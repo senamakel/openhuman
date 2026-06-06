@@ -7,9 +7,7 @@ mod tests {
     use crate::openhuman::memory_store::content::compose::summary::{
         compose_summary_md, rewrite_summary_tags, scope_short_label, SummaryComposeInput,
     };
-    use crate::openhuman::memory_store::content::compose::yaml::{
-        split_front_matter, yaml_scalar,
-    };
+    use crate::openhuman::memory_store::content::compose::yaml::{split_front_matter, yaml_scalar};
     use crate::openhuman::memory_store::content::compose::{
         MEMORY_ARTIFACT_FORMAT, OPENHUMAN_CORE_VERSION,
     };

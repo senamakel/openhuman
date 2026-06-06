@@ -4,10 +4,12 @@ use std::sync::Arc;
 
 use log::debug;
 
-use super::helpers::{create_stt_provider_by_slug, create_tts_provider_by_slug, split_slug_model, LOG_PREFIX};
+use super::helpers::{
+    create_stt_provider_by_slug, create_tts_provider_by_slug, split_slug_model, LOG_PREFIX,
+};
 use super::stt_providers::{CloudSttProvider, WhisperSttProvider};
-use super::tts_providers::{CloudTtsProvider, PiperTtsProvider};
 use super::traits::{SttProvider, TtsProvider};
+use super::tts_providers::{CloudTtsProvider, PiperTtsProvider};
 use crate::openhuman::config::Config;
 
 /// Default Whisper model. `whisper-large-v3-turbo` is the recommended ship

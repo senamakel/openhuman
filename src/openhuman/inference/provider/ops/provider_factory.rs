@@ -327,4 +327,3 @@ pub fn canonical_china_provider_name(_name: &str) -> Option<&'static str> {
     let _ = _name;
     None
 }
-

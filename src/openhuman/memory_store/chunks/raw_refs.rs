@@ -8,8 +8,8 @@
 use anyhow::{Context, Result};
 use rusqlite::{params, OptionalExtension};
 
-use crate::openhuman::config::Config;
 use super::with_connection;
+use crate::openhuman::config::Config;
 
 /// One pointer into the raw archive. A chunk's body is reconstructed by
 /// reading each [`RawRef`] in order and joining with `"\n\n"`.

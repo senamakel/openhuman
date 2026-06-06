@@ -30,8 +30,8 @@
 //! `Note` events so a real-call failure is visible in the transcript
 //! log, not silently degraded to a stub.
 
-mod constants;
 mod access;
+mod constants;
 mod llm;
 mod speech;
 mod stubs;

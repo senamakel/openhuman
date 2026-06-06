@@ -43,10 +43,7 @@ pub(super) fn short_id(id: &str) -> String {
 /// chat-completions path (`llm_meeting_basic`) so a config /
 /// registry / token issue degrades to a polite reply instead of
 /// dead air.
-pub(super) async fn llm_meeting_agentic(
-    prompt: &str,
-    request_id: &str,
-) -> Result<String, String> {
+pub(super) async fn llm_meeting_agentic(prompt: &str, request_id: &str) -> Result<String, String> {
     // Get-or-build the per-meet cached Agent. First wake of a meet
     // builds the orchestrator once (memory tree + MCP + tools — 5-10s
     // cold); subsequent wakes reuse the same instance, so its
@@ -140,9 +137,7 @@ pub(super) async fn llm_meeting_agentic(
 /// Get the cached orchestrator for this meet, or build it on first
 /// call. Returns an `Arc<TokioMutex<Agent>>` so the caller can lock
 /// across the run_single().await.
-async fn get_or_build_agent_for_meet(
-    request_id: &str,
-) -> Result<Arc<TokioMutex<Agent>>, String> {
+async fn get_or_build_agent_for_meet(request_id: &str) -> Result<Arc<TokioMutex<Agent>>, String> {
     {
         let cache = agent_cache().lock().await;
         if let Some(existing) = cache.get(request_id) {

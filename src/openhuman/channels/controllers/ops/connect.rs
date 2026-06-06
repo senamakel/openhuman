@@ -13,7 +13,9 @@ use super::super::definitions::{
     all_channel_definitions, find_channel_definition, ChannelAuthMode, ChannelDefinition,
 };
 use super::types::{ChannelConnectionResult, ChannelStatusEntry, ChannelTestResult};
-use super::yuanbao::{build_effective_yuanbao_config, require_yuanbao_field, verify_yuanbao_credentials};
+use super::yuanbao::{
+    build_effective_yuanbao_config, require_yuanbao_field, verify_yuanbao_credentials,
+};
 
 /// Credential provider key for channel connections: `"channel:{id}:{mode}"`.
 pub(super) fn credential_provider(channel_id: &str, mode: ChannelAuthMode) -> String {

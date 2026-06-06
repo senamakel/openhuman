@@ -4,8 +4,8 @@ use super::types::{
     ActionTracker, AutonomyLevel, SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot,
     POLICY_BLOCKED_MARKER,
 };
-use tokio::sync::OnceCell;
 use std::sync::Arc;
+use tokio::sync::OnceCell;
 
 impl SecurityPolicy {
     /// Check if autonomy level permits any action at all

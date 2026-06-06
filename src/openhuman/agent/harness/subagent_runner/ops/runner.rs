@@ -10,9 +10,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::openhuman::agent::harness::definition::{AgentDefinition, IterationPolicy, PromptSource};
-use crate::openhuman::agent::harness::{
-    current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
+use crate::openhuman::agent::harness::definition::{
+    AgentDefinition, IterationPolicy, PromptSource,
 };
 use crate::openhuman::agent::harness::fork_context::{current_parent, ParentExecutionContext};
 use crate::openhuman::agent::harness::subagent_runner::extract_tool::ExtractFromResultTool;
@@ -23,6 +22,9 @@ use crate::openhuman::agent::harness::subagent_runner::tool_prep::{
 use crate::openhuman::agent::harness::subagent_runner::types::{
     SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome,
 };
+use crate::openhuman::agent::harness::{
+    current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
+};
 use crate::openhuman::context::prompt::{
     render_subagent_system_prompt, PromptContext, PromptTool, SubagentRenderOptions,
 };
@@ -31,7 +33,9 @@ use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 
 use super::loop_::run_inner_loop;
 use super::prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
-use super::provider::{resolve_subagent_provider, user_is_signed_in_to_composio, LazyToolkitResolver};
+use super::provider::{
+    resolve_subagent_provider, user_is_signed_in_to_composio, LazyToolkitResolver,
+};
 
 /// Run a sub-agent based on its definition and a task prompt.
 ///
@@ -678,18 +682,19 @@ async fn run_typed_mode(
                 "[subagent_runner] failed to create checkpoint directory"
             );
         } else {
-            let checkpoint_data = crate::openhuman::agent::harness::subagent_runner::types::SubagentCheckpointData {
-                task_id: task_id.to_string(),
-                agent_id: definition.id.clone(),
-                worker_thread_id: options.worker_thread_id.clone(),
-                history: history.clone(),
-                question: question.clone(),
-                options: options_vec.clone(),
-                toolkit_override: options.toolkit_override.clone(),
-                skill_filter_override: options.skill_filter_override.clone(),
-                model_override: options.model_override.clone(),
-                created_at: chrono::Utc::now().to_rfc3339(),
-            };
+            let checkpoint_data =
+                crate::openhuman::agent::harness::subagent_runner::types::SubagentCheckpointData {
+                    task_id: task_id.to_string(),
+                    agent_id: definition.id.clone(),
+                    worker_thread_id: options.worker_thread_id.clone(),
+                    history: history.clone(),
+                    question: question.clone(),
+                    options: options_vec.clone(),
+                    toolkit_override: options.toolkit_override.clone(),
+                    skill_filter_override: options.skill_filter_override.clone(),
+                    model_override: options.model_override.clone(),
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                };
             let checkpoint_path = checkpoint_dir.join(format!("{task_id}.json"));
             match serde_json::to_string_pretty(&checkpoint_data) {
                 Ok(json) => {

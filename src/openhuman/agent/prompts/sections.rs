@@ -5,7 +5,10 @@
 //! [`super::render_helpers`] for workspace-file injection and
 //! sub-agent plumbing.
 
-use super::render_helpers::{inject_inline_content, inject_snapshot_content, inject_workspace_file, inject_workspace_file_capped, sync_workspace_file};
+use super::render_helpers::{
+    inject_inline_content, inject_snapshot_content, inject_workspace_file,
+    inject_workspace_file_capped, sync_workspace_file,
+};
 use super::types::*;
 use anyhow::Result;
 use std::fmt::Write;

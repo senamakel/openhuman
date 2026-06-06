@@ -498,12 +498,7 @@ pub fn inject_workspace_file(prompt: &mut String, workspace_dir: &Path, filename
 /// loader to an inline override is byte-compatible with the workspace-file path.
 ///
 /// Empty/whitespace content is silently skipped.
-pub fn inject_inline_content(
-    prompt: &mut String,
-    label: &str,
-    content: &str,
-    max_chars: usize,
-) {
+pub fn inject_inline_content(prompt: &mut String, label: &str, content: &str, max_chars: usize) {
     let trimmed = content.trim();
     if trimmed.is_empty() {
         return;
@@ -533,12 +528,7 @@ pub fn inject_inline_content(
 ///
 /// Empty/whitespace content is silently skipped, mirroring the file
 /// loader's "no noisy placeholder" behaviour.
-pub fn inject_snapshot_content(
-    prompt: &mut String,
-    label: &str,
-    content: &str,
-    max_chars: usize,
-) {
+pub fn inject_snapshot_content(prompt: &mut String, label: &str, content: &str, max_chars: usize) {
     let trimmed = content.trim();
     if trimmed.is_empty() {
         return;
@@ -683,9 +673,7 @@ fn empty_prompt_context_for_static_sections() -> PromptContext<'static> {
 /// Used by `render_subagent_system_prompt` which operates on `Box<dyn Tool>`
 /// directly (no intermediate `PromptTool`). Mirrors the `PromptTool` variant
 /// below — both BTreeMap-iterate the schema's `properties` in the same order.
-fn render_pformat_signature_for_box_tool(
-    tool: &dyn crate::openhuman::tools::Tool,
-) -> String {
+fn render_pformat_signature_for_box_tool(tool: &dyn crate::openhuman::tools::Tool) -> String {
     let schema = tool.parameters_schema();
     let names: Vec<String> = schema
         .get("properties")

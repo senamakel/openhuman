@@ -7,12 +7,12 @@ use futures_util::{stream, StreamExt};
 
 use super::compatible_dump::{dump_prompt_if_enabled, dump_response_if_enabled, reserve_dump_seq};
 use super::compatible_parse::normalize_function_arguments;
+use super::compatible_repeat::CHAT_FREQUENCY_PENALTY;
 use super::compatible_stream::sse_bytes_to_chunks;
 use super::compatible_types::{
     ApiChatRequest, ApiChatResponse, Message, MessageContent, NativeChatRequest,
     OpenAiStreamOptions,
 };
-use super::compatible_repeat::CHAT_FREQUENCY_PENALTY;
 use super::{AuthStyle, OpenAiCompatibleProvider};
 
 #[async_trait]
@@ -204,8 +204,7 @@ impl Provider for OpenAiCompatibleProvider {
         }
 
         let body = response.text().await?;
-        let chat_response =
-            super::compatible_parse::parse_chat_response_body(&self.name, &body)?;
+        let chat_response = super::compatible_parse::parse_chat_response_body(&self.name, &body)?;
 
         chat_response
             .choices
@@ -329,8 +328,7 @@ impl Provider for OpenAiCompatibleProvider {
         }
 
         let body = response.text().await?;
-        let chat_response =
-            super::compatible_parse::parse_chat_response_body(&self.name, &body)?;
+        let chat_response = super::compatible_parse::parse_chat_response_body(&self.name, &body)?;
 
         chat_response
             .choices
@@ -415,8 +413,7 @@ impl Provider for OpenAiCompatibleProvider {
         }
 
         let body = response.text().await?;
-        let chat_response =
-            super::compatible_parse::parse_chat_response_body(&self.name, &body)?;
+        let chat_response = super::compatible_parse::parse_chat_response_body(&self.name, &body)?;
         let usage = Self::extract_usage(&chat_response);
         let choice = chat_response
             .choices
@@ -540,12 +537,7 @@ impl Provider for OpenAiCompatibleProvider {
                             ..native_request.clone()
                         };
                         match self
-                            .stream_native_chat(
-                                credential,
-                                &retry_request,
-                                tx,
-                                stream_dump_seq,
-                            )
+                            .stream_native_chat(credential, &retry_request, tx, stream_dump_seq)
                             .await
                         {
                             Ok(resp) => return Ok(resp),
@@ -567,12 +559,7 @@ impl Provider for OpenAiCompatibleProvider {
                             ..native_request.clone()
                         };
                         match self
-                            .stream_native_chat(
-                                credential,
-                                &retry_request,
-                                tx,
-                                stream_dump_seq,
-                            )
+                            .stream_native_chat(credential, &retry_request, tx, stream_dump_seq)
                             .await
                         {
                             Ok(resp) => return Ok(resp),

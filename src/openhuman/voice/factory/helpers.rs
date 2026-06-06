@@ -3,8 +3,8 @@
 use log::debug;
 
 use super::stt_providers::ExternalSttProvider;
-use super::tts_providers::ExternalTtsProvider;
 use super::traits::{SttProvider, TtsProvider};
+use super::tts_providers::ExternalTtsProvider;
 use crate::openhuman::config::Config;
 
 pub(super) const LOG_PREFIX: &str = "[voice-factory]";

@@ -9,8 +9,8 @@ use super::compatible_parse::{
     parse_tool_calls_from_content_json,
 };
 use super::compatible_types::{
-    ApiChatResponse, Message, MessageContent, NativeChatRequest,
-    NativeMessage, ResponsesRequest, ToolCall,
+    ApiChatResponse, Message, MessageContent, NativeChatRequest, NativeMessage, ResponsesRequest,
+    ToolCall,
 };
 use super::OpenAiCompatibleProvider;
 
@@ -548,10 +548,7 @@ impl OpenAiCompatibleProvider {
     }
 
     /// Detect a 404 whose body says the model is completion-only. See issue #3193.
-    pub(super) fn is_completion_only_model_404(
-        status: reqwest::StatusCode,
-        error: &str,
-    ) -> bool {
+    pub(super) fn is_completion_only_model_404(status: reqwest::StatusCode, error: &str) -> bool {
         if status != reqwest::StatusCode::NOT_FOUND {
             return false;
         }
@@ -561,10 +558,7 @@ impl OpenAiCompatibleProvider {
     }
 
     /// Detect a model rejected because it has no chat capability. See Sentry TAURI-RUST-4P6.
-    pub(super) fn is_not_chat_capable_model(
-        status: reqwest::StatusCode,
-        error: &str,
-    ) -> bool {
+    pub(super) fn is_not_chat_capable_model(status: reqwest::StatusCode, error: &str) -> bool {
         if !matches!(
             status,
             reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::UNPROCESSABLE_ENTITY
@@ -601,11 +595,7 @@ impl OpenAiCompatibleProvider {
         }
     }
 
-    pub(super) fn not_chat_capable_model_message(
-        &self,
-        model: &str,
-        sanitized: &str,
-    ) -> String {
+    pub(super) fn not_chat_capable_model_message(&self, model: &str, sanitized: &str) -> String {
         format!(
             "{name} API error: model '{model}' does not support chat — it \
              appears to be an embedding or non-chat model. Assign a \

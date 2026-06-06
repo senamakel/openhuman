@@ -1,11 +1,11 @@
 //! Config load/save and environment variable overrides.
 
-mod env;
 mod dirs;
-mod secrets;
-mod migrate;
-mod impl_load;
+mod env;
 mod env_overlay;
+mod impl_load;
+mod migrate;
+mod secrets;
 
 pub(crate) use env::EnvLookup;
 pub(crate) use env::ProcessEnv;
@@ -13,8 +13,8 @@ pub(crate) use env::ProcessEnv;
 pub use dirs::{
     action_dir_env_override, clear_active_user, default_action_dir, default_projects_dir,
     default_root_openhuman_dir, pre_login_user_dir, read_active_user_id, resolve_action_dir,
-    user_openhuman_dir, write_active_user_id, PRE_LOGIN_USER_ID,
-    MEMORY_SYNC_INTERVAL_SECS_ENV_VAR, PROJECTS_DIR_ENV_VAR, ACTION_DIR_ENV_VAR,
+    user_openhuman_dir, write_active_user_id, ACTION_DIR_ENV_VAR,
+    MEMORY_SYNC_INTERVAL_SECS_ENV_VAR, PRE_LOGIN_USER_ID, PROJECTS_DIR_ENV_VAR,
 };
 
 pub(crate) use dirs::persist_active_workspace_config_dir;
@@ -26,21 +26,21 @@ pub(super) use migrate::redact_url_for_log;
 // Items needed by load_tests.rs (loaded as `mod tests` below).
 // Tests are a submodule of `load`, so `super::*` == this module's namespace.
 #[cfg(test)]
-pub(crate) use dirs::{
-    ConfigResolutionSource, resolve_config_dir_for_workspace,
-    resolve_runtime_config_dirs, resolve_runtime_config_dirs_with,
-};
-#[cfg(test)]
 pub(crate) use dirs::default_root_dir_name_pub as default_root_dir_name;
-// PathBuf and Config were in scope via `use super::*` in the original load.rs.
 #[cfg(test)]
-pub(crate) use std::path::PathBuf;
+pub(crate) use dirs::{
+    resolve_config_dir_for_workspace, resolve_runtime_config_dirs,
+    resolve_runtime_config_dirs_with, ConfigResolutionSource,
+};
+// PathBuf and Config were in scope via `use super::*` in the original load.rs.
 #[cfg(test)]
 pub(crate) use super::Config;
 #[cfg(test)]
 pub(crate) use impl_load::parse_config_with_recovery;
 #[cfg(test)]
 pub(crate) use migrate::{migrate_cloud_provider_slugs, migrate_legacy_inference_url};
+#[cfg(test)]
+pub(crate) use std::path::PathBuf;
 
 #[cfg(unix)]
 pub(super) async fn sync_directory(path: &std::path::Path) -> anyhow::Result<()> {

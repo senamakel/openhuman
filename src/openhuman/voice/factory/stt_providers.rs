@@ -4,7 +4,9 @@ use async_trait::async_trait;
 use log::debug;
 use serde::Deserialize;
 
-use super::super::cloud_transcribe::{transcribe_cloud, CloudTranscribeOptions, CloudTranscribeResult};
+use super::super::cloud_transcribe::{
+    transcribe_cloud, CloudTranscribeOptions, CloudTranscribeResult,
+};
 use super::super::local_transcribe::{transcribe_whisper, WhisperTranscribeOptions};
 use super::helpers::{base64_decode, extension_for_mime};
 use super::traits::{SttProvider, SttResult};

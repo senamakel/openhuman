@@ -49,23 +49,25 @@ pub(crate) use provider::resolve_subagent_provider;
 #[cfg(test)]
 pub(super) use prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
 #[cfg(test)]
-pub(super) use provider::{LazyToolkitResolver, normalize_slug};
+pub(super) use provider::{normalize_slug, LazyToolkitResolver};
 // filter_tool_indices lives in tool_prep (sibling of ops).
 #[cfg(test)]
 pub(super) use super::tool_prep::filter_tool_indices;
 // Types used by tests that were previously in scope via the flat ops.rs imports.
 #[cfg(test)]
-pub(super) use super::types::{SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome};
+pub(super) use super::types::{
+    SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome,
+};
 #[cfg(test)]
 pub(super) use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource};
 #[cfg(test)]
-pub(super) use crate::openhuman::tools::{Tool, ToolSpec};
+pub(super) use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 #[cfg(test)]
 pub(super) use crate::openhuman::agent::harness::{
     current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH,
 };
 #[cfg(test)]
-pub(super) use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
+pub(super) use crate::openhuman::tools::{Tool, ToolSpec};
 
 // Test companion modules — path references relative to their original location.
 #[cfg(test)]

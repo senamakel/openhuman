@@ -31,9 +31,9 @@ mod tests;
 // ── Public API ────────────────────────────────────────────────────────────────
 
 pub use dispatch::dispatch_card;
+pub use poller::start_board_poller;
 pub use prompt::build_task_prompt;
 pub use registry::cancel_session;
-pub use poller::start_board_poller;
 pub use types::DispatchOutcome;
 
 // `pub(crate)` for test drivers.

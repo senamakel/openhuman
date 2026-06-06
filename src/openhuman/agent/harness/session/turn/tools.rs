@@ -1,7 +1,7 @@
 //! Tool execution and Composio delegation refresh.
 
-use super::super::types::Agent;
 use super::super::agent_tool_exec;
+use super::super::types::Agent;
 use super::newly_connected_slugs;
 use crate::openhuman::agent::dispatcher::ParsedToolCall;
 use crate::openhuman::agent::harness;
@@ -40,8 +40,7 @@ impl Agent {
         // direct caller run the identical logic. Progress is emitted through a
         // `TurnProgress` over this agent's sink. Legacy `run_skill`-wrapped
         // built-in cron tool calls are normalized to direct calls first.
-        let progress =
-            super::super::super::engine::TurnProgress::new(self.on_progress.clone());
+        let progress = super::super::super::engine::TurnProgress::new(self.on_progress.clone());
         let artifact_store =
             crate::openhuman::agent::harness::tool_result_artifacts::ToolResultArtifactStore::new(
                 self.action_dir.clone(),
@@ -90,7 +89,9 @@ impl Agent {
 
     /// Snapshot the parent's runtime so spawned sub-agents can read
     /// it via the [`harness::PARENT_CONTEXT`] task-local.
-    pub(in super::super) fn build_parent_execution_context(&self) -> harness::ParentExecutionContext {
+    pub(in super::super) fn build_parent_execution_context(
+        &self,
+    ) -> harness::ParentExecutionContext {
         harness::ParentExecutionContext {
             provider: Arc::clone(&self.provider),
             all_tools: Arc::clone(&self.tools),

@@ -7,8 +7,8 @@ use crate::openhuman::memory_tree::retrieval::types::NodeKind;
 use crate::rpc::RpcOutcome;
 
 use super::types::{
-    ChunkFilter, ChunkRow, ListChunksResponse, RecallResponse, Source, PREVIEW_MAX_CHARS,
-    DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT,
+    ChunkFilter, ChunkRow, ListChunksResponse, RecallResponse, Source, DEFAULT_LIST_LIMIT,
+    MAX_LIST_LIMIT, PREVIEW_MAX_CHARS,
 };
 
 // ── list_chunks ──────────────────────────────────────────────────────────
@@ -67,8 +67,7 @@ pub(super) fn list_chunks_blocking(
         }
         if let Some(kinds) = &filter.source_kinds {
             if !kinds.is_empty() {
-                let placeholders: Vec<String> =
-                    (0..kinds.len()).map(|_| "?".to_string()).collect();
+                let placeholders: Vec<String> = (0..kinds.len()).map(|_| "?".to_string()).collect();
                 where_clauses.push(format!("c.source_kind IN ({})", placeholders.join(", ")));
                 for k in kinds {
                     params_owned.push(Box::new(k.clone()));
@@ -233,10 +232,7 @@ fn list_sources_blocking(config: &Config, user_email_hint: Option<&str>) -> Resu
 /// - `gmail:alice@example.com|bob@example.com` (user is alice) → `bob@example.com`
 /// - `gmail:alice@example.com|bob@example.com` (user unknown) →
 ///   `alice@example.com ↔ bob@example.com`
-pub fn display_name_for_source(
-    source_id: &str,
-    user_email_hint: Option<&str>,
-) -> String {
+pub fn display_name_for_source(source_id: &str, user_email_hint: Option<&str>) -> String {
     let body = match source_id.split_once(':') {
         Some((_platform, rest)) => rest,
         None => source_id,

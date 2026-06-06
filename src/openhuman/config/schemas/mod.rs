@@ -8,6 +8,8 @@ pub use schema_defs::schemas;
 // Re-export items that schemas_tests.rs accesses via `use super::*`.
 // The test module is `schemas::tests` so `super::` resolves to `schemas`.
 #[cfg(test)]
+use crate::core::TypeSchema;
+#[cfg(test)]
 use controllers::{
     handle_get_agent_paths, handle_get_autonomy_settings, handle_update_autonomy_settings,
 };
@@ -16,15 +18,13 @@ use helpers::{
     deserialize_params, json_output, optional_bool, optional_json, optional_string,
     required_string, to_json, ActivityLevelSettingsUpdate, AgentPathsUpdate, AgentSettingsUpdate,
     AnalyticsSettingsUpdate, AutonomySettingsUpdate, BrowserSettingsUpdate,
-    ComposioTriggerSettingsUpdate, DEFAULT_ONBOARDING_FLAG_NAME, DictationSettingsUpdate,
-    LocalAiSettingsUpdate, MeetSettingsUpdate, MemorySyncSettingsUpdate, MemorySettingsUpdate,
-    ModelSettingsUpdate, OnboardingCompletedSetParams, RuntimeSettingsUpdate,
-    SandboxSettingsUpdate, SearchSettingsUpdate, ScreenIntelligenceSettingsUpdate,
-    SetBrowserAllowAllParams, VoiceServerSettingsUpdate, WorkspaceOnboardingFlagParams,
-    WorkspaceOnboardingFlagSetParams,
+    ComposioTriggerSettingsUpdate, DictationSettingsUpdate, LocalAiSettingsUpdate,
+    MeetSettingsUpdate, MemorySettingsUpdate, MemorySyncSettingsUpdate, ModelSettingsUpdate,
+    OnboardingCompletedSetParams, RuntimeSettingsUpdate, SandboxSettingsUpdate,
+    ScreenIntelligenceSettingsUpdate, SearchSettingsUpdate, SetBrowserAllowAllParams,
+    VoiceServerSettingsUpdate, WorkspaceOnboardingFlagParams, WorkspaceOnboardingFlagSetParams,
+    DEFAULT_ONBOARDING_FLAG_NAME,
 };
-#[cfg(test)]
-use crate::core::TypeSchema;
 #[cfg(test)]
 use serde_json::{Map, Value};
 

@@ -14,8 +14,8 @@ mod types;
 // Public API consumed by the rest of `mcp_server`
 pub use dispatch::{call_tool, list_tools_result, tool_error, tool_success};
 pub use specs::{
-    base_tool_specs, list_tools_result_for_config, list_tools_result_from_specs,
-    searxng_tool_spec, tool_specs,
+    base_tool_specs, list_tools_result_for_config, list_tools_result_from_specs, searxng_tool_spec,
+    tool_specs,
 };
 pub use types::{McpToolSpec, ToolCallError};
 
@@ -32,7 +32,7 @@ pub use params::{build_rpc_params, slug_from};
 #[cfg(test)]
 pub use serde_json::Value;
 #[cfg(test)]
-pub use types::{DEFAULT_LIMIT, MAX_LIMIT, TREE_TAG_MAX_TAG_LENGTH, TREE_TAG_MAX_TAGS};
+pub use types::{DEFAULT_LIMIT, MAX_LIMIT, TREE_TAG_MAX_TAGS, TREE_TAG_MAX_TAG_LENGTH};
 
 #[cfg(test)]
 #[path = "../tools_tests.rs"]

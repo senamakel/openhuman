@@ -7,7 +7,9 @@ use super::entry::{
 use super::helpers::{effective_stt_provider, effective_tts_provider, split_slug_model};
 use super::stt_providers::WhisperSttProvider;
 use super::traits::SttProvider;
-use crate::openhuman::config::schema::voice_providers::{SttApiStyle, TtsApiStyle, VoiceCapability};
+use crate::openhuman::config::schema::voice_providers::{
+    SttApiStyle, TtsApiStyle, VoiceCapability,
+};
 use crate::openhuman::config::Config;
 
 fn cfg() -> Config {

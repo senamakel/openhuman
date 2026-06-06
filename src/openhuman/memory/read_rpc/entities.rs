@@ -6,9 +6,7 @@ use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_tree::score::store as score_store;
 use crate::rpc::RpcOutcome;
 
-use super::types::{
-    DeleteChunkResponse, EntityRef, ScoreBreakdown, ScoreSignal, MAX_LIST_LIMIT,
-};
+use super::types::{DeleteChunkResponse, EntityRef, ScoreBreakdown, ScoreSignal, MAX_LIST_LIMIT};
 
 // ── entity index lookups ────────────────────────────────────────────────
 

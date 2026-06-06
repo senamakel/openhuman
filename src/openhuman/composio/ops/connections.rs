@@ -12,7 +12,9 @@ use super::super::connected_integrations::{
     fetch_connected_integrations_status, invalidate_connected_integrations_cache,
     sync_cache_with_connections, FetchConnectedIntegrationsStatus,
 };
-use super::super::providers::profile::{load_connected_identities, normalize_connection_identifier};
+use super::super::providers::profile::{
+    load_connected_identities, normalize_connection_identifier,
+};
 use super::super::types::{
     ComposioAuthorizeResponse, ComposioConnectionsResponse, ComposioDeleteResponse,
 };

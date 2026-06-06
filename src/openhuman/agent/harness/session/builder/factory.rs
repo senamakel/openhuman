@@ -8,15 +8,15 @@ use crate::openhuman::agent::dispatcher::{
 use crate::openhuman::agent::harness::definition::{
     AgentDefinitionRegistry, PromptSource, ToolScope,
 };
+use crate::openhuman::agent::harness::session::types::Agent;
 use crate::openhuman::agent::host_runtime;
 use crate::openhuman::agent::memory_loader::DefaultMemoryLoader;
-use crate::openhuman::agent::harness::session::types::Agent;
 use crate::openhuman::config::Config;
 use crate::openhuman::context::prompt::SystemPromptBuilder;
 use crate::openhuman::inference::provider::{self, Provider};
 use crate::openhuman::memory::Memory;
 use crate::openhuman::memory_store;
-use crate::openhuman::memory_tools::{ToolMemoryCaptureHook};
+use crate::openhuman::memory_tools::ToolMemoryCaptureHook;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::{self, Tool};
 use anyhow::Result;

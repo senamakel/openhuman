@@ -72,4 +72,3 @@ pub async fn cancel_session(thread_id: &str) -> bool {
     );
     true
 }
-

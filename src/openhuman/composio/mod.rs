@@ -54,6 +54,7 @@ pub mod tools;
 pub mod trigger_history;
 pub mod types;
 
+pub use crate::openhuman::agent::prompts::types::ConnectedIntegration;
 pub use crate::openhuman::memory_sync::composio::bus::{
     register_composio_trigger_subscriber, ComposioConfigChangedSubscriber,
     ComposioTriggerSubscriber,
@@ -66,7 +67,6 @@ pub use crate::openhuman::memory_sync::composio::providers::{
     init_default_providers as init_default_composio_providers, ComposioProvider, ProviderContext,
     ProviderUserProfile, SyncOutcome, SyncReason,
 };
-pub use crate::openhuman::agent::prompts::types::ConnectedIntegration;
 pub use action_tool::ComposioActionTool;
 pub use client::ComposioClient;
 pub use identity::connection_identity;

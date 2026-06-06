@@ -7,17 +7,17 @@
 
 use std::collections::HashSet;
 
-use crate::openhuman::inference::provider::Provider;
-use crate::openhuman::tools::{Tool, ToolSpec};
+use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 use crate::openhuman::agent::harness::subagent_runner::handoff::ResultHandoffCache;
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
-use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
+use crate::openhuman::inference::provider::Provider;
+use crate::openhuman::tools::{Tool, ToolSpec};
 
-use super::provider::LazyToolkitResolver;
-use super::observer::SubagentObserver;
-use super::checkpoint::SubagentCheckpoint;
-use super::tool_source::SubagentToolSource;
 use super::super::tool_prep::build_text_mode_tool_instructions;
+use super::checkpoint::SubagentCheckpoint;
+use super::observer::SubagentObserver;
+use super::provider::LazyToolkitResolver;
+use super::tool_source::SubagentToolSource;
 
 /// Cumulative usage stats gathered across all provider calls in the loop.
 #[derive(Debug, Clone, Default)]

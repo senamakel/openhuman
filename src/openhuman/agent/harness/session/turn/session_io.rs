@@ -1,14 +1,12 @@
 //! Session persistence: transcript loading, checkpointing, and background tasks.
 
-use super::super::types::Agent;
 use super::super::transcript;
 use super::super::turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION;
+use super::super::types::Agent;
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::context::ARCHIVIST_EXTRACTION_PROMPT;
-use crate::openhuman::inference::provider::{
-    ChatMessage, ChatRequest, ProviderDelta, UsageInfo,
-};
+use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, ProviderDelta, UsageInfo};
 
 impl Agent {
     // ─────────────────────────────────────────────────────────────────

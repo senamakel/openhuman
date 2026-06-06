@@ -1,11 +1,11 @@
 use serde::Serialize;
 
-use super::sanitize::sanitize_api_error;
 use super::super::openai_codex::{
     openai_codex_client_version, openai_codex_user_agent, resolve_openai_codex_routing,
     OpenAiCodexRouting, OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_MODEL_HINTS,
     OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
 };
+use super::sanitize::sanitize_api_error;
 
 #[derive(Debug, Serialize)]
 pub struct ModelInfo {

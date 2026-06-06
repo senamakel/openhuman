@@ -1,7 +1,7 @@
 //! History, context, and system prompt management.
 
-use super::super::types::Agent;
 use super::super::turn_checkpoint::assistant_message_has_tool_calls;
+use super::super::types::Agent;
 use super::{collect_tree_root_summaries, sanitize_learned_entry};
 use crate::openhuman::agent_tool_policy::render_tool_policy_boundary;
 use crate::openhuman::context::prompt::{LearnedContextData, PromptContext, PromptTool};

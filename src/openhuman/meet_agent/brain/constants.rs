@@ -91,7 +91,8 @@ pub(super) const PREROLL_SKIP_PROMPT_CHARS: usize = 50;
 /// Selected by hashing the prompt so the same dictation reliably
 /// produces the same ack (helpful for tests + debugging) while still
 /// rotating across the set in a normal conversation.
-pub(super) const ACK_PHRASES: &[&str] = &["Got it.", "Noted.", "Adding that.", "On it.", "Captured."];
+pub(super) const ACK_PHRASES: &[&str] =
+    &["Got it.", "Noted.", "Adding that.", "On it.", "Captured."];
 
 /// System prompt for the live meeting agent. Pushes the model toward
 /// (a) recognising whether the latest utterance is genuinely directed

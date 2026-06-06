@@ -2,9 +2,7 @@
 //! and fallback synthesis for smart_walk.
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::query::smart_walk::types::{
-    truncate_chars, Evidence, SmartWalkStep,
-};
+use crate::openhuman::memory::query::smart_walk::types::{truncate_chars, Evidence, SmartWalkStep};
 use std::path::Path;
 
 // ── Inner call type (used by parser and dispatch) ───────────────────────────

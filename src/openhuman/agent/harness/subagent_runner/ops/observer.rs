@@ -7,8 +7,8 @@
 use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::memory_conversations::ConversationMessage;
 
-use super::loop_::AggregatedUsage;
 use super::super::super::session::transcript;
+use super::loop_::AggregatedUsage;
 
 pub(super) struct SubagentObserver {
     pub(super) worker_thread_id: Option<String>,

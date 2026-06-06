@@ -519,4 +519,3 @@ pub async fn get_data_paths() -> Result<RpcOutcome<serde_json::Value>, String> {
         )],
     ))
 }
-

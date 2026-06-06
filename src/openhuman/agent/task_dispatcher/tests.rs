@@ -133,12 +133,7 @@ fn truncate_caps_long_strings() {
     assert!(out.ends_with('…'));
 }
 
-fn card_with(
-    id: &str,
-    status: TaskCardStatus,
-    urgency: Option<f64>,
-    order: u32,
-) -> TaskBoardCard {
+fn card_with(id: &str, status: TaskCardStatus, urgency: Option<f64>, order: u32) -> TaskBoardCard {
     let mut c = card(Some("obj"));
     c.id = id.into();
     c.status = status;

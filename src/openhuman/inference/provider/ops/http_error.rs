@@ -49,10 +49,7 @@ pub fn is_custom_openai_upstream_bad_request_http_400(
 /// Canonical example: Kimi's coding endpoint rejects non-agent clients with
 /// HTTP 403 + `access_terminated_error` and a message like:
 /// "currently only available for Coding Agents …".
-pub fn is_provider_access_policy_denied_http_403(
-    status: reqwest::StatusCode,
-    body: &str,
-) -> bool {
+pub fn is_provider_access_policy_denied_http_403(status: reqwest::StatusCode, body: &str) -> bool {
     if status != reqwest::StatusCode::FORBIDDEN {
         return false;
     }

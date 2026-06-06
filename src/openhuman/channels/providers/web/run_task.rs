@@ -5,14 +5,16 @@ use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::threads::turn_state::TurnStateStore;
 
 use super::ops::{key_for, THREAD_SESSIONS};
-use super::types::SessionEntry;
 use super::progress_bridge::spawn_progress_bridge;
 use super::session::{
-    build_session_agent, build_session_fingerprint, normalize_model_override,
-    pick_target_agent_id, provider_role_for_model_override,
+    build_session_agent, build_session_fingerprint, normalize_model_override, pick_target_agent_id,
+    provider_role_for_model_override,
 };
+use super::types::SessionEntry;
 use super::types::{ChatRequestMetadata, WebChatTaskResult};
-use super::web_errors::{inference_budget_exceeded_user_message, is_inference_budget_exceeded_error};
+use super::web_errors::{
+    inference_budget_exceeded_user_message, is_inference_budget_exceeded_error,
+};
 
 #[cfg(any(test, debug_assertions))]
 use super::ops::TEST_FORCED_RUN_CHAT_TASK_ERROR;

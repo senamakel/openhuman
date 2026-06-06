@@ -119,11 +119,13 @@ pub(super) fn collect_tree_root_summaries(
         total_cap,
     )
     .into_iter()
-    .map(|(namespace, body, updated_at)| crate::openhuman::context::prompt::NamespaceSummary {
-        namespace,
-        body,
-        updated_at,
-    })
+    .map(
+        |(namespace, body, updated_at)| crate::openhuman::context::prompt::NamespaceSummary {
+            namespace,
+            body,
+            updated_at,
+        },
+    )
     .collect()
 }
 

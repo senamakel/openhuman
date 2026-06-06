@@ -2,13 +2,13 @@
 
 use chrono::{DateTime, Utc};
 
+use crate::openhuman::memory_store::content::compose::chunk::rewrite_tags;
 use crate::openhuman::memory_store::content::compose::yaml::{
-    split_front_matter, source_tag, yaml_scalar,
+    source_tag, split_front_matter, yaml_scalar,
 };
 use crate::openhuman::memory_store::content::compose::{
     MEMORY_ARTIFACT_FORMAT, OPENHUMAN_CORE_VERSION,
 };
-use crate::openhuman::memory_store::content::compose::chunk::rewrite_tags;
 use crate::openhuman::memory_store::content::paths::{summary_filename, SummaryTreeKind};
 
 /// Input data required to compose a summary `.md` file.

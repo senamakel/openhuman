@@ -6,7 +6,9 @@ use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::inference::provider::traits::{ChatMessage, Provider};
 use crate::openhuman::memory::chat::{build_chat_provider, ChatPrompt};
 use crate::openhuman::memory::query::smart_walk::runner::run_smart_walk;
-use crate::openhuman::memory::query::smart_walk::types::{truncate_chars, SmartWalkOptions, HARD_MAX_TURNS};
+use crate::openhuman::memory::query::smart_walk::types::{
+    truncate_chars, SmartWalkOptions, HARD_MAX_TURNS,
+};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;

@@ -34,9 +34,7 @@ mod triggers;
 
 // ── Public re-exports (match original ops.rs public surface) ───────────────
 
-pub use connections::{
-    composio_authorize, composio_delete_connection, composio_list_connections,
-};
+pub use connections::{composio_authorize, composio_delete_connection, composio_list_connections};
 pub use direct_mode::{composio_clear_api_key, composio_get_mode, composio_set_api_key};
 pub(crate) use error_utils::{report_composio_op_error, should_forward_tags};
 pub use execute::composio_execute;
@@ -80,6 +78,8 @@ pub(crate) use std::time::{Duration, Instant};
 
 // Private items needed by the test module via `use super::*`
 #[cfg(test)]
+pub(crate) use super::connected_integrations::sync_cache_with_connections;
+#[cfg(test)]
 pub(crate) use error_utils::{
     classify_composio_failure_tag, direct_mode_without_key, extract_backend_returned_status,
     resolve_client,
@@ -88,8 +88,6 @@ pub(crate) use error_utils::{
 pub(crate) use memory_cleanup::{composio_memory_targets_for_connection, MemoryCleanupTarget};
 #[cfg(test)]
 pub(crate) use providers_ops::parse_sync_reason;
-#[cfg(test)]
-pub(crate) use super::connected_integrations::sync_cache_with_connections;
 
 #[cfg(test)]
 #[path = "../ops_tests.rs"]

@@ -7,7 +7,7 @@ use super::types::{
     McpToolSpec, ToolCallError, DEFAULT_LIMIT, MAX_LIMIT, MEMORY_NOTE_ARGUMENTS,
     MEMORY_STORE_ARGUMENTS, QUERY_ARGUMENTS, SEARXNG_SEARCH_ARGUMENTS, SUBAGENT_RUN_ARGUMENTS,
     TREE_BROWSE_ARGUMENTS, TREE_LIST_SOURCES_ARGUMENTS, TREE_READ_CHUNK_ARGUMENTS,
-    TREE_TAG_ARGUMENTS, TREE_TAG_MAX_TAG_LENGTH, TREE_TAG_MAX_TAGS, TREE_TOP_ENTITIES_ARGUMENTS,
+    TREE_TAG_ARGUMENTS, TREE_TAG_MAX_TAGS, TREE_TAG_MAX_TAG_LENGTH, TREE_TOP_ENTITIES_ARGUMENTS,
 };
 
 pub fn build_rpc_params(
@@ -361,10 +361,7 @@ pub fn required_non_empty_string_array(
     Ok(trimmed)
 }
 
-pub fn optional_i64(
-    args: &Map<String, Value>,
-    key: &str,
-) -> Result<Option<i64>, ToolCallError> {
+pub fn optional_i64(args: &Map<String, Value>, key: &str) -> Result<Option<i64>, ToolCallError> {
     let Some(value) = args.get(key) else {
         return Ok(None);
     };
@@ -378,10 +375,7 @@ pub fn optional_i64(
     })
 }
 
-pub fn optional_u64(
-    args: &Map<String, Value>,
-    key: &str,
-) -> Result<Option<u64>, ToolCallError> {
+pub fn optional_u64(args: &Map<String, Value>, key: &str) -> Result<Option<u64>, ToolCallError> {
     let Some(value) = args.get(key) else {
         return Ok(None);
     };

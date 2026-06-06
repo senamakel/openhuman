@@ -7,11 +7,11 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 
-use crate::openhuman::config::Config;
 use super::{
     has_uncovered_reembed_work, set_chunk_embedding_for_signature_tx,
     GLOBAL_TOPIC_PURGE_MIGRATION_VERSION, TREE_EMBEDDING_MIGRATION_VERSION,
 };
+use crate::openhuman::config::Config;
 
 /// One-shot migration: copy legacy per-chunk/summary `.embedding` blobs into the
 /// normalised `mem_tree_chunk_embeddings` / `mem_tree_summary_embeddings` sidecar

@@ -8,17 +8,17 @@ mod ui;
 
 // ── Public re-exports (preserving the flat external API) ─────────────────────
 
+pub use agent::redact_home;
 pub use agent::{
     add_auto_approve_tool, apply_activity_level_settings, apply_agent_paths_settings,
-    apply_agent_settings, apply_autonomy_settings, apply_memory_sync_settings,
-    ensure_agent_dirs, ensure_usable_cwd, expand_tilde, get_activity_level_settings,
-    get_agent_paths, get_agent_settings, get_autonomy_settings, get_memory_sync_settings,
+    apply_agent_settings, apply_autonomy_settings, apply_memory_sync_settings, ensure_agent_dirs,
+    ensure_usable_cwd, expand_tilde, get_activity_level_settings, get_agent_paths,
+    get_agent_settings, get_autonomy_settings, get_memory_sync_settings,
     load_and_apply_activity_level_settings, load_and_apply_agent_paths_settings,
     load_and_apply_agent_settings, load_and_apply_autonomy_settings,
     load_and_apply_memory_sync_settings, ActivityLevelSettingsPatch, AgentPathsPatch,
     AgentSettingsPatch, AutonomySettingsPatch, MemorySyncSettingsPatch,
 };
-pub use agent::redact_home;
 
 pub use loader::{
     agent_server_status, client_config_json, core_rpc_url_from_env, get_config_snapshot,
@@ -37,9 +37,9 @@ pub use model::{
     apply_composio_trigger_settings, apply_local_ai_settings, apply_memory_settings,
     apply_model_settings, apply_runtime_settings, get_composio_trigger_settings,
     load_and_apply_composio_trigger_settings, load_and_apply_local_ai_settings,
-    load_and_apply_memory_settings, load_and_apply_model_settings,
-    load_and_apply_runtime_settings, load_and_resolve_api_url, ComposioTriggerSettingsPatch,
-    LocalAiSettingsPatch, MemorySettingsPatch, ModelSettingsPatch, RuntimeSettingsPatch,
+    load_and_apply_memory_settings, load_and_apply_model_settings, load_and_apply_runtime_settings,
+    load_and_resolve_api_url, ComposioTriggerSettingsPatch, LocalAiSettingsPatch,
+    MemorySettingsPatch, ModelSettingsPatch, RuntimeSettingsPatch,
 };
 
 pub use sandbox::{

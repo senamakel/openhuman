@@ -7,10 +7,13 @@ use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::inference::provider::traits::build_tool_instructions_text;
 use crate::openhuman::security::{SecurityPolicy, ToolOperation};
 
-use super::params::{build_rpc_params, validate_controller_params};
-use super::specs::{base_tool_specs, list_tools_result_for_config, list_tools_result_from_specs, searxng_tool_spec, tool_specs};
-use super::types::ToolCallError;
 use super::super::write_dispatch;
+use super::params::{build_rpc_params, validate_controller_params};
+use super::specs::{
+    base_tool_specs, list_tools_result_for_config, list_tools_result_from_specs, searxng_tool_spec,
+    tool_specs,
+};
+use super::types::ToolCallError;
 
 pub async fn list_tools_result() -> Value {
     match config_rpc::load_config_with_timeout().await {

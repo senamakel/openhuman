@@ -1,10 +1,10 @@
-use super::super::{Config, UpdateRestartStrategy};
-use super::dirs::MEMORY_SYNC_INTERVAL_SECS_ENV_VAR;
-use super::env::parse_env_bool;
 use super::super::proxy::{
     normalize_no_proxy_list, normalize_proxy_url_option, normalize_service_list,
     parse_proxy_enabled, parse_proxy_scope, set_runtime_proxy_config, ProxyScope,
 };
+use super::super::{Config, UpdateRestartStrategy};
+use super::dirs::MEMORY_SYNC_INTERVAL_SECS_ENV_VAR;
+use super::env::parse_env_bool;
 use std::path::PathBuf;
 
 impl Config {
@@ -54,9 +54,8 @@ impl Config {
 
         if let Some(workspace) = env.get("OPENHUMAN_WORKSPACE") {
             if !workspace.is_empty() {
-                let (_, workspace_dir) = super::dirs::resolve_config_dir_for_workspace(
-                    &PathBuf::from(workspace),
-                );
+                let (_, workspace_dir) =
+                    super::dirs::resolve_config_dir_for_workspace(&PathBuf::from(workspace));
                 self.workspace_dir = workspace_dir;
             }
         }
@@ -218,9 +217,7 @@ impl Config {
                 }
             }
         }
-        if let Some(t) =
-            env.get_any(&["OPENHUMAN_SEARCH_TIMEOUT_SECS", "SEARCH_TIMEOUT_SECS"])
-        {
+        if let Some(t) = env.get_any(&["OPENHUMAN_SEARCH_TIMEOUT_SECS", "SEARCH_TIMEOUT_SECS"]) {
             if let Ok(n) = t.parse::<u64>() {
                 if n > 0 {
                     self.search.timeout_secs = n;
@@ -296,10 +293,7 @@ impl Config {
                 match parse_proxy_scope(trimmed) {
                     Some(scope) => self.proxy.scope = scope,
                     None => {
-                        tracing::warn!(
-                            "Invalid OPENHUMAN_PROXY_SCOPE value {:?} ignored",
-                            trimmed
-                        );
+                        tracing::warn!("Invalid OPENHUMAN_PROXY_SCOPE value {:?} ignored", trimmed);
                     }
                 }
             }
@@ -375,9 +369,7 @@ impl Config {
         }
 
         if let Some(flag) = env.get("OPENHUMAN_RUNTIME_PYTHON_ENABLED") {
-            if let Some(enabled) =
-                parse_env_bool("OPENHUMAN_RUNTIME_PYTHON_ENABLED", &flag)
-            {
+            if let Some(enabled) = parse_env_bool("OPENHUMAN_RUNTIME_PYTHON_ENABLED", &flag) {
                 self.runtime_python.enabled = enabled;
             }
         }
@@ -473,9 +465,7 @@ impl Config {
             let normalized = flag.trim().to_ascii_lowercase();
             match normalized.as_str() {
                 "1" | "true" | "yes" | "on" => self.learning.explicit_preferences_enabled = true,
-                "0" | "false" | "no" | "off" => {
-                    self.learning.explicit_preferences_enabled = false
-                }
+                "0" | "false" | "no" | "off" => self.learning.explicit_preferences_enabled = false,
                 _ => {}
             }
         }
@@ -664,9 +654,7 @@ impl Config {
         }
 
         if let Some(raw) = env.get("OPENHUMAN_MEMORY_TREE_CLOUD_SUMMARIZATION") {
-            if let Some(val) =
-                parse_env_bool("OPENHUMAN_MEMORY_TREE_CLOUD_SUMMARIZATION", &raw)
-            {
+            if let Some(val) = parse_env_bool("OPENHUMAN_MEMORY_TREE_CLOUD_SUMMARIZATION", &raw) {
                 self.memory_tree.cloud_summarization_opt_in = val;
             }
         }

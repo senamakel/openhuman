@@ -3,8 +3,8 @@
 use super::types::ArchivistHook;
 use crate::openhuman::memory_store::fts5::{self, EpisodicEntry};
 use crate::openhuman::memory_store::segments;
-use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
 use crate::openhuman::memory_store::trees::types::TreeKind;
+use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use std::sync::Arc;
@@ -214,7 +214,9 @@ impl ArchivistHook {
         let conn = self.conn.as_ref()?;
 
         // Find the currently-open segment for this session.
-        let open_segment = match crate::openhuman::memory_store::segments::open_segment_for_session(conn, session_id) {
+        let open_segment = match crate::openhuman::memory_store::segments::open_segment_for_session(
+            conn, session_id,
+        ) {
             Ok(Some(seg)) => seg,
             Ok(None) => {
                 tracing::debug!(

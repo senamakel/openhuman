@@ -471,4 +471,3 @@ fn searxng_search_schema() -> Value {
         "additionalProperties": false
     })
 }
-

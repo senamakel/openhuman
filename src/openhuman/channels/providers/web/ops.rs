@@ -394,9 +394,7 @@ pub async fn start_chat(
     Ok(request_id)
 }
 
-fn dispatch_followups(
-    followups: Vec<crate::openhuman::agent::harness::run_queue::QueuedMessage>,
-) {
+fn dispatch_followups(followups: Vec<crate::openhuman::agent::harness::run_queue::QueuedMessage>) {
     for fup in followups {
         tokio::spawn(async move {
             if let Err(err) = start_chat(

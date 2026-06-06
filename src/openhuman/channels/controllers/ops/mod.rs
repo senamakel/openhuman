@@ -15,8 +15,8 @@ pub use types::{
 
 // Re-export public ops functions.
 pub use connect::{
-    channel_status, connect_channel, connected_channel_slugs, describe_channel,
-    disconnect_channel, list_channels, test_channel,
+    channel_status, connect_channel, connected_channel_slugs, describe_channel, disconnect_channel,
+    list_channels, test_channel,
 };
 pub use discord::{
     discord_check_permissions, discord_link_check, discord_link_start, discord_list_channels,

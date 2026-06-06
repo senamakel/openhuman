@@ -1,8 +1,8 @@
 //! Core turn execution: the main `turn()` method and `inject_agent_experience_context()`.
 
-use super::super::types::Agent;
 use super::super::transcript;
 use super::super::turn_engine_adapter::{AgentCheckpoint, AgentObserver, AgentToolSource};
+use super::super::types::Agent;
 use super::{integration_announcement_note, normalize_tool_call};
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::hooks::{self, TurnContext};

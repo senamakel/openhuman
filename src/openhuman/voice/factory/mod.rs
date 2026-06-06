@@ -43,8 +43,8 @@
 mod entry;
 mod helpers;
 mod stt_providers;
-mod tts_providers;
 mod traits;
+mod tts_providers;
 
 #[cfg(test)]
 mod tests;
@@ -56,5 +56,5 @@ pub use entry::{
 };
 pub use helpers::{effective_stt_provider, effective_tts_provider};
 pub use stt_providers::{CloudSttProvider, ExternalSttProvider, WhisperSttProvider};
-pub use tts_providers::{CloudTtsProvider, ExternalTtsProvider, PiperTtsProvider};
 pub use traits::{SttProvider, SttResult, TtsProvider};
+pub use tts_providers::{CloudTtsProvider, ExternalTtsProvider, PiperTtsProvider};

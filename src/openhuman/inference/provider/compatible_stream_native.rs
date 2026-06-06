@@ -1,13 +1,11 @@
-use crate::openhuman::inference::provider::traits::{
-    ChatResponse as ProviderChatResponse,
-};
+use crate::openhuman::inference::provider::traits::ChatResponse as ProviderChatResponse;
 
+use super::compatible_dump::dump_response_if_enabled;
+use super::compatible_repeat::{StreamRepeatDetector, STREAM_REPEAT_THRESHOLD};
 use super::compatible_types::{
     ApiChatResponse, ApiUsage, Choice, Function, NativeChatRequest, OpenHumanMeta, ResponseMessage,
     StreamChunkResponse, StreamingToolCall, ToolCall,
 };
-use super::compatible_dump::{dump_response_if_enabled};
-use super::compatible_repeat::{STREAM_REPEAT_THRESHOLD, StreamRepeatDetector};
 use super::OpenAiCompatibleProvider;
 
 impl OpenAiCompatibleProvider {

@@ -7,12 +7,12 @@ use crate::openhuman::config::rpc as config_rpc;
 use super::helpers::{
     deserialize_params, to_json, ActivityLevelSettingsUpdate, AgentPathsUpdate,
     AgentSettingsUpdate, AnalyticsSettingsUpdate, AutonomySettingsUpdate, BrowserSettingsUpdate,
-    ComposioTriggerSettingsUpdate, DEFAULT_ONBOARDING_FLAG_NAME, DictationSettingsUpdate,
-    LocalAiSettingsUpdate, MeetSettingsUpdate, MemorySyncSettingsUpdate, MemorySettingsUpdate,
-    ModelSettingsUpdate, OnboardingCompletedSetParams, RuntimeSettingsUpdate,
-    SandboxSettingsUpdate, SearchSettingsUpdate, ScreenIntelligenceSettingsUpdate,
-    SetBrowserAllowAllParams, VoiceServerSettingsUpdate, WorkspaceOnboardingFlagParams,
-    WorkspaceOnboardingFlagSetParams,
+    ComposioTriggerSettingsUpdate, DictationSettingsUpdate, LocalAiSettingsUpdate,
+    MeetSettingsUpdate, MemorySettingsUpdate, MemorySyncSettingsUpdate, ModelSettingsUpdate,
+    OnboardingCompletedSetParams, RuntimeSettingsUpdate, SandboxSettingsUpdate,
+    ScreenIntelligenceSettingsUpdate, SearchSettingsUpdate, SetBrowserAllowAllParams,
+    VoiceServerSettingsUpdate, WorkspaceOnboardingFlagParams, WorkspaceOnboardingFlagSetParams,
+    DEFAULT_ONBOARDING_FLAG_NAME,
 };
 use super::schema_defs::schemas;
 

@@ -26,6 +26,4 @@ mod smart_walk_tests;
 
 pub use runner::run_smart_walk;
 pub use tool::SmartMemoryWalkTool;
-pub use types::{
-    Evidence, SmartWalkOptions, SmartWalkOutcome, SmartWalkStep, SmartWalkStopReason,
-};
+pub use types::{Evidence, SmartWalkOptions, SmartWalkOutcome, SmartWalkStep, SmartWalkStopReason};

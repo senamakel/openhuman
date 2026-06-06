@@ -5,11 +5,10 @@ mod tests {
     use crate::openhuman::config::Config;
     use crate::openhuman::inference::provider::traits::{ChatMessage, Provider};
     use crate::openhuman::memory::query::smart_walk::dispatch::{
-        dispatch_keyword_search, dispatch_list_sources, dispatch_read_content,
-        search_dir_recursive,
+        dispatch_keyword_search, dispatch_list_sources, dispatch_read_content, search_dir_recursive,
     };
     use crate::openhuman::memory::query::smart_walk::prompts::{
-        build_content_inventory, InnerCall, parse_tool_calls,
+        build_content_inventory, parse_tool_calls, InnerCall,
     };
     use crate::openhuman::memory::query::smart_walk::runner::run_smart_walk;
     use crate::openhuman::memory::query::smart_walk::types::{

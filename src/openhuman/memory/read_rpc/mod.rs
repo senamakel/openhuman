@@ -26,14 +26,16 @@ pub use entities::{
     chunk_score_rpc, chunks_for_entity_rpc, delete_chunk_rpc, entity_index_for_rpc,
     top_entities_rpc,
 };
-pub use graph::{graph_export_rpc, sanitize_basename, GraphEdge, GraphExportResponse, GraphMode, GraphNode};
-pub use vault::{obsidian_vault_status_rpc, vault_health_check_rpc};
+pub use graph::{
+    graph_export_rpc, sanitize_basename, GraphEdge, GraphExportResponse, GraphMode, GraphNode,
+};
 pub use types::{
     ChunkFilter, ChunkRow, DeleteChunkResponse, EntityRef, FlushNowResponse,
     FlushSourceTreeResponse, ListChunksResponse, ObsidianVaultStatusResponse, RecallResponse,
     ResetTreeResponse, ScoreBreakdown, ScoreSignal, Source, VaultHealthCheckResponse,
     WipeAllResponse,
 };
+pub use vault::{obsidian_vault_status_rpc, vault_health_check_rpc};
 
 #[allow(dead_code)]
 pub(crate) fn parse_source_kind_str(

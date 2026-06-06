@@ -1,4 +1,4 @@
-use crate::openhuman::inference::local::ollama::{OllamaTagsResponse, validate_ollama_url};
+use crate::openhuman::inference::local::ollama::{validate_ollama_url, OllamaTagsResponse};
 
 pub(super) fn lm_studio_models_error_means_unreachable(error: &str) -> bool {
     error.starts_with("lm studio models request failed:")

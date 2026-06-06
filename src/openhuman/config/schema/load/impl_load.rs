@@ -10,9 +10,9 @@ use super::migrate::{
 };
 use super::secrets::{decrypt_config_secrets, encrypt_config_secrets};
 use anyhow::{Context, Result};
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
-use std::collections::HashSet;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::AsyncWriteExt;
 
@@ -157,11 +157,8 @@ impl Config {
                                 config_path,
                                 meta.permissions().mode() & 0o777,
                             );
-                            match fs::set_permissions(
-                                &config_path,
-                                Permissions::from_mode(0o600),
-                            )
-                            .await
+                            match fs::set_permissions(&config_path, Permissions::from_mode(0o600))
+                                .await
                             {
                                 Ok(()) => {
                                     warned

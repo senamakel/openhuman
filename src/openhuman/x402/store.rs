@@ -288,9 +288,33 @@ impl PaymentLedger {
 }
 
 pub fn init_global(workspace_dir: &Path, session_id: &str) {
-    let ledger = PaymentLedger::new(workspace_dir, session_id, SpendingBudget::default());
+    let budget = budget_from_env();
+    let ledger = PaymentLedger::new(workspace_dir, session_id, budget);
     *GLOBAL_LEDGER.lock() = Some(ledger);
     debug!("{LOG_PREFIX} global ledger initialized");
+}
+
+fn budget_from_env() -> SpendingBudget {
+    let mut budget = SpendingBudget::default();
+    if let Ok(v) = std::env::var("OPENHUMAN_X402_PER_REQUEST_MAX") {
+        if let Ok(n) = v.parse::<u64>() {
+            debug!("{LOG_PREFIX} env override per_request_max={n}");
+            budget.per_request_max_atomic = n;
+        }
+    }
+    if let Ok(v) = std::env::var("OPENHUMAN_X402_DAILY_MAX") {
+        if let Ok(n) = v.parse::<u64>() {
+            debug!("{LOG_PREFIX} env override daily_max={n}");
+            budget.daily_max_atomic = n;
+        }
+    }
+    if let Ok(v) = std::env::var("OPENHUMAN_X402_MONTHLY_MAX") {
+        if let Ok(n) = v.parse::<u64>() {
+            debug!("{LOG_PREFIX} env override monthly_max={n}");
+            budget.monthly_max_atomic = n;
+        }
+    }
+    budget
 }
 
 pub fn with_ledger<F, R>(f: F) -> Result<R, String>

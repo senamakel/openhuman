@@ -40,6 +40,10 @@ static MASTER_KEY: OnceLock<Option<[u8; KEY_LEN]>> = OnceLock::new();
 pub fn init_master_key() {
     // Ensure workspace dir is set for the backend before anything else.
     let dir = crate::openhuman::keyring::store::workspace_dir_for_file_backend();
+    log::info!(
+        "[keyring] init_master_key: resolved workspace_dir={}",
+        dir.display()
+    );
     crate::openhuman::keyring::init_workspace(&dir);
 
     MASTER_KEY.get_or_init(|| {

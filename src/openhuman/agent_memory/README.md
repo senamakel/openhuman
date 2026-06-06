@@ -20,12 +20,13 @@ The memory agent is a specialist sub-agent that navigates the user's memory tree
 | `mod.rs` | Module declarations and re-exports |
 | `types.rs` | Benchmark and performance tracking types |
 | `ops.rs` | Benchmarking harness for memory walk performance |
+| `tools.rs` | `call_memory_agent` tool implementation |
 
 ## Memory tree structure
 
 The memory tree lives at `{workspace}/memory_tree/content/` with this layout:
 
-```
+```text
 content/
 ├── chat/              # Conversation chunks (by source)
 │   └── conversations-agent/
@@ -59,7 +60,7 @@ Use the benchmark script to measure retrieval performance:
 
 ## Agent definition
 
-The built-in agent is registered at `src/openhuman/agent_registry/agents/agent_memory/`:
+The built-in agent is registered at `src/openhuman/agent_memory/agent/`:
 - `agent.toml` — tool allowlist, model hint, iteration cap
 - `prompt.rs` — dynamic prompt builder
 - `prompt.md` — system prompt archetype

@@ -124,19 +124,21 @@ for i in "${!QUERIES[@]}"; do
     QUERY_START=$(date +%s%N 2>/dev/null || python3 -c "import time; print(int(time.time()*1e9))")
 
     # Call the core CLI with the memory_smart_walk RPC
-    RPC_PAYLOAD=$(cat <<ENDJSON
-{
-    "jsonrpc": "2.0",
-    "id": "bench-$idx",
-    "method": "openhuman.memory_smart_walk",
-    "params": {
-        "query": "$query",
-        "namespace": "$NAMESPACE",
-        "max_turns": $MAX_TURNS
+    # Use python3 to safely build the JSON payload and avoid query injection
+    RPC_PAYLOAD=$(python3 -c "
+import json, sys
+payload = {
+    'jsonrpc': '2.0',
+    'id': 'bench-$idx',
+    'method': 'openhuman.memory_smart_walk',
+    'params': {
+        'query': sys.argv[1],
+        'namespace': sys.argv[2],
+        'max_turns': $MAX_TURNS
     }
 }
-ENDJSON
-    )
+print(json.dumps(payload))
+" "$query" "$NAMESPACE")
 
     # Use the CLI's rpc subcommand if available, otherwise use the tool directly
     if [[ $VERBOSE -eq 1 ]]; then
@@ -159,8 +161,17 @@ ENDJSON
 
     echo "   -> ${STATUS} in ${ELAPSED_MS}ms"
 
-    # Log to JSONL
-    echo "{\"query\":\"$query\",\"elapsed_ms\":$ELAPSED_MS,\"status\":\"$STATUS\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" >> "$RESULTS_FILE"
+    # Log to JSONL — use python3 to safely encode the query string
+    python3 -c "
+import json, sys
+record = {
+    'query': sys.argv[1],
+    'elapsed_ms': $ELAPSED_MS,
+    'status': sys.argv[2],
+    'timestamp': sys.argv[3]
+}
+print(json.dumps(record))
+" "$query" "$STATUS" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$RESULTS_FILE"
     echo ""
 done
 

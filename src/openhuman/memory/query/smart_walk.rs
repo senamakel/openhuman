@@ -1144,7 +1144,8 @@ Use a multi-strategy approach inspired by graph-based retrieval:
 I'll search for recent emails about the project.
 
 <tool_call>{"name":"list_sources","arguments":{"content_type":"all"}}</tool_call>
-<tool_call>{"name":"keyword_search","arguments":{"pattern":"project","content_type":"raw"}}</tool_call>"#
+<tool_call>{"name":"keyword_search","arguments":{"pattern":"project","content_type":"raw"}}</tool_call>
+"#
         .into()
 }
 
@@ -1284,6 +1285,11 @@ fn parse_single_tool_call(inner: &str) -> Option<InnerCall> {
                 .get("arguments")
                 .cloned()
                 .unwrap_or(serde_json::Value::Object(Default::default()));
+            log::debug!(
+                "[smart_walk::parse_single_tool_call] json path: tool={} args_keys={}",
+                name,
+                args.as_object().map(|m| m.len()).unwrap_or(0)
+            );
             return Some(InnerCall {
                 name: name.to_string(),
                 args,
@@ -1295,6 +1301,11 @@ fn parse_single_tool_call(inner: &str) -> Option<InnerCall> {
         extract_xml_tag(inner, "tool_name"),
         extract_xml_tag(inner, "parameters"),
     ) {
+        log::debug!(
+            "[smart_walk::parse_single_tool_call] xml fallback path: tool={} has_params={}",
+            name.trim(),
+            args.is_some()
+        );
         let parsed_args = args
             .and_then(|a| serde_json::from_str::<serde_json::Value>(a.trim()).ok())
             .unwrap_or_else(|| {
@@ -2134,14 +2145,15 @@ mod tests {
                 r#"{"source":"raw/email/inbox/002_project.md","snippet":"Migration 80%","relevance":"status"}"#,
                 r#"]}}</tool_call>"#,
             ),
-            // Turn 2: collect more evidence (including duplicate source)
+            // Turn 2: collect more evidence (including a duplicate of the first source)
             concat!(
                 r#"<tool_call>{"name":"collect_evidence","arguments":{"items":["#,
-                r#"{"source":"document/notes/project-phoenix.md","snippet":"Phase 2 of 3","relevance":"doc"}"#,
+                r#"{"source":"document/notes/project-phoenix.md","snippet":"Phase 2 of 3","relevance":"doc"},"#,
+                r#"{"source":"raw/email/inbox/001_meeting.md","snippet":"Deploy auth (duplicate)","relevance":"task"}"#,
                 r#"]}}</tool_call>"#,
             ),
             // Turn 3: answer
-            r#"<tool_call>{"name":"answer","arguments":{"text":"Summary with 3 evidence items."}}</tool_call>"#,
+            r#"<tool_call>{"name":"answer","arguments":{"text":"Summary with evidence items including duplicate source."}}</tool_call>"#,
         ]);
 
         let opts = SmartWalkOptions {
@@ -2156,7 +2168,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
-        assert_eq!(outcome.evidence.len(), 3);
+        // 2 items from turn 1 + 2 items from turn 2 (one of which duplicates a turn-1 source);
+        // collect_evidence does not deduplicate, so all 4 items are present.
+        assert_eq!(outcome.evidence.len(), 4);
     }
 
     fn walkdir_first_md(dir: &std::path::Path) -> Option<std::path::PathBuf> {

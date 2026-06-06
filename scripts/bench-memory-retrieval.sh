@@ -23,7 +23,13 @@ if [[ ! -x "$CORE_BIN" ]]; then
     exit 1
 fi
 
-CONTENT_ROOT="$HOME/.openhuman-staging/users/69d9cb73e61f755583c3671f/workspace/memory_tree/content"
+WORKSPACE_DIR="${OPENHUMAN_WORKSPACE:-$HOME/.openhuman-staging}"
+# Find first user workspace with memory_tree content
+CONTENT_ROOT=$(find "$WORKSPACE_DIR/users" -path "*/workspace/memory_tree/content" -type d 2>/dev/null | head -1)
+if [[ -z "$CONTENT_ROOT" ]]; then
+    echo "ERROR: No memory_tree content found under $WORKSPACE_DIR/users/"
+    exit 1
+fi
 RESULTS_DIR="$REPO_ROOT/target/bench-memory"
 mkdir -p "$RESULTS_DIR"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
@@ -156,7 +162,13 @@ for spec in "${RPC_METHODS[@]}"; do
     ELAPSED_MS=$(python3 -c "print(($END_NS - $START_NS) / 1_000_000)")
 
     # Extract hit count from JSON
-    HITS=$(echo "$OUTPUT" | python3 -c "import sys,json; d=json.loads(sys.stdin.read().split('\n')[-1] if '{' in sys.stdin.read() else '{}'); print(d.get('result',{}).get('total',0))" 2>/dev/null || echo "parse-error")
+    HITS=$(echo "$OUTPUT" | python3 -c "
+import sys,json
+raw = sys.stdin.read()
+last_line = [l for l in raw.split('\n') if '{' in l]
+d = json.loads(last_line[-1]) if last_line else {}
+print(d.get('result',{}).get('total',0))
+" 2>/dev/null || echo "parse-error")
 
     echo "  -> ${ELAPSED_MS}ms, hits=$HITS" | tee -a "$RESULTS_FILE"
 

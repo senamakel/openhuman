@@ -100,6 +100,11 @@ impl Tool for CallMemoryAgentTool {
 
         let context = args.get("context").and_then(|v| v.as_str());
 
+        let max_turns = args
+            .get("max_turns")
+            .and_then(|v| v.as_u64())
+            .map(|v| v.min(20) as usize);
+
         let is_async = args.get("async").and_then(|v| v.as_bool()).unwrap_or(false);
 
         let parent = current_parent();
@@ -128,15 +133,20 @@ impl Tool for CallMemoryAgentTool {
         let mut prompt = format!(
             "Search the user's memory tree and return relevant context for this query:\n\n{query}"
         );
+        if let Some(turns) = max_turns {
+            prompt.push_str(&format!(
+                "\n\nConstraint: use at most {turns} retrieval turns."
+            ));
+        }
         if let Some(ctx) = context {
             prompt.push_str(&format!("\n\nAdditional context:\n{ctx}"));
         }
 
         let task_id = format!("mem-{}", uuid::Uuid::new_v4());
 
-        log::info!(
-            "[call_memory_agent] query={:?} async={} task_id={}",
-            query,
+        log::debug!(
+            "[call_memory_agent] query_len={} async={} task_id={}",
+            query.len(),
             is_async,
             task_id
         );

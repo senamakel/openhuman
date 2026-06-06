@@ -25,8 +25,8 @@ pub async fn bench_walk(
         .unwrap_or_else(|| config.memory_tree_content_root());
 
     log::info!(
-        "[agent_memory::bench] query={:?} namespace={} content_root={} max_turns={}",
-        query,
+        "[agent_memory::bench] query_len={} namespace={} content_root={} max_turns={}",
+        query.len(),
         namespace,
         effective_root.display(),
         max_turns
@@ -84,8 +84,8 @@ pub async fn bench_walk(
     };
 
     log::info!(
-        "[agent_memory::bench] completed query={:?} elapsed={:?} turns={} chunks={} stop={}",
-        query,
+        "[agent_memory::bench] completed query_len={} elapsed={:?} turns={} chunks={} stop={}",
+        query.len(),
         total_elapsed,
         benchmark.total_turns,
         benchmark.total_chunks_retrieved,
@@ -127,6 +127,13 @@ pub async fn bench_batch(
                 );
             }
         }
+    }
+
+    if results.is_empty() && !queries.is_empty() {
+        anyhow::bail!(
+            "[agent_memory::bench_batch] all {} queries failed",
+            queries.len()
+        );
     }
 
     let summary = BenchmarkSummary::from_benchmarks(&results);

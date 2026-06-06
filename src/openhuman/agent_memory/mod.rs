@@ -9,5 +9,5 @@
 pub mod agent;
 pub mod memory_loader;
 pub mod ops;
-pub mod tool;
+pub mod tools;
 pub mod types;

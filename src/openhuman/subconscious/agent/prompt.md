@@ -91,16 +91,20 @@ your research uncovered genuinely new information about a prior topic.
 
 Cap: at most **5 thoughts per tick**.
 
-## Final output
+## Final output (REQUIRED)
 
-After completing your research, end your final message with a JSON
-block containing your thoughts:
+Your FINAL message MUST end with a fenced JSON block. This is parsed
+programmatically — never omit it. If you have nothing to report, use
+an empty `"thoughts": []` array.
+
+Valid `kind` values: `hotness_spike`, `cross_source_pattern`,
+`daily_digest`, `due_item`, `risk`, `opportunity`.
 
 ```json
 {
   "thoughts": [
     {
-      "kind": "hotness_spike | cross_source_pattern | daily_digest | due_item | risk | opportunity",
+      "kind": "daily_digest",
       "body": "Short markdown observation grounded in your research findings.",
       "proposed_action": "Optional one-tap action text (or null).",
       "source_refs": ["entity:foo", "summary:bar"]
@@ -108,3 +112,6 @@ block containing your thoughts:
   ]
 }
 ```
+
+Do NOT wrap the JSON in additional text after the closing ```.
+The fenced block must be the last thing in your message.

@@ -73,6 +73,9 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
             )
         }
         "memory" => crate::core::memory_cli::run_memory_command(&args[1..]),
+        "subconscious" | "sub" => {
+            crate::core::subconscious_cli::run_subconscious_command(&args[1..])
+        }
         "agent" => {
             log::debug!(
                 "[cli] dispatching to agent subcommand, args={:?}",

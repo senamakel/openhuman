@@ -416,9 +416,13 @@ impl SubconsciousEngine {
              follow-up queries.\n\n\
              **Step 4:** Synthesize your findings into structured thoughts.\
              {mode_guidance}\n\n\
-             End your final message with a JSON block:\n\n\
+             **IMPORTANT — Output format:** Your FINAL message MUST end with a \
+             fenced JSON block. If you have no thoughts, output an empty array. \
+             This is parsed programmatically — do NOT omit it:\n\n\
              ```json\n\
-             {{\"thoughts\": [...]}}\n\
+             {{\"thoughts\": [\n\
+               {{\"kind\": \"daily_digest\", \"body\": \"...\", \"proposed_action\": null, \"source_refs\": []}}\n\
+             ]}}\n\
              ```",
             budget = MEMORY_RETRIEVAL_BUDGET_TOKENS,
         );
@@ -606,39 +610,68 @@ struct ThoughtsResponse {
 }
 
 fn parse_thoughts(text: &str) -> Vec<ReflectionDraft> {
-    let json_text = extract_json(text);
-
-    // Try full envelope
-    if let Ok(response) = serde_json::from_str::<ThoughtsResponse>(json_text) {
-        let mut drafts = response.thoughts;
-        if drafts.is_empty() {
-            drafts = response.reflections;
+    // Try each extraction strategy in order of specificity
+    for candidate in extract_json_candidates(text) {
+        if let Ok(response) = serde_json::from_str::<ThoughtsResponse>(&candidate) {
+            let mut drafts = response.thoughts;
+            if drafts.is_empty() {
+                drafts = response.reflections;
+            }
+            if !drafts.is_empty() {
+                return drafts;
+            }
         }
-        if !drafts.is_empty() {
-            return drafts;
+
+        if let Ok(drafts) = serde_json::from_str::<Vec<ReflectionDraft>>(&candidate) {
+            if !drafts.is_empty() {
+                return drafts;
+            }
         }
     }
 
-    // Try bare array
-    if let Ok(drafts) = serde_json::from_str::<Vec<ReflectionDraft>>(json_text) {
-        if !drafts.is_empty() {
-            return drafts;
-        }
-    }
-
-    warn!("[subconscious] could not parse agent output for thoughts");
+    warn!(
+        "[subconscious] could not parse agent output for thoughts (response {} chars, last 300: {:?})",
+        text.len(),
+        &text[text.len().saturating_sub(300)..]
+    );
     vec![]
 }
 
-fn extract_json(text: &str) -> &str {
+/// Extract JSON candidates from agent output, trying the most specific
+/// strategies first: fenced code blocks, then last `{…}` / `[…]` span.
+fn extract_json_candidates(text: &str) -> Vec<String> {
+    let mut candidates = Vec::new();
+
+    // Strategy 1: fenced code blocks (```json ... ``` or ``` ... ```)
+    // Search from the END since the thoughts block is the final output.
+    let lower = text.to_ascii_lowercase();
+    for fence_start in ["```json", "```"] {
+        if let Some(start_idx) = lower.rfind(fence_start) {
+            let content_start = start_idx + fence_start.len();
+            if let Some(end_idx) = text[content_start..].find("```") {
+                let block = text[content_start..content_start + end_idx].trim();
+                if !block.is_empty() {
+                    candidates.push(block.to_string());
+                }
+            }
+        }
+    }
+
+    // Strategy 2: last top-level JSON object — scan backwards for the
+    // outermost `{…}` that contains `"thoughts"` or `"kind"`.
     let trimmed = text.trim();
+    if let Some(last_obj) = extract_last_balanced_object(trimmed) {
+        candidates.push(last_obj);
+    }
+
+    // Strategy 3: first `{` to last `}` (legacy fallback)
     let obj_start = trimmed.find('{');
     let arr_start = trimmed.find('[');
     let start = match (obj_start, arr_start) {
         (Some(o), Some(a)) => o.min(a),
         (Some(o), None) => o,
         (None, Some(a)) => a,
-        (None, None) => return trimmed,
+        (None, None) => return candidates,
     };
     let end = if trimmed.as_bytes().get(start) == Some(&b'[') {
         trimmed.rfind(']').map(|i| i + 1)
@@ -647,10 +680,50 @@ fn extract_json(text: &str) -> &str {
     };
     let end = end.unwrap_or(trimmed.len());
     if start < end {
-        &trimmed[start..end]
-    } else {
-        trimmed
+        candidates.push(trimmed[start..end].to_string());
     }
+
+    candidates
+}
+
+/// Walk backwards through `text` to find the last balanced `{…}` that
+/// looks like a thoughts envelope.
+fn extract_last_balanced_object(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let mut i = bytes.len();
+    while i > 0 {
+        i -= 1;
+        if bytes[i] != b'}' {
+            continue;
+        }
+        // Found a closing brace — walk backwards counting braces
+        let end = i + 1;
+        let mut depth: i32 = 0;
+        let mut j = end;
+        while j > 0 {
+            j -= 1;
+            match bytes[j] {
+                b'}' => depth += 1,
+                b'{' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        let candidate = &text[j..end];
+                        if candidate.contains("\"thoughts\"")
+                            || candidate.contains("\"reflections\"")
+                            || candidate.contains("\"kind\"")
+                        {
+                            return Some(candidate.to_string());
+                        }
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        // Skip past this object and try an earlier one
+        i = i.min(j);
+    }
+    None
 }
 
 // ── Reflection persistence ──────────────────────────────────────────────────

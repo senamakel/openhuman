@@ -4,7 +4,7 @@
  * We mock socket.io-client so no real network connection is made.
  * Each test gets a fresh socket mock via the module factory pattern.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   base64urlEncode,
@@ -101,6 +101,10 @@ beforeEach(() => {
   resetSocket();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('TunnelTransport', () => {
   it('emits tunnel:connect with channelId + role on connect', async () => {
     const coreKp = generateKeypair();
@@ -116,6 +120,30 @@ describe('TunnelTransport', () => {
     // Handshake frame should have been sent.
     const frameCall = _emitSpy.mock.calls.find(([ev]) => ev === 'tunnel:frame');
     expect(frameCall).toBeTruthy();
+
+    await transport.close();
+  });
+
+  it('emits a session token field for reconnect authentication', async () => {
+    const coreKp = generateKeypair();
+    const transport = new TunnelTransport(
+      'http://backend',
+      'CHAN_SESSION',
+      coreB64(coreKp),
+      'sess_tok',
+      undefined,
+      'session'
+    );
+
+    await connectTransport(transport);
+
+    const connectCall = _emitSpy.mock.calls.find(([ev]) => ev === 'tunnel:connect');
+    expect(connectCall![1]).toMatchObject({
+      channelId: 'CHAN_SESSION',
+      token: 'sess_tok',
+      sessionToken: 'sess_tok',
+    });
+    expect((connectCall![1] as { pairingToken?: string }).pairingToken).toBeUndefined();
 
     await transport.close();
   });
@@ -169,6 +197,135 @@ describe('TunnelTransport', () => {
 
     await expect(connectP).rejects.toThrow(/server error|unauthorized/i);
   }, 5000);
+
+  it('rejects the connect promise when the handshake ack times out', async () => {
+    vi.useFakeTimers();
+    const coreKp = generateKeypair();
+    const transport = new TunnelTransport('http://backend', 'CHAN_TIMEOUT', coreB64(coreKp), 'tok');
+
+    const connectP = (
+      transport as unknown as { ensureConnected(): Promise<void> }
+    ).ensureConnected();
+    await Promise.resolve();
+    fire('connect');
+    await Promise.resolve();
+    fire('tunnel:connected');
+    await Promise.resolve();
+
+    vi.advanceTimersByTime(10_000);
+    await expect(connectP).rejects.toThrow(/handshake ack timed out/i);
+
+    await transport.close();
+  });
+
+  it('rejects the connect promise when the handshake ack cannot be opened', async () => {
+    const coreKp = generateKeypair();
+    const transport = new TunnelTransport(
+      'http://backend',
+      'CHAN_BAD_ACK_OPEN',
+      coreB64(coreKp),
+      'tok'
+    );
+
+    const connectP = (
+      transport as unknown as { ensureConnected(): Promise<void> }
+    ).ensureConnected();
+    await Promise.resolve();
+    fire('connect');
+    await Promise.resolve();
+    fire('tunnel:connected');
+    await Promise.resolve();
+
+    fire('tunnel:frame', { payload: base64urlEncode(new Uint8Array([1, 2, 3, 4])) });
+    await expect(connectP).rejects.toThrow();
+
+    await transport.close();
+  });
+
+  it('rejects the connect promise when the handshake ack is not JSON', async () => {
+    const coreKp = generateKeypair();
+    const transport = new TunnelTransport(
+      'http://backend',
+      'CHAN_BAD_ACK_JSON',
+      coreB64(coreKp),
+      'tok'
+    );
+
+    const connectP = (
+      transport as unknown as { ensureConnected(): Promise<void> }
+    ).ensureConnected();
+    await Promise.resolve();
+    fire('connect');
+    await Promise.resolve();
+    fire('tunnel:connected');
+    await Promise.resolve();
+
+    type HandshakeInternals = { staticDhKey: Uint8Array | null };
+    const internals = transport as unknown as HandshakeInternals;
+    expect(internals.staticDhKey).toBeTruthy();
+
+    fire('tunnel:frame', {
+      payload: base64urlEncode(seal(internals.staticDhKey!, new TextEncoder().encode('not json'))),
+    });
+    await expect(connectP).rejects.toThrow();
+
+    await transport.close();
+  });
+
+  it('rejects the connect promise when the handshake ack kind is invalid', async () => {
+    const coreKp = generateKeypair();
+    const transport = new TunnelTransport(
+      'http://backend',
+      'CHAN_BAD_ACK_KIND',
+      coreB64(coreKp),
+      'tok'
+    );
+
+    const connectP = (
+      transport as unknown as { ensureConnected(): Promise<void> }
+    ).ensureConnected();
+    await Promise.resolve();
+    fire('connect');
+    await Promise.resolve();
+    fire('tunnel:connected');
+    await Promise.resolve();
+
+    type HandshakeInternals = { staticDhKey: Uint8Array | null };
+    const internals = transport as unknown as HandshakeInternals;
+    expect(internals.staticDhKey).toBeTruthy();
+
+    fire('tunnel:frame', {
+      payload: base64urlEncode(
+        seal(internals.staticDhKey!, new TextEncoder().encode(JSON.stringify({ kind: 'nope' })))
+      ),
+    });
+    await expect(connectP).rejects.toThrow(/invalid handshake ack/i);
+
+    await transport.close();
+  });
+
+  it('rejects an in-flight handshake when close() is called', async () => {
+    const coreKp = generateKeypair();
+    const transport = new TunnelTransport(
+      'http://backend',
+      'CHAN_CLOSE_HANDSHAKE',
+      coreB64(coreKp),
+      'tok'
+    );
+
+    const connectP = (
+      transport as unknown as { ensureConnected(): Promise<void> }
+    ).ensureConnected();
+    await Promise.resolve();
+    fire('connect');
+    await Promise.resolve();
+    fire('tunnel:connected');
+    await Promise.resolve();
+
+    await transport.close();
+
+    await expect(connectP).rejects.toThrow(/transport closed/i);
+  });
 
   it('resolves call() when a matching encrypted response frame arrives', async () => {
     const coreKp = generateKeypair();

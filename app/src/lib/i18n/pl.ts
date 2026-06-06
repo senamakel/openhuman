@@ -4717,7 +4717,7 @@ const messages: TranslationMap = {
   'intelligence.agents.allTools': 'Wszystkie narzędzia',
   'intelligence.agents.toolCountOne': '{count} narzędzie',
   'intelligence.agents.toolCountOther': '{count} narzędzi',
-  'intelligence.agents.subagentCountOne': '{count} subagent',
+  'intelligence.agents.subagentCountOne': '{count} podagent',
   'intelligence.agents.subagentCountOther': '{count} subagentów',
   'intelligence.agents.startChat': 'Rozpocznij czat',
   'intelligence.agents.startChatPrompt':

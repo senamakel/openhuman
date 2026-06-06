@@ -280,6 +280,9 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Нет записей в реестре',
   'skills.explorer.registryEmptyDescription':
     'Не удалось загрузить реестр навыков. Проверьте соединение и попробуйте обновить.',
+  'skills.explorer.installed': 'Установлено',
+  'skills.explorer.install': 'Установить',
+  'skills.explorer.installing': 'Установка…',
   'skills.integrations': 'Интеграции',
   'skills.integrationsSubtitle':
     'Облачные OAuth-подключения — войдите в свой аккаунт, и Composio управляет токенами, чтобы агенты могли читать и действовать от вашего имени. Никаких API-ключей для управления.',

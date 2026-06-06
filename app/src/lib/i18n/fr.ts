@@ -286,6 +286,9 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Aucune entrée dans le registre',
   'skills.explorer.registryEmptyDescription':
     'Impossible de charger le registre de compétences. Vérifiez votre connexion et réessayez.',
+  'skills.explorer.installed': 'Installée',
+  'skills.explorer.install': 'Installer',
+  'skills.explorer.installing': 'Installation…',
   'skills.integrations': 'Intégrations',
   'skills.integrationsSubtitle':
     'Connexions OAuth cloud — connectez-vous avec votre compte et Composio gère les jetons pour que les agents puissent lire et agir en votre nom. Aucune clé API à gérer.',

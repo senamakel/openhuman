@@ -284,6 +284,9 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Nessuna voce nel registro',
   'skills.explorer.registryEmptyDescription':
     'Impossibile caricare il registro delle competenze. Controlla la connessione e riprova.',
+  'skills.explorer.installed': 'Installata',
+  'skills.explorer.install': 'Installa',
+  'skills.explorer.installing': 'Installazione…',
   'skills.integrations': 'Integrazioni',
   'skills.integrationsSubtitle':
     'Connessioni OAuth basate su cloud — accedi con il tuo account e Composio gestisce i token affinché gli agenti possano leggere e agire per tuo conto. Nessuna chiave API da gestire.',

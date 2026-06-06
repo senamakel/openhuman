@@ -286,6 +286,9 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Sem entradas no registro',
   'skills.explorer.registryEmptyDescription':
     'Não foi possível carregar o registro de habilidades. Verifique sua conexão e tente atualizar.',
+  'skills.explorer.installed': 'Instalada',
+  'skills.explorer.install': 'Instalar',
+  'skills.explorer.installing': 'Instalando…',
   'skills.integrations': 'Integrações',
   'skills.integrationsSubtitle':
     'Conexões OAuth baseadas em nuvem — faça login com sua conta e o Composio gerencia os tokens para que os agentes possam ler e agir em seu nome. Sem chaves de API para gerenciar.',

@@ -166,6 +166,7 @@ interface CatalogTileProps {
 }
 
 function CatalogTile({ entry, installed, installing, onInstall }: CatalogTileProps) {
+  const { t } = useT();
   return (
     <div
       data-testid={`registry-tile-${entry.id}`}
@@ -236,7 +237,7 @@ function CatalogTile({ entry, installed, installing, onInstall }: CatalogTilePro
         </div>
         {installed ? (
           <span className="rounded-lg border border-sage-200 dark:border-sage-500/30 bg-sage-50 dark:bg-sage-500/10 px-2 py-1 text-[10px] font-medium text-sage-700 dark:text-sage-300">
-            Installed
+            {t('skills.explorer.installed')}
           </span>
         ) : (
           <button
@@ -248,7 +249,7 @@ function CatalogTile({ entry, installed, installing, onInstall }: CatalogTilePro
               onInstall();
             }}
             className="rounded-lg border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 px-2 py-1 text-[10px] font-medium text-primary-700 dark:text-primary-300 transition-colors hover:bg-primary-100 dark:hover:bg-primary-500/20 disabled:opacity-50">
-            {installing ? 'Installing...' : 'Install'}
+            {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
           </button>
         )}
       </div>

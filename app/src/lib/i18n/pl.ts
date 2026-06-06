@@ -282,6 +282,9 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Brak wpisów w rejestrze',
   'skills.explorer.registryEmptyDescription':
     'Nie udało się załadować rejestru umiejętności. Sprawdź połączenie i spróbuj odświeżyć.',
+  'skills.explorer.installed': 'Zainstalowano',
+  'skills.explorer.install': 'Zainstaluj',
+  'skills.explorer.installing': 'Instalowanie…',
   'skills.integrations': 'Integracje Composio',
   'skills.integrationsSubtitle':
     'Chmurowe połączenia OAuth — zaloguj się swoim kontem, a Composio pośredniczy w tokenach, dzięki czemu agenci mogą czytać i działać w Twoim imieniu. Bez kluczy API do utrzymywania.',

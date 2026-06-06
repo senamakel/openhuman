@@ -280,6 +280,9 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Tidak ada entri registri',
   'skills.explorer.registryEmptyDescription':
     'Tidak dapat memuat registri keterampilan. Periksa koneksi Anda dan coba segarkan.',
+  'skills.explorer.installed': 'Terpasang',
+  'skills.explorer.install': 'Pasang',
+  'skills.explorer.installing': 'Memasang…',
   'skills.integrations': 'Integrasi',
   'skills.integrationsSubtitle':
     'Koneksi OAuth berbasis cloud — masuk dengan akun Anda dan Composio mengelola token agar agen dapat membaca dan bertindak atas nama Anda. Tidak perlu mengelola API key.',

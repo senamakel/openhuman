@@ -287,6 +287,9 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Keine Verzeichniseinträge',
   'skills.explorer.registryEmptyDescription':
     'Das Skill-Verzeichnis konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.',
+  'skills.explorer.installed': 'Installiert',
+  'skills.explorer.install': 'Installieren',
+  'skills.explorer.installing': 'Wird installiert…',
   'skills.integrations': 'Integrationen',
   'skills.integrationsSubtitle':
     'Cloud-basierte OAuth-Verbindungen – mit deinem Konto anmelden und Composio verwaltet die Tokens, damit Agenten in deinem Namen lesen und handeln können. Keine API-Schlüssel notwendig.',

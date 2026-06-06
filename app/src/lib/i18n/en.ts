@@ -303,6 +303,9 @@ const en: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'No registry entries',
   'skills.explorer.registryEmptyDescription':
     'Could not load the skill registry. Check your connection and try refreshing.',
+  'skills.explorer.installed': 'Installed',
+  'skills.explorer.install': 'Install',
+  'skills.explorer.installing': 'Installing…',
   'skills.integrations': 'Composio Integrations',
   'skills.integrationsSubtitle':
     'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',

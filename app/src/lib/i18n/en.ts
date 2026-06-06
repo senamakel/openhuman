@@ -300,6 +300,7 @@ const en: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
   'skills.tabs.explorer': 'Skills',
+  'skills.tabs.meetings': 'Google Meet',
   'skills.tabs.mcp': 'MCP Servers',
   // Intelligence / Memory
   'memory.title': 'Memory',

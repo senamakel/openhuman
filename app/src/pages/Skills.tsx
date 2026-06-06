@@ -332,7 +332,7 @@ interface SkillItem {
 
 // ─── Main Skills Page ──────────────────────────────────────────────────────────
 
-type ConnectionsTab = 'channels' | 'composio' | 'mcp';
+type ConnectionsTab = 'channels' | 'composio' | 'mcp' | 'meetings';
 
 export default function Skills() {
   const { t } = useT();
@@ -340,13 +340,13 @@ export default function Skills() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLocalSession = isLocalSessionToken(getCoreStateSnapshot().snapshot.sessionToken);
-  // Honour `?tab=<composio|channels|mcp>` so deep links land on the right
+  // Honour `?tab=<composio|channels|mcp|meetings>` so deep links land on the right
   // sub-tab. (The legacy `runners` tab was removed; running a workflow now
   // lives on its detail drawer → /skills/run.)
   const initialTab: ConnectionsTab = (() => {
     const params = new URLSearchParams(location.search);
     const t = params.get('tab');
-    if (t === 'composio' || t === 'channels' || t === 'mcp') return t;
+    if (t === 'composio' || t === 'channels' || t === 'mcp' || t === 'meetings') return t;
     return 'composio';
   })();
   const [activeTab, setActiveTab] = useState<ConnectionsTab>(initialTab);
@@ -781,6 +781,7 @@ export default function Skills() {
               items={[
                 { value: 'composio', label: t('skills.tabs.composio') },
                 { value: 'channels', label: t('skills.tabs.channels') },
+                { value: 'meetings', label: t('skills.tabs.meetings') },
                 { value: 'mcp', label: t('skills.tabs.mcp') },
               ]}
             />
@@ -848,7 +849,7 @@ export default function Skills() {
                   </div>
                 )}
 
-                <MeetingBotsCard onToast={addToast} />
+                {activeTab === 'meetings' && <MeetingBotsCard onToast={addToast} />}
 
                 {activeTab === 'composio' && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">

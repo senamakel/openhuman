@@ -275,6 +275,7 @@ const messages: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'চ্যানেল',
   'skills.tabs.explorer': 'স্কিল',
+  'skills.tabs.meetings': 'Google Meet',
   'skills.tabs.mcp': 'MCP সার্ভার',
   'memory.title': 'মেমোরি',
   'memory.search': 'মেমোরি খুঁজুন...',

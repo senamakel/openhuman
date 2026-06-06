@@ -30,7 +30,7 @@ pub use crate::openhuman::tools::SEARXNG_MAX_RESULTS;
 #[cfg(test)]
 pub use params::{build_rpc_params, slug_from};
 #[cfg(test)]
-pub use serde_json::Value;
+pub use serde_json::{json, Value};
 #[cfg(test)]
 pub use types::{DEFAULT_LIMIT, MAX_LIMIT, TREE_TAG_MAX_TAGS, TREE_TAG_MAX_TAG_LENGTH};
 

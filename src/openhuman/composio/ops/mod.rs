@@ -80,24 +80,24 @@ pub(crate) use std::time::{Duration, Instant};
 #[cfg(test)]
 pub(crate) use super::connected_integrations::sync_cache_with_connections;
 #[cfg(test)]
+pub(crate) use crate::openhuman::config::Config;
+#[cfg(test)]
+pub(crate) use crate::openhuman::memory_store::MemoryClient;
+#[cfg(test)]
+pub(crate) use crate::openhuman::memory_sync::composio::providers::sync_state::SyncState;
+#[cfg(test)]
+pub(crate) use crate::openhuman::memory_sync::composio::providers::SyncReason;
+#[cfg(test)]
+pub(crate) use connections::enrich_connections_with_identity;
+#[cfg(test)]
 pub(crate) use error_utils::{
     classify_composio_failure_tag, direct_mode_without_key, extract_backend_returned_status,
     resolve_client,
 };
 #[cfg(test)]
-pub(crate) use connections::enrich_connections_with_identity;
-#[cfg(test)]
 pub(crate) use memory_cleanup::{composio_memory_targets_for_connection, MemoryCleanupTarget};
 #[cfg(test)]
 pub(crate) use providers_ops::parse_sync_reason;
-#[cfg(test)]
-pub(crate) use crate::openhuman::memory_sync::composio::providers::SyncReason;
-#[cfg(test)]
-pub(crate) use crate::openhuman::memory_sync::composio::providers::sync_state::SyncState;
-#[cfg(test)]
-pub(crate) use crate::openhuman::memory_store::MemoryClient;
-#[cfg(test)]
-pub(crate) use crate::openhuman::config::Config;
 
 #[cfg(test)]
 #[path = "../ops_tests.rs"]

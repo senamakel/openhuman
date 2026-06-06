@@ -111,5 +111,8 @@ pub mod test_support {
 }
 
 #[cfg(test)]
+pub(crate) use types::SessionCacheFingerprint;
+
+#[cfg(test)]
 #[path = "../web_tests.rs"]
 mod tests;

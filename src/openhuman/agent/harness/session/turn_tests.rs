@@ -7,7 +7,10 @@ use crate::openhuman::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
     ToolPolicyRequest,
 };
-use crate::openhuman::inference::provider::{ChatRequest, ChatResponse, Provider, UsageInfo};
+use crate::openhuman::inference::provider::{
+    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, ToolResultMessage,
+    UsageInfo,
+};
 use crate::openhuman::memory::Memory;
 use crate::openhuman::tools::ToolResult;
 use crate::openhuman::tools::{PermissionLevel, Tool};

@@ -13,7 +13,7 @@ use crate::openhuman::agent::Agent;
 /// here and populate it both at insert time and at the call-site
 /// fingerprint construction.
 #[derive(PartialEq, Debug, Clone)]
-pub(super) struct SessionCacheFingerprint {
+pub(crate) struct SessionCacheFingerprint {
     pub(super) model_override: Option<String>,
     pub(super) temperature: Option<f64>,
     pub(super) target_agent_id: String,

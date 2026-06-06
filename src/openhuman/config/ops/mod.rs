@@ -28,10 +28,15 @@ pub use loader::{
 };
 // expose internal helpers needed by tests (ops_tests.rs uses super::*)
 #[cfg(test)]
+pub(crate) use crate::openhuman::config::Config;
+#[cfg(test)]
 pub(crate) use loader::{
     active_workspace_marker_path, config_openhuman_dir, default_openhuman_dir, env_flag_enabled,
     fallback_workspace_dir, reset_local_data_for_paths, reset_local_data_remove_error,
+    BROWSER_ALLOW_ALL_ENV, BROWSER_ALLOW_ALL_RPC_ENABLE_ENV,
 };
+#[cfg(test)]
+pub(crate) use std::path::PathBuf;
 
 pub use model::{
     apply_composio_trigger_settings, apply_local_ai_settings, apply_memory_settings,

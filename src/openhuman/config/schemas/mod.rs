@@ -10,6 +10,8 @@ pub use schema_defs::schemas;
 #[cfg(test)]
 use crate::core::TypeSchema;
 #[cfg(test)]
+use crate::rpc::RpcOutcome;
+#[cfg(test)]
 use controllers::{
     handle_get_agent_paths, handle_get_autonomy_settings, handle_update_autonomy_settings,
 };
@@ -27,8 +29,6 @@ use helpers::{
 };
 #[cfg(test)]
 use serde_json::{Map, Value};
-#[cfg(test)]
-use crate::rpc::RpcOutcome;
 
 #[cfg(test)]
 #[path = "../schemas_tests.rs"]

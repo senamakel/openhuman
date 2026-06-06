@@ -36,15 +36,15 @@ pub(crate) use dirs::{
 #[cfg(test)]
 pub(crate) use super::Config;
 #[cfg(test)]
+pub(crate) use dirs::ACTIVE_USER_STATE_FILE;
+#[cfg(test)]
+pub(crate) use env::ProcessEnvWithoutWorkspace;
+#[cfg(test)]
 pub(crate) use impl_load::parse_config_with_recovery;
 #[cfg(test)]
 pub(crate) use migrate::{migrate_cloud_provider_slugs, migrate_legacy_inference_url};
 #[cfg(test)]
 pub(crate) use std::path::PathBuf;
-#[cfg(test)]
-pub(crate) use dirs::ACTIVE_USER_STATE_FILE;
-#[cfg(test)]
-pub(crate) use env::ProcessEnvWithoutWorkspace;
 
 #[cfg(unix)]
 pub(super) async fn sync_directory(path: &std::path::Path) -> anyhow::Result<()> {

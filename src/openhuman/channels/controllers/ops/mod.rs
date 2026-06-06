@@ -19,11 +19,11 @@ pub(crate) use crate::openhuman::channels::controllers::{ChannelAuthMode, Channe
 #[cfg(test)]
 pub(crate) use crate::openhuman::config::Config;
 #[cfg(test)]
-pub(crate) use connect::parse_allowed_users;
-#[cfg(test)]
 pub(crate) use connect::channel_config_connected;
 #[cfg(test)]
 pub(crate) use connect::credential_provider;
+#[cfg(test)]
+pub(crate) use connect::parse_allowed_users;
 
 // Re-export public ops functions.
 pub use connect::{

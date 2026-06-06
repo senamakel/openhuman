@@ -87,7 +87,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
         config.workspace_dir.clone(),
     );
-    crate::openhuman::memory::sync::register_sync_stage_bridge();
+    crate::openhuman::memory::sync::register_sync_stage_bridge(&config);
     crate::openhuman::composio::register_composio_trigger_subscriber();
     // Surface parked ApprovalGate requests as chat messages so the user can
     // answer yes/no in the thread (chat-native approval, issue #1339).

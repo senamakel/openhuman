@@ -355,7 +355,12 @@ export function buildReleasePayload({ from, to, resolvedTo, repo, commits, pullR
       contributors: contributors.length,
       newContributors: contributors.filter((contributor) => contributor.isNew).length,
     },
-    contributors,
+    contributors: contributors.map((contributor) => ({
+      name: contributor.name,
+      commits: contributor.commits,
+      prs: contributor.prs,
+      isNew: contributor.isNew,
+    })),
     pullRequests,
     uncategorizedCommits: commits
       .filter((commit) => commit.prNumbers.length === 0)
@@ -441,14 +446,27 @@ async function summarizeWithOpenAi(request) {
     throw new Error('OPENAI_API_KEY is required unless --no-ai or --dry-run is used');
   }
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45_000);
+  let response;
+  try {
+    response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('OpenAI Responses API timed out after 45000ms');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const body = await response.text();
   let json = null;
@@ -576,7 +594,11 @@ function renderNewContributorLine(contributor, pullRequests) {
 }
 
 export function ensureAllPullRequestsLinked(markdown, pullRequests) {
-  const missing = pullRequests.filter((pr) => !markdown.includes(`#${pr.number}`) && !markdown.includes(pr.url));
+  const missing = pullRequests.filter((pr) => {
+    const byNumber = new RegExp(`\\[#${pr.number}\\]\\(`).test(markdown);
+    const byUrl = new RegExp(`${escapeRegExp(pr.url)}(?:\\)|\\s|$)`).test(markdown);
+    return !byNumber && !byUrl;
+  });
   if (missing.length === 0) {
     return markdown;
   }
@@ -592,6 +614,10 @@ export function ensureAllPullRequestsLinked(markdown, pullRequests) {
   }
 
   return `${markdown.slice(0, sectionMatch.index).trimEnd()}${insertion}${markdown.slice(sectionMatch.index)}`;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 async function main() {

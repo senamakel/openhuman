@@ -60,6 +60,29 @@ test('OpenAI request contains required release sections and compare payload', ()
   assert.match(request.input[1].content, /https:\/\/github\.com\/tinyhumansai\/openhuman\/compare\/v1\.0\.0\.\.\.main/);
 });
 
+test('release payload omits contributor emails before AI summarization', () => {
+  const payload = buildReleasePayload({
+    from: 'v1.0.0',
+    to: 'main',
+    resolvedTo: 'main',
+    repo: 'tinyhumansai/openhuman',
+    commits: [],
+    contributors: [
+      {
+        name: 'Privacy First',
+        email: 'privacy@example.com',
+        commits: 1,
+        prs: [12],
+        isNew: false,
+      },
+    ],
+    pullRequests: [],
+  });
+
+  assert.equal(payload.contributors[0].email, undefined);
+  assert.doesNotMatch(JSON.stringify(payload), /privacy@example\.com/);
+});
+
 test('deterministic notes credit contributors and link every PR', () => {
   const payload = buildReleasePayload({
     from: 'v1.0.0',
@@ -119,6 +142,26 @@ test('missing model links are appended as an included PR section', () => {
   assert.match(markdown, /### Additional highlights/);
   assert.match(markdown, /\[#42\]\(https:\/\/github\.com\/tinyhumansai\/openhuman\/pull\/42\).*Thank you @alice/);
   assert.doesNotMatch(markdown.split('## Contributor Credits')[0], /\n- /);
+});
+
+test('missing PR detection does not treat prefix matches as exact links', () => {
+  const markdown = ensureAllPullRequestsLinked('## Highlights\n\n([#123](https://github.com/tinyhumansai/openhuman/pull/123))', [
+    {
+      number: 12,
+      title: 'Fix prefix collision',
+      url: 'https://github.com/tinyhumansai/openhuman/pull/12',
+      author: 'alice',
+    },
+    {
+      number: 123,
+      title: 'Existing link',
+      url: 'https://github.com/tinyhumansai/openhuman/pull/123',
+      author: 'bob',
+    },
+  ]);
+
+  assert.match(markdown, /\[#12\]\(https:\/\/github\.com\/tinyhumansai\/openhuman\/pull\/12\)/);
+  assert.equal(markdown.match(/\[#123\]/g)?.length, 1);
 });
 
 test('deterministic notes omit new contributors section when there are none', () => {

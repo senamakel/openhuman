@@ -178,9 +178,7 @@ impl EventHandler for SyncCompleteEmbedTrigger {
     async fn handle(&self, event: &DomainEvent) {
         if let DomainEvent::MemorySyncStageChanged { stage, .. } = event {
             if stage == "completed" {
-                log::debug!(
-                    "[memory-sync] sync completed — triggering batch embedding backfill"
-                );
+                log::debug!("[memory-sync] sync completed — triggering batch embedding backfill");
                 crate::openhuman::memory_queue::ensure_reembed_backfill(&self.config);
             }
         }

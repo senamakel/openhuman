@@ -124,8 +124,7 @@ fn split_into_sub_batches<'a>(texts: &[&'a str]) -> Vec<Vec<&'a str>> {
     for &text in texts {
         let tokens = estimate_tokens(text);
         if !current.is_empty()
-            && (current.len() >= MAX_BATCH_ITEMS
-                || current_tokens + tokens > MAX_BATCH_TOKENS)
+            && (current.len() >= MAX_BATCH_ITEMS || current_tokens + tokens > MAX_BATCH_TOKENS)
         {
             batches.push(std::mem::take(&mut current));
             current_tokens = 0;

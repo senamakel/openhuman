@@ -13,6 +13,7 @@ use anyhow::{Context, Result};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::tree_source::get_or_create_source_tree;
+use crate::openhuman::memory_queue::ensure_reembed_backfill;
 use crate::openhuman::memory_queue::store;
 use crate::openhuman::memory_queue::types::{
     AppendBufferPayload, AppendTarget, ExtractChunkPayload, FlushStalePayload, Job, JobKind,
@@ -26,7 +27,6 @@ use crate::openhuman::memory_store::content::{
 use crate::openhuman::memory_tree::score;
 use crate::openhuman::memory_tree::score::embed::{build_write_embedder, pack_checked, Embedder};
 use crate::openhuman::memory_tree::score::store as score_store;
-use crate::openhuman::memory_queue::ensure_reembed_backfill;
 use crate::openhuman::memory_tree::tree::store as summary_store;
 use crate::openhuman::memory_tree::tree::{LeafRef, TreeFactory};
 
@@ -269,9 +269,7 @@ async fn prepare_extract(config: &Config, job: &Job) -> Result<Option<PreparedEx
 }
 
 fn finalize_extract(config: &Config, item: PreparedExtract) -> Result<JobOutcome> {
-    let PreparedExtract {
-        chunk, result, ..
-    } = item;
+    let PreparedExtract { chunk, result, .. } = item;
     // Build follow-up job payloads before opening the tx — construction is
     // cheap and doesn't require a database connection. The two jobs are
     // enqueued inside the SAME transaction that commits the lifecycle update,

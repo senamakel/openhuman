@@ -454,6 +454,96 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(screen.getByText('Can you summarize this?')).toBeInTheDocument();
   });
 
+  it('keeps bubble mode interactions for assistant citations, copy, and reactions', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const thread = makeThread({ id: 'bubble-mode-thread', title: 'Bubble Mode Thread' });
+    const agentContent =
+      'First assistant paragraph with enough text to render.\n\nSecond assistant paragraph stays in bubbles.';
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-agent-bubble',
+        sender: 'agent',
+        type: 'text',
+        content: agentContent,
+        extraMetadata: {
+          citations: [
+            {
+              id: 'cite-1',
+              key: 'memory-key',
+              namespace: 'personal',
+              snippet: 'Remembered preference',
+              timestamp: '2026-01-01T00:00:00.000Z',
+              score: 0.91,
+            },
+          ],
+          myReactions: ['👍'],
+        },
+        createdAt: '2026-01-01T00:01:00.000Z',
+      },
+    ];
+    vi.mocked(threadApi.updateMessage).mockImplementation(
+      async (_threadId, _messageId, extraMetadata) =>
+        ({ ...messages[0], extraMetadata }) as ThreadMessage
+    );
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
+
+    await act(async () => {
+      await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
+        socket: socketState('connected'),
+        theme: {
+          mode: 'system',
+          tabBarLabels: 'hover',
+          fontSize: 'medium',
+          agentMessageViewMode: 'bubbles',
+        },
+      });
+    });
+
+    expect(screen.queryByTestId('agent-message-text')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('First assistant paragraph with enough text to render.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('personal 91%')).toBeInTheDocument();
+    expect(screen.getByTitle(/Remembered preference/)).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('Copy response'));
+    });
+    expect(writeText).toHaveBeenCalledWith(agentContent);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('Remove 👍'));
+    });
+    await waitFor(() => {
+      expect(threadApi.updateMessage).toHaveBeenCalledWith(
+        thread.id,
+        'm-agent-bubble',
+        expect.objectContaining({ myReactions: [] })
+      );
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('Add reaction'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('🎯'));
+    });
+    await waitFor(() => {
+      expect(threadApi.updateMessage).toHaveBeenCalledWith(
+        thread.id,
+        'm-agent-bubble',
+        expect.objectContaining({ myReactions: expect.arrayContaining(['🎯']) })
+      );
+    });
+  });
+
   // Covers lines 1455-1483: quota pill loading state
   it('renders "Loading…" quota pill when isLoadingBudget=true', async () => {
     mockUseUsageState.mockReturnValue({

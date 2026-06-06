@@ -96,6 +96,7 @@ pub mod scheduler_gate;
 pub mod screen_intelligence;
 pub mod search;
 pub mod security;
+pub mod skill_registry;
 pub mod service;
 pub mod session_db;
 pub mod socket;

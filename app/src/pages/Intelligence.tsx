@@ -136,11 +136,7 @@ export default function Intelligence() {
       description: t('memory.tab.workflowsDescription'),
     },
     { id: 'council', label: t('memory.tab.council'), devOnly: true },
-    {
-      id: 'agents',
-      label: t('memory.tab.agents'),
-      description: t('memory.tab.agentsDescription'),
-    },
+    { id: 'agents', label: t('memory.tab.agents'), description: t('memory.tab.agentsDescription') },
   ];
   const tabs = allTabs.filter(tab => !tab.devOnly || IS_DEV);
   const activeTabDef = tabs.find(tab => tab.id === activeTab);

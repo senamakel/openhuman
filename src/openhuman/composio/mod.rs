@@ -66,6 +66,7 @@ pub use crate::openhuman::memory_sync::composio::providers::{
     init_default_providers as init_default_composio_providers, ComposioProvider, ProviderContext,
     ProviderUserProfile, SyncOutcome, SyncReason,
 };
+pub use crate::openhuman::agent::prompts::types::ConnectedIntegration;
 pub use action_tool::ComposioActionTool;
 pub use client::ComposioClient;
 pub use identity::connection_identity;

@@ -241,7 +241,7 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
     ]
 }
 
-pub(super) fn handle_get_config(_params: Map<String, Value>) -> ControllerFuture {
+fn handle_get_config(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async { to_json(config_rpc::load_and_get_config_snapshot().await?) })
 }
 
@@ -420,11 +420,11 @@ fn handle_update_runtime_settings(params: Map<String, Value>) -> ControllerFutur
     })
 }
 
-fn handle_get_autonomy_settings(_params: Map<String, Value>) -> ControllerFuture {
+pub(super) fn handle_get_autonomy_settings(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move { to_json(config_rpc::get_autonomy_settings().await?) })
 }
 
-fn handle_update_autonomy_settings(params: Map<String, Value>) -> ControllerFuture {
+pub(super) fn handle_update_autonomy_settings(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let update = deserialize_params::<AutonomySettingsUpdate>(params)?;
         let patch = config_rpc::AutonomySettingsPatch {
@@ -670,7 +670,7 @@ fn handle_get_data_paths(_params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
-fn handle_get_agent_paths(_params: Map<String, Value>) -> ControllerFuture {
+pub(super) fn handle_get_agent_paths(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async {
         log::debug!("[config][rpc] get_agent_paths enter");
         match config_rpc::get_agent_paths().await {

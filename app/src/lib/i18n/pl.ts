@@ -4554,7 +4554,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': '{count} zadań pasuje do tego filtra',
   'settings.taskSources.fetchNow': 'Pobierz teraz',
   'settings.taskSources.fetching': 'Pobieranie…',
-  'settings.taskSources.fetchResult': 'Skierowano {routed} z {fetched} zadań',
+  'settings.taskSources.fetchResult':
+    'Skierowano {routed} z {fetched} zadań; usunięto {pruned} nieaktualnych zadań',
+  'settings.taskSources.syncAll': 'Synchronizuj wszystko',
+  'settings.taskSources.syncing': 'Synchronizowanie…',
   'settings.taskSources.configured': 'Skonfigurowane źródła',
   'settings.taskSources.empty': 'Nie skonfigurowano jeszcze źródeł zadań.',
   'settings.taskSources.proactive': 'Proaktywne',

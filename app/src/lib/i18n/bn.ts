@@ -4475,7 +4475,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': 'এই ফিল্টারের জন্য xqxqx প্রচেষ্টা করুন',
   'settings.taskSources.fetchNow': 'এখন নিয়ে এসো',
   'settings.taskSources.fetching': 'প্রাপ্ত করা হচ্ছে...',
-  'settings.taskSources.fetchResult': 'xxqxqx এর রুট',
+  'settings.taskSources.fetchResult':
+    '{fetched}টি কাজের মধ্যে {routed}টি রাউট করা হয়েছে; {pruned}টি পুরোনো কাজ সরানো হয়েছে',
+  'settings.taskSources.syncAll': 'সব সিঙ্ক করুন',
+  'settings.taskSources.syncing': 'সিঙ্ক হচ্ছে...',
   'settings.taskSources.configured': '%d-টি উৎসস্থল কনফিগার করুন',
   'settings.taskSources.empty': 'কোনো কর্ম কনফিগার করা হয়নি।',
   'settings.taskSources.proactive': 'আকর্ষণীয়',

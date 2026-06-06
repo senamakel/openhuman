@@ -4258,7 +4258,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': '{count} 个任务匹配此筛选器',
   'settings.taskSources.fetchNow': '立即获取',
   'settings.taskSources.fetching': '获取中…',
-  'settings.taskSources.fetchResult': '已路由 {routed}/{fetched} 个任务',
+  'settings.taskSources.fetchResult':
+    '已路由 {routed}/{fetched} 个任务；已移除 {pruned} 个过期任务',
+  'settings.taskSources.syncAll': '全部同步',
+  'settings.taskSources.syncing': '正在同步…',
   'settings.taskSources.configured': '已配置来源',
   'settings.taskSources.empty': '尚未配置任务来源。',
   'settings.taskSources.proactive': '主动',

@@ -5014,7 +5014,10 @@ const en: TranslationMap = {
   'settings.taskSources.previewResult': '{count} task(s) match this filter',
   'settings.taskSources.fetchNow': 'Fetch now',
   'settings.taskSources.fetching': 'Fetching…',
-  'settings.taskSources.fetchResult': 'Routed {routed} of {fetched} task(s)',
+  'settings.taskSources.fetchResult':
+    'Routed {routed} of {fetched} task(s); removed {pruned} stale task(s)',
+  'settings.taskSources.syncAll': 'Sync all',
+  'settings.taskSources.syncing': 'Syncing…',
   'settings.taskSources.configured': 'Configured sources',
   'settings.taskSources.empty': 'No task sources configured yet.',
   'settings.taskSources.proactive': 'Proactive',

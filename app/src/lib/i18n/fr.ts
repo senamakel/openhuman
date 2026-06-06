@@ -4581,7 +4581,10 @@ const messages: TranslationMap = {
   'settings.taskSources.previewResult': 'La ou les tâches {count} correspondent à ce filtre',
   'settings.taskSources.fetchNow': 'Ramasse maintenant',
   'settings.taskSources.fetching': 'Récupération…',
-  'settings.taskSources.fetchResult': 'Acheminé {routed} des tâches {fetched}',
+  'settings.taskSources.fetchResult':
+    '{routed} tâche(s) acheminée(s) sur {fetched}; {pruned} tâche(s) obsolète(s) supprimée(s)',
+  'settings.taskSources.syncAll': 'Tout synchroniser',
+  'settings.taskSources.syncing': 'Synchronisation…',
   'settings.taskSources.configured': 'Sources configurées',
   'settings.taskSources.empty': 'Aucune source de tâche configurée pour le moment.',
   'settings.taskSources.proactive': 'proactif',

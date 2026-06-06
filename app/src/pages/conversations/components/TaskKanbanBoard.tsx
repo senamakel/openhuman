@@ -23,6 +23,7 @@ import {
   openhumanTaskSourcesFetch,
   openhumanTaskSourcesList,
   openhumanTaskSourcesStatus,
+  openhumanTaskSourcesSync,
   openhumanTaskSourcesUpdate,
   type TaskSource,
   type TaskSourcesStatus,
@@ -569,7 +570,23 @@ function formatUrgency(
 function formatFetchNotice(outcome: FetchOutcome, t: (key: string) => string): string {
   return t('settings.taskSources.fetchResult')
     .replace('{routed}', String(outcome.routed))
-    .replace('{fetched}', String(outcome.fetched));
+    .replace('{fetched}', String(outcome.fetched))
+    .replace('{pruned}', String(outcome.pruned ?? 0));
+}
+
+function formatSyncNotice(outcomes: FetchOutcome[], t: (key: string) => string): string {
+  const totals = outcomes.reduce(
+    (acc, outcome) => ({
+      fetched: acc.fetched + outcome.fetched,
+      routed: acc.routed + outcome.routed,
+      pruned: acc.pruned + (outcome.pruned ?? 0),
+    }),
+    { fetched: 0, routed: 0, pruned: 0 }
+  );
+  return t('settings.taskSources.fetchResult')
+    .replace('{routed}', String(totals.routed))
+    .replace('{fetched}', String(totals.fetched))
+    .replace('{pruned}', String(totals.pruned));
 }
 
 function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact: boolean }) {
@@ -614,6 +631,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
   }, [load]);
 
   const toggleSource = async (source: TaskSource) => {
+    if (busyKey) return;
     setBusyKey(`toggle:${source.id}`);
     setError(null);
     setNotice(null);
@@ -628,6 +646,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
   };
 
   const fetchSource = async (source: TaskSource) => {
+    if (busyKey) return;
     setBusyKey(`fetch:${source.id}`);
     setError(null);
     setNotice(null);
@@ -638,6 +657,27 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
         setError(outcome.error);
       } else {
         setNotice(formatFetchNotice(outcome, t));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const syncSources = async () => {
+    if (busyKey) return;
+    setBusyKey('sync');
+    setError(null);
+    setNotice(null);
+    try {
+      const outcomes = await openhumanTaskSourcesSync();
+      await load();
+      const firstError = outcomes.find(outcome => outcome.error)?.error;
+      if (firstError) {
+        setError(firstError);
+      } else {
+        setNotice(formatSyncNotice(outcomes, t));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -667,6 +707,16 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
             onClick={() => navigate('/settings/task-sources')}
             className="text-[11px] font-medium text-ocean-600 hover:text-ocean-700 dark:text-ocean-300 dark:hover:text-ocean-200">
             {t('conversations.taskKanban.sources.manage')}
+          </button>
+          <button
+            type="button"
+            disabled={disabled || loading || busyKey !== null || sources.length === 0}
+            onClick={() => void syncSources()}
+            className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            <LuRefreshCw className="h-3 w-3" />
+            {busyKey === 'sync'
+              ? t('settings.taskSources.syncing')
+              : t('settings.taskSources.syncAll')}
           </button>
           <button
             type="button"
@@ -728,7 +778,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <button
                   type="button"
-                  disabled={disabled || busyKey === `fetch:${source.id}`}
+                  disabled={disabled || busyKey !== null}
                   onClick={() => void fetchSource(source)}
                   className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
                   <LuRefreshCw className="h-3 w-3" />
@@ -738,7 +788,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
                 </button>
                 <button
                   type="button"
-                  disabled={disabled || busyKey === `toggle:${source.id}`}
+                  disabled={disabled || busyKey !== null}
                   onClick={() => void toggleSource(source)}
                   className="rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
                   {source.enabled

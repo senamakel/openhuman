@@ -20,6 +20,7 @@ const addMock = vi.fn();
 const updateMock = vi.fn();
 const removeMock = vi.fn();
 const fetchMock = vi.fn();
+const syncMock = vi.fn();
 const previewMock = vi.fn();
 
 vi.mock('../../../utils/tauriCommands', () => ({
@@ -29,6 +30,7 @@ vi.mock('../../../utils/tauriCommands', () => ({
   openhumanTaskSourcesUpdate: (id: string, patch: unknown) => updateMock(id, patch),
   openhumanTaskSourcesRemove: (id: string) => removeMock(id),
   openhumanTaskSourcesFetch: (id: string) => fetchMock(id),
+  openhumanTaskSourcesSync: () => syncMock(),
   openhumanTaskSourcesPreviewFilter: (...args: unknown[]) => previewMock(...args),
 }));
 
@@ -76,7 +78,11 @@ describe('<TaskSourcesPanel />', () => {
       fetched: 3,
       routed: 2,
       skippedDupe: 1,
+      pruned: 0,
     });
+    syncMock.mockResolvedValue([
+      { sourceId: 's-1', provider: 'github', fetched: 3, routed: 2, skippedDupe: 1, pruned: 1 },
+    ]);
     previewMock.mockResolvedValue([{ externalId: '1' }, { externalId: '2' }]);
   });
 
@@ -163,7 +169,40 @@ describe('<TaskSourcesPanel />', () => {
     const card = await screen.findByTestId('task-source-s-1');
     fireEvent.click(within(card).getByRole('button', { name: 'Fetch now' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('s-1'));
-    expect(await screen.findByText(/Routed 2 of 3 task\(s\)/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Routed 2 of 3 task\(s\); removed 0 stale task\(s\)/)
+    ).toBeInTheDocument();
+  });
+
+  it('syncs all sources and surfaces routed/fetched/pruned counts', async () => {
+    renderPanel();
+    await screen.findByTestId('task-source-s-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Sync all' }));
+    await waitFor(() => expect(syncMock).toHaveBeenCalled());
+    expect(
+      await screen.findByText(/Routed 2 of 3 task\(s\); removed 1 stale task\(s\)/)
+    ).toBeInTheDocument();
+  });
+
+  it('disables refresh while sync is in progress', async () => {
+    let resolveSync: (value: Awaited<ReturnType<typeof syncMock>>) => void = () => {};
+    syncMock.mockReturnValue(
+      new Promise(resolve => {
+        resolveSync = resolve;
+      })
+    );
+
+    renderPanel();
+    await screen.findByTestId('task-source-s-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Sync all' }));
+
+    await waitFor(() => expect(syncMock).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+
+    resolveSync([
+      { sourceId: 's-1', provider: 'github', fetched: 3, routed: 2, skippedDupe: 1, pruned: 1 },
+    ]);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' })).toBeEnabled());
   });
 
   it('surfaces a fetch outcome error', async () => {
@@ -173,6 +212,7 @@ describe('<TaskSourcesPanel />', () => {
       fetched: 0,
       routed: 0,
       skippedDupe: 0,
+      pruned: 0,
       error: 'no connection',
     });
     renderPanel();

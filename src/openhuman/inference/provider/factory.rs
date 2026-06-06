@@ -1016,6 +1016,7 @@ fn make_ollama_provider(
     .with_temperature_unsupported_models(config.temperature_unsupported_models.clone())
     .with_temperature_override(temperature_override)
     .with_native_tool_calling(false)
+    .with_vision(false)
     .with_ollama_num_ctx(num_ctx)
     .with_local_provider_kind(LocalProviderKind::Ollama);
     Ok((Box::new(provider), model.to_string()))
@@ -1056,6 +1057,7 @@ fn make_lm_studio_provider(
     .with_temperature_unsupported_models(config.temperature_unsupported_models.clone())
     .with_temperature_override(temperature_override)
     .with_native_tool_calling(false)
+    .with_vision(false)
     .with_local_provider_kind(LocalProviderKind::LmStudio);
     Ok((Box::new(provider), model.to_string()))
 }
@@ -1092,6 +1094,7 @@ fn make_mlx_provider(
     .with_temperature_unsupported_models(config.temperature_unsupported_models.clone())
     .with_temperature_override(temperature_override)
     .with_native_tool_calling(false)
+    .with_vision(false)
     .with_local_provider_kind(LocalProviderKind::Mlx);
     Ok((Box::new(provider), model.to_string()))
 }
@@ -1139,6 +1142,7 @@ fn make_local_openai_provider(
     .with_temperature_unsupported_models(config.temperature_unsupported_models.clone())
     .with_temperature_override(temperature_override)
     .with_native_tool_calling(false)
+    .with_vision(false)
     .with_local_provider_kind(LocalProviderKind::LocalOpenai);
     Ok((Box::new(provider), model.to_string()))
 }

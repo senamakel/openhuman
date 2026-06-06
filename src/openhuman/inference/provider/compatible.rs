@@ -87,6 +87,11 @@ pub struct OpenAiCompatibleProvider {
     /// Ollama, whose OpenAI-compat endpoint returns HTTP 400 on `tools`
     /// for many models.
     native_tool_calling: bool,
+    /// Value reported by `capabilities().vision`. Defaults to `true` because
+    /// OpenAI-compatible cloud endpoints accept the `image_url` message
+    /// content shape. Local compatibility shims opt out unless they can prove
+    /// the configured model supports vision.
+    vision: bool,
     /// Ollama-specific `options.num_ctx` override. When set, every request
     /// to this provider includes `"options": {"num_ctx": <value>}` in the
     /// body so Ollama allocates the requested KV-cache size.
@@ -200,6 +205,7 @@ impl OpenAiCompatibleProvider {
             temperature_unsupported_models: Vec::new(),
             temperature_override: None,
             native_tool_calling: true,
+            vision: true,
             ollama_num_ctx: None,
             local_provider_kind: None,
         }
@@ -211,6 +217,14 @@ impl OpenAiCompatibleProvider {
     /// `tools` parameter.
     pub fn with_native_tool_calling(mut self, enabled: bool) -> Self {
         self.native_tool_calling = enabled;
+        self
+    }
+
+    /// Toggle whether this provider advertises OpenAI-compatible vision input.
+    /// Cloud providers default to enabled; local OpenAI-compatible shims use
+    /// this to stay fail-closed for text-only local models.
+    pub fn with_vision(mut self, enabled: bool) -> Self {
+        self.vision = enabled;
         self
     }
 

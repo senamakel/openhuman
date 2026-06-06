@@ -1291,7 +1291,10 @@ fn parse_single_tool_call(inner: &str) -> Option<InnerCall> {
         }
     }
     // Fallback: XML-style <tool_name>name</tool_name><parameters>JSON</parameters>
-    if let (Some(name), args) = (extract_xml_tag(inner, "tool_name"), extract_xml_tag(inner, "parameters")) {
+    if let (Some(name), args) = (
+        extract_xml_tag(inner, "tool_name"),
+        extract_xml_tag(inner, "parameters"),
+    ) {
         let parsed_args = args
             .and_then(|a| serde_json::from_str::<serde_json::Value>(a.trim()).ok())
             .unwrap_or_else(|| {
@@ -1299,12 +1302,19 @@ fn parse_single_tool_call(inner: &str) -> Option<InnerCall> {
                 let mut map = serde_json::Map::new();
                 for line in inner.lines() {
                     let trimmed = line.trim();
-                    if trimmed.starts_with('<') && !trimmed.starts_with("</") && !trimmed.starts_with("<tool_name") && !trimmed.starts_with("<parameters") {
+                    if trimmed.starts_with('<')
+                        && !trimmed.starts_with("</")
+                        && !trimmed.starts_with("<tool_name")
+                        && !trimmed.starts_with("<parameters")
+                    {
                         if let Some(tag_end) = trimmed.find('>') {
                             let tag = &trimmed[1..tag_end];
                             if let Some(close) = trimmed.find(&format!("</{tag}>")) {
                                 let value = &trimmed[tag_end + 1..close];
-                                map.insert(tag.to_string(), serde_json::Value::String(value.to_string()));
+                                map.insert(
+                                    tag.to_string(),
+                                    serde_json::Value::String(value.to_string()),
+                                );
                             }
                         }
                     }
@@ -1792,22 +1802,15 @@ mod tests {
 
     #[test]
     fn extract_xml_tag_basic() {
-        assert_eq!(
-            extract_xml_tag("<name>hello</name>", "name"),
-            Some("hello")
-        );
+        assert_eq!(extract_xml_tag("<name>hello</name>", "name"), Some("hello"));
         assert_eq!(extract_xml_tag("no tags here", "name"), None);
-        assert_eq!(
-            extract_xml_tag("<a>1</a><b>2</b>", "b"),
-            Some("2")
-        );
+        assert_eq!(extract_xml_tag("<a>1</a><b>2</b>", "b"), Some("2"));
     }
 
     #[test]
     fn parse_single_tool_call_json() {
-        let call = parse_single_tool_call(
-            r#"{"name":"keyword_search","arguments":{"pattern":"test"}}"#,
-        );
+        let call =
+            parse_single_tool_call(r#"{"name":"keyword_search","arguments":{"pattern":"test"}}"#);
         assert!(call.is_some());
         let call = call.unwrap();
         assert_eq!(call.name, "keyword_search");
@@ -1878,7 +1881,10 @@ mod tests {
         .unwrap();
 
         // Wiki summaries
-        let wiki_dir = content_root.join("wiki").join("summaries").join("email-inbox");
+        let wiki_dir = content_root
+            .join("wiki")
+            .join("summaries")
+            .join("email-inbox");
         std::fs::create_dir_all(wiki_dir.join("L1")).unwrap();
         std::fs::write(
             wiki_dir.join("L1").join("summary-week-22.md"),
@@ -1940,9 +1946,14 @@ mod tests {
             content_root: Some(content_root),
         };
 
-        let outcome = run_smart_walk(&cfg, &provider, "What is the status of Project Phoenix?", opts)
-            .await
-            .unwrap();
+        let outcome = run_smart_walk(
+            &cfg,
+            &provider,
+            "What is the status of Project Phoenix?",
+            opts,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
         assert!(outcome.answer.contains("80%"));
@@ -2032,15 +2043,18 @@ mod tests {
             content_root: Some(content_root),
         };
 
-        let outcome =
-            run_smart_walk(&cfg, &provider, "What happened in the standup?", opts)
-                .await
-                .unwrap();
+        let outcome = run_smart_walk(&cfg, &provider, "What happened in the standup?", opts)
+            .await
+            .unwrap();
 
         assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
         assert_eq!(outcome.evidence.len(), 3);
         // Evidence from all three content types
-        let sources: Vec<&str> = outcome.evidence.iter().map(|e| e.source_path.as_str()).collect();
+        let sources: Vec<&str> = outcome
+            .evidence
+            .iter()
+            .map(|e| e.source_path.as_str())
+            .collect();
         assert!(sources.iter().any(|s| s.contains("raw/")));
         assert!(sources.iter().any(|s| s.contains("episodic/")));
         assert!(sources.iter().any(|s| s.contains("wiki/")));
@@ -2067,10 +2081,9 @@ mod tests {
             content_root: Some(content_root),
         };
 
-        let outcome =
-            run_smart_walk(&cfg, &provider, "Tell me about quantum computing", opts)
-                .await
-                .unwrap();
+        let outcome = run_smart_walk(&cfg, &provider, "Tell me about quantum computing", opts)
+            .await
+            .unwrap();
 
         assert_eq!(outcome.stopped_reason, SmartWalkStopReason::LlmGaveUp);
         assert!(outcome.evidence.is_empty());
@@ -2096,10 +2109,9 @@ mod tests {
             content_root: Some(content_root),
         };
 
-        let outcome =
-            run_smart_walk(&cfg, &provider, "What's the meaning of life?", opts)
-                .await
-                .unwrap();
+        let outcome = run_smart_walk(&cfg, &provider, "What's the meaning of life?", opts)
+            .await
+            .unwrap();
 
         assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
         assert!(outcome.answer.contains("don't have enough context"));
@@ -2139,10 +2151,9 @@ mod tests {
             content_root: Some(content_root),
         };
 
-        let outcome =
-            run_smart_walk(&cfg, &provider, "Summarize everything", opts)
-                .await
-                .unwrap();
+        let outcome = run_smart_walk(&cfg, &provider, "Summarize everything", opts)
+            .await
+            .unwrap();
 
         assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
         assert_eq!(outcome.evidence.len(), 3);

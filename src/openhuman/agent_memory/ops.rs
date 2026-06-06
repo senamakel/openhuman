@@ -4,7 +4,9 @@
 use crate::openhuman::agent_memory::types::{BenchmarkSummary, RetrievalStep, WalkBenchmark};
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::provider::traits::Provider;
-use crate::openhuman::memory::query::smart_walk::{run_smart_walk, SmartWalkOptions, SmartWalkStopReason};
+use crate::openhuman::memory::query::smart_walk::{
+    run_smart_walk, SmartWalkOptions, SmartWalkStopReason,
+};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -119,7 +121,10 @@ pub async fn bench_batch(
         {
             Ok(bench) => results.push(bench),
             Err(e) => {
-                log::warn!("[agent_memory::bench_batch] query={:?} failed: {e:#}", query);
+                log::warn!(
+                    "[agent_memory::bench_batch] query={:?} failed: {e:#}",
+                    query
+                );
             }
         }
     }

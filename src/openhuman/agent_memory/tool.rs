@@ -100,10 +100,7 @@ impl Tool for CallMemoryAgentTool {
 
         let context = args.get("context").and_then(|v| v.as_str());
 
-        let is_async = args
-            .get("async")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let is_async = args.get("async").and_then(|v| v.as_bool()).unwrap_or(false);
 
         let parent = current_parent();
         if parent.is_none() {
@@ -114,9 +111,8 @@ impl Tool for CallMemoryAgentTool {
             ));
         }
 
-        let registry = AgentDefinitionRegistry::global().ok_or_else(|| {
-            anyhow::anyhow!("call_memory_agent: agent registry not initialised")
-        })?;
+        let registry = AgentDefinitionRegistry::global()
+            .ok_or_else(|| anyhow::anyhow!("call_memory_agent: agent registry not initialised"))?;
 
         let definition = registry
             .list()
@@ -165,10 +161,7 @@ impl Tool for CallMemoryAgentTool {
                         );
                     }
                     Err(e) => {
-                        log::warn!(
-                            "[call_memory_agent] async task_id={} failed: {e:#}",
-                            tid
-                        );
+                        log::warn!("[call_memory_agent] async task_id={} failed: {e:#}", tid);
                     }
                 }
             });
@@ -213,9 +206,7 @@ impl Tool for CallMemoryAgentTool {
             }
             Err(e) => {
                 log::warn!("[call_memory_agent] task_id={} failed: {e:#}", task_id);
-                Ok(ToolResult::error(format!(
-                    "Memory agent failed: {e}"
-                )))
+                Ok(ToolResult::error(format!("Memory agent failed: {e}")))
             }
         }
     }

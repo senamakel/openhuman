@@ -186,9 +186,13 @@ fn parent_context_with_provider(
     };
     ParentExecutionContext {
         agent_definition_id: "orchestrator".into(),
-        allowed_subagent_ids: ["researcher".to_string(), "critic".to_string()]
-            .into_iter()
-            .collect(),
+        allowed_subagent_ids: [
+            "researcher".to_string(),
+            "critic".to_string(),
+            "integrations_agent".to_string(),
+        ]
+        .into_iter()
+        .collect(),
         provider,
         all_tools: Arc::new(Vec::new()),
         all_tool_specs: Arc::new(Vec::new()),

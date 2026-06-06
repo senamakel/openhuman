@@ -1419,8 +1419,9 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
     assert_eq!(
         updated_custom_agent
             .get("subagents")
+            .and_then(|subagents| subagents.get("allowlist"))
             .and_then(Value::as_array)
-            .and_then(|subagents| subagents.first())
+            .and_then(|allowlist| allowlist.first())
             .and_then(Value::as_str),
         Some("researcher")
     );
@@ -1477,6 +1478,15 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
     assert_eq!(
         full_upsert_agent.get("enabled").and_then(Value::as_bool),
         Some(false)
+    );
+    assert_eq!(
+        full_upsert_agent
+            .get("subagents")
+            .and_then(|subagents| subagents.get("allowlist"))
+            .and_then(Value::as_array)
+            .and_then(|allowlist| allowlist.first())
+            .and_then(Value::as_str),
+        Some("critic")
     );
 
     let visible_after_custom_disable = post_json_rpc(

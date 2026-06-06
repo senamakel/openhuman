@@ -531,6 +531,29 @@ async fn orchestrator_spawn_subagent_round_trip_streams_child_events_and_returns
     let agents_dir = workspace.path().join("agents");
     std::fs::create_dir_all(&agents_dir)?;
     std::fs::write(
+        agents_dir.join("coverage_orchestrator.toml"),
+        r#"
+id = "coverage_orchestrator"
+display_name = "Coverage Orchestrator"
+when_to_use = "Deterministic parent agent used by harness cache tests."
+temperature = 0.0
+max_iterations = 3
+agent_tier = "chat"
+omit_identity = true
+omit_memory_context = true
+omit_safety_preamble = true
+omit_skills_catalog = true
+omit_profile = true
+omit_memory_md = true
+
+[system_prompt]
+inline = "Delegate the cache probe and synthesize the result."
+
+[subagents]
+allowlist = ["cache_probe_child"]
+"#,
+    )?;
+    std::fs::write(
         agents_dir.join("cache_probe_child.toml"),
         r#"
 id = "cache_probe_child"

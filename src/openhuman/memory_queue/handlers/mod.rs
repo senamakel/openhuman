@@ -13,6 +13,7 @@ use anyhow::{Context, Result};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::tree_source::get_or_create_source_tree;
+use crate::openhuman::memory_queue::ensure_reembed_backfill;
 use crate::openhuman::memory_queue::store;
 use crate::openhuman::memory_queue::types::{
     AppendBufferPayload, AppendTarget, ExtractChunkPayload, FlushStalePayload, Job, JobKind,
@@ -35,10 +36,9 @@ const L0_DEFAULT_FLUSH_AGE_SECS: i64 = 60 * 60;
 
 /// Maximum `extract_chunk` jobs to coalesce in one worker tick.
 ///
-/// Scoring/extraction still runs per chunk, but kept chunks share one
-/// `Embedder::embed_batch` call. This is the high-volume memory-sync path:
-/// Slack/Gmail/etc. enqueue many extract jobs, and without coalescing each
-/// kept chunk produces its own embedding request.
+/// Scoring/extraction runs per chunk; embedding is deferred to a post-sync
+/// `ReembedBackfill` pass that maximizes the batch API (up to 1000 items).
+/// Coalescing still reduces per-job transaction overhead.
 pub(crate) const EXTRACT_EMBED_BATCH: usize = 32;
 
 /// Derive the tree scope from a source_id. For GitHub per-item ids like
@@ -184,8 +184,12 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
         .1
 }
 
-/// Handle a claimed run of `extract_chunk` jobs, batching the embedding
-/// sub-step while preserving per-job outcomes for worker settlement.
+/// Handle a claimed run of `extract_chunk` jobs.
+///
+/// Scoring runs per-chunk; embedding is **deferred** to a post-sync
+/// `ReembedBackfill` pass that maximizes the batch API (up to 1000 items
+/// per request, ~1M tokens). After all chunks are finalized, a backfill
+/// is triggered so the embedding pass starts promptly.
 pub async fn handle_extract_batch(
     config: &Config,
     jobs: &[Job],
@@ -201,16 +205,18 @@ pub async fn handle_extract_batch(
         }
     }
 
-    attach_batched_embeddings(config, &mut prepared).await;
-
-    for mut item in prepared {
+    let mut any_admitted = false;
+    for item in prepared {
         let job = item.job.clone();
-        let result = if let Some(err) = item.embedding_error.take() {
-            Err(err)
-        } else {
-            finalize_extract(config, item)
-        };
+        if item.result.kept {
+            any_admitted = true;
+        }
+        let result = finalize_extract(config, item);
         outcomes.push((job, result));
+    }
+
+    if any_admitted {
+        ensure_reembed_backfill(config);
     }
 
     Ok(outcomes)
@@ -219,11 +225,7 @@ pub async fn handle_extract_batch(
 struct PreparedExtract {
     job: Job,
     chunk: Chunk,
-    body: String,
     result: score::ScoreResult,
-    embedding: Option<Vec<f32>>,
-    embedding_error: Option<anyhow::Error>,
-    embedding_retry_needed: bool,
 }
 
 async fn prepare_extract(config: &Config, job: &Job) -> Result<Option<PreparedExtract>> {
@@ -238,15 +240,13 @@ async fn prepare_extract(config: &Config, job: &Job) -> Result<Option<PreparedEx
     };
 
     // Read the full body from disk (the `content` column in SQLite holds a
-    // ≤500-char preview after the MD-on-disk migration). Both the scorer and
-    // the embedder need the complete text so extraction and semantic indexing
-    // operate over the full chunk body, not a truncated preview.
+    // ≤500-char preview after the MD-on-disk migration). The scorer needs
+    // the complete text so extraction operates over the full chunk body.
     let body = content_read::read_chunk_body(config, &chunk.id)
         .with_context(|| format!("read full body for extract chunk_id={}", chunk.id))?;
-    // Score a clone of the chunk with the full body swapped in.
     let chunk_with_body = {
         let mut c = chunk.clone();
-        c.content = body.clone();
+        c.content = body;
         c
     };
 
@@ -264,129 +264,12 @@ async fn prepare_extract(config: &Config, job: &Job) -> Result<Option<PreparedEx
     Ok(Some(PreparedExtract {
         job: job.clone(),
         chunk,
-        body,
         result,
-        embedding: None,
-        embedding_error: None,
-        embedding_retry_needed: false,
     }))
 }
 
-async fn attach_batched_embeddings(config: &Config, prepared: &mut [PreparedExtract]) {
-    let kept_count = prepared.iter().filter(|item| item.result.kept).count();
-    if kept_count == 0 {
-        return;
-    }
-
-    // #002 (FR-002): when no usable embeddings provider is configured the
-    // write path returns None instead of an InertEmbedder — we SKIP embedding
-    // rather than writing fake all-zero vectors.
-    let embedder = match build_write_embedder(config).context("build embedder in extract handler") {
-        Ok(Some(embedder)) => embedder,
-        Ok(None) => {
-            for item in prepared.iter().filter(|item| item.result.kept) {
-                log::warn!(
-                    "[memory::jobs] extract chunk_id={} — embeddings unavailable, \
-                     skipping embed (semantic recall degraded)",
-                    item.chunk.id
-                );
-            }
-            return;
-        }
-        Err(e) => {
-            for item in prepared.iter_mut().filter(|item| item.result.kept) {
-                let failure = crate::openhuman::memory_tree::health::classify_embed_error(&e);
-                item.embedding_retry_needed = !failure.is_unrecoverable();
-                log::warn!(
-                    "[memory::jobs] extract chunk_id={} — embedder build failed; \
-                     continuing without vector retry_needed={} err={e:#}",
-                    item.chunk.id,
-                    item.embedding_retry_needed
-                );
-            }
-            return;
-        }
-    };
-
-    let kept_indices: Vec<usize> = prepared
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, item)| item.result.kept.then_some(idx))
-        .collect();
-    let texts: Vec<&str> = kept_indices
-        .iter()
-        .map(|idx| prepared[*idx].body.as_str())
-        .collect();
-
-    log::debug!(
-        "[memory::jobs] extract embedding batch: kept_chunks={} provider={}",
-        texts.len(),
-        embedder.name()
-    );
-    let vectors = embedder.embed_batch(&texts).await;
-    if vectors.len() != kept_indices.len() {
-        let err = anyhow::anyhow!(
-            "extract embed_batch returned {} results for {} texts",
-            vectors.len(),
-            kept_indices.len()
-        );
-        let failure = crate::openhuman::memory_tree::health::classify_embed_error(&err);
-        for idx in kept_indices {
-            prepared[idx].embedding_retry_needed = !failure.is_unrecoverable();
-            log::warn!(
-                "[memory::jobs] extract chunk_id={} — batch embedding contract failed; \
-                 continuing without vector retry_needed={} err={err:#}",
-                prepared[idx].chunk.id,
-                prepared[idx].embedding_retry_needed
-            );
-        }
-        return;
-    }
-
-    for (idx, vector_result) in kept_indices.into_iter().zip(vectors) {
-        match vector_result {
-            Ok(vector) => {
-                if let Err(e) = pack_checked(&vector).with_context(|| {
-                    format!(
-                        "validate embedding dims for chunk_id={}",
-                        prepared[idx].chunk.id
-                    )
-                }) {
-                    let failure = crate::openhuman::memory_tree::health::classify_embed_error(&e);
-                    prepared[idx].embedding_retry_needed = !failure.is_unrecoverable();
-                    log::warn!(
-                        "[memory::jobs] extract chunk_id={} — embedding dim validation failed; \
-                         continuing without vector retry_needed={} err={e:#}",
-                        prepared[idx].chunk.id,
-                        prepared[idx].embedding_retry_needed
-                    );
-                } else {
-                    prepared[idx].embedding = Some(vector);
-                    crate::openhuman::memory_tree::health::clear_semantic_recall_degraded();
-                }
-            }
-            Err(e) => {
-                let failure = crate::openhuman::memory_tree::health::classify_embed_error(&e);
-                prepared[idx].embedding_retry_needed = !failure.is_unrecoverable();
-                log::warn!(
-                    "[memory::jobs] extract chunk_id={} — embedding failed; \
-                     continuing without vector retry_needed={} err={e:#}",
-                    prepared[idx].chunk.id,
-                    prepared[idx].embedding_retry_needed
-                );
-            }
-        }
-    }
-}
-
 fn finalize_extract(config: &Config, item: PreparedExtract) -> Result<JobOutcome> {
-    let PreparedExtract {
-        chunk,
-        result,
-        embedding: chunk_embedding,
-        embedding_retry_needed,
-        ..
-    } = item;
+    let PreparedExtract { chunk, result, .. } = item;
     // Build follow-up job payloads before opening the tx — construction is
     // cheap and doesn't require a database connection. The two jobs are
     // enqueued inside the SAME transaction that commits the lifecycle update,
@@ -422,7 +305,6 @@ fn finalize_extract(config: &Config, item: PreparedExtract) -> Result<JobOutcome
         Some(format!("chunk {}", &chunk.id[..chunk.id.len().min(16)])),
     );
 
-    let active_sig = chunk_store::tree_active_signature(config);
     let did_enqueue_source = chunk_store::with_connection(config, |conn| {
         let tx = conn.unchecked_transaction()?;
         score::persist_score_tx(
@@ -439,20 +321,6 @@ fn finalize_extract(config: &Config, item: PreparedExtract) -> Result<JobOutcome
                       WHERE id = ?2",
                 rusqlite::params![chunk_store::CHUNK_STATUS_ADMITTED, chunk.id],
             )?;
-            // #1574 write-side cutover: persist the embedding to the
-            // per-model `mem_tree_chunk_embeddings` sidecar at the active
-            // signature, inside THIS tx so it commits atomically with the
-            // lifecycle / score / job-enqueue writes. The legacy
-            // `mem_tree_chunks.embedding` column is no longer written
-            // (left intact for the §7 one-shot migration to read).
-            if let Some(emb) = chunk_embedding.as_deref() {
-                chunk_store::set_chunk_embedding_for_signature_tx(
-                    &tx,
-                    &chunk.id,
-                    &active_sig,
-                    emb,
-                )?;
-            }
         } else {
             tx.execute(
                 "UPDATE mem_tree_chunks
@@ -516,12 +384,7 @@ fn finalize_extract(config: &Config, item: PreparedExtract) -> Result<JobOutcome
         }
     }
 
-    // Signal workers after the tx commits (no atomicity requirement on signaling).
     if did_enqueue_source {
-        super::worker::wake_workers();
-    }
-    if result.kept && embedding_retry_needed {
-        crate::openhuman::memory_queue::ensure_reembed_backfill(config);
         super::worker::wake_workers();
     }
 
@@ -787,11 +650,11 @@ async fn handle_flush_stale(config: &Config, job: &Job) -> Result<JobOutcome> {
     Ok(JobOutcome::Done)
 }
 
-/// Texts per `ReembedBackfill` run. Bounded so one run holds the global
-/// single-LLM-slot (the job is `is_llm_bound`) for a predictable spell —
-/// the laptop-RAM safety the local-LLM-load rule requires. The chain
-/// self-continues via `Defer` until no rows remain.
-const REEMBED_BACKFILL_BATCH: usize = 16;
+/// Texts per `ReembedBackfill` run. This is now the **primary** embedding
+/// path (extract no longer embeds inline). Sized to maximize the batch API
+/// (Voyage: 1000 items, ~1M tokens per request). The `embed_batch_via_provider`
+/// layer handles sub-batching into API-safe chunks internally.
+const REEMBED_BACKFILL_BATCH: usize = 1000;
 /// Delay before the deferred chain revisits this same job row.
 const REEMBED_BACKFILL_REVISIT_MS: i64 = 750;
 

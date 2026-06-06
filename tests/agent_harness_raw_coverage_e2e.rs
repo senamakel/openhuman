@@ -318,6 +318,7 @@ fn coverage_definition() -> AgentDefinition {
         timeout_secs: None,
         sandbox_mode: SandboxMode::ReadOnly,
         background: false,
+        trigger_memory_agent: Default::default(),
         subagents: Vec::new(),
         delegate_name: None,
         agent_tier: Default::default(),

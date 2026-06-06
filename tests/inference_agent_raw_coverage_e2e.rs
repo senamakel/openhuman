@@ -2068,7 +2068,7 @@ async fn inference_openhuman_backend_provider_covers_authless_and_streaming_edge
         },
     );
     assert!(provider.supports_native_tools());
-    assert!(!provider.supports_vision());
+    assert!(provider.supports_vision());
     assert!(!provider.supports_streaming());
 
     let missing_session = provider

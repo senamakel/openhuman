@@ -154,7 +154,7 @@ test.describe('Harness - Search tool-flow', () => {
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
     await sendMessage(page, 'what did we discuss about project Atlas');
-    await expect(page.getByText(CANARY)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(CANARY).first()).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText(/Based on my memory search/i)).toBeVisible();
 
     const log = await requests();
@@ -219,7 +219,7 @@ test.describe('Harness - Search tool-flow', () => {
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
     await sendMessage(page, 'read the README');
-    await expect(page.getByText(CANARY)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(CANARY).first()).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText(/OpenHuman is an AI assistant/i)).toBeVisible();
 
     const log = await requests();

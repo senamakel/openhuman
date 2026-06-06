@@ -813,7 +813,30 @@ impl Agent {
     /// Snapshot the parent's runtime so spawned sub-agents can read
     /// it via the [`harness::PARENT_CONTEXT`] task-local.
     pub(super) fn build_parent_execution_context(&self) -> harness::ParentExecutionContext {
+        let allowed_subagent_ids = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()
+            .and_then(|registry| registry.get(&self.agent_definition_id))
+            .map(|definition| {
+                definition
+                    .subagents
+                    .iter()
+                    .filter_map(|entry| match entry {
+                        crate::openhuman::agent::harness::definition::SubagentEntry::AgentId(id) => {
+                            Some(id.clone())
+                        }
+                        crate::openhuman::agent::harness::definition::SubagentEntry::Skills(wildcard)
+                            if wildcard.matches_all() =>
+                        {
+                            Some("integrations_agent".to_string())
+                        }
+                        crate::openhuman::agent::harness::definition::SubagentEntry::Skills(_) => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
         harness::ParentExecutionContext {
+            agent_definition_id: self.agent_definition_id.clone(),
+            allowed_subagent_ids,
             provider: Arc::clone(&self.provider),
             all_tools: Arc::clone(&self.tools),
             all_tool_specs: Arc::clone(&self.tool_specs),

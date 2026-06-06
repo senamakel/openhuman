@@ -264,6 +264,14 @@ fn parent_context(workspace: &Path, provider: Arc<ScriptedProvider>) -> ParentEx
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(EchoTool)];
     let specs = tools.iter().map(|tool| tool.spec()).collect();
     ParentExecutionContext {
+        agent_definition_id: "orchestrator".into(),
+        allowed_subagent_ids: [
+            "test".to_string(),
+            "archivist".to_string(),
+            "summarizer".to_string(),
+        ]
+        .into_iter()
+        .collect(),
         provider,
         all_tools: Arc::new(tools),
         all_tool_specs: Arc::new(specs),

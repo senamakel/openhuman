@@ -76,6 +76,8 @@ impl Memory for NoopMemory {
 
 fn parent_context(provider: Arc<dyn Provider>) -> ParentExecutionContext {
     ParentExecutionContext {
+        agent_definition_id: "orchestrator".to_string(),
+        allowed_subagent_ids: ["researcher".to_string()].into_iter().collect(),
         provider,
         all_tools: Arc::new(Vec::<Box<dyn Tool>>::new()),
         all_tool_specs: Arc::new(Vec::<ToolSpec>::new()),

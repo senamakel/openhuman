@@ -220,6 +220,32 @@ impl Tool for SpawnParallelAgentsTool {
                 continue;
             };
 
+            if !parent.allowed_subagent_ids.contains(&definition.id) {
+                tracing::warn!(
+                    parent_session = %parent_session,
+                    parent_agent = %parent.agent_definition_id,
+                    task_id = %task_id,
+                    agent_id = %definition.id,
+                    allowed = ?parent.allowed_subagent_ids,
+                    "[spawn_parallel_agents] rejected_task_outside_subagent_allowlist"
+                );
+                immediate_results.push(ParallelAgentResult {
+                    task_id,
+                    agent_id: definition.id.clone(),
+                    success: false,
+                    output: None,
+                    error: Some(format!(
+                        "agent '{}' is not in parent agent '{}' subagents.allowlist",
+                        definition.id, parent.agent_definition_id
+                    )),
+                    ownership: task.ownership,
+                    elapsed_ms: 0,
+                    iterations: 0,
+                    stale_parent_reads: Vec::new(),
+                });
+                continue;
+            }
+
             if definition.id == "integrations_agent"
                 && task
                     .toolkit

@@ -1134,18 +1134,20 @@ mod tests {
         );
         // No jobs running. Provider availability differs between local and CI
         // harnesses, so a completed ingest may be fully running or degraded
-        // because semantic recall was skipped. Both are terminal, non-syncing
-        // states and both preserve the aggregate counters asserted above.
+        // because semantic recall or wiki structure was skipped. Both are
+        // terminal, non-syncing states and both preserve the aggregate counters
+        // asserted above.
         match out.status.as_str() {
             "running" => assert!(out.reason.is_none()),
-            "degraded" => assert!(
-                out.reason
-                    .as_deref()
-                    .unwrap_or_default()
-                    .contains("semantic recall disabled"),
-                "degraded status should explain semantic recall loss: {:?}",
-                out.reason
-            ),
+            "degraded" => {
+                let reason = out.reason.as_deref().unwrap_or_default();
+                assert!(
+                    reason.contains("semantic recall disabled")
+                        || reason.contains("wiki structure incomplete"),
+                    "degraded status should explain recall or structure loss: {:?}",
+                    out.reason
+                );
+            }
             other => panic!("expected running or degraded after ingest, got {other}"),
         }
         assert!(!out.is_syncing);

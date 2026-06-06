@@ -656,7 +656,7 @@ impl Agent {
     /// What differs per agent id:
     /// * `visible_tool_names` is the agent's `ToolScope::Named` list
     ///   (unioned with the names of synthesised delegation tools when
-    ///   the agent declares `subagents = [...]`). `ToolScope::Wildcard`
+    ///   the agent declares `[subagents] allowlist = [...]`). `ToolScope::Wildcard`
     ///   yields an empty filter, matching the legacy unfiltered path.
     /// * `prompt_builder` uses [`SystemPromptBuilder::for_subagent`]
     ///   with the agent's inline/file prompt body and `omit_*` flags,
@@ -1307,7 +1307,7 @@ impl Agent {
         // whitelist from the target definition (when we have one) or
         // fall back to the orchestrator's synthesis path.
         //
-        // For an agent with `subagents = [...]` in its TOML (today:
+        // For an agent with `[subagents] allowlist = [...]` in its TOML (today:
         // orchestrator), `collect_orchestrator_tools` synthesises one
         // `ArchetypeDelegationTool` per named sub-agent plus a single
         // collapsed `SkillDelegationTool`

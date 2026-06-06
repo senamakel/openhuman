@@ -59,6 +59,11 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+if [[ "$ref" =~ ^[0-9a-fA-F]{7,40}$ ]] && [ "$watch" -eq 1 ]; then
+  echo "[android-play] ref is a SHA; skipping automatic watch because gh run list --branch requires a branch name."
+  watch=0
+fi
+
 case "$track" in
   internal|alpha|beta|production) ;;
   *)

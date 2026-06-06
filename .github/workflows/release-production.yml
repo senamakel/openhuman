@@ -462,7 +462,12 @@ jobs:
     needs: [prepare-build, create-release]
     if: ${{ inputs.create_release && always() && needs.create-release.result == 'success' }}
     uses: ./.github/workflows/android-compile.yml
-    secrets: inherit
+    secrets:
+      ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+      ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+      ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+      ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
     with:
       build_ref: ${{ needs.prepare-build.outputs.build_ref }}
       publish_to_play: true

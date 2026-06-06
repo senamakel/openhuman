@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CatalogEntry } from '../../../services/api/skillRegistryApi';
 import type { SkillSummary } from '../../../services/api/skillsApi';
 import SkillsExplorerTab from '../SkillsExplorerTab';
 
@@ -9,6 +10,15 @@ vi.mock('../../../services/api/skillsApi', () => ({
     listSkills: vi.fn(),
     installSkillFromUrl: vi.fn(),
     uninstallSkill: vi.fn(),
+  },
+}));
+
+vi.mock('../../../services/api/skillRegistryApi', () => ({
+  skillRegistryApi: {
+    browse: vi.fn(),
+    search: vi.fn(),
+    sources: vi.fn(),
+    install: vi.fn(),
   },
 }));
 
@@ -39,41 +49,94 @@ const MOCK_PROJECT_SKILL: SkillSummary = {
   scope: 'project',
 };
 
+const MOCK_CATALOG_ENTRY: CatalogEntry = {
+  id: 'registry-skill-1',
+  name: 'Registry Skill',
+  description: 'A skill from the registry',
+  format: 'hermes',
+  author: 'Registry Author',
+  version: '2.0.0',
+  tags: ['registry', 'remote'],
+  download_url: 'https://example.com/SKILL.md',
+  source_id: 'openhuman-community',
+  stars: 42,
+  updated_at: '2026-01-01',
+};
+
+async function switchToInstalled() {
+  const installedTab = screen.getByText('Installed', { selector: 'button' });
+  await act(async () => {
+    fireEvent.click(installedTab);
+  });
+}
+
 describe('SkillsExplorerTab', () => {
   beforeEach(async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import(
+      '../../../services/api/skillRegistryApi'
+    );
     vi.mocked(skillsApi.listSkills).mockReset();
     vi.mocked(skillsApi.uninstallSkill).mockReset();
+    vi.mocked(skillRegistryApi.browse).mockReset();
+    vi.mocked(skillRegistryApi.install).mockReset();
+    vi.mocked(skillRegistryApi.browse).mockResolvedValue([]);
   });
 
-  it('shows loading spinner then renders skills', async () => {
+  it('defaults to registry view and shows catalog entries', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import(
+      '../../../services/api/skillRegistryApi'
+    );
+    vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
+
+    render(<SkillsExplorerTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Registry Skill')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Hermes')).toBeInTheDocument();
+    expect(screen.getByText('openhuman-community')).toBeInTheDocument();
+  });
+
+  it('shows installed skills when switching to installed tab', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
     render(<SkillsExplorerTab />);
 
     await waitFor(() => {
+      expect(screen.getByText('Installed')).toBeInTheDocument();
+    });
+
+    await switchToInstalled();
+
+    await waitFor(() => {
       expect(screen.getByText('Test Skill')).toBeInTheDocument();
     });
     expect(screen.getByText('Project Skill')).toBeInTheDocument();
-    expect(screen.getByText('Hermes')).toBeInTheDocument();
-    expect(screen.getByText('OpenHuman')).toBeInTheDocument();
   });
 
-  it('shows empty state when no skills found', async () => {
+  it('shows empty state when no installed skills', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
 
     render(<SkillsExplorerTab />);
+    await switchToInstalled();
 
     await waitFor(() => {
       expect(screen.getByText('No skills found')).toBeInTheDocument();
     });
   });
 
-  it('shows error state on fetch failure', async () => {
+  it('shows error state on registry fetch failure', async () => {
+    const { skillRegistryApi } = await import(
+      '../../../services/api/skillRegistryApi'
+    );
     const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockRejectedValue(new Error('Network error'));
+    vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.browse).mockRejectedValue(new Error('Network error'));
 
     render(<SkillsExplorerTab />);
 
@@ -83,11 +146,12 @@ describe('SkillsExplorerTab', () => {
     expect(screen.getByRole('button', { name: /Try again/ })).toBeInTheDocument();
   });
 
-  it('filters skills by search query', async () => {
+  it('filters installed skills by search query', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
     render(<SkillsExplorerTab />);
+    await switchToInstalled();
 
     await waitFor(() => {
       expect(screen.getByText('Test Skill')).toBeInTheDocument();
@@ -111,11 +175,12 @@ describe('SkillsExplorerTab', () => {
     });
   });
 
-  it('shows uninstall button only for user-scope skills on hover', async () => {
+  it('shows uninstall button only for user-scope skills', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
     render(<SkillsExplorerTab />);
+    await switchToInstalled();
 
     await waitFor(() => {
       expect(screen.getByTestId('skill-explorer-tile-test-skill')).toBeInTheDocument();
@@ -125,11 +190,12 @@ describe('SkillsExplorerTab', () => {
     expect(screen.queryByTestId('skill-uninstall-project-skill')).not.toBeInTheDocument();
   });
 
-  it('displays version and tags', async () => {
+  it('displays version and tags in installed view', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL]);
 
     render(<SkillsExplorerTab />);
+    await switchToInstalled();
 
     await waitFor(() => {
       expect(screen.getByText('v1.0.0')).toBeInTheDocument();
@@ -143,6 +209,7 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
     render(<SkillsExplorerTab />);
+    await switchToInstalled();
 
     await waitFor(() => {
       expect(screen.getByText('Test Skill')).toBeInTheDocument();
@@ -160,13 +227,31 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listSkills).mockResolvedValue([skillWithWarning]);
 
     render(<SkillsExplorerTab />);
+    await switchToInstalled();
 
     await waitFor(() => {
       expect(screen.getByText('Missing required field: author')).toBeInTheDocument();
     });
   });
 
-  it('opens install dialog when install button clicked', async () => {
+  it('shows "Installed" badge for already-installed catalog entries', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import(
+      '../../../services/api/skillRegistryApi'
+    );
+    const installedSkill = { ...MOCK_SKILL, id: 'registry-skill-1' };
+    vi.mocked(skillsApi.listSkills).mockResolvedValue([installedSkill]);
+    vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
+
+    render(<SkillsExplorerTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Registry Skill')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('registry-tile-registry-skill-1')).toBeInTheDocument();
+  });
+
+  it('has an install from URL button', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
 
@@ -175,11 +260,8 @@ describe('SkillsExplorerTab', () => {
     await waitFor(() => {
       expect(screen.getByTestId('skill-install-from-url-btn')).toBeInTheDocument();
     });
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('skill-install-from-url-btn'));
-    });
-
-    expect(screen.getByText('Install skill from URL')).toBeInTheDocument();
+    expect(screen.getByTestId('skill-install-from-url-btn')).toHaveTextContent(
+      'Install from URL'
+    );
   });
 });

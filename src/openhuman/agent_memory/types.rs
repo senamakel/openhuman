@@ -64,7 +64,8 @@ impl BenchmarkSummary {
         elapsed_ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         let avg_elapsed_ms = elapsed_ms.iter().sum::<f64>() / n;
-        let p50_idx = ((benchmarks.len() as f64 * 0.5) as usize).min(benchmarks.len().saturating_sub(1));
+        let p50_idx =
+            ((benchmarks.len() as f64 * 0.5) as usize).min(benchmarks.len().saturating_sub(1));
         let p95_idx = ((benchmarks.len() as f64 * 0.95) as usize).min(benchmarks.len() - 1);
 
         Self {

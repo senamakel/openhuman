@@ -30,7 +30,7 @@ concurrency:
 jobs:
   build-and-upload:
     name: Build and upload iOS IPA
-    runs-on: macos-latest
+    runs-on: macos-26-arm64
     environment: App Development Production
     env:
       APP_IDENTIFIER: com.tinyhumansai.openhuman
@@ -74,6 +74,11 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
+
+      - name: Verify Xcode SDK
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
 
       - name: Install Fastlane
         run: gem install fastlane multi_json -N
@@ -278,6 +283,7 @@ jobs:
             --force true
 
       - name: Upload IPA artifact
+        if: always() && steps.export.outputs.ipa_path != ''
         uses: actions/upload-artifact@v4
         with:
           name: openhuman-ios-ipa
@@ -285,6 +291,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload archive dSYMs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: openhuman-ios-dsyms

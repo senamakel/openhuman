@@ -168,6 +168,171 @@ pub async fn try_paid_request(
     Ok(B64.encode(json))
 }
 
+/// Result of a successful x402 payment retry — the payment header value and
+/// metadata for the ledger.
+pub struct X402PaymentResult {
+    pub header_value: String,
+    pub amount_atomic: u64,
+    pub asset: String,
+    pub recipient: String,
+    pub network: String,
+    pub url: String,
+}
+
+/// End-to-end 402 handler for the HTTP tool layer. Given a 402 response's
+/// headers and the original URL:
+///
+/// 1. Parses the PAYMENT-REQUIRED challenge
+/// 2. Checks the spending budget
+/// 3. Derives the wallet's Solana signing key
+/// 4. Builds a partially-signed payment transaction
+/// 5. Returns the encoded PAYMENT-SIGNATURE header value
+///
+/// The caller retries the original request with this header attached and
+/// records the payment outcome in the ledger.
+pub async fn handle_402_and_pay(
+    response_headers: &HeaderMap,
+    request_url: &str,
+) -> Result<X402PaymentResult, X402Error> {
+    let (challenge, idx) = handle_402(response_headers)?;
+    let requirement = &challenge.accepts[idx];
+
+    let amount: u64 = requirement
+        .amount
+        .parse()
+        .map_err(|e| X402Error::Protocol(format!("invalid amount '{}': {e}", requirement.amount)))?;
+
+    let budget_check = super::store::with_ledger(|l| l.check_budget(amount))
+        .map_err(|e| X402Error::Wallet(e))?;
+
+    match budget_check {
+        super::store::BudgetCheck::Allowed => {}
+        super::store::BudgetCheck::ExceedsPerRequest { requested, cap } => {
+            return Err(X402Error::AmountExceedsCap { requested, cap });
+        }
+        super::store::BudgetCheck::ExceedsDailyBudget { current, cap } => {
+            return Err(X402Error::BudgetExceeded {
+                period: "daily",
+                current,
+                cap,
+            });
+        }
+        super::store::BudgetCheck::ExceedsMonthlyBudget { current, cap } => {
+            return Err(X402Error::BudgetExceeded {
+                period: "monthly",
+                current,
+                cap,
+            });
+        }
+    }
+
+    let signing_key = derive_wallet_signing_key().await?;
+
+    debug!(
+        "{LOG_PREFIX} paying {} atomic {} to {} for {}",
+        amount, requirement.asset, requirement.pay_to, request_url
+    );
+
+    let header_value = try_paid_request(&signing_key, &challenge, requirement).await?;
+
+    Ok(X402PaymentResult {
+        header_value,
+        amount_atomic: amount,
+        asset: requirement.asset.clone(),
+        recipient: requirement.pay_to.clone(),
+        network: requirement.network.clone(),
+        url: request_url.to_string(),
+    })
+}
+
+/// Derive the wallet's Solana ed25519 signing key from the encrypted mnemonic.
+async fn derive_wallet_signing_key() -> Result<SigningKey, X402Error> {
+    use crate::openhuman::wallet::WalletChain;
+
+    let secret = crate::openhuman::wallet::secret_material(WalletChain::Solana)
+        .await
+        .map_err(|e| X402Error::Wallet(format!("wallet secret: {e}")))?;
+
+    let config = crate::openhuman::config::rpc::load_config_with_timeout()
+        .await
+        .map_err(|e| X402Error::Wallet(format!("load config: {e}")))?;
+
+    let mnemonic = crate::openhuman::encryption::rpc::decrypt_secret(
+        &config,
+        &secret.encrypted_mnemonic,
+    )
+    .await
+    .map_err(|e| X402Error::Wallet(format!("decrypt mnemonic: {e}")))?
+    .value;
+
+    derive_solana_keypair_from_mnemonic(&mnemonic, &secret.derivation_path)
+}
+
+fn derive_solana_keypair_from_mnemonic(
+    mnemonic: &str,
+    derivation_path: &str,
+) -> Result<SigningKey, X402Error> {
+    use coins_bip39::{English, Mnemonic};
+    use ed25519_dalek::SECRET_KEY_LENGTH;
+    use hmac::{Hmac, Mac};
+    use sha2::Sha512;
+
+    let mnemonic_obj: Mnemonic<English> = mnemonic
+        .trim()
+        .parse()
+        .map_err(|e| X402Error::Wallet(format!("invalid mnemonic: {e}")))?;
+    let seed = mnemonic_obj
+        .to_seed(None)
+        .map_err(|e| X402Error::Wallet(format!("seed derivation: {e}")))?;
+
+    // SLIP-0010 ed25519 derivation
+    type HmacSha512 = Hmac<Sha512>;
+    let mut mac = HmacSha512::new_from_slice(b"ed25519 seed")
+        .map_err(|e| X402Error::Wallet(format!("HMAC init: {e}")))?;
+    mac.update(&seed);
+    let i = mac.finalize().into_bytes();
+    let mut key = [0u8; 32];
+    let mut chain_code = [0u8; 32];
+    key.copy_from_slice(&i[..32]);
+    chain_code.copy_from_slice(&i[32..]);
+
+    let path = parse_derivation_path(derivation_path)?;
+    for index in path {
+        let hardened = index | 0x8000_0000;
+        let mut mac = HmacSha512::new_from_slice(&chain_code)
+            .map_err(|e| X402Error::Wallet(format!("HMAC init: {e}")))?;
+        mac.update(&[0u8]);
+        mac.update(&key);
+        mac.update(&hardened.to_be_bytes());
+        let i = mac.finalize().into_bytes();
+        key.copy_from_slice(&i[..32]);
+        chain_code.copy_from_slice(&i[32..]);
+    }
+
+    let bytes: [u8; SECRET_KEY_LENGTH] = key;
+    Ok(SigningKey::from_bytes(&bytes))
+}
+
+fn parse_derivation_path(path: &str) -> Result<Vec<u32>, X402Error> {
+    let trimmed = path.trim();
+    let mut iter = trimmed.split('/');
+    match iter.next() {
+        Some("m") => {}
+        _ => return Err(X402Error::Wallet(format!("path must start with 'm': {path}"))),
+    }
+    let mut out = Vec::new();
+    for seg in iter {
+        let stripped = seg
+            .strip_suffix('\'')
+            .ok_or_else(|| X402Error::Wallet(format!("non-hardened segment in: {path}")))?;
+        let v: u32 = stripped
+            .parse()
+            .map_err(|e| X402Error::Wallet(format!("invalid path segment '{seg}': {e}")))?;
+        out.push(v);
+    }
+    Ok(out)
+}
+
 // ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
@@ -178,6 +343,7 @@ pub enum X402Error {
     NoPaymentHeader,
     NoSolanaOption,
     AmountExceedsCap { requested: u64, cap: u64 },
+    BudgetExceeded { period: &'static str, current: u64, cap: u64 },
     Protocol(String),
     Wallet(String),
 }
@@ -189,7 +355,10 @@ impl std::fmt::Display for X402Error {
             Self::NoPaymentHeader => write!(f, "402 response missing PAYMENT-REQUIRED header"),
             Self::NoSolanaOption => write!(f, "no Solana exact payment option in 402 challenge"),
             Self::AmountExceedsCap { requested, cap } => {
-                write!(f, "x402 amount {requested} exceeds cap {cap}")
+                write!(f, "x402 amount {requested} exceeds per-request cap {cap}")
+            }
+            Self::BudgetExceeded { period, current, cap } => {
+                write!(f, "x402 {period} budget exceeded: {current}/{cap} atomic units")
             }
             Self::Protocol(msg) => write!(f, "x402 protocol: {msg}"),
             Self::Wallet(msg) => write!(f, "x402 wallet: {msg}"),

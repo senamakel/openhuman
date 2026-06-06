@@ -16,7 +16,7 @@ mod types;
 #[cfg(test)]
 mod x402_tests;
 
-pub use ops::{handle_402, try_paid_request, X402Client, X402Error};
+pub use ops::{handle_402, handle_402_and_pay, try_paid_request, X402Client, X402Error, X402PaymentResult};
 pub use schemas::all_controller_schemas as all_x402_controller_schemas;
 pub use schemas::all_registered_controllers as all_x402_registered_controllers;
 pub use store::{init_global as init_ledger, PaymentRecord, PaymentStatus, SpendingBudget};

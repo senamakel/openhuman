@@ -32,7 +32,7 @@ pub(super) type OpResult<T> = std::result::Result<T, String>;
 
 /// Resolve a backend-mode [`ComposioClient`] from the root config, or
 /// return an error string that the caller can surface over RPC.
-pub(super) fn resolve_client(config: &Config) -> OpResult<ComposioClient> {
+pub(crate) fn resolve_client(config: &Config) -> OpResult<ComposioClient> {
     build_composio_client(config).ok_or_else(|| {
         "composio unavailable: no backend session token. Sign in first \
          (auth_store_session)."
@@ -56,7 +56,7 @@ pub(super) fn resolve_client(config: &Config) -> OpResult<ComposioClient> {
 /// (`config.composio.api_key`). Checking only the keychain would wrongly
 /// short-circuit to an empty list for a user who configured their key via
 /// `config.toml`, hiding their real connections.
-pub(super) fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
+pub(crate) fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
     if config.composio.mode.trim() != crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT {
         return Ok(false);
     }

@@ -36,7 +36,7 @@ Return a compact result with these headings:\n\
 Do not include facts in Answer that are not supported by Evidence used or Actions taken.\n\
 If a tool result was truncated, partial, or too large to inspect fully, say so under Open uncertainties and do not treat it as complete.\n";
 
-pub(super) fn append_subagent_role_contract(base_prompt: String, agent_id: &str) -> String {
+pub(crate) fn append_subagent_role_contract(base_prompt: String, agent_id: &str) -> String {
     if base_prompt.contains(SUBAGENT_ROLE_CONTRACT_SUFFIX.trim()) {
         tracing::debug!(
             agent_id = %agent_id,
@@ -83,7 +83,7 @@ pub(super) fn append_subagent_role_contract(base_prompt: String, agent_id: &str)
 ///
 /// Extracted as a free function so the regression suite can exercise the dedup
 /// without standing up the full `run_typed_mode` plumbing.
-pub(super) fn dedup_tool_specs_by_name(agent_id: &str, specs: Vec<ToolSpec>) -> Vec<ToolSpec> {
+pub(crate) fn dedup_tool_specs_by_name(agent_id: &str, specs: Vec<ToolSpec>) -> Vec<ToolSpec> {
     let mut seen: HashSet<String> = HashSet::with_capacity(specs.len());
     let mut deduped: Vec<ToolSpec> = Vec::with_capacity(specs.len());
     let mut dropped: Vec<String> = Vec::new();

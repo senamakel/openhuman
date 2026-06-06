@@ -9,7 +9,7 @@ use crate::openhuman::meet_agent::types::{SessionEvent, SessionEventKind};
 /// leak from a chat-completions response (markdown asterisks, fenced
 /// code, leading bullets). Keep punctuation that affects prosody
 /// (commas, periods, question marks) intact.
-pub(super) fn strip_for_speech(text: &str) -> String {
+pub(crate) fn strip_for_speech(text: &str) -> String {
     // Strip reasoning-model <think>...</think> blocks before we strip
     // markdown. DeepSeek / GMI / qwen-style reasoning models emit
     // their internal chain-of-thought wrapped in <think>...</think>
@@ -164,7 +164,7 @@ pub(super) fn cap_for_speech(text: &str, max_chars: usize) -> String {
 /// Pull the last `window` `Heard`/`Spoke` events from the session log
 /// and shape them into chat-completions turns. `Note` events are
 /// internal book-keeping (errors, wake-word matches) and are skipped.
-pub(super) fn recent_dialog_history(
+pub(crate) fn recent_dialog_history(
     events: &[SessionEvent],
     window: usize,
 ) -> Vec<ConversationTurn> {

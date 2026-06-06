@@ -239,7 +239,7 @@ pub async fn composio_sync(
 /// `None` and the explicit `"manual"` value both map to
 /// [`SyncReason::Manual`]. Any other unrecognized string is rejected
 /// with a clear error so a typo in a caller surfaces at the RPC boundary.
-pub(super) fn parse_sync_reason(raw: Option<&str>) -> OpResult<SyncReason> {
+pub(crate) fn parse_sync_reason(raw: Option<&str>) -> OpResult<SyncReason> {
     match raw {
         None | Some("manual") => Ok(SyncReason::Manual),
         Some("periodic") => Ok(SyncReason::Periodic),

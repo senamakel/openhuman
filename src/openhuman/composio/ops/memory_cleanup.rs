@@ -10,7 +10,7 @@ use crate::openhuman::memory_store::chunks::types::SourceKind;
 use super::super::providers::sync_state::SyncState;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum MemoryCleanupTarget {
+pub(crate) enum MemoryCleanupTarget {
     Exact(SourceKind, String),
     Prefix(SourceKind, String),
     Owner(SourceKind, String),
@@ -50,7 +50,7 @@ impl MemoryCleanupTarget {
     }
 }
 
-pub(super) async fn composio_memory_targets_for_connection(
+pub(crate) async fn composio_memory_targets_for_connection(
     config: &Config,
     toolkit: Option<&str>,
     connection_id: &str,

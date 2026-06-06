@@ -1,6 +1,6 @@
 use super::super::Config;
 
-pub(super) fn migrate_legacy_inference_url(config: &mut Config) {
+pub(crate) fn migrate_legacy_inference_url(config: &mut Config) {
     if config.inference_url.is_some() {
         return;
     }
@@ -62,7 +62,7 @@ pub fn redact_url_for_log(raw: &str) -> String {
 /// This is idempotent: entries that already have a slug/label are left
 /// untouched. Routing fields that already contain a `:` are assumed to be
 /// in the new `<slug>:<model>` form.
-pub(super) fn migrate_cloud_provider_slugs(config: &mut Config) {
+pub(crate) fn migrate_cloud_provider_slugs(config: &mut Config) {
     use super::super::cloud_providers::{migrate_legacy_fields, AuthStyle};
 
     for entry in &mut config.cloud_providers {

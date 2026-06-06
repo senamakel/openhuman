@@ -19,7 +19,7 @@ use tokio::io::AsyncWriteExt;
 static WARNED_WORLD_READABLE_CONFIGS: OnceLock<Mutex<HashSet<std::path::PathBuf>>> =
     OnceLock::new();
 
-pub(super) async fn parse_config_with_recovery(
+pub(crate) async fn parse_config_with_recovery(
     config_path: &Path,
     contents: &str,
 ) -> (Config, bool) {

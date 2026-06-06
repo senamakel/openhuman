@@ -42,7 +42,7 @@ fn default_root_dir_name() -> &'static str {
 }
 
 #[cfg(test)]
-pub(super) fn default_root_dir_name_pub() -> &'static str {
+pub(crate) fn default_root_dir_name_pub() -> &'static str {
     default_root_dir_name()
 }
 
@@ -235,7 +235,7 @@ pub(crate) async fn persist_active_workspace_config_dir(config_dir: &Path) -> Re
     Ok(())
 }
 
-pub(super) fn resolve_config_dir_for_workspace(workspace_dir: &Path) -> (PathBuf, PathBuf) {
+pub(crate) fn resolve_config_dir_for_workspace(workspace_dir: &Path) -> (PathBuf, PathBuf) {
     let workspace_config_dir = workspace_dir.to_path_buf();
     if workspace_config_dir.join("config.toml").exists() {
         return (
@@ -267,7 +267,7 @@ pub(super) fn resolve_config_dir_for_workspace(workspace_dir: &Path) -> (PathBuf
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum ConfigResolutionSource {
+pub(crate) enum ConfigResolutionSource {
     EnvWorkspace,
     ActiveWorkspaceMarker,
     ActiveUser,
@@ -275,7 +275,7 @@ pub(super) enum ConfigResolutionSource {
 }
 
 impl ConfigResolutionSource {
-    pub(super) const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::EnvWorkspace => "OPENHUMAN_WORKSPACE",
             Self::ActiveWorkspaceMarker => "active_workspace.toml",
@@ -285,7 +285,7 @@ impl ConfigResolutionSource {
     }
 }
 
-pub(super) async fn resolve_runtime_config_dirs(
+pub(crate) async fn resolve_runtime_config_dirs(
     default_openhuman_dir: &Path,
     default_workspace_dir: &Path,
 ) -> Result<(PathBuf, PathBuf, ConfigResolutionSource)> {
@@ -296,7 +296,7 @@ pub(super) async fn resolve_runtime_config_dirs(
 /// Env-injectable variant of [`resolve_runtime_config_dirs`]. Accepts any
 /// [`EnvLookup`] so unit tests can exercise the `OPENHUMAN_WORKSPACE`
 /// override path without mutating the process environment.
-pub(super) async fn resolve_runtime_config_dirs_with(
+pub(crate) async fn resolve_runtime_config_dirs_with(
     default_openhuman_dir: &Path,
     default_workspace_dir: &Path,
     env: &(dyn EnvLookup + Send + Sync),

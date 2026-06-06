@@ -237,7 +237,7 @@ pub(super) async fn llm_meeting_basic(
     Ok(strip_for_speech(&text))
 }
 
-pub(super) fn extract_chat_completion_text(raw: &Value) -> Option<String> {
+pub(crate) fn extract_chat_completion_text(raw: &Value) -> Option<String> {
     raw.get("choices")
         .and_then(|c| c.as_array())
         .and_then(|arr| arr.first())

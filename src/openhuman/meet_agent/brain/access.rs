@@ -15,7 +15,7 @@ use crate::openhuman::meet_agent::types::SessionEventKind;
 /// when the post-wake tail is empty OR only contains greeting
 /// words, treat it as a greeting. Anything else is assumed to be
 /// a task ask.
-pub(super) fn classify_unauthorized_intent(caption_text: &str) -> UnauthorizedIntent {
+pub(crate) fn classify_unauthorized_intent(caption_text: &str) -> UnauthorizedIntent {
     // Lift the bit of text that comes after the matched wake
     // phrase so we don't get fooled by the wake itself ("hey
     // openhuman" obviously contains "hey").
@@ -78,7 +78,7 @@ pub(super) fn classify_unauthorized_intent(caption_text: &str) -> UnauthorizedIn
 /// non-owner turn speaks a canned hi-back or routes the prompt
 /// through a toolless LLM (general-knowledge + safe deflection).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum UnauthorizedIntent {
+pub(crate) enum UnauthorizedIntent {
     /// Just a greeting — bot says hi back without offering tools.
     Greeting,
     /// Substantive question. Route to a toolless LLM with a strict
@@ -147,7 +147,7 @@ pub(super) fn friendly_greeting_message(asker: &str) -> String {
 /// response names the actual person who has the keys, and tells
 /// the owner the magic word ("allow") to grant access. Kept short
 /// so it doesn't drown the conversation.
-pub(super) fn soft_deny_message(asker: &str, owner: &str) -> String {
+pub(crate) fn soft_deny_message(asker: &str, owner: &str) -> String {
     let asker = asker.trim();
     let owner = owner.trim();
     match (asker.is_empty(), owner.is_empty()) {
@@ -175,7 +175,7 @@ pub(super) fn soft_deny_message(asker: &str, owner: &str) -> String {
 /// session-level state (`take_pending_unauthorized`) — without a
 /// pending request the intent is meaningless and the prompt should
 /// just run as a normal LLM turn.
-pub(super) fn looks_like_grant_intent(prompt: &str) -> bool {
+pub(crate) fn looks_like_grant_intent(prompt: &str) -> bool {
     let p = prompt.trim().to_ascii_lowercase();
     if p.is_empty() {
         return false;

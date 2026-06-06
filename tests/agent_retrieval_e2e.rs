@@ -14,7 +14,7 @@
 //! deserialise → typed retrieval → serialise pipeline that the orchestrator
 //! relies on, and asserts the data round-trips correctly.
 //!
-//! The orchestrator agent.toml entry registering these tool names is
+//! The orchestrator agent.toml entry registering `call_memory_agent` is
 //! covered by [`orchestrator_lists_memory_tree_tools`] — that catches a
 //! regression where the tool wrapper exists but the orchestrator can't see
 //! it.
@@ -145,29 +145,28 @@ fn alice_phoenix_thread() -> EmailThread {
     }
 }
 
-/// The orchestrator definition must list the consolidated `memory_tree` tool
-/// so the bus filter exposes it to the LLM. A wired-up wrapper that's
-/// invisible to the orchestrator is dead code.
+/// The orchestrator definition must list `call_memory_agent` so memory
+/// queries route through the dedicated memory subagent.
 ///
-/// NOTE: #1141 consolidated the 6 individual `memory_tree_*` tools
-/// (`memory_tree_search_entities`, `memory_tree_query_topic`, etc.) into a
-/// single `memory_tree` tool with a `mode` dispatch parameter. The orchestrator
-/// TOML was updated accordingly.
+/// History: #1141 consolidated 6 `memory_tree_*` tools into `memory_tree`;
+/// the agent_memory domain then unified `memory_tree` + `query_memory`
+/// behind `call_memory_agent`.
 #[test]
 fn orchestrator_lists_memory_tree_tools() {
     let toml = include_str!("../src/openhuman/agent_registry/agents/orchestrator/agent.toml");
-    // Exact entry match — substring match would also hit comments or prefixed names.
-    let has_memory_tree_entry = toml
+    let has_call_memory_agent = toml
         .lines()
         .map(str::trim)
-        .any(|line| line == "\"memory_tree\"" || line == "\"memory_tree\",");
+        .any(|line| line == "\"call_memory_agent\"" || line == "\"call_memory_agent\",");
     assert!(
-        has_memory_tree_entry,
-        "orchestrator agent.toml must list 'memory_tree' as a named tool entry"
+        has_call_memory_agent,
+        "orchestrator agent.toml must list 'call_memory_agent' as a named tool entry"
     );
-    // Verify the old individual tool names are gone — they were removed in #1141
-    // when all 6 were consolidated into the single `memory_tree` dispatcher.
+    // Verify all superseded tool names are gone.
     for old_name in [
+        "memory_tree",
+        "query_memory",
+        "memory_recall",
         "memory_tree_search_entities",
         "memory_tree_query_topic",
         "memory_tree_query_source",
@@ -183,7 +182,7 @@ fn orchestrator_lists_memory_tree_tools() {
             .any(|line| line == entry || line == entry_comma);
         assert!(
             !old_tool_present,
-            "orchestrator agent.toml must NOT list '{old_name}' — removed in #1141 (use 'memory_tree' with mode= dispatch)"
+            "orchestrator agent.toml must NOT list '{old_name}' — superseded by 'call_memory_agent'"
         );
     }
 }

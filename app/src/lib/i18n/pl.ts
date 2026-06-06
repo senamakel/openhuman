@@ -269,6 +269,19 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Przeglądaj pakiety SKILL.md, w tym markdown, skrypty, referencje, szablony, przykłady i prompty w stylu Hermes.',
   'skills.explorer.title': 'Eksplorator skilli',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'Rejestr',
+  'skills.explorer.installedTab': 'Zainstalowane',
+  'skills.explorer.allFormats': 'Wszystkie formaty',
+  'skills.explorer.refreshRegistry': 'Odśwież rejestr',
+  'skills.explorer.registryEmptyTitle': 'Brak wpisów w rejestrze',
+  'skills.explorer.registryEmptyDescription':
+    'Nie udało się załadować rejestru umiejętności. Sprawdź połączenie i spróbuj odświeżyć.',
   'skills.integrations': 'Integracje Composio',
   'skills.integrationsSubtitle':
     'Chmurowe połączenia OAuth — zaloguj się swoim kontem, a Composio pośredniczy w tokenach, dzięki czemu agenci mogą czytać i działać w Twoim imieniu. Bez kluczy API do utrzymywania.',

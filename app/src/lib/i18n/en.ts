@@ -290,6 +290,19 @@ const en: TranslationMap = {
   'skills.explorer.subtitle':
     'Browse SKILL.md packages, including Hermes-style markdown, scripts, references, templates, examples, and prompts.',
   'skills.explorer.title': 'Skills explorer',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'Registry',
+  'skills.explorer.installedTab': 'Installed',
+  'skills.explorer.allFormats': 'All formats',
+  'skills.explorer.refreshRegistry': 'Refresh registry',
+  'skills.explorer.registryEmptyTitle': 'No registry entries',
+  'skills.explorer.registryEmptyDescription':
+    'Could not load the skill registry. Check your connection and try refreshing.',
   'skills.integrations': 'Composio Integrations',
   'skills.integrationsSubtitle':
     'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',

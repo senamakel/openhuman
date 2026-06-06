@@ -263,6 +263,19 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'تصفح حزم SKILL.md، بما في ذلك markdown والسكربتات والمراجع والقوالب والأمثلة والمطالبات بنمط Hermes.',
   'skills.explorer.title': 'مستكشف المهارات',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'السجل',
+  'skills.explorer.installedTab': 'المثبتة',
+  'skills.explorer.allFormats': 'جميع الأنماط',
+  'skills.explorer.refreshRegistry': 'تحديث السجل',
+  'skills.explorer.registryEmptyTitle': 'لا توجد إدخالات في السجل',
+  'skills.explorer.registryEmptyDescription':
+    'تعذر تحميل سجل المهارات. تحقق من اتصالك وحاول التحديث.',
   'skills.integrations': 'التكاملات',
   'skills.integrationsSubtitle':
     'اتصالات OAuth السحابية — سجّل الدخول بحسابك ويتولى Composio إدارة الرموز حتى يتمكن الوكلاء من القراءة والتصرف نيابةً عنك. لا حاجة لإدارة مفاتيح API.',

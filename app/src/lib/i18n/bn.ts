@@ -265,6 +265,19 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Hermes-ধাঁচের markdown, scripts, references, templates, examples এবং prompts সহ SKILL.md প্যাকেজ ব্রাউজ করুন।',
   'skills.explorer.title': 'স্কিল এক্সপ্লোরার',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'রেজিস্ট্রি',
+  'skills.explorer.installedTab': 'ইনস্টল করা',
+  'skills.explorer.allFormats': 'সব ফরম্যাট',
+  'skills.explorer.refreshRegistry': 'রেজিস্ট্রি রিফ্রেশ করুন',
+  'skills.explorer.registryEmptyTitle': 'কোনো রেজিস্ট্রি এন্ট্রি নেই',
+  'skills.explorer.registryEmptyDescription':
+    'দক্ষতা রেজিস্ট্রি লোড করা যায়নি। আপনার সংযোগ পরীক্ষা করে রিফ্রেশ করার চেষ্টা করুন।',
   'skills.integrations': 'ইন্টিগ্রেশন',
   'skills.integrationsSubtitle':
     'ক্লাউড-ভিত্তিক OAuth সংযোগ — আপনার অ্যাকাউন্ট দিয়ে সাইন ইন করুন এবং Composio টোকেন পরিচালনা করে যাতে এজেন্টরা আপনার পক্ষে পড়তে এবং কাজ করতে পারে। কোনো API কী পরিচালনা করতে হবে না।',

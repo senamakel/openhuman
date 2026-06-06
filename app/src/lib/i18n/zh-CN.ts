@@ -254,6 +254,19 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     '浏览 SKILL.md 包，包括 Hermes 风格的 Markdown、脚本、参考资料、模板、示例和提示词。',
   'skills.explorer.title': '技能浏览器',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': '注册表',
+  'skills.explorer.installedTab': '已安装',
+  'skills.explorer.allFormats': '所有格式',
+  'skills.explorer.refreshRegistry': '刷新注册表',
+  'skills.explorer.registryEmptyTitle': '没有注册表条目',
+  'skills.explorer.registryEmptyDescription':
+    '无法加载技能注册表。请检查您的连接并尝试刷新。',
   'skills.integrations': '集成',
   'skills.integrationsSubtitle':
     '基于云端的 OAuth 连接——使用您的账户登录，Composio 代管令牌，让智能体能以您的名义读取数据并执行操作，无需管理 API 密钥。',

@@ -267,6 +267,19 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Просматривайте пакеты SKILL.md, включая markdown, скрипты, справочные материалы, шаблоны, примеры и промпты в стиле Hermes.',
   'skills.explorer.title': 'Обозреватель навыков',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'Реестр',
+  'skills.explorer.installedTab': 'Установленные',
+  'skills.explorer.allFormats': 'Все форматы',
+  'skills.explorer.refreshRegistry': 'Обновить реестр',
+  'skills.explorer.registryEmptyTitle': 'Нет записей в реестре',
+  'skills.explorer.registryEmptyDescription':
+    'Не удалось загрузить реестр навыков. Проверьте соединение и попробуйте обновить.',
   'skills.integrations': 'Интеграции',
   'skills.integrationsSubtitle':
     'Облачные OAuth-подключения — войдите в свой аккаунт, и Composio управляет токенами, чтобы агенты могли читать и действовать от вашего имени. Никаких API-ключей для управления.',

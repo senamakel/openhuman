@@ -265,6 +265,19 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Hermes 스타일 markdown, scripts, references, templates, examples, prompts를 포함한 SKILL.md 패키지를 탐색합니다.',
   'skills.explorer.title': '스킬 탐색기',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': '레지스트리',
+  'skills.explorer.installedTab': '설치됨',
+  'skills.explorer.allFormats': '모든 형식',
+  'skills.explorer.refreshRegistry': '레지스트리 새로고침',
+  'skills.explorer.registryEmptyTitle': '레지스트리 항목 없음',
+  'skills.explorer.registryEmptyDescription':
+    '스킬 레지스트리를 로드할 수 없습니다. 연결을 확인하고 새로고침해 보세요.',
   'skills.integrations': '통합',
   'skills.integrationsSubtitle':
     '클라우드 기반 OAuth 연결 — 계정으로 로그인하면 Composio가 토큰을 관리하여 에이전트가 사용자를 대신해 읽고 작동할 수 있습니다. API 키 관리가 필요 없습니다.',

@@ -267,6 +267,19 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Jelajahi paket SKILL.md, termasuk markdown, skrip, referensi, templat, contoh, dan prompt bergaya Hermes.',
   'skills.explorer.title': 'Penjelajah skill',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'Registri',
+  'skills.explorer.installedTab': 'Terpasang',
+  'skills.explorer.allFormats': 'Semua format',
+  'skills.explorer.refreshRegistry': 'Segarkan registri',
+  'skills.explorer.registryEmptyTitle': 'Tidak ada entri registri',
+  'skills.explorer.registryEmptyDescription':
+    'Tidak dapat memuat registri keterampilan. Periksa koneksi Anda dan coba segarkan.',
   'skills.integrations': 'Integrasi',
   'skills.integrationsSubtitle':
     'Koneksi OAuth berbasis cloud — masuk dengan akun Anda dan Composio mengelola token agar agen dapat membaca dan bertindak atas nama Anda. Tidak perlu mengelola API key.',

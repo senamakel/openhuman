@@ -39,12 +39,12 @@ concurrency:
 #        │
 #        ├─── create-release   (optional no-op when `create_release=false`)
 #        │         │
-#        │    ┌────┴───────────────┬────────────────┬─────────────────┐
-#        │    │                    │                │                 │
-#        │  build-desktop    build-cli-linux    build-docker    publish-android
-#        │  (reusable wf)    (Linux tarballs)   (GHCR image)    (Google Play)
-#        │    │                    │                │                 │
-#        │    └────────┬───────────┴────────────────┴─────────────────┘
+#        │    ┌────┴───────────────┬────────────────┐
+#        │    │                    │                │
+#        │  build-desktop    build-cli-linux    build-docker
+#        │  (reusable wf)    (Linux tarballs)   (GHCR image)
+#        │    │                    │                │
+#        │    └────────┬───────────┴────────────────┘
 #        │             │
 #        │      publish-updater-manifest
 #        │             │
@@ -159,7 +159,6 @@ jobs:
         run: |
           cargo update --workspace --manifest-path Cargo.toml
           cargo update --workspace --manifest-path app/src-tauri/Cargo.toml
-          cargo update --workspace --manifest-path app/src-tauri-mobile/Cargo.toml
       - name: Ensure tag does not already exist
         if: inputs.create_release
         env:
@@ -180,16 +179,7 @@ jobs:
           TAG: ${{ steps.bump.outputs.tag }}
           CREATE_RELEASE: ${{ inputs.create_release }}
         run: |
-          git add \
-            app/package.json \
-            app/src-tauri/tauri.conf.json \
-            app/src-tauri/Cargo.toml \
-            app/src-tauri/Cargo.lock \
-            app/src-tauri-mobile/tauri.conf.json \
-            app/src-tauri-mobile/Cargo.toml \
-            app/src-tauri-mobile/Cargo.lock \
-            Cargo.toml \
-            Cargo.lock
+          git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml app/src-tauri/Cargo.lock Cargo.lock
           git commit -m "chore(release): v${VERSION}"
           git push origin HEAD:main
           if [ "$CREATE_RELEASE" = "true" ]; then
@@ -455,27 +445,7 @@ jobs:
             "$TARGET"
 
   # =========================================================================
-  # Phase 3d: Build, sign, and upload the Android App Bundle to Google Play.
-  # =========================================================================
-  publish-android:
-    name: "Android: publish Google Play"
-    needs: [prepare-build, create-release]
-    if: ${{ inputs.create_release && always() && needs.create-release.result == 'success' }}
-    uses: ./.github/workflows/android-compile.yml
-    secrets:
-      ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
-      ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
-      ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
-      ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
-      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-    with:
-      build_ref: ${{ needs.prepare-build.outputs.build_ref }}
-      publish_to_play: true
-      play_track: ${{ vars.ANDROID_PLAY_TRACK || 'internal' }}
-      play_status: ${{ vars.ANDROID_PLAY_STATUS || 'completed' }}
-
-  # =========================================================================
-  # Phase 3e: Generate and upload latest.json for the Tauri auto-updater.
+  # Phase 3d: Generate and upload latest.json for the Tauri auto-updater.
   # Runs after every platform has uploaded its updater artifact (.sig files
   # from createUpdaterArtifacts) so the manifest can reference all four
   # platform entries.
@@ -514,7 +484,6 @@ jobs:
       - build-desktop
       - build-cli-linux
       - build-docker
-      - publish-android
       - publish-updater-manifest
     if: >-
       inputs.create_release
@@ -523,7 +492,6 @@ jobs:
       && needs.build-desktop.result == 'success'
       && needs.build-cli-linux.result == 'success'
       && needs.build-docker.result == 'success'
-      && needs.publish-android.result == 'success'
       && needs.publish-updater-manifest.result == 'success'
     steps:
       - name: Checkout validation scripts
@@ -703,7 +671,6 @@ jobs:
       - build-desktop
       - build-cli-linux
       - build-docker
-      - publish-android
       - publish-updater-manifest
     if: >-
       always()
@@ -713,7 +680,6 @@ jobs:
       && (needs.build-desktop.result == 'failure' || needs.build-desktop.result == 'cancelled'
           || needs.build-cli-linux.result == 'failure' || needs.build-cli-linux.result == 'cancelled'
           || needs.build-docker.result == 'failure' || needs.build-docker.result == 'cancelled'
-          || needs.publish-android.result == 'failure' || needs.publish-android.result == 'cancelled'
           || needs.publish-updater-manifest.result == 'failure' || needs.publish-updater-manifest.result == 'cancelled')
     steps:
       - name: Delete GitHub release

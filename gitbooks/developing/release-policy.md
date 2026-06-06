@@ -52,7 +52,7 @@ The matrix build / sign / Sentry-DIF / artifact-upload pipeline used by both flo
 
 ### Android / Google Play
 
-Production releases also call [`.github/workflows/android-compile.yml`](../../.github/workflows/android-compile.yml), which builds a release Android App Bundle (`.aab`), signs it with the Play upload key, and uploads it to Google Play. The workflow keeps the unsigned and signed AABs as Actions artifacts for audit/debugging.
+Android releases are handled by the separate [`.github/workflows/android-compile.yml`](../../.github/workflows/android-compile.yml) workflow, which builds a release Android App Bundle (`.aab`), signs it with the Play upload key, and uploads it to Google Play when publishing is enabled. The workflow keeps the unsigned and signed AABs as Actions artifacts for audit/debugging.
 
 Manual Android uploads use the same workflow:
 

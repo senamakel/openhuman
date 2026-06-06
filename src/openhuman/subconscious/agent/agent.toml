@@ -1,6 +1,6 @@
 id = "subconscious"
 display_name = "Subconscious Agent"
-when_to_use = "Background awareness loop — periodically wakes up, researches the user's world via memory tree walking and cross-source analysis, maintains a persistent scratchpad, and surfaces structured insights (reflections) about patterns, deadlines, risks, and opportunities."
+when_to_use = "Background awareness loop — periodically wakes up, researches the user's world via memory retrieval and cross-source analysis, maintains a persistent scratchpad, and surfaces structured insights (reflections) about patterns, deadlines, risks, and opportunities."
 temperature = 0.4
 max_iterations = 20
 sandbox_mode = "read_only"
@@ -18,10 +18,6 @@ hint = "chat"
 [tools]
 named = [
     "call_memory_agent",
-    "memory_recall",
-    "memory_tree",
-    "memory_tree_walk",
-    "memory_smart_walk",
     "scratchpad_add",
     "scratchpad_edit",
     "scratchpad_remove",

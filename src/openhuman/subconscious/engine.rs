@@ -35,6 +35,10 @@ const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60
 /// Per-tool-call timeout injected into the agent config.
 const TOOL_CALL_TIMEOUT_SECS: u64 = 5 * 60;
 
+/// Target token budget for the initial `call_memory_agent` retrieval.
+/// The memory agent will aim to return this much context.
+const MEMORY_RETRIEVAL_BUDGET_TOKENS: u32 = 3_000;
+
 /// Pick the `TrustedAutomationSource` variant for a subconscious tick.
 ///
 /// Extracted from the engine's `run_agent` body so the
@@ -385,21 +389,38 @@ impl SubconsciousEngine {
             "subconscious",
         );
 
+        let mode_guidance = match self.mode {
+            SubconsciousMode::Aggressive => "\n\n\
+                You are in AGGRESSIVE mode. You may use `spawn_subagent` to delegate \
+                complex tasks:\n\
+                - `agent_id: \"orchestrator\"` with `model: \"reasoning-v1\"` for deep \
+                  reasoning and multi-step execution\n\
+                - `agent_id: \"researcher\"` for web research and external data\n\n\
+                Use this power when you identify actionable opportunities, approaching \
+                deadlines, or patterns that warrant proactive help.",
+            _ => "",
+        };
+
         let user_message = format!(
             "{prompt_text}\n\n\
-             Begin your research now. Start by calling `call_memory_agent` with a \
-             broad query about the user's recent activity and state. Then follow up \
-             with targeted tool calls based on what you find. Maintain your \
-             scratchpad as you go — add new observations, update stale entries, \
-             remove resolved items.\n\n\
-             Do NOT skip the research phase — use multiple tool calls across \
-             multiple turns to build a deep understanding before synthesizing \
-             your thoughts.\n\n\
-             When you're done researching, end your final message with a JSON block \
-             of your thoughts:\n\n\
+             ## Instructions\n\n\
+             **Step 1 (MANDATORY):** Call `call_memory_agent` immediately with:\n\
+             - A broad query about the user's recent activity, open threads, and \
+               anything the situation report or scratchpad highlights\n\
+             - Pass your scratchpad entries as `context` so the memory agent focuses \
+               on continuity\n\
+             - Target ~{budget} tokens of relevant context\n\n\
+             **Step 2:** Based on the memory agent's response, update your scratchpad — \
+             add new observations, edit stale entries, remove resolved items.\n\n\
+             **Step 3:** If needed, call `call_memory_agent` again with targeted \
+             follow-up queries.\n\n\
+             **Step 4:** Synthesize your findings into structured thoughts.\
+             {mode_guidance}\n\n\
+             End your final message with a JSON block:\n\n\
              ```json\n\
              {{\"thoughts\": [...]}}\n\
-             ```"
+             ```",
+            budget = MEMORY_RETRIEVAL_BUDGET_TOKENS,
         );
 
         debug!("[subconscious] spawning agent with tool access");

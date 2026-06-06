@@ -752,7 +752,7 @@ const en: TranslationMap = {
   'onboarding.runtimeChoice.custom.f3': 'Keep supported workloads on your machine',
   'onboarding.runtimeChoice.custom.f4': 'More setup, more knobs',
   'onboarding.runtimeChoice.custom.f5': 'Best for power users and developers',
-  'onboarding.runtimeChoice.cloud.creditHighlight': '$1 free credit to try it out',
+  'onboarding.runtimeChoice.cloud.creditHighlight': 'Free credits when you sign up',
   'onboarding.runtimeChoice.continueCloud': 'Continue with Simple',
   'onboarding.runtimeChoice.continueCustom': 'Continue with Custom',
   'onboarding.runtimeChoice.recommended': 'Recommended',
@@ -2841,8 +2841,9 @@ const en: TranslationMap = {
     'Your credentials stay on this device and are never shared.',
   'app.openhumanLink.billing.openDashboard': 'Open dashboard',
   'app.openhumanLink.billing.stayOnTrial': 'Stay on trial',
-  'app.openhumanLink.billing.trialCredit': 'Trial credit',
-  'app.openhumanLink.billing.trialDesc': 'Trial desc',
+  'app.openhumanLink.billing.trialCredit': 'Signup credits',
+  'app.openhumanLink.billing.trialDesc':
+    'Credit offers can vary by promotion and account eligibility.',
   'app.openhumanLink.defaultBody':
     "Not ready in the popup yet. Open the full settings page when you're done.",
   'app.openhumanLink.discord.intro': 'Join the OpenHuman community on Discord.',

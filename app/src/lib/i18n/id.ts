@@ -510,7 +510,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.custom.f3': 'Bisa gratis jika Anda menjalankan semuanya secara lokal',
   'onboarding.runtimeChoice.custom.f4': 'Lebih banyak pengaturan, lebih banyak kontrol',
   'onboarding.runtimeChoice.custom.f5': 'Terbaik untuk pengguna power dan developer',
-  'onboarding.runtimeChoice.cloud.creditHighlight': '$1 kredit gratis untuk dicoba',
+  'onboarding.runtimeChoice.cloud.creditHighlight': 'Kredit gratis saat mendaftar',
   'onboarding.runtimeChoice.continueCloud': 'Lanjutkan dengan Sederhana',
   'onboarding.runtimeChoice.continueCustom': 'Lanjutkan dengan Kustom',
   'onboarding.runtimeChoice.recommended': 'Direkomendasikan',
@@ -2343,8 +2343,9 @@ const messages: TranslationMap = {
   'app.openhumanLink.accounts.webviewNote': 'Catatan webview',
   'app.openhumanLink.billing.openDashboard': 'Buka dashboard',
   'app.openhumanLink.billing.stayOnTrial': 'Tetap di trial',
-  'app.openhumanLink.billing.trialCredit': 'Kredit trial',
-  'app.openhumanLink.billing.trialDesc': 'Deskripsi trial',
+  'app.openhumanLink.billing.trialCredit': 'Kredit pendaftaran',
+  'app.openhumanLink.billing.trialDesc':
+    'Penawaran kredit dapat berbeda menurut promosi dan kelayakan akun.',
   'app.openhumanLink.defaultBody':
     't siap di popup belum. Buka halaman pengaturan lengkap jika Anda',
   'app.openhumanLink.discord.intro': 'Pengantar',

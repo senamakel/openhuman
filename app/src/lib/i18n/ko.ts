@@ -503,7 +503,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.custom.f3': '모든 것을 로컬에서 실행하면 무료일 수 있습니다',
   'onboarding.runtimeChoice.custom.f4': '더 많은 설정과 더 많은 옵션',
   'onboarding.runtimeChoice.custom.f5': '고급 사용자와 개발자에게 가장 적합',
-  'onboarding.runtimeChoice.cloud.creditHighlight': '체험용 $1 무료 크레딧',
+  'onboarding.runtimeChoice.cloud.creditHighlight': '가입하면 무료 크레딧 제공',
   'onboarding.runtimeChoice.continueCloud': '간단 모드로 계속',
   'onboarding.runtimeChoice.continueCustom': '사용자 지정으로 계속',
   'onboarding.runtimeChoice.recommended': '추천',
@@ -2314,8 +2314,9 @@ const messages: TranslationMap = {
   'app.openhumanLink.accounts.webviewNote': 'Webview 안내',
   'app.openhumanLink.billing.openDashboard': '대시보드 열기',
   'app.openhumanLink.billing.stayOnTrial': '체험판 유지',
-  'app.openhumanLink.billing.trialCredit': '체험 크레딧',
-  'app.openhumanLink.billing.trialDesc': '체험 설명',
+  'app.openhumanLink.billing.trialCredit': '가입 크레딧',
+  'app.openhumanLink.billing.trialDesc':
+    '크레딧 혜택은 프로모션과 계정 자격에 따라 달라질 수 있습니다.',
   'app.openhumanLink.defaultBody':
     '아직 팝업에서 준비되지 않았습니다. 필요하면 전체 설정 페이지를 여세요.',
   'app.openhumanLink.discord.intro': '소개',

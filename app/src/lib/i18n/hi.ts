@@ -505,7 +505,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.custom.f3': 'सब लोकल चलाएं तो फ्री हो सकता है',
   'onboarding.runtimeChoice.custom.f4': 'ज़्यादा सेटअप, ज़्यादा कंट्रोल',
   'onboarding.runtimeChoice.custom.f5': 'पावर यूज़र्स और डेवलपर्स के लिए बेस्ट',
-  'onboarding.runtimeChoice.cloud.creditHighlight': 'ट्राई करने के लिए $1 मुफ्त क्रेडिट',
+  'onboarding.runtimeChoice.cloud.creditHighlight': 'साइन अप करने पर मुफ्त क्रेडिट',
   'onboarding.runtimeChoice.continueCloud': 'सिंपल के साथ जारी रखें',
   'onboarding.runtimeChoice.continueCustom': 'कस्टम के साथ जारी रखें',
   'onboarding.runtimeChoice.recommended': 'सुझावित',
@@ -2339,8 +2339,9 @@ const messages: TranslationMap = {
   'app.openhumanLink.accounts.webviewNote': 'वेबव्यू नोट',
   'app.openhumanLink.billing.openDashboard': 'डैशबोर्ड खोलें',
   'app.openhumanLink.billing.stayOnTrial': 'ट्रायल पर रहें',
-  'app.openhumanLink.billing.trialCredit': 'ट्रायल क्रेडिट',
-  'app.openhumanLink.billing.trialDesc': 'ट्रायल विवरण',
+  'app.openhumanLink.billing.trialCredit': 'साइनअप क्रेडिट',
+  'app.openhumanLink.billing.trialDesc':
+    'क्रेडिट ऑफ़र प्रमोशन और खाते की पात्रता के अनुसार अलग हो सकते हैं।',
   'app.openhumanLink.defaultBody':
     'पॉपअप में अभी तैयार नहीं है। जब आवश्यकता हो तो पूर्ण सेटिंग्स पृष्ठ खोलें।',
   'app.openhumanLink.discord.intro': 'परिचय',

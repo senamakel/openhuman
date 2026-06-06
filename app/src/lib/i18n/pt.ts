@@ -518,7 +518,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.custom.f3': 'Pode ser gratuito se você rodar tudo localmente',
   'onboarding.runtimeChoice.custom.f4': 'Mais configuração, mais controles',
   'onboarding.runtimeChoice.custom.f5': 'Ideal para usuários avançados e desenvolvedores',
-  'onboarding.runtimeChoice.cloud.creditHighlight': '$1 de crédito grátis para experimentar',
+  'onboarding.runtimeChoice.cloud.creditHighlight': 'Créditos grátis ao se cadastrar',
   'onboarding.runtimeChoice.continueCloud': 'Continuar com Simples',
   'onboarding.runtimeChoice.continueCustom': 'Continuar com Personalizado',
   'onboarding.runtimeChoice.recommended': 'Recomendado',
@@ -2382,8 +2382,9 @@ const messages: TranslationMap = {
   'app.openhumanLink.accounts.webviewNote': 'Nota do webview',
   'app.openhumanLink.billing.openDashboard': 'Abrir painel',
   'app.openhumanLink.billing.stayOnTrial': 'Ficar no período de teste',
-  'app.openhumanLink.billing.trialCredit': 'Crédito de teste',
-  'app.openhumanLink.billing.trialDesc': 'Descrição do teste',
+  'app.openhumanLink.billing.trialCredit': 'Créditos de cadastro',
+  'app.openhumanLink.billing.trialDesc':
+    'As ofertas de créditos podem variar conforme a promoção e a elegibilidade da conta.',
   'app.openhumanLink.defaultBody':
     'Ainda não disponível no popup. Abra a página completa de configurações quando precisar.',
   'app.openhumanLink.discord.intro': 'Introdução',

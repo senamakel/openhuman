@@ -510,7 +510,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.custom.f4': 'Больше настроек и параметров',
   'onboarding.runtimeChoice.custom.f5':
     'Лучший выбор для продвинутых пользователей и разработчиков',
-  'onboarding.runtimeChoice.cloud.creditHighlight': '$1 бесплатный кредит для знакомства',
+  'onboarding.runtimeChoice.cloud.creditHighlight': 'Бесплатные кредиты при регистрации',
   'onboarding.runtimeChoice.continueCloud': 'Продолжить с простым режимом',
   'onboarding.runtimeChoice.continueCustom': 'Продолжить со своими настройками',
   'onboarding.runtimeChoice.recommended': 'Рекомендуется',
@@ -2357,8 +2357,9 @@ const messages: TranslationMap = {
   'app.openhumanLink.accounts.webviewNote': 'Примечание о Webview',
   'app.openhumanLink.billing.openDashboard': 'Открыть панель',
   'app.openhumanLink.billing.stayOnTrial': 'Остаться на пробном периоде',
-  'app.openhumanLink.billing.trialCredit': 'Пробный кредит',
-  'app.openhumanLink.billing.trialDesc': 'Описание пробного периода',
+  'app.openhumanLink.billing.trialCredit': 'Кредиты за регистрацию',
+  'app.openhumanLink.billing.trialDesc':
+    'Предложения кредитов могут зависеть от акции и соответствия аккаунта условиям.',
   'app.openhumanLink.defaultBody':
     'Ещё не готово во всплывающем окне. Откройте полную страницу настроек, когда понадобится.',
   'app.openhumanLink.discord.intro': 'Введение',

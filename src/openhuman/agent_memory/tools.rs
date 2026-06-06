@@ -103,7 +103,7 @@ impl Tool for CallMemoryAgentTool {
         let max_turns = args
             .get("max_turns")
             .and_then(|v| v.as_u64())
-            .map(|v| v.min(20) as usize);
+            .map(|v| v.max(1).min(20) as usize);
 
         let is_async = args.get("async").and_then(|v| v.as_bool()).unwrap_or(false);
 

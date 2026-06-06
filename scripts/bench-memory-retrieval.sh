@@ -24,10 +24,17 @@ if [[ ! -x "$CORE_BIN" ]]; then
 fi
 
 WORKSPACE_DIR="${OPENHUMAN_WORKSPACE:-$HOME/.openhuman-staging}"
+USERS_DIR="$WORKSPACE_DIR/users"
+
+if [[ ! -d "$USERS_DIR" ]]; then
+    echo "ERROR: Workspace users dir not found: $USERS_DIR"
+    exit 1
+fi
+
 # Find first user workspace with memory_tree content
-CONTENT_ROOT=$(find "$WORKSPACE_DIR/users" -path "*/workspace/memory_tree/content" -type d 2>/dev/null | head -1)
+CONTENT_ROOT=$(find "$USERS_DIR" -path "*/workspace/memory_tree/content" -type d 2>/dev/null | head -1 || true)
 if [[ -z "$CONTENT_ROOT" ]]; then
-    echo "ERROR: No memory_tree content found under $WORKSPACE_DIR/users/"
+    echo "ERROR: No memory_tree content found under $USERS_DIR/"
     exit 1
 fi
 RESULTS_DIR="$REPO_ROOT/target/bench-memory"

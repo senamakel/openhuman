@@ -23,8 +23,9 @@ import chatRuntimeReducer, {
   setToolTimelineForThread,
 } from '../../store/chatRuntimeSlice';
 import socketReducer from '../../store/socketSlice';
+import themeReducer from '../../store/themeSlice';
 import threadReducer, { setSelectedThread } from '../../store/threadSlice';
-import type { Thread } from '../../types/thread';
+import type { Thread, ThreadMessage } from '../../types/thread';
 
 // ── Hoisted mock state ─────────────────────────────────────────────────────
 
@@ -172,6 +173,7 @@ function buildStore(preload: Record<string, unknown> = {}) {
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
       agentProfiles: agentProfileReducer,
+      theme: themeReducer,
     }),
     preloadedState: preload as never,
   });
@@ -294,6 +296,7 @@ async function submitComposerText(textarea: HTMLElement, text: string) {
 describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     // Reset the mock to defaults for each test
     mockGetThreads.mockResolvedValue({ threads: [], count: 0 });
     mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
@@ -403,6 +406,52 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       // The error branch renders "Failed to load messages" static text
       expect(screen.getByText('Failed to load messages')).toBeInTheDocument();
     });
+  });
+
+  it('renders assistant messages as unframed text when the appearance preference is enabled', async () => {
+    const thread = makeThread({ id: 'view-mode-thread', title: 'View Mode Thread' });
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-user',
+        sender: 'user',
+        type: 'text',
+        content: 'Can you summarize this?',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'm-agent',
+        sender: 'agent',
+        type: 'text',
+        content: 'Long agent output\n\nwith enough structure to prefer a text view.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:01:00.000Z',
+      },
+    ];
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
+
+    await act(async () => {
+      await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
+        socket: socketState('connected'),
+        theme: {
+          mode: 'system',
+          tabBarLabels: 'hover',
+          fontSize: 'medium',
+          agentMessageViewMode: 'text',
+        },
+      });
+    });
+
+    expect(screen.getByTestId('agent-message-text')).toHaveTextContent(
+      'Long agent output with enough structure to prefer a text view.'
+    );
+    expect(screen.getByText('Can you summarize this?')).toBeInTheDocument();
   });
 
   // Covers lines 1455-1483: quota pill loading state

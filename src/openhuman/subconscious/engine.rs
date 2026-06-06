@@ -248,10 +248,7 @@ impl SubconsciousEngine {
         let has_external_content = report.has_external_content;
 
         // 2. Load scratchpad (persistent working memory)
-        let scratchpad_entries = store::with_connection(&self.workspace_dir, |conn| {
-            scratchpad::list(conn, scratchpad::DEFAULT_MAX_ENTRIES)
-        })
-        .unwrap_or_else(|e| {
+        let scratchpad_entries = scratchpad::load(&self.workspace_dir).unwrap_or_else(|e| {
             warn!("[subconscious] scratchpad load failed: {e}");
             Vec::new()
         });

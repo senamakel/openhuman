@@ -5,12 +5,13 @@
 //! registry so the subconscious agent can manage its own working memory.
 
 use super::scratchpad;
-use super::store;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope};
 use async_trait::async_trait;
 use serde_json::json;
+
 async fn workspace_dir() -> anyhow::Result<std::path::PathBuf> {
-    let config = crate::openhuman::config::load_config_with_timeout().await
+    let config = crate::openhuman::config::load_config_with_timeout()
+        .await
         .map_err(|e| anyhow::anyhow!("config load: {e}"))?;
     Ok(config.workspace_dir)
 }
@@ -82,10 +83,7 @@ impl Tool for ScratchpadAddTool {
             .min(10) as u32;
 
         let ws = workspace_dir().await?;
-
-        let id = store::with_connection(&ws, |conn| {
-            scratchpad::add(conn, body, priority, scratchpad::DEFAULT_MAX_ENTRIES)
-        })?;
+        let id = scratchpad::add(&ws, body, priority, scratchpad::DEFAULT_MAX_ENTRIES)?;
 
         Ok(ToolResult::success(format!(
             "Added scratchpad entry id={id} priority={priority}"
@@ -157,8 +155,7 @@ impl Tool for ScratchpadEditTool {
             .map(|v| v.min(10) as u32);
 
         let ws = workspace_dir().await?;
-
-        let found = store::with_connection(&ws, |conn| scratchpad::edit(conn, id, body, priority))?;
+        let found = scratchpad::edit(&ws, id, body, priority)?;
 
         if found {
             Ok(ToolResult::success(format!(
@@ -219,8 +216,7 @@ impl Tool for ScratchpadRemoveTool {
             .ok_or_else(|| anyhow::anyhow!("scratchpad_remove: `id` is required"))?;
 
         let ws = workspace_dir().await?;
-
-        let found = store::with_connection(&ws, |conn| scratchpad::remove(conn, id))?;
+        let found = scratchpad::remove(&ws, id)?;
 
         if found {
             Ok(ToolResult::success(format!(

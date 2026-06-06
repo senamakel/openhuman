@@ -99,7 +99,6 @@ fn open_and_initialize(db_path: &Path) -> Result<Connection> {
     super::reflection_store::migrate_drop_legacy_columns(&conn);
     super::reflection_store::migrate_add_source_chunks_column(&conn);
     super::reflection_store::migrate_add_thread_id_column(&conn);
-    super::scratchpad::ensure_table(&conn)?;
 
     Ok(conn)
 }

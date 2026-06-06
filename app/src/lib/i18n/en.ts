@@ -10,6 +10,10 @@ const en: TranslationMap = {
   'nav.alerts': 'Alerts',
   'nav.rewards': 'Rewards',
   'nav.settings': 'Settings',
+  'nav.agentProfiles': 'Agent profiles',
+  'nav.switchAgentProfile': 'Switch agent profile',
+  'nav.defaultAgentProfile': 'Default agent',
+  'nav.noAgentProfiles': 'No agent profiles found',
 
   // Common
   'common.cancel': 'Cancel',

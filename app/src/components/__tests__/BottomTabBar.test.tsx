@@ -7,12 +7,13 @@
  * [#1123] Covers the walkthroughAttr object added for the Joyride walkthrough.
  */
 import { configureStore } from '@reduxjs/toolkit';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import accountsReducer from '../../store/accountsSlice';
+import agentProfileReducer, { setAgentProfilesFromResponse } from '../../store/agentProfileSlice';
 import companionReducer from '../../store/companionSlice';
 import notificationReducer from '../../store/notificationSlice';
 import BottomTabBar from '../BottomTabBar';
@@ -20,6 +21,15 @@ import BottomTabBar from '../BottomTabBar';
 // ── Module-level mocks ─────────────────────────────────────────────────────
 
 vi.mock('../../providers/CoreStateProvider', () => ({ useCoreState: vi.fn() }));
+
+const agentProfilesApiMock = vi.hoisted(() => ({
+  list: vi.fn(),
+  select: vi.fn(),
+  upsert: vi.fn(),
+  delete: vi.fn(),
+}));
+
+vi.mock('../../services/api/agentProfilesApi', () => ({ agentProfilesApi: agentProfilesApiMock }));
 
 vi.mock('../../utils/config', async importOriginal => {
   const actual = await importOriginal<typeof import('../../utils/config')>();
@@ -35,14 +45,44 @@ interface BuildStoreOpts {
   companionSessionActive?: boolean;
 }
 
+const testProfiles = {
+  activeProfileId: 'planner',
+  profiles: [
+    {
+      id: 'default',
+      name: 'Orchestrator',
+      description: 'Default agent',
+      agentId: 'orchestrator',
+      builtIn: true,
+    },
+    {
+      id: 'planner',
+      name: 'Planner',
+      description: 'Plans multi-step work',
+      agentId: 'planner',
+      builtIn: true,
+      avatarUrl: 'https://example.com/planner.png',
+    },
+    {
+      id: 'research',
+      name: 'Research',
+      description: 'Finds and summarizes sources',
+      agentId: 'research',
+      builtIn: true,
+    },
+  ],
+};
+
 function buildStore(opts: BuildStoreOpts = {}) {
   const store = configureStore({
     reducer: {
       accounts: accountsReducer,
       notifications: notificationReducer,
       companion: companionReducer,
+      agentProfiles: agentProfileReducer,
     },
   });
+  store.dispatch(setAgentProfilesFromResponse(testProfiles));
   if (opts.companionSessionActive) {
     store.dispatch({
       type: 'companion/setSessionActive',
@@ -106,6 +146,7 @@ async function renderBottomTabBar(pathname = '/home', opts: RenderOpts | boolean
 describe('BottomTabBar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    agentProfilesApiMock.select.mockResolvedValue(testProfiles);
   });
 
   // [#1123] Covers line 222 — walkthroughAttr object created per-tab inside .map()
@@ -181,5 +222,41 @@ describe('BottomTabBar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Home' }));
 
     expect(trackEvent).not.toHaveBeenCalled();
+  });
+
+  it('renders an avatar-only agent profile switcher with the active profile', async () => {
+    await renderBottomTabBar('/home');
+
+    const switcher = screen.getByRole('button', { name: 'Switch agent profile: Planner' });
+    expect(switcher).toHaveAttribute('title', 'Planner');
+    expect(switcher.querySelector('img')).toHaveAttribute('src', 'https://example.com/planner.png');
+
+    fireEvent.click(switcher);
+
+    expect(screen.getByRole('menu', { name: 'Agent profiles' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemradio', { name: /Planner/ })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    expect(screen.getByRole('menuitemradio', { name: /Research/ })).toBeInTheDocument();
+  });
+
+  it('switches the active agent profile from the taskbar menu', async () => {
+    const { trackEvent } = await import('../../services/analytics');
+    agentProfilesApiMock.select.mockResolvedValueOnce({
+      ...testProfiles,
+      activeProfileId: 'research',
+    });
+    await renderBottomTabBar('/home');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch agent profile: Planner' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /Research/ }));
+
+    await waitFor(() => expect(agentProfilesApiMock.select).toHaveBeenCalledWith('research'));
+    expect(trackEvent).toHaveBeenCalledWith('agent_profile_switch', {
+      from_profile_id: 'planner',
+      to_profile_id: 'research',
+      from_path: '/home',
+    });
   });
 });

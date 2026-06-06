@@ -3,25 +3,66 @@
 use serde::Deserialize;
 
 use super::store;
-use super::types::{default_sources, CatalogEntry, RegistryKind, RegistrySource};
+use super::types::{CatalogEntry, RegistryKind, RegistrySource};
 
 const MAX_CATALOG_BYTES: usize = 5 * 1024 * 1024;
 const FETCH_TIMEOUT_SECS: u64 = 30;
+
+/// Default registry sources shipped with the app.
+pub fn default_sources() -> Vec<RegistrySource> {
+    vec![
+        RegistrySource {
+            id: "openhuman-community".into(),
+            name: "OpenHuman Community Skills".into(),
+            url: "https://raw.githubusercontent.com/tinyhumansai/skill-registry/main/index.json"
+                .into(),
+            kind: RegistryKind::GithubIndex,
+            enabled: true,
+        },
+        RegistrySource {
+            id: "awesome-openclaw".into(),
+            name: "OpenClaw Skills".into(),
+            url: "https://raw.githubusercontent.com/VoltAgent/awesome-openclaw-skills/main/index.json"
+                .into(),
+            kind: RegistryKind::GithubIndex,
+            enabled: true,
+        },
+        RegistrySource {
+            id: "hermes-community".into(),
+            name: "Hermes Community Skills".into(),
+            url: "https://raw.githubusercontent.com/hermes-agent/skill-index/main/index.json"
+                .into(),
+            kind: RegistryKind::GithubIndex,
+            enabled: true,
+        },
+    ]
+}
 
 /// Resolve the active list of registry sources: defaults + any user-added custom ones.
 pub fn list_sources() -> Vec<RegistrySource> {
     let mut sources = default_sources();
     let custom = store::load_custom_sources();
+    tracing::debug!(
+        default_count = sources.len(),
+        custom_count = custom.len(),
+        "[skill_registry] list_sources"
+    );
     for c in custom {
         if !sources.iter().any(|s| s.id == c.id) {
             sources.push(c);
         }
     }
+    tracing::debug!(total = sources.len(), "[skill_registry] list_sources done");
     sources
 }
 
 /// Add a custom registry source.
 pub fn add_source(source: RegistrySource) -> Result<(), String> {
+    tracing::debug!(
+        source_id = %source.id,
+        source_url = %source.url,
+        "[skill_registry] add_source"
+    );
     if source.id.is_empty() {
         return Err("source id must not be empty".into());
     }
@@ -35,11 +76,13 @@ pub fn add_source(source: RegistrySource) -> Result<(), String> {
     custom.push(source);
     store::save_custom_sources(&custom);
     store::clear_cache();
+    tracing::info!("[skill_registry] source added, cache cleared");
     Ok(())
 }
 
 /// Remove a custom registry source by id.
 pub fn remove_source(id: &str) -> Result<(), String> {
+    tracing::debug!(source_id = %id, "[skill_registry] remove_source");
     let mut custom = store::load_custom_sources();
     let before = custom.len();
     custom.retain(|s| s.id != id);
@@ -48,6 +91,7 @@ pub fn remove_source(id: &str) -> Result<(), String> {
     }
     store::save_custom_sources(&custom);
     store::clear_cache();
+    tracing::info!(source_id = %id, "[skill_registry] source removed, cache cleared");
     Ok(())
 }
 
@@ -126,6 +170,12 @@ pub async fn search_catalog(
     format_filter: Option<&str>,
     source_filter: Option<&str>,
 ) -> Result<Vec<CatalogEntry>, String> {
+    tracing::debug!(
+        query = %query,
+        format_filter = ?format_filter,
+        source_filter = ?source_filter,
+        "[skill_registry] search_catalog"
+    );
     let catalog = browse_catalog(false).await?;
     let q = query.to_lowercase();
 
@@ -157,6 +207,10 @@ pub async fn search_catalog(
         })
         .collect();
 
+    tracing::debug!(
+        result_count = filtered.len(),
+        "[skill_registry] search_catalog complete"
+    );
     Ok(filtered)
 }
 

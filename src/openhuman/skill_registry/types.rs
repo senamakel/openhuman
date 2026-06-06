@@ -53,32 +53,3 @@ pub struct CatalogEntry {
     /// Last updated timestamp (ISO 8601), if available.
     pub updated_at: Option<String>,
 }
-
-/// Default registry sources shipped with the app.
-pub fn default_sources() -> Vec<RegistrySource> {
-    vec![
-        RegistrySource {
-            id: "openhuman-community".into(),
-            name: "OpenHuman Community Skills".into(),
-            url: "https://raw.githubusercontent.com/tinyhumansai/skill-registry/main/index.json"
-                .into(),
-            kind: RegistryKind::GithubIndex,
-            enabled: true,
-        },
-        RegistrySource {
-            id: "awesome-openclaw".into(),
-            name: "OpenClaw Skills".into(),
-            url: "https://raw.githubusercontent.com/VoltAgent/awesome-openclaw-skills/main/index.json".into(),
-            kind: RegistryKind::GithubIndex,
-            enabled: true,
-        },
-        RegistrySource {
-            id: "hermes-community".into(),
-            name: "Hermes Community Skills".into(),
-            url: "https://raw.githubusercontent.com/hermes-agent/skill-index/main/index.json"
-                .into(),
-            kind: RegistryKind::GithubIndex,
-            enabled: true,
-        },
-    ]
-}

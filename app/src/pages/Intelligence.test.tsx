@@ -7,7 +7,7 @@ import Intelligence from './Intelligence';
 vi.mock('../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
 
 // IS_DEV gates the dev-only "council" tab; default to a non-dev build.
-const isDev = { value: false };
+const isDev = vi.hoisted(() => ({ value: false }));
 vi.mock('../utils/config', async () => {
   const actual = await vi.importActual<typeof import('../utils/config')>('../utils/config');
   return {

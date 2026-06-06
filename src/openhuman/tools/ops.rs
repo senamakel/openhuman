@@ -218,6 +218,14 @@ pub fn all_tools_with_runtime(
         Box::new(MemoryQueryWalkTool),
         Box::new(SmartMemoryWalkTool),
         Box::new(CallMemoryAgentTool::new()),
+        // memory_search tools — vector search, chunk context, hybrid search,
+        // and previously unregistered raw store tools.
+        Box::new(MemoryVectorSearchTool),
+        Box::new(MemoryChunkContextTool),
+        Box::new(MemoryHybridSearchTool),
+        Box::new(MemoryStoreRawSearchTool),
+        Box::new(MemoryStoreRawChunksTool),
+        Box::new(MemoryStoreKindsTool),
         // Explicit user-preference pinning — always registered so the model
         // can save user-stated preferences regardless of whether the full
         // inference-based learning subsystem is enabled.  The preference
@@ -458,6 +466,11 @@ pub fn all_tools_with_runtime(
         Box::new(WorkspaceResetPersonaTool::new(config.clone())),
         Box::new(WorkspaceInitTool),
     ];
+
+    log::debug!(
+        "[tools::ops][memory_search] registered memory_vector_search, memory_chunk_context, \
+         memory_hybrid_search, memory_store_raw_search, memory_store_raw_chunks, memory_store_kinds"
+    );
 
     // Subconscious scratchpad tools — persistent working memory across ticks.
     tools.extend(crate::openhuman::subconscious::scratchpad::tools::all_scratchpad_tools());

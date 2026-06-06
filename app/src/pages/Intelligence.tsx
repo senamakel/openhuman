@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
+import IntelligenceAgentsTab from '../components/intelligence/IntelligenceAgentsTab';
 import IntelligenceSubconsciousTab from '../components/intelligence/IntelligenceSubconsciousTab';
 import IntelligenceTasksTab from '../components/intelligence/IntelligenceTasksTab';
 import MemorySection from '../components/intelligence/MemorySection';
@@ -21,12 +22,13 @@ import type {
 } from '../types/intelligence';
 import { IS_DEV } from '../utils/config';
 
-type IntelligenceTab = 'memory' | 'subconscious' | 'tasks' | 'workflows' | 'council';
+type IntelligenceTab = 'memory' | 'subconscious' | 'tasks' | 'agents' | 'workflows' | 'council';
 
 const INTELLIGENCE_TABS: IntelligenceTab[] = [
   'memory',
   'subconscious',
   'tasks',
+  'agents',
   'workflows',
   'council',
 ];
@@ -134,13 +136,14 @@ export default function Intelligence() {
       description: t('memory.tab.workflowsDescription'),
     },
     { id: 'council', label: t('memory.tab.council'), devOnly: true },
+    { id: 'agents', label: t('memory.tab.agents'), description: t('memory.tab.agentsDescription') },
   ];
   const tabs = allTabs.filter(tab => !tab.devOnly || IS_DEV);
   const activeTabDef = tabs.find(tab => tab.id === activeTab);
 
   return (
     <div className="min-h-full p-4 pt-6">
-      <div className="max-w-2xl mx-auto space-y-4">
+      <div className="max-w-4xl mx-auto space-y-4">
         <PillTabBar
           items={tabs.map(tab => ({ label: tab.label, value: tab.id }))}
           selected={activeTab}
@@ -211,6 +214,8 @@ export default function Intelligence() {
             )}
 
             {activeTab === 'tasks' && <IntelligenceTasksTab />}
+
+            {activeTab === 'agents' && <IntelligenceAgentsTab />}
 
             {activeTab === 'workflows' && <WorkflowsTab />}
 

@@ -140,6 +140,7 @@ fn apply_caps_defaults_to_entries(sources: &mut [MemorySourceEntry]) -> u32 {
 /// re-run it exactly once). Entries the user has already customised (non-None caps)
 /// are left untouched.
 pub async fn apply_composio_source_caps_migration() -> Result<(), String> {
+    let _guard = registry::memory_sources_write_guard().await;
     let mut config = config_rpc::load_config_with_timeout().await?;
 
     if config.composio_source_caps_migration_version >= CURRENT_CAPS_MIGRATION_VERSION {

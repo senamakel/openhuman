@@ -10885,3 +10885,133 @@ async fn json_rpc_memory_sync_settings_env_override_is_reflected() {
 
     rpc_join.abort();
 }
+
+#[tokio::test]
+async fn json_rpc_memory_sources_conversation_crud() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _ws_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", home);
+    let _action_guard = EnvVarGuard::set_to_path("OPENHUMAN_ACTION_DIR", home);
+    let _backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // 1. Add a conversation source
+    let add_resp = post_json_rpc(
+        &rpc_base,
+        9501,
+        "openhuman.memory_sources_add",
+        json!({
+            "kind": "conversation",
+            "label": "Agent Conversations",
+            "enabled": true
+        }),
+    )
+    .await;
+    let add_result = assert_no_jsonrpc_error(&add_resp, "memory_sources_add conversation");
+    let source = add_result
+        .get("source")
+        .expect("add should return source object");
+    let source_id = source
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("source must have id");
+    assert_eq!(
+        source.get("kind").and_then(Value::as_str),
+        Some("conversation")
+    );
+    assert_eq!(
+        source.get("label").and_then(Value::as_str),
+        Some("Agent Conversations")
+    );
+    assert_eq!(source.get("enabled").and_then(Value::as_bool), Some(true));
+
+    // 2. List sources — should contain our conversation source
+    let list_resp =
+        post_json_rpc(&rpc_base, 9502, "openhuman.memory_sources_list", json!({})).await;
+    let list_result = assert_no_jsonrpc_error(&list_resp, "memory_sources_list");
+    let sources = list_result
+        .get("sources")
+        .and_then(Value::as_array)
+        .expect("list should return sources array");
+    let conversation_sources: Vec<&Value> = sources
+        .iter()
+        .filter(|s| s.get("kind").and_then(Value::as_str) == Some("conversation"))
+        .collect();
+    assert_eq!(
+        conversation_sources.len(),
+        1,
+        "exactly one conversation source after add"
+    );
+
+    // 3. Get the source by id
+    let get_resp = post_json_rpc(
+        &rpc_base,
+        9503,
+        "openhuman.memory_sources_get",
+        json!({ "id": source_id }),
+    )
+    .await;
+    let get_result = assert_no_jsonrpc_error(&get_resp, "memory_sources_get");
+    assert_eq!(
+        get_result
+            .get("source")
+            .and_then(|s| s.get("kind"))
+            .and_then(Value::as_str),
+        Some("conversation")
+    );
+
+    // 4. Update — disable the source
+    let update_resp = post_json_rpc(
+        &rpc_base,
+        9504,
+        "openhuman.memory_sources_update",
+        json!({ "id": source_id, "enabled": false }),
+    )
+    .await;
+    let update_result = assert_no_jsonrpc_error(&update_resp, "memory_sources_update");
+    assert_eq!(
+        update_result
+            .get("source")
+            .and_then(|s| s.get("enabled"))
+            .and_then(Value::as_bool),
+        Some(false),
+        "source should be disabled after update"
+    );
+
+    // 5. Remove the source
+    let remove_resp = post_json_rpc(
+        &rpc_base,
+        9505,
+        "openhuman.memory_sources_remove",
+        json!({ "id": source_id }),
+    )
+    .await;
+    let remove_result = assert_no_jsonrpc_error(&remove_resp, "memory_sources_remove");
+    assert_eq!(
+        remove_result.get("removed").and_then(Value::as_bool),
+        Some(true)
+    );
+
+    // 6. List again — empty
+    let list2_resp =
+        post_json_rpc(&rpc_base, 9506, "openhuman.memory_sources_list", json!({})).await;
+    let list2_result = assert_no_jsonrpc_error(&list2_resp, "memory_sources_list after remove");
+    let sources2 = list2_result
+        .get("sources")
+        .and_then(Value::as_array)
+        .expect("list should return sources array");
+    let conv_remaining: Vec<&Value> = sources2
+        .iter()
+        .filter(|s| s.get("kind").and_then(Value::as_str) == Some("conversation"))
+        .collect();
+    assert!(
+        conv_remaining.is_empty(),
+        "no conversation sources after remove"
+    );
+
+    rpc_join.abort();
+}

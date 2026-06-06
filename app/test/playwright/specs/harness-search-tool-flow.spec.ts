@@ -220,7 +220,7 @@ test.describe('Harness - Search tool-flow', () => {
 
     await sendMessage(page, 'read the README');
     await expect(page.getByText(CANARY).first()).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText(/OpenHuman is an AI assistant/i)).toBeVisible();
+    await expect(page.getByText(/OpenHuman is an AI assistant/i).first()).toBeVisible();
 
     const log = await requests();
     const llmHits = log.filter(

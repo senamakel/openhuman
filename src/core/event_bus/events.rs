@@ -252,6 +252,25 @@ pub enum DomainEvent {
         queue_depth: usize,
     },
 
+    // ── Memory Diff ─────────────────────────────────────────────────────
+    /// A snapshot of a memory source's chunk state was captured.
+    MemoryDiffSnapshotTaken {
+        snapshot_id: String,
+        source_id: String,
+        source_kind: String,
+        item_count: usize,
+        trigger: String,
+    },
+    /// A diff was computed between two snapshots.
+    MemoryDiffComputed {
+        source_id: String,
+        from_snapshot_id: Option<String>,
+        to_snapshot_id: String,
+        added: usize,
+        removed: usize,
+        modified: usize,
+    },
+
     // ── Channels ────────────────────────────────────────────────────────
     /// An inbound channel message from the transport layer, ready for processing.
     ///
@@ -1020,7 +1039,9 @@ impl DomainEvent {
             | Self::MemorySyncStageChanged { .. }
             | Self::MemoryIngestionStarted { .. }
             | Self::MemoryIngestionCompleted { .. }
-            | Self::DocumentCanonicalized { .. } => "memory",
+            | Self::DocumentCanonicalized { .. }
+            | Self::MemoryDiffSnapshotTaken { .. }
+            | Self::MemoryDiffComputed { .. } => "memory",
 
             Self::CacheRebuilt { .. } => "learning",
 
@@ -1152,6 +1173,8 @@ impl DomainEvent {
             Self::MemoryIngestionStarted { .. } => "MemoryIngestionStarted",
             Self::MemoryIngestionCompleted { .. } => "MemoryIngestionCompleted",
             Self::DocumentCanonicalized { .. } => "DocumentCanonicalized",
+            Self::MemoryDiffSnapshotTaken { .. } => "MemoryDiffSnapshotTaken",
+            Self::MemoryDiffComputed { .. } => "MemoryDiffComputed",
             Self::CacheRebuilt { .. } => "CacheRebuilt",
             Self::ChannelInboundMessage { .. } => "ChannelInboundMessage",
             Self::ChannelMessageReceived { .. } => "ChannelMessageReceived",

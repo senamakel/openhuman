@@ -68,6 +68,9 @@ pub enum DataSource {
     Telegram,
     Whatsapp,
 
+    // ── Agent conversations (stored as durable memory) ────────────────
+    Conversation,
+
     // ── Email threads (grouped by thread) ──────────────────────────────
     Gmail,
     /// Catch-all for non-Gmail providers (Outlook, FastMail, generic IMAP, …).
@@ -83,7 +86,9 @@ impl DataSource {
     /// Which [`SourceKind`] this provider feeds into.
     pub fn kind(self) -> SourceKind {
         match self {
-            Self::Discord | Self::Telegram | Self::Whatsapp => SourceKind::Chat,
+            Self::Discord | Self::Telegram | Self::Whatsapp | Self::Conversation => {
+                SourceKind::Chat
+            }
             Self::Gmail | Self::OtherEmail => SourceKind::Email,
             Self::Notion | Self::MeetingNotes | Self::DriveDocs => SourceKind::Document,
         }
@@ -95,6 +100,7 @@ impl DataSource {
             Self::Discord => "discord",
             Self::Telegram => "telegram",
             Self::Whatsapp => "whatsapp",
+            Self::Conversation => "conversation",
             Self::Gmail => "gmail",
             Self::OtherEmail => "other_email",
             Self::Notion => "notion",
@@ -109,6 +115,7 @@ impl DataSource {
             "discord" => Ok(Self::Discord),
             "telegram" => Ok(Self::Telegram),
             "whatsapp" => Ok(Self::Whatsapp),
+            "conversation" => Ok(Self::Conversation),
             "gmail" => Ok(Self::Gmail),
             "other_email" => Ok(Self::OtherEmail),
             "notion" => Ok(Self::Notion),
@@ -127,6 +134,7 @@ impl DataSource {
             Self::Discord,
             Self::Telegram,
             Self::Whatsapp,
+            Self::Conversation,
             Self::Gmail,
             Self::OtherEmail,
             Self::Notion,
@@ -386,15 +394,14 @@ mod tests {
     }
 
     #[test]
-    fn data_source_has_all_eight_variants_from_m_excalidraw() {
-        // Guard against accidental drift from the canonical provider list.
-        assert_eq!(DataSource::all().len(), 8);
+    fn data_source_has_all_variants() {
+        assert_eq!(DataSource::all().len(), 9);
     }
 
     #[test]
     fn data_source_kind_mapping() {
         use DataSource::*;
-        for ds in [Discord, Telegram, Whatsapp] {
+        for ds in [Discord, Telegram, Whatsapp, Conversation] {
             assert_eq!(ds.kind(), SourceKind::Chat);
         }
         for ds in [Gmail, OtherEmail] {

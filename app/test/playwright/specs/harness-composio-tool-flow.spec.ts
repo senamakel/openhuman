@@ -171,7 +171,7 @@ test.describe('Harness - Composio tool-call prompt flow', () => {
 
     await sendMessage(page, 'check my email');
     await expect(page.getByText(CANARY).first()).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText(/Q3 Budget Review/i)).toBeVisible();
+    await expect(page.getByText(/Q3 Budget Review/i).first()).toBeVisible();
 
     const log = await requests();
     const llmHits = log.filter(

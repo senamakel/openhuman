@@ -335,6 +335,7 @@ fn parent(workspace_dir: PathBuf, provider: Arc<ScriptedProvider>) -> ParentExec
             }],
             gated_tools: Vec::new(),
             connected: true,
+            connections: Vec::new(),
             non_active_status: None,
         }],
         tool_call_format: ToolCallFormat::PFormat,

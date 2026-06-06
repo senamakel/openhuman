@@ -276,6 +276,7 @@ const messages: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': '渠道',
   'skills.tabs.explorer': '技能',
+  'skills.tabs.meetings': 'Google Meet',
   'skills.tabs.mcp': 'MCP 服务器',
   'memory.title': '记忆',
   'memory.search': '搜索记忆...',
@@ -2411,6 +2412,10 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainHint': '极致',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian 子域名',
   'composio.connect.connect': '连接',
+  'composio.connect.connectedAccounts': '已连接账户',
+  'composio.connect.defaultLabel': '默认',
+  'composio.connect.disconnectAccount': '移除',
+  'composio.connect.addAnotherAccount': '添加另一个账户',
   'composio.connect.dynamicsOrgNameHint':
     '例如，myorg.crm.dynamics.com 的组织名称为 "myorg"。仅输入简短的组织名称，而不是完整 URL。',
   'composio.connect.dynamicsOrgNameLabel': 'Dynamics 365 组织名称',

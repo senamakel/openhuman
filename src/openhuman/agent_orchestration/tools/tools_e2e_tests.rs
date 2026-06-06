@@ -106,6 +106,7 @@ async fn skill_delegation_tool_runs_integrations_agent_e2e() {
                 tools: Vec::new(),
                 gated_tools: Vec::new(),
                 connected: true,
+                connections: Vec::new(),
                 non_active_status: None,
             }],
         ),

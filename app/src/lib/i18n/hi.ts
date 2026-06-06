@@ -288,6 +288,7 @@ const messages: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'चैनल',
   'skills.tabs.explorer': 'स्किल',
+  'skills.tabs.meetings': 'Google Meet',
   'skills.tabs.mcp': 'MCP सर्वर',
   'memory.title': 'मेमोरी',
   'memory.search': 'मेमोरी सर्च करें...',
@@ -2540,6 +2541,10 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainHint': 'एक्मे',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian सबडोमेन लेबल',
   'composio.connect.connect': 'कनेक्ट करें',
+  'composio.connect.connectedAccounts': 'कनेक्टेड अकाउंट',
+  'composio.connect.defaultLabel': 'डिफ़ॉल्ट',
+  'composio.connect.disconnectAccount': 'हटाएं',
+  'composio.connect.addAnotherAccount': 'एक और अकाउंट जोड़ें',
   'composio.connect.dynamicsOrgNameHint':
     'उदाहरण के लिए, myorg.crm.dynamics.com के लिए "myorg"। केवल छोटा संगठन नाम दर्ज करें, पूरा URL नहीं।',
   'composio.connect.dynamicsOrgNameLabel': 'Dynamics 365 संगठन का नाम',

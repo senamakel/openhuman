@@ -21,6 +21,7 @@ vi.mock('../../lib/composio/hooks', () => ({
   useComposioIntegrations: () => ({
     toolkits: ['notion'],
     connectionByToolkit: new Map(),
+    connectionsByToolkit: new Map(),
     refresh: vi.fn(),
     loading: false,
     error: null,

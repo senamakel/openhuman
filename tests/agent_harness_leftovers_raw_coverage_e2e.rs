@@ -645,6 +645,7 @@ fn subagent_prompt_renderer_handles_formats_caps_and_stale_tool_indices() -> Res
         tools: Vec::new(),
         gated_tools: Vec::new(),
         connected: true,
+        connections: Vec::new(),
         non_active_status: None,
     }];
 

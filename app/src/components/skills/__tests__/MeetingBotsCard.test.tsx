@@ -92,6 +92,48 @@ describe('MeetingBotsCard', () => {
     });
   });
 
+  it('uses the saved persona and mascot profile when joining', async () => {
+    joinMock.mockResolvedValueOnce({
+      meetUrl: 'https://meet.google.com/abc-defg-hij',
+      platform: 'gmeet',
+    });
+
+    renderWithProviders(<MeetingBotsCard />, {
+      preloadedState: {
+        persona: { displayName: 'Nova', description: 'Calm and concise.' },
+        mascot: {
+          color: 'custom',
+          voiceId: null,
+          voiceGender: 'male',
+          voiceUseLocaleDefault: false,
+          selectedMascotId: 'yellow',
+          customMascotGifUrl: null,
+          customPrimaryColor: '#123456',
+          customSecondaryColor: '#abcdef',
+        },
+      },
+    });
+
+    fireEvent.click(screen.getByTestId('meeting-bots-banner'));
+    fireEvent.change(screen.getByLabelText(/meeting link/i), {
+      target: { value: 'https://meet.google.com/abc-defg-hij' },
+    });
+    fireEvent.submit(screen.getByRole('dialog').querySelector('form')!);
+
+    await vi.waitFor(() => {
+      expect(joinMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meetUrl: 'https://meet.google.com/abc-defg-hij',
+          displayName: 'Nova',
+          agentName: 'Nova',
+          systemPrompt: 'Calm and concise.',
+          mascotId: 'yellow',
+          riveColors: { primaryColor: '#123456', secondaryColor: '#abcdef' },
+        })
+      );
+    });
+  });
+
   it('surfaces a join error inline + as an error toast', async () => {
     joinMock.mockRejectedValueOnce(new Error('Bad URL'));
     const onToast = vi.fn();
@@ -111,19 +153,21 @@ describe('MeetingBotsCard', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Bad URL');
   });
 
-  it('Zoom is a live platform — submit is labelled "Send to Zoom", not "coming soon"', () => {
+  it('does not show meeting platform choices in the Google Meet CTA', () => {
     renderWithProviders(<MeetingBotsCard />);
     fireEvent.click(screen.getByTestId('meeting-bots-banner'));
-    // Zoom is fully supported via Recall.ai; submit should not say "coming soon".
-    fireEvent.click(screen.getByRole('button', { name: /Zoom/ }));
-    expect(screen.queryByRole('button', { name: /coming soon/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /send to zoom/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Zoom/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Microsoft Teams/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /send to google meet/i })).toBeInTheDocument();
   });
 
-  it('does not require the old owner-name field for backend Recall joins', () => {
+  it('only asks for the meeting link, not old bot tuning fields', () => {
     renderWithProviders(<MeetingBotsCard />);
     fireEvent.click(screen.getByTestId('meeting-bots-banner'));
+    expect(screen.getByLabelText(/meeting link/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^display name$/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/your name in the call/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/wake phrase/i)).not.toBeInTheDocument();
   });
 });
 
@@ -201,9 +245,7 @@ describe('MeetingBotsCard — ActiveMeetingView', () => {
     // MeetingBotsCard only shows ActiveMeetingView for active/joining.
     // When ended the banner is rendered so the user can start a new call.
     renderWithProviders(<MeetingBotsCard />, {
-      preloadedState: {
-        backendMeet: { ...activeMeetState.backendMeet, status: 'ended' as const },
-      },
+      preloadedState: { backendMeet: { ...activeMeetState.backendMeet, status: 'ended' as const } },
     });
     expect(screen.getByTestId('meeting-bots-banner')).toBeInTheDocument();
     expect(screen.queryByText(/live in meeting/i)).not.toBeInTheDocument();
@@ -212,14 +254,10 @@ describe('MeetingBotsCard — ActiveMeetingView', () => {
   it('shows error toast when leave call fails', async () => {
     leaveMock.mockRejectedValueOnce(new Error('Network error'));
     const onToast = vi.fn();
-    renderWithProviders(<MeetingBotsCard onToast={onToast} />, {
-      preloadedState: activeMeetState,
-    });
+    renderWithProviders(<MeetingBotsCard onToast={onToast} />, { preloadedState: activeMeetState });
     fireEvent.click(screen.getByRole('button', { name: /leave/i }));
     await waitFor(() =>
-      expect(onToast).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'error' })
-      )
+      expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
     );
   });
 });
@@ -267,8 +305,16 @@ describe('MeetingBotsModal — recent calls section', () => {
 
   it('renders a row for each returned call record', async () => {
     const records = [
-      makeCallRecord({ request_id: 'req-1', meet_url: 'https://meet.google.com/aaa-bbbb-ccc', turn_count: 2 }),
-      makeCallRecord({ request_id: 'req-2', meet_url: 'https://meet.google.com/ddd-eeee-fff', turn_count: 5 }),
+      makeCallRecord({
+        request_id: 'req-1',
+        meet_url: 'https://meet.google.com/aaa-bbbb-ccc',
+        turn_count: 2,
+      }),
+      makeCallRecord({
+        request_id: 'req-2',
+        meet_url: 'https://meet.google.com/ddd-eeee-fff',
+        turn_count: 5,
+      }),
     ];
     listMock.mockResolvedValueOnce(records);
 
@@ -321,9 +367,7 @@ describe('MeetingBotsModal — recent calls section', () => {
   });
 
   it('shows duration as combined spoken + listened seconds', async () => {
-    listMock.mockResolvedValueOnce([
-      makeCallRecord({ spoken_seconds: 40, listened_seconds: 20 }),
-    ]);
+    listMock.mockResolvedValueOnce([makeCallRecord({ spoken_seconds: 40, listened_seconds: 20 })]);
 
     renderWithProviders(<MeetingBotsModal onClose={() => {}} />);
 
@@ -334,9 +378,7 @@ describe('MeetingBotsModal — recent calls section', () => {
 
   it('shows a relative timestamp for recent calls', async () => {
     // started 5 minutes ago
-    listMock.mockResolvedValueOnce([
-      makeCallRecord({ started_at_ms: Date.now() - 5 * 60 * 1000 }),
-    ]);
+    listMock.mockResolvedValueOnce([makeCallRecord({ started_at_ms: Date.now() - 5 * 60 * 1000 })]);
 
     renderWithProviders(<MeetingBotsModal onClose={() => {}} />);
 

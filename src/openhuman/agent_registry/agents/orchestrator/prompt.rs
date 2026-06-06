@@ -105,11 +105,31 @@ fn render_delegation_guide(integrations: &[ConnectedIntegration]) -> String {
         // so the `toolkit` arg the orchestrator emits always matches the
         // enum the synthesised tool accepts.
         let slug = sanitise_slug(&ci.toolkit);
-        let _ = writeln!(
-            out,
-            "- **{}** (`toolkit: \"{}\"`): {}",
-            ci.toolkit, slug, ci.description
-        );
+        if ci.connections.len() > 1 {
+            let _ = writeln!(
+                out,
+                "- **{}** (`toolkit: \"{}\"`, {} accounts connected): {}",
+                ci.toolkit,
+                slug,
+                ci.connections.len(),
+                ci.description
+            );
+            for conn in &ci.connections {
+                let label = conn.label.as_deref().unwrap_or("(unlabeled)");
+                let default_marker = if conn.is_default { " [default]" } else { "" };
+                let _ = writeln!(
+                    out,
+                    "  - `connection_id: \"{}\"` — {}{}",
+                    conn.connection_id, label, default_marker
+                );
+            }
+        } else {
+            let _ = writeln!(
+                out,
+                "- **{}** (`toolkit: \"{}\"`): {}",
+                ci.toolkit, slug, ci.description
+            );
+        }
     }
     // CRITICAL behavioural rule. Without this, the orchestrator answers
     // "can you do X with {toolkit}?" from its training-data priors about
@@ -257,6 +277,7 @@ mod tests {
             tools: Vec::new(),
             gated_tools: Vec::new(),
             connected: true,
+            connections: Vec::new(),
             non_active_status: None,
         }];
         let body = build(&ctx_with(&integrations)).unwrap();
@@ -298,6 +319,7 @@ mod tests {
             tools: Vec::new(),
             gated_tools: Vec::new(),
             connected: true,
+            connections: Vec::new(),
             non_active_status: None,
         }];
         let body = build(&ctx_with(&integrations)).unwrap();
@@ -321,6 +343,7 @@ mod tests {
                 tools: Vec::new(),
                 gated_tools: Vec::new(),
                 connected: true,
+                connections: Vec::new(),
                 non_active_status: None,
             },
             ConnectedIntegration {
@@ -329,6 +352,7 @@ mod tests {
                 tools: Vec::new(),
                 gated_tools: Vec::new(),
                 connected: false,
+                connections: Vec::new(),
                 non_active_status: None,
             },
         ];
@@ -376,6 +400,7 @@ mod tests {
             tools: Vec::new(),
             gated_tools: Vec::new(),
             connected: false,
+            connections: Vec::new(),
             non_active_status: None,
         }];
         let body = build(&ctx_with(&integrations)).unwrap();

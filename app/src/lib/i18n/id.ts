@@ -290,6 +290,7 @@ const messages: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Saluran',
   'skills.tabs.explorer': 'Skill',
+  'skills.tabs.meetings': 'Google Meet',
   'skills.tabs.mcp': 'MCP Server',
   'memory.title': 'Memori',
   'memory.search': 'Cari memori...',
@@ -2543,6 +2544,10 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Label subdomain Atlassian',
   'composio.connect.connect': 'Hubungkan',
+  'composio.connect.connectedAccounts': 'Akun terhubung',
+  'composio.connect.defaultLabel': 'Default',
+  'composio.connect.disconnectAccount': 'Hapus',
+  'composio.connect.addAnotherAccount': 'Tambah akun lain',
   'composio.connect.dynamicsOrgNameHint':
     'Misalnya, "myorg" untuk myorg.crm.dynamics.com. Masukkan nama organisasi pendek saja, bukan URL lengkap.',
   'composio.connect.dynamicsOrgNameLabel': 'Nama Organisasi Dynamics 365',

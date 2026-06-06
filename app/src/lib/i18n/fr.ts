@@ -296,6 +296,7 @@ const messages: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Canaux',
   'skills.tabs.explorer': 'Skills',
+  'skills.tabs.meetings': 'Google Meet',
   'skills.tabs.mcp': 'MCP Serveurs',
   'memory.title': 'Mémoire',
   'memory.search': 'Rechercher dans la mémoire…',
@@ -2596,6 +2597,10 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Libellé du sous-domaine Atlassian',
   'composio.connect.connect': 'Connecter',
+  'composio.connect.connectedAccounts': 'Comptes connectés',
+  'composio.connect.defaultLabel': 'Par défaut',
+  'composio.connect.disconnectAccount': 'Supprimer',
+  'composio.connect.addAnotherAccount': 'Ajouter un autre compte',
   'composio.connect.dynamicsOrgNameHint':
     'Par exemple, "myorg" pour myorg.crm.dynamics.com. Saisis uniquement le nom court de l\'organisation, pas l\'URL complète.',
   'composio.connect.dynamicsOrgNameLabel': "Nom de l'organisation Dynamics 365",

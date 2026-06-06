@@ -396,7 +396,7 @@ impl SubconsciousEngine {
             format!("agent run: {e}")
         })?;
 
-        let response_chars = response.len();
+        let response_chars = response.chars().count();
         info!(
             "[subconscious] agent completed (response {} chars)",
             response_chars

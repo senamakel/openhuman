@@ -63,7 +63,7 @@ impl Tool for ScratchpadAddTool {
     }
 
     fn permission_level(&self) -> PermissionLevel {
-        PermissionLevel::ReadOnly
+        PermissionLevel::Write
     }
 
     fn scope(&self) -> ToolScope {
@@ -132,7 +132,7 @@ impl Tool for ScratchpadEditTool {
     }
 
     fn permission_level(&self) -> PermissionLevel {
-        PermissionLevel::ReadOnly
+        PermissionLevel::Write
     }
 
     fn scope(&self) -> ToolScope {
@@ -201,7 +201,7 @@ impl Tool for ScratchpadRemoveTool {
     }
 
     fn permission_level(&self) -> PermissionLevel {
-        PermissionLevel::ReadOnly
+        PermissionLevel::Write
     }
 
     fn scope(&self) -> ToolScope {

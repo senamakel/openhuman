@@ -9,18 +9,18 @@
 //!
 //! ## File format
 //!
-//! ```text
 //! # Subconscious Scratchpad
 //!
-//! <!-- entry:abc123 p:5 created:1700000000 updated:1700000000 -->
-//! The thought body goes here.
-//!
-//! ---
-//!
-//! <!-- entry:def456 p:0 created:1700000000 updated:1700000000 -->
-//! Another thought.
-//!
-//! ---
+//! ```json
+//! [
+//!   {
+//!     "id": "abc123",
+//!     "body": "The thought body goes here.",
+//!     "priority": 5,
+//!     "created_at": 1700000000.123456,
+//!     "updated_at": 1700000000.123456
+//!   }
+//! ]
 //! ```
 //!
 //! The agent manages its own scratchpad via three tools:
@@ -136,21 +136,26 @@ fn save(workspace_dir: &Path, entries: &[ScratchpadEntry]) -> Result<()> {
 
 fn render_file(entries: &[ScratchpadEntry]) -> String {
     let mut out = String::from("# Subconscious Scratchpad\n\n");
-    for (i, entry) in entries.iter().enumerate() {
-        out.push_str(&format!(
-            "<!-- entry:{} p:{} created:{} updated:{} -->\n",
-            entry.id, entry.priority, entry.created_at as u64, entry.updated_at as u64,
-        ));
-        out.push_str(&entry.body);
-        out.push('\n');
-        if i + 1 < entries.len() {
-            out.push_str("\n---\n\n");
+    if entries.is_empty() {
+        return out;
+    }
+    out.push_str("```json\n");
+    match serde_json::to_string_pretty(entries) {
+        Ok(json) => out.push_str(&json),
+        Err(e) => {
+            log::warn!("[subconscious] failed to render scratchpad JSON: {e}");
+            out.push_str("[]");
         }
     }
+    out.push_str("\n```\n");
     out
 }
 
 fn parse_entries(content: &str) -> Vec<ScratchpadEntry> {
+    if let Some(entries) = parse_json_entries(content) {
+        return entries;
+    }
+
     let mut entries = Vec::new();
 
     for block in content.split("\n---\n") {
@@ -174,6 +179,24 @@ fn parse_entries(content: &str) -> Vec<ScratchpadEntry> {
     }
 
     entries
+}
+
+fn parse_json_entries(content: &str) -> Option<Vec<ScratchpadEntry>> {
+    let marker = "```json";
+    let start = content.find(marker)? + marker.len();
+    let rest = &content[start..];
+    let end = rest.rfind("```")?;
+    let json = rest[..end].trim();
+    if json.is_empty() {
+        return Some(Vec::new());
+    }
+    match serde_json::from_str(json) {
+        Ok(entries) => Some(entries),
+        Err(e) => {
+            log::warn!("[subconscious] failed to parse scratchpad JSON: {e}");
+            None
+        }
+    }
 }
 
 fn parse_single_block(block: &str) -> Option<ScratchpadEntry> {
@@ -339,10 +362,10 @@ mod tests {
         add(ws.path(), "thought two", 0, 100).unwrap();
         let content = std::fs::read_to_string(scratchpad_path(ws.path())).unwrap();
         assert!(content.starts_with("# Subconscious Scratchpad"));
+        assert!(content.contains("```json"));
         assert!(content.contains("thought one"));
         assert!(content.contains("thought two"));
-        assert!(content.contains("---"));
-        assert!(content.contains("<!-- entry:"));
+        assert!(content.contains("\"created_at\""));
     }
 
     #[test]
@@ -371,5 +394,29 @@ mod tests {
         assert_eq!(parsed[0].priority, 3);
         assert_eq!(parsed[1].id, "bbb");
         assert_eq!(parsed[1].body, "second\nwith newlines");
+    }
+
+    #[test]
+    fn parse_round_trip_preserves_markdown_separators_and_subsecond_timestamps() {
+        let original = vec![ScratchpadEntry {
+            id: "aaa".to_string(),
+            body: "first\n---\nsecond".to_string(),
+            priority: 3,
+            created_at: 1700000000.123456,
+            updated_at: 1700000100.654321,
+        }];
+        let rendered = render_file(&original);
+        let parsed = parse_entries(&rendered);
+        assert_eq!(parsed, original);
+    }
+
+    #[test]
+    fn parse_legacy_markdown_entries() {
+        let content = "# Subconscious Scratchpad\n\n<!-- entry:abc p:2 created:1700000000 updated:1700000001 -->\nlegacy thought";
+        let parsed = parse_entries(content);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].id, "abc");
+        assert_eq!(parsed[0].body, "legacy thought");
+        assert_eq!(parsed[0].priority, 2);
     }
 }

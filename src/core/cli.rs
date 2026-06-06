@@ -191,7 +191,7 @@ fn run_sentry_test_command(args: &[String]) -> Result<()> {
 /// 1. Variables already set in the process environment are **not** overwritten.
 /// 2. If `OPENHUMAN_DOTENV_PATH` is set, that file is loaded.
 /// 3. Otherwise, it searches for `.env` in the current working directory.
-fn load_dotenv_for_cli() -> Result<()> {
+pub(crate) fn load_dotenv_for_cli() -> Result<()> {
     match std::env::var("OPENHUMAN_DOTENV_PATH") {
         Ok(path) if !path.trim().is_empty() => {
             dotenvy::from_path(&path).map_err(|e| {

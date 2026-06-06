@@ -630,14 +630,15 @@ async function main() {
     contributors,
   });
   const title = releaseTitle(from, options.to, resolvedTo);
-  const request = buildOpenAiRequest({ model: options.model, title, payload });
 
   let markdown;
   if (options.dryRun) {
+    const request = buildOpenAiRequest({ model: options.model, title, payload });
     markdown = JSON.stringify(request, null, 2);
   } else if (options.noAi) {
     markdown = renderDeterministicNotes({ title, payload });
   } else {
+    const request = buildOpenAiRequest({ model: options.model, title, payload });
     markdown = await summarizeWithOpenAi(request);
     markdown = ensureAllPullRequestsLinked(markdown, payload.pullRequests);
   }

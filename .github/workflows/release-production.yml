@@ -236,6 +236,7 @@ jobs:
         with:
           ref: ${{ needs.prepare-build.outputs.build_ref }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Generate AI release notes
         if: ${{ inputs.create_release }}
         env:

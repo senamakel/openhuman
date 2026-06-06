@@ -1,5 +1,5 @@
 import debug from 'debug';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
@@ -45,6 +45,12 @@ export default function IntelligenceAgentsTab() {
   const selectedAgentProfileId = useAppSelector(selectActiveAgentProfileId);
   const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
   const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const [runningAgentId, setRunningAgentId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);

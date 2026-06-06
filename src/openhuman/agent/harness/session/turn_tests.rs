@@ -979,6 +979,95 @@ async fn turn_runs_full_tool_cycle_with_context_and_hooks() {
 }
 
 #[tokio::test]
+async fn turn_triggers_configured_memory_agent_before_parent_prompt() {
+    crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins()
+        .expect("built-in agent definitions should load");
+    assert!(
+        crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()
+            .and_then(|registry| registry.get("agent_memory"))
+            .is_some()
+    );
+
+    let provider_impl = Arc::new(SequenceProvider {
+        responses: AsyncMutex::new(vec![
+            Ok(ChatResponse {
+                text: Some("memory context: user prefers concise Rust changes".into()),
+                tool_calls: vec![],
+                usage: None,
+                reasoning_content: None,
+            }),
+            Ok(ChatResponse {
+                text: Some("parent final".into()),
+                tool_calls: vec![],
+                usage: None,
+                reasoning_content: None,
+            }),
+        ]),
+        requests: AsyncMutex::new(Vec::new()),
+    });
+    let provider: Arc<dyn Provider> = provider_impl.clone();
+    let workspace = tempfile::TempDir::new().expect("temp workspace");
+    let workspace_path = workspace.path().to_path_buf();
+    let memory_cfg = crate::openhuman::config::MemoryConfig {
+        backend: "none".into(),
+        ..crate::openhuman::config::MemoryConfig::default()
+    };
+    let mem: Arc<dyn Memory> = Arc::from(
+        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+    );
+
+    let mut agent = Agent::builder()
+        .provider_arc(provider)
+        .tools(vec![Box::new(EchoTool)])
+        .memory(mem)
+        .memory_loader(Box::new(FixedMemoryLoader {
+            context: String::new(),
+        }))
+        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .config(crate::openhuman::config::AgentConfig {
+            max_tool_iterations: 3,
+            max_history_messages: 10,
+            ..crate::openhuman::config::AgentConfig::default()
+        })
+        .workspace_dir(workspace_path)
+        .auto_save(false)
+        .event_context("turn-test-session", "turn-test-channel")
+        .trigger_memory_agent(
+            crate::openhuman::agent::harness::definition::TriggerMemoryAgent::Always,
+        )
+        .build()
+        .unwrap();
+    assert_eq!(
+        agent.trigger_memory_agent,
+        crate::openhuman::agent::harness::definition::TriggerMemoryAgent::Always
+    );
+
+    let response = agent
+        .turn("Implement the memory trigger.")
+        .await
+        .expect("turn should succeed");
+    assert_eq!(response, "parent final");
+
+    let requests = provider_impl.requests.lock().await;
+    assert_eq!(requests.len(), 2);
+    assert!(requests[0].iter().any(|msg| {
+        msg.role == "user"
+            && msg
+                .content
+                .contains("Search the user's memory tree and return only context")
+            && msg.content.contains("Implement the memory trigger.")
+    }));
+    assert!(requests[1].iter().any(|msg| {
+        msg.role == "user"
+            && msg.content.contains("## Memory agent context")
+            && msg
+                .content
+                .contains("memory context: user prefers concise Rust changes")
+            && msg.content.contains("Implement the memory trigger.")
+    }));
+}
+
+#[tokio::test]
 async fn turn_uses_cached_transcript_prefix_on_first_iteration() {
     let provider_impl = Arc::new(SequenceProvider {
         responses: AsyncMutex::new(vec![Ok(ChatResponse {

@@ -661,6 +661,7 @@ impl Agent {
         );
         let options = harness::SubagentRunOptions {
             task_id: Some(task_id.clone()),
+            model_override: Some(parent_context.model_name.clone()),
             ..Default::default()
         };
 

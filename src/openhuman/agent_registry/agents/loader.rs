@@ -193,6 +193,11 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         toml: include_str!("../../agent_memory/agent/agent.toml"),
         prompt_fn: crate::openhuman::agent_memory::agent::prompt::build,
     },
+    BuiltinAgent {
+        id: "subconscious",
+        toml: include_str!("../../subconscious/agent/agent.toml"),
+        prompt_fn: crate::openhuman::subconscious::agent::prompt::build,
+    },
 ];
 
 /// Parse every entry in [`BUILTINS`] into an [`AgentDefinition`].

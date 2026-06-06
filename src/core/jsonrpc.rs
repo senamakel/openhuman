@@ -1493,6 +1493,15 @@ async fn run_server_inner(
         // sets OPENHUMAN_WORKSPACE to a writable path, then restarts.
         match crate::openhuman::config::Config::load_or_init().await {
             Ok(cfg) => {
+                let keyring_dir =
+                    crate::openhuman::keyring::store::workspace_dir_for_file_backend();
+                log::info!(
+                    "[boot] paths: config={} workspace={} keyring_dir={} keyring_backend={}",
+                    cfg.config_path.display(),
+                    cfg.workspace_dir.display(),
+                    keyring_dir.display(),
+                    crate::openhuman::keyring::backend_name(),
+                );
                 match crate::openhuman::memory::global::init(cfg.workspace_dir.clone()) {
                     Ok(_) => log::info!(
                         "[boot] memory::global initialized (workspace={})",
@@ -1883,7 +1892,7 @@ fn register_domain_subscribers(
         crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
             workspace_dir.clone(),
         );
-        crate::openhuman::memory::sync::register_sync_stage_bridge();
+        crate::openhuman::memory::sync::register_sync_stage_bridge(&config);
         if let Err(error) = crate::openhuman::composio::init_composio_trigger_history(
             workspace_dir.clone(),
         ) {
@@ -1919,13 +1928,19 @@ fn register_domain_subscribers(
             }
             Ok(None) => {
                 log::info!(
-                    "[auth] no session token at startup — scheduler gate set to signed_out"
+                    "[auth] no session token at startup — scheduler gate set to signed_out \
+                     (config_path={}, keyring_backend={})",
+                    config.config_path.display(),
+                    crate::openhuman::keyring::backend_name(),
                 );
                 crate::openhuman::scheduler_gate::set_signed_out(true);
             }
             Err(err) => {
                 log::warn!(
-                    "[auth] failed to read session token at startup ({err}) — assuming signed_out"
+                    "[auth] failed to read session token at startup ({err}) — assuming signed_out \
+                     (config_path={}, keyring_backend={})",
+                    config.config_path.display(),
+                    crate::openhuman::keyring::backend_name(),
                 );
                 crate::openhuman::scheduler_gate::set_signed_out(true);
             }

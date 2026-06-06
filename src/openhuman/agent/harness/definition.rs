@@ -22,7 +22,7 @@
 //! and serialised straight from disk.
 
 use serde::ser::SerializeMap;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::path::PathBuf;
 
 /// Iteration-cap policy for a sub-agent.
@@ -199,7 +199,7 @@ pub struct AgentDefinition {
     ///
     /// [`ArchetypeDelegationTool`]: crate::openhuman::agent_orchestration::tools::ArchetypeDelegationTool
     /// [`SkillDelegationTool`]: crate::openhuman::agent_orchestration::tools::SkillDelegationTool
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_subagent_entries")]
     pub subagents: Vec<SubagentEntry>,
 
     /// Optional override for the tool name this agent is exposed as when
@@ -305,7 +305,8 @@ impl AgentTier {
 /// # TOML shapes
 ///
 /// ```toml
-/// subagents = [
+/// [subagents]
+/// allowlist = [
 ///     "researcher",            # AgentId("researcher")
 ///     "code_executor",         # AgentId("code_executor")
 ///     { skills = "*" },        # Skills { pattern: "*" }
@@ -333,6 +334,24 @@ pub enum SubagentEntry {
 pub struct SkillsWildcard {
     /// Glob / wildcard pattern. Only `"*"` is currently supported.
     pub skills: String,
+}
+
+fn deserialize_subagent_entries<'de, D>(deserializer: D) -> Result<Vec<SubagentEntry>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Wire {
+        Section { allowlist: Vec<SubagentEntry> },
+        LegacyList(Vec<SubagentEntry>),
+    }
+
+    match Option::<Wire>::deserialize(deserializer)? {
+        Some(Wire::Section { allowlist }) => Ok(allowlist),
+        Some(Wire::LegacyList(entries)) => Ok(entries),
+        None => Ok(Vec::new()),
+    }
 }
 
 impl SkillsWildcard {

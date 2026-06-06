@@ -889,6 +889,13 @@ async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_er
     ];
     let all_specs = all_tools.iter().map(|tool| tool.spec()).collect::<Vec<_>>();
     let parent = ParentExecutionContext {
+        agent_definition_id: "orchestrator".into(),
+        allowed_subagent_ids: [
+            "round17_child".to_string(),
+            "round17_provider_error".to_string(),
+        ]
+        .into_iter()
+        .collect(),
         provider: provider.clone(),
         all_tools: Arc::new(all_tools),
         all_tool_specs: Arc::new(all_specs),

@@ -182,6 +182,25 @@ impl Tool for SpawnWorkerThreadTool {
             .get(&agent_id)
             .ok_or_else(|| anyhow::anyhow!("agent_id '{}' not found", agent_id))?;
 
+        if !parent.allowed_subagent_ids.contains(&definition.id) {
+            tracing::warn!(
+                parent_agent = %parent.agent_definition_id,
+                requested_agent = %definition.id,
+                allowed = ?parent.allowed_subagent_ids,
+                "[spawn_worker_thread] blocked subagent outside parent allowlist"
+            );
+            return Ok(ToolResult::error(format!(
+                "spawn_worker_thread: agent '{}' is not in parent agent '{}' subagents.allowlist",
+                definition.id, parent.agent_definition_id
+            )));
+        }
+
+        tracing::debug!(
+            parent_agent = %parent.agent_definition_id,
+            requested_agent = %definition.id,
+            "[spawn_worker_thread] subagent allowlist check passed"
+        );
+
         // ── Create Worker Thread ───────────────────────────────────────
         // Shared with `spawn_subagent` so both delegation paths persist an
         // identical, reopenable sub-thread seeded with the prompt.
@@ -259,12 +278,9 @@ impl Tool for SpawnWorkerThreadTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::agent::harness::definition::{
-        AgentDefinition, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
-    };
     use crate::openhuman::agent::harness::fork_context::with_parent_context;
     use crate::openhuman::agent::harness::ParentExecutionContext;
-    use crate::openhuman::memory_conversations::{ConversationMessage, CreateConversationThread};
+    use crate::openhuman::memory_conversations::CreateConversationThread;
     use std::path::PathBuf;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -356,6 +372,8 @@ mod tests {
 
     fn test_parent_ctx(workspace_dir: PathBuf) -> ParentExecutionContext {
         ParentExecutionContext {
+            agent_definition_id: "orchestrator".into(),
+            allowed_subagent_ids: std::collections::HashSet::new(),
             session_id: "test".into(),
             session_key: "test".into(),
             session_parent_prefix: None,
@@ -460,6 +478,31 @@ mod tests {
                 .await;
             },
         )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn rejects_agent_outside_parent_allowlist() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
+        let temp = TempDir::new().unwrap();
+        let parent = test_parent_ctx(temp.path().to_path_buf());
+
+        with_parent_context(parent, async {
+            let tool = SpawnWorkerThreadTool::new();
+            let result = tool
+                .execute(json!({
+                    "agent_id": "researcher",
+                    "prompt": "do it",
+                    "task_title": "Task"
+                }))
+                .await
+                .unwrap();
+
+            assert!(result.is_error);
+            assert!(result.output().contains(
+                "spawn_worker_thread: agent 'researcher' is not in parent agent 'orchestrator' subagents.allowlist"
+            ));
+        })
         .await;
     }
 }

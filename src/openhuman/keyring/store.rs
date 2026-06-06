@@ -57,7 +57,8 @@ pub(super) fn build_backend() -> Box<dyn KeyringBackend> {
             Some(BackendKind::File) => {
                 let path = workspace_dir_for_file_backend();
                 log::info!(
-                    "[keyring] backend=file path={} (OPENHUMAN_KEYRING_BACKEND override)",
+                    "[keyring] backend=file dir={} file={}/dev-keychain.json (OPENHUMAN_KEYRING_BACKEND override)",
+                    path.display(),
                     path.display()
                 );
                 return Box::new(backend::FileBackend::new(&path));
@@ -98,7 +99,8 @@ pub(super) fn build_backend() -> Box<dyn KeyringBackend> {
         ))
     } else {
         log::info!(
-            "[keyring] backend=file path={} (dev environment)",
+            "[keyring] backend=file dir={} file={}/dev-keychain.json (dev environment)",
+            path.display(),
             path.display()
         );
         Box::new(backend::FileBackend::new(&path))
@@ -159,7 +161,9 @@ pub fn workspace_dir_for_file_backend() -> PathBuf {
     }
 
     if let Ok(custom) = std::env::var("OPENHUMAN_WORKSPACE") {
-        return PathBuf::from(custom);
+        if !custom.trim().is_empty() {
+            return PathBuf::from(custom);
+        }
     }
 
     let home = dirs::home_dir().unwrap_or_else(|| {

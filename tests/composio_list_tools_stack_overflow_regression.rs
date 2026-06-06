@@ -337,6 +337,8 @@ async fn drive_subagent() {
     });
 
     let parent = ParentExecutionContext {
+        agent_definition_id: "orchestrator".into(),
+        allowed_subagent_ids: ["integrations_agent".to_string()].into_iter().collect(),
         provider: provider.clone(),
         all_tools: Arc::new(vec![]),
         all_tool_specs: Arc::new(vec![]),

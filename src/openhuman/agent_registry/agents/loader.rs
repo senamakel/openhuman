@@ -250,12 +250,16 @@ pub fn validate_tier_hierarchy(defs: &[AgentDefinition]) -> Result<()> {
                 SubagentEntry::Skills(_) => continue,
             };
 
-            // Worker leaves: no spawn surface at all.
-            if def.agent_tier == AgentTier::Worker {
+            // Worker leaves: no open-ended spawn surface. A worker may still
+            // name `agent_memory` so the hidden `call_memory_agent` tool can
+            // be policy-gated by the same parent-context allowlist without
+            // synthesising visible delegate tools.
+            if def.agent_tier == AgentTier::Worker && child_id != "agent_memory" {
                 anyhow::bail!(
-                    "agent `{parent}` is a `worker` tier and must not list `{child}` (or any \
-                     agent) in its subagents — workers are leaf executors. Either remove the \
-                     entry or re-tier `{parent}` as `chat` / `reasoning`.",
+                    "agent `{parent}` is a `worker` tier and must not list `{child}` in its \
+                     subagents — workers are leaf executors except for the hidden `agent_memory` \
+                     retrieval policy. Either remove the entry or re-tier `{parent}` as `chat` / \
+                     `reasoning`.",
                     parent = def.id,
                     child = child_id,
                 );
@@ -322,12 +326,35 @@ fn parse_builtin(b: &BuiltinAgent) -> Result<AgentDefinition> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::agent::harness::definition::{ModelSpec, SandboxMode, ToolScope};
+    use crate::openhuman::agent::harness::definition::{
+        ModelSpec, SandboxMode, SubagentEntry, ToolScope,
+    };
 
     #[test]
     fn all_builtins_parse() {
         let defs = load_builtins().expect("built-in TOML must parse");
         assert_eq!(defs.len(), BUILTINS.len());
+    }
+
+    #[test]
+    fn call_memory_agent_users_allow_agent_memory_subagent() {
+        for def in load_builtins().expect("built-in TOML must parse") {
+            let uses_call_memory_agent = match &def.tools {
+                ToolScope::Named(tools) => tools.iter().any(|tool| tool == "call_memory_agent"),
+                ToolScope::Wildcard => false,
+            };
+            if !uses_call_memory_agent {
+                continue;
+            }
+
+            assert!(
+                def.subagents.iter().any(|entry| {
+                    matches!(entry, SubagentEntry::AgentId(id) if id == "agent_memory")
+                }),
+                "{} exposes call_memory_agent but does not allow agent_memory in subagents",
+                def.id
+            );
+        }
     }
 
     #[test]

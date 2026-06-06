@@ -20,5 +20,8 @@ omit_memory_md = false
 [model]
 hint = "agentic"
 
+[subagents]
+allowlist = ["agent_memory"]
+
 [tools]
 named = ["gitbooks_search", "gitbooks_get_page", "call_memory_agent"]

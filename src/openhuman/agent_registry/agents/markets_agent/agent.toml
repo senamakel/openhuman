@@ -18,6 +18,9 @@ omit_skills_catalog = true
 [model]
 hint = "agentic"
 
+[subagents]
+allowlist = ["agent_memory"]
+
 [tools]
 # Narrow allowlist. Prediction-market venues only — no shell, no
 # file_write, no broad HTTP, no integration delegation, no wallet

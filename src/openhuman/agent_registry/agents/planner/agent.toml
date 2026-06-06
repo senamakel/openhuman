@@ -21,6 +21,9 @@ agent_tier = "reasoning"
 [model]
 hint = "reasoning"
 
+[subagents]
+allowlist = ["agent_memory"]
+
 [tools]
 # Read + research only. The planner produces plans — it never mutates
 # the workspace, memory, or state. Any writes the plan requires get

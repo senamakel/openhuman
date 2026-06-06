@@ -18,6 +18,9 @@ omit_skills_catalog = true
 [model]
 hint = "agentic"
 
+[subagents]
+allowlist = ["agent_memory"]
+
 [tools]
 # Narrow allowlist. Wallet + web3 + market primitives only — no shell, no
 # file_write, no broad HTTP, no integration delegation. Wallet names line up

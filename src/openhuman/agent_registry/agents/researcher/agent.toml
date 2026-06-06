@@ -15,6 +15,9 @@ omit_skills_catalog = true
 [model]
 hint = "agentic"
 
+[subagents]
+allowlist = ["agent_memory"]
+
 [tools]
 named = [
     "http_request",

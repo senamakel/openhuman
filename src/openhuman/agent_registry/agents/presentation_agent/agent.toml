@@ -15,6 +15,9 @@ omit_memory_md = true
 [model]
 hint = "agentic"
 
+[subagents]
+allowlist = ["agent_memory"]
+
 [tools]
 named = [
     "generate_presentation",

@@ -60,6 +60,10 @@ allowlist = [
     # "forget", profile/persona edits, learned facets, and people alias
     # management here.
     "profile_memory_agent",
+    # Hidden memory retrieval specialist reached through `call_memory_agent`.
+    # Keep it in the allowlist so direct memory lookups are subject to the
+    # same parent-context gate as explicit subagent delegation.
+    "agent_memory",
     # Account/admin specialist. Route billing, team membership/invites/roles,
     # OAuth/credential/session, and referral requests here.
     "account_admin_agent",

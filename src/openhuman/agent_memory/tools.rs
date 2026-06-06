@@ -12,7 +12,7 @@
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::current_parent;
 use crate::openhuman::agent::harness::subagent_runner::{
-    run_subagent, SubagentRunOptions, SubagentRunStatus,
+    SubagentRunOptions, SubagentRunStatus, run_subagent,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope};
 use async_trait::async_trait;
@@ -129,6 +129,20 @@ impl Tool for CallMemoryAgentTool {
                     "call_memory_agent: agent definition '{AGENT_ID}' not found in registry"
                 )
             })?;
+
+        let parent = parent.expect("checked above");
+        if !parent.allowed_subagent_ids.contains(AGENT_ID) {
+            log::warn!(
+                "[call_memory_agent] blocked memory subagent outside parent allowlist parent_agent={} requested_agent={} allowed={:?}",
+                parent.agent_definition_id,
+                AGENT_ID,
+                parent.allowed_subagent_ids
+            );
+            return Ok(ToolResult::error(format!(
+                "call_memory_agent: agent '{AGENT_ID}' is not in parent agent '{}' subagents.allowlist",
+                parent.agent_definition_id
+            )));
+        }
 
         let mut prompt = format!(
             "Search the user's memory tree and return relevant context for this query:\n\n{query}"

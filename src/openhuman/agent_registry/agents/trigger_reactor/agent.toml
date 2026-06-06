@@ -29,6 +29,9 @@ omit_memory_md = false
 # via the normal `RouterProvider` path.
 hint = "agentic"
 
+[subagents]
+allowlist = ["agent_memory"]
+
 [tools]
 # Small, deliberately narrow tool surface:
 #   - call_memory_agent / memory_store: look up and persist context

@@ -16,6 +16,9 @@ omit_memory_md = false
 [model]
 hint = "agentic"
 
+[subagents]
+allowlist = ["agent_memory"]
+
 [tools]
 named = [
     "call_memory_agent",

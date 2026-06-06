@@ -11,7 +11,7 @@ use crate::openhuman::agent::dispatcher::{
     NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
 };
 use crate::openhuman::agent::harness::definition::{
-    AgentDefinitionRegistry, PromptSource, ToolScope,
+    AgentDefinition, AgentDefinitionRegistry, PromptSource, ToolScope,
 };
 use crate::openhuman::agent::host_runtime;
 use crate::openhuman::agent::memory_loader::{DefaultMemoryLoader, MemoryLoader};
@@ -60,6 +60,21 @@ pub(crate) fn dedup_visible_tool_specs(specs: Vec<ToolSpec>) -> Vec<ToolSpec> {
         );
     }
     deduped
+}
+
+fn should_synthesize_delegation_tools(def: &AgentDefinition) -> bool {
+    match &def.tools {
+        ToolScope::Wildcard => !def.subagents.is_empty(),
+        ToolScope::Named(names) => names.iter().any(|name| {
+            matches!(
+                name.as_str(),
+                "spawn_subagent"
+                    | "spawn_async_subagent"
+                    | "spawn_parallel_agents"
+                    | "spawn_worker_thread"
+            )
+        }),
+    }
 }
 
 pub(super) fn visible_tool_specs_for_policy(
@@ -1307,8 +1322,8 @@ impl Agent {
         // whitelist from the target definition (when we have one) or
         // fall back to the orchestrator's synthesis path.
         //
-        // For an agent with `[subagents] allowlist = [...]` in its TOML (today:
-        // orchestrator), `collect_orchestrator_tools` synthesises one
+        // For an agent with orchestration tools and `[subagents] allowlist = [...]`
+        // in its TOML (today: orchestrator), `collect_orchestrator_tools` synthesises one
         // `ArchetypeDelegationTool` per named sub-agent plus a single
         // collapsed `SkillDelegationTool`
         // (`delegate_to_integrations_agent`) whose `toolkit` argument
@@ -1335,11 +1350,15 @@ impl Agent {
             crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global(),
         ) {
             (Some(def), Some(reg)) => {
-                let synthed = tools::orchestrator_tools::collect_orchestrator_tools(
-                    def,
-                    reg,
-                    prewarmed_integrations_slice,
-                );
+                let synthed = if should_synthesize_delegation_tools(def) {
+                    tools::orchestrator_tools::collect_orchestrator_tools(
+                        def,
+                        reg,
+                        prewarmed_integrations_slice,
+                    )
+                } else {
+                    Vec::new()
+                };
                 let filter: Option<std::collections::HashSet<String>> = match &def.tools {
                     ToolScope::Named(names) => {
                         let mut set: std::collections::HashSet<String> =
@@ -1715,7 +1734,7 @@ fn prefetch_tool_memory_rules_blocking(
 
 #[cfg(test)]
 mod dedup_tests {
-    use super::dedup_visible_tool_specs;
+    use super::{dedup_visible_tool_specs, should_synthesize_delegation_tools};
     use crate::openhuman::tools::ToolSpec;
     use serde_json::json;
 
@@ -1784,6 +1803,28 @@ mod dedup_tests {
         assert_eq!(
             deduped[0].parameters,
             json!({"type": "object", "required": ["x"]})
+        );
+    }
+
+    #[test]
+    fn memory_only_subagent_policy_does_not_synthesize_delegate_tools() {
+        let defs = crate::openhuman::agent_registry::agents::load_builtins().unwrap();
+        let help = defs
+            .iter()
+            .find(|def| def.id == "help")
+            .expect("help agent is built in");
+        let orchestrator = defs
+            .iter()
+            .find(|def| def.id == "orchestrator")
+            .expect("orchestrator is built in");
+
+        assert!(
+            !should_synthesize_delegation_tools(help),
+            "memory-only subagent policy should gate call_memory_agent without adding delegate tools"
+        );
+        assert!(
+            should_synthesize_delegation_tools(orchestrator),
+            "orchestrator still needs synthesized delegate tools"
         );
     }
 }

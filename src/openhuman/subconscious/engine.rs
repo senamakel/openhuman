@@ -1,11 +1,20 @@
 //! Subconscious engine — periodic agent loop that produces thoughts.
 //!
-//! On each tick: build situation report → run subconscious agent →
-//! parse thoughts from output → create thread → store reflections.
+//! On each tick: load scratchpad → build situation report → run
+//! subconscious agent (with tool access + timeout) → parse thoughts
+//! from output → create thread → store reflections.
+//!
+//! ## Concurrency & timeouts
+//!
+//! A per-engine `tick_lock` prevents overlapping ticks. Each tick has
+//! a hard wall-clock timeout (`TICK_TIMEOUT`) so a stuck LLM call
+//! cannot block the loop forever. Individual tool calls within the
+//! agent turn are bounded by the agent harness's own iteration cap.
 
 use super::prompt;
 use super::reflection::{apply_cap, hydrate_draft, Reflection, ReflectionDraft};
 use super::reflection_store;
+use super::scratchpad;
 use super::situation_report::build_situation_report;
 use super::source_chunk::resolve_chunks;
 use super::store;
@@ -20,6 +29,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
+
+/// Hard timeout for a single subconscious tick (agent run + persistence).
+const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+
+/// Per-tool-call timeout injected into the agent config.
+const TOOL_CALL_TIMEOUT_SECS: u64 = 5 * 60;
 
 /// Pick the `TrustedAutomationSource` variant for a subconscious tick.
 ///
@@ -51,6 +66,7 @@ pub struct SubconsciousEngine {
     memory: Option<MemoryClientRef>,
     state: Mutex<EngineState>,
     tick_generation: AtomicU64,
+    tick_lock: Mutex<()>,
 }
 
 struct EngineState {
@@ -99,6 +115,7 @@ impl SubconsciousEngine {
                 provider_unavailable_reason: None,
             }),
             tick_generation: AtomicU64::new(0),
+            tick_lock: Mutex::new(()),
         }
     }
 
@@ -131,6 +148,44 @@ impl SubconsciousEngine {
     }
 
     pub async fn tick(&self) -> Result<TickResult> {
+        let _tick_guard = match tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            self.tick_lock.lock(),
+        )
+        .await
+        {
+            Ok(guard) => guard,
+            Err(_) => {
+                warn!("[subconscious] tick skipped — another tick is still running");
+                return Ok(TickResult {
+                    tick_at: now_secs(),
+                    thoughts_count: 0,
+                    thread_id: None,
+                    duration_ms: 0,
+                    response_chars: 0,
+                });
+            }
+        };
+
+        match tokio::time::timeout(TICK_TIMEOUT, self.tick_inner()).await {
+            Ok(result) => result,
+            Err(_) => {
+                warn!("[subconscious] tick timed out after {}s", TICK_TIMEOUT.as_secs());
+                let mut state = self.state.lock().await;
+                state.consecutive_failures += 1;
+                state.total_ticks += 1;
+                Ok(TickResult {
+                    tick_at: now_secs(),
+                    thoughts_count: 0,
+                    thread_id: None,
+                    duration_ms: TICK_TIMEOUT.as_millis() as u64,
+                    response_chars: 0,
+                })
+            }
+        }
+    }
+
+    async fn tick_inner(&self) -> Result<TickResult> {
         let started = std::time::Instant::now();
         let tick_at = now_secs();
 
@@ -192,11 +247,22 @@ impl SubconsciousEngine {
         .await;
         let has_external_content = report.has_external_content;
 
-        // 2. Load identity context
+        // 2. Load scratchpad (persistent working memory)
+        let scratchpad_entries = store::with_connection(&self.workspace_dir, |conn| {
+            scratchpad::list(conn, scratchpad::DEFAULT_MAX_ENTRIES)
+        })
+        .unwrap_or_else(|e| {
+            warn!("[subconscious] scratchpad load failed: {e}");
+            Vec::new()
+        });
+        let scratchpad_section = scratchpad::render_for_prompt(&scratchpad_entries);
+
+        // 3. Load identity context
         let identity = prompt::load_identity_context(&self.workspace_dir);
 
-        // 3. Run the subconscious agent
-        let agent_prompt = prompt::build_agent_prompt(&report.prompt_text, &identity);
+        // 4. Run the subconscious agent
+        let agent_prompt =
+            prompt::build_agent_prompt(&report.prompt_text, &identity, &scratchpad_section);
         let agent_result = self
             .run_agent(&config, &agent_prompt, has_external_content)
             .await;
@@ -206,7 +272,7 @@ impl SubconsciousEngine {
             Err(_) => (vec![], 0),
         };
 
-        // 4. Check if superseded
+        // 5. Check if superseded
         if self.tick_generation.load(Ordering::SeqCst) != my_generation {
             info!("[subconscious] tick superseded by newer tick, discarding");
             let mut state = self.state.lock().await;
@@ -220,7 +286,7 @@ impl SubconsciousEngine {
             });
         }
 
-        // 5. Create thread and persist reflections
+        // 6. Create thread and persist reflections
         let thread_id = if !drafts.is_empty() {
             let tid = self.create_tick_thread(&config, tick_at, &agent_prompt, &drafts);
             Some(tid)
@@ -239,7 +305,7 @@ impl SubconsciousEngine {
 
         let thoughts_count = reflections.len();
 
-        // 6. Update state — only advance last_tick_at and reset failures
+        // 7. Update state — only advance last_tick_at and reset failures
         //    when the agent actually ran. Errors keep consecutive_failures
         //    incrementing and leave last_tick_at unchanged so the next tick
         //    re-fetches the same window.
@@ -294,6 +360,7 @@ impl SubconsciousEngine {
         use crate::openhuman::agent::Agent;
 
         let mut effective = config.clone();
+        effective.agent.agent_timeout_secs = TOOL_CALL_TIMEOUT_SECS;
         match self.mode {
             SubconsciousMode::Simple => {
                 effective.autonomy.level = crate::openhuman::security::AutonomyLevel::ReadOnly;
@@ -318,11 +385,14 @@ impl SubconsciousEngine {
 
         let user_message = format!(
             "{prompt_text}\n\n\
-             Begin your research now. Start by calling `memory_smart_walk` with a \
+             Begin your research now. Start by calling `call_memory_agent` with a \
              broad query about the user's recent activity and state. Then follow up \
-             with targeted tool calls based on what you find. Do NOT skip the \
-             research phase — use multiple tool calls across multiple turns to build \
-             a deep understanding before synthesizing your thoughts.\n\n\
+             with targeted tool calls based on what you find. Maintain your \
+             scratchpad as you go — add new observations, update stale entries, \
+             remove resolved items.\n\n\
+             Do NOT skip the research phase — use multiple tool calls across \
+             multiple turns to build a deep understanding before synthesizing \
+             your thoughts.\n\n\
              When you're done researching, end your final message with a JSON block \
              of your thoughts:\n\n\
              ```json\n\

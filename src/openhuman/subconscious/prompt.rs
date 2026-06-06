@@ -11,7 +11,11 @@ const IDENTITY_EXCERPT_CHARS: usize = 2000;
 /// Build the system prompt for the subconscious agent tick. The agent
 /// observes the user's world via the situation report and produces
 /// structured reflections.
-pub fn build_agent_prompt(situation_report: &str, identity_context: &str) -> String {
+pub fn build_agent_prompt(
+    situation_report: &str,
+    identity_context: &str,
+    scratchpad_section: &str,
+) -> String {
     format!(
         r#"{identity_context}
 
@@ -26,6 +30,8 @@ You must USE YOUR TOOLS to investigate before forming conclusions.
 
 {situation_report}
 
+{scratchpad_section}
+
 ## Research Phase — MANDATORY
 
 You MUST use tools before producing thoughts. Do not skip this phase.
@@ -34,37 +40,52 @@ your insights will be.
 
 ### Tool usage guide (use these by name):
 
-1. **`memory_smart_walk`** — Your primary research tool. Multi-strategy
-   retrieval across all memory sources (vector search, keyword search,
-   entity lookup, file browsing, wiki trees). Use this FIRST for any
-   broad question like "what has the user been working on?" or "what
-   patterns exist across their communications?"
-   - Parameters: `mode: "smart_walk"`, `query: "<your research question>"`
+**Memory retrieval:**
 
-2. **`memory_tree_walk`** — Navigates the hierarchical memory tree
-   interactively. Use when you want to drill into a specific topic or
-   source tree that `memory_smart_walk` surfaced.
-   - Parameters: `mode: "walk"`, `query: "<specific topic>"`
+1. **`call_memory_agent`** — Your PRIMARY research tool. Spawns a
+   dedicated memory sub-agent that autonomously combines vector search,
+   keyword matching, entity lookup, and tree browsing — then returns a
+   cited answer. Use this FIRST for any question about the user's world.
+   - Parameters: `query: "<your research question>"`,
+     optionally `context: "<why you need this>"`, `max_turns: 15`
 
-3. **`memory_recall`** — Quick keyword/vector search in a namespace.
-   Good for targeted lookups of specific facts.
+2. **`memory_recall`** — Quick keyword/vector search in a namespace.
+   Good for targeted follow-up lookups of specific facts.
    - Parameters: `namespace: "global"`, `query: "<search terms>"`
 
-4. **`memory_tree`** — Direct tree operations:
+3. **`memory_tree`** — Direct tree operations for targeted exploration:
    - `mode: "search_entities"` — find people, projects, topics by name
    - `mode: "query_source"` — filter by source type + time window
    - `mode: "drill_down"` — expand a summary node one level deeper
    - `mode: "fetch_leaves"` — get raw source chunks for citation
 
+**Scratchpad (your persistent working memory):**
+
+4. **`scratchpad_add`** — Save a thought, hypothesis, or follow-up item
+   that should persist across ticks. Use `priority` (0-10) to mark
+   importance. Example: `{{"body": "User has a meeting with Alice on
+   Friday — check if prep is done", "priority": 5}}`
+
+5. **`scratchpad_edit`** — Update an existing scratchpad entry with new
+   information or revised thinking. Pass the `id` shown in brackets.
+
+6. **`scratchpad_remove`** — Remove an entry that's no longer relevant
+   or has been fully addressed.
+
 ### Research strategy:
 
-**Turn 1**: Start with `memory_smart_walk` using a broad question about
-recent activity, patterns, or the topics from the situation report.
+**Turn 1**: Call `call_memory_agent` with a broad question about the
+user's recent activity, open threads, and anything the situation report
+or scratchpad highlights.
 
-**Turn 2+**: Follow up on interesting findings. If you see mentions of
-deadlines, risks, or cross-source patterns, use `memory_tree` with
+**Turn 2+**: Follow up on interesting findings. Use `memory_tree` with
 `search_entities` or `drill_down` to get specifics. Use `memory_recall`
 for targeted fact lookups.
+
+**Scratchpad maintenance**: Throughout your research, update your
+scratchpad — add new observations, edit entries with fresh data, remove
+stale items. Your scratchpad is loaded at the start of every tick, so
+it IS your continuity mechanism.
 
 **Final turn**: Synthesize your research into structured thoughts.
 
@@ -186,7 +207,7 @@ mod tests {
 
     #[test]
     fn agent_prompt_includes_report_and_identity() {
-        let prompt = build_agent_prompt("## State\nSome data.", "Identity here");
+        let prompt = build_agent_prompt("## State\nSome data.", "Identity here", "");
         assert!(prompt.contains("Some data."));
         assert!(prompt.contains("Identity here"));
         assert!(prompt.contains("thoughts"));
@@ -194,11 +215,27 @@ mod tests {
 
     #[test]
     fn agent_prompt_includes_output_schema() {
-        let prompt = build_agent_prompt("", "");
+        let prompt = build_agent_prompt("", "", "");
         assert!(prompt.contains("kind"));
         assert!(prompt.contains("body"));
         assert!(prompt.contains("proposed_action"));
         assert!(prompt.contains("source_refs"));
+    }
+
+    #[test]
+    fn agent_prompt_includes_scratchpad_when_provided() {
+        let prompt = build_agent_prompt("", "", "## Scratchpad\n- item 1");
+        assert!(prompt.contains("## Scratchpad"));
+        assert!(prompt.contains("item 1"));
+    }
+
+    #[test]
+    fn agent_prompt_references_call_memory_agent() {
+        let prompt = build_agent_prompt("", "", "");
+        assert!(prompt.contains("call_memory_agent"));
+        assert!(prompt.contains("scratchpad_add"));
+        assert!(prompt.contains("scratchpad_edit"));
+        assert!(prompt.contains("scratchpad_remove"));
     }
 
     #[test]

@@ -1,8 +1,8 @@
 //! Subconscious engine — periodic agent loop that maintains a scratchpad.
 //!
-//! On each tick: load scratchpad → build situation report → run
-//! subconscious agent (with tool access + timeout) → agent maintains
-//! scratchpad via tools → log the run.
+//! On each tick: load scratchpad → retrieve memory context (in code) →
+//! build situation report → run subconscious agent (with tool access +
+//! timeout) → agent maintains scratchpad via tools → log the run.
 //!
 //! ## Concurrency & timeouts
 //!
@@ -24,6 +24,9 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
+
+/// Max chunks to retrieve from memory before the LLM call.
+const MEMORY_RETRIEVAL_MAX_CHUNKS: u32 = 30;
 
 /// Hard timeout for a single subconscious tick (agent run).
 const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
@@ -233,16 +236,27 @@ impl SubconsciousEngine {
         });
         let scratchpad_section = scratchpad::render_for_prompt(&scratchpad_entries);
 
-        // 3. Load identity context
+        // 3. Pre-LLM memory retrieval — query the memory tree using
+        //    scratchpad entries as context so the recall is focused on
+        //    what the subconscious is currently tracking.
+        let memory_section = retrieve_memory_context(
+            &self.memory,
+            &scratchpad_entries,
+        )
+        .await;
+
+        // 4. Load identity context
         let identity = load_identity_context(&self.workspace_dir);
 
-        // 4. Build user message with dynamic context (system prompt comes from agent definition)
+        // 5. Build user message with dynamic context (system prompt comes from agent definition)
         let agent_prompt = format!(
             "{identity}\n\n\
              ## Situation Report (pre-loaded context)\n\n\
              {situation}\n\n\
+             {memory}\n\n\
              {scratchpad}",
             situation = report.prompt_text,
+            memory = memory_section,
             scratchpad = scratchpad_section,
         );
         let agent_result = self
@@ -254,7 +268,7 @@ impl SubconsciousEngine {
             Err(_) => 0,
         };
 
-        // 5. Check if superseded
+        // 6. Check if superseded
         if self.tick_generation.load(Ordering::SeqCst) != my_generation {
             info!("[subconscious] tick superseded by newer tick, discarding");
             let mut state = self.state.lock().await;
@@ -266,7 +280,7 @@ impl SubconsciousEngine {
             });
         }
 
-        // 6. Update state — only advance last_tick_at and reset failures
+        // 7. Update state — only advance last_tick_at and reset failures
         //    when the agent actually ran. Errors keep consecutive_failures
         //    incrementing and leave last_tick_at unchanged so the next tick
         //    re-fetches the same window.
@@ -449,6 +463,106 @@ fn resolve_subconscious_route(config: &Config) -> SubconsciousProviderRoute {
     } else {
         SubconsciousProviderRoute::Other(raw.to_string())
     }
+}
+
+// ── Pre-LLM memory retrieval ────────────────────────────────────────────────
+
+/// Query the memory tree using scratchpad entries as context, returning
+/// a rendered markdown section to inject into the user message. This
+/// replaces the old `call_memory_agent` tool call — the retrieval now
+/// happens in code before the LLM runs, saving a full agent turn.
+async fn retrieve_memory_context(
+    memory: &Option<MemoryClientRef>,
+    scratchpad_entries: &[scratchpad::ScratchpadEntry],
+) -> String {
+    let client = match memory {
+        Some(c) => c,
+        None => {
+            debug!("[subconscious] no memory client — skipping pre-LLM retrieval");
+            return String::new();
+        }
+    };
+
+    // Build a query from high-priority scratchpad items (p5+) or fall back
+    // to a generic recent-activity query.
+    let query = build_memory_query(scratchpad_entries);
+    debug!(
+        "[subconscious] pre-LLM memory retrieval query_len={}",
+        query.len()
+    );
+
+    let started = std::time::Instant::now();
+
+    // Query conversation_memory namespace for relevant context
+    let conversation_ctx = client
+        .query_namespace("conversation_memory", &query, MEMORY_RETRIEVAL_MAX_CHUNKS)
+        .await
+        .unwrap_or_else(|e| {
+            warn!("[subconscious] conversation_memory query failed: {e}");
+            String::new()
+        });
+
+    // Also recall recent learning reflections (user patterns, preferences)
+    let reflections_ctx = client
+        .recall_namespace("learning_reflections", 10)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+
+    let elapsed = started.elapsed();
+    info!(
+        "[subconscious] pre-LLM memory retrieval done in {:.1}s conv_chars={} refl_chars={}",
+        elapsed.as_secs_f64(),
+        conversation_ctx.len(),
+        reflections_ctx.len()
+    );
+
+    if conversation_ctx.is_empty() && reflections_ctx.is_empty() {
+        return String::new();
+    }
+
+    let mut section = String::from("## Memory Context (pre-loaded)\n\n");
+    if !conversation_ctx.is_empty() {
+        section.push_str("### Recent Conversations & Activity\n\n");
+        section.push_str(&conversation_ctx);
+        section.push_str("\n\n");
+    }
+    if !reflections_ctx.is_empty() {
+        section.push_str("### Learned User Patterns\n\n");
+        section.push_str(&reflections_ctx);
+        section.push_str("\n\n");
+    }
+    section
+}
+
+/// Build a memory query from scratchpad entries. High-priority items
+/// (p5+) get included verbatim; lower-priority items contribute keywords.
+/// Falls back to a generic query when the scratchpad is empty.
+fn build_memory_query(entries: &[scratchpad::ScratchpadEntry]) -> String {
+    if entries.is_empty() {
+        return "What has the user been working on recently? Any upcoming deadlines, \
+                unresolved threads, or notable activity across all sources?"
+            .to_string();
+    }
+
+    let high_priority: Vec<&scratchpad::ScratchpadEntry> =
+        entries.iter().filter(|e| e.priority >= 5).collect();
+
+    if high_priority.is_empty() {
+        // Use all entries as a broad query
+        let bodies: Vec<&str> = entries.iter().map(|e| e.body.as_str()).collect();
+        return format!(
+            "Recent activity and updates related to: {}",
+            bodies.join("; ")
+        );
+    }
+
+    let bodies: Vec<&str> = high_priority.iter().map(|e| e.body.as_str()).collect();
+    format!(
+        "Updates and context for these tracked items: {}",
+        bodies.join("; ")
+    )
 }
 
 fn persist_last_tick_at(workspace_dir: &std::path::Path, tick_at: f64) {

@@ -9,6 +9,7 @@
 //! Protocol spec: <https://x402.org> / coinbase/x402 (v2).
 
 mod ops;
+pub(crate) mod store;
 mod types;
 
 #[cfg(test)]

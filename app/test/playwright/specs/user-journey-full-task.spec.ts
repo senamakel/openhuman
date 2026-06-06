@@ -11,6 +11,7 @@ const MOCK_ADMIN_BASE = `http://127.0.0.1:${process.env.E2E_MOCK_PORT || '18473'
 const USER_ID = 'pw-user-journey-full-task';
 const PROMPT = 'Fetch the contents of example.com for me';
 const CANARY_FINAL = 'canary-journey-fetch-j1k2l3';
+const MEMORY_TRIGGER_RESPONSE = { content: 'No relevant memory context.' };
 
 async function resetMock(): Promise<void> {
   await fetch(`${MOCK_ADMIN_BASE}/__admin/reset`, {
@@ -115,6 +116,7 @@ test.describe('User journey - full research task', () => {
     await setMockBehavior(
       'llmForcedResponses',
       JSON.stringify([
+        MEMORY_TRIGGER_RESPONSE,
         {
           content: '',
           toolCalls: [

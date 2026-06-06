@@ -145,22 +145,30 @@ fn alice_phoenix_thread() -> EmailThread {
     }
 }
 
-/// The orchestrator definition must list `call_memory_agent` so memory
-/// queries route through the dedicated memory subagent.
+/// The orchestrator definition must trigger `agent_memory` automatically so
+/// memory queries route through the dedicated memory subagent before the main
+/// provider prompt.
 ///
 /// History: #1141 consolidated 6 `memory_tree_*` tools into `memory_tree`;
 /// the agent_memory domain then unified `memory_tree` + `query_memory`
-/// behind `call_memory_agent`.
+/// behind `call_memory_agent`. The current contract removes that explicit tool
+/// and makes the memory agent a declarative TOML trigger.
 #[test]
 fn orchestrator_lists_memory_tree_tools() {
     let toml = include_str!("../src/openhuman/agent_registry/agents/orchestrator/agent.toml");
+    assert!(
+        toml.lines()
+            .map(str::trim)
+            .any(|line| line == "trigger_memory_agent = \"always\""),
+        "orchestrator agent.toml must trigger the memory agent automatically"
+    );
     let has_call_memory_agent = toml
         .lines()
         .map(str::trim)
         .any(|line| line == "\"call_memory_agent\"" || line == "\"call_memory_agent\",");
     assert!(
-        has_call_memory_agent,
-        "orchestrator agent.toml must list 'call_memory_agent' as a named tool entry"
+        !has_call_memory_agent,
+        "orchestrator agent.toml must not expose the removed 'call_memory_agent' tool"
     );
     // Verify all superseded tool names are gone.
     for old_name in [

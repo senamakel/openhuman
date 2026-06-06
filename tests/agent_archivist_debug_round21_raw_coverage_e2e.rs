@@ -241,6 +241,7 @@ fn definition(max_iterations: usize) -> AgentDefinition {
         omit_skills_catalog: true,
         omit_profile: true,
         omit_memory_md: true,
+        trigger_memory_agent: Default::default(),
         model: ModelSpec::Inherit,
         temperature: 0.0,
         tools: ToolScope::Named(vec!["echo".to_string()]),

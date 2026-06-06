@@ -11,7 +11,9 @@ const USER_ID = 'pw-chat-subagent';
 const PROMPT = 'Research the answer to life and tell me a marker phrase.';
 const CANARY_FINAL = 'subagent-canary-final-7afe2';
 const RESEARCHER_REPLY = 'The researcher answer is 42.';
+const MEMORY_TRIGGER_RESPONSE = { content: 'No relevant memory context.' };
 const FORCED_RESPONSES = [
+  MEMORY_TRIGGER_RESPONSE,
   {
     content: '',
     toolCalls: [

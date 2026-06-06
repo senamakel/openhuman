@@ -327,6 +327,8 @@ mod tests {
         }
     }
 
+    const TEST_SESSION: &str = "test";
+
     fn make_record(amount: u64, status: PaymentStatus) -> PaymentRecord {
         PaymentRecord {
             id: uuid::Uuid::new_v4().to_string(),
@@ -339,7 +341,7 @@ mod tests {
             tx_signature: Some("sig123".into()),
             status,
             timestamp: Utc::now(),
-            session_id: "test-session".into(),
+            session_id: TEST_SESSION.into(),
         }
     }
 

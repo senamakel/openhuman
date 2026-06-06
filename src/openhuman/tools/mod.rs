@@ -12,6 +12,7 @@ pub(crate) mod user_filter;
 pub(crate) mod implementations;
 
 pub use crate::openhuman::agent::tools::*;
+pub use crate::openhuman::agent_memory::tools::*;
 pub use crate::openhuman::agent_orchestration::tools::*;
 pub use crate::openhuman::artifacts::tools::*;
 pub use crate::openhuman::audio_toolkit::tools::*;

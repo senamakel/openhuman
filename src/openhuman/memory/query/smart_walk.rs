@@ -1135,8 +1135,17 @@ Use a multi-strategy approach inspired by graph-based retrieval:
 - Prefer keyword_search for specific names, IDs, or exact phrases.
 - Use entity_search when the query mentions people, projects, or organizations.
 - Always collect_evidence before answering, so your answer has citations.
-- Use XML tool_call tags for actions.
-- You can call multiple tools in one turn by including multiple <tool_call> blocks."#
+- Use <tool_call> tags with JSON content for actions. Format:
+  <tool_call>{"name":"tool_name","arguments":{"param":"value"}}</tool_call>
+- You can call multiple tools in one turn by including multiple <tool_call> blocks.
+
+## Example turn
+
+I'll search for recent emails about the project.
+
+<tool_call>{"name":"list_sources","arguments":{"content_type":"all"}}</tool_call>
+<tool_call>{"name":"keyword_search","arguments":{"pattern":"project","content_type":"raw"}}</tool_call>
+"#
         .into()
 }
 
@@ -1253,18 +1262,9 @@ fn parse_tool_calls(response: &str) -> (String, Vec<InnerCall>) {
                 match after_open.find(CLOSE) {
                     None => break,
                     Some(close_idx) => {
-                        let inner = &after_open[..close_idx];
-                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(inner.trim()) {
-                            if let Some(name) = val.get("name").and_then(|v| v.as_str()) {
-                                let args = val
-                                    .get("arguments")
-                                    .cloned()
-                                    .unwrap_or(serde_json::Value::Object(Default::default()));
-                                calls.push(InnerCall {
-                                    name: name.to_string(),
-                                    args,
-                                });
-                            }
+                        let inner = after_open[..close_idx].trim();
+                        if let Some(call) = parse_single_tool_call(inner) {
+                            calls.push(call);
                         }
                         remaining = &after_open[close_idx + CLOSE.len()..];
                     }
@@ -1275,6 +1275,77 @@ fn parse_tool_calls(response: &str) -> (String, Vec<InnerCall>) {
 
     let text_before = text_parts.concat();
     (text_before, calls)
+}
+
+fn parse_single_tool_call(inner: &str) -> Option<InnerCall> {
+    // Primary: JSON format {"name":"...","arguments":{...}}
+    if let Ok(val) = serde_json::from_str::<serde_json::Value>(inner) {
+        if let Some(name) = val.get("name").and_then(|v| v.as_str()) {
+            let args = val
+                .get("arguments")
+                .cloned()
+                .unwrap_or(serde_json::Value::Object(Default::default()));
+            log::debug!(
+                "[smart_walk::parse_single_tool_call] json path: tool={} args_keys={}",
+                name,
+                args.as_object().map(|m| m.len()).unwrap_or(0)
+            );
+            return Some(InnerCall {
+                name: name.to_string(),
+                args,
+            });
+        }
+    }
+    // Fallback: XML-style <tool_name>name</tool_name><parameters>JSON</parameters>
+    if let (Some(name), args) = (
+        extract_xml_tag(inner, "tool_name"),
+        extract_xml_tag(inner, "parameters"),
+    ) {
+        log::debug!(
+            "[smart_walk::parse_single_tool_call] xml fallback path: tool={} has_params={}",
+            name.trim(),
+            args.is_some()
+        );
+        let parsed_args = args
+            .and_then(|a| serde_json::from_str::<serde_json::Value>(a.trim()).ok())
+            .unwrap_or_else(|| {
+                // Parameters might be XML key-value pairs; parse them heuristically
+                let mut map = serde_json::Map::new();
+                for line in inner.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with('<')
+                        && !trimmed.starts_with("</")
+                        && !trimmed.starts_with("<tool_name")
+                        && !trimmed.starts_with("<parameters")
+                    {
+                        if let Some(tag_end) = trimmed.find('>') {
+                            let tag = &trimmed[1..tag_end];
+                            if let Some(close) = trimmed.find(&format!("</{tag}>")) {
+                                let value = &trimmed[tag_end + 1..close];
+                                map.insert(
+                                    tag.to_string(),
+                                    serde_json::Value::String(value.to_string()),
+                                );
+                            }
+                        }
+                    }
+                }
+                serde_json::Value::Object(map)
+            });
+        return Some(InnerCall {
+            name: name.trim().to_string(),
+            args: parsed_args,
+        });
+    }
+    None
+}
+
+fn extract_xml_tag<'a>(text: &'a str, tag: &str) -> Option<&'a str> {
+    let open = format!("<{tag}>");
+    let close = format!("</{tag}>");
+    let start = text.find(&open)? + open.len();
+    let end = text[start..].find(&close)? + start;
+    Some(&text[start..end])
 }
 
 // ── Fallback synthesis ──────────────────────────────────────────────────────
@@ -1674,6 +1745,432 @@ mod tests {
                 }
             }
         }
+    }
+
+    // ── Parser tests: XML-format tool calls ────────────────────────────
+
+    #[test]
+    fn parse_xml_style_tool_call() {
+        let response = r#"I'll browse the tree.
+<tool_call>
+<tool_name>browse_tree</tool_name>
+<parameters>{"node_id":"root"}</parameters>
+</tool_call>"#;
+
+        let (text, calls) = parse_tool_calls(response);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "browse_tree");
+        assert_eq!(calls[0].args["node_id"], "root");
+        assert!(text.contains("browse the tree"));
+    }
+
+    #[test]
+    fn parse_xml_style_with_xml_params() {
+        let response = r#"<tool_call>
+<tool_name>keyword_search</tool_name>
+<parameters>
+<pattern>project status</pattern>
+<content_type>raw</content_type>
+</parameters>
+</tool_call>"#;
+
+        let (_text, calls) = parse_tool_calls(response);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "keyword_search");
+        assert_eq!(calls[0].args["pattern"], "project status");
+        assert_eq!(calls[0].args["content_type"], "raw");
+    }
+
+    #[test]
+    fn parse_mixed_json_and_xml_tool_calls() {
+        let response = r#"Searching...
+<tool_call>{"name":"list_sources","arguments":{"content_type":"all"}}</tool_call>
+<tool_call>
+<tool_name>keyword_search</tool_name>
+<parameters>{"pattern":"email","content_type":"raw"}</parameters>
+</tool_call>"#;
+
+        let (_, calls) = parse_tool_calls(response);
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].name, "list_sources");
+        assert_eq!(calls[1].name, "keyword_search");
+        assert_eq!(calls[1].args["pattern"], "email");
+    }
+
+    #[test]
+    fn parse_xml_no_parameters_tag() {
+        let response = r#"<tool_call>
+<tool_name>list_sources</tool_name>
+</tool_call>"#;
+
+        let (_, calls) = parse_tool_calls(response);
+        // No <parameters> tag → extract_xml_tag returns None for parameters
+        // parse_single_tool_call requires tool_name match but parameters is
+        // Option, so it should still parse with empty args
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "list_sources");
+    }
+
+    #[test]
+    fn extract_xml_tag_basic() {
+        assert_eq!(extract_xml_tag("<name>hello</name>", "name"), Some("hello"));
+        assert_eq!(extract_xml_tag("no tags here", "name"), None);
+        assert_eq!(extract_xml_tag("<a>1</a><b>2</b>", "b"), Some("2"));
+    }
+
+    #[test]
+    fn parse_single_tool_call_json() {
+        let call =
+            parse_single_tool_call(r#"{"name":"keyword_search","arguments":{"pattern":"test"}}"#);
+        assert!(call.is_some());
+        let call = call.unwrap();
+        assert_eq!(call.name, "keyword_search");
+        assert_eq!(call.args["pattern"], "test");
+    }
+
+    #[test]
+    fn parse_single_tool_call_xml() {
+        let call = parse_single_tool_call(
+            "<tool_name>read_content</tool_name>\n<parameters>{\"path\":\"raw/email/test.md\"}</parameters>",
+        );
+        assert!(call.is_some());
+        let call = call.unwrap();
+        assert_eq!(call.name, "read_content");
+        assert_eq!(call.args["path"], "raw/email/test.md");
+    }
+
+    #[test]
+    fn parse_single_tool_call_garbage_returns_none() {
+        assert!(parse_single_tool_call("just some text").is_none());
+        assert!(parse_single_tool_call("").is_none());
+    }
+
+    // ── E2E walk tests with rich seeded content ─────────────────────────
+
+    fn seed_synced_memory(content_root: &Path) {
+        // Raw email content
+        let email_dir = content_root.join("raw").join("email").join("inbox");
+        std::fs::create_dir_all(&email_dir).unwrap();
+        std::fs::write(
+            email_dir.join("001_meeting.md"),
+            "---\nsource_kind: email\nauthor: alice@example.com\ndate: 2026-06-01\n---\n\
+             # Team standup notes\n\n\
+             Action items:\n\
+             - Deploy the auth service refactor by Friday\n\
+             - Review PR #342 for the billing module\n\
+             - Schedule security audit with external team\n",
+        )
+        .unwrap();
+        std::fs::write(
+            email_dir.join("002_project.md"),
+            "---\nsource_kind: email\nauthor: bob@example.com\ndate: 2026-06-02\n---\n\
+             # Project Phoenix status update\n\n\
+             The migration is 80% complete. Remaining:\n\
+             - Database schema changes (blocked on DBA review)\n\
+             - API versioning for backward compatibility\n\
+             - Load testing the new endpoints\n",
+        )
+        .unwrap();
+        std::fs::write(
+            email_dir.join("003_personal.md"),
+            "---\nsource_kind: email\nauthor: carol@example.com\ndate: 2026-06-03\n---\n\
+             # Lunch plans\n\n\
+             Hey, want to grab sushi on Thursday? The new place on 5th street \
+             got great reviews.\n",
+        )
+        .unwrap();
+
+        // Episodic memories
+        let ep_dir = content_root.join("episodic").join("daily");
+        std::fs::create_dir_all(&ep_dir).unwrap();
+        std::fs::write(
+            ep_dir.join("2026-06-01.md"),
+            "---\nkind: episodic\ndate: 2026-06-01\n---\n\
+             Worked on the auth service refactor. Had a productive standup.\n\
+             Identified three blockers for Project Phoenix.\n",
+        )
+        .unwrap();
+
+        // Wiki summaries
+        let wiki_dir = content_root
+            .join("wiki")
+            .join("summaries")
+            .join("email-inbox");
+        std::fs::create_dir_all(wiki_dir.join("L1")).unwrap();
+        std::fs::write(
+            wiki_dir.join("L1").join("summary-week-22.md"),
+            "---\nkind: summary\nlevel: 1\n---\n\
+             Week 22 summary: Team focused on Project Phoenix migration \
+             and auth service refactor. Key contacts: alice@example.com (standup), \
+             bob@example.com (project status), carol@example.com (social).\n",
+        )
+        .unwrap();
+
+        // Document content
+        let doc_dir = content_root.join("document").join("notes");
+        std::fs::create_dir_all(&doc_dir).unwrap();
+        std::fs::write(
+            doc_dir.join("project-phoenix.md"),
+            "---\nsource_kind: document\n---\n\
+             # Project Phoenix\n\n\
+             ## Overview\n\
+             Migration from legacy monolith to microservices.\n\n\
+             ## Status\n\
+             Phase 2 of 3 — data migration and API versioning.\n\n\
+             ## Key risks\n\
+             - Data integrity during cutover\n\
+             - Backward compatibility for mobile clients\n",
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn walk_synced_email_with_keyword_and_evidence() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let content_root = cfg.workspace_dir.join("memory_tree").join("content");
+        seed_synced_memory(&content_root);
+
+        let provider = StubProvider::new(vec![
+            // Turn 1: list sources to discover content
+            r#"<tool_call>{"name":"list_sources","arguments":{"content_type":"all"}}</tool_call>"#,
+            // Turn 2: keyword search for "project phoenix"
+            r#"<tool_call>{"name":"keyword_search","arguments":{"pattern":"project phoenix","content_type":"all"}}</tool_call>"#,
+            // Turn 3: read the project email and project doc
+            r#"<tool_call>{"name":"read_content","arguments":{"path":"raw/email/inbox/002_project.md"}}</tool_call>
+<tool_call>{"name":"read_content","arguments":{"path":"document/notes/project-phoenix.md"}}</tool_call>"#,
+            // Turn 4: collect evidence + answer
+            concat!(
+                r#"<tool_call>{"name":"collect_evidence","arguments":{"items":["#,
+                r#"{"source":"raw/email/inbox/002_project.md","snippet":"Migration is 80% complete. Remaining: DB schema, API versioning, load testing.","relevance":"direct project status"},"#,
+                r#"{"source":"document/notes/project-phoenix.md","snippet":"Phase 2 of 3 — data migration and API versioning.","relevance":"project overview doc"}"#,
+                r#"]}}</tool_call>"#,
+                "\n",
+                r#"<tool_call>{"name":"answer","arguments":{"text":"Project Phoenix is 80% complete (Phase 2 of 3). Remaining work: database schema changes (blocked on DBA review), API versioning for backward compatibility, and load testing new endpoints. Key risks include data integrity during cutover and backward compatibility for mobile clients."}}</tool_call>"#,
+            ),
+        ]);
+
+        let opts = SmartWalkOptions {
+            max_turns: 10,
+            namespace: "default".into(),
+            model: Some("test-model".into()),
+            content_root: Some(content_root),
+        };
+
+        let outcome = run_smart_walk(
+            &cfg,
+            &provider,
+            "What is the status of Project Phoenix?",
+            opts,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
+        assert!(outcome.answer.contains("80%"));
+        assert!(outcome.answer.contains("Phoenix"));
+        assert_eq!(outcome.evidence.len(), 2);
+        assert!(outcome.evidence[0].source_path.contains("002_project"));
+        assert!(outcome.evidence[1].source_path.contains("project-phoenix"));
+        assert_eq!(outcome.turns_used, 4);
+    }
+
+    #[tokio::test]
+    async fn walk_with_xml_format_tool_calls() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let content_root = cfg.workspace_dir.join("memory_tree").join("content");
+        seed_synced_memory(&content_root);
+
+        // Simulate the bug scenario: LLM outputs XML-style tool calls
+        let provider = StubProvider::new(vec![
+            // Turn 1: XML-style list_sources
+            "<tool_call>\n<tool_name>list_sources</tool_name>\n<parameters>{\"content_type\":\"all\"}</parameters>\n</tool_call>",
+            // Turn 2: XML-style keyword_search
+            "<tool_call>\n<tool_name>keyword_search</tool_name>\n<parameters>{\"pattern\":\"auth service\",\"content_type\":\"raw\"}</parameters>\n</tool_call>",
+            // Turn 3: read + answer (JSON this time — mixed is fine)
+            r#"<tool_call>{"name":"read_content","arguments":{"path":"raw/email/inbox/001_meeting.md"}}</tool_call>"#,
+            // Turn 4: answer
+            r#"<tool_call>{"name":"answer","arguments":{"text":"The auth service refactor needs to be deployed by Friday, as discussed in the team standup."}}</tool_call>"#,
+        ]);
+
+        let opts = SmartWalkOptions {
+            max_turns: 10,
+            namespace: "default".into(),
+            model: Some("test-model".into()),
+            content_root: Some(content_root),
+        };
+
+        let outcome = run_smart_walk(
+            &cfg,
+            &provider,
+            "What do I need to work on for the auth service?",
+            opts,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
+        assert!(outcome.answer.contains("auth service"));
+        // Verify the XML tool calls were parsed — we should have 4 turns,
+        // not 1 (which would happen if XML calls were silently dropped)
+        assert_eq!(outcome.turns_used, 4);
+        assert!(outcome.trace.len() >= 3);
+        assert_eq!(outcome.trace[0].action, "list_sources");
+        assert_eq!(outcome.trace[1].action, "keyword_search");
+    }
+
+    #[tokio::test]
+    async fn walk_reads_across_content_types() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let content_root = cfg.workspace_dir.join("memory_tree").join("content");
+        seed_synced_memory(&content_root);
+
+        let provider = StubProvider::new(vec![
+            // Turn 1: search for "standup"
+            r#"<tool_call>{"name":"keyword_search","arguments":{"pattern":"standup","content_type":"all"}}</tool_call>"#,
+            // Turn 2: read the email and the episodic memory
+            r#"<tool_call>{"name":"read_content","arguments":{"path":"raw/email/inbox/001_meeting.md"}}</tool_call>
+<tool_call>{"name":"read_content","arguments":{"path":"episodic/daily/2026-06-01.md"}}</tool_call>"#,
+            // Turn 3: also read the wiki summary
+            r#"<tool_call>{"name":"read_content","arguments":{"path":"wiki/summaries/email-inbox/L1/summary-week-22.md"}}</tool_call>"#,
+            // Turn 4: collect from all 3 sources + answer
+            concat!(
+                r#"<tool_call>{"name":"collect_evidence","arguments":{"items":["#,
+                r#"{"source":"raw/email/inbox/001_meeting.md","snippet":"Deploy auth service refactor by Friday","relevance":"action item from standup"},"#,
+                r#"{"source":"episodic/daily/2026-06-01.md","snippet":"Had a productive standup","relevance":"episodic record"},"#,
+                r#"{"source":"wiki/summaries/email-inbox/L1/summary-week-22.md","snippet":"Team focused on Project Phoenix migration","relevance":"weekly summary"}"#,
+                r#"]}}</tool_call>"#,
+                "\n",
+                r#"<tool_call>{"name":"answer","arguments":{"text":"The standup covered Project Phoenix migration progress, auth service refactor deadlines, and identified three blockers."}}</tool_call>"#,
+            ),
+        ]);
+
+        let opts = SmartWalkOptions {
+            max_turns: 10,
+            namespace: "default".into(),
+            model: Some("test-model".into()),
+            content_root: Some(content_root),
+        };
+
+        let outcome = run_smart_walk(&cfg, &provider, "What happened in the standup?", opts)
+            .await
+            .unwrap();
+
+        assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
+        assert_eq!(outcome.evidence.len(), 3);
+        // Evidence from all three content types
+        let sources: Vec<&str> = outcome
+            .evidence
+            .iter()
+            .map(|e| e.source_path.as_str())
+            .collect();
+        assert!(sources.iter().any(|s| s.contains("raw/")));
+        assert!(sources.iter().any(|s| s.contains("episodic/")));
+        assert!(sources.iter().any(|s| s.contains("wiki/")));
+    }
+
+    #[tokio::test]
+    async fn walk_llm_gives_up_uses_fallback() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let content_root = cfg.workspace_dir.join("memory_tree").join("content");
+        seed_synced_memory(&content_root);
+
+        let provider = StubProvider::new(vec![
+            // Turn 1: search finds nothing
+            r#"<tool_call>{"name":"keyword_search","arguments":{"pattern":"quantum computing","content_type":"all"}}</tool_call>"#,
+            // Turn 2: LLM gives up with empty response
+            "",
+        ]);
+
+        let opts = SmartWalkOptions {
+            max_turns: 5,
+            namespace: "default".into(),
+            model: Some("test-model".into()),
+            content_root: Some(content_root),
+        };
+
+        let outcome = run_smart_walk(&cfg, &provider, "Tell me about quantum computing", opts)
+            .await
+            .unwrap();
+
+        assert_eq!(outcome.stopped_reason, SmartWalkStopReason::LlmGaveUp);
+        assert!(outcome.evidence.is_empty());
+        assert!(outcome.answer.contains("Could not converge"));
+    }
+
+    #[tokio::test]
+    async fn walk_direct_answer_without_tools() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let content_root = cfg.workspace_dir.join("memory_tree").join("content");
+        seed_synced_memory(&content_root);
+
+        let provider = StubProvider::new(vec![
+            // LLM directly answers without using any tools
+            "I don't have enough context to answer that question from your memory.",
+        ]);
+
+        let opts = SmartWalkOptions {
+            max_turns: 5,
+            namespace: "default".into(),
+            model: Some("test-model".into()),
+            content_root: Some(content_root),
+        };
+
+        let outcome = run_smart_walk(&cfg, &provider, "What's the meaning of life?", opts)
+            .await
+            .unwrap();
+
+        assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
+        assert!(outcome.answer.contains("don't have enough context"));
+        assert_eq!(outcome.turns_used, 1);
+        assert!(outcome.evidence.is_empty());
+    }
+
+    #[tokio::test]
+    async fn walk_collect_evidence_deduplicates_within_limit() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let content_root = cfg.workspace_dir.join("memory_tree").join("content");
+        seed_synced_memory(&content_root);
+
+        let provider = StubProvider::new(vec![
+            // Turn 1: collect a batch of evidence
+            concat!(
+                r#"<tool_call>{"name":"collect_evidence","arguments":{"items":["#,
+                r#"{"source":"raw/email/inbox/001_meeting.md","snippet":"Deploy auth","relevance":"task"},"#,
+                r#"{"source":"raw/email/inbox/002_project.md","snippet":"Migration 80%","relevance":"status"}"#,
+                r#"]}}</tool_call>"#,
+            ),
+            // Turn 2: collect more evidence (including a duplicate of the first source)
+            concat!(
+                r#"<tool_call>{"name":"collect_evidence","arguments":{"items":["#,
+                r#"{"source":"document/notes/project-phoenix.md","snippet":"Phase 2 of 3","relevance":"doc"},"#,
+                r#"{"source":"raw/email/inbox/001_meeting.md","snippet":"Deploy auth (duplicate)","relevance":"task"}"#,
+                r#"]}}</tool_call>"#,
+            ),
+            // Turn 3: answer
+            r#"<tool_call>{"name":"answer","arguments":{"text":"Summary with evidence items including duplicate source."}}</tool_call>"#,
+        ]);
+
+        let opts = SmartWalkOptions {
+            max_turns: 10,
+            namespace: "default".into(),
+            model: Some("test-model".into()),
+            content_root: Some(content_root),
+        };
+
+        let outcome = run_smart_walk(&cfg, &provider, "Summarize everything", opts)
+            .await
+            .unwrap();
+
+        assert_eq!(outcome.stopped_reason, SmartWalkStopReason::Answered);
+        // 2 items from turn 1 + 2 items from turn 2 (one of which duplicates a turn-1 source);
+        // collect_evidence does not deduplicate, so all 4 items are present.
+        assert_eq!(outcome.evidence.len(), 4);
     }
 
     fn walkdir_first_md(dir: &std::path::Path) -> Option<std::path::PathBuf> {

@@ -49,7 +49,7 @@ fn presentation_agent_lists_generate_presentation_and_grounding_tools() {
         lists_named_tool(PRESENTATION_AGENT_TOML, TOOL_NAME),
         "presentation_agent must list '{TOOL_NAME}'"
     );
-    for grounding_tool in ["memory_tree", "query_memory", "web_search_tool"] {
+    for grounding_tool in ["call_memory_agent", "web_search_tool"] {
         assert!(
             lists_named_tool(PRESENTATION_AGENT_TOML, grounding_tool),
             "presentation_agent must list grounding tool '{grounding_tool}'"

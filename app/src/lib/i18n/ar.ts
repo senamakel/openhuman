@@ -2074,7 +2074,8 @@ const messages: TranslationMap = {
   'subconscious.runNow': 'تشغيل الآن',
   'subconscious.providerUnavailableTitle': 'تم إيقاف اللاوعي مؤقتًا',
   'subconscious.providerSettings': 'إعدادات الذكاء الاصطناعي',
-  'subconscious.scratchpadInfo': 'يحتفظ اللاوعي بدفتر ملاحظات مستمر للملاحظات عبر الدورات. تحقق من الإعدادات → وصول الوكيل لتكوين الوضع والتكرار.',
+  'subconscious.scratchpadInfo':
+    'يحتفظ اللاوعي بدفتر ملاحظات مستمر للملاحظات عبر الدورات. تحقق من الإعدادات → وصول الوكيل لتكوين الوضع والتكرار.',
   'subconscious.approvalNeeded': 'يلزم الموافقة',
   'subconscious.requiresApproval': 'يتطلب الموافقة',
   'subconscious.fixInConnections': 'إصلاح في الاتصالات',

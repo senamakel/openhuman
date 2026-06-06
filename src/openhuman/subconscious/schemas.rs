@@ -9,10 +9,7 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::rpc::RpcOutcome;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
-    vec![
-        schemas("status"),
-        schemas("trigger"),
-    ]
+    vec![schemas("status"), schemas("trigger")]
 }
 
 pub fn all_registered_controllers() -> Vec<RegisteredController> {

@@ -2011,7 +2011,8 @@ const messages: TranslationMap = {
   'subconscious.runNow': '立即运行',
   'subconscious.providerUnavailableTitle': '潜意识已暂停',
   'subconscious.providerSettings': 'AI 设置',
-  'subconscious.scratchpadInfo': '潜意识在每次循环中维护一个持久的观察记事本。请查看设置 → 代理访问来配置模式和频率。',
+  'subconscious.scratchpadInfo':
+    '潜意识在每次循环中维护一个持久的观察记事本。请查看设置 → 代理访问来配置模式和频率。',
   'subconscious.approvalNeeded': '需要审批',
   'subconscious.requiresApproval': '需要审批',
   'subconscious.fixInConnections': '在连接中修复',

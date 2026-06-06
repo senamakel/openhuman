@@ -60,12 +60,7 @@ pub fn load(workspace_dir: &Path) -> Result<Vec<ScratchpadEntry>> {
     Ok(parse_entries(&content))
 }
 
-pub fn add(
-    workspace_dir: &Path,
-    body: &str,
-    priority: u32,
-    max_entries: usize,
-) -> Result<String> {
+pub fn add(workspace_dir: &Path, body: &str, priority: u32, max_entries: usize) -> Result<String> {
     let mut entries = load(workspace_dir)?;
     let id = short_id();
     let now = now_secs();
@@ -81,12 +76,7 @@ pub fn add(
     Ok(id)
 }
 
-pub fn edit(
-    workspace_dir: &Path,
-    id: &str,
-    body: &str,
-    priority: Option<u32>,
-) -> Result<bool> {
+pub fn edit(workspace_dir: &Path, id: &str, body: &str, priority: Option<u32>) -> Result<bool> {
     let mut entries = load(workspace_dir)?;
     let Some(entry) = entries.iter_mut().find(|e| e.id == id) else {
         return Ok(false);
@@ -149,10 +139,7 @@ fn render_file(entries: &[ScratchpadEntry]) -> String {
     for (i, entry) in entries.iter().enumerate() {
         out.push_str(&format!(
             "<!-- entry:{} p:{} created:{} updated:{} -->\n",
-            entry.id,
-            entry.priority,
-            entry.created_at as u64,
-            entry.updated_at as u64,
+            entry.id, entry.priority, entry.created_at as u64, entry.updated_at as u64,
         ));
         out.push_str(&entry.body);
         out.push('\n');
@@ -222,10 +209,15 @@ fn parse_single_block(block: &str) -> Option<ScratchpadEntry> {
 fn extract_meta(line: &str, key: &str) -> Option<String> {
     let start = line.find(key)? + key.len();
     let rest = &line[start..];
-    let end = rest.find(|c: char| c.is_whitespace() || c == '-')
+    let end = rest
+        .find(|c: char| c.is_whitespace() || c == '-')
         .unwrap_or(rest.len());
     let val = rest[..end].trim().to_string();
-    if val.is_empty() { None } else { Some(val) }
+    if val.is_empty() {
+        None
+    } else {
+        Some(val)
+    }
 }
 
 fn evict(entries: &mut Vec<ScratchpadEntry>, max: usize) {
@@ -233,9 +225,11 @@ fn evict(entries: &mut Vec<ScratchpadEntry>, max: usize) {
         return;
     }
     entries.sort_by(|a, b| {
-        b.priority
-            .cmp(&a.priority)
-            .then(b.updated_at.partial_cmp(&a.updated_at).unwrap_or(std::cmp::Ordering::Equal))
+        b.priority.cmp(&a.priority).then(
+            b.updated_at
+                .partial_cmp(&a.updated_at)
+                .unwrap_or(std::cmp::Ordering::Equal),
+        )
     });
     entries.truncate(max);
 }

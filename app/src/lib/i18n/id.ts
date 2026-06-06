@@ -2118,7 +2118,8 @@ const messages: TranslationMap = {
   'subconscious.runNow': 'Jalankan Sekarang',
   'subconscious.providerUnavailableTitle': 'Subconscious dijeda',
   'subconscious.providerSettings': 'Pengaturan AI',
-  'subconscious.scratchpadInfo': 'Alam bawah sadar memelihara catatan pengamatan yang persisten di seluruh siklus. Periksa Pengaturan → Akses agen untuk mengonfigurasi mode dan frekuensi.',
+  'subconscious.scratchpadInfo':
+    'Alam bawah sadar memelihara catatan pengamatan yang persisten di seluruh siklus. Periksa Pengaturan → Akses agen untuk mengonfigurasi mode dan frekuensi.',
   'subconscious.approvalNeeded': 'Persetujuan Diperlukan',
   'subconscious.requiresApproval': 'Memerlukan persetujuan',
   'subconscious.fixInConnections': 'Perbaiki di Koneksi',

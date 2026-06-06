@@ -2116,7 +2116,8 @@ const messages: TranslationMap = {
   'subconscious.runNow': 'এখনই চালান',
   'subconscious.providerUnavailableTitle': 'Subconscious বিরত আছে',
   'subconscious.providerSettings': 'AI সেটিংস',
-  'subconscious.scratchpadInfo': 'সাবকনশাস টিক জুড়ে পর্যবেক্ষণের একটি স্থায়ী স্ক্র্যাচপ্যাড বজায় রাখে। মোড এবং ফ্রিকোয়েন্সি কনফিগার করতে সেটিংস → এজেন্ট অ্যাক্সেস দেখুন।',
+  'subconscious.scratchpadInfo':
+    'সাবকনশাস টিক জুড়ে পর্যবেক্ষণের একটি স্থায়ী স্ক্র্যাচপ্যাড বজায় রাখে। মোড এবং ফ্রিকোয়েন্সি কনফিগার করতে সেটিংস → এজেন্ট অ্যাক্সেস দেখুন।',
   'subconscious.approvalNeeded': 'অনুমোদন প্রয়োজন',
   'subconscious.requiresApproval': 'অনুমোদন প্রয়োজন',
   'subconscious.fixInConnections': 'সংযোগে ঠিক করুন',

@@ -146,27 +146,28 @@ impl SubconsciousEngine {
     }
 
     pub async fn tick(&self) -> Result<TickResult> {
-        let _tick_guard = match tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            self.tick_lock.lock(),
-        )
-        .await
-        {
-            Ok(guard) => guard,
-            Err(_) => {
-                warn!("[subconscious] tick skipped — another tick is still running");
-                return Ok(TickResult {
-                    tick_at: now_secs(),
-                    duration_ms: 0,
-                    response_chars: 0,
-                });
-            }
-        };
+        let _tick_guard =
+            match tokio::time::timeout(std::time::Duration::from_secs(5), self.tick_lock.lock())
+                .await
+            {
+                Ok(guard) => guard,
+                Err(_) => {
+                    warn!("[subconscious] tick skipped — another tick is still running");
+                    return Ok(TickResult {
+                        tick_at: now_secs(),
+                        duration_ms: 0,
+                        response_chars: 0,
+                    });
+                }
+            };
 
         match tokio::time::timeout(TICK_TIMEOUT, self.tick_inner()).await {
             Ok(result) => result,
             Err(_) => {
-                warn!("[subconscious] tick timed out after {}s", TICK_TIMEOUT.as_secs());
+                warn!(
+                    "[subconscious] tick timed out after {}s",
+                    TICK_TIMEOUT.as_secs()
+                );
                 let mut state = self.state.lock().await;
                 state.consecutive_failures += 1;
                 state.total_ticks += 1;
@@ -239,11 +240,7 @@ impl SubconsciousEngine {
         // 3. Pre-LLM memory retrieval — query the memory tree using
         //    scratchpad entries as context so the recall is focused on
         //    what the subconscious is currently tracking.
-        let memory_section = retrieve_memory_context(
-            &self.memory,
-            &scratchpad_entries,
-        )
-        .await;
+        let memory_section = retrieve_memory_context(&self.memory, &scratchpad_entries).await;
 
         // 4. Load identity context
         let identity = load_identity_context(&self.workspace_dir);
@@ -356,14 +353,16 @@ impl SubconsciousEngine {
         );
 
         let mode_guidance = match self.mode {
-            SubconsciousMode::Aggressive => "\n\n\
+            SubconsciousMode::Aggressive => {
+                "\n\n\
                 You are in AGGRESSIVE mode. You may use `spawn_subagent` to delegate \
                 complex tasks:\n\
                 - `agent_id: \"orchestrator\"` with `model: \"reasoning-v1\"` for deep \
                   reasoning and multi-step execution\n\
                 - `agent_id: \"researcher\"` for web research and external data\n\n\
                 Use this power when you identify actionable opportunities, approaching \
-                deadlines, or patterns that warrant proactive help.",
+                deadlines, or patterns that warrant proactive help."
+            }
             _ => "",
         };
 

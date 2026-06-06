@@ -2115,7 +2115,8 @@ const messages: TranslationMap = {
   'subconscious.runNow': 'अभी चलाएं',
   'subconscious.providerUnavailableTitle': 'Subconscious रुका हुआ है',
   'subconscious.providerSettings': 'AI सेटिंग्स',
-  'subconscious.scratchpadInfo': 'सबकॉन्शस टिक्स में अवलोकनों का एक स्थायी स्क्रैचपैड बनाए रखता है। मोड और आवृत्ति कॉन्फ़िगर करने के लिए सेटिंग्स → एजेंट एक्सेस देखें।',
+  'subconscious.scratchpadInfo':
+    'सबकॉन्शस टिक्स में अवलोकनों का एक स्थायी स्क्रैचपैड बनाए रखता है। मोड और आवृत्ति कॉन्फ़िगर करने के लिए सेटिंग्स → एजेंट एक्सेस देखें।',
   'subconscious.approvalNeeded': 'अनुमति चाहिए',
   'subconscious.requiresApproval': 'अनुमति ज़रूरी है',
   'subconscious.fixInConnections': 'Connections में ठीक करें',

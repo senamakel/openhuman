@@ -12,7 +12,7 @@
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::current_parent;
 use crate::openhuman::agent::harness::subagent_runner::{
-    SubagentRunOptions, SubagentRunStatus, run_subagent,
+    run_subagent, SubagentRunOptions, SubagentRunStatus,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope};
 use async_trait::async_trait;

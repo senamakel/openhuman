@@ -73,7 +73,8 @@ fn run_tick(args: &[String]) -> Result<()> {
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
-        let mut config = crate::openhuman::config::Config::load_or_init().await
+        let mut config = crate::openhuman::config::Config::load_or_init()
+            .await
             .map_err(|e| anyhow!("config load failed: {e}"))?;
 
         if let Some(ws) = &flags.workspace {
@@ -84,7 +85,11 @@ fn run_tick(args: &[String]) -> Result<()> {
             config.heartbeat.subconscious_mode = match mode_str.as_str() {
                 "simple" => crate::openhuman::config::schema::SubconsciousMode::Simple,
                 "aggressive" => crate::openhuman::config::schema::SubconsciousMode::Aggressive,
-                other => return Err(anyhow!("unknown mode '{other}', expected simple|aggressive")),
+                other => {
+                    return Err(anyhow!(
+                        "unknown mode '{other}', expected simple|aggressive"
+                    ))
+                }
             };
             config.heartbeat.enabled = true;
             config.heartbeat.inference_enabled = true;
@@ -95,12 +100,17 @@ fn run_tick(args: &[String]) -> Result<()> {
             config.heartbeat.enabled = true;
             config.heartbeat.inference_enabled = true;
             if !config.heartbeat.subconscious_mode.is_enabled() {
-                config.heartbeat.subconscious_mode = crate::openhuman::config::schema::SubconsciousMode::Simple;
+                config.heartbeat.subconscious_mode =
+                    crate::openhuman::config::schema::SubconsciousMode::Simple;
             }
         }
 
         let mode = config.heartbeat.effective_subconscious_mode();
-        eprintln!("[subconscious] mode={} workspace={}", mode.as_str(), config.workspace_dir.display());
+        eprintln!(
+            "[subconscious] mode={} workspace={}",
+            mode.as_str(),
+            config.workspace_dir.display()
+        );
 
         // Init memory client
         let _ = crate::openhuman::memory::global::init(config.workspace_dir.clone());
@@ -124,7 +134,11 @@ fn run_tick(args: &[String]) -> Result<()> {
         }
 
         // Check provider availability
-        if let Some(reason) = crate::openhuman::subconscious::engine::subconscious_provider_unavailable_reason(&config) {
+        if let Some(reason) =
+            crate::openhuman::subconscious::engine::subconscious_provider_unavailable_reason(
+                &config,
+            )
+        {
             eprintln!("[subconscious] provider unavailable: {reason}");
             return Err(anyhow!("provider unavailable: {reason}"));
         }
@@ -134,13 +148,14 @@ fn run_tick(args: &[String]) -> Result<()> {
         let engine = crate::openhuman::subconscious::SubconsciousEngine::new(&config, memory);
 
         eprintln!("[subconscious] running tick...");
-        let result = engine.tick().await
+        let result = engine
+            .tick()
+            .await
             .map_err(|e| anyhow!("tick failed: {e}"))?;
 
         eprintln!(
             "[subconscious] tick complete: duration={}ms response_chars={}",
-            result.duration_ms,
-            result.response_chars,
+            result.duration_ms, result.response_chars,
         );
 
         if flags.verbose {
@@ -164,7 +179,8 @@ fn run_status(args: &[String]) -> Result<()> {
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
-        let mut config = crate::openhuman::config::Config::load_or_init().await
+        let mut config = crate::openhuman::config::Config::load_or_init()
+            .await
             .map_err(|e| anyhow!("config load failed: {e}"))?;
         if let Some(ws) = workspace {
             config.workspace_dir = ws;
@@ -172,7 +188,9 @@ fn run_status(args: &[String]) -> Result<()> {
 
         let mode = config.heartbeat.effective_subconscious_mode();
         let provider_reason = if mode.is_enabled() {
-            crate::openhuman::subconscious::engine::subconscious_provider_unavailable_reason(&config)
+            crate::openhuman::subconscious::engine::subconscious_provider_unavailable_reason(
+                &config,
+            )
         } else {
             None
         };
@@ -180,7 +198,8 @@ fn run_status(args: &[String]) -> Result<()> {
         let last_tick = crate::openhuman::subconscious::store::with_connection(
             &config.workspace_dir,
             crate::openhuman::subconscious::store::get_last_tick_at,
-        ).ok();
+        )
+        .ok();
 
         let status = serde_json::json!({
             "mode": mode.as_str(),
@@ -203,7 +222,8 @@ fn run_scratchpad(args: &[String]) -> Result<()> {
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
-        let mut config = crate::openhuman::config::Config::load_or_init().await
+        let mut config = crate::openhuman::config::Config::load_or_init()
+            .await
             .map_err(|e| anyhow!("config load failed: {e}"))?;
         if let Some(ws) = workspace {
             config.workspace_dir = ws;
@@ -230,7 +250,8 @@ fn parse_workspace_flag(args: &[String]) -> Result<Option<PathBuf>> {
         match args[i].as_str() {
             "--workspace" | "-w" => {
                 workspace = Some(PathBuf::from(
-                    args.get(i + 1).ok_or_else(|| anyhow!("missing --workspace"))?,
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow!("missing --workspace"))?,
                 ));
                 i += 2;
             }

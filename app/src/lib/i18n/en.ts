@@ -2579,7 +2579,8 @@ const en: TranslationMap = {
   'subconscious.runNow': 'Run Now',
   'subconscious.providerUnavailableTitle': 'Subconscious is paused',
   'subconscious.providerSettings': 'AI settings',
-  'subconscious.scratchpadInfo': 'The subconscious maintains a persistent scratchpad of observations across ticks. Check Settings → Agent access to configure mode and frequency.',
+  'subconscious.scratchpadInfo':
+    'The subconscious maintains a persistent scratchpad of observations across ticks. Check Settings → Agent access to configure mode and frequency.',
   'subconscious.approvalNeeded': 'Approval Needed',
   'subconscious.requiresApproval': 'Requires approval',
   'subconscious.fixInConnections': 'Fix in Connections',

@@ -3,7 +3,6 @@
 //! Usage:
 //!   openhuman subconscious tick [--workspace <path>] [--mode simple|aggressive] [--verbose]
 //!   openhuman subconscious status [--workspace <path>]
-//!   openhuman subconscious reflections [--limit <n>] [--workspace <path>]
 //!   openhuman subconscious scratchpad [--workspace <path>]
 
 use anyhow::{anyhow, Result};
@@ -18,7 +17,6 @@ pub fn run_subconscious_command(args: &[String]) -> Result<()> {
     match args[0].as_str() {
         "tick" => run_tick(&args[1..]),
         "status" => run_status(&args[1..]),
-        "reflections" | "thoughts" => run_reflections(&args[1..]),
         "scratchpad" | "pad" => run_scratchpad(&args[1..]),
         other => Err(anyhow!(
             "unknown subconscious subcommand '{other}'. Run `openhuman subconscious --help`."
@@ -140,23 +138,18 @@ fn run_tick(args: &[String]) -> Result<()> {
             .map_err(|e| anyhow!("tick failed: {e}"))?;
 
         eprintln!(
-            "[subconscious] tick complete: thoughts={} thread={:?} duration={}ms response_chars={}",
-            result.thoughts_count,
-            result.thread_id,
+            "[subconscious] tick complete: duration={}ms response_chars={}",
             result.duration_ms,
             result.response_chars,
         );
 
-        if flags.verbose || result.thoughts_count > 0 {
-            // Print reflections from this tick
-            let reflections = crate::openhuman::subconscious::store::with_connection(
-                &config.workspace_dir,
-                |conn| crate::openhuman::subconscious::reflection_store::list_recent(conn, 10, None),
-            )
-            .unwrap_or_default();
-
-            if !reflections.is_empty() {
-                println!("{}", serde_json::to_string_pretty(&reflections)?);
+        if flags.verbose {
+            // Print scratchpad state after tick
+            let entries = crate::openhuman::subconscious::scratchpad::load(&config.workspace_dir)
+                .unwrap_or_default();
+            if !entries.is_empty() {
+                eprintln!("\n[subconscious] scratchpad after tick:");
+                println!("{}", serde_json::to_string_pretty(&entries)?);
             }
         }
 
@@ -199,53 +192,6 @@ fn run_status(args: &[String]) -> Result<()> {
         });
 
         println!("{}", serde_json::to_string_pretty(&status)?);
-        Ok(())
-    })
-}
-
-// ── reflections ────────────────────────────────────────────────────────────
-
-fn run_reflections(args: &[String]) -> Result<()> {
-    let mut workspace: Option<PathBuf> = None;
-    let mut limit: usize = 20;
-    let mut i = 0;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--workspace" | "-w" => {
-                workspace = Some(PathBuf::from(
-                    args.get(i + 1).ok_or_else(|| anyhow!("missing --workspace"))?,
-                ));
-                i += 2;
-            }
-            "--limit" | "-n" => {
-                limit = args.get(i + 1)
-                    .ok_or_else(|| anyhow!("missing --limit"))?
-                    .parse()
-                    .map_err(|_| anyhow!("--limit must be a number"))?;
-                i += 2;
-            }
-            other => return Err(anyhow!("unknown flag '{other}'")),
-        }
-    }
-
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let mut config = crate::openhuman::config::Config::load_or_init().await
-            .map_err(|e| anyhow!("config load failed: {e}"))?;
-        if let Some(ws) = workspace {
-            config.workspace_dir = ws;
-        }
-
-        let reflections = crate::openhuman::subconscious::store::with_connection(
-            &config.workspace_dir,
-            |conn| crate::openhuman::subconscious::reflection_store::list_recent(conn, limit, None),
-        ).map_err(|e| anyhow!("failed to read reflections: {e}"))?;
-
-        if reflections.is_empty() {
-            eprintln!("(no reflections)");
-        } else {
-            println!("{}", serde_json::to_string_pretty(&reflections)?);
-        }
         Ok(())
     })
 }
@@ -305,17 +251,15 @@ fn print_help() {
 Commands:
   tick          Run a single subconscious tick (synchronous, waits for completion)
   status        Show current subconscious engine status
-  reflections   List recent thoughts/reflections
   scratchpad    Dump the persistent scratchpad
 
 Tick options:
   --mode <simple|aggressive>   Override the subconscious mode
   --workspace <path>           Override workspace directory
-  --verbose, -v                Print reflections even when count is 0
+  --verbose, -v                Print scratchpad after tick
 
 Common options:
   --workspace <path>           Override workspace directory
-  --limit <n>                  Max reflections to show (default 20)
 "
     );
 }

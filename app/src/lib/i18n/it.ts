@@ -2152,6 +2152,7 @@ const messages: TranslationMap = {
   'subconscious.runNow': 'Esegui ora',
   'subconscious.providerUnavailableTitle': 'Subconscio in pausa',
   'subconscious.providerSettings': 'Impostazioni IA',
+  'subconscious.scratchpadInfo': 'Il subconscio mantiene un blocco appunti persistente di osservazioni attraverso i cicli. Controlla Impostazioni → Accesso agente per configurare modalità e frequenza.',
   'subconscious.approvalNeeded': 'Approvazione necessaria',
   'subconscious.requiresApproval': 'Richiede approvazione',
   'subconscious.fixInConnections': 'Correggi in Connessioni',

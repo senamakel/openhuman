@@ -2133,6 +2133,7 @@ const messages: TranslationMap = {
   'subconscious.runNow': 'Запустить сейчас',
   'subconscious.providerUnavailableTitle': 'Подсознание приостановлено',
   'subconscious.providerSettings': 'Настройки ИИ',
+  'subconscious.scratchpadInfo': 'Подсознание ведёт постоянный блокнот наблюдений между циклами. Проверьте Настройки → Доступ агента для настройки режима и частоты.',
   'subconscious.approvalNeeded': 'Требуется подтверждение',
   'subconscious.requiresApproval': 'Требует подтверждения',
   'subconscious.fixInConnections': 'Исправить в подключениях',

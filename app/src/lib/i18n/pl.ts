@@ -2139,6 +2139,7 @@ const messages: TranslationMap = {
   'subconscious.runNow': 'Uruchom teraz',
   'subconscious.providerUnavailableTitle': 'Podświadomość wstrzymana',
   'subconscious.providerSettings': 'Ustawienia AI',
+  'subconscious.scratchpadInfo': 'Podświadomość utrzymuje trwały notatnik obserwacji między cyklami. Sprawdź Ustawienia → Dostęp agenta, aby skonfigurować tryb i częstotliwość.',
   'subconscious.approvalNeeded': 'Wymagana zgoda',
   'subconscious.requiresApproval': 'Wymaga zgody',
   'subconscious.fixInConnections': 'Napraw w Połączeniach',

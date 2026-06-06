@@ -2417,41 +2417,15 @@ fn build_session_agent(
 
 /// Look up reflection-spawned-thread metadata for a chat thread (#623).
 ///
-/// Reads the thread's first message; if it was seeded by `reflections_act`
-/// — `extra_metadata.origin == "subconscious_reflection"` with a
-/// `reflection_id` — fetches the reflection row and returns its
-/// pre-resolved `source_chunks` snapshot. Returns `None` for ordinary
-/// chat threads (no reflection origin) and on any error so a missing
-/// reflection never breaks the chat path.
+/// Reflection store has been removed — this now always returns None.
+/// Kept as a stub so the call site in `build_agent_for_web_chat` compiles
+/// without changes. Existing threads that were spawned from reflections
+/// will simply not get the memory-context injection anymore.
 fn load_reflection_chunks_for_thread(
-    workspace_dir: &std::path::Path,
-    thread_id: &str,
+    _workspace_dir: &std::path::Path,
+    _thread_id: &str,
 ) -> Option<Vec<crate::openhuman::subconscious::SourceChunk>> {
-    let messages = crate::openhuman::memory_conversations::get_messages(
-        workspace_dir.to_path_buf(),
-        thread_id,
-    )
-    .ok()?;
-    let first = messages.first()?;
-    let origin = first
-        .extra_metadata
-        .get("origin")
-        .and_then(|v| v.as_str())?;
-    if origin != "subconscious_reflection" {
-        return None;
-    }
-    let reflection_id = first
-        .extra_metadata
-        .get("reflection_id")
-        .and_then(|v| v.as_str())?
-        .to_string();
-    let reflection =
-        crate::openhuman::subconscious::store::with_connection(workspace_dir, |conn| {
-            crate::openhuman::subconscious::reflection_store::get_reflection(conn, &reflection_id)
-        })
-        .ok()
-        .flatten()?;
-    Some(reflection.source_chunks)
+    None
 }
 
 #[derive(Debug, Deserialize)]

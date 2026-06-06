@@ -1,8 +1,8 @@
-//! Subconscious engine — periodic agent loop that produces thoughts.
+//! Subconscious engine — periodic agent loop that maintains a scratchpad.
 //!
 //! On each tick: load scratchpad → build situation report → run
-//! subconscious agent (with tool access + timeout) → parse thoughts
-//! from output → create thread → store reflections.
+//! subconscious agent (with tool access + timeout) → agent maintains
+//! scratchpad via tools → log the run.
 //!
 //! ## Concurrency & timeouts
 //!
@@ -11,11 +11,8 @@
 //! cannot block the loop forever. Individual tool calls within the
 //! agent turn are bounded by the agent harness's own iteration cap.
 
-use super::reflection::{apply_cap, hydrate_draft, Reflection, ReflectionDraft};
-use super::reflection_store;
 use super::scratchpad;
 use super::situation_report::build_situation_report;
-use super::source_chunk::resolve_chunks;
 use super::store;
 use super::types::{SubconsciousStatus, TickResult};
 use crate::openhuman::config::schema::SubconsciousMode;
@@ -25,19 +22,14 @@ use crate::openhuman::memory_store::MemoryClientRef;
 use anyhow::Result;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
-/// Hard timeout for a single subconscious tick (agent run + persistence).
+/// Hard timeout for a single subconscious tick (agent run).
 const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
 
 /// Per-tool-call timeout injected into the agent config.
 const TOOL_CALL_TIMEOUT_SECS: u64 = 5 * 60;
-
-/// Target token budget for the initial `call_memory_agent` retrieval.
-/// The memory agent will aim to return this much context.
-const MEMORY_RETRIEVAL_BUDGET_TOKENS: u32 = 3_000;
 
 /// Pick the `TrustedAutomationSource` variant for a subconscious tick.
 ///
@@ -139,8 +131,8 @@ impl SubconsciousEngine {
             match self.tick().await {
                 Ok(result) => {
                     info!(
-                        "[subconscious] tick: thoughts={} thread={:?} duration={}ms response_chars={}",
-                        result.thoughts_count, result.thread_id, result.duration_ms, result.response_chars
+                        "[subconscious] tick: duration={}ms response_chars={}",
+                        result.duration_ms, result.response_chars
                     );
                 }
                 Err(e) => {
@@ -162,8 +154,6 @@ impl SubconsciousEngine {
                 warn!("[subconscious] tick skipped — another tick is still running");
                 return Ok(TickResult {
                     tick_at: now_secs(),
-                    thoughts_count: 0,
-                    thread_id: None,
                     duration_ms: 0,
                     response_chars: 0,
                 });
@@ -179,8 +169,6 @@ impl SubconsciousEngine {
                 state.total_ticks += 1;
                 Ok(TickResult {
                     tick_at: now_secs(),
-                    thoughts_count: 0,
-                    thread_id: None,
                     duration_ms: TICK_TIMEOUT.as_millis() as u64,
                     response_chars: 0,
                 })
@@ -204,8 +192,6 @@ impl SubconsciousEngine {
                 state.total_ticks += 1;
                 return Ok(TickResult {
                     tick_at,
-                    thoughts_count: 0,
-                    thread_id: None,
                     duration_ms: started.elapsed().as_millis() as u64,
                     response_chars: 0,
                 });
@@ -220,8 +206,6 @@ impl SubconsciousEngine {
             state.total_ticks += 1;
             return Ok(TickResult {
                 tick_at,
-                thoughts_count: 0,
-                thread_id: None,
                 duration_ms: started.elapsed().as_millis() as u64,
                 response_chars: 0,
             });
@@ -233,19 +217,11 @@ impl SubconsciousEngine {
         drop(state);
 
         // 1. Build situation report
-        let recent_reflections = store::with_connection(&self.workspace_dir, |conn| {
-            reflection_store::list_recent(conn, 8, None)
-        })
-        .unwrap_or_else(|e| {
-            warn!("[subconscious] recent reflections load failed: {e}");
-            Vec::new()
-        });
         let report = build_situation_report(
             &config,
             &self.workspace_dir,
             last_tick_at,
             self.context_budget_tokens,
-            &recent_reflections,
         )
         .await;
         let has_external_content = report.has_external_content;
@@ -273,9 +249,9 @@ impl SubconsciousEngine {
             .run_agent(&config, &agent_prompt, has_external_content)
             .await;
         let agent_failed = agent_result.is_err();
-        let (drafts, response_chars) = match agent_result {
-            Ok((d, chars)) => (d, chars),
-            Err(_) => (vec![], 0),
+        let response_chars = match &agent_result {
+            Ok(chars) => *chars,
+            Err(_) => 0,
         };
 
         // 5. Check if superseded
@@ -285,33 +261,12 @@ impl SubconsciousEngine {
             state.total_ticks += 1;
             return Ok(TickResult {
                 tick_at,
-                thoughts_count: 0,
-                thread_id: None,
                 duration_ms: started.elapsed().as_millis() as u64,
                 response_chars: 0,
             });
         }
 
-        // 6. Create thread and persist reflections
-        let thread_id = if !drafts.is_empty() {
-            let tid = self.create_tick_thread(&config, tick_at, &agent_prompt, &drafts);
-            Some(tid)
-        } else {
-            None
-        };
-
-        let reflections = persist_reflections(
-            &self.workspace_dir,
-            &config,
-            drafts,
-            tick_at,
-            thread_id.as_deref(),
-        )
-        .await;
-
-        let thoughts_count = reflections.len();
-
-        // 7. Update state — only advance last_tick_at and reset failures
+        // 6. Update state — only advance last_tick_at and reset failures
         //    when the agent actually ran. Errors keep consecutive_failures
         //    incrementing and leave last_tick_at unchanged so the next tick
         //    re-fetches the same window.
@@ -327,8 +282,6 @@ impl SubconsciousEngine {
 
         Ok(TickResult {
             tick_at,
-            thoughts_count,
-            thread_id,
             duration_ms: started.elapsed().as_millis() as u64,
             response_chars,
         })
@@ -353,16 +306,15 @@ impl SubconsciousEngine {
         }
     }
 
-    /// Run the subconscious agent with mode-appropriate tool access and
-    /// parse thoughts from its final response. Returns `(drafts, response_chars)`
-    /// on success, or `Err` on agent init/run failure so the caller can
-    /// track consecutive failures separately from an empty-but-successful tick.
+    /// Run the subconscious agent with mode-appropriate tool access.
+    /// The agent maintains the scratchpad via tools during its turn.
+    /// Returns `response_chars` on success, or `Err` on agent init/run failure.
     async fn run_agent(
         &self,
         config: &Config,
         prompt_text: &str,
         has_external_content: bool,
-    ) -> Result<(Vec<ReflectionDraft>, usize), String> {
+    ) -> Result<usize, String> {
         use crate::openhuman::agent::Agent;
 
         let mut effective = config.clone();
@@ -376,7 +328,7 @@ impl SubconsciousEngine {
                 effective.autonomy.level = crate::openhuman::security::AutonomyLevel::Full;
                 effective.agent.max_tool_iterations = 30;
             }
-            SubconsciousMode::Off => return Ok((vec![], 0)),
+            SubconsciousMode::Off => return Ok(0),
         }
 
         let mut agent = Agent::from_config(&effective).map_err(|e| {
@@ -404,38 +356,14 @@ impl SubconsciousEngine {
         let user_message = format!(
             "{prompt_text}\n\n\
              ## Instructions\n\n\
-             **Step 1 (MANDATORY):** Call `call_memory_agent` immediately with:\n\
-             - A broad query about the user's recent activity, open threads, and \
-               anything the situation report or scratchpad highlights\n\
-             - Pass your scratchpad entries as `context` so the memory agent focuses \
-               on continuity\n\
-             - Target ~{budget} tokens of relevant context\n\n\
-             **Step 2:** Based on the memory agent's response, update your scratchpad — \
-             add new observations, edit stale entries, remove resolved items.\n\n\
-             **Step 3:** If needed, call `call_memory_agent` again with targeted \
-             follow-up queries.\n\n\
-             **Step 4:** Synthesize your findings into structured thoughts.\
-             {mode_guidance}\n\n\
-             **IMPORTANT — Output format:** Your FINAL message MUST end with a \
-             fenced JSON block. If you have no thoughts, output an empty array. \
-             This is parsed programmatically — do NOT omit it:\n\n\
-             ```json\n\
-             {{\"thoughts\": [\n\
-               {{\"kind\": \"daily_digest\", \"body\": \"...\", \"proposed_action\": null, \"source_refs\": []}}\n\
-             ]}}\n\
-             ```",
-            budget = MEMORY_RETRIEVAL_BUDGET_TOKENS,
+             Based on the situation report and your existing scratchpad, maintain your \
+             scratchpad — add new observations, edit stale entries, remove resolved items.\n\n\
+             Your scratchpad IS your continuity mechanism across ticks. Keep it focused \
+             and actionable.\
+             {mode_guidance}",
         );
 
         debug!("[subconscious] spawning agent with tool access");
-        // Subconscious ticks are trusted automation: the user enabled the
-        // background loop knowing it should think about their state.
-        // When the situation report carries content derived from third-
-        // party sync sources (Gmail / Slack / Notion / sealed source
-        // summaries), escalate the origin so the approval gate refuses
-        // external_effect tools for the rest of the tick — a hostile
-        // upstream message can otherwise nudge the LLM into a tool call
-        // the user would never have authorised.
         let source = tick_origin_source(has_external_content);
         debug!(
             "[subconscious] tick origin source={:?} has_external_content={has_external_content}",
@@ -456,85 +384,11 @@ impl SubconsciousEngine {
         })?;
 
         let response_chars = response.len();
-        let drafts = parse_thoughts(&response);
         info!(
-            "[subconscious] agent produced {} thoughts (response {} chars)",
-            drafts.len(),
+            "[subconscious] agent completed (response {} chars)",
             response_chars
         );
-        Ok((drafts, response_chars))
-    }
-
-    /// Create a conversation thread for this tick so the user can view the
-    /// agent's reasoning by clicking on any thought.
-    fn create_tick_thread(
-        &self,
-        config: &Config,
-        tick_at: f64,
-        _agent_prompt: &str,
-        drafts: &[ReflectionDraft],
-    ) -> String {
-        let thread_id = uuid::Uuid::new_v4().to_string();
-        let dt = chrono::DateTime::from_timestamp(tick_at as i64, 0)
-            .unwrap_or_else(|| chrono::Utc::now());
-        let thread_title = format!("Subconscious — {}", dt.format("%b %d, %H:%M"));
-        let now_iso = chrono::Utc::now().to_rfc3339();
-
-        if let Err(e) = crate::openhuman::memory_conversations::ensure_thread(
-            config.workspace_dir.clone(),
-            crate::openhuman::memory_conversations::CreateConversationThread {
-                id: thread_id.clone(),
-                title: thread_title,
-                created_at: now_iso.clone(),
-                parent_thread_id: None,
-                labels: Some(vec!["subconscious".to_string()]),
-                personality_id: None,
-            },
-        ) {
-            warn!("[subconscious] failed to create tick thread: {e}");
-            return thread_id;
-        }
-
-        // Seed thread with a summary of the thoughts as the assistant message
-        let body = drafts
-            .iter()
-            .map(|d| {
-                let action = d
-                    .proposed_action
-                    .as_deref()
-                    .map(|a| format!("\n\n_Proposed action_: {a}"))
-                    .unwrap_or_default();
-                format!(
-                    "**{}** — {}{}",
-                    d.kind.as_str().replace('_', " "),
-                    d.body,
-                    action
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n---\n\n");
-
-        let seed_message = crate::openhuman::memory_conversations::ConversationMessage {
-            id: uuid::Uuid::new_v4().to_string(),
-            content: body,
-            message_type: "text".to_string(),
-            extra_metadata: serde_json::json!({
-                "origin": "subconscious_tick",
-                "tick_at": tick_at,
-                "thoughts_count": drafts.len(),
-            }),
-            sender: "assistant".to_string(),
-            created_at: now_iso,
-        };
-        if let Err(e) = crate::openhuman::memory_conversations::append_message(
-            config.workspace_dir.clone(),
-            &thread_id,
-            seed_message,
-        ) {
-            warn!("[subconscious] failed to seed tick thread: {e}");
-        }
-
-        thread_id
+        Ok(response_chars)
     }
 }
 
@@ -595,184 +449,6 @@ fn resolve_subconscious_route(config: &Config) -> SubconsciousProviderRoute {
     } else {
         SubconsciousProviderRoute::Other(raw.to_string())
     }
-}
-
-// ── Thought parsing ─────────────────────────────────────────────────────────
-
-/// Response envelope for the agent's JSON output.
-#[derive(Debug, Clone, serde::Deserialize)]
-struct ThoughtsResponse {
-    #[serde(default)]
-    thoughts: Vec<ReflectionDraft>,
-    // Backward compat: also accept "reflections" key
-    #[serde(default)]
-    reflections: Vec<ReflectionDraft>,
-}
-
-fn parse_thoughts(text: &str) -> Vec<ReflectionDraft> {
-    // Try each extraction strategy in order of specificity
-    for candidate in extract_json_candidates(text) {
-        if let Ok(response) = serde_json::from_str::<ThoughtsResponse>(&candidate) {
-            let mut drafts = response.thoughts;
-            if drafts.is_empty() {
-                drafts = response.reflections;
-            }
-            if !drafts.is_empty() {
-                return drafts;
-            }
-        }
-
-        if let Ok(drafts) = serde_json::from_str::<Vec<ReflectionDraft>>(&candidate) {
-            if !drafts.is_empty() {
-                return drafts;
-            }
-        }
-    }
-
-    warn!(
-        "[subconscious] could not parse agent output for thoughts (response {} chars, last 300: {:?})",
-        text.len(),
-        &text[text.len().saturating_sub(300)..]
-    );
-    vec![]
-}
-
-/// Extract JSON candidates from agent output, trying the most specific
-/// strategies first: fenced code blocks, then last `{…}` / `[…]` span.
-fn extract_json_candidates(text: &str) -> Vec<String> {
-    let mut candidates = Vec::new();
-
-    // Strategy 1: fenced code blocks (```json ... ``` or ``` ... ```)
-    // Search from the END since the thoughts block is the final output.
-    let lower = text.to_ascii_lowercase();
-    for fence_start in ["```json", "```"] {
-        if let Some(start_idx) = lower.rfind(fence_start) {
-            let content_start = start_idx + fence_start.len();
-            if let Some(end_idx) = text[content_start..].find("```") {
-                let block = text[content_start..content_start + end_idx].trim();
-                if !block.is_empty() {
-                    candidates.push(block.to_string());
-                }
-            }
-        }
-    }
-
-    // Strategy 2: last top-level JSON object — scan backwards for the
-    // outermost `{…}` that contains `"thoughts"` or `"kind"`.
-    let trimmed = text.trim();
-    if let Some(last_obj) = extract_last_balanced_object(trimmed) {
-        candidates.push(last_obj);
-    }
-
-    // Strategy 3: first `{` to last `}` (legacy fallback)
-    let obj_start = trimmed.find('{');
-    let arr_start = trimmed.find('[');
-    let start = match (obj_start, arr_start) {
-        (Some(o), Some(a)) => o.min(a),
-        (Some(o), None) => o,
-        (None, Some(a)) => a,
-        (None, None) => return candidates,
-    };
-    let end = if trimmed.as_bytes().get(start) == Some(&b'[') {
-        trimmed.rfind(']').map(|i| i + 1)
-    } else {
-        trimmed.rfind('}').map(|i| i + 1)
-    };
-    let end = end.unwrap_or(trimmed.len());
-    if start < end {
-        candidates.push(trimmed[start..end].to_string());
-    }
-
-    candidates
-}
-
-/// Walk backwards through `text` to find the last balanced `{…}` that
-/// looks like a thoughts envelope.
-fn extract_last_balanced_object(text: &str) -> Option<String> {
-    let bytes = text.as_bytes();
-    let mut i = bytes.len();
-    while i > 0 {
-        i -= 1;
-        if bytes[i] != b'}' {
-            continue;
-        }
-        // Found a closing brace — walk backwards counting braces
-        let end = i + 1;
-        let mut depth: i32 = 0;
-        let mut j = end;
-        while j > 0 {
-            j -= 1;
-            match bytes[j] {
-                b'}' => depth += 1,
-                b'{' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        let candidate = &text[j..end];
-                        if candidate.contains("\"thoughts\"")
-                            || candidate.contains("\"reflections\"")
-                            || candidate.contains("\"kind\"")
-                        {
-                            return Some(candidate.to_string());
-                        }
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
-        // Skip past this object and try an earlier one
-        i = i.min(j);
-    }
-    None
-}
-
-// ── Reflection persistence ──────────────────────────────────────────────────
-
-async fn persist_reflections(
-    workspace_dir: &std::path::Path,
-    config: &Config,
-    drafts: Vec<ReflectionDraft>,
-    now: f64,
-    thread_id: Option<&str>,
-) -> Vec<Reflection> {
-    let (drafts, dropped) = apply_cap(drafts);
-    if dropped > 0 {
-        debug!(
-            "[subconscious] reflections cap dropped {} excess (kept {})",
-            dropped,
-            drafts.len()
-        );
-    }
-    if drafts.is_empty() {
-        return vec![];
-    }
-
-    let reflections: Vec<Reflection> = drafts
-        .into_iter()
-        .map(|d| {
-            let chunks = resolve_chunks(config, &d.source_refs);
-            hydrate_draft(
-                d,
-                uuid::Uuid::new_v4().to_string(),
-                now,
-                chunks,
-                thread_id.map(String::from),
-            )
-        })
-        .collect();
-
-    if let Err(e) = store::with_connection(workspace_dir, |conn| {
-        for r in &reflections {
-            if let Err(e) = reflection_store::add_reflection(conn, r) {
-                warn!("[subconscious] reflection persist failed id={}: {e}", r.id);
-            }
-        }
-        Ok(())
-    }) {
-        warn!("[subconscious] reflection batch persist failed: {e}");
-    }
-
-    reflections
 }
 
 fn persist_last_tick_at(workspace_dir: &std::path::Path, tick_at: f64) {

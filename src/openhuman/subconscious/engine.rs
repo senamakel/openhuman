@@ -11,7 +11,6 @@
 //! cannot block the loop forever. Individual tool calls within the
 //! agent turn are bounded by the agent harness's own iteration cap.
 
-use super::prompt;
 use super::reflection::{apply_cap, hydrate_draft, Reflection, ReflectionDraft};
 use super::reflection_store;
 use super::scratchpad;
@@ -255,11 +254,17 @@ impl SubconsciousEngine {
         let scratchpad_section = scratchpad::render_for_prompt(&scratchpad_entries);
 
         // 3. Load identity context
-        let identity = prompt::load_identity_context(&self.workspace_dir);
+        let identity = load_identity_context(&self.workspace_dir);
 
-        // 4. Run the subconscious agent
-        let agent_prompt =
-            prompt::build_agent_prompt(&report.prompt_text, &identity, &scratchpad_section);
+        // 4. Build user message with dynamic context (system prompt comes from agent definition)
+        let agent_prompt = format!(
+            "{identity}\n\n\
+             ## Situation Report (pre-loaded context)\n\n\
+             {situation}\n\n\
+             {scratchpad}",
+            situation = report.prompt_text,
+            scratchpad = scratchpad_section,
+        );
         let agent_result = self
             .run_agent(&config, &agent_prompt, has_external_content)
             .await;
@@ -689,6 +694,72 @@ fn now_secs() -> f64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs_f64())
         .unwrap_or(0.0)
+}
+
+// ── Identity loading ───────────────────────────────────────────────────────
+
+const IDENTITY_EXCERPT_CHARS: usize = 2000;
+
+fn load_identity_context(workspace_dir: &std::path::Path) -> String {
+    let prompts_dir = resolve_prompts_dir(workspace_dir);
+    let mut ctx = String::new();
+
+    if let Some(ref dir) = prompts_dir {
+        if let Some(soul) = load_file_excerpt(dir, "SOUL.md") {
+            ctx.push_str(&soul);
+            ctx.push_str("\n\n");
+        }
+    }
+
+    if let Some(profile) = load_file_excerpt(workspace_dir, "PROFILE.md") {
+        ctx.push_str("## User Profile\n\n");
+        ctx.push_str(&profile);
+        ctx.push_str("\n\n");
+    }
+
+    if ctx.is_empty() {
+        "You are OpenHuman, an AI assistant for productivity and collaboration.".to_string()
+    } else {
+        ctx
+    }
+}
+
+fn resolve_prompts_dir(workspace_dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    let workspace_ai = workspace_dir.join("ai");
+    if workspace_ai.is_dir() {
+        return Some(workspace_ai);
+    }
+
+    if let Some(dir) = option_env!("CARGO_MANIFEST_DIR").map(std::path::PathBuf::from) {
+        let candidate = dir
+            .join("src")
+            .join("openhuman")
+            .join("agent")
+            .join("prompts");
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        return crate::openhuman::dev_paths::repo_ai_prompts_dir(&cwd);
+    }
+
+    None
+}
+
+fn load_file_excerpt(dir: &std::path::Path, filename: &str) -> Option<String> {
+    let content = std::fs::read_to_string(dir.join(filename)).ok()?;
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if trimmed.chars().count() > IDENTITY_EXCERPT_CHARS {
+        let truncated: String = trimmed.chars().take(IDENTITY_EXCERPT_CHARS).collect();
+        Some(format!("{truncated}\n[... truncated]"))
+    } else {
+        Some(trimmed.to_string())
+    }
 }
 
 #[cfg(test)]

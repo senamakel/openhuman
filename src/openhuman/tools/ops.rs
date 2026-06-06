@@ -460,7 +460,7 @@ pub fn all_tools_with_runtime(
     ];
 
     // Subconscious scratchpad tools — persistent working memory across ticks.
-    tools.extend(crate::openhuman::subconscious::scratchpad_tools::all_scratchpad_tools());
+    tools.extend(crate::openhuman::subconscious::scratchpad::tools::all_scratchpad_tools());
 
     // Presentation generation (#2778). Native-Rust engine (ppt-rs
     // backed) as of the #2780-follow-up rust-engine refactor — no

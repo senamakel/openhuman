@@ -25,4 +25,5 @@ named = [
     "scratchpad_add",
     "scratchpad_edit",
     "scratchpad_remove",
+    "spawn_subagent",
 ]

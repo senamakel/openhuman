@@ -26,6 +26,8 @@
 //! The agent manages its own scratchpad via three tools:
 //! `scratchpad_add`, `scratchpad_edit`, `scratchpad_remove`.
 
+pub mod tools;
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

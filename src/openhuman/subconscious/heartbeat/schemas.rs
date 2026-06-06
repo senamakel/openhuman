@@ -123,7 +123,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
 
 fn handle_settings_get(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        crate::openhuman::heartbeat::rpc::settings_get()
+        crate::openhuman::subconscious::heartbeat::rpc::settings_get()
             .await?
             .into_cli_compatible_json()
     })
@@ -131,10 +131,10 @@ fn handle_settings_get(_params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_settings_set(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let patch: crate::openhuman::heartbeat::rpc::HeartbeatSettingsPatch =
+        let patch: crate::openhuman::subconscious::heartbeat::rpc::HeartbeatSettingsPatch =
             serde_json::from_value(Value::Object(params))
                 .map_err(|e| format!("invalid heartbeat settings_set params: {e}"))?;
-        crate::openhuman::heartbeat::rpc::settings_set(patch)
+        crate::openhuman::subconscious::heartbeat::rpc::settings_set(patch)
             .await?
             .into_cli_compatible_json()
     })
@@ -142,7 +142,7 @@ fn handle_settings_set(params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_tick_now(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        crate::openhuman::heartbeat::rpc::tick_now()
+        crate::openhuman::subconscious::heartbeat::rpc::tick_now()
             .await?
             .into_cli_compatible_json()
     })

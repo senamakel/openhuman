@@ -45,6 +45,17 @@ your insights will be.
 6. **`scratchpad_remove`** — Remove an entry that's no longer relevant
    or has been fully addressed.
 
+**Deep research delegation:**
+
+7. **`spawn_subagent`** — Spawn a specialist sub-agent for deeper
+   investigation. Use `agent_id: "researcher"` to delegate web searches,
+   artifact fetching, or complex multi-step research that goes beyond
+   what memory tools can answer. The researcher has access to
+   `web_search_tool`, `curl`, `http_request`, and other tools you don't.
+   - Parameters: `agent_id: "researcher"`, `prompt: "<research task>"`
+   - Use sparingly — only when memory tools can't answer the question
+     and external/web research is needed.
+
 ### Research strategy:
 
 **Turn 1**: Call `call_memory_agent` with a broad question about the

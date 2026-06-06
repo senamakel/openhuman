@@ -147,7 +147,7 @@ impl HeartbeatEngine {
         }
 
         let summary =
-            crate::openhuman::heartbeat::planner::evaluate_and_dispatch(config, chrono::Utc::now())
+            crate::openhuman::subconscious::heartbeat::planner::evaluate_and_dispatch(config, chrono::Utc::now())
                 .await;
         tracing::debug!(
             source_events = summary.source_events,

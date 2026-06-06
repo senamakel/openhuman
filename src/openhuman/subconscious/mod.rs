@@ -1,11 +1,10 @@
 pub mod agent;
 pub mod engine;
 pub mod global;
-pub mod prompt;
+pub mod heartbeat;
 pub mod reflection;
 pub mod reflection_store;
 pub mod scratchpad;
-pub mod scratchpad_tools;
 mod schemas;
 pub mod situation_report;
 pub mod source_chunk;

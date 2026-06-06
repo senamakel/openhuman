@@ -4,7 +4,6 @@
 //! Registered via `all_scratchpad_tools()` and wired into the tool
 //! registry so the subconscious agent can manage its own working memory.
 
-use super::scratchpad;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope};
 use async_trait::async_trait;
 use serde_json::json;
@@ -83,7 +82,7 @@ impl Tool for ScratchpadAddTool {
             .min(10) as u32;
 
         let ws = workspace_dir().await?;
-        let id = scratchpad::add(&ws, body, priority, scratchpad::DEFAULT_MAX_ENTRIES)?;
+        let id = super::add(&ws, body, priority, super::DEFAULT_MAX_ENTRIES)?;
 
         Ok(ToolResult::success(format!(
             "Added scratchpad entry id={id} priority={priority}"
@@ -155,7 +154,7 @@ impl Tool for ScratchpadEditTool {
             .map(|v| v.min(10) as u32);
 
         let ws = workspace_dir().await?;
-        let found = scratchpad::edit(&ws, id, body, priority)?;
+        let found = super::edit(&ws, id, body, priority)?;
 
         if found {
             Ok(ToolResult::success(format!(
@@ -216,7 +215,7 @@ impl Tool for ScratchpadRemoveTool {
             .ok_or_else(|| anyhow::anyhow!("scratchpad_remove: `id` is required"))?;
 
         let ws = workspace_dir().await?;
-        let found = scratchpad::remove(&ws, id)?;
+        let found = super::remove(&ws, id)?;
 
         if found {
             Ok(ToolResult::success(format!(

@@ -1135,8 +1135,16 @@ Use a multi-strategy approach inspired by graph-based retrieval:
 - Prefer keyword_search for specific names, IDs, or exact phrases.
 - Use entity_search when the query mentions people, projects, or organizations.
 - Always collect_evidence before answering, so your answer has citations.
-- Use XML tool_call tags for actions.
-- You can call multiple tools in one turn by including multiple <tool_call> blocks."#
+- Use <tool_call> tags with JSON content for actions. Format:
+  <tool_call>{"name":"tool_name","arguments":{"param":"value"}}</tool_call>
+- You can call multiple tools in one turn by including multiple <tool_call> blocks.
+
+## Example turn
+
+I'll search for recent emails about the project.
+
+<tool_call>{"name":"list_sources","arguments":{"content_type":"all"}}</tool_call>
+<tool_call>{"name":"keyword_search","arguments":{"pattern":"project","content_type":"raw"}}</tool_call>"#
         .into()
 }
 
@@ -1253,18 +1261,9 @@ fn parse_tool_calls(response: &str) -> (String, Vec<InnerCall>) {
                 match after_open.find(CLOSE) {
                     None => break,
                     Some(close_idx) => {
-                        let inner = &after_open[..close_idx];
-                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(inner.trim()) {
-                            if let Some(name) = val.get("name").and_then(|v| v.as_str()) {
-                                let args = val
-                                    .get("arguments")
-                                    .cloned()
-                                    .unwrap_or(serde_json::Value::Object(Default::default()));
-                                calls.push(InnerCall {
-                                    name: name.to_string(),
-                                    args,
-                                });
-                            }
+                        let inner = after_open[..close_idx].trim();
+                        if let Some(call) = parse_single_tool_call(inner) {
+                            calls.push(call);
                         }
                         remaining = &after_open[close_idx + CLOSE.len()..];
                     }
@@ -1275,6 +1274,57 @@ fn parse_tool_calls(response: &str) -> (String, Vec<InnerCall>) {
 
     let text_before = text_parts.concat();
     (text_before, calls)
+}
+
+fn parse_single_tool_call(inner: &str) -> Option<InnerCall> {
+    // Primary: JSON format {"name":"...","arguments":{...}}
+    if let Ok(val) = serde_json::from_str::<serde_json::Value>(inner) {
+        if let Some(name) = val.get("name").and_then(|v| v.as_str()) {
+            let args = val
+                .get("arguments")
+                .cloned()
+                .unwrap_or(serde_json::Value::Object(Default::default()));
+            return Some(InnerCall {
+                name: name.to_string(),
+                args,
+            });
+        }
+    }
+    // Fallback: XML-style <tool_name>name</tool_name><parameters>JSON</parameters>
+    if let (Some(name), args) = (extract_xml_tag(inner, "tool_name"), extract_xml_tag(inner, "parameters")) {
+        let parsed_args = args
+            .and_then(|a| serde_json::from_str::<serde_json::Value>(a.trim()).ok())
+            .unwrap_or_else(|| {
+                // Parameters might be XML key-value pairs; parse them heuristically
+                let mut map = serde_json::Map::new();
+                for line in inner.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with('<') && !trimmed.starts_with("</") && !trimmed.starts_with("<tool_name") && !trimmed.starts_with("<parameters") {
+                        if let Some(tag_end) = trimmed.find('>') {
+                            let tag = &trimmed[1..tag_end];
+                            if let Some(close) = trimmed.find(&format!("</{tag}>")) {
+                                let value = &trimmed[tag_end + 1..close];
+                                map.insert(tag.to_string(), serde_json::Value::String(value.to_string()));
+                            }
+                        }
+                    }
+                }
+                serde_json::Value::Object(map)
+            });
+        return Some(InnerCall {
+            name: name.trim().to_string(),
+            args: parsed_args,
+        });
+    }
+    None
+}
+
+fn extract_xml_tag<'a>(text: &'a str, tag: &str) -> Option<&'a str> {
+    let open = format!("<{tag}>");
+    let close = format!("</{tag}>");
+    let start = text.find(&open)? + open.len();
+    let end = text[start..].find(&close)? + start;
+    Some(&text[start..end])
 }
 
 // ── Fallback synthesis ──────────────────────────────────────────────────────

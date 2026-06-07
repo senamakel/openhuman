@@ -20,19 +20,17 @@ pub fn default_sources() -> Vec<RegistrySource> {
             enabled: true,
         },
         RegistrySource {
-            id: "awesome-openclaw".into(),
-            name: "OpenClaw Skills".into(),
-            url: "https://raw.githubusercontent.com/VoltAgent/awesome-openclaw-skills/main/index.json"
-                .into(),
-            kind: RegistryKind::GithubIndex,
+            id: "hermeshub".into(),
+            name: "HermesHub Community Skills".into(),
+            url: "https://api.github.com/repos/amanning3390/hermeshub/contents/skills".into(),
+            kind: RegistryKind::GithubSkillsDir,
             enabled: true,
         },
         RegistrySource {
-            id: "hermes-community".into(),
-            name: "Hermes Community Skills".into(),
-            url: "https://raw.githubusercontent.com/hermes-agent/skill-index/main/index.json"
-                .into(),
-            kind: RegistryKind::GithubIndex,
+            id: "clawhub".into(),
+            name: "ClawHub (OpenClaw Registry)".into(),
+            url: "https://clawhub.ai/api/v1/skills".into(),
+            kind: RegistryKind::ClawHubApi,
             enabled: true,
         },
     ]
@@ -224,8 +222,26 @@ pub async fn install_from_catalog(
         entry_id = %entry.id,
         source = %entry.source_id,
         format = %entry.format,
+        download_url = %entry.download_url,
         "[skill_registry] installing from catalog"
     );
+
+    // ClawHub skills use a `clawhub://` scheme — direct HTTP install is not yet supported.
+    // The OpenClaw CLI (`openclaw skills install <slug>`) is the official install path.
+    if entry.download_url.starts_with("clawhub://") {
+        let slug = entry
+            .download_url
+            .strip_prefix("clawhub://")
+            .unwrap_or(&entry.id);
+        tracing::warn!(
+            slug = %slug,
+            "[skill_registry] clawhub direct install not supported, directing user to CLI"
+        );
+        return Err(format!(
+            "ClawHub skills cannot be installed directly yet. \
+             Install via the OpenClaw CLI: openclaw skills install {slug}"
+        ));
+    }
 
     let params = crate::openhuman::workflows::ops_install::InstallWorkflowFromUrlParams {
         url: entry.download_url.clone(),
@@ -239,39 +255,304 @@ async fn fetch_source_catalog(
     client: &reqwest::Client,
     source: &RegistrySource,
 ) -> Result<Vec<CatalogEntry>, String> {
+    tracing::debug!(
+        source_id = %source.id,
+        kind = ?source.kind,
+        url = %source.url,
+        "[skill_registry] fetch_source_catalog entry"
+    );
+
+    match source.kind {
+        RegistryKind::GithubIndex | RegistryKind::HttpCatalog => {
+            let response = client
+                .get(&source.url)
+                .send()
+                .await
+                .map_err(|e| format!("fetch failed: {e}"))?;
+
+            if !response.status().is_success() {
+                return Err(format!(
+                    "fetch returned status {}",
+                    response.status().as_u16()
+                ));
+            }
+
+            if let Some(len) = response.content_length() {
+                if len > MAX_CATALOG_BYTES as u64 {
+                    return Err(format!("catalog too large: {len} bytes"));
+                }
+            }
+
+            let body = response
+                .text()
+                .await
+                .map_err(|e| format!("failed to read body: {e}"))?;
+
+            if body.len() > MAX_CATALOG_BYTES {
+                return Err(format!("catalog too large: {} bytes", body.len()));
+            }
+
+            parse_index_json(&body, &source.id)
+        }
+        RegistryKind::GithubSkillsDir => fetch_github_skills_dir(client, source).await,
+        RegistryKind::ClawHubApi => fetch_clawhub_api(client, source).await,
+    }
+}
+
+/// Fetch skills from a GitHub API `contents/` endpoint that lists a skills directory.
+///
+/// Each sub-directory of the listed path is treated as one skill. The entry's
+/// `download_url` points to the raw `SKILL.md` in that sub-directory on the
+/// `main` branch. Description fields are left empty — they can be enriched at
+/// install time by fetching the SKILL.md content.
+async fn fetch_github_skills_dir(
+    client: &reqwest::Client,
+    source: &RegistrySource,
+) -> Result<Vec<CatalogEntry>, String> {
+    tracing::debug!(
+        source_id = %source.id,
+        url = %source.url,
+        "[skill_registry] fetch_github_skills_dir"
+    );
+
     let response = client
         .get(&source.url)
+        .header("Accept", "application/vnd.github.v3+json")
+        .header("User-Agent", "openhuman-core")
         .send()
         .await
-        .map_err(|e| format!("fetch failed: {e}"))?;
+        .map_err(|e| format!("github api fetch failed: {e}"))?;
 
     if !response.status().is_success() {
         return Err(format!(
-            "fetch returned status {}",
+            "github api returned status {}",
             response.status().as_u16()
         ));
-    }
-
-    if let Some(len) = response.content_length() {
-        if len > MAX_CATALOG_BYTES as u64 {
-            return Err(format!("catalog too large: {len} bytes"));
-        }
     }
 
     let body = response
         .text()
         .await
-        .map_err(|e| format!("failed to read body: {e}"))?;
+        .map_err(|e| format!("failed to read github response: {e}"))?;
 
-    if body.len() > MAX_CATALOG_BYTES {
-        return Err(format!("catalog too large: {} bytes", body.len()));
+    let items: Vec<serde_json::Value> =
+        serde_json::from_str(&body).map_err(|e| format!("invalid github api json: {e}"))?;
+
+    // Extract owner/repo from a URL of the form:
+    // https://api.github.com/repos/{owner}/{repo}/contents/{path}
+    let parsed =
+        url::Url::parse(&source.url).map_err(|e| format!("bad source url: {e}"))?;
+    let segments: Vec<&str> = parsed
+        .path_segments()
+        .map(|s| s.collect())
+        .unwrap_or_default();
+    // segments: ["repos", owner, repo, "contents", ...]
+    let (owner, repo) = if segments.len() >= 3 {
+        (segments[1], segments[2])
+    } else {
+        return Err("cannot parse owner/repo from github api url".into());
+    };
+
+    tracing::debug!(
+        owner = %owner,
+        repo = %repo,
+        item_count = items.len(),
+        "[skill_registry] fetch_github_skills_dir parsed repo"
+    );
+
+    let mut entries = Vec::new();
+    for item in &items {
+        if item.get("type").and_then(|v| v.as_str()) != Some("dir") {
+            continue;
+        }
+        let name = match item.get("name").and_then(|v| v.as_str()) {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+        let download_url = format!(
+            "https://raw.githubusercontent.com/{owner}/{repo}/main/skills/{name}/SKILL.md"
+        );
+        tracing::trace!(
+            skill = %name,
+            download_url = %download_url,
+            "[skill_registry] fetch_github_skills_dir skill entry"
+        );
+        entries.push(CatalogEntry {
+            id: name.clone(),
+            name: name.clone(),
+            description: String::new(),
+            format: "agentskills".into(),
+            author: None,
+            version: None,
+            tags: vec![],
+            download_url,
+            source_id: source.id.clone(),
+            stars: None,
+            updated_at: None,
+        });
     }
 
-    match source.kind {
-        RegistryKind::GithubIndex | RegistryKind::HttpCatalog => {
-            parse_index_json(&body, &source.id)
+    tracing::info!(
+        source_id = %source.id,
+        count = entries.len(),
+        "[skill_registry] fetch_github_skills_dir complete"
+    );
+    Ok(entries)
+}
+
+/// Fetch skills from the ClawHub (OpenClaw) REST API with cursor-based pagination.
+///
+/// The API returns a JSON object with an `items` array and an optional
+/// `nextCursor` string. Each item exposes `slug`, `displayName`, `summary`,
+/// `stats.stars`, `tags.latest` (semver), and `owner.handle`.
+///
+/// Because ClawHub does not expose a public direct-download URL for SKILL.md
+/// files, entries are tagged with a `clawhub://` scheme download URL. The
+/// install handler in `install_from_catalog` will reject these with a clear
+/// message directing the user to the OpenClaw CLI.
+async fn fetch_clawhub_api(
+    client: &reqwest::Client,
+    source: &RegistrySource,
+) -> Result<Vec<CatalogEntry>, String> {
+    tracing::debug!(
+        source_id = %source.id,
+        url = %source.url,
+        "[skill_registry] fetch_clawhub_api"
+    );
+
+    let mut all_entries: Vec<CatalogEntry> = Vec::new();
+    let mut cursor: Option<String> = None;
+    let max_pages = 5usize; // Safety cap against runaway pagination
+
+    for page in 0..max_pages {
+        tracing::debug!(
+            page = page,
+            cursor = ?cursor,
+            "[skill_registry] fetch_clawhub_api page"
+        );
+
+        let mut req = client
+            .get(&source.url)
+            .header("User-Agent", "openhuman-core");
+
+        if let Some(ref c) = cursor {
+            req = req.query(&[("cursor", c.as_str())]);
+        }
+
+        let response = req
+            .send()
+            .await
+            .map_err(|e| format!("clawhub api fetch failed: {e}"))?;
+
+        if !response.status().is_success() {
+            return Err(format!(
+                "clawhub api returned status {}",
+                response.status().as_u16()
+            ));
+        }
+
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("failed to read clawhub response: {e}"))?;
+
+        let data: serde_json::Value =
+            serde_json::from_str(&body).map_err(|e| format!("invalid clawhub json: {e}"))?;
+
+        let items = data
+            .get("items")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        tracing::debug!(
+            page = page,
+            item_count = items.len(),
+            "[skill_registry] fetch_clawhub_api page items"
+        );
+
+        for item in &items {
+            let slug = match item.get("slug").and_then(|v| v.as_str()) {
+                Some(s) => s.to_string(),
+                None => {
+                    tracing::trace!("[skill_registry] fetch_clawhub_api skipping item without slug");
+                    continue;
+                }
+            };
+            let display_name = item
+                .get("displayName")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&slug)
+                .to_string();
+            let summary = item
+                .get("summary")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let stars = item
+                .pointer("/stats/stars")
+                .and_then(|v| v.as_u64())
+                .map(|s| s as u32);
+            let version = item
+                .pointer("/tags/latest")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let author = item
+                .pointer("/owner/handle")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            // Store the raw epoch-millis as a string — avoids pulling in chrono.
+            let updated_at = item
+                .get("updatedAt")
+                .and_then(|v| v.as_u64())
+                .map(|ts| ts.to_string());
+
+            // Use a `clawhub://` scheme so the install handler can detect and
+            // redirect users to the OpenClaw CLI.
+            let download_url = format!("clawhub://{slug}");
+
+            tracing::trace!(
+                slug = %slug,
+                stars = ?stars,
+                version = ?version,
+                "[skill_registry] fetch_clawhub_api entry"
+            );
+
+            all_entries.push(CatalogEntry {
+                id: slug,
+                name: display_name,
+                description: summary,
+                format: "clawhub".into(),
+                author,
+                version,
+                tags: vec![],
+                download_url,
+                source_id: source.id.clone(),
+                stars,
+                updated_at,
+            });
+        }
+
+        // Advance cursor or stop if no more pages.
+        cursor = data
+            .get("nextCursor")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        if cursor.is_none() {
+            tracing::debug!(
+                page = page,
+                "[skill_registry] fetch_clawhub_api no nextCursor, stopping"
+            );
+            break;
         }
     }
+
+    tracing::info!(
+        source_id = %source.id,
+        total = all_entries.len(),
+        "[skill_registry] fetch_clawhub_api complete"
+    );
+    Ok(all_entries)
 }
 
 /// Parse a JSON index file. Expects either:

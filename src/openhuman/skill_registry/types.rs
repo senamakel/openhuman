@@ -25,6 +25,10 @@ pub enum RegistryKind {
     GithubIndex,
     /// A raw HTTPS endpoint returning a JSON catalog.
     HttpCatalog,
+    /// A GitHub API `contents/` endpoint listing a skills directory (one subdirectory per skill).
+    GithubSkillsDir,
+    /// The ClawHub (OpenClaw) REST API at `https://clawhub.ai/api/v1/skills`.
+    ClawHubApi,
 }
 
 /// One entry in the remote catalog — metadata about an installable skill.

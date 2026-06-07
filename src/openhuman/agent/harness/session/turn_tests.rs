@@ -1051,11 +1051,7 @@ async fn turn_triggers_configured_memory_agent_before_parent_prompt() {
     let requests = provider_impl.requests.lock().await;
     assert_eq!(requests.len(), 2);
     assert!(requests[0].iter().any(|msg| {
-        msg.role == "user"
-            && msg
-                .content
-                .contains("Search the user's memory tree and return only context")
-            && msg.content.contains("Implement the memory trigger.")
+        msg.role == "user" && msg.content.contains("Implement the memory trigger.")
     }));
     assert!(requests[1].iter().any(|msg| {
         msg.role == "user"

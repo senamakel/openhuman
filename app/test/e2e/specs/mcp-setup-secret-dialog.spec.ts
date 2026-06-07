@@ -13,7 +13,7 @@
  * same functional contract; this one exercises it in the actual Tauri
  * desktop shell via CEF/WebView.
  */
-import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
+import { waitForApp } from '../helpers/app-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { startMockServer, stopMockServer } from '../mock-server';
 
@@ -120,11 +120,8 @@ describe('MCP Setup — Secret Dialog', () => {
         if (typeof url === 'string' && url.includes('/rpc') && opts?.body) {
           try {
             const body = JSON.parse(opts.body);
-            (window as any).__e2eRpcLog.push({
-              method: body.method,
-              params: body.params,
-            });
-          } catch {}
+            (window as any).__e2eRpcLog.push({ method: body.method, params: body.params });
+          } catch (_e) { /* intentionally empty — best-effort logging */ }
         }
         return origFetch.apply(this, args);
       };

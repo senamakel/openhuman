@@ -1,9 +1,7 @@
 //! LLM-callable tools for the skill registry domain.
 //!
-//! These tools let the orchestrator (and other agents) browse remote
-//! registries, search for skills, and install from catalog entries.
-//! They complement the existing `list_workflows` / `describe_workflow`
-//! tools which operate on *already-installed* skills.
+//! These tools let the orchestrator (and other agents) browse the aggregated
+//! Hermes catalog, search for skills, and install from catalog entries.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -16,7 +14,6 @@ use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 use super::ops;
 
-/// Browse all enabled skill registries and return the combined catalog.
 pub struct SkillRegistryBrowseTool;
 
 #[async_trait]
@@ -26,10 +23,9 @@ impl Tool for SkillRegistryBrowseTool {
     }
 
     fn description(&self) -> &str {
-        "Browse all enabled skill registries (OpenHuman, HermesHub, ClawHub) \
-         and return a combined catalog of available skills. Each entry includes \
-         id, name, description, source, format, and download URL. Use \
-         `force_refresh: true` to bypass the cache."
+        "Browse the aggregated skill catalog (HermesHub, ClawHub, skills.sh, \
+         LobeHub, browse.sh). Returns all available skills with metadata. \
+         Use `force_refresh: true` to bypass the cache."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -38,7 +34,7 @@ impl Tool for SkillRegistryBrowseTool {
             "properties": {
                 "force_refresh": {
                     "type": "boolean",
-                    "description": "Force re-fetch from all sources, bypassing cache.",
+                    "description": "Force re-fetch from the Hermes API, bypassing cache.",
                     "default": false
                 }
             }
@@ -50,7 +46,7 @@ impl Tool for SkillRegistryBrowseTool {
             .get("force_refresh")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
-        log::debug!("[tool][skill_registry] browse invoked, force_refresh={force}");
+        tracing::debug!(force_refresh = force, "[tool][skill_registry] browse");
 
         match ops::browse_catalog(force).await {
             Ok(entries) => Ok(ToolResult::success(serde_json::to_string(&json!({
@@ -58,7 +54,7 @@ impl Tool for SkillRegistryBrowseTool {
                 "entries": entries,
             }))?)),
             Err(e) => Ok(ToolResult::error(format!(
-                "Failed to browse skill registries: {e}"
+                "Failed to browse skill catalog: {e}"
             ))),
         }
     }
@@ -68,7 +64,6 @@ impl Tool for SkillRegistryBrowseTool {
     }
 }
 
-/// Search the skill registry catalog by keyword.
 pub struct SkillRegistrySearchTool;
 
 #[async_trait]
@@ -78,9 +73,8 @@ impl Tool for SkillRegistrySearchTool {
     }
 
     fn description(&self) -> &str {
-        "Search available skills across all enabled registries by keyword. \
-         Matches against name, description, tags, format, and author. \
-         Optionally filter by format or source."
+        "Search available skills by keyword. Matches against name, description, \
+         tags, category, and author. Optionally filter by source or category."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -89,15 +83,15 @@ impl Tool for SkillRegistrySearchTool {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search query to match against skill name, description, tags, format, or author."
-                },
-                "format": {
-                    "type": "string",
-                    "description": "Filter by skill format (e.g. 'openhuman', 'agentskills', 'clawhub')."
+                    "description": "Search query to match against skill name, description, tags, category, or author."
                 },
                 "source": {
                     "type": "string",
-                    "description": "Filter by registry source id (e.g. 'openhuman-community', 'hermeshub', 'clawhub')."
+                    "description": "Filter by upstream source (e.g. 'ClawHub', 'skills.sh', 'built-in', 'LobeHub')."
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Filter by category."
                 }
             },
             "required": ["query"]
@@ -109,20 +103,23 @@ impl Tool for SkillRegistrySearchTool {
             .get("query")
             .and_then(|v| v.as_str())
             .unwrap_or("");
-        let format_filter = args.get("format").and_then(|v| v.as_str());
         let source_filter = args.get("source").and_then(|v| v.as_str());
+        let category_filter = args.get("category").and_then(|v| v.as_str());
 
-        log::debug!(
-            "[tool][skill_registry] search invoked, query={query:?}, format={format_filter:?}, source={source_filter:?}"
+        tracing::debug!(
+            query = %query,
+            source = ?source_filter,
+            category = ?category_filter,
+            "[tool][skill_registry] search"
         );
 
-        match ops::search_catalog(query, format_filter, source_filter).await {
+        match ops::search_catalog(query, source_filter, category_filter).await {
             Ok(entries) => Ok(ToolResult::success(serde_json::to_string(&json!({
                 "count": entries.len(),
                 "entries": entries,
             }))?)),
             Err(e) => Ok(ToolResult::error(format!(
-                "Failed to search skill registries: {e}"
+                "Failed to search skill catalog: {e}"
             ))),
         }
     }
@@ -132,7 +129,6 @@ impl Tool for SkillRegistrySearchTool {
     }
 }
 
-/// Install a skill from the registry catalog.
 pub struct SkillRegistryInstallTool {
     workspace_dir: PathBuf,
 }
@@ -152,10 +148,9 @@ impl Tool for SkillRegistryInstallTool {
     }
 
     fn description(&self) -> &str {
-        "Install a skill from the registry catalog by entry_id and source_id. \
-         Downloads the SKILL.md from the remote source and installs it locally. \
-         Use `skill_registry_browse` or `skill_registry_search` first to find \
-         the entry to install."
+        "Install a skill from the catalog by its entry_id. Downloads the \
+         SKILL.md and installs it locally. Use `skill_registry_search` first \
+         to find the entry to install."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -165,13 +160,9 @@ impl Tool for SkillRegistryInstallTool {
                 "entry_id": {
                     "type": "string",
                     "description": "The skill entry id (slug) to install."
-                },
-                "source_id": {
-                    "type": "string",
-                    "description": "The registry source id the entry belongs to."
                 }
             },
-            "required": ["entry_id", "source_id"]
+            "required": ["entry_id"]
         })
     }
 
@@ -184,14 +175,8 @@ impl Tool for SkillRegistryInstallTool {
             .get("entry_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing required argument `entry_id`"))?;
-        let source_id = args
-            .get("source_id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing required argument `source_id`"))?;
 
-        log::debug!(
-            "[tool][skill_registry] install invoked, entry_id={entry_id}, source_id={source_id}"
-        );
+        tracing::debug!(entry_id = %entry_id, "[tool][skill_registry] install");
 
         let catalog = ops::browse_catalog(false)
             .await
@@ -199,11 +184,11 @@ impl Tool for SkillRegistryInstallTool {
 
         let entry = catalog
             .iter()
-            .find(|e| e.id == entry_id && e.source_id == source_id)
+            .find(|e| e.id == entry_id)
             .ok_or_else(|| {
                 anyhow::anyhow!(
-                    "skill '{entry_id}' not found in source '{source_id}'. \
-                     Run skill_registry_browse first to refresh the catalog."
+                    "skill '{entry_id}' not found in catalog. \
+                     Run skill_registry_browse first to refresh."
                 )
             })?;
 
@@ -221,7 +206,6 @@ impl Tool for SkillRegistryInstallTool {
     }
 }
 
-/// List the configured skill registry sources.
 pub struct SkillRegistrySourcesTool;
 
 #[async_trait]
@@ -231,8 +215,8 @@ impl Tool for SkillRegistrySourcesTool {
     }
 
     fn description(&self) -> &str {
-        "List the configured skill registry sources (default + custom). \
-         Returns each source's id, name, URL, kind, and enabled status."
+        "List the distinct upstream sources available in the catalog \
+         (e.g. 'built-in', 'ClawHub', 'skills.sh', 'LobeHub', 'browse.sh')."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -240,12 +224,16 @@ impl Tool for SkillRegistrySourcesTool {
     }
 
     async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        log::debug!("[tool][skill_registry] sources invoked");
-        let sources = ops::list_sources();
-        Ok(ToolResult::success(serde_json::to_string(&json!({
-            "count": sources.len(),
-            "sources": sources,
-        }))?))
+        tracing::debug!("[tool][skill_registry] sources");
+        match ops::list_sources().await {
+            Ok(sources) => Ok(ToolResult::success(serde_json::to_string(&json!({
+                "count": sources.len(),
+                "sources": sources,
+            }))?)),
+            Err(e) => Ok(ToolResult::error(format!(
+                "Failed to list sources: {e}"
+            ))),
+        }
     }
 
     fn is_concurrency_safe(&self, _args: &serde_json::Value) -> bool {

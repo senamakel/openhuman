@@ -5,7 +5,6 @@ import { useT } from '../../lib/i18n/I18nContext';
 import {
   skillRegistryApi,
   type CatalogEntry,
-  type RegistrySource,
 } from '../../services/api/skillRegistryApi';
 import {
   skillsApi,
@@ -17,6 +16,32 @@ import InstallSkillDialog from './InstallSkillDialog';
 import UninstallSkillConfirmDialog from './UninstallSkillConfirmDialog';
 
 const log = debug('skills:explorer-tab');
+
+function SourceBadge({ source }: { source: string }) {
+  const SOURCE_COLORS: Record<string, string> = {
+    'built-in':
+      'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30',
+    optional:
+      'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30',
+    ClawHub:
+      'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30',
+    'skills.sh':
+      'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30',
+    LobeHub:
+      'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-500/10 dark:text-pink-300 dark:border-pink-500/30',
+    'browse.sh':
+      'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30',
+  };
+  const colors =
+    SOURCE_COLORS[source] ??
+    'bg-stone-50 text-stone-600 border-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700';
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${colors}`}>
+      {source}
+    </span>
+  );
+}
 
 function SkillFormatBadge({ format }: { format: string }) {
   const lower = format.toLowerCase();
@@ -71,19 +96,6 @@ function SkillScopeBadge({ scope }: { scope: string }) {
   return (
     <span className="inline-flex items-center rounded-full border border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 px-1.5 py-0.5 text-[9px] font-medium text-stone-500 dark:text-neutral-400">
       {label}
-    </span>
-  );
-}
-
-function SourceBadge({ sourceId }: { sourceId: string }) {
-  const FRIENDLY: Record<string, string> = {
-    'openhuman-community': 'Community',
-    hermeshub: 'HermesHub',
-    clawhub: 'ClawHub',
-  };
-  return (
-    <span className="inline-flex items-center rounded-full border border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 px-1.5 py-0.5 text-[9px] font-medium text-stone-500 dark:text-neutral-400">
-      {FRIENDLY[sourceId] ?? sourceId}
     </span>
   );
 }
@@ -224,7 +236,7 @@ function CatalogTile({ entry, installed, installing, onInstall, onClick }: Catal
             </svg>
           </div>
           <div className="flex items-center gap-1">
-            <SourceBadge sourceId={entry.source_id} />
+            <SourceBadge source={entry.source} />
           </div>
         </div>
 
@@ -258,11 +270,6 @@ function CatalogTile({ entry, installed, installing, onInstall, onClick }: Catal
           {entry.author && (
             <span className="text-[10px] text-stone-400 dark:text-neutral-500">
               {entry.author}
-            </span>
-          )}
-          {entry.stars != null && entry.stars > 0 && (
-            <span className="text-[10px] text-stone-400 dark:text-neutral-500">
-              {entry.stars}
             </span>
           )}
         </div>
@@ -308,13 +315,13 @@ function SkillDetailDialog({
   const { t } = useT();
   const name = entry?.name ?? skill?.name ?? '';
   const description = entry?.description ?? skill?.description ?? '';
-  const format = entry?.format ?? skill?.sourceFormat ?? '';
   const tags = entry?.tags ?? skill?.tags ?? [];
   const version = entry?.version ?? skill?.version ?? '';
   const author = entry?.author ?? '';
-  const sourceId = entry?.source_id ?? '';
+  const source = entry?.source ?? '';
+  const category = entry?.category ?? '';
   const downloadUrl = entry?.download_url ?? '';
-  const stars = entry?.stars;
+  const license = entry?.license ?? '';
 
   return (
     <div
@@ -336,8 +343,12 @@ function SkillDetailDialog({
               )}
             </div>
             <div className="mt-1.5 flex items-center gap-1.5">
-              <SkillFormatBadge format={format} />
-              {sourceId && <SourceBadge sourceId={sourceId} />}
+              {source && <SourceBadge source={source} />}
+              {category && (
+                <span className="inline-flex items-center rounded-full border border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 px-1.5 py-0.5 text-[9px] font-medium text-stone-500 dark:text-neutral-400">
+                  {category}
+                </span>
+              )}
             </div>
           </div>
           <button
@@ -379,12 +390,12 @@ function SkillDetailDialog({
                 <p className="text-xs text-stone-700 dark:text-neutral-300">{author}</p>
               </div>
             )}
-            {stars != null && stars > 0 && (
+            {license && (
               <div>
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
-                  {t('skills.detail.stars')}
+                  License
                 </span>
-                <p className="text-xs text-stone-700 dark:text-neutral-300">{stars}</p>
+                <p className="text-xs text-stone-700 dark:text-neutral-300">{license}</p>
               </div>
             )}
           </div>
@@ -406,7 +417,7 @@ function SkillDetailDialog({
             </div>
           )}
 
-          {downloadUrl && !downloadUrl.startsWith('clawhub://') && (
+          {downloadUrl && (
             <div>
               <h3 className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500 mb-1">
                 {t('skills.detail.source')}
@@ -453,10 +464,9 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
 
-  const [sources, setSources] = useState<RegistrySource[]>([]);
-  const [activeSourceIds, setActiveSourceIds] = useState<Set<string>>(new Set());
+  const [sources, setSources] = useState<string[]>([]);
+  const [activeSources, setActiveSources] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [formatFilter, setFormatFilter] = useState<string>('all');
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [uninstallTarget, setUninstallTarget] = useState<SkillSummary | null>(null);
   const [detailEntry, setDetailEntry] = useState<CatalogEntry | null>(null);
@@ -500,7 +510,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
     void fetchSkills();
     skillRegistryApi.sources().then(s => {
       setSources(s);
-      setActiveSourceIds(new Set(s.filter(src => src.enabled).map(src => src.id)));
+      setActiveSources(new Set(s));
     }).catch(() => {});
   }, [fetchSkills]);
 
@@ -535,23 +545,17 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const filteredCatalog = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return catalog.filter(entry => {
-      if (activeSourceIds.size > 0 && !activeSourceIds.has(entry.source_id)) return false;
-      if (formatFilter !== 'all' && entry.format !== formatFilter) return false;
+      if (activeSources.size > 0 && activeSources.size < sources.length && !activeSources.has(entry.source)) return false;
       if (!q) return true;
       return (
         entry.name.toLowerCase().includes(q) ||
         entry.description.toLowerCase().includes(q) ||
         entry.tags.some(tag => tag.toLowerCase().includes(q)) ||
-        entry.format.toLowerCase().includes(q) ||
+        entry.category.toLowerCase().includes(q) ||
         (entry.author ?? '').toLowerCase().includes(q)
       );
     });
-  }, [catalog, searchQuery, formatFilter, activeSourceIds]);
-
-  const catalogFormats = useMemo(() => {
-    const formats = new Set(catalog.map(e => e.format));
-    return ['all', ...Array.from(formats).sort()];
-  }, [catalog]);
+  }, [catalog, searchQuery, activeSources, sources.length]);
 
   const handleInstalled = useCallback(
     (result: InstallSkillFromUrlResult) => {
@@ -582,10 +586,10 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
 
   const handleRegistryInstall = useCallback(
     async (entry: CatalogEntry) => {
-      log('handleRegistryInstall: id=%s source=%s', entry.id, entry.source_id);
+      log('handleRegistryInstall: id=%s source=%s', entry.id, entry.source);
       setInstallingId(entry.id);
       try {
-        const result = await skillRegistryApi.install(entry.id, entry.source_id);
+        const result = await skillRegistryApi.install(entry.id);
         void fetchSkills();
         onToast?.({
           type: 'success',
@@ -666,22 +670,16 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
       {view === 'registry' && sources.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-1 pb-3">
           {sources.map(src => {
-            const active = activeSourceIds.has(src.id);
-            const FRIENDLY: Record<string, string> = {
-              'openhuman-community': 'Community',
-              hermeshub: 'HermesHub',
-              clawhub: 'ClawHub',
-            };
-            const label = FRIENDLY[src.id] ?? src.name;
+            const active = activeSources.has(src);
             return (
               <button
-                key={src.id}
+                key={src}
                 type="button"
                 onClick={() => {
-                  setActiveSourceIds(prev => {
+                  setActiveSources(prev => {
                     const next = new Set(prev);
-                    if (next.has(src.id)) next.delete(src.id);
-                    else next.add(src.id);
+                    if (next.has(src)) next.delete(src);
+                    else next.add(src);
                     return next;
                   });
                 }}
@@ -690,14 +688,14 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
                     ? 'border-primary-300 dark:border-primary-500/50 bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300'
                     : 'border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300'
                 }`}>
-                {label}
+                {src}
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Search + format filter */}
+      {/* Search */}
       <div className="flex gap-2 px-1 pb-3">
         <div className="relative flex-1">
           <svg
@@ -720,18 +718,6 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
             className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 py-2 pl-9 pr-3 text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
           />
         </div>
-        {view === 'registry' && catalogFormats.length > 2 && (
-          <select
-            value={formatFilter}
-            onChange={e => setFormatFilter(e.target.value)}
-            className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-2 text-xs text-stone-700 dark:text-neutral-200 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30">
-            {catalogFormats.map(f => (
-              <option key={f} value={f}>
-                {f === 'all' ? t('skills.explorer.allFormats') : f}
-              </option>
-            ))}
-          </select>
-        )}
         {view === 'registry' && (
           <button
             type="button"
@@ -866,7 +852,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
               style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(14rem, 1fr))' }}>
               {filteredCatalog.map(entry => (
                 <CatalogTile
-                  key={`${entry.source_id}-${entry.id}`}
+                  key={`${entry.source}-${entry.id}`}
                   entry={entry}
                   installed={installedIds.has(entry.id)}
                   installing={installingId === entry.id}

@@ -53,14 +53,17 @@ const MOCK_CATALOG_ENTRY: CatalogEntry = {
   id: 'registry-skill-1',
   name: 'Registry Skill',
   description: 'A skill from the registry',
-  format: 'hermes',
+  source: 'built-in',
+  category: 'productivity',
   author: 'Registry Author',
   version: '2.0.0',
   tags: ['registry', 'remote'],
+  platforms: [],
   download_url: 'https://example.com/SKILL.md',
-  source_id: 'openhuman-community',
-  stars: 42,
-  updated_at: '2026-01-01',
+  docs_path: null,
+  commands: [],
+  env_vars: [],
+  license: 'MIT',
 };
 
 async function switchToInstalled() {
@@ -96,8 +99,7 @@ describe('SkillsExplorerTab', () => {
     await waitFor(() => {
       expect(screen.getByText('Registry Skill')).toBeInTheDocument();
     });
-    expect(screen.getByText('Hermes')).toBeInTheDocument();
-    expect(screen.getByText('openhuman-community')).toBeInTheDocument();
+    expect(screen.getByText('built-in')).toBeInTheDocument();
   });
 
   it('shows installed skills when switching to installed tab', async () => {

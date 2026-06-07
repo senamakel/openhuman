@@ -62,52 +62,37 @@ test.describe('Skills registry flow', () => {
 });
 
 test.describe('Skill registry RPC smoke', () => {
-  // These tests call the core RPC directly — no page navigation needed.
-  // They verify the skill_registry module responds correctly.
-
-  test('sources returns the three default registries', async () => {
+  test('sources returns upstream source names', async () => {
     const result = await callCoreRpc<{
-      sources: Array<{ id: string; name: string; kind: string; enabled: boolean }>;
+      sources: string[];
     }>('openhuman.skill_registry_sources');
     expect(result.sources).toBeDefined();
-    expect(result.sources.length).toBeGreaterThanOrEqual(3);
-
-    const ids = result.sources.map(s => s.id);
-    expect(ids).toContain('openhuman-community');
-    expect(ids).toContain('hermeshub');
-    expect(ids).toContain('clawhub');
+    expect(result.sources.length).toBeGreaterThan(0);
 
     for (const source of result.sources) {
-      expect(source.name).toBeTruthy();
-      expect(source.kind).toBeTruthy();
-      expect(typeof source.enabled).toBe('boolean');
+      expect(typeof source).toBe('string');
+      expect(source.length).toBeGreaterThan(0);
     }
   });
 
-  test('browse returns catalog entries from at least one source', async () => {
+  test('browse returns catalog entries', async () => {
     test.setTimeout(30_000);
     const result = await callCoreRpc<{
       entries: Array<{
         id: string;
         name: string;
-        source_id: string;
-        format: string;
+        source: string;
+        category: string;
         download_url: string;
       }>;
     }>('openhuman.skill_registry_browse', { force_refresh: true });
     expect(result.entries).toBeDefined();
     expect(result.entries.length).toBeGreaterThan(0);
 
-    // At least the openhuman-community source should have our git-summary skill
-    const openhumanEntries = result.entries.filter(e => e.source_id === 'openhuman-community');
-    expect(openhumanEntries.length).toBeGreaterThan(0);
-
-    // Each entry has required fields
     for (const entry of result.entries.slice(0, 5)) {
       expect(entry.id).toBeTruthy();
       expect(entry.name).toBeTruthy();
-      expect(entry.source_id).toBeTruthy();
-      expect(entry.format).toBeTruthy();
+      expect(entry.source).toBeTruthy();
     }
   });
 
@@ -117,9 +102,7 @@ test.describe('Skill registry RPC smoke', () => {
       entries: Array<{ id: string; name: string; description: string }>;
     }>('openhuman.skill_registry_search', { query: 'git' });
     expect(result.entries).toBeDefined();
-    // Should find at least git-summary
-    const gitSummary = result.entries.find(e => e.id === 'git-summary');
-    expect(gitSummary).toBeDefined();
+    expect(result.entries.length).toBeGreaterThan(0);
   });
 
   test('search with empty query returns all entries', async () => {

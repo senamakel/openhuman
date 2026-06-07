@@ -4,26 +4,21 @@ import { callCoreRpc } from '../coreRpcClient';
 
 const log = debug('skillRegistryApi');
 
-export interface RegistrySource {
-  id: string;
-  name: string;
-  url: string;
-  kind: string;
-  enabled: boolean;
-}
-
 export interface CatalogEntry {
   id: string;
   name: string;
   description: string;
-  format: string;
+  source: string;
+  category: string;
   author: string | null;
   version: string | null;
   tags: string[];
+  platforms: string[];
   download_url: string;
-  source_id: string;
-  stars: number | null;
-  updated_at: string | null;
+  docs_path: string | null;
+  commands: string[];
+  env_vars: string[];
+  license: string | null;
 }
 
 interface Envelope<T> {
@@ -49,63 +44,49 @@ export const skillRegistryApi = {
     return result.entries;
   },
 
-  search: async (query: string, format?: string, source?: string): Promise<CatalogEntry[]> => {
-    log('search: query=%s format=%s source=%s', query, format, source);
+  search: async (query: string, source?: string, category?: string): Promise<CatalogEntry[]> => {
+    log('search: query=%s source=%s category=%s', query, source, category);
     const response = await callCoreRpc<
       Envelope<{ entries: CatalogEntry[] }> | { entries: CatalogEntry[] }
     >({
       method: 'openhuman.skill_registry_search',
-      params: { query, ...(format ? { format } : {}), ...(source ? { source } : {}) },
+      params: { query, ...(source ? { source } : {}), ...(category ? { category } : {}) },
     });
     const result = unwrap(response);
     log('search: count=%d', result.entries.length);
     return result.entries;
   },
 
-  sources: async (): Promise<RegistrySource[]> => {
+  sources: async (): Promise<string[]> => {
     log('sources: request');
     const response = await callCoreRpc<
-      Envelope<{ sources: RegistrySource[] }> | { sources: RegistrySource[] }
+      Envelope<{ sources: string[] }> | { sources: string[] }
     >({ method: 'openhuman.skill_registry_sources' });
     const result = unwrap(response);
     log('sources: count=%d', result.sources.length);
     return result.sources;
   },
 
-  addSource: async (params: {
-    id: string;
-    name: string;
-    url: string;
-    kind?: string;
-  }): Promise<RegistrySource[]> => {
-    log('addSource: id=%s', params.id);
+  categories: async (): Promise<string[]> => {
+    log('categories: request');
     const response = await callCoreRpc<
-      Envelope<{ sources: RegistrySource[] }> | { sources: RegistrySource[] }
-    >({ method: 'openhuman.skill_registry_add_source', params });
+      Envelope<{ categories: string[] }> | { categories: string[] }
+    >({ method: 'openhuman.skill_registry_categories' });
     const result = unwrap(response);
-    return result.sources;
-  },
-
-  removeSource: async (id: string): Promise<RegistrySource[]> => {
-    log('removeSource: id=%s', id);
-    const response = await callCoreRpc<
-      Envelope<{ sources: RegistrySource[] }> | { sources: RegistrySource[] }
-    >({ method: 'openhuman.skill_registry_remove_source', params: { id } });
-    const result = unwrap(response);
-    return result.sources;
+    log('categories: count=%d', result.categories.length);
+    return result.categories;
   },
 
   install: async (
-    entryId: string,
-    sourceId: string
+    entryId: string
   ): Promise<{ url: string; stdout: string; stderr: string; new_skills: string[] }> => {
-    log('install: entryId=%s sourceId=%s', entryId, sourceId);
+    log('install: entryId=%s', entryId);
     const response = await callCoreRpc<
       | Envelope<{ url: string; stdout: string; stderr: string; new_skills: string[] }>
       | { url: string; stdout: string; stderr: string; new_skills: string[] }
     >({
       method: 'openhuman.skill_registry_install',
-      params: { entry_id: entryId, source_id: sourceId },
+      params: { entry_id: entryId },
     });
     const result = unwrap(response);
     log('install: newSkills=%d', result.new_skills.length);

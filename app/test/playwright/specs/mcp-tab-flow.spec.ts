@@ -412,21 +412,21 @@ test.describe('MCP Tab — Manage & Uninstall Lifecycle', () => {
     await row.click();
     await expect(page.locator('button:has-text("Back")')).toBeVisible({ timeout: 5_000 });
 
-    // Click the uninstall button (may require confirmation)
+    // Click the uninstall button to reveal the confirmation step
     const uninstallBtn = page.locator('button:has-text("Uninstall")');
     await expect(uninstallBtn.first()).toBeVisible({ timeout: 5_000 });
     await uninstallBtn.first().click();
 
-    // If there's a confirmation step, confirm it
-    const confirmBtn = page.locator('button:has-text("Confirm"), button:has-text("Yes")');
-    if ((await confirmBtn.count()) > 0) {
-      await confirmBtn.first().click();
-    }
+    // Wait for and click the confirmation button ("Yes, uninstall")
+    const confirmBtn = page.locator('button:has-text("Yes")');
+    await expect(confirmBtn.first()).toBeVisible({ timeout: 5_000 });
+    await confirmBtn.first().click();
 
-    // Should return to table view with the server removed
+    // Should return to table view with the server removed from installed
     await expect(page.locator('table')).toBeVisible({ timeout: 10_000 });
 
-    // Verify the server is no longer in the installed list
+    // Switch to Installed filter — the server should no longer appear
+    await page.getByRole('button', { name: /Installed/ }).click();
     const removedRow = page.locator('table tbody tr', {
       has: page.locator('td:first-child:has-text("Memory Server")'),
     });

@@ -280,7 +280,7 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
         workspace_dir: agent.workspace_dir().to_path_buf(),
         memory: agent.memory_arc(),
         agent_config: agent.agent_config().clone(),
-        skills: Arc::new(agent.skills().to_vec()),
+        workflows: Arc::new(agent.workflows().to_vec()),
         memory_context: Arc::new(None), // Sub-agent queries memory via tools if needed
         session_id: format!("triage-{}", uuid::Uuid::new_v4()),
         channel: "triage".to_string(),

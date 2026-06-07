@@ -78,6 +78,28 @@ fn json_rpc_e2e_env_lock() -> std::sync::MutexGuard<'static, ()> {
     }
 }
 
+fn run_json_rpc_e2e_on_agent_stack<F, Fut>(name: &str, future_factory: F)
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()> + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.to_string())
+        .stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .spawn(move || {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+                .enable_all()
+                .build()
+                .expect("build json_rpc e2e runtime");
+            rt.block_on(future_factory());
+        })
+        .expect("spawn json_rpc e2e thread")
+        .join()
+        .expect("json_rpc e2e thread should not panic");
+}
+
 fn with_chat_completion_models<T>(f: impl FnOnce(&mut Vec<String>) -> T) -> T {
     let mutex = CHAT_COMPLETION_MODELS.get_or_init(|| Mutex::new(Vec::new()));
     match mutex.lock() {
@@ -1666,8 +1688,15 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
     rpc_join.abort();
 }
 
-#[tokio::test]
-async fn json_rpc_protocol_auth_and_agent_hello() {
+#[test]
+fn json_rpc_protocol_auth_and_agent_hello() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_protocol_auth_and_agent_hello",
+        json_rpc_protocol_auth_and_agent_hello_inner,
+    );
+}
+
+async fn json_rpc_protocol_auth_and_agent_hello_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -1735,7 +1764,7 @@ async fn json_rpc_protocol_auth_and_agent_hello() {
     let chat = post_json_rpc(
         &rpc_base,
         5,
-        "openhuman.local_ai_agent_chat",
+        "openhuman.inference_agent_chat",
         json!({
             "message": "Hello",
         }),
@@ -2178,14 +2207,14 @@ async fn json_rpc_prompt_injection_is_rejected_before_model_call() {
     let blocked_agent = post_json_rpc(
         &rpc_base,
         4003,
-        "openhuman.local_ai_agent_chat",
+        "openhuman.inference_agent_chat",
         json!({
             "message": payload,
             "model_override": "e2e-mock-model",
         }),
     )
     .await;
-    let agent_err = assert_jsonrpc_error(&blocked_agent, "local_ai_agent_chat blocked");
+    let agent_err = assert_jsonrpc_error(&blocked_agent, "inference_agent_chat blocked");
     let agent_msg = agent_err
         .get("message")
         .and_then(Value::as_str)
@@ -3464,8 +3493,15 @@ async fn json_rpc_memory_tree_end_to_end() {
     let _ = mock_join.await;
 }
 
-#[tokio::test]
-async fn json_rpc_web_chat_routing_cases_use_expected_backend_models() {
+#[test]
+fn json_rpc_web_chat_routing_cases_use_expected_backend_models() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_web_chat_routing_cases",
+        json_rpc_web_chat_routing_cases_use_expected_backend_models_inner,
+    );
+}
+
+async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -3576,8 +3612,16 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models() {
     rpc_join.abort();
 }
 
-#[tokio::test]
-async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change() {
+#[test]
+fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_web_chat_custom_provider_route_change",
+        json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change_inner,
+    );
+}
+
+async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change_inner()
+{
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -3682,17 +3726,16 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     );
 
     let requests = wait_for_chat_completion_requests_len(1).await;
-    assert_eq!(requests.len(), 1, "expected one outbound provider call");
+    let custom_request = requests
+        .iter()
+        .find(|request| request.get("model").and_then(Value::as_str) == Some("gpt-4.1-mini"))
+        .unwrap_or_else(|| panic!("expected gpt-4.1-mini outbound provider call: {requests:?}"));
     assert_eq!(
-        requests[0].get("path").and_then(Value::as_str),
+        custom_request.get("path").and_then(Value::as_str),
         Some("/chat/completions")
     );
     assert_eq!(
-        requests[0].get("model").and_then(Value::as_str),
-        Some("gpt-4.1-mini")
-    );
-    assert_eq!(
-        requests[0].get("authorization").and_then(Value::as_str),
+        custom_request.get("authorization").and_then(Value::as_str),
         Some("Bearer sk-custom-openai-key")
     );
 
@@ -3740,14 +3783,19 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     );
 
     let requests = wait_for_chat_completion_requests_len(2).await;
-    assert_eq!(requests.len(), 2, "expected two outbound provider calls");
+    let updated_request = requests
+        .iter()
+        .find(|request| request.get("model").and_then(Value::as_str) == Some("gpt-4.1-nano"))
+        .unwrap_or_else(|| {
+            panic!("expected gpt-4.1-nano outbound provider call after route change: {requests:?}")
+        });
     assert_eq!(
-        requests[1].get("model").and_then(Value::as_str),
+        updated_request.get("model").and_then(Value::as_str),
         Some("gpt-4.1-nano"),
         "cached web-chat session should rebuild when chat_provider changes"
     );
     assert_eq!(
-        requests[1].get("authorization").and_then(Value::as_str),
+        updated_request.get("authorization").and_then(Value::as_str),
         Some("Bearer sk-custom-openai-key")
     );
 
@@ -3786,14 +3834,17 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     );
 
     let requests = wait_for_chat_completion_requests_len(3).await;
-    assert_eq!(requests.len(), 3, "expected three outbound provider calls");
+    let agentic_request = requests
+        .iter()
+        .find(|request| request.get("model").and_then(Value::as_str) == Some("agentic-v1"))
+        .unwrap_or_else(|| panic!("expected agentic-v1 backend provider call: {requests:?}"));
     assert_eq!(
-        requests[2].get("path").and_then(Value::as_str),
+        agentic_request.get("path").and_then(Value::as_str),
         Some("/openai/v1/chat/completions"),
         "custom reasoning provider must not hijack unrelated backend routes"
     );
     assert_eq!(
-        requests[2].get("model").and_then(Value::as_str),
+        agentic_request.get("model").and_then(Value::as_str),
         Some("agentic-v1")
     );
 
@@ -3801,8 +3852,15 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     rpc_join.abort();
 }
 
-#[tokio::test]
-async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header() {
+#[test]
+fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_web_chat_custom_provider_auth_none",
+        json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header_inner,
+    );
+}
+
+async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -3933,26 +3991,29 @@ async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header
     );
 
     let requests = wait_for_chat_completion_requests_len(1).await;
-    assert_eq!(requests.len(), 1, "expected one auth-none provider call");
+    let auth_none_request = requests
+        .iter()
+        .find(|request| request.get("model").and_then(Value::as_str) == Some("gpt-oss"))
+        .unwrap_or_else(|| panic!("expected auth-none provider call: {requests:?}"));
     assert_eq!(
-        requests[0].get("path").and_then(Value::as_str),
+        auth_none_request.get("path").and_then(Value::as_str),
         Some("/chat/completions")
     );
-    assert_eq!(
-        requests[0].get("model").and_then(Value::as_str),
-        Some("gpt-oss")
-    );
     assert!(
-        requests[0].get("authorization").is_none()
-            || requests[0].get("authorization").is_some_and(Value::is_null),
+        auth_none_request.get("authorization").is_none()
+            || auth_none_request
+                .get("authorization")
+                .is_some_and(Value::is_null),
         "auth_style=none must not emit Authorization: {:?}",
-        requests[0].get("authorization")
+        auth_none_request.get("authorization")
     );
     assert!(
-        requests[0].get("x_api_key").is_none()
-            || requests[0].get("x_api_key").is_some_and(Value::is_null),
+        auth_none_request.get("x_api_key").is_none()
+            || auth_none_request
+                .get("x_api_key")
+                .is_some_and(Value::is_null),
         "auth_style=none must not emit x-api-key: {:?}",
-        requests[0].get("x_api_key")
+        auth_none_request.get("x_api_key")
     );
 
     mock_join.abort();
@@ -10419,7 +10480,9 @@ async fn json_rpc_workflows_lifecycle_round_trip() {
     )
     .await;
     let create_result = assert_no_jsonrpc_error(&create, "workflows_create");
-    let wf = create_result.get("skill").expect("skill in create result");
+    let wf = create_result
+        .get("workflow")
+        .expect("workflow in create result");
     // `id` is the on-disk slug (WorkflowSummary maps dir_name → id). The
     // persisted frontmatter `name` is the slug too (create slugifies it).
     assert_eq!(wf.get("id").and_then(Value::as_str), Some("bug-triage"));
@@ -10429,9 +10492,9 @@ async fn json_rpc_workflows_lifecycle_round_trip() {
     let list = post_json_rpc(&rpc_base, 9202, "openhuman.workflows_list", json!({})).await;
     let list_result = assert_no_jsonrpc_error(&list, "workflows_list");
     let workflows = list_result
-        .get("skills")
+        .get("workflows")
         .and_then(Value::as_array)
-        .expect("skills array in list result");
+        .expect("workflows array in list result");
     assert_eq!(workflows.len(), 1, "exactly one workflow after create");
     assert_eq!(
         workflows[0].get("id").and_then(Value::as_str),
@@ -10486,7 +10549,7 @@ async fn json_rpc_workflows_lifecycle_round_trip() {
     let after_result = assert_no_jsonrpc_error(&after, "workflows_list");
     assert!(
         after_result
-            .get("skills")
+            .get("workflows")
             .and_then(Value::as_array)
             .expect("workflows array")
             .is_empty(),
@@ -10504,8 +10567,15 @@ async fn json_rpc_workflows_lifecycle_round_trip() {
 /// We activate the [`reply_speech::test_seam`] short-circuit via the
 /// `OPENHUMAN_TEST_REPLY_SPEECH_SEAM` env var so the call is recorded
 /// without contacting the ElevenLabs proxy.
-#[tokio::test]
-async fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech() {
+#[test]
+fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_speak_reply_e2e",
+        json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner,
+    );
+}
+
+async fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -11014,4 +11084,318 @@ async fn json_rpc_memory_sources_conversation_crud() {
     );
 
     rpc_join.abort();
+}
+
+// ── Memory sources: active-connection filtering over JSON-RPC ────────────────
+
+/// Mock Composio v3 `/connected_accounts`. Returns a single ACTIVE Gmail
+/// connection (`conn_active_gmail`); any other connection_id is, by omission,
+/// treated as inactive by the scan.
+fn mock_composio_connected_accounts_router() -> Router {
+    async fn connected_accounts() -> Json<Value> {
+        Json(json!({
+            "items": [
+                {
+                    "id": "conn_active_gmail",
+                    "status": "ACTIVE",
+                    "toolkit": "gmail",
+                    "created_at": "2026-01-01T00:00:00Z"
+                }
+            ]
+        }))
+    }
+    Router::new().route("/connected_accounts", get(connected_accounts))
+}
+
+/// Write a minimal config that selects Composio **direct** mode with an inline
+/// API key, so `scan_active_sync_targets` resolves a direct client that hits the
+/// loopback mock pointed at by `OPENHUMAN_COMPOSIO_DIRECT_BASE_V3`.
+fn write_composio_direct_config(openhuman_dir: &Path, api_origin: &str) {
+    let cfg = format!(
+        r#"api_url = "{api_origin}"
+default_model = "e2e-mock-model"
+default_temperature = 0.7
+chat_onboarding_completed = true
+
+[secrets]
+encrypt = false
+
+[composio]
+mode = "direct"
+api_key = "ck_e2e_test"
+"#
+    );
+    fn write_config_file(config_dir: &Path, cfg: &str) {
+        std::fs::create_dir_all(config_dir).expect("mkdir openhuman");
+        std::fs::write(config_dir.join("config.toml"), cfg).expect("write config");
+    }
+    write_config_file(openhuman_dir, &cfg);
+    if openhuman_dir
+        .file_name()
+        .is_some_and(|name| name == std::ffi::OsStr::new(".openhuman"))
+    {
+        write_config_file(&openhuman_dir.join("users").join("local"), &cfg);
+    }
+    let _: openhuman_core::openhuman::config::Config =
+        toml::from_str(&cfg).expect("config toml must match Config schema");
+}
+
+async fn add_composio_memory_source(
+    rpc_base: &str,
+    id: i64,
+    label: &str,
+    toolkit: &str,
+    connection_id: &str,
+) {
+    let add = post_json_rpc(
+        rpc_base,
+        id,
+        "openhuman.memory_sources_add",
+        json!({
+            "kind": "composio",
+            "label": label,
+            "toolkit": toolkit,
+            "connection_id": connection_id
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&add, "memory_sources_add (composio)");
+}
+
+async fn add_folder_memory_source(rpc_base: &str, id: i64, label: &str, path: &str) {
+    let add = post_json_rpc(
+        rpc_base,
+        id,
+        "openhuman.memory_sources_add",
+        json!({ "kind": "folder", "label": label, "path": path }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&add, "memory_sources_add (folder)");
+}
+
+/// Extract the `sources` array from a `memory_sources_list` result, tolerating
+/// both the bare value and the `{ result, logs }` envelope shape.
+fn memory_sources_from_list(result: &Value) -> &Vec<Value> {
+    result
+        .get("result")
+        .unwrap_or(result)
+        .get("sources")
+        .and_then(Value::as_array)
+        .unwrap_or_else(|| panic!("memory_sources_list missing sources array: {result}"))
+}
+
+/// End-to-end: `memory_sources_list` hides Composio rows whose connection is no
+/// longer active and collapses identical same-`connection_id` duplicates, while
+/// always showing non-Composio sources — driven by a real active scan against a
+/// mock Composio `/connected_accounts` endpoint.
+#[tokio::test]
+async fn json_rpc_memory_sources_list_filters_to_active_connections() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    // Mock Composio direct endpoint — only conn_active_gmail is ACTIVE.
+    let (composio_addr, composio_join) =
+        serve_on_ephemeral(mock_composio_connected_accounts_router()).await;
+    let composio_base = format!("http://{composio_addr}");
+    let _v2_guard = EnvVarGuard::set("OPENHUMAN_COMPOSIO_DIRECT_BASE_V2", &composio_base);
+    let _v3_guard = EnvVarGuard::set("OPENHUMAN_COMPOSIO_DIRECT_BASE_V3", &composio_base);
+
+    write_composio_direct_config(&openhuman_home, "http://127.0.0.1:1");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // Seed the registry: an active row, an identical duplicate of it (RC-B), a
+    // stale row whose connection is no longer active (RC-A), and a folder.
+    // memory_sources_add keys only on the generated src_ id, so the duplicate
+    // and stale composio rows both persist into config.memory_sources.
+    add_composio_memory_source(
+        &rpc_base,
+        8801,
+        "Gmail · active",
+        "gmail",
+        "conn_active_gmail",
+    )
+    .await;
+    add_composio_memory_source(
+        &rpc_base,
+        8802,
+        "Gmail · active dup",
+        "gmail",
+        "conn_active_gmail",
+    )
+    .await;
+    add_composio_memory_source(
+        &rpc_base,
+        8803,
+        "Gmail · stale",
+        "gmail",
+        "conn_stale_gmail",
+    )
+    .await;
+    add_folder_memory_source(&rpc_base, 8804, "My notes", "/tmp/notes").await;
+
+    let list = post_json_rpc(&rpc_base, 8805, "openhuman.memory_sources_list", json!({})).await;
+    let result = assert_no_jsonrpc_error(&list, "memory_sources_list").clone();
+    let sources = memory_sources_from_list(&result);
+
+    // Only the active connection shows, exactly once (stale hidden, dupe collapsed).
+    let composio_conn_ids: Vec<&str> = sources
+        .iter()
+        .filter(|s| s.get("kind").and_then(Value::as_str) == Some("composio"))
+        .filter_map(|s| s.get("connection_id").and_then(Value::as_str))
+        .collect();
+    assert_eq!(
+        composio_conn_ids,
+        vec!["conn_active_gmail"],
+        "only the active connection should list, exactly once; got sources={sources:?}"
+    );
+
+    // Non-Composio sources are always shown regardless of the active set.
+    assert!(
+        sources
+            .iter()
+            .any(|s| s.get("kind").and_then(Value::as_str) == Some("folder")),
+        "folder source must always be listed; got sources={sources:?}"
+    );
+
+    rpc_join.abort();
+    composio_join.abort();
+}
+
+/// Safety: when the live Composio scan is unavailable (here the direct endpoint
+/// is unreachable), `memory_sources_list` must show **all** sources rather than
+/// hiding every Composio row — a transient outage must never read as "all
+/// inactive".
+#[tokio::test]
+async fn json_rpc_memory_sources_list_shows_all_when_scan_unavailable() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    // Point the direct Composio base at a loopback port nothing listens on so
+    // the scan errors out → active set is None → no filtering applied.
+    let dead_base = "http://127.0.0.1:1";
+    let _v2_guard = EnvVarGuard::set("OPENHUMAN_COMPOSIO_DIRECT_BASE_V2", dead_base);
+    let _v3_guard = EnvVarGuard::set("OPENHUMAN_COMPOSIO_DIRECT_BASE_V3", dead_base);
+
+    write_composio_direct_config(&openhuman_home, "http://127.0.0.1:1");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    add_composio_memory_source(&rpc_base, 8901, "Gmail · A", "gmail", "conn_A").await;
+    add_composio_memory_source(&rpc_base, 8902, "Gmail · B", "gmail", "conn_B").await;
+    add_folder_memory_source(&rpc_base, 8903, "My notes", "/tmp/notes").await;
+
+    let list = post_json_rpc(&rpc_base, 8904, "openhuman.memory_sources_list", json!({})).await;
+    let result = assert_no_jsonrpc_error(&list, "memory_sources_list").clone();
+    let sources = memory_sources_from_list(&result);
+
+    // Failed scan ⇒ show everything: both composio rows + the folder remain.
+    assert_eq!(
+        sources.len(),
+        3,
+        "failed scan must show all sources (hide none); got sources={sources:?}"
+    );
+    let composio_count = sources
+        .iter()
+        .filter(|s| s.get("kind").and_then(Value::as_str) == Some("composio"))
+        .count();
+    assert_eq!(
+        composio_count, 2,
+        "both composio rows must remain visible on scan failure; got sources={sources:?}"
+    );
+
+    rpc_join.abort();
+}
+
+/// Mock Composio v3 `/connected_accounts` returning **two** distinct ACTIVE
+/// Gmail connections — exercises multiple-account-per-toolkit support (#3443).
+fn mock_composio_two_gmail_accounts_router() -> Router {
+    async fn connected_accounts() -> Json<Value> {
+        Json(json!({
+            "items": [
+                { "id": "conn_gmail_one", "status": "ACTIVE", "toolkit": "gmail", "created_at": "2026-01-01T00:00:00Z" },
+                { "id": "conn_gmail_two", "status": "ACTIVE", "toolkit": "gmail", "created_at": "2026-01-02T00:00:00Z" }
+            ]
+        }))
+    }
+    Router::new().route("/connected_accounts", get(connected_accounts))
+}
+
+/// Regression for #3443 (multiple account connections per toolkit): two
+/// *distinct* active connections of the same toolkit (two Gmail accounts) must
+/// **both** be listed. Our filter keys on `connection_id`, never on toolkit, so
+/// it must not collapse them — while a third, stale Gmail connection (absent
+/// from the active scan) is still hidden.
+#[tokio::test]
+async fn json_rpc_memory_sources_list_keeps_multiple_active_connections_per_toolkit() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    // Scan reports two active Gmail accounts (distinct connection_ids).
+    let (composio_addr, composio_join) =
+        serve_on_ephemeral(mock_composio_two_gmail_accounts_router()).await;
+    let composio_base = format!("http://{composio_addr}");
+    let _v2_guard = EnvVarGuard::set("OPENHUMAN_COMPOSIO_DIRECT_BASE_V2", &composio_base);
+    let _v3_guard = EnvVarGuard::set("OPENHUMAN_COMPOSIO_DIRECT_BASE_V3", &composio_base);
+
+    write_composio_direct_config(&openhuman_home, "http://127.0.0.1:1");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // Two active Gmail accounts + one stale Gmail connection (not in the scan).
+    add_composio_memory_source(&rpc_base, 8951, "Gmail · one", "gmail", "conn_gmail_one").await;
+    add_composio_memory_source(&rpc_base, 8952, "Gmail · two", "gmail", "conn_gmail_two").await;
+    add_composio_memory_source(
+        &rpc_base,
+        8953,
+        "Gmail · stale",
+        "gmail",
+        "conn_gmail_stale",
+    )
+    .await;
+
+    let list = post_json_rpc(&rpc_base, 8954, "openhuman.memory_sources_list", json!({})).await;
+    let result = assert_no_jsonrpc_error(&list, "memory_sources_list").clone();
+    let sources = memory_sources_from_list(&result);
+
+    let mut gmail_conn_ids: Vec<&str> = sources
+        .iter()
+        .filter(|s| s.get("kind").and_then(Value::as_str) == Some("composio"))
+        .filter_map(|s| s.get("connection_id").and_then(Value::as_str))
+        .collect();
+    gmail_conn_ids.sort_unstable();
+
+    // Both active accounts kept (not collapsed by toolkit); stale one hidden.
+    assert_eq!(
+        gmail_conn_ids,
+        vec!["conn_gmail_one", "conn_gmail_two"],
+        "both active connections of the same toolkit must list; stale hidden; got sources={sources:?}"
+    );
+
+    rpc_join.abort();
+    composio_join.abort();
 }

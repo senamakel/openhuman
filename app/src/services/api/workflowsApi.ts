@@ -2,15 +2,15 @@ import debug from 'debug';
 
 import { callCoreRpc } from '../coreRpcClient';
 
-const log = debug('skillsApi');
+const log = debug('workflowsApi');
 
 /**
  * Scope a skill was discovered in.
  *
- * Mirrors `openhuman::skills::ops::SkillScope` on the Rust side — serialized
+ * Mirrors `openhuman::skills::ops::WorkflowScope` on the Rust side — serialized
  * as a lowercase string (`"user" | "project" | "legacy"`).
  */
-export type SkillScope = 'user' | 'project' | 'legacy';
+export type WorkflowScope = 'user' | 'project' | 'legacy';
 
 /**
  * Wire-format representation of a discovered skill returned by
@@ -19,7 +19,7 @@ export type SkillScope = 'user' | 'project' | 'legacy';
  * Paths are intentionally serialized as strings (not URLs) to avoid lossy
  * conversions on non-UTF-8 filesystems.
  */
-export interface SkillSummary {
+export interface WorkflowSummary {
   /** Stable identifier — equal to `name` on the Rust side. */
   id: string;
   /** Display name, from frontmatter or directory. */
@@ -47,18 +47,18 @@ export interface SkillSummary {
   /** Bundled resource files, relative to the skill root. */
   resources: string[];
   /** Where the skill came from. */
-  scope: SkillScope;
+  scope: WorkflowScope;
   /** True when loaded from the legacy `skills/` layout. */
   legacy: boolean;
   /** Non-fatal parse warnings to surface in the UI. */
   warnings: string[];
 }
 
-interface SkillsListResult {
-  skills: RawSkillSummary[];
+interface WorkflowsListResult {
+  workflows: RawWorkflowSummary[];
 }
 
-type RawSkillSummary = Omit<SkillSummary, 'platforms' | 'relatedSkills' | 'sourceFormat'> & {
+type RawWorkflowSummary = Omit<WorkflowSummary, 'platforms' | 'relatedSkills' | 'sourceFormat'> & {
   platforms?: string[];
   related_skills?: string[];
   relatedSkills?: string[];
@@ -69,9 +69,9 @@ type RawSkillSummary = Omit<SkillSummary, 'platforms' | 'relatedSkills' | 'sourc
 /**
  * Result of `openhuman.workflows_read_resource`.
  */
-export interface SkillResourceContent {
+export interface WorkflowResourceContent {
   /** Echo of the requested skill id. */
-  skillId: string;
+  workflowId: string;
   /** Echo of the requested relative path. */
   relativePath: string;
   /** UTF-8 file contents (<= 128 KB). */
@@ -80,7 +80,7 @@ export interface SkillResourceContent {
   bytes: number;
 }
 
-interface RawSkillsReadResourceResult {
+interface RawWorkflowsReadResourceResult {
   workflow_id: string;
   relative_path: string;
   content: string;
@@ -102,14 +102,14 @@ interface RawSkillsReadResourceResult {
  * to `true` on the Rust side when omitted (we send it explicitly to
  * stay loud).
  */
-export interface CreateSkillInputDef {
+export interface CreateWorkflowInputDef {
   name: string;
   description?: string;
   required: boolean;
   type?: 'string' | 'integer' | 'boolean';
 }
 
-export interface CreateSkillInput {
+export interface CreateWorkflowInput {
   name: string;
   description: string;
   /**
@@ -119,7 +119,7 @@ export interface CreateSkillInput {
    * `skill.toml` `when_to_use`; falls back to `description` when omitted.
    */
   whenToUse?: string;
-  scope?: SkillScope;
+  scope?: WorkflowScope;
   license?: string;
   author?: string;
   tags?: string[];
@@ -130,11 +130,11 @@ export interface CreateSkillInput {
    * the Skills Runner can render dynamic form controls per input.
    * Omit / pass `[]` to scaffold an input-less skill.
    */
-  inputs?: CreateSkillInputDef[];
+  inputs?: CreateWorkflowInputDef[];
 }
 
-interface RawSkillsCreateResult {
-  skill: RawSkillSummary;
+interface RawWorkflowsCreateResult {
+  workflow: RawWorkflowSummary;
 }
 
 /**
@@ -143,7 +143,7 @@ interface RawSkillsCreateResult {
  * `timeoutSecs` is optional — the Rust side defaults to 60s and caps at
  * 600s. Values outside that range are clamped server-side.
  */
-export interface InstallSkillFromUrlInput {
+export interface InstallWorkflowFromUrlInput {
   url: string;
   timeoutSecs?: number;
 }
@@ -151,24 +151,24 @@ export interface InstallSkillFromUrlInput {
 /**
  * Result of `openhuman.workflows_install_from_url`.
  *
- * `newSkills` lists skill ids that appeared post-install (diff vs the
+ * `newWorkflows` lists skill ids that appeared post-install (diff vs the
  * pre-install snapshot). `stdout` holds a human-readable diagnostic summary
  * (bytes fetched, target path); `stderr` holds non-fatal frontmatter parse
  * warnings joined by newlines. There is no subprocess — the Rust side fetches
  * SKILL.md directly over HTTPS.
  */
-export interface InstallSkillFromUrlResult {
+export interface InstallWorkflowFromUrlResult {
   url: string;
   stdout: string;
   stderr: string;
-  newSkills: string[];
+  newWorkflows: string[];
 }
 
-interface RawInstallSkillFromUrlResult {
+interface RawInstallWorkflowFromUrlResult {
   url: string;
   stdout: string;
   stderr: string;
-  new_skills: string[];
+  new_workflows: string[];
 }
 
 /**
@@ -178,16 +178,16 @@ interface RawInstallSkillFromUrlResult {
  * canonicalised on-disk path that was deleted — surface it in success toasts
  * so the user can confirm exactly what was removed.
  */
-export interface UninstallSkillResult {
+export interface UninstallWorkflowResult {
   name: string;
   removedPath: string;
-  scope: SkillScope;
+  scope: WorkflowScope;
 }
 
-interface RawUninstallSkillResult {
+interface RawUninstallWorkflowResult {
   name: string;
   removed_path: string;
-  scope: SkillScope;
+  scope: WorkflowScope;
 }
 
 interface Envelope<T> {
@@ -204,7 +204,7 @@ function unwrapEnvelope<T>(response: Envelope<T> | T): T {
   return response as T;
 }
 
-function normalizeSkillSummary(raw: RawSkillSummary): SkillSummary {
+function normalizeWorkflowSummary(raw: RawWorkflowSummary): WorkflowSummary {
   return {
     ...raw,
     platforms: raw.platforms ?? [],
@@ -213,17 +213,17 @@ function normalizeSkillSummary(raw: RawSkillSummary): SkillSummary {
   };
 }
 
-export const skillsApi = {
+export const workflowsApi = {
   /** Enumerate SKILL.md / legacy skills visible in the active workspace. */
-  listSkills: async (): Promise<SkillSummary[]> => {
-    log('listSkills: request');
-    const response = await callCoreRpc<Envelope<SkillsListResult> | SkillsListResult>({
+  listWorkflows: async (): Promise<WorkflowSummary[]> => {
+    log('listWorkflows: request');
+    const response = await callCoreRpc<Envelope<WorkflowsListResult> | WorkflowsListResult>({
       method: 'openhuman.workflows_list',
     });
     const result = unwrapEnvelope(response);
-    const skills = (result?.skills ?? []).map(normalizeSkillSummary);
-    log('listSkills: response count=%d', skills.length);
-    return skills;
+    const workflows = (result?.workflows ?? []).map(normalizeWorkflowSummary);
+    log('listWorkflows: response count=%d', workflows.length);
+    return workflows;
   },
 
   /**
@@ -231,28 +231,28 @@ export const skillsApi = {
    * traversal, symlink escape, non-UTF-8 payloads, or files larger than
    * 128 KB — the caller surfaces the error string verbatim in the drawer.
    */
-  readSkillResource: async ({
-    skillId,
+  readWorkflowResource: async ({
+    workflowId,
     relativePath,
   }: {
-    skillId: string;
+    workflowId: string;
     relativePath: string;
-  }): Promise<SkillResourceContent> => {
-    log('readSkillResource: request skillId=%s path=%s', skillId, relativePath);
+  }): Promise<WorkflowResourceContent> => {
+    log('readWorkflowResource: request workflowId=%s path=%s', workflowId, relativePath);
     const response = await callCoreRpc<
-      Envelope<RawSkillsReadResourceResult> | RawSkillsReadResourceResult
+      Envelope<RawWorkflowsReadResourceResult> | RawWorkflowsReadResourceResult
     >({
       method: 'openhuman.workflows_read_resource',
-      params: { workflow_id: skillId, relative_path: relativePath },
+      params: { workflow_id: workflowId, relative_path: relativePath },
     });
     const raw = unwrapEnvelope(response);
-    const normalized: SkillResourceContent = {
-      skillId: raw.workflow_id,
+    const normalized: WorkflowResourceContent = {
+      workflowId: raw.workflow_id,
       relativePath: raw.relative_path,
       content: raw.content,
       bytes: raw.bytes,
     };
-    log('readSkillResource: response bytes=%d', normalized.bytes);
+    log('readWorkflowResource: response bytes=%d', normalized.bytes);
     return normalized;
   },
 
@@ -260,12 +260,14 @@ export const skillsApi = {
    * Scaffold a new SKILL.md skill via `openhuman.workflows_create`.
    *
    * The Rust side slugifies the name, writes `SKILL.md` with the supplied
-   * frontmatter, and returns the freshly-discovered `SkillSummary` so the
+   * frontmatter, and returns the freshly-discovered `WorkflowSummary` so the
    * caller can insert the new row into the grid without a full refetch.
    */
-  createSkill: async (input: CreateSkillInput): Promise<SkillSummary> => {
-    log('createSkill: request name=%s scope=%s', input.name, input.scope ?? 'default');
-    const response = await callCoreRpc<Envelope<RawSkillsCreateResult> | RawSkillsCreateResult>({
+  createWorkflow: async (input: CreateWorkflowInput): Promise<WorkflowSummary> => {
+    log('createWorkflow: request name=%s scope=%s', input.name, input.scope ?? 'default');
+    const response = await callCoreRpc<
+      Envelope<RawWorkflowsCreateResult> | RawWorkflowsCreateResult
+    >({
       method: 'openhuman.workflows_create',
       params: {
         name: input.name,
@@ -282,9 +284,9 @@ export const skillsApi = {
       },
     });
     const raw = unwrapEnvelope(response);
-    const skill = normalizeSkillSummary(raw.skill);
-    log('createSkill: response id=%s', skill.id);
-    return skill;
+    const workflow = normalizeWorkflowSummary(raw.workflow);
+    log('createWorkflow: response id=%s', workflow.id);
+    return workflow;
   },
 
   /**
@@ -293,9 +295,11 @@ export const skillsApi = {
    * slug — rewriting frontmatter + workflow.toml while preserving the
    * hand-authored SKILL.md/WORKFLOW.md body.
    */
-  updateSkill: async (input: CreateSkillInput): Promise<SkillSummary> => {
-    log('updateSkill: request name=%s scope=%s', input.name, input.scope ?? 'default');
-    const response = await callCoreRpc<Envelope<RawSkillsCreateResult> | RawSkillsCreateResult>({
+  updateWorkflow: async (input: CreateWorkflowInput): Promise<WorkflowSummary> => {
+    log('updateWorkflow: request name=%s scope=%s', input.name, input.scope ?? 'default');
+    const response = await callCoreRpc<
+      Envelope<RawWorkflowsCreateResult> | RawWorkflowsCreateResult
+    >({
       method: 'openhuman.workflows_update',
       params: {
         name: input.name,
@@ -312,9 +316,9 @@ export const skillsApi = {
       },
     });
     const raw = unwrapEnvelope(response);
-    const skill = normalizeSkillSummary(raw.skill);
-    log('updateSkill: response id=%s', skill.id);
-    return skill;
+    const workflow = normalizeWorkflowSummary(raw.workflow);
+    log('updateWorkflow: response id=%s', workflow.id);
+    return workflow;
   },
 
   /**
@@ -327,12 +331,12 @@ export const skillsApi = {
    * is normalised to its `raw.githubusercontent.com` equivalent. Size is
    * capped at 1 MiB; timeout default 60s, max 600s.
    */
-  installSkillFromUrl: async (
-    input: InstallSkillFromUrlInput
-  ): Promise<InstallSkillFromUrlResult> => {
-    log('installSkillFromUrl: request url=%s', input.url);
+  installWorkflowFromUrl: async (
+    input: InstallWorkflowFromUrlInput
+  ): Promise<InstallWorkflowFromUrlResult> => {
+    log('installWorkflowFromUrl: request url=%s', input.url);
     const response = await callCoreRpc<
-      Envelope<RawInstallSkillFromUrlResult> | RawInstallSkillFromUrlResult
+      Envelope<RawInstallWorkflowFromUrlResult> | RawInstallWorkflowFromUrlResult
     >({
       method: 'openhuman.workflows_install_from_url',
       params: {
@@ -341,15 +345,15 @@ export const skillsApi = {
       },
     });
     const raw = unwrapEnvelope(response);
-    const normalized: InstallSkillFromUrlResult = {
+    const normalized: InstallWorkflowFromUrlResult = {
       url: raw.url,
       stdout: raw.stdout,
       stderr: raw.stderr,
-      newSkills: raw.new_skills ?? [],
+      newWorkflows: raw.new_workflows ?? [],
     };
     log(
-      'installSkillFromUrl: response new=%d stdout=%d stderr=%d',
-      normalized.newSkills.length,
+      'installWorkflowFromUrl: response new=%d stdout=%d stderr=%d',
+      normalized.newWorkflows.length,
       normalized.stdout.length,
       normalized.stderr.length
     );
@@ -365,37 +369,41 @@ export const skillsApi = {
    * canonicalises paths and refuses names with separators / traversal
    * sequences / anything outside the skills root.
    */
-  uninstallSkill: async (name: string): Promise<UninstallSkillResult> => {
-    log('uninstallSkill: request name=%s', name);
-    const response = await callCoreRpc<Envelope<RawUninstallSkillResult> | RawUninstallSkillResult>(
-      { method: 'openhuman.workflows_uninstall', params: { name } }
-    );
+  uninstallWorkflow: async (name: string): Promise<UninstallWorkflowResult> => {
+    log('uninstallWorkflow: request name=%s', name);
+    const response = await callCoreRpc<
+      Envelope<RawUninstallWorkflowResult> | RawUninstallWorkflowResult
+    >({ method: 'openhuman.workflows_uninstall', params: { name } });
     const raw = unwrapEnvelope(response);
-    const normalized: UninstallSkillResult = {
+    const normalized: UninstallWorkflowResult = {
       name: raw.name,
       removedPath: raw.removed_path,
       scope: raw.scope,
     };
-    log('uninstallSkill: response name=%s removedPath=%s', normalized.name, normalized.removedPath);
+    log(
+      'uninstallWorkflow: response name=%s removedPath=%s',
+      normalized.name,
+      normalized.removedPath
+    );
     return normalized;
   },
 
   /**
    * Fetch the declared `[[inputs]]` for a single skill plus its display
-   * metadata. Lightweight companion to `listSkills` — `SkillSummary` rows
+   * metadata. Lightweight companion to `listWorkflows` — `WorkflowSummary` rows
    * (used by the catalog grid) deliberately don't include input
    * declarations, so the Skills Runner panel calls this once when the
    * user picks a skill from the dropdown so it can render the right form
    * controls.
    */
-  describeSkill: async (skillId: string): Promise<SkillDescription> => {
-    log('describeSkill: request skillId=%s', skillId);
-    const response = await callCoreRpc<Envelope<SkillDescription> | SkillDescription>({
+  describeWorkflow: async (workflowId: string): Promise<WorkflowDescription> => {
+    log('describeWorkflow: request workflowId=%s', workflowId);
+    const response = await callCoreRpc<Envelope<WorkflowDescription> | WorkflowDescription>({
       method: 'openhuman.workflows_describe',
-      params: { workflow_id: skillId },
+      params: { workflow_id: workflowId },
     });
     const raw = unwrapEnvelope(response);
-    log('describeSkill: response inputs=%d', raw.inputs.length);
+    log('describeWorkflow: response inputs=%d', raw.inputs.length);
     return raw;
   },
 
@@ -406,14 +414,17 @@ export const skillsApi = {
    * autonomous work continues in the background and finishes with
    * status `DONE` / `DEGENERATE` / `FAILED` in the run log.
    */
-  runSkill: async (skillId: string, inputs: Record<string, unknown>): Promise<SkillRunStarted> => {
-    log('runSkill: request skillId=%s', skillId);
-    const response = await callCoreRpc<Envelope<SkillRunStarted> | SkillRunStarted>({
+  runWorkflow: async (
+    workflowId: string,
+    inputs: Record<string, unknown>
+  ): Promise<WorkflowRunStarted> => {
+    log('runWorkflow: request workflowId=%s', workflowId);
+    const response = await callCoreRpc<Envelope<WorkflowRunStarted> | WorkflowRunStarted>({
       method: 'openhuman.workflows_run',
-      params: { workflow_id: skillId, inputs },
+      params: { workflow_id: workflowId, inputs },
     });
     const raw = unwrapEnvelope(response);
-    log('runSkill: response runId=%s log=%s', raw.run_id, raw.log);
+    log('runWorkflow: response runId=%s log=%s', raw.run_id, raw.log);
     return raw;
   },
 
@@ -459,13 +470,13 @@ export const skillsApi = {
 
   /**
    * Recent autonomous skill runs from `<workspace>/skills/.runs/`. Sorted
-   * by start time descending. Pass `skillId` to filter to one skill,
+   * by start time descending. Pass `workflowId` to filter to one skill,
    * omit for cross-skill. `limit` defaults to 20 (max 100).
    */
-  recentRuns: async (skillId?: string, limit?: number): Promise<ScannedRun[]> => {
-    log('recentRuns: request skillId=%s limit=%s', skillId ?? '*', limit ?? 'default');
+  recentRuns: async (workflowId?: string, limit?: number): Promise<ScannedRun[]> => {
+    log('recentRuns: request workflowId=%s limit=%s', workflowId ?? '*', limit ?? 'default');
     const params: Record<string, unknown> = {};
-    if (skillId !== undefined) params.workflow_id = skillId;
+    if (workflowId !== undefined) params.workflow_id = workflowId;
     if (limit !== undefined) params.limit = limit;
     const response = await callCoreRpc<Envelope<{ runs: ScannedRun[] }> | { runs: ScannedRun[] }>({
       method: 'openhuman.workflows_recent_runs',
@@ -482,7 +493,7 @@ export const skillsApi = {
  * `openhuman.workflows_describe`. The FE renders one form control per entry:
  * `string`/`integer`/`boolean` map to text/number/checkbox controls.
  */
-export interface SkillInputDescription {
+export interface WorkflowInputDescription {
   name: string;
   description: string;
   required: boolean;
@@ -491,15 +502,15 @@ export interface SkillInputDescription {
 }
 
 /** Wire shape returned by `openhuman.workflows_describe`. */
-export interface SkillDescription {
+export interface WorkflowDescription {
   id: string;
   display_name: string;
   when_to_use: string;
-  inputs: SkillInputDescription[];
+  inputs: WorkflowInputDescription[];
 }
 
 /** Wire shape returned by `openhuman.workflows_run` (fire-and-forget). */
-export interface SkillRunStarted {
+export interface WorkflowRunStarted {
   run_id: string;
   status: string; // "started"
   workflow_id: string;

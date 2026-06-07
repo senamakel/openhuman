@@ -11,6 +11,7 @@ omit_identity = true
 omit_memory_context = false
 omit_safety_preamble = true
 omit_skills_catalog = true
+trigger_memory_agent = "always"
 
 # Spawn hierarchy: this is the deep-thinking tier (reasoning model hint).
 # The planner produces a DAG of leaf tasks for downstream workers; it
@@ -20,9 +21,6 @@ agent_tier = "reasoning"
 
 [model]
 hint = "reasoning"
-
-[subagents]
-allowlist = ["agent_memory"]
 
 [tools]
 # Read + research only. The planner produces plans — it never mutates
@@ -50,7 +48,6 @@ named = [
     "todowrite",
     "plan_exit",
     "web_fetch",
-    "call_memory_agent",
     "web_search_tool",
     # Grounded research + market-data lookups so plans can be anchored in
     # real numbers (stock/crypto prices) and current web context, not just

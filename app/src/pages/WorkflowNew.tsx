@@ -21,7 +21,7 @@ import { useNavigate } from 'react-router-dom';
 
 import CreateWorkflowForm from '../components/skills/CreateWorkflowForm';
 import { useT } from '../lib/i18n/I18nContext';
-import { type SkillSummary } from '../services/api/skillsApi';
+import { type WorkflowSummary } from '../services/api/workflowsApi';
 
 const PAGE_FORM_ID = 'create-skill-page-form';
 
@@ -38,7 +38,7 @@ export default function WorkflowNew() {
   }, []);
 
   const handleCreated = useCallback(
-    (_skill: SkillSummary) => {
+    (_skill: WorkflowSummary) => {
       // The dashboard re-fetches the cron list on mount, so any
       // schedule the user adds for this new skill will appear there
       // automatically — no need to plumb the new id through state.

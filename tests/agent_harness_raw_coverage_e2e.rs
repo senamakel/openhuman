@@ -250,7 +250,7 @@ fn build_agent_with_tools(
         .model_name("coverage-model".to_string())
         .temperature(0.0)
         .workspace_dir(workspace.to_path_buf())
-        .skills(Vec::new())
+        .workflows(Vec::new())
         .auto_save(false)
         .event_context("coverage-session", "coverage-channel")
         .agent_definition_name(agent_name)
@@ -281,7 +281,7 @@ fn parent_context(workspace: PathBuf, provider: Arc<ScriptedProvider>) -> Parent
         workspace_dir: workspace,
         memory: Arc::new(StubMemory),
         agent_config: agent_config(),
-        skills: Arc::new(Vec::new()),
+        workflows: Arc::new(Vec::new()),
         memory_context: Arc::new(Some("parent memory context".to_string())),
         session_id: "parent-session".to_string(),
         channel: "coverage-channel".to_string(),
@@ -318,6 +318,7 @@ fn coverage_definition() -> AgentDefinition {
         timeout_secs: None,
         sandbox_mode: SandboxMode::ReadOnly,
         background: false,
+        trigger_memory_agent: Default::default(),
         subagents: Vec::new(),
         delegate_name: None,
         agent_tier: Default::default(),

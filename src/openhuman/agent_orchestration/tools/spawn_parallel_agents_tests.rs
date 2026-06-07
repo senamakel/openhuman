@@ -201,7 +201,7 @@ fn parent_context_with_provider(
         workspace_dir: std::env::temp_dir(),
         memory: Arc::new(NoopMemory),
         agent_config,
-        skills: Arc::new(Vec::new()),
+        workflows: Arc::new(Vec::new()),
         memory_context: Arc::new(None),
         session_id: "session-test".into(),
         channel: "test".into(),

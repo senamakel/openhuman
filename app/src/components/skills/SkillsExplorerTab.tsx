@@ -7,10 +7,10 @@ import {
   type CatalogEntry,
 } from '../../services/api/skillRegistryApi';
 import {
-  skillsApi,
-  type InstallSkillFromUrlResult,
-  type SkillSummary,
-} from '../../services/api/skillsApi';
+  workflowsApi,
+  type InstallWorkflowFromUrlResult,
+  type WorkflowSummary,
+} from '../../services/api/workflowsApi';
 import EmptyStateCard from '../EmptyStateCard';
 import InstallSkillDialog from './InstallSkillDialog';
 import UninstallSkillConfirmDialog from './UninstallSkillConfirmDialog';
@@ -67,7 +67,7 @@ function SourceBadge({ sourceId }: { sourceId: string }) {
 }
 
 interface SkillTileProps {
-  skill: SkillSummary;
+  skill: WorkflowSummary;
   onUninstall: () => void;
 }
 
@@ -267,7 +267,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const { t } = useT();
   const [view, setView] = useState<ExplorerView>('registry');
 
-  const [skills, setSkills] = useState<SkillSummary[]>([]);
+  const [skills, setSkills] = useState<WorkflowSummary[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsError, setSkillsError] = useState<string | null>(null);
 
@@ -279,14 +279,14 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState<string>('all');
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
-  const [uninstallTarget, setUninstallTarget] = useState<SkillSummary | null>(null);
+  const [uninstallTarget, setUninstallTarget] = useState<WorkflowSummary | null>(null);
 
   const fetchSkills = useCallback(async () => {
     log('fetchSkills: start');
     setSkillsLoading(true);
     setSkillsError(null);
     try {
-      const result = await skillsApi.listSkills();
+      const result = await workflowsApi.listWorkflows();
       log('fetchSkills: count=%d', result.length);
       setSkills(result);
     } catch (err) {
@@ -368,16 +368,16 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   }, [catalog]);
 
   const handleInstalled = useCallback(
-    (result: InstallSkillFromUrlResult) => {
-      log('handleInstalled: newSkills=%d', result.newSkills.length);
+    (result: InstallWorkflowFromUrlResult) => {
+      log('handleInstalled: newSkills=%d', result.newWorkflows.length);
       void fetchSkills();
-      if (result.newSkills.length > 0) {
+      if (result.newWorkflows.length > 0) {
         onToast?.({
           type: 'success',
           title: t('skills.install.installComplete'),
           message: t('skills.install.successDiscovered').replace(
             '{count}',
-            String(result.newSkills.length)
+            String(result.newWorkflows.length)
           ),
         });
       }

@@ -339,7 +339,7 @@ pub struct PromptContext<'a> {
     /// Id of the agent this prompt is being built for.
     pub agent_id: &'a str,
     pub tools: &'a [PromptTool<'a>],
-    pub skills: &'a [Workflow],
+    pub workflows: &'a [Workflow],
     pub dispatcher_instructions: &'a str,
     /// Pre-fetched learned context (empty when learning is disabled).
     pub learned: LearnedContextData,

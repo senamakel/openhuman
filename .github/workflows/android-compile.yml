@@ -76,6 +76,7 @@ jobs:
   build-android:
     name: Build Android App Bundle
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       version_name: ${{ steps.version.outputs.version_name }}
       version_code: ${{ steps.version.outputs.version_code }}
@@ -190,6 +191,7 @@ jobs:
     name: Publish Google Play
     if: ${{ inputs.publish_to_play }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [build-android]
     environment: Production
     steps:

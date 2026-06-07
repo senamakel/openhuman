@@ -46,7 +46,7 @@ pub(crate) mod tool_result_artifacts;
 
 pub use definition::{
     AgentDefinition, AgentDefinitionRegistry, DefinitionSource, ModelSpec, PromptSource,
-    SandboxMode, ToolScope,
+    SandboxMode, ToolScope, TriggerMemoryAgent,
 };
 pub use fork_context::{current_parent, with_parent_context, ParentExecutionContext};
 pub use interrupt::{check_interrupt, InterruptFence, InterruptedError};

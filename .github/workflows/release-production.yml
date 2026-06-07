@@ -72,6 +72,7 @@ jobs:
   review-approval:
     name: Manual approval gate
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     environment: Release-Approval
     steps:
       - name: Record approval
@@ -85,6 +86,7 @@ jobs:
   prepare-build:
     name: Prepare build context
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: Production
     needs: [review-approval]
     outputs:
@@ -218,6 +220,7 @@ jobs:
   create-release:
     name: Prepare GitHub release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: Production
     needs: [prepare-build]
     outputs:
@@ -341,6 +344,7 @@ jobs:
     needs: [prepare-build, create-release]
     if: always() && needs.create-release.result == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: Production
     env:
       REGISTRY: ghcr.io
@@ -411,6 +415,7 @@ jobs:
     name: "CLI: ${{ matrix.target }}"
     needs: [prepare-build, create-release]
     if: ${{ inputs.create_release && always() && needs.create-release.result == 'success' }}
+    timeout-minutes: 30
     environment: Production
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -481,6 +486,7 @@ jobs:
     needs: [prepare-build, create-release, build-desktop]
     if: ${{ inputs.create_release && always() && needs.build-desktop.result == 'success' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: Production
     steps:
       - name: Checkout build ref
@@ -503,6 +509,7 @@ jobs:
   publish-release:
     name: Publish draft release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: Production
     needs:
       - prepare-build
@@ -616,6 +623,7 @@ jobs:
   tag-docker-latest:
     name: "Docker: tag :latest"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: Production
     needs: [prepare-build, publish-release]
     if: ${{ inputs.create_release && always() && needs.publish-release.result == 'success' }}
@@ -652,6 +660,7 @@ jobs:
   record-sentry-deploy:
     name: Record Sentry deploy marker
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: Production
     needs: [prepare-build, publish-release]
     if: ${{ inputs.create_release && always() && needs.publish-release.result == 'success' }}
@@ -690,6 +699,7 @@ jobs:
   cleanup-failed-release:
     name: Remove release and tag if build failed
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: Production
     needs:
       - prepare-build

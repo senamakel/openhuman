@@ -109,9 +109,9 @@ impl Agent {
         self.temperature
     }
 
-    /// The agent's loaded skills, if any.
-    pub fn skills(&self) -> &[crate::openhuman::workflows::Workflow] {
-        &self.skills
+    /// The agent's loaded workflows, if any.
+    pub fn workflows(&self) -> &[crate::openhuman::workflows::Workflow] {
+        &self.workflows
     }
 
     /// Active Composio integrations fetched at session start.

@@ -279,6 +279,7 @@ mod tests {
             timeout_secs: None,
             sandbox_mode: SandboxMode::None,
             background: false,
+            trigger_memory_agent: Default::default(),
             subagents: vec![],
             delegate_name: delegate_name.map(String::from),
             agent_tier: crate::openhuman::agent::harness::definition::AgentTier::Worker,

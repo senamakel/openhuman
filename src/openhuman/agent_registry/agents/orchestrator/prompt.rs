@@ -200,7 +200,7 @@ mod tests {
             model_name: "test",
             agent_id: "orchestrator",
             tools: &[],
-            skills: &[],
+            workflows: &[],
             dispatcher_instructions: "",
             learned: LearnedContextData::default(),
             visible_tool_names: EMPTY_VISIBLE.get_or_init(HashSet::new),

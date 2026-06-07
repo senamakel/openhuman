@@ -322,16 +322,10 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
 
     // Install the triggered-workflow subscriber now that workflows are
     // discovered — otherwise any workflow declaring `triggers:` is silently
-    // ignored in the channel runtime. The handle is parked in a process static
-    // so the RAII SubscriptionHandle isn't dropped (which would cancel it).
-    {
-        use crate::core::event_bus::SubscriptionHandle;
-        use std::sync::OnceLock;
-        static TRIGGERED_WORKFLOW_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
-        TRIGGERED_WORKFLOW_HANDLE.get_or_init(|| {
-            crate::openhuman::workflows::bus::register_triggered_workflow_subscriber(&skills)
-        });
-    }
+    // ignored. Idempotent + shares a process-global OnceLock with the
+    // `bootstrap_core_runtime` site, so it registers exactly once regardless of
+    // which startup path runs first (web-chat-only cores never reach here).
+    crate::openhuman::workflows::bus::ensure_triggered_workflow_subscriber(&workspace);
 
     // Collect tool descriptions for the prompt
     let mut tool_descs: Vec<(&str, &str)> = vec![

@@ -563,7 +563,7 @@ async fn run_typed_mode(
         model_name: &model,
         agent_id: &definition.id,
         tools: &prompt_tools,
-        skills: &parent.skills,
+        workflows: &parent.workflows,
         dispatcher_instructions: &dispatcher_instructions,
         learned: crate::openhuman::context::prompt::LearnedContextData::default(),
         visible_tool_names: &visible_tool_names,

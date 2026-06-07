@@ -1599,7 +1599,7 @@ async fn orchestrator_prompt_drives_composio_call_via_delegation_chain() {
             model_name: "test",
             agent_id: "orchestrator",
             tools: &[],
-            skills: &[],
+            workflows: &[],
             dispatcher_instructions: "",
             learned: LearnedContextData::default(),
             visible_tool_names: EMPTY.get_or_init(HashSet::new),

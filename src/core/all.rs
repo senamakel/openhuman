@@ -179,9 +179,9 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     // Background command monitors for agent-scoped event sources
     controllers.extend(crate::openhuman::monitor::all_monitor_registered_controllers());
     // Unified inference domain: text / vision / local runtime / cloud providers.
-    // (Formerly split across inference, local_ai, and providers namespaces.)
+    // (Formerly split across inference, local AI, and providers modules.)
     controllers.extend(crate::openhuman::inference::all_inference_registered_controllers());
-    controllers.extend(crate::openhuman::inference::all_local_ai_registered_controllers());
+    controllers.extend(crate::openhuman::inference::all_local_inference_registered_controllers());
     // Embedding provider configuration and embed RPC.
     controllers.extend(crate::openhuman::embeddings::all_embeddings_registered_controllers());
     // People resolution and interaction scoring
@@ -351,7 +351,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::model_council::all_model_council_controller_schemas());
     schemas.extend(crate::openhuman::monitor::all_monitor_controller_schemas());
     schemas.extend(crate::openhuman::inference::all_inference_controller_schemas());
-    schemas.extend(crate::openhuman::inference::all_local_ai_controller_schemas());
+    schemas.extend(crate::openhuman::inference::all_local_inference_controller_schemas());
     schemas.extend(crate::openhuman::embeddings::all_embeddings_controller_schemas());
     schemas.extend(crate::openhuman::people::all_people_controller_schemas());
     schemas.extend(
@@ -469,7 +469,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "encrypt" => Some("Encrypt secure values managed by secret storage."),
         "health" => Some("Process and component health snapshots."),
         "inference" => Some("Connect to configured text, vision, and embedding inference runtimes."),
-        "local_ai" => Some("Local AI chat, inference, downloads, and media operations."),
         "migrate" => Some("Data migration utilities."),
         "javascript" => Some("First-class JavaScript runtime bridge for listing and dispatching tools."),
         "monitor" => Some("Start, inspect, read, and stop bounded background command monitors."),

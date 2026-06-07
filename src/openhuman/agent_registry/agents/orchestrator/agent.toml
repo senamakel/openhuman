@@ -23,6 +23,7 @@ omit_profile = false
 # prior conversations and distilled user preferences. Frozen per
 # session (KV-cache contract on `AgentDefinition::omit_memory_md`).
 omit_memory_md = false
+trigger_memory_agent = "always"
 
 # Delegation surface. The `collect_orchestrator_tools` helper reads this
 # at agent-build time and synthesises one `delegate_*` tool per entry:
@@ -60,10 +61,6 @@ allowlist = [
     # "forget", profile/persona edits, learned facets, and people alias
     # management here.
     "profile_memory_agent",
-    # Hidden memory retrieval specialist reached through `call_memory_agent`.
-    # Keep it in the allowlist so direct memory lookups are subject to the
-    # same parent-context gate as explicit subagent delegation.
-    "agent_memory",
     # Account/admin specialist. Route billing, team membership/invites/roles,
     # OAuth/credential/session, and referral requests here.
     "account_admin_agent",
@@ -142,7 +139,6 @@ hint = "chat"
 # the orchestrator never calls composio_authorize / composio_list_tools
 # / composio_execute directly.
 named = [
-    "call_memory_agent",
     "read_workspace_state",
     "ask_user_clarification",
     "spawn_worker_thread",

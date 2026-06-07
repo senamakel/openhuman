@@ -1146,10 +1146,10 @@ fn is_provider_user_state_message(lower: &str) -> bool {
 /// The two canonical wire shapes today both contain `"for this ram tier"`:
 ///
 /// - `"Vision is disabled for this RAM tier. Switch to the 4-8 GB tier or
-///   above to enable it."` — from `local_ai/service/assets.rs::ensure_capability_ready`
+///   above to enable it."` — from `inference/local/service/assets.rs::ensure_capability_ready`
 /// - `"vision summaries are unavailable for this RAM tier. Use OCR-only
 ///   summarization or switch to a higher local AI tier."` —
-///   from `local_ai/service/vision_embed.rs::summarize`
+///   from `inference/local/service/vision_embed.rs::summarize`
 ///
 /// Anchor the classifier to that exact substring so an unrelated message
 /// that merely mentions "RAM tier" out of context is not silenced.

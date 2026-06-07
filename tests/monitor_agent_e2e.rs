@@ -286,7 +286,7 @@ fn build_agent(
         .model_name("monitor-e2e-model".to_string())
         .temperature(0.0)
         .workspace_dir(workspace.to_path_buf())
-        .skills(Vec::new())
+        .workflows(Vec::new())
         .auto_save(false)
         .event_context("monitor-e2e-session", "monitor-e2e-channel")
         .agent_definition_name("orchestrator")

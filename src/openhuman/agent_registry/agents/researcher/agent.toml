@@ -11,12 +11,10 @@ omit_identity = true
 omit_memory_context = true
 omit_safety_preamble = true
 omit_skills_catalog = true
+trigger_memory_agent = "always"
 
 [model]
 hint = "agentic"
-
-[subagents]
-allowlist = ["agent_memory"]
 
 [tools]
 named = [
@@ -33,7 +31,6 @@ named = [
     "grep",
     "glob",
     "list",
-    "call_memory_agent",
     # Parallel — full surface (search/extract are also delegated by web_search_tool;
     # chat/research/enrich/dataset unlock grounded answers and deep multi-step research).
     "parallel_search",

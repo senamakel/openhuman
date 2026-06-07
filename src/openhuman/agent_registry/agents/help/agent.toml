@@ -16,12 +16,10 @@ omit_safety_preamble = true
 omit_skills_catalog = true
 omit_profile = false
 omit_memory_md = false
+trigger_memory_agent = "always"
 
 [model]
 hint = "agentic"
 
-[subagents]
-allowlist = ["agent_memory"]
-
 [tools]
-named = ["gitbooks_search", "gitbooks_get_page", "call_memory_agent"]
+named = ["gitbooks_search", "gitbooks_get_page"]

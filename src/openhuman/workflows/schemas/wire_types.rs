@@ -193,7 +193,7 @@ impl From<Workflow> for WorkflowSummary {
 
 #[derive(Debug, Serialize)]
 pub(super) struct WorkflowsListResult {
-    pub(super) skills: Vec<WorkflowSummary>,
+    pub(super) workflows: Vec<WorkflowSummary>,
 }
 
 #[derive(Debug, Serialize)]
@@ -206,7 +206,7 @@ pub(super) struct WorkflowsReadResourceResult {
 
 #[derive(Debug, Serialize)]
 pub(super) struct WorkflowsCreateResult {
-    pub(super) skill: WorkflowSummary,
+    pub(super) workflow: WorkflowSummary,
 }
 
 #[derive(Debug, Serialize)]
@@ -214,7 +214,7 @@ pub(super) struct WorkflowsInstallFromUrlResult {
     pub(super) url: String,
     pub(super) stdout: String,
     pub(super) stderr: String,
-    pub(super) new_skills: Vec<String>,
+    pub(super) new_workflows: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]

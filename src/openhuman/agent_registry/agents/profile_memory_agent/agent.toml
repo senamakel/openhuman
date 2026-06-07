@@ -12,16 +12,13 @@ omit_safety_preamble = false
 omit_skills_catalog = true
 omit_profile = false
 omit_memory_md = false
+trigger_memory_agent = "always"
 
 [model]
 hint = "agentic"
 
-[subagents]
-allowlist = ["agent_memory"]
-
 [tools]
 named = [
-    "call_memory_agent",
     "memory_store",
     "memory_forget",
     "memory_doctor",

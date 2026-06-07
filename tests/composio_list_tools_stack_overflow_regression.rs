@@ -347,7 +347,7 @@ async fn drive_subagent() {
         workspace_dir: std::env::temp_dir(),
         memory: Arc::new(StubMemory),
         agent_config: AgentConfig::default(),
-        skills: Arc::new(vec![]),
+        workflows: Arc::new(vec![]),
         memory_context: Arc::new(None),
         session_id: "stack-regression-session".into(),
         channel: "test".into(),

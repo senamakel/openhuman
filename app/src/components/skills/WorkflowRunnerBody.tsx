@@ -21,11 +21,11 @@ import { SCHEDULE_PRESETS } from '../../lib/cron/schedulePresets';
 import {
   type RunLogSlice,
   type ScannedRun,
-  type SkillDescription,
-  type SkillRunStarted,
-  type SkillSummary,
-  skillsApi,
-} from '../../services/api/skillsApi';
+  type WorkflowDescription,
+  type WorkflowRunStarted,
+  type WorkflowSummary,
+  workflowsApi,
+} from '../../services/api/workflowsApi';
 import {
   type CoreCronJob,
   type CoreCronRun,
@@ -38,7 +38,7 @@ import {
 import CreateSkillModal from './CreateSkillModal';
 import BranchPicker from './inputs/BranchPicker';
 import RepoPicker from './inputs/RepoPicker';
-import { isGithubGateFailure, parseSkillRunError } from './preflightGate';
+import { isGithubGateFailure, parseWorkflowRunError } from './preflightGate';
 import ScheduledCronCard from './ScheduledCronCard';
 import SmartIssuePicker from './SmartIssuePicker';
 
@@ -95,7 +95,7 @@ type InputValue = string | number | boolean;
 interface RunState {
   status: 'idle' | 'submitting' | 'started' | 'error';
   message?: string;
-  result?: SkillRunStarted;
+  result?: WorkflowRunStarted;
 }
 
 
@@ -165,7 +165,7 @@ export function parseScheduledInputs(
 /**
  * Default form value for an input based on its declared type. Strings/
  * integers default to empty (renders as placeholder); booleans to false.
- * `runSkill` later trims and drops empty optional fields before sending
+ * `runWorkflow` later trims and drops empty optional fields before sending
  * them over the wire.
  */
 function defaultForType(type: string): InputValue {
@@ -175,13 +175,13 @@ function defaultForType(type: string): InputValue {
 }
 
 /**
- * Project the form-state map back into the JSON inputs shape `skills_run`
+ * Project the form-state map back into the JSON inputs shape `workflows_run`
  * expects: trim strings, coerce integer-typed fields to numbers, drop
  * empty optional fields entirely (so the backend sees them as "not
  * provided" rather than `""`).
  */
 function buildInputsPayload(
-  description: SkillDescription,
+  description: WorkflowDescription,
   values: Record<string, InputValue>
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -225,7 +225,7 @@ export interface SkillsRunnerBodyProps {
    * the skill picker. Defaults to the Settings-panel description so
    * the original placement is unchanged. (Named `headerText` rather
    * than `description` to avoid shadowing the internal `description`
-   * state that holds the resolved `SkillDescription` for the picked
+   * state that holds the resolved `WorkflowDescription` for the picked
    * skill.)
    */
   headerText?: string;
@@ -241,7 +241,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
   const { t } = useT();
 
   // Skill catalog (loaded once on mount)
-  const [skills, setSkills] = useState<SkillSummary[]>([]);
+  const [skills, setSkills] = useState<WorkflowSummary[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillsError, setSkillsError] = useState<string | null>(null);
   // Edit-this-workflow modal (only meaningful when locked to a workflow).
@@ -263,7 +263,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
     !!searchParams.get('workflow') &&
     (searchParams.get('lock') === '1' || searchParams.get('focus') === 'schedule');
   const selectedWorkflow = skills.find(s => s.id === selectedSkillId);
-  const [description, setDescription] = useState<SkillDescription | null>(null);
+  const [description, setDescription] = useState<WorkflowDescription | null>(null);
   const [descLoading, setDescLoading] = useState(false);
   const [descError, setDescError] = useState<string | null>(null);
 
@@ -449,13 +449,13 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
     return () => clearTimeout(timer);
   }, [searchParams, selectedSkillId]);
 
-  // ── Initial load: skills_list ──────────────────────────────────────
+  // ── Initial load: workflows_list ──────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     setSkillsLoading(true);
     setSkillsError(null);
-    skillsApi
-      .listSkills()
+    workflowsApi
+      .listWorkflows()
       .then((list) => {
         if (cancelled) return;
         // Hide the codegraph-smoke skill — internal smoke-test only.
@@ -466,7 +466,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
       .catch((err: unknown) => {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
-        log('listSkills error: %s', msg);
+        log('listWorkflows error: %s', msg);
         setSkillsError(msg);
       })
       .finally(() => {
@@ -477,7 +477,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
     };
   }, []);
 
-  // ── On selection: skills_describe ──────────────────────────────────
+  // ── On selection: workflows_describe ──────────────────────────────────
   useEffect(() => {
     if (!selectedSkillId) {
       setDescription(null);
@@ -488,8 +488,8 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
     setDescLoading(true);
     setDescError(null);
     setRun({ status: 'idle' });
-    skillsApi
-      .describeSkill(selectedSkillId)
+    workflowsApi
+      .describeWorkflow(selectedSkillId)
       .then((desc) => {
         if (cancelled) return;
         setDescription(desc);
@@ -504,7 +504,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
       .catch((err: unknown) => {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
-        log('describeSkill error: %s', msg);
+        log('describeWorkflow error: %s', msg);
         setDescError(msg);
       })
       .finally(() => {
@@ -540,7 +540,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
   const handleStopRun = useCallback(async (runId: string) => {
     log('stop run runId=%s', runId);
     try {
-      await skillsApi.cancelRun(runId);
+      await workflowsApi.cancelRun(runId);
     } catch (err) {
       log('cancelRun error: %s', err instanceof Error ? err.message : String(err));
     }
@@ -552,7 +552,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
     // Re-entry guard: a second click before React applies the disabled state
     // would otherwise fire `workflows_run` twice and spawn two real runs.
     if (runSubmitGuardRef.current) {
-      log('runSkill: ignoring re-entrant click while a run is starting');
+      log('runWorkflow: ignoring re-entrant click while a run is starting');
       return;
     }
     if (missingRequired.length > 0) {
@@ -567,8 +567,8 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
     setRun({ status: 'submitting' });
     try {
       const inputs = buildInputsPayload(description, formValues);
-      log('runSkill %s inputs=%o', description.id, inputs);
-      const result = await skillsApi.runSkill(description.id, inputs);
+      log('runWorkflow %s inputs=%o', description.id, inputs);
+      const result = await workflowsApi.runWorkflow(description.id, inputs);
       setRun({ status: 'started', result });
       // Surface the new run in "Recent runs" without a manual refresh, and
       // hold the guard through a short cooldown so a second click can't spawn
@@ -577,7 +577,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
       releaseRunGuard(2500);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      log('runSkill error: %s', msg);
+      log('runWorkflow error: %s', msg);
       setRun({ status: 'error', message: msg });
       releaseRunGuard(0); // allow immediate retry on failure
     }
@@ -587,7 +587,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
   useEffect(() => {
     let cancelled = false;
     setRecentRunsLoading(true);
-    skillsApi
+    workflowsApi
       .recentRuns(selectedSkillId || undefined, 10)
       .then((list) => {
         if (cancelled) return;
@@ -701,7 +701,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
             error: null,
           },
         }));
-        const slice: RunLogSlice = await skillsApi.readRunLog(runId, fromOffset);
+        const slice: RunLogSlice = await workflowsApi.readRunLog(runId, fromOffset);
         if (cancelled) return;
         setViewer((prev) => {
           const prior = prev[runId]?.content ?? '';
@@ -784,7 +784,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
       );
       try {
         log('runJobNow: running %s directly with %o', selectedSkillId, inputs);
-        await skillsApi.runSkill(selectedSkillId, inputs);
+        await workflowsApi.runWorkflow(selectedSkillId, inputs);
         scheduleRecentRunsRefresh();
         releaseRunGuard(2500);
       } catch (err: unknown) {
@@ -908,7 +908,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
   // instead of a plain text input. Falls through to the type-based
   // string/integer/boolean handling for everything else.
   const renderField = (
-    inp: SkillDescription['inputs'][number],
+    inp: WorkflowDescription['inputs'][number],
     value: InputValue,
     onChange: (next: InputValue) => void
   ) => {
@@ -1065,7 +1065,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
           )}
           {skillsError && (
             <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-              {t('settings.skillsRunner.error.listSkills')} {skillsError}
+              {t('settings.skillsRunner.error.listWorkflows')} {skillsError}
             </p>
           )}
         </div>
@@ -1199,7 +1199,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
                     // failed" pill above the body so the user knows
                     // this isn't a generic crash — there's a concrete
                     // remediation the body describes.
-                    const parsed = parseSkillRunError(run.message);
+                    const parsed = parseWorkflowRunError(run.message);
                     const isGateFailure = isGithubGateFailure(parsed);
                     return (
                       <div
@@ -1588,12 +1588,12 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
           onClose={() => setEditOpen(false)}
           onCreated={() => {
             setEditOpen(false);
-            void skillsApi
-              .listSkills()
+            void workflowsApi
+              .listWorkflows()
               .then((list) => setSkills(list.filter((s) => s.id !== 'codegraph-smoke')))
               .catch(() => {});
-            void skillsApi
-              .describeSkill(selectedSkillId)
+            void workflowsApi
+              .describeWorkflow(selectedSkillId)
               .then(setDescription)
               .catch(() => {});
           }}

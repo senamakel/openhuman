@@ -2116,6 +2116,16 @@ pub async fn bootstrap_core_runtime(host_kind: crate::core::types::HostKind) {
         action_dir,
     );
 
+    // --- Triggered-workflow subscriber ---
+    // Install on the always-run serve boot, not only inside `start_channels`
+    // (skipped for web-chat-only cores with no messaging integrations, and when
+    // `OPENHUMAN_DISABLE_CHANNEL_LISTENERS=1`). Without this, any workflow
+    // declaring `triggers:` was silently ignored on web-chat-only desktop
+    // installs. Idempotent — shares a process-global OnceLock with the
+    // `start_channels` site so it registers exactly once regardless of which
+    // path runs first. (Matching only for now; activation handoff still pending.)
+    crate::openhuman::workflows::bus::ensure_triggered_workflow_subscriber(&workspace_dir);
+
     // --- Approval gate (#1339) ---
     // ON by default; opt out with `OPENHUMAN_APPROVAL_GATE=0` (or `false`).
     // Prompt-class `external_effect()` tool calls route through

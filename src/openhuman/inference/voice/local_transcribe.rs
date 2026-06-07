@@ -20,7 +20,7 @@
 //! `~/.openhuman/bin/whisper/` via a `.part` file + atomic rename, plus
 //! the `whisper-cli` binary on Windows where upstream ships a release
 //! archive. After install the `resolve_whisper_binary` helper in
-//! `local_ai/paths.rs` picks it up automatically — no env var to set.
+//! `inference/paths.rs` picks it up automatically — no env var to set.
 //!
 //! **Advanced path:** install whisper.cpp's `whisper-cli` from a package
 //! manager (`brew install whisper-cpp`, `pacman -S whisper.cpp`, …) or

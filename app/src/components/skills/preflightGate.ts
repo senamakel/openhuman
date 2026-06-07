@@ -23,7 +23,7 @@
 const PREFLIGHT_PREFIX_RE = /^\[preflight:([a-z0-9_-]+):([a-z0-9_-]+)\]\s+/i;
 
 /** Parsed shape of a backend RPC error returned by `openhuman.workflows_run`. */
-export interface SkillRunError {
+export interface WorkflowRunError {
   /** `'github'` when this is a github-gate failure; `null` for any other error. */
   gate: string | null;
   /**
@@ -37,7 +37,7 @@ export interface SkillRunError {
 
 /**
  * Parse the message string returned by the `openhuman.workflows_run` RPC
- * error path (or thrown by `skillsApi.runSkill`). Anything that matches
+ * error path (or thrown by `workflowsApi.runWorkflow`). Anything that matches
  * the `[preflight:<gate>:<tag>]` prefix becomes a structured gate
  * failure; anything else falls through with `gate: null` so the caller
  * can render the raw text.
@@ -45,7 +45,7 @@ export interface SkillRunError {
  * Idempotent: calling this twice on the same message is fine (the
  * second call sees no prefix and returns the same body unchanged).
  */
-export function parseSkillRunError(message: string | undefined | null): SkillRunError {
+export function parseWorkflowRunError(message: string | undefined | null): WorkflowRunError {
   const raw = (message ?? '').toString();
   const m = PREFLIGHT_PREFIX_RE.exec(raw);
   if (!m) {
@@ -63,6 +63,6 @@ export function parseSkillRunError(message: string | undefined | null): SkillRun
  * the rendering layer that wants a single boolean rather than
  * matching on the `gate` string.
  */
-export function isGithubGateFailure(err: SkillRunError): boolean {
+export function isGithubGateFailure(err: WorkflowRunError): boolean {
   return err.gate === 'github';
 }

@@ -93,9 +93,9 @@ export const skillRegistryApi = {
 
   sources: async (): Promise<string[]> => {
     log('sources: request');
-    const response = await callCoreRpc<
-      Envelope<{ sources: string[] }> | { sources: string[] }
-    >({ method: 'openhuman.skill_registry_sources' });
+    const response = await callCoreRpc<Envelope<{ sources: string[] }> | { sources: string[] }>({
+      method: 'openhuman.skill_registry_sources',
+    });
     const result = unwrap(response);
     log('sources: count=%d', result.sources.length);
     return result.sources;
@@ -115,10 +115,7 @@ export const skillRegistryApi = {
     log('install: entryId=%s', entryId);
     const response = await callCoreRpc<
       Envelope<RawRegistryInstallResult> | RawRegistryInstallResult
-    >({
-      method: 'openhuman.skill_registry_install',
-      params: { entry_id: entryId },
-    });
+    >({ method: 'openhuman.skill_registry_install', params: { entry_id: entryId } });
     const raw = unwrap(response);
     const result: RegistryInstallResult = {
       url: raw.url,
@@ -134,10 +131,7 @@ export const skillRegistryApi = {
     log('uninstall: name=%s', name);
     const response = await callCoreRpc<
       Envelope<RawRegistryUninstallResult> | RawRegistryUninstallResult
-    >({
-      method: 'openhuman.skill_registry_uninstall',
-      params: { name },
-    });
+    >({ method: 'openhuman.skill_registry_uninstall', params: { name } });
     const raw = unwrap(response);
     const result: RegistryUninstallResult = {
       name: raw.name,
@@ -152,9 +146,7 @@ export const skillRegistryApi = {
     log('schemas: request');
     const response = await callCoreRpc<
       Envelope<{ schemas: ControllerSchemaSummary[] }> | { schemas: ControllerSchemaSummary[] }
-    >({
-      method: 'openhuman.skill_registry_schemas',
-    });
+    >({ method: 'openhuman.skill_registry_schemas' });
     const result = unwrap(response);
     log('schemas: count=%d', result.schemas.length);
     return result.schemas;

@@ -529,7 +529,7 @@ export const skillsApi = {
     });
     const raw = unwrapEnvelope(response);
     const result: ResolveSkillRuntimesResult = {
-      runtimes: (raw.runtimes ?? []).map((item) => ({
+      runtimes: (raw.runtimes ?? []).map(item => ({
         runtime: item.runtime,
         enabled: item.enabled,
         available: item.available,

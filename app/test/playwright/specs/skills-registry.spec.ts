@@ -63,9 +63,7 @@ test.describe('Skills registry flow', () => {
 
 test.describe('Skill registry RPC smoke', () => {
   test('sources returns upstream source names', async () => {
-    const result = await callCoreRpc<{
-      sources: string[];
-    }>('openhuman.skill_registry_sources');
+    const result = await callCoreRpc<{ sources: string[] }>('openhuman.skill_registry_sources');
     expect(result.sources).toBeDefined();
     expect(result.sources.length).toBeGreaterThan(0);
 
@@ -114,22 +112,22 @@ test.describe('Skill registry RPC smoke', () => {
     expect(result.entries.length).toBeGreaterThan(0);
 
     const hasDockerMatch = result.entries.some(
-      e =>
-        e.name.toLowerCase().includes('docker') ||
-        e.description.toLowerCase().includes('docker')
+      e => e.name.toLowerCase().includes('docker') || e.description.toLowerCase().includes('docker')
     );
     expect(hasDockerMatch).toBe(true);
   });
 
   test('search with source filter narrows results', async () => {
     test.setTimeout(30_000);
-    const all = await callCoreRpc<{
-      entries: Array<{ id: string; source: string }>;
-    }>('openhuman.skill_registry_search', { query: 'git' });
+    const all = await callCoreRpc<{ entries: Array<{ id: string; source: string }> }>(
+      'openhuman.skill_registry_search',
+      { query: 'git' }
+    );
 
-    const filtered = await callCoreRpc<{
-      entries: Array<{ id: string; source: string }>;
-    }>('openhuman.skill_registry_search', { query: 'git', source: 'built-in' });
+    const filtered = await callCoreRpc<{ entries: Array<{ id: string; source: string }> }>(
+      'openhuman.skill_registry_search',
+      { query: 'git', source: 'built-in' }
+    );
 
     expect(filtered.entries.length).toBeLessThanOrEqual(all.entries.length);
     for (const entry of filtered.entries) {
@@ -139,10 +137,9 @@ test.describe('Skill registry RPC smoke', () => {
 
   test('search with empty query returns all entries', async () => {
     test.setTimeout(30_000);
-    const all = await callCoreRpc<{ entries: Array<unknown> }>(
-      'openhuman.skill_registry_search',
-      { query: '' }
-    );
+    const all = await callCoreRpc<{ entries: Array<unknown> }>('openhuman.skill_registry_search', {
+      query: '',
+    });
     expect(all.entries.length).toBeGreaterThan(0);
   });
 });

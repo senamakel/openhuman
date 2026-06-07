@@ -223,11 +223,7 @@ describe('skillsApi', () => {
 
   describe('uninstallSkill', () => {
     it('calls openhuman.skill_registry_uninstall and normalizes removed_path', async () => {
-      mockCallCoreRpc.mockResolvedValue({
-        name: 'demo',
-        removed_path: '/tmp/demo',
-        scope: 'user',
-      });
+      mockCallCoreRpc.mockResolvedValue({ name: 'demo', removed_path: '/tmp/demo', scope: 'user' });
       const result = await skillsApi.uninstallSkill('demo');
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({

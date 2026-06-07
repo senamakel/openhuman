@@ -282,7 +282,8 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': '레지스트리 항목 없음',
   'skills.explorer.registryEmptyDescription':
     '스킬 레지스트리를 로드할 수 없습니다. 연결을 확인하고 새로고침해 보세요.',
-  'skills.explorer.showingOf': '{total}개 결과 중 {shown}개 표시. 검색을 세분화하여 더 많이 보세요.',
+  'skills.explorer.showingOf':
+    '{total}개 결과 중 {shown}개 표시. 검색을 세분화하여 더 많이 보세요.',
   'skills.explorer.installed': '설치됨',
   'skills.explorer.install': '설치',
   'skills.explorer.installing': '설치 중…',

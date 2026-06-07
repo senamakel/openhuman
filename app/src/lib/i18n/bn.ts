@@ -282,7 +282,8 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'কোনো রেজিস্ট্রি এন্ট্রি নেই',
   'skills.explorer.registryEmptyDescription':
     'দক্ষতা রেজিস্ট্রি লোড করা যায়নি। আপনার সংযোগ পরীক্ষা করে রিফ্রেশ করার চেষ্টা করুন।',
-  'skills.explorer.showingOf': '{total} ফলাফলের মধ্যে {shown}টি দেখানো হচ্ছে। আরও দেখতে আপনার অনুসন্ধান পরিমার্জন করুন।',
+  'skills.explorer.showingOf':
+    '{total} ফলাফলের মধ্যে {shown}টি দেখানো হচ্ছে। আরও দেখতে আপনার অনুসন্ধান পরিমার্জন করুন।',
   'skills.explorer.installed': 'ইনস্টল করা হয়েছে',
   'skills.explorer.install': 'ইনস্টল করুন',
   'skills.explorer.installing': 'ইনস্টল হচ্ছে…',

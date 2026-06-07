@@ -50,10 +50,7 @@ describe('skillRegistryApi', () => {
 
     const result = await skillRegistryApi.schemas();
 
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.skill_registry_schemas',
-    });
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.skill_registry_schemas' });
     expect(result[0].function).toBe('install');
   });
 });
-

@@ -284,7 +284,8 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Нет записей в реестре',
   'skills.explorer.registryEmptyDescription':
     'Не удалось загрузить реестр навыков. Проверьте соединение и попробуйте обновить.',
-  'skills.explorer.showingOf': 'Показано {shown} из {total} результатов. Уточните поиск, чтобы увидеть больше.',
+  'skills.explorer.showingOf':
+    'Показано {shown} из {total} результатов. Уточните поиск, чтобы увидеть больше.',
   'skills.explorer.installed': 'Установлено',
   'skills.explorer.install': 'Установить',
   'skills.explorer.installing': 'Установка…',

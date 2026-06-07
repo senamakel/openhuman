@@ -288,7 +288,8 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Nessuna voce nel registro',
   'skills.explorer.registryEmptyDescription':
     'Impossibile caricare il registro delle competenze. Controlla la connessione e riprova.',
-  'skills.explorer.showingOf': 'Visualizzazione di {shown} su {total} risultati. Perfeziona la ricerca per vederne di più.',
+  'skills.explorer.showingOf':
+    'Visualizzazione di {shown} su {total} risultati. Perfeziona la ricerca per vederne di più.',
   'skills.explorer.installed': 'Installata',
   'skills.explorer.install': 'Installa',
   'skills.explorer.installing': 'Installazione…',

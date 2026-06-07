@@ -286,7 +286,8 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Brak wpisów w rejestrze',
   'skills.explorer.registryEmptyDescription':
     'Nie udało się załadować rejestru umiejętności. Sprawdź połączenie i spróbuj odświeżyć.',
-  'skills.explorer.showingOf': 'Wyświetlanie {shown} z {total} wyników. Zawęź wyszukiwanie, aby zobaczyć więcej.',
+  'skills.explorer.showingOf':
+    'Wyświetlanie {shown} z {total} wyników. Zawęź wyszukiwanie, aby zobaczyć więcej.',
   'skills.explorer.installed': 'Zainstalowano',
   'skills.explorer.install': 'Zainstaluj',
   'skills.explorer.installing': 'Instalowanie…',

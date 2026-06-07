@@ -4,6 +4,7 @@ use crate::openhuman::agent::host_runtime::{NativeRuntime, RuntimeAdapter};
 use crate::openhuman::config::{Config, DelegateAgentConfig};
 use crate::openhuman::javascript::NodeBootstrap;
 use crate::openhuman::memory::Memory;
+use crate::openhuman::runtime_python::PythonBootstrap;
 use crate::openhuman::security::{AuditLogger, SecurityPolicy};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -113,21 +114,29 @@ pub fn all_tools_with_runtime(
         );
         None
     };
-
-    let shell: Box<dyn Tool> = if let Some(bootstrap) = node_bootstrap.as_ref() {
-        Box::new(ShellTool::with_node_bootstrap(
-            security.clone(),
-            Arc::clone(&runtime),
-            Arc::clone(&audit),
-            Arc::clone(bootstrap),
-        ))
+    let python_bootstrap: Option<Arc<PythonBootstrap>> = if root_config.runtime_python.enabled {
+        tracing::debug!(
+            minimum_version = %root_config.runtime_python.minimum_version,
+            prefer_system = root_config.runtime_python.prefer_system,
+            "[tools::ops] python runtime enabled — constructing shared PythonBootstrap"
+        );
+        Some(Arc::new(PythonBootstrap::new(
+            root_config.runtime_python.clone(),
+        )))
     } else {
-        Box::new(ShellTool::new(
-            security.clone(),
-            Arc::clone(&runtime),
-            Arc::clone(&audit),
-        ))
+        tracing::debug!(
+            "[tools::ops] python runtime disabled — shell python/pip PATH injection suppressed"
+        );
+        None
     };
+
+    let shell: Box<dyn Tool> = Box::new(ShellTool::with_language_bootstraps(
+        security.clone(),
+        Arc::clone(&runtime),
+        Arc::clone(&audit),
+        node_bootstrap.as_ref().map(Arc::clone),
+        python_bootstrap.as_ref().map(Arc::clone),
+    ));
 
     let mut tools: Vec<Box<dyn Tool>> = vec![
         shell,

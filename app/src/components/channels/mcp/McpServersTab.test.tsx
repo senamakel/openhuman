@@ -71,7 +71,6 @@ const STATUSES_CONNECTED = [
   },
 ];
 
-
 /**
  * Helper that renders McpServersTab and waits past the initial debounce
  * so the catalog fetch fires and resolves. Keeps fake timers throughout —

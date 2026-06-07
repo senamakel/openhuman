@@ -3605,8 +3605,16 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models() {
     rpc_join.abort();
 }
 
-#[tokio::test]
-async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change() {
+#[test]
+fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_web_chat_custom_provider_route_change",
+        json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change_inner,
+    );
+}
+
+async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change_inner()
+{
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();

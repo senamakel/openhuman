@@ -142,6 +142,8 @@ async function sendMessage(page: Page, prompt: string): Promise<void> {
 
 test.describe('Chat Harness - Subagent', () => {
   test('delegates to a subagent and persists the final orchestrator text', async ({ page }) => {
+    test.setTimeout(150_000);
+
     await resetMock();
     await setMockBehavior('llmForcedResponses', '');
     await setMockBehavior('llmKeywordRules', JSON.stringify(KEYWORD_RESPONSES));

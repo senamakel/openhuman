@@ -520,11 +520,19 @@ struct OfficialServer {
 
 impl OfficialServer {
     fn display_name(&self) -> String {
-        self.title
-            .as_deref()
-            .filter(|s| !s.trim().is_empty())
-            .unwrap_or(&self.name)
-            .to_string()
+        if let Some(title) = self.title.as_deref().filter(|s| !s.trim().is_empty()) {
+            return title.to_string();
+        }
+        // Derive a readable name from the qualified name. The registry uses
+        // reverse-DNS like `io.github.user/server-name` — take the last
+        // segment after `/` if present, else after the last `.`.
+        let raw = &self.name;
+        let segment = raw
+            .rsplit_once('/')
+            .map(|(_, s)| s)
+            .or_else(|| raw.rsplit_once('.').map(|(_, s)| s))
+            .unwrap_or(raw);
+        segment.replace('-', " ").replace('_', " ")
     }
 
     fn into_summary(self) -> SmitheryServerSummary {

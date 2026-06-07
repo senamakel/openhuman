@@ -189,6 +189,16 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::mcp_setup::prompt::build,
     },
     BuiltinAgent {
+        id: "skill_setup",
+        toml: include_str!("../../skill_registry/agent/skill_setup/agent.toml"),
+        prompt_fn: crate::openhuman::skill_registry::agent::skill_setup::prompt::build,
+    },
+    BuiltinAgent {
+        id: "skill_executor",
+        toml: include_str!("../../skill_registry/agent/skill_executor/agent.toml"),
+        prompt_fn: crate::openhuman::skill_registry::agent::skill_executor::prompt::build,
+    },
+    BuiltinAgent {
         id: "agent_memory",
         toml: include_str!("../../agent_memory/agent/agent.toml"),
         prompt_fn: crate::openhuman::agent_memory::agent::prompt::build,

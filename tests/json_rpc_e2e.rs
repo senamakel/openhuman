@@ -1735,7 +1735,7 @@ async fn json_rpc_protocol_auth_and_agent_hello() {
     let chat = post_json_rpc(
         &rpc_base,
         5,
-        "openhuman.local_ai_agent_chat",
+        "openhuman.inference_agent_chat",
         json!({
             "message": "Hello",
         }),
@@ -2178,14 +2178,14 @@ async fn json_rpc_prompt_injection_is_rejected_before_model_call() {
     let blocked_agent = post_json_rpc(
         &rpc_base,
         4003,
-        "openhuman.local_ai_agent_chat",
+        "openhuman.inference_agent_chat",
         json!({
             "message": payload,
             "model_override": "e2e-mock-model",
         }),
     )
     .await;
-    let agent_err = assert_jsonrpc_error(&blocked_agent, "local_ai_agent_chat blocked");
+    let agent_err = assert_jsonrpc_error(&blocked_agent, "inference_agent_chat blocked");
     let agent_msg = agent_err
         .get("message")
         .and_then(Value::as_str)

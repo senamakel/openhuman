@@ -1586,6 +1586,7 @@ async fn orchestrator_prompt_drives_composio_call_via_delegation_chain() {
         tools: Vec::new(),
         gated_tools: Vec::new(),
         connected: true,
+        connections: Vec::new(),
         non_active_status: None,
     }];
     let ctx = {

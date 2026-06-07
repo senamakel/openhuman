@@ -4,19 +4,16 @@
 // backend to send a Recall.ai-hosted mascot bot into the meeting. The
 // backend streams replies, harness requests, and the final transcript
 // back through the core Socket.IO bridge.
-
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RiveMascot, type MascotFace } from '../../features/human/Mascot';
+import { type MascotFace, RiveMascot } from '../../features/human/Mascot';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
   joinMeetViaBackendBot,
   leaveBackendMeetBot,
   listMeetCalls,
-  type MascotMeetPlatform,
   type MeetCallRecord,
 } from '../../services/meetCallService';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   type BackendMeetHarnessEvent,
   type BackendMeetReplyEvent,
@@ -28,37 +25,20 @@ import {
   selectBackendMeetUrl,
   setBackendMeetJoining,
 } from '../../store/backendMeetSlice';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import {
+  selectCustomPrimaryColor,
+  selectCustomSecondaryColor,
+  selectMascotColor,
+  selectSelectedMascotId,
+} from '../../store/mascotSlice';
+import { selectPersonaDescription, selectPersonaDisplayName } from '../../store/personaSlice';
 
 type Toast = { type: 'success' | 'error' | 'info'; title: string; message?: string };
 
 interface Props {
   onToast?: (toast: Toast) => void;
 }
-
-interface PlatformDef {
-  platform: MascotMeetPlatform;
-  labelKey: string;
-  domainHintKey: string;
-  comingSoon?: boolean;
-}
-
-const PLATFORMS: PlatformDef[] = [
-  {
-    platform: 'gmeet',
-    labelKey: 'skills.meetingBots.platforms.gmeet',
-    domainHintKey: 'skills.meetingBots.platformHints.gmeet',
-  },
-  {
-    platform: 'zoom',
-    labelKey: 'skills.meetingBots.platforms.zoom',
-    domainHintKey: 'skills.meetingBots.platformHints.zoom',
-  },
-  {
-    platform: 'teams',
-    labelKey: 'skills.meetingBots.platforms.teams',
-    domainHintKey: 'skills.meetingBots.platformHints.teams',
-  },
-];
 
 export default function MeetingBotsCard({ onToast }: Props) {
   const [open, setOpen] = useState(false);
@@ -81,7 +61,7 @@ export default function MeetingBotsCard({ onToast }: Props) {
 function faceFromMeetState(
   status: BackendMeetStatus,
   lastReply: BackendMeetReplyEvent | null,
-  lastHarness: BackendMeetHarnessEvent | null,
+  lastHarness: BackendMeetHarnessEvent | null
 ): MascotFace {
   if (status === 'joining') return 'thinking';
   if (status === 'error') return 'concerned';
@@ -89,7 +69,8 @@ function faceFromMeetState(
   if (lastHarness) return 'thinking';
   if (lastReply) {
     const e = (lastReply.emotion ?? '').toLowerCase();
-    if (e.includes('happy') || e.includes('pleased') || e.includes('joy') || e.includes('excit')) return 'happy';
+    if (e.includes('happy') || e.includes('pleased') || e.includes('joy') || e.includes('excit'))
+      return 'happy';
     if (e.includes('celebrat') || e.includes('proud')) return 'celebrating';
     if (e.includes('concern') || e.includes('worried') || e.includes('unsure')) return 'concerned';
     if (e.includes('curious') || e.includes('interest')) return 'curious';
@@ -110,7 +91,9 @@ function ActiveMeetingView({ onToast }: Props) {
     try {
       const tail = new URL(meetUrl).pathname.replace(/^\/+/, '');
       return tail || meetUrl;
-    } catch { return meetUrl; }
+    } catch {
+      return meetUrl;
+    }
   }, [meetUrl]);
 
   const [leaving, setLeaving] = useState(false);
@@ -121,19 +104,24 @@ function ActiveMeetingView({ onToast }: Props) {
     try {
       await leaveBackendMeetBot('user-requested');
     } catch (err) {
-      onToast?.({ type: 'error', title: t('skills.meetingBots.couldNotStartTitle'), message: String(err) });
+      onToast?.({
+        type: 'error',
+        title: t('skills.meetingBots.couldNotStartTitle'),
+        message: String(err),
+      });
     } finally {
       setLeaving(false);
     }
   };
 
-  const statusText = {
-    joining: t('skills.meetingBots.liveStatusJoining'),
-    active: t('skills.meetingBots.liveStatusActive'),
-    ended: t('skills.meetingBots.liveStatusEnded'),
-    error: t('skills.meetingBots.liveStatusError'),
-    idle: '',
-  }[status] ?? '';
+  const statusText =
+    {
+      joining: t('skills.meetingBots.liveStatusJoining'),
+      active: t('skills.meetingBots.liveStatusActive'),
+      ended: t('skills.meetingBots.liveStatusEnded'),
+      error: t('skills.meetingBots.liveStatusError'),
+      idle: '',
+    }[status] ?? '';
 
   const canLeave = status === 'active' || status === 'joining';
   const isDone = status === 'ended' || status === 'error';
@@ -142,17 +130,25 @@ function ActiveMeetingView({ onToast }: Props) {
     <div className="relative overflow-hidden rounded-2xl border border-primary-200/60 dark:border-primary-500/30 bg-gradient-to-br from-primary-50 via-white to-amber-50 dark:from-primary-500/15 dark:via-neutral-900 dark:to-amber-500/10 p-4 shadow-soft animate-fade-up">
       <div className="flex items-center justify-between mb-3">
         <span className="flex items-center gap-1.5 rounded-full bg-coral-500/10 dark:bg-coral-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-coral-600 dark:text-coral-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-coral-500 animate-pulse" aria-hidden="true" />
+          <span
+            className="h-1.5 w-1.5 rounded-full bg-coral-500 animate-pulse"
+            aria-hidden="true"
+          />
           {t('skills.meetingBots.liveBadge')}
         </span>
         {canLeave && (
-          <button type="button" onClick={handleLeave} disabled={leaving}
+          <button
+            type="button"
+            onClick={handleLeave}
+            disabled={leaving}
             className="rounded-xl px-3 py-1.5 text-xs font-medium bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-300 hover:bg-stone-200 dark:hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed">
             {t('skills.meetingBots.leaveButton')}
           </button>
         )}
         {isDone && (
-          <button type="button" onClick={() => dispatch(resetBackendMeet())}
+          <button
+            type="button"
+            onClick={() => dispatch(resetBackendMeet())}
             className="rounded-xl px-3 py-1.5 text-xs font-medium bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-300 hover:bg-stone-200 dark:hover:bg-neutral-700">
             {t('common.close')}
           </button>
@@ -168,7 +164,9 @@ function ActiveMeetingView({ onToast }: Props) {
           </div>
           <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{statusText}</div>
           {meetingCode && (
-            <div className="mt-1 truncate font-mono text-[11px] text-stone-600 dark:text-neutral-400">{meetingCode}</div>
+            <div className="mt-1 truncate font-mono text-[11px] text-stone-600 dark:text-neutral-400">
+              {meetingCode}
+            </div>
           )}
           {lastReply?.reply && (
             <div className="mt-1.5 text-xs text-stone-600 dark:text-neutral-300 line-clamp-2 italic">
@@ -243,11 +241,13 @@ interface ModalProps {
 export function MeetingBotsModal({ onClose, onToast }: ModalProps) {
   const { t } = useT();
   const dispatch = useAppDispatch();
-  const [platform, setPlatform] = useState<MascotMeetPlatform>('gmeet');
   const [meetUrl, setMeetUrl] = useState('');
-  const [displayName, setDisplayName] = useState('OpenHuman');
-  const [respondToParticipant, setRespondToParticipant] = useState('');
-  const [wakePhrase, setWakePhrase] = useState('Hey OpenHuman');
+  const personaDisplayName = useAppSelector(selectPersonaDisplayName);
+  const personaDescription = useAppSelector(selectPersonaDescription);
+  const selectedMascotId = useAppSelector(selectSelectedMascotId);
+  const mascotColor = useAppSelector(selectMascotColor);
+  const customPrimaryColor = useAppSelector(selectCustomPrimaryColor);
+  const customSecondaryColor = useAppSelector(selectCustomSecondaryColor);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Recent-calls history loaded from core when the modal opens.
@@ -276,9 +276,14 @@ export function MeetingBotsModal({ onClose, onToast }: ModalProps) {
     void refreshRecentCalls();
   }, [refreshRecentCalls]);
 
-  const selected = PLATFORMS.find(p => p.platform === platform) ?? PLATFORMS[0];
-  const selectedLabel = t(selected.labelKey);
-  const isComingSoon = !!selected.comingSoon;
+  const selectedLabel = t('skills.meetingBots.platforms.gmeet');
+  const agentName = personaDisplayName.trim() || 'OpenHuman';
+  const systemPrompt = personaDescription.trim() || undefined;
+  const mascotId = selectedMascotId ?? (mascotColor === 'custom' ? undefined : mascotColor);
+  const riveColors =
+    mascotColor === 'custom'
+      ? { primaryColor: customPrimaryColor, secondaryColor: customSecondaryColor }
+      : undefined;
 
   // Esc closes the modal — matches the OpenhumanLinkModal pattern.
   useEffect(() => {
@@ -292,10 +297,6 @@ export function MeetingBotsModal({ onClose, onToast }: ModalProps) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    if (isComingSoon) {
-      setError(t('skills.meetingBots.platformComingSoon').replace('{label}', selectedLabel));
-      return;
-    }
     setSubmitting(true);
     try {
       // Optimistically update Redux state so the banner transitions to
@@ -307,11 +308,12 @@ export function MeetingBotsModal({ onClose, onToast }: ModalProps) {
       // streams transcript events back over Socket.IO.
       await joinMeetViaBackendBot({
         meetUrl,
-        displayName,
-        platform,
-        agentName: displayName,
-        respondToParticipant: respondToParticipant.trim() || undefined,
-        wakePhrase: wakePhrase.trim() || undefined,
+        displayName: agentName,
+        platform: 'gmeet',
+        agentName,
+        systemPrompt,
+        mascotId,
+        riveColors,
       });
       onToast?.({
         type: 'success',
@@ -349,40 +351,15 @@ export function MeetingBotsModal({ onClose, onToast }: ModalProps) {
             className="absolute right-3 top-3 rounded-full p-1 text-stone-500 dark:text-neutral-400 hover:bg-white/80 dark:hover:bg-neutral-800/60 hover:text-stone-800 dark:hover:text-neutral-100">
             ✕
           </button>
-          <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{t('skills.meetingBots.modalTitle')}</h2>
+          <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+            {t('skills.meetingBots.modalTitle')}
+          </h2>
           <p className="mt-1 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
             {t('skills.meetingBots.modalDesc')}
           </p>
         </div>
 
         <div className="space-y-4 p-5">
-          <div className="flex flex-wrap gap-1.5">
-            {PLATFORMS.map(p => {
-              const active = p.platform === platform;
-              return (
-                <button
-                  key={p.platform}
-                  type="button"
-                  onClick={() => {
-                    setPlatform(p.platform);
-                    setError(null);
-                  }}
-                  className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
-                    active
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 hover:bg-stone-200 dark:hover:bg-neutral-700'
-                  }`}>
-                  {t(p.labelKey)}
-                  {p.comingSoon && (
-                    <span className="ml-1 opacity-70">
-                      · {t('skills.meetingBots.soonSuffix')}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-3">
             <label className="block">
               <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
@@ -395,62 +372,12 @@ export function MeetingBotsModal({ onClose, onToast }: ModalProps) {
                 spellCheck={false}
                 value={meetUrl}
                 onChange={e => setMeetUrl(e.target.value)}
-                placeholder={t(selected.domainHintKey)}
-                disabled={isComingSoon || submitting}
+                placeholder={t('skills.meetingBots.platformHints.gmeet')}
+                disabled={submitting}
                 autoFocus
                 className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
                 required
               />
-            </label>
-
-            <label className="block">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-                {t('skills.meetingBots.displayName')}
-              </span>
-              <input
-                type="text"
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value)}
-                maxLength={64}
-                disabled={isComingSoon || submitting}
-                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-                {t('skills.meetingBots.respondToParticipant')}
-              </span>
-              <input
-                type="text"
-                value={respondToParticipant}
-                onChange={e => setRespondToParticipant(e.target.value)}
-                placeholder={t('skills.meetingBots.respondToParticipantHint')}
-                maxLength={128}
-                disabled={isComingSoon || submitting}
-                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
-              />
-              <span className="mt-1 block text-[10px] text-stone-400 dark:text-neutral-500">
-                {t('skills.meetingBots.respondToParticipantDesc')}
-              </span>
-            </label>
-
-            <label className="block">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-                {t('skills.meetingBots.wakePhrase')}
-              </span>
-              <input
-                type="text"
-                value={wakePhrase}
-                onChange={e => setWakePhrase(e.target.value)}
-                placeholder={t('skills.meetingBots.wakePhraseHint')}
-                maxLength={128}
-                disabled={isComingSoon || submitting}
-                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
-              />
-              <span className="mt-1 block text-[10px] text-stone-400 dark:text-neutral-500">
-                {t('skills.meetingBots.wakePhraseDesc')}
-              </span>
             </label>
 
             {error && (
@@ -470,15 +397,11 @@ export function MeetingBotsModal({ onClose, onToast }: ModalProps) {
               </button>
               <button
                 type="submit"
-                disabled={
-                  submitting || isComingSoon || !meetUrl.trim()
-                }
+                disabled={submitting || !meetUrl.trim()}
                 className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-stone-200 dark:disabled:bg-neutral-700 disabled:text-stone-400 dark:disabled:text-neutral-500">
-                {isComingSoon
-                  ? t('skills.meetingBots.comingSoon').replace('{label}', selectedLabel)
-                  : submitting
-                    ? t('skills.meetingBots.starting')
-                    : t('skills.meetingBots.sendTo').replace('{label}', selectedLabel)}
+                {submitting
+                  ? t('skills.meetingBots.starting')
+                  : t('skills.meetingBots.sendTo').replace('{label}', selectedLabel)}
               </button>
             </div>
           </form>
@@ -534,7 +457,9 @@ function RecentCallsSection({
       )}
 
       {rows === null ? (
-        <p className="mt-2 text-[11px] text-stone-400 dark:text-neutral-500">{t('skills.meetingBots.recentCallsLoading')}</p>
+        <p className="mt-2 text-[11px] text-stone-400 dark:text-neutral-500">
+          {t('skills.meetingBots.recentCallsLoading')}
+        </p>
       ) : rows.length === 0 ? (
         <p className="mt-2 text-[11px] text-stone-400 dark:text-neutral-500">
           {t('skills.meetingBots.recentCallsEmpty')}
@@ -567,13 +492,17 @@ function RecentCallRow({ call }: { call: MeetCallRecord }) {
   return (
     <li className="rounded-lg px-2 py-1.5 text-[11px] text-stone-700 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/40">
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-mono text-stone-800 dark:text-neutral-200">{meetingCode}</span>
+        <span className="truncate font-mono text-stone-800 dark:text-neutral-200">
+          {meetingCode}
+        </span>
         <span className="shrink-0 text-stone-400 dark:text-neutral-500">
           {formatRelativeTime(call.started_at_ms)}
         </span>
       </div>
       <div className="mt-0.5 flex items-center gap-3 text-[10px] text-stone-500 dark:text-neutral-400">
-        <span>{call.turn_count} turn{call.turn_count === 1 ? '' : 's'}</span>
+        <span>
+          {call.turn_count} turn{call.turn_count === 1 ? '' : 's'}
+        </span>
         <span>{duration}s on call</span>
       </div>
     </li>

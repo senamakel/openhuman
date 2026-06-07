@@ -9,6 +9,7 @@ let composioRefresh = vi.fn();
 let composioError: string | null = null;
 let composioToolkits: string[] = [];
 let composioConnectionByToolkit = new Map();
+let composioConnectionsByToolkitOverride: Map<string, unknown[]> | null = null;
 let sessionToken = 'jwt-abc';
 let composioModeStatus = { result: { mode: 'backend', api_key_set: true }, logs: [] };
 // CodeRabbit on #2361: failure-path coverage for the agent-ready
@@ -37,6 +38,9 @@ vi.mock('../../lib/composio/hooks', () => ({
   useComposioIntegrations: () => ({
     toolkits: composioToolkits,
     connectionByToolkit: composioConnectionByToolkit,
+    connectionsByToolkit:
+      composioConnectionsByToolkitOverride ??
+      new Map(Array.from(composioConnectionByToolkit.entries()).map(([k, v]) => [k, [v]])),
     refresh: composioRefresh,
     loading: false,
     error: composioError,
@@ -68,6 +72,7 @@ describe('Skills page — Composio catalog fallback', () => {
     composioError = null;
     composioToolkits = [];
     composioConnectionByToolkit = new Map();
+    composioConnectionsByToolkitOverride = null;
     sessionToken = 'jwt-abc';
     composioModeStatus = { result: { mode: 'backend', api_key_set: true }, logs: [] };
     agentReadyState = { agentReady: new Set<string>(), loading: true, error: null };
@@ -151,6 +156,32 @@ describe('Skills page — Composio catalog fallback', () => {
 
     expect(screen.getByText(/Gmail authorization expired/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Reconnect Gmail/i })).toBeInTheDocument();
+  });
+
+  it('shows a multi-account count badge when a toolkit has more than one active connection', () => {
+    composioToolkits = ['gmail'];
+    composioConnectionByToolkit = new Map([
+      ['gmail', { id: 'ca_1', toolkit: 'gmail', status: 'ACTIVE' }],
+    ]);
+    composioConnectionsByToolkitOverride = new Map([
+      [
+        'gmail',
+        [
+          { id: 'ca_1', toolkit: 'gmail', status: 'ACTIVE' },
+          { id: 'ca_2', toolkit: 'gmail', status: 'ACTIVE' },
+        ],
+      ],
+    ]);
+    agentReadyState = { agentReady: new Set(['gmail']), loading: false, error: null };
+
+    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
+    openComposioTab();
+
+    const integrationsSection = screen
+      .getByRole('heading', { name: 'Composio Integrations' })
+      .closest('.rounded-2xl');
+    expect(integrationsSection).not.toBeNull();
+    expect(within(integrationsSection as HTMLElement).getByText('2')).toBeInTheDocument();
   });
 
   it('does not flood the integrations grid with Preview badges when the agent-ready RPC fails', () => {

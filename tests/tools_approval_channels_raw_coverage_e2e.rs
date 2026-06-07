@@ -311,6 +311,7 @@ fn coverage_connected_integration(
         tools: vec![],
         gated_tools: vec![],
         connected,
+        connections: Vec::new(),
         non_active_status: None,
     }
 }

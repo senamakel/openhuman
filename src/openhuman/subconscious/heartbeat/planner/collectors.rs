@@ -273,6 +273,7 @@ pub(crate) async fn collect_calendar_meetings(
                     "GOOGLECALENDAR_EVENTS_LIST",
                     arguments,
                     &config.composio.entity_id,
+                    None,
                 )
                 .await
                 {

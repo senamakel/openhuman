@@ -1186,7 +1186,8 @@ use migrations::{migrate_legacy_embeddings_to_sidecar, purge_global_topic_trees}
 mod raw_refs;
 pub use raw_refs::{
     get_chunk_content_path, get_chunk_content_pointers, get_chunk_raw_refs,
-    get_summary_content_pointers, list_summaries_with_content_path, set_chunk_raw_refs, RawRef,
+    get_summary_content_pointers, list_summaries_with_content_path, set_chunk_raw_refs,
+    set_chunk_raw_refs_tx, RawRef,
 };
 
 fn normalized_limit(requested: Option<usize>) -> i64 {

@@ -23,6 +23,9 @@ vi.mock('../../lib/composio/hooks', () => ({
     connectionByToolkit: new Map([
       ['gmail', { id: 'conn_gmail_1', toolkit: 'gmail', status: 'ACTIVE' }],
     ]),
+    connectionsByToolkit: new Map([
+      ['gmail', [{ id: 'conn_gmail_1', toolkit: 'gmail', status: 'ACTIVE' }]],
+    ]),
     refresh: vi.fn(),
     loading: false,
     error: null,

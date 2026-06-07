@@ -11,15 +11,17 @@ pub async fn composio_execute(
     config: &Config,
     tool: &str,
     arguments: Option<serde_json::Value>,
+    connection_id: Option<&str>,
 ) -> OpResult<RpcOutcome<ComposioExecuteResponse>> {
-    tracing::debug!(tool = %tool, "[composio] rpc execute");
+    tracing::debug!(tool = %tool, connection_id = ?connection_id, "[composio] rpc execute");
     let kind = create_composio_client(config).map_err(|e| format!("[composio] execute: {e}"))?;
     let started = std::time::Instant::now();
-    let result = super::super::execute_dispatch::execute_composio_action_kind(
+    let result = super::super::execute_dispatch::execute_composio_action_kind_with_connection(
         kind,
         tool,
         arguments,
         &config.composio.entity_id,
+        connection_id,
     )
     .await;
     let elapsed_ms = started.elapsed().as_millis() as u64;

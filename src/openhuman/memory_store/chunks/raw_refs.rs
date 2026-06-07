@@ -6,7 +6,7 @@
 //! directly instead of going through the SQL preview path.
 
 use anyhow::{Context, Result};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, Transaction};
 
 use super::with_connection;
 use crate::openhuman::config::Config;
@@ -43,6 +43,18 @@ pub fn set_chunk_raw_refs(config: &Config, chunk_id: &str, refs: &[RawRef]) -> R
         )?;
         Ok(())
     })
+}
+
+/// Stash raw archive pointers on a chunk row inside a caller-owned
+/// transaction. Used by ingest producers so raw-backed chunks are readable
+/// before their `extract_chunk` jobs are committed.
+pub fn set_chunk_raw_refs_tx(tx: &Transaction<'_>, chunk_id: &str, refs: &[RawRef]) -> Result<()> {
+    let json = serde_json::to_string(refs).context("serialize raw_refs")?;
+    tx.execute(
+        "UPDATE mem_tree_chunks SET raw_refs_json = ?1 WHERE id = ?2",
+        params![json, chunk_id],
+    )?;
+    Ok(())
 }
 
 /// Return the raw-archive pointers stored in SQLite for `chunk_id`,

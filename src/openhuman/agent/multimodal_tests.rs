@@ -519,6 +519,34 @@ async fn prepare_messages_decompresses_gzipped_data_uri_image_marker() {
 }
 
 #[tokio::test]
+async fn prepare_messages_bounds_gzipped_data_uri_decompression() {
+    use base64::Engine as _;
+    use flate2::{write::GzEncoder, Compression};
+    use std::io::Write;
+
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(&vec![0u8; 1024 * 1024 + 1]).unwrap();
+    let encoded = base64::engine::general_purpose::STANDARD.encode(encoder.finish().unwrap());
+    let messages = vec![ChatMessage::user(format!(
+        "[IMAGE:data:application/gzip;original_mime=image%2Fpng;base64,{encoded}]"
+    ))];
+    let image_config = MultimodalConfig {
+        max_images: 4,
+        max_image_size_mb: 1,
+        allow_remote_fetch: false,
+    };
+
+    let error =
+        prepare_messages_for_provider(&messages, &image_config, &MultimodalFileConfig::default())
+            .await
+            .expect_err("compressed payload must be capped during decompression");
+
+    assert!(error
+        .to_string()
+        .contains("decompressed payload exceeds 1048576 bytes"));
+}
+
+#[tokio::test]
 async fn prepare_messages_truncates_extracted_text_to_cap() {
     let temp = tempfile::tempdir().unwrap();
     let file_path = temp.path().join("long.txt");

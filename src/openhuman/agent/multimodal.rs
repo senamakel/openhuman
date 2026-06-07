@@ -503,7 +503,7 @@ fn normalize_data_uri(source: &str, max_bytes: usize) -> anyhow::Result<String> 
         })?;
         (
             original_mime.to_ascii_lowercase(),
-            gunzip_data_uri(source, &parsed.bytes)?,
+            gunzip_data_uri(source, &parsed.bytes, max_bytes)?,
         )
     } else {
         (parsed.mime, parsed.bytes)
@@ -587,8 +587,13 @@ fn percent_decode(value: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
-fn gunzip_data_uri(source: &str, bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
-    let mut decoder = GzDecoder::new(bytes);
+fn gunzip_data_uri(
+    source: &str,
+    bytes: &[u8],
+    max_decompressed_bytes: usize,
+) -> anyhow::Result<Vec<u8>> {
+    let limit = max_decompressed_bytes.saturating_add(1) as u64;
+    let mut decoder = GzDecoder::new(bytes).take(limit);
     let mut out = Vec::new();
     decoder
         .read_to_end(&mut out)
@@ -596,6 +601,13 @@ fn gunzip_data_uri(source: &str, bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
             input: source.to_string(),
             reason: format!("invalid gzip payload: {error}"),
         })?;
+    if out.len() > max_decompressed_bytes {
+        return Err(MultimodalError::InvalidMarker {
+            input: source.to_string(),
+            reason: format!("decompressed payload exceeds {max_decompressed_bytes} bytes"),
+        }
+        .into());
+    }
     Ok(out)
 }
 
@@ -854,7 +866,7 @@ fn normalize_file_data_uri(
         })?;
         (
             original_mime.to_ascii_lowercase(),
-            gunzip_data_uri(source, &parsed.bytes)?,
+            gunzip_data_uri(source, &parsed.bytes, max_bytes)?,
         )
     } else {
         (parsed.mime, parsed.bytes)

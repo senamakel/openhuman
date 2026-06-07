@@ -444,9 +444,16 @@ struct OfficialListResponse {
 
 impl OfficialListResponse {
     fn into_summaries(self) -> Vec<SmitheryServerSummary> {
+        let mut seen = std::collections::HashSet::new();
         self.servers
             .into_iter()
-            .map(|env| env.server.into_summary())
+            .filter_map(|env| {
+                if seen.insert(env.server.name.clone()) {
+                    Some(env.server.into_summary())
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
@@ -496,6 +503,9 @@ struct OfficialServer {
     /// Reverse-DNS-style identifier, e.g. `io.github.foo/server-bar`.
     #[serde(default)]
     name: String,
+    /// Human-friendly title (e.g. "Notion MCP"). Falls back to `name` when absent.
+    #[serde(default)]
+    title: Option<String>,
     #[serde(default)]
     description: Option<String>,
     #[serde(default, rename = "iconUrl")]
@@ -509,10 +519,19 @@ struct OfficialServer {
 }
 
 impl OfficialServer {
+    fn display_name(&self) -> String {
+        self.title
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or(&self.name)
+            .to_string()
+    }
+
     fn into_summary(self) -> SmitheryServerSummary {
+        let display = self.display_name();
         SmitheryServerSummary {
             qualified_name: self.name.clone(),
-            display_name: self.name.clone(),
+            display_name: display,
             description: self.description.clone(),
             icon_url: self.icon_url.clone(),
             use_count: 0,
@@ -523,6 +542,7 @@ impl OfficialServer {
     }
 
     fn into_detail(self) -> SmitheryServerDetail {
+        let display = self.display_name();
         let mut connections: Vec<SmitheryConnection> = Vec::new();
         for r in &self.remotes {
             connections.push(SmitheryConnection {
@@ -546,7 +566,7 @@ impl OfficialServer {
         }
         SmitheryServerDetail {
             qualified_name: self.name.clone(),
-            display_name: self.name.clone(),
+            display_name: display,
             description: self.description.clone(),
             icon_url: self.icon_url.clone(),
             connections,

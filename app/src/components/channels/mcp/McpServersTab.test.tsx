@@ -71,15 +71,6 @@ const STATUSES_CONNECTED = [
   },
 ];
 
-const STATUSES_ERROR = [
-  {
-    server_id: 'srv-1',
-    qualified_name: 'acme/fs-server',
-    display_name: 'File Server',
-    status: 'error' as const,
-    tool_count: 0,
-  },
-];
 
 /**
  * Helper that renders McpServersTab and waits past the initial debounce

@@ -81,7 +81,7 @@ vi.mock('../inputs/RepoPicker', () => ({
       data-testid="repo-picker-stub"
       id={props.id}
       value={props.value}
-      onChange={(e) => props.onChange(e.target.value)}
+      onChange={e => props.onChange(e.target.value)}
     />
   ),
 }));
@@ -91,7 +91,7 @@ vi.mock('../inputs/BranchPicker', () => ({
       data-testid="branch-picker-stub"
       id={props.id}
       value={props.value}
-      onChange={(e) => props.onChange(e.target.value)}
+      onChange={e => props.onChange(e.target.value)}
     />
   ),
 }));
@@ -158,7 +158,7 @@ function renderBody(Body: React.ComponentType, initialPath = '/workflows/run') {
 
 describe('WorkflowRunnerBody — saved-schedule toggle', () => {
   beforeEach(() => {
-    Object.values(hoisted).forEach((fn) => fn.mockReset());
+    Object.values(hoisted).forEach(fn => fn.mockReset());
 
     hoisted.listWorkflows.mockResolvedValue(skillsList);
     hoisted.describeWorkflow.mockResolvedValue(skillDescription);
@@ -264,7 +264,7 @@ function makeRun(
 
 describe('WorkflowRunnerBody — per-job history viewer', () => {
   beforeEach(() => {
-    Object.values(hoisted).forEach((fn) => fn.mockReset());
+    Object.values(hoisted).forEach(fn => fn.mockReset());
     hoisted.listWorkflows.mockResolvedValue(skillsList);
     hoisted.describeWorkflow.mockResolvedValue(skillDescription);
     hoisted.recentRuns.mockResolvedValue([]);
@@ -289,7 +289,7 @@ describe('WorkflowRunnerBody — per-job history viewer', () => {
     expect(screen.getByTestId('history-run-job-1-2')).toBeInTheDocument();
   });
 
-  it("expands a run row to show its captured output, hides on collapse", async () => {
+  it('expands a run row to show its captured output, hides on collapse', async () => {
     const Body = await importBody();
     renderBody(Body);
     await waitFor(() => expect(hoisted.listWorkflows).toHaveBeenCalled());
@@ -323,11 +323,7 @@ describe('WorkflowRunnerBody — per-job history viewer', () => {
         enabled: true,
         last_run: '2026-05-29T10:00:00Z',
       }),
-      makeJob({
-        id: 'job-paused',
-        name: `skill-run-${SKILL_ID}-paused`,
-        enabled: false,
-      }),
+      makeJob({ id: 'job-paused', name: `skill-run-${SKILL_ID}-paused`, enabled: false }),
     ];
     hoisted.cronList.mockResolvedValue({ result: jobs });
 
@@ -354,7 +350,7 @@ describe('WorkflowRunnerBody — per-job history viewer', () => {
     // card emits a number of helper testids (`*-toggle`, `*-open`,
     // etc.) prefixed with the same root — narrow the regex to just
     // the card root by anchoring on a job-id pattern.
-    const rows = ['job-recent-enabled', 'job-old-enabled', 'job-paused'].map((id) =>
+    const rows = ['job-recent-enabled', 'job-old-enabled', 'job-paused'].map(id =>
       screen.getByTestId(`scheduled-job-${id}`)
     );
     expect(rows[0]).toHaveAttribute('data-active', 'true');
@@ -362,10 +358,10 @@ describe('WorkflowRunnerBody — per-job history viewer', () => {
     expect(rows[2]).toHaveAttribute('data-active', 'false');
     // Confirm DOM order by walking the parent's children.
     const parent = rows[0].parentElement!;
-    const cardChildren = Array.from(parent.children).filter((el) =>
+    const cardChildren = Array.from(parent.children).filter(el =>
       el.getAttribute('data-testid')?.startsWith('scheduled-job-job-')
     );
-    expect(cardChildren.map((el) => el.getAttribute('data-testid'))).toEqual([
+    expect(cardChildren.map(el => el.getAttribute('data-testid'))).toEqual([
       'scheduled-job-job-recent-enabled',
       'scheduled-job-job-old-enabled',
       'scheduled-job-job-paused',
@@ -373,9 +369,7 @@ describe('WorkflowRunnerBody — per-job history viewer', () => {
   });
 
   it('does not show an Active badge when no schedules are enabled', async () => {
-    hoisted.cronList.mockResolvedValue({
-      result: [makeJob({ enabled: false })],
-    });
+    hoisted.cronList.mockResolvedValue({ result: [makeJob({ enabled: false })] });
     const Body = await importBody();
     renderBody(Body);
     await waitFor(() => expect(hoisted.listWorkflows).toHaveBeenCalled());
@@ -406,7 +400,7 @@ describe('WorkflowRunnerBody — per-job history viewer', () => {
 
 describe('WorkflowRunnerBody — schedule frequency + save', () => {
   beforeEach(() => {
-    Object.values(hoisted).forEach((fn) => fn.mockReset());
+    Object.values(hoisted).forEach(fn => fn.mockReset());
     hoisted.listWorkflows.mockResolvedValue(skillsList);
     hoisted.describeWorkflow.mockResolvedValue(skillDescription);
     hoisted.recentRuns.mockResolvedValue([]);
@@ -442,7 +436,7 @@ describe('WorkflowRunnerBody — schedule frequency + save', () => {
 
 describe('WorkflowRunnerBody — SmartIssuePicker conditional mount', () => {
   beforeEach(() => {
-    Object.values(hoisted).forEach((fn) => fn.mockReset());
+    Object.values(hoisted).forEach(fn => fn.mockReset());
     hoisted.recentRuns.mockResolvedValue([]);
     hoisted.resolveRuntimes.mockResolvedValue({ runtimes: [] });
     hoisted.cronList.mockResolvedValue({ result: [] });
@@ -507,7 +501,7 @@ describe('WorkflowRunnerBody — SmartIssuePicker conditional mount', () => {
 
 describe('WorkflowRunnerBody — URL ?workflow= preselect', () => {
   beforeEach(() => {
-    Object.values(hoisted).forEach((fn) => fn.mockReset());
+    Object.values(hoisted).forEach(fn => fn.mockReset());
     hoisted.listWorkflows.mockResolvedValue([
       { id: 'dev-workflow', name: 'Dev Workflow' },
       { id: 'github-issue-crusher', name: 'GitHub Issue Crusher' },
@@ -537,9 +531,7 @@ describe('WorkflowRunnerBody — URL ?workflow= preselect', () => {
       'settings.skillsRunner.skill'
     )) as HTMLSelectElement;
     expect(select.value).toBe('dev-workflow');
-    await waitFor(() =>
-      expect(hoisted.describeWorkflow).toHaveBeenCalledWith('dev-workflow')
-    );
+    await waitFor(() => expect(hoisted.describeWorkflow).toHaveBeenCalledWith('dev-workflow'));
   });
 
   it('does not preselect when no ?workflow= is present', async () => {
@@ -565,15 +557,11 @@ describe('WorkflowRunnerBody — URL ?workflow= preselect', () => {
     renderBody(Body, '/workflows/run?workflow=does-not-exist');
 
     await waitFor(() => expect(hoisted.listWorkflows).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(hoisted.describeWorkflow).toHaveBeenCalledWith('does-not-exist')
-    );
+    await waitFor(() => expect(hoisted.describeWorkflow).toHaveBeenCalledWith('does-not-exist'));
     // The dropdown value won't render as an option (not in the list),
     // so its current value normalises to '' visually — but the state
     // we care about is that the error surfaces, not crashes.
-    expect(
-      await screen.findByText(/settings.skillsRunner.error.describe/)
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/settings.skillsRunner.error.describe/)).toBeInTheDocument();
   });
 
   it('locked (lock=1): shows the workflow-name header (no picker) AND the Run button', async () => {
@@ -589,13 +577,9 @@ describe('WorkflowRunnerBody — URL ?workflow= preselect', () => {
     const heading = await screen.findByTestId('skills-runner-skill-locked');
     expect(heading).toHaveTextContent('Dev Workflow');
     // ...so there is no <select> picker in locked mode...
-    expect(
-      screen.queryByLabelText('settings.skillsRunner.skill')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('settings.skillsRunner.skill')).not.toBeInTheDocument();
     // ...and the Run button is present after the inputs.
-    expect(
-      await screen.findByText('settings.skillsRunner.runNow')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('settings.skillsRunner.runNow')).toBeInTheDocument();
   });
 });
 
@@ -607,8 +591,10 @@ describe('WorkflowRunnerBody — URL ?workflow= preselect', () => {
 
 describe('WorkflowRunnerBody — Run Now flow', () => {
   beforeEach(() => {
-    Object.values(hoisted).forEach((fn) => fn.mockReset());
-    hoisted.listWorkflows.mockResolvedValue([{ id: 'pr-review-shepherd', name: 'PR Review Shepherd' }]);
+    Object.values(hoisted).forEach(fn => fn.mockReset());
+    hoisted.listWorkflows.mockResolvedValue([
+      { id: 'pr-review-shepherd', name: 'PR Review Shepherd' },
+    ]);
     hoisted.describeWorkflow.mockResolvedValue({
       id: 'pr-review-shepherd',
       name: 'PR Review Shepherd',
@@ -637,7 +623,9 @@ describe('WorkflowRunnerBody — Run Now flow', () => {
 
     const select = screen.getByLabelText('settings.skillsRunner.skill') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: 'pr-review-shepherd' } });
-    await waitFor(() => expect(hoisted.describeWorkflow).toHaveBeenCalledWith('pr-review-shepherd'));
+    await waitFor(() =>
+      expect(hoisted.describeWorkflow).toHaveBeenCalledWith('pr-review-shepherd')
+    );
 
     // Run Now button should be disabled when required field is empty
     const runBtn = await screen.findByText('settings.skillsRunner.runNow');
@@ -694,9 +682,7 @@ describe('WorkflowRunnerBody — Run Now flow', () => {
 
     await waitFor(() => expect(hoisted.runWorkflow).toHaveBeenCalledTimes(1));
     // The post-run refresh burst re-scans recentRuns on its own.
-    await waitFor(() =>
-      expect(hoisted.recentRuns.mock.calls.length).toBeGreaterThan(callsBefore)
-    );
+    await waitFor(() => expect(hoisted.recentRuns.mock.calls.length).toBeGreaterThan(callsBefore));
   });
 
   it('surfaces error when runWorkflow rejects', async () => {
@@ -716,9 +702,7 @@ describe('WorkflowRunnerBody — Run Now flow', () => {
     await waitFor(() => expect(runBtn.closest('button')).not.toBeDisabled());
     fireEvent.click(runBtn.closest('button')!);
 
-    await waitFor(() =>
-      expect(screen.getByTestId('skill-run-error')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('skill-run-error')).toBeInTheDocument());
   });
 });
 
@@ -759,7 +743,6 @@ describe('parseScheduledInputs', () => {
   });
 });
 
-
 // ── Stop / Edit / scheduled run-now ──────────────────────────────────
 //
 // Covers the consolidated runner's locked-mode surface: the Stop button on
@@ -769,7 +752,7 @@ describe('parseScheduledInputs', () => {
 
 describe('WorkflowRunnerBody — Stop / Edit / scheduled run-now', () => {
   beforeEach(() => {
-    Object.values(hoisted).forEach((fn) => fn.mockReset());
+    Object.values(hoisted).forEach(fn => fn.mockReset());
     hoisted.listWorkflows.mockResolvedValue([
       { id: SKILL_ID, name: 'GitHub Issue Crusher', scope: 'user', legacy: false },
     ]);
@@ -778,7 +761,11 @@ describe('WorkflowRunnerBody — Stop / Edit / scheduled run-now', () => {
     hoisted.resolveRuntimes.mockResolvedValue({ runtimes: [] });
     hoisted.cronList.mockResolvedValue({ result: [] });
     hoisted.cronRuns.mockResolvedValue({ result: { runs: [] } });
-    hoisted.runWorkflow.mockResolvedValue({ run_id: 'r-new', workflow_id: SKILL_ID, log: '/tmp/l' });
+    hoisted.runWorkflow.mockResolvedValue({
+      run_id: 'r-new',
+      workflow_id: SKILL_ID,
+      log: '/tmp/l',
+    });
     hoisted.cancelRun.mockResolvedValue(true);
   });
 
@@ -811,6 +798,15 @@ describe('WorkflowRunnerBody — Stop / Edit / scheduled run-now', () => {
   });
 
   it('runs a saved schedule directly with its snapshotted inputs', async () => {
+    hoisted.listWorkflows.mockResolvedValue([
+      {
+        id: SKILL_ID,
+        name: 'GitHub Issue Crusher',
+        scope: 'user',
+        legacy: false,
+        resources: ['scripts/run.py'],
+      },
+    ]);
     const prompt = [
       `Run the ${SKILL_ID} workflow via the run_workflow tool (workflow_id: "${SKILL_ID}") with these inputs:`,
       '- channel: team-product',
@@ -828,6 +824,7 @@ describe('WorkflowRunnerBody — Stop / Edit / scheduled run-now', () => {
 
     // The card's "Run" runs the workflow directly with those inputs.
     fireEvent.click(screen.getByText('settings.skillsRunner.schedule.runNow'));
+    await waitFor(() => expect(hoisted.resolveRuntimes).toHaveBeenCalledWith('python'));
     await waitFor(() =>
       expect(hoisted.runWorkflow).toHaveBeenCalledWith(SKILL_ID, { channel: 'team-product' })
     );

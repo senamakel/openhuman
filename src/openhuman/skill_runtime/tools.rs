@@ -10,13 +10,11 @@ use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 use super::ops::{resolve_runtimes, RuntimeRequirement};
 
-pub struct SkillRuntimeResolveRuntimesTool {
-    config: Arc<Config>,
-}
+pub struct SkillRuntimeResolveRuntimesTool;
 
 impl SkillRuntimeResolveRuntimesTool {
-    pub fn new(config: Arc<Config>) -> Self {
-        Self { config }
+    pub fn new(_config: Arc<Config>) -> Self {
+        Self
     }
 }
 
@@ -50,6 +48,9 @@ impl Tool for SkillRuntimeResolveRuntimesTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let config = Config::load_or_init()
+            .await
+            .map_err(|error| anyhow::anyhow!("load config: {error:#}"))?;
         let requirement = RuntimeRequirement::from_optional(
             args.get("runtime").and_then(serde_json::Value::as_str),
         )
@@ -58,7 +59,7 @@ impl Tool for SkillRuntimeResolveRuntimesTool {
             requirement = ?requirement,
             "[tool][skill_runtime] resolve_runtimes"
         );
-        let outcome = resolve_runtimes(&self.config, requirement).await;
+        let outcome = resolve_runtimes(&config, requirement).await;
         Ok(ToolResult::success(serde_json::to_string(&outcome)?))
     }
 

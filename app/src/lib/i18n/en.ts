@@ -4141,6 +4141,8 @@ const en: TranslationMap = {
   'settings.skillsRunner.error.missingRequired': 'Missing required input(s):',
   'settings.skillsRunner.error.run': 'Run failed to start:',
   'settings.skillsRunner.error.preflightGate': 'Preflight gate failed',
+  'settings.skillsRunner.error.runtimeUnavailable': 'Runtime unavailable',
+  'settings.skillsRunner.error.runtimeUnavailableDefault': 'unavailable',
   'settings.skillsRunner.schedule.heading': 'Schedule (recurring)',
   'settings.skillsRunner.schedule.help':
     'Save this workflow + inputs as a recurring cron job. The agent will call run_workflow at each tick.',
@@ -4657,6 +4659,7 @@ const en: TranslationMap = {
   'skills.create.title': 'New skill',
   'skills.detail.allowedTools': 'Allowed tools',
   'skills.detail.author': 'Author',
+  'skills.detail.license': 'License',
   'skills.detail.description': 'Description',
   'skills.detail.bundledResources': 'Bundled resources',
   'skills.detail.run': 'Run',

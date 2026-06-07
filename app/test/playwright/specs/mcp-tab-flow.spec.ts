@@ -93,7 +93,7 @@ const GITHUB_INSTALLED = {
 // ---------------------------------------------------------------------------
 
 interface MockState {
-  installed: typeof INSTALLED_DEFAULT[];
+  installed: (typeof INSTALLED_DEFAULT)[];
   statuses: (typeof STATUS_CONNECTED)[];
 }
 
@@ -136,12 +136,7 @@ async function setupMockRpc(page: Page, state: MockState) {
         return route.fulfill(
           rpcOk(id, {
             result: {
-              auth: {
-                isAuthenticated: true,
-                userId: 'pw-mcp-user',
-                user: null,
-                profileId: null,
-              },
+              auth: { isAuthenticated: true, userId: 'pw-mcp-user', user: null, profileId: null },
               sessionToken: 'fake-session-token',
               currentUser: { _id: 'pw-mcp-user', displayName: 'Test User' },
               onboardingCompleted: true,
@@ -170,18 +165,14 @@ async function setupMockRpc(page: Page, state: MockState) {
                 s.qualified_name.toLowerCase().includes(query)
             )
           : REGISTRY_SERVERS;
-        return route.fulfill(
-          rpcOk(id, { servers: filtered, page: 1, total_pages: 1 })
-        );
+        return route.fulfill(rpcOk(id, { servers: filtered, page: 1, total_pages: 1 }));
       }
 
       case 'openhuman.mcp_clients_registry_get':
         if (params.qualified_name === GITHUB_DETAIL.qualified_name) {
           return route.fulfill(rpcOk(id, { server: GITHUB_DETAIL }));
         }
-        return route.fulfill(
-          rpcError(id, `server not found: ${params.qualified_name}`)
-        );
+        return route.fulfill(rpcError(id, `server not found: ${params.qualified_name}`));
 
       // ---- Installed servers (mutable) ----
       case 'openhuman.mcp_clients_installed_list':
@@ -192,9 +183,7 @@ async function setupMockRpc(page: Page, state: MockState) {
 
       case 'openhuman.mcp_clients_install':
         if (!params.qualified_name) {
-          return route.fulfill(
-            rpcError(id, "missing required param 'qualified_name'")
-          );
+          return route.fulfill(rpcError(id, "missing required param 'qualified_name'"));
         }
         state.installed.push(GITHUB_INSTALLED);
         return route.fulfill(rpcOk(id, { server: GITHUB_INSTALLED }));
@@ -207,23 +196,15 @@ async function setupMockRpc(page: Page, state: MockState) {
           status: 'connected',
           tool_count: 3,
         });
-        return route.fulfill(
-          rpcOk(id, { status: 'connected', tools: [] })
-        );
+        return route.fulfill(rpcOk(id, { status: 'connected', tools: [] }));
 
       case 'openhuman.mcp_clients_disconnect':
-        state.statuses = state.statuses.filter(
-          s => s.server_id !== params.server_id
-        );
+        state.statuses = state.statuses.filter(s => s.server_id !== params.server_id);
         return route.fulfill(rpcOk(id, { status: 'disconnected' }));
 
       case 'openhuman.mcp_clients_uninstall':
-        state.installed = state.installed.filter(
-          s => s.server_id !== params.server_id
-        );
-        state.statuses = state.statuses.filter(
-          s => s.server_id !== params.server_id
-        );
+        state.installed = state.installed.filter(s => s.server_id !== params.server_id);
+        state.statuses = state.statuses.filter(s => s.server_id !== params.server_id);
         return route.fulfill(rpcOk(id, { success: true }));
 
       case 'openhuman.mcp_clients_tools':
@@ -245,10 +226,7 @@ async function setupMockRpc(page: Page, state: MockState) {
 async function seedLocalStorage(page: Page) {
   await page.addInitScript(() => {
     window.localStorage.setItem('openhuman_core_mode', 'cloud');
-    window.localStorage.setItem(
-      'openhuman_core_rpc_url',
-      'http://127.0.0.1:17788/rpc'
-    );
+    window.localStorage.setItem('openhuman_core_rpc_url', 'http://127.0.0.1:17788/rpc');
     window.localStorage.setItem('openhuman_core_rpc_token', 'test-token');
     window.localStorage.setItem('openhuman:walkthrough_completed', 'true');
     window.localStorage.removeItem('openhuman:walkthrough_pending');
@@ -269,10 +247,7 @@ test.describe('MCP Tab — Table View & Filtering', () => {
   let state: MockState;
 
   test.beforeEach(async ({ page }) => {
-    state = {
-      installed: [makeInstalledServer()],
-      statuses: [{ ...STATUS_CONNECTED }],
-    };
+    state = { installed: [makeInstalledServer()], statuses: [{ ...STATUS_CONNECTED }] };
     await seedLocalStorage(page);
     await setupMockRpc(page, state);
     await navigateToMcpTab(page);
@@ -350,18 +325,13 @@ test.describe('MCP Tab — Install Lifecycle', () => {
   let state: MockState;
 
   test.beforeEach(async ({ page }) => {
-    state = {
-      installed: [makeInstalledServer()],
-      statuses: [{ ...STATUS_CONNECTED }],
-    };
+    state = { installed: [makeInstalledServer()], statuses: [{ ...STATUS_CONNECTED }] };
     await seedLocalStorage(page);
     await setupMockRpc(page, state);
     await navigateToMcpTab(page);
   });
 
-  test('install flow: click Install → fill env → submit → appears installed', async ({
-    page,
-  }) => {
+  test('install flow: click Install → fill env → submit → appears installed', async ({ page }) => {
     // 1. Click "Install" on GitHub Tools (a registry-only server)
     const githubRow = page.locator('table tbody tr', {
       has: page.locator('td:first-child:has-text("GitHub Tools")'),
@@ -378,9 +348,7 @@ test.describe('MCP Tab — Install Lifecycle', () => {
     await envInput.fill('ghp_test_token_123');
 
     // 4. Click "Install" submit button
-    const submitBtn = page.locator(
-      'button:has-text("Install"):not(:has-text("Back"))'
-    ).last();
+    const submitBtn = page.locator('button:has-text("Install"):not(:has-text("Back"))').last();
     await submitBtn.click();
 
     // 5. Should navigate to detail view (the installed server detail)
@@ -401,10 +369,7 @@ test.describe('MCP Tab — Manage & Uninstall Lifecycle', () => {
   let state: MockState;
 
   test.beforeEach(async ({ page }) => {
-    state = {
-      installed: [makeInstalledServer()],
-      statuses: [{ ...STATUS_CONNECTED }],
-    };
+    state = { installed: [makeInstalledServer()], statuses: [{ ...STATUS_CONNECTED }] };
     await seedLocalStorage(page);
     await setupMockRpc(page, state);
     await navigateToMcpTab(page);
@@ -490,9 +455,7 @@ test.describe('MCP Tab — Empty & Edge States', () => {
         body.method === 'openhuman.mcp_clients_registry_search' &&
         body.params?.query === 'xyznonexistent999'
       ) {
-        return route.fulfill(
-          rpcOk(body.id, { servers: [], page: 1, total_pages: 1 })
-        );
+        return route.fulfill(rpcOk(body.id, { servers: [], page: 1, total_pages: 1 }));
       }
       await route.fallback();
     });

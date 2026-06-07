@@ -227,7 +227,9 @@ impl Registry for McpOfficialRegistry {
             .with_context(|| format!("Failed to parse MCP official server: {server_json}"))?;
         tracing::debug!(
             "[mcp-official] get ok qualified_name={} packages={} remotes={}",
-            server.name, server.packages.len(), server.remotes.len()
+            server.name,
+            server.packages.len(),
+            server.remotes.len()
         );
         Ok(server.into_detail())
     }
@@ -649,17 +651,11 @@ impl OfficialPackage {
     fn to_example_config(&self) -> Option<Value> {
         let (command, mut args) = match self.registry_type.as_deref() {
             Some("pypi") => {
-                let cmd = self
-                    .runtime_hint
-                    .as_deref()
-                    .unwrap_or("uvx");
+                let cmd = self.runtime_hint.as_deref().unwrap_or("uvx");
                 (cmd.to_string(), Vec::new())
             }
             _ => {
-                let cmd = self
-                    .runtime_hint
-                    .as_deref()
-                    .unwrap_or("npx");
+                let cmd = self.runtime_hint.as_deref().unwrap_or("npx");
                 (cmd.to_string(), Vec::new())
             }
         };
@@ -919,7 +915,12 @@ mod tests {
         .unwrap();
         let cfg = pkg.to_example_config().unwrap();
         assert_eq!(cfg["command"], "npx");
-        let args: Vec<&str> = cfg["args"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        let args: Vec<&str> = cfg["args"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
         assert_eq!(args, vec!["-y", "remote-filesystem-mcp-server"]);
     }
 
@@ -932,7 +933,12 @@ mod tests {
         .unwrap();
         let cfg = pkg.to_example_config().unwrap();
         assert_eq!(cfg["command"], "uvx");
-        let args: Vec<&str> = cfg["args"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        let args: Vec<&str> = cfg["args"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
         assert_eq!(args, vec!["files-com-mcp"]);
     }
 
@@ -952,7 +958,12 @@ mod tests {
         assert!(props.contains_key("API_KEY"));
         assert!(props.contains_key("REGION"));
         assert_eq!(props["API_KEY"]["x-secret"], true);
-        let required: Vec<&str> = schema["required"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        let required: Vec<&str> = schema["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
         assert_eq!(required, vec!["API_KEY"]);
     }
 

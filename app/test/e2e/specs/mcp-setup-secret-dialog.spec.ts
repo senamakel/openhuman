@@ -121,7 +121,9 @@ describe('MCP Setup — Secret Dialog', () => {
           try {
             const body = JSON.parse(opts.body);
             (window as any).__e2eRpcLog.push({ method: body.method, params: body.params });
-          } catch (_e) { /* intentionally empty — best-effort logging */ }
+          } catch (_e) {
+            /* intentionally empty — best-effort logging */
+          }
         }
         return origFetch.apply(this, args);
       };

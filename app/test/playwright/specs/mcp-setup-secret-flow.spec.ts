@@ -102,11 +102,7 @@ test.describe('MCP Setup — Secret Collection Flow', () => {
     await page.evaluate(() => {
       window.dispatchEvent(
         new CustomEvent('openhuman:mcp-setup-secret-requested', {
-          detail: {
-            refId: 'secret://cancel123456',
-            keyName: 'API_KEY',
-            prompt: 'Enter key',
-          },
+          detail: { refId: 'secret://cancel123456', keyName: 'API_KEY', prompt: 'Enter key' },
         })
       );
     });

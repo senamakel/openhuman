@@ -79,30 +79,27 @@ const McpServersTab = () => {
     }
   }, []);
 
-  const fetchCatalog = useCallback(
-    async (query: string, page: number, append: boolean) => {
-      const seq = ++requestSeqRef.current;
-      setCatalogLoading(true);
-      try {
-        const result = await mcpClientsApi.registrySearch({
-          query: query || undefined,
-          page,
-          page_size: PAGE_SIZE,
-        });
-        if (seq !== requestSeqRef.current) return;
-        const incoming = result.servers ?? [];
-        setCatalogServers(prev => (append ? [...prev, ...incoming] : incoming));
-        setCatalogPage(result.page);
-        setCatalogTotalPages(result.total_pages);
-      } catch (err) {
-        if (seq !== requestSeqRef.current) return;
-        log('catalog fetch error: %o', err);
-      } finally {
-        if (seq === requestSeqRef.current) setCatalogLoading(false);
-      }
-    },
-    []
-  );
+  const fetchCatalog = useCallback(async (query: string, page: number, append: boolean) => {
+    const seq = ++requestSeqRef.current;
+    setCatalogLoading(true);
+    try {
+      const result = await mcpClientsApi.registrySearch({
+        query: query || undefined,
+        page,
+        page_size: PAGE_SIZE,
+      });
+      if (seq !== requestSeqRef.current) return;
+      const incoming = result.servers ?? [];
+      setCatalogServers(prev => (append ? [...prev, ...incoming] : incoming));
+      setCatalogPage(result.page);
+      setCatalogTotalPages(result.total_pages);
+    } catch (err) {
+      if (seq !== requestSeqRef.current) return;
+      log('catalog fetch error: %o', err);
+    } finally {
+      if (seq === requestSeqRef.current) setCatalogLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     Promise.all([loadInstalled(), fetchStatuses()]).finally(() => setLoading(false));
@@ -220,7 +217,12 @@ const McpServersTab = () => {
           type="button"
           onClick={() => setView({ mode: 'home' })}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           {t('mcp.install.back')}
@@ -243,7 +245,12 @@ const McpServersTab = () => {
           type="button"
           onClick={() => setView({ mode: 'home' })}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           {t('mcp.install.back')}
@@ -328,7 +335,8 @@ const McpServersTab = () => {
             {/* Installed servers */}
             {(activeChip === 'all' || activeChip === 'installed') &&
               filteredInstalled.map(server => {
-                const status: ServerStatus = statusMap.get(server.server_id)?.status ?? 'disconnected';
+                const status: ServerStatus =
+                  statusMap.get(server.server_id)?.status ?? 'disconnected';
                 return (
                   <tr
                     key={`installed-${server.server_id}`}
@@ -419,14 +427,21 @@ const McpServersTab = () => {
         )}
         {activeChip === 'registry' && filteredCatalog.length === 0 && !catalogLoading && (
           <div className="py-8 text-center text-sm text-stone-400 dark:text-neutral-500">
-            {searchQuery ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery) : t('mcp.catalog.noResults')}
+            {searchQuery
+              ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery)
+              : t('mcp.catalog.noResults')}
           </div>
         )}
-        {activeChip === 'all' && filteredInstalled.length === 0 && filteredCatalog.length === 0 && !catalogLoading && (
-          <div className="py-8 text-center text-sm text-stone-400 dark:text-neutral-500">
-            {searchQuery ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery) : t('mcp.catalog.noResults')}
-          </div>
-        )}
+        {activeChip === 'all' &&
+          filteredInstalled.length === 0 &&
+          filteredCatalog.length === 0 &&
+          !catalogLoading && (
+            <div className="py-8 text-center text-sm text-stone-400 dark:text-neutral-500">
+              {searchQuery
+                ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery)
+                : t('mcp.catalog.noResults')}
+            </div>
+          )}
 
         {/* Loading / load more */}
         {catalogLoading && (
@@ -434,16 +449,18 @@ const McpServersTab = () => {
             {t('common.loading')}
           </div>
         )}
-        {!catalogLoading && catalogPage < catalogTotalPages && (activeChip === 'all' || activeChip === 'registry') && (
-          <div className="py-3 text-center border-t border-stone-100 dark:border-neutral-800">
-            <button
-              type="button"
-              onClick={handleLoadMore}
-              className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">
-              {t('mcp.catalog.loadMore')}
-            </button>
-          </div>
-        )}
+        {!catalogLoading &&
+          catalogPage < catalogTotalPages &&
+          (activeChip === 'all' || activeChip === 'registry') && (
+            <div className="py-3 text-center border-t border-stone-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                {t('mcp.catalog.loadMore')}
+              </button>
+            </div>
+          )}
       </div>
 
       {inventoryOpen && (

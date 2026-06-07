@@ -38,9 +38,15 @@ mod tests {
             .expect("npm memory server should connect");
 
         assert_eq!(result.server_name, "memory-server");
-        assert!(!result.tools.is_empty(), "memory server should expose tools");
         assert!(
-            result.tools.iter().any(|t| t.name == "read_graph" || t.name == "create_entities"),
+            !result.tools.is_empty(),
+            "memory server should expose tools"
+        );
+        assert!(
+            result
+                .tools
+                .iter()
+                .any(|t| t.name == "read_graph" || t.name == "create_entities"),
             "expected knowledge-graph tools, got: {:?}",
             result.tools.iter().map(|t| &t.name).collect::<Vec<_>>()
         );
@@ -49,13 +55,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn pypi_time_server_connects_and_lists_tools() {
-        let req = resolve_setup_request(
-            "pypi",
-            "mcp-server-time",
-            None,
-            &[],
-            HashMap::new(),
-        );
+        let req = resolve_setup_request("pypi", "mcp-server-time", None, &[], HashMap::new());
         assert_eq!(req.command, "uvx");
         assert_eq!(req.args, vec!["mcp-server-time"]);
 

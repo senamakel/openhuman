@@ -61,8 +61,15 @@ pub struct SetupTool {
 /// on success.
 ///
 /// This is a side-effect-free probe — nothing is persisted or registered.
-pub async fn test_connection(req: &SetupRequest, identity: McpClientIdentityConfig) -> Result<SetupResult> {
-    let env: Vec<(String, String)> = req.env.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+pub async fn test_connection(
+    req: &SetupRequest,
+    identity: McpClientIdentityConfig,
+) -> Result<SetupResult> {
+    let env: Vec<(String, String)> = req
+        .env
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
 
     tracing::debug!(
         "[mcp-setup-agent] test_connection command={} args={:?}",
@@ -182,7 +189,10 @@ pub fn resolve_setup_request(
 /// Parse the official MCP registry server detail JSON and extract the best
 /// package-based [`SetupRequest`]. Prefers npm, falls back to pypi, then
 /// any other registryType.
-pub fn setup_request_from_registry_detail(detail: &Value, env: HashMap<String, String>) -> Option<SetupRequest> {
+pub fn setup_request_from_registry_detail(
+    detail: &Value,
+    env: HashMap<String, String>,
+) -> Option<SetupRequest> {
     let packages = detail.get("packages").and_then(Value::as_array)?;
 
     let pick = packages
@@ -228,7 +238,13 @@ mod tests {
 
     #[test]
     fn resolve_npm_package_with_runtime_args() {
-        let req = resolve_setup_request("npm", "@scope/my-server", Some("npx"), &["-y".into()], HashMap::new());
+        let req = resolve_setup_request(
+            "npm",
+            "@scope/my-server",
+            Some("npx"),
+            &["-y".into()],
+            HashMap::new(),
+        );
         assert_eq!(req.command, "npx");
         assert_eq!(req.args, vec!["-y", "@scope/my-server"]);
     }

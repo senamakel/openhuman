@@ -601,7 +601,7 @@ fn parse_index_json(body: &str, source_id: &str) -> Result<Vec<CatalogEntry>, St
                 .format
                 .as_deref()
                 .or(raw.skill_format.as_deref())
-                .unwrap_or("openhuman")
+                .unwrap_or("agentskills")
                 .to_string();
 
             Some(CatalogEntry {

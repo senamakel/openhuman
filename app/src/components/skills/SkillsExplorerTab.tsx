@@ -19,26 +19,42 @@ const log = debug('skills:explorer-tab');
 
 function SkillFormatBadge({ format }: { format: string }) {
   const lower = format.toLowerCase();
-  const label =
-    lower === 'hermes'
-      ? 'Hermes'
-      : lower === 'legacy'
-        ? 'Legacy'
-        : lower === 'openclaw'
-          ? 'OpenClaw'
-          : 'OpenHuman';
-  const colors =
-    lower === 'hermes'
-      ? 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30'
-      : lower === 'openclaw'
-        ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30'
-        : lower === 'legacy'
-          ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30'
-          : 'bg-primary-50 text-primary-700 border-primary-200 dark:bg-primary-500/10 dark:text-primary-300 dark:border-primary-500/30';
+  const FORMAT_MAP: Record<string, { label: string; colors: string }> = {
+    hermes: {
+      label: 'Hermes',
+      colors:
+        'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30',
+    },
+    agentskills: {
+      label: 'AgentSkills',
+      colors:
+        'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30',
+    },
+    openclaw: {
+      label: 'OpenClaw',
+      colors:
+        'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30',
+    },
+    clawhub: {
+      label: 'ClawHub',
+      colors:
+        'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30',
+    },
+    legacy: {
+      label: 'Legacy',
+      colors:
+        'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30',
+    },
+  };
+  const entry = FORMAT_MAP[lower] ?? {
+    label: format || 'Skill',
+    colors:
+      'bg-stone-50 text-stone-600 border-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700',
+  };
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${colors}`}>
-      {label}
+      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${entry.colors}`}>
+      {entry.label}
     </span>
   );
 }
@@ -59,9 +75,14 @@ function SkillScopeBadge({ scope }: { scope: string }) {
 }
 
 function SourceBadge({ sourceId }: { sourceId: string }) {
+  const FRIENDLY: Record<string, string> = {
+    'openhuman-community': 'Community',
+    hermeshub: 'HermesHub',
+    clawhub: 'ClawHub',
+  };
   return (
     <span className="inline-flex items-center rounded-full border border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 px-1.5 py-0.5 text-[9px] font-medium text-stone-500 dark:text-neutral-400">
-      {sourceId}
+      {FRIENDLY[sourceId] ?? sourceId}
     </span>
   );
 }
@@ -69,16 +90,21 @@ function SourceBadge({ sourceId }: { sourceId: string }) {
 interface SkillTileProps {
   skill: SkillSummary;
   onUninstall: () => void;
+  onClick: () => void;
 }
 
-function SkillTile({ skill, onUninstall }: SkillTileProps) {
+function SkillTile({ skill, onUninstall, onClick }: SkillTileProps) {
   const { t } = useT();
   const canUninstall = skill.scope === 'user';
 
   return (
     <div
       data-testid={`skill-explorer-tile-${skill.id}`}
-      className="group flex flex-col justify-between rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
+      className="group flex flex-col justify-between rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 transition-colors cursor-pointer hover:bg-stone-50 dark:hover:bg-neutral-800/60">
       <div className="min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-stone-100 dark:bg-neutral-800">
@@ -163,14 +189,19 @@ interface CatalogTileProps {
   installed: boolean;
   installing: boolean;
   onInstall: () => void;
+  onClick: () => void;
 }
 
-function CatalogTile({ entry, installed, installing, onInstall }: CatalogTileProps) {
+function CatalogTile({ entry, installed, installing, onInstall, onClick }: CatalogTileProps) {
   const { t } = useT();
   return (
     <div
       data-testid={`registry-tile-${entry.id}`}
-      className={`group flex flex-col justify-between rounded-2xl border p-3 transition-colors ${
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
+      className={`group flex flex-col justify-between rounded-2xl border p-3 transition-colors cursor-pointer ${
         installed
           ? 'border-sage-300 bg-sage-50/60 dark:border-sage-500/30 dark:bg-sage-500/10'
           : 'border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
@@ -192,7 +223,6 @@ function CatalogTile({ entry, installed, installing, onInstall }: CatalogTilePro
             </svg>
           </div>
           <div className="flex items-center gap-1">
-            <SkillFormatBadge format={entry.format} />
             <SourceBadge sourceId={entry.source_id} />
           </div>
         </div>
@@ -257,6 +287,152 @@ function CatalogTile({ entry, installed, installing, onInstall }: CatalogTilePro
   );
 }
 
+interface SkillDetailDialogProps {
+  entry: CatalogEntry | null;
+  skill: SkillSummary | null;
+  installed: boolean;
+  onClose: () => void;
+  onInstall?: () => void;
+  installing?: boolean;
+}
+
+function SkillDetailDialog({
+  entry,
+  skill,
+  installed,
+  onClose,
+  onInstall,
+  installing,
+}: SkillDetailDialogProps) {
+  const { t } = useT();
+  const name = entry?.name ?? skill?.name ?? '';
+  const description = entry?.description ?? skill?.description ?? '';
+  const format = entry?.format ?? skill?.sourceFormat ?? '';
+  const tags = entry?.tags ?? skill?.tags ?? [];
+  const version = entry?.version ?? skill?.version ?? '';
+  const author = entry?.author ?? '';
+  const sourceId = entry?.source_id ?? '';
+  const downloadUrl = entry?.download_url ?? '';
+  const stars = entry?.stars;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}>
+      <div
+        className="mx-4 w-full max-w-lg rounded-2xl border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-xl"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-stone-100 dark:border-neutral-800 p-5">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100 truncate">
+                {name}
+              </h2>
+              {installed && (
+                <span className="flex-shrink-0 rounded-full border border-sage-200 dark:border-sage-500/30 bg-sage-50 dark:bg-sage-500/10 px-2 py-0.5 text-[10px] font-medium text-sage-700 dark:text-sage-300">
+                  {t('skills.explorer.installed')}
+                </span>
+              )}
+            </div>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <SkillFormatBadge format={format} />
+              {sourceId && <SourceBadge sourceId={sourceId} />}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-shrink-0 rounded-lg p-1 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 transition-colors">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {description && (
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500 mb-1">
+                {t('skills.detail.description')}
+              </h3>
+              <p className="text-sm text-stone-700 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap">
+                {description}
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {version && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
+                  {t('skills.detail.version')}
+                </span>
+                <p className="text-xs font-mono text-stone-700 dark:text-neutral-300">{version}</p>
+              </div>
+            )}
+            {author && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
+                  {t('skills.detail.author')}
+                </span>
+                <p className="text-xs text-stone-700 dark:text-neutral-300">{author}</p>
+              </div>
+            )}
+            {stars != null && stars > 0 && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
+                  {t('skills.detail.stars')}
+                </span>
+                <p className="text-xs text-stone-700 dark:text-neutral-300">{stars}</p>
+              </div>
+            )}
+          </div>
+
+          {tags.length > 0 && (
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500 mb-1.5">
+                {t('skills.detail.tags')}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map(tag => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-stone-600 dark:text-neutral-400">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {downloadUrl && !downloadUrl.startsWith('clawhub://') && (
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500 mb-1">
+                {t('skills.detail.source')}
+              </h3>
+              <p className="text-[11px] font-mono text-stone-400 dark:text-neutral-500 break-all">
+                {downloadUrl}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {!installed && onInstall && (
+          <div className="border-t border-stone-100 dark:border-neutral-800 p-4 flex justify-end">
+            <button
+              type="button"
+              disabled={installing}
+              onClick={onInstall}
+              className="rounded-lg border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 px-4 py-2 text-xs font-medium text-primary-700 dark:text-primary-300 transition-colors hover:bg-primary-100 dark:hover:bg-primary-500/20 disabled:opacity-50">
+              {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type ExplorerView = 'installed' | 'registry';
 
 interface SkillsExplorerTabProps {
@@ -280,6 +456,8 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const [formatFilter, setFormatFilter] = useState<string>('all');
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [uninstallTarget, setUninstallTarget] = useState<SkillSummary | null>(null);
+  const [detailEntry, setDetailEntry] = useState<CatalogEntry | null>(null);
+  const [detailSkill, setDetailSkill] = useState<SkillSummary | null>(null);
 
   const fetchSkills = useCallback(async () => {
     log('fetchSkills: start');
@@ -597,6 +775,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
                 <SkillTile
                   key={skill.id}
                   skill={skill}
+                  onClick={() => setDetailSkill(skill)}
                   onUninstall={() => setUninstallTarget(skill)}
                 />
               ))}
@@ -648,6 +827,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
                   entry={entry}
                   installed={installedIds.has(entry.id)}
                   installing={installingId === entry.id}
+                  onClick={() => setDetailEntry(entry)}
                   onInstall={() => void handleRegistryInstall(entry)}
                 />
               ))}
@@ -668,6 +848,19 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           skill={uninstallTarget}
           onClose={() => setUninstallTarget(null)}
           onUninstalled={handleUninstalled}
+        />
+      )}
+
+      {(detailEntry || detailSkill) && (
+        <SkillDetailDialog
+          entry={detailEntry}
+          skill={detailSkill}
+          installed={detailEntry ? installedIds.has(detailEntry.id) : true}
+          onClose={() => { setDetailEntry(null); setDetailSkill(null); }}
+          onInstall={detailEntry && !installedIds.has(detailEntry.id)
+            ? () => { void handleRegistryInstall(detailEntry); setDetailEntry(null); }
+            : undefined}
+          installing={detailEntry ? installingId === detailEntry.id : false}
         />
       )}
     </div>

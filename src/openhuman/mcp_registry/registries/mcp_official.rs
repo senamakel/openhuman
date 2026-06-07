@@ -5,8 +5,8 @@
 //!
 //! Endpoints used:
 //! - `GET /v0/servers?search=<query>&limit=<n>&cursor=<opt>` — paginated list
-//! - `GET /v0/servers/{name}` — full detail for one server (or a fallback
-//!   path that searches by exact name when the direct endpoint 404s)
+//! - `GET /v0/servers/{name}/versions` — all versions for one server; the
+//!   `get` method picks the first (latest) entry
 //!
 //! ## Pagination model
 //!
@@ -184,9 +184,13 @@ impl Registry for McpOfficialRegistry {
             }
         }
 
+        // The official registry has no single-server endpoint. Use the
+        // versions endpoint (`/v0/servers/{name}/versions`) which returns
+        // the same envelope shape as the list endpoint, then pick the
+        // latest version.
         let client = http_client()?;
         let url = format!(
-            "{}/v0/servers/{}",
+            "{}/v0/servers/{}/versions",
             base_url(config),
             urlencoding_encode(qualified_name)
         );
@@ -207,9 +211,24 @@ impl Registry for McpOfficialRegistry {
             );
         }
 
-        let server: OfficialServer = serde_json::from_str(&body)
-            .with_context(|| format!("Failed to parse MCP official detail: {body}"))?;
-        let _ = store::set_cached(config, &cache_key, &body);
+        // The versions endpoint returns the same envelope array as the
+        // list endpoint. Extract the raw JSON for the first (latest)
+        // server object and cache it so subsequent calls skip the HTTP
+        // round-trip.
+        let raw: Value = serde_json::from_str(&body)
+            .with_context(|| format!("Failed to re-parse MCP official versions: {body}"))?;
+        let server_value = raw
+            .pointer("/servers/0/server")
+            .ok_or_else(|| anyhow::anyhow!("no versions found for {qualified_name}"))?;
+        let server_json = server_value.to_string();
+        let _ = store::set_cached(config, &cache_key, &server_json);
+
+        let server: OfficialServer = serde_json::from_value(server_value.clone())
+            .with_context(|| format!("Failed to parse MCP official server: {server_json}"))?;
+        tracing::debug!(
+            "[mcp-official] get ok qualified_name={} packages={} remotes={}",
+            server.name, server.packages.len(), server.remotes.len()
+        );
         Ok(server.into_detail())
     }
 }

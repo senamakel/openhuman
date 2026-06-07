@@ -50,16 +50,46 @@ vi.mock('../../services/api/mcpClientsApi', () => ({
 }));
 
 describe('Skills page — MCP tab', () => {
-  it('renders the live MCP servers tab (not a coming-soon placeholder)', async () => {
+  it('renders the live MCP servers tab with unified table view (not a coming-soon placeholder)', async () => {
+    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'MCP Servers' }));
+
+    // The new tab shows filter chips (All / Installed / Registry) and a search input
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /Installed/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Registry' })).toBeInTheDocument();
+  });
+
+  it('shows the table header columns on the MCP tab', async () => {
+    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'MCP Servers' }));
+
+    // Wait for initial load to complete
+    await waitFor(() => {
+      expect(screen.queryByText('Loading MCP servers...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Name')).toBeInTheDocument();
+    expect(screen.getByText('Source')).toBeInTheDocument();
+    expect(screen.getByText('Action')).toBeInTheDocument();
+  });
+
+  it('shows empty-installed state when Installed chip is clicked', async () => {
     renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
 
     fireEvent.click(screen.getByRole('tab', { name: 'MCP Servers' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('No MCP servers installed yet.') ||
-          screen.getByText('Loading MCP servers...')
-      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Installed/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Installed/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('No MCP servers installed yet.')).toBeInTheDocument();
     });
   });
 });

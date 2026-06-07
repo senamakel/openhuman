@@ -10504,8 +10504,26 @@ async fn json_rpc_workflows_lifecycle_round_trip() {
 /// We activate the [`reply_speech::test_seam`] short-circuit via the
 /// `OPENHUMAN_TEST_REPLY_SPEECH_SEAM` env var so the call is recorded
 /// without contacting the ElevenLabs proxy.
-#[tokio::test]
-async fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech() {
+#[test]
+fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech() {
+    std::thread::Builder::new()
+        .name("json_rpc_speak_reply_e2e".to_string())
+        .stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .spawn(|| {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+                .enable_all()
+                .build()
+                .expect("build json_rpc speak_reply e2e runtime");
+            rt.block_on(json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner());
+        })
+        .expect("spawn json_rpc speak_reply e2e thread")
+        .join()
+        .expect("json_rpc speak_reply e2e thread should not panic");
+}
+
+async fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();

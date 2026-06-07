@@ -53,6 +53,13 @@ async function requests(): Promise<MockRequest[]> {
   return Array.isArray(payload.data) ? payload.data : [];
 }
 
+async function completionRequestCount(): Promise<number> {
+  const log = await requests();
+  return log.filter(
+    entry => entry.method === 'POST' && entry.url.includes('/openai/v1/chat/completions')
+  ).length;
+}
+
 async function openChat(page: Page): Promise<void> {
   await bootAuthenticatedPage(page, USER_ID, '/chat');
   await page.goto('/#/chat');
@@ -142,7 +149,8 @@ test.describe('Chat Harness - Subagent', () => {
     const threadId = await createNewThread(page);
     await sendMessage(page, PROMPT);
 
-    await expect(page.getByText(CANARY_FINAL)).toBeVisible({ timeout: 45_000 });
+    await expect.poll(completionRequestCount, { timeout: 90_000 }).toBeGreaterThanOrEqual(3);
+    await expect(page.getByText(CANARY_FINAL)).toBeVisible({ timeout: 30_000 });
 
     const runtime = await page.evaluate(currentThreadId => {
       const store = (
@@ -172,15 +180,6 @@ test.describe('Chat Harness - Subagent', () => {
         runtime.ids.some(id => id.includes(':subagent:'))
     ).toBe(true);
 
-    await expect
-      .poll(async () => {
-        const log = await requests();
-        return log.filter(
-          entry => entry.method === 'POST' && entry.url.includes('/openai/v1/chat/completions')
-        ).length;
-      })
-      .toBeGreaterThanOrEqual(2);
-
-    await expect(page.getByText(CANARY_FINAL)).toBeVisible();
+    await expect(page.getByText(CANARY_FINAL)).toBeVisible({ timeout: 15_000 });
   });
 });

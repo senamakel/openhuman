@@ -3838,8 +3838,15 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     rpc_join.abort();
 }
 
-#[tokio::test]
-async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header() {
+#[test]
+fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_web_chat_custom_provider_auth_none",
+        json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header_inner,
+    );
+}
+
+async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();

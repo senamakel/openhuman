@@ -29,6 +29,7 @@ const FORCED_RESPONSES = [
 ];
 
 interface MockRequest {
+  body?: string;
   method: string;
   url: string;
 }
@@ -144,13 +145,6 @@ async function hasFinalDelegationText(page: Page): Promise<boolean> {
   );
 }
 
-async function hasVisibleSubagentTimeline(page: Page): Promise<boolean> {
-  return page.evaluate(() => {
-    const bodyText = document.body?.innerText ?? '';
-    return bodyText.includes('Research success') || bodyText.includes('Researching success');
-  });
-}
-
 test.describe('Chat Harness - Subagent', () => {
   test('delegates to a subagent and persists the final orchestrator text', async ({ page }) => {
     await resetMock();
@@ -158,46 +152,23 @@ test.describe('Chat Harness - Subagent', () => {
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
     await openChat(page);
-    const threadId = await createNewThread(page);
+    await createNewThread(page);
     await sendMessage(page, PROMPT);
 
     await expect.poll(async () => hasFinalDelegationText(page), { timeout: 75_000 }).toBe(true);
 
-    const runtime = await page.evaluate(currentThreadId => {
-      const store = (
-        window as unknown as {
-          __OPENHUMAN_STORE__?: {
-            getState?: () => {
-              chatRuntime?: {
-                inferenceStatusByThread?: Record<string, { phase?: string }>;
-                toolTimelineByThread?: Record<string, Array<{ id?: string; name?: string }>>;
-              };
-            };
-          };
-        }
-      ).__OPENHUMAN_STORE__;
-      const state = store?.getState?.().chatRuntime;
-      return {
-        phase: state?.inferenceStatusByThread?.[currentThreadId]?.phase ?? null,
-        names: (state?.toolTimelineByThread?.[currentThreadId] ?? []).map(
-          entry => entry.name ?? ''
-        ),
-        ids: (state?.toolTimelineByThread?.[currentThreadId] ?? []).map(entry => entry.id ?? ''),
-      };
-    }, threadId);
-    const runtimeRecordedSubagent =
-      runtime.phase === 'subagent' ||
-      runtime.names.some(name => name.startsWith('subagent:')) ||
-      runtime.ids.some(id => id.includes(':subagent:'));
-    expect(runtimeRecordedSubagent || (await hasVisibleSubagentTimeline(page))).toBe(true);
-
     await expect
       .poll(async () => {
         const log = await requests();
-        return log.filter(
+        const llmRequests = log.filter(
           entry => entry.method === 'POST' && entry.url.includes('/openai/v1/chat/completions')
-        ).length;
+        );
+        const bodies = llmRequests.map(entry => entry.body ?? '').join('\n');
+        return (
+          llmRequests.length >= 3 &&
+          (bodies.includes('Tell me a marker phrase') || bodies.includes(RESEARCHER_REPLY))
+        );
       })
-      .toBeGreaterThanOrEqual(2);
+      .toBe(true);
   });
 });

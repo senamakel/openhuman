@@ -125,6 +125,8 @@ function composioSortRank(connection: ComposioConnection | undefined): number {
 interface ComposioConnectorTileProps {
   meta: ComposioToolkitMeta;
   connection: ComposioConnection | undefined;
+  /** Number of active connections for this toolkit (for multi-account badge). */
+  activeConnectionCount?: number;
   hasComposioError: boolean;
   agentUnsupported: boolean;
   testId?: string;
@@ -135,6 +137,7 @@ interface ComposioConnectorTileProps {
 function ComposioConnectorTile({
   meta,
   connection,
+  activeConnectionCount = 0,
   hasComposioError,
   agentUnsupported,
   testId,
@@ -199,6 +202,13 @@ function ComposioConnectorTile({
           className="absolute right-1.5 top-1.5 max-w-[4.5rem] truncate rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200"
           title={t('composio.previewTooltip')}>
           {t('composio.previewBadge')}
+        </span>
+      )}
+      {!isPreview && activeConnectionCount > 1 && (
+        <span
+          className="absolute right-1.5 top-1.5 rounded-full border border-sage-200 bg-sage-100 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-sage-800 dark:border-sage-500/40 dark:bg-sage-500/15 dark:text-sage-200"
+          title={t('composio.connect.connectedAccounts')}>
+          {activeConnectionCount}
         </span>
       )}
       <div className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center text-stone-700 dark:text-neutral-200 [&_img]:max-h-10 [&_img]:max-w-10 [&_svg]:h-8 [&_svg]:w-8">
@@ -332,7 +342,7 @@ interface SkillItem {
 
 // ─── Main Skills Page ──────────────────────────────────────────────────────────
 
-type ConnectionsTab = 'channels' | 'composio' | 'mcp';
+type ConnectionsTab = 'channels' | 'composio' | 'mcp' | 'meetings';
 
 export default function Skills() {
   const { t } = useT();
@@ -340,13 +350,13 @@ export default function Skills() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLocalSession = isLocalSessionToken(getCoreStateSnapshot().snapshot.sessionToken);
-  // Honour `?tab=<composio|channels|mcp>` so deep links land on the right
+  // Honour `?tab=<composio|channels|mcp|meetings>` so deep links land on the right
   // sub-tab. (The legacy `runners` tab was removed; running a workflow now
   // lives on its detail drawer → /skills/run.)
   const initialTab: ConnectionsTab = (() => {
     const params = new URLSearchParams(location.search);
     const t = params.get('tab');
-    if (t === 'composio' || t === 'channels' || t === 'mcp') return t;
+    if (t === 'composio' || t === 'channels' || t === 'mcp' || t === 'meetings') return t;
     return 'composio';
   })();
   const [activeTab, setActiveTab] = useState<ConnectionsTab>(initialTab);
@@ -378,6 +388,7 @@ export default function Skills() {
   const {
     toolkits: composioToolkits,
     connectionByToolkit: composioConnectionByToolkit,
+    connectionsByToolkit: composioConnectionsByToolkit,
     error: composioError,
     refresh: refreshComposio,
   } = useComposioIntegrations();
@@ -781,6 +792,7 @@ export default function Skills() {
               items={[
                 { value: 'composio', label: t('skills.tabs.composio') },
                 { value: 'channels', label: t('skills.tabs.channels') },
+                { value: 'meetings', label: t('skills.tabs.meetings') },
                 { value: 'mcp', label: t('skills.tabs.mcp') },
               ]}
             />
@@ -848,7 +860,7 @@ export default function Skills() {
                   </div>
                 )}
 
-                <MeetingBotsCard onToast={addToast} />
+                {activeTab === 'meetings' && <MeetingBotsCard onToast={addToast} />}
 
                 {activeTab === 'composio' && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
@@ -890,26 +902,33 @@ export default function Skills() {
                             gridTemplateColumns: 'repeat(auto-fill, minmax(5.5rem, 1fr))',
                             gridAutoRows: '6.5rem',
                           }}>
-                          {composioSortedEntries.map(({ meta, connection }) => (
-                            <div
-                              key={meta.slug}
-                              data-testid={`skill-row-composio-${meta.slug}`}
-                              className="overflow-hidden">
-                              <ComposioConnectorTile
-                                meta={meta}
-                                connection={connection}
-                                hasComposioError={Boolean(composioError)}
-                                agentUnsupported={
-                                  agentReadinessKnown &&
-                                  deriveComposioState(connection) === 'connected' &&
-                                  !agentReadyComposioToolkits.has(meta.slug)
-                                }
-                                testId={`skill-install-composio-${meta.slug}`}
-                                onOpen={() => setComposioModalToolkit(meta)}
-                                onRetryGlobal={() => void refreshComposio()}
-                              />
-                            </div>
-                          ))}
+                          {composioSortedEntries.map(({ meta, connection }) => {
+                            const allConns = composioConnectionsByToolkit?.get(meta.slug);
+                            const activeCount =
+                              allConns?.filter(c => deriveComposioState(c) === 'connected')
+                                .length ?? 0;
+                            return (
+                              <div
+                                key={meta.slug}
+                                data-testid={`skill-row-composio-${meta.slug}`}
+                                className="overflow-hidden">
+                                <ComposioConnectorTile
+                                  meta={meta}
+                                  connection={connection}
+                                  activeConnectionCount={activeCount}
+                                  hasComposioError={Boolean(composioError)}
+                                  agentUnsupported={
+                                    agentReadinessKnown &&
+                                    deriveComposioState(connection) === 'connected' &&
+                                    !agentReadyComposioToolkits.has(meta.slug)
+                                  }
+                                  testId={`skill-install-composio-${meta.slug}`}
+                                  onOpen={() => setComposioModalToolkit(meta)}
+                                  onRetryGlobal={() => void refreshComposio()}
+                                />
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="px-1 py-4 text-center text-xs text-stone-400 dark:text-neutral-500">
@@ -976,7 +995,7 @@ export default function Skills() {
       {composioModalToolkit && (
         <ComposioConnectModal
           toolkit={composioModalToolkit}
-          connection={composioConnectionByToolkit.get(composioModalToolkit.slug)}
+          connections={composioConnectionsByToolkit?.get(composioModalToolkit.slug)}
           agentUnsupported={
             agentReadinessKnown && !agentReadyComposioToolkits.has(composioModalToolkit.slug)
           }

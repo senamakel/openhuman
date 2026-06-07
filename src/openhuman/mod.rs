@@ -125,3 +125,4 @@ pub mod webview_notifications;
 pub mod whatsapp_data;
 pub mod workflows;
 pub mod workspace;
+pub mod x402;

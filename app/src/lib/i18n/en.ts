@@ -10,6 +10,10 @@ const en: TranslationMap = {
   'nav.alerts': 'Alerts',
   'nav.rewards': 'Rewards',
   'nav.settings': 'Settings',
+  'nav.agentProfiles': 'Agent profiles',
+  'nav.switchAgentProfile': 'Switch agent profile',
+  'nav.defaultAgentProfile': 'Default agent',
+  'nav.noAgentProfiles': 'No agent profiles found',
 
   // Common
   'common.cancel': 'Cancel',
@@ -300,6 +304,7 @@ const en: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
   'skills.tabs.explorer': 'Skills',
+  'skills.tabs.meetings': 'Google Meet',
   'skills.tabs.mcp': 'MCP Servers',
   // Intelligence / Memory
   'memory.title': 'Memory',
@@ -752,7 +757,7 @@ const en: TranslationMap = {
   'onboarding.runtimeChoice.custom.f3': 'Keep supported workloads on your machine',
   'onboarding.runtimeChoice.custom.f4': 'More setup, more knobs',
   'onboarding.runtimeChoice.custom.f5': 'Best for power users and developers',
-  'onboarding.runtimeChoice.cloud.creditHighlight': '$1 free credit to try it out',
+  'onboarding.runtimeChoice.cloud.creditHighlight': 'Free credits when you sign up',
   'onboarding.runtimeChoice.continueCloud': 'Continue with Simple',
   'onboarding.runtimeChoice.continueCustom': 'Continue with Custom',
   'onboarding.runtimeChoice.recommended': 'Recommended',
@@ -1157,6 +1162,19 @@ const en: TranslationMap = {
   'settings.costDashboard.utcNote': 'Days bucketed in UTC',
   'settings.costDashboard.stackedNote': 'Input + output stacked',
   'settings.costDashboard.modelBreakdownHint': 'Aggregated across the last 7 days.',
+  'settings.costDashboard.categoryDistribution': 'Spend by category',
+  'settings.costDashboard.categoryDistributionHint':
+    'Inferred from recent usage records across chat, embeddings, voice, image, and reranking calls.',
+  'settings.costDashboard.noCategories': 'No category spend recorded yet.',
+  'settings.costDashboard.categoryMeta': '{requests} requests • {tokens} tokens',
+  'settings.costDashboard.usageLog': 'Usage log',
+  'settings.costDashboard.usageLogHint':
+    'Newest records from the last {days} days, capped at {limit} rows.',
+  'settings.costDashboard.logTotal': '{requests} requests • {cost}',
+  'settings.costDashboard.noUsageLog': 'No usage records found for this period.',
+  'settings.costDashboard.when': 'When',
+  'settings.costDashboard.category': 'Category',
+  'settings.costDashboard.session': 'Session',
   'settings.costDashboard.noDataHint':
     'Send an agent message — token usage from the next provider call will populate the chart within ~10 seconds.',
   'settings.search.title': 'Search engine',
@@ -2841,8 +2859,9 @@ const en: TranslationMap = {
     'Your credentials stay on this device and are never shared.',
   'app.openhumanLink.billing.openDashboard': 'Open dashboard',
   'app.openhumanLink.billing.stayOnTrial': 'Stay on trial',
-  'app.openhumanLink.billing.trialCredit': 'Trial credit',
-  'app.openhumanLink.billing.trialDesc': 'Trial desc',
+  'app.openhumanLink.billing.trialCredit': 'Signup credits',
+  'app.openhumanLink.billing.trialDesc':
+    'Credit offers can vary by promotion and account eligibility.',
   'app.openhumanLink.defaultBody':
     "Not ready in the popup yet. Open the full settings page when you're done.",
   'app.openhumanLink.discord.intro': 'Join the OpenHuman community on Discord.',
@@ -3035,6 +3054,10 @@ const en: TranslationMap = {
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian subdomain',
   'composio.connect.connect': 'Connect',
+  'composio.connect.connectedAccounts': 'Connected accounts',
+  'composio.connect.defaultLabel': 'Default',
+  'composio.connect.disconnectAccount': 'Remove',
+  'composio.connect.addAnotherAccount': 'Add another account',
   'composio.connect.dynamicsOrgNameHint':
     'For example, "myorg" for myorg.crm.dynamics.com. Enter the short org name only, not the full URL.',
   'composio.connect.dynamicsOrgNameLabel': 'Dynamics 365 Organization Name',

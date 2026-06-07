@@ -151,6 +151,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::http_host::all_http_host_registered_controllers());
     // Token usage and billing cost tracking
     controllers.extend(crate::openhuman::cost::all_cost_registered_controllers());
+    // x402 machine-payable API payment protocol
+    controllers.extend(crate::openhuman::x402::all_x402_registered_controllers());
     // Inline autocomplete settings
     controllers.extend(crate::openhuman::autocomplete::all_autocomplete_registered_controllers());
     // External messaging channels (Web, Telegram, etc.)
@@ -332,6 +334,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::heartbeat::all_heartbeat_controller_schemas());
     schemas.extend(crate::openhuman::http_host::all_http_host_controller_schemas());
     schemas.extend(crate::openhuman::cost::all_cost_controller_schemas());
+    schemas.extend(crate::openhuman::x402::all_x402_controller_schemas());
     schemas.extend(crate::openhuman::autocomplete::all_autocomplete_controller_schemas());
     schemas
         .extend(crate::openhuman::channels::providers::web::all_web_channel_controller_schemas());

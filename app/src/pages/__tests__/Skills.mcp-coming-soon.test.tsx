@@ -23,6 +23,7 @@ vi.mock('../../lib/composio/hooks', () => ({
   useComposioIntegrations: () => ({
     toolkits: [],
     connectionByToolkit: new Map(),
+    connectionsByToolkit: new Map(),
     refresh: vi.fn(),
     loading: false,
     error: null,

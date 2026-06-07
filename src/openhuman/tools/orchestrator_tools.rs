@@ -324,6 +324,7 @@ mod tests {
             tools: vec![],
             gated_tools: vec![],
             connected: true,
+            connections: Vec::new(),
             non_active_status: None,
         }
     }
@@ -506,6 +507,7 @@ mod tests {
                 tools: vec![],
                 gated_tools: vec![],
                 connected: false, // not connected — must not appear in the enum
+                connections: Vec::new(),
                 non_active_status: None,
             },
             integration("notion", "Read and write pages."),
@@ -581,6 +583,7 @@ mod tests {
                 tools: vec![],
                 gated_tools: vec![],
                 connected: true,
+                connections: Vec::new(),
                 non_active_status: None,
             },
             integration("gmail", "Email."),

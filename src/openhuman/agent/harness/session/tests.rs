@@ -260,6 +260,7 @@ fn set_connected_integrations_marks_session_initialized_and_updates_hash() {
             tools: vec![],
             gated_tools: vec![],
             connected: true,
+            connections: Vec::new(),
             non_active_status: None,
         },
     ]);
@@ -286,6 +287,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
             tools: vec![],
             gated_tools: vec![],
             connected: true,
+            connections: Vec::new(),
             non_active_status: None,
         },
     ]);
@@ -305,6 +307,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
             tools: vec![],
             gated_tools: vec![],
             connected: true,
+            connections: Vec::new(),
             non_active_status: None,
         },
         crate::openhuman::context::prompt::ConnectedIntegration {
@@ -313,6 +316,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
             tools: vec![],
             gated_tools: vec![],
             connected: true,
+            connections: Vec::new(),
             non_active_status: None,
         },
     ]);
@@ -346,6 +350,7 @@ fn refresh_delegation_tools_no_duplicate_specs_across_shared_arc_connects() {
         tools: vec![],
         gated_tools: vec![],
         connected: true,
+        connections: Vec::new(),
         non_active_status: None,
     };
 

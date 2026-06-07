@@ -2062,6 +2062,15 @@ pub async fn bootstrap_core_runtime(host_kind: crate::core::types::HostKind) {
     // share one JSONL-backed store. Idempotent.
     crate::openhuman::cost::init_global(cfg.cost.clone(), &workspace_dir);
 
+    // --- x402 payment ledger ---
+    // Initializes the JSONL-backed spending ledger for machine-payable API
+    // payments (x402 protocol). Budget defaults can be overridden via
+    // the `openhuman.x402_update_budget` RPC.
+    {
+        let x402_session = format!("x402-{}", uuid::Uuid::new_v4());
+        crate::openhuman::x402::init_ledger(&workspace_dir, &x402_session);
+    }
+
     // --- Sub-agent definition registry bootstrap ---
     // Loads built-in archetype definitions plus any custom TOML files
     // under `<workspace>/agents/*.toml`. Idempotent — safe to call

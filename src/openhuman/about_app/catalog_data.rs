@@ -742,6 +742,16 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: LOCAL_CREDENTIALS,
     },
     Capability {
+        id: "workflows.x402_payments",
+        name: "x402 Machine Payments",
+        domain: "x402",
+        category: CapabilityCategory::Workflows,
+        description: "Automatic HTTP 402 payment handling for machine-payable APIs via the x402 protocol. When an API returns 402 Payment Required, the agent pays with USDC on Solana using the local wallet and retries. Budget enforcement with per-request, daily, and monthly caps.",
+        how_to: "Use x402.* RPC methods (get_summary, list_payments, update_budget) to manage spending. Payments happen automatically when the http_request tool encounters a 402 with a PAYMENT-REQUIRED header.",
+        status: CapabilityStatus::Beta,
+        privacy: LOCAL_CREDENTIALS,
+    },
+    Capability {
         id: "workflows.connect_crypto_exchange",
         name: "Connect Crypto Exchange",
         domain: "workflows",

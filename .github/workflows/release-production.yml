@@ -230,16 +230,42 @@ jobs:
         run: |
           echo "release_id=" >> "$GITHUB_OUTPUT"
           echo "upload_url=" >> "$GITHUB_OUTPUT"
+      - name: Checkout release ref
+        if: ${{ inputs.create_release }}
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare-build.outputs.build_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Generate AI release notes
+        if: ${{ inputs.create_release }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TAG: ${{ needs.prepare-build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::secrets.OPENAI_API_KEY is required to generate production release notes."
+            exit 1
+          fi
+          node scripts/release/generate-release-notes.mjs \
+            --from latest-release \
+            --to "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --output release-notes.md
       - name: Create draft release with generated notes
         if: ${{ inputs.create_release }}
         id: create
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
             const tag = '${{ needs.prepare-build.outputs.tag }}';
             const version = '${{ needs.prepare-build.outputs.version }}';
             const target = '${{ needs.prepare-build.outputs.sha }}';
             const { owner, repo } = context.repo;
+            const body = fs.readFileSync('release-notes.md', 'utf8');
             try {
               await github.rest.repos.getReleaseByTag({ owner, repo, tag });
               core.setFailed(`Release already exists for ${tag}`);
@@ -255,9 +281,9 @@ jobs:
               tag_name: tag,
               target_commitish: target,
               name: `OpenHuman v${version}`,
+              body,
               draft: true,
               prerelease: false,
-              generate_release_notes: true,
             });
             core.setOutput('release_id', String(release.data.id));
             core.setOutput('upload_url', release.data.upload_url);

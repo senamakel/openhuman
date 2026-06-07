@@ -3288,6 +3288,7 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
             unlock_paths: vec!["Open Settings > Connections".into()],
         }],
         connected: false,
+        connections: Vec::new(),
         non_active_status: Some("INITIATED".into()),
     }];
     let learned = LearnedContextData {

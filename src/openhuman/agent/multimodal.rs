@@ -3,8 +3,10 @@ use crate::openhuman::config::{
 };
 use crate::openhuman::inference::provider::ChatMessage;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
+use flate2::read::GzDecoder;
 use reqwest::Client;
 use sha2::{Digest, Sha256};
+use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
@@ -19,10 +21,9 @@ const ALLOWED_IMAGE_MIME_TYPES: &[&str] = &[
 
 /// File-attachment marker prefix. Counterpart to [`IMAGE_MARKER_PREFIX`].
 /// Resolution rules mirror images: local paths, optional http(s) URLs
-/// gated by [`MultimodalFileConfig::allow_remote_fetch`]. `data:` URIs
-/// are intentionally rejected — the file pipeline does not inline
-/// base64 the way images do; users wanting inline content should paste
-/// it as text.
+/// gated by [`MultimodalFileConfig::allow_remote_fetch`], and renderer-owned
+/// `data:` URIs. Inline `application/gzip` data URIs are decompressed before
+/// validation when they carry an `original_mime=...` parameter.
 const FILE_MARKER_PREFIX: &str = "[FILE:";
 
 /// Hard upper bound on how long [`pdf_extract::extract_text_from_mem`]
@@ -488,45 +489,126 @@ async fn normalize_image_reference(
 }
 
 fn normalize_data_uri(source: &str, max_bytes: usize) -> anyhow::Result<String> {
+    let parsed = parse_data_uri(source).map_err(|reason| MultimodalError::InvalidMarker {
+        input: source.to_string(),
+        reason,
+    })?;
+
+    let (mime, decoded) = if parsed.mime == "application/gzip" {
+        let original_mime = data_uri_param(&parsed.params, "original_mime").ok_or_else(|| {
+            MultimodalError::InvalidMarker {
+                input: source.to_string(),
+                reason: "compressed image data URI missing original_mime parameter".to_string(),
+            }
+        })?;
+        (
+            original_mime.to_ascii_lowercase(),
+            gunzip_data_uri(source, &parsed.bytes, max_bytes)?,
+        )
+    } else {
+        (parsed.mime, parsed.bytes)
+    };
+
+    validate_mime(source, &mime)?;
+    validate_size(source, decoded.len(), max_bytes)?;
+
+    Ok(format!("data:{mime};base64,{}", STANDARD.encode(decoded)))
+}
+
+struct ParsedDataUri {
+    mime: String,
+    params: Vec<(String, String)>,
+    bytes: Vec<u8>,
+}
+
+fn parse_data_uri(source: &str) -> Result<ParsedDataUri, String> {
     let Some(comma_idx) = source.find(',') else {
-        return Err(MultimodalError::InvalidMarker {
-            input: source.to_string(),
-            reason: "expected data URI payload".to_string(),
-        }
-        .into());
+        return Err("expected data URI payload".to_string());
     };
 
     let header = &source[..comma_idx];
     let payload = source[comma_idx + 1..].trim();
 
     if !header.contains(";base64") {
+        return Err("only base64 data URIs are supported".to_string());
+    }
+
+    let mut parts = header.trim_start_matches("data:").split(';');
+    let mime = parts.next().unwrap_or_default().trim().to_ascii_lowercase();
+    let params = parts
+        .filter_map(|part| {
+            if part.eq_ignore_ascii_case("base64") {
+                return None;
+            }
+            let (key, value) = part.split_once('=')?;
+            Some((
+                key.trim().to_ascii_lowercase(),
+                percent_decode(value.trim()).unwrap_or_else(|| value.trim().to_string()),
+            ))
+        })
+        .collect::<Vec<_>>();
+
+    let bytes = STANDARD
+        .decode(payload)
+        .map_err(|error| format!("invalid base64 payload: {error}"))?;
+
+    Ok(ParsedDataUri {
+        mime,
+        params,
+        bytes,
+    })
+}
+
+fn data_uri_param(params: &[(String, String)], key: &str) -> Option<String> {
+    params
+        .iter()
+        .find(|(candidate, _)| candidate.eq_ignore_ascii_case(key))
+        .map(|(_, value)| value.clone())
+}
+
+fn percent_decode(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            if i + 2 >= bytes.len() {
+                return None;
+            }
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).ok()?;
+            let byte = u8::from_str_radix(hex, 16).ok()?;
+            out.push(byte);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
+fn gunzip_data_uri(
+    source: &str,
+    bytes: &[u8],
+    max_decompressed_bytes: usize,
+) -> anyhow::Result<Vec<u8>> {
+    let limit = max_decompressed_bytes.saturating_add(1) as u64;
+    let mut decoder = GzDecoder::new(bytes).take(limit);
+    let mut out = Vec::new();
+    decoder
+        .read_to_end(&mut out)
+        .map_err(|error| MultimodalError::InvalidMarker {
+            input: source.to_string(),
+            reason: format!("invalid gzip payload: {error}"),
+        })?;
+    if out.len() > max_decompressed_bytes {
         return Err(MultimodalError::InvalidMarker {
             input: source.to_string(),
-            reason: "only base64 data URIs are supported".to_string(),
+            reason: format!("decompressed payload exceeds {max_decompressed_bytes} bytes"),
         }
         .into());
     }
-
-    let mime = header
-        .trim_start_matches("data:")
-        .split(';')
-        .next()
-        .unwrap_or_default()
-        .trim()
-        .to_ascii_lowercase();
-
-    validate_mime(source, &mime)?;
-
-    let decoded = STANDARD
-        .decode(payload)
-        .map_err(|error| MultimodalError::InvalidMarker {
-            input: source.to_string(),
-            reason: format!("invalid base64 payload: {error}"),
-        })?;
-
-    validate_size(source, decoded.len(), max_bytes)?;
-
-    Ok(format!("data:{mime};base64,{}", STANDARD.encode(decoded)))
+    Ok(out)
 }
 
 async fn normalize_remote_image(
@@ -727,12 +809,16 @@ async fn normalize_file_reference(
     remote_client: &Client,
 ) -> anyhow::Result<FilePayload> {
     if source.starts_with("data:") {
-        return Err(MultimodalError::InvalidFileMarker {
-            input: source.to_string(),
-            reason: "data: URIs are not supported for [FILE:…] markers — paste content as text"
-                .to_string(),
-        }
-        .into());
+        let (bytes, name, mime) = normalize_file_data_uri(source, max_bytes)?;
+        return file_payload_from_bytes(
+            source,
+            bytes,
+            name,
+            mime,
+            config,
+            max_extracted_text_chars,
+        )
+        .await;
     }
 
     let (bytes, path_hint, name, header_content_type) =
@@ -758,6 +844,54 @@ async fn normalize_file_reference(
             supported: config.allowed_mime_types.join(", "),
         })?;
 
+    file_payload_from_bytes(source, bytes, name, mime, config, max_extracted_text_chars).await
+}
+
+fn normalize_file_data_uri(
+    source: &str,
+    max_bytes: usize,
+) -> anyhow::Result<(Vec<u8>, String, String)> {
+    let parsed = parse_data_uri(source).map_err(|reason| MultimodalError::InvalidFileMarker {
+        input: source.to_string(),
+        reason,
+    })?;
+    let name = data_uri_param(&parsed.params, "name").unwrap_or_else(|| "attachment".to_string());
+
+    let (mime, bytes) = if parsed.mime == "application/gzip" {
+        let original_mime = data_uri_param(&parsed.params, "original_mime").ok_or_else(|| {
+            MultimodalError::InvalidFileMarker {
+                input: source.to_string(),
+                reason: "compressed file data URI missing original_mime parameter".to_string(),
+            }
+        })?;
+        (
+            original_mime.to_ascii_lowercase(),
+            gunzip_data_uri(source, &parsed.bytes, max_bytes)?,
+        )
+    } else {
+        (parsed.mime, parsed.bytes)
+    };
+
+    if bytes.len() > max_bytes {
+        return Err(MultimodalError::FileTooLarge {
+            input: source.to_string(),
+            size_bytes: bytes.len(),
+            max_bytes,
+        }
+        .into());
+    }
+
+    Ok((bytes, name, mime))
+}
+
+async fn file_payload_from_bytes(
+    source: &str,
+    bytes: Vec<u8>,
+    name: String,
+    mime: String,
+    config: &MultimodalFileConfig,
+    max_extracted_text_chars: usize,
+) -> anyhow::Result<FilePayload> {
     if !config.is_mime_allowed(&mime) {
         return Err(MultimodalError::UnsupportedFileMime {
             input: source.to_string(),

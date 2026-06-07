@@ -1815,6 +1815,7 @@ const messages: TranslationMap = {
   'chat.attachment.attach': '이미지 첨부',
   'chat.attachment.remove': '{name} 제거',
   'chat.attachment.tooMany': '메시지당 최대 {max}개 이미지',
+  'chat.attachment.tooManyFiles': '메시지당 최대 {max}개 파일',
   'chat.attachment.tooLarge': '이미지가 {max} 크기 제한을 초과합니다',
   'chat.attachment.unsupportedType':
     '지원되지 않는 파일 형식입니다. PNG, JPEG, WebP, GIF 또는 BMP를 사용하세요.',

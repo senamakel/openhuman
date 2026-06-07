@@ -1883,6 +1883,7 @@ const messages: TranslationMap = {
   'chat.attachment.attach': 'Bild anhängen',
   'chat.attachment.remove': '{name} entfernen',
   'chat.attachment.tooMany': 'Maximal {max} Bilder pro Nachricht',
+  'chat.attachment.tooManyFiles': 'Maximal {max} Dateien pro Nachricht',
   'chat.attachment.tooLarge': 'Bild überschreitet die Größenbeschränkung von {max}',
   'chat.attachment.unsupportedType':
     'Nicht unterstützter Dateityp. Verwenden Sie PNG, JPEG, WebP, GIF oder BMP.',

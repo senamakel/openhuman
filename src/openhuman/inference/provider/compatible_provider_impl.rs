@@ -20,10 +20,7 @@ impl Provider for OpenAiCompatibleProvider {
     fn capabilities(&self) -> crate::openhuman::inference::provider::traits::ProviderCapabilities {
         crate::openhuman::inference::provider::traits::ProviderCapabilities {
             native_tool_calling: self.native_tool_calling,
-            // Kept `false` for now — vision is a per-*model* property the provider
-            // can't know here; the Responses-API path is still text-only. Stays off
-            // until it can be driven per-model (e.g. from `model_registry.vision`).
-            vision: false,
+            vision: self.vision,
         }
     }
 

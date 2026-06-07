@@ -28,10 +28,8 @@ export interface ChatComposerProps {
   maxAttachments: number;
   allowedMimeTypes: readonly string[];
   /**
-   * Whether chat image attachments are available. When `false`, the attach
-   * button, hidden file input, and preview strip are not rendered, so the
-   * (currently backend-unsupported) attachment flow can't be triggered.
-   * Gated by `CHAT_ATTACHMENTS_ENABLED` at the call site (issue #3205).
+   * Whether chat multimodal attachments are available. When `false`, the
+   * attach button, hidden file input, and preview strip are not rendered.
    */
   attachmentsEnabled: boolean;
 }

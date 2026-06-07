@@ -1867,6 +1867,7 @@ const messages: TranslationMap = {
   'chat.attachment.attach': 'Allega immagine',
   'chat.attachment.remove': 'Rimuovi {name}',
   'chat.attachment.tooMany': 'Massimo {max} immagini per messaggio',
+  'chat.attachment.tooManyFiles': 'Massimo {max} file per messaggio',
   'chat.attachment.tooLarge': "L'immagine supera il limite di dimensione di {max}",
   'chat.attachment.unsupportedType': 'Tipo di file non supportato. Usa PNG, JPEG, WebP, GIF o BMP.',
   'chat.attachment.readFailed': 'Impossibile leggere il file',

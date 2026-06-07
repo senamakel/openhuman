@@ -1578,6 +1578,7 @@ fn capabilities_reports_native_tool_calling() {
     let p = make_provider("test", "https://example.com", None);
     let caps = <OpenAiCompatibleProvider as Provider>::capabilities(&p);
     assert!(caps.native_tool_calling);
+    assert!(caps.vision);
 }
 
 // Sub-issue 3 of #3098: Ollama's OpenAI-compat endpoint silently rejects the
@@ -1611,6 +1612,14 @@ fn with_native_tool_calling_is_idempotent() {
         .with_native_tool_calling(false);
     let caps = <OpenAiCompatibleProvider as Provider>::capabilities(&p);
     assert!(!caps.native_tool_calling);
+}
+
+#[test]
+fn with_vision_false_disables_capability() {
+    let p = make_provider("test", "https://example.com", None).with_vision(false);
+    let caps = <OpenAiCompatibleProvider as Provider>::capabilities(&p);
+    assert!(!caps.vision);
+    assert!(!p.supports_vision());
 }
 
 /// `supports_native_tools()` is the gate the agent harness reads

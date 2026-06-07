@@ -1835,6 +1835,7 @@ const messages: TranslationMap = {
   'chat.attachment.attach': 'छवि संलग्न करें',
   'chat.attachment.remove': '{name} हटाएं',
   'chat.attachment.tooMany': 'प्रति संदेश अधिकतम {max} छवियां',
+  'chat.attachment.tooManyFiles': 'प्रति संदेश अधिकतम {max} फ़ाइलें',
   'chat.attachment.tooLarge': 'छवि {max} आकार सीमा से अधिक है',
   'chat.attachment.unsupportedType':
     'असमर्थित फ़ाइल प्रकार। PNG, JPEG, WebP, GIF, या BMP का उपयोग करें।',

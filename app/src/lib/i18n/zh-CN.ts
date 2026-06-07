@@ -1733,6 +1733,7 @@ const messages: TranslationMap = {
   'chat.attachment.attach': '添加图片',
   'chat.attachment.remove': '移除 {name}',
   'chat.attachment.tooMany': '每条消息最多 {max} 张图片',
+  'chat.attachment.tooManyFiles': '每条消息最多 {max} 个文件',
   'chat.attachment.tooLarge': '图片超过 {max} 大小限制',
   'chat.attachment.unsupportedType': '不支持的文件类型。请使用 PNG、JPEG、WebP、GIF 或 BMP。',
   'chat.attachment.readFailed': '无法读取文件',

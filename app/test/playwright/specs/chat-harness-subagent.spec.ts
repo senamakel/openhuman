@@ -11,10 +11,9 @@ const USER_ID = 'pw-chat-subagent';
 const PROMPT = 'Research the answer to life and tell me a marker phrase.';
 const CANARY_FINAL = 'subagent-canary-final-7afe2';
 const RESEARCHER_REPLY = 'The researcher answer is 42.';
-const MEMORY_TRIGGER_RESPONSE = { content: 'No relevant memory context.' };
-const FORCED_RESPONSES = [
-  MEMORY_TRIGGER_RESPONSE,
+const KEYWORD_RESPONSES = [
   {
+    keyword: PROMPT,
     content: '',
     toolCalls: [
       {
@@ -24,8 +23,8 @@ const FORCED_RESPONSES = [
       },
     ],
   },
-  { content: RESEARCHER_REPLY },
-  { content: `Done. The result is: ${CANARY_FINAL}` },
+  { keyword: 'Tell me a marker phrase', content: RESEARCHER_REPLY },
+  { keyword: RESEARCHER_REPLY, content: `Done. The result is: ${CANARY_FINAL}` },
 ];
 
 interface MockRequest {
@@ -147,8 +146,11 @@ async function hasFinalDelegationText(page: Page): Promise<boolean> {
 
 test.describe('Chat Harness - Subagent', () => {
   test('delegates to a subagent and persists the final orchestrator text', async ({ page }) => {
+    test.setTimeout(150_000);
+
     await resetMock();
-    await setMockBehavior('llmForcedResponses', JSON.stringify(FORCED_RESPONSES));
+    await setMockBehavior('llmForcedResponses', '');
+    await setMockBehavior('llmKeywordRules', JSON.stringify(KEYWORD_RESPONSES));
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
     await openChat(page);

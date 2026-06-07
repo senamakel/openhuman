@@ -17,10 +17,10 @@ import MicComposer from '../features/human/MicComposer';
 import { useStickToBottom } from '../hooks/useStickToBottom';
 import { useUsageState } from '../hooks/useUsageState';
 import {
-  ALLOWED_IMAGE_MIME_TYPES,
+  ALLOWED_ATTACHMENT_MIME_TYPES,
   type Attachment,
+  ATTACHMENT_MAX_FILES,
   ATTACHMENT_MAX_IMAGES,
-  ATTACHMENT_MAX_SIZE_BYTES,
   buildMessageWithAttachments,
   parseMessageImages,
   validateAndReadFile,
@@ -107,9 +107,8 @@ import {
   TASKS_TAB_VALUE,
 } from './conversations/utils/threadFilter';
 
-// Chat uses the reasoning model; `agentic-v1` is reserved for sub-agents
-// that execute tool calls, not the primary user-facing conversation.
-const CHAT_MODEL_ID = 'reasoning-v1';
+const CHAT_MODEL_HINT = 'hint:chat';
+const MULTIMODAL_MODEL_HINT = 'hint:reasoning';
 /** Maximum trailing characters rendered in the live-streaming assistant
  *  preview bubble. The full response is revealed via `addInferenceResponse`
  *  on `chat_done` — this is purely a ticker-tape affordance to signal
@@ -277,7 +276,10 @@ const Conversations = ({
     (async () => {
       try {
         const profile = agentProfiles.find(p => p.id === selectedAgentProfileId);
-        const hint = profile?.modelOverride ?? 'hint:chat';
+        const hint =
+          attachments.length > 0
+            ? MULTIMODAL_MODEL_HINT
+            : (profile?.modelOverride ?? CHAT_MODEL_HINT);
         const res = await callCoreRpc<{ model: string }>({
           method: 'openhuman.inference_resolve_model',
           params: { hint },
@@ -290,7 +292,7 @@ const Conversations = ({
     return () => {
       cancelled = true;
     };
-  }, [agentProfiles, selectedAgentProfileId]);
+  }, [agentProfiles, attachments.length, selectedAgentProfileId]);
 
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const isComposingTextRef = useRef(false);
@@ -675,20 +677,20 @@ const Conversations = ({
 
   const handleAttachFiles = async (files: FileList | null) => {
     if (!files) return;
-    let acceptedCount = attachments.length;
+    let acceptedImageCount = attachments.filter(attachment => attachment.kind === 'image').length;
+    let acceptedFileCount = attachments.filter(attachment => attachment.kind === 'file').length;
     for (const file of Array.from(files)) {
-      const result = await validateAndReadFile(file, acceptedCount);
+      const result = await validateAndReadFile(file, acceptedImageCount, acceptedFileCount);
       if ('error' in result) {
         const { error } = result;
         if (error.code === 'too_many') {
+          const key =
+            error.kind === 'image' ? 'chat.attachment.tooMany' : 'chat.attachment.tooManyFiles';
           setAttachError(
-            chatSendError(
-              'attachment_invalid',
-              t('chat.attachment.tooMany').replace('{max}', String(ATTACHMENT_MAX_IMAGES))
-            )
+            chatSendError('attachment_invalid', t(key).replace('{max}', String(error.max)))
           );
         } else if (error.code === 'too_large') {
-          const maxMb = (ATTACHMENT_MAX_SIZE_BYTES / (1024 * 1024)).toFixed(0);
+          const maxMb = (error.maxBytes / (1024 * 1024)).toFixed(0);
           setAttachError(
             chatSendError(
               'attachment_invalid',
@@ -702,7 +704,15 @@ const Conversations = ({
         }
         return;
       }
-      acceptedCount++;
+      if (result.attachment.kind === 'image') {
+        acceptedImageCount++;
+      } else {
+        acceptedFileCount++;
+      }
+      if (selectedAgentProfileId !== 'reasoning') {
+        debug('attachment accepted; switching chat profile to reasoning for multimodal send');
+        void handleSelectAgentProfile('reasoning');
+      }
       setAttachments(prev => [...prev, result.attachment]);
     }
   };
@@ -755,6 +765,11 @@ const Conversations = ({
     pendingSendRef.current = sendingThreadId;
     setPendingSendingThreadId(sendingThreadId);
     const pendingAttachments = attachments.slice();
+    const modelOverride =
+      pendingAttachments.length > 0
+        ? MULTIMODAL_MODEL_HINT
+        : (agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ??
+          CHAT_MODEL_HINT);
     const messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
@@ -765,7 +780,11 @@ const Conversations = ({
           ? {
               attachmentCount: pendingAttachments.length,
               attachmentNames: pendingAttachments.map(a => a.file.name),
-              attachmentDataUris: pendingAttachments.map(a => a.dataUri),
+              attachmentKinds: pendingAttachments.map(a => a.kind),
+              attachmentDataUris: pendingAttachments
+                .filter(a => a.kind === 'image')
+                .map(a => a.previewUri ?? a.dataUri),
+              attachmentCompressed: pendingAttachments.map(a => a.compressed),
             }
           : {},
       sender: 'user',
@@ -818,7 +837,7 @@ const Conversations = ({
       await chatSend({
         threadId: sendingThreadId,
         message: messageText,
-        model: CHAT_MODEL_ID,
+        model: modelOverride,
         profileId: selectedAgentProfileId,
         locale: uiLocale,
       });
@@ -2193,8 +2212,8 @@ const Conversations = ({
               handleInputKeyDown={handleInputKeyDown}
               inlineCompletionSuffix={inlineCompletionSuffix}
               isComposingTextRef={isComposingTextRef}
-              maxAttachments={ATTACHMENT_MAX_IMAGES}
-              allowedMimeTypes={ALLOWED_IMAGE_MIME_TYPES}
+              maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
+              allowedMimeTypes={ALLOWED_ATTACHMENT_MIME_TYPES}
               attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
             />
           ) : (

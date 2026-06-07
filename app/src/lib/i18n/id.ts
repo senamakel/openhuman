@@ -1838,6 +1838,7 @@ const messages: TranslationMap = {
   'chat.attachment.attach': 'Lampirkan gambar',
   'chat.attachment.remove': 'Hapus {name}',
   'chat.attachment.tooMany': 'Maksimal {max} gambar per pesan',
+  'chat.attachment.tooManyFiles': 'Maksimal {max} file per pesan',
   'chat.attachment.tooLarge': 'Gambar melebihi batas ukuran {max}',
   'chat.attachment.unsupportedType':
     'Jenis file tidak didukung. Gunakan PNG, JPEG, WebP, GIF, atau BMP.',

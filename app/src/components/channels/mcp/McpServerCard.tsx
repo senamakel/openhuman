@@ -1,16 +1,16 @@
 /**
- * Card component for a single Smithery registry server.
+ * Card component for a single MCP registry server.
  * Shows icon, name, description (clamped), usage count and deployed badge.
  */
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { SmitheryServer } from './types';
 
-interface SmitheryServerCardProps {
+interface McpServerCardProps {
   server: SmitheryServer;
   onInstall: (qualifiedName: string) => void;
 }
 
-const SmitheryServerCard = ({ server, onInstall }: SmitheryServerCardProps) => {
+const McpServerCard = ({ server, onInstall }: McpServerCardProps) => {
   const { t } = useT();
   return (
     <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3 flex flex-col gap-2">
@@ -61,4 +61,4 @@ const SmitheryServerCard = ({ server, onInstall }: SmitheryServerCardProps) => {
   );
 };
 
-export default SmitheryServerCard;
+export default McpServerCard;

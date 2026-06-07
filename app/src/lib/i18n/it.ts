@@ -984,7 +984,7 @@ const messages: TranslationMap = {
     'Modello di codifica vettoriale per il recupero della memoria',
   'mcp.alphaBadge': 'Alfa',
   'mcp.alphaBannerText':
-    'Il supporto del server MCP è in fase alpha iniziale. Il registro Smithery, il flusso di installazione e il collegamento degli strumenti potrebbero comportarsi in modo anomalo o cambiare forma tra le versioni.',
+    'Il supporto del server MCP è in fase alpha iniziale. Il registro, il flusso di installazione e il collegamento degli strumenti potrebbero comportarsi in modo anomalo o cambiare forma tra le versioni.',
   'mcp.toolList.noTools': 'Nessuno strumento disponibile.',
   'mcp.setup.secretDialog.title': 'MCP Configurazione: inserisci il segreto',
   'mcp.setup.secretDialog.bodyPrefix': "L'agente di configurazione MCP è necessario",

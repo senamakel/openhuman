@@ -1,5 +1,5 @@
 /**
- * Install dialog for a Smithery server.
+ * Install dialog for an MCP server.
  * Fetches the server detail, renders env-key inputs (password type with
  * show/hide toggle), an optional raw-JSON config textarea, and calls
  * `install` on submit.

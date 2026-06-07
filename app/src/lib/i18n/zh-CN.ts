@@ -913,7 +913,7 @@ const messages: TranslationMap = {
   'pages.settings.ai.embeddingsDesc': '用于记忆检索的向量编码模型',
   'mcp.alphaBadge': '阿尔法',
   'mcp.alphaBannerText':
-    'MCP 服务器支持仍处于早期 alpha 阶段。Smithery 注册表、安装流程和工具接线在不同版本间可能异常或发生变化。',
+    'MCP 服务器支持仍处于早期 alpha 阶段。注册表、安装流程和工具接线在不同版本间可能异常或发生变化。',
   'mcp.toolList.noTools': '没有可用的工具。',
   'mcp.setup.secretDialog.title': 'MCP 设置 — 输入密码',
   'mcp.setup.secretDialog.bodyPrefix': 'MCP 设置代理需要',

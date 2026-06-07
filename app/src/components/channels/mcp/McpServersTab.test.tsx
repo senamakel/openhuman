@@ -213,7 +213,7 @@ describe('McpServersTab', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Browse catalog' })[0]);
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Search Smithery catalog...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search MCP servers...')).toBeInTheDocument();
     });
   });
 
@@ -413,7 +413,7 @@ describe('McpServersTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Search Smithery catalog...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search MCP servers...')).toBeInTheDocument();
     });
   });
 

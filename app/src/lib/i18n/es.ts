@@ -989,7 +989,7 @@ const messages: TranslationMap = {
     'Modelo de codificación vectorial para recuperación de memoria',
   'mcp.alphaBadge': 'Alfa',
   'mcp.alphaBannerText':
-    'La compatibilidad con el servidor MCP se encuentra en las primeras etapas alfa. El registro de Smithery, el flujo de instalación y el cableado de herramientas pueden comportarse mal o cambiar de forma entre versiones.',
+    'La compatibilidad con el servidor MCP se encuentra en las primeras etapas alfa. El registro, el flujo de instalación y el cableado de herramientas pueden comportarse mal o cambiar de forma entre versiones.',
   'mcp.toolList.noTools': 'No hay herramientas disponibles.',
   'mcp.setup.secretDialog.title': 'Configuración MCP: ingresar secreto',
   'mcp.setup.secretDialog.bodyPrefix': 'El agente de configuración MCP necesita',

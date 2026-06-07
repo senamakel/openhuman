@@ -1291,7 +1291,7 @@ const en: TranslationMap = {
 
   'mcp.alphaBadge': 'Alpha',
   'mcp.alphaBannerText':
-    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
+    'MCP server support is in early alpha. The registry, install flow, and tool wiring may change between releases.',
   'mcp.toolList.noTools': 'No tools available.',
   'mcp.setup.secretDialog.title': 'MCP Setup — Enter Secret',
   'mcp.setup.secretDialog.bodyPrefix': 'The MCP setup agent needs',
@@ -1350,8 +1350,8 @@ const en: TranslationMap = {
   'devices.pairModal.errorPrefix': 'Failed to create pairing: {message}',
   'devices.pairModal.errorTitle': 'Something went wrong',
   'devices.pairModal.copyUrl': 'Copy',
-  'mcp.catalog.searchAria': 'Search Smithery catalog',
-  'mcp.catalog.searchPlaceholder': 'Search Smithery catalog...',
+  'mcp.catalog.searchAria': 'Search MCP server catalog',
+  'mcp.catalog.searchPlaceholder': 'Search MCP servers...',
   'mcp.catalog.loadFailed': 'Failed to load catalog',
   'mcp.catalog.noResults': 'No servers found.',
   'mcp.catalog.noResultsFor': 'No servers found for "{query}".',

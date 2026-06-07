@@ -948,7 +948,7 @@ const messages: TranslationMap = {
   'pages.settings.ai.embeddingsDesc': 'نموذج ترميز المتجهات لاسترجاع الذاكرة',
   'mcp.alphaBadge': 'ألفا',
   'mcp.alphaBannerText':
-    'دعم خادم MCP في مرحلة ألفا المبكرة. قد يتصرف سجل Smithery وتدفق التثبيت وربط الأدوات بشكل غير متوقع أو يتغير شكله بين الإصدارات.',
+    'دعم خادم MCP في مرحلة ألفا المبكرة. قد يتصرف سجل وتدفق التثبيت وربط الأدوات بشكل غير متوقع أو يتغير شكله بين الإصدارات.',
   'mcp.toolList.noTools': 'لا توجد أدوات متاحة.',
   'mcp.setup.secretDialog.title': 'MCP الإعداد - أدخل السر',
   'mcp.setup.secretDialog.bodyPrefix': 'يحتاج وكيل الإعداد MCP',

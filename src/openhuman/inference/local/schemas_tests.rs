@@ -5,7 +5,10 @@ fn catalog_counts_match_and_nonempty() {
     let s = all_controller_schemas();
     let h = all_registered_controllers();
     assert_eq!(s.len(), h.len());
-    assert!(s.len() >= 12, "local inference should expose >=12 controller fns");
+    assert!(
+        s.len() >= 12,
+        "local inference should expose >=12 controller fns"
+    );
 }
 
 #[test]

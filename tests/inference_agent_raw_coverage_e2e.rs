@@ -172,7 +172,8 @@ use openhuman_core::openhuman::inference::voice::local_speech::{synthesize_piper
 use openhuman_core::openhuman::inference::voice::postprocess::cleanup_transcription;
 use openhuman_core::openhuman::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
-    all_local_inference_controller_schemas, all_local_inference_registered_controllers, DeviceProfile,
+    all_local_inference_controller_schemas, all_local_inference_registered_controllers,
+    DeviceProfile,
 };
 use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
 use openhuman_core::openhuman::security::SecurityPolicy;

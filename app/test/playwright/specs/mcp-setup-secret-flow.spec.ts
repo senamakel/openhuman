@@ -1,19 +1,32 @@
 import { expect, test } from '@playwright/test';
 
-import { bootAuthenticatedPage, callCoreRpc } from '../helpers/core-rpc';
+import { bootRuntimeReadyGuestPage } from '../helpers/core-rpc';
 
 test.describe('MCP Setup — Secret Collection Flow', () => {
   test('SecretPromptDialog appears on event, collects input, and submits without leaking to agent context', async ({
     page,
   }) => {
-    await bootAuthenticatedPage(page, 'pw-mcp-setup-user');
+    await bootRuntimeReadyGuestPage(page);
 
-    // Intercept all RPC calls to track what gets sent
+    // Intercept all RPC calls to track what gets sent.
+    // Mock mcp_setup_submit_secret since there's no real SecretRef in core memory.
     const rpcCalls: Array<{ method: string; params: Record<string, unknown> }> = [];
     await page.route('**/rpc', async (route, request) => {
       const body = JSON.parse(request.postData() || '{}');
       rpcCalls.push({ method: body.method, params: body.params });
-      await route.continue();
+      if (body.method === 'openhuman.mcp_setup_submit_secret') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            result: { ref: body.params.ref_id, fulfilled: true },
+          }),
+        });
+      } else {
+        await route.continue();
+      }
     });
 
     // Simulate the core publishing a McpSetupSecretRequested event.
@@ -77,7 +90,7 @@ test.describe('MCP Setup — Secret Collection Flow', () => {
   });
 
   test('cancel does not submit the secret', async ({ page }) => {
-    await bootAuthenticatedPage(page, 'pw-mcp-setup-user-cancel');
+    await bootRuntimeReadyGuestPage(page);
 
     const rpcCalls: Array<{ method: string }> = [];
     await page.route('**/rpc', async (route, request) => {
@@ -114,7 +127,7 @@ test.describe('MCP Setup — Secret Collection Flow', () => {
   });
 
   test('secret input uses password masking by default', async ({ page }) => {
-    await bootAuthenticatedPage(page, 'pw-mcp-setup-user-mask');
+    await bootRuntimeReadyGuestPage(page);
 
     await page.evaluate(() => {
       window.dispatchEvent(

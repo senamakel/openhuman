@@ -3,6 +3,7 @@
 //! Supports multiple source formats (OpenHuman SKILL.md, Hermes, OpenClaw)
 //! unified behind a single catalog interface with local caching.
 
+pub mod agent;
 pub mod ops;
 pub mod schemas;
 pub mod store;

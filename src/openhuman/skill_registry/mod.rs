@@ -1,7 +1,6 @@
-//! Skill registry: browse, search, and install skills from remote registries.
-//!
-//! Supports multiple source formats (OpenHuman SKILL.md, Hermes, OpenClaw)
-//! unified behind a single catalog interface with local caching.
+//! Skill registry: browse, search, and install skills from the aggregated
+//! Hermes catalog (HermesHub, ClawHub, skills.sh, LobeHub, browse.sh)
+//! with local caching.
 
 pub mod agent;
 pub mod ops;

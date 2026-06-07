@@ -21,9 +21,9 @@ pub fn default_sources() -> Vec<RegistrySource> {
         },
         RegistrySource {
             id: "hermeshub".into(),
-            name: "HermesHub Community Skills".into(),
-            url: "https://api.github.com/repos/amanning3390/hermeshub/contents/skills".into(),
-            kind: RegistryKind::GithubSkillsDir,
+            name: "HermesHub Skills".into(),
+            url: "https://hermes-agent.nousresearch.com/docs/api/skills.json".into(),
+            kind: RegistryKind::HermesJsonCatalog,
             enabled: true,
         },
         RegistrySource {
@@ -296,6 +296,7 @@ async fn fetch_source_catalog(
         }
         RegistryKind::GithubSkillsDir => fetch_github_skills_dir(client, source).await,
         RegistryKind::ClawHubApi => fetch_clawhub_api(client, source).await,
+        RegistryKind::HermesJsonCatalog => fetch_hermes_json_catalog(client, source).await,
     }
 }
 
@@ -553,6 +554,122 @@ async fn fetch_clawhub_api(
         "[skill_registry] fetch_clawhub_api complete"
     );
     Ok(all_entries)
+}
+
+/// Fetch skills from the HermesHub aggregated JSON catalog.
+///
+/// The catalog is a flat array of objects with `name`, `description`, `tags`,
+/// `author`, `version`, `source`, `docsPath`, etc. It aggregates skills from
+/// multiple upstream sources (built-in, optional, browse.sh, ClawHub, LobeHub,
+/// skills.sh). We include all sub-sources but cap at 1000 entries to keep
+/// catalog sizes manageable. Download URLs are constructed from the GitHub repo.
+async fn fetch_hermes_json_catalog(
+    client: &reqwest::Client,
+    source: &RegistrySource,
+) -> Result<Vec<CatalogEntry>, String> {
+    tracing::debug!(
+        source_id = %source.id,
+        url = %source.url,
+        "[skill_registry] fetch_hermes_json_catalog"
+    );
+
+    let response = client
+        .get(&source.url)
+        .header("User-Agent", "openhuman-core")
+        .send()
+        .await
+        .map_err(|e| format!("hermes catalog fetch failed: {e}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "hermes catalog returned status {}",
+            response.status().as_u16()
+        ));
+    }
+
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("failed to read hermes response: {e}"))?;
+
+    let items: Vec<serde_json::Value> =
+        serde_json::from_str(&body).map_err(|e| format!("invalid hermes json: {e}"))?;
+
+    tracing::info!(
+        source_id = %source.id,
+        total_items = items.len(),
+        "[skill_registry] fetch_hermes_json_catalog parsed"
+    );
+
+    let max_entries = 1000usize;
+    let mut entries = Vec::with_capacity(max_entries.min(items.len()));
+
+    for item in items.iter().take(max_entries) {
+        let name = match item.get("name").and_then(|v| v.as_str()) {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+        let description = item
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let author = item
+            .get("author")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let version = item
+            .get("version")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let tags: Vec<String> = item
+            .get("tags")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|t| t.as_str())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let sub_source = item
+            .get("source")
+            .and_then(|v| v.as_str())
+            .unwrap_or("hermes");
+
+        let download_url = format!(
+            "https://raw.githubusercontent.com/amanning3390/hermeshub/main/skills/{name}/SKILL.md"
+        );
+
+        let format = match sub_source {
+            "ClawHub" => "clawhub",
+            "LobeHub" => "lobehub",
+            "skills.sh" => "agentskills",
+            "browse.sh" => "agentskills",
+            _ => "hermes",
+        };
+
+        entries.push(CatalogEntry {
+            id: name.clone(),
+            name,
+            description,
+            format: format.to_string(),
+            author,
+            version,
+            tags,
+            download_url,
+            source_id: source.id.clone(),
+            stars: None,
+            updated_at: None,
+        });
+    }
+
+    tracing::info!(
+        source_id = %source.id,
+        count = entries.len(),
+        "[skill_registry] fetch_hermes_json_catalog complete"
+    );
+    Ok(entries)
 }
 
 /// Parse a JSON index file. Expects either:

@@ -5,6 +5,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import {
   skillRegistryApi,
   type CatalogEntry,
+  type RegistrySource,
 } from '../../services/api/skillRegistryApi';
 import {
   skillsApi,
@@ -452,6 +453,8 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
 
+  const [sources, setSources] = useState<RegistrySource[]>([]);
+  const [activeSourceIds, setActiveSourceIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState<string>('all');
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
@@ -495,6 +498,10 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
 
   useEffect(() => {
     void fetchSkills();
+    skillRegistryApi.sources().then(s => {
+      setSources(s);
+      setActiveSourceIds(new Set(s.filter(src => src.enabled).map(src => src.id)));
+    }).catch(() => {});
   }, [fetchSkills]);
 
   useEffect(() => {
@@ -528,6 +535,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const filteredCatalog = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return catalog.filter(entry => {
+      if (activeSourceIds.size > 0 && !activeSourceIds.has(entry.source_id)) return false;
       if (formatFilter !== 'all' && entry.format !== formatFilter) return false;
       if (!q) return true;
       return (
@@ -538,7 +546,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
         (entry.author ?? '').toLowerCase().includes(q)
       );
     });
-  }, [catalog, searchQuery, formatFilter]);
+  }, [catalog, searchQuery, formatFilter, activeSourceIds]);
 
   const catalogFormats = useMemo(() => {
     const formats = new Set(catalog.map(e => e.format));
@@ -653,6 +661,41 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           )}
         </button>
       </div>
+
+      {/* Source toggles */}
+      {view === 'registry' && sources.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-1 pb-3">
+          {sources.map(src => {
+            const active = activeSourceIds.has(src.id);
+            const FRIENDLY: Record<string, string> = {
+              'openhuman-community': 'Community',
+              hermeshub: 'HermesHub',
+              clawhub: 'ClawHub',
+            };
+            const label = FRIENDLY[src.id] ?? src.name;
+            return (
+              <button
+                key={src.id}
+                type="button"
+                onClick={() => {
+                  setActiveSourceIds(prev => {
+                    const next = new Set(prev);
+                    if (next.has(src.id)) next.delete(src.id);
+                    else next.add(src.id);
+                    return next;
+                  });
+                }}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                  active
+                    ? 'border-primary-300 dark:border-primary-500/50 bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300'
+                    : 'border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300'
+                }`}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Search + format filter */}
       <div className="flex gap-2 px-1 pb-3">

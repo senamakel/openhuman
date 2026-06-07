@@ -8,7 +8,7 @@ export interface RegistrySource {
   id: string;
   name: string;
   url: string;
-  kind: 'github_index' | 'http_catalog';
+  kind: string;
   enabled: boolean;
 }
 

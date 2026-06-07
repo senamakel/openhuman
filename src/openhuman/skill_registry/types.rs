@@ -29,6 +29,8 @@ pub enum RegistryKind {
     GithubSkillsDir,
     /// The ClawHub (OpenClaw) REST API at `https://clawhub.ai/api/v1/skills`.
     ClawHubApi,
+    /// The HermesHub aggregated JSON catalog at `hermes-agent.nousresearch.com/docs/api/skills.json`.
+    HermesJsonCatalog,
 }
 
 /// One entry in the remote catalog — metadata about an installable skill.

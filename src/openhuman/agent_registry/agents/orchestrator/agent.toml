@@ -109,6 +109,12 @@ allowlist = [
     # this entry the agent-native install path (issue #3039 gap B5) is unreachable
     # from chat.
     "mcp_setup",
+    # Skill registry specialists. `skill_setup` discovers, installs, and
+    # manages agent skills from community registries (OpenHuman, HermesHub,
+    # ClawHub). `skill_executor` runs an installed skill by loading its
+    # SKILL.md instructions and executing the procedure.
+    "skill_setup",
+    "skill_executor",
     # NOTE: `summarizer` used to be listed here for the runtime-only
     # oversized-tool-result hook. That path is currently disabled
     # (`context.summarizer_payload_threshold_tokens = 0`) after recursive

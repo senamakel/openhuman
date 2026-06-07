@@ -202,7 +202,9 @@ describe('McpServersTab', () => {
       expect(screen.queryByText('Loading MCP servers...')).not.toBeInTheDocument();
     });
 
-    expect(screen.getByRole('button', { name: 'Open the sharable MCP inventory panel' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Open the sharable MCP inventory panel' })
+    ).toBeInTheDocument();
   });
 
   it('navigates to detail view when an installed server row is clicked', async () => {
@@ -245,7 +247,9 @@ describe('McpServersTab', () => {
     mockInstalledList.mockResolvedValue([]);
     mockStatus.mockResolvedValue([]);
     mockRegistrySearch.mockResolvedValue({
-      servers: [{ qualified_name: 'acme/new-srv', display_name: 'New Server', description: 'A new server' }],
+      servers: [
+        { qualified_name: 'acme/new-srv', display_name: 'New Server', description: 'A new server' },
+      ],
       page: 1,
       total_pages: 1,
     });

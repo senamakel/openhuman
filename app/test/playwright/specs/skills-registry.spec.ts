@@ -56,7 +56,10 @@ test.describe('Skills registry flow', () => {
   test('mcp tab renders the server table', async ({ page }) => {
     await page.getByRole('tab', { name: 'MCP Servers' }).click();
     await expect(
-      page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first()
+      page
+        .getByRole('searchbox')
+        .or(page.getByPlaceholder(/search/i))
+        .first()
     ).toBeVisible();
     await expect(page.getByText(/^All$|^Installed$|^Registry$/i).first()).toBeVisible();
   });

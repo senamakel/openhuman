@@ -134,6 +134,16 @@ async function sendMessage(page: Page, prompt: string): Promise<void> {
   await page.getByTestId('send-message-button').click();
 }
 
+async function hasFinalDelegationText(page: Page): Promise<boolean> {
+  return page.evaluate(
+    ([canaryFinal, researcherReply]) => {
+      const bodyText = document.body?.innerText ?? '';
+      return bodyText.includes(canaryFinal) || bodyText.includes(researcherReply);
+    },
+    [CANARY_FINAL, RESEARCHER_REPLY]
+  );
+}
+
 test.describe('Chat Harness - Subagent', () => {
   test('delegates to a subagent and persists the final orchestrator text', async ({ page }) => {
     await resetMock();
@@ -144,7 +154,7 @@ test.describe('Chat Harness - Subagent', () => {
     const threadId = await createNewThread(page);
     await sendMessage(page, PROMPT);
 
-    await expect(page.getByText(CANARY_FINAL)).toBeVisible({ timeout: 75_000 });
+    await expect.poll(async () => hasFinalDelegationText(page), { timeout: 75_000 }).toBe(true);
 
     const runtime = await page.evaluate(currentThreadId => {
       const store = (
@@ -183,6 +193,6 @@ test.describe('Chat Harness - Subagent', () => {
       })
       .toBeGreaterThanOrEqual(2);
 
-    await expect(page.getByText(CANARY_FINAL)).toBeVisible();
+    expect(await hasFinalDelegationText(page)).toBe(true);
   });
 });

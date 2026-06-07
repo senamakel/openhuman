@@ -78,6 +78,28 @@ fn json_rpc_e2e_env_lock() -> std::sync::MutexGuard<'static, ()> {
     }
 }
 
+fn run_json_rpc_e2e_on_agent_stack<F, Fut>(name: &str, future_factory: F)
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()> + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.to_string())
+        .stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .spawn(move || {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+                .enable_all()
+                .build()
+                .expect("build json_rpc e2e runtime");
+            rt.block_on(future_factory());
+        })
+        .expect("spawn json_rpc e2e thread")
+        .join()
+        .expect("json_rpc e2e thread should not panic");
+}
+
 fn with_chat_completion_models<T>(f: impl FnOnce(&mut Vec<String>) -> T) -> T {
     let mutex = CHAT_COMPLETION_MODELS.get_or_init(|| Mutex::new(Vec::new()));
     match mutex.lock() {
@@ -1666,8 +1688,15 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
     rpc_join.abort();
 }
 
-#[tokio::test]
-async fn json_rpc_protocol_auth_and_agent_hello() {
+#[test]
+fn json_rpc_protocol_auth_and_agent_hello() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_protocol_auth_and_agent_hello",
+        json_rpc_protocol_auth_and_agent_hello_inner,
+    );
+}
+
+async fn json_rpc_protocol_auth_and_agent_hello_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -10506,21 +10535,10 @@ async fn json_rpc_workflows_lifecycle_round_trip() {
 /// without contacting the ElevenLabs proxy.
 #[test]
 fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech() {
-    std::thread::Builder::new()
-        .name("json_rpc_speak_reply_e2e".to_string())
-        .stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
-        .spawn(|| {
-            let rt = tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(2)
-                .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
-                .enable_all()
-                .build()
-                .expect("build json_rpc speak_reply e2e runtime");
-            rt.block_on(json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner());
-        })
-        .expect("spawn json_rpc speak_reply e2e thread")
-        .join()
-        .expect("json_rpc speak_reply e2e thread should not panic");
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_speak_reply_e2e",
+        json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner,
+    );
 }
 
 async fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner() {

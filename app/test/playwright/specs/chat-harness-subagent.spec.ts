@@ -155,8 +155,16 @@ test.describe('Chat Harness - Subagent', () => {
           const llmRequests = log.filter(
             entry => entry.method === 'POST' && entry.url.includes('/openai/v1/chat/completions')
           );
-          const bodies = llmRequests.map(entry => entry.body ?? '').join('\n');
-          return bodies.includes('Tell me a marker phrase');
+          const bodies = llmRequests.map(entry => entry.body ?? '');
+          const memoryIndex = bodies.findIndex(body =>
+            body.includes(
+              "Search the user's memory tree and return only context relevant to the next agent turn."
+            )
+          );
+          const delegatedPromptIndex = bodies.findIndex(body =>
+            body.includes('Tell me a marker phrase')
+          );
+          return memoryIndex >= 0 && delegatedPromptIndex > memoryIndex;
         },
         { timeout: 90_000 }
       )

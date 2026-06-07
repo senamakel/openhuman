@@ -12,6 +12,7 @@ const PROMPT = 'Research the answer to life and tell me a marker phrase.';
 const CANARY_FINAL = 'subagent-canary-final-7afe2';
 const RESEARCHER_REPLY = 'The researcher answer is 42.';
 const KEYWORD_RESPONSES = [
+  { keyword: "Search the user's memory tree", content: 'No relevant memory.' },
   {
     keyword: PROMPT,
     content: '',

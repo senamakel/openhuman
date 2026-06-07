@@ -39,7 +39,7 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         out.push_str("\n\n");
     }
 
-    let skills = render_installed_skills(ctx.skills);
+    let skills = render_installed_skills(ctx.workflows);
     if !skills.trim().is_empty() {
         out.push_str(skills.trim_end());
         out.push_str("\n\n");
@@ -242,7 +242,7 @@ mod tests {
             model_name: "test",
             agent_id: "orchestrator",
             tools: &[],
-            skills: &[],
+            workflows: &[],
             dispatcher_instructions: "",
             learned: LearnedContextData::default(),
             visible_tool_names: EMPTY_VISIBLE.get_or_init(HashSet::new),

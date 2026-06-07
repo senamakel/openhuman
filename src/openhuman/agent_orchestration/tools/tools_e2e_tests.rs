@@ -193,7 +193,7 @@ fn parent_context(
         workspace_dir: workspace_dir.to_path_buf(),
         memory: Arc::new(NoopMemory),
         agent_config: Default::default(),
-        skills: Arc::new(Vec::new()),
+        workflows: Arc::new(Vec::new()),
         memory_context: Arc::new(None),
         session_id: "tools-e2e-session".into(),
         channel: "test".into(),

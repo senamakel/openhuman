@@ -32,13 +32,13 @@ vi.mock('../../hooks/useChannelDefinitions', () => ({
   }),
 }));
 
-vi.mock('../../services/api/skillsApi', async () => {
-  const actual = await vi.importActual<typeof import('../../services/api/skillsApi')>(
-    '../../services/api/skillsApi'
+vi.mock('../../services/api/workflowsApi', async () => {
+  const actual = await vi.importActual<typeof import('../../services/api/workflowsApi')>(
+    '../../services/api/workflowsApi'
   );
   return {
     ...actual,
-    skillsApi: { ...actual.skillsApi, listSkills: vi.fn().mockResolvedValue([]) },
+    workflowsApi: { ...actual.workflowsApi, listWorkflows: vi.fn().mockResolvedValue([]) },
   };
 });
 

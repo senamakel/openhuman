@@ -293,7 +293,7 @@ impl Agent {
             model_name: &self.model_name,
             agent_id: &self.agent_definition_name,
             tools: &prompt_tools,
-            skills: &self.skills,
+            workflows: &self.workflows,
             dispatcher_instructions: &instructions,
             learned,
             visible_tool_names: &prompt_visible_tool_names,

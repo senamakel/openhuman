@@ -2,14 +2,14 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CatalogEntry } from '../../../services/api/skillRegistryApi';
-import type { SkillSummary } from '../../../services/api/skillsApi';
+import type { WorkflowSummary } from '../../../services/api/workflowsApi';
 import SkillsExplorerTab from '../SkillsExplorerTab';
 
-vi.mock('../../../services/api/skillsApi', () => ({
-  skillsApi: {
-    listSkills: vi.fn(),
-    installSkillFromUrl: vi.fn(),
-    uninstallSkill: vi.fn(),
+vi.mock('../../../services/api/workflowsApi', () => ({
+  workflowsApi: {
+    listWorkflows: vi.fn(),
+    installWorkflowFromUrl: vi.fn(),
+    uninstallWorkflow: vi.fn(),
   },
 }));
 
@@ -23,7 +23,7 @@ vi.mock('../../../services/api/skillRegistryApi', () => ({
   },
 }));
 
-const MOCK_SKILL: SkillSummary = {
+const MOCK_SKILL: WorkflowSummary = {
   id: 'test-skill',
   name: 'Test Skill',
   description: 'A test skill for unit testing',
@@ -42,7 +42,7 @@ const MOCK_SKILL: SkillSummary = {
   warnings: [],
 };
 
-const MOCK_PROJECT_SKILL: SkillSummary = {
+const MOCK_PROJECT_SKILL: WorkflowSummary = {
   ...MOCK_SKILL,
   id: 'project-skill',
   name: 'Project Skill',
@@ -86,12 +86,12 @@ async function switchToInstalled() {
 
 describe('SkillsExplorerTab', () => {
   beforeEach(async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
     const { skillRegistryApi } = await import(
       '../../../services/api/skillRegistryApi'
     );
-    vi.mocked(skillsApi.listSkills).mockReset();
-    vi.mocked(skillsApi.uninstallSkill).mockReset();
+    vi.mocked(workflowsApi.listWorkflows).mockReset();
+    vi.mocked(workflowsApi.uninstallWorkflow).mockReset();
     vi.mocked(skillRegistryApi.browse).mockReset();
     vi.mocked(skillRegistryApi.search).mockReset();
     vi.mocked(skillRegistryApi.install).mockReset();
@@ -102,11 +102,11 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('defaults to registry view and shows catalog entries', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
     const { skillRegistryApi } = await import(
       '../../../services/api/skillRegistryApi'
     );
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
 
     render(<SkillsExplorerTab />);
@@ -118,11 +118,11 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('searches catalog via RPC when typing in search box', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
     const { skillRegistryApi } = await import(
       '../../../services/api/skillRegistryApi'
     );
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
     vi.mocked(skillRegistryApi.search).mockResolvedValue([MOCK_DOCKER_ENTRY]);
 
@@ -148,8 +148,8 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('shows installed skills when switching to installed tab', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
     render(<SkillsExplorerTab />);
 
@@ -166,8 +166,8 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('shows empty state when no installed skills', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([]);
 
     render(<SkillsExplorerTab />);
     await switchToInstalled();
@@ -181,8 +181,8 @@ describe('SkillsExplorerTab', () => {
     const { skillRegistryApi } = await import(
       '../../../services/api/skillRegistryApi'
     );
-    const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockRejectedValue(new Error('Network error'));
 
     render(<SkillsExplorerTab />);
@@ -194,8 +194,8 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('filters installed skills by search query', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
     render(<SkillsExplorerTab />);
     await switchToInstalled();
@@ -212,8 +212,8 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('shows install from URL button', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([]);
 
     render(<SkillsExplorerTab />);
 
@@ -223,8 +223,8 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('shows uninstall button only for user-scope skills', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
     render(<SkillsExplorerTab />);
     await switchToInstalled();
@@ -238,8 +238,8 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('displays version and tags in installed view', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL]);
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([MOCK_SKILL]);
 
     render(<SkillsExplorerTab />);
     await switchToInstalled();
@@ -252,8 +252,8 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('displays scope badges', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
     render(<SkillsExplorerTab />);
     await switchToInstalled();
@@ -266,12 +266,12 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('shows skill warnings when present', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
     const skillWithWarning = {
       ...MOCK_SKILL,
       warnings: ['Missing required field: author'],
     };
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([skillWithWarning]);
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([skillWithWarning]);
 
     render(<SkillsExplorerTab />);
     await switchToInstalled();
@@ -282,12 +282,12 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('shows "Installed" badge for already-installed catalog entries', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
     const { skillRegistryApi } = await import(
       '../../../services/api/skillRegistryApi'
     );
     const installedSkill = { ...MOCK_SKILL, id: 'registry-skill-1' };
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([installedSkill]);
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([installedSkill]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
 
     render(<SkillsExplorerTab />);
@@ -299,8 +299,8 @@ describe('SkillsExplorerTab', () => {
   });
 
   it('has an install from URL button', async () => {
-    const { skillsApi } = await import('../../../services/api/skillsApi');
-    vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
+    const { workflowsApi } = await import('../../../services/api/workflowsApi');
+    vi.mocked(workflowsApi.listWorkflows).mockResolvedValue([]);
 
     render(<SkillsExplorerTab />);
 

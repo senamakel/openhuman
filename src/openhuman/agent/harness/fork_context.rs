@@ -70,9 +70,9 @@ pub struct ParentExecutionContext {
     /// dispatcher choice, …).
     pub agent_config: AgentConfig,
 
-    /// Skills loaded into the parent. Sub-agents that don't strip the
-    /// skills catalog inherit this list.
-    pub skills: Arc<Vec<Workflow>>,
+    /// Workflows loaded into the parent. Sub-agents that don't strip the
+    /// workflows catalog inherit this list.
+    pub workflows: Arc<Vec<Workflow>>,
 
     /// Memory context loaded for the current turn. Auto-injected into
     /// subagent prompts so they have access to conversation history and

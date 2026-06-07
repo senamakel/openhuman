@@ -172,7 +172,8 @@ use openhuman_core::openhuman::inference::voice::local_speech::{synthesize_piper
 use openhuman_core::openhuman::inference::voice::postprocess::cleanup_transcription;
 use openhuman_core::openhuman::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
-    all_local_ai_controller_schemas, all_local_ai_registered_controllers, DeviceProfile,
+    all_local_inference_controller_schemas, all_local_inference_registered_controllers,
+    DeviceProfile,
 };
 use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
 use openhuman_core::openhuman::security::SecurityPolicy;
@@ -1300,7 +1301,7 @@ fn agent_builder_public_paths_cover_required_fields_defaults_and_filters() {
     );
     assert_eq!(agent.temperature(), 0.7);
     assert_eq!(agent.workspace_dir(), std::path::Path::new("."));
-    assert!(agent.skills().is_empty());
+    assert!(agent.workflows().is_empty());
     assert!(agent.history().is_empty());
     assert_eq!(agent.agent_config().max_tool_iterations, 10);
     assert_eq!(agent.tools_arc().len(), 2);
@@ -1577,6 +1578,7 @@ named = ["todo", "plan_exit"]
         timeout_secs: None,
         sandbox_mode: SandboxMode::None,
         background: false,
+        trigger_memory_agent: Default::default(),
         subagents: Vec::new(),
         delegate_name: None,
         agent_tier: AgentTier::Worker,
@@ -3017,13 +3019,13 @@ async fn inference_local_controllers_and_presets_cover_public_paths() {
     let _ollama_bin_guard = EnvVarGuard::set("OLLAMA_BIN", &mock_ollama);
     let _ollama_base_guard = EnvVarGuard::set("OPENHUMAN_OLLAMA_BASE_URL", &provider_base);
 
-    let local_schemas = all_local_ai_controller_schemas();
-    let local_registered = all_local_ai_registered_controllers();
+    let local_schemas = all_local_inference_controller_schemas();
+    let local_registered = all_local_inference_registered_controllers();
     assert_eq!(local_schemas.len(), local_registered.len());
     assert!(local_registered.iter().all(|controller| {
         controller
             .rpc_method_name()
-            .starts_with("openhuman.local_ai_")
+            .starts_with("openhuman.inference_")
     }));
 
     let reachable = call(
@@ -3306,7 +3308,7 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
         model_name: "agentic-v1",
         agent_id: "planner",
         tools: &prompt_tools,
-        skills: &skills,
+        workflows: &skills,
         dispatcher_instructions: "Use tool calls when useful.",
         learned,
         visible_tool_names: &visible_tool_names,
@@ -3415,7 +3417,7 @@ fn agent_builtin_prompt_builders_cover_all_registered_archetypes() {
             model_name: "agentic-v1",
             agent_id: builtin.id,
             tools: &prompt_tools,
-            skills: &skills,
+            workflows: &skills,
             dispatcher_instructions: "Use available tools when needed.",
             learned: LearnedContextData::default(),
             visible_tool_names: &visible_tool_names,

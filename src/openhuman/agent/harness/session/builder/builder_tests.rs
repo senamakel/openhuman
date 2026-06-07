@@ -73,7 +73,7 @@ fn preserves_full_spec_content_for_kept_entries() {
 }
 
 #[test]
-fn memory_only_subagent_policy_does_not_synthesize_delegate_tools() {
+fn automatic_memory_policy_does_not_synthesize_delegate_tools() {
     let defs = crate::openhuman::agent_registry::agents::load_builtins().unwrap();
     let help = defs
         .iter()
@@ -86,7 +86,7 @@ fn memory_only_subagent_policy_does_not_synthesize_delegate_tools() {
 
     assert!(
         !should_synthesize_delegation_tools(help),
-        "memory-only subagent policy should gate call_memory_agent without adding delegate tools"
+        "automatic memory policy should not add delegate tools"
     );
     assert!(
         should_synthesize_delegation_tools(orchestrator),

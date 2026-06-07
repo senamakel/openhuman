@@ -49,6 +49,17 @@ pub enum IterationPolicy {
     Extended,
 }
 
+/// Policy for running the memory retrieval agent before a normal agent turn.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TriggerMemoryAgent {
+    /// Do not run the memory agent automatically.
+    #[default]
+    Never,
+    /// Run `agent_memory` once before the user's prompt is sent to this agent.
+    Always,
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Agent definition
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,6 +188,12 @@ pub struct AgentDefinition {
     #[serde(default)]
     pub background: bool,
 
+    /// Optional pre-turn memory retrieval hook. When set to `always`, the
+    /// harness runs the built-in `agent_memory` agent once with the user
+    /// prompt and prepends its result to the prompt sent to this agent.
+    #[serde(default)]
+    pub trigger_memory_agent: TriggerMemoryAgent,
+
     // ── delegation surface ─────────────────────────────────────────────
     /// Subagents this agent is allowed to spawn via synthesised
     /// `delegate_*` tools. Each entry expands at agent-build time into
@@ -226,9 +243,8 @@ pub struct AgentDefinition {
     /// * `Reasoning` MUST NOT list another `Reasoning` agent in
     ///   `subagents`. Reasoning composes downward into `Worker`s.
     /// * `Worker` MUST NOT list open-ended subagents. Workers execute;
-    ///   they do not orchestrate. The hidden `call_memory_agent` tool may
-    ///   still use `agent_memory` in this policy so memory retrieval is
-    ///   gated without adding visible delegation tools.
+    ///   they do not orchestrate. Pre-turn memory retrieval is configured
+    ///   separately via [`AgentDefinition::trigger_memory_agent`].
     /// * `{ skills = "*" }` entries expand to the generic
     ///   `integrations_agent` (a `Worker`) so they are always allowed.
     ///
@@ -261,10 +277,9 @@ pub struct AgentDefinition {
 /// ```
 ///
 /// `Chat` and `Reasoning` are forbidden from spawning their own tier;
-/// `Worker` is forbidden from spawning anything except the hidden
-/// `agent_memory` retrieval specialist. Total depth is capped at three
-/// hops by the harness regardless of tier (defence in depth against
-/// custom TOMLs that drop the tier annotation).
+/// `Worker` is forbidden from spawning anything. Total depth is capped
+/// at three hops by the harness regardless of tier (defence in depth
+/// against custom TOMLs that drop the tier annotation).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentTier {

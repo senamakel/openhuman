@@ -31,6 +31,7 @@ jobs:
   build-and-upload:
     name: Build and upload iOS IPA
     runs-on: macos-26
+    timeout-minutes: 30
     environment: App Development Production
     env:
       APP_IDENTIFIER: com.tinyhumansai.openhuman

@@ -132,6 +132,10 @@ describe('rpcMethods catalog', () => {
         'utf8'
       ),
       fs.readFileSync(
+        path.resolve(__dirname, '../../../../src/openhuman/inference/local/schemas.rs'),
+        'utf8'
+      ),
+      fs.readFileSync(
         path.resolve(__dirname, '../../../../src/openhuman/embeddings/schemas.rs'),
         'utf8'
       ),

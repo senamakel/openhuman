@@ -151,7 +151,7 @@ async fn test_integrations_agent_has_current_date_context() -> Result<()> {
         workspace_dir: std::env::temp_dir(),
         memory: Arc::new(StubMemory),
         agent_config: openhuman_core::openhuman::config::AgentConfig::default(),
-        skills: Arc::new(vec![]),
+        workflows: Arc::new(vec![]),
         memory_context: Arc::new(None),
         session_id: "test-session".into(),
         channel: "test".into(),

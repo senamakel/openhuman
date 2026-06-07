@@ -14,12 +14,10 @@ omit_identity = true
 omit_memory_context = true
 omit_safety_preamble = false
 omit_skills_catalog = true
+trigger_memory_agent = "always"
 
 [model]
 hint = "agentic"
-
-[subagents]
-allowlist = ["agent_memory"]
 
 [tools]
 # Narrow allowlist. Wallet + web3 + market primitives only — no shell, no
@@ -66,11 +64,6 @@ named = [
     "stock_quote",
     "stock_exchange_rate",
     "stock_crypto_series",
-    # Memory retrieval — delegates to the memory agent for grounding
-    # execution in the user's previously-stated preferences (default
-    # chain, slippage tolerance, named addresses) instead of re-asking
-    # every time.
-    "call_memory_agent",
     # Confirmation gate — the agent MUST call this before any
     # wallet_execute_prepared / write-side exchange order. The runtime
     # routes the prompt to the user and blocks until they reply.

@@ -5,7 +5,7 @@
  *  - renders the form (delegates to CreateWorkflowForm) and the header
  *    Cancel/Submit buttons.
  *  - cancel button navigates back to /skills.
- *  - on a successful submit (createSkill resolves), the page
+ *  - on a successful submit (createWorkflow resolves), the page
  *    navigates to /skills.
  *  - submit button reflects the form's validity (disabled until both
  *    required fields are filled).
@@ -19,9 +19,11 @@ import WorkflowNew from './WorkflowNew';
 const stableT = (key: string) => key;
 vi.mock('../lib/i18n/I18nContext', () => ({ useT: () => ({ t: stableT }) }));
 
-const hoisted = vi.hoisted(() => ({ createSkill: vi.fn() }));
+const hoisted = vi.hoisted(() => ({ createWorkflow: vi.fn() }));
 
-vi.mock('../services/api/skillsApi', () => ({ skillsApi: { createSkill: hoisted.createSkill } }));
+vi.mock('../services/api/workflowsApi', () => ({
+  workflowsApi: { createWorkflow: hoisted.createWorkflow },
+}));
 
 const renderPage = () =>
   render(
@@ -35,7 +37,7 @@ const renderPage = () =>
 
 describe('WorkflowNew', () => {
   beforeEach(() => {
-    hoisted.createSkill.mockReset();
+    hoisted.createWorkflow.mockReset();
   });
 
   it('renders the form and the header CTAs', () => {
@@ -70,7 +72,7 @@ describe('WorkflowNew', () => {
   });
 
   it('navigates to /skills after a successful submit', async () => {
-    hoisted.createSkill.mockResolvedValue({
+    hoisted.createWorkflow.mockResolvedValue({
       id: 'new-skill',
       name: 'New Skill',
       scope: 'user',
@@ -86,7 +88,7 @@ describe('WorkflowNew', () => {
     });
 
     fireEvent.click(screen.getByTestId('skill-new-submit'));
-    await waitFor(() => expect(hoisted.createSkill).toHaveBeenCalled());
+    await waitFor(() => expect(hoisted.createWorkflow).toHaveBeenCalled());
     await screen.findByTestId('dashboard-landed');
   });
 });

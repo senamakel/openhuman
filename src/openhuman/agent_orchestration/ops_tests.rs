@@ -86,7 +86,7 @@ fn parent_context(provider: Arc<dyn Provider>) -> ParentExecutionContext {
         workspace_dir: std::env::temp_dir(),
         memory: Arc::new(NoopMemory),
         agent_config: AgentConfig::default(),
-        skills: Arc::new(Vec::new()),
+        workflows: Arc::new(Vec::new()),
         memory_context: Arc::new(None),
         session_id: "orchestrator-session".to_string(),
         channel: "test".to_string(),

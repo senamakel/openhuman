@@ -260,16 +260,11 @@ pub fn validate_tier_hierarchy(defs: &[AgentDefinition]) -> Result<()> {
                 SubagentEntry::Skills(_) => continue,
             };
 
-            // Worker leaves: no open-ended spawn surface. A worker may still
-            // name `agent_memory` so the hidden `call_memory_agent` tool can
-            // be policy-gated by the same parent-context allowlist without
-            // synthesising visible delegate tools.
-            if def.agent_tier == AgentTier::Worker && child_id != "agent_memory" {
+            // Worker leaves: no open-ended spawn surface.
+            if def.agent_tier == AgentTier::Worker {
                 anyhow::bail!(
                     "agent `{parent}` is a `worker` tier and must not list `{child}` in its \
-                     subagents — workers are leaf executors except for the hidden `agent_memory` \
-                     retrieval policy. Either remove the entry or re-tier `{parent}` as `chat` / \
-                     `reasoning`.",
+                     subagents — workers are leaf executors.",
                     parent = def.id,
                     child = child_id,
                 );
@@ -337,7 +332,7 @@ fn parse_builtin(b: &BuiltinAgent) -> Result<AgentDefinition> {
 mod tests {
     use super::*;
     use crate::openhuman::agent::harness::definition::{
-        ModelSpec, SandboxMode, SubagentEntry, ToolScope,
+        ModelSpec, SandboxMode, SubagentEntry, ToolScope, TriggerMemoryAgent,
     };
 
     #[test]
@@ -347,21 +342,27 @@ mod tests {
     }
 
     #[test]
-    fn call_memory_agent_users_allow_agent_memory_subagent() {
+    fn automatic_memory_agents_do_not_expose_call_memory_agent() {
         for def in load_builtins().expect("built-in TOML must parse") {
-            let uses_call_memory_agent = match &def.tools {
-                ToolScope::Named(tools) => tools.iter().any(|tool| tool == "call_memory_agent"),
-                ToolScope::Wildcard => false,
-            };
-            if !uses_call_memory_agent {
+            if def.trigger_memory_agent != TriggerMemoryAgent::Always {
                 continue;
             }
 
+            let exposes_call_memory_agent = match &def.tools {
+                ToolScope::Named(tools) => tools.iter().any(|tool| tool == "call_memory_agent"),
+                ToolScope::Wildcard => false,
+            };
+
             assert!(
-                def.subagents.iter().any(|entry| {
-                    matches!(entry, SubagentEntry::AgentId(id) if id == "agent_memory")
-                }),
-                "{} exposes call_memory_agent but does not allow agent_memory in subagents",
+                !exposes_call_memory_agent,
+                "{} uses trigger_memory_agent but still exposes call_memory_agent",
+                def.id
+            );
+            assert!(
+                !def.subagents.iter().any(
+                    |entry| matches!(entry, SubagentEntry::AgentId(id) if id == "agent_memory")
+                ),
+                "{} uses trigger_memory_agent but still lists agent_memory in subagents",
                 def.id
             );
         }
@@ -373,10 +374,7 @@ mod tests {
         assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "agentic"));
         match &def.tools {
             ToolScope::Named(tools) => {
-                assert!(
-                    tools.iter().any(|t| t == "call_memory_agent"),
-                    "trigger_reactor needs call_memory_agent"
-                );
+                assert!(!tools.iter().any(|t| t == "call_memory_agent"));
                 assert!(
                     tools.iter().any(|t| t == "memory_store"),
                     "trigger_reactor needs memory_store"
@@ -479,7 +477,7 @@ mod tests {
                         model_name: "test",
                         agent_id: &def.id,
                         tools: &empty_tools,
-                        skills: &[],
+                        workflows: &[],
                         dispatcher_instructions: "",
                         learned: LearnedContextData::default(),
                         visible_tool_names: &empty_visible,
@@ -539,16 +537,14 @@ mod tests {
                     !tools.iter().any(|t| t == "spawn_subagent"),
                     "spawn_subagent must not appear — removed in #1141"
                 );
-                assert!(
-                    tools.iter().any(|t| t == "call_memory_agent"),
-                    "orchestrator must have call_memory_agent"
-                );
+                assert!(!tools.iter().any(|t| t == "call_memory_agent"));
                 assert!(!tools.iter().any(|t| t == "shell"));
                 assert!(!tools.iter().any(|t| t == "file_write"));
             }
             ToolScope::Wildcard => panic!("orchestrator must have named tool allowlist"),
         }
         assert_eq!(def.max_iterations, 15);
+        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Always);
     }
 
     #[test]
@@ -668,11 +664,15 @@ mod tests {
         match &presentation.tools {
             ToolScope::Named(names) => {
                 assert!(names.iter().any(|name| name == "generate_presentation"));
-                assert!(names.iter().any(|name| name == "call_memory_agent"));
+                assert!(!names.iter().any(|name| name == "call_memory_agent"));
                 assert!(names.iter().any(|name| name == "web_search_tool"));
             }
             other => panic!("presentation_agent must use Named tool scope, got {other:?}"),
         }
+        assert_eq!(
+            presentation.trigger_memory_agent,
+            TriggerMemoryAgent::Always
+        );
 
         let desktop = find("desktop_control_agent");
         match &desktop.tools {
@@ -724,10 +724,7 @@ mod tests {
                     tools.iter().any(|t| t == "gitbooks_get_page"),
                     "help needs gitbooks_get_page"
                 );
-                assert!(
-                    tools.iter().any(|t| t == "call_memory_agent"),
-                    "help needs call_memory_agent for personalisation"
-                );
+                assert!(!tools.iter().any(|t| t == "call_memory_agent"));
                 // Help is docs-only — no write/exec tools.
                 assert!(!tools.iter().any(|t| t == "shell"));
                 assert!(!tools.iter().any(|t| t == "file_write"));
@@ -739,6 +736,7 @@ mod tests {
         assert!(def.omit_identity);
         assert!(def.omit_safety_preamble);
         assert!(!def.omit_memory_context);
+        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Always);
     }
 
     #[test]
@@ -852,17 +850,12 @@ mod tests {
                     tools.iter().any(|t| t == "ask_user_clarification"),
                     "crypto_agent needs ask_user_clarification to gate write ops"
                 );
-                // Market grounding + context helpers. Pin the full set so a
-                // TOML edit that silently drops `stock_quote`,
-                // `stock_exchange_rate`, `call_memory_agent`, or `current_time`
-                // gets caught here — the agent's quote-before-execute
-                // discipline and "ground in user preferences before re-asking"
-                // behaviour both depend on these being present.
+                // Market grounding + time helpers. Memory grounding is
+                // configured via `trigger_memory_agent = "always"`.
                 for required in [
                     "stock_quote",
                     "stock_exchange_rate",
                     "stock_crypto_series",
-                    "call_memory_agent",
                     "current_time",
                 ] {
                     assert!(
@@ -870,6 +863,7 @@ mod tests {
                         "crypto_agent needs supporting tool `{required}`"
                     );
                 }
+                assert!(!tools.iter().any(|t| t == "call_memory_agent"));
                 // Hard exclusions — no broad-surface or write-anywhere tools.
                 // Includes the orchestrator-level delegate_* tools so a future
                 // TOML edit can't accidentally hand crypto writes to the
@@ -906,6 +900,7 @@ mod tests {
         assert!(def.omit_identity);
         assert!(def.omit_memory_context);
         assert!(def.omit_skills_catalog);
+        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Always);
     }
 
     /// Routing: the orchestrator must list `crypto_agent` in its
@@ -954,16 +949,15 @@ mod tests {
                     tools.iter().any(|t| t == "ask_user_clarification"),
                     "markets_agent needs ask_user_clarification to gate write ops"
                 );
-                // Context helpers. Pin the full set so a TOML edit that
-                // silently drops `call_memory_agent` or `current_time` gets
-                // caught here — the agent's "ground in user preferences"
-                // and "as of <when>" framing depend on these.
-                for required in ["call_memory_agent", "current_time"] {
+                // Time grounding stays as a tool; memory grounding is
+                // configured via `trigger_memory_agent = "always"`.
+                for required in ["current_time"] {
                     assert!(
                         tools.iter().any(|t| t == required),
                         "markets_agent needs supporting tool `{required}`"
                     );
                 }
+                assert!(!tools.iter().any(|t| t == "call_memory_agent"));
                 // Hard exclusions — no broad-surface tools, no wallet
                 // primitives (those belong to crypto_agent), no
                 // delegation tools (markets_agent is a worker leaf).
@@ -1004,6 +998,7 @@ mod tests {
         assert!(def.omit_identity);
         assert!(def.omit_memory_context);
         assert!(def.omit_skills_catalog);
+        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Always);
         // Delegate name must be the stable, chat-friendly slug — the
         // orchestrator surfaces it as `delegate_do_prediction_markets`.
         assert_eq!(
@@ -1113,13 +1108,13 @@ mod tests {
                 .subagents
                 .iter()
                 .filter_map(|entry| match entry {
-                    SubagentEntry::AgentId(id) if id != "agent_memory" => Some(id.as_str()),
+                    SubagentEntry::AgentId(id) => Some(id.as_str()),
                     _ => None,
                 })
                 .collect();
             assert!(
                 visible_subagents.is_empty(),
-                "{expected} must be a worker leaf except for hidden agent_memory lookup"
+                "{expected} must be a worker leaf"
             );
             match def.tools {
                 ToolScope::Named(tools) => {

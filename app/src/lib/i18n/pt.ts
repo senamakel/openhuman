@@ -277,6 +277,22 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Explore pacotes SKILL.md, incluindo markdown, scripts, referências, modelos, exemplos e prompts no estilo Hermes.',
   'skills.explorer.title': 'Explorador de skills',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'Registro',
+  'skills.explorer.installedTab': 'Instaladas',
+  'skills.explorer.allFormats': 'Todos os formatos',
+  'skills.explorer.refreshRegistry': 'Atualizar registro',
+  'skills.explorer.registryEmptyTitle': 'Sem entradas no registro',
+  'skills.explorer.registryEmptyDescription':
+    'Não foi possível carregar o registro de habilidades. Verifique sua conexão e tente atualizar.',
+  'skills.explorer.installed': 'Instalada',
+  'skills.explorer.install': 'Instalar',
+  'skills.explorer.installing': 'Instalando…',
   'skills.integrations': 'Integrações',
   'skills.integrationsSubtitle':
     'Conexões OAuth baseadas em nuvem — faça login com sua conta e o Composio gerencia os tokens para que os agentes possam ler e agir em seu nome. Sem chaves de API para gerenciar.',
@@ -3995,6 +4011,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Sempre mostrar rótulos',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'Quando desativado, os rótulos só aparecem ao passar o mouse ou para a guia ativa.',
+  'settings.appearance.chatHeading': 'Chat',
+  'settings.appearance.assistantTextMode': 'Respostas do assistente em texto',
+  'settings.appearance.assistantTextModeDesc':
+    'Renderiza as respostas do assistente como texto sem moldura e mantém suas mensagens em balões.',
   'settings.mascot.active': 'Ativo',
   'settings.mascot.characterDesc': 'Descrição do personagem',
   'settings.mascot.characterHeading': 'Título do personagem',

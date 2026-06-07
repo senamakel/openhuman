@@ -267,6 +267,22 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'تصفح حزم SKILL.md، بما في ذلك markdown والسكربتات والمراجع والقوالب والأمثلة والمطالبات بنمط Hermes.',
   'skills.explorer.title': 'مستكشف المهارات',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'السجل',
+  'skills.explorer.installedTab': 'المثبتة',
+  'skills.explorer.allFormats': 'جميع الأنماط',
+  'skills.explorer.refreshRegistry': 'تحديث السجل',
+  'skills.explorer.registryEmptyTitle': 'لا توجد إدخالات في السجل',
+  'skills.explorer.registryEmptyDescription':
+    'تعذر تحميل سجل المهارات. تحقق من اتصالك وحاول التحديث.',
+  'skills.explorer.installed': 'مثبت',
+  'skills.explorer.install': 'تثبيت',
+  'skills.explorer.installing': 'جارٍ التثبيت…',
   'skills.integrations': 'التكاملات',
   'skills.integrationsSubtitle':
     'اتصالات OAuth السحابية — سجّل الدخول بحسابك ويتولى Composio إدارة الرموز حتى يتمكن الوكلاء من القراءة والتصرف نيابةً عنك. لا حاجة لإدارة مفاتيح API.',
@@ -3842,6 +3858,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'إظهار التسميات دائمًا',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'عند إيقاف التشغيل، تظهر التسميات فقط عند التمرير أو لعلامة التبويب النشطة.',
+  'settings.appearance.chatHeading': 'الدردشة',
+  'settings.appearance.assistantTextMode': 'ردود المساعد كنص',
+  'settings.appearance.assistantTextModeDesc':
+    'اعرض ردود المساعد كنص بلا إطار مع إبقاء رسائلك داخل فقاعات.',
   'settings.mascot.active': 'نشط',
   'settings.mascot.characterDesc': 'وصف الشخصية',
   'settings.mascot.characterHeading': 'عنوان الشخصية',

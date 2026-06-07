@@ -273,6 +273,22 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Przeglądaj pakiety SKILL.md, w tym markdown, skrypty, referencje, szablony, przykłady i prompty w stylu Hermes.',
   'skills.explorer.title': 'Eksplorator skilli',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'Rejestr',
+  'skills.explorer.installedTab': 'Zainstalowane',
+  'skills.explorer.allFormats': 'Wszystkie formaty',
+  'skills.explorer.refreshRegistry': 'Odśwież rejestr',
+  'skills.explorer.registryEmptyTitle': 'Brak wpisów w rejestrze',
+  'skills.explorer.registryEmptyDescription':
+    'Nie udało się załadować rejestru umiejętności. Sprawdź połączenie i spróbuj odświeżyć.',
+  'skills.explorer.installed': 'Zainstalowano',
+  'skills.explorer.install': 'Zainstaluj',
+  'skills.explorer.installing': 'Instalowanie…',
   'skills.integrations': 'Integracje Composio',
   'skills.integrationsSubtitle':
     'Chmurowe połączenia OAuth — zaloguj się swoim kontem, a Composio pośredniczy w tokenach, dzięki czemu agenci mogą czytać i działać w Twoim imieniu. Bez kluczy API do utrzymywania.',
@@ -3991,6 +4007,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Zawsze pokazuj etykiety',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'Wyłączone — etykiety pojawiają się tylko po najechaniu lub dla aktywnej zakładki.',
+  'settings.appearance.chatHeading': 'Czat',
+  'settings.appearance.assistantTextMode': 'Odpowiedzi asystenta jako tekst',
+  'settings.appearance.assistantTextModeDesc':
+    'Wyświetla odpowiedzi asystenta jako tekst bez ramki, a Twoje wiadomości pozostawia w dymkach.',
   'settings.mascot.active': 'Aktywny',
   'settings.mascot.characterDesc': 'Wybierz charakter maskotki OpenHuman.',
   'settings.mascot.characterHeading': 'Charakter',

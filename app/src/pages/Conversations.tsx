@@ -78,7 +78,11 @@ import {
   openhumanVoiceTts,
 } from '../utils/tauriCommands';
 import { formatTimelineEntry } from '../utils/toolTimelineFormatting';
-import { AgentMessageBubble, BubbleMarkdown } from './conversations/components/AgentMessageBubble';
+import {
+  AgentMessageBubble,
+  AgentMessageText,
+  BubbleMarkdown,
+} from './conversations/components/AgentMessageBubble';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
 import { SubagentDrawer } from './conversations/components/SubagentDrawer';
 import { TaskKanbanBoard } from './conversations/components/TaskKanbanBoard';
@@ -237,6 +241,9 @@ const Conversations = ({
   );
   const streamingAssistantByThread = useAppSelector(
     state => state.chatRuntime.streamingAssistantByThread
+  );
+  const agentMessageViewMode = useAppSelector(
+    state => state.theme?.agentMessageViewMode ?? 'bubbles'
   );
   const inferenceTurnLifecycleByThread = useAppSelector(
     state => state.chatRuntime.inferenceTurnLifecycleByThread
@@ -1627,214 +1634,230 @@ const Conversations = ({
                   }}
                 />
               )}
-              {visibleMessages.map(msg => (
-                <div key={msg.id}>
-                  {shouldRenderTimelineBeforeLatestAgentMessage &&
-                    latestVisibleAgentMessage?.id === msg.id && (
-                      <ToolTimelineBlock
-                        entries={selectedThreadToolTimeline}
-                        onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
-                      />
-                    )}
-                  <div
-                    className={`group/msg flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className="relative w-fit max-w-[75%]">
-                      {msg.sender === 'agent' ? (
-                        <div className="space-y-1">
-                          {splitAgentMessageIntoBubbles(msg.content).map(
-                            (segment, index, parts) => {
-                              const position: AgentBubblePosition =
-                                parts.length === 1
-                                  ? 'single'
-                                  : index === 0
-                                    ? 'first'
-                                    : index === parts.length - 1
-                                      ? 'last'
-                                      : 'middle';
-
-                              return (
-                                <AgentMessageBubble
-                                  key={`${msg.id}:${index}`}
-                                  content={segment}
-                                  position={position}
-                                />
-                              );
-                            }
-                          )}
-                          {(() => {
-                            const raw = msg.extraMetadata?.citations;
-                            if (!Array.isArray(raw)) return null;
-                            const citations = raw.filter(
-                              (item): item is MessageCitation =>
-                                typeof item === 'object' &&
-                                item !== null &&
-                                typeof (item as MessageCitation).id === 'string' &&
-                                typeof (item as MessageCitation).key === 'string' &&
-                                typeof (item as MessageCitation).snippet === 'string' &&
-                                typeof (item as MessageCitation).timestamp === 'string'
-                            );
-                            if (citations.length === 0) return null;
-                            return <CitationChips citations={citations} />;
-                          })()}
-                          {latestVisibleMessage?.id === msg.id && (
-                            <p className="px-1 text-[10px] text-stone-400 dark:text-neutral-500">
-                              {formatRelativeTime(msg.createdAt)}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-end gap-1">
-                          {(() => {
-                            const dataUris = Array.isArray(msg.extraMetadata?.attachmentDataUris)
-                              ? (msg.extraMetadata.attachmentDataUris as string[])
-                              : parseMessageImages(msg.content ?? '').dataUris;
-                            const hasImages = dataUris.length > 0;
-                            const showTime = latestVisibleMessage?.id === msg.id;
-                            return (
-                              <>
-                                {hasImages && (
-                                  <div className="flex flex-wrap gap-1.5 justify-end">
-                                    {dataUris.map((uri, i) => (
-                                      <img
-                                        key={i}
-                                        src={uri}
-                                        alt=""
-                                        className="max-w-[200px] max-h-[200px] rounded-2xl object-cover"
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                                {(msg.content || showTime) && (
-                                  <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-white rounded-br-md break-words overflow-hidden">
-                                    {msg.content && (
-                                      <BubbleMarkdown content={msg.content} tone="user" />
-                                    )}
-                                    {showTime && (
-                                      <p
-                                        className={`${msg.content ? 'mt-1' : ''} text-[10px] text-white/60`}>
-                                        {formatRelativeTime(msg.createdAt)}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
+              {visibleMessages.map(msg => {
+                const isAgentTextMode = msg.sender === 'agent' && agentMessageViewMode === 'text';
+                return (
+                  <div key={msg.id}>
+                    {shouldRenderTimelineBeforeLatestAgentMessage &&
+                      latestVisibleAgentMessage?.id === msg.id && (
+                        <ToolTimelineBlock
+                          entries={selectedThreadToolTimeline}
+                          onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
+                        />
                       )}
-                      <button
-                        type="button"
-                        data-analytics-id="chat-message-copy"
-                        onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className={`absolute -top-1 ${msg.sender === 'user' ? '-left-8' : '-right-8'} p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-all`}
-                        title={t('chat.copyResponse')}>
-                        {copiedMessageId === msg.id ? (
-                          <svg
-                            className="w-3.5 h-3.5 text-sage-500"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        ) : (
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      {(() => {
-                        if (latestVisibleMessage?.id !== msg.id) return null;
-                        const myReactions =
-                          (msg.extraMetadata?.myReactions as string[] | undefined) ?? [];
-                        const hasReactions = myReactions.length > 0;
-                        // Show reaction row only for the most recent visible message.
-                        if (!hasReactions && msg.sender !== 'agent') return null;
-                        return (
-                          <div className="mt-1 flex items-center gap-1 flex-wrap min-h-[20px]">
-                            {myReactions.map(emoji => (
-                              <button
-                                key={emoji}
-                                type="button"
-                                data-analytics-id="chat-message-reaction-remove"
-                                onClick={() =>
-                                  selectedThreadId &&
-                                  void dispatch(
-                                    persistReaction({
-                                      threadId: selectedThreadId,
-                                      messageId: msg.id,
-                                      emoji,
-                                    })
-                                  )
+                    <div
+                      className={`group/msg flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className={`relative ${
+                          isAgentTextMode ? 'w-full max-w-full' : 'w-fit max-w-[75%]'
+                        }`}>
+                        {msg.sender === 'agent' ? (
+                          <div className="space-y-1">
+                            {agentMessageViewMode === 'text' ? (
+                              <AgentMessageText content={msg.content} />
+                            ) : (
+                              splitAgentMessageIntoBubbles(msg.content).map(
+                                (segment, index, parts) => {
+                                  const position: AgentBubblePosition =
+                                    parts.length === 1
+                                      ? 'single'
+                                      : index === 0
+                                        ? 'first'
+                                        : index === parts.length - 1
+                                          ? 'last'
+                                          : 'middle';
+
+                                  return (
+                                    <AgentMessageBubble
+                                      key={`${msg.id}:${index}`}
+                                      content={segment}
+                                      position={position}
+                                    />
+                                  );
                                 }
-                                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary-100 border border-primary-200 text-xs transition-colors hover:bg-primary-200"
-                                title={t('chat.removeReaction').replace('{emoji}', emoji)}>
-                                {emoji}
-                              </button>
-                            ))}
-                            {msg.sender === 'agent' &&
-                              (reactionPickerMsgId === msg.id ? (
-                                <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-stone-100 dark:bg-neutral-800">
-                                  {['👍', '❤️', '😂', '🔥', '👀', '🎯'].map(emoji => (
-                                    <button
-                                      key={emoji}
-                                      type="button"
-                                      data-analytics-id="chat-message-reaction-pick"
-                                      onClick={() => {
-                                        if (selectedThreadId) {
-                                          void dispatch(
-                                            persistReaction({
-                                              threadId: selectedThreadId,
-                                              messageId: msg.id,
-                                              emoji,
-                                            })
-                                          );
-                                        }
-                                        setReactionPickerMsgId(null);
-                                      }}
-                                      className="px-0.5 rounded text-sm hover:scale-125 transition-transform"
-                                      title={emoji}>
-                                      {emoji}
-                                    </button>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    data-analytics-id="chat-message-reaction-close"
-                                    onClick={() => setReactionPickerMsgId(null)}
-                                    className="ml-0.5 text-stone-600 dark:text-neutral-300 hover:text-stone-400 dark:hover:text-neutral-500 text-xs px-0.5">
-                                    ✕
-                                  </button>
-                                </div>
-                              ) : (
+                              )
+                            )}
+                            {(() => {
+                              const raw = msg.extraMetadata?.citations;
+                              if (!Array.isArray(raw)) return null;
+                              const citations = raw.filter(
+                                (item): item is MessageCitation =>
+                                  typeof item === 'object' &&
+                                  item !== null &&
+                                  typeof (item as MessageCitation).id === 'string' &&
+                                  typeof (item as MessageCitation).key === 'string' &&
+                                  typeof (item as MessageCitation).snippet === 'string' &&
+                                  typeof (item as MessageCitation).timestamp === 'string'
+                              );
+                              if (citations.length === 0) return null;
+                              return <CitationChips citations={citations} />;
+                            })()}
+                            {latestVisibleMessage?.id === msg.id && (
+                              <p className="px-1 text-[10px] text-stone-400 dark:text-neutral-500">
+                                {formatRelativeTime(msg.createdAt)}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-end gap-1">
+                            {(() => {
+                              const dataUris = Array.isArray(msg.extraMetadata?.attachmentDataUris)
+                                ? (msg.extraMetadata.attachmentDataUris as string[])
+                                : parseMessageImages(msg.content ?? '').dataUris;
+                              const hasImages = dataUris.length > 0;
+                              const showTime = latestVisibleMessage?.id === msg.id;
+                              return (
+                                <>
+                                  {hasImages && (
+                                    <div className="flex flex-wrap gap-1.5 justify-end">
+                                      {dataUris.map((uri, i) => (
+                                        <img
+                                          key={i}
+                                          src={uri}
+                                          alt=""
+                                          className="max-w-[200px] max-h-[200px] rounded-2xl object-cover"
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                  {(msg.content || showTime) && (
+                                    <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-white rounded-br-md break-words overflow-hidden">
+                                      {msg.content && (
+                                        <BubbleMarkdown content={msg.content} tone="user" />
+                                      )}
+                                      {showTime && (
+                                        <p
+                                          className={`${msg.content ? 'mt-1' : ''} text-[10px] text-white/60`}>
+                                          {formatRelativeTime(msg.createdAt)}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          data-analytics-id="chat-message-copy"
+                          onClick={() => handleCopyMessage(msg.id, msg.content)}
+                          className={`absolute -top-1 ${
+                            isAgentTextMode
+                              ? 'right-0'
+                              : msg.sender === 'user'
+                                ? '-left-8'
+                                : '-right-8'
+                          } p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-all`}
+                          title={t('chat.copyResponse')}>
+                          {copiedMessageId === msg.id ? (
+                            <svg
+                              className="w-3.5 h-3.5 text-sage-500"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                        {(() => {
+                          if (latestVisibleMessage?.id !== msg.id) return null;
+                          const myReactions =
+                            (msg.extraMetadata?.myReactions as string[] | undefined) ?? [];
+                          const hasReactions = myReactions.length > 0;
+                          // Show reaction row only for the most recent visible message.
+                          if (!hasReactions && msg.sender !== 'agent') return null;
+                          return (
+                            <div className="mt-1 flex items-center gap-1 flex-wrap min-h-[20px]">
+                              {myReactions.map(emoji => (
                                 <button
+                                  key={emoji}
                                   type="button"
-                                  data-analytics-id="chat-message-reaction-open"
-                                  onClick={() => setReactionPickerMsgId(msg.id)}
-                                  className="opacity-0 group-hover/msg:opacity-100 flex items-center px-1.5 py-0.5 rounded-full bg-stone-50 dark:bg-neutral-800/60 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-500 dark:text-neutral-400 hover:text-stone-300 dark:hover:text-neutral-600 text-xs transition-all"
-                                  title={t('chat.addReaction')}>
-                                  +
+                                  data-analytics-id="chat-message-reaction-remove"
+                                  onClick={() =>
+                                    selectedThreadId &&
+                                    void dispatch(
+                                      persistReaction({
+                                        threadId: selectedThreadId,
+                                        messageId: msg.id,
+                                        emoji,
+                                      })
+                                    )
+                                  }
+                                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary-100 border border-primary-200 text-xs transition-colors hover:bg-primary-200"
+                                  title={t('chat.removeReaction').replace('{emoji}', emoji)}>
+                                  {emoji}
                                 </button>
                               ))}
-                          </div>
-                        );
-                      })()}
+                              {msg.sender === 'agent' &&
+                                (reactionPickerMsgId === msg.id ? (
+                                  <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-stone-100 dark:bg-neutral-800">
+                                    {['👍', '❤️', '😂', '🔥', '👀', '🎯'].map(emoji => (
+                                      <button
+                                        key={emoji}
+                                        type="button"
+                                        data-analytics-id="chat-message-reaction-pick"
+                                        onClick={() => {
+                                          if (selectedThreadId) {
+                                            void dispatch(
+                                              persistReaction({
+                                                threadId: selectedThreadId,
+                                                messageId: msg.id,
+                                                emoji,
+                                              })
+                                            );
+                                          }
+                                          setReactionPickerMsgId(null);
+                                        }}
+                                        className="px-0.5 rounded text-sm hover:scale-125 transition-transform"
+                                        title={emoji}>
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      data-analytics-id="chat-message-reaction-close"
+                                      onClick={() => setReactionPickerMsgId(null)}
+                                      className="ml-0.5 text-stone-600 dark:text-neutral-300 hover:text-stone-400 dark:hover:text-neutral-500 text-xs px-0.5">
+                                      ✕
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    data-analytics-id="chat-message-reaction-open"
+                                    onClick={() => setReactionPickerMsgId(msg.id)}
+                                    className="opacity-0 group-hover/msg:opacity-100 flex items-center px-1.5 py-0.5 rounded-full bg-stone-50 dark:bg-neutral-800/60 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-500 dark:text-neutral-400 hover:text-stone-300 dark:hover:text-neutral-600 text-xs transition-all"
+                                    title={t('chat.addReaction')}>
+                                    +
+                                  </button>
+                                ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {isSending &&
                 // Suppress the legacy 3-dot placeholder once streaming
                 // output (visible text or thinking) has started — the

@@ -269,6 +269,22 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Hermes 스타일 markdown, scripts, references, templates, examples, prompts를 포함한 SKILL.md 패키지를 탐색합니다.',
   'skills.explorer.title': '스킬 탐색기',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': '레지스트리',
+  'skills.explorer.installedTab': '설치됨',
+  'skills.explorer.allFormats': '모든 형식',
+  'skills.explorer.refreshRegistry': '레지스트리 새로고침',
+  'skills.explorer.registryEmptyTitle': '레지스트리 항목 없음',
+  'skills.explorer.registryEmptyDescription':
+    '스킬 레지스트리를 로드할 수 없습니다. 연결을 확인하고 새로고침해 보세요.',
+  'skills.explorer.installed': '설치됨',
+  'skills.explorer.install': '설치',
+  'skills.explorer.installing': '설치 중…',
   'skills.integrations': '통합',
   'skills.integrationsSubtitle':
     '클라우드 기반 OAuth 연결 — 계정으로 로그인하면 Composio가 토큰을 관리하여 에이전트가 사용자를 대신해 읽고 작동할 수 있습니다. API 키 관리가 필요 없습니다.',
@@ -3880,6 +3896,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': '항상 레이블 표시',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     '끄면 레이블은 마우스를 가져가거나 활성 탭에 대해서만 표시됩니다.',
+  'settings.appearance.chatHeading': '채팅',
+  'settings.appearance.assistantTextMode': '어시스턴트 답변을 텍스트로 표시',
+  'settings.appearance.assistantTextModeDesc':
+    '사용자 메시지는 말풍선으로 유지하고 어시스턴트 답변은 프레임 없는 텍스트로 표시합니다.',
   'settings.mascot.active': '활성',
   'settings.mascot.characterDesc': '캐릭터 설명',
   'settings.mascot.characterHeading': '캐릭터 제목',

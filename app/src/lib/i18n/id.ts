@@ -271,6 +271,22 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Jelajahi paket SKILL.md, termasuk markdown, skrip, referensi, templat, contoh, dan prompt bergaya Hermes.',
   'skills.explorer.title': 'Penjelajah skill',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'Registri',
+  'skills.explorer.installedTab': 'Terpasang',
+  'skills.explorer.allFormats': 'Semua format',
+  'skills.explorer.refreshRegistry': 'Segarkan registri',
+  'skills.explorer.registryEmptyTitle': 'Tidak ada entri registri',
+  'skills.explorer.registryEmptyDescription':
+    'Tidak dapat memuat registri keterampilan. Periksa koneksi Anda dan coba segarkan.',
+  'skills.explorer.installed': 'Terpasang',
+  'skills.explorer.install': 'Pasang',
+  'skills.explorer.installing': 'Memasang…',
   'skills.integrations': 'Integrasi',
   'skills.integrationsSubtitle':
     'Koneksi OAuth berbasis cloud — masuk dengan akun Anda dan Composio mengelola token agar agen dapat membaca dan bertindak atas nama Anda. Tidak perlu mengelola API key.',
@@ -3938,6 +3954,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Selalu tampilkan label',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'Saat nonaktif, label hanya muncul saat diarahkan atau untuk tab yang aktif.',
+  'settings.appearance.chatHeading': 'Chat',
+  'settings.appearance.assistantTextMode': 'Respons asisten sebagai teks',
+  'settings.appearance.assistantTextModeDesc':
+    'Tampilkan balasan asisten sebagai teks tanpa bingkai, sementara pesan Anda tetap dalam gelembung.',
   'settings.mascot.active': 'Aktif',
   'settings.mascot.characterDesc': 'Deskripsi karakter',
   'settings.mascot.characterHeading': 'Judul karakter',

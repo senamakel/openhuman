@@ -98,6 +98,7 @@ pub mod search;
 pub mod security;
 pub mod service;
 pub mod session_db;
+pub mod skill_registry;
 pub mod socket;
 pub mod startup;
 pub mod subconscious;

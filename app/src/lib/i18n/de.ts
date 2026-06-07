@@ -278,6 +278,22 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Durchsuche SKILL.md-Pakete, einschließlich Hermes-artigem Markdown, Skripten, Referenzen, Vorlagen, Beispielen und Prompts.',
   'skills.explorer.title': 'Skill-Explorer',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'Verzeichnis',
+  'skills.explorer.installedTab': 'Installiert',
+  'skills.explorer.allFormats': 'Alle Formate',
+  'skills.explorer.refreshRegistry': 'Verzeichnis aktualisieren',
+  'skills.explorer.registryEmptyTitle': 'Keine Verzeichniseinträge',
+  'skills.explorer.registryEmptyDescription':
+    'Das Skill-Verzeichnis konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.',
+  'skills.explorer.installed': 'Installiert',
+  'skills.explorer.install': 'Installieren',
+  'skills.explorer.installing': 'Wird installiert…',
   'skills.integrations': 'Integrationen',
   'skills.integrationsSubtitle':
     'Cloud-basierte OAuth-Verbindungen – mit deinem Konto anmelden und Composio verwaltet die Tokens, damit Agenten in deinem Namen lesen und handeln können. Keine API-Schlüssel notwendig.',
@@ -4027,6 +4043,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Beschriftungen immer anzeigen',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'Wenn diese Option deaktiviert ist, werden Beschriftungen nur beim Hover oder für die aktive Registerkarte angezeigt.',
+  'settings.appearance.chatHeading': 'Chat',
+  'settings.appearance.assistantTextMode': 'Assistentenantworten als Text',
+  'settings.appearance.assistantTextModeDesc':
+    'Zeigt Assistentenantworten als ungerahmten Text an und lässt deine Nachrichten in Blasen.',
   'settings.mascot.active': 'Aktiv',
   'settings.mascot.characterDesc': 'Charakterbeschreibung',
   'settings.mascot.characterHeading': 'Zeichenüberschrift',

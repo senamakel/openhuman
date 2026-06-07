@@ -24,6 +24,7 @@ import {
   SkillCategoryIcon,
 } from '../components/skills/skillIcons';
 import SkillSearchBar from '../components/skills/SkillSearchBar';
+import SkillsExplorerTab from '../components/skills/SkillsExplorerTab';
 import VoiceSetupModal from '../components/skills/VoiceSetupModal';
 import { useAutocompleteSkillStatus } from '../features/autocomplete/useAutocompleteSkillStatus';
 import { useScreenIntelligenceSkillStatus } from '../features/screen-intelligence/useScreenIntelligenceSkillStatus';
@@ -342,7 +343,7 @@ interface SkillItem {
 
 // ─── Main Skills Page ──────────────────────────────────────────────────────────
 
-type ConnectionsTab = 'channels' | 'composio' | 'mcp' | 'meetings';
+type ConnectionsTab = 'channels' | 'composio' | 'mcp' | 'skills' | 'meetings';
 
 export default function Skills() {
   const { t } = useT();
@@ -356,7 +357,8 @@ export default function Skills() {
   const initialTab: ConnectionsTab = (() => {
     const params = new URLSearchParams(location.search);
     const t = params.get('tab');
-    if (t === 'composio' || t === 'channels' || t === 'mcp' || t === 'meetings') return t;
+    if (t === 'composio' || t === 'channels' || t === 'mcp' || t === 'skills' || t === 'meetings')
+      return t;
     return 'composio';
   })();
   const [activeTab, setActiveTab] = useState<ConnectionsTab>(initialTab);
@@ -792,6 +794,7 @@ export default function Skills() {
               items={[
                 { value: 'composio', label: t('skills.tabs.composio') },
                 { value: 'channels', label: t('skills.tabs.channels') },
+                { value: 'skills', label: t('skills.tabs.explorer') },
                 { value: 'meetings', label: t('skills.tabs.meetings') },
                 { value: 'mcp', label: t('skills.tabs.mcp') },
               ]}
@@ -939,6 +942,8 @@ export default function Skills() {
                 )}
 
                 {activeTab === 'composio' && otherGroups.map(group => renderGroup(group))}
+
+                {activeTab === 'skills' && <SkillsExplorerTab onToast={addToast} />}
 
                 {activeTab === 'mcp' && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-soft animate-fade-up">

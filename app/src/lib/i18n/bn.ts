@@ -269,6 +269,22 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Hermes-ধাঁচের markdown, scripts, references, templates, examples এবং prompts সহ SKILL.md প্যাকেজ ব্রাউজ করুন।',
   'skills.explorer.title': 'স্কিল এক্সপ্লোরার',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'রেজিস্ট্রি',
+  'skills.explorer.installedTab': 'ইনস্টল করা',
+  'skills.explorer.allFormats': 'সব ফরম্যাট',
+  'skills.explorer.refreshRegistry': 'রেজিস্ট্রি রিফ্রেশ করুন',
+  'skills.explorer.registryEmptyTitle': 'কোনো রেজিস্ট্রি এন্ট্রি নেই',
+  'skills.explorer.registryEmptyDescription':
+    'দক্ষতা রেজিস্ট্রি লোড করা যায়নি। আপনার সংযোগ পরীক্ষা করে রিফ্রেশ করার চেষ্টা করুন।',
+  'skills.explorer.installed': 'ইনস্টল করা হয়েছে',
+  'skills.explorer.install': 'ইনস্টল করুন',
+  'skills.explorer.installing': 'ইনস্টল হচ্ছে…',
   'skills.integrations': 'ইন্টিগ্রেশন',
   'skills.integrationsSubtitle':
     'ক্লাউড-ভিত্তিক OAuth সংযোগ — আপনার অ্যাকাউন্ট দিয়ে সাইন ইন করুন এবং Composio টোকেন পরিচালনা করে যাতে এজেন্টরা আপনার পক্ষে পড়তে এবং কাজ করতে পারে। কোনো API কী পরিচালনা করতে হবে না।',
@@ -3922,6 +3938,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'সর্বদা লেবেলগুলি দেখান',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'বন্ধ থাকা অবস্থায়, লেবেলগুলি শুধুমাত্র হোভারে বা সক্রিয় ট্যাবের জন্য প্রদর্শিত হয়৷',
+  'settings.appearance.chatHeading': 'চ্যাট',
+  'settings.appearance.assistantTextMode': 'অ্যাসিস্ট্যান্টের উত্তর টেক্সট হিসেবে',
+  'settings.appearance.assistantTextModeDesc':
+    'আপনার বার্তাগুলি বাবলে রেখে অ্যাসিস্ট্যান্টের উত্তর ফ্রেমহীন টেক্সট হিসেবে দেখান।',
   'settings.mascot.active': 'সক্রিয়',
   'settings.mascot.characterDesc': 'চরিত্রের বিবরণ',
   'settings.mascot.characterHeading': 'চরিত্রের শিরোনাম',

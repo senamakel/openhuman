@@ -275,6 +275,22 @@ const messages: TranslationMap = {
   'skills.explorer.subtitle':
     'Sfoglia pacchetti SKILL.md, inclusi markdown, script, riferimenti, modelli, esempi e prompt in stile Hermes.',
   'skills.explorer.title': 'Esplora skill',
+  'skills.explorer.searchPlaceholder': 'Search skills...',
+  'skills.explorer.scopeUser': 'User',
+  'skills.explorer.scopeProject': 'Project',
+  'skills.explorer.scopeLegacy': 'Legacy',
+  'skills.explorer.noDescription': 'No description provided.',
+  'skills.explorer.uninstallSuccess': 'Skill uninstalled successfully.',
+  'skills.explorer.registryTab': 'Registro',
+  'skills.explorer.installedTab': 'Installate',
+  'skills.explorer.allFormats': 'Tutti i formati',
+  'skills.explorer.refreshRegistry': 'Aggiorna registro',
+  'skills.explorer.registryEmptyTitle': 'Nessuna voce nel registro',
+  'skills.explorer.registryEmptyDescription':
+    'Impossibile caricare il registro delle competenze. Controlla la connessione e riprova.',
+  'skills.explorer.installed': 'Installata',
+  'skills.explorer.install': 'Installa',
+  'skills.explorer.installing': 'Installazione…',
   'skills.integrations': 'Integrazioni',
   'skills.integrationsSubtitle':
     'Connessioni OAuth basate su cloud — accedi con il tuo account e Composio gestisce i token affinché gli agenti possano leggere e agire per tuo conto. Nessuna chiave API da gestire.',
@@ -3994,6 +4010,10 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabels': 'Mostra sempre le etichette',
   'settings.appearance.tabBarAlwaysShowLabelsDesc':
     'Quando disattivata, le etichette vengono visualizzate solo al passaggio del mouse o per la scheda attiva.',
+  'settings.appearance.chatHeading': 'Chat',
+  'settings.appearance.assistantTextMode': "Risposte dell'assistente in testo",
+  'settings.appearance.assistantTextModeDesc':
+    "Mostra le risposte dell'assistente come testo senza cornice mantenendo i tuoi messaggi nei fumetti.",
   'settings.mascot.active': 'Attivo',
   'settings.mascot.characterDesc': 'Descrizione personaggio',
   'settings.mascot.characterHeading': 'Intestazione personaggio',

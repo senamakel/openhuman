@@ -354,6 +354,14 @@ test.describe('MCP Tab — Install Lifecycle', () => {
     // 5. Should navigate to detail view (the installed server detail)
     //    Back button should still be visible in the detail view
     await expect(page.locator('button:has-text("Back")')).toBeVisible({ timeout: 10_000 });
+
+    // 6. Go back and verify the server appears in the installed list
+    await page.locator('button:has-text("Back")').click();
+    await expect(page.locator('table')).toBeVisible({ timeout: 5_000 });
+    const installedGithub = page.locator('table tbody tr', {
+      has: page.locator('td:has-text("GitHub Tools")'),
+    });
+    await expect(installedGithub).toBeVisible({ timeout: 5_000 });
   });
 
   test('back button from install dialog returns to table', async ({ page }) => {
@@ -417,6 +425,12 @@ test.describe('MCP Tab — Manage & Uninstall Lifecycle', () => {
 
     // Should return to table view with the server removed
     await expect(page.locator('table')).toBeVisible({ timeout: 10_000 });
+
+    // Verify the server is no longer in the installed list
+    const removedRow = page.locator('table tbody tr', {
+      has: page.locator('td:first-child:has-text("Memory Server")'),
+    });
+    await expect(removedRow).toHaveCount(0, { timeout: 5_000 });
   });
 
   test('back button from detail returns to table', async ({ page }) => {

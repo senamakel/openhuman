@@ -654,9 +654,18 @@ impl OfficialPackage {
                 let cmd = self.runtime_hint.as_deref().unwrap_or("uvx");
                 (cmd.to_string(), Vec::new())
             }
+            Some("npm") => {
+                let cmd = self.runtime_hint.as_deref().unwrap_or("npx");
+                let default_args = if self.runtime_arguments.is_empty() {
+                    vec!["-y".to_string()]
+                } else {
+                    Vec::new()
+                };
+                (cmd.to_string(), default_args)
+            }
             _ => {
                 let cmd = self.runtime_hint.as_deref().unwrap_or("npx");
-                (cmd.to_string(), Vec::new())
+                (cmd.to_string(), vec!["-y".to_string()])
             }
         };
 

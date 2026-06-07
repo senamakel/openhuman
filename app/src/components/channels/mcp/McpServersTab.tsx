@@ -299,9 +299,10 @@ const McpServersTab = () => {
                 ? 'bg-primary-500 text-white'
                 : 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 hover:bg-stone-200 dark:hover:bg-neutral-700'
             }`}>
-            {chip === 'all' && `All`}
-            {chip === 'installed' && `Installed (${filteredInstalled.length})`}
-            {chip === 'registry' && `Registry`}
+            {chip === 'all' && t('mcp.tab.filter.all')}
+            {chip === 'installed' &&
+              t('mcp.tab.filter.installed').replace('{count}', String(filteredInstalled.length))}
+            {chip === 'registry' && t('mcp.tab.filter.registry')}
           </button>
         ))}
       </div>
@@ -318,16 +319,16 @@ const McpServersTab = () => {
           <thead>
             <tr className="border-b border-stone-100 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900">
               <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400">
-                Name
+                {t('mcp.tab.column.name')}
               </th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400 hidden sm:table-cell">
-                Description
+                {t('mcp.tab.column.description')}
               </th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400 w-24">
-                Source
+                {t('mcp.tab.column.source')}
               </th>
               <th className="text-right px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400 w-28">
-                Action
+                {t('mcp.tab.column.action')}
               </th>
             </tr>
           </thead>
@@ -341,7 +342,16 @@ const McpServersTab = () => {
                   <tr
                     key={`installed-${server.server_id}`}
                     className="hover:bg-stone-50 dark:hover:bg-neutral-800/40 cursor-pointer transition-colors"
-                    onClick={() => handleSelectServer(server.server_id)}>
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View details for ${server.display_name}`}
+                    onClick={() => handleSelectServer(server.server_id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectServer(server.server_id);
+                      }
+                    }}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <span
@@ -360,12 +370,12 @@ const McpServersTab = () => {
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sage-100 dark:bg-sage-500/15 text-sage-700 dark:text-sage-300 border border-sage-200 dark:border-sage-500/30">
-                        Installed
+                        {t('mcp.tab.badge.installed')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-xs text-primary-600 dark:text-primary-400 font-medium">
-                        Manage
+                        {t('mcp.tab.action.manage')}
                       </span>
                     </td>
                   </tr>
@@ -403,7 +413,7 @@ const McpServersTab = () => {
                   </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-500/30">
-                      Registry
+                      {t('mcp.tab.badge.registry')}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -467,6 +477,7 @@ const McpServersTab = () => {
         <McpInventoryPanel
           servers={servers}
           onInstallServer={(qualifiedName, prefillEnv) => {
+            setInventoryOpen(false);
             setView({ mode: 'install', qualifiedName, prefillEnv });
           }}
           onClose={() => setInventoryOpen(false)}

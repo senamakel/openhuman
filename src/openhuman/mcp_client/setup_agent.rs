@@ -85,15 +85,21 @@ pub async fn test_connection(
         identity,
     );
 
-    let init = client
-        .initialize()
-        .await
-        .context("MCP server failed to initialize")?;
+    let init = match client.initialize().await {
+        Ok(init) => init,
+        Err(err) => {
+            let _ = client.close_session().await;
+            return Err(err).context("MCP server failed to initialize");
+        }
+    };
 
-    let tools = client
-        .list_tools()
-        .await
-        .context("MCP server failed to list tools")?;
+    let tools = match client.list_tools().await {
+        Ok(tools) => tools,
+        Err(err) => {
+            let _ = client.close_session().await;
+            return Err(err).context("MCP server failed to list tools");
+        }
+    };
 
     let _ = client.close_session().await;
 

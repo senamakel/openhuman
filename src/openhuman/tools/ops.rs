@@ -293,6 +293,13 @@ pub fn all_tools_with_runtime(
         // `tools::user_filter` (install also fetches remote content).
         Box::new(WorkflowListTool::new(config.clone())),
         Box::new(WorkflowDescribeTool::new(config.clone())),
+        // Skill registry tools — browse/search/install from remote registries.
+        // Browse and search are read-only (default-ON); install is a write
+        // operation (fetches remote content and writes to disk).
+        Box::new(SkillRegistryBrowseTool),
+        Box::new(SkillRegistrySearchTool),
+        Box::new(SkillRegistryInstallTool::new(config.clone())),
+        Box::new(SkillRegistrySourcesTool),
         Box::new(WorkflowReadResourceTool::new(config.clone())),
         Box::new(WorkflowRecentRunsTool::new(config.clone())),
         Box::new(WorkflowReadRunLogTool::new(config.clone())),

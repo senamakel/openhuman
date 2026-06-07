@@ -290,6 +290,7 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Sem entradas no registro',
   'skills.explorer.registryEmptyDescription':
     'Não foi possível carregar o registro de habilidades. Verifique sua conexão e tente atualizar.',
+  'skills.explorer.showingOf': 'Mostrando {shown} de {total} resultados. Refine sua busca para ver mais.',
   'skills.explorer.installed': 'Instalada',
   'skills.explorer.install': 'Instalar',
   'skills.explorer.installing': 'Instalando…',

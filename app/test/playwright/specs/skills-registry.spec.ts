@@ -105,6 +105,38 @@ test.describe('Skill registry RPC smoke', () => {
     expect(result.entries.length).toBeGreaterThan(0);
   });
 
+  test('search for docker returns results', async () => {
+    test.setTimeout(30_000);
+    const result = await callCoreRpc<{
+      entries: Array<{ id: string; name: string; description: string; source: string }>;
+    }>('openhuman.skill_registry_search', { query: 'docker' });
+    expect(result.entries).toBeDefined();
+    expect(result.entries.length).toBeGreaterThan(0);
+
+    const hasDockerMatch = result.entries.some(
+      e =>
+        e.name.toLowerCase().includes('docker') ||
+        e.description.toLowerCase().includes('docker')
+    );
+    expect(hasDockerMatch).toBe(true);
+  });
+
+  test('search with source filter narrows results', async () => {
+    test.setTimeout(30_000);
+    const all = await callCoreRpc<{
+      entries: Array<{ id: string; source: string }>;
+    }>('openhuman.skill_registry_search', { query: 'git' });
+
+    const filtered = await callCoreRpc<{
+      entries: Array<{ id: string; source: string }>;
+    }>('openhuman.skill_registry_search', { query: 'git', source: 'built-in' });
+
+    expect(filtered.entries.length).toBeLessThanOrEqual(all.entries.length);
+    for (const entry of filtered.entries) {
+      expect(entry.source).toBe('built-in');
+    }
+  });
+
   test('search with empty query returns all entries', async () => {
     test.setTimeout(30_000);
     const all = await callCoreRpc<{ entries: Array<unknown> }>(

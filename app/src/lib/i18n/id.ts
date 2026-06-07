@@ -284,6 +284,7 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Tidak ada entri registri',
   'skills.explorer.registryEmptyDescription':
     'Tidak dapat memuat registri keterampilan. Periksa koneksi Anda dan coba segarkan.',
+  'skills.explorer.showingOf': 'Menampilkan {shown} dari {total} hasil. Perbaiki pencarian Anda untuk melihat lebih banyak.',
   'skills.explorer.installed': 'Terpasang',
   'skills.explorer.install': 'Pasang',
   'skills.explorer.installing': 'Memasang…',

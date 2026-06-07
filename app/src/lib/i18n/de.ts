@@ -291,6 +291,7 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Keine Verzeichniseinträge',
   'skills.explorer.registryEmptyDescription':
     'Das Skill-Verzeichnis konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.',
+  'skills.explorer.showingOf': '{shown} von {total} Ergebnissen angezeigt. Verfeinern Sie Ihre Suche für mehr.',
   'skills.explorer.installed': 'Installiert',
   'skills.explorer.install': 'Installieren',
   'skills.explorer.installing': 'Wird installiert…',

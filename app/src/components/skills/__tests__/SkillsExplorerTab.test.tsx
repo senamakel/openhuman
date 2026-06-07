@@ -18,6 +18,7 @@ vi.mock('../../../services/api/skillRegistryApi', () => ({
     browse: vi.fn(),
     search: vi.fn(),
     sources: vi.fn(),
+    categories: vi.fn(),
     install: vi.fn(),
   },
 }));
@@ -66,6 +67,16 @@ const MOCK_CATALOG_ENTRY: CatalogEntry = {
   license: 'MIT',
 };
 
+const MOCK_DOCKER_ENTRY: CatalogEntry = {
+  ...MOCK_CATALOG_ENTRY,
+  id: 'docker-manager',
+  name: 'Docker Manager',
+  description: 'Manage Docker containers and images',
+  source: 'skills.sh',
+  category: 'devops',
+  tags: ['docker', 'containers'],
+};
+
 async function switchToInstalled() {
   const installedTab = screen.getByText('Installed', { selector: 'button' });
   await act(async () => {
@@ -82,8 +93,12 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listSkills).mockReset();
     vi.mocked(skillsApi.uninstallSkill).mockReset();
     vi.mocked(skillRegistryApi.browse).mockReset();
+    vi.mocked(skillRegistryApi.search).mockReset();
     vi.mocked(skillRegistryApi.install).mockReset();
+    vi.mocked(skillRegistryApi.sources).mockReset();
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.search).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.sources).mockResolvedValue([]);
   });
 
   it('defaults to registry view and shows catalog entries', async () => {
@@ -100,6 +115,36 @@ describe('SkillsExplorerTab', () => {
       expect(screen.getByText('Registry Skill')).toBeInTheDocument();
     });
     expect(screen.getByText('built-in')).toBeInTheDocument();
+  });
+
+  it('searches catalog via RPC when typing in search box', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import(
+      '../../../services/api/skillRegistryApi'
+    );
+    vi.mocked(skillsApi.listSkills).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
+    vi.mocked(skillRegistryApi.search).mockResolvedValue([MOCK_DOCKER_ENTRY]);
+
+    render(<SkillsExplorerTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Registry Skill')).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByTestId('skill-search-input');
+    await act(async () => {
+      fireEvent.change(searchInput, { target: { value: 'docker' } });
+    });
+
+    // Wait for the debounce to fire and the RPC search to be called
+    await waitFor(() => {
+      expect(skillRegistryApi.search).toHaveBeenCalledWith('docker', undefined);
+    }, { timeout: 2000 });
+
+    await waitFor(() => {
+      expect(screen.getByText('Docker Manager')).toBeInTheDocument();
+    });
   });
 
   it('shows installed skills when switching to installed tab', async () => {

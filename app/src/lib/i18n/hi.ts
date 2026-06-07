@@ -282,6 +282,7 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'कोई रजिस्ट्री प्रविष्टियाँ नहीं',
   'skills.explorer.registryEmptyDescription':
     'कौशल रजिस्ट्री लोड नहीं हो सकी। अपना कनेक्शन जांचें और रिफ़्रेश करें।',
+  'skills.explorer.showingOf': '{total} परिणामों में से {shown} दिखाए जा रहे हैं। अधिक देखने के लिए अपनी खोज को परिष्कृत करें।',
   'skills.explorer.installed': 'इंस्टॉल किया गया',
   'skills.explorer.install': 'इंस्टॉल करें',
   'skills.explorer.installing': 'इंस्टॉल हो रहा है…',

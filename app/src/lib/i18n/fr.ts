@@ -290,6 +290,7 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'Aucune entrée dans le registre',
   'skills.explorer.registryEmptyDescription':
     'Impossible de charger le registre de compétences. Vérifiez votre connexion et réessayez.',
+  'skills.explorer.showingOf': 'Affichage de {shown} sur {total} résultats. Affinez votre recherche pour en voir plus.',
   'skills.explorer.installed': 'Installée',
   'skills.explorer.install': 'Installer',
   'skills.explorer.installing': 'Installation…',

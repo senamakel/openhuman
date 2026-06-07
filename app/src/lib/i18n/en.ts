@@ -307,6 +307,7 @@ const en: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'No registry entries',
   'skills.explorer.registryEmptyDescription':
     'Could not load the skill registry. Check your connection and try refreshing.',
+  'skills.explorer.showingOf': 'Showing {shown} of {total} results. Refine your search to see more.',
   'skills.explorer.installed': 'Installed',
   'skills.explorer.install': 'Install',
   'skills.explorer.installing': 'Installing…',

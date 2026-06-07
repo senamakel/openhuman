@@ -280,6 +280,7 @@ const messages: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'لا توجد إدخالات في السجل',
   'skills.explorer.registryEmptyDescription':
     'تعذر تحميل سجل المهارات. تحقق من اتصالك وحاول التحديث.',
+  'skills.explorer.showingOf': 'عرض {shown} من {total} نتيجة. حسّن بحثك لرؤية المزيد.',
   'skills.explorer.installed': 'مثبت',
   'skills.explorer.install': 'تثبيت',
   'skills.explorer.installing': 'جارٍ التثبيت…',

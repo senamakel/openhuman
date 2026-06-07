@@ -270,6 +270,7 @@ const messages: TranslationMap = {
   'skills.explorer.refreshRegistry': '刷新注册表',
   'skills.explorer.registryEmptyTitle': '没有注册表条目',
   'skills.explorer.registryEmptyDescription': '无法加载技能注册表。请检查您的连接并尝试刷新。',
+  'skills.explorer.showingOf': '显示 {total} 个结果中的 {shown} 个。请优化搜索以查看更多。',
   'skills.explorer.installed': '已安装',
   'skills.explorer.install': '安装',
   'skills.explorer.installing': '安装中…',

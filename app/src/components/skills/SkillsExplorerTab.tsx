@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import debug from 'debug';
 
 import { useT } from '../../lib/i18n/I18nContext';
@@ -16,6 +16,8 @@ import InstallSkillDialog from './InstallSkillDialog';
 import UninstallSkillConfirmDialog from './UninstallSkillConfirmDialog';
 
 const log = debug('skills:explorer-tab');
+const CATALOG_PAGE_SIZE = 60;
+const SEARCH_DEBOUNCE_MS = 300;
 
 function SourceBadge({ source }: { source: string }) {
   const SOURCE_COLORS: Record<string, string> = {
@@ -459,18 +461,34 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsError, setSkillsError] = useState<string | null>(null);
 
-  const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
+  const [catalogEntries, setCatalogEntries] = useState<CatalogEntry[]>([]);
+  const [catalogTotal, setCatalogTotal] = useState(0);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogInitialized, setCatalogInitialized] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
 
   const [sources, setSources] = useState<string[]>([]);
   const [activeSources, setActiveSources] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [uninstallTarget, setUninstallTarget] = useState<SkillSummary | null>(null);
   const [detailEntry, setDetailEntry] = useState<CatalogEntry | null>(null);
   const [detailSkill, setDetailSkill] = useState<SkillSummary | null>(null);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery]);
 
   const fetchSkills = useCallback(async () => {
     log('fetchSkills: start');
@@ -489,14 +507,34 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
     }
   }, []);
 
-  const fetchCatalog = useCallback(async (forceRefresh = false) => {
-    log('fetchCatalog: forceRefresh=%s', forceRefresh);
+  // Compute the active source filter for RPC calls.
+  // Only apply when the user has deselected at least one source.
+  const activeSourceFilter = useMemo(() => {
+    if (activeSources.size === 0 || activeSources.size >= sources.length) return undefined;
+    // If exactly one source is active, pass it as the filter
+    if (activeSources.size === 1) return [...activeSources][0];
+    return undefined;
+  }, [activeSources, sources.length]);
+
+  // Fetch catalog via RPC search (handles both browse and search).
+  // When query is empty and no source filter, uses browse; otherwise uses search.
+  const fetchCatalog = useCallback(async (query: string, sourceFilter: string | undefined, forceRefresh: boolean) => {
+    log('fetchCatalog: query=%s source=%s forceRefresh=%s', query, sourceFilter, forceRefresh);
     setCatalogLoading(true);
     setCatalogError(null);
     try {
-      const entries = await skillRegistryApi.browse(forceRefresh);
-      log('fetchCatalog: count=%d', entries.length);
-      setCatalog(entries);
+      let entries: CatalogEntry[];
+      if (!query && !sourceFilter && !forceRefresh) {
+        entries = await skillRegistryApi.browse(false);
+      } else if (!query && !sourceFilter && forceRefresh) {
+        entries = await skillRegistryApi.browse(true);
+      } else {
+        entries = await skillRegistryApi.search(query || '', sourceFilter);
+      }
+      log('fetchCatalog: total=%d', entries.length);
+      setCatalogTotal(entries.length);
+      setCatalogEntries(entries.slice(0, CATALOG_PAGE_SIZE));
+      setCatalogInitialized(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log('fetchCatalog: error=%s', msg);
@@ -514,11 +552,12 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
     }).catch(() => {});
   }, [fetchSkills]);
 
+  // Trigger catalog search when debounced query or source filter changes
   useEffect(() => {
-    if (view === 'registry' && catalog.length === 0 && !catalogLoading) {
-      void fetchCatalog();
+    if (view === 'registry') {
+      void fetchCatalog(debouncedQuery, activeSourceFilter, false);
     }
-  }, [view, catalog.length, catalogLoading, fetchCatalog]);
+  }, [view, debouncedQuery, activeSourceFilter, fetchCatalog]);
 
   const installedIds = useMemo(() => new Set(skills.map(s => s.id)), [skills]);
 
@@ -542,20 +581,14 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
     });
   }, [filteredSkills]);
 
-  const filteredCatalog = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return catalog.filter(entry => {
-      if (activeSources.size > 0 && activeSources.size < sources.length && !activeSources.has(entry.source)) return false;
-      if (!q) return true;
-      return (
-        entry.name.toLowerCase().includes(q) ||
-        entry.description.toLowerCase().includes(q) ||
-        entry.tags.some(tag => tag.toLowerCase().includes(q)) ||
-        entry.category.toLowerCase().includes(q) ||
-        (entry.author ?? '').toLowerCase().includes(q)
-      );
-    });
-  }, [catalog, searchQuery, activeSources, sources.length]);
+  // When multiple sources are active (but not all), do client-side filtering
+  // on the already-fetched results since the RPC only supports single source filter.
+  const displayedCatalog = useMemo(() => {
+    if (activeSources.size === 0 || activeSources.size >= sources.length || activeSources.size === 1) {
+      return catalogEntries;
+    }
+    return catalogEntries.filter(e => activeSources.has(e.source));
+  }, [catalogEntries, activeSources, sources.length]);
 
   const handleInstalled = useCallback(
     (result: InstallSkillFromUrlResult) => {
@@ -647,8 +680,8 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
               : 'border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
           }`}>
           {t('skills.explorer.registryTab')}
-          {catalog.length > 0 && (
-            <span className="ml-1.5 text-[10px] opacity-70">{catalog.length}</span>
+          {catalogTotal > 0 && (
+            <span className="ml-1.5 text-[10px] opacity-70">{catalogTotal.toLocaleString()}</span>
           )}
         </button>
         <button
@@ -712,6 +745,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           </svg>
           <input
             type="text"
+            data-testid="skill-search-input"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder={t('skills.explorer.searchPlaceholder')}
@@ -721,7 +755,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
         {view === 'registry' && (
           <button
             type="button"
-            onClick={() => void fetchCatalog(true)}
+            onClick={() => void fetchCatalog(debouncedQuery, activeSourceFilter, true)}
             disabled={catalogLoading}
             title={t('skills.explorer.refreshRegistry')}
             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 shadow-sm transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800 disabled:opacity-50">
@@ -755,7 +789,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           <button
             type="button"
             onClick={() =>
-              void (view === 'installed' ? fetchSkills() : fetchCatalog(true))
+              void (view === 'installed' ? fetchSkills() : fetchCatalog(debouncedQuery, activeSourceFilter, true))
             }
             className="mt-2 rounded-lg border border-coral-200 dark:border-coral-500/30 px-3 py-1 text-[11px] font-medium text-coral-700 dark:text-coral-300 hover:bg-coral-100 dark:hover:bg-coral-500/20">
             {t('common.retry')}
@@ -816,7 +850,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
       {/* ── Registry view ── */}
       {view === 'registry' && !loading && !error && (
         <>
-          {catalog.length === 0 && (
+          {catalogInitialized && catalogEntries.length === 0 && (
             <EmptyStateCard
               className="mx-1 mb-3 py-10"
               icon={
@@ -833,34 +867,38 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
                   />
                 </svg>
               }
-              title={t('skills.explorer.registryEmptyTitle')}
-              description={t('skills.explorer.registryEmptyDescription')}
-              actionLabel={t('skills.explorer.refreshRegistry')}
-              onAction={() => void fetchCatalog(true)}
+              title={debouncedQuery ? t('skills.noResults') : t('skills.explorer.registryEmptyTitle')}
+              description={debouncedQuery ? '' : t('skills.explorer.registryEmptyDescription')}
+              actionLabel={debouncedQuery ? undefined : t('skills.explorer.refreshRegistry')}
+              onAction={debouncedQuery ? undefined : () => void fetchCatalog('', undefined, true)}
             />
           )}
 
-          {catalog.length > 0 && filteredCatalog.length === 0 && (
-            <p className="px-1 py-8 text-center text-xs text-stone-400 dark:text-neutral-500">
-              {t('skills.noResults')}
-            </p>
-          )}
-
-          {filteredCatalog.length > 0 && (
-            <div
-              className="grid gap-2 sm:gap-3"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(14rem, 1fr))' }}>
-              {filteredCatalog.map(entry => (
-                <CatalogTile
-                  key={`${entry.source}-${entry.id}`}
-                  entry={entry}
-                  installed={installedIds.has(entry.id)}
-                  installing={installingId === entry.id}
-                  onClick={() => setDetailEntry(entry)}
-                  onInstall={() => void handleRegistryInstall(entry)}
-                />
-              ))}
-            </div>
+          {displayedCatalog.length > 0 && (
+            <>
+              <div
+                className="grid gap-2 sm:gap-3"
+                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(14rem, 1fr))' }}>
+                {displayedCatalog.map(entry => (
+                  <CatalogTile
+                    key={`${entry.source}-${entry.id}`}
+                    entry={entry}
+                    installed={installedIds.has(entry.id)}
+                    installing={installingId === entry.id}
+                    onClick={() => setDetailEntry(entry)}
+                    onInstall={() => void handleRegistryInstall(entry)}
+                  />
+                ))}
+              </div>
+              {catalogTotal > displayedCatalog.length && (
+                <p className="mt-3 px-1 text-center text-[11px] text-stone-400 dark:text-neutral-500">
+                  {t('skills.explorer.showingOf')
+                    .replace('{shown}', String(displayedCatalog.length))
+                    .replace('{total}', catalogTotal.toLocaleString()) ||
+                    `Showing ${displayedCatalog.length} of ${catalogTotal.toLocaleString()} results. Refine your search to see more.`}
+                </p>
+              )}
+            </>
           )}
         </>
       )}

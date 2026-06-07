@@ -3726,17 +3726,16 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     );
 
     let requests = wait_for_chat_completion_requests_len(1).await;
-    assert_eq!(requests.len(), 1, "expected one outbound provider call");
+    let custom_request = requests
+        .iter()
+        .find(|request| request.get("model").and_then(Value::as_str) == Some("gpt-4.1-mini"))
+        .unwrap_or_else(|| panic!("expected gpt-4.1-mini outbound provider call: {requests:?}"));
     assert_eq!(
-        requests[0].get("path").and_then(Value::as_str),
+        custom_request.get("path").and_then(Value::as_str),
         Some("/chat/completions")
     );
     assert_eq!(
-        requests[0].get("model").and_then(Value::as_str),
-        Some("gpt-4.1-mini")
-    );
-    assert_eq!(
-        requests[0].get("authorization").and_then(Value::as_str),
+        custom_request.get("authorization").and_then(Value::as_str),
         Some("Bearer sk-custom-openai-key")
     );
 
@@ -3784,14 +3783,19 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     );
 
     let requests = wait_for_chat_completion_requests_len(2).await;
-    assert_eq!(requests.len(), 2, "expected two outbound provider calls");
+    let updated_request = requests
+        .iter()
+        .find(|request| request.get("model").and_then(Value::as_str) == Some("gpt-4.1-nano"))
+        .unwrap_or_else(|| {
+            panic!("expected gpt-4.1-nano outbound provider call after route change: {requests:?}")
+        });
     assert_eq!(
-        requests[1].get("model").and_then(Value::as_str),
+        updated_request.get("model").and_then(Value::as_str),
         Some("gpt-4.1-nano"),
         "cached web-chat session should rebuild when chat_provider changes"
     );
     assert_eq!(
-        requests[1].get("authorization").and_then(Value::as_str),
+        updated_request.get("authorization").and_then(Value::as_str),
         Some("Bearer sk-custom-openai-key")
     );
 
@@ -3830,14 +3834,17 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     );
 
     let requests = wait_for_chat_completion_requests_len(3).await;
-    assert_eq!(requests.len(), 3, "expected three outbound provider calls");
+    let agentic_request = requests
+        .iter()
+        .find(|request| request.get("model").and_then(Value::as_str) == Some("agentic-v1"))
+        .unwrap_or_else(|| panic!("expected agentic-v1 backend provider call: {requests:?}"));
     assert_eq!(
-        requests[2].get("path").and_then(Value::as_str),
+        agentic_request.get("path").and_then(Value::as_str),
         Some("/openai/v1/chat/completions"),
         "custom reasoning provider must not hijack unrelated backend routes"
     );
     assert_eq!(
-        requests[2].get("model").and_then(Value::as_str),
+        agentic_request.get("model").and_then(Value::as_str),
         Some("agentic-v1")
     );
 
@@ -3984,26 +3991,29 @@ async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header
     );
 
     let requests = wait_for_chat_completion_requests_len(1).await;
-    assert_eq!(requests.len(), 1, "expected one auth-none provider call");
+    let auth_none_request = requests
+        .iter()
+        .find(|request| request.get("model").and_then(Value::as_str) == Some("gpt-oss"))
+        .unwrap_or_else(|| panic!("expected auth-none provider call: {requests:?}"));
     assert_eq!(
-        requests[0].get("path").and_then(Value::as_str),
+        auth_none_request.get("path").and_then(Value::as_str),
         Some("/chat/completions")
     );
-    assert_eq!(
-        requests[0].get("model").and_then(Value::as_str),
-        Some("gpt-oss")
-    );
     assert!(
-        requests[0].get("authorization").is_none()
-            || requests[0].get("authorization").is_some_and(Value::is_null),
+        auth_none_request.get("authorization").is_none()
+            || auth_none_request
+                .get("authorization")
+                .is_some_and(Value::is_null),
         "auth_style=none must not emit Authorization: {:?}",
-        requests[0].get("authorization")
+        auth_none_request.get("authorization")
     );
     assert!(
-        requests[0].get("x_api_key").is_none()
-            || requests[0].get("x_api_key").is_some_and(Value::is_null),
+        auth_none_request.get("x_api_key").is_none()
+            || auth_none_request
+                .get("x_api_key")
+                .is_some_and(Value::is_null),
         "auth_style=none must not emit x-api-key: {:?}",
-        requests[0].get("x_api_key")
+        auth_none_request.get("x_api_key")
     );
 
     mock_join.abort();

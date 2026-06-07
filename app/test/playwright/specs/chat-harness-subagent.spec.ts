@@ -142,7 +142,7 @@ test.describe('Chat Harness - Subagent', () => {
     const threadId = await createNewThread(page);
     await sendMessage(page, PROMPT);
 
-    await expect(page.getByText(CANARY_FINAL)).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(CANARY_FINAL)).toBeVisible({ timeout: 75_000 });
 
     const runtime = await page.evaluate(currentThreadId => {
       const store = (

@@ -627,7 +627,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
         onToast?.({
           type: 'success',
           title: t('skills.install.installComplete'),
-          message: `Installed ${entry.name}${result.new_skills.length > 0 ? ` (${result.new_skills.join(', ')})` : ''}`,
+          message: `Installed ${entry.name}${result.newSkills.length > 0 ? ` (${result.newSkills.join(', ')})` : ''}`,
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

@@ -1,6 +1,6 @@
 //! Workflow preflight gates — run BEFORE the orchestrator boots for a
 //! `skills_run`, so failures surface as a plain `Err` from
-//! [`super::schemas::spawn_workflow_run_background`] (and from there into
+//! [`crate::openhuman::skill_runtime::spawn_workflow_run_background`] (and from there into
 //! the dashboard card / runner page UI) instead of leaking through as
 //! cryptic orchestrator output.
 //!

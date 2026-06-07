@@ -21,6 +21,40 @@ export interface CatalogEntry {
   license: string | null;
 }
 
+export interface RegistryInstallResult {
+  url: string;
+  stdout: string;
+  stderr: string;
+  newSkills: string[];
+}
+
+interface RawRegistryInstallResult {
+  url: string;
+  stdout: string;
+  stderr: string;
+  new_skills: string[];
+}
+
+export interface RegistryUninstallResult {
+  name: string;
+  removedPath: string;
+  scope: string;
+}
+
+interface RawRegistryUninstallResult {
+  name: string;
+  removed_path: string;
+  scope: string;
+}
+
+export interface ControllerSchemaSummary {
+  namespace: string;
+  function: string;
+  description: string;
+  inputs: Array<Record<string, unknown>>;
+  outputs: Array<Record<string, unknown>>;
+}
+
 interface Envelope<T> {
   data?: T;
 }
@@ -77,19 +111,52 @@ export const skillRegistryApi = {
     return result.categories;
   },
 
-  install: async (
-    entryId: string
-  ): Promise<{ url: string; stdout: string; stderr: string; new_skills: string[] }> => {
+  install: async (entryId: string): Promise<RegistryInstallResult> => {
     log('install: entryId=%s', entryId);
     const response = await callCoreRpc<
-      | Envelope<{ url: string; stdout: string; stderr: string; new_skills: string[] }>
-      | { url: string; stdout: string; stderr: string; new_skills: string[] }
+      Envelope<RawRegistryInstallResult> | RawRegistryInstallResult
     >({
       method: 'openhuman.skill_registry_install',
       params: { entry_id: entryId },
     });
-    const result = unwrap(response);
-    log('install: newSkills=%d', result.new_skills.length);
+    const raw = unwrap(response);
+    const result: RegistryInstallResult = {
+      url: raw.url,
+      stdout: raw.stdout,
+      stderr: raw.stderr,
+      newSkills: raw.new_skills ?? [],
+    };
+    log('install: newSkills=%d', result.newSkills.length);
     return result;
+  },
+
+  uninstall: async (name: string): Promise<RegistryUninstallResult> => {
+    log('uninstall: name=%s', name);
+    const response = await callCoreRpc<
+      Envelope<RawRegistryUninstallResult> | RawRegistryUninstallResult
+    >({
+      method: 'openhuman.skill_registry_uninstall',
+      params: { name },
+    });
+    const raw = unwrap(response);
+    const result: RegistryUninstallResult = {
+      name: raw.name,
+      removedPath: raw.removed_path,
+      scope: raw.scope,
+    };
+    log('uninstall: removedPath=%s', result.removedPath);
+    return result;
+  },
+
+  schemas: async (): Promise<ControllerSchemaSummary[]> => {
+    log('schemas: request');
+    const response = await callCoreRpc<
+      Envelope<{ schemas: ControllerSchemaSummary[] }> | { schemas: ControllerSchemaSummary[] }
+    >({
+      method: 'openhuman.skill_registry_schemas',
+    });
+    const result = unwrap(response);
+    log('schemas: count=%d', result.schemas.length);
+    return result.schemas;
   },
 };

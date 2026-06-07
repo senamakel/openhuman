@@ -195,8 +195,8 @@ pub const BUILTINS: &[BuiltinAgent] = &[
     },
     BuiltinAgent {
         id: "skill_executor",
-        toml: include_str!("../../skill_registry/agent/skill_executor/agent.toml"),
-        prompt_fn: crate::openhuman::skill_registry::agent::skill_executor::prompt::build,
+        toml: include_str!("../../skill_runtime/agent/skill_executor/agent.toml"),
+        prompt_fn: crate::openhuman::skill_runtime::agent::skill_executor::prompt::build,
     },
     BuiltinAgent {
         id: "agent_memory",

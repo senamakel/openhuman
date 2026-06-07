@@ -99,10 +99,7 @@ impl Tool for SkillRegistrySearchTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let query = args
-            .get("query")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
         let source_filter = args.get("source").and_then(|v| v.as_str());
         let category_filter = args.get("category").and_then(|v| v.as_str());
 
@@ -182,15 +179,12 @@ impl Tool for SkillRegistryInstallTool {
             .await
             .map_err(|e| anyhow::anyhow!("failed to load catalog: {e}"))?;
 
-        let entry = catalog
-            .iter()
-            .find(|e| e.id == entry_id)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "skill '{entry_id}' not found in catalog. \
+        let entry = catalog.iter().find(|e| e.id == entry_id).ok_or_else(|| {
+            anyhow::anyhow!(
+                "skill '{entry_id}' not found in catalog. \
                      Run skill_registry_browse first to refresh."
-                )
-            })?;
+            )
+        })?;
 
         match ops::install_from_catalog(&self.workspace_dir, entry).await {
             Ok(outcome) => Ok(ToolResult::success(serde_json::to_string(&json!({
@@ -230,13 +224,65 @@ impl Tool for SkillRegistrySourcesTool {
                 "count": sources.len(),
                 "sources": sources,
             }))?)),
-            Err(e) => Ok(ToolResult::error(format!(
-                "Failed to list sources: {e}"
-            ))),
+            Err(e) => Ok(ToolResult::error(format!("Failed to list sources: {e}"))),
         }
     }
 
     fn is_concurrency_safe(&self, _args: &serde_json::Value) -> bool {
         true
+    }
+}
+
+pub struct SkillRegistryUninstallTool;
+
+#[async_trait]
+impl Tool for SkillRegistryUninstallTool {
+    fn name(&self) -> &str {
+        "skill_registry_uninstall"
+    }
+
+    fn description(&self) -> &str {
+        "Uninstall an installed user-scope skill by slug. Use after listing \
+         installed workflows or when the user asks to remove a skill."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Installed skill slug to remove."
+                }
+            },
+            "required": ["name"]
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let name = args
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("missing required argument `name`"))?;
+        tracing::debug!(name = %name, "[tool][skill_registry] uninstall");
+        let params = crate::openhuman::workflows::ops_install::UninstallWorkflowParams {
+            name: name.to_string(),
+        };
+        match crate::openhuman::workflows::ops_install::uninstall_workflow(params, None) {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string(&json!({
+                "name": outcome.name,
+                "removed_path": outcome.removed_path,
+                "scope": outcome.scope,
+            }))?)),
+            Err(error) => Ok(ToolResult::error(format!(
+                "Failed to uninstall skill '{name}': {error}"
+            ))),
+        }
     }
 }

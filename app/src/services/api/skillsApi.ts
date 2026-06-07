@@ -172,7 +172,7 @@ interface RawInstallSkillFromUrlResult {
 }
 
 /**
- * Result of `openhuman.workflows_uninstall`.
+ * Result of `openhuman.skill_registry_uninstall`.
  *
  * Mirrors the Rust-side `UninstallSkillOutcome`. `removedPath` is the
  * canonicalised on-disk path that was deleted — surface it in success toasts
@@ -188,6 +188,36 @@ interface RawUninstallSkillResult {
   name: string;
   removed_path: string;
   scope: SkillScope;
+}
+
+export interface SkillRuntimeSummary {
+  runtime: 'node' | 'python' | string;
+  enabled: boolean;
+  available: boolean;
+  source: 'system' | 'managed' | string | null;
+  version: string | null;
+  binary: string | null;
+  binDir: string | null;
+  error: string | null;
+}
+
+interface RawSkillRuntimeSummary {
+  runtime: string;
+  enabled: boolean;
+  available: boolean;
+  source: string | null;
+  version: string | null;
+  binary: string | null;
+  bin_dir: string | null;
+  error: string | null;
+}
+
+export interface ResolveSkillRuntimesResult {
+  runtimes: SkillRuntimeSummary[];
+}
+
+interface RawResolveSkillRuntimesResult {
+  runtimes: RawSkillRuntimeSummary[];
 }
 
 interface Envelope<T> {
@@ -357,7 +387,7 @@ export const skillsApi = {
   },
 
   /**
-   * Remove an installed user-scope SKILL.md skill via `openhuman.workflows_uninstall`.
+   * Remove an installed user-scope SKILL.md skill via `openhuman.skill_registry_uninstall`.
    *
    * Only user-scope installs (`~/.openhuman/skills/<name>/`) are supported.
    * Project-scope and legacy skills are read-only — trying to uninstall one
@@ -368,7 +398,7 @@ export const skillsApi = {
   uninstallSkill: async (name: string): Promise<UninstallSkillResult> => {
     log('uninstallSkill: request name=%s', name);
     const response = await callCoreRpc<Envelope<RawUninstallSkillResult> | RawUninstallSkillResult>(
-      { method: 'openhuman.workflows_uninstall', params: { name } }
+      { method: 'openhuman.skill_registry_uninstall', params: { name } }
     );
     const raw = unwrapEnvelope(response);
     const normalized: UninstallSkillResult = {
@@ -400,32 +430,38 @@ export const skillsApi = {
   },
 
   /**
-   * Fire-and-forget invocation of `openhuman.workflows_run`. Returns
+   * Fire-and-forget invocation of `openhuman.skill_runtime_run`. Returns
    * immediately with the new background run's `run_id`, the canonical
-   * `workflow_id`, and the log path the run is streaming into; the actual
+   * skill/workflow id, and the log path the run is streaming into; the actual
    * autonomous work continues in the background and finishes with
    * status `DONE` / `DEGENERATE` / `FAILED` in the run log.
    */
   runSkill: async (skillId: string, inputs: Record<string, unknown>): Promise<SkillRunStarted> => {
     log('runSkill: request skillId=%s', skillId);
-    const response = await callCoreRpc<Envelope<SkillRunStarted> | SkillRunStarted>({
-      method: 'openhuman.workflows_run',
-      params: { workflow_id: skillId, inputs },
+    const response = await callCoreRpc<Envelope<RawSkillRunStarted> | RawSkillRunStarted>({
+      method: 'openhuman.skill_runtime_run',
+      params: { skill_id: skillId, inputs },
     });
     const raw = unwrapEnvelope(response);
-    log('runSkill: response runId=%s log=%s', raw.run_id, raw.log);
-    return raw;
+    const normalized: SkillRunStarted = {
+      run_id: raw.run_id,
+      status: raw.status,
+      workflow_id: raw.workflow_id ?? raw.skill_id,
+      log: raw.log,
+    };
+    log('runSkill: response runId=%s log=%s', normalized.run_id, normalized.log);
+    return normalized;
   },
 
   /**
-   * Request cancellation of an in-flight run via `openhuman.workflows_cancel`.
+   * Request cancellation of an in-flight run via `openhuman.skill_runtime_cancel`.
    * Returns `true` if a live run with this id was found and signalled; the run
    * stops at its next await and lands a CANCELLED footer.
    */
   cancelRun: async (runId: string): Promise<boolean> => {
     log('cancelRun: request runId=%s', runId);
     const response = await callCoreRpc<Envelope<{ cancelled: boolean }> | { cancelled: boolean }>({
-      method: 'openhuman.workflows_cancel',
+      method: 'openhuman.skill_runtime_cancel',
       params: { run_id: runId },
     });
     const raw = unwrapEnvelope(response);
@@ -449,7 +485,7 @@ export const skillsApi = {
     if (offset !== undefined) params.offset = offset;
     if (maxBytes !== undefined) params.max_bytes = maxBytes;
     const response = await callCoreRpc<Envelope<RunLogSlice> | RunLogSlice>({
-      method: 'openhuman.workflows_read_run_log',
+      method: 'openhuman.skill_runtime_read_run_log',
       params,
     });
     const raw = unwrapEnvelope(response);
@@ -465,15 +501,47 @@ export const skillsApi = {
   recentRuns: async (skillId?: string, limit?: number): Promise<ScannedRun[]> => {
     log('recentRuns: request skillId=%s limit=%s', skillId ?? '*', limit ?? 'default');
     const params: Record<string, unknown> = {};
-    if (skillId !== undefined) params.workflow_id = skillId;
+    if (skillId !== undefined) params.skill_id = skillId;
     if (limit !== undefined) params.limit = limit;
     const response = await callCoreRpc<Envelope<{ runs: ScannedRun[] }> | { runs: ScannedRun[] }>({
-      method: 'openhuman.workflows_recent_runs',
+      method: 'openhuman.skill_runtime_recent_runs',
       params,
     });
     const raw = unwrapEnvelope(response);
     log('recentRuns: response count=%d', raw.runs.length);
     return raw.runs;
+  },
+
+  /**
+   * Resolve the reusable Node/Python runtimes backing script-based skills.
+   * The backend reuses `runtime_node` and `runtime_python`; this call is a
+   * cheap UI/prod-smoke probe unless it has to bootstrap a missing managed runtime.
+   */
+  resolveRuntimes: async (
+    runtime: 'all' | 'node' | 'python' = 'all'
+  ): Promise<ResolveSkillRuntimesResult> => {
+    log('resolveRuntimes: request runtime=%s', runtime);
+    const response = await callCoreRpc<
+      Envelope<RawResolveSkillRuntimesResult> | RawResolveSkillRuntimesResult
+    >({
+      method: 'openhuman.skill_runtime_resolve_runtimes',
+      params: runtime === 'all' ? {} : { runtime },
+    });
+    const raw = unwrapEnvelope(response);
+    const result: ResolveSkillRuntimesResult = {
+      runtimes: (raw.runtimes ?? []).map((item) => ({
+        runtime: item.runtime,
+        enabled: item.enabled,
+        available: item.available,
+        source: item.source,
+        version: item.version,
+        binary: item.binary,
+        binDir: item.bin_dir,
+        error: item.error,
+      })),
+    };
+    log('resolveRuntimes: response count=%d', result.runtimes.length);
+    return result;
   },
 };
 
@@ -498,7 +566,7 @@ export interface SkillDescription {
   inputs: SkillInputDescription[];
 }
 
-/** Wire shape returned by `openhuman.workflows_run` (fire-and-forget). */
+/** Wire shape returned by `openhuman.skill_runtime_run` (fire-and-forget). */
 export interface SkillRunStarted {
   run_id: string;
   status: string; // "started"
@@ -506,8 +574,16 @@ export interface SkillRunStarted {
   log: string; // absolute path to the streaming log
 }
 
+interface RawSkillRunStarted {
+  run_id: string;
+  status: string;
+  workflow_id?: string;
+  skill_id: string;
+  log: string;
+}
+
 /**
- * Slice of a run log file returned by `openhuman.workflows_read_run_log`.
+ * Slice of a run log file returned by `openhuman.skill_runtime_read_run_log`.
  * Mirrors `crate::openhuman::skills::run_log::RunLogSlice`. The FE
  * passes the returned `offset` as the next call's `offset` to tail
  * forward; polling can stop once `complete: true` (the `--- result ---`
@@ -525,7 +601,7 @@ export interface RunLogSlice {
 }
 
 /**
- * One run entry returned by `openhuman.workflows_recent_runs`. Wire shape
+ * One run entry returned by `openhuman.skill_runtime_recent_runs`. Wire shape
  * mirrors `crate::openhuman::skills::run_log::ScannedRun`. `status` is
  * `"RUNNING"` while the run hasn't written its `--- result ---` footer
  * yet; after the footer lands it becomes `"DONE"` / `"DEGENERATE"` /

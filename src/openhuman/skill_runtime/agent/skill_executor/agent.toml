@@ -20,6 +20,7 @@ named = [
     "list_workflows",
     "describe_workflow",
     "read_workflow_resource",
+    "skill_runtime_resolve_runtimes",
     "run_workflow",
     "shell",
     "file_read",

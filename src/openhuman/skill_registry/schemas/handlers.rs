@@ -6,9 +6,10 @@ use crate::core::all::ControllerFuture;
 use crate::openhuman::skill_registry::ops;
 use crate::rpc::RpcOutcome;
 
+use super::controller_schemas::all_skill_registry_controller_schemas;
 use super::wire_types::{
-    BrowseParams, BrowseResult, CategoriesResult, InstallParams, InstallResult, SearchParams,
-    SearchResult, SourcesResult,
+    BrowseParams, BrowseResult, CategoriesResult, InstallParams, InstallResult, SchemasResult,
+    SearchParams, SearchResult, SourcesResult, UninstallParams, UninstallResult,
 };
 
 fn deserialize_params<T: serde::de::DeserializeOwned>(
@@ -62,10 +63,7 @@ pub(super) fn handle_categories(params: Map<String, Value>) -> ControllerFuture 
     Box::pin(async move {
         let _ = params;
         let categories = ops::list_categories().await?;
-        to_json(RpcOutcome::new(
-            CategoriesResult { categories },
-            Vec::new(),
-        ))
+        to_json(RpcOutcome::new(CategoriesResult { categories }, Vec::new()))
     })
 }
 
@@ -97,6 +95,41 @@ pub(super) fn handle_install(params: Map<String, Value>) -> ControllerFuture {
                 stdout: outcome.stdout,
                 stderr: outcome.stderr,
                 new_skills: outcome.new_skills,
+            },
+            Vec::new(),
+        ))
+    })
+}
+
+pub(super) fn handle_schemas(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let _ = params;
+        to_json(RpcOutcome::new(
+            SchemasResult {
+                schemas: all_skill_registry_controller_schemas(),
+            },
+            Vec::new(),
+        ))
+    })
+}
+
+pub(super) fn handle_uninstall(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let payload = deserialize_params::<UninstallParams>(params)?;
+        tracing::info!(
+            name = %payload.name,
+            "[skill_registry][rpc] uninstall"
+        );
+        let workflow_params = crate::openhuman::workflows::ops_install::UninstallWorkflowParams {
+            name: payload.name,
+        };
+        let outcome =
+            crate::openhuman::workflows::ops_install::uninstall_workflow(workflow_params, None)?;
+        to_json(RpcOutcome::new(
+            UninstallResult {
+                name: outcome.name,
+                removed_path: outcome.removed_path,
+                scope: outcome.scope,
             },
             Vec::new(),
         ))

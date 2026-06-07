@@ -175,7 +175,7 @@ function defaultForType(type: string): InputValue {
 }
 
 /**
- * Project the form-state map back into the JSON inputs shape `skills_run`
+ * Project the form-state map back into the JSON inputs shape `skill_runtime_run`
  * expects: trim strings, coerce integer-typed fields to numbers, drop
  * empty optional fields entirely (so the backend sees them as "not
  * provided" rather than `""`).
@@ -215,6 +215,16 @@ function buildInputsPayload(
     out[inp.name] = typeof raw === 'string' ? raw.trim() : raw;
   }
   return out;
+}
+
+function inferRuntimeRequirement(skill?: SkillSummary): 'node' | 'python' | 'all' | null {
+  const resources = skill?.resources ?? [];
+  const needsNode = resources.some((resource) => /\.(?:cjs|js|mjs)$/i.test(resource));
+  const needsPython = resources.some((resource) => /\.py$/i.test(resource));
+  if (needsNode && needsPython) return 'all';
+  if (needsNode) return 'node';
+  if (needsPython) return 'python';
+  return null;
 }
 
 // ── Component ──────────────────────────────────────────────────────────
@@ -339,7 +349,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
   const [recentRunsLoading, setRecentRunsLoading] = useState(false);
   const [recentRunsRefreshNonce, setRecentRunsRefreshNonce] = useState(0);
   // Timers for the post-run refresh burst (cleared on unmount). A just-started
-  // run's log header is written a beat after `workflows_run` returns, so a
+  // run's log header is written a beat after `skill_runtime_run` returns, so a
   // single immediate re-scan can miss it — we bump now and a couple more times.
   const recentRunsTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(
@@ -535,7 +545,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
   }, [description, formValues]);
 
   // ── Run handler ────────────────────────────────────────────────────
-  // Stop a RUNNING recent-run row via workflows_cancel, then refresh the list
+  // Stop a RUNNING recent-run row via skill_runtime_cancel, then refresh the list
   // so it flips to CANCELLED.
   const handleStopRun = useCallback(async (runId: string) => {
     log('stop run runId=%s', runId);
@@ -550,7 +560,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
   const handleRun = useCallback(async () => {
     if (!description) return;
     // Re-entry guard: a second click before React applies the disabled state
-    // would otherwise fire `workflows_run` twice and spawn two real runs.
+    // would otherwise fire `skill_runtime_run` twice and spawn two real runs.
     if (runSubmitGuardRef.current) {
       log('runSkill: ignoring re-entrant click while a run is starting');
       return;
@@ -568,6 +578,18 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
     try {
       const inputs = buildInputsPayload(description, formValues);
       log('runSkill %s inputs=%o', description.id, inputs);
+      const runtimeRequirement = inferRuntimeRequirement(selectedWorkflow);
+      if (runtimeRequirement) {
+        const resolved = await skillsApi.resolveRuntimes(runtimeRequirement);
+        const unavailable = resolved.runtimes.filter((runtime) => !runtime.available);
+        if (unavailable.length > 0) {
+          throw new Error(
+            unavailable
+              .map((runtime) => `${runtime.runtime}: ${runtime.error ?? 'unavailable'}`)
+              .join('; ')
+          );
+        }
+      }
       const result = await skillsApi.runSkill(description.id, inputs);
       setRun({ status: 'started', result });
       // Surface the new run in "Recent runs" without a manual refresh, and
@@ -581,7 +603,15 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
       setRun({ status: 'error', message: msg });
       releaseRunGuard(0); // allow immediate retry on failure
     }
-  }, [description, formValues, missingRequired, scheduleRecentRunsRefresh, releaseRunGuard, t]);
+  }, [
+    description,
+    formValues,
+    missingRequired,
+    scheduleRecentRunsRefresh,
+    releaseRunGuard,
+    selectedWorkflow,
+    t,
+  ]);
 
   // ── Recent runs: load on mount + on skill change + on demand ───────
   useEffect(() => {

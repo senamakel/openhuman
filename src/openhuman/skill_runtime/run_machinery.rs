@@ -1,4 +1,4 @@
-//! Background workflow run spawning and outcome polling.
+//! Background skill run spawning and outcome polling.
 //!
 //! `spawn_workflow_run_background` is re-used by both the `workflows_run`
 //! JSON-RPC controller and the `run_skill` agent tool (skill chaining).
@@ -12,7 +12,7 @@ use crate::openhuman::agent::harness::subagent_runner::with_autonomous_iter_cap;
 use crate::openhuman::config::Config;
 use crate::openhuman::workflows::{preflight, registry, run_log};
 
-use super::helpers::resolve_workspace_dir;
+use crate::openhuman::workflows::schemas::resolve_workspace_dir;
 
 /// Iteration cap for an autonomous skill run (orchestrator + sub-agents). High
 /// enough to "run until done", while the repeated-failure circuit breaker still
@@ -22,7 +22,7 @@ const WORKFLOW_RUN_MAX_ITERATIONS: usize = 200;
 /// Outcome of [`spawn_workflow_run_background`]: the new run's `run_id`, the
 /// canonical `workflow_id` the registry resolved it to, and the path of the
 /// streaming log file every step + the footer get written to.
-pub(crate) struct WorkflowRunStarted {
+pub struct WorkflowRunStarted {
     pub run_id: String,
     pub workflow_id: String,
     pub log_path: std::path::PathBuf,
@@ -38,7 +38,7 @@ pub(crate) struct WorkflowRunStarted {
 /// background until DONE / DEGENERATE / FAILED. Errors (unknown skill,
 /// missing required inputs) surface as `Err(String)` *before* the spawn so
 /// callers can reject malformed invocations synchronously.
-pub(crate) async fn spawn_workflow_run_background(
+pub async fn spawn_workflow_run_background(
     skill_id_param: String,
     inputs_param: Option<Value>,
 ) -> Result<WorkflowRunStarted, String> {
@@ -289,7 +289,7 @@ pub(crate) async fn spawn_workflow_run_background(
 /// The poll happens in the runtime (a tokio sleep loop), NOT in the LLM —
 /// the model issues one `run_workflow` tool call and gets either the result
 /// or a "still running" handle back, never a busy-wait it has to drive.
-pub(crate) async fn await_run_outcome(
+pub async fn await_run_outcome(
     log_path: &std::path::Path,
     budget: std::time::Duration,
 ) -> Option<run_log::RunOutcome> {

@@ -4,7 +4,8 @@ use crate::core::all::RegisteredController;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use super::handlers::{
-    handle_browse, handle_categories, handle_install, handle_search, handle_sources,
+    handle_browse, handle_categories, handle_install, handle_schemas, handle_search,
+    handle_sources, handle_uninstall,
 };
 
 pub fn all_skill_registry_controller_schemas() -> Vec<ControllerSchema> {
@@ -14,6 +15,8 @@ pub fn all_skill_registry_controller_schemas() -> Vec<ControllerSchema> {
         skill_registry_schemas("sources"),
         skill_registry_schemas("categories"),
         skill_registry_schemas("install"),
+        skill_registry_schemas("uninstall"),
+        skill_registry_schemas("schemas"),
     ]
 }
 
@@ -38,6 +41,14 @@ pub fn all_skill_registry_registered_controllers() -> Vec<RegisteredController> 
         RegisteredController {
             schema: skill_registry_schemas("install"),
             handler: handle_install,
+        },
+        RegisteredController {
+            schema: skill_registry_schemas("uninstall"),
+            handler: handle_uninstall,
+        },
+        RegisteredController {
+            schema: skill_registry_schemas("schemas"),
+            handler: handle_schemas,
         },
     ]
 }
@@ -154,6 +165,49 @@ pub fn skill_registry_schemas(function: &str) -> ControllerSchema {
                     required: true,
                 },
             ],
+        },
+        "uninstall" => ControllerSchema {
+            namespace: "skill_registry",
+            function: "uninstall",
+            description: "Uninstall an installed user-scope skill by slug.",
+            inputs: vec![FieldSchema {
+                name: "name",
+                ty: TypeSchema::String,
+                comment: "Installed skill slug to remove from the user skills directory.",
+                required: true,
+            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "name",
+                    ty: TypeSchema::String,
+                    comment: "Removed skill slug.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "removed_path",
+                    ty: TypeSchema::String,
+                    comment: "Absolute path removed from disk.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "scope",
+                    ty: TypeSchema::String,
+                    comment: "Scope removed; currently user.",
+                    required: true,
+                },
+            ],
+        },
+        "schemas" => ControllerSchema {
+            namespace: "skill_registry",
+            function: "schemas",
+            description: "Return the skill_registry controller schemas for CLI/RPC smoke-test script generation.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "schemas",
+                ty: TypeSchema::Json,
+                comment: "Array of skill_registry controller schemas.",
+                required: true,
+            }],
         },
         _ => ControllerSchema {
             namespace: "skill_registry",

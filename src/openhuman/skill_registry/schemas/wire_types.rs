@@ -2,7 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::core::ControllerSchema;
 use crate::openhuman::skill_registry::types::CatalogEntry;
+use crate::openhuman::workflows::ops_types::WorkflowScope;
 
 // ── Params ──────────────────────────────────────────────────────────────────
 
@@ -25,6 +27,11 @@ pub(super) struct SearchParams {
 #[derive(Debug, Deserialize)]
 pub(super) struct InstallParams {
     pub(super) entry_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct UninstallParams {
+    pub(super) name: String,
 }
 
 // ── Results ─────────────────────────────────────────────────────────────────
@@ -55,4 +62,16 @@ pub(super) struct InstallResult {
     pub(super) stdout: String,
     pub(super) stderr: String,
     pub(super) new_skills: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct UninstallResult {
+    pub(super) name: String,
+    pub(super) removed_path: String,
+    pub(super) scope: WorkflowScope,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct SchemasResult {
+    pub(super) schemas: Vec<ControllerSchema>,
 }

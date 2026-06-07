@@ -33,10 +33,9 @@
 use async_trait::async_trait;
 use serde_json::json;
 
+use crate::openhuman::skill_runtime::{await_run_outcome, spawn_workflow_run_background};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
-use crate::openhuman::workflows::schemas::{
-    await_run_outcome, resolve_workspace_dir, spawn_workflow_run_background,
-};
+use crate::openhuman::workflows::schemas::resolve_workspace_dir;
 
 /// Tool name surfaced to the LLM's function-calling schema.
 pub const RUN_WORKFLOW_TOOL_NAME: &str = "run_workflow";

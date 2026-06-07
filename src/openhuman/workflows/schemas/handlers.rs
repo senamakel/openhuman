@@ -2,13 +2,15 @@
 //!
 //! Each `handle_*` function deserialises its params, calls into the domain
 //! ops layer, and serialises the result back as JSON. Business logic lives in
-//! `ops.rs` / `run_machinery.rs`; this layer is intentionally thin.
+//! `ops.rs` and skill execution lives in `skill_runtime`; this layer is
+//! intentionally thin.
 
 use std::path::Path;
 
 use serde_json::{Map, Value};
 
 use crate::core::all::ControllerFuture;
+use crate::openhuman::skill_runtime::spawn_workflow_run_background;
 use crate::openhuman::workflows::ops::{
     create_workflow, discover_workflows, install_workflow_from_url, is_workspace_trusted,
     read_workflow_resource, uninstall_workflow, CreateWorkflowParams, UninstallWorkflowParams,
@@ -17,7 +19,6 @@ use crate::openhuman::workflows::{registry, run_log};
 use crate::rpc::RpcOutcome;
 
 use super::helpers::{deserialize_params, resolve_config, resolve_workspace_dir, to_json};
-use super::run_machinery::spawn_workflow_run_background;
 use super::wire_types::{
     WorkflowInputDescription, WorkflowSummary, WorkflowsCancelParams, WorkflowsCreateParams,
     WorkflowsCreateResult, WorkflowsDescribeParams, WorkflowsDescribeResult,

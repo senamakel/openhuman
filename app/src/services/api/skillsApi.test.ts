@@ -54,21 +54,27 @@ describe('skillsApi', () => {
   });
 
   describe('runSkill', () => {
-    it('calls openhuman.workflows_run with workflow_id and inputs', async () => {
-      mockCallCoreRpc.mockResolvedValue({ run_id: 'run-1', workflow_id: 's', log: '/tmp/log' });
+    it('calls openhuman.skill_runtime_run with skill_id and inputs', async () => {
+      mockCallCoreRpc.mockResolvedValue({
+        run_id: 'run-1',
+        status: 'started',
+        skill_id: 's',
+        log: '/tmp/log',
+      });
       const result = await skillsApi.runSkill('s', { repo: 'owner/repo' });
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'openhuman.workflows_run',
-          params: { workflow_id: 's', inputs: { repo: 'owner/repo' } },
+          method: 'openhuman.skill_runtime_run',
+          params: { skill_id: 's', inputs: { repo: 'owner/repo' } },
         })
       );
       expect(result.run_id).toBe('run-1');
+      expect(result.workflow_id).toBe('s');
     });
   });
 
   describe('readRunLog', () => {
-    it('calls skills_read_run_log with run_id', async () => {
+    it('calls skill_runtime_read_run_log with run_id', async () => {
       mockCallCoreRpc.mockResolvedValue({
         bytes_read: 100,
         eof: false,
@@ -79,7 +85,7 @@ describe('skillsApi', () => {
       const result = await skillsApi.readRunLog('run-1');
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'openhuman.workflows_read_run_log',
+          method: 'openhuman.skill_runtime_read_run_log',
           params: expect.objectContaining({ run_id: 'run-1' }),
         })
       );
@@ -115,7 +121,8 @@ describe('skillsApi', () => {
       await skillsApi.recentRuns('dev-workflow', 5);
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
-          params: expect.objectContaining({ workflow_id: 'dev-workflow', limit: 5 }),
+          method: 'openhuman.skill_runtime_recent_runs',
+          params: expect.objectContaining({ skill_id: 'dev-workflow', limit: 5 }),
         })
       );
     });
@@ -195,12 +202,12 @@ describe('skillsApi', () => {
   });
 
   describe('cancelRun', () => {
-    it('calls openhuman.workflows_cancel with run_id and returns cancelled', async () => {
+    it('calls openhuman.skill_runtime_cancel with run_id and returns cancelled', async () => {
       mockCallCoreRpc.mockResolvedValue({ cancelled: true });
       const result = await skillsApi.cancelRun('run-9');
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'openhuman.workflows_cancel',
+          method: 'openhuman.skill_runtime_cancel',
           params: { run_id: 'run-9' },
         })
       );
@@ -211,6 +218,51 @@ describe('skillsApi', () => {
       mockCallCoreRpc.mockResolvedValue({ data: { cancelled: false } });
       const result = await skillsApi.cancelRun('gone');
       expect(result).toBe(false);
+    });
+  });
+
+  describe('uninstallSkill', () => {
+    it('calls openhuman.skill_registry_uninstall and normalizes removed_path', async () => {
+      mockCallCoreRpc.mockResolvedValue({
+        name: 'demo',
+        removed_path: '/tmp/demo',
+        scope: 'user',
+      });
+      const result = await skillsApi.uninstallSkill('demo');
+      expect(mockCallCoreRpc).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'openhuman.skill_registry_uninstall',
+          params: { name: 'demo' },
+        })
+      );
+      expect(result.removedPath).toBe('/tmp/demo');
+    });
+  });
+
+  describe('resolveRuntimes', () => {
+    it('calls openhuman.skill_runtime_resolve_runtimes and normalizes bin_dir', async () => {
+      mockCallCoreRpc.mockResolvedValue({
+        runtimes: [
+          {
+            runtime: 'node',
+            enabled: true,
+            available: true,
+            source: 'system',
+            version: '22.11.0',
+            binary: '/usr/bin/node',
+            bin_dir: '/usr/bin',
+            error: null,
+          },
+        ],
+      });
+      const result = await skillsApi.resolveRuntimes('node');
+      expect(mockCallCoreRpc).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'openhuman.skill_runtime_resolve_runtimes',
+          params: { runtime: 'node' },
+        })
+      );
+      expect(result.runtimes[0].binDir).toBe('/usr/bin');
     });
   });
 });

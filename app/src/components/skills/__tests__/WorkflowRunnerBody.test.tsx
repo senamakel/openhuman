@@ -38,6 +38,7 @@ const hoisted = vi.hoisted(() => ({
   recentRuns: vi.fn(),
   readRunLog: vi.fn(),
   cancelRun: vi.fn(),
+  resolveRuntimes: vi.fn(),
   describeSkillList: vi.fn(),
 }));
 
@@ -58,6 +59,7 @@ vi.mock('../../../services/api/skillsApi', () => ({
     recentRuns: hoisted.recentRuns,
     readRunLog: hoisted.readRunLog,
     cancelRun: hoisted.cancelRun,
+    resolveRuntimes: hoisted.resolveRuntimes,
   },
 }));
 
@@ -161,6 +163,7 @@ describe('WorkflowRunnerBody — saved-schedule toggle', () => {
     hoisted.listSkills.mockResolvedValue(skillsList);
     hoisted.describeSkill.mockResolvedValue(skillDescription);
     hoisted.recentRuns.mockResolvedValue([]);
+    hoisted.resolveRuntimes.mockResolvedValue({ runtimes: [] });
     hoisted.cronList.mockResolvedValue({ result: [makeJob({ enabled: true })] });
     hoisted.cronUpdate.mockResolvedValue({ result: makeJob({ enabled: false }) });
     hoisted.cronRuns.mockResolvedValue({ result: { runs: [] } });
@@ -265,6 +268,7 @@ describe('WorkflowRunnerBody — per-job history viewer', () => {
     hoisted.listSkills.mockResolvedValue(skillsList);
     hoisted.describeSkill.mockResolvedValue(skillDescription);
     hoisted.recentRuns.mockResolvedValue([]);
+    hoisted.resolveRuntimes.mockResolvedValue({ runtimes: [] });
     hoisted.cronList.mockResolvedValue({ result: [makeJob({ enabled: true })] });
     hoisted.cronRuns.mockResolvedValue({ result: { runs: [makeRun(1), makeRun(2)] } });
   });
@@ -406,6 +410,7 @@ describe('WorkflowRunnerBody — schedule frequency + save', () => {
     hoisted.listSkills.mockResolvedValue(skillsList);
     hoisted.describeSkill.mockResolvedValue(skillDescription);
     hoisted.recentRuns.mockResolvedValue([]);
+    hoisted.resolveRuntimes.mockResolvedValue({ runtimes: [] });
     hoisted.cronList.mockResolvedValue({ result: [] });
     hoisted.cronAdd.mockResolvedValue({ result: makeJob() });
     hoisted.cronRuns.mockResolvedValue({ result: { runs: [] } });
@@ -439,6 +444,7 @@ describe('WorkflowRunnerBody — SmartIssuePicker conditional mount', () => {
   beforeEach(() => {
     Object.values(hoisted).forEach((fn) => fn.mockReset());
     hoisted.recentRuns.mockResolvedValue([]);
+    hoisted.resolveRuntimes.mockResolvedValue({ runtimes: [] });
     hoisted.cronList.mockResolvedValue({ result: [] });
     hoisted.cronRuns.mockResolvedValue({ result: { runs: [] } });
   });
@@ -513,6 +519,7 @@ describe('WorkflowRunnerBody — URL ?workflow= preselect', () => {
       inputs: [],
     });
     hoisted.recentRuns.mockResolvedValue([]);
+    hoisted.resolveRuntimes.mockResolvedValue({ runtimes: [] });
     hoisted.cronList.mockResolvedValue({ result: [] });
     hoisted.cronRuns.mockResolvedValue({ result: { runs: [] } });
   });
@@ -613,6 +620,7 @@ describe('WorkflowRunnerBody — Run Now flow', () => {
       ],
     });
     hoisted.recentRuns.mockResolvedValue([]);
+    hoisted.resolveRuntimes.mockResolvedValue({ runtimes: [] });
     hoisted.cronList.mockResolvedValue({ result: [] });
     hoisted.cronRuns.mockResolvedValue({ result: { runs: [] } });
     hoisted.runSkill.mockResolvedValue({
@@ -767,6 +775,7 @@ describe('WorkflowRunnerBody — Stop / Edit / scheduled run-now', () => {
     ]);
     hoisted.describeSkill.mockResolvedValue(skillDescription);
     hoisted.recentRuns.mockResolvedValue([]);
+    hoisted.resolveRuntimes.mockResolvedValue({ runtimes: [] });
     hoisted.cronList.mockResolvedValue({ result: [] });
     hoisted.cronRuns.mockResolvedValue({ result: { runs: [] } });
     hoisted.runSkill.mockResolvedValue({ run_id: 'r-new', workflow_id: SKILL_ID, log: '/tmp/l' });

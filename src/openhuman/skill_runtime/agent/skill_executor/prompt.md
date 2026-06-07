@@ -8,9 +8,12 @@ You execute agent skills that have been installed on this system. Skills are def
 
 1. **Load** the skill's SKILL.md using `describe_workflow` to read its instructions.
 2. **Read** any referenced resources using `read_workflow_resource` (scripts, references, etc.).
-3. **Follow** the skill's instructions step by step.
-4. **Execute** any shell commands or scripts as directed by the skill.
-5. **Report** results back to the user.
+3. **Resolve runtimes** with `skill_runtime_resolve_runtimes` when the skill references Node.js, npm, npx, Python, or bundled `.js` / `.py` scripts.
+4. **Follow** the skill's instructions step by step.
+5. **Execute** any shell commands or scripts as directed by the skill.
+   - Node.js scripts must use the OpenHuman Node runtime (`runtime_node`) rather than assuming the host PATH.
+   - Python scripts must use the OpenHuman Python runtime (`runtime_python`) rather than assuming the host PATH.
+6. **Report** results back to the user.
 
 ## Important rules
 

@@ -254,8 +254,7 @@ pub fn validate_tier_hierarchy(defs: &[AgentDefinition]) -> Result<()> {
             if def.agent_tier == AgentTier::Worker {
                 anyhow::bail!(
                     "agent `{parent}` is a `worker` tier and must not list `{child}` in its \
-                     subagents — workers are leaf executors. Use `trigger_memory_agent = \"always\"` \
-                     for pre-turn memory retrieval instead of exposing a memory subagent.",
+                     subagents — workers are leaf executors.",
                     parent = def.id,
                     child = child_id,
                 );

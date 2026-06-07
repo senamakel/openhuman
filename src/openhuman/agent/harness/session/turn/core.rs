@@ -691,15 +691,19 @@ impl Agent {
                 );
                 let mut output =
                     truncate_with_ellipsis(&outcome.output, MAX_MEMORY_AGENT_BLOCK_CHARS);
-                if output.trim().is_empty() {
-                    return enriched;
-                }
                 if let harness::subagent_runner::SubagentRunStatus::AwaitingUser {
                     question, ..
-                } = outcome.status
+                } = &outcome.status
                 {
-                    output.push_str("\n\nMemory agent needs clarification: ");
-                    output.push_str(&question);
+                    let question = question.trim();
+                    if !question.is_empty() {
+                        output.push_str("\n\nMemory agent needs clarification: ");
+                        output.push_str(question);
+                    }
+                }
+                output = truncate_with_ellipsis(&output, MAX_MEMORY_AGENT_BLOCK_CHARS);
+                if output.trim().is_empty() {
+                    return enriched;
                 }
                 format!(
                     "## Memory agent context\n\n{}\n\n---\n\n{}",

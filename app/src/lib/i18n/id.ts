@@ -1187,6 +1187,7 @@ const messages: TranslationMap = {
   'mcp.tab.badge.installed': 'Terpasang',
   'mcp.tab.badge.registry': 'Registri',
   'mcp.tab.action.manage': 'Kelola',
+  'mcp.tab.aria.viewDetails': 'Lihat detail untuk {name}',
   'mcp.install.loadingDetail': 'Memuat detail server...',
   'mcp.install.back': 'Kembali',
   'mcp.install.title': 'Instal {name}',

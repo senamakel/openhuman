@@ -1159,6 +1159,7 @@ const messages: TranslationMap = {
   'mcp.tab.badge.installed': 'مثبت',
   'mcp.tab.badge.registry': 'السجل',
   'mcp.tab.action.manage': 'إدارة',
+  'mcp.tab.aria.viewDetails': 'عرض تفاصيل {name}',
   'mcp.install.loadingDetail': 'جارٍ تحميل تفاصيل الخادم...',
   'mcp.install.back': 'العودة',
   'mcp.install.title': 'تثبيت {name}',

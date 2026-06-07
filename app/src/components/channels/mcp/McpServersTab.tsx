@@ -344,7 +344,10 @@ const McpServersTab = () => {
                     className="hover:bg-stone-50 dark:hover:bg-neutral-800/40 cursor-pointer transition-colors"
                     tabIndex={0}
                     role="button"
-                    aria-label={`View details for ${server.display_name}`}
+                    aria-label={t('mcp.tab.aria.viewDetails').replace(
+                      '{name}',
+                      server.display_name
+                    )}
                     onClick={() => handleSelectServer(server.server_id)}
                     onKeyDown={e => {
                       if (e.key === 'Enter' || e.key === ' ') {

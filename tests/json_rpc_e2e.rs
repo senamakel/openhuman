@@ -3493,8 +3493,15 @@ async fn json_rpc_memory_tree_end_to_end() {
     let _ = mock_join.await;
 }
 
-#[tokio::test]
-async fn json_rpc_web_chat_routing_cases_use_expected_backend_models() {
+#[test]
+fn json_rpc_web_chat_routing_cases_use_expected_backend_models() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_web_chat_routing_cases",
+        json_rpc_web_chat_routing_cases_use_expected_backend_models_inner,
+    );
+}
+
+async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();

@@ -547,6 +547,30 @@ async fn prepare_messages_bounds_gzipped_data_uri_decompression() {
 }
 
 #[tokio::test]
+async fn prepare_messages_rejects_gzip_without_original_mime() {
+    use base64::Engine as _;
+    use flate2::{write::GzEncoder, Compression};
+    use std::io::Write;
+
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(b"Hello compressed").unwrap();
+    let encoded = base64::engine::general_purpose::STANDARD.encode(encoder.finish().unwrap());
+    let messages = vec![ChatMessage::user(format!(
+        "[FILE:data:application/gzip;name=note.txt;base64,{encoded}]"
+    ))];
+
+    let error = prepare_messages_for_provider(
+        &messages,
+        &MultimodalConfig::default(),
+        &MultimodalFileConfig::default(),
+    )
+    .await
+    .expect_err("gzip without original_mime must fail");
+
+    assert!(error.to_string().contains("original_mime"));
+}
+
+#[tokio::test]
 async fn prepare_messages_truncates_extracted_text_to_cap() {
     let temp = tempfile::tempdir().unwrap();
     let file_path = temp.path().join("long.txt");

@@ -192,9 +192,9 @@ export async function validateAndReadFile(
 
 /**
  * Compose the final message string by appending `[IMAGE:<data-uri>]` markers
- * for each attachment after the user's text. The Rust backend parses these
- * markers in `parse_image_markers` and strips them from the visible message
- * before forwarding clean text + image payload to the inference provider.
+ * for image attachments and `[FILE:<data-uri>]` markers for other supported
+ * files after the user's text. The Rust agent harness parses and strips these
+ * markers before forwarding clean text and attachment payloads to the provider.
  */
 export function buildMessageWithAttachments(text: string, attachments: Attachment[]): string {
   if (attachments.length === 0) return text;

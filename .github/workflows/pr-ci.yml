@@ -318,10 +318,20 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
+      - name: Create swap space
+        # Coverage-instrumented binaries are link-heavy; the default 7 GB RAM
+        # on ubuntu-22.04 runners is often insufficient for rust-lld.  Adding
+        # swap prevents OOM kills during the link phase.
+        run: |
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "Swap enabled: $(swapon --show)"
       - name: Run cargo llvm-cov for openhuman core
         run: bash scripts/ci-cancel-aware.sh cargo llvm-cov --no-fail-fast -p openhuman --lcov --output-path lcov-core.info
         env:
-          CARGO_BUILD_JOBS: "2"
+          CARGO_BUILD_JOBS: "1"
 
       - name: Upload core lcov
         uses: actions/upload-artifact@v5

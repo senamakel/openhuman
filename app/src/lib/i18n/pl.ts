@@ -1195,6 +1195,7 @@ const messages: TranslationMap = {
   'mcp.tab.column.name': 'Nazwa',
   'mcp.tab.column.description': 'Opis',
   'mcp.tab.column.source': 'Źródło',
+  'mcp.tab.column.author': 'Autor',
   'mcp.tab.column.action': 'Akcja',
   'mcp.tab.badge.installed': 'Zainstalowane',
   'mcp.tab.badge.registry': 'Rejestr',

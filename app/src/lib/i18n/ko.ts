@@ -1170,6 +1170,7 @@ const messages: TranslationMap = {
   'mcp.tab.column.name': '이름',
   'mcp.tab.column.description': '설명',
   'mcp.tab.column.source': '출처',
+  'mcp.tab.column.author': '작성자',
   'mcp.tab.column.action': '작업',
   'mcp.tab.badge.installed': '설치됨',
   'mcp.tab.badge.registry': '레지스트리',

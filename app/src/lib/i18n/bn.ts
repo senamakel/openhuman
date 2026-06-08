@@ -1174,6 +1174,7 @@ const messages: TranslationMap = {
   'mcp.tab.column.name': 'নাম',
   'mcp.tab.column.description': 'বিবরণ',
   'mcp.tab.column.source': 'উৎস',
+  'mcp.tab.column.author': 'লেখক',
   'mcp.tab.column.action': 'ক্রিয়া',
   'mcp.tab.badge.installed': 'ইনস্টল করা',
   'mcp.tab.badge.registry': 'রেজিস্ট্রি',

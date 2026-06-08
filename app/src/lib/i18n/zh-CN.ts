@@ -1117,6 +1117,7 @@ const messages: TranslationMap = {
   'mcp.tab.column.name': '名称',
   'mcp.tab.column.description': '描述',
   'mcp.tab.column.source': '来源',
+  'mcp.tab.column.author': '作者',
   'mcp.tab.column.action': '操作',
   'mcp.tab.badge.installed': '已安装',
   'mcp.tab.badge.registry': '注册表',

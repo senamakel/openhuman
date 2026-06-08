@@ -1502,6 +1502,7 @@ const en: TranslationMap = {
   'mcp.tab.column.name': 'Name',
   'mcp.tab.column.description': 'Description',
   'mcp.tab.column.source': 'Source',
+  'mcp.tab.column.author': 'Author',
   'mcp.tab.column.action': 'Action',
   'mcp.tab.badge.installed': 'Installed',
   'mcp.tab.badge.registry': 'Registry',

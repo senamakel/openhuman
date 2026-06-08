@@ -303,7 +303,7 @@ jobs:
           # Create swap on the bind-mounted workspace (real ext4 from the host).
           # /tmp is overlay — swapon rejects swap files on overlay/tmpfs.
           # /__w is the Actions workspace bind-mount from the host filesystem.
-          fallocate -l 10G /__w/extra-swap
+          fallocate -l 4G /__w/extra-swap
           chmod 600 /__w/extra-swap
           mkswap /__w/extra-swap
           swapon /__w/extra-swap
@@ -329,7 +329,7 @@ jobs:
       - name: Run cargo llvm-cov for openhuman core
         run: bash scripts/ci-cancel-aware.sh cargo llvm-cov --no-fail-fast -p openhuman --lcov --output-path lcov-core.info
         env:
-          CARGO_BUILD_JOBS: "2"
+          CARGO_BUILD_JOBS: "1"
 
       - name: Upload core lcov
         uses: actions/upload-artifact@v5

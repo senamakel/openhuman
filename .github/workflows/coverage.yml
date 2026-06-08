@@ -73,11 +73,13 @@ jobs:
     steps:
       - name: Create swap space
         run: |
-          # Create additional swap at a new path (host /swapfile is already mounted)
-          fallocate -l 10G /tmp/extra-swap
-          chmod 600 /tmp/extra-swap
-          mkswap /tmp/extra-swap
-          swapon /tmp/extra-swap
+          # Create swap on the bind-mounted workspace (real ext4 from the host).
+          # /tmp is overlay — swapon rejects swap files on overlay/tmpfs.
+          # /__w is the Actions workspace bind-mount from the host filesystem.
+          fallocate -l 10G /__w/extra-swap
+          chmod 600 /__w/extra-swap
+          mkswap /__w/extra-swap
+          swapon /__w/extra-swap
           echo "Swap enabled: $(free -h | grep Swap)"
       - name: Checkout code
         uses: actions/checkout@v5

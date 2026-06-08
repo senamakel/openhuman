@@ -64,23 +64,22 @@ jobs:
   rust-core-coverage:
     name: Rust Core Coverage (cargo-llvm-cov)
     runs-on: ubuntu-22.04
-    # See test.yml `rust-core-tests` — same shared-singleton flake risk in
-    # the lib suite. Coverage instrumentation roughly doubles wall time vs.
-    # the plain test runs; give it enough headroom for cold/warm cache
-    # variance while still surfacing deadlocks with logs.
     timeout-minutes: 30
-    container:
-      image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
-      options: --privileged
     env:
       CARGO_INCREMENTAL: "0"
-      # Coverage instrumentation makes each test binary link substantially
-      # heavier. Keep the core coverage job's linker work serialized to avoid
-      # intermittent rust-lld bus errors on hosted Linux runners.
-      CARGO_BUILD_JOBS: "1"
-      # sccache is incompatible with `-C instrument-coverage` profiles, so we
-      # skip it for coverage runs and rely on Swatinem/rust-cache for warmup.
     steps:
+      - name: Set swap space
+        uses: pierotofy/set-swap-space@v1.0
+        with:
+          swap-size-gb: 10
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config clang libclang-dev libssl-dev \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+            libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev \
+            patchelf mold
       - name: Checkout code
         uses: actions/checkout@v5
         with:
@@ -93,21 +92,12 @@ jobs:
           workspaces: . -> target
           cache-on-failure: true
           key: core-coverage
-      - name: Create swap space
-        # Coverage-instrumented binaries are link-heavy; the default 7 GB RAM
-        # on ubuntu-22.04 runners is often insufficient for rust-lld.  Adding
-        # swap prevents OOM kills during the link phase.  No sudo in CI
-        # containers — process already runs as root; --privileged allows swapon.
-        run: |
-          fallocate -l 8G /swapfile
-          chmod 600 /swapfile
-          mkswap /swapfile
-          swapon /swapfile
-          echo "Swap enabled: $(swapon --show)"
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Run cargo llvm-cov for openhuman core
         run: cargo llvm-cov --no-fail-fast -p openhuman --lcov --output-path lcov-core.info
+        env:
+          CARGO_BUILD_JOBS: "2"
       - name: Upload core lcov
         uses: actions/upload-artifact@v5
         with:

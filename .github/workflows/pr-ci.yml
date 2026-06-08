@@ -292,12 +292,23 @@ jobs:
     needs: [rust-quality]
     runs-on: ubuntu-22.04
     timeout-minutes: 30
-    container:
-      image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
-      options: --privileged
     env:
       CARGO_INCREMENTAL: "0"
     steps:
+      - name: Set swap space
+        uses: pierotofy/set-swap-space@v1.0
+        with:
+          swap-size-gb: 10
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config clang libclang-dev libssl-dev \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+            libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev \
+            patchelf mold
+
       - name: Checkout code
         uses: actions/checkout@v5
         with:
@@ -310,30 +321,15 @@ jobs:
         with:
           workspaces: . -> target
           cache-on-failure: true
-          # Coverage uses instrumented builds (-C instrument-coverage), whose
-          # rustflags hash to a different Swatinem key than the plain builds, so
-          # it gets its own cache and cannot reuse pr-rust-core. It still reuses
-          # the (non-instrumented) dependency tree run-over-run.
           shared-key: pr-rust-core-cov
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      - name: Create swap space
-        # Coverage-instrumented binaries are link-heavy; the default 7 GB RAM
-        # on ubuntu-22.04 runners is often insufficient for rust-lld.  Adding
-        # swap prevents OOM kills during the link phase.  No sudo in CI
-        # containers — process already runs as root; --privileged allows swapon.
-        run: |
-          fallocate -l 8G /swapfile
-          chmod 600 /swapfile
-          mkswap /swapfile
-          swapon /swapfile
-          echo "Swap enabled: $(swapon --show)"
       - name: Run cargo llvm-cov for openhuman core
         run: bash scripts/ci-cancel-aware.sh cargo llvm-cov --no-fail-fast -p openhuman --lcov --output-path lcov-core.info
         env:
-          CARGO_BUILD_JOBS: "1"
+          CARGO_BUILD_JOBS: "2"
 
       - name: Upload core lcov
         uses: actions/upload-artifact@v5

@@ -73,12 +73,11 @@ jobs:
     steps:
       - name: Create swap space
         run: |
-          # Turn off existing host swap before resizing
-          swapoff -a || true
-          fallocate -l 10G /swapfile
-          chmod 600 /swapfile
-          mkswap /swapfile
-          swapon /swapfile
+          # Create additional swap at a new path (host /swapfile is already mounted)
+          fallocate -l 10G /tmp/extra-swap
+          chmod 600 /tmp/extra-swap
+          mkswap /tmp/extra-swap
+          swapon /tmp/extra-swap
           echo "Swap enabled: $(free -h | grep Swap)"
       - name: Checkout code
         uses: actions/checkout@v5

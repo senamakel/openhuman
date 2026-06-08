@@ -90,9 +90,7 @@ describe('skillRegistryApi', () => {
 
     const result = await skillRegistryApi.sources();
 
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.skill_registry_sources',
-    });
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.skill_registry_sources' });
     expect(result).toEqual(['built-in', 'ClawHub']);
   });
 
@@ -109,9 +107,7 @@ describe('skillRegistryApi', () => {
 
     const result = await skillRegistryApi.categories();
 
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.skill_registry_categories',
-    });
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.skill_registry_categories' });
     expect(result).toEqual(['productivity', 'devops']);
   });
 

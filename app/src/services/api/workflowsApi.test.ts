@@ -267,10 +267,7 @@ describe('workflowsApi', () => {
       await workflowsApi.resolveRuntimes('all');
 
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
-        expect.objectContaining({
-          method: 'openhuman.skill_runtime_resolve_runtimes',
-          params: {},
-        })
+        expect.objectContaining({ method: 'openhuman.skill_runtime_resolve_runtimes', params: {} })
       );
     });
 

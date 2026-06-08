@@ -5,8 +5,8 @@
 //!
 //! Endpoints used:
 //! - `GET /v0/servers?search=<query>&limit=<n>&cursor=<opt>` — paginated list
-//! - `GET /v0/servers/{name}` — full detail for one server (or a fallback
-//!   path that searches by exact name when the direct endpoint 404s)
+//! - `GET /v0/servers/{name}/versions` — all versions for one server; the
+//!   `get` method picks the first (latest) entry
 //!
 //! ## Pagination model
 //!
@@ -184,9 +184,13 @@ impl Registry for McpOfficialRegistry {
             }
         }
 
+        // The official registry has no single-server endpoint. Use the
+        // versions endpoint (`/v0/servers/{name}/versions`) which returns
+        // the same envelope shape as the list endpoint, then pick the
+        // latest version.
         let client = http_client()?;
         let url = format!(
-            "{}/v0/servers/{}",
+            "{}/v0/servers/{}/versions",
             base_url(config),
             urlencoding_encode(qualified_name)
         );
@@ -207,9 +211,26 @@ impl Registry for McpOfficialRegistry {
             );
         }
 
-        let server: OfficialServer = serde_json::from_str(&body)
-            .with_context(|| format!("Failed to parse MCP official detail: {body}"))?;
-        let _ = store::set_cached(config, &cache_key, &body);
+        // The versions endpoint returns the same envelope array as the
+        // list endpoint. Extract the raw JSON for the first (latest)
+        // server object and cache it so subsequent calls skip the HTTP
+        // round-trip.
+        let raw: Value = serde_json::from_str(&body)
+            .with_context(|| format!("Failed to re-parse MCP official versions: {body}"))?;
+        let server_value = raw
+            .pointer("/servers/0/server")
+            .ok_or_else(|| anyhow::anyhow!("no versions found for {qualified_name}"))?;
+        let server_json = server_value.to_string();
+        let _ = store::set_cached(config, &cache_key, &server_json);
+
+        let server: OfficialServer = serde_json::from_value(server_value.clone())
+            .with_context(|| format!("Failed to parse MCP official server: {server_json}"))?;
+        tracing::debug!(
+            "[mcp-official] get ok qualified_name={} packages={} remotes={}",
+            server.name,
+            server.packages.len(),
+            server.remotes.len()
+        );
         Ok(server.into_detail())
     }
 }
@@ -444,9 +465,16 @@ struct OfficialListResponse {
 
 impl OfficialListResponse {
     fn into_summaries(self) -> Vec<SmitheryServerSummary> {
+        let mut seen = std::collections::HashSet::new();
         self.servers
             .into_iter()
-            .map(|env| env.server.into_summary())
+            .filter_map(|env| {
+                if seen.insert(env.server.name.clone()) {
+                    Some(env.server.into_summary())
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
@@ -496,6 +524,9 @@ struct OfficialServer {
     /// Reverse-DNS-style identifier, e.g. `io.github.foo/server-bar`.
     #[serde(default)]
     name: String,
+    /// Human-friendly title (e.g. "Notion MCP"). Falls back to `name` when absent.
+    #[serde(default)]
+    title: Option<String>,
     #[serde(default)]
     description: Option<String>,
     #[serde(default, rename = "iconUrl")]
@@ -509,10 +540,27 @@ struct OfficialServer {
 }
 
 impl OfficialServer {
+    fn display_name(&self) -> String {
+        if let Some(title) = self.title.as_deref().filter(|s| !s.trim().is_empty()) {
+            return title.to_string();
+        }
+        // Derive a readable name from the qualified name. The registry uses
+        // reverse-DNS like `io.github.user/server-name` — take the last
+        // segment after `/` if present, else after the last `.`.
+        let raw = &self.name;
+        let segment = raw
+            .rsplit_once('/')
+            .map(|(_, s)| s)
+            .or_else(|| raw.rsplit_once('.').map(|(_, s)| s))
+            .unwrap_or(raw);
+        segment.replace('-', " ").replace('_', " ")
+    }
+
     fn into_summary(self) -> SmitheryServerSummary {
+        let display = self.display_name();
         SmitheryServerSummary {
             qualified_name: self.name.clone(),
-            display_name: self.name.clone(),
+            display_name: display,
             description: self.description.clone(),
             icon_url: self.icon_url.clone(),
             use_count: 0,
@@ -523,6 +571,7 @@ impl OfficialServer {
     }
 
     fn into_detail(self) -> SmitheryServerDetail {
+        let display = self.display_name();
         let mut connections: Vec<SmitheryConnection> = Vec::new();
         for r in &self.remotes {
             connections.push(SmitheryConnection {
@@ -538,15 +587,15 @@ impl OfficialServer {
             connections.push(SmitheryConnection {
                 r#type: "stdio".to_string(),
                 deployment_url: None,
-                config_schema: p.config_schema.clone(),
-                example_config: None,
+                config_schema: p.to_config_schema(),
+                example_config: p.to_example_config(),
                 published: true,
                 extra: std::collections::HashMap::new(),
             });
         }
         SmitheryServerDetail {
             qualified_name: self.name.clone(),
-            display_name: self.name.clone(),
+            display_name: display,
             description: self.description.clone(),
             icon_url: self.icon_url.clone(),
             connections,
@@ -564,8 +613,107 @@ struct OfficialRemote {
 
 #[derive(Debug, Clone, Deserialize)]
 struct OfficialPackage {
+    #[serde(default, rename = "registryType")]
+    registry_type: Option<String>,
+    #[serde(default)]
+    identifier: Option<String>,
+    #[serde(default, rename = "runtimeHint")]
+    runtime_hint: Option<String>,
+    #[serde(default, rename = "runtimeArguments")]
+    runtime_arguments: Vec<OfficialRuntimeArg>,
+    #[serde(default, rename = "environmentVariables")]
+    environment_variables: Vec<OfficialEnvVar>,
     #[serde(default, rename = "configSchema")]
     config_schema: Option<Value>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct OfficialRuntimeArg {
+    #[serde(default)]
+    value: Option<String>,
+    #[serde(default, rename = "type")]
+    arg_type: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct OfficialEnvVar {
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default, rename = "isRequired")]
+    is_required: Option<bool>,
+    #[serde(default, rename = "isSecret")]
+    is_secret: Option<bool>,
+}
+
+impl OfficialPackage {
+    fn to_example_config(&self) -> Option<Value> {
+        let (command, mut args) = match self.registry_type.as_deref() {
+            Some("pypi") => {
+                let cmd = self.runtime_hint.as_deref().unwrap_or("uvx");
+                (cmd.to_string(), Vec::new())
+            }
+            Some("npm") => {
+                let cmd = self.runtime_hint.as_deref().unwrap_or("npx");
+                let default_args = if self.runtime_arguments.is_empty() {
+                    vec!["-y".to_string()]
+                } else {
+                    Vec::new()
+                };
+                (cmd.to_string(), default_args)
+            }
+            _ => {
+                let cmd = self.runtime_hint.as_deref().unwrap_or("npx");
+                (cmd.to_string(), vec!["-y".to_string()])
+            }
+        };
+
+        for ra in &self.runtime_arguments {
+            if let Some(v) = &ra.value {
+                args.push(v.clone());
+            }
+        }
+
+        if let Some(id) = &self.identifier {
+            args.push(id.clone());
+        }
+
+        Some(serde_json::json!({
+            "command": command,
+            "args": args,
+        }))
+    }
+
+    fn to_config_schema(&self) -> Option<Value> {
+        if !self.environment_variables.is_empty() {
+            let mut properties = serde_json::Map::new();
+            for ev in &self.environment_variables {
+                let mut prop = serde_json::Map::new();
+                if let Some(desc) = &ev.description {
+                    prop.insert("description".into(), Value::String(desc.clone()));
+                }
+                if ev.is_secret == Some(true) {
+                    prop.insert("x-secret".into(), Value::Bool(true));
+                }
+                properties.insert(ev.name.clone(), Value::Object(prop));
+            }
+            let required: Vec<Value> = self
+                .environment_variables
+                .iter()
+                .filter(|e| e.is_required == Some(true))
+                .map(|e| Value::String(e.name.clone()))
+                .collect();
+            let mut schema = serde_json::Map::new();
+            schema.insert("properties".into(), Value::Object(properties));
+            if !required.is_empty() {
+                schema.insert("required".into(), Value::Array(required));
+            }
+            Some(Value::Object(schema))
+        } else {
+            self.config_schema.clone()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -763,5 +911,91 @@ mod tests {
         let mut config = crate::openhuman::config::Config::default();
         config.mcp_client.registry_auth.mcp_official_token = Some("tok-config".to_string());
         assert_eq!(auth_token(&config).as_deref(), Some("tok-config"));
+    }
+
+    #[test]
+    fn npm_package_generates_npx_example_config() {
+        let pkg: OfficialPackage = serde_json::from_value(json!({
+            "registryType": "npm",
+            "identifier": "remote-filesystem-mcp-server",
+            "runtimeHint": "npx",
+            "runtimeArguments": [{ "value": "-y", "type": "positional" }],
+        }))
+        .unwrap();
+        let cfg = pkg.to_example_config().unwrap();
+        assert_eq!(cfg["command"], "npx");
+        let args: Vec<&str> = cfg["args"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert_eq!(args, vec!["-y", "remote-filesystem-mcp-server"]);
+    }
+
+    #[test]
+    fn pypi_package_generates_uvx_example_config() {
+        let pkg: OfficialPackage = serde_json::from_value(json!({
+            "registryType": "pypi",
+            "identifier": "files-com-mcp",
+        }))
+        .unwrap();
+        let cfg = pkg.to_example_config().unwrap();
+        assert_eq!(cfg["command"], "uvx");
+        let args: Vec<&str> = cfg["args"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert_eq!(args, vec!["files-com-mcp"]);
+    }
+
+    #[test]
+    fn package_env_vars_become_config_schema_properties() {
+        let pkg: OfficialPackage = serde_json::from_value(json!({
+            "registryType": "npm",
+            "identifier": "test-server",
+            "environmentVariables": [
+                { "name": "API_KEY", "description": "Your API key", "isRequired": true, "isSecret": true },
+                { "name": "REGION", "description": "AWS region" },
+            ],
+        }))
+        .unwrap();
+        let schema = pkg.to_config_schema().unwrap();
+        let props = schema["properties"].as_object().unwrap();
+        assert!(props.contains_key("API_KEY"));
+        assert!(props.contains_key("REGION"));
+        assert_eq!(props["API_KEY"]["x-secret"], true);
+        let required: Vec<&str> = schema["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert_eq!(required, vec!["API_KEY"]);
+    }
+
+    #[test]
+    fn into_detail_populates_example_config_for_packages() {
+        let server: OfficialServer = serde_json::from_value(json!({
+            "name": "com.test/pypi-server",
+            "packages": [{
+                "registryType": "pypi",
+                "identifier": "my-mcp-server",
+                "environmentVariables": [
+                    { "name": "TOKEN", "isRequired": true }
+                ],
+            }],
+        }))
+        .unwrap();
+        let detail = server.into_detail();
+        assert_eq!(detail.connections.len(), 1);
+        let conn = &detail.connections[0];
+        assert_eq!(conn.r#type, "stdio");
+        let example = conn.example_config.as_ref().unwrap();
+        assert_eq!(example["command"], "uvx");
+        let config = conn.config_schema.as_ref().unwrap();
+        assert!(config["properties"]["TOKEN"].is_object());
     }
 }

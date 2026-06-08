@@ -54,10 +54,15 @@ test.describe('Skills registry flow', () => {
     await expect(page.getByText(/Telegram|Discord|Slack/).first()).toBeVisible();
   });
 
-  test('mcp tab shows the placeholder panel', async ({ page }) => {
+  test('mcp tab renders the server table', async ({ page }) => {
     await page.getByRole('tab', { name: 'MCP Servers' }).click();
-    await expect(page.getByRole('heading', { name: 'MCP Servers' }).first()).toBeVisible();
-    await expect(page.getByText(/coming soon|early alpha|MCP/i).first()).toBeVisible();
+    await expect(
+      page
+        .getByRole('searchbox')
+        .or(page.getByPlaceholder(/search/i))
+        .first()
+    ).toBeVisible();
+    await expect(page.getByText(/^All$|^Installed$|^Registry$/i).first()).toBeVisible();
   });
 });
 

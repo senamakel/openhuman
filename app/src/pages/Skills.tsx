@@ -946,30 +946,8 @@ export default function Skills() {
                 {activeTab === 'skills' && <SkillsExplorerTab onToast={addToast} />}
 
                 {activeTab === 'mcp' && (
-                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-soft animate-fade-up">
-                    <div className="pb-3">
-                      <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                        {t('channels.mcp.title')}
-                      </h2>
-                      <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
-                        {t('channels.mcp.description')}
-                      </p>
-                    </div>
-                    {IS_DEV ? (
-                      <div className="h-[72vh] min-h-[480px]">
-                        <McpServersTab />
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="text-3xl mb-3">🔌</div>
-                        <p className="text-sm font-medium text-stone-700 dark:text-neutral-300">
-                          {t('misc.comingSoon')}
-                        </p>
-                        <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-                          {t('channels.mcp.description')}
-                        </p>
-                      </div>
-                    )}
+                  <div className="animate-fade-up">
+                    <McpServersTab />
                   </div>
                 )}
               </>

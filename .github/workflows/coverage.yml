@@ -71,6 +71,7 @@ jobs:
     timeout-minutes: 30
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
+      options: --privileged
     env:
       CARGO_INCREMENTAL: "0"
       # Coverage instrumentation makes each test binary link substantially
@@ -95,12 +96,13 @@ jobs:
       - name: Create swap space
         # Coverage-instrumented binaries are link-heavy; the default 7 GB RAM
         # on ubuntu-22.04 runners is often insufficient for rust-lld.  Adding
-        # swap prevents OOM kills during the link phase.
+        # swap prevents OOM kills during the link phase.  No sudo in CI
+        # containers — process already runs as root; --privileged allows swapon.
         run: |
-          sudo fallocate -l 8G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          fallocate -l 8G /swapfile
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
           echo "Swap enabled: $(swapon --show)"
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov

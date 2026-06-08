@@ -282,7 +282,7 @@ const messages: TranslationMap = {
   'skills.explorer.scopeProject': 'Project',
   'skills.explorer.scopeLegacy': 'Legacy',
   'skills.explorer.noDescription': 'Aucune description fournie.',
-  'skills.explorer.uninstallSuccess': 'Skill désinstallée avec succès.',
+  'skills.explorer.uninstallSuccess': 'Compétence désinstallée avec succès.',
   'skills.explorer.registryTab': 'Registre',
   'skills.explorer.installedTab': 'Installées',
   'skills.explorer.allFormats': 'Tous les formats',

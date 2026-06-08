@@ -67,20 +67,13 @@ jobs:
     timeout-minutes: 30
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
-      options: --privileged
     env:
       CARGO_INCREMENTAL: "0"
     steps:
-      - name: Create swap space
+      - name: Free disk space
         run: |
-          # Create swap on the bind-mounted workspace (real ext4 from the host).
-          # /tmp is overlay — swapon rejects swap files on overlay/tmpfs.
-          # /__w is the Actions workspace bind-mount from the host filesystem.
-          fallocate -l 4G /__w/extra-swap
-          chmod 600 /__w/extra-swap
-          mkswap /__w/extra-swap
-          swapon /__w/extra-swap
-          echo "Swap enabled: $(free -h | grep Swap)"
+          rm -rf /opt/hostedtoolcache /usr/local/lib/android /usr/share/dotnet || true
+          df -h /__w || true
       - name: Checkout code
         uses: actions/checkout@v5
         with:

@@ -300,6 +300,8 @@ jobs:
     steps:
       - name: Create swap space
         run: |
+          # Turn off existing host swap before resizing
+          swapoff -a || true
           fallocate -l 10G /swapfile
           chmod 600 /swapfile
           mkswap /swapfile

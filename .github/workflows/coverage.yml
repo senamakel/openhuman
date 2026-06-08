@@ -64,22 +64,20 @@ jobs:
   rust-core-coverage:
     name: Rust Core Coverage (cargo-llvm-cov)
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 30
+    container:
+      image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
+      options: --privileged
     env:
       CARGO_INCREMENTAL: "0"
     steps:
-      - name: Set swap space
-        uses: pierotofy/set-swap-space@v1.0
-        with:
-          swap-size-gb: 10
-      - name: Install system dependencies
+      - name: Create swap space
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake pkg-config clang libclang-dev libssl-dev \
-            libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
-            libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev \
-            patchelf mold
+          fallocate -l 10G /swapfile
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
+          echo "Swap enabled: $(free -h | grep Swap)"
       - name: Checkout code
         uses: actions/checkout@v5
         with:

@@ -64,7 +64,7 @@ jobs:
   rust-core-coverage:
     name: Rust Core Coverage (cargo-llvm-cov)
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       CARGO_INCREMENTAL: "0"
     steps:

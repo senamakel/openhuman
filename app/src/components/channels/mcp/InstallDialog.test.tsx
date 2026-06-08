@@ -256,11 +256,7 @@ describe('InstallDialog', () => {
 
     const onSuccess = vi.fn();
     render(
-      <InstallDialog
-        qualifiedName="acme/simple-server"
-        onSuccess={onSuccess}
-        onCancel={() => {}}
-      />
+      <InstallDialog qualifiedName="acme/simple-server" onSuccess={onSuccess} onCancel={() => {}} />
     );
 
     await waitFor(() => screen.getByRole('button', { name: 'Install' }));

@@ -12,8 +12,8 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import InstallDialog from './InstallDialog';
 import InstalledServerDetail from './InstalledServerDetail';
-import { deriveAuthor } from './McpServerCard';
 import McpInventoryPanel from './McpInventoryPanel';
+import { deriveAuthor } from './McpServerCard';
 import type { ConnStatus, InstalledServer, ServerStatus, SmitheryServer } from './types';
 
 const log = debug('mcp-clients:tab');

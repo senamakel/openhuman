@@ -496,14 +496,32 @@ mod tests {
             extra: Default::default(),
         };
         let v = serde_json::to_value(&s).unwrap();
-        assert!(v.get("qualified_name").is_some(), "expected snake_case qualified_name");
-        assert!(v.get("display_name").is_some(), "expected snake_case display_name");
+        assert!(
+            v.get("qualified_name").is_some(),
+            "expected snake_case qualified_name"
+        );
+        assert!(
+            v.get("display_name").is_some(),
+            "expected snake_case display_name"
+        );
         assert!(v.get("icon_url").is_some(), "expected snake_case icon_url");
-        assert!(v.get("use_count").is_some(), "expected snake_case use_count");
-        assert!(v.get("is_deployed").is_some(), "expected snake_case is_deployed");
+        assert!(
+            v.get("use_count").is_some(),
+            "expected snake_case use_count"
+        );
+        assert!(
+            v.get("is_deployed").is_some(),
+            "expected snake_case is_deployed"
+        );
         // Must NOT have camelCase keys
-        assert!(v.get("qualifiedName").is_none(), "must not serialize as camelCase");
-        assert!(v.get("displayName").is_none(), "must not serialize as camelCase");
+        assert!(
+            v.get("qualifiedName").is_none(),
+            "must not serialize as camelCase"
+        );
+        assert!(
+            v.get("displayName").is_none(),
+            "must not serialize as camelCase"
+        );
     }
 
     /// Same snake_case serialization pin for SmitheryServerDetail.
@@ -519,9 +537,18 @@ mod tests {
             extra: Default::default(),
         };
         let v = serde_json::to_value(&d).unwrap();
-        assert!(v.get("qualified_name").is_some(), "expected snake_case qualified_name");
-        assert!(v.get("display_name").is_some(), "expected snake_case display_name");
-        assert!(v.get("qualifiedName").is_none(), "must not serialize as camelCase");
+        assert!(
+            v.get("qualified_name").is_some(),
+            "expected snake_case qualified_name"
+        );
+        assert!(
+            v.get("display_name").is_some(),
+            "expected snake_case display_name"
+        );
+        assert!(
+            v.get("qualifiedName").is_none(),
+            "must not serialize as camelCase"
+        );
     }
 
     /// SmitheryConnection must serialize with snake_case for the frontend.
@@ -536,10 +563,22 @@ mod tests {
             extra: Default::default(),
         };
         let v = serde_json::to_value(&c).unwrap();
-        assert!(v.get("deployment_url").is_some(), "expected snake_case deployment_url");
-        assert!(v.get("config_schema").is_some(), "expected snake_case config_schema");
-        assert!(v.get("example_config").is_some(), "expected snake_case example_config");
-        assert!(v.get("deploymentUrl").is_none(), "must not serialize as camelCase");
+        assert!(
+            v.get("deployment_url").is_some(),
+            "expected snake_case deployment_url"
+        );
+        assert!(
+            v.get("config_schema").is_some(),
+            "expected snake_case config_schema"
+        );
+        assert!(
+            v.get("example_config").is_some(),
+            "expected snake_case example_config"
+        );
+        assert!(
+            v.get("deploymentUrl").is_none(),
+            "must not serialize as camelCase"
+        );
     }
 
     /// SmitheryConnection must also deserialize from Smithery's camelCase wire format.

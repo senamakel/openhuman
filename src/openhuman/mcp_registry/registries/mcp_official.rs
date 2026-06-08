@@ -1041,7 +1041,10 @@ mod tests {
         assert_eq!(sum.display_name, "Notion MCP");
         assert_eq!(sum.qualified_name, "io.github.notion/notion-mcp");
         assert_eq!(sum.description.as_deref(), Some("Notion integration"));
-        assert_eq!(sum.icon_url.as_deref(), Some("https://example.com/icon.png"));
+        assert_eq!(
+            sum.icon_url.as_deref(),
+            Some("https://example.com/icon.png")
+        );
         assert!(sum.is_deployed, "server with remotes should be deployed");
         assert_eq!(sum.source, SOURCE_MCP_OFFICIAL);
     }
@@ -1108,7 +1111,10 @@ mod tests {
             summaries[0].qualified_name,
             "io.github.modelcontextprotocol/server-filesystem"
         );
-        assert!(!summaries[0].is_deployed, "packages-only server is not deployed");
+        assert!(
+            !summaries[0].is_deployed,
+            "packages-only server is not deployed"
+        );
 
         assert_eq!(summaries[1].display_name, "GitHub MCP Server");
         assert!(summaries[1].is_deployed, "server with remotes is deployed");

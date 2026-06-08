@@ -260,15 +260,18 @@ test.describe('MCP Tab — Table View & Filtering', () => {
     await expect(page.getByRole('button', { name: /Registry/ })).toBeVisible();
   });
 
-  test('displays installed servers with status dot and chip', async ({ page }) => {
+  test('displays installed servers with status dot and Manage action', async ({ page }) => {
     const row = page.locator('table tbody tr').first();
     await expect(row.locator('td:first-child')).toContainText('Memory Server');
-    await expect(row.locator('span:has-text("Installed")')).toBeVisible();
+    await expect(row.locator('text=Manage')).toBeVisible();
   });
 
-  test('displays registry servers with Install button', async ({ page }) => {
-    const installBtn = page.locator('table tbody button:has-text("Install")');
-    await expect(installBtn.first()).toBeVisible({ timeout: 10_000 });
+  test('displays registry servers as clickable rows', async ({ page }) => {
+    const registryRow = page.locator('table tbody tr[role="button"]', {
+      has: page.locator('text=GitHub Tools'),
+    });
+    await expect(registryRow).toBeVisible({ timeout: 10_000 });
+    await expect(registryRow.locator('text=Install')).toBeVisible();
   });
 
   test('filter "Installed" hides registry rows', async ({ page }) => {
@@ -277,7 +280,7 @@ test.describe('MCP Tab — Table View & Filtering', () => {
     const count = await rows.count();
     expect(count).toBeGreaterThan(0);
     for (let i = 0; i < count; i++) {
-      await expect(rows.nth(i).locator('td:nth-child(3) span')).toContainText('Installed');
+      await expect(rows.nth(i).locator('text=Manage')).toBeVisible();
     }
   });
 
@@ -287,7 +290,7 @@ test.describe('MCP Tab — Table View & Filtering', () => {
     const count = await rows.count();
     expect(count).toBeGreaterThan(0);
     for (let i = 0; i < count; i++) {
-      await expect(rows.nth(i).locator('td:nth-child(3) span')).toContainText('Registry');
+      await expect(rows.nth(i).locator('text=Install')).toBeVisible();
     }
   });
 
@@ -331,31 +334,37 @@ test.describe('MCP Tab — Install Lifecycle', () => {
     await navigateToMcpTab(page);
   });
 
-  test('install flow: click Install → fill env → submit → appears installed', async ({ page }) => {
-    // 1. Click "Install" on GitHub Tools (a registry-only server)
-    const githubRow = page.locator('table tbody tr', {
+  test('install flow: click row → detail → configure → fill env → submit → appears installed', async ({
+    page,
+  }) => {
+    // 1. Click the GitHub Tools registry row (entire row is clickable)
+    const githubRow = page.locator('table tbody tr[role="button"]', {
       has: page.locator('td:first-child:has-text("GitHub Tools")'),
     });
     await expect(githubRow).toBeVisible({ timeout: 10_000 });
-    await githubRow.locator('button:has-text("Install")').click();
+    await githubRow.click();
 
-    // 2. Install dialog should show — with Back button and env key input
-    await expect(page.locator('button:has-text("Back")')).toBeVisible({ timeout: 5_000 });
-    const envInput = page.locator('#env-GITHUB_TOKEN');
+    // 2. Install dialog detail step — shows server info and "Configure & install"
+    await expect(page.locator('text=GitHub Tools').first()).toBeVisible({ timeout: 5_000 });
+    const configureBtn = page.locator('button:has-text("Configure & install")');
+    await expect(configureBtn).toBeVisible({ timeout: 5_000 });
+    await configureBtn.click();
+
+    // 3. Configure step — env input appears
+    const envInput = page.locator('input[id="env-GITHUB_TOKEN"]');
     await expect(envInput).toBeVisible({ timeout: 5_000 });
 
-    // 3. Fill in the env value
+    // 4. Fill in the env value
     await envInput.fill('ghp_test_token_123');
 
-    // 4. Click "Install" submit button
-    const submitBtn = page.locator('button:has-text("Install"):not(:has-text("Back"))').last();
+    // 5. Click "Install" submit button
+    const submitBtn = page.locator('button:has-text("Install")');
     await submitBtn.click();
 
-    // 5. Should navigate to detail view (the installed server detail)
-    //    Back button should still be visible in the detail view
+    // 6. Should navigate to detail view (the installed server detail)
     await expect(page.locator('button:has-text("Back")')).toBeVisible({ timeout: 10_000 });
 
-    // 6. Go back and verify the server appears in the installed list
+    // 7. Go back and verify the server appears in the installed list
     await page.locator('button:has-text("Back")').click();
     await expect(page.locator('table')).toBeVisible({ timeout: 5_000 });
     const installedGithub = page.locator('table tbody tr', {
@@ -364,11 +373,16 @@ test.describe('MCP Tab — Install Lifecycle', () => {
     await expect(installedGithub).toBeVisible({ timeout: 5_000 });
   });
 
-  test('back button from install dialog returns to table', async ({ page }) => {
-    const installBtn = page.locator('table tbody button:has-text("Install")').first();
-    await installBtn.click();
-    await expect(page.locator('button:has-text("Back")')).toBeVisible({ timeout: 5_000 });
-    await page.locator('button:has-text("Back")').click();
+  test('cancel from install dialog returns to table', async ({ page }) => {
+    // Click a registry row to open install dialog
+    const registryRow = page.locator('table tbody tr[role="button"]', {
+      has: page.locator('td:first-child:has-text("GitHub Tools")'),
+    });
+    await registryRow.click();
+
+    // Cancel button should be visible on detail step
+    await expect(page.locator('button:has-text("Cancel")')).toBeVisible({ timeout: 5_000 });
+    await page.locator('button:has-text("Cancel")').click();
     await expect(page.locator('table')).toBeVisible({ timeout: 5_000 });
   });
 });
@@ -384,13 +398,11 @@ test.describe('MCP Tab — Manage & Uninstall Lifecycle', () => {
   });
 
   test('click installed server row → detail view shows server info', async ({ page }) => {
-    // Click on the installed "Memory Server" row
     const row = page.locator('table tbody tr', {
       has: page.locator('td:first-child:has-text("Memory Server")'),
     });
     await row.click();
 
-    // Should navigate to detail view with server name visible
     await expect(page.locator('button:has-text("Back")')).toBeVisible({ timeout: 5_000 });
     await expect(page.locator('text=Memory Server')).toBeVisible();
   });
@@ -405,27 +417,22 @@ test.describe('MCP Tab — Manage & Uninstall Lifecycle', () => {
   });
 
   test('uninstall flow: detail → confirm uninstall → returns to table', async ({ page }) => {
-    // Navigate to detail
     const row = page.locator('table tbody tr', {
       has: page.locator('td:first-child:has-text("Memory Server")'),
     });
     await row.click();
     await expect(page.locator('button:has-text("Back")')).toBeVisible({ timeout: 5_000 });
 
-    // Click the uninstall button to reveal the confirmation step
     const uninstallBtn = page.locator('button:has-text("Uninstall")');
     await expect(uninstallBtn.first()).toBeVisible({ timeout: 5_000 });
     await uninstallBtn.first().click();
 
-    // Wait for and click the confirmation button ("Yes, uninstall")
     const confirmBtn = page.locator('button:has-text("Yes")');
     await expect(confirmBtn.first()).toBeVisible({ timeout: 5_000 });
     await confirmBtn.first().click();
 
-    // Should return to table view with the server removed from installed
     await expect(page.locator('table')).toBeVisible({ timeout: 10_000 });
 
-    // Switch to Installed filter — the server should no longer appear
     await page.getByRole('button', { name: /Installed/ }).click();
     const removedRow = page.locator('table tbody tr', {
       has: page.locator('td:first-child:has-text("Memory Server")'),
@@ -452,7 +459,6 @@ test.describe('MCP Tab — Empty & Edge States', () => {
     await navigateToMcpTab(page);
 
     await page.getByRole('button', { name: /Installed/ }).click();
-    // Should show empty state text
     const emptyMsg = page.locator('text=/no.*servers|no.*installed/i');
     await expect(emptyMsg).toBeVisible({ timeout: 5_000 });
   });
@@ -462,7 +468,6 @@ test.describe('MCP Tab — Empty & Edge States', () => {
     await seedLocalStorage(page);
     await setupMockRpc(page, state);
 
-    // Override registry search to return empty for specific query
     await page.route('**/rpc', async (route, request) => {
       const body = JSON.parse(request.postData() || '{}');
       if (

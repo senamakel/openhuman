@@ -850,6 +850,24 @@ fn extract_string_outcome(result: &Value) -> String {
     panic!("expected string or {{result: string}}, got {result}");
 }
 
+/// Peel the `{"result": inner, "logs": [...]}` envelope that
+/// `RpcOutcome::into_cli_compatible_json` adds when logs are present.
+fn peel_logs_envelope(v: &Value) -> &Value {
+    if v.get("logs").is_some() {
+        v.get("result").unwrap_or(v)
+    } else {
+        v
+    }
+}
+
+/// Extract the `is_error` flag from a tool_call response, tolerating both the
+/// handler's snake_case `is_error` and the MCP protocol's camelCase `isError`.
+fn tool_call_is_error(v: &Value) -> Option<bool> {
+    v.get("is_error")
+        .or_else(|| v.get("isError"))
+        .and_then(Value::as_bool)
+}
+
 fn write_min_config(openhuman_dir: &Path, api_origin: &str) {
     // `chat_onboarding_completed = true` is retained for backward compatibility
     // with existing config.toml files. All chat turns now route to the
@@ -8885,9 +8903,7 @@ async fn mcp_clients_lifecycle() {
     )
     .await;
     let list1_result = assert_no_jsonrpc_error(&list1, "mcp_clients_installed_list (initial)");
-    // Handlers wrap their value in `{ "result": value, "logs": [...] }` when logs are
-    // emitted (see RpcOutcome::into_cli_compatible_json); unwrap that envelope here.
-    let list1_body = list1_result.get("result").unwrap_or(list1_result);
+    let list1_body = peel_logs_envelope(list1_result);
     let installed = list1_body
         .get("installed")
         .and_then(Value::as_array)
@@ -8900,7 +8916,7 @@ async fn mcp_clients_lifecycle() {
     // ── 2. status should return empty servers ─────────────────────────────────
     let status1 = post_json_rpc(&rpc_base, 9902, "openhuman.mcp_clients_status", json!({})).await;
     let status1_result = assert_no_jsonrpc_error(&status1, "mcp_clients_status (initial)");
-    let status1_body = status1_result.get("result").unwrap_or(status1_result);
+    let status1_body = peel_logs_envelope(status1_result);
     let servers = status1_body
         .get("servers")
         .and_then(Value::as_array)
@@ -8963,10 +8979,11 @@ async fn mcp_clients_lifecycle() {
     .await;
     let tc_result =
         assert_no_jsonrpc_error(&tool_call_disconnected, "tool_call on disconnected server");
+    let tc_body = peel_logs_envelope(tc_result);
     assert_eq!(
-        tc_result.get("is_error"),
-        Some(&json!(true)),
-        "tool_call on disconnected server should set is_error=true: {tc_result}"
+        tool_call_is_error(tc_body),
+        Some(true),
+        "tool_call on disconnected server should set is_error=true: {tc_body}"
     );
 
     // ── 7. disconnect on a non-connected server is a no-op ────────────────────
@@ -8978,7 +8995,7 @@ async fn mcp_clients_lifecycle() {
     )
     .await;
     let disc_result = assert_no_jsonrpc_error(&disconnect_noop, "disconnect noop");
-    let disc_body = disc_result.get("result").unwrap_or(disc_result);
+    let disc_body = peel_logs_envelope(disc_result);
     assert_eq!(
         disc_body.get("status").and_then(Value::as_str),
         Some("disconnected"),
@@ -9055,7 +9072,7 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     )
     .await;
     let install_result = assert_no_jsonrpc_error(&install, "mcp_clients_install (happy path)");
-    let install_body = install_result.get("result").unwrap_or(install_result);
+    let install_body = peel_logs_envelope(install_result);
     let server_id = install_body
         .get("server")
         .and_then(|s| s.get("server_id"))
@@ -9072,7 +9089,7 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     )
     .await;
     let connect_result = assert_no_jsonrpc_error(&connect, "mcp_clients_connect (happy path)");
-    let connect_body = connect_result.get("result").unwrap_or(connect_result);
+    let connect_body = peel_logs_envelope(connect_result);
     assert_eq!(
         connect_body.get("status").and_then(Value::as_str),
         Some("connected"),
@@ -9102,12 +9119,13 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     )
     .await;
     let tc_result = assert_no_jsonrpc_error(&tool_call, "mcp_clients_tool_call (happy path)");
+    let tc_body = peel_logs_envelope(tc_result);
     assert_eq!(
-        tc_result.get("is_error"),
-        Some(&json!(false)),
-        "echo tool_call should not be an error: {tc_result}"
+        tool_call_is_error(tc_body),
+        Some(false),
+        "echo tool_call should not be an error: {tc_body}"
     );
-    let tc_inner = tc_result.get("result").unwrap_or(tc_result);
+    let tc_inner = tc_body.get("result").unwrap_or(tc_body);
     assert!(
         tc_inner.to_string().contains("hello over rpc"),
         "echo tool_call should round-trip the input payload: {tc_inner}"
@@ -9122,7 +9140,7 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     )
     .await;
     let ue_result = assert_no_jsonrpc_error(&update_env, "mcp_clients_update_env (happy path)");
-    let ue_body = ue_result.get("result").unwrap_or(ue_result);
+    let ue_body = peel_logs_envelope(ue_result);
     assert_eq!(
         ue_body.get("status").and_then(Value::as_str),
         Some("connected"),
@@ -9151,12 +9169,13 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     .await;
     let tc2_result =
         assert_no_jsonrpc_error(&tool_call2, "mcp_clients_tool_call (after update_env)");
+    let tc2_body = peel_logs_envelope(tc2_result);
     assert_eq!(
-        tc2_result.get("is_error"),
-        Some(&json!(false)),
-        "echo tool_call after reconfigure should not be an error: {tc2_result}"
+        tool_call_is_error(tc2_body),
+        Some(false),
+        "echo tool_call after reconfigure should not be an error: {tc2_body}"
     );
-    let tc2_inner = tc2_result.get("result").unwrap_or(tc2_result);
+    let tc2_inner = tc2_body.get("result").unwrap_or(tc2_body);
     assert!(
         tc2_inner.to_string().contains("hello after reconfigure"),
         "echo tool_call after reconfigure should round-trip the input payload: {tc2_inner}"
@@ -9171,7 +9190,7 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     )
     .await;
     let disc_result = assert_no_jsonrpc_error(&disconnect, "mcp_clients_disconnect (happy path)");
-    let disc_body = disc_result.get("result").unwrap_or(disc_result);
+    let disc_body = peel_logs_envelope(disc_result);
     assert_eq!(
         disc_body.get("status").and_then(Value::as_str),
         Some("disconnected"),
@@ -9239,7 +9258,7 @@ async fn mcp_clients_set_enabled_smoke() {
     .await;
     let install_result =
         assert_no_jsonrpc_error(&install, "mcp_clients_install (set_enabled smoke)");
-    let install_body = install_result.get("result").unwrap_or(install_result);
+    let install_body = peel_logs_envelope(install_result);
     let server_id = install_body
         .get("server")
         .and_then(|s| s.get("server_id"))
@@ -9256,7 +9275,7 @@ async fn mcp_clients_set_enabled_smoke() {
     )
     .await;
     let se_result = assert_no_jsonrpc_error(&set_enabled, "mcp_clients_set_enabled (false)");
-    let se_body = se_result.get("result").unwrap_or(se_result);
+    let se_body = peel_logs_envelope(se_result);
     assert_eq!(
         se_body.get("enabled"),
         Some(&json!(false)),
@@ -9278,7 +9297,7 @@ async fn mcp_clients_set_enabled_smoke() {
     .await;
     let se_true_result =
         assert_no_jsonrpc_error(&set_enabled_true, "mcp_clients_set_enabled (true)");
-    let se_true_body = se_true_result.get("result").unwrap_or(se_true_result);
+    let se_true_body = peel_logs_envelope(se_true_result);
     assert_eq!(
         se_true_body.get("enabled"),
         Some(&json!(true)),
@@ -9322,7 +9341,7 @@ async fn mcp_clients_registry_settings_roundtrip() {
     )
     .await;
     let get1_result = assert_no_jsonrpc_error(&get1, "registry_settings_get (initial)");
-    let get1_body = get1_result.get("result").unwrap_or(get1_result);
+    let get1_body = peel_logs_envelope(get1_result);
     assert_eq!(get1_body.get("smithery_api_key_set"), Some(&json!(false)));
     assert_eq!(get1_body.get("mcp_official_token_set"), Some(&json!(false)));
 
@@ -9338,7 +9357,7 @@ async fn mcp_clients_registry_settings_roundtrip() {
     )
     .await;
     let set1_result = assert_no_jsonrpc_error(&set1, "registry_settings_set (set)");
-    let set1_body = set1_result.get("result").unwrap_or(set1_result);
+    let set1_body = peel_logs_envelope(set1_result);
     assert_eq!(set1_body.get("smithery_api_key_set"), Some(&json!(true)));
     assert_eq!(
         set1_body.get("mcp_official_base").and_then(Value::as_str),
@@ -9359,7 +9378,7 @@ async fn mcp_clients_registry_settings_roundtrip() {
     )
     .await;
     let get2_result = assert_no_jsonrpc_error(&get2, "registry_settings_get (after set)");
-    let get2_body = get2_result.get("result").unwrap_or(get2_result);
+    let get2_body = peel_logs_envelope(get2_result);
     assert_eq!(get2_body.get("smithery_api_key_set"), Some(&json!(true)));
     assert_eq!(
         get2_body.get("mcp_official_base").and_then(Value::as_str),
@@ -9380,7 +9399,7 @@ async fn mcp_clients_registry_settings_roundtrip() {
     )
     .await;
     let set2_result = assert_no_jsonrpc_error(&set2, "registry_settings_set (clear)");
-    let set2_body = set2_result.get("result").unwrap_or(set2_result);
+    let set2_body = peel_logs_envelope(set2_result);
     assert_eq!(set2_body.get("smithery_api_key_set"), Some(&json!(false)));
     // The base override persists across the clear of an unrelated field.
     assert_eq!(
@@ -9397,7 +9416,7 @@ async fn mcp_clients_registry_settings_roundtrip() {
     )
     .await;
     let get3_result = assert_no_jsonrpc_error(&get3, "registry_settings_get (after clear)");
-    let get3_body = get3_result.get("result").unwrap_or(get3_result);
+    let get3_body = peel_logs_envelope(get3_result);
     assert_eq!(get3_body.get("smithery_api_key_set"), Some(&json!(false)));
     // Base override should persist even after clearing the API key.
     assert_eq!(

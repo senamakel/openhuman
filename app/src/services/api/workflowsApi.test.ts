@@ -260,5 +260,27 @@ describe('workflowsApi', () => {
       );
       expect(result.runtimes[0].binDir).toBe('/usr/bin');
     });
+
+    it('uses empty params object when runtime is "all" (the default)', async () => {
+      mockCallCoreRpc.mockResolvedValue({ runtimes: [] });
+
+      await workflowsApi.resolveRuntimes('all');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'openhuman.skill_runtime_resolve_runtimes',
+          params: {},
+        })
+      );
+    });
+
+    it('uses empty params when called with no argument (default = all)', async () => {
+      mockCallCoreRpc.mockResolvedValue({ runtimes: [] });
+
+      await workflowsApi.resolveRuntimes();
+
+      const call = mockCallCoreRpc.mock.calls[0][0];
+      expect(call.params).toEqual({});
+    });
   });
 });

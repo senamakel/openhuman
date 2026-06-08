@@ -9151,15 +9151,15 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     .await;
     let tc2_result =
         assert_no_jsonrpc_error(&tool_call2, "mcp_clients_tool_call (after update_env)");
-    let tc2_body = tc2_result.get("result").unwrap_or(tc2_result);
     assert_eq!(
-        tc2_body.get("is_error"),
+        tc2_result.get("is_error"),
         Some(&json!(false)),
-        "echo tool_call after reconfigure should not be an error: {tc2_body}"
+        "echo tool_call after reconfigure should not be an error: {tc2_result}"
     );
+    let tc2_inner = tc2_result.get("result").unwrap_or(tc2_result);
     assert!(
-        tc2_body.to_string().contains("hello after reconfigure"),
-        "echo tool_call after reconfigure should round-trip the input payload: {tc2_body}"
+        tc2_inner.to_string().contains("hello after reconfigure"),
+        "echo tool_call after reconfigure should round-trip the input payload: {tc2_inner}"
     );
 
     // ── 5. disconnect cleans up the subprocess ───────────────────────────────

@@ -92,6 +92,16 @@ jobs:
           workspaces: . -> target
           cache-on-failure: true
           key: core-coverage
+      - name: Create swap space
+        # Coverage-instrumented binaries are link-heavy; the default 7 GB RAM
+        # on ubuntu-22.04 runners is often insufficient for rust-lld.  Adding
+        # swap prevents OOM kills during the link phase.
+        run: |
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "Swap enabled: $(swapon --show)"
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Run cargo llvm-cov for openhuman core

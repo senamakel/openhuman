@@ -1181,6 +1181,7 @@ const messages: TranslationMap = {
   'mcp.tab.badge.registry': 'रजिस्ट्री',
   'mcp.tab.action.manage': 'प्रबंधित करें',
   'mcp.tab.aria.viewDetails': '{name} के विवरण देखें',
+  'mcp.tab.aria.installServer': '{name} इंस्टॉल करें',
   'mcp.install.loadingDetail': 'सर्वर विवरण लोड हो रहा है...',
   'mcp.install.back': 'वापस जाओ',
   'mcp.install.title': '{name} स्थापित करें',

@@ -393,7 +393,7 @@ const McpServersTab = () => {
                   className="hover:bg-stone-50 dark:hover:bg-neutral-800/40 cursor-pointer transition-colors"
                   tabIndex={0}
                   role="button"
-                  aria-label={server.display_name}
+                  aria-label={t('mcp.tab.aria.installServer').replace('{name}', server.display_name)}
                   onClick={() => handleSelectInstall(server.qualified_name)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' || e.key === ' ') {

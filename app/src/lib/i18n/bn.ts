@@ -1180,6 +1180,7 @@ const messages: TranslationMap = {
   'mcp.tab.badge.registry': 'রেজিস্ট্রি',
   'mcp.tab.action.manage': 'পরিচালনা',
   'mcp.tab.aria.viewDetails': '{name} এর বিবরণ দেখুন',
+  'mcp.tab.aria.installServer': '{name} ইনস্টল করুন',
   'mcp.install.loadingDetail': 'সার্ভারের বিবরণ লোড হচ্ছে...',
   'mcp.install.back': 'ফিরে যান',
   'mcp.install.title': '{name} ইনস্টল করুন',

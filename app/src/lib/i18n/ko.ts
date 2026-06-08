@@ -1176,6 +1176,7 @@ const messages: TranslationMap = {
   'mcp.tab.badge.registry': '레지스트리',
   'mcp.tab.action.manage': '관리',
   'mcp.tab.aria.viewDetails': '{name} 세부정보 보기',
+  'mcp.tab.aria.installServer': '{name} 설치',
   'mcp.install.loadingDetail': '서버 세부정보 로드 중...',
   'mcp.install.back': '뒤로 가기',
   'mcp.install.title': '{name} 설치',

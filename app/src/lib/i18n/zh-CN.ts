@@ -1123,6 +1123,7 @@ const messages: TranslationMap = {
   'mcp.tab.badge.registry': '注册表',
   'mcp.tab.action.manage': '管理',
   'mcp.tab.aria.viewDetails': '查看 {name} 的详情',
+  'mcp.tab.aria.installServer': '安装 {name}',
   'mcp.install.loadingDetail': '正在加载服务器详细信息...',
   'mcp.install.back': '返回',
   'mcp.install.title': '安装 {name}',

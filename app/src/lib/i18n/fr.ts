@@ -1218,6 +1218,7 @@ const messages: TranslationMap = {
   'mcp.tab.badge.registry': 'Registre',
   'mcp.tab.action.manage': 'Gérer',
   'mcp.tab.aria.viewDetails': 'Voir les détails de {name}',
+  'mcp.tab.aria.installServer': 'Installer {name}',
   'mcp.install.loadingDetail': 'Chargement des détails du serveur...',
   'mcp.install.back': 'Retourner',
   'mcp.install.title': 'Installer {name}',

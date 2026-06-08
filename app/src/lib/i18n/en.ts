@@ -1508,6 +1508,7 @@ const en: TranslationMap = {
   'mcp.tab.badge.registry': 'Registry',
   'mcp.tab.action.manage': 'Manage',
   'mcp.tab.aria.viewDetails': 'View details for {name}',
+  'mcp.tab.aria.installServer': 'Install {name}',
   'mcp.install.loadingDetail': 'Loading server details...',
   'mcp.install.back': 'Go back',
   'mcp.install.title': 'Install {name}',

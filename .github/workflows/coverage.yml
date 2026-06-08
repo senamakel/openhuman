@@ -72,7 +72,8 @@ jobs:
     steps:
       - name: Free disk space
         run: |
-          rm -rf /opt/hostedtoolcache /usr/local/lib/android /usr/share/dotnet || true
+          rm -rf /__t/* || true
+          echo "Disk after cleanup:"
           df -h /__w || true
       - name: Checkout code
         uses: actions/checkout@v5

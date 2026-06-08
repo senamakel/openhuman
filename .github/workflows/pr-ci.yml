@@ -299,11 +299,14 @@ jobs:
     steps:
       - name: Free disk space
         run: |
-          # Coverage-instrumented builds produce large binaries that fill the
-          # runner disk during linking. Remove heavyweight pre-installed tools
-          # to reclaim ~15GB on the host (visible inside the container via /__w
-          # bind-mount on the same filesystem).
-          rm -rf /opt/hostedtoolcache /usr/local/lib/android /usr/share/dotnet || true
+          # Coverage-instrumented builds produce huge binaries that exhaust the
+          # runner's ~14GB free disk during linking (SIGBUS). Inside a container,
+          # host paths are bind-mounted:
+          #   /opt/hostedtoolcache → /__t
+          #   /home/runner/work    → /__w
+          # Deleting /__t frees ~8GB on the same partition the build uses.
+          rm -rf /__t/* || true
+          echo "Disk after cleanup:"
           df -h /__w || true
 
       - name: Checkout code

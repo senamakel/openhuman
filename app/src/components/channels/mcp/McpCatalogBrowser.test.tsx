@@ -90,7 +90,7 @@ describe('McpCatalogBrowser', () => {
 
     await waitFor(() => screen.getByText('File Server'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    fireEvent.click(screen.getByRole('button', { name: /File Server/ }));
     expect(onSelectInstall).toHaveBeenCalledWith('acme/file-server');
   });
 

@@ -876,6 +876,12 @@ mod tests {
                         "crypto_agent needs supporting tool `{required}`"
                     );
                 }
+                // x402 paid HTTP requests — signs on-chain USDC payments
+                // for APIs behind HTTP 402 challenges.
+                assert!(
+                    tools.iter().any(|t| t == "x402_request"),
+                    "crypto_agent needs x402_request for paid API access"
+                );
                 assert!(!tools.iter().any(|t| t == "call_memory_agent"));
                 // Hard exclusions — no broad-surface or write-anywhere tools.
                 // Includes the orchestrator-level delegate_* tools so a future

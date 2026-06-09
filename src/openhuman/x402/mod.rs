@@ -23,5 +23,6 @@ pub use schemas::all_controller_schemas as all_x402_controller_schemas;
 pub use schemas::all_registered_controllers as all_x402_registered_controllers;
 pub use store::{init_global as init_ledger, PaymentRecord, PaymentStatus, SpendingBudget};
 pub use types::{
-    PaymentPayload, PaymentRequired, PaymentRequirements, ResourceInfo, SettlementResponse,
+    EvmAuthorization, EvmPaymentProof, PaymentChain, PaymentPayload, PaymentProof,
+    PaymentRequired, PaymentRequirements, ResourceInfo, SettlementResponse, SolanaPaymentProof,
 };

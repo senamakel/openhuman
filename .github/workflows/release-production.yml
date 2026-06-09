@@ -35,14 +35,14 @@ concurrency:
 # ---------------------------------------------------------------------------
 # Job dependency graph
 #
-#   prepare-build
+#   prepare-build  (pushes v###-preview tag when create_release=false)
 #        │
-#        ├─── create-release   (optional no-op when `create_release=false`)
-#        │         │
+#        ├─── create-release   (always generates + previews release notes;
+#        │         │            draft GitHub Release only when create_release)
 #        │    ┌────┴───────────────┬────────────────┐
 #        │    │                    │                │
 #        │  build-desktop    build-cli-linux    build-docker
-#        │  (reusable wf)    (Linux tarballs)   (GHCR image)
+#        │  (reusable wf)    (Linux tarballs)   (GHCR image, release-only)
 #        │    │                    │                │
 #        │    └────────┬───────────┴────────────────┘
 #        │             │
@@ -52,7 +52,8 @@ concurrency:
 #        │             │
 #        │      record-sentry-deploy
 #        │
-#        └─── cleanup-failed-release (on failure)
+#        ├─── cleanup-failed-release (on failure)
+#        └─── cleanup-preview-tag    (removes v###-preview when !create_release)
 #
 # The actual desktop build / sign / Sentry / artifact-upload pipeline lives in
 # `.github/workflows/build-desktop.yml` and is shared with release-staging.yml.
@@ -92,6 +93,7 @@ jobs:
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       tag: ${{ steps.resolve.outputs.tag }}
+      preview_tag: ${{ steps.resolve.outputs.preview_tag }}
       sha: ${{ steps.resolve.outputs.sha }}
       # First 12 chars of `sha` — matches the truncation done at runtime by
       # app/src/utils/config.ts, app/vite.config.ts, src/main.rs, and
@@ -188,7 +190,10 @@ jobs:
             git tag -a "$TAG" -m "Release $TAG"
             git push origin "$TAG"
           else
-            echo "Skipping tag creation (create_release=false)"
+            PREVIEW_TAG="${TAG}-preview"
+            git tag -a "$PREVIEW_TAG" -m "Preview $TAG"
+            git push origin "$PREVIEW_TAG"
+            echo "preview_tag=$PREVIEW_TAG" >> "$GITHUB_OUTPUT"
           fi
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -199,16 +204,18 @@ jobs:
           CREATE_RELEASE: ${{ inputs.create_release }}
           VERSION: ${{ steps.bump.outputs.version }}
           TAG: ${{ steps.bump.outputs.tag }}
+          PREVIEW_TAG: ${{ steps.push.outputs.preview_tag }}
           SHA: ${{ steps.push.outputs.sha }}
         run: |
           if [ "$CREATE_RELEASE" = "true" ]; then
             BUILD_REF="$TAG"
           else
-            BUILD_REF="$SHA"
+            BUILD_REF="$PREVIEW_TAG"
           fi
           SHORT_SHA="${SHA:0:12}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "preview_tag=$PREVIEW_TAG" >> "$GITHUB_OUTPUT"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
           echo "build_ref=$BUILD_REF" >> "$GITHUB_OUTPUT"
@@ -234,29 +241,45 @@ jobs:
           echo "release_id=" >> "$GITHUB_OUTPUT"
           echo "upload_url=" >> "$GITHUB_OUTPUT"
       - name: Checkout release ref
-        if: ${{ inputs.create_release }}
         uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare-build.outputs.build_ref }}
           fetch-depth: 0
           persist-credentials: false
       - name: Generate AI release notes
-        if: ${{ inputs.create_release }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CREATE_RELEASE: ${{ inputs.create_release }}
           TAG: ${{ needs.prepare-build.outputs.tag }}
+          PREVIEW_TAG: ${{ needs.prepare-build.outputs.preview_tag }}
         run: |
           set -euo pipefail
           if [ -z "${OPENAI_API_KEY:-}" ]; then
             echo "::error::secrets.OPENAI_API_KEY is required to generate production release notes."
             exit 1
           fi
+          if [ "$CREATE_RELEASE" = "true" ]; then
+            TO_REF="$TAG"
+          else
+            TO_REF="$PREVIEW_TAG"
+          fi
           node scripts/release/generate-release-notes.mjs \
             --from latest-release \
-            --to "$TAG" \
+            --to "$TO_REF" \
             --repo "$GITHUB_REPOSITORY" \
             --output release-notes.md
+      - name: Preview release notes
+        run: |
+          echo "::group::Release Notes Preview"
+          cat release-notes.md
+          echo "::endgroup::"
+      - name: Upload release notes artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+          retention-days: 30
       - name: Create draft release with generated notes
         if: ${{ inputs.create_release }}
         id: create
@@ -342,9 +365,9 @@ jobs:
   build-docker:
     name: "Docker: build and push"
     needs: [prepare-build, create-release]
-    if: always() && needs.create-release.result == 'success'
+    if: ${{ inputs.create_release && always() && needs.create-release.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     environment: Production
     env:
       REGISTRY: ghcr.io
@@ -782,3 +805,39 @@ jobs:
               echo "Tag ${IMAGE_TAG} not found or already deleted"
             fi
           done
+
+  # =========================================================================
+  # Cleanup: remove the temporary v###-preview tag after a dry run completes.
+  # The preview tag exists solely so the release notes script can resolve the
+  # --to ref; it has no downstream consumers and should not linger.
+  # =========================================================================
+  cleanup-preview-tag:
+    name: Remove preview tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - prepare-build
+      - create-release
+    if: ${{ always() && !inputs.create_release && needs.prepare-build.result == 'success' }}
+    steps:
+      - name: Delete remote preview tag
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const previewTag = '${{ needs.prepare-build.outputs.preview_tag }}';
+            if (!previewTag) {
+              core.info('No preview tag to clean up');
+              return;
+            }
+            try {
+              await github.rest.git.deleteRef({ owner, repo, ref: `tags/${previewTag}` });
+              core.info(`Deleted remote preview tag ${previewTag}`);
+            } catch (e) {
+              if (e.status === 404) {
+                core.info(`Preview tag ${previewTag} already absent on remote`);
+              } else {
+                throw e;
+              }
+            }

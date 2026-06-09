@@ -234,14 +234,12 @@ jobs:
           echo "release_id=" >> "$GITHUB_OUTPUT"
           echo "upload_url=" >> "$GITHUB_OUTPUT"
       - name: Checkout release ref
-        if: ${{ inputs.create_release }}
         uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare-build.outputs.build_ref }}
           fetch-depth: 0
           persist-credentials: false
       - name: Generate AI release notes
-        if: ${{ inputs.create_release }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -257,6 +255,17 @@ jobs:
             --to "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --output release-notes.md
+      - name: Preview release notes
+        run: |
+          echo "::group::Release Notes Preview"
+          cat release-notes.md
+          echo "::endgroup::"
+      - name: Upload release notes artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+          retention-days: 30
       - name: Create draft release with generated notes
         if: ${{ inputs.create_release }}
         id: create
@@ -344,7 +353,7 @@ jobs:
     needs: [prepare-build, create-release]
     if: always() && needs.create-release.result == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     environment: Production
     env:
       REGISTRY: ghcr.io

@@ -108,9 +108,7 @@ impl X402Client {
             PaymentChain::Solana => {
                 build_solana_payment(signing_key, &challenge, requirement).await?
             }
-            PaymentChain::Evm => {
-                build_evm_payment(&challenge, requirement).await?
-            }
+            PaymentChain::Evm => build_evm_payment(&challenge, requirement).await?,
         };
         let encoded = B64.encode(serde_json::to_string(&payment).unwrap());
 
@@ -188,9 +186,7 @@ pub async fn try_paid_request(
         PaymentChain::Solana
     };
     let payment = match chain {
-        PaymentChain::Solana => {
-            build_solana_payment(signing_key, challenge, requirement).await?
-        }
+        PaymentChain::Solana => build_solana_payment(signing_key, challenge, requirement).await?,
         PaymentChain::Evm => build_evm_payment(challenge, requirement).await?,
     };
     let json = serde_json::to_string(&payment)
@@ -605,9 +601,8 @@ pub(crate) fn build_evm_payment_with_signer(
         .evm_chain_id()
         .ok_or_else(|| X402Error::Protocol(format!("not an EVM network: {}", req.network)))?;
 
-    let amount = U256::from_dec_str(&req.amount).map_err(|e| {
-        X402Error::Protocol(format!("invalid amount '{}': {e}", req.amount))
-    })?;
+    let amount = U256::from_dec_str(&req.amount)
+        .map_err(|e| X402Error::Protocol(format!("invalid amount '{}': {e}", req.amount)))?;
 
     let pay_to = Address::from_str(&req.pay_to).map_err(|e| {
         X402Error::Protocol(format!("invalid EVM payTo address '{}': {e}", req.pay_to))
@@ -704,13 +699,8 @@ pub(crate) fn build_evm_payment_with_signer(
 }
 
 /// Derive the wallet's EVM signer from the encrypted mnemonic.
-async fn derive_evm_signer() -> Result<
-    (
-        ethers_signers::LocalWallet,
-        ethers_core::types::Address,
-    ),
-    X402Error,
-> {
+async fn derive_evm_signer(
+) -> Result<(ethers_signers::LocalWallet, ethers_core::types::Address), X402Error> {
     use crate::openhuman::wallet::WalletChain;
     use ethers_signers::{coins_bip39::English, MnemonicBuilder, Signer};
 

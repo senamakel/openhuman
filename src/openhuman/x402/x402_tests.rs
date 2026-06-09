@@ -412,9 +412,8 @@ fn eip712_domain_separator_is_deterministic() {
 #[test]
 fn eip3009_struct_hash_is_deterministic() {
     use std::str::FromStr;
-    let from =
-        ethers_core::types::Address::from_str("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-            .unwrap();
+    let from = ethers_core::types::Address::from_str("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        .unwrap();
     let to = ethers_core::types::Address::from_str("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
         .unwrap();
     let value = ethers_core::types::U256::from(1_000_000u64);
@@ -447,10 +446,7 @@ fn parse_twit_sh_402_challenge() {
     assert_eq!(req.network, BASE_MAINNET_CAIP2);
     assert_eq!(req.amount, "2500");
     assert_eq!(req.asset, USDC_BASE_MAINNET);
-    assert_eq!(
-        req.pay_to,
-        "0x9DBA414637c611a16BEa6f0796BFcbcBdc410df8"
-    );
+    assert_eq!(req.pay_to, "0x9DBA414637c611a16BEa6f0796BFcbcBdc410df8");
     assert_eq!(req.max_timeout_seconds, 300);
     assert!(req.is_base_mainnet());
     assert_eq!(req.evm_chain_id(), Some(8453));
@@ -506,8 +502,7 @@ fn build_evm_payment_with_test_key_produces_valid_payload() {
     };
 
     let req = &challenge.accepts[0];
-    let payload =
-        build_evm_payment_with_signer(&wallet, from_address, &challenge, req).unwrap();
+    let payload = build_evm_payment_with_signer(&wallet, from_address, &challenge, req).unwrap();
 
     assert_eq!(payload.x402_version, 2);
     assert_eq!(payload.accepted.network, BASE_MAINNET_CAIP2);

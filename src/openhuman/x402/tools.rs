@@ -88,10 +88,7 @@ impl Tool for X402RequestTool {
             None => return Ok(ToolResult::error("Missing required 'url' parameter")),
         };
 
-        let method_str = args
-            .get("method")
-            .and_then(|v| v.as_str())
-            .unwrap_or("GET");
+        let method_str = args.get("method").and_then(|v| v.as_str()).unwrap_or("GET");
         let method: reqwest::Method = match method_str.parse() {
             Ok(m) => m,
             Err(_) => {
@@ -109,19 +106,18 @@ impl Tool for X402RequestTool {
         // Step 1: Initial request to get the 402 challenge
         let client = match build_client() {
             Ok(c) => c,
-            Err(e) => return Ok(ToolResult::error(format!("Failed to build HTTP client: {e}"))),
-        };
-
-        let initial_response = match send_request(&client, &method, &url, &headers, body.as_deref())
-            .await
-        {
-            Ok(r) => r,
             Err(e) => {
                 return Ok(ToolResult::error(format!(
-                    "Initial request failed: {e}"
+                    "Failed to build HTTP client: {e}"
                 )))
             }
         };
+
+        let initial_response =
+            match send_request(&client, &method, &url, &headers, body.as_deref()).await {
+                Ok(r) => r,
+                Err(e) => return Ok(ToolResult::error(format!("Initial request failed: {e}"))),
+            };
 
         // If the response is not 402, return it directly
         if initial_response.status() != reqwest::StatusCode::PAYMENT_REQUIRED {
@@ -204,9 +200,7 @@ impl Tool for X402RequestTool {
                         };
                         l.record_payment(updated);
                     });
-                    return Ok(ToolResult::error(format!(
-                        "x402 retry request failed: {e}"
-                    )));
+                    return Ok(ToolResult::error(format!("x402 retry request failed: {e}")));
                 }
             };
 
@@ -261,7 +255,14 @@ impl Tool for X402RequestTool {
         }
 
         // Step 6: Format and return the response with payment metadata
-        format_response_with_payment(paid_response, &url, &amount_display, &payment_result.network, tx_sig.as_deref()).await
+        format_response_with_payment(
+            paid_response,
+            &url,
+            &amount_display,
+            &payment_result.network,
+            tx_sig.as_deref(),
+        )
+        .await
     }
 }
 
@@ -304,10 +305,7 @@ async fn send_request(
     request.send().await
 }
 
-async fn format_response(
-    response: reqwest::Response,
-    url: &str,
-) -> anyhow::Result<ToolResult> {
+async fn format_response(response: reqwest::Response, url: &str) -> anyhow::Result<ToolResult> {
     let status = response.status().as_u16();
     let body = response.text().await.unwrap_or_default();
     let truncated = if body.len() > 50_000 {

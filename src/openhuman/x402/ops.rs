@@ -155,20 +155,20 @@ pub fn handle_402(
     headers: &HeaderMap,
 ) -> Result<(PaymentRequired, usize, PaymentChain), X402Error> {
     let challenge = parse_402_headers(headers)?;
-    // Prefer EVM, fall back to Solana
+    // Prefer Solana (lower fees, faster finality), fall back to EVM
     let (idx, chain) = challenge
         .accepts
         .iter()
         .enumerate()
-        .find(|(_, r)| r.scheme == "exact" && r.network.starts_with("eip155:"))
-        .map(|(i, _)| (i, PaymentChain::Evm))
+        .find(|(_, r)| r.scheme == "exact" && r.network.starts_with("solana:"))
+        .map(|(i, _)| (i, PaymentChain::Solana))
         .or_else(|| {
             challenge
                 .accepts
                 .iter()
                 .enumerate()
-                .find(|(_, r)| r.scheme == "exact" && r.network.starts_with("solana:"))
-                .map(|(i, _)| (i, PaymentChain::Solana))
+                .find(|(_, r)| r.scheme == "exact" && r.network.starts_with("eip155:"))
+                .map(|(i, _)| (i, PaymentChain::Evm))
         })
         .ok_or(X402Error::NoPaymentOption)?;
     Ok((challenge, idx, chain))
@@ -214,7 +214,7 @@ pub struct X402PaymentResult {
 ///
 /// 1. Parses the PAYMENT-REQUIRED challenge
 /// 2. Checks the spending budget
-/// 3. Derives the wallet's Solana signing key
+/// 3. Derives the wallet's signing key (Solana preferred, EVM fallback)
 /// 4. Builds a partially-signed payment transaction
 /// 5. Returns the encoded PAYMENT-SIGNATURE header value
 ///

@@ -236,7 +236,7 @@ fn evm_exact_requirement_finds_match() {
 }
 
 #[test]
-fn best_exact_requirement_prefers_evm() {
+fn best_exact_requirement_prefers_solana() {
     let challenge = PaymentRequired {
         x402_version: 2,
         error: None,
@@ -268,12 +268,12 @@ fn best_exact_requirement_prefers_evm() {
         extensions: serde_json::Map::new(),
     };
     let (req, chain) = challenge.best_exact_requirement().unwrap();
-    assert_eq!(chain, PaymentChain::Evm);
-    assert_eq!(req.amount, "100");
+    assert_eq!(chain, PaymentChain::Solana);
+    assert_eq!(req.amount, "5000");
 }
 
 #[test]
-fn best_exact_requirement_falls_back_to_solana() {
+fn best_exact_requirement_falls_back_to_evm() {
     let challenge = PaymentRequired {
         x402_version: 2,
         error: None,
@@ -284,18 +284,18 @@ fn best_exact_requirement_falls_back_to_solana() {
         },
         accepts: vec![PaymentRequirements {
             scheme: "exact".into(),
-            network: SOLANA_MAINNET_CAIP2.into(),
-            amount: "5000".into(),
-            asset: USDC_MINT_MAINNET.into(),
-            pay_to: "SolRecipient".into(),
-            max_timeout_seconds: 60,
+            network: BASE_MAINNET_CAIP2.into(),
+            amount: "100".into(),
+            asset: USDC_BASE_MAINNET.into(),
+            pay_to: "0xRecipient".into(),
+            max_timeout_seconds: 30,
             extra: None,
         }],
         extensions: serde_json::Map::new(),
     };
     let (req, chain) = challenge.best_exact_requirement().unwrap();
-    assert_eq!(chain, PaymentChain::Solana);
-    assert_eq!(req.amount, "5000");
+    assert_eq!(chain, PaymentChain::Evm);
+    assert_eq!(req.amount, "100");
 }
 
 #[test]

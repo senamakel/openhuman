@@ -194,10 +194,10 @@ impl PaymentRequired {
 
     /// Find the best payment option — prefer EVM (Base), fall back to Solana.
     pub fn best_exact_requirement(&self) -> Option<(&PaymentRequirements, PaymentChain)> {
-        if let Some(evm) = self.evm_exact_requirement() {
-            Some((evm, PaymentChain::Evm))
-        } else if let Some(sol) = self.solana_exact_requirement() {
+        if let Some(sol) = self.solana_exact_requirement() {
             Some((sol, PaymentChain::Solana))
+        } else if let Some(evm) = self.evm_exact_requirement() {
+            Some((evm, PaymentChain::Evm))
         } else {
             None
         }

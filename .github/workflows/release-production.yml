@@ -42,7 +42,7 @@ concurrency:
 #        │    ┌────┴───────────────┬────────────────┐
 #        │    │                    │                │
 #        │  build-desktop    build-cli-linux    build-docker
-#        │  (reusable wf)    (Linux tarballs)   (GHCR image, release-only)
+#        │  (release-only)   (release-only)     (release-only)
 #        │    │                    │                │
 #        │    └────────┬───────────┴────────────────┘
 #        │             │
@@ -320,7 +320,7 @@ jobs:
   build-desktop:
     name: Build desktop matrix
     needs: [prepare-build, create-release]
-    if: always() && needs.create-release.result == 'success'
+    if: ${{ inputs.create_release && always() && needs.create-release.result == 'success' }}
     uses: ./.github/workflows/build-desktop.yml
     secrets: inherit
     with:

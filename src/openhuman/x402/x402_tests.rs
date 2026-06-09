@@ -1,6 +1,7 @@
 use base64::engine::{general_purpose::STANDARD as B64, Engine as _};
 use serde_json::json;
 
+use super::ops::{eip3009_struct_hash, eip712_domain_separator};
 use super::types::*;
 
 #[test]
@@ -186,4 +187,242 @@ fn base64_header_round_trip() {
     let decoded = B64.decode(&encoded).unwrap();
     let parsed: PaymentRequired = serde_json::from_slice(&decoded).unwrap();
     assert_eq!(parsed.accepts[0].amount, "1000000");
+}
+
+// ---------------------------------------------------------------------------
+// EVM tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn evm_exact_requirement_finds_match() {
+    let challenge = PaymentRequired {
+        x402_version: 2,
+        error: None,
+        resource: ResourceInfo {
+            url: "https://twit.sh/post".into(),
+            description: None,
+            mime_type: None,
+        },
+        accepts: vec![
+            PaymentRequirements {
+                scheme: "exact".into(),
+                network: BASE_MAINNET_CAIP2.into(),
+                amount: "100".into(),
+                asset: USDC_BASE_MAINNET.into(),
+                pay_to: "0x1234567890abcdef1234567890abcdef12345678".into(),
+                max_timeout_seconds: 30,
+                extra: None,
+            },
+            PaymentRequirements {
+                scheme: "exact".into(),
+                network: SOLANA_MAINNET_CAIP2.into(),
+                amount: "5000".into(),
+                asset: USDC_MINT_MAINNET.into(),
+                pay_to: "SomeRecipient".into(),
+                max_timeout_seconds: 60,
+                extra: None,
+            },
+        ],
+        extensions: serde_json::Map::new(),
+    };
+    let evm = challenge.evm_exact_requirement().unwrap();
+    assert_eq!(evm.amount, "100");
+    assert!(evm.is_base_mainnet());
+    assert_eq!(evm.evm_chain_id(), Some(8453));
+}
+
+#[test]
+fn best_exact_requirement_prefers_evm() {
+    let challenge = PaymentRequired {
+        x402_version: 2,
+        error: None,
+        resource: ResourceInfo {
+            url: "https://example.com".into(),
+            description: None,
+            mime_type: None,
+        },
+        accepts: vec![
+            PaymentRequirements {
+                scheme: "exact".into(),
+                network: SOLANA_MAINNET_CAIP2.into(),
+                amount: "5000".into(),
+                asset: USDC_MINT_MAINNET.into(),
+                pay_to: "SolRecipient".into(),
+                max_timeout_seconds: 60,
+                extra: None,
+            },
+            PaymentRequirements {
+                scheme: "exact".into(),
+                network: BASE_MAINNET_CAIP2.into(),
+                amount: "100".into(),
+                asset: USDC_BASE_MAINNET.into(),
+                pay_to: "0xRecipient".into(),
+                max_timeout_seconds: 30,
+                extra: None,
+            },
+        ],
+        extensions: serde_json::Map::new(),
+    };
+    let (req, chain) = challenge.best_exact_requirement().unwrap();
+    assert_eq!(chain, PaymentChain::Evm);
+    assert_eq!(req.amount, "100");
+}
+
+#[test]
+fn best_exact_requirement_falls_back_to_solana() {
+    let challenge = PaymentRequired {
+        x402_version: 2,
+        error: None,
+        resource: ResourceInfo {
+            url: "https://example.com".into(),
+            description: None,
+            mime_type: None,
+        },
+        accepts: vec![PaymentRequirements {
+            scheme: "exact".into(),
+            network: SOLANA_MAINNET_CAIP2.into(),
+            amount: "5000".into(),
+            asset: USDC_MINT_MAINNET.into(),
+            pay_to: "SolRecipient".into(),
+            max_timeout_seconds: 60,
+            extra: None,
+        }],
+        extensions: serde_json::Map::new(),
+    };
+    let (req, chain) = challenge.best_exact_requirement().unwrap();
+    assert_eq!(chain, PaymentChain::Solana);
+    assert_eq!(req.amount, "5000");
+}
+
+#[test]
+fn evm_chain_id_parsing() {
+    let req = PaymentRequirements {
+        scheme: "exact".into(),
+        network: "eip155:8453".into(),
+        amount: "100".into(),
+        asset: USDC_BASE_MAINNET.into(),
+        pay_to: "0xRecipient".into(),
+        max_timeout_seconds: 30,
+        extra: None,
+    };
+    assert_eq!(req.evm_chain_id(), Some(8453));
+    assert!(req.is_base_mainnet());
+
+    let eth_req = PaymentRequirements {
+        scheme: "exact".into(),
+        network: "eip155:1".into(),
+        amount: "100".into(),
+        asset: USDC_ETHEREUM_MAINNET.into(),
+        pay_to: "0xRecipient".into(),
+        max_timeout_seconds: 30,
+        extra: None,
+    };
+    assert_eq!(eth_req.evm_chain_id(), Some(1));
+    assert!(!eth_req.is_base_mainnet());
+
+    let sol_req = PaymentRequirements {
+        scheme: "exact".into(),
+        network: SOLANA_MAINNET_CAIP2.into(),
+        amount: "100".into(),
+        asset: USDC_MINT_MAINNET.into(),
+        pay_to: "Recipient".into(),
+        max_timeout_seconds: 30,
+        extra: None,
+    };
+    assert_eq!(sol_req.evm_chain_id(), None);
+}
+
+#[test]
+fn evm_payment_proof_serializes_correctly() {
+    let proof = EvmPaymentProof {
+        signature: "0xdeadbeef".into(),
+        authorization: EvmAuthorization {
+            from: "0xaaaa".into(),
+            to: "0xbbbb".into(),
+            value: "1000000".into(),
+            valid_after: "0".into(),
+            valid_before: "99999999".into(),
+            nonce: "0xabcd".into(),
+        },
+    };
+    let payload = PaymentPayload {
+        x402_version: 2,
+        resource: None,
+        accepted: PaymentRequirements {
+            scheme: "exact".into(),
+            network: BASE_MAINNET_CAIP2.into(),
+            amount: "1000000".into(),
+            asset: USDC_BASE_MAINNET.into(),
+            pay_to: "0xbbbb".into(),
+            max_timeout_seconds: 60,
+            extra: None,
+        },
+        payload: PaymentProof::Evm(proof),
+        extensions: serde_json::Map::new(),
+    };
+    let json = serde_json::to_string(&payload).unwrap();
+    assert!(json.contains("\"signature\":\"0xdeadbeef\""));
+    assert!(json.contains("\"authorization\""));
+    assert!(!json.contains("\"transaction\""));
+}
+
+#[test]
+fn solana_payment_proof_serializes_correctly() {
+    let payload = PaymentPayload {
+        x402_version: 2,
+        resource: None,
+        accepted: PaymentRequirements {
+            scheme: "exact".into(),
+            network: SOLANA_MAINNET_CAIP2.into(),
+            amount: "5000".into(),
+            asset: USDC_MINT_MAINNET.into(),
+            pay_to: "Recipient".into(),
+            max_timeout_seconds: 60,
+            extra: None,
+        },
+        payload: PaymentProof::Solana(SolanaPaymentProof {
+            transaction: "base64tx".into(),
+        }),
+        extensions: serde_json::Map::new(),
+    };
+    let json = serde_json::to_string(&payload).unwrap();
+    assert!(json.contains("\"transaction\":\"base64tx\""));
+    assert!(!json.contains("\"signature\""));
+}
+
+#[test]
+fn eip712_domain_separator_is_deterministic() {
+    use std::str::FromStr;
+    let contract =
+        ethers_core::types::Address::from_str("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
+            .unwrap();
+    let sep1 = eip712_domain_separator(contract, 8453);
+    let sep2 = eip712_domain_separator(contract, 8453);
+    assert_eq!(sep1, sep2);
+
+    // Different chain ID produces different separator
+    let sep_eth = eip712_domain_separator(contract, 1);
+    assert_ne!(sep1, sep_eth);
+}
+
+#[test]
+fn eip3009_struct_hash_is_deterministic() {
+    use std::str::FromStr;
+    let from =
+        ethers_core::types::Address::from_str("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            .unwrap();
+    let to = ethers_core::types::Address::from_str("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        .unwrap();
+    let value = ethers_core::types::U256::from(1_000_000u64);
+    let valid_after = ethers_core::types::U256::zero();
+    let valid_before = ethers_core::types::U256::from(99999u64);
+    let nonce = [42u8; 32];
+
+    let h1 = eip3009_struct_hash(from, to, value, valid_after, valid_before, nonce);
+    let h2 = eip3009_struct_hash(from, to, value, valid_after, valid_before, nonce);
+    assert_eq!(h1, h2);
+
+    // Different nonce produces different hash
+    let h3 = eip3009_struct_hash(from, to, value, valid_after, valid_before, [43u8; 32]);
+    assert_ne!(h1, h3);
 }

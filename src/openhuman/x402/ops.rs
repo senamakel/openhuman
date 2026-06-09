@@ -727,7 +727,7 @@ async fn derive_evm_signer() -> Result<
 
 /// EIP-712 domain separator for USDC-style token contracts.
 /// `keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")`
-fn eip712_domain_separator(
+pub(crate) fn eip712_domain_separator(
     verifying_contract: ethers_core::types::Address,
     chain_id: u64,
 ) -> [u8; 32] {
@@ -754,7 +754,7 @@ fn eip712_domain_separator(
 }
 
 /// EIP-3009 `TransferWithAuthorization` struct hash.
-fn eip3009_struct_hash(
+pub(crate) fn eip3009_struct_hash(
     from: ethers_core::types::Address,
     to: ethers_core::types::Address,
     value: ethers_core::types::U256,

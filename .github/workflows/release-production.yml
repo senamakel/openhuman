@@ -42,7 +42,7 @@ concurrency:
 #        │    ┌────┴───────────────┬────────────────┐
 #        │    │                    │                │
 #        │  build-desktop    build-cli-linux    build-docker
-#        │  (release-only)   (release-only)     (release-only)
+#        │  (reusable wf)    (Linux tarballs)   (GHCR image)
 #        │    │                    │                │
 #        │    └────────┬───────────┴────────────────┘
 #        │             │
@@ -320,7 +320,7 @@ jobs:
   build-desktop:
     name: Build desktop matrix
     needs: [prepare-build, create-release]
-    if: ${{ inputs.create_release && always() && needs.create-release.result == 'success' }}
+    if: always() && needs.create-release.result == 'success'
     uses: ./.github/workflows/build-desktop.yml
     secrets: inherit
     with:
@@ -365,7 +365,7 @@ jobs:
   build-docker:
     name: "Docker: build and push"
     needs: [prepare-build, create-release]
-    if: ${{ inputs.create_release && always() && needs.create-release.result == 'success' }}
+    if: always() && needs.create-release.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: Production
@@ -393,15 +393,25 @@ jobs:
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           TAG: ${{ needs.prepare-build.outputs.tag }}
           VERSION: ${{ needs.prepare-build.outputs.version }}
+          PREVIEW_TAG: ${{ needs.prepare-build.outputs.preview_tag }}
+          CREATE_RELEASE: ${{ inputs.create_release }}
         run: |
           set -euo pipefail
           base="${REGISTRY}/${IMAGE_NAME}"
-          {
-            echo "tags<<EOF"
-            echo "${base}:${TAG}"
-            echo "${base}:${VERSION}"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          if [ "$CREATE_RELEASE" = "true" ]; then
+            {
+              echo "tags<<EOF"
+              echo "${base}:${TAG}"
+              echo "${base}:${VERSION}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "tags<<EOF"
+              echo "${base}:${PREVIEW_TAG}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
@@ -418,9 +428,18 @@ jobs:
           cache-from: type=gha,scope=release-production
           cache-to: type=gha,scope=release-production,mode=max
       - name: Verify pushed image is pullable
+        env:
+          CREATE_RELEASE: ${{ inputs.create_release }}
+          RELEASE_TAG: ${{ needs.prepare-build.outputs.tag }}
+          PREVIEW_TAG: ${{ needs.prepare-build.outputs.preview_tag }}
         run: |
           set -euo pipefail
-          image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare-build.outputs.tag }}"
+          if [ "$CREATE_RELEASE" = "true" ]; then
+            TAG="$RELEASE_TAG"
+          else
+            TAG="$PREVIEW_TAG"
+          fi
+          image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
           docker pull "$image"
           docker image inspect "$image" >/dev/null
 
@@ -437,7 +456,7 @@ jobs:
   build-cli-linux:
     name: "CLI: ${{ matrix.target }}"
     needs: [prepare-build, create-release]
-    if: ${{ inputs.create_release && always() && needs.create-release.result == 'success' }}
+    if: always() && needs.create-release.result == 'success'
     timeout-minutes: 30
     environment: Production
     runs-on: ${{ matrix.runner }}
@@ -486,10 +505,8 @@ jobs:
           OPENHUMAN_BUILD_SHA: ${{ needs.prepare-build.outputs.short_sha }}
           OPENHUMAN_APP_ENV: production
         run: bash scripts/ci-cancel-aware.sh cargo build --release --bin openhuman-core
-      - name: Package and upload tarball to release
+      - name: Package tarball
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          UPLOAD_REPO: ${{ github.repository }}
           VERSION: ${{ needs.prepare-build.outputs.version }}
           TARGET: ${{ matrix.target }}
         run: |
@@ -497,6 +514,27 @@ jobs:
             target/release/openhuman-core \
             "$VERSION" \
             "$TARGET"
+      - name: Upload tarball to release
+        if: ${{ inputs.create_release }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPLOAD_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.prepare-build.outputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          TARBALL="openhuman-core-${VERSION}-${TARGET}.tar.gz"
+          gh release upload "v${VERSION}" \
+            "$TARBALL" "${TARBALL}.sha256" \
+            --repo "$UPLOAD_REPO" --clobber
+      - name: Upload tarball as workflow artifact
+        if: ${{ !inputs.create_release }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openhuman-core-${{ matrix.target }}
+          path: |
+            openhuman-core-*.tar.gz
+            openhuman-core-*.tar.gz.sha256
+          retention-days: 30
 
   # =========================================================================
   # Phase 3d: Generate and upload latest.json for the Tauri auto-updater.
@@ -818,6 +856,9 @@ jobs:
     needs:
       - prepare-build
       - create-release
+      - build-desktop
+      - build-cli-linux
+      - build-docker
     if: ${{ always() && !inputs.create_release && needs.prepare-build.result == 'success' }}
     steps:
       - name: Delete remote preview tag
@@ -841,3 +882,23 @@ jobs:
                 throw e;
               }
             }
+      - name: Delete preview Docker image
+        if: needs.build-docker.result == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIEW_TAG: ${{ needs.prepare-build.outputs.preview_tag }}
+        run: |-
+          set -uo pipefail
+          PACKAGE="openhuman-core"
+          echo "Attempting to delete Docker tag: ${PREVIEW_TAG}"
+          VERSION_ID="$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/orgs/tinyhumansai/packages/container/${PACKAGE}/versions" \
+            --paginate --jq ".[] | select(.metadata.container.tags[]? == \"${PREVIEW_TAG}\") | .id" 2>/dev/null | head -1)"
+          if [ -n "$VERSION_ID" ]; then
+            gh api -X DELETE "/orgs/tinyhumansai/packages/container/${PACKAGE}/versions/${VERSION_ID}" || true
+            echo "Deleted image version ${VERSION_ID} (tag ${PREVIEW_TAG})"
+          else
+            echo "Tag ${PREVIEW_TAG} not found or already deleted"
+          fi

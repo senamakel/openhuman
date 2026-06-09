@@ -24,6 +24,8 @@ fn parse_payment_required_round_trips() {
             extra: Some(PaymentExtra {
                 fee_payer: Some("EwWqGE4ZFKLofuestmU4LDdK7XM1N4ALgdZccwYugwGd".into()),
                 memo: Some("pi_3abc123".into()),
+                name: None,
+                version: None,
             }),
         }],
         extensions: serde_json::Map::new(),
@@ -112,6 +114,8 @@ fn payment_extra_accessors() {
         extra: Some(PaymentExtra {
             fee_payer: Some("FeePayer123".into()),
             memo: Some("order_456".into()),
+            name: None,
+            version: None,
         }),
     };
     assert_eq!(req.fee_payer_pubkey(), Some("FeePayer123"));
@@ -425,4 +429,39 @@ fn eip3009_struct_hash_is_deterministic() {
     // Different nonce produces different hash
     let h3 = eip3009_struct_hash(from, to, value, valid_after, valid_before, [43u8; 32]);
     assert_ne!(h1, h3);
+}
+
+#[test]
+fn parse_twit_sh_402_challenge() {
+    let b64 = "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQYXltZW50IHJlcXVpcmVkIiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly94NDAyLnR3aXQuc2gvdHdlZXRzL2J5L2lkIiwiZGVzY3JpcHRpb24iOiJMb29rIHVwIGEgc2luZ2xlIFR3aXR0ZXIvWCB0d2VldCBieSBpdHMgbnVtZXJpYyB0d2VldCBJRC4iLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24ifSwiYWNjZXB0cyI6W3sic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoiZWlwMTU1Ojg0NTMiLCJhbW91bnQiOiIyNTAwIiwiYXNzZXQiOiIweDgzMzU4OWZDRDZlRGI2RTA4ZjRjN0MzMkQ0ZjcxYjU0YmRBMDI5MTMiLCJwYXlUbyI6IjB4OURCQTQxNDYzN2M2MTFhMTZCRWE2ZjA3OTZCRmNiY0JkYzQxMGRmOCIsIm1heFRpbWVvdXRTZWNvbmRzIjozMDAsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19XX0=";
+    let json_bytes = B64.decode(b64).unwrap();
+    let challenge: PaymentRequired = serde_json::from_slice(&json_bytes).unwrap();
+
+    assert_eq!(challenge.x402_version, 2);
+    assert_eq!(challenge.error.as_deref(), Some("Payment required"));
+    assert_eq!(challenge.resource.url, "https://x402.twit.sh/tweets/by/id");
+    assert_eq!(challenge.accepts.len(), 1);
+
+    let req = &challenge.accepts[0];
+    assert_eq!(req.scheme, "exact");
+    assert_eq!(req.network, BASE_MAINNET_CAIP2);
+    assert_eq!(req.amount, "2500");
+    assert_eq!(req.asset, USDC_BASE_MAINNET);
+    assert_eq!(
+        req.pay_to,
+        "0x9DBA414637c611a16BEa6f0796BFcbcBdc410df8"
+    );
+    assert_eq!(req.max_timeout_seconds, 300);
+    assert!(req.is_base_mainnet());
+    assert_eq!(req.evm_chain_id(), Some(8453));
+
+    let extra = req.extra.as_ref().unwrap();
+    assert_eq!(extra.name.as_deref(), Some("USD Coin"));
+    assert_eq!(extra.version.as_deref(), Some("2"));
+
+    // Should select EVM path
+    let (best, chain) = challenge.best_exact_requirement().unwrap();
+    assert_eq!(chain, PaymentChain::Evm);
+    assert_eq!(best.amount, "2500");
+    assert!(challenge.solana_exact_requirement().is_none());
 }

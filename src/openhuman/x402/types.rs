@@ -81,12 +81,18 @@ pub struct PaymentRequirements {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaymentExtra {
-    /// Facilitator pubkey that will co-sign as fee payer.
+    /// Facilitator pubkey that will co-sign as fee payer (Solana).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fee_payer: Option<String>,
-    /// Required memo value for transaction uniqueness.
+    /// Required memo value for transaction uniqueness (Solana).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub memo: Option<String>,
+    /// EIP-712 domain name for the token contract (EVM, e.g. "USD Coin").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// EIP-712 domain version for the token contract (EVM, e.g. "2").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 
 // ---------------------------------------------------------------------------

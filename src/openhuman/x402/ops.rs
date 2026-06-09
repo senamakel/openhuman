@@ -587,7 +587,6 @@ async fn build_evm_payment(
     req: &PaymentRequirements,
 ) -> Result<PaymentPayload, X402Error> {
     use ethers_core::types::{Address, U256};
-    use ethers_signers::{coins_bip39::English, MnemonicBuilder, Signer};
     use std::str::FromStr;
 
     let chain_id = req
@@ -633,7 +632,18 @@ async fn build_evm_payment(
     };
 
     // EIP-712 typed data for `transferWithAuthorization`
-    let domain_separator = eip712_domain_separator(token_address, chain_id);
+    let domain_name = req
+        .extra
+        .as_ref()
+        .and_then(|e| e.name.as_deref())
+        .unwrap_or("USD Coin");
+    let domain_version = req
+        .extra
+        .as_ref()
+        .and_then(|e| e.version.as_deref())
+        .unwrap_or("2");
+    let domain_separator =
+        eip712_domain_separator_named(token_address, chain_id, domain_name, domain_version);
     let struct_hash = eip3009_struct_hash(
         from_address,
         pay_to,
@@ -725,19 +735,28 @@ async fn derive_evm_signer() -> Result<
     Ok((wallet, address))
 }
 
-/// EIP-712 domain separator for USDC-style token contracts.
-/// `keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")`
+/// EIP-712 domain separator with default USDC params ("USD Coin", "2").
 pub(crate) fn eip712_domain_separator(
     verifying_contract: ethers_core::types::Address,
     chain_id: u64,
+) -> [u8; 32] {
+    eip712_domain_separator_named(verifying_contract, chain_id, "USD Coin", "2")
+}
+
+/// EIP-712 domain separator with explicit name and version from the 402 extra.
+pub(crate) fn eip712_domain_separator_named(
+    verifying_contract: ethers_core::types::Address,
+    chain_id: u64,
+    name: &str,
+    version: &str,
 ) -> [u8; 32] {
     use ethers_core::utils::keccak256;
 
     let type_hash = keccak256(
         b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
     );
-    let name_hash = keccak256(b"USD Coin");
-    let version_hash = keccak256(b"2");
+    let name_hash = keccak256(name.as_bytes());
+    let version_hash = keccak256(version.as_bytes());
 
     let mut encoded = Vec::with_capacity(5 * 32);
     encoded.extend(type_hash);

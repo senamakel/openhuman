@@ -1,119 +1,81 @@
-//! Business logic for the skill registry: fetch catalogs, search, and install.
-
-use serde::Deserialize;
+//! Business logic for the skill registry: fetch, index, search, and install.
+//!
+//! The catalog is sourced from the HermesHub aggregated JSON API which
+//! includes skills from HermesHub (built-in + optional), ClawHub, skills.sh,
+//! LobeHub, and browse.sh — all accessible from a single endpoint.
 
 use super::store;
-use super::types::{CatalogEntry, RegistryKind, RegistrySource};
+use super::types::CatalogEntry;
 
-const MAX_CATALOG_BYTES: usize = 5 * 1024 * 1024;
-const FETCH_TIMEOUT_SECS: u64 = 30;
+const CATALOG_URL: &str = "https://hermes-agent.nousresearch.com/docs/api/skills.json";
+const CATALOG_URL_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_CATALOG_URL";
+const DOWNLOAD_BASE_URL_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL";
+const REFRESH_ON_BOOT_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_REFRESH_ON_BOOT";
+const FETCH_TIMEOUT_SECS: u64 = 180;
 
-/// Default registry sources shipped with the app.
-pub fn default_sources() -> Vec<RegistrySource> {
-    vec![
-        RegistrySource {
-            id: "openhuman-community".into(),
-            name: "OpenHuman Community Skills".into(),
-            url: "https://raw.githubusercontent.com/tinyhumansai/skill-registry/main/index.json"
-                .into(),
-            kind: RegistryKind::GithubIndex,
-            enabled: true,
-        },
-        RegistrySource {
-            id: "awesome-openclaw".into(),
-            name: "OpenClaw Skills".into(),
-            url: "https://raw.githubusercontent.com/VoltAgent/awesome-openclaw-skills/main/index.json"
-                .into(),
-            kind: RegistryKind::GithubIndex,
-            enabled: true,
-        },
-        RegistrySource {
-            id: "hermes-community".into(),
-            name: "Hermes Community Skills".into(),
-            url: "https://raw.githubusercontent.com/hermes-agent/skill-index/main/index.json"
-                .into(),
-            kind: RegistryKind::GithubIndex,
-            enabled: true,
-        },
-    ]
-}
+/// Start a one-shot background refresh of the remote skills catalog.
+///
+/// This is intended for core startup: it warms the explorer/search cache without
+/// making core readiness depend on registry availability. Set
+/// `OPENHUMAN_SKILL_REGISTRY_REFRESH_ON_BOOT=0` to disable it in constrained
+/// environments.
+pub fn start_boot_catalog_refresh() {
+    static STARTED: std::sync::Once = std::sync::Once::new();
 
-/// Resolve the active list of registry sources: defaults + any user-added custom ones.
-pub fn list_sources() -> Vec<RegistrySource> {
-    let mut sources = default_sources();
-    let custom = store::load_custom_sources();
-    tracing::debug!(
-        default_count = sources.len(),
-        custom_count = custom.len(),
-        "[skill_registry] list_sources"
-    );
-    for c in custom {
-        if !sources.iter().any(|s| s.id == c.id) {
-            sources.push(c);
+    STARTED.call_once(|| {
+        if !refresh_on_boot_enabled(std::env::var(REFRESH_ON_BOOT_ENV).ok().as_deref()) {
+            tracing::info!(
+                env = REFRESH_ON_BOOT_ENV,
+                "[skill_registry] boot catalog refresh disabled"
+            );
+            return;
         }
-    }
-    tracing::debug!(total = sources.len(), "[skill_registry] list_sources done");
-    sources
+
+        tracing::info!("[skill_registry] scheduling boot catalog refresh");
+        tokio::spawn(async {
+            let started = std::time::Instant::now();
+            match browse_catalog(true).await {
+                Ok(entries) => {
+                    tracing::info!(
+                        count = entries.len(),
+                        elapsed_ms = started.elapsed().as_millis(),
+                        "[skill_registry] boot catalog refresh complete"
+                    );
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        error = %error,
+                        elapsed_ms = started.elapsed().as_millis(),
+                        "[skill_registry] boot catalog refresh failed"
+                    );
+                }
+            }
+        });
+    });
 }
 
-/// Add a custom registry source.
-pub fn add_source(source: RegistrySource) -> Result<(), String> {
-    tracing::debug!(
-        source_id = %source.id,
-        source_url = %source.url,
-        "[skill_registry] add_source"
-    );
-    if source.id.is_empty() {
-        return Err("source id must not be empty".into());
-    }
-    if source.url.is_empty() {
-        return Err("source url must not be empty".into());
-    }
-    let mut custom = store::load_custom_sources();
-    if custom.iter().any(|s| s.id == source.id) {
-        return Err(format!("source '{}' already exists", source.id));
-    }
-    custom.push(source);
-    store::save_custom_sources(&custom);
-    store::clear_cache();
-    tracing::info!("[skill_registry] source added, cache cleared");
-    Ok(())
+fn refresh_on_boot_enabled(raw: Option<&str>) -> bool {
+    let Some(raw) = raw else { return true };
+    let value = raw.trim();
+    !(value == "0"
+        || value.eq_ignore_ascii_case("false")
+        || value.eq_ignore_ascii_case("no")
+        || value.eq_ignore_ascii_case("off"))
 }
 
-/// Remove a custom registry source by id.
-pub fn remove_source(id: &str) -> Result<(), String> {
-    tracing::debug!(source_id = %id, "[skill_registry] remove_source");
-    let mut custom = store::load_custom_sources();
-    let before = custom.len();
-    custom.retain(|s| s.id != id);
-    if custom.len() == before {
-        return Err(format!("source '{id}' not found in custom sources"));
-    }
-    store::save_custom_sources(&custom);
-    store::clear_cache();
-    tracing::info!(source_id = %id, "[skill_registry] source removed, cache cleared");
-    Ok(())
-}
-
-/// Fetch the full catalog from all enabled sources, using cache when fresh.
+/// Fetch the full catalog, using cache when fresh.
 pub async fn browse_catalog(force_refresh: bool) -> Result<Vec<CatalogEntry>, String> {
     if !force_refresh {
         if let Some(cached) = store::load_cached_catalog() {
+            tracing::debug!(count = cached.len(), "[skill_registry] serving from cache");
             return Ok(cached);
         }
     }
 
-    let sources = list_sources();
-    let enabled: Vec<&RegistrySource> = sources.iter().filter(|s| s.enabled).collect();
-
-    if enabled.is_empty() {
-        return Ok(Vec::new());
-    }
-
+    let catalog_url = catalog_url();
     tracing::info!(
-        count = enabled.len(),
-        "[skill_registry] fetching catalogs from {} source(s)",
-        enabled.len()
+        catalog_url = %redact_url_for_log(&catalog_url),
+        "[skill_registry] fetching catalog"
     );
 
     let client = reqwest::Client::builder()
@@ -121,59 +83,74 @@ pub async fn browse_catalog(force_refresh: bool) -> Result<Vec<CatalogEntry>, St
         .build()
         .map_err(|e| format!("failed to build http client: {e}"))?;
 
-    let mut all_entries: Vec<CatalogEntry> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
+    let response = client
+        .get(&catalog_url)
+        .header("User-Agent", "openhuman-core")
+        .send()
+        .await
+        .map_err(|e| format!("catalog fetch failed: {e}"))?;
 
-    for source in &enabled {
-        match fetch_source_catalog(&client, source).await {
-            Ok(entries) => {
-                tracing::debug!(
-                    source = %source.id,
-                    count = entries.len(),
-                    "[skill_registry] fetched catalog"
-                );
-                all_entries.extend(entries);
-            }
-            Err(e) => {
-                tracing::warn!(
-                    source = %source.id,
-                    error = %e,
-                    "[skill_registry] failed to fetch catalog"
-                );
-                errors.push(format!("{}: {e}", source.id));
-            }
-        }
-    }
-
-    all_entries.sort_by(|a, b| {
-        b.stars
-            .unwrap_or(0)
-            .cmp(&a.stars.unwrap_or(0))
-            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-    });
-
-    store::save_catalog_cache(&all_entries);
-
-    if all_entries.is_empty() && !errors.is_empty() {
+    if !response.status().is_success() {
         return Err(format!(
-            "all registry sources failed: {}",
-            errors.join("; ")
+            "catalog returned status {}",
+            response.status().as_u16()
         ));
     }
 
-    Ok(all_entries)
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("failed to read response: {e}"))?;
+
+    let raw_items: Vec<serde_json::Value> = parse_catalog_json(&body)?;
+
+    tracing::info!(
+        total_raw = raw_items.len(),
+        "[skill_registry] parsing catalog"
+    );
+
+    let entries: Vec<CatalogEntry> = raw_items.iter().filter_map(parse_hermes_entry).collect();
+
+    tracing::info!(count = entries.len(), "[skill_registry] catalog indexed");
+
+    store::save_catalog_cache(&entries);
+    Ok(entries)
 }
 
-/// Search the catalog by query string, matching against name, description, tags, and format.
+fn catalog_url() -> String {
+    std::env::var(CATALOG_URL_ENV)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| CATALOG_URL.to_string())
+}
+
+fn redact_url_for_log(raw: &str) -> String {
+    match url::Url::parse(raw) {
+        Ok(parsed) => {
+            let scheme = parsed.scheme();
+            let host = parsed.host_str().unwrap_or("");
+            let path = parsed.path();
+            format!("{scheme}://{host}{path}")
+        }
+        Err(_) => "<unparseable>".to_string(),
+    }
+}
+
+pub(crate) fn parse_catalog_json(body: &str) -> Result<Vec<serde_json::Value>, String> {
+    serde_json::from_str(body).map_err(|e| format!("invalid catalog json: {e}"))
+}
+
+/// Search the catalog by query string.
 pub async fn search_catalog(
     query: &str,
-    format_filter: Option<&str>,
     source_filter: Option<&str>,
+    category_filter: Option<&str>,
 ) -> Result<Vec<CatalogEntry>, String> {
     tracing::debug!(
         query = %query,
-        format_filter = ?format_filter,
         source_filter = ?source_filter,
+        category_filter = ?category_filter,
         "[skill_registry] search_catalog"
     );
     let catalog = browse_catalog(false).await?;
@@ -182,13 +159,13 @@ pub async fn search_catalog(
     let filtered: Vec<CatalogEntry> = catalog
         .into_iter()
         .filter(|entry| {
-            if let Some(fmt) = format_filter {
-                if entry.format != fmt {
+            if let Some(src) = source_filter {
+                if !entry.source.eq_ignore_ascii_case(src) {
                     return false;
                 }
             }
-            if let Some(src) = source_filter {
-                if entry.source_id != src {
+            if let Some(cat) = category_filter {
+                if !entry.category.eq_ignore_ascii_case(cat) {
                     return false;
                 }
             }
@@ -198,7 +175,7 @@ pub async fn search_catalog(
             entry.name.to_lowercase().contains(&q)
                 || entry.description.to_lowercase().contains(&q)
                 || entry.tags.iter().any(|t| t.to_lowercase().contains(&q))
-                || entry.format.to_lowercase().contains(&q)
+                || entry.category.to_lowercase().contains(&q)
                 || entry
                     .author
                     .as_deref()
@@ -209,21 +186,47 @@ pub async fn search_catalog(
 
     tracing::debug!(
         result_count = filtered.len(),
-        "[skill_registry] search_catalog complete"
+        "[skill_registry] search complete"
     );
     Ok(filtered)
 }
 
-/// Install a skill from the catalog by its entry. Delegates to the existing
-/// `install_workflow_from_url` in the workflows module.
+/// Return the distinct set of upstream sources present in the catalog.
+pub async fn list_sources() -> Result<Vec<String>, String> {
+    let catalog = browse_catalog(false).await?;
+    let mut sources: Vec<String> = catalog
+        .iter()
+        .map(|e| e.source.clone())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    sources.sort();
+    Ok(sources)
+}
+
+/// Return the distinct set of categories present in the catalog.
+pub async fn list_categories() -> Result<Vec<String>, String> {
+    let catalog = browse_catalog(false).await?;
+    let mut categories: Vec<String> = catalog
+        .iter()
+        .map(|e| e.category.clone())
+        .filter(|c| !c.is_empty())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    categories.sort();
+    Ok(categories)
+}
+
+/// Install a skill from the catalog by its entry id.
 pub async fn install_from_catalog(
     workspace_dir: &std::path::Path,
     entry: &CatalogEntry,
 ) -> Result<crate::openhuman::workflows::ops_install::InstallWorkflowFromUrlOutcome, String> {
     tracing::info!(
         entry_id = %entry.id,
-        source = %entry.source_id,
-        format = %entry.format,
+        source = %entry.source,
+        download_url = %entry.download_url,
         "[skill_registry] installing from catalog"
     );
 
@@ -235,132 +238,211 @@ pub async fn install_from_catalog(
     crate::openhuman::workflows::ops_install::install_workflow_from_url(workspace_dir, params).await
 }
 
-async fn fetch_source_catalog(
-    client: &reqwest::Client,
-    source: &RegistrySource,
-) -> Result<Vec<CatalogEntry>, String> {
-    let response = client
-        .get(&source.url)
-        .send()
-        .await
-        .map_err(|e| format!("fetch failed: {e}"))?;
+pub(crate) fn parse_hermes_entry(item: &serde_json::Value) -> Option<CatalogEntry> {
+    let name = item.get("name").and_then(|v| v.as_str())?.to_string();
 
-    if !response.status().is_success() {
-        return Err(format!(
-            "fetch returned status {}",
-            response.status().as_u16()
-        ));
-    }
+    let description = item
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
-    if let Some(len) = response.content_length() {
-        if len > MAX_CATALOG_BYTES as u64 {
-            return Err(format!("catalog too large: {len} bytes"));
-        }
-    }
+    let source = item
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("hermes")
+        .to_string();
 
-    let body = response
-        .text()
-        .await
-        .map_err(|e| format!("failed to read body: {e}"))?;
+    let category = item
+        .get("category")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
-    if body.len() > MAX_CATALOG_BYTES {
-        return Err(format!("catalog too large: {} bytes", body.len()));
-    }
+    let author = item
+        .get("author")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
 
-    match source.kind {
-        RegistryKind::GithubIndex | RegistryKind::HttpCatalog => {
-            parse_index_json(&body, &source.id)
-        }
-    }
-}
+    let version = item
+        .get("version")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
 
-/// Parse a JSON index file. Expects either:
-/// - An array of entry objects directly
-/// - An object with a "skills" or "entries" array field
-fn parse_index_json(body: &str, source_id: &str) -> Result<Vec<CatalogEntry>, String> {
-    let value: serde_json::Value =
-        serde_json::from_str(body).map_err(|e| format!("invalid JSON: {e}"))?;
+    let license = item
+        .get("license")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
 
-    let entries_value = if value.is_array() {
-        value
-    } else if let Some(arr) = value.get("skills").or(value.get("entries")) {
-        arr.clone()
-    } else {
-        return Err("index JSON must be an array or contain a 'skills'/'entries' field".into());
-    };
-
-    let raw_entries: Vec<RawIndexEntry> = serde_json::from_value(entries_value)
-        .map_err(|e| format!("failed to parse index entries: {e}"))?;
-
-    let entries = raw_entries
-        .into_iter()
-        .filter_map(|raw| {
-            let name = raw.name.as_deref().or(raw.title.as_deref())?.to_string();
-            let description = raw
-                .description
-                .as_deref()
-                .or(raw.summary.as_deref())
-                .unwrap_or("")
-                .to_string();
-            let id = raw
-                .id
-                .as_deref()
-                .or(raw.slug.as_deref())
-                .unwrap_or(&name)
-                .to_string();
-
-            let download_url = raw
-                .download_url
-                .as_deref()
-                .or(raw.url.as_deref())
-                .or(raw.raw_url.as_deref())?
-                .to_string();
-
-            let format = raw
-                .format
-                .as_deref()
-                .or(raw.skill_format.as_deref())
-                .unwrap_or("openhuman")
-                .to_string();
-
-            Some(CatalogEntry {
-                id,
-                name,
-                description,
-                format,
-                author: raw.author,
-                version: raw.version,
-                tags: raw.tags.unwrap_or_default(),
-                download_url,
-                source_id: source_id.to_string(),
-                stars: raw.stars.or(raw.star_count),
-                updated_at: raw.updated_at.or(raw.last_updated),
-            })
+    let tags = item
+        .get("tags")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|t| t.as_str())
+                .map(str::to_string)
+                .collect()
         })
-        .collect();
+        .unwrap_or_default();
 
-    Ok(entries)
+    let platforms = item
+        .get("platforms")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|t| t.as_str())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let commands = item
+        .get("commands")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|t| t.as_str())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let env_vars = item
+        .get("envVars")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|t| t.as_str())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let docs_path = item
+        .get("docsPath")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let download_url = derive_download_url(&source, &category, &name, docs_path.as_deref());
+
+    Some(CatalogEntry {
+        id: name.clone(),
+        name,
+        description,
+        source,
+        category,
+        author,
+        version,
+        tags,
+        platforms,
+        download_url,
+        docs_path,
+        commands,
+        env_vars,
+        license,
+    })
 }
 
-/// Flexible raw index entry that handles varying field names across registries.
-#[derive(Debug, Deserialize)]
-struct RawIndexEntry {
-    id: Option<String>,
-    slug: Option<String>,
-    name: Option<String>,
-    title: Option<String>,
-    description: Option<String>,
-    summary: Option<String>,
-    format: Option<String>,
-    skill_format: Option<String>,
-    author: Option<String>,
-    version: Option<String>,
-    tags: Option<Vec<String>>,
-    download_url: Option<String>,
-    url: Option<String>,
-    raw_url: Option<String>,
-    stars: Option<u32>,
-    star_count: Option<u32>,
-    updated_at: Option<String>,
-    last_updated: Option<String>,
+fn derive_download_url(
+    source: &str,
+    category: &str,
+    name: &str,
+    docs_path: Option<&str>,
+) -> String {
+    if let Ok(base) = std::env::var(DOWNLOAD_BASE_URL_ENV) {
+        let base = base.trim().trim_end_matches('/');
+        if !base.is_empty() {
+            return format!("{base}/{name}/SKILL.md");
+        }
+    }
+    if let Some(url) = docs_path.and_then(download_url_from_docs_path) {
+        return url;
+    }
+    let root = match source {
+        "optional" => "optional-skills",
+        _ => "skills",
+    };
+    format!(
+        "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/{root}/{category}/{name}/SKILL.md"
+    )
+}
+
+fn download_url_from_docs_path(docs_path: &str) -> Option<String> {
+    let parts: Vec<&str> = docs_path.split('/').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let root = match parts[0] {
+        "bundled" => "skills",
+        "optional" => "optional-skills",
+        _ => return None,
+    };
+    let category = parts[1];
+    let prefixed_slug = parts[2];
+    let skill = prefixed_slug
+        .strip_prefix(&format!("{category}-"))
+        .unwrap_or(prefixed_slug);
+    Some(format!(
+        "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/{root}/{category}/{skill}/SKILL.md"
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parse_hermes_entry_derives_bundled_download_url_from_docs_path() {
+        let item = json!({
+            "name": "apple-notes",
+            "description": "Manage Apple Notes",
+            "category": "apple",
+            "source": "built-in",
+            "docsPath": "bundled/apple/apple-apple-notes",
+            "tags": ["Apple"],
+            "platforms": ["macos"],
+            "commands": ["memo"],
+            "envVars": []
+        });
+        let entry = parse_hermes_entry(&item).expect("entry");
+        assert_eq!(
+            entry.download_url,
+            "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/skills/apple/apple-notes/SKILL.md"
+        );
+    }
+
+    #[test]
+    fn parse_hermes_entry_derives_optional_download_url_from_docs_path() {
+        let item = json!({
+            "name": "docker-management",
+            "description": "Manage Docker",
+            "category": "devops",
+            "source": "optional",
+            "docsPath": "optional/devops/devops-docker-management"
+        });
+        let entry = parse_hermes_entry(&item).expect("entry");
+        assert_eq!(
+            entry.download_url,
+            "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/optional-skills/devops/docker-management/SKILL.md"
+        );
+    }
+
+    #[test]
+    fn parse_catalog_json_rejects_invalid_payloads() {
+        let error = parse_catalog_json("{").expect_err("invalid json");
+        assert!(error.contains("invalid catalog json"));
+    }
+
+    #[test]
+    fn refresh_on_boot_enabled_defaults_on_and_accepts_common_false_values() {
+        assert!(refresh_on_boot_enabled(None));
+        assert!(refresh_on_boot_enabled(Some("1")));
+        assert!(refresh_on_boot_enabled(Some("true")));
+
+        assert!(!refresh_on_boot_enabled(Some("0")));
+        assert!(!refresh_on_boot_enabled(Some("false")));
+        assert!(!refresh_on_boot_enabled(Some(" no ")));
+        assert!(!refresh_on_boot_enabled(Some("OFF")));
+    }
 }

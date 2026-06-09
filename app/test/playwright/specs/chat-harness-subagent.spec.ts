@@ -156,15 +156,14 @@ test.describe('Chat Harness - Subagent', () => {
             entry => entry.method === 'POST' && entry.url.includes('/openai/v1/chat/completions')
           );
           const bodies = llmRequests.map(entry => entry.body ?? '');
-          const memoryIndex = bodies.findIndex(body =>
-            body.includes(
-              "Search the user's memory tree and return only context relevant to the next agent turn."
-            )
-          );
+          // The orchestrator no longer eagerly spawns the memory agent before
+          // the turn (memory retrieval is on-demand now), so we assert the
+          // harness delegated to the researcher sub-agent — its prompt reaching
+          // the LLM is the signal — rather than ordering it after a memory call.
           const delegatedPromptIndex = bodies.findIndex(body =>
             body.includes('Tell me a marker phrase')
           );
-          return memoryIndex >= 0 && delegatedPromptIndex > memoryIndex;
+          return delegatedPromptIndex >= 0;
         },
         { timeout: 90_000 }
       )

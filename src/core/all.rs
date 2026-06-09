@@ -198,6 +198,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::javascript::all_javascript_registered_controllers());
     // Discovered SKILL.md skills and their bundled resources
     controllers.extend(crate::openhuman::workflows::all_workflows_registered_controllers());
+    // Skill runtime: run/cancel/log skill executions and resolve Node/Python toolchains
+    controllers.extend(crate::openhuman::skill_runtime::all_skill_runtime_registered_controllers());
     // Skill registry: browse, search, install from remote registries
     controllers
         .extend(crate::openhuman::skill_registry::all_skill_registry_registered_controllers());
@@ -291,6 +293,9 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::devices::all_devices_registered_controllers());
     // Durable agent session database — queryable index over transcripts, lineage, tool calls
     controllers.extend(crate::openhuman::session_db::all_session_db_registered_controllers());
+    // Background agent command center — read-only grouped view over the run ledger
+    controllers
+        .extend(crate::openhuman::agent_orchestration::all_command_center_registered_controllers());
     controllers
 }
 
@@ -361,6 +366,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::socket::all_socket_controller_schemas());
     schemas.extend(crate::openhuman::javascript::all_javascript_controller_schemas());
     schemas.extend(crate::openhuman::workflows::all_workflows_controller_schemas());
+    schemas.extend(crate::openhuman::skill_runtime::all_skill_runtime_controller_schemas());
     schemas.extend(crate::openhuman::skill_registry::all_skill_registry_controller_schemas());
     schemas.extend(crate::openhuman::workspace::all_workspace_controller_schemas());
     schemas.extend(crate::openhuman::tools::all_tools_controller_schemas());
@@ -416,6 +422,8 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::devices::all_devices_controller_schemas());
     // Durable agent session database
     schemas.extend(crate::openhuman::session_db::all_session_db_controller_schemas());
+    // Background agent command center
+    schemas.extend(crate::openhuman::agent_orchestration::all_command_center_controller_schemas());
     schemas
 }
 
@@ -475,7 +483,8 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "screen_intelligence" => Some("Screen capture, permissions, and accessibility automation."),
         "security" => Some("Security policy and autonomy guardrail metadata."),
         "service" => Some("Desktop service lifecycle management."),
-        "skill_registry" => Some("Browse, search, and install skills from remote registries (OpenHuman, Hermes, OpenClaw)."),
+        "skill_registry" => Some("Browse, search, install, and uninstall skills from remote registries (OpenHuman, Hermes, OpenClaw)."),
+        "skill_runtime" => Some("Run installed skills, inspect run logs, and resolve Node/Python skill runtimes."),
         "workflows" => Some("Discovered workflows (WORKFLOW.md/SKILL.md bundles) and their resources."),
         "socket" => Some("Backend Socket.IO bridge controls."),
         "memory" => Some("Document storage, vector search, key-value store, and knowledge graph."),
@@ -497,6 +506,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "referral" => Some("Referral codes, stats, and apply flows via the hosted backend API."),
         "run_ledger" => Some(
             "Durable agent and workflow run state, child lineage, events, telemetry, and checkpoint references.",
+        ),
+        "agent_work" => Some(
+            "Background agent command center — recent agent runs grouped by status (needs-input, working, completed, failed, stopped).",
         ),
         "billing" => Some("Subscription plan, payment links, and credit top-up via the backend."),
         "team" => Some("Team member management, invites, and role changes via the backend."),

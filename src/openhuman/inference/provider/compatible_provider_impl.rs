@@ -836,16 +836,33 @@ impl Provider for OpenAiCompatibleProvider {
             let response = match req_builder.send().await {
                 Ok(r) => r,
                 Err(e) => {
-                    crate::core::observability::report_error(
-                        e.to_string().as_str(),
-                        "llm_provider",
-                        "stream_chat",
-                        &[
-                            ("provider", provider_name.as_str()),
-                            ("model", model_owned.as_str()),
-                            ("failure", "transport"),
-                        ],
-                    );
+                    let detail = e.to_string();
+                    // F7: a flaky-network timeout / reset / TLS-handshake EOF on
+                    // the streaming send is transient transport noise the
+                    // socket layer recovers from — gate it so those blips stop
+                    // paging Sentry. A non-transient transport failure (DNS
+                    // misconfig, unexpected protocol error) still reports.
+                    if crate::core::observability::contains_transient_transport_phrase(&detail) {
+                        tracing::debug!(
+                            domain = "llm_provider",
+                            operation = "stream_chat",
+                            provider = provider_name.as_str(),
+                            model = model_owned.as_str(),
+                            failure = "transport",
+                            "[llm_provider] stream_chat transient transport error — not reporting to Sentry: {detail}"
+                        );
+                    } else {
+                        crate::core::observability::report_error(
+                            detail.as_str(),
+                            "llm_provider",
+                            "stream_chat",
+                            &[
+                                ("provider", provider_name.as_str()),
+                                ("model", model_owned.as_str()),
+                                ("failure", "transport"),
+                            ],
+                        );
+                    }
                     let _ = tx.send(Err(StreamError::Http(e))).await;
                     return;
                 }
@@ -901,6 +918,20 @@ impl Provider for OpenAiCompatibleProvider {
                         provider_name.as_str(),
                         Some(model_owned.as_str()),
                         status,
+                    );
+                } else if crate::openhuman::inference::provider::is_backend_error_code_owned(
+                    provider_name.as_str(),
+                    &raw_error,
+                ) {
+                    // F4/F2: managed-backend errorCode (#870) — backend-owned;
+                    // the FE must not double-report. Malformed BAD_REQUEST is
+                    // excluded and reaches the status gate (it pages — F8).
+                    crate::openhuman::inference::provider::log_backend_error_code_owned(
+                        "stream_chat",
+                        provider_name.as_str(),
+                        Some(model_owned.as_str()),
+                        status,
+                        &raw_error,
                     );
                 } else if crate::openhuman::inference::provider::should_report_provider_http_failure(
                     status,
@@ -1012,16 +1043,32 @@ impl Provider for OpenAiCompatibleProvider {
             let response = match req_builder.send().await {
                 Ok(response) => response,
                 Err(error) => {
-                    crate::core::observability::report_error(
-                        error.to_string().as_str(),
-                        "llm_provider",
-                        "stream_chat_history",
-                        &[
-                            ("provider", provider_name.as_str()),
-                            ("model", model_owned.as_str()),
-                            ("failure", "transport"),
-                        ],
-                    );
+                    let detail = error.to_string();
+                    // F7: gate transient transport blips (timeout / reset / TLS
+                    // handshake EOF) so flaky-network failures on the streaming
+                    // send stop paging Sentry; non-transient transport errors
+                    // still report.
+                    if crate::core::observability::contains_transient_transport_phrase(&detail) {
+                        tracing::debug!(
+                            domain = "llm_provider",
+                            operation = "stream_chat_history",
+                            provider = provider_name.as_str(),
+                            model = model_owned.as_str(),
+                            failure = "transport",
+                            "[llm_provider] stream_chat_history transient transport error — not reporting to Sentry: {detail}"
+                        );
+                    } else {
+                        crate::core::observability::report_error(
+                            detail.as_str(),
+                            "llm_provider",
+                            "stream_chat_history",
+                            &[
+                                ("provider", provider_name.as_str()),
+                                ("model", model_owned.as_str()),
+                                ("failure", "transport"),
+                            ],
+                        );
+                    }
                     let _ = tx.send(Err(StreamError::Http(error))).await;
                     return;
                 }
@@ -1077,6 +1124,20 @@ impl Provider for OpenAiCompatibleProvider {
                         provider_name.as_str(),
                         Some(model_owned.as_str()),
                         status,
+                    );
+                } else if crate::openhuman::inference::provider::is_backend_error_code_owned(
+                    provider_name.as_str(),
+                    &raw_error,
+                ) {
+                    // F4/F2: managed-backend errorCode (#870) — backend-owned;
+                    // the FE must not double-report. Malformed BAD_REQUEST is
+                    // excluded and reaches the status gate (it pages — F8).
+                    crate::openhuman::inference::provider::log_backend_error_code_owned(
+                        "stream_chat_history",
+                        provider_name.as_str(),
+                        Some(model_owned.as_str()),
+                        status,
+                        &raw_error,
                     );
                 } else if crate::openhuman::inference::provider::should_report_provider_http_failure(
                     status,

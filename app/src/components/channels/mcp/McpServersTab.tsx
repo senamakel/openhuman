@@ -13,6 +13,7 @@ import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import InstallDialog from './InstallDialog';
 import InstalledServerDetail from './InstalledServerDetail';
 import McpInventoryPanel from './McpInventoryPanel';
+import { deriveAuthor } from './McpServerCard';
 import type { ConnStatus, InstalledServer, ServerStatus, SmitheryServer } from './types';
 
 const log = debug('mcp-clients:tab');
@@ -321,11 +322,8 @@ const McpServersTab = () => {
               <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400">
                 {t('mcp.tab.column.name')}
               </th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400 hidden sm:table-cell">
-                {t('mcp.tab.column.description')}
-              </th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400 w-24">
-                {t('mcp.tab.column.source')}
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400 hidden sm:table-cell w-36">
+                {t('mcp.tab.column.author')}
               </th>
               <th className="text-right px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400 w-28">
                 {t('mcp.tab.column.action')}
@@ -361,19 +359,21 @@ const McpServersTab = () => {
                           className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`}
                           title={status}
                         />
-                        <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
-                          {server.display_name}
-                        </span>
+                        <div className="min-w-0">
+                          <span className="font-medium text-stone-900 dark:text-neutral-100 truncate block">
+                            {server.display_name}
+                          </span>
+                          {server.description && (
+                            <span className="text-xs text-stone-400 dark:text-neutral-500 line-clamp-4 block">
+                              {server.description}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-stone-500 dark:text-neutral-400 line-clamp-1 text-xs">
-                        {server.description ?? '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sage-100 dark:bg-sage-500/15 text-sage-700 dark:text-sage-300 border border-sage-200 dark:border-sage-500/30">
-                        {t('mcp.tab.badge.installed')}
+                      <span className="text-xs text-stone-500 dark:text-neutral-400 truncate block">
+                        {deriveAuthor(server.qualified_name) ?? '—'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -390,7 +390,20 @@ const McpServersTab = () => {
               filteredCatalog.map(server => (
                 <tr
                   key={`catalog-${server.qualified_name}`}
-                  className="hover:bg-stone-50 dark:hover:bg-neutral-800/40 transition-colors">
+                  className="hover:bg-stone-50 dark:hover:bg-neutral-800/40 cursor-pointer transition-colors"
+                  tabIndex={0}
+                  role="button"
+                  aria-label={t('mcp.tab.aria.installServer').replace(
+                    '{name}',
+                    server.display_name
+                  )}
+                  onClick={() => handleSelectInstall(server.qualified_name)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectInstall(server.qualified_name);
+                    }
+                  }}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       {server.icon_url ? (
@@ -404,28 +417,27 @@ const McpServersTab = () => {
                           🔌
                         </span>
                       )}
-                      <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
-                        {server.display_name}
-                      </span>
+                      <div className="min-w-0">
+                        <span className="font-medium text-stone-900 dark:text-neutral-100 truncate block">
+                          {server.display_name}
+                        </span>
+                        {server.description && (
+                          <span className="text-xs text-stone-400 dark:text-neutral-500 line-clamp-4 block">
+                            {server.description}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
-                    <span className="text-stone-500 dark:text-neutral-400 line-clamp-1 text-xs">
-                      {server.description ?? '—'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-500/30">
-                      {t('mcp.tab.badge.registry')}
+                    <span className="text-xs text-stone-500 dark:text-neutral-400 truncate block">
+                      {deriveAuthor(server.qualified_name) ?? '—'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectInstall(server.qualified_name)}
-                      className="rounded-lg bg-primary-500 px-3 py-1 text-xs font-medium text-white hover:bg-primary-600 transition-colors">
+                    <span className="text-xs text-primary-600 dark:text-primary-400 font-medium">
                       {t('mcp.install.button')}
-                    </button>
+                    </span>
                   </td>
                 </tr>
               ))}

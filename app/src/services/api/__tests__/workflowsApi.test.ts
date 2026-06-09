@@ -333,7 +333,7 @@ describe('workflowsApi.uninstallWorkflow', () => {
     const result = await workflowsApi.uninstallWorkflow('weather-helper');
 
     expect(callCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.workflows_uninstall',
+      method: 'openhuman.skill_registry_uninstall',
       params: { name: 'weather-helper' },
     });
     expect(result).toEqual({

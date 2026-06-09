@@ -74,7 +74,7 @@ describe('Skills page — MCP tab', () => {
     });
 
     expect(screen.getByText('Name')).toBeInTheDocument();
-    expect(screen.getByText('Source')).toBeInTheDocument();
+    expect(screen.getByText('Author')).toBeInTheDocument();
     expect(screen.getByText('Action')).toBeInTheDocument();
   });
 

@@ -189,6 +189,16 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::mcp_setup::prompt::build,
     },
     BuiltinAgent {
+        id: "skill_setup",
+        toml: include_str!("../../skill_registry/agent/skill_setup/agent.toml"),
+        prompt_fn: crate::openhuman::skill_registry::agent::skill_setup::prompt::build,
+    },
+    BuiltinAgent {
+        id: "skill_executor",
+        toml: include_str!("../../skill_runtime/agent/skill_executor/agent.toml"),
+        prompt_fn: crate::openhuman::skill_runtime::agent::skill_executor::prompt::build,
+    },
+    BuiltinAgent {
         id: "agent_memory",
         toml: include_str!("../../agent_memory/agent/agent.toml"),
         prompt_fn: crate::openhuman::agent_memory::agent::prompt::build,
@@ -534,7 +544,18 @@ mod tests {
             ToolScope::Wildcard => panic!("orchestrator must have named tool allowlist"),
         }
         assert_eq!(def.max_iterations, 15);
-        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Always);
+        // Memory retrieval is on-demand (via the `agent_memory` subagent,
+        // surfaced as `delegate_retrieve_memory`), not an eager pre-turn
+        // pre-fetch. The allowlist entry is what makes that route reachable
+        // (see the `agent_memory::tools` allowlist gate).
+        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Never);
+        assert!(
+            def.subagents.iter().any(|entry| matches!(
+                entry,
+                SubagentEntry::AgentId(id) if id == "agent_memory"
+            )),
+            "orchestrator must allow `agent_memory` for on-demand retrieval"
+        );
     }
 
     #[test]
@@ -659,10 +680,9 @@ mod tests {
             }
             other => panic!("presentation_agent must use Named tool scope, got {other:?}"),
         }
-        assert_eq!(
-            presentation.trigger_memory_agent,
-            TriggerMemoryAgent::Always
-        );
+        // Memory pre-fetch is no longer eager; `omit_memory_context = false`
+        // still gives the deck builder the cheap per-turn recall.
+        assert_eq!(presentation.trigger_memory_agent, TriggerMemoryAgent::Never);
 
         let desktop = find("desktop_control_agent");
         match &desktop.tools {
@@ -726,7 +746,9 @@ mod tests {
         assert!(def.omit_identity);
         assert!(def.omit_safety_preamble);
         assert!(!def.omit_memory_context);
-        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Always);
+        // Help personalises from the cheap per-turn recall (memory_context on),
+        // so it no longer pre-fetches the full memory agent before every turn.
+        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Never);
     }
 
     #[test]
@@ -840,8 +862,9 @@ mod tests {
                     tools.iter().any(|t| t == "ask_user_clarification"),
                     "crypto_agent needs ask_user_clarification to gate write ops"
                 );
-                // Market grounding + time helpers. Memory grounding is
-                // configured via `trigger_memory_agent = "always"`.
+                // Market grounding + time helpers. Memory retrieval is the
+                // orchestrator's on-demand concern — this specialist gets a
+                // grounded request and does not pre-fetch memory itself.
                 for required in [
                     "stock_quote",
                     "stock_exchange_rate",
@@ -890,7 +913,9 @@ mod tests {
         assert!(def.omit_identity);
         assert!(def.omit_memory_context);
         assert!(def.omit_skills_catalog);
-        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Always);
+        // Pure-function specialist (omit_memory_context = true) — no eager
+        // memory pre-fetch; the orchestrator hands it a grounded request.
+        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Never);
     }
 
     /// Routing: the orchestrator must list `crypto_agent` in its
@@ -939,8 +964,9 @@ mod tests {
                     tools.iter().any(|t| t == "ask_user_clarification"),
                     "markets_agent needs ask_user_clarification to gate write ops"
                 );
-                // Time grounding stays as a tool; memory grounding is
-                // configured via `trigger_memory_agent = "always"`.
+                // Time grounding stays as a tool; memory retrieval is the
+                // orchestrator's on-demand concern — this specialist gets a
+                // grounded request and does not pre-fetch memory itself.
                 for required in ["current_time"] {
                     assert!(
                         tools.iter().any(|t| t == required),
@@ -988,7 +1014,9 @@ mod tests {
         assert!(def.omit_identity);
         assert!(def.omit_memory_context);
         assert!(def.omit_skills_catalog);
-        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Always);
+        // Pure-function specialist (omit_memory_context = true) — no eager
+        // memory pre-fetch; the orchestrator hands it a grounded request.
+        assert_eq!(def.trigger_memory_agent, TriggerMemoryAgent::Never);
         // Delegate name must be the stable, chat-friendly slug — the
         // orchestrator surfaces it as `delegate_do_prediction_markets`.
         assert_eq!(

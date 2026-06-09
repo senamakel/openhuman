@@ -99,6 +99,7 @@ pub mod security;
 pub mod service;
 pub mod session_db;
 pub mod skill_registry;
+pub mod skill_runtime;
 pub mod socket;
 pub mod startup;
 pub mod subconscious;

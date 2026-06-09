@@ -53,6 +53,11 @@ pub struct Agent {
     pub(super) memory_loader: Box<dyn MemoryLoader>,
     pub(super) config: crate::openhuman::config::AgentConfig,
     pub(super) model_name: String,
+    /// User-configured vision capability for [`Self::model_name`], evaluated at
+    /// session build from `model_vision_enabled(&model, config)`. Surfaced to the
+    /// turn engine's image gate via the `current_model_vision` task-local so a
+    /// custom/BYOK model the user flagged can forward images. Defaults to `false`.
+    pub(super) model_vision: bool,
     pub(super) temperature: f64,
     pub(super) workspace_dir: std::path::PathBuf,
     pub(super) action_dir: std::path::PathBuf,
@@ -272,6 +277,8 @@ pub struct AgentBuilder {
     /// [`crate::openhuman::config::ContextConfig::default`].
     pub(super) context_config: Option<crate::openhuman::config::ContextConfig>,
     pub(super) model_name: Option<String>,
+    /// User vision flag for the resolved model; `None` → `false` in `build()`.
+    pub(super) model_vision: Option<bool>,
     pub(super) temperature: Option<f64>,
     pub(super) workspace_dir: Option<std::path::PathBuf>,
     pub(super) action_dir: Option<std::path::PathBuf>,

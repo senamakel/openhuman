@@ -26,6 +26,10 @@ pub struct ModelSettingsPatch {
     /// Pass `Some(vec![])` to clear all third-party cloud providers.
     pub cloud_providers:
         Option<Vec<crate::openhuman::config::schema::cloud_providers::CloudProviderCreds>>,
+    /// When `Some`, REPLACES the entire `config.model_registry` array. Carries
+    /// each model's user-set `vision` flag (Settings → Advanced LLM → custom
+    /// model → "Supports vision"). Pass `Some(vec![])` to clear; `None` keeps it.
+    pub model_registry: Option<Vec<crate::openhuman::config::schema::ModelRegistryEntry>>,
     /// Id of the `cloud_providers` entry used when a workload routes to
     /// `"cloud"`. Empty string clears (factory falls back to OpenHuman).
     pub primary_cloud: Option<String>,
@@ -138,6 +142,24 @@ pub async fn apply_model_settings(
     }
     if let Some(routes) = update.model_routes {
         config.model_routes = routes;
+    }
+    if let Some(registry) = update.model_registry {
+        // Full replacement — the UI sends the canonical per-model registry
+        // (carrying each model's `vision` flag). Empty vec clears it.
+        log::debug!(
+            "[config] apply_model_settings: replacing model_registry ({} entries)",
+            registry.len()
+        );
+        // Normalize ids: `model_vision_enabled` matches the resolved model id
+        // exactly, so stray surrounding whitespace would silently disable vision
+        // for an otherwise valid model.
+        config.model_registry = registry
+            .into_iter()
+            .map(|mut entry| {
+                entry.id = entry.id.trim().to_string();
+                entry
+            })
+            .collect();
     }
     if let Some(providers) = update.cloud_providers {
         use crate::openhuman::config::schema::cloud_providers::is_slug_reserved;

@@ -2011,7 +2011,6 @@ fn register_domain_subscribers(
 /// surface a banner; under CLI / Docker the override is honored (with a
 /// noisy log + a domain event so any connected dashboard can flag it).
 pub async fn bootstrap_core_runtime(host_kind: crate::core::types::HostKind) {
-    use crate::core::types::HostKind;
     use crate::openhuman::socket::{set_global_socket_manager, SocketManager};
     use std::sync::Arc;
     // `embedded_core` derived from host_kind so the rest of the function (which
@@ -2034,6 +2033,10 @@ pub async fn bootstrap_core_runtime(host_kind: crate::core::types::HostKind) {
     // Uses a Once guard so repeated calls to bootstrap_core_runtime()
     // cannot double-subscribe.
     register_domain_subscribers(workspace_dir.clone(), cfg.clone(), embedded_core);
+    // Warm the remote skills catalog on every core load. This updates the
+    // cached registry used by skill discovery/search, but runs best-effort in
+    // the background so Hermes/network latency cannot block core readiness.
+    crate::openhuman::skill_registry::ops::start_boot_catalog_refresh();
 
     // --- Turn-state recovery -------------------------------------------
     // Any per-thread turn snapshots left on disk from a previous process

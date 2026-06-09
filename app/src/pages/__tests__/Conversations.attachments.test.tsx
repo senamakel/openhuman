@@ -17,46 +17,54 @@ import type { Thread } from '../../types/thread';
 
 // ── Hoisted mock state ──────────────────────────────────────────────────────
 
-const { mockGetThreads, mockGetThreadMessages, mockSelectAgentProfile, mockUseUsageState } =
-  vi.hoisted(() => ({
-    mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
-    mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
-    mockSelectAgentProfile: vi.fn().mockImplementation((profileId: string) =>
-      Promise.resolve({
-        activeProfileId: profileId,
-        profiles: [
-          {
-            id: 'default',
-            name: 'Default',
-            description: 'Default',
-            agentId: 'orchestrator',
-            builtIn: true,
-          },
-          {
-            id: 'reasoning',
-            name: 'Reasoning',
-            description: 'Reasoning',
-            agentId: 'orchestrator',
-            modelOverride: 'hint:reasoning',
-            builtIn: true,
-          },
-        ],
-      })
-    ),
-    mockUseUsageState: vi.fn(() => ({
-      teamUsage: null,
-      currentPlan: null,
-      currentTier: 'FREE' as const,
-      isFreeTier: true,
-      usagePct: 0,
-      isNearLimit: false,
-      isAtLimit: false,
-      isBudgetExhausted: false,
-      shouldShowBudgetCompletedMessage: false,
-      isLoading: false,
-      refresh: vi.fn(),
-    })),
-  }));
+const {
+  mockGetThreads,
+  mockGetThreadMessages,
+  mockSelectAgentProfile,
+  mockUseUsageState,
+  mockVisionState,
+} = vi.hoisted(() => ({
+  // Mutable holder so individual tests can flip the resolved model's vision
+  // capability without re-mocking the module.
+  mockVisionState: { vision: true },
+  mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
+  mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
+  mockSelectAgentProfile: vi.fn().mockImplementation((profileId: string) =>
+    Promise.resolve({
+      activeProfileId: profileId,
+      profiles: [
+        {
+          id: 'default',
+          name: 'Default',
+          description: 'Default',
+          agentId: 'orchestrator',
+          builtIn: true,
+        },
+        {
+          id: 'reasoning',
+          name: 'Reasoning',
+          description: 'Reasoning',
+          agentId: 'orchestrator',
+          modelOverride: 'hint:reasoning',
+          builtIn: true,
+        },
+      ],
+    })
+  ),
+  mockUseUsageState: vi.fn(() => ({
+    teamUsage: null,
+    currentPlan: null,
+    currentTier: 'FREE' as const,
+    isFreeTier: true,
+    usagePct: 0,
+    isNearLimit: false,
+    isAtLimit: false,
+    isBudgetExhausted: false,
+    shouldShowBudgetCompletedMessage: false,
+    isLoading: false,
+    refresh: vi.fn(),
+  })),
+}));
 
 // ── Module mocks ────────────────────────────────────────────────────────────
 
@@ -139,6 +147,22 @@ vi.mock('../../features/autocomplete/useAutocompleteSkillStatus', () => ({
 }));
 
 vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
+
+// The composer gates image attachments on the resolved model's vision capability
+// (inference_resolve_model). Most tests exercise image attachments, so the
+// active model resolves as vision-capable by default; the rejection test flips
+// `mockVisionState.vision` to exercise the non-vision path.
+vi.mock('../../services/coreRpcClient', () => ({
+  callCoreRpc: vi.fn(async ({ method }: { method: string }) =>
+    method === 'openhuman.inference_resolve_model'
+      ? {
+          model: mockVisionState.vision ? 'test-vision-model' : 'reasoning-v1',
+          vision: mockVisionState.vision,
+        }
+      : {}
+  ),
+  CoreRpcError: class CoreRpcError extends Error {},
+}));
 
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: vi.fn(() => ({
@@ -237,6 +261,7 @@ async function renderWithSelectedThread() {
 describe('Conversations — attachment feature', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockVisionState.vision = true;
     mockGetThreads.mockResolvedValue({ threads: [], count: 0 });
     mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
     mockUseUsageState.mockReturnValue({
@@ -374,23 +399,62 @@ describe('Conversations — attachment feature', () => {
     });
   });
 
-  it('switches to reasoning when a supported attachment is selected', async () => {
+  it('keeps the selected profile when an attachment is added (no auto-switch)', async () => {
     await renderWithSelectedThread();
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    const file = makeFile('auto-reasoning.png', 'image/png', 512);
+    const file = makeFile('keep-profile.png', 'image/png', 512);
 
     await act(async () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
     });
 
     await waitFor(() => {
-      expect(mockSelectAgentProfile).toHaveBeenCalledWith('reasoning');
-      expect(screen.getByRole('radio', { name: 'Reasoning' })).toHaveAttribute(
+      expect(screen.getByText('keep-profile.png')).toBeInTheDocument();
+    });
+
+    // Adding an attachment must never hijack the user's model selection.
+    expect(mockSelectAgentProfile).not.toHaveBeenCalled();
+  });
+
+  it('selects the Pro-reasoning tier from the chat-header toggle', async () => {
+    await renderWithSelectedThread();
+
+    const proButton = await screen.findByRole('radio', { name: 'Pro-reasoning' });
+    expect(proButton).toHaveAttribute('aria-checked', 'false');
+
+    await act(async () => {
+      fireEvent.click(proButton);
+    });
+
+    await waitFor(() => {
+      expect(mockSelectAgentProfile).toHaveBeenCalledWith('pro-reasoning');
+      // Store updates to the new active profile → toggle reflects the selection.
+      expect(screen.getByRole('radio', { name: 'Pro-reasoning' })).toHaveAttribute(
         'aria-checked',
         'true'
       );
     });
+  });
+
+  it('rejects an image and shows the advisory when the model lacks vision', async () => {
+    mockVisionState.vision = false;
+    await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = makeFile('no-vision.png', 'image/png', 512);
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    // Advisory points users at the vision-capable managed tier.
+    await waitFor(() => {
+      expect(screen.getByText(/Switch to Pro-reasoning/i)).toBeInTheDocument();
+    });
+    // The image is not attached, and the profile is left untouched.
+    expect(screen.queryByText('no-vision.png')).not.toBeInTheDocument();
+    expect(mockSelectAgentProfile).not.toHaveBeenCalled();
   });
 
   it('clears attachments and calls chatSend after sending with attachment + text', async () => {
@@ -420,7 +484,9 @@ describe('Conversations — attachment feature', () => {
       expect(chatSend).toHaveBeenCalled();
       expect(chatSend).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'hint:reasoning',
+          // Sends with the selected profile's model (default → hint:chat); the
+          // attachment no longer forces hint:reasoning.
+          model: 'hint:chat',
           message: expect.stringContaining('[IMAGE:data:image/png;base64,'),
         })
       );
@@ -428,7 +494,7 @@ describe('Conversations — attachment feature', () => {
     });
   });
 
-  it('sends supported document files as FILE markers through the reasoning model', async () => {
+  it('sends supported document files as FILE markers through the selected model', async () => {
     const { chatSend } = await import('../../services/chatService');
     const { textarea } = await renderWithSelectedThread();
 
@@ -454,7 +520,9 @@ describe('Conversations — attachment feature', () => {
     await waitFor(() => {
       expect(chatSend).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'hint:reasoning',
+          // Documents are text-extracted and go through the selected profile's
+          // model (default → hint:chat), not a forced reasoning model.
+          model: 'hint:chat',
           message: expect.stringContaining('[FILE:data:application/pdf;base64,'),
         })
       );
@@ -504,6 +572,55 @@ describe('Conversations — attachment feature', () => {
     await waitFor(() => {
       const img = document.querySelector(`img[src="${dataUri}"]`);
       expect(img).not.toBeNull();
+    });
+  });
+
+  it('renders a document filename chip in the user bubble from attachmentKinds/Names', async () => {
+    const thread = makeThread({ id: 'file-thread', title: 'File Thread' });
+    const message = {
+      id: 'msg-file-1',
+      content: 'whats in this file',
+      type: 'text' as const,
+      sender: 'user' as const,
+      createdAt: new Date().toISOString(),
+      extraMetadata: {
+        attachmentCount: 1,
+        attachmentKinds: ['file'],
+        attachmentNames: ['report.pdf'],
+      },
+    };
+
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages: [message], count: 1 });
+
+    const store = buildStore({
+      thread: {
+        threads: [thread],
+        selectedThreadId: thread.id,
+        activeThreadId: null,
+        welcomeThreadId: null,
+        messagesByThreadId: { [thread.id]: [message] },
+        messages: [message],
+        isLoadingThreads: false,
+        isLoadingMessages: false,
+        messagesError: null,
+      },
+      socket: socketState('connected'),
+    });
+
+    const { default: Conversations } = await import('../Conversations');
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Conversations />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    // The document attachment surfaces as a filename chip (not an <img>).
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('report.pdf');
     });
   });
 });

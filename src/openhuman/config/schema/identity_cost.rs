@@ -150,14 +150,22 @@ impl Default for CostConfig {
 /// Default pricing for popular models (USD per 1M tokens)
 fn get_default_pricing() -> HashMap<String, ModelPricing> {
     use super::types::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
-        MODEL_REASONING_V1,
+        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_PRO_REASONING_V1,
+        MODEL_REASONING_QUICK_V1, MODEL_REASONING_V1,
     };
 
     let mut prices = HashMap::new();
 
     prices.insert(
         MODEL_REASONING_V1.into(),
+        ModelPricing {
+            input: 0.84,
+            output: 2.52,
+        },
+    );
+    // Pro-reasoning chat tier — pricing copied from reasoning-v1.
+    prices.insert(
+        MODEL_PRO_REASONING_V1.into(),
         ModelPricing {
             input: 0.84,
             output: 2.52,

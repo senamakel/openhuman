@@ -81,7 +81,12 @@ export default function ChatComposer({
         <input
           ref={fileInputRef}
           type="file"
-          accept={allowedMimeTypes.join(',')}
+          // No `accept` filter: Chromium 146 / CEF on macOS greys out valid files
+          // at the native open panel regardless of the filter shape (MIME, mixed,
+          // or extension-only). Selection is gated in `onAttachFiles` →
+          // `validateAndReadFile` instead (rejects unsupported types + images on
+          // non-vision models). `allowedMimeTypes` is kept for that JS validation.
+          accept={allowedMimeTypes.length ? allowedMimeTypes.join(',') : undefined}
           multiple
           className="hidden"
           onChange={e => {

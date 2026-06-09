@@ -29,6 +29,7 @@ impl AgentBuilder {
             config: None,
             context_config: None,
             model_name: None,
+            model_vision: None,
             temperature: None,
             workspace_dir: None,
             action_dir: None,
@@ -139,6 +140,14 @@ impl AgentBuilder {
     /// Sets the model name to use for chat requests.
     pub fn model_name(mut self, model_name: String) -> Self {
         self.model_name = Some(model_name);
+        self
+    }
+
+    /// Sets the user-configured vision capability for the resolved model.
+    /// Surfaced to the turn engine's image gate via the `current_model_vision`
+    /// task-local. Defaults to `false` when unset.
+    pub fn model_vision(mut self, model_vision: bool) -> Self {
+        self.model_vision = Some(model_vision);
         self
     }
 
@@ -514,6 +523,7 @@ impl AgentBuilder {
                 .unwrap_or_else(|| Box::new(DefaultMemoryLoader::default())),
             config,
             model_name,
+            model_vision: self.model_vision.unwrap_or(false),
             temperature: self.temperature.unwrap_or(0.7),
             workspace_dir,
             action_dir,

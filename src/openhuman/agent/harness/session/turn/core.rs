@@ -323,6 +323,10 @@ impl Agent {
         // model prompt, not in the Rust-side classifier. Sub-agents pick
         // their own tier via `ModelSpec::Hint(...)` in their definition.
         let effective_model = self.model_name.clone();
+        // Capture before `self` is borrowed by the turn observer below, so it can
+        // be installed as the `current_model_vision` task-local around the engine
+        // call (read by the image gate for custom/BYOK vision models).
+        let model_vision = self.model_vision;
         log::info!(
             "[agent_loop] model pinned model={} (per-turn classification disabled for KV cache stability)",
             effective_model
@@ -436,25 +440,28 @@ impl Agent {
             // overflow happens during the parent's poll on the way in
             // — verified against the `chat-harness-subagent` Playwright
             // lane crash on PR #3151.
-            let outcome = Box::pin(super::super::super::engine::run_turn_engine(
-                provider.as_ref(),
-                &mut buf,
-                &mut tool_source,
-                &progress,
-                &mut observer,
-                &checkpoint,
-                &parser,
-                &provider_name,
-                &effective_model,
-                temperature,
-                true, // silent — the channel/UI renders via progress + the return value
-                &multimodal,
-                &multimodal_files,
-                max_iterations,
-                None, // the web bridge streams via on_progress deltas, not on_delta
-                &[],
-                turn_run_queue,
-            ))
+            let outcome = super::super::super::model_vision_context::with_current_model_vision(
+                model_vision,
+                Box::pin(super::super::super::engine::run_turn_engine(
+                    provider.as_ref(),
+                    &mut buf,
+                    &mut tool_source,
+                    &progress,
+                    &mut observer,
+                    &checkpoint,
+                    &parser,
+                    &provider_name,
+                    &effective_model,
+                    temperature,
+                    true, // silent — the channel/UI renders via progress + the return value
+                    &multimodal,
+                    &multimodal_files,
+                    max_iterations,
+                    None, // the web bridge streams via on_progress deltas, not on_delta
+                    &[],
+                    turn_run_queue,
+                )),
+            )
             .await?;
 
             // Pull the observer's accounting out, then drop it to release the

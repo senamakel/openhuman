@@ -41,6 +41,17 @@ export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   ...ALLOWED_FILE_MIME_TYPES,
 ] as const;
 
+// Document formats the backend actually text-extracts (PDF via pdf_extract;
+// TXT/Markdown via UTF-8). DOCX/PPTX/XLSX/ZIP are intentionally excluded — the
+// agent would only see a reference stub, not their content. `text/csv` is also
+// deliberately left out: the backend *can* extract it, but the chat composer is
+// scoped to PDF/TXT/Markdown by product decision (revisit here if CSV is wanted).
+// Used by the ingest validator below, not by a native `accept` filter:
+// Chromium/CEF on macOS greys valid files at the open panel regardless of the
+// filter shape, so selection is gated in `validateAndReadFile` after the user
+// picks, not at the dialog.
+const EXTRACTABLE_FILE_MIME_TYPES = ['application/pdf', 'text/plain', 'text/markdown'] as const;
+
 export const ATTACHMENT_MAX_IMAGES = 4;
 export const ATTACHMENT_MAX_FILES = 4;
 export const ATTACHMENT_MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
@@ -63,6 +74,7 @@ export type AttachmentError =
   | { code: 'unsupported_type'; mimeType: string }
   | { code: 'too_large'; sizeBytes: number; maxBytes: number }
   | { code: 'too_many'; kind: AttachmentKind; max: number }
+  | { code: 'image_not_supported' }
   | { code: 'read_failed'; reason: string };
 
 export function isAllowedMimeType(mime: string): mime is AllowedImageMimeType {
@@ -71,6 +83,29 @@ export function isAllowedMimeType(mime: string): mime is AllowedImageMimeType {
 
 export function isAllowedAttachmentMimeType(mime: string): mime is AllowedAttachmentMimeType {
   return (ALLOWED_ATTACHMENT_MIME_TYPES as readonly string[]).includes(mime);
+}
+
+/**
+ * The exact MIME set the ingest validator accepts — images plus the
+ * text-extractable documents. A strict subset of {@link AllowedAttachmentMimeType}
+ * (which also lists reference-only types like CSV/DOCX/ZIP that we reject).
+ */
+export type SupportedAttachmentMimeType =
+  | AllowedImageMimeType
+  | (typeof EXTRACTABLE_FILE_MIME_TYPES)[number];
+
+/**
+ * Stricter gate than {@link isAllowedAttachmentMimeType}: only the formats the
+ * backend actually reads — images, plus the text-extractable documents (PDF via
+ * pdf_extract; TXT/Markdown via UTF-8). DOCX/PPTX/XLSX/ZIP are excluded so they
+ * can't be attached as content-less reference stubs. Applied on every ingest
+ * path (picker, drag-drop, paste).
+ */
+export function isSupportedAttachmentMimeType(mime: string): mime is SupportedAttachmentMimeType {
+  return (
+    (ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mime) ||
+    (EXTRACTABLE_FILE_MIME_TYPES as readonly string[]).includes(mime)
+  );
 }
 
 export function attachmentKindForMime(mime: AllowedAttachmentMimeType): AttachmentKind {
@@ -148,13 +183,20 @@ async function buildAttachmentDataUri(
 export async function validateAndReadFile(
   file: File,
   existingCount: number,
-  existingFileCount = 0
+  existingFileCount = 0,
+  // When `false` (the active chat model isn't vision-capable), image files are
+  // rejected; documents (PDF/Word/etc.) still flow. Defaults `true` so non-chat
+  // callers are unaffected.
+  allowImages = true
 ): Promise<{ attachment: Attachment } | { error: AttachmentError }> {
-  if (!isAllowedAttachmentMimeType(file.type)) {
+  if (!isSupportedAttachmentMimeType(file.type)) {
     return { error: { code: 'unsupported_type', mimeType: file.type || 'unknown' } };
   }
 
   const kind = attachmentKindForMime(file.type);
+  if (!allowImages && kind === 'image') {
+    return { error: { code: 'image_not_supported' } };
+  }
   const maxCount = kind === 'image' ? ATTACHMENT_MAX_IMAGES : ATTACHMENT_MAX_FILES;
   const count = kind === 'image' ? existingCount : existingFileCount;
   if (count >= maxCount) {

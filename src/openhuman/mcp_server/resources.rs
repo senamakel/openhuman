@@ -217,6 +217,18 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         description: "Background reasoning agent that maintains subconscious scratchpad context.",
         content: include_str!("../subconscious/agent/prompt.md"),
     },
+    PromptResource {
+        uri: "openhuman://prompts/agents/skill_setup",
+        name: "skill_setup",
+        description: "Worker that guides skill installation and backend configuration.",
+        content: include_str!("../skill_registry/agent/skill_setup/prompt.md"),
+    },
+    PromptResource {
+        uri: "openhuman://prompts/agents/skill_executor",
+        name: "skill_executor",
+        description: "Sandboxed worker that runs installed skill packages.",
+        content: include_str!("../skill_runtime/agent/skill_executor/prompt.md"),
+    },
 ];
 
 /// Returns the `resources/list` result payload listing every catalog entry.

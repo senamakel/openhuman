@@ -4,8 +4,8 @@ use crate::core::all::RegisteredController;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use super::handlers::{
-    handle_add_source, handle_browse, handle_install, handle_remove_source, handle_search,
-    handle_sources,
+    handle_browse, handle_categories, handle_install, handle_schemas, handle_search,
+    handle_sources, handle_uninstall,
 };
 
 pub fn all_skill_registry_controller_schemas() -> Vec<ControllerSchema> {
@@ -13,9 +13,10 @@ pub fn all_skill_registry_controller_schemas() -> Vec<ControllerSchema> {
         skill_registry_schemas("browse"),
         skill_registry_schemas("search"),
         skill_registry_schemas("sources"),
-        skill_registry_schemas("add_source"),
-        skill_registry_schemas("remove_source"),
+        skill_registry_schemas("categories"),
         skill_registry_schemas("install"),
+        skill_registry_schemas("uninstall"),
+        skill_registry_schemas("schemas"),
     ]
 }
 
@@ -34,16 +35,20 @@ pub fn all_skill_registry_registered_controllers() -> Vec<RegisteredController> 
             handler: handle_sources,
         },
         RegisteredController {
-            schema: skill_registry_schemas("add_source"),
-            handler: handle_add_source,
-        },
-        RegisteredController {
-            schema: skill_registry_schemas("remove_source"),
-            handler: handle_remove_source,
+            schema: skill_registry_schemas("categories"),
+            handler: handle_categories,
         },
         RegisteredController {
             schema: skill_registry_schemas("install"),
             handler: handle_install,
+        },
+        RegisteredController {
+            schema: skill_registry_schemas("uninstall"),
+            handler: handle_uninstall,
+        },
+        RegisteredController {
+            schema: skill_registry_schemas("schemas"),
+            handler: handle_schemas,
         },
     ]
 }
@@ -53,24 +58,24 @@ pub fn skill_registry_schemas(function: &str) -> ControllerSchema {
         "browse" => ControllerSchema {
             namespace: "skill_registry",
             function: "browse",
-            description: "Browse the skill registry catalog from all enabled sources. Returns cached results unless force_refresh is true.",
+            description: "Browse the skill registry catalog (aggregated from HermesHub). Returns cached results unless force_refresh is true.",
             inputs: vec![FieldSchema {
                 name: "force_refresh",
                 ty: TypeSchema::Bool,
-                comment: "Force re-fetch from remote sources, ignoring the local cache.",
+                comment: "Force re-fetch from the Hermes API, ignoring the local cache.",
                 required: false,
             }],
             outputs: vec![FieldSchema {
                 name: "entries",
                 ty: TypeSchema::Json,
-                comment: "Array of catalog entries from all enabled registry sources.",
+                comment: "Array of catalog entries.",
                 required: true,
             }],
         },
         "search" => ControllerSchema {
             namespace: "skill_registry",
             function: "search",
-            description: "Search the registry catalog by query string. Matches against name, description, tags, format, and author.",
+            description: "Search the registry catalog by query string. Matches against name, description, tags, category, and author.",
             inputs: vec![
                 FieldSchema {
                     name: "query",
@@ -79,15 +84,15 @@ pub fn skill_registry_schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
                 FieldSchema {
-                    name: "format",
+                    name: "source",
                     ty: TypeSchema::String,
-                    comment: "Filter by skill format: openhuman, hermes, or openclaw.",
+                    comment: "Filter by upstream source (e.g. 'ClawHub', 'skills.sh', 'built-in').",
                     required: false,
                 },
                 FieldSchema {
-                    name: "source",
+                    name: "category",
                     ty: TypeSchema::String,
-                    comment: "Filter by source id.",
+                    comment: "Filter by category.",
                     required: false,
                 },
             ],
@@ -101,84 +106,36 @@ pub fn skill_registry_schemas(function: &str) -> ControllerSchema {
         "sources" => ControllerSchema {
             namespace: "skill_registry",
             function: "sources",
-            description: "List all configured registry sources (default + custom).",
+            description: "List the distinct upstream sources present in the catalog (e.g. 'built-in', 'ClawHub', 'skills.sh').",
             inputs: vec![],
             outputs: vec![FieldSchema {
                 name: "sources",
                 ty: TypeSchema::Json,
-                comment: "Array of registry sources with id, name, url, kind, and enabled status.",
+                comment: "Array of source name strings.",
                 required: true,
             }],
         },
-        "add_source" => ControllerSchema {
+        "categories" => ControllerSchema {
             namespace: "skill_registry",
-            function: "add_source",
-            description: "Add a custom registry source. Clears the catalog cache.",
-            inputs: vec![
-                FieldSchema {
-                    name: "id",
-                    ty: TypeSchema::String,
-                    comment: "Unique identifier for the source.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "name",
-                    ty: TypeSchema::String,
-                    comment: "Display name.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "url",
-                    ty: TypeSchema::String,
-                    comment: "URL to the index.json catalog.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "kind",
-                    ty: TypeSchema::String,
-                    comment: "Registry kind: github_index or http_catalog. Default: github_index.",
-                    required: false,
-                },
-            ],
+            function: "categories",
+            description: "List the distinct categories present in the catalog.",
+            inputs: vec![],
             outputs: vec![FieldSchema {
-                name: "sources",
+                name: "categories",
                 ty: TypeSchema::Json,
-                comment: "Updated list of all sources.",
-                required: true,
-            }],
-        },
-        "remove_source" => ControllerSchema {
-            namespace: "skill_registry",
-            function: "remove_source",
-            description: "Remove a custom registry source by id. Default sources cannot be removed.",
-            inputs: vec![FieldSchema {
-                name: "id",
-                ty: TypeSchema::String,
-                comment: "Id of the custom source to remove.",
-                required: true,
-            }],
-            outputs: vec![FieldSchema {
-                name: "sources",
-                ty: TypeSchema::Json,
-                comment: "Updated list of all sources.",
+                comment: "Array of category name strings.",
                 required: true,
             }],
         },
         "install" => ControllerSchema {
             namespace: "skill_registry",
             function: "install",
-            description: "Install a skill from the registry by its catalog entry id and source id. Fetches the SKILL.md and installs to user scope.",
+            description: "Install a skill from the catalog by its entry id. Fetches the SKILL.md and installs to user scope.",
             inputs: vec![
                 FieldSchema {
                     name: "entry_id",
                     ty: TypeSchema::String,
                     comment: "Catalog entry id of the skill to install.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "source_id",
-                    ty: TypeSchema::String,
-                    comment: "Registry source id the entry belongs to.",
                     required: true,
                 },
             ],
@@ -208,6 +165,49 @@ pub fn skill_registry_schemas(function: &str) -> ControllerSchema {
                     required: true,
                 },
             ],
+        },
+        "uninstall" => ControllerSchema {
+            namespace: "skill_registry",
+            function: "uninstall",
+            description: "Uninstall an installed user-scope skill by slug.",
+            inputs: vec![FieldSchema {
+                name: "name",
+                ty: TypeSchema::String,
+                comment: "Installed skill slug to remove from the user skills directory.",
+                required: true,
+            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "name",
+                    ty: TypeSchema::String,
+                    comment: "Removed skill slug.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "removed_path",
+                    ty: TypeSchema::String,
+                    comment: "Absolute path removed from disk.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "scope",
+                    ty: TypeSchema::String,
+                    comment: "Scope removed; currently user.",
+                    required: true,
+                },
+            ],
+        },
+        "schemas" => ControllerSchema {
+            namespace: "skill_registry",
+            function: "schemas",
+            description: "Return the skill_registry controller schemas for CLI/RPC smoke-test script generation.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "schemas",
+                ty: TypeSchema::Json,
+                comment: "Array of skill_registry controller schemas.",
+                required: true,
+            }],
         },
         _ => ControllerSchema {
             namespace: "skill_registry",

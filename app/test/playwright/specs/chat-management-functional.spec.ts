@@ -2,13 +2,11 @@ import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
-  callCoreRpc,
   dismissWalkthroughIfPresent,
   waitForAppReady,
 } from '../helpers/core-rpc';
 
 const MOCK_BASE = `http://127.0.0.1:${process.env.E2E_MOCK_PORT || '18473'}`;
-const MEMORY_TRIGGER_RESPONSE = { content: 'No relevant memory context.' };
 
 async function setMockBehavior(behavior: Record<string, unknown>): Promise<void> {
   await fetch(`${MOCK_BASE}/__admin/behavior`, {
@@ -73,15 +71,12 @@ async function newThread(page: Page): Promise<string> {
 }
 
 test.describe('Chat management functional coverage', () => {
-  test('attachment preview, remove, and multimodal send path remain interactive', async ({
+  test('attachment preview, remove, and document send path remain interactive', async ({
     page,
   }) => {
     await resetMock();
     await setMockBehavior({
-      llmForcedResponses: JSON.stringify([
-        MEMORY_TRIGGER_RESPONSE,
-        { content: 'Attachment received by the assistant.' },
-      ]),
+      llmForcedResponses: JSON.stringify([{ content: 'Attachment received by the assistant.' }]),
       llmStreamChunkDelayMs: '5',
     });
     await openChat(page, 'pw-chat-attachments');
@@ -89,34 +84,24 @@ test.describe('Chat management functional coverage', () => {
 
     const fileInput = page.locator('input[type="file"]');
     await expect(fileInput).toHaveCount(1);
-    await fileInput.setInputFiles({
-      name: 'pixel.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
-        'base64'
-      ),
-    });
 
-    await expect(page.getByText('pixel.png')).toBeVisible();
-    await page.getByRole('button', { name: /Remove pixel\.png/ }).click();
-    await expect(page.getByText('pixel.png')).toHaveCount(0);
+    // Documents work on every model; images require a vision-capable model.
+    // Managed OpenHuman tiers are text-only (see `oh_tier_supports_vision`), so
+    // the attachment mechanics here are exercised with a text document. Image
+    // upload is gated to vision-flagged models and validated in unit tests.
+    const txtBuffer = Buffer.from('renderer uploaded text document', 'utf8');
+    const attachTxt = () =>
+      fileInput.setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: txtBuffer });
 
-    const pngBuffer = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
-      'base64'
-    );
-    await fileInput.setInputFiles({ name: 'pixel.png', mimeType: 'image/png', buffer: pngBuffer });
-    await expect(page.getByText('pixel.png')).toBeVisible();
+    await attachTxt();
+    await expect(page.getByText('notes.txt')).toBeVisible();
+    await page.getByRole('button', { name: /Remove notes\.txt/ }).click();
+    await expect(page.getByText('notes.txt')).toHaveCount(0);
 
-    await fileInput.setInputFiles({
-      name: 'notes.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('renderer uploaded text document', 'utf8'),
-    });
+    await attachTxt();
     await expect(page.getByText('notes.txt')).toBeVisible();
 
-    await page.getByPlaceholder('How can I help you today?').fill('Describe this image');
+    await page.getByPlaceholder('How can I help you today?').fill('Summarize this file');
     await page.getByTestId('send-message-button').click();
     await expect(page.getByText('Attachment received by the assistant.')).toBeVisible({
       timeout: 30_000,
@@ -132,13 +117,13 @@ test.describe('Chat management functional coverage', () => {
               request.method === 'POST' &&
               request.url?.includes('/chat/completions') &&
               typeof request.body === 'string' &&
-              request.body.includes('Describe this image')
+              request.body.includes('Summarize this file')
           );
           return completion?.body ?? '';
         },
         { timeout: 10_000 }
       )
-      .toContain('image_url');
+      .toContain('[FILE-EXTRACTED:');
 
     const log = await requests();
     const completionBody =
@@ -147,12 +132,26 @@ test.describe('Chat management functional coverage', () => {
           request.method === 'POST' &&
           request.url?.includes('/chat/completions') &&
           typeof request.body === 'string' &&
-          request.body.includes('Describe this image')
+          request.body.includes('Summarize this file')
       )?.body ?? '';
-    expect(completionBody).toContain('reasoning');
+    // Attaching a document no longer auto-switches the chat profile to
+    // Reasoning — it is text-extracted and sent through the selected profile's
+    // model (the default profile resolves to the chat tier). Assert on the
+    // request's `model` field only, so the word "reasoning" appearing elsewhere
+    // in the payload (e.g. the system prompt) can't mask a regression.
+    const completionModel = String(JSON.parse(completionBody).model ?? '');
+    expect(completionModel).not.toContain('reasoning');
     expect(completionBody).toContain('[FILE-EXTRACTED:');
     expect(completionBody).toContain('renderer uploaded text document');
   });
+
+  // NOTE: image attachments require a vision-capable model. Managed tiers are
+  // text-only by default (`oh_tier_supports_vision`); a model is flagged
+  // vision-capable via `model_registry` (Settings → "Supports vision"). The
+  // `image_url` promotion path is covered by Rust unit tests
+  // (`inference::provider::compatible` MessageContent). An E2E that toggles the
+  // vision flag at runtime is a follow-up (needs a page re-mount so the
+  // composer's resolve picks up the flag — out of scope here).
 
   test('thread rename and delete remain usable from the conversation UI', async ({ page }) => {
     await resetMock();

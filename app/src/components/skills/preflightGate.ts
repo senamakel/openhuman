@@ -1,10 +1,10 @@
 // Parse and present the structured error message that the
-// `openhuman.workflows_run` RPC returns when a skill's `[github]`
+// `openhuman.skill_runtime_run` RPC returns when a skill's `[github]`
 // preflight gate refuses the run.
 //
-// Backend contract (see src/openhuman/skills/schemas.rs's
-// `spawn_skill_run_background` → preflight branch and
-// src/openhuman/skills/preflight.rs's `GithubGateError::tag` /
+// Backend contract (see src/openhuman/skill_runtime's
+// `spawn_workflow_run_background` → preflight branch and
+// src/openhuman/workflows/preflight.rs's `GithubGateError::tag` /
 // `to_user_message`): the error string is shaped as
 //
 //   `[preflight:<gate>:<tag>] <user-readable body>`
@@ -22,7 +22,7 @@
 
 const PREFLIGHT_PREFIX_RE = /^\[preflight:([a-z0-9_-]+):([a-z0-9_-]+)\]\s+/i;
 
-/** Parsed shape of a backend RPC error returned by `openhuman.workflows_run`. */
+/** Parsed shape of a backend RPC error returned by `openhuman.skill_runtime_run`. */
 export interface WorkflowRunError {
   /** `'github'` when this is a github-gate failure; `null` for any other error. */
   gate: string | null;
@@ -36,7 +36,7 @@ export interface WorkflowRunError {
 }
 
 /**
- * Parse the message string returned by the `openhuman.workflows_run` RPC
+ * Parse the message string returned by the `openhuman.skill_runtime_run` RPC
  * error path (or thrown by `workflowsApi.runWorkflow`). Anything that matches
  * the `[preflight:<gate>:<tag>]` prefix becomes a structured gate
  * failure; anything else falls through with `gate: null` so the caller

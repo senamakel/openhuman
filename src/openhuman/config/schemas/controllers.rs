@@ -360,6 +360,10 @@ fn handle_update_model_settings(params: Map<String, Value>) -> ControllerFuture 
                         .collect::<Result<Vec<_>, String>>()
                 })
                 .transpose()?,
+            // The config-domain RPC doesn't carry a model-registry payload — the
+            // per-model vision registry is updated via the inference-domain
+            // `inference_update_model_settings` path.
+            model_registry: None,
             primary_cloud: update.primary_cloud,
             chat_provider: update.chat_provider,
             reasoning_provider: update.reasoning_provider,

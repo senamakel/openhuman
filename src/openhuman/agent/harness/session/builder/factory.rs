@@ -413,6 +413,9 @@ impl Agent {
             Some("hint:coding") => "coding",
             Some("hint:summarization") => "summarization",
             Some("hint:reasoning") => "reasoning",
+            // Always-managed chat tier — keep in sync with
+            // `factory::provider_for_role` and `web::session::provider_role_for_model_override`.
+            Some("hint:pro-reasoning") => "pro-reasoning",
             _ => "chat",
         };
         let (provider, mut model_name): (Box<dyn Provider>, String) =
@@ -438,6 +441,15 @@ impl Agent {
             );
             model_name = pinned_model.to_string();
         }
+
+        // Resolve the user-configured vision flag for the (now-final) model while
+        // the full `Config` / `model_registry` is in scope — the turn engine only
+        // sees `MultimodalConfig`. Stored on the session and surfaced to the image
+        // gate via the `current_model_vision` task-local (covers custom/BYOK models
+        // the provider can't introspect). Computed with `&model_name` since it's
+        // moved into the builder below.
+        let model_vision =
+            crate::openhuman::inference::model_context::model_supports_vision(&model_name, config);
 
         // Dispatcher selection is deferred until after the tool list is
         // finalised (orchestrator tools are appended below). We capture
@@ -1047,6 +1059,7 @@ impl Agent {
             .config(config.agent.clone())
             .context_config(config.context.clone())
             .model_name(model_name)
+            .model_vision(model_vision)
             .temperature(effective_temperature)
             .workspace_dir(config.workspace_dir.clone())
             .action_dir(config.action_dir.clone())

@@ -177,7 +177,7 @@ pub fn all_tools_with_runtime(
         // Workflow composition: `run_workflow` runs another workflow as a
         // subagent and (by default) waits on its result like a function call;
         // `await_workflow` re-attaches to a run that outlived its inline wait.
-        // Both wrap `workflows::schemas::spawn_workflow_run_background` +
+        // Both wrap `skill_runtime::spawn_workflow_run_background` +
         // `await_run_outcome` — the same spawn path `openhuman.workflows_run`
         // JSON-RPC uses, so RPC and tool callers stay in sync.
         Box::new(RunWorkflowTool::new()),
@@ -301,6 +301,17 @@ pub fn all_tools_with_runtime(
         // `tools::user_filter` (install also fetches remote content).
         Box::new(WorkflowListTool::new(config.clone())),
         Box::new(WorkflowDescribeTool::new(config.clone())),
+        // Skill registry tools — browse/search/install from remote registries.
+        // Browse and search are read-only (default-ON); install is a write
+        // operation (fetches remote content and writes to disk).
+        Box::new(SkillRegistryBrowseTool),
+        Box::new(SkillRegistrySearchTool),
+        Box::new(SkillRegistryInstallTool::new(config.clone())),
+        Box::new(SkillRegistrySourcesTool),
+        Box::new(SkillRegistryUninstallTool),
+        // Skill runtime probes — resolve the reusable Node/Python runtimes
+        // that skill execution relies on before a script-backed skill runs.
+        Box::new(SkillRuntimeResolveRuntimesTool::new(config.clone())),
         Box::new(WorkflowReadResourceTool::new(config.clone())),
         Box::new(WorkflowRecentRunsTool::new(config.clone())),
         Box::new(WorkflowReadRunLogTool::new(config.clone())),

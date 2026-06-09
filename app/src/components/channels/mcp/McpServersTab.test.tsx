@@ -130,9 +130,8 @@ describe('McpServersTab', () => {
     await waitFor(() => {
       expect(screen.getByText('File Server')).toBeInTheDocument();
     });
-    // Table columns are present
     expect(screen.getByText('Name')).toBeInTheDocument();
-    expect(screen.getByText('Source')).toBeInTheDocument();
+    expect(screen.getByText('Author')).toBeInTheDocument();
   });
 
   it('renders filter chips — All, Installed, Registry', async () => {
@@ -205,7 +204,6 @@ describe('McpServersTab', () => {
     vi.useRealTimers();
 
     await waitFor(() => screen.getByText('File Server'));
-    // Click the table row (not a button)
     fireEvent.click(screen.getByText('File Server').closest('tr')!);
 
     await waitFor(() => {
@@ -225,7 +223,6 @@ describe('McpServersTab', () => {
 
     await waitFor(() => screen.getByText('acme/fs-server'));
 
-    // Back button navigates home
     fireEvent.click(screen.getByText('Go back'));
     await waitFor(() => {
       expect(screen.queryByText('acme/fs-server')).not.toBeInTheDocument();
@@ -250,11 +247,10 @@ describe('McpServersTab', () => {
     await waitFor(() => {
       expect(screen.getByText('New Server')).toBeInTheDocument();
     });
-    // Install button present for registry server
-    expect(screen.getByRole('button', { name: 'Install' })).toBeInTheDocument();
+    expect(screen.getByText('Install')).toBeInTheDocument();
   });
 
-  it('navigates to install view when Install is clicked on a registry server', async () => {
+  it('navigates to install view when a registry server row is clicked', async () => {
     mockInstalledList.mockResolvedValue([]);
     mockStatus.mockResolvedValue([]);
     mockRegistrySearch.mockResolvedValue({
@@ -268,7 +264,7 @@ describe('McpServersTab', () => {
     vi.useRealTimers();
 
     await waitFor(() => screen.getByText('New Server'));
-    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    fireEvent.click(screen.getByText('New Server').closest('tr')!);
 
     await waitFor(() => {
       expect(screen.getByText('Loading server details...')).toBeInTheDocument();
@@ -296,13 +292,12 @@ describe('McpServersTab', () => {
     vi.useRealTimers();
 
     await waitFor(() => screen.getByText('New Server'));
-    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    fireEvent.click(screen.getByText('New Server').closest('tr')!);
     await waitFor(() => screen.getByRole('button', { name: 'Cancel' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => {
-      // Back at home — search input is present
       expect(screen.getByPlaceholderText('Search MCP servers...')).toBeInTheDocument();
     });
   });
@@ -350,8 +345,10 @@ describe('McpServersTab', () => {
     vi.useRealTimers();
 
     await waitFor(() => screen.getByText('New Server'));
-    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    // Click the registry row to open install dialog
+    fireEvent.click(screen.getByText('New Server').closest('tr')!);
 
+    // Wait for detail to load, then click Install on the detail step
     await waitFor(() => screen.getByRole('button', { name: 'Install' }));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Install' }));
@@ -414,7 +411,9 @@ describe('McpServersTab', () => {
     mockInstalledList.mockResolvedValue([newServer]);
 
     await waitFor(() => screen.getByText('New Server'));
-    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    // Click registry row to open install
+    fireEvent.click(screen.getByText('New Server').closest('tr')!);
+    // Wait for detail step, click Install
     await waitFor(() => screen.getByRole('button', { name: 'Install' }));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Install' }));
@@ -478,7 +477,7 @@ describe('McpServersTab', () => {
     });
   });
 
-  it('shows installed server with Installed badge in the table', async () => {
+  it('shows installed server with Manage action in the table', async () => {
     mockInstalledList.mockResolvedValue(SERVERS);
     mockStatus.mockResolvedValue(STATUSES_CONNECTED);
 
@@ -488,9 +487,6 @@ describe('McpServersTab', () => {
     await waitFor(() => {
       expect(screen.getByText('File Server')).toBeInTheDocument();
     });
-    // Installed badge is shown for installed servers
-    expect(screen.getByText('Installed')).toBeInTheDocument();
-    // Manage link is shown
     expect(screen.getByText('Manage')).toBeInTheDocument();
   });
 

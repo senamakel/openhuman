@@ -17,7 +17,6 @@ import MicComposer from '../features/human/MicComposer';
 import { useStickToBottom } from '../hooks/useStickToBottom';
 import { useUsageState } from '../hooks/useUsageState';
 import {
-  ALLOWED_ATTACHMENT_MIME_TYPES,
   type Attachment,
   ATTACHMENT_MAX_FILES,
   ATTACHMENT_MAX_IMAGES,
@@ -108,7 +107,6 @@ import {
 } from './conversations/utils/threadFilter';
 
 const CHAT_MODEL_HINT = 'hint:chat';
-const MULTIMODAL_MODEL_HINT = 'hint:reasoning';
 /** Maximum trailing characters rendered in the live-streaming assistant
  *  preview bubble. The full response is revealed via `addInferenceResponse`
  *  on `chat_done` — this is purely a ticker-tape affordance to signal
@@ -270,29 +268,42 @@ const Conversations = ({
     onCancel: () => {},
   });
   const [resolvedModel, setResolvedModel] = useState<string | null>(null);
+  // Whether the resolved model for the active profile accepts image input.
+  // Managed tiers do; custom/BYOK models only when the user flagged them. Gates
+  // the composer's image-attachment affordance (docs flow regardless). Resolved
+  // against the non-attachment hint so the affordance is stable as you attach.
+  const [modelSupportsVision, setModelSupportsVision] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const profile = agentProfiles.find(p => p.id === selectedAgentProfileId);
-        const hint =
-          attachments.length > 0
-            ? MULTIMODAL_MODEL_HINT
-            : (profile?.modelOverride ?? CHAT_MODEL_HINT);
-        const res = await callCoreRpc<{ model: string }>({
+        // Resolve the actually-selected profile's model so `modelSupportsVision`
+        // reflects the real tier. Attachments never override the model: images
+        // are rejected up-front on non-vision profiles (validateAndReadFile →
+        // image_not_supported), and documents are text-extracted so any model
+        // handles them.
+        const hint = profile?.modelOverride ?? CHAT_MODEL_HINT;
+        const res = await callCoreRpc<{ model: string; vision?: boolean }>({
           method: 'openhuman.inference_resolve_model',
           params: { hint },
         });
-        if (!cancelled) setResolvedModel(res.model);
+        if (!cancelled) {
+          setResolvedModel(res.model);
+          setModelSupportsVision(res.vision === true);
+        }
       } catch {
-        if (!cancelled) setResolvedModel(null);
+        if (!cancelled) {
+          setResolvedModel(null);
+          setModelSupportsVision(false);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [agentProfiles, attachments.length, selectedAgentProfileId]);
+  }, [agentProfiles, selectedAgentProfileId]);
 
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const isComposingTextRef = useRef(false);
@@ -680,10 +691,19 @@ const Conversations = ({
     let acceptedImageCount = attachments.filter(attachment => attachment.kind === 'image').length;
     let acceptedFileCount = attachments.filter(attachment => attachment.kind === 'file').length;
     for (const file of Array.from(files)) {
-      const result = await validateAndReadFile(file, acceptedImageCount, acceptedFileCount);
+      const result = await validateAndReadFile(
+        file,
+        acceptedImageCount,
+        acceptedFileCount,
+        modelSupportsVision
+      );
       if ('error' in result) {
         const { error } = result;
-        if (error.code === 'too_many') {
+        if (error.code === 'image_not_supported') {
+          setAttachError(
+            chatSendError('attachment_invalid', t('chat.attachment.imageNotSupported'))
+          );
+        } else if (error.code === 'too_many') {
           const key =
             error.kind === 'image' ? 'chat.attachment.tooMany' : 'chat.attachment.tooManyFiles';
           setAttachError(
@@ -708,10 +728,6 @@ const Conversations = ({
         acceptedImageCount++;
       } else {
         acceptedFileCount++;
-      }
-      if (selectedAgentProfileId !== 'reasoning') {
-        debug('attachment accepted; switching chat profile to reasoning for multimodal send');
-        void handleSelectAgentProfile('reasoning');
       }
       setAttachments(prev => [...prev, result.attachment]);
     }
@@ -766,10 +782,7 @@ const Conversations = ({
     setPendingSendingThreadId(sendingThreadId);
     const pendingAttachments = attachments.slice();
     const modelOverride =
-      pendingAttachments.length > 0
-        ? MULTIMODAL_MODEL_HINT
-        : (agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ??
-          CHAT_MODEL_HINT);
+      agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ?? CHAT_MODEL_HINT;
     const messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
@@ -1561,6 +1574,19 @@ const Conversations = ({
                   }`}>
                   {t('chat.agentProfile.reasoning')}
                 </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedAgentProfileId === 'pro-reasoning'}
+                  data-analytics-id="chat-header-mode-pro-reasoning"
+                  onClick={() => void handleSelectAgentProfile('pro-reasoning')}
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-all ${
+                    selectedAgentProfileId === 'pro-reasoning'
+                      ? 'bg-white dark:bg-neutral-600 text-stone-800 dark:text-neutral-100 shadow-sm'
+                      : 'text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200'
+                  }`}>
+                  {t('chat.agentProfile.proReasoning')}
+                </button>
               </div>
               {(selectedThreadId ?? activeThreadId) && (
                 <ChatFilesChip threadId={(selectedThreadId ?? activeThreadId) as string} />
@@ -1724,6 +1750,18 @@ const Conversations = ({
                                 ? (msg.extraMetadata.attachmentDataUris as string[])
                                 : parseMessageImages(msg.content ?? '').dataUris;
                               const hasImages = dataUris.length > 0;
+                              // Document attachments carry no image data-URI (only
+                              // images do); surface them as filename chips from the
+                              // persisted attachmentKinds/attachmentNames metadata.
+                              const kinds = Array.isArray(msg.extraMetadata?.attachmentKinds)
+                                ? (msg.extraMetadata.attachmentKinds as string[])
+                                : [];
+                              const names = Array.isArray(msg.extraMetadata?.attachmentNames)
+                                ? (msg.extraMetadata.attachmentNames as string[])
+                                : [];
+                              const fileNames = kinds
+                                .map((k, i) => (k === 'file' ? names[i] : null))
+                                .filter((n): n is string => Boolean(n));
                               const showTime = latestVisibleMessage?.id === msg.id;
                               return (
                                 <>
@@ -1736,6 +1774,35 @@ const Conversations = ({
                                           alt=""
                                           className="max-w-[200px] max-h-[200px] rounded-2xl object-cover"
                                         />
+                                      ))}
+                                    </div>
+                                  )}
+                                  {fileNames.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 justify-end">
+                                      {fileNames.map((name, i) => (
+                                        <div
+                                          key={i}
+                                          className="flex items-center gap-2 rounded-lg border border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 px-2.5 py-1.5 text-xs text-stone-700 dark:text-neutral-300 max-w-[220px]">
+                                          <svg
+                                            className="w-4 h-4 flex-shrink-0 text-stone-500 dark:text-neutral-400"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={1.8}
+                                              d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                                            />
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={1.8}
+                                              d="M14 2v6h6"
+                                            />
+                                          </svg>
+                                          <span className="truncate font-medium">{name}</span>
+                                        </div>
                                       ))}
                                     </div>
                                   )}
@@ -2213,7 +2280,10 @@ const Conversations = ({
               inlineCompletionSuffix={inlineCompletionSuffix}
               isComposingTextRef={isComposingTextRef}
               maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
-              allowedMimeTypes={ALLOWED_ATTACHMENT_MIME_TYPES}
+              // Empty → no native `accept` filter (it greys valid files on
+              // macOS/CEF). Type enforcement happens in handleAttachFiles via
+              // validateAndReadFile, which honors modelSupportsVision.
+              allowedMimeTypes={[]}
               attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
             />
           ) : (

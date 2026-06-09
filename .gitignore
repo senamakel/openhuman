@@ -122,3 +122,6 @@ AuthKey_*.p8
 *.certSigningRequest
 *.p12
 distribution.cer
+
+# Release note previews
+CHANGELOG.preview.md

@@ -22,14 +22,12 @@
 //! |-----------------------|--------|-------------------------------------------------------------|
 //! | `wire_types`          | ~200   | Param / result structs and `WorkflowSummary`.               |
 //! | `helpers`             | ~80    | Config/workspace resolution + `deserialize_params`/`to_json`.|
-//! | `run_machinery`       | ~230   | Background run spawning and outcome polling.                |
 //! | `handlers`            | ~240   | Thin `handle_*` dispatcher functions.                       |
 //! | `controller_schemas`  | ~300   | `workflows_schemas` match + `all_*` registry functions.     |
 
 mod controller_schemas;
 mod handlers;
 mod helpers;
-mod run_machinery;
 mod wire_types;
 
 // ── External API — preserved exactly from the original schemas.rs ─────────────
@@ -48,10 +46,6 @@ pub(crate) use crate::openhuman::workflows::ops::Workflow;
 
 // `resolve_workspace_dir` is used by the `run_workflow` agent tool.
 pub(crate) use helpers::resolve_workspace_dir;
-
-// `spawn_workflow_run_background` and `await_run_outcome` are used by the
-// `run_workflow` agent tool for skill chaining.
-pub(crate) use run_machinery::{await_run_outcome, spawn_workflow_run_background};
 
 #[cfg(test)]
 #[path = "../schemas_tests.rs"]

@@ -11,6 +11,14 @@ pub(super) fn autonomy_signature(config: &Config) -> String {
     serde_json::to_string(&config.autonomy).unwrap_or_default()
 }
 
+/// Signature of `config.model_registry` for the session-cache fingerprint.
+/// Captures every per-model `vision` flag so toggling one in Settings forces a
+/// rebuild (picking up the new build-time `model_vision`). Mirrors
+/// [`autonomy_signature`].
+pub(super) fn model_registry_signature(config: &Config) -> String {
+    serde_json::to_string(&config.model_registry).unwrap_or_default()
+}
+
 pub(super) fn pick_target_agent_id(_config: &Config, profile: &AgentProfile) -> String {
     if profile.id == DEFAULT_PROFILE_ID {
         "orchestrator".to_string()
@@ -31,6 +39,9 @@ pub(crate) fn provider_role_for_model_override(model_override: Option<&str>) -> 
         Some("hint:coding") | Some("coding-v1") => "coding",
         Some("hint:summarization") | Some("summarization-v1") => "summarization",
         Some("hint:reasoning") => "reasoning",
+        // pro-reasoning routes to its own always-managed role (never the BYOK
+        // chat provider) — keep in sync with `factory::provider_for_role`.
+        Some("hint:pro-reasoning") | Some("pro-reasoning-v1") => "pro-reasoning",
         _ => "chat",
     }
 }
@@ -186,5 +197,6 @@ pub(super) fn build_session_fingerprint(
         ),
         target_agent_id,
         autonomy_signature: autonomy_signature(config),
+        model_registry_signature: model_registry_signature(config),
     }
 }

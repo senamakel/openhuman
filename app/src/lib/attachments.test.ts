@@ -85,6 +85,40 @@ describe('validateAndReadFile', () => {
     }
   });
 
+  it('rejects non-extractable documents (docx/pptx/xlsx) the agent cannot read', async () => {
+    for (const mime of [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/zip',
+    ]) {
+      const result = await validateAndReadFile(makeFile('f', mime, 8), 0);
+      expect('error' in result && result.error.code).toBe('unsupported_type');
+    }
+  });
+
+  it('accepts the text-extractable document formats (pdf/txt/markdown)', async () => {
+    for (const mime of ['application/pdf', 'text/plain', 'text/markdown']) {
+      const result = await validateAndReadFile(makeFile('f', mime, 8), 0);
+      expect('attachment' in result && result.attachment.kind === 'file').toBe(true);
+    }
+  });
+
+  it('rejects an image when allowImages is false (non-vision model)', async () => {
+    const result = await validateAndReadFile(makeFile('p.png', 'image/png', 8), 0, 0, false);
+    expect('error' in result && result.error.code).toBe('image_not_supported');
+  });
+
+  it('still accepts a document when allowImages is false', async () => {
+    const result = await validateAndReadFile(makeFile('d.pdf', 'application/pdf', 8), 0, 0, false);
+    expect('attachment' in result && result.attachment.kind === 'file').toBe(true);
+  });
+
+  it('accepts an image when allowImages is true (vision model)', async () => {
+    const result = await validateAndReadFile(makeFile('p.png', 'image/png', 8), 0, 0, true);
+    expect('attachment' in result && result.attachment.kind === 'image').toBe(true);
+  });
+
   it('rejects files that exceed the file size limit', async () => {
     const oversizedFile = makeFile(
       'big.pdf',

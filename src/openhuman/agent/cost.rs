@@ -69,6 +69,13 @@ pub const PRICING_TABLE: &[ModelPricing] = &[
         cached_input_per_mtok_usd: 1.50,
         output_per_mtok_usd: 75.00,
     },
+    // Pro-reasoning chat tier — pricing copied from reasoning-v1.
+    ModelPricing {
+        model: "pro-reasoning-v1",
+        input_per_mtok_usd: 15.00,
+        cached_input_per_mtok_usd: 1.50,
+        output_per_mtok_usd: 75.00,
+    },
     // Chat tier — Kimi K2.6 Turbo on Fireworks (backend PR #760).
     // Low TTFT, 128k context, `supportsThinking: false`. Rates track
     // Fireworks' published Kimi turbo pricing at time of writing.

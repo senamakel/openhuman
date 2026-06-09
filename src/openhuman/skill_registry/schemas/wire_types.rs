@@ -2,7 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::skill_registry::types::{CatalogEntry, RegistryKind, RegistrySource};
+use crate::core::ControllerSchema;
+use crate::openhuman::skill_registry::types::CatalogEntry;
+use crate::openhuman::workflows::ops_types::WorkflowScope;
 
 // ── Params ──────────────────────────────────────────────────────────────────
 
@@ -17,33 +19,19 @@ pub(super) struct SearchParams {
     #[serde(default)]
     pub(super) query: String,
     #[serde(default)]
-    pub(super) format: Option<String>,
-    #[serde(default)]
     pub(super) source: Option<String>,
+    #[serde(default)]
+    pub(super) category: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(super) struct InstallParams {
     pub(super) entry_id: String,
-    pub(super) source_id: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct AddSourceParams {
-    pub(super) id: String,
+pub(super) struct UninstallParams {
     pub(super) name: String,
-    pub(super) url: String,
-    #[serde(default = "default_kind")]
-    pub(super) kind: RegistryKind,
-}
-
-fn default_kind() -> RegistryKind {
-    RegistryKind::GithubIndex
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct RemoveSourceParams {
-    pub(super) id: String,
 }
 
 // ── Results ─────────────────────────────────────────────────────────────────
@@ -60,7 +48,12 @@ pub(super) struct SearchResult {
 
 #[derive(Debug, Serialize)]
 pub(super) struct SourcesResult {
-    pub(super) sources: Vec<RegistrySource>,
+    pub(super) sources: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct CategoriesResult {
+    pub(super) categories: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -69,4 +62,16 @@ pub(super) struct InstallResult {
     pub(super) stdout: String,
     pub(super) stderr: String,
     pub(super) new_skills: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct UninstallResult {
+    pub(super) name: String,
+    pub(super) removed_path: String,
+    pub(super) scope: WorkflowScope,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct SchemasResult {
+    pub(super) schemas: Vec<ControllerSchema>,
 }

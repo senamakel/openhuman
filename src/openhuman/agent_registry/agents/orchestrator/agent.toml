@@ -14,7 +14,7 @@ agent_tier = "chat"
 omit_identity = true
 omit_memory_context = true
 omit_safety_preamble = true
-omit_skills_catalog = true
+omit_skills_catalog = false
 # The orchestrator is the user-facing front-line agent — it routes,
 # synthesises, and speaks to the user in their voice. PROFILE.md
 # (onboarding enrichment output) anchors that voice.
@@ -23,7 +23,15 @@ omit_profile = false
 # prior conversations and distilled user preferences. Frozen per
 # session (KV-cache contract on `AgentDefinition::omit_memory_md`).
 omit_memory_md = false
-trigger_memory_agent = "always"
+# Memory retrieval is ON-DEMAND, not pre-emptive. The orchestrator used to
+# run `agent_memory` eagerly before every turn (`trigger_memory_agent =
+# "always"`), spawning a full ≤15-iteration memory subagent on every
+# message — including trivial ones — before it had even read the user's
+# intent. That cost a blocking agentic round-trip per turn for a guarantee
+# the model rarely needed. Instead, `agent_memory` is listed in the
+# `[subagents]` allowlist below, which synthesises a `delegate_retrieve_memory`
+# tool the orchestrator calls only when a message actually needs the deep
+# memory-tree walk. (The frozen MEMORY.md digest still anchors every turn.)
 
 # Delegation surface. The `collect_orchestrator_tools` helper reads this
 # at agent-build time and synthesises one `delegate_*` tool per entry:
@@ -61,6 +69,11 @@ allowlist = [
     # "forget", profile/persona edits, learned facets, and people alias
     # management here.
     "profile_memory_agent",
+    # On-demand memory retrieval. Synthesised into a `delegate_retrieve_memory`
+    # tool (from agent_memory's `delegate_name`). Replaces the old eager
+    # `trigger_memory_agent = "always"` pre-fetch — the orchestrator now walks
+    # the memory tree only when a message needs it, not before every turn.
+    "agent_memory",
     # Account/admin specialist. Route billing, team membership/invites/roles,
     # OAuth/credential/session, and referral requests here.
     "account_admin_agent",
@@ -106,6 +119,12 @@ allowlist = [
     # this entry the agent-native install path (issue #3039 gap B5) is unreachable
     # from chat.
     "mcp_setup",
+    # Skill registry specialists. `skill_setup` discovers, installs, and
+    # manages agent skills from community registries (OpenHuman, HermesHub,
+    # ClawHub). `skill_executor` runs an installed skill by loading its
+    # SKILL.md instructions and executing the procedure.
+    "skill_setup",
+    "skill_executor",
     # NOTE: `summarizer` used to be listed here for the runtime-only
     # oversized-tool-result hook. That path is currently disabled
     # (`context.summarizer_payload_threshold_tokens = 0`) after recursive
@@ -177,6 +196,13 @@ named = [
     "read_workflow_run_log",
     "run_workflow",
     "await_workflow",
+    # Skill registry tools — browse/search/install from community registries.
+    # These complement list_workflows (which shows already-installed skills)
+    # by exposing the remote catalog for discovery and installation.
+    "skill_registry_browse",
+    "skill_registry_search",
+    "skill_registry_install",
+    "skill_registry_sources",
     # Self-update — lets the orchestrator answer "am I up to date" /
     # "update OpenHuman" without sending the user to Settings →
     # Developer Options. `update_check` is read-only; `update_apply`

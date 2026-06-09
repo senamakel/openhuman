@@ -9,6 +9,10 @@ use std::path::PathBuf;
 /// Standard model identifiers matching the backend model registry.
 pub const MODEL_AGENTIC_V1: &str = "agentic-v1";
 pub const MODEL_REASONING_V1: &str = "reasoning-v1";
+/// Premium reasoning tier for chat. Always managed (OpenHuman backend) — never
+/// BYOK/cloud-overridable — and selected only via the chat-header toggle, so it
+/// is intentionally not a configurable Advanced-LLM workload.
+pub const MODEL_PRO_REASONING_V1: &str = "pro-reasoning-v1";
 /// Low-latency conversational tier.
 pub const MODEL_CHAT_V1: &str = "chat-v1";
 /// Legacy low-latency chat tier slug retained for older persisted configs.

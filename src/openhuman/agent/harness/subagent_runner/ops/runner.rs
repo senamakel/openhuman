@@ -645,6 +645,20 @@ async fn run_typed_mode(
         };
 
     // ── Run the inner tool-call loop ───────────────────────────────────
+    // Resolve the sub-agent model's user-configured vision flag; defaults to
+    // `false` when config can't be loaded. Combined with the provider capability
+    // at the gate, this lets a flagged custom/BYOK sub-agent model forward images.
+    let model_vision = crate::openhuman::config::Config::load_or_init()
+        .await
+        .ok()
+        .map(|cfg| crate::openhuman::inference::model_context::model_supports_vision(&model, &cfg))
+        .unwrap_or(false);
+    tracing::debug!(
+        target: "subagent_runner",
+        model = %model,
+        model_vision,
+        "[subagent_runner] resolved sub-agent model vision capability"
+    );
     let (output, iterations, _agg_usage, early_exit_tool) = Box::pin(run_inner_loop(
         subagent_provider.as_ref(),
         &mut history,
@@ -654,6 +668,7 @@ async fn run_typed_mode(
         allowed_names,
         lazy_resolver,
         &model,
+        model_vision,
         temperature,
         definition.effective_max_iterations(),
         task_id,

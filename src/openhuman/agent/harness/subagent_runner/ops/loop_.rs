@@ -48,6 +48,10 @@ pub(super) async fn run_inner_loop(
     allowed_names: HashSet<String>,
     lazy_resolver: Option<LazyToolkitResolver>,
     model: &str,
+    // User-configured vision flag for `model` (computed at the call site), set as
+    // the `current_model_vision` task-local around the engine call so a flagged
+    // custom/BYOK sub-agent model can forward images.
+    model_vision: bool,
     temperature: f64,
     max_iterations: usize,
     task_id: &str,
@@ -176,25 +180,28 @@ pub(super) async fn run_inner_loop(
     // `nested_subagent_dispatch_runs_on_a_constrained_worker_stack`;
     // the deep end-to-end catcher is the `chat-harness-subagent`
     // Playwright spec.
-    let outcome = Box::pin(super::super::super::engine::run_turn_engine(
-        provider,
-        history,
-        &mut tool_source,
-        &progress,
-        &mut observer,
-        &checkpoint,
-        &parser,
-        "subagent",
-        model,
-        temperature,
-        true, // silent — sub-agents never echo to stdout
-        &crate::openhuman::config::MultimodalConfig::default(),
-        &crate::openhuman::config::MultimodalFileConfig::default(),
-        max_iterations,
-        None, // sub-agents don't stream a draft
-        &["ask_user_clarification"],
-        None, // sub-agents don't support run-queue steering
-    ))
+    let outcome = super::super::super::model_vision_context::with_current_model_vision(
+        model_vision,
+        Box::pin(super::super::super::engine::run_turn_engine(
+            provider,
+            history,
+            &mut tool_source,
+            &progress,
+            &mut observer,
+            &checkpoint,
+            &parser,
+            "subagent",
+            model,
+            temperature,
+            true, // silent — sub-agents never echo to stdout
+            &crate::openhuman::config::MultimodalConfig::default(),
+            &crate::openhuman::config::MultimodalFileConfig::default(),
+            max_iterations,
+            None, // sub-agents don't stream a draft
+            &["ask_user_clarification"],
+            None, // sub-agents don't support run-queue steering
+        )),
+    )
     .await?;
 
     Ok((

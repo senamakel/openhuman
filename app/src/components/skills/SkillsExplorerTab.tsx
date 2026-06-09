@@ -1,14 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import debug from 'debug';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
+import { type CatalogEntry, skillRegistryApi } from '../../services/api/skillRegistryApi';
 import {
-  skillRegistryApi,
-  type CatalogEntry,
-} from '../../services/api/skillRegistryApi';
-import {
-  workflowsApi,
   type InstallWorkflowFromUrlResult,
+  workflowsApi,
   type WorkflowSummary,
 } from '../../services/api/workflowsApi';
 import EmptyStateCard from '../EmptyStateCard';
@@ -16,29 +13,73 @@ import InstallSkillDialog from './InstallSkillDialog';
 import UninstallSkillConfirmDialog from './UninstallSkillConfirmDialog';
 
 const log = debug('skills:explorer-tab');
+const CATALOG_PAGE_SIZE = 60;
+const SEARCH_DEBOUNCE_MS = 300;
 
-function SkillFormatBadge({ format }: { format: string }) {
-  const lower = format.toLowerCase();
-  const label =
-    lower === 'hermes'
-      ? 'Hermes'
-      : lower === 'legacy'
-        ? 'Legacy'
-        : lower === 'openclaw'
-          ? 'OpenClaw'
-          : 'OpenHuman';
+function SourceBadge({ source }: { source: string }) {
+  const SOURCE_COLORS: Record<string, string> = {
+    'built-in':
+      'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30',
+    optional:
+      'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30',
+    ClawHub:
+      'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30',
+    'skills.sh':
+      'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30',
+    LobeHub:
+      'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-500/10 dark:text-pink-300 dark:border-pink-500/30',
+    'browse.sh':
+      'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30',
+  };
   const colors =
-    lower === 'hermes'
-      ? 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30'
-      : lower === 'openclaw'
-        ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30'
-        : lower === 'legacy'
-          ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30'
-          : 'bg-primary-50 text-primary-700 border-primary-200 dark:bg-primary-500/10 dark:text-primary-300 dark:border-primary-500/30';
+    SOURCE_COLORS[source] ??
+    'bg-stone-50 text-stone-600 border-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700';
   return (
     <span
       className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${colors}`}>
-      {label}
+      {source}
+    </span>
+  );
+}
+
+function SkillFormatBadge({ format }: { format: string }) {
+  const lower = format.toLowerCase();
+  const FORMAT_MAP: Record<string, { label: string; colors: string }> = {
+    hermes: {
+      label: 'Hermes',
+      colors:
+        'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30',
+    },
+    agentskills: {
+      label: 'AgentSkills',
+      colors:
+        'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30',
+    },
+    openclaw: {
+      label: 'OpenClaw',
+      colors:
+        'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30',
+    },
+    clawhub: {
+      label: 'ClawHub',
+      colors:
+        'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30',
+    },
+    legacy: {
+      label: 'Legacy',
+      colors:
+        'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30',
+    },
+  };
+  const entry = FORMAT_MAP[lower] ?? {
+    label: format || 'Skill',
+    colors:
+      'bg-stone-50 text-stone-600 border-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700',
+  };
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${entry.colors}`}>
+      {entry.label}
     </span>
   );
 }
@@ -58,27 +99,30 @@ function SkillScopeBadge({ scope }: { scope: string }) {
   );
 }
 
-function SourceBadge({ sourceId }: { sourceId: string }) {
-  return (
-    <span className="inline-flex items-center rounded-full border border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 px-1.5 py-0.5 text-[9px] font-medium text-stone-500 dark:text-neutral-400">
-      {sourceId}
-    </span>
-  );
-}
-
 interface SkillTileProps {
   skill: WorkflowSummary;
   onUninstall: () => void;
+  onClick: () => void;
 }
 
-function SkillTile({ skill, onUninstall }: SkillTileProps) {
+function SkillTile({ skill, onUninstall, onClick }: SkillTileProps) {
   const { t } = useT();
   const canUninstall = skill.scope === 'user';
 
   return (
     <div
       data-testid={`skill-explorer-tile-${skill.id}`}
-      className="group flex flex-col justify-between rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => {
+        if (e.key === 'Enter') onClick();
+        if (e.key === ' ' || e.key === 'Space') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="group flex flex-col justify-between rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 transition-colors cursor-pointer hover:bg-stone-50 dark:hover:bg-neutral-800/60">
       <div className="min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-stone-100 dark:bg-neutral-800">
@@ -163,14 +207,25 @@ interface CatalogTileProps {
   installed: boolean;
   installing: boolean;
   onInstall: () => void;
+  onClick: () => void;
 }
 
-function CatalogTile({ entry, installed, installing, onInstall }: CatalogTileProps) {
+function CatalogTile({ entry, installed, installing, onInstall, onClick }: CatalogTileProps) {
   const { t } = useT();
   return (
     <div
       data-testid={`registry-tile-${entry.id}`}
-      className={`group flex flex-col justify-between rounded-2xl border p-3 transition-colors ${
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => {
+        if (e.key === 'Enter') onClick();
+        if (e.key === ' ' || e.key === 'Space') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`group flex flex-col justify-between rounded-2xl border p-3 transition-colors cursor-pointer ${
         installed
           ? 'border-sage-300 bg-sage-50/60 dark:border-sage-500/30 dark:bg-sage-500/10'
           : 'border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
@@ -192,8 +247,7 @@ function CatalogTile({ entry, installed, installing, onInstall }: CatalogTilePro
             </svg>
           </div>
           <div className="flex items-center gap-1">
-            <SkillFormatBadge format={entry.format} />
-            <SourceBadge sourceId={entry.source_id} />
+            <SourceBadge source={entry.source} />
           </div>
         </div>
 
@@ -225,14 +279,7 @@ function CatalogTile({ entry, installed, installing, onInstall }: CatalogTilePro
             </span>
           )}
           {entry.author && (
-            <span className="text-[10px] text-stone-400 dark:text-neutral-500">
-              {entry.author}
-            </span>
-          )}
-          {entry.stars != null && entry.stars > 0 && (
-            <span className="text-[10px] text-stone-400 dark:text-neutral-500">
-              {entry.stars}
-            </span>
+            <span className="text-[10px] text-stone-400 dark:text-neutral-500">{entry.author}</span>
           )}
         </div>
         {installed ? (
@@ -257,6 +304,161 @@ function CatalogTile({ entry, installed, installing, onInstall }: CatalogTilePro
   );
 }
 
+interface SkillDetailDialogProps {
+  entry: CatalogEntry | null;
+  skill: WorkflowSummary | null;
+  installed: boolean;
+  onClose: () => void;
+  onInstall?: () => void;
+  installing?: boolean;
+}
+
+function SkillDetailDialog({
+  entry,
+  skill,
+  installed,
+  onClose,
+  onInstall,
+  installing,
+}: SkillDetailDialogProps) {
+  const { t } = useT();
+  const name = entry?.name ?? skill?.name ?? '';
+  const description = entry?.description ?? skill?.description ?? '';
+  const tags = entry?.tags ?? skill?.tags ?? [];
+  const version = entry?.version ?? skill?.version ?? '';
+  const author = entry?.author ?? '';
+  const source = entry?.source ?? '';
+  const category = entry?.category ?? '';
+  const downloadUrl = entry?.download_url ?? '';
+  const license = entry?.license ?? '';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}>
+      <div
+        className="mx-4 w-full max-w-lg rounded-2xl border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-xl"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-stone-100 dark:border-neutral-800 p-5">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100 truncate">
+                {name}
+              </h2>
+              {installed && (
+                <span className="flex-shrink-0 rounded-full border border-sage-200 dark:border-sage-500/30 bg-sage-50 dark:bg-sage-500/10 px-2 py-0.5 text-[10px] font-medium text-sage-700 dark:text-sage-300">
+                  {t('skills.explorer.installed')}
+                </span>
+              )}
+            </div>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              {source && <SourceBadge source={source} />}
+              {category && (
+                <span className="inline-flex items-center rounded-full border border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 px-1.5 py-0.5 text-[9px] font-medium text-stone-500 dark:text-neutral-400">
+                  {category}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-shrink-0 rounded-lg p-1 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 transition-colors">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {description && (
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500 mb-1">
+                {t('skills.detail.description')}
+              </h3>
+              <p className="text-sm text-stone-700 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap">
+                {description}
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {version && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
+                  {t('skills.detail.version')}
+                </span>
+                <p className="text-xs font-mono text-stone-700 dark:text-neutral-300">{version}</p>
+              </div>
+            )}
+            {author && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
+                  {t('skills.detail.author')}
+                </span>
+                <p className="text-xs text-stone-700 dark:text-neutral-300">{author}</p>
+              </div>
+            )}
+            {license && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
+                  {t('skills.detail.license')}
+                </span>
+                <p className="text-xs text-stone-700 dark:text-neutral-300">{license}</p>
+              </div>
+            )}
+          </div>
+
+          {tags.length > 0 && (
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500 mb-1.5">
+                {t('skills.detail.tags')}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map(tag => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-stone-600 dark:text-neutral-400">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {downloadUrl && (
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500 mb-1">
+                {t('skills.detail.source')}
+              </h3>
+              <p className="text-[11px] font-mono text-stone-400 dark:text-neutral-500 break-all">
+                {downloadUrl}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {!installed && onInstall && (
+          <div className="border-t border-stone-100 dark:border-neutral-800 p-4 flex justify-end">
+            <button
+              type="button"
+              disabled={installing}
+              onClick={onInstall}
+              className="rounded-lg border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 px-4 py-2 text-xs font-medium text-primary-700 dark:text-primary-300 transition-colors hover:bg-primary-100 dark:hover:bg-primary-500/20 disabled:opacity-50">
+              {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type ExplorerView = 'installed' | 'registry';
 
 interface SkillsExplorerTabProps {
@@ -271,15 +473,34 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsError, setSkillsError] = useState<string | null>(null);
 
-  const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
+  const [catalogEntries, setCatalogEntries] = useState<CatalogEntry[]>([]);
+  const [catalogTotal, setCatalogTotal] = useState(0);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogInitialized, setCatalogInitialized] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
 
+  const [sources, setSources] = useState<string[]>([]);
+  const [activeSources, setActiveSources] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [formatFilter, setFormatFilter] = useState<string>('all');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [uninstallTarget, setUninstallTarget] = useState<WorkflowSummary | null>(null);
+  const [detailEntry, setDetailEntry] = useState<CatalogEntry | null>(null);
+  const [detailSkill, setDetailSkill] = useState<WorkflowSummary | null>(null);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery]);
 
   const fetchSkills = useCallback(async () => {
     log('fetchSkills: start');
@@ -298,32 +519,63 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
     }
   }, []);
 
-  const fetchCatalog = useCallback(async (forceRefresh = false) => {
-    log('fetchCatalog: forceRefresh=%s', forceRefresh);
-    setCatalogLoading(true);
-    setCatalogError(null);
-    try {
-      const entries = await skillRegistryApi.browse(forceRefresh);
-      log('fetchCatalog: count=%d', entries.length);
-      setCatalog(entries);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log('fetchCatalog: error=%s', msg);
-      setCatalogError(msg);
-    } finally {
-      setCatalogLoading(false);
-    }
-  }, []);
+  // Compute the active source filter for RPC calls.
+  // Only apply when the user has deselected at least one source.
+  const activeSourceFilter = useMemo(() => {
+    if (activeSources.size === 0 || activeSources.size >= sources.length) return undefined;
+    // If exactly one source is active, pass it as the filter
+    if (activeSources.size === 1) return [...activeSources][0];
+    return undefined;
+  }, [activeSources, sources.length]);
+
+  // Fetch catalog via RPC search (handles both browse and search).
+  // When query is empty and no source filter, uses browse; otherwise uses search.
+  const fetchCatalog = useCallback(
+    async (query: string, sourceFilter: string | undefined, forceRefresh: boolean) => {
+      log('fetchCatalog: query=%s source=%s forceRefresh=%s', query, sourceFilter, forceRefresh);
+      setCatalogLoading(true);
+      setCatalogError(null);
+      try {
+        let entries: CatalogEntry[];
+        if (!query && !sourceFilter && !forceRefresh) {
+          entries = await skillRegistryApi.browse(false);
+        } else if (!query && !sourceFilter && forceRefresh) {
+          entries = await skillRegistryApi.browse(true);
+        } else {
+          entries = await skillRegistryApi.search(query || '', sourceFilter);
+        }
+        log('fetchCatalog: total=%d', entries.length);
+        setCatalogTotal(entries.length);
+        setCatalogEntries(entries.slice(0, CATALOG_PAGE_SIZE));
+        setCatalogInitialized(true);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log('fetchCatalog: error=%s', msg);
+        setCatalogError(msg);
+      } finally {
+        setCatalogLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     void fetchSkills();
+    skillRegistryApi
+      .sources()
+      .then(s => {
+        setSources(s);
+        setActiveSources(new Set(s));
+      })
+      .catch(() => {});
   }, [fetchSkills]);
 
+  // Trigger catalog search when debounced query or source filter changes
   useEffect(() => {
-    if (view === 'registry' && catalog.length === 0 && !catalogLoading) {
-      void fetchCatalog();
+    if (view === 'registry') {
+      void fetchCatalog(debouncedQuery, activeSourceFilter, false);
     }
-  }, [view, catalog.length, catalogLoading, fetchCatalog]);
+  }, [view, debouncedQuery, activeSourceFilter, fetchCatalog]);
 
   const installedIds = useMemo(() => new Set(skills.map(s => s.id)), [skills]);
 
@@ -347,25 +599,18 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
     });
   }, [filteredSkills]);
 
-  const filteredCatalog = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return catalog.filter(entry => {
-      if (formatFilter !== 'all' && entry.format !== formatFilter) return false;
-      if (!q) return true;
-      return (
-        entry.name.toLowerCase().includes(q) ||
-        entry.description.toLowerCase().includes(q) ||
-        entry.tags.some(tag => tag.toLowerCase().includes(q)) ||
-        entry.format.toLowerCase().includes(q) ||
-        (entry.author ?? '').toLowerCase().includes(q)
-      );
-    });
-  }, [catalog, searchQuery, formatFilter]);
-
-  const catalogFormats = useMemo(() => {
-    const formats = new Set(catalog.map(e => e.format));
-    return ['all', ...Array.from(formats).sort()];
-  }, [catalog]);
+  // When multiple sources are active (but not all), do client-side filtering
+  // on the already-fetched results since the RPC only supports single source filter.
+  const displayedCatalog = useMemo(() => {
+    if (
+      activeSources.size === 0 ||
+      activeSources.size >= sources.length ||
+      activeSources.size === 1
+    ) {
+      return catalogEntries;
+    }
+    return catalogEntries.filter(e => activeSources.has(e.source));
+  }, [catalogEntries, activeSources, sources.length]);
 
   const handleInstalled = useCallback(
     (result: InstallWorkflowFromUrlResult) => {
@@ -388,32 +633,25 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const handleUninstalled = useCallback(() => {
     log('handleUninstalled');
     void fetchSkills();
-    onToast?.({
-      type: 'success',
-      title: t('skills.explorer.uninstallSuccess'),
-    });
+    onToast?.({ type: 'success', title: t('skills.explorer.uninstallSuccess') });
   }, [fetchSkills, onToast, t]);
 
   const handleRegistryInstall = useCallback(
     async (entry: CatalogEntry) => {
-      log('handleRegistryInstall: id=%s source=%s', entry.id, entry.source_id);
+      log('handleRegistryInstall: id=%s source=%s', entry.id, entry.source);
       setInstallingId(entry.id);
       try {
-        const result = await skillRegistryApi.install(entry.id, entry.source_id);
+        const result = await skillRegistryApi.install(entry.id);
         void fetchSkills();
         onToast?.({
           type: 'success',
           title: t('skills.install.installComplete'),
-          message: `Installed ${entry.name}${result.new_skills.length > 0 ? ` (${result.new_skills.join(', ')})` : ''}`,
+          message: `Installed ${entry.name}${result.newSkills.length > 0 ? ` (${result.newSkills.join(', ')})` : ''}`,
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log('handleRegistryInstall: error=%s', msg);
-        onToast?.({
-          type: 'error',
-          title: t('skills.install.errors.genericTitle'),
-          message: msg,
-        });
+        onToast?.({ type: 'error', title: t('skills.install.errors.genericTitle'), message: msg });
       } finally {
         setInstallingId(null);
       }
@@ -457,8 +695,8 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
               : 'border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
           }`}>
           {t('skills.explorer.registryTab')}
-          {catalog.length > 0 && (
-            <span className="ml-1.5 text-[10px] opacity-70">{catalog.length}</span>
+          {catalogTotal > 0 && (
+            <span className="ml-1.5 text-[10px] opacity-70">{catalogTotal.toLocaleString()}</span>
           )}
         </button>
         <button
@@ -476,7 +714,36 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
         </button>
       </div>
 
-      {/* Search + format filter */}
+      {/* Source toggles */}
+      {view === 'registry' && sources.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-1 pb-3">
+          {sources.map(src => {
+            const active = activeSources.has(src);
+            return (
+              <button
+                key={src}
+                type="button"
+                onClick={() => {
+                  setActiveSources(prev => {
+                    const next = new Set(prev);
+                    if (next.has(src)) next.delete(src);
+                    else next.add(src);
+                    return next;
+                  });
+                }}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                  active
+                    ? 'border-primary-300 dark:border-primary-500/50 bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300'
+                    : 'border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300'
+                }`}>
+                {src}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Search */}
       <div className="flex gap-2 px-1 pb-3">
         <div className="relative flex-1">
           <svg
@@ -493,28 +760,17 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           </svg>
           <input
             type="text"
+            data-testid="skill-search-input"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder={t('skills.explorer.searchPlaceholder')}
             className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 py-2 pl-9 pr-3 text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
           />
         </div>
-        {view === 'registry' && catalogFormats.length > 2 && (
-          <select
-            value={formatFilter}
-            onChange={e => setFormatFilter(e.target.value)}
-            className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-2 text-xs text-stone-700 dark:text-neutral-200 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30">
-            {catalogFormats.map(f => (
-              <option key={f} value={f}>
-                {f === 'all' ? t('skills.explorer.allFormats') : f}
-              </option>
-            ))}
-          </select>
-        )}
         {view === 'registry' && (
           <button
             type="button"
-            onClick={() => void fetchCatalog(true)}
+            onClick={() => void fetchCatalog(debouncedQuery, activeSourceFilter, true)}
             disabled={catalogLoading}
             title={t('skills.explorer.refreshRegistry')}
             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 shadow-sm transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800 disabled:opacity-50">
@@ -548,7 +804,9 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           <button
             type="button"
             onClick={() =>
-              void (view === 'installed' ? fetchSkills() : fetchCatalog(true))
+              void (view === 'installed'
+                ? fetchSkills()
+                : fetchCatalog(debouncedQuery, activeSourceFilter, true))
             }
             className="mt-2 rounded-lg border border-coral-200 dark:border-coral-500/30 px-3 py-1 text-[11px] font-medium text-coral-700 dark:text-coral-300 hover:bg-coral-100 dark:hover:bg-coral-500/20">
             {t('common.retry')}
@@ -597,6 +855,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
                 <SkillTile
                   key={skill.id}
                   skill={skill}
+                  onClick={() => setDetailSkill(skill)}
                   onUninstall={() => setUninstallTarget(skill)}
                 />
               ))}
@@ -608,7 +867,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
       {/* ── Registry view ── */}
       {view === 'registry' && !loading && !error && (
         <>
-          {catalog.length === 0 && (
+          {catalogInitialized && catalogEntries.length === 0 && (
             <EmptyStateCard
               className="mx-1 mb-3 py-10"
               icon={
@@ -625,33 +884,40 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
                   />
                 </svg>
               }
-              title={t('skills.explorer.registryEmptyTitle')}
-              description={t('skills.explorer.registryEmptyDescription')}
-              actionLabel={t('skills.explorer.refreshRegistry')}
-              onAction={() => void fetchCatalog(true)}
+              title={
+                debouncedQuery ? t('skills.noResults') : t('skills.explorer.registryEmptyTitle')
+              }
+              description={debouncedQuery ? '' : t('skills.explorer.registryEmptyDescription')}
+              actionLabel={debouncedQuery ? undefined : t('skills.explorer.refreshRegistry')}
+              onAction={debouncedQuery ? undefined : () => void fetchCatalog('', undefined, true)}
             />
           )}
 
-          {catalog.length > 0 && filteredCatalog.length === 0 && (
-            <p className="px-1 py-8 text-center text-xs text-stone-400 dark:text-neutral-500">
-              {t('skills.noResults')}
-            </p>
-          )}
-
-          {filteredCatalog.length > 0 && (
-            <div
-              className="grid gap-2 sm:gap-3"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(14rem, 1fr))' }}>
-              {filteredCatalog.map(entry => (
-                <CatalogTile
-                  key={`${entry.source_id}-${entry.id}`}
-                  entry={entry}
-                  installed={installedIds.has(entry.id)}
-                  installing={installingId === entry.id}
-                  onInstall={() => void handleRegistryInstall(entry)}
-                />
-              ))}
-            </div>
+          {displayedCatalog.length > 0 && (
+            <>
+              <div
+                className="grid gap-2 sm:gap-3"
+                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(14rem, 1fr))' }}>
+                {displayedCatalog.map(entry => (
+                  <CatalogTile
+                    key={`${entry.source}-${entry.id}`}
+                    entry={entry}
+                    installed={installedIds.has(entry.id)}
+                    installing={installingId === entry.id}
+                    onClick={() => setDetailEntry(entry)}
+                    onInstall={() => void handleRegistryInstall(entry)}
+                  />
+                ))}
+              </div>
+              {catalogTotal > displayedCatalog.length && (
+                <p className="mt-3 px-1 text-center text-[11px] text-stone-400 dark:text-neutral-500">
+                  {t('skills.explorer.showingOf')
+                    .replace('{shown}', String(displayedCatalog.length))
+                    .replace('{total}', catalogTotal.toLocaleString()) ||
+                    `Showing ${displayedCatalog.length} of ${catalogTotal.toLocaleString()} results. Refine your search to see more.`}
+                </p>
+              )}
+            </>
           )}
         </>
       )}
@@ -668,6 +934,27 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           skill={uninstallTarget}
           onClose={() => setUninstallTarget(null)}
           onUninstalled={handleUninstalled}
+        />
+      )}
+
+      {(detailEntry || detailSkill) && (
+        <SkillDetailDialog
+          entry={detailEntry}
+          skill={detailSkill}
+          installed={detailEntry ? installedIds.has(detailEntry.id) : true}
+          onClose={() => {
+            setDetailEntry(null);
+            setDetailSkill(null);
+          }}
+          onInstall={
+            detailEntry && !installedIds.has(detailEntry.id)
+              ? () => {
+                  void handleRegistryInstall(detailEntry);
+                  setDetailEntry(null);
+                }
+              : undefined
+          }
+          installing={detailEntry ? installingId === detailEntry.id : false}
         />
       )}
     </div>

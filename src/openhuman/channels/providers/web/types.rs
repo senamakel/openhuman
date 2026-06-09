@@ -19,6 +19,12 @@ pub(crate) struct SessionCacheFingerprint {
     pub(super) target_agent_id: String,
     pub(super) provider_binding: String,
     pub(super) autonomy_signature: String,
+    /// Signature of `config.model_registry`. The cached `Agent` stores a
+    /// build-time `model_vision` bool; toggling a model's "Supports vision" flag
+    /// keeps the same model id (so neither `model_override` nor `provider_binding`
+    /// change) — without this the stale session would be reused. Mirrors
+    /// [`Self::autonomy_signature`].
+    pub(super) model_registry_signature: String,
 }
 
 pub(super) struct SessionEntry {

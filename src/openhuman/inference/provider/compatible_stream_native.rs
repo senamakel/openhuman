@@ -94,6 +94,17 @@ impl OpenAiCompatibleProvider {
                     self.name,
                     status,
                 );
+            } else if super::super::is_backend_error_code_owned(self.name.as_str(), &body) {
+                // F4/F2: managed-backend errorCode (#870) — backend-owned, FE
+                // must not double-report. Malformed BAD_REQUEST is excluded and
+                // falls through to the status gate below.
+                super::super::log_backend_error_code_owned(
+                    "streaming_chat",
+                    self.name.as_str(),
+                    Some(native_request.model.as_str()),
+                    status,
+                    &body,
+                );
             } else if super::super::should_report_provider_http_failure(status) {
                 crate::core::observability::report_error(
                     message.as_str(),

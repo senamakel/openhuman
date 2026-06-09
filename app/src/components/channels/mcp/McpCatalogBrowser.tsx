@@ -119,7 +119,7 @@ const McpCatalogBrowser = ({ onSelectInstall }: McpCatalogBrowserProps) => {
               <McpServerCard
                 key={server.qualified_name}
                 server={server}
-                onInstall={onSelectInstall}
+                onSelect={onSelectInstall}
               />
             ))}
           </div>

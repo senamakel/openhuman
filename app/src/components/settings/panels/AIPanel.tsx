@@ -26,11 +26,14 @@ import {
   loadLocalProviderSnapshot,
   type LocalProviderSnapshot,
   type ModelInfo,
+  type ModelRegistryEntry,
+  modelRegistryVision,
   OPENAI_CODEX_OAUTH_MISSING_AUTH_URL,
   OPENAI_CODEX_OAUTH_MISSING_CALLBACK_URL,
   saveAISettings,
   setCloudProviderKey,
   testProviderModel,
+  upsertModelRegistryVision,
 } from '../../../services/api/aiSettingsApi';
 import {
   creditsApi,
@@ -144,12 +147,17 @@ const BUILTIN_PROVIDER_META: Record<string, { tone: string; label: string }> = {
 };
 
 const WORKLOADS: Workload[] = [
-  { id: 'chat', group: 'chat', label: 'Chat', description: 'Direct conversational back-and-forth' },
+  {
+    id: 'chat',
+    group: 'chat',
+    label: 'Chat',
+    description: 'Direct conversational back-and-forth — “Quick” mode in Conversations',
+  },
   {
     id: 'reasoning',
     group: 'chat',
     label: 'Reasoning',
-    description: 'Main chat agent, meeting summarizer',
+    description: 'Main chat agent, meeting summarizer — “Reasoning” mode in Conversations',
   },
   {
     id: 'agentic',
@@ -217,7 +225,11 @@ const WORKLOAD_MODEL_HINTS: Record<WorkloadId, string> = {
 // just derives the `maskedKey` display string from `has_api_key`.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AISettings = { cloudProviders: CloudProvider[]; routing: RoutingMap };
+type AISettings = {
+  cloudProviders: CloudProvider[];
+  routing: RoutingMap;
+  modelRegistry: ModelRegistryEntry[];
+};
 
 const EMPTY_ROUTING: RoutingMap = {
   chat: { kind: 'default' },
@@ -230,7 +242,11 @@ const EMPTY_ROUTING: RoutingMap = {
   subconscious: { kind: 'default' },
 };
 
-const EMPTY_SETTINGS: AISettings = { cloudProviders: [], routing: EMPTY_ROUTING };
+const EMPTY_SETTINGS: AISettings = {
+  cloudProviders: [],
+  routing: EMPTY_ROUTING,
+  modelRegistry: [],
+};
 
 function maskKeyLabel(hasKey: boolean): string {
   return hasKey ? '•••• configured' : 'Not configured';
@@ -280,7 +296,7 @@ function toPanelRoutingFromApi(api: ApiAISettings): { panel: AISettings } {
     learning: liftRef(api.routing.learning),
     subconscious: liftRef(api.routing.subconscious),
   };
-  return { panel: { cloudProviders, routing } };
+  return { panel: { cloudProviders, routing, modelRegistry: api.modelRegistry } };
 }
 
 function toApiSettings(panel: AISettings): ApiAISettings {
@@ -303,6 +319,7 @@ function toApiSettings(panel: AISettings): ApiAISettings {
       learning: panel.routing.learning,
       subconscious: panel.routing.subconscious,
     },
+    modelRegistry: panel.modelRegistry,
   };
 }
 
@@ -1725,8 +1742,11 @@ interface CustomRoutingDialogProps {
   cloudProviders: CloudProvider[];
   localModels: OllamaModel[];
   ollamaRunning: boolean;
+  /** Current per-model vision registry, used to prefill the vision checkbox. */
+  modelRegistry: ModelRegistryEntry[];
   onClose: () => void;
-  onSubmit: (next: ProviderRef) => void;
+  /** Emits the chosen provider ref plus the user's vision flag for that model. */
+  onSubmit: (next: ProviderRef, vision: boolean) => void;
 }
 
 type CustomDialogSource =
@@ -1811,6 +1831,7 @@ const CustomRoutingDialog = ({
   cloudProviders,
   localModels,
   ollamaRunning,
+  modelRegistry,
   onClose,
   onSubmit,
 }: CustomRoutingDialogProps) => {
@@ -1861,6 +1882,35 @@ const CustomRoutingDialog = ({
       ? (initial.temperature ?? null)
       : null
   );
+
+  // Registry slug for the selected source — keys the per-model vision flag.
+  // Cloud uses the provider slug; local → `ollama`; claude-code → `claude-code`.
+  const registrySlug =
+    source?.kind === 'cloud'
+      ? source.providerSlug
+      : source?.kind === 'local'
+        ? 'ollama'
+        : source?.kind === 'claude-code'
+          ? 'claude-code'
+          : null;
+
+  // User-set vision flag for this (provider, model). Prefilled from the registry,
+  // re-prefilled whenever the selected provider/model changes.
+  const [vision, setVision] = useState<boolean>(() =>
+    registrySlug && model.trim()
+      ? modelRegistryVision(modelRegistry, registrySlug, model.trim())
+      : false
+  );
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setVision(
+      registrySlug && model.trim()
+        ? modelRegistryVision(modelRegistry, registrySlug, model.trim())
+        : false
+    );
+    // modelRegistry is stable for the dialog's lifetime (prop doesn't change mid-open).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrySlug, model]);
 
   const selectedCloud =
     source?.kind === 'cloud' ? customCloud.find(c => c.slug === source.providerSlug) : undefined;
@@ -1935,16 +1985,19 @@ const CustomRoutingDialog = ({
     if (!source || !canSave) return;
     const temp = temperature == null || !Number.isFinite(temperature) ? null : temperature;
     if (source.kind === 'cloud') {
-      onSubmit({
-        kind: 'cloud',
-        providerSlug: source.providerSlug,
-        model: model.trim(),
-        temperature: temp,
-      });
+      onSubmit(
+        {
+          kind: 'cloud',
+          providerSlug: source.providerSlug,
+          model: model.trim(),
+          temperature: temp,
+        },
+        vision
+      );
     } else if (source.kind === 'claude-code') {
-      onSubmit({ kind: 'claude-code', model: model.trim(), temperature: temp });
+      onSubmit({ kind: 'claude-code', model: model.trim(), temperature: temp }, vision);
     } else {
-      onSubmit({ kind: 'local', model: model.trim(), temperature: temp });
+      onSubmit({ kind: 'local', model: model.trim(), temperature: temp }, vision);
     }
   };
 
@@ -2220,6 +2273,26 @@ const CustomRoutingDialog = ({
               </p>
             </div>
 
+            {/* Vision capability (optional). Marks a custom/BYOK model as
+                accepting image input so the chat composer offers image
+                attachments for it. Only shown once a concrete model is chosen. */}
+            {registrySlug && model.trim().length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <label className="inline-flex items-center gap-2 text-xs font-medium text-stone-700 dark:text-neutral-200">
+                  <input
+                    type="checkbox"
+                    checked={vision}
+                    onChange={e => setVision(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-stone-300 dark:border-neutral-700 text-primary-500 focus:ring-primary-500"
+                  />
+                  {t('settings.ai.modelVision')}
+                </label>
+                <p className="text-[11px] text-stone-400 dark:text-neutral-500">
+                  {t('settings.ai.modelVisionDesc')}
+                </p>
+              </div>
+            )}
+
             {(testBusy || testReply || testError || testStartedAt) && (
               <div
                 role={testError ? 'alert' : 'status'}
@@ -2357,6 +2430,7 @@ const GlobalOwnModelSelector = ({
   cloudProviders,
   localModels,
   ollamaRunning,
+  modelRegistry,
   onApply,
 }: {
   current: ProviderRef | null;
@@ -2364,7 +2438,8 @@ const GlobalOwnModelSelector = ({
   cloudProviders: CloudProvider[];
   localModels: OllamaModel[];
   ollamaRunning: boolean;
-  onApply: (next: ProviderRef) => Promise<void>;
+  modelRegistry: ModelRegistryEntry[];
+  onApply: (next: ProviderRef, vision: boolean) => Promise<void>;
 }) => {
   const { t } = useT();
   const customCloud = cloudProviders.filter(p => p.slug !== 'openhuman');
@@ -2385,6 +2460,29 @@ const GlobalOwnModelSelector = ({
   const [model, setModel] = useState<string>(
     current?.kind === 'cloud' || current?.kind === 'local' ? current.model : ''
   );
+  // Registry slug for the selected source — keys the per-model vision flag.
+  const registrySlug =
+    source?.kind === 'cloud'
+      ? source.providerSlug
+      : source?.kind === 'local'
+        ? 'ollama'
+        : source?.kind === 'claude-code'
+          ? 'claude-code'
+          : null;
+  const [vision, setVision] = useState<boolean>(() =>
+    registrySlug && model.trim()
+      ? modelRegistryVision(modelRegistry, registrySlug, model.trim())
+      : false
+  );
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setVision(
+      registrySlug && model.trim()
+        ? modelRegistryVision(modelRegistry, registrySlug, model.trim())
+        : false
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrySlug, model]);
   const [cloudModels, setCloudModels] = useState<ModelInfo[]>([]);
   const [cloudModelsLoading, setCloudModelsLoading] = useState(false);
   const [cloudModelsError, setCloudModelsError] = useState<string | null>(null);
@@ -2453,15 +2551,14 @@ const GlobalOwnModelSelector = ({
     setSaving(true);
     try {
       if (nextSource.kind === 'local') {
-        await onApply({ kind: 'local', model: nextModel.trim() });
+        await onApply({ kind: 'local', model: nextModel.trim() }, vision);
       } else if (nextSource.kind === 'claude-code') {
-        await onApply({ kind: 'claude-code', model: nextModel.trim() });
+        await onApply({ kind: 'claude-code', model: nextModel.trim() }, vision);
       } else {
-        await onApply({
-          kind: 'cloud',
-          providerSlug: nextSource.providerSlug,
-          model: nextModel.trim(),
-        });
+        await onApply(
+          { kind: 'cloud', providerSlug: nextSource.providerSlug, model: nextModel.trim() },
+          vision
+        );
       }
     } finally {
       setSaving(false);
@@ -2566,6 +2663,23 @@ const GlobalOwnModelSelector = ({
               ) : null}
             </div>
           </div>
+          {registrySlug && model.trim().length > 0 && (
+            <label className="flex items-start gap-2 text-xs font-medium text-stone-700 dark:text-neutral-200">
+              <input
+                type="checkbox"
+                checked={vision}
+                onChange={e => setVision(e.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 rounded border-stone-300 dark:border-neutral-700 text-primary-500 focus:ring-primary-500"
+              />
+              <span>
+                {t('settings.ai.modelVision')}
+                <span className="block font-normal text-[11px] text-stone-400 dark:text-neutral-500">
+                  {t('settings.ai.modelVisionDesc')}
+                </span>
+              </span>
+            </label>
+          )}
+
           <div className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-stone-500 dark:text-neutral-400">
             {t('settings.ai.globalModel.appliesToAll')}
           </div>
@@ -3103,8 +3217,23 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 cloudProviders={draft.cloudProviders}
                 localModels={installed}
                 ollamaRunning={ollama.state === 'running'}
-                onApply={async next => {
-                  await persist({ ...draft, routing: routingWithAllWorkloads(next) });
+                modelRegistry={draft.modelRegistry}
+                onApply={async (next, vision) => {
+                  const reg =
+                    next.kind === 'cloud'
+                      ? { slug: next.providerSlug, model: next.model }
+                      : next.kind === 'local'
+                        ? { slug: 'ollama', model: next.model }
+                        : next.kind === 'claude-code'
+                          ? { slug: 'claude-code', model: next.model }
+                          : null;
+                  await persist({
+                    ...draft,
+                    routing: routingWithAllWorkloads(next),
+                    modelRegistry: reg
+                      ? upsertModelRegistryVision(draft.modelRegistry, reg.slug, reg.model, vision)
+                      : draft.modelRegistry,
+                  });
                 }}
               />
             ) : null}
@@ -3290,11 +3419,24 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               cloudProviders={draft.cloudProviders}
               localModels={installed}
               ollamaRunning={ollama.state === 'running'}
+              modelRegistry={draft.modelRegistry}
               onClose={() => setCustomDialogFor(null)}
-              onSubmit={async next => {
+              onSubmit={async (next, vision) => {
+                // (provider slug, model id) the vision flag keys on.
+                const reg =
+                  next.kind === 'cloud'
+                    ? { slug: next.providerSlug, model: next.model }
+                    : next.kind === 'local'
+                      ? { slug: 'ollama', model: next.model }
+                      : next.kind === 'claude-code'
+                        ? { slug: 'claude-code', model: next.model }
+                        : null;
                 const nextDraft = {
                   ...draft,
                   routing: { ...draft.routing, [customDialogFor]: next },
+                  modelRegistry: reg
+                    ? upsertModelRegistryVision(draft.modelRegistry, reg.slug, reg.model, vision)
+                    : draft.modelRegistry,
                 };
                 await persist(nextDraft);
                 setCustomDialogFor(null);

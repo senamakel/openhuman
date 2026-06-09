@@ -976,6 +976,173 @@ mod tests {
         assert_eq!(required, vec!["API_KEY"]);
     }
 
+    // ── display_name / title derivation ────────────────────────────────────
+
+    #[test]
+    fn display_name_uses_title_when_present() {
+        let s: OfficialServer = serde_json::from_value(json!({
+            "name": "io.github.modelcontextprotocol/server-filesystem",
+            "title": "Filesystem MCP Server",
+        }))
+        .unwrap();
+        assert_eq!(s.display_name(), "Filesystem MCP Server");
+    }
+
+    #[test]
+    fn display_name_derives_from_name_when_title_absent() {
+        let s: OfficialServer = serde_json::from_value(json!({
+            "name": "io.github.user/my-cool-server",
+        }))
+        .unwrap();
+        assert_eq!(s.display_name(), "my cool server");
+    }
+
+    #[test]
+    fn display_name_derives_from_name_when_title_blank() {
+        let s: OfficialServer = serde_json::from_value(json!({
+            "name": "io.github.user/server-bar",
+            "title": "   ",
+        }))
+        .unwrap();
+        assert_eq!(s.display_name(), "server bar");
+    }
+
+    #[test]
+    fn display_name_falls_back_to_last_dot_segment_when_no_slash() {
+        let s: OfficialServer = serde_json::from_value(json!({
+            "name": "com.example.my_server",
+        }))
+        .unwrap();
+        assert_eq!(s.display_name(), "my server");
+    }
+
+    #[test]
+    fn display_name_returns_raw_name_when_no_slash_or_dot() {
+        let s: OfficialServer = serde_json::from_value(json!({
+            "name": "standalone",
+        }))
+        .unwrap();
+        assert_eq!(s.display_name(), "standalone");
+    }
+
+    // ── title flows through to summary and detail ───────────────────────────
+
+    #[test]
+    fn into_summary_carries_title_as_display_name() {
+        let s: OfficialServer = serde_json::from_value(json!({
+            "name": "io.github.notion/notion-mcp",
+            "title": "Notion MCP",
+            "description": "Notion integration",
+            "iconUrl": "https://example.com/icon.png",
+            "remotes": [{ "url": "https://notion.mcp.example.com" }],
+        }))
+        .unwrap();
+        let sum = s.into_summary();
+        assert_eq!(sum.display_name, "Notion MCP");
+        assert_eq!(sum.qualified_name, "io.github.notion/notion-mcp");
+        assert_eq!(sum.description.as_deref(), Some("Notion integration"));
+        assert_eq!(
+            sum.icon_url.as_deref(),
+            Some("https://example.com/icon.png")
+        );
+        assert!(sum.is_deployed, "server with remotes should be deployed");
+        assert_eq!(sum.source, SOURCE_MCP_OFFICIAL);
+    }
+
+    #[test]
+    fn into_detail_carries_title_as_display_name() {
+        let s: OfficialServer = serde_json::from_value(json!({
+            "name": "io.github.slack/slack-mcp",
+            "title": "Slack MCP Server",
+            "remotes": [{ "url": "https://slack.mcp.example.com" }],
+        }))
+        .unwrap();
+        let detail = s.into_detail();
+        assert_eq!(detail.display_name, "Slack MCP Server");
+        assert_eq!(detail.qualified_name, "io.github.slack/slack-mcp");
+        assert_eq!(detail.source, SOURCE_MCP_OFFICIAL);
+        assert_eq!(detail.connections.len(), 1);
+        assert_eq!(detail.connections[0].r#type, "http");
+    }
+
+    // ── realistic multi-server list response with mixed title presence ───────
+
+    #[test]
+    fn list_response_parses_servers_with_proper_titles() {
+        let raw = json!({
+            "servers": [
+                {
+                    "server": {
+                        "name": "io.github.modelcontextprotocol/server-filesystem",
+                        "title": "Filesystem MCP Server",
+                        "description": "Secure file operations",
+                        "packages": [{ "registryType": "npm", "identifier": "@modelcontextprotocol/server-filesystem" }],
+                    },
+                    "_meta": { "io.modelcontextprotocol.registry/official": { "status": "active" } }
+                },
+                {
+                    "server": {
+                        "name": "io.github.github/github-mcp-server",
+                        "title": "GitHub MCP Server",
+                        "description": "GitHub API integration",
+                        "remotes": [{ "url": "https://github-mcp.example.com" }],
+                    },
+                    "_meta": {}
+                },
+                {
+                    "server": {
+                        "name": "io.github.someuser/untitled-tool",
+                        "description": "A server without a title field",
+                    },
+                    "_meta": {}
+                }
+            ],
+            "metadata": { "nextCursor": "cursor-abc", "count": 3 }
+        });
+
+        let parsed: OfficialListResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(parsed.next_cursor(), Some("cursor-abc"));
+
+        let summaries = parsed.into_summaries();
+        assert_eq!(summaries.len(), 3);
+
+        assert_eq!(summaries[0].display_name, "Filesystem MCP Server");
+        assert_eq!(
+            summaries[0].qualified_name,
+            "io.github.modelcontextprotocol/server-filesystem"
+        );
+        assert!(
+            !summaries[0].is_deployed,
+            "packages-only server is not deployed"
+        );
+
+        assert_eq!(summaries[1].display_name, "GitHub MCP Server");
+        assert!(summaries[1].is_deployed, "server with remotes is deployed");
+
+        // No title → fallback derived from name after last `/`
+        assert_eq!(summaries[2].display_name, "untitled tool");
+        assert_eq!(
+            summaries[2].qualified_name,
+            "io.github.someuser/untitled-tool"
+        );
+    }
+
+    /// Duplicate `name` values in the same response page are deduped by
+    /// `into_summaries` — only the first occurrence survives.
+    #[test]
+    fn list_response_deduplicates_by_name() {
+        let raw = json!({
+            "servers": [
+                { "server": { "name": "io.github.x/dup", "title": "First" } },
+                { "server": { "name": "io.github.x/dup", "title": "Second" } },
+            ]
+        });
+        let parsed: OfficialListResponse = serde_json::from_value(raw).unwrap();
+        let summaries = parsed.into_summaries();
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].display_name, "First");
+    }
+
     #[test]
     fn into_detail_populates_example_config_for_packages() {
         let server: OfficialServer = serde_json::from_value(json!({

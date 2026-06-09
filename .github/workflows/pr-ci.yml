@@ -297,6 +297,18 @@ jobs:
     env:
       CARGO_INCREMENTAL: "0"
     steps:
+      - name: Free disk space
+        run: |
+          # Coverage-instrumented builds produce huge binaries that exhaust the
+          # runner's ~14GB free disk during linking (SIGBUS). Inside a container,
+          # host paths are bind-mounted:
+          #   /opt/hostedtoolcache → /__t
+          #   /home/runner/work    → /__w
+          # Deleting /__t frees ~8GB on the same partition the build uses.
+          rm -rf /__t/* || true
+          echo "Disk after cleanup:"
+          df -h /__w || true
+
       - name: Checkout code
         uses: actions/checkout@v5
         with:
@@ -309,10 +321,6 @@ jobs:
         with:
           workspaces: . -> target
           cache-on-failure: true
-          # Coverage uses instrumented builds (-C instrument-coverage), whose
-          # rustflags hash to a different Swatinem key than the plain builds, so
-          # it gets its own cache and cannot reuse pr-rust-core. It still reuses
-          # the (non-instrumented) dependency tree run-over-run.
           shared-key: pr-rust-core-cov
 
       - name: Install cargo-llvm-cov
@@ -321,7 +329,7 @@ jobs:
       - name: Run cargo llvm-cov for openhuman core
         run: bash scripts/ci-cancel-aware.sh cargo llvm-cov --no-fail-fast -p openhuman --lcov --output-path lcov-core.info
         env:
-          CARGO_BUILD_JOBS: "2"
+          CARGO_BUILD_JOBS: "1"
 
       - name: Upload core lcov
         uses: actions/upload-artifact@v5

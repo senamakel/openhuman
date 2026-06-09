@@ -248,7 +248,14 @@ pub(crate) async fn run_turn_engine(
 
         tracing::debug!(iteration, "[agent_loop] sending LLM request");
         let image_marker_count = multimodal::count_image_markers(history);
-        if image_marker_count > 0 && !provider.supports_vision() {
+        // A model accepts images when its provider advertises vision (managed
+        // backend) OR the user marked it vision-capable in `model_registry`
+        // (custom/BYOK) — surfaced via the `current_model_vision` task-local set
+        // at session build. Unset (CLI/tests) falls back to the provider flag.
+        let has_vision = provider.supports_vision()
+            || crate::openhuman::agent::harness::model_vision_context::current_model_vision()
+                .unwrap_or(false);
+        if image_marker_count > 0 && !has_vision {
             let cap_err = ProviderCapabilityError {
                 provider: provider_name.to_string(),
                 capability: "vision".to_string(),

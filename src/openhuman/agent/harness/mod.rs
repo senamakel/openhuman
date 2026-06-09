@@ -30,6 +30,7 @@ mod instructions;
 pub mod interrupt;
 pub(crate) mod memory_context;
 pub(crate) mod memory_context_safety;
+pub mod model_vision_context;
 mod parse;
 pub(crate) mod payload_summarizer;
 pub mod run_queue;
@@ -50,6 +51,7 @@ pub use definition::{
 };
 pub use fork_context::{current_parent, with_parent_context, ParentExecutionContext};
 pub use interrupt::{check_interrupt, InterruptFence, InterruptedError};
+pub use model_vision_context::{current_model_vision, with_current_model_vision};
 pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};
 pub(crate) use spawn_depth_context::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};
 pub use subagent_runner::{run_subagent, SubagentRunError, SubagentRunOptions};

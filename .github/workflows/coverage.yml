@@ -64,22 +64,17 @@ jobs:
   rust-core-coverage:
     name: Rust Core Coverage (cargo-llvm-cov)
     runs-on: ubuntu-22.04
-    # See test.yml `rust-core-tests` — same shared-singleton flake risk in
-    # the lib suite. Coverage instrumentation roughly doubles wall time vs.
-    # the plain test runs; give it enough headroom for cold/warm cache
-    # variance while still surfacing deadlocks with logs.
     timeout-minutes: 30
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     env:
       CARGO_INCREMENTAL: "0"
-      # Coverage instrumentation makes each test binary link substantially
-      # heavier. Keep the core coverage job's linker work serialized to avoid
-      # intermittent rust-lld bus errors on hosted Linux runners.
-      CARGO_BUILD_JOBS: "1"
-      # sccache is incompatible with `-C instrument-coverage` profiles, so we
-      # skip it for coverage runs and rely on Swatinem/rust-cache for warmup.
     steps:
+      - name: Free disk space
+        run: |
+          rm -rf /__t/* || true
+          echo "Disk after cleanup:"
+          df -h /__w || true
       - name: Checkout code
         uses: actions/checkout@v5
         with:
@@ -97,7 +92,7 @@ jobs:
       - name: Run cargo llvm-cov for openhuman core
         run: cargo llvm-cov --no-fail-fast -p openhuman --lcov --output-path lcov-core.info
         env:
-          CARGO_BUILD_JOBS: "2"
+          CARGO_BUILD_JOBS: "1"
       - name: Upload core lcov
         uses: actions/upload-artifact@v5
         with:

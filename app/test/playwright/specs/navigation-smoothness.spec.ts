@@ -30,7 +30,7 @@ async function verifyRouteLoaded(
   route: RouteCheck
 ): Promise<void> {
   await waitForAppReady(page);
-  await expect(await rootTextLength(page)).toBeGreaterThan(50);
+  await expect.poll(() => rootTextLength(page), { timeout: 10_000 }).toBeGreaterThan(50);
 }
 
 test.describe('Navigation Smoothness', () => {
@@ -42,14 +42,12 @@ test.describe('Navigation Smoothness', () => {
     for (const route of routes) {
       await page.goto(`/#${route.hash}`);
       await verifyRouteLoaded(page, route);
-      await page.waitForTimeout(400);
     }
   });
 
   test('rapid cycle completes without blank screens', async ({ page }) => {
     for (const route of routes) {
       await page.goto(`/#${route.hash}`);
-      await page.waitForTimeout(350);
       await verifyRouteLoaded(page, route);
     }
   });

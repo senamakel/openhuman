@@ -62,14 +62,15 @@ pub const BYOK_INCOMPLETE_SENTINEL: &str = "__byok_incomplete__";
 
 fn is_abstract_tier_model(model: &str) -> bool {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
-        MODEL_REASONING_V1,
+        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_PRO_REASONING_V1,
+        MODEL_REASONING_QUICK_V1, MODEL_REASONING_V1,
     };
     // No dedicated constant for the summarization tier yet; keep the literal
     // in sync with the tier name used by the summarizer sub-agent.
     const MODEL_SUMMARIZATION_V1: &str = "summarization-v1";
     let trimmed = model.trim();
     trimmed == MODEL_REASONING_V1
+        || trimmed == MODEL_PRO_REASONING_V1
         || trimmed == MODEL_REASONING_QUICK_V1
         || trimmed == MODEL_CHAT_V1
         || trimmed == MODEL_AGENTIC_V1
@@ -93,6 +94,10 @@ pub fn auth_key_for_slug(slug: &str) -> String {
 pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
     let hint_to_tier: &[(&str, &str)] = &[
         ("reasoning", crate::openhuman::config::MODEL_REASONING_V1),
+        (
+            "pro-reasoning",
+            crate::openhuman::config::MODEL_PRO_REASONING_V1,
+        ),
         ("chat", crate::openhuman::config::MODEL_CHAT_V1),
         ("agentic", crate::openhuman::config::MODEL_AGENTIC_V1),
         ("coding", crate::openhuman::config::MODEL_CODING_V1),
@@ -100,6 +105,12 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
     ];
     let tier_to_role: &[(&str, &str)] = &[
         (crate::openhuman::config::MODEL_REASONING_V1, "reasoning"),
+        // Dedicated role so `provider_for_role` can force the managed backend —
+        // pro-reasoning must never inherit a BYOK/cloud chat provider.
+        (
+            crate::openhuman::config::MODEL_PRO_REASONING_V1,
+            "pro-reasoning",
+        ),
         (crate::openhuman::config::MODEL_CHAT_V1, "chat"),
         (crate::openhuman::config::MODEL_REASONING_QUICK_V1, "chat"),
         (crate::openhuman::config::MODEL_AGENTIC_V1, "agentic"),
@@ -153,23 +164,54 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
 /// to the backend.
 pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
-        MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1,
+        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_PRO_REASONING_V1,
+        MODEL_REASONING_QUICK_V1, MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1,
     };
     matches!(
         model,
         MODEL_REASONING_V1
+            | MODEL_PRO_REASONING_V1
             | MODEL_CHAT_V1
             | MODEL_AGENTIC_V1
             | MODEL_CODING_V1
             | MODEL_REASONING_QUICK_V1
             | MODEL_SUMMARIZATION_V1
             | "hint:reasoning"
+            | "hint:pro-reasoning"
             | "hint:chat"
             | "hint:agentic"
             | "hint:coding"
             | "hint:summarization"
     )
+}
+
+/// Per-tier vision (image-input) capability for the managed OpenHuman backend.
+///
+/// The remote managed backend (`api.tinyhumans.ai`) does not advertise per-tier
+/// capabilities, so the core maintains this map itself. Accepts both the tier
+/// constants and their `hint:*` forms (callers may pass either pre- or
+/// post-resolution).
+///
+/// `pro-reasoning-v1` is multimodal; the rest return `false` — flip an individual
+/// arm to `true` once that tier is confirmed multimodal on the backend. This is
+/// the **only** place to change managed-model vision; BYOK/custom models are
+/// handled separately by the user-set `model_registry.vision` flag
+/// ([`crate::openhuman::inference::model_context::model_vision_enabled`]).
+pub(crate) fn oh_tier_supports_vision(model: &str) -> bool {
+    use crate::openhuman::config::{
+        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_PRO_REASONING_V1,
+        MODEL_REASONING_QUICK_V1, MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1,
+    };
+    match model {
+        MODEL_PRO_REASONING_V1 | "hint:pro-reasoning" => true,
+        MODEL_CHAT_V1 | "hint:chat" => false,
+        MODEL_REASONING_V1 | "hint:reasoning" => false,
+        MODEL_REASONING_QUICK_V1 => false,
+        MODEL_AGENTIC_V1 | "hint:agentic" => false,
+        MODEL_CODING_V1 | "hint:coding" => false,
+        MODEL_SUMMARIZATION_V1 | "hint:summarization" => false,
+        _ => false,
+    }
 }
 
 /// Return the configured provider string for a named workload role.
@@ -190,6 +232,12 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
 /// migration 1→2 preserved the URL as a custom provider entry but older
 /// configs did not explicitly set per-workload routes.
 pub fn provider_for_role(role: &str, config: &Config) -> String {
+    // `pro-reasoning` is always managed: it has no per-workload config knob and
+    // must never inherit a BYOK/cloud provider (or `primary_cloud`). Force the
+    // OpenHuman backend before any inheritance/fallback logic runs.
+    if role == "pro-reasoning" {
+        return PROVIDER_OPENHUMAN.to_string();
+    }
     let opt = match role {
         "chat" => config.chat_provider.as_deref(),
         "reasoning" => config.reasoning_provider.as_deref(),
@@ -702,6 +750,7 @@ fn make_openhuman_backend(config: &Config) -> anyhow::Result<(Box<dyn Provider>,
     // "deepseek-v4-pro", "claude-opus-4-7") fall back to the platform default.
     let model = match model.strip_prefix("hint:") {
         Some("reasoning") => crate::openhuman::config::MODEL_REASONING_V1.to_string(),
+        Some("pro-reasoning") => crate::openhuman::config::MODEL_PRO_REASONING_V1.to_string(),
         Some("chat") => crate::openhuman::config::MODEL_CHAT_V1.to_string(),
         Some("agentic") => crate::openhuman::config::MODEL_AGENTIC_V1.to_string(),
         Some("coding") => crate::openhuman::config::MODEL_CODING_V1.to_string(),

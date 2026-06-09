@@ -14,7 +14,9 @@ omit_identity = true
 omit_memory_context = true
 omit_safety_preamble = false
 omit_skills_catalog = true
-trigger_memory_agent = "always"
+# No eager memory pre-fetch. A pure-function prediction-market specialist with
+# `omit_memory_context = true`; the orchestrator hands it a focused, already-
+# grounded request, so it never needed the per-turn memory-tree walk.
 
 [model]
 hint = "agentic"

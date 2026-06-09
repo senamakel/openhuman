@@ -1,17 +1,15 @@
-//! Persistence for the skill registry: cached catalog entries and custom sources.
+//! Persistence for the skill registry: cached catalog entries.
 //!
-//! The cache lives at `~/.openhuman/skill-registry/cache.json` with a TTL.
-//! Custom sources are persisted at `~/.openhuman/skill-registry/sources.json`.
+//! The cache lives at `~/.openhuman/skill-registry/cache.json` with a 1-hour TTL.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use super::types::{CatalogEntry, RegistrySource};
+use super::types::CatalogEntry;
 
 const CACHE_DIR: &str = "skill-registry";
 const CACHE_FILE: &str = "cache.json";
-const SOURCES_FILE: &str = "sources.json";
 const CACHE_TTL_SECS: u64 = 3600;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -72,28 +70,6 @@ pub fn save_catalog_cache(entries: &[CatalogEntry]) {
             }
         }
         Err(e) => tracing::warn!(error = %e, "[skill_registry] failed to serialize cache"),
-    }
-}
-
-pub fn load_custom_sources() -> Vec<RegistrySource> {
-    let Some(dir) = registry_dir() else {
-        return Vec::new();
-    };
-    let path = dir.join(SOURCES_FILE);
-    let Ok(data) = std::fs::read_to_string(&path) else {
-        return Vec::new();
-    };
-    serde_json::from_str(&data).unwrap_or_default()
-}
-
-pub fn save_custom_sources(sources: &[RegistrySource]) {
-    let Some(dir) = registry_dir() else { return };
-    let _ = std::fs::create_dir_all(&dir);
-    let path = dir.join(SOURCES_FILE);
-    if let Ok(json) = serde_json::to_string_pretty(sources) {
-        if let Err(e) = std::fs::write(&path, json) {
-            tracing::warn!(error = %e, "[skill_registry] failed to write sources");
-        }
     }
 }
 

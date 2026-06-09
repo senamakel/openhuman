@@ -102,6 +102,7 @@ export interface ChatErrorEvent {
     | 'provider_error'
     | 'context_overflow'
     | 'model_unavailable'
+    | 'payload_too_large'
     | 'budget_exhausted';
   round: number | null;
 }

@@ -546,6 +546,13 @@ pub fn all_tools_with_runtime(
         http_config.timeout_secs,
     )));
 
+    // x402 — dedicated tool for making paid HTTP requests to x402-enabled
+    // APIs (Base USDC / Solana USDC). Handles the 402 challenge, EIP-3009
+    // or SPL payment signing, and ledger recording.
+    tools.push(Box::new(
+        crate::openhuman::x402::tools::X402RequestTool::new(),
+    ));
+
     // Coding-harness baseline `web_fetch` (issue #1205) — single-purpose
     // GET-and-read primitive that reuses the same allowed-domains gate
     // as `http_request`. Use this for docs/READMEs; reach for

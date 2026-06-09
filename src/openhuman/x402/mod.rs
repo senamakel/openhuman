@@ -11,6 +11,7 @@
 mod ops;
 mod schemas;
 pub(crate) mod store;
+pub mod tools;
 mod types;
 
 #[cfg(test)]

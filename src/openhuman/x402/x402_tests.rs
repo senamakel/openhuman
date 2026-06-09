@@ -1,7 +1,7 @@
 use base64::engine::{general_purpose::STANDARD as B64, Engine as _};
 use serde_json::json;
 
-use super::ops::{eip3009_struct_hash, eip712_domain_separator};
+use super::ops::{build_evm_payment_with_signer, eip3009_struct_hash, eip712_domain_separator};
 use super::types::*;
 
 #[test]
@@ -464,4 +464,125 @@ fn parse_twit_sh_402_challenge() {
     assert_eq!(chain, PaymentChain::Evm);
     assert_eq!(best.amount, "2500");
     assert!(challenge.solana_exact_requirement().is_none());
+}
+
+#[test]
+fn build_evm_payment_with_test_key_produces_valid_payload() {
+    use ethers_signers::{coins_bip39::English, MnemonicBuilder, Signer};
+    use std::str::FromStr;
+
+    let test_mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+    let wallet = MnemonicBuilder::<English>::default()
+        .phrase(test_mnemonic)
+        .derivation_path("m/44'/60'/0'/0/0")
+        .unwrap()
+        .build()
+        .unwrap();
+    let from_address = wallet.address();
+
+    let challenge = PaymentRequired {
+        x402_version: 2,
+        error: Some("Payment required".into()),
+        resource: ResourceInfo {
+            url: "https://x402.twit.sh/tweets/by/id".into(),
+            description: Some("Look up a tweet".into()),
+            mime_type: Some("application/json".into()),
+        },
+        accepts: vec![PaymentRequirements {
+            scheme: "exact".into(),
+            network: BASE_MAINNET_CAIP2.into(),
+            amount: "2500".into(),
+            asset: USDC_BASE_MAINNET.into(),
+            pay_to: "0x9DBA414637c611a16BEa6f0796BFcbcBdc410df8".into(),
+            max_timeout_seconds: 300,
+            extra: Some(PaymentExtra {
+                fee_payer: None,
+                memo: None,
+                name: Some("USD Coin".into()),
+                version: Some("2".into()),
+            }),
+        }],
+        extensions: serde_json::Map::new(),
+    };
+
+    let req = &challenge.accepts[0];
+    let payload =
+        build_evm_payment_with_signer(&wallet, from_address, &challenge, req).unwrap();
+
+    assert_eq!(payload.x402_version, 2);
+    assert_eq!(payload.accepted.network, BASE_MAINNET_CAIP2);
+    assert_eq!(payload.accepted.amount, "2500");
+
+    match &payload.payload {
+        PaymentProof::Evm(evm) => {
+            assert!(evm.signature.starts_with("0x"));
+            // 0x prefix + 65 bytes (r=32 + s=32 + v=1) as hex = 130 chars + 2 = 132
+            assert_eq!(evm.signature.len(), 132);
+            assert_eq!(evm.authorization.value, "2500");
+            assert_eq!(evm.authorization.valid_after, "0");
+            assert!(evm.authorization.nonce.starts_with("0x"));
+            assert_eq!(
+                evm.authorization.to,
+                format!(
+                    "{:#x}",
+                    ethers_core::types::Address::from_str(
+                        "0x9DBA414637c611a16BEa6f0796BFcbcBdc410df8"
+                    )
+                    .unwrap()
+                )
+            );
+            assert_eq!(evm.authorization.from, format!("{from_address:#x}"));
+        }
+        PaymentProof::Solana(_) => panic!("expected EVM proof, got Solana"),
+    }
+
+    // Verify the payload round-trips through base64 (as PAYMENT-SIGNATURE header)
+    let json = serde_json::to_string(&payload).unwrap();
+    let b64_header = B64.encode(&json);
+    let decoded = B64.decode(&b64_header).unwrap();
+    let parsed: PaymentPayload = serde_json::from_slice(&decoded).unwrap();
+    assert_eq!(parsed.x402_version, 2);
+    match &parsed.payload {
+        PaymentProof::Evm(evm) => assert_eq!(evm.authorization.value, "2500"),
+        _ => panic!("round-trip lost EVM proof"),
+    }
+}
+
+#[test]
+fn build_evm_payment_rejects_solana_network() {
+    use ethers_signers::{coins_bip39::English, MnemonicBuilder, Signer};
+
+    let test_mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+    let wallet = MnemonicBuilder::<English>::default()
+        .phrase(test_mnemonic)
+        .derivation_path("m/44'/60'/0'/0/0")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let challenge = PaymentRequired {
+        x402_version: 2,
+        error: None,
+        resource: ResourceInfo {
+            url: "https://example.com".into(),
+            description: None,
+            mime_type: None,
+        },
+        accepts: vec![PaymentRequirements {
+            scheme: "exact".into(),
+            network: SOLANA_MAINNET_CAIP2.into(),
+            amount: "5000".into(),
+            asset: USDC_MINT_MAINNET.into(),
+            pay_to: "SomeRecipient".into(),
+            max_timeout_seconds: 60,
+            extra: None,
+        }],
+        extensions: serde_json::Map::new(),
+    };
+
+    let req = &challenge.accepts[0];
+    let result = build_evm_payment_with_signer(&wallet, wallet.address(), &challenge, req);
+    assert!(result.is_err());
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(err_msg.contains("not an EVM network"));
 }

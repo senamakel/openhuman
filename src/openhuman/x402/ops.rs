@@ -586,7 +586,19 @@ async fn build_evm_payment(
     challenge: &PaymentRequired,
     req: &PaymentRequirements,
 ) -> Result<PaymentPayload, X402Error> {
+    let (signer, from_address) = derive_evm_signer().await?;
+    build_evm_payment_with_signer(&signer, from_address, challenge, req)
+}
+
+/// Core EVM payment construction — separated from wallet derivation for testability.
+pub(crate) fn build_evm_payment_with_signer(
+    signer: &ethers_signers::LocalWallet,
+    from_address: ethers_core::types::Address,
+    challenge: &PaymentRequired,
+    req: &PaymentRequirements,
+) -> Result<PaymentPayload, X402Error> {
     use ethers_core::types::{Address, U256};
+    use ethers_signers::Signer;
     use std::str::FromStr;
 
     let chain_id = req
@@ -604,9 +616,6 @@ async fn build_evm_payment(
     let token_address = Address::from_str(&req.asset).map_err(|e| {
         X402Error::Protocol(format!("invalid EVM token address '{}': {e}", req.asset))
     })?;
-
-    // Derive EVM signer from wallet
-    let (signer, from_address) = derive_evm_signer().await?;
 
     // EIP-3009 parameters
     let valid_after = U256::zero();

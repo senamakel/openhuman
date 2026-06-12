@@ -45,6 +45,40 @@ pub(crate) async fn run_chat_task(
         }
     }
 
+    // Test hook: park the turn in-flight so concurrency / cooperative
+    // cancellation can be observed. A `Drop` guard flips the supplied flag if
+    // this future is dropped (i.e. cancelled) before the sleep elapses, proving
+    // the turn was torn down cooperatively rather than left running.
+    #[cfg(any(test, debug_assertions))]
+    {
+        let block = {
+            let slot = super::ops::TEST_RUN_CHAT_TASK_BLOCK.lock().await;
+            slot.clone()
+        };
+        if let Some(block) = block {
+            struct DropGuard(std::sync::Arc<std::sync::atomic::AtomicBool>);
+            impl Drop for DropGuard {
+                fn drop(&mut self) {
+                    self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
+            }
+            let _guard = DropGuard(block.dropped.clone());
+            log::debug!(
+                "[web-channel][test] parking run_chat_task thread_id={} request_id={}",
+                thread_id,
+                request_id
+            );
+            // Signal that the turn future is live and parked, so a test can
+            // cancel only after the guard exists (otherwise a `biased` cancel
+            // could short-circuit before this future is ever polled).
+            block
+                .started
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            return Err("test block elapsed".to_string());
+        }
+    }
+
     let config = config_rpc::load_config_with_timeout().await?;
     let (_profiles_state, profile) =
         AgentProfileStore::new(config.workspace_dir.clone()).resolve(profile_id.as_deref())?;

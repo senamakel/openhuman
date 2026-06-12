@@ -37,6 +37,13 @@ pub(super) struct InFlightEntry {
     pub(super) request_id: String,
     pub(super) handle: tokio::task::JoinHandle<()>,
     pub(super) run_queue: std::sync::Arc<crate::openhuman::agent::harness::run_queue::RunQueue>,
+    /// Cooperative cancellation for this turn. Cancelling it makes the turn's
+    /// `tokio::select!` arm fire and drops the in-flight turn future (which
+    /// cancels the in-flight LLM request and releases locks at a safe await
+    /// point) — a graceful alternative to the abrupt `handle.abort()`. The
+    /// handle is retained only as a hard backstop if cooperative cancellation
+    /// does not land within a grace period.
+    pub(super) cancel_token: tokio_util::sync::CancellationToken,
 }
 
 #[derive(Debug, Clone)]

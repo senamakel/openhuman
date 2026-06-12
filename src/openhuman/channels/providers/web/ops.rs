@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use once_cell::sync::Lazy;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::core::event_bus::DomainEvent;
@@ -26,6 +28,48 @@ pub(super) static IN_FLIGHT: Lazy<Mutex<HashMap<String, InFlightEntry>>> =
 #[cfg(any(test, debug_assertions))]
 pub(super) static TEST_FORCED_RUN_CHAT_TASK_ERROR: Lazy<Mutex<Option<String>>> =
     Lazy::new(|| Mutex::new(None));
+
+/// Test hook handles: when set, `run_chat_task` parks on a long sleep instead
+/// of doing real work, keeping the turn in-flight so concurrency / cancellation
+/// can be observed. `started` is flipped once the turn has actually parked (so
+/// a test can cancel only after the turn future is live), and a `Drop` guard
+/// inside the parked future flips `dropped`, proving cooperative cancellation
+/// tears the turn future down (vs. a hard `abort()` that never runs the Drop).
+#[cfg(any(test, debug_assertions))]
+#[derive(Clone)]
+pub struct TestRunChatTaskBlock {
+    pub started: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    pub dropped: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+#[cfg(any(test, debug_assertions))]
+pub(super) static TEST_RUN_CHAT_TASK_BLOCK: Lazy<Mutex<Option<TestRunChatTaskBlock>>> =
+    Lazy::new(|| Mutex::new(None));
+
+/// Cooperatively cancel an in-flight turn, with a hard `abort()` backstop.
+///
+/// Cancelling the token makes the turn's `tokio::select!` arm fire, dropping
+/// the turn future at its next await point (cancelling the in-flight LLM
+/// request and releasing locks cleanly). The detached backstop hard-aborts the
+/// task only if it has not finished unwinding within a short grace period, so a
+/// wedged turn can never leak. Returns the cancelled turn's request id.
+fn cancel_in_flight_gracefully(entry: InFlightEntry) -> String {
+    let request_id = entry.request_id.clone();
+    entry.cancel_token.cancel();
+    let mut handle = entry.handle;
+    tokio::spawn(async move {
+        tokio::select! {
+            _ = &mut handle => {}
+            _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                log::warn!(
+                    "[web-channel] cooperative cancel did not finish within grace period — hard-aborting backstop"
+                );
+                handle.abort();
+            }
+        }
+    });
+    request_id
+}
 
 pub(crate) fn key_for(thread_id: &str) -> String {
     thread_id.to_string()
@@ -55,6 +99,15 @@ fn prompt_guard_user_message(action: PromptEnforcementAction) -> &'static str {
 pub async fn set_test_forced_run_chat_task_error(message: Option<&str>) {
     let mut slot = TEST_FORCED_RUN_CHAT_TASK_ERROR.lock().await;
     *slot = message.map(str::to_string);
+}
+
+/// Test hook: when `block` is `Some`, the next `run_chat_task` invocations park
+/// on a long sleep (staying in-flight), flip `started` once parked, and flip
+/// `dropped` when their future is torn down. Pass `None` to clear.
+#[cfg(any(test, debug_assertions))]
+pub async fn set_test_run_chat_task_block(block: Option<TestRunChatTaskBlock>) {
+    let mut slot = TEST_RUN_CHAT_TASK_BLOCK.lock().await;
+    *slot = block;
 }
 
 pub async fn start_chat(
@@ -275,16 +328,15 @@ pub async fn start_chat(
         let mut in_flight = IN_FLIGHT.lock().await;
 
         if let Some(existing) = in_flight.remove(&map_key) {
-            let cancelled_id = existing.request_id.clone();
-            existing.handle.abort();
+            let cancelled_id = cancel_in_flight_gracefully(existing);
             log::info!(
                 "[web-channel] interrupted in-flight turn thread_id={} cancelled_request_id={}",
                 thread_id,
-                existing.request_id
+                cancelled_id
             );
             crate::core::event_bus::publish_global(DomainEvent::RunQueueInterrupted {
                 thread_id: thread_id.clone(),
-                cancelled_request_id: existing.request_id.clone(),
+                cancelled_request_id: cancelled_id.clone(),
             });
             publish_web_channel_event(WebChannelEvent {
                 event: "chat_error".to_string(),
@@ -306,6 +358,12 @@ pub async fn start_chat(
     let request_id_task = request_id.clone();
     let map_key_task = map_key.clone();
 
+    // Cooperative cancellation for this turn. The token lives in the
+    // `InFlightEntry`; interrupt / cancel paths cancel it to tear the turn
+    // future down gracefully at the next await point.
+    let cancel_token = CancellationToken::new();
+    let task_cancel_token = cancel_token.clone();
+
     let user_message = message.clone();
     let handle = tokio::spawn(async move {
         let approval_ctx = crate::openhuman::approval::ApprovalChatContext {
@@ -316,25 +374,53 @@ pub async fn start_chat(
             thread_id: thread_id_task.clone(),
             client_id: client_id_task.clone(),
         };
-        let result = crate::openhuman::agent::turn_origin::with_origin(
-            origin,
-            crate::openhuman::approval::APPROVAL_CHAT_CONTEXT.scope(
-                approval_ctx,
-                run_chat_task(
-                    &client_id_task,
-                    &thread_id_task,
-                    &request_id_task,
-                    &user_message,
-                    model_override,
-                    temperature,
-                    profile_id,
-                    locale,
-                    turn_run_queue_task,
-                    metadata,
+        // `None` => the turn was cancelled cooperatively before producing a
+        // result; the interrupting/cancelling side already emitted the
+        // user-facing `chat_error`, so we just unwind quietly here.
+        let result = tokio::select! {
+            biased;
+            _ = task_cancel_token.cancelled() => None,
+            res = crate::openhuman::agent::turn_origin::with_origin(
+                origin,
+                crate::openhuman::approval::APPROVAL_CHAT_CONTEXT.scope(
+                    approval_ctx,
+                    run_chat_task(
+                        &client_id_task,
+                        &thread_id_task,
+                        &request_id_task,
+                        &user_message,
+                        model_override,
+                        temperature,
+                        profile_id,
+                        locale,
+                        turn_run_queue_task,
+                        metadata,
+                    ),
                 ),
-            ),
-        )
-        .await;
+            ) => Some(res),
+        };
+
+        let result = match result {
+            Some(res) => res,
+            None => {
+                log::info!(
+                    "[web-channel] turn cancelled cooperatively client_id={} thread_id={} request_id={}",
+                    client_id_task,
+                    thread_id_task,
+                    request_id_task
+                );
+                // Release any in-flight slot we still own and stop. The
+                // `request_id` guard below prevents clobbering a newer turn that
+                // replaced us on the interrupt path.
+                let mut in_flight = IN_FLIGHT.lock().await;
+                if let Some(current) = in_flight.get(&map_key_task) {
+                    if current.request_id == request_id_task {
+                        in_flight.remove(&map_key_task);
+                    }
+                }
+                return;
+            }
+        };
 
         match result {
             Ok(chat_result) => {
@@ -444,6 +530,7 @@ pub async fn start_chat(
                 request_id: request_id.clone(),
                 handle,
                 run_queue: turn_run_queue,
+                cancel_token,
             },
         );
     }
@@ -521,8 +608,7 @@ pub async fn cancel_chat(client_id: &str, thread_id: &str) -> Result<Option<Stri
     {
         let mut in_flight = IN_FLIGHT.lock().await;
         if let Some(existing) = in_flight.remove(&map_key) {
-            removed_request_id = Some(existing.request_id.clone());
-            existing.handle.abort();
+            removed_request_id = Some(cancel_in_flight_gracefully(existing));
         }
     }
 

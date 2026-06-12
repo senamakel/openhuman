@@ -13,7 +13,8 @@ import { MemoryGraph } from '../components/intelligence/MemoryGraph';
 import { MemorySourcesRegistry } from '../components/intelligence/MemorySourcesRegistry';
 import { MemoryTreeStatusPanel } from '../components/intelligence/MemoryTreeStatusPanel';
 import { ToastContainer } from '../components/intelligence/Toast';
-import PillTabBar from '../components/PillTabBar';
+import TwoPanelLayout from '../components/layout/TwoPanelLayout';
+import TwoPaneNav from '../components/layout/TwoPaneNav';
 import BetaBanner from '../components/ui/BetaBanner';
 import { useSubconscious } from '../hooks/useSubconscious';
 import { useT } from '../lib/i18n/I18nContext';
@@ -81,76 +82,92 @@ export default function Brain() {
     'rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900';
 
   return (
-    <div className="relative min-h-full p-4 pt-6">
-      <div className="mx-auto max-w-4xl space-y-5">
-        <header className="min-w-0">
-          <h1 className="text-xl font-bold text-stone-900 dark:text-neutral-100">
-            {t('nav.brain')}
-          </h1>
-          <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">{t('brain.subtitle')}</p>
-        </header>
-
-        <PillTabBar<BrainTab>
-          selected={activeTab}
-          onChange={setActiveTab}
-          items={[
-            { value: 'memory', label: t('brain.tabs.memory') },
-            { value: 'subconscious', label: t('brain.tabs.subconscious') },
-          ]}
-        />
-
-        {activeTab === 'memory' && (
-          <div className="space-y-5 animate-fade-up">
-            <MemoryControls
-              mode={mode}
-              onModeChange={setMode}
-              onRefresh={refresh}
-              onToast={addToast}
-              contentRootAbs={graph?.content_root_abs}
-            />
-
-            {graph ? (
-              <MemoryGraph
-                nodes={graph.nodes}
-                edges={graph.edges}
-                mode={mode}
-                emptyHint={t('brain.empty')}
-              />
-            ) : error ? (
-              <div
-                className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`}
-                role="alert">
-                {t('brain.error')}
+    <div className="h-full">
+      <TwoPanelLayout
+        id="brain"
+        className="h-full p-4 pt-6"
+        paneClassName=""
+        defaultSidebarVisible
+        defaultSidebarWidth={210}
+        minSidebarWidth={170}
+        maxSidebarWidth={320}
+        sidebar={
+          <TwoPaneNav
+            ariaLabel={t('nav.brain')}
+            selected={activeTab}
+            onSelect={value => setActiveTab(value as BrainTab)}
+            items={[
+              { value: 'memory', label: t('brain.tabs.memory') },
+              { value: 'subconscious', label: t('brain.tabs.subconscious') },
+            ]}
+            header={
+              <div className="min-w-0">
+                <h1 className="text-base font-bold text-stone-900 dark:text-neutral-100">
+                  {t('nav.brain')}
+                </h1>
+                <p className="mt-0.5 text-[11px] text-stone-500 dark:text-neutral-400">
+                  {t('brain.subtitle')}
+                </p>
               </div>
-            ) : null}
+            }
+          />
+        }>
+        <div className="h-full overflow-y-auto">
+          <div className="mx-auto max-w-3xl space-y-5 px-2">
+            {activeTab === 'memory' && (
+              <div className="space-y-5 animate-fade-up">
+                <MemoryControls
+                  mode={mode}
+                  onModeChange={setMode}
+                  onRefresh={refresh}
+                  onToast={addToast}
+                  contentRootAbs={graph?.content_root_abs}
+                />
 
-            <div className="space-y-5">
-              <div className={cardClass}>
-                <MemoryTreeStatusPanel onToast={addToast} />
+                {graph ? (
+                  <MemoryGraph
+                    nodes={graph.nodes}
+                    edges={graph.edges}
+                    mode={mode}
+                    emptyHint={t('brain.empty')}
+                  />
+                ) : error ? (
+                  <div
+                    className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`}
+                    role="alert">
+                    {t('brain.error')}
+                  </div>
+                ) : null}
+
+                <div className="space-y-5">
+                  <div className={cardClass}>
+                    <MemoryTreeStatusPanel onToast={addToast} />
+                  </div>
+                  <MemorySourcesRegistry onToast={addToast} />
+                </div>
               </div>
-              <MemorySourcesRegistry onToast={addToast} />
-            </div>
-          </div>
-        )}
+            )}
 
-        {activeTab === 'subconscious' && (
-          <div className="space-y-3 animate-fade-up">
-            <BetaBanner />
-            <div className={cardClass}>
-              <IntelligenceSubconsciousTab
-                status={sub.status}
-                mode={sub.mode}
-                intervalMinutes={sub.intervalMinutes}
-                triggerTick={sub.triggerTick}
-                triggering={sub.triggering}
-                settingMode={sub.settingMode}
-                setMode={sub.setMode}
-                setIntervalMinutes={sub.setIntervalMinutes}
-              />
-            </div>
+            {activeTab === 'subconscious' && (
+              <div className="space-y-3 animate-fade-up">
+                <BetaBanner />
+                <div className={cardClass}>
+                  <IntelligenceSubconsciousTab
+                    status={sub.status}
+                    mode={sub.mode}
+                    intervalMinutes={sub.intervalMinutes}
+                    triggerTick={sub.triggerTick}
+                    triggering={sub.triggering}
+                    settingMode={sub.settingMode}
+                    setMode={sub.setMode}
+                    setIntervalMinutes={sub.setIntervalMinutes}
+                  />
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </TwoPanelLayout>
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />
     </div>

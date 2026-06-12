@@ -11,7 +11,8 @@ import {
 } from '../components/composio/toolkitMeta';
 import EmptyStateCard from '../components/EmptyStateCard';
 import { ToastContainer } from '../components/intelligence/Toast';
-import PillTabBar from '../components/PillTabBar';
+import TwoPanelLayout from '../components/layout/TwoPanelLayout';
+import TwoPaneNav from '../components/layout/TwoPaneNav';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import MeetingBotsCard from '../components/skills/MeetingBotsCard';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
@@ -773,10 +774,31 @@ export default function Skills() {
   );
 
   return (
-    <div className="min-h-full">
-      <div className="min-h-full flex flex-col">
-        <div className="flex-1 flex items-start justify-center p-4 pt-6">
-          <div className="w-full max-w-3xl space-y-4">
+    <div className="h-full">
+      <TwoPanelLayout
+        id="connections"
+        className="h-full p-4 pt-6"
+        paneClassName=""
+        defaultSidebarVisible
+        defaultSidebarWidth={210}
+        minSidebarWidth={170}
+        maxSidebarWidth={320}
+        sidebar={
+          <TwoPaneNav
+            ariaLabel={t('connections.tabs.composio')}
+            selected={activeTab}
+            onSelect={value => handleTabChange(value as ConnectionsTab)}
+            items={[
+              { value: 'composio', label: t('connections.tabs.composio') },
+              { value: 'channels', label: t('connections.tabs.channels') },
+              { value: 'mcp', label: t('connections.tabs.mcp') },
+              { value: 'skills', label: t('connections.tabs.skills') },
+              { value: 'meetings', label: t('connections.tabs.meetings') },
+            ]}
+          />
+        }>
+        <div className="h-full overflow-y-auto">
+          <div className="mx-auto w-full max-w-3xl space-y-4 px-2">
             {/* <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <h1 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
@@ -822,17 +844,6 @@ export default function Skills() {
               </div>
             )}
 
-            <PillTabBar<ConnectionsTab>
-              selected={activeTab}
-              onChange={handleTabChange}
-              items={[
-                { value: 'composio', label: t('connections.tabs.composio') },
-                { value: 'channels', label: t('connections.tabs.channels') },
-                { value: 'mcp', label: t('connections.tabs.mcp') },
-                { value: 'skills', label: t('connections.tabs.skills') },
-                { value: 'meetings', label: t('connections.tabs.meetings') },
-              ]}
-            />
             {
               <>
                 {activeTab === 'channels' && channelsGroup && (
@@ -1001,7 +1012,7 @@ export default function Skills() {
             }
           </div>
         </div>
-      </div>
+      </TwoPanelLayout>
 
       {channelModalDef && (
         <ChannelSetupModal definition={channelModalDef} onClose={() => setChannelModalDef(null)} />

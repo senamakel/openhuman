@@ -103,9 +103,6 @@ use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
 };
-use openhuman_core::openhuman::profiles::{
-    all_profiles_controller_schemas, all_profiles_registered_controllers,
-};
 use openhuman_core::openhuman::agent_registry::agents::BUILTINS;
 use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
@@ -171,6 +168,9 @@ use openhuman_core::openhuman::inference::{
     DeviceProfile,
 };
 use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
+use openhuman_core::openhuman::profiles::{
+    all_profiles_controller_schemas, all_profiles_registered_controllers,
+};
 use openhuman_core::openhuman::profiles::{
     filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
     resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
@@ -1123,9 +1123,9 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     let profile_schemas = all_profiles_controller_schemas();
     let profiles = all_profiles_registered_controllers();
     assert_eq!(profile_schemas.len(), profiles.len());
-    assert!(profiles
-        .iter()
-        .all(|controller| controller.rpc_method_name().starts_with("openhuman.profiles_")));
+    assert!(profiles.iter().all(|controller| controller
+        .rpc_method_name()
+        .starts_with("openhuman.profiles_")));
 
     let status = call(controller(&registered, "server_status"), json!({}))
         .await

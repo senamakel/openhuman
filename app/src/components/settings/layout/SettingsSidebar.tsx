@@ -30,24 +30,22 @@ const SettingsSidebar = () => {
   const groups = sidebarGroups();
 
   return (
-    <nav
-      aria-label={t('nav.settings')}
-      data-walkthrough="settings-menu"
-      className="flex h-full flex-col">
-      <div className="px-1 pt-1">
+    <nav aria-label={t('nav.settings')} data-walkthrough="settings-menu" className="flex flex-col">
+      {/* Search bar pinned to the top of the scrolling sidebar pane. */}
+      <div className="sticky top-0 z-10 bg-white px-1.5 pb-1 pt-1.5 dark:bg-neutral-900">
         <SettingsSearchBar value={searchQuery} onValueChange={setSearchQuery} />
       </div>
 
       {!isSearching && (
-        <div className="flex-1 px-3 pb-3">
+        <div className="px-1.5 pb-2">
           {groups.map(({ group, entries }) => (
             <div key={group} data-testid={`settings-sidebar-group-${group}`}>
-              <div className="px-2 pt-4 pb-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+              <div className="px-2 pb-0.5 pt-2.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
                   {t(NAV_GROUP_LABEL_KEY[group])}
                 </span>
               </div>
-              <ul className="space-y-0.5">
+              <ul>
                 {entries.map(entry => {
                   const active = activeSidebarId === entry.id;
                   return (
@@ -57,17 +55,17 @@ const SettingsSidebar = () => {
                         data-testid={`settings-nav-${entry.id}`}
                         aria-current={active ? 'page' : undefined}
                         onClick={() => navigateToSettings(entryRoute(entry))}
-                        className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] transition-colors ${
                           active
-                            ? 'bg-stone-100 dark:bg-neutral-800 font-medium text-stone-900 dark:text-neutral-100'
-                            : 'text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60 hover:text-stone-900 dark:hover:text-neutral-100'
+                            ? 'bg-stone-100 font-medium text-stone-900 dark:bg-neutral-800 dark:text-neutral-100'
+                            : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-neutral-300 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100'
                         }`}>
                         <span
-                          className={
+                          className={`shrink-0 ${
                             active
                               ? 'text-primary-600 dark:text-primary-400'
                               : 'text-stone-400 dark:text-neutral-500'
-                          }>
+                          }`}>
                           {SETTINGS_NAV_ICONS[entry.id] ?? null}
                         </span>
                         <span className="truncate">{t(entry.titleKey)}</span>
@@ -79,7 +77,7 @@ const SettingsSidebar = () => {
             </div>
           ))}
 
-          <div className="mt-6 border-t border-stone-200 dark:border-neutral-800 px-2 pt-3 pb-1 text-[11px] text-stone-400 dark:text-neutral-500">
+          <div className="mt-3 border-t border-stone-200 px-2 pb-1 pt-2 text-[10px] text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
             {t('settings.betaBuild').replace('{version}', APP_VERSION)}
           </div>
         </div>

@@ -34,7 +34,7 @@ const SettingsLayout = () => {
         minSidebarWidth={220}
         maxSidebarWidth={420}
         sidebar={
-          <div className="h-full overflow-y-auto p-2">
+          <div className="h-full overflow-y-auto">
             <SettingsSidebar />
           </div>
         }>

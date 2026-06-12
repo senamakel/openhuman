@@ -362,7 +362,7 @@ const messages: TranslationMap = {
   'skills.tabs.meetings': 'Google Meet 会议',
   'skills.tabs.mcp': 'MCP 服务器',
   'connections.tabs.composio': 'Composio',
-  'connections.tabs.messaging': '消息',
+  'connections.tabs.channels': '频道',
   'connections.tabs.mcp': 'MCP 服务器',
   'connections.tabs.skills': '技能',
   'connections.tabs.meetings': '会议',

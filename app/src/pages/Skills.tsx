@@ -355,7 +355,7 @@ interface SkillItem {
  * Back-compat: the old ?tab= values (composio, channels, mcp, meetings) are
  * normalised to the new values so existing deep links continue to work.
  */
-type ConnectionsTab = 'composio' | 'messaging' | 'mcp' | 'skills' | 'meetings';
+type ConnectionsTab = 'composio' | 'channels' | 'mcp' | 'skills' | 'meetings';
 
 export default function Skills() {
   const { t } = useT();
@@ -372,7 +372,7 @@ export default function Skills() {
     // New canonical values
     if (
       raw === 'composio' ||
-      raw === 'messaging' ||
+      raw === 'channels' ||
       raw === 'mcp' ||
       raw === 'skills' ||
       raw === 'meetings'
@@ -380,7 +380,7 @@ export default function Skills() {
       return raw;
     // Legacy back-compat aliases
     if (raw === 'apps') return 'composio';
-    if (raw === 'channels') return 'messaging';
+    if (raw === 'messaging') return 'channels';
     if (raw === 'tools') return 'mcp';
     if (raw === 'talents') return 'meetings';
     if (raw === 'explorer') return 'skills';
@@ -818,7 +818,7 @@ export default function Skills() {
               onChange={setActiveTab}
               items={[
                 { value: 'composio', label: t('connections.tabs.composio') },
-                { value: 'messaging', label: t('connections.tabs.messaging') },
+                { value: 'channels', label: t('connections.tabs.channels') },
                 { value: 'mcp', label: t('connections.tabs.mcp') },
                 { value: 'skills', label: t('connections.tabs.skills') },
                 { value: 'meetings', label: t('connections.tabs.meetings') },
@@ -826,7 +826,7 @@ export default function Skills() {
             />
             {
               <>
-                {activeTab === 'messaging' && channelsGroup && (
+                {activeTab === 'channels' && channelsGroup && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
                     <div className="px-1 pb-3 pt-1">
                       <h2

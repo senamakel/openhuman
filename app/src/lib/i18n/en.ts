@@ -418,7 +418,7 @@ const en: TranslationMap = {
   'skills.tabs.mcp': 'MCP Servers',
   // Connections page tabs (Phase 2 rename)
   'connections.tabs.composio': 'Composio',
-  'connections.tabs.messaging': 'Messaging',
+  'connections.tabs.channels': 'Channels',
   'connections.tabs.mcp': 'MCP Servers',
   'connections.tabs.skills': 'Skills',
   'connections.tabs.meetings': 'Meetings',

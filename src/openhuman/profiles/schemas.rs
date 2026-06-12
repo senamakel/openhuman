@@ -7,11 +7,9 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use super::store::AgentProfileStore;
 use super::types::AgentProfile;
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
-use crate::openhuman::config::rpc as config_rpc;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -121,190 +119,27 @@ struct ProfileDeleteParams {
 }
 
 fn handle_profiles_list(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let request_id = format!("profiles-list-{}", uuid::Uuid::new_v4());
-        tracing::debug!(request_id = %request_id, "[rpc][profiles][entry] profiles_list");
-        let config = config_rpc::load_config_with_timeout().await.map_err(|e| {
-            tracing::debug!(
-                request_id = %request_id,
-                error = %e,
-                "[rpc][profiles][error] profiles_list load_config"
-            );
-            e
-        })?;
-        let state = AgentProfileStore::new(config.workspace_dir)
-            .load()
-            .map_err(|e| {
-                tracing::debug!(
-                    request_id = %request_id,
-                    error = %e,
-                    "[rpc][profiles][error] profiles_list load_store"
-                );
-                e
-            })?;
-        tracing::debug!(
-            request_id = %request_id,
-            active_profile_id = %state.active_profile_id,
-            profile_count = state.profiles.len(),
-            "[rpc][profiles][exit] profiles_list"
-        );
-        Ok(serde_json::json!({
-            "profiles": state.profiles,
-            "activeProfileId": state.active_profile_id,
-        }))
-    })
+    Box::pin(super::ops::list())
 }
 
 fn handle_profile_select(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let request_id = format!("profile-select-{}", uuid::Uuid::new_v4());
-        tracing::debug!(request_id = %request_id, "[rpc][profiles][entry] profile_select");
         let p = deserialize_params::<ProfileSelectParams>(params)?;
-        tracing::debug!(
-            request_id = %request_id,
-            profile_id = %p.profile_id,
-            "[rpc][profiles] profile_select params"
-        );
-        let config = config_rpc::load_config_with_timeout().await.map_err(|e| {
-            tracing::debug!(
-                request_id = %request_id,
-                profile_id = %p.profile_id,
-                error = %e,
-                "[rpc][profiles][error] profile_select load_config"
-            );
-            e
-        })?;
-        let state = AgentProfileStore::new(config.workspace_dir)
-            .select(&p.profile_id)
-            .map_err(|e| {
-                tracing::debug!(
-                    request_id = %request_id,
-                    profile_id = %p.profile_id,
-                    error = %e,
-                    "[rpc][profiles][error] profile_select store"
-                );
-                e
-            })?;
-        tracing::debug!(
-            request_id = %request_id,
-            profile_id = %p.profile_id,
-            active_profile_id = %state.active_profile_id,
-            "[rpc][profiles][exit] profile_select"
-        );
-        Ok(serde_json::json!({
-            "profiles": state.profiles,
-            "activeProfileId": state.active_profile_id,
-        }))
+        super::ops::select(&p.profile_id).await
     })
 }
 
 fn handle_profile_upsert(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let request_id = format!("profile-upsert-{}", uuid::Uuid::new_v4());
-        tracing::debug!(request_id = %request_id, "[rpc][profiles][entry] profile_upsert");
         let p = deserialize_params::<ProfileUpsertParams>(params)?;
-        tracing::debug!(
-            request_id = %request_id,
-            profile_id = %p.profile.id,
-            agent_id = %p.profile.agent_id,
-            "[rpc][profiles] profile_upsert params"
-        );
-        if let Some(registry) = crate::openhuman::agent::harness::AgentDefinitionRegistry::global()
-        {
-            let agent_id = p.profile.agent_id.trim();
-            if !agent_id.is_empty() && registry.get(agent_id).is_none() {
-                tracing::debug!(
-                    request_id = %request_id,
-                    profile_id = %p.profile.id,
-                    agent_id,
-                    "[rpc][profiles][error] profile_upsert unknown_agent"
-                );
-                return Err(format!("agent definition '{agent_id}' not found"));
-            }
-            tracing::debug!(
-                request_id = %request_id,
-                profile_id = %p.profile.id,
-                agent_id,
-                "[rpc][profiles] profile_upsert registry_ok"
-            );
-        } else {
-            tracing::debug!(
-                request_id = %request_id,
-                "[rpc][profiles] profile_upsert registry_unavailable"
-            );
-        }
-        let config = config_rpc::load_config_with_timeout().await.map_err(|e| {
-            tracing::debug!(
-                request_id = %request_id,
-                error = %e,
-                "[rpc][profiles][error] profile_upsert load_config"
-            );
-            e
-        })?;
-        let state = AgentProfileStore::new(config.workspace_dir)
-            .upsert(p.profile)
-            .map_err(|e| {
-                tracing::debug!(
-                    request_id = %request_id,
-                    error = %e,
-                    "[rpc][profiles][error] profile_upsert store"
-                );
-                e
-            })?;
-        tracing::debug!(
-            request_id = %request_id,
-            active_profile_id = %state.active_profile_id,
-            profile_count = state.profiles.len(),
-            "[rpc][profiles][exit] profile_upsert"
-        );
-        Ok(serde_json::json!({
-            "profiles": state.profiles,
-            "activeProfileId": state.active_profile_id,
-        }))
+        super::ops::upsert(p.profile).await
     })
 }
 
 fn handle_profile_delete(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let request_id = format!("profile-delete-{}", uuid::Uuid::new_v4());
-        tracing::debug!(request_id = %request_id, "[rpc][profiles][entry] profile_delete");
         let p = deserialize_params::<ProfileDeleteParams>(params)?;
-        tracing::debug!(
-            request_id = %request_id,
-            profile_id = %p.profile_id,
-            "[rpc][profiles] profile_delete params"
-        );
-        let config = config_rpc::load_config_with_timeout().await.map_err(|e| {
-            tracing::debug!(
-                request_id = %request_id,
-                profile_id = %p.profile_id,
-                error = %e,
-                "[rpc][profiles][error] profile_delete load_config"
-            );
-            e
-        })?;
-        let state = AgentProfileStore::new(config.workspace_dir)
-            .delete(&p.profile_id)
-            .map_err(|e| {
-                tracing::debug!(
-                    request_id = %request_id,
-                    profile_id = %p.profile_id,
-                    error = %e,
-                    "[rpc][profiles][error] profile_delete store"
-                );
-                e
-            })?;
-        tracing::debug!(
-            request_id = %request_id,
-            profile_id = %p.profile_id,
-            active_profile_id = %state.active_profile_id,
-            profile_count = state.profiles.len(),
-            "[rpc][profiles][exit] profile_delete"
-        );
-        Ok(serde_json::json!({
-            "profiles": state.profiles,
-            "activeProfileId": state.active_profile_id,
-        }))
+        super::ops::delete(&p.profile_id).await
     })
 }
 

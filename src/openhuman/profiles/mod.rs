@@ -9,6 +9,7 @@
 //! Relocated from `openhuman::agent::profiles` / `::personality_paths` so the
 //! domain is addressable on its own (`openhuman::profiles`).
 
+pub mod ops;
 pub mod paths;
 pub mod prompt_section;
 mod schemas;

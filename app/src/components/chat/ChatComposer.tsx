@@ -4,7 +4,6 @@ import type { ChatSendError } from '../../chat/chatSendError';
 import type { Attachment } from '../../lib/attachments';
 import { useT } from '../../lib/i18n/I18nContext';
 import AttachmentPreview from './AttachmentPreview';
-import CycleUsagePill from './CycleUsagePill';
 
 /** Max composer height ≈ 4 lines of text-sm + padding. */
 const COMPOSER_MAX_HEIGHT = 96;
@@ -37,7 +36,7 @@ export interface ChatComposerProps {
 /**
  * Two-row chat composer:
  *   Row 1 — full-width textarea with inline ghost completion
- *   Row 2 — toolbar: [+] · CycleUsagePill on left | voice · send on right
+ *   Row 2 — toolbar: [+] on left | voice · send on right
  *
  * All buttons live inside the rounded container — no external pill buttons.
  */
@@ -136,7 +135,7 @@ export default function ChatComposer({
 
       {/* Row 2: Toolbar */}
       <div className="flex items-center justify-between px-3 pb-2.5 pt-0.5">
-        {/* Left: attachment + button, then usage pill */}
+        {/* Left: attachment button */}
         <div className="flex items-center gap-2">
           {attachmentsEnabled && (
             <button
@@ -159,7 +158,6 @@ export default function ChatComposer({
               </svg>
             </button>
           )}
-          <CycleUsagePill />
         </div>
 
         {/* Right: voice mode + send */}

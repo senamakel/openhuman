@@ -8,6 +8,7 @@ import { checkPromptInjection, promptGuardMessage } from '../chat/promptInjectio
 import ApprovalRequestCard from '../components/chat/ApprovalRequestCard';
 import ArtifactCard from '../components/chat/ArtifactCard';
 import ChatComposer from '../components/chat/ChatComposer';
+import ComposerTokenStats from '../components/chat/ComposerTokenStats';
 import ChatFilesChip from '../components/chat/ChatFilesChip';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import PillTabBar from '../components/PillTabBar';
@@ -2324,6 +2325,7 @@ const Conversations = ({
               </p>
             </div>
           )}
+          <ComposerTokenStats />
         </div>
       </div>
       <ConfirmationModal

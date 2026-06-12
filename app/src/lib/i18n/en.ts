@@ -2423,6 +2423,13 @@ const en: TranslationMap = {
   'token.planClickForDetails': 'plan - click for details',
   'token.sessionTokens': 'In: {in} | Out: {out} | Turns: {turns}',
   'token.limit': 'Limit Reached',
+  'token.inLabel': 'IN',
+  'token.outLabel': 'OUT',
+  'token.inputTokens': 'Input tokens this session',
+  'token.outputTokens': 'Output tokens this session',
+  'token.turnsCount': 'Inference turns this session',
+  'token.turn': 'turn',
+  'token.turns': 'turns',
 
   // Catalog
   'catalog.noCapabilityBinding': 'No capability binding',

@@ -85,7 +85,11 @@ const ProfileEditorPage = () => {
     };
   }, []);
 
-  // Hydrate from the existing profile (edit mode).
+  // Hydrate form state from the loaded profile (edit mode). This intentionally
+  // fans out into multiple setters in an effect: the source is async Redux
+  // state that may arrive after mount, so a keyed remount / lazy initial state
+  // can't capture it. Mirrors the suppression used by other settings panels.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (isCreate) return;
     if (!existing) {
@@ -118,13 +122,23 @@ const ProfileEditorPage = () => {
     if (isCreate && !idTouched) setProfileId(slugify(value));
   };
 
-  const canSubmit = !submitting && (isCreate ? name.trim().length > 0 : true);
+  // Resolved profile id: explicit id on create (falling back to a slug of the
+  // name), or the existing id on edit. Must be non-empty to submit — a
+  // punctuation-only name slugs to '' and must not reach the RPC layer.
+  const resolvedId = (isCreate ? profileId.trim() || slugify(name) : profileId).trim();
+
+  const canSubmit = !submitting && (isCreate ? resolvedId.length > 0 : true);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    const id = (isCreate ? profileId.trim() || slugify(name) : profileId).trim();
+    const id = resolvedId;
+    if (!id) {
+      setError(t('settings.profiles.editor.idRequired'));
+      setSubmitting(false);
+      return;
+    }
     const tempNum = temperature.trim() === '' ? null : Number(temperature);
     const profile: AgentProfile = {
       id,
@@ -157,7 +171,7 @@ const ProfileEditorPage = () => {
     : name || t('settings.profiles.editor.editTitle');
 
   const breadcrumbs = [
-    { label: 'Settings', onClick: () => navigate('/settings') },
+    { label: t('nav.settings'), onClick: () => navigate('/settings') },
     { label: t('settings.profiles.title'), onClick: backToList },
   ];
 

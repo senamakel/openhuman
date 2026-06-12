@@ -3487,7 +3487,7 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
     assert!(clarification.output().contains("Which target?"));
     assert!(clarification.output().contains("unit, coverage"));
 
-    let run_workflow = RunWorkflowTool;
+    let run_workflow = RunWorkflowTool::new();
     assert_eq!(run_workflow.name(), RUN_WORKFLOW_TOOL_NAME);
     assert_eq!(
         run_workflow.parameters_schema().pointer("/required/0"),

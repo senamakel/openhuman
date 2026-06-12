@@ -5126,6 +5126,7 @@ const messages: TranslationMap = {
   'settings.profiles.editor.removeAria': '移除 {item}',
   'settings.profiles.editor.notFound': '未找到配置',
   'settings.profiles.editor.saving': '正在保存…',
+  'settings.profiles.editor.idRequired': '配置标识不能为空',
 };
 
 export default messages;

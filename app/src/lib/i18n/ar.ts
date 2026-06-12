@@ -5290,6 +5290,7 @@ const messages: TranslationMap = {
   'settings.profiles.editor.removeAria': 'إزالة {item}',
   'settings.profiles.editor.notFound': 'الملف غير موجود',
   'settings.profiles.editor.saving': 'جارٍ الحفظ…',
+  'settings.profiles.editor.idRequired': 'لا يمكن أن يكون معرّف الملف فارغًا',
 };
 
 export default messages;

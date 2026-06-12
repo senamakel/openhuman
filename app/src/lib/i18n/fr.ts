@@ -5530,6 +5530,7 @@ const messages: TranslationMap = {
   'settings.profiles.editor.removeAria': 'Retirer {item}',
   'settings.profiles.editor.notFound': 'Profil introuvable',
   'settings.profiles.editor.saving': 'Enregistrement…',
+  'settings.profiles.editor.idRequired': "L'identifiant du profil ne peut pas être vide",
 };
 
 export default messages;

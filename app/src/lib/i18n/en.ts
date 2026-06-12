@@ -5446,6 +5446,7 @@ const en: TranslationMap = {
   'settings.profiles.editor.addPlaceholder': 'Type an id, press Enter',
   'settings.profiles.editor.removeAria': 'Remove {item}',
   'settings.profiles.editor.notFound': 'Profile not found',
+  'settings.profiles.editor.idRequired': 'Profile id cannot be empty',
   'settings.profiles.editor.saving': 'Saving…',
 
   // ── Agent Workflows ──────────────────────────────────────────────────────

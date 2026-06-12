@@ -63,7 +63,7 @@ const ProfilesPanel = () => {
     [dispatch, t]
   );
 
-  const breadcrumbs = [{ label: 'Settings', onClick: () => navigate('/settings') }];
+  const breadcrumbs = [{ label: t('nav.settings'), onClick: () => navigate('/settings') }];
 
   return (
     <div className="z-10 relative">

@@ -24,10 +24,11 @@ const SettingsLayout = () => {
     <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
       <TwoPanelLayout
         id="settings"
-        // Full width with the same card panes (bg / border / rounding) the
-        // conversations two-pane uses — supplied by TwoPanelLayout's default
-        // paneClassName, so we don't restyle here.
-        className="h-full w-full p-4 pt-6"
+        // Max-width is applied once to the whole panel (sidebar + content
+        // together) and centered, rather than capping each settings panel.
+        // Card panes (bg / border / rounding) come from TwoPanelLayout's
+        // default paneClassName, matching the conversations two-pane.
+        className="mx-auto h-full w-full max-w-6xl p-4 pt-6"
         defaultSidebarVisible
         defaultSidebarWidth={288}
         minSidebarWidth={220}
@@ -39,9 +40,7 @@ const SettingsLayout = () => {
         }>
         <div className="h-full overflow-y-auto">
           <div className="px-4 pt-4 -mb-4">
-            <div className="max-w-2xl mx-auto">
-              <SettingsSubNav />
-            </div>
+            <SettingsSubNav />
           </div>
           <Outlet />
         </div>

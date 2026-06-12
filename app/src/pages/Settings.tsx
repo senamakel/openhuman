@@ -59,21 +59,12 @@ import WebhooksDebugPanel from '../components/settings/panels/WebhooksDebugPanel
 import WorkflowRunnerPanel from '../components/settings/panels/WorkflowRunnerPanel';
 import Intelligence from './Intelligence';
 
-const WrappedSettingsPage = ({
-  children,
-  maxWidthClass = 'max-w-2xl',
-}: {
-  children: ReactNode;
-  maxWidthClass?: string;
-}) => {
+const WrappedSettingsPage = ({ children }: { children: ReactNode }) => {
   // The surrounding two-pane card (bg / border / rounding) is now provided by
   // SettingsLayout's content pane, so panels sit directly on it — matching the
-  // conversations page — rather than nesting a second card here.
-  return (
-    <div className="p-4 pt-4">
-      <div className={`${maxWidthClass} mx-auto`}>{children}</div>
-    </div>
-  );
+  // conversations page. The max-width is applied once to the whole settings
+  // panel (SettingsLayout), so individual panels just fill the content pane.
+  return <div className="p-4 pt-4">{children}</div>;
 };
 
 /**
@@ -82,8 +73,8 @@ const WrappedSettingsPage = ({
  * redirects so deep links keep working.
  */
 const Settings = () => {
-  const wrapSettingsPage = (element: ReactNode, opts?: { maxWidthClass?: string }) => (
-    <WrappedSettingsPage maxWidthClass={opts?.maxWidthClass}>{element}</WrappedSettingsPage>
+  const wrapSettingsPage = (element: ReactNode) => (
+    <WrappedSettingsPage>{element}</WrappedSettingsPage>
   );
 
   return (
@@ -116,15 +107,9 @@ const Settings = () => {
           <Route path="devices" element={wrapSettingsPage(<DevicesPanel />)} />
 
           {/* ── Assistant ───────────────────────────────────────────── */}
-          <Route
-            path="llm"
-            element={wrapSettingsPage(<AIPanel />, { maxWidthClass: 'max-w-4xl' })}
-          />
+          <Route path="llm" element={wrapSettingsPage(<AIPanel />)} />
           <Route path="embeddings" element={wrapSettingsPage(<EmbeddingsPanel />)} />
-          <Route
-            path="usage"
-            element={wrapSettingsPage(<UsagePanel />, { maxWidthClass: 'max-w-4xl' })}
-          />
+          <Route path="usage" element={wrapSettingsPage(<UsagePanel />)} />
           <Route path="voice" element={wrapSettingsPage(<VoicePanel />)} />
           <Route path="personality" element={wrapSettingsPage(<PersonalityPanel />)} />
           <Route path="agents" element={wrapSettingsPage(<AgentsPanel />)} />
@@ -136,18 +121,12 @@ const Settings = () => {
           <Route path="approval-history" element={wrapSettingsPage(<ApprovalHistoryPanel />)} />
 
           {/* ── Data ────────────────────────────────────────────────── */}
-          <Route
-            path="memory-sync"
-            element={wrapSettingsPage(<MemorySyncPanel />, { maxWidthClass: 'max-w-4xl' })}
-          />
+          <Route path="memory-sync" element={wrapSettingsPage(<MemorySyncPanel />)} />
           <Route path="wallet-balances" element={wrapSettingsPage(<WalletBalancesPanel />)} />
           <Route path="recovery-phrase" element={wrapSettingsPage(<RecoveryPhrasePanel />)} />
 
           {/* ── Connections ─────────────────────────────────────────── */}
-          <Route
-            path="integrations"
-            element={wrapSettingsPage(<IntegrationsPanel />, { maxWidthClass: 'max-w-4xl' })}
-          />
+          <Route path="integrations" element={wrapSettingsPage(<IntegrationsPanel />)} />
           <Route
             path="screen-intelligence"
             element={wrapSettingsPage(<ScreenIntelligencePanel />)}
@@ -170,10 +149,7 @@ const Settings = () => {
           <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
           <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
           <Route path="tasks" element={wrapSettingsPage(<TasksPanel />)} />
-          <Route
-            path="automations"
-            element={wrapSettingsPage(<WorkflowsTab />, { maxWidthClass: 'max-w-4xl' })}
-          />
+          <Route path="automations" element={wrapSettingsPage(<WorkflowsTab />)} />
           <Route path="dev-workflow" element={wrapSettingsPage(<DevWorkflowPanel />)} />
           <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />
           <Route
@@ -185,20 +161,11 @@ const Settings = () => {
           <Route path="local-model-debug" element={wrapSettingsPage(<LocalModelDebugPanel />)} />
           <Route path="webhooks-debug" element={wrapSettingsPage(<WebhooksDebugPanel />)} />
           <Route path="event-log" element={wrapSettingsPage(<EventLogPanel />)} />
-          <Route
-            path="model-health"
-            element={wrapSettingsPage(<ModelHealthPanel />, { maxWidthClass: 'max-w-4xl' })}
-          />
+          <Route path="model-health" element={wrapSettingsPage(<ModelHealthPanel />)} />
           <Route path="memory-data" element={wrapSettingsPage(<MemoryDataPanel />)} />
           <Route path="memory-debug" element={wrapSettingsPage(<MemoryDebugPanel />)} />
-          <Route
-            path="analysis-views"
-            element={wrapSettingsPage(<AnalysisViewsPanel />, { maxWidthClass: 'max-w-4xl' })}
-          />
-          <Route
-            path="intelligence"
-            element={wrapSettingsPage(<Intelligence />, { maxWidthClass: 'max-w-4xl' })}
-          />
+          <Route path="analysis-views" element={wrapSettingsPage(<AnalysisViewsPanel />)} />
+          <Route path="intelligence" element={wrapSettingsPage(<Intelligence />)} />
           <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
           <Route path="permissions" element={wrapSettingsPage(<PermissionsPanel />)} />
 

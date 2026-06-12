@@ -342,6 +342,13 @@ impl Agent {
             &config.workspace_dir,
         )?);
 
+        // Per-profile skill (workflow) + MCP-server allowlists. `None` = all.
+        let profile_skill_allowlist: Option<std::collections::HashSet<String>> = profile
+            .and_then(|p| p.allowed_skills.clone())
+            .map(|v| v.into_iter().collect());
+        let profile_mcp_allowlist: Option<Vec<String>> =
+            profile.and_then(|p| p.allowed_mcp_servers.clone());
+
         let mut tools = tools::all_tools_with_runtime(
             Arc::new(config.clone()),
             &security,
@@ -353,6 +360,8 @@ impl Agent {
             &config.action_dir,
             &config.agents,
             config,
+            profile_skill_allowlist.as_ref(),
+            profile_mcp_allowlist.as_deref(),
         );
 
         // Filter tools by user preference stored in app state.

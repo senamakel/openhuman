@@ -76,10 +76,16 @@ pub fn all_tools(
         action_dir,
         agents,
         root_config,
+        None,
+        None,
     )
 }
 
 /// Create full tool registry including memory tools.
+///
+/// `skill_allowlist` / `mcp_allowlist` scope the skill (workflow) and MCP-server
+/// surfaces to an active agent profile's selection. `None` for either means
+/// "all" (the default for every non-profile caller).
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
 pub fn all_tools_with_runtime(
     config: Arc<Config>,
@@ -92,6 +98,8 @@ pub fn all_tools_with_runtime(
     action_dir: &std::path::Path,
     agents: &HashMap<String, DelegateAgentConfig>,
     root_config: &crate::openhuman::config::Config,
+    skill_allowlist: Option<&std::collections::HashSet<String>>,
+    mcp_allowlist: Option<&[String]>,
 ) -> Vec<Box<dyn Tool>> {
     // Build a session-scoped managed Node.js bootstrap once, so ShellTool,
     // NodeExecTool, and NpmExecTool all share the same memoised resolution
@@ -180,7 +188,7 @@ pub fn all_tools_with_runtime(
         // Both wrap `skill_runtime::spawn_workflow_run_background` +
         // `await_run_outcome` — the same spawn path `openhuman.workflows_run`
         // JSON-RPC uses, so RPC and tool callers stay in sync.
-        Box::new(RunWorkflowTool::new()),
+        Box::new(RunWorkflowTool::new().with_skill_allowlist(skill_allowlist.cloned())),
         Box::new(AwaitWorkflowTool::new()),
         Box::new(CurrentTimeTool::new()),
         // Deterministic time-expression → timestamp resolver. `current_time`
@@ -306,8 +314,13 @@ pub fn all_tools_with_runtime(
         // above, so it is not duplicated. Reads ship default-ON; the
         // create/install/uninstall mutators ship default-OFF via
         // `tools::user_filter` (install also fetches remote content).
-        Box::new(WorkflowListTool::new(config.clone())),
-        Box::new(WorkflowDescribeTool::new(config.clone())),
+        Box::new(
+            WorkflowListTool::new(config.clone()).with_skill_allowlist(skill_allowlist.cloned()),
+        ),
+        Box::new(
+            WorkflowDescribeTool::new(config.clone())
+                .with_skill_allowlist(skill_allowlist.cloned()),
+        ),
         // Skill registry tools — browse/search/install from remote registries.
         // Browse and search are read-only (default-ON); install is a write
         // operation (fetches remote content and writes to disk).
@@ -614,8 +627,15 @@ pub fn all_tools_with_runtime(
     // Generic remote MCP bridge tools. These let the agent enumerate
     // named MCP servers and forward `tools/call` through the core
     // instead of hardcoding one bespoke MCP integration per server.
-    let mcp_registry =
-        Arc::new(crate::openhuman::mcp_client::McpServerRegistry::from_config(root_config));
+    let mcp_registry = {
+        let base = crate::openhuman::mcp_client::McpServerRegistry::from_config(root_config);
+        // Scope the MCP surface to the active profile's allowlist. `None` keeps
+        // every configured server; `Some(&[])` yields an empty registry.
+        match mcp_allowlist {
+            Some(allowed) => Arc::new(base.retaining_servers(allowed)),
+            None => Arc::new(base),
+        }
+    };
     if !mcp_registry.is_empty() {
         tools.push(Box::new(McpListServersTool::new(Arc::clone(&mcp_registry))));
         tools.push(Box::new(McpListToolsTool::new(Arc::clone(&mcp_registry))));

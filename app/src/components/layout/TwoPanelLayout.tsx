@@ -1,28 +1,20 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   ensurePanelLayout,
+  type PanelLayout,
   selectPanelLayout,
   setSidebarVisible,
   setSidebarWidth,
   toggleSidebar,
-  type PanelLayout,
 } from '../../store/layoutSlice';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
 
 const namespace = 'two-panel-layout';
 
 function debug(message: string, payload?: Record<string, unknown>) {
   if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
     console.debug(`[${namespace}] ${message}`, payload ?? {});
   }
 }
@@ -82,12 +74,23 @@ export interface TwoPanelLayoutProps {
   sidebarClassName?: string;
   contentClassName?: string;
   /**
+   * Shared appearance applied to BOTH panes — the card background, rounded
+   * corners, border and shadow live here (not in the panes' own content) so
+   * every two-pane screen gets a consistent look for free. Pass `''` to opt
+   * out (e.g. a flush, borderless layout).
+   */
+  paneClassName?: string;
+  /**
    * Show a thin rail with a reopen button when the sidebar is hidden. Defaults
    * to false because chat surfaces its own toggle in the header; standalone
    * uses can opt in.
    */
   showCollapsedRail?: boolean;
 }
+
+/** Default card look shared by both panes. */
+export const DEFAULT_PANE_CLASS =
+  'bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800';
 
 const DEFAULT_MIN_WIDTH = 180;
 const DEFAULT_MAX_WIDTH = 480;
@@ -115,6 +118,7 @@ export default function TwoPanelLayout({
   className = '',
   sidebarClassName = '',
   contentClassName = '',
+  paneClassName = DEFAULT_PANE_CLASS,
   showCollapsedRail = false,
 }: TwoPanelLayoutProps) {
   const { t } = useT();
@@ -150,8 +154,6 @@ export default function TwoPanelLayout({
   const persistedWidth = clampWidth(layout.sidebarWidth, minSidebarWidth, maxSidebarWidth);
   const width = dragWidth ?? persistedWidth;
 
-  const dragStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
-
   const commitWidth = useCallback(
     (next: number) => {
       const clamped = clampWidth(Math.round(next), minSidebarWidth, maxSidebarWidth);
@@ -161,57 +163,60 @@ export default function TwoPanelLayout({
     [dispatch, id, minSidebarWidth, maxSidebarWidth]
   );
 
-  const onPointerMove = useCallback(
-    (e: PointerEvent) => {
-      const start = dragStartRef.current;
-      if (!start) return;
-      const next = clampWidth(
-        start.startWidth + (e.clientX - start.startX),
-        minSidebarWidth,
-        maxSidebarWidth
-      );
-      dragWidthRef.current = next;
-      setDragWidth(next);
-    },
-    [minSidebarWidth, maxSidebarWidth]
-  );
-
-  const onPointerUp = useCallback(() => {
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerup', onPointerUp);
-    document.body.style.removeProperty('cursor');
-    document.body.style.removeProperty('user-select');
-    dragStartRef.current = null;
-    const finalWidth = dragWidthRef.current;
-    dragWidthRef.current = null;
-    setDragWidth(null);
-    if (finalWidth != null) commitWidth(finalWidth);
-  }, [onPointerMove, commitWidth]);
+  // Active-drag teardown, stashed so an unmount mid-drag can detach the global
+  // listeners. Each drag installs locally-scoped `pointermove`/`pointerup`
+  // handlers (hoisted function declarations so they can reference each other),
+  // keeping the resize self-contained without inter-callback dependencies.
+  const dragCleanupRef = useRef<(() => void) | null>(null);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault();
-      dragStartRef.current = { startX: e.clientX, startWidth: width };
-      dragWidthRef.current = width;
-      setDragWidth(width);
+      const startX = e.clientX;
+      const startWidth = width;
+      dragWidthRef.current = startWidth;
+      setDragWidth(startWidth);
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
-      debug('drag start', { id, startWidth: width });
+
+      function handleMove(ev: PointerEvent) {
+        const next = clampWidth(
+          startWidth + (ev.clientX - startX),
+          minSidebarWidth,
+          maxSidebarWidth
+        );
+        dragWidthRef.current = next;
+        setDragWidth(next);
+      }
+      function detach() {
+        window.removeEventListener('pointermove', handleMove);
+        window.removeEventListener('pointerup', stop);
+        document.body.style.removeProperty('cursor');
+        document.body.style.removeProperty('user-select');
+        dragCleanupRef.current = null;
+      }
+      function stop() {
+        detach();
+        const finalWidth = dragWidthRef.current;
+        dragWidthRef.current = null;
+        setDragWidth(null);
+        if (finalWidth != null) commitWidth(finalWidth);
+      }
+
+      dragCleanupRef.current = detach;
+      window.addEventListener('pointermove', handleMove);
+      window.addEventListener('pointerup', stop);
+      debug('drag start', { id, startWidth });
     },
-    [width, onPointerMove, onPointerUp, id]
+    [width, minSidebarWidth, maxSidebarWidth, commitWidth, id]
   );
 
   // Detach global listeners if we unmount mid-drag.
   useLayoutEffect(() => {
     return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      document.body.style.removeProperty('cursor');
-      document.body.style.removeProperty('user-select');
+      dragCleanupRef.current?.();
     };
-  }, [onPointerMove, onPointerUp]);
+  }, []);
 
   const onDividerKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -231,7 +236,7 @@ export default function TwoPanelLayout({
       {isOpen && (
         <>
           <div
-            className={`flex-shrink-0 min-w-0 overflow-hidden ${sidebarClassName}`}
+            className={`flex-shrink-0 min-w-0 overflow-hidden ${paneClassName} ${sidebarClassName}`}
             style={{ width }}
             data-testid={`two-panel-sidebar-${id}`}>
             {sidebar}
@@ -250,9 +255,11 @@ export default function TwoPanelLayout({
             data-analytics-id="two-panel-resize-divider"
             onPointerDown={onPointerDown}
             onKeyDown={onDividerKeyDown}
-            className="group relative flex-shrink-0 w-2 mx-0.5 cursor-col-resize self-stretch focus:outline-none"
+            className="group relative mx-1 flex flex-shrink-0 w-3 cursor-col-resize select-none items-center justify-center self-stretch focus:outline-none"
             title={t('layout.resizeSidebar')}>
-            <span className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-stone-200 dark:bg-neutral-800 transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500" />
+            {/* Transparent hit area (full height) with a short opaque grab
+                handle centered vertically — clearer than a hairline rule. */}
+            <span className="h-10 w-1 rounded-full bg-stone-400 dark:bg-neutral-500 transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500" />
           </div>
         </>
       )}
@@ -272,7 +279,9 @@ export default function TwoPanelLayout({
         </button>
       )}
 
-      <div className={`flex-1 min-w-0 ${contentClassName}`}>{children}</div>
+      <div className={`flex-1 min-w-0 overflow-hidden ${paneClassName} ${contentClassName}`}>
+        {children}
+      </div>
     </div>
   );
 }

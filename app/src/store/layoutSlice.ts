@@ -19,9 +19,7 @@ interface LayoutState {
   panels: Record<string, PanelLayout>;
 }
 
-const initialState: LayoutState = {
-  panels: {},
-};
+const initialState: LayoutState = { panels: {} };
 
 /**
  * Default geometry applied the first time a panel id is seen. Component-level

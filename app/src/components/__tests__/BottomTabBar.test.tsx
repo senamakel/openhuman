@@ -188,12 +188,11 @@ describe('BottomTabBar', () => {
     expect(humanBtn.querySelector('.truncate')).not.toBeNull();
   });
 
-  it('renders the raised Assistant center button with data-walkthrough="tab-chat"', async () => {
+  it('renders the Assistant tab with data-walkthrough="tab-chat"', async () => {
     await renderBottomTabBar('/home');
     const assistantBtn = screen.getByRole('button', { name: 'Assistant' });
     expect(assistantBtn).toBeInTheDocument();
     expect(assistantBtn).toHaveAttribute('data-walkthrough', 'tab-chat');
-    expect(assistantBtn).toHaveClass('center-fab');
   });
 
   it('navigates to /chat and tracks the change when the Assistant center button is clicked', async () => {
@@ -246,8 +245,6 @@ describe('BottomTabBar', () => {
     const brainBtn = screen.getByRole('button', { name: 'Brain' });
     expect(brainBtn).toBeInTheDocument();
     expect(brainBtn).toHaveAttribute('data-walkthrough', 'tab-brain');
-    // It's a regular pill tab now, not the raised center FAB.
-    expect(brainBtn).not.toHaveClass('center-fab');
   });
 
   it('renders the Connections tab with data-walkthrough="tab-connections"', async () => {

@@ -88,11 +88,11 @@ const messages: TranslationMap = {
   'settings.groups.notifications': '알림',
   'settings.groups.about': '정보',
   'settings.assistant.personality': '개성',
-  'settings.assistant.personalityDesc': '이름, 설명 및 SOUL.md 페르소나',
+  'settings.personalityFace.title': '성격 및 얼굴',
+  'settings.personalityFace.menuDesc': '어시스턴트의 성격을 조정하고 얼굴을 선택하세요',
   'settings.assistant.voice': '음성',
   'settings.assistant.voiceDesc': '음성-텍스트 및 텍스트-음성 설정',
   'settings.assistant.faceMascot': '얼굴 / 마스코트',
-  'settings.assistant.faceMascotDesc': '앱 전체에서 사용되는 마스코트 색상 선택',
   'settings.assistant.backgroundActivity': '잠재의식',
   'settings.assistant.backgroundActivityDesc':
     '어시스턴트가 백그라운드에서 얼마나 활발히 작동하는지 제어',

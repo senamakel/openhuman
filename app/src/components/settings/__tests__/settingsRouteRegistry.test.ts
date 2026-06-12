@@ -28,9 +28,9 @@ describe('entryRoute', () => {
   });
 
   it('falls back to the id when no explicit route is set', () => {
-    const entry = findEntryById('persona');
+    const entry = findEntryById('personality');
     expect(entry).toBeDefined();
-    expect(entryRoute(entry!)).toBe('persona');
+    expect(entryRoute(entry!)).toBe('personality');
   });
 
   it('returns the overridden route for build-info (→ about)', () => {
@@ -75,9 +75,9 @@ describe('findEntryById', () => {
 
 describe('findEntryByRoute', () => {
   it('returns an entry for a known route', () => {
-    const entry = findEntryByRoute('persona');
+    const entry = findEntryByRoute('personality');
     expect(entry).toBeDefined();
-    expect(entry!.id).toBe('persona');
+    expect(entry!.id).toBe('personality');
   });
 
   it('returns undefined for an unknown route', () => {

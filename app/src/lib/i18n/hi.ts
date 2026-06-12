@@ -88,11 +88,11 @@ const messages: TranslationMap = {
   'settings.groups.notifications': 'सूचनाएं',
   'settings.groups.about': 'के बारे में',
   'settings.assistant.personality': 'व्यक्तित्व',
-  'settings.assistant.personalityDesc': 'नाम, विवरण और SOUL.md व्यक्तित्व',
+  'settings.personalityFace.title': 'व्यक्तित्व और चेहरा',
+  'settings.personalityFace.menuDesc': 'अपने सहायक का चरित्र समायोजित करें और उसका चेहरा चुनें',
   'settings.assistant.voice': 'आवाज़',
   'settings.assistant.voiceDesc': 'स्पीच-टू-टेक्स्ट और टेक्स्ट-टू-स्पीच सेटिंग्स',
   'settings.assistant.faceMascot': 'चेहरा / शुभंकर',
-  'settings.assistant.faceMascotDesc': 'ऐप में उपयोग किया जाने वाला शुभंकर रंग चुनें',
   'settings.assistant.backgroundActivity': 'सबकॉन्शस',
   'settings.assistant.backgroundActivityDesc':
     'नियंत्रित करें कि आपका सहायक पृष्ठभूमि में कितना सक्रिय काम करे',

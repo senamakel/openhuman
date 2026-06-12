@@ -89,11 +89,12 @@ const messages: TranslationMap = {
   'settings.groups.notifications': 'Notifiche',
   'settings.groups.about': 'Informazioni',
   'settings.assistant.personality': 'Personalità',
-  'settings.assistant.personalityDesc': 'Nome, descrizione e persona SOUL.md',
+  'settings.personalityFace.title': 'Personalità e volto',
+  'settings.personalityFace.menuDesc':
+    'Regola il carattere del tuo assistente e scegli il suo volto',
   'settings.assistant.voice': 'Voce',
   'settings.assistant.voiceDesc': 'Impostazioni di sintesi vocale e riconoscimento vocale',
   'settings.assistant.faceMascot': 'Faccia / Mascotte',
-  'settings.assistant.faceMascotDesc': "Scegli il colore della mascotte usato nell'app",
   'settings.assistant.backgroundActivity': 'Subconscio',
   'settings.assistant.backgroundActivityDesc':
     'Controlla quanto attivamente il tuo assistente lavora in background',

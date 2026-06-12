@@ -88,11 +88,11 @@ const messages: TranslationMap = {
   'settings.groups.notifications': 'বিজ্ঞপ্তি',
   'settings.groups.about': 'সম্পর্কে',
   'settings.assistant.personality': 'ব্যক্তিত্ব',
-  'settings.assistant.personalityDesc': 'নাম, বিবরণ এবং SOUL.md ব্যক্তিত্ব',
+  'settings.personalityFace.title': 'ব্যক্তিত্ব ও মুখ',
+  'settings.personalityFace.menuDesc': 'আপনার সহকারীর চরিত্র সাজান এবং এর মুখ বেছে নিন',
   'settings.assistant.voice': 'ভয়েস',
   'settings.assistant.voiceDesc': 'স্পিচ-টু-টেক্সট ও টেক্সট-টু-স্পিচ সেটিংস',
   'settings.assistant.faceMascot': 'মুখ / মাসকট',
-  'settings.assistant.faceMascotDesc': 'অ্যাপ জুড়ে ব্যবহৃত মাসকট রঙ বাছুন',
   'settings.assistant.backgroundActivity': 'সাবকনশাস',
   'settings.assistant.backgroundActivityDesc':
     'আপনার সহকারী পটভূমিতে কতটা সক্রিয় তা নিয়ন্ত্রণ করুন',

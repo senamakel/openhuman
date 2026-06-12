@@ -88,11 +88,11 @@ const messages: TranslationMap = {
   'settings.groups.notifications': 'Уведомления',
   'settings.groups.about': 'О приложении',
   'settings.assistant.personality': 'Личность',
-  'settings.assistant.personalityDesc': 'Имя, описание и персона SOUL.md',
+  'settings.personalityFace.title': 'Личность и лицо',
+  'settings.personalityFace.menuDesc': 'Настройте характер ассистента и выберите его лицо',
   'settings.assistant.voice': 'Голос',
   'settings.assistant.voiceDesc': 'Настройки распознавания и синтеза речи',
   'settings.assistant.faceMascot': 'Лицо / Маскот',
-  'settings.assistant.faceMascotDesc': 'Выберите цвет маскота в приложении',
   'settings.assistant.backgroundActivity': 'Подсознание',
   'settings.assistant.backgroundActivityDesc':
     'Управление тем, насколько активно ассистент работает в фоне',

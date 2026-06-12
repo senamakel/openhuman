@@ -134,10 +134,11 @@ describe('SettingsHome', () => {
 
     it('renders the Assistant group items', () => {
       renderSettingsHome();
-      // Only Personality + Face/Mascot stay layman-facing; the rest moved to
-      // Developer & Diagnostics.
-      expect(screen.getByTestId('settings-nav-persona')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-mascot')).toBeInTheDocument();
+      // Only the merged Personality & Face entry stays layman-facing; the rest
+      // moved to Developer & Diagnostics.
+      expect(screen.getByTestId('settings-nav-personality')).toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-persona')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-mascot')).not.toBeInTheDocument();
       expect(screen.queryByTestId('settings-nav-voice')).not.toBeInTheDocument();
       expect(screen.queryByTestId('settings-nav-permissions')).not.toBeInTheDocument();
       expect(screen.queryByTestId('settings-nav-activity-level')).not.toBeInTheDocument();
@@ -225,20 +226,12 @@ describe('SettingsHome', () => {
       expect(mockNavigateToSettings).toHaveBeenCalledWith('account');
     });
 
-    it('navigates to persona when Personality is clicked', async () => {
+    it('navigates to personality when Personality & Face is clicked', async () => {
       const user = userEvent.setup();
       renderSettingsHome({ withI18n: true });
 
-      await user.click(screen.getByTestId('settings-nav-persona'));
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('persona');
-    });
-
-    it('navigates to mascot when Face / Mascot is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByTestId('settings-nav-mascot'));
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('mascot');
+      await user.click(screen.getByTestId('settings-nav-personality'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('personality');
     });
 
     it('navigates to notifications-hub when Notifications is clicked', async () => {

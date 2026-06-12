@@ -26,7 +26,6 @@ import DevWorkflowPanel from '../components/settings/panels/DevWorkflowPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import EventLogPanel from '../components/settings/panels/EventLogPanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
-import MascotPanel from '../components/settings/panels/MascotPanel';
 import McpServerPanel from '../components/settings/panels/McpServerPanel';
 import MemoryDataPanel from '../components/settings/panels/MemoryDataPanel';
 import MemoryDebugPanel from '../components/settings/panels/MemoryDebugPanel';
@@ -35,7 +34,7 @@ import MigrationPanel from '../components/settings/panels/MigrationPanel';
 import ModelHealthPanel from '../components/settings/panels/ModelHealthPanel';
 import NotificationsTabbedPanel from '../components/settings/panels/NotificationsTabbedPanel';
 import PermissionsPanel from '../components/settings/panels/PermissionsPanel';
-import PersonaPanel from '../components/settings/panels/PersonaPanel';
+import PersonalityPanel from '../components/settings/panels/PersonalityPanel';
 import PrivacyPanel from '../components/settings/panels/PrivacyPanel';
 import RecoveryPhrasePanel from '../components/settings/panels/RecoveryPhrasePanel';
 import SandboxSettingsPanel from '../components/settings/panels/SandboxSettingsPanel';
@@ -534,8 +533,10 @@ const Settings = () => {
         <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
         <Route path="voice" element={wrapSettingsPage(<VoicePanel />)} />
         <Route path="notifications" element={wrapSettingsPage(<NotificationsTabbedPanel />)} />
-        <Route path="mascot" element={wrapSettingsPage(<MascotPanel />)} />
-        <Route path="persona" element={wrapSettingsPage(<PersonaPanel />)} />
+        <Route path="personality" element={wrapSettingsPage(<PersonalityPanel />)} />
+        {/* Legacy slugs for the merged Personality & Face page. */}
+        <Route path="mascot" element={<Navigate to="/settings/personality#face" replace />} />
+        <Route path="persona" element={<Navigate to="/settings/personality" replace />} />
         <Route path="appearance" element={wrapSettingsPage(<AppearancePanel />)} />
         <Route path="agent-access" element={wrapSettingsPage(<AgentAccessPanel />)} />
         <Route path="permissions" element={wrapSettingsPage(<PermissionsPanel />)} />

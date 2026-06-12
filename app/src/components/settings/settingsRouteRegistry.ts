@@ -128,18 +128,22 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     searchKeywords: ['agents', 'autonomy', 'access'],
   },
   {
-    id: 'persona',
-    titleKey: 'settings.assistant.personality',
-    descriptionKey: 'settings.assistant.personalityDesc',
+    // personality: merged Personality & Face page (formerly persona and
+    // mascot — those slugs redirect here).
+    id: 'personality',
+    titleKey: 'settings.personalityFace.title',
+    descriptionKey: 'settings.personalityFace.menuDesc',
     section: 'home',
-    searchKeywords: ['personality', 'tone', 'character', 'persona'],
-  },
-  {
-    id: 'mascot',
-    titleKey: 'settings.assistant.faceMascot',
-    descriptionKey: 'settings.assistant.faceMascotDesc',
-    section: 'home',
-    searchKeywords: ['face', 'avatar', 'tiny', 'character'],
+    searchKeywords: [
+      'personality',
+      'tone',
+      'character',
+      'persona',
+      'face',
+      'avatar',
+      'mascot',
+      'tiny',
+    ],
   },
 
   // --- Features & Integrations group (section hubs) ---

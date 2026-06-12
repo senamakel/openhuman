@@ -103,11 +103,11 @@ const en: TranslationMap = {
 
   // Settings — assistant group items
   'settings.assistant.personality': 'Personality',
-  'settings.assistant.personalityDesc': 'Name, description, and SOUL.md persona',
+  'settings.personalityFace.title': 'Personality & Face',
+  'settings.personalityFace.menuDesc': "Tune your assistant's character and pick its face",
   'settings.assistant.voice': 'Voice',
   'settings.assistant.voiceDesc': 'Speech-to-text and text-to-speech settings',
   'settings.assistant.faceMascot': 'Face / Mascot',
-  'settings.assistant.faceMascotDesc': 'Pick the mascot color used across the app',
   'settings.assistant.backgroundActivity': 'Subconscious',
   'settings.assistant.backgroundActivityDesc':
     'Control how actively your assistant works in the background',

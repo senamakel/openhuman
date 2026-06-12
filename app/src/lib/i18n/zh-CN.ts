@@ -1826,6 +1826,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': '编辑会话标题',
   'chat.hideSidebar': '隐藏侧边栏',
   'chat.showSidebar': '显示侧边栏',
+  'layout.resizeSidebar': '调整侧边栏大小',
+  'layout.showSidebar': '显示侧边栏',
   'chat.newThreadShortcut': '新建对话',
   'chat.new': '新建',
   'chat.failedToLoadMessages': '加载消息失败',

@@ -1982,6 +1982,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Thread-Titel bearbeiten',
   'chat.hideSidebar': 'Seitenleiste ausblenden',
   'chat.showSidebar': 'Seitenleiste anzeigen',
+  'layout.resizeSidebar': 'Seitenleiste anpassen',
+  'layout.showSidebar': 'Seitenleiste anzeigen',
   'chat.newThreadShortcut': 'Neuer Thread (/new)',
   'chat.new': 'Neu',
   'chat.failedToLoadMessages': 'Nachrichten konnten nicht geladen werden',

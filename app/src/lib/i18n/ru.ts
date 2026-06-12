@@ -1950,6 +1950,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Изменить название ветки',
   'chat.hideSidebar': 'Скрыть боковую панель',
   'chat.showSidebar': 'Показать боковую панель',
+  'layout.resizeSidebar': 'Изменить размер боковой панели',
+  'layout.showSidebar': 'Показать боковую панель',
   'chat.newThreadShortcut': 'Новый чат (/new)',
   'chat.new': 'Новый',
   'chat.failedToLoadMessages': 'Не удалось загрузить сообщения',

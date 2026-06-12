@@ -26,6 +26,7 @@ import chatRuntimeReducer from './chatRuntimeSlice';
 import companionReducer from './companionSlice';
 import connectivityReducer from './connectivitySlice';
 import coreModeReducer from './coreModeSlice';
+import layoutReducer from './layoutSlice';
 import localeReducer from './localeSlice';
 import mascotReducer from './mascotSlice';
 import notificationReducer from './notificationSlice';
@@ -145,6 +146,15 @@ const threadPersistConfig = {
 };
 const persistedThreadReducer = persistReducer(threadPersistConfig, threadReducer);
 
+// Two-pane layout geometry (sidebar visibility + dragged widths), keyed by
+// panel id. Persisted per user so the chat sidebar layout survives reloads.
+const layoutPersistConfig = {
+  key: 'layout',
+  storage,
+  whitelist: ['panels'],
+};
+const persistedLayoutReducer = persistReducer(layoutPersistConfig, layoutReducer);
+
 // Persist only previously persisted mascot appearance fields plus the custom
 // GIF override added by this feature; leave existing non-persisted mascot
 // fields as runtime state to avoid changing refresh behavior.
@@ -204,6 +214,7 @@ export const store = configureStore({
     socket: socketReducer,
     connectivity: connectivityReducer,
     thread: persistedThreadReducer,
+    layout: persistedLayoutReducer,
     chatRuntime: persistedChatRuntimeReducer,
     companion: companionReducer,
     agentProfiles: agentProfileReducer,

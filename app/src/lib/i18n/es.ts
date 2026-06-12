@@ -1975,6 +1975,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Editar título del hilo',
   'chat.hideSidebar': 'Ocultar barra lateral',
   'chat.showSidebar': 'Mostrar barra lateral',
+  'layout.resizeSidebar': 'Redimensionar barra lateral',
+  'layout.showSidebar': 'Mostrar barra lateral',
   'chat.newThreadShortcut': 'Nuevo hilo (/new)',
   'chat.new': 'Nuevo',
   'chat.failedToLoadMessages': 'No se pudieron cargar los mensajes',

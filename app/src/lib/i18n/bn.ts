@@ -1933,6 +1933,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'থ্রেডের শিরোনাম সম্পাদনা করুন',
   'chat.hideSidebar': 'সাইডবার লুকান',
   'chat.showSidebar': 'সাইডবার দেখান',
+  'layout.resizeSidebar': 'সাইডবারের আকার পরিবর্তন করুন',
+  'layout.showSidebar': 'সাইডবার দেখান',
   'chat.newThreadShortcut': 'নতুন থ্রেড (/new)',
   'chat.new': 'নতুন',
   'chat.failedToLoadMessages': 'বার্তা লোড করতে ব্যর্থ',

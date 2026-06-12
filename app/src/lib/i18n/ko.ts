@@ -1912,6 +1912,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': '스레드 제목 편집',
   'chat.hideSidebar': '사이드바 숨기기',
   'chat.showSidebar': '사이드바 표시',
+  'layout.resizeSidebar': '사이드바 크기 조정',
+  'layout.showSidebar': '사이드바 표시',
   'chat.newThreadShortcut': '새 스레드 (/new)',
   'chat.new': '새로 만들기',
   'chat.failedToLoadMessages': '메시지를 불러오지 못했습니다',

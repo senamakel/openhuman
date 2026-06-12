@@ -1937,6 +1937,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Edit judul utas',
   'chat.hideSidebar': 'Sembunyikan sidebar',
   'chat.showSidebar': 'Tampilkan sidebar',
+  'layout.resizeSidebar': 'Ubah ukuran sidebar',
+  'layout.showSidebar': 'Tampilkan sidebar',
   'chat.newThreadShortcut': 'Thread baru (/new)',
   'chat.new': 'Baru',
   'chat.failedToLoadMessages': 'Gagal memuat pesan',

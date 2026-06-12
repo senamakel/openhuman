@@ -1955,6 +1955,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Edytuj tytuł wątku',
   'chat.hideSidebar': 'Ukryj panel boczny',
   'chat.showSidebar': 'Pokaż panel boczny',
+  'layout.resizeSidebar': 'Zmień rozmiar panelu bocznego',
+  'layout.showSidebar': 'Pokaż panel boczny',
   'chat.newThreadShortcut': 'Nowy wątek (/new)',
   'chat.new': 'Nowy',
   'chat.failedToLoadMessages': 'Nie udało się wczytać wiadomości',

@@ -1966,6 +1966,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Modifica titolo del thread',
   'chat.hideSidebar': 'Nascondi barra laterale',
   'chat.showSidebar': 'Mostra barra laterale',
+  'layout.resizeSidebar': 'Ridimensiona barra laterale',
+  'layout.showSidebar': 'Mostra barra laterale',
   'chat.newThreadShortcut': 'Nuovo thread (/new)',
   'chat.new': 'Nuovo',
   'chat.failedToLoadMessages': 'Impossibile caricare i messaggi',

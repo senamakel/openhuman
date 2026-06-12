@@ -2331,6 +2331,8 @@ const en: TranslationMap = {
   'chat.editThreadTitle': 'Edit thread title',
   'chat.hideSidebar': 'Hide sidebar',
   'chat.showSidebar': 'Show sidebar',
+  'layout.resizeSidebar': 'Resize sidebar',
+  'layout.showSidebar': 'Show sidebar',
   'chat.newThreadShortcut': 'New thread (/new)',
   'chat.new': 'New',
   'chat.failedToLoadMessages': 'Failed to load messages',

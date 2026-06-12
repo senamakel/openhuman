@@ -1932,6 +1932,8 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'थ्रेड शीर्षक संपादित करें',
   'chat.hideSidebar': 'साइडबार छुपाएं',
   'chat.showSidebar': 'साइडबार दिखाएं',
+  'layout.resizeSidebar': 'साइडबार का आकार बदलें',
+  'layout.showSidebar': 'साइडबार दिखाएं',
   'chat.newThreadShortcut': 'नई थ्रेड (/new)',
   'chat.new': 'नई',
   'chat.failedToLoadMessages': 'मैसेज लोड नहीं हो पाए',

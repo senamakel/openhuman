@@ -185,6 +185,7 @@ pub(super) fn build_session_fingerprint(
     temperature: Option<f64>,
     target_agent_id: String,
     provider_role: &str,
+    profile: &AgentProfile,
 ) -> SessionCacheFingerprint {
     SessionCacheFingerprint {
         model_override,
@@ -196,5 +197,8 @@ pub(super) fn build_session_fingerprint(
         target_agent_id,
         autonomy_signature: autonomy_signature(config),
         model_registry_signature: model_registry_signature(config),
+        // Any change to the resolved profile (id, allowlists, soul, …) changes
+        // this string and forces a session-agent rebuild — see the field doc.
+        profile_signature: crate::openhuman::profiles::profile_signature(profile),
     }
 }

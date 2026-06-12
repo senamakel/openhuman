@@ -598,7 +598,15 @@ pub fn all_tools_with_runtime(
 
     // gitbooks — answers questions about OpenHuman by calling the
     // GitBook MCP server. Two tools mirroring the upstream MCP tools.
-    if root_config.gitbooks.enabled {
+    // Gitbooks is modelled as a legacy MCP server (`McpServerRegistry`), so it
+    // honours the same per-profile `mcp_allowlist`: a profile that scopes its
+    // MCP servers and omits "gitbooks" must not see this surface either.
+    let gitbooks_allowed = mcp_allowlist.is_none_or(|allowed| {
+        allowed
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case("gitbooks"))
+    });
+    if root_config.gitbooks.enabled && gitbooks_allowed {
         tools.push(Box::new(GitbooksSearchTool::new(
             root_config.gitbooks.endpoint.clone(),
             root_config.gitbooks.timeout_secs,
@@ -608,6 +616,8 @@ pub fn all_tools_with_runtime(
             root_config.gitbooks.timeout_secs,
         )));
         tracing::debug!("[gitbooks] registered gitbooks_search + gitbooks_get_page");
+    } else if root_config.gitbooks.enabled {
+        tracing::debug!("[profiles] gitbooks tools suppressed by profile mcp allowlist");
     }
 
     // MCP setup-agent tool surface (search/get/request_secret/test/install).

@@ -60,6 +60,7 @@ pub(crate) async fn run_chat_task(
         temperature,
         target_agent_id.clone(),
         provider_role,
+        &profile,
     );
 
     let prior = {

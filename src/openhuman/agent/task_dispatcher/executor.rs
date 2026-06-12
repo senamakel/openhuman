@@ -62,6 +62,7 @@ pub(super) fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> 
             return ResolvedExecutor {
                 agent_id: profile.agent_id.clone(),
                 prompt_suffix: Some(preamble),
+                profile: Some(profile.clone()),
                 label: format!("personality:{handle}"),
             };
         }
@@ -81,6 +82,7 @@ pub(super) fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> 
         return ResolvedExecutor {
             agent_id: "orchestrator".to_string(),
             prompt_suffix: Some(suffix),
+            profile: None,
             label: format!("skill:{handle}"),
         };
     }
@@ -93,6 +95,7 @@ pub(super) fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> 
         return ResolvedExecutor {
             agent_id: handle.to_string(),
             prompt_suffix: None,
+            profile: None,
             label: format!("agent:{handle}"),
         };
     }
@@ -146,7 +149,7 @@ pub(super) async fn run_autonomous(
         &executor.agent_id,
         None,
         executor.prompt_suffix.clone(),
-        None,
+        executor.profile.as_ref(),
     )
     .map_err(|e| format!("build agent: {e:#}"))?;
     agent.set_event_context(run_id.to_string(), "task");
@@ -183,9 +186,18 @@ pub(super) async fn run_autonomous(
     // already authorized the parent turn that dispatched this task. Label
     // as CLI so the approval gate doesn't fail closed on internal
     // sub-agent invocations.
-    let run = crate::openhuman::agent::turn_origin::with_origin(
-        crate::openhuman::agent::turn_origin::AgentTurnOrigin::Cli,
-        with_autonomous_iter_cap(TASK_RUN_MAX_ITERATIONS, agent.run_single(prompt)),
+    // Gate memory-source recall for this background run to the profile's
+    // allowlist (None = unrestricted), mirroring the web chat turn.
+    let memory_scope = executor
+        .profile
+        .as_ref()
+        .and_then(|p| p.memory_sources.clone());
+    let run = crate::openhuman::memory::source_scope::with_source_scope(
+        memory_scope,
+        crate::openhuman::agent::turn_origin::with_origin(
+            crate::openhuman::agent::turn_origin::AgentTurnOrigin::Cli,
+            with_autonomous_iter_cap(TASK_RUN_MAX_ITERATIONS, agent.run_single(prompt)),
+        ),
     );
     let result = match session_thread_id.as_deref() {
         Some(thread_id) => {

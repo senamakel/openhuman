@@ -1319,26 +1319,6 @@ const Conversations = ({
           is clamped to true) so the single onboarding thread is always visible. */}
       {!isSidebar && effectiveShowSidebar && (
         <div className="w-64 flex-shrink-0 flex flex-col bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 dark:border-neutral-800">
-            <h2 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
-              {t('chat.threads')}
-            </h2>
-            <button
-              data-testid="new-thread-sidebar-button"
-              data-analytics-id="chat-sidebar-new-thread"
-              onClick={() => void handleCreateNewThread()}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors"
-              title={t('chat.newThread')}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-            </button>
-          </div>
           <div className="px-4 py-2 border-b border-stone-50 dark:border-neutral-800">
             <PillTabBar
               items={labelTabs}

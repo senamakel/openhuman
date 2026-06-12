@@ -192,13 +192,23 @@ impl Tool for WorkflowDescribeTool {
 /// Read a bundled resource file from a skill.
 pub struct WorkflowReadResourceTool {
     workspace_dir: PathBuf,
+    skill_allowlist: SkillAllowlist,
 }
 
 impl WorkflowReadResourceTool {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
+            skill_allowlist: None,
         }
+    }
+
+    /// Scope resource reads to a per-profile allowlist of `dir_name` slugs, so a
+    /// restricted profile can't exfiltrate the bundled scripts/docs of a
+    /// workflow outside its skill set.
+    pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
+        self.skill_allowlist = allowlist;
+        self
     }
 }
 
@@ -229,6 +239,14 @@ impl Tool for WorkflowReadResourceTool {
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         log::debug!("[tool][workflows] read_resource invoked");
         let skill_id = read_workflow_id(&args)?;
+        if !skill_allowed(&self.skill_allowlist, &skill_id) {
+            log::debug!(
+                "[profiles] read_workflow_resource blocked by profile allowlist: {skill_id}"
+            );
+            return Ok(ToolResult::error(format!(
+                "read_workflow_resource: workflow `{skill_id}` is not available to the active agent profile"
+            )));
+        }
         let relative_path = read_required_str(&args, "relative_path")?;
         let content =
             read_workflow_resource(&self.workspace_dir, &skill_id, Path::new(&relative_path))

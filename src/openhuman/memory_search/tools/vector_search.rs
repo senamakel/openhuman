@@ -142,7 +142,9 @@ impl Tool for MemoryVectorSearchTool {
             now_ms - (i64::from(days) * 86_400_000)
         });
 
-        // Fetch candidate chunks with metadata filters
+        // Fetch candidate chunks with metadata filters. The per-profile
+        // memory-source gate is applied inside `list_chunks` (before the row
+        // limit), so disallowed-source chunks can't starve permitted ones.
         let query = ListChunksQuery {
             source_kind,
             source_id: None,
@@ -150,22 +152,11 @@ impl Tool for MemoryVectorSearchTool {
             since_ms,
             until_ms: None,
             limit: Some(1000),
+            source_scope: crate::openhuman::memory::source_scope::current_source_scope(),
         };
 
         let chunks = list_chunks(&config, &query)
             .map_err(|e| anyhow::anyhow!("memory_vector_search: list chunks failed: {e}"))?;
-
-        // Per-profile memory-source gate: drop chunks from sources the active
-        // profile didn't allow (non-source chunks always pass). None = all.
-        let chunks: Vec<_> = chunks
-            .into_iter()
-            .filter(|c| {
-                crate::openhuman::memory::source_scope::chunk_source_allowed(
-                    &c.metadata.tags,
-                    &c.metadata.source_id,
-                )
-            })
-            .collect();
 
         if chunks.is_empty() {
             return Ok(ToolResult::success("No chunks found matching filters."));

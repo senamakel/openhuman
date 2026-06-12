@@ -332,7 +332,10 @@ pub fn all_tools_with_runtime(
         // Skill runtime probes — resolve the reusable Node/Python runtimes
         // that skill execution relies on before a script-backed skill runs.
         Box::new(SkillRuntimeResolveRuntimesTool::new(config.clone())),
-        Box::new(WorkflowReadResourceTool::new(config.clone())),
+        Box::new(
+            WorkflowReadResourceTool::new(config.clone())
+                .with_skill_allowlist(skill_allowlist.cloned()),
+        ),
         Box::new(WorkflowRecentRunsTool::new(config.clone())),
         Box::new(WorkflowReadRunLogTool::new(config.clone())),
         Box::new(WorkflowCreateTool::new(config.clone())),

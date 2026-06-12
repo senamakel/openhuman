@@ -97,10 +97,17 @@ const MEMORY_SOURCE_TAG: &str = "memory_sources";
 /// from a `mem_src:<id>:<item>` composite (reader-based sources). `None` scope
 /// is unrestricted.
 pub fn chunk_source_allowed(tags: &[String], source_id: &str) -> bool {
-    let set = match current_source_scope() {
-        None => return true,
-        Some(set) => set,
-    };
+    match current_source_scope() {
+        None => true,
+        Some(set) => chunk_source_allowed_in(&set, tags, source_id),
+    }
+}
+
+/// Pure form of [`chunk_source_allowed`] against an explicit allowlist `set`,
+/// for callers that already hold the scope (e.g. `list_chunks`, which captures
+/// it on the async side and filters DB rows before applying the row limit so a
+/// disallowed-source-heavy prefix can't starve permitted rows).
+pub fn chunk_source_allowed_in(set: &HashSet<String>, tags: &[String], source_id: &str) -> bool {
     let is_memory_source = tags.iter().any(|t| t == MEMORY_SOURCE_TAG);
     if !is_memory_source {
         return true;

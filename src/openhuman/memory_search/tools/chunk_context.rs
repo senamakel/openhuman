@@ -100,11 +100,14 @@ impl Tool for MemoryChunkContextTool {
             ));
         }
 
-        // Get all chunks from the same source, ordered by timestamp
+        // Get all chunks from the same source, ordered by timestamp. The
+        // source-scope gate also applies here (the target was already checked
+        // above; this keeps the window consistent). None = unrestricted.
         let source_query = ListChunksQuery {
             source_kind: Some(source_kind),
             source_id: Some(source_id.clone()),
             limit: Some(500),
+            source_scope: crate::openhuman::memory::source_scope::current_source_scope(),
             ..Default::default()
         };
         let mut source_chunks = list_chunks(&config, &source_query)

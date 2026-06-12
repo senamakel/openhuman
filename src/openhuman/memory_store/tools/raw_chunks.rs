@@ -92,6 +92,8 @@ impl Tool for MemoryStoreRawChunksTool {
                 ));
             }
         }
+        // The per-profile memory-source gate is applied inside `list_chunks`
+        // (before the row limit). None = unrestricted.
         let query = ListChunksQuery {
             source_kind,
             source_id: parsed.source_id,
@@ -99,6 +101,7 @@ impl Tool for MemoryStoreRawChunksTool {
             since_ms: parsed.since_ms,
             until_ms: parsed.until_ms,
             limit: parsed.limit,
+            source_scope: crate::openhuman::memory::source_scope::current_source_scope(),
         };
         let mut rows = list_chunks(&cfg, &query)?;
         if let Some(required) = parsed.tags_all_of.as_ref() {
@@ -110,14 +113,6 @@ impl Tool for MemoryStoreRawChunksTool {
                 });
             }
         }
-        // Per-profile memory-source gate: drop chunks from sources the active
-        // profile didn't allow (non-source chunks always pass). None = all.
-        rows.retain(|c| {
-            crate::openhuman::memory::source_scope::chunk_source_allowed(
-                &c.metadata.tags,
-                &c.metadata.source_id,
-            )
-        });
         log::debug!(
             "[tool][memory_store] raw_chunks returning rows={}",
             rows.len()

@@ -218,6 +218,7 @@ impl Tool for DelegateToPersonalityTool {
             initial_history: None,
             checkpoint_dir: None,
             worktree_action_dir: None,
+            run_queue: None,
         };
 
         match run_subagent(&definition, &prompt, options).await {

@@ -5,7 +5,8 @@
  *   - **Memory**: knowledge graph, tree status, and connected sources.
  *   - **Subconscious**: background thinking engine controls.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import IntelligenceSubconsciousTab from '../components/intelligence/IntelligenceSubconsciousTab';
 import { MemoryControls } from '../components/intelligence/MemoryControls';
@@ -55,9 +56,35 @@ const navIcon = (d: string) => (
   </svg>
 );
 
+const BRAIN_TABS: readonly BrainTab[] = [
+  'graph',
+  'sources',
+  'sync',
+  'intelligence',
+  'memory-data',
+  'memory-debug',
+  'analysis-views',
+  'subconscious',
+];
+
 export default function Brain() {
   const { t } = useT();
-  const [activeTab, setActiveTab] = useState<BrainTab>('graph');
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Tab is reflected in `?tab=` so deep links (and the redirected old settings
+  // routes) land on the right sub-page.
+  const activeTab = useMemo<BrainTab>(() => {
+    const raw = new URLSearchParams(location.search).get('tab');
+    return (BRAIN_TABS as readonly string[]).includes(raw ?? '') ? (raw as BrainTab) : 'graph';
+  }, [location.search]);
+  const setActiveTab = useCallback(
+    (tab: BrainTab) => {
+      const params = new URLSearchParams(location.search);
+      params.set('tab', tab);
+      navigate({ pathname: location.pathname, search: `?${params.toString()}` });
+    },
+    [location.pathname, location.search, navigate]
+  );
   const [graph, setGraph] = useState<GraphExportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<GraphMode>('tree');

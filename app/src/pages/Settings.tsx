@@ -11,8 +11,6 @@ import AgentActivityPanel from '../components/settings/panels/AgentActivityPanel
 import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
 import AgentEditorPage from '../components/settings/panels/AgentEditorPage';
 import AgentsPanel from '../components/settings/panels/AgentsPanel';
-import AIPanel from '../components/settings/panels/AIPanel';
-import AnalysisViewsPanel from '../components/settings/panels/AnalysisViewsPanel';
 import AppearancePanel from '../components/settings/panels/AppearancePanel';
 import ApprovalHistoryPanel from '../components/settings/panels/ApprovalHistoryPanel';
 import AutocompleteDebugPanel from '../components/settings/panels/AutocompleteDebugPanel';
@@ -24,13 +22,10 @@ import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
 import DevicesPanel from '../components/settings/panels/DevicesPanel';
 import DevWorkflowPanel from '../components/settings/panels/DevWorkflowPanel';
-import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import EventLogPanel from '../components/settings/panels/EventLogPanel';
 import IntegrationsPanel from '../components/settings/panels/IntegrationsPanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
 import McpServerPanel from '../components/settings/panels/McpServerPanel';
-import MemoryDataPanel from '../components/settings/panels/MemoryDataPanel';
-import MemoryDebugPanel from '../components/settings/panels/MemoryDebugPanel';
 import MemorySyncPanel from '../components/settings/panels/MemorySyncPanel';
 import MigrationPanel from '../components/settings/panels/MigrationPanel';
 import ModelHealthPanel from '../components/settings/panels/ModelHealthPanel';
@@ -42,7 +37,6 @@ import RecoveryPhrasePanel from '../components/settings/panels/RecoveryPhrasePan
 import SandboxSettingsPanel from '../components/settings/panels/SandboxSettingsPanel';
 import ScreenAwarenessDebugPanel from '../components/settings/panels/ScreenAwarenessDebugPanel';
 import ScreenIntelligencePanel from '../components/settings/panels/ScreenIntelligencePanel';
-import SearchPanel from '../components/settings/panels/SearchPanel';
 import SecurityPanel from '../components/settings/panels/SecurityPanel';
 import TasksPanel from '../components/settings/panels/TasksPanel';
 import TeamInvitesPanel from '../components/settings/panels/TeamInvitesPanel';
@@ -53,11 +47,9 @@ import ToolPolicyDiagnosticsPanel from '../components/settings/panels/ToolPolicy
 import ToolsPanel from '../components/settings/panels/ToolsPanel';
 import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoiceDebugPanel from '../components/settings/panels/VoiceDebugPanel';
-import VoicePanel from '../components/settings/panels/VoicePanel';
 import WalletBalancesPanel from '../components/settings/panels/WalletBalancesPanel';
 import WebhooksDebugPanel from '../components/settings/panels/WebhooksDebugPanel';
 import WorkflowRunnerPanel from '../components/settings/panels/WorkflowRunnerPanel';
-import Intelligence from './Intelligence';
 
 const WrappedSettingsPage = ({ children }: { children: ReactNode }) => {
   // The surrounding two-pane card (bg / border / rounding) is now provided by
@@ -111,10 +103,14 @@ const Settings = () => {
           <Route path="devices" element={wrapSettingsPage(<DevicesPanel />)} />
 
           {/* ── Assistant ───────────────────────────────────────────── */}
-          <Route path="llm" element={wrapSettingsPage(<AIPanel />)} />
-          <Route path="embeddings" element={wrapSettingsPage(<EmbeddingsPanel />)} />
+          {/* LLM / Voice / Embeddings moved to the Connections page. */}
+          <Route path="llm" element={<Navigate to="/connections?tab=llm" replace />} />
+          <Route
+            path="embeddings"
+            element={<Navigate to="/connections?tab=embeddings" replace />}
+          />
           <Route path="usage" element={wrapSettingsPage(<UsagePanel />)} />
-          <Route path="voice" element={wrapSettingsPage(<VoicePanel />)} />
+          <Route path="voice" element={<Navigate to="/connections?tab=voice" replace />} />
           <Route path="personality" element={wrapSettingsPage(<PersonalityPanel />)} />
           <Route path="agents" element={wrapSettingsPage(<AgentsPanel />)} />
           <Route path="agents/new" element={wrapSettingsPage(<AgentEditorPage />)} />
@@ -149,7 +145,8 @@ const Settings = () => {
             element={wrapSettingsPage(<ToolPolicyDiagnosticsPanel />)}
           />
           <Route path="mcp-server" element={wrapSettingsPage(<McpServerPanel />)} />
-          <Route path="search" element={wrapSettingsPage(<SearchPanel />)} />
+          {/* Search engine settings moved to the Connections page. */}
+          <Route path="search" element={<Navigate to="/connections?tab=search" replace />} />
           <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
           <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
           <Route path="tasks" element={wrapSettingsPage(<TasksPanel />)} />
@@ -166,16 +163,20 @@ const Settings = () => {
           <Route path="webhooks-debug" element={wrapSettingsPage(<WebhooksDebugPanel />)} />
           <Route path="event-log" element={wrapSettingsPage(<EventLogPanel />)} />
           <Route path="model-health" element={wrapSettingsPage(<ModelHealthPanel />)} />
-          <Route path="memory-data" element={wrapSettingsPage(<MemoryDataPanel />)} />
-          <Route path="memory-debug" element={wrapSettingsPage(<MemoryDebugPanel />)} />
-          <Route path="analysis-views" element={wrapSettingsPage(<AnalysisViewsPanel />)} />
-          <Route path="intelligence" element={wrapSettingsPage(<Intelligence />)} />
+          {/* Knowledge & Memory panels moved to the Brain page. */}
+          <Route path="memory-data" element={<Navigate to="/brain?tab=memory-data" replace />} />
+          <Route path="memory-debug" element={<Navigate to="/brain?tab=memory-debug" replace />} />
+          <Route
+            path="analysis-views"
+            element={<Navigate to="/brain?tab=analysis-views" replace />}
+          />
+          <Route path="intelligence" element={<Navigate to="/brain?tab=intelligence" replace />} />
           <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
           <Route path="permissions" element={wrapSettingsPage(<PermissionsPanel />)} />
 
           {/* ── Legacy slugs → redirects (deep-link compatibility) ──── */}
           {/* Old hub pages */}
-          <Route path="ai" element={<Navigate to="/settings/llm" replace />} />
+          <Route path="ai" element={<Navigate to="/connections?tab=llm" replace />} />
           <Route path="agents-settings" element={<Navigate to="/settings/agents" replace />} />
           <Route
             path="features"

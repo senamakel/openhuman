@@ -105,7 +105,7 @@ export default function ChatComposer({
       )}
 
       {/* Single row: [+] textarea [mic] [send] — buttons anchored to bottom */}
-      <div className="flex items-end gap-1 px-3 py-2">
+      <div className="flex items-end gap-2 pl-3 pr-2.5 py-2.5">
         {/* Attach button */}
         {attachmentsEnabled && (
           <button
@@ -117,7 +117,7 @@ export default function ChatComposer({
             disabled={
               composerInteractionBlocked || isSending || attachments.length >= maxAttachments
             }
-            className="mb-0.5 flex-shrink-0 flex items-center justify-center text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            className="mb-px flex-shrink-0 flex items-center justify-center w-7 h-7 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -133,7 +133,7 @@ export default function ChatComposer({
         <div className="relative flex-1 min-w-0">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-1.5 py-0.5 text-sm leading-normal font-sans">
+            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-0 py-1 text-sm leading-5 font-sans">
             <span className="invisible">{inputValue}</span>
             <span className="text-stone-500 dark:text-neutral-400/50">
               {inlineCompletionSuffix}
@@ -153,7 +153,7 @@ export default function ChatComposer({
             placeholder={t('chat.typeMessage')}
             rows={1}
             disabled={composerInteractionBlocked || isSending}
-            className="relative z-10 w-full resize-none border-0 bg-transparent px-1.5 py-0.5 text-sm leading-normal whitespace-pre-wrap break-words font-sans text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative z-10 w-full resize-none border-0 bg-transparent px-0 py-1 text-sm leading-5 whitespace-pre-wrap break-words font-sans text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -165,7 +165,7 @@ export default function ChatComposer({
           title={t('composer.voiceMode')}
           onClick={onSwitchToMicCloud}
           disabled={composerInteractionBlocked || isSending}
-          className="mb-0.5 flex-shrink-0 flex items-center justify-center text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          className="mb-px flex-shrink-0 flex items-center justify-center w-7 h-7 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
@@ -193,7 +193,7 @@ export default function ChatComposer({
             void onSend();
           }}
           disabled={!hasContent || composerInteractionBlocked || isSending}
-          className="mb-0.5 flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-primary-500 hover:bg-primary-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          className="mb-px flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-primary-500 hover:bg-primary-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
           {isSending ? (
             <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle

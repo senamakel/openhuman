@@ -380,7 +380,7 @@ const messages: TranslationMap = {
   'skills.tabs.explorer': 'Skill',
   'skills.tabs.meetings': 'Rapat Google Meet',
   'skills.tabs.mcp': 'MCP Server',
-  'connections.tabs.apps': 'Aplikasi',
+  'connections.tabs.composio': 'Composio',
   'connections.tabs.messaging': 'Pesan',
   'connections.tabs.mcp': 'Server MCP',
   'connections.tabs.skills': 'Keterampilan',

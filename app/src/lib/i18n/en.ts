@@ -417,7 +417,7 @@ const en: TranslationMap = {
   'skills.tabs.meetings': 'Google Meet',
   'skills.tabs.mcp': 'MCP Servers',
   // Connections page tabs (Phase 2 rename)
-  'connections.tabs.apps': 'Apps',
+  'connections.tabs.composio': 'Composio',
   'connections.tabs.messaging': 'Messaging',
   'connections.tabs.mcp': 'MCP Servers',
   'connections.tabs.skills': 'Skills',

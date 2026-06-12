@@ -355,7 +355,7 @@ interface SkillItem {
  * Back-compat: the old ?tab= values (composio, channels, mcp, meetings) are
  * normalised to the new values so existing deep links continue to work.
  */
-type ConnectionsTab = 'apps' | 'messaging' | 'mcp' | 'skills' | 'meetings';
+type ConnectionsTab = 'composio' | 'messaging' | 'mcp' | 'skills' | 'meetings';
 
 export default function Skills() {
   const { t } = useT();
@@ -371,7 +371,7 @@ export default function Skills() {
     const raw = params.get('tab');
     // New canonical values
     if (
-      raw === 'apps' ||
+      raw === 'composio' ||
       raw === 'messaging' ||
       raw === 'mcp' ||
       raw === 'skills' ||
@@ -379,12 +379,12 @@ export default function Skills() {
     )
       return raw;
     // Legacy back-compat aliases
-    if (raw === 'composio') return 'apps';
+    if (raw === 'apps') return 'composio';
     if (raw === 'channels') return 'messaging';
     if (raw === 'tools') return 'mcp';
     if (raw === 'talents') return 'meetings';
     if (raw === 'explorer') return 'skills';
-    return 'apps';
+    return 'composio';
   })();
   const [activeTab, setActiveTab] = useState<ConnectionsTab>(initialTab);
   const dispatch = useAppDispatch();
@@ -817,7 +817,7 @@ export default function Skills() {
               selected={activeTab}
               onChange={setActiveTab}
               items={[
-                { value: 'apps', label: t('connections.tabs.apps') },
+                { value: 'composio', label: t('connections.tabs.composio') },
                 { value: 'messaging', label: t('connections.tabs.messaging') },
                 { value: 'mcp', label: t('connections.tabs.mcp') },
                 { value: 'skills', label: t('connections.tabs.skills') },
@@ -888,7 +888,7 @@ export default function Skills() {
                   </div>
                 )}
 
-                {activeTab === 'apps' && (
+                {activeTab === 'composio' && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
                     <div className="px-1 pb-3 pt-1">
                       <div className="flex items-center gap-2">
@@ -964,7 +964,7 @@ export default function Skills() {
                   </div>
                 )}
 
-                {activeTab === 'apps' && otherGroups.map(group => renderGroup(group))}
+                {activeTab === 'composio' && otherGroups.map(group => renderGroup(group))}
 
                 {activeTab === 'skills' && <SkillsExplorerTab onToast={addToast} />}
 

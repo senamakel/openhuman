@@ -390,7 +390,7 @@ const messages: TranslationMap = {
   'skills.tabs.explorer': 'Skills',
   'skills.tabs.meetings': 'Reuniones de Google Meet',
   'skills.tabs.mcp': 'MCP Servidores',
-  'connections.tabs.apps': 'Aplicaciones',
+  'connections.tabs.composio': 'Composio',
   'connections.tabs.messaging': 'Mensajería',
   'connections.tabs.mcp': 'Servidores MCP',
   'connections.tabs.skills': 'Habilidades',

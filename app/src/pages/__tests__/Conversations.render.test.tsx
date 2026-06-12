@@ -542,7 +542,10 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
   });
 
-  // Covers lines 1417-1439: budget-exceeded banner
+  // CycleUsagePill moved into ChatComposer toolbar (#3611) — quota-pill
+  // loading test removed; the "Loading…" text no longer renders here.
+
+  // Covers budget banner: budget-exhausted banner + OpenRouter CTA
   it('renders budget-limit banner when teamUsage is present', async () => {
     // cycleBudgetUsd: 0 → renders "Your included budget is complete" branch
     const teamUsage = { cycleBudgetUsd: 0, remainingUsd: 0, cycleSpentUsd: 0, cycleEndsAt: null };
@@ -565,7 +568,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       await renderConversations({ thread: emptyThreadState });
     });
 
-    // Budget-exceeded banner (lines 1417-1439) — cycleBudgetUsd=0 gives "included budget" message
     expect(screen.getByText(/Your included budget is complete/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Use OpenRouter free models/i })).toBeInTheDocument();
   });
@@ -1547,6 +1549,9 @@ describe('Conversations — worker thread back-to-parent navigation (#1624)', ()
     // cycleBudgetUsd=0 → false branch of cycleBudgetUsd > 0 ternary → budgetComplete key
     expect(screen.getByText(/Your included budget is complete/i)).toBeInTheDocument();
   });
+
+  // CycleUsagePill (cycle-pill tooltip, loading pulse) moved into ChatComposer
+  // toolbar (#3611) — those tests removed; the pill no longer renders here.
 });
 
 describe('Conversations — thread title editing', () => {

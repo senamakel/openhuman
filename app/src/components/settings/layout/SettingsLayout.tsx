@@ -34,7 +34,9 @@ const SettingsLayout = () => {
         minSidebarWidth={220}
         maxSidebarWidth={420}
         sidebar={
-          <div className="h-full overflow-y-auto">
+          // overflow-hidden so the scroll lives on the sidebar's own content
+          // area (below the fixed search header), not this wrapper.
+          <div className="h-full overflow-hidden">
             <SettingsSidebar />
           </div>
         }>

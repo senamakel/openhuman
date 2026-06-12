@@ -38,7 +38,8 @@ use anyhow::Result;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::tree_source::get_or_create_source_tree;
 use crate::openhuman::memory_store::chunks::store::{
-    count_raw_paths_ingested_with_prefix, filter_raw_paths_not_ingested, mark_raw_paths_ingested,
+    count_raw_paths_ingested_with_prefix, filter_raw_paths_not_ingested,
+    list_chunk_raw_ref_paths_with_prefix, mark_raw_paths_ingested,
 };
 use crate::openhuman::memory_store::content::paths::slugify_source_id;
 use crate::openhuman::memory_store::content::raw::{raw_source_dir, sanitize_uid};
@@ -146,9 +147,21 @@ pub fn raw_coverage(
     }
 
     let rel_paths: Vec<String> = refs.iter().map(|r| r.rel.clone()).collect();
-    let pending_rels: HashSet<String> = filter_raw_paths_not_ingested(config, &rel_paths)?
+    let mut pending_rels: HashSet<String> = filter_raw_paths_not_ingested(config, &rel_paths)?
         .into_iter()
         .collect();
+
+    // A raw file referenced by a persisted chunk (`raw_refs_json`) is
+    // already in the tree via the chunk pipeline — gmail mirrors every
+    // email to raw/ AND ingests it as a chunk. Those files are covered;
+    // re-summarising them through the rebuild path would duplicate
+    // content (and burn LLM batches) for sources that never use the
+    // summarise-direct path at all.
+    let chunk_covered = list_chunk_raw_ref_paths_with_prefix(config, &rel_prefix)?;
+    if !chunk_covered.is_empty() {
+        pending_rels.retain(|rel| !chunk_covered.contains(rel));
+    }
+
     let pending: Vec<RawFileRef> = refs
         .into_iter()
         .filter(|r| pending_rels.contains(&r.rel))
@@ -731,6 +744,62 @@ mod tests {
         assert_eq!(cov.covered, 1, "commit file backfilled as covered");
         assert_eq!(cov.pending.len(), 1);
         assert!(cov.pending[0].rel.ends_with("200_42.md"));
+    }
+
+    #[test]
+    fn chunk_raw_refs_count_as_covered() {
+        use crate::openhuman::memory_store::chunks::store::{
+            set_chunk_raw_refs, upsert_chunks, RawRef,
+        };
+        use crate::openhuman::memory_store::chunks::types::{
+            chunk_id, Chunk, Metadata, SourceKind as ChunkSourceKind, SourceRef,
+        };
+
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let scope = "gmail:user-at-example-dot-com";
+
+        // Two raw email files; one is referenced by a persisted chunk
+        // (the gmail pipeline shape), the other is orphaned.
+        write_raw(&cfg, scope, "emails", "1000_msg-a.md", "email a");
+        write_raw(&cfg, scope, "emails", "2000_msg-b.md", "email b");
+
+        let now = chrono::Utc::now();
+        let c = Chunk {
+            id: chunk_id(ChunkSourceKind::Email, scope, 0, "email a"),
+            content: "email a".into(),
+            metadata: Metadata {
+                source_kind: ChunkSourceKind::Email,
+                source_id: scope.into(),
+                owner: "user".into(),
+                timestamp: now,
+                time_range: (now, now),
+                tags: vec![],
+                source_ref: Some(SourceRef::new("gmail://msg-a")),
+                path_scope: None,
+            },
+            token_count: 2,
+            seq_in_source: 0,
+            created_at: now,
+            partial_message: false,
+        };
+        upsert_chunks(&cfg, &[c.clone()]).unwrap();
+        set_chunk_raw_refs(
+            &cfg,
+            &c.id,
+            &[RawRef {
+                path: "raw/gmail-user-at-example-dot-com/emails/1000_msg-a.md".into(),
+                start: 0,
+                end: None,
+            }],
+        )
+        .unwrap();
+
+        let cov = raw_coverage(&cfg, scope, scope).unwrap();
+        assert_eq!(cov.total, 2);
+        assert_eq!(cov.covered, 1, "chunk-referenced file is covered");
+        assert_eq!(cov.pending.len(), 1);
+        assert!(cov.pending[0].rel.ends_with("2000_msg-b.md"));
     }
 
     #[tokio::test]

@@ -82,7 +82,9 @@ export const { ensurePanelLayout, setSidebarVisible, toggleSidebar, setSidebarWi
  */
 export const selectPanelLayout =
   (id: string, defaults?: Partial<PanelLayout>) =>
-  (state: { layout: LayoutState }): PanelLayout =>
-    state.layout.panels[id] ?? { ...DEFAULT_PANEL_LAYOUT, ...defaults };
+  (state: { layout?: LayoutState }): PanelLayout =>
+    // Optional-chain `layout` so screens render even in minimal test stores
+    // that don't wire the (purely cosmetic) layout reducer.
+    state.layout?.panels[id] ?? { ...DEFAULT_PANEL_LAYOUT, ...defaults };
 
 export default layoutSlice.reducer;

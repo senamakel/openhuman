@@ -66,12 +66,12 @@ const WrappedSettingsPage = ({
   children: ReactNode;
   maxWidthClass?: string;
 }) => {
+  // The surrounding two-pane card (bg / border / rounding) is now provided by
+  // SettingsLayout's content pane, so panels sit directly on it — matching the
+  // conversations page — rather than nesting a second card here.
   return (
     <div className="p-4 pt-4">
-      <div
-        className={`${maxWidthClass} mx-auto bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 overflow-hidden`}>
-        {children}
-      </div>
+      <div className={`${maxWidthClass} mx-auto`}>{children}</div>
     </div>
   );
 };

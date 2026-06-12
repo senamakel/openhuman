@@ -13,7 +13,7 @@ test.describe('Google Meet Connections tab', () => {
     await dismissWalkthroughIfPresent(page);
   });
 
-  test('opens the Meetings tab and shows the meeting link modal', async ({ page }) => {
+  test('opens the Meetings tab and shows the inline join form', async ({ page }) => {
     await expect
       .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
       .toContain('/connections');
@@ -23,18 +23,11 @@ test.describe('Google Meet Connections tab', () => {
       'true'
     );
 
-    await page.getByTestId('meeting-bots-banner').click();
-
-    // PASSIVE MODE: the modal asks for the Meeting link only. The
-    // "Your Name in This Meeting" (respondTo) text field added in #3555
-    // is hidden because the backend bot no longer listens for a wake
-    // phrase. It stays Google-Meet only — no other platforms.
-    const dialog = page.getByRole('dialog', { name: 'Send OpenHuman to a meeting' });
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByLabel('Meeting link')).toBeVisible();
-    await expect(dialog.locator('input[type="url"]')).toHaveCount(1);
-    await expect(dialog.locator('input[type="text"]')).toHaveCount(0);
-    await expect(dialog.getByText('Zoom')).toHaveCount(0);
-    await expect(dialog.getByText('Microsoft Teams')).toHaveCount(0);
+    // The join form renders inline on the Meetings tab (no banner/modal).
+    await expect(page.getByText('Send OpenHuman to a meeting')).toBeVisible();
+    await expect(page.getByText('Meeting link')).toBeVisible();
+    await expect(page.locator('input[type="url"]')).toHaveCount(1);
+    await expect(page.getByText('Zoom')).toHaveCount(0);
+    await expect(page.getByText('Microsoft Teams')).toHaveCount(0);
   });
 });

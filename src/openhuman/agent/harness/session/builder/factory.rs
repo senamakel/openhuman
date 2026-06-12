@@ -750,6 +750,26 @@ impl Agent {
         // and then paying a repair pass on turn 1 just to recover the real
         // delegation surface.
         let prewarmed_integrations = crate::openhuman::composio::cached_active_integrations(config);
+        // Per-profile connector gate: scope the connected-integration view to the
+        // active profile's `composio_integrations` allowlist (None = all). This
+        // governs both the system-prompt "connected integrations" surface and the
+        // agent's `connected_integrations` field below, so a profile only ever
+        // sees the toolkits it was granted.
+        let prewarmed_integrations = match (
+            prewarmed_integrations,
+            profile.and_then(|p| p.composio_integrations.as_deref()),
+        ) {
+            (Some(list), Some(allow)) => {
+                let filtered = crate::openhuman::profiles::filter_integrations(&list, Some(allow));
+                tracing::debug!(
+                    before = list.len(),
+                    after = filtered.len(),
+                    "[profiles] composio connectors scoped to profile allowlist"
+                );
+                Some(filtered)
+            }
+            (other, _) => other,
+        };
         let prewarmed_integrations_slice = prewarmed_integrations.as_deref().unwrap_or(&[]);
 
         // Resolve the per-agent delegation tool set and visible-tool

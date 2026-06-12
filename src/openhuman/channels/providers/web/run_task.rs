@@ -216,11 +216,16 @@ pub(crate) async fn run_chat_task(
     // duration of the turn (None = all). Nested inside the thread-id scope so
     // every memory-tree query the agent makes this turn is gated. See
     // memory::source_scope.
+    // `run_single`'s future is very large; box it so the two ambient-scope
+    // wrappers below hold a pointer rather than inlining the whole future into
+    // this already-large `run_chat_task` frame (which otherwise overflows the
+    // default test-thread stack — see the channels web-turn coverage tests).
+    let turn = Box::pin(agent.run_single(message));
     let result = match crate::openhuman::inference::provider::thread_context::with_thread_id(
         thread_id.to_string(),
         crate::openhuman::memory::source_scope::with_source_scope(
             profile.memory_sources.clone(),
-            agent.run_single(message),
+            turn,
         ),
     )
     .await

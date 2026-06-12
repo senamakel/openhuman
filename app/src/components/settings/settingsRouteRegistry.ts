@@ -31,15 +31,32 @@ export type SettingsSection =
   | 'notifications'
   | 'developer';
 
-/** Sidebar groups for the two-pane settings layout, in display order. */
-export type SettingsNavGroup = 'general' | 'assistant' | 'data' | 'connections' | 'system';
+/**
+ * Sidebar groups for the two-pane settings layout, in display order. The former
+ * "System" group's Developer & Diagnostics sub-sections are now first-class
+ * top-level groups.
+ */
+export type SettingsNavGroup =
+  | 'general'
+  | 'assistant'
+  | 'data'
+  | 'connections'
+  | 'knowledgeMemory'
+  | 'agentsAutonomy'
+  | 'modelsInference'
+  | 'automationIntegrations'
+  | 'diagnosticsLogs';
 
 export const NAV_GROUP_ORDER: SettingsNavGroup[] = [
   'general',
   'assistant',
   'data',
   'connections',
-  'system',
+  'knowledgeMemory',
+  'agentsAutonomy',
+  'modelsInference',
+  'automationIntegrations',
+  'diagnosticsLogs',
 ];
 
 /** i18n keys for the sidebar group labels. */
@@ -48,7 +65,12 @@ export const NAV_GROUP_LABEL_KEY: Record<SettingsNavGroup, string> = {
   assistant: 'settings.navGroups.assistant',
   data: 'settings.navGroups.data',
   connections: 'settings.navGroups.connections',
-  system: 'settings.navGroups.system',
+  // Promoted from the old Developer & Diagnostics sub-sections.
+  knowledgeMemory: 'settings.devGroups.knowledgeMemory',
+  agentsAutonomy: 'settings.devGroups.agentsAutonomy',
+  modelsInference: 'settings.devGroups.modelsInference',
+  automationIntegrations: 'settings.devGroups.automationIntegrations',
+  diagnosticsLogs: 'settings.devGroups.diagnosticsLogs',
 };
 
 export interface SettingsRegistryEntry {
@@ -222,8 +244,9 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.aboutDesc',
     section: 'home',
     searchKeywords: ['version', 'build', 'update', 'developer mode'],
-    navGroup: 'system',
-    navOrder: 1,
+    // Moved out of the retired "System" group; sits at the end of General.
+    navGroup: 'general',
+    navOrder: 99,
   },
 
   // =========================================================================
@@ -439,15 +462,15 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   //   (all moved to their canonical section pages).
   // =========================================================================
   {
-    // developer-options is the section page itself — its breadcrumb is just [Settings].
+    // developer-options is the legacy aggregator panel — kept routable for deep
+    // links, but no longer a sidebar entry now that its children are expanded
+    // directly into the Developer & Diagnostics group.
     id: 'developer-options',
     titleKey: 'settings.developerDiagnostics',
     descriptionKey: 'settings.developerDiagnosticsDesc',
     section: 'home',
     devOnly: true,
     searchKeywords: ['developer', 'diagnostics', 'debug'],
-    navGroup: 'system',
-    navOrder: 0,
   },
   // Knowledge & Memory
   {
@@ -456,6 +479,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.intelligence.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'knowledgeMemory',
   },
   {
     id: 'memory-data',
@@ -463,6 +487,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'devOptions.memoryInspectionDesc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'knowledgeMemory',
     searchKeywords: ['memory', 'inspect'],
   },
   {
@@ -471,6 +496,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'devOptions.debugPanelsDesc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'knowledgeMemory',
   },
   {
     id: 'analysis-views',
@@ -478,6 +504,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.analysisViews.menuDesc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'knowledgeMemory',
   },
   // Diagnostics & Logs
   {
@@ -486,6 +513,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.voiceDebug.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'modelsInference',
   },
   {
     id: 'screen-awareness-debug',
@@ -493,6 +521,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.screenAwareness.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'modelsInference',
   },
   {
     id: 'event-log',
@@ -500,6 +529,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.eventLog.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'diagnosticsLogs',
     searchKeywords: ['events', 'log'],
   },
   {
@@ -508,6 +538,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'devOptions.toolPolicyDiagnosticsDesc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'agentsAutonomy',
   },
   {
     id: 'model-health',
@@ -515,6 +546,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.modelHealth.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'modelsInference',
   },
   {
     id: 'webhooks-debug',
@@ -522,6 +554,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.webhooks.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'automationIntegrations',
   },
   // Automation & Integrations (debug)
   {
@@ -530,6 +563,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.mcpServer.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'automationIntegrations',
     searchKeywords: ['mcp', 'server'],
   },
   {
@@ -538,6 +572,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.devWorkflow.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'automationIntegrations',
   },
   {
     id: 'cron-jobs',
@@ -545,6 +580,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.cronJobs.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'automationIntegrations',
     searchKeywords: ['cron', 'schedule', 'jobs'],
   },
   {
@@ -553,6 +589,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.tasks.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'automationIntegrations',
   },
   {
     // composio-triggers: renders ComposioTriagePanel — debug alias kept under Developer Options.
@@ -561,6 +598,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.composio.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'automationIntegrations',
   },
   // Agent debug
   {
@@ -569,6 +607,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.agentChat.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'agentsAutonomy',
   },
   {
     id: 'local-model-debug',
@@ -576,6 +615,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.localModelDebug.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'agentsAutonomy',
   },
   {
     id: 'skills-runner',
@@ -583,6 +623,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.skillsRunner.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'agentsAutonomy',
   },
   {
     id: 'autocomplete-debug',
@@ -590,6 +631,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.autocomplete.desc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'modelsInference',
   },
   // Build Info (about page alias in dev menu)
   {
@@ -599,6 +641,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.buildInfo.menuDesc',
     section: 'developer',
     devOnly: true,
+    navGroup: 'diagnosticsLogs',
   },
 
   // =========================================================================
@@ -622,12 +665,14 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     devOnly: true,
   },
   {
-    // search: internal search debug panel, not surfaced in the main nav.
+    // search: web search engine settings (Brave / Google / Tavily provider).
+    // Surfaced under Developer & Diagnostics → Automation & Integrations.
     id: 'search',
     titleKey: 'settings.search.title',
     section: 'developer',
-    hiddenDeepLink: true,
     devOnly: true,
+    navGroup: 'automationIntegrations',
+    searchKeywords: ['search', 'engine', 'web', 'brave', 'google', 'tavily', 'provider'],
   },
   {
     // permissions: moved to developer options, not a standalone home entry.

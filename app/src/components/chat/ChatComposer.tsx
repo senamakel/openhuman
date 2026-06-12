@@ -104,8 +104,8 @@ export default function ChatComposer({
         </div>
       )}
 
-      {/* Single row: [+] textarea [mic] [send] — buttons anchored to bottom */}
-      <div className="flex items-end gap-2 p-3">
+      {/* Single row: [+] textarea [mic] [send] */}
+      <div className="flex items-center gap-2 p-3">
         {/* Attach button */}
         {attachmentsEnabled && (
           <button
@@ -130,7 +130,7 @@ export default function ChatComposer({
         )}
 
         {/* Textarea with ghost completion */}
-        <div className="relative flex-1 min-w-0 self-center">
+        <div className="relative flex-1 min-w-0">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-0.5 text-sm leading-5 font-sans">

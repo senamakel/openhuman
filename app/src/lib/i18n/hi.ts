@@ -2025,6 +2025,8 @@ const messages: TranslationMap = {
   'token.turnsCount': 'इस सत्र में अनुमान चक्र',
   'token.turn': 'चक्र',
   'token.turns': 'चक्र',
+  'token.ctxLabel': 'CTX',
+  'token.contextWindow': 'संदर्भ विंडो उपयोग (अंतिम चक्र)',
   'catalog.noCapabilityBinding': 'कोई कैपेबिलिटी बाइंडिंग नहीं',
   'catalog.downloadFailed': 'डाउनलोड विफल',
   'catalog.active': 'एक्टिव',

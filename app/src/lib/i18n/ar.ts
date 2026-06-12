@@ -1983,6 +1983,8 @@ const messages: TranslationMap = {
   'token.turnsCount': 'دورات الاستدلال في هذه الجلسة',
   'token.turn': 'دورة',
   'token.turns': 'دورات',
+  'token.ctxLabel': 'سياق',
+  'token.contextWindow': 'استخدام نافذة السياق (آخر دورة)',
   'catalog.noCapabilityBinding': 'لا يوجد ربط بالإمكانات',
   'catalog.downloadFailed': 'فشل التنزيل',
   'catalog.active': 'نشط',

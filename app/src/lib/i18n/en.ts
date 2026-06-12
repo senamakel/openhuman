@@ -2430,6 +2430,8 @@ const en: TranslationMap = {
   'token.turnsCount': 'Inference turns this session',
   'token.turn': 'turn',
   'token.turns': 'turns',
+  'token.ctxLabel': 'CTX',
+  'token.contextWindow': 'Context window usage (last turn)',
 
   // Catalog
   'catalog.noCapabilityBinding': 'No capability binding',

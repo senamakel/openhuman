@@ -2079,6 +2079,8 @@ const messages: TranslationMap = {
   'token.turnsCount': "Tours d'inférence cette session",
   'token.turn': 'tour',
   'token.turns': 'tours',
+  'token.ctxLabel': 'CTX',
+  'token.contextWindow': 'Utilisation de la fenêtre de contexte (dernier tour)',
   'catalog.noCapabilityBinding': 'Aucune liaison de fonctionnalité',
   'catalog.downloadFailed': 'Échec du téléchargement',
   'catalog.active': 'Actif',

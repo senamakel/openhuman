@@ -2044,6 +2044,8 @@ const messages: TranslationMap = {
   'token.turnsCount': 'Циклы вывода за сессию',
   'token.turn': 'цикл',
   'token.turns': 'циклов',
+  'token.ctxLabel': 'CTX',
+  'token.contextWindow': 'Использование окна контекста (последний цикл)',
   'catalog.noCapabilityBinding': 'Нет привязки возможностей',
   'catalog.downloadFailed': 'Загрузка не удалась',
   'catalog.active': 'Активно',

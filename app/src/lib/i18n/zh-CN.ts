@@ -1920,6 +1920,8 @@ const messages: TranslationMap = {
   'token.turnsCount': '本次会话推理轮次',
   'token.turn': '轮',
   'token.turns': '轮',
+  'token.ctxLabel': '上下文',
+  'token.contextWindow': '上下文窗口使用量（上一轮）',
   'catalog.noCapabilityBinding': '无能力绑定',
   'catalog.downloadFailed': '下载失败',
   'catalog.active': '活跃',

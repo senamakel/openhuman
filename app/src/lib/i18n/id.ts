@@ -2030,6 +2030,8 @@ const messages: TranslationMap = {
   'token.turnsCount': 'Putaran inferensi sesi ini',
   'token.turn': 'putaran',
   'token.turns': 'putaran',
+  'token.ctxLabel': 'CTX',
+  'token.contextWindow': 'Penggunaan jendela konteks (putaran terakhir)',
   'catalog.noCapabilityBinding': 'Tidak ada binding kemampuan',
   'catalog.downloadFailed': 'Unduhan gagal',
   'catalog.active': 'Aktif',

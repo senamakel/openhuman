@@ -2048,6 +2048,8 @@ const messages: TranslationMap = {
   'token.turnsCount': 'Tury wnioskowania w tej sesji',
   'token.turn': 'tura',
   'token.turns': 'tury',
+  'token.ctxLabel': 'CTX',
+  'token.contextWindow': 'Użycie okna kontekstu (ostatnia tura)',
   'catalog.noCapabilityBinding': 'Brak powiązanej możliwości',
   'catalog.downloadFailed': 'Pobieranie nie powiodło się',
   'catalog.active': 'Aktywny',

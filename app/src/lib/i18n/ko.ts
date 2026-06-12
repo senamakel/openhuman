@@ -2006,6 +2006,8 @@ const messages: TranslationMap = {
   'token.turnsCount': '이 세션의 추론 턴',
   'token.turn': '턴',
   'token.turns': '턴',
+  'token.ctxLabel': 'CTX',
+  'token.contextWindow': '컨텍스트 윈도우 사용량 (마지막 턴)',
   'catalog.noCapabilityBinding': '기능 바인딩 없음',
   'catalog.downloadFailed': '다운로드 실패',
   'catalog.active': '활성',

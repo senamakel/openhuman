@@ -2069,6 +2069,8 @@ const messages: TranslationMap = {
   'token.turnsCount': 'Turnos de inferência nesta sessão',
   'token.turn': 'turno',
   'token.turns': 'turnos',
+  'token.ctxLabel': 'CTX',
+  'token.contextWindow': 'Uso da janela de contexto (último turno)',
   'catalog.noCapabilityBinding': 'Sem vinculação de funcionalidade',
   'catalog.downloadFailed': 'Falha no download',
   'catalog.active': 'Ativo',

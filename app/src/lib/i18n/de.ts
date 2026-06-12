@@ -2079,7 +2079,7 @@ const messages: TranslationMap = {
   'token.turnsCount': 'Inferenzrunden in dieser Sitzung',
   'token.turn': 'Runde',
   'token.turns': 'Runden',
-  'token.ctxLabel': 'KTX',
+  'token.ctxLabel': 'CTX',
   'token.contextWindow': 'Kontextfenster-Nutzung (letzte Runde)',
   'catalog.noCapabilityBinding': 'Keine Fähigkeitsbindung',
   'catalog.downloadFailed': 'Der Download ist fehlgeschlagen',

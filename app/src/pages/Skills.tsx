@@ -367,7 +367,7 @@ export default function Skills() {
   // Honour `?tab=<apps|messaging|mcp|skills>` so deep links land on the
   // right sub-tab.  Also normalise legacy tab names from the old /skills route
   // so that e.g. `/skills?tab=composio` still works after the redirect.
-  const initialTab: ConnectionsTab = (() => {
+  const activeTab = useMemo<ConnectionsTab>(() => {
     const params = new URLSearchParams(location.search);
     const raw = params.get('tab');
     // New canonical values
@@ -386,8 +386,16 @@ export default function Skills() {
     if (raw === 'talents') return 'meetings';
     if (raw === 'explorer') return 'skills';
     return 'composio';
-  })();
-  const [activeTab, setActiveTab] = useState<ConnectionsTab>(initialTab);
+  }, [location.search]);
+
+  const handleTabChange = useCallback(
+    (tab: ConnectionsTab) => {
+      const params = new URLSearchParams(location.search);
+      params.set('tab', tab);
+      navigate({ pathname: location.pathname, search: `?${params.toString()}` });
+    },
+    [location.pathname, location.search, navigate]
+  );
   const dispatch = useAppDispatch();
   const [defaultChannelBusy, setDefaultChannelBusy] = useState<ChannelType | null>(null);
   const handleSetDefaultChannel = useCallback(
@@ -816,7 +824,7 @@ export default function Skills() {
 
             <PillTabBar<ConnectionsTab>
               selected={activeTab}
-              onChange={setActiveTab}
+              onChange={handleTabChange}
               items={[
                 { value: 'composio', label: t('connections.tabs.composio') },
                 { value: 'channels', label: t('connections.tabs.channels') },

@@ -204,7 +204,11 @@ const Accounts = () => {
 
   const [faceMode] = useState<boolean>(() => {
     try {
-      return window.localStorage.getItem(FACE_MODE_KEY) === '1';
+      const stored = window.localStorage.getItem(FACE_MODE_KEY);
+      if (stored === '1') {
+        window.localStorage.removeItem(FACE_MODE_KEY);
+      }
+      return false;
     } catch {
       return false;
     }

@@ -333,7 +333,10 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
       'loops',
       'background',
     ],
-    navParent: 'llm',
+    // Usage & Limits now lives in the General group (was a sub-page of LLM,
+    // which has moved to the Connections page).
+    navGroup: 'general',
+    navOrder: 2,
   },
 
   // =========================================================================
@@ -479,7 +482,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.developerMenu.intelligence.desc',
     section: 'developer',
     devOnly: true,
-    navGroup: 'knowledgeMemory',
   },
   {
     id: 'memory-data',
@@ -487,7 +489,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'devOptions.memoryInspectionDesc',
     section: 'developer',
     devOnly: true,
-    navGroup: 'knowledgeMemory',
     searchKeywords: ['memory', 'inspect'],
   },
   {
@@ -496,7 +497,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'devOptions.debugPanelsDesc',
     section: 'developer',
     devOnly: true,
-    navGroup: 'knowledgeMemory',
   },
   {
     id: 'analysis-views',
@@ -504,7 +504,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'settings.analysisViews.menuDesc',
     section: 'developer',
     devOnly: true,
-    navGroup: 'knowledgeMemory',
   },
   // Diagnostics & Logs
   {

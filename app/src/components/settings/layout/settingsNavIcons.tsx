@@ -68,6 +68,11 @@ export const SETTINGS_NAV_ICONS: Record<string, ReactNode> = {
   ),
   'developer-options': icon(stroke('M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4')),
   about: icon(stroke('M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z')),
+  usage: icon(
+    stroke(
+      'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
+    )
+  ),
 
   // --- Developer & Diagnostics groups (paths mirror DeveloperOptionsPanel) ---
   // Knowledge & Memory

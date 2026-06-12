@@ -1013,16 +1013,11 @@ export default function Skills() {
                 {activeTab === 'composio' && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
                     <div className="px-1 pb-3 pt-1">
-                      <div className="flex items-center gap-2">
-                        <h2
-                          className="text-sm font-semibold text-stone-900 dark:text-neutral-100"
-                          data-walkthrough="skills-grid">
-                          {t('skills.integrations')}
-                        </h2>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 border border-primary-100 dark:border-primary-800/50">
-                          {t('skills.composio.poweredBy')}
-                        </span>
-                      </div>
+                      <h2
+                        className="text-sm font-semibold text-stone-900 dark:text-neutral-100"
+                        data-walkthrough="skills-grid">
+                        {t('skills.integrations')}
+                      </h2>
                       <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
                         {t('skills.integrationsSubtitle')}
                       </p>

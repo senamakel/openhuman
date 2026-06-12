@@ -130,7 +130,7 @@ export default function ChatComposer({
         )}
 
         {/* Textarea with ghost completion */}
-        <div className="relative flex-1 min-w-0">
+        <div className="relative flex-1 align-middle flex min-w-0">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-0.5 text-sm leading-5 font-sans">
@@ -153,7 +153,7 @@ export default function ChatComposer({
             placeholder={t('chat.typeMessage')}
             rows={1}
             disabled={composerInteractionBlocked || isSending}
-            className="relative z-10 w-full resize-none border-0 bg-transparent py-0.5 text-sm leading-5 whitespace-pre-wrap break-words font-sans text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative z-10 w-full resize-none border-0 bg-transparent py-0.5 px-0.5 text-sm leading-5 whitespace-pre-wrap break-words font-sans text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
 

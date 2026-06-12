@@ -30,7 +30,6 @@ const messages: TranslationMap = {
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': 'आपका नॉलेज ग्राफ, मेमोरी स्रोत और नियंत्रण।',
-  'brain.loading': 'आपकी यादें इकट्ठा की जा रही हैं…',
   'brain.empty': 'आपका ब्रेन अभी खाली है — मेमोरी बनाना शुरू करने के लिए कोई स्रोत कनेक्ट करें।',
   'brain.error': 'आपका ब्रेन लोड नहीं हो सका। कृपया फिर से प्रयास करें।',
   'common.cancel': 'रद्द करें',

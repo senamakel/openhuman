@@ -31,7 +31,6 @@ const en: TranslationMap = {
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': 'Your knowledge graph, memory sources, and controls.',
-  'brain.loading': 'Gathering your memories…',
   'brain.empty': 'Your brain is empty for now — connect a source to start building memory.',
   'brain.error': "Couldn't load your brain. Please try again.",
 

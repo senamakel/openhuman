@@ -30,7 +30,6 @@ const messages: TranslationMap = {
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': '지식 그래프, 메모리 소스 및 컨트롤.',
-  'brain.loading': '기억을 모으는 중…',
   'brain.empty': '아직 브레인이 비어 있습니다 — 소스를 연결하여 메모리를 만들어 보세요.',
   'brain.error': '브레인을 불러올 수 없습니다. 다시 시도해 주세요.',
   'common.cancel': '취소',

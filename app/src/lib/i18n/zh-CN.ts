@@ -30,7 +30,6 @@ const messages: TranslationMap = {
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': '你的知识图谱、记忆来源与控制项。',
-  'brain.loading': '正在收集你的记忆…',
   'brain.empty': '你的大脑暂时是空的——连接一个来源即可开始构建记忆。',
   'brain.error': '无法加载你的大脑，请重试。',
   'common.cancel': '取消',

@@ -1975,6 +1975,7 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Editar título da conversa',
   'chat.hideSidebar': 'Ocultar barra lateral',
   'chat.showSidebar': 'Mostrar barra lateral',
+  'chat.searchThreads': 'Pesquisar conversas',
   'layout.resizeSidebar': 'Redimensionar barra lateral',
   'layout.showSidebar': 'Mostrar barra lateral',
   'chat.newThreadShortcut': 'Nova conversa (/new)',

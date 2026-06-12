@@ -1933,6 +1933,7 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'थ्रेड शीर्षक संपादित करें',
   'chat.hideSidebar': 'साइडबार छुपाएं',
   'chat.showSidebar': 'साइडबार दिखाएं',
+  'chat.searchThreads': 'बातचीत खोजें',
   'layout.resizeSidebar': 'साइडबार का आकार बदलें',
   'layout.showSidebar': 'साइडबार दिखाएं',
   'chat.newThreadShortcut': 'नई थ्रेड (/new)',

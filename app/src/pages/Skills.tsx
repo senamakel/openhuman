@@ -783,6 +783,7 @@ export default function Skills() {
         defaultSidebarWidth={210}
         minSidebarWidth={170}
         maxSidebarWidth={320}
+        showDividerHandle={false}
         sidebar={
           <TwoPaneNav
             ariaLabel={t('connections.tabs.composio')}

@@ -1956,6 +1956,7 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Edytuj tytuł wątku',
   'chat.hideSidebar': 'Ukryj panel boczny',
   'chat.showSidebar': 'Pokaż panel boczny',
+  'chat.searchThreads': 'Szukaj rozmów',
   'layout.resizeSidebar': 'Zmień rozmiar panelu bocznego',
   'layout.showSidebar': 'Pokaż panel boczny',
   'chat.newThreadShortcut': 'Nowy wątek (/new)',

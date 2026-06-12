@@ -1985,6 +1985,7 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Modifier le titre du fil',
   'chat.hideSidebar': 'Masquer la barre latérale',
   'chat.showSidebar': 'Afficher la barre latérale',
+  'chat.searchThreads': 'Rechercher des conversations',
   'layout.resizeSidebar': 'Redimensionner la barre latérale',
   'layout.showSidebar': 'Afficher la barre latérale',
   'chat.newThreadShortcut': 'Nouveau fil (/new)',

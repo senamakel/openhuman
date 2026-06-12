@@ -1936,6 +1936,7 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'থ্রেডের শিরোনাম সম্পাদনা করুন',
   'chat.hideSidebar': 'সাইডবার লুকান',
   'chat.showSidebar': 'সাইডবার দেখান',
+  'chat.searchThreads': 'কথোপকথন অনুসন্ধান করুন',
   'layout.resizeSidebar': 'সাইডবারের আকার পরিবর্তন করুন',
   'layout.showSidebar': 'সাইডবার দেখান',
   'chat.newThreadShortcut': 'নতুন থ্রেড (/new)',

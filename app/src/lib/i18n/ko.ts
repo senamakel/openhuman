@@ -1914,6 +1914,7 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': '스레드 제목 편집',
   'chat.hideSidebar': '사이드바 숨기기',
   'chat.showSidebar': '사이드바 표시',
+  'chat.searchThreads': '대화 검색',
   'layout.resizeSidebar': '사이드바 크기 조정',
   'layout.showSidebar': '사이드바 표시',
   'chat.newThreadShortcut': '새 스레드 (/new)',

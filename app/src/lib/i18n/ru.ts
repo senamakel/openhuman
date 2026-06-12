@@ -1951,6 +1951,7 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Изменить название ветки',
   'chat.hideSidebar': 'Скрыть боковую панель',
   'chat.showSidebar': 'Показать боковую панель',
+  'chat.searchThreads': 'Поиск бесед',
   'layout.resizeSidebar': 'Изменить размер боковой панели',
   'layout.showSidebar': 'Показать боковую панель',
   'chat.newThreadShortcut': 'Новый чат (/new)',

@@ -1983,6 +1983,7 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'Thread-Titel bearbeiten',
   'chat.hideSidebar': 'Seitenleiste ausblenden',
   'chat.showSidebar': 'Seitenleiste anzeigen',
+  'chat.searchThreads': 'Unterhaltungen suchen',
   'layout.resizeSidebar': 'Seitenleiste anpassen',
   'layout.showSidebar': 'Seitenleiste anzeigen',
   'chat.newThreadShortcut': 'Neuer Thread (/new)',

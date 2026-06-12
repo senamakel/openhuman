@@ -1891,6 +1891,7 @@ const messages: TranslationMap = {
   'chat.editThreadTitle': 'تعديل عنوان المحادثة',
   'chat.hideSidebar': 'إخفاء الشريط الجانبي',
   'chat.showSidebar': 'إظهار الشريط الجانبي',
+  'chat.searchThreads': 'البحث في المحادثات',
   'layout.resizeSidebar': 'تغيير حجم الشريط الجانبي',
   'layout.showSidebar': 'إظهار الشريط الجانبي',
   'chat.newThreadShortcut': 'محادثة جديدة (/new)',

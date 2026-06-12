@@ -86,6 +86,13 @@ export interface TwoPanelLayoutProps {
    * uses can opt in.
    */
   showCollapsedRail?: boolean;
+  /**
+   * Show the visible grab handle on the resize divider. When false the divider
+   * is still draggable (and shows a faint line on hover/focus) but renders no
+   * resting holder — a cleaner look for screens that don't want the affordance
+   * front-and-center. Defaults to true.
+   */
+  showDividerHandle?: boolean;
 }
 
 /** Default card look shared by both panes. */
@@ -120,6 +127,7 @@ export default function TwoPanelLayout({
   contentClassName = '',
   paneClassName = DEFAULT_PANE_CLASS,
   showCollapsedRail = false,
+  showDividerHandle = true,
 }: TwoPanelLayoutProps) {
   const { t } = useT();
   const dispatch = useAppDispatch();
@@ -257,9 +265,14 @@ export default function TwoPanelLayout({
             onKeyDown={onDividerKeyDown}
             className="group relative mx-1 flex flex-shrink-0 w-3 cursor-col-resize select-none items-center justify-center self-stretch focus:outline-none"
             title={t('layout.resizeSidebar')}>
-            {/* Transparent hit area (full height) with a short opaque grab
-                handle centered vertically — clearer than a hairline rule. */}
-            <span className="h-10 w-1 rounded-full bg-stone-400 dark:bg-neutral-500 transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500" />
+            {/* Transparent hit area (full height) with a short grab handle
+                centered vertically. When the handle is hidden it stays
+                transparent at rest and only surfaces on hover/focus. */}
+            <span
+              className={`h-10 w-1 rounded-full transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500 ${
+                showDividerHandle ? 'bg-stone-400 dark:bg-neutral-500' : 'bg-transparent'
+              }`}
+            />
           </div>
         </>
       )}

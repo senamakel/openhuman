@@ -231,6 +231,7 @@ const Conversations = ({
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
   const [isPlayingReply, setIsPlayingReply] = useState(false);
   const [selectedLabel, setSelectedLabel] = useState<string>(GENERAL_TAB_VALUE);
+  const [threadSearch, setThreadSearch] = useState('');
   const [inlineSuggestionValue, setInlineSuggestionValue] = useState('');
   const [sendError, setSendError] = useState<ChatSendError | null>(null);
   const [attachError, setAttachError] = useState<ChatSendError | null>(null);
@@ -1406,6 +1407,14 @@ const Conversations = ({
     );
   }, [filteredThreads]);
 
+  // Free-text search over the thread sidebar — filters the visible list by
+  // title (mirrors the settings sidebar search).
+  const visibleThreads = useMemo(() => {
+    const q = threadSearch.trim().toLowerCase();
+    if (!q) return sortedThreads;
+    return sortedThreads.filter(thread => (thread.title ?? '').toLowerCase().includes(q));
+  }, [sortedThreads, threadSearch]);
+
   // Fixed bucket set so categories don't disappear when empty and the active
   // filter state remains unambiguous regardless of what threads exist.
   const labelTabs = [
@@ -1454,6 +1463,51 @@ const Conversations = ({
   const threadSidebar = (
     // Card background / rounded corners come from TwoPanelLayout's pane styling.
     <div className="h-full flex flex-col">
+      {/* Thread search — flush full-width input, mirrors the settings search. */}
+      <div className="relative border-b border-stone-100 dark:border-neutral-800">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-400 dark:text-neutral-500">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+            />
+          </svg>
+        </span>
+        <input
+          type="text"
+          value={threadSearch}
+          onChange={e => setThreadSearch(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Escape' && threadSearch) {
+              e.preventDefault();
+              setThreadSearch('');
+            }
+          }}
+          placeholder={t('chat.searchThreads')}
+          aria-label={t('chat.searchThreads')}
+          data-testid="chat-thread-search-input"
+          className="w-full border-0 bg-transparent py-2 pl-9 pr-8 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-0 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+        />
+        {threadSearch && (
+          <button
+            type="button"
+            onClick={() => setThreadSearch('')}
+            aria-label={t('settings.settingsSearch.clear')}
+            data-testid="chat-thread-search-clear"
+            className="absolute inset-y-0 right-2 flex items-center px-1 text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
       <div className="px-2 py-2 border-b border-stone-50 dark:border-neutral-800">
         <PillTabBar
           items={labelTabs}
@@ -1464,12 +1518,12 @@ const Conversations = ({
         />
       </div>
       <div className="flex-1 overflow-y-auto">
-        {sortedThreads.length === 0 ? (
+        {visibleThreads.length === 0 ? (
           <p className="px-4 py-6 text-xs text-stone-400 dark:text-neutral-500 text-center">
             {t('chat.noLabelThreads').replace('{label}', selectedLabelDisplay)}
           </p>
         ) : (
-          sortedThreads.map(thread => (
+          visibleThreads.map(thread => (
             <div
               key={thread.id}
               data-testid={`thread-row-${thread.id}`}

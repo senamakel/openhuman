@@ -329,6 +329,8 @@ const messages: TranslationMap = {
   'chat.newThread': 'Neuer Thread',
   'chat.typeMessage': 'Wie kann ich dir heute helfen?',
   'chat.send': 'Nachricht senden',
+  'chat.parallelBranchHint': 'Parallelen Zweig eingeben — ⌘/Strg+Enter zum Senden',
+  'chat.parallelBranchLabel': 'Paralleler Zweig',
   'chat.thinking': 'Denken...',
   'chat.noMessages': 'Noch keine Nachrichten',
   'chat.startConversation': 'Beginne ein Gespräch',

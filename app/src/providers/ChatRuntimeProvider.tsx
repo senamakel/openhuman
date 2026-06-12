@@ -23,6 +23,7 @@ import { store } from '../store';
 import {
   appendSubagentStreamDelta,
   clearInferenceStatusForThread,
+  clearParallelRequest,
   clearPendingApprovalForThread,
   clearStreamingAssistantForThread,
   endInferenceTurn,
@@ -31,6 +32,7 @@ import {
   recordSubagentTranscriptTool,
   resolveSubagentTranscriptTool,
   setInferenceStatusForThread,
+  setParallelStream,
   setPendingApprovalForThread,
   setStreamingAssistantForThread,
   setTaskBoardForThread,
@@ -698,6 +700,22 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       },
       onTextDelta: event => {
         const cr = store.getState().chatRuntime;
+        // A parallel (forked) turn streams into its own lane so it doesn't
+        // clobber the primary turn's stream on the same thread.
+        if (cr.parallelRequestThreads[event.request_id] !== undefined) {
+          const prev = cr.parallelStreamsByThread[event.thread_id]?.[event.request_id];
+          dispatch(
+            setParallelStream({
+              threadId: event.thread_id,
+              streaming: {
+                requestId: event.request_id,
+                content: `${prev?.content ?? ''}${event.delta}`,
+                thinking: prev?.thinking ?? '',
+              },
+            })
+          );
+          return;
+        }
         const existing = cr.streamingAssistantByThread[event.thread_id];
         let streaming: StreamingAssistantState;
         if (existing && existing.requestId !== event.request_id) {
@@ -713,6 +731,20 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       },
       onThinkingDelta: event => {
         const cr = store.getState().chatRuntime;
+        if (cr.parallelRequestThreads[event.request_id] !== undefined) {
+          const prev = cr.parallelStreamsByThread[event.thread_id]?.[event.request_id];
+          dispatch(
+            setParallelStream({
+              threadId: event.thread_id,
+              streaming: {
+                requestId: event.request_id,
+                content: prev?.content ?? '',
+                thinking: `${prev?.thinking ?? ''}${event.delta}`,
+              },
+            })
+          );
+          return;
+        }
         const existing = cr.streamingAssistantByThread[event.thread_id];
         let streaming: StreamingAssistantState;
         if (existing && existing.requestId !== event.request_id) {
@@ -881,6 +913,52 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           output_tokens: event.total_output_tokens,
         });
 
+        // Parallel (forked) turn: resolve only its own lane. The primary turn's
+        // stream / status / lifecycle / active marker may still be running, so
+        // we must NOT clear them here. Segmented parallel turns already
+        // persisted via `onSegment` (keyed by thread+request); a single-bubble
+        // parallel turn persists its full response now.
+        if (
+          event.request_id !== undefined &&
+          store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined
+        ) {
+          const parallelRequestId = event.request_id;
+          dispatch(
+            recordChatTurnUsage({
+              inputTokens: event.total_input_tokens,
+              outputTokens: event.total_output_tokens,
+            })
+          );
+          if (!event.segment_total && event.full_response.length > 0) {
+            void (async () => {
+              try {
+                await dispatch(
+                  addInferenceResponse({
+                    content: event.full_response,
+                    threadId: event.thread_id,
+                    extraMetadata: chatDoneExtraMetadata(event),
+                  })
+                ).unwrap();
+                void dispatch(
+                  generateThreadTitleIfNeeded({
+                    threadId: event.thread_id,
+                    assistantMessage: event.full_response,
+                  })
+                );
+              } catch (error) {
+                rtLog('parallel_chat_done_append_failed', {
+                  thread: event.thread_id,
+                  request: event.request_id,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              }
+            })();
+          }
+          dispatch(clearParallelRequest({ requestId: parallelRequestId }));
+          requestUsageRefresh();
+          return;
+        }
+
         const deliveryKey = segmentDeliveryKey(event.thread_id, event.request_id);
         const segmentDelivery = takeSegmentDelivery(segmentDeliveriesRef.current, deliveryKey);
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
@@ -985,6 +1063,28 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           request: event.request_id,
           err: event.error_type,
         });
+
+        // Parallel (forked) turn error: resolve only its lane, leaving the
+        // primary turn untouched. Surface a non-cancellation error as a message
+        // so the failed branch is visible.
+        if (
+          event.request_id !== undefined &&
+          store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined
+        ) {
+          deleteSegmentDelivery(
+            segmentDeliveriesRef.current,
+            segmentDeliveryKey(event.thread_id, event.request_id)
+          );
+          if (event.error_type !== 'cancelled') {
+            const errorContent = event.message || USER_FACING_AGENT_ERROR_MESSAGE;
+            void dispatch(
+              addInferenceResponse({ content: errorContent, threadId: event.thread_id })
+            );
+            requestUsageRefresh();
+          }
+          dispatch(clearParallelRequest({ requestId: event.request_id }));
+          return;
+        }
 
         deleteSegmentDelivery(
           segmentDeliveriesRef.current,

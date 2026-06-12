@@ -41,6 +41,7 @@ import {
   beginInferenceTurn,
   clearRuntimeForThread,
   fetchAndHydrateTurnState,
+  registerParallelRequest,
   setTaskBoardForThread,
   setToolTimelineForThread,
 } from '../store/chatRuntimeSlice';
@@ -281,6 +282,9 @@ const Conversations = ({
   );
   const streamingAssistantByThread = useAppSelector(
     state => state.chatRuntime.streamingAssistantByThread
+  );
+  const parallelStreamsByThread = useAppSelector(
+    state => state.chatRuntime.parallelStreamsByThread
   );
   const agentMessageViewMode = useAppSelector(
     state => state.theme?.agentMessageViewMode ?? 'bubbles'
@@ -952,6 +956,75 @@ const Conversations = ({
 
   handleSendMessageRef.current = handleSendMessage;
 
+  // Send a PARALLEL (forked) turn on the selected thread — runs concurrently
+  // with the in-flight turn instead of interrupting it (queue_mode 'parallel').
+  // Kept separate from `handleSendMessage` so it never touches the primary
+  // turn's lifecycle (silence timer, active marker, pending guard); the forked
+  // turn streams into its own lane (registered via `registerParallelRequest`)
+  // and renders as an interleaved branch bubble.
+  const handleSendParallel = async (text?: string) => {
+    if (!rustChat || !selectedThreadId) return;
+    const threadId = selectedThreadId;
+    const normalized = (text ?? inputValue).trim();
+    if (!normalized && attachments.length === 0) return;
+
+    const pendingAttachments = attachments.slice();
+    const modelOverride =
+      agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ?? CHAT_MODEL_HINT;
+    const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
+    const userMessage: ThreadMessage = {
+      id: `msg_${globalThis.crypto.randomUUID()}`,
+      content: normalized,
+      type: 'text',
+      extraMetadata:
+        pendingAttachments.length > 0
+          ? {
+              attachmentCount: pendingAttachments.length,
+              attachmentNames: pendingAttachments.map(a => a.file.name),
+              attachmentKinds: pendingAttachments.map(a => a.kind),
+              attachmentDataUris: pendingAttachments
+                .filter(a => a.kind === 'image')
+                .map(a => a.previewUri ?? a.dataUri),
+              attachmentCompressed: pendingAttachments.map(a => a.compressed),
+              parallelBranch: true,
+            }
+          : { parallelBranch: true },
+      sender: 'user',
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await dispatch(addMessageLocal({ threadId, message: userMessage })).unwrap();
+    } catch (error) {
+      if (error === THREAD_NOT_FOUND_MESSAGE) return;
+      const msg = error instanceof Error ? error.message : String(error);
+      setSendError(chatSendError('cloud_send_failed', msg));
+      return;
+    }
+
+    setInputValue('');
+    setAttachments([]);
+    setSendError(null);
+
+    try {
+      const requestId = await chatSend({
+        threadId,
+        message: messageText,
+        model: modelOverride,
+        profileId: selectedAgentProfileId,
+        locale: uiLocale,
+        queueMode: 'parallel',
+      });
+      if (requestId) {
+        dispatch(registerParallelRequest({ threadId, requestId }));
+      }
+      trackEvent('chat_parallel_message_sent');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSendError(chatSendError('cloud_send_failed', msg));
+    }
+  };
+
   const transcribeAndSendAudio = async (mimeType: string) => {
     setIsRecording(false);
     mediaRecorderRef.current = null;
@@ -1162,6 +1235,18 @@ const Conversations = ({
       return;
     }
 
+    // Cmd/Ctrl+Enter sends a PARALLEL branch when the selected thread already
+    // has a turn in flight (otherwise it behaves like a normal send).
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      if (selectedThreadActive) {
+        void handleSendParallel();
+      } else {
+        void handleSendMessage();
+      }
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       void handleSendMessage();
@@ -1207,6 +1292,11 @@ const Conversations = ({
   const selectedStreamingAssistant = selectedThreadId
     ? (streamingAssistantByThread[selectedThreadId] ?? null)
     : null;
+  // Live streams for concurrent parallel (forked) turns on the selected thread,
+  // rendered as separate interleaved branch bubbles.
+  const selectedParallelStreams = selectedThreadId
+    ? Object.values(parallelStreamsByThread[selectedThreadId] ?? {})
+    : [];
   const inlineCompletionSuffix = getInlineCompletionSuffix(inputValue, inlineSuggestionValue);
   // Blocks all composer interaction while a turn is in-flight or Rust chat is unavailable.
   // isSending: the *selected* thread is in-flight (drives selected-thread UI only).
@@ -2060,6 +2150,33 @@ const Conversations = ({
                     </div>
                   </div>
                 )}
+              {/* Parallel (forked) branch streams — concurrent turns on this
+                  thread, each its own labeled bubble so they don't collide with
+                  the primary stream above. */}
+              {selectedParallelStreams.map(
+                branch =>
+                  (branch.content.length > 0 || branch.thinking.length > 0) && (
+                    <div key={branch.requestId} className="flex justify-start">
+                      <div className="relative w-fit max-w-[75%]">
+                        <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-primary-500 dark:text-primary-400">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
+                          <span>{t('chat.parallelBranchLabel')}</span>
+                        </div>
+                        {branch.content.length > 0 && (
+                          <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100 border-l-2 border-primary-400/60">
+                            <p className="text-xs text-stone-700 dark:text-neutral-200 font-mono whitespace-pre-wrap break-words leading-snug">
+                              {branch.content.length > STREAMING_PREVIEW_CHARS && (
+                                <span className="text-stone-400 dark:text-neutral-500">…</span>
+                              )}
+                              {branch.content.slice(-STREAMING_PREVIEW_CHARS)}
+                              <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+              )}
               {/* Inference status indicator.
                   For the tool_use / subagent phases this line just restates the
                   active row already shown in the agentic-task-insights timeline,
@@ -2340,6 +2457,7 @@ const Conversations = ({
               fileInputRef={fileInputRef}
               composerInteractionBlocked={composerInteractionBlocked}
               isSending={isSending}
+              allowParallelSend={selectedThreadActive}
               attachments={attachments}
               onAttachFiles={handleAttachFiles}
               onRemoveAttachment={id => setAttachments(prev => prev.filter(a => a.id !== id))}

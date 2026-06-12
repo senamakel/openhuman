@@ -913,8 +913,8 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     let resolveSend: (() => void) | undefined;
     vi.mocked(chatSend).mockImplementationOnce(
       () =>
-        new Promise<void>(resolve => {
-          resolveSend = resolve;
+        new Promise<string | undefined>(resolve => {
+          resolveSend = () => resolve(undefined);
         })
     );
     const { textarea, thread } = await renderSelectedConversation();

@@ -101,7 +101,7 @@ export async function mountPixiGraph(
     const root = opts.simNodes.find(n => n.kind === 'root');
     const cx = root?.x ?? 0;
     const cy = root?.y ?? 0;
-    const scale = 0.4;
+    const scale = 0.17;
     world.scale.set(scale);
     world.position.set(app.screen.width / 2 - cx * scale, app.screen.height / 2 - cy * scale);
   };

@@ -82,7 +82,7 @@ async function bootSkillsPage(page: Page, userId: string) {
     .toContain('/connections');
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
-  // Phase 2: "Composio" tab renamed to "Apps"
+  // Navigate to the Composio tab
   await page.getByRole('tab', { name: 'Composio' }).click();
   // Heading reads "Composio Integrations" (skills.integrations); the tab is "Apps"
   await expect(

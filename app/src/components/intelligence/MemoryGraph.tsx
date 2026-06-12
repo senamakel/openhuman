@@ -456,18 +456,22 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
     if (!s || userInteractedRef.current) return;
     const ns = s.sim;
     if (ns.length === 0) return;
+    // Frame source + summary nodes so the important structure is visible;
+    // leaf chunks further out can be reached by zooming out manually.
+    const important = ns.filter(n => n.kind === 'source' || n.kind === 'summary' || n.kind === 'contact');
+    const target = important.length > 0 ? important : ns;
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    for (const n of ns) {
+    for (const n of target) {
       if (n.x < minX) minX = n.x;
       if (n.y < minY) minY = n.y;
       if (n.x > maxX) maxX = n.x;
       if (n.y > maxY) maxY = n.y;
     }
     if (!Number.isFinite(minX)) return;
-    const pad = 48;
+    const pad = 80;
     const w = Math.max(1, maxX - minX);
     const h = Math.max(1, maxY - minY);
     const scale = Math.min(

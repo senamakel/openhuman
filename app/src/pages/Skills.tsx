@@ -969,8 +969,7 @@ export default function Skills() {
                 {activeTab === 'skills' && <SkillsExplorerTab onToast={addToast} />}
 
                 {activeTab === 'mcp' && (
-                  <div className="space-y-4 animate-fade-up">
-                    {/* MCP Servers */}
+                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-soft animate-fade-up">
                     <McpServersTab />
                   </div>
                 )}

@@ -1,14 +1,11 @@
 /**
  * Tests for BottomTabBar — verifies that:
- *  - 6 tabs are rendered (no Rewards tab; Human restored), Activity label is present
- *  - Assistant tab is present (was "Chat", id stays 'chat', label now 'Assistant')
+ *  - 7 tabs are rendered (no Rewards tab; Human restored; Chat is a regular tab)
+ *  - Chat tab is present (id 'chat', label 'Chat')
  *  - Walkthrough attributes reflect the new ids (tab-connections, tab-activity)
  *  - Avatar menu opens and shows Account / Billing / Rewards / Invites / Wallet
  *  - Clicking an avatar menu item navigates or opens URL
  *  - The bar is hidden on '/' and '/login' paths
- *
- * Human tab restored as a first-class entry (after the IA Phase 6 merge into
- * Assistant); Chat keeps its "Assistant" label.
  */
 import { configureStore } from '@reduxjs/toolkit';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -167,15 +164,11 @@ describe('BottomTabBar', () => {
     agentProfilesApiMock.select.mockResolvedValue(testProfiles);
   });
 
-  it('renders exactly 6 regular tab buttons (Assistant is rendered separately)', async () => {
+  it('renders exactly 7 regular tab buttons (Chat is a regular tab)', async () => {
     await renderBottomTabBar('/home');
-    // Query only the regular pill tabs inside <nav>: exclude the avatar button
-    // (aria-haspopup) and the special raised Assistant center button (tab-chat).
     const nav = document.querySelector('nav');
-    const navButtons = nav?.querySelectorAll(
-      'button:not([aria-haspopup]):not([data-walkthrough="tab-chat"])'
-    );
-    expect(navButtons).toHaveLength(6);
+    const navButtons = nav?.querySelectorAll('button:not([aria-haspopup])');
+    expect(navButtons).toHaveLength(7);
   });
 
   it('gives every labelled tab a fixed width when labels are always visible', async () => {
@@ -188,18 +181,18 @@ describe('BottomTabBar', () => {
     expect(humanBtn.querySelector('.truncate')).not.toBeNull();
   });
 
-  it('renders the Assistant tab with data-walkthrough="tab-chat"', async () => {
+  it('renders the Chat tab with data-walkthrough="tab-chat"', async () => {
     await renderBottomTabBar('/home');
-    const assistantBtn = screen.getByRole('button', { name: 'Assistant' });
-    expect(assistantBtn).toBeInTheDocument();
-    expect(assistantBtn).toHaveAttribute('data-walkthrough', 'tab-chat');
+    const chatBtn = screen.getByRole('button', { name: 'Chat' });
+    expect(chatBtn).toBeInTheDocument();
+    expect(chatBtn).toHaveAttribute('data-walkthrough', 'tab-chat');
   });
 
-  it('navigates to /chat and tracks the change when the Assistant center button is clicked', async () => {
+  it('navigates to /chat and tracks the change when the Chat tab is clicked', async () => {
     const { trackEvent } = await import('../../services/analytics');
     await renderBottomTabBar('/home');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Assistant' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Chat' }));
 
     expect(trackEvent).toHaveBeenCalledWith('tab_bar_change', {
       from_tab: 'home',

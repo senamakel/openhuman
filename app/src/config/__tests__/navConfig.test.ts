@@ -42,7 +42,7 @@ describe('NAV_TABS', () => {
   it('has the correct labelKeys', () => {
     expect(NAV_TABS.map(t => t.labelKey)).toEqual([
       'nav.home',
-      'nav.assistant',
+      'nav.chat',
       'nav.human',
       'nav.brain',
       'nav.connections',
@@ -75,7 +75,7 @@ describe('NAV_TABS', () => {
     const chatTab = NAV_TABS.find(t => t.id === 'chat');
     expect(chatTab).toBeDefined();
     expect(chatTab?.path).toBe('/chat');
-    expect(chatTab?.labelKey).toBe('nav.assistant');
+    expect(chatTab?.labelKey).toBe('nav.chat');
     expect(chatTab?.walkthroughAttr).toBe('tab-chat');
   });
 

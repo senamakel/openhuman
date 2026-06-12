@@ -273,18 +273,22 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     searchKeywords: ['agent', 'profiles'],
   },
   {
-    id: 'autonomy',
-    titleKey: 'settings.developerMenu.autonomy.title',
-    descriptionKey: 'settings.developerMenu.autonomy.desc',
-    section: 'agents',
-    searchKeywords: ['autonomy', 'autonomous'],
-  },
-  {
+    // agent-access also hosts the autonomy rate-limit section (formerly the
+    // standalone /settings/autonomy page — that slug redirects here).
     id: 'agent-access',
     titleKey: 'settings.agentAccess.title',
     descriptionKey: 'settings.agentAccess.menuDesc',
     section: 'agents',
-    searchKeywords: ['access', 'permissions', 'tier', 'security policy'],
+    searchKeywords: [
+      'access',
+      'permissions',
+      'tier',
+      'security policy',
+      'autonomy',
+      'autonomous',
+      'rate limit',
+      'actions per hour',
+    ],
   },
   {
     id: 'activity-level',

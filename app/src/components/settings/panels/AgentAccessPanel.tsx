@@ -26,6 +26,7 @@ import {
   SettingsTextField,
 } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import AutonomyRateLimitSection from './AutonomyPanel';
 
 // Installs are always *available* but never silent: every `install_tool` call
 // is routed through the approval gate, so the user is asked to Approve/Deny
@@ -408,6 +409,9 @@ const AgentAccessPanel = () => {
                 </ul>
               )}
             </SettingsSection>
+
+            {/* Action rate limit (formerly the standalone /settings/autonomy page) */}
+            <AutonomyRateLimitSection />
 
             {/* Approval history */}
             <SettingsSection

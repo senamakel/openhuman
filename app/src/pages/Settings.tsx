@@ -15,7 +15,6 @@ import AppearancePanel from '../components/settings/panels/AppearancePanel';
 import ApprovalHistoryPanel from '../components/settings/panels/ApprovalHistoryPanel';
 import AutocompleteDebugPanel from '../components/settings/panels/AutocompleteDebugPanel';
 import AutocompletePanel from '../components/settings/panels/AutocompletePanel';
-import AutonomyPanel from '../components/settings/panels/AutonomyPanel';
 import BillingPanel from '../components/settings/panels/BillingPanel';
 import CompanionPanel from '../components/settings/panels/CompanionPanel';
 import ComposioPanel from '../components/settings/panels/ComposioPanel';
@@ -390,13 +389,6 @@ const Settings = () => {
       icon: ToolsIcon,
     },
     {
-      id: 'autonomy',
-      title: t('settings.developerMenu.autonomy.title'),
-      description: t('settings.developerMenu.autonomy.desc'),
-      route: 'autonomy',
-      icon: LlmIcon,
-    },
-    {
       id: 'agent-access',
       title: t('settings.agentAccess.title'),
       description: t('settings.agentAccess.menuDesc'),
@@ -561,7 +553,8 @@ const Settings = () => {
           path="tool-policy-diagnostics"
           element={wrapSettingsPage(<ToolPolicyDiagnosticsPanel />)}
         />
-        <Route path="autonomy" element={wrapSettingsPage(<AutonomyPanel />)} />
+        {/* Autonomy rate-limit lives inside Agent access now. */}
+        <Route path="autonomy" element={<Navigate to="/settings/agent-access" replace />} />
         <Route path="mcp-server" element={wrapSettingsPage(<McpServerPanel />)} />
         {/* Legacy direct path for the routing tab — kept so existing links
             (Developer Options entries, walkthroughs) keep working. The
@@ -578,14 +571,8 @@ const Settings = () => {
         />
         {/* Legacy slugs for the merged Usage & Limits page — kept so existing
             links (Developer Options entries, walkthroughs) keep working. */}
-        <Route
-          path="heartbeat"
-          element={<Navigate to="/settings/usage#background" replace />}
-        />
-        <Route
-          path="ledger-usage"
-          element={<Navigate to="/settings/usage#background" replace />}
-        />
+        <Route path="heartbeat" element={<Navigate to="/settings/usage#background" replace />} />
+        <Route path="ledger-usage" element={<Navigate to="/settings/usage#background" replace />} />
         <Route path="cost-dashboard" element={<Navigate to="/settings/usage" replace />} />
         <Route path="search" element={wrapSettingsPage(<SearchPanel />)} />
         <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />

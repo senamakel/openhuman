@@ -86,11 +86,6 @@ describe('ai section', () => {
 // ---------------------------------------------------------------------------
 
 describe('agents section', () => {
-  test('autonomy returns Settings > Agents breadcrumb', () => {
-    renderWithProviders(<NavigationProbe />, { initialEntries: ['/settings/autonomy'] });
-    expect(screen.getByTestId('breadcrumbs')).toHaveTextContent('Settings > Agents');
-  });
-
   test('agent-access returns Settings > Agents breadcrumb', () => {
     renderWithProviders(<NavigationProbe />, { initialEntries: ['/settings/agent-access'] });
     expect(screen.getByTestId('breadcrumbs')).toHaveTextContent('Settings > Agents');

@@ -1,8 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { renderWithProviders } from '../../../../test/test-utils';
 import { loadAISettings } from '../../../../services/api/aiSettingsApi';
+import { renderWithProviders } from '../../../../test/test-utils';
 import UsagePanel from '../UsagePanel';
 
 // The tab bodies are heavy (chart pipeline, multi-RPC fetches) — stub them so
@@ -40,10 +40,9 @@ vi.mock('../../hooks/useSettingsNavigation', () => ({
 
 const mockLoad = vi.mocked(loadAISettings);
 
-const snapshot = {
-  routing: {},
-  cloudProviders: [],
-} as unknown as Awaited<ReturnType<typeof loadAISettings>>;
+const snapshot = { routing: {}, cloudProviders: [] } as unknown as Awaited<
+  ReturnType<typeof loadAISettings>
+>;
 
 describe('UsagePanel', () => {
   beforeEach(() => {
@@ -97,7 +96,9 @@ describe('UsagePanel', () => {
     mockLoad.mockRejectedValue(new Error('rpc down'));
     renderWithProviders(<UsagePanel />, { initialEntries: ['/settings/usage#background'] });
 
-    await waitFor(() => expect(screen.getByTestId('usage-background-tab')).toHaveTextContent(/rpc down/));
+    await waitFor(() =>
+      expect(screen.getByTestId('usage-background-tab')).toHaveTextContent(/rpc down/)
+    );
     expect(screen.queryByTestId('stub-background-loops')).not.toBeInTheDocument();
   });
 });

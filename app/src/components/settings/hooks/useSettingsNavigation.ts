@@ -35,7 +35,6 @@ export type SettingsRoute =
   | 'team-members'
   | 'team-invites'
   | 'developer-options'
-  | 'autonomy'
   | 'ai'
   | 'llm'
   | 'voice'

@@ -363,7 +363,7 @@ const messages: TranslationMap = {
   'skills.tabs.mcp': 'MCP 服务器',
   'connections.tabs.apps': '应用',
   'connections.tabs.messaging': '消息',
-  'connections.tabs.tools': '工具',
+  'connections.tabs.mcp': 'MCP 服务器',
   'connections.tabs.skills': '技能',
   'connections.tabs.talents': '才能',
   'memory.title': '记忆',

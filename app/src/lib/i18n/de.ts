@@ -390,7 +390,7 @@ const messages: TranslationMap = {
   'skills.tabs.mcp': 'MCP Server',
   'connections.tabs.apps': 'Apps',
   'connections.tabs.messaging': 'Nachrichten',
-  'connections.tabs.tools': 'Werkzeuge',
+  'connections.tabs.mcp': 'MCP-Server',
   'connections.tabs.skills': 'Fähigkeiten',
   'connections.tabs.talents': 'Talente',
   'memory.title': 'Erinnerung',

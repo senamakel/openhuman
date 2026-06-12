@@ -379,7 +379,7 @@ const messages: TranslationMap = {
   'skills.tabs.mcp': 'MCP সার্ভার',
   'connections.tabs.apps': 'অ্যাপস',
   'connections.tabs.messaging': 'বার্তা পাঠানো',
-  'connections.tabs.tools': 'সরঞ্জাম',
+  'connections.tabs.mcp': 'MCP সার্ভার',
   'connections.tabs.skills': 'দক্ষতা',
   'connections.tabs.talents': 'ট্যালেন্ট',
   'memory.title': 'মেমোরি',

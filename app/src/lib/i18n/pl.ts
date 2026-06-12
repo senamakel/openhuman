@@ -384,7 +384,7 @@ const messages: TranslationMap = {
   'skills.tabs.mcp': 'Serwery MCP',
   'connections.tabs.apps': 'Aplikacje',
   'connections.tabs.messaging': 'Wiadomości',
-  'connections.tabs.tools': 'Narzędzia',
+  'connections.tabs.mcp': 'Serwery MCP',
   'connections.tabs.skills': 'Umiejętności',
   'connections.tabs.talents': 'Talenty',
   'memory.title': 'Pamięć',

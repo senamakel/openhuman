@@ -419,7 +419,7 @@ const en: TranslationMap = {
   // Connections page tabs (Phase 2 rename)
   'connections.tabs.apps': 'Apps',
   'connections.tabs.messaging': 'Messaging',
-  'connections.tabs.tools': 'Tools',
+  'connections.tabs.mcp': 'MCP Servers',
   'connections.tabs.skills': 'Skills',
   'connections.tabs.talents': 'Talents',
   // Intelligence / Memory

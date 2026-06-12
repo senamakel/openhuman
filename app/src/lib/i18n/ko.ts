@@ -379,7 +379,7 @@ const messages: TranslationMap = {
   'skills.tabs.mcp': 'MCP 서버',
   'connections.tabs.apps': '앱',
   'connections.tabs.messaging': '메시징',
-  'connections.tabs.tools': '도구',
+  'connections.tabs.mcp': 'MCP 서버',
   'connections.tabs.skills': '스킬',
   'connections.tabs.talents': '재능',
   'memory.title': '메모리',

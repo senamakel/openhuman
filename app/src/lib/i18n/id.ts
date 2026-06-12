@@ -382,7 +382,7 @@ const messages: TranslationMap = {
   'skills.tabs.mcp': 'MCP Server',
   'connections.tabs.apps': 'Aplikasi',
   'connections.tabs.messaging': 'Pesan',
-  'connections.tabs.tools': 'Alat',
+  'connections.tabs.mcp': 'Server MCP',
   'connections.tabs.skills': 'Keterampilan',
   'connections.tabs.talents': 'Talenta',
   'memory.title': 'Memori',

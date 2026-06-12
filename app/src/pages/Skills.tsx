@@ -349,13 +349,13 @@ interface SkillItem {
  * Phase 2 rename mapping (old → new):
  *   composio  → apps
  *   channels  → messaging
- *   mcp       → tools   (meetings content folded in under Tools)
+ *   mcp       → mcp
  *   skills    → skills (kept secondary)
  *
  * Back-compat: the old ?tab= values (composio, channels, mcp, meetings) are
  * normalised to the new values so existing deep links continue to work.
  */
-type ConnectionsTab = 'apps' | 'messaging' | 'tools' | 'skills' | 'talents';
+type ConnectionsTab = 'apps' | 'messaging' | 'mcp' | 'skills' | 'talents';
 
 export default function Skills() {
   const { t } = useT();
@@ -363,7 +363,7 @@ export default function Skills() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLocalSession = isLocalSessionToken(getCoreStateSnapshot().snapshot.sessionToken);
-  // Honour `?tab=<apps|messaging|tools|skills>` so deep links land on the
+  // Honour `?tab=<apps|messaging|mcp|skills>` so deep links land on the
   // right sub-tab.  Also normalise legacy tab names from the old /skills route
   // so that e.g. `/skills?tab=composio` still works after the redirect.
   const initialTab: ConnectionsTab = (() => {
@@ -373,7 +373,7 @@ export default function Skills() {
     if (
       raw === 'apps' ||
       raw === 'messaging' ||
-      raw === 'tools' ||
+      raw === 'mcp' ||
       raw === 'skills' ||
       raw === 'talents'
     )
@@ -381,7 +381,7 @@ export default function Skills() {
     // Legacy back-compat aliases
     if (raw === 'composio') return 'apps';
     if (raw === 'channels') return 'messaging';
-    if (raw === 'mcp') return 'tools';
+    if (raw === 'tools') return 'mcp';
     if (raw === 'meetings') return 'talents';
     if (raw === 'explorer') return 'skills';
     return 'apps';
@@ -819,7 +819,7 @@ export default function Skills() {
               items={[
                 { value: 'apps', label: t('connections.tabs.apps') },
                 { value: 'messaging', label: t('connections.tabs.messaging') },
-                { value: 'tools', label: t('connections.tabs.tools') },
+                { value: 'mcp', label: t('connections.tabs.mcp') },
                 { value: 'skills', label: t('connections.tabs.skills') },
                 { value: 'talents', label: t('connections.tabs.talents') },
               ]}
@@ -968,7 +968,7 @@ export default function Skills() {
 
                 {activeTab === 'skills' && <SkillsExplorerTab onToast={addToast} />}
 
-                {activeTab === 'tools' && (
+                {activeTab === 'mcp' && (
                   <div className="space-y-4 animate-fade-up">
                     {/* MCP Servers */}
                     <McpServersTab />

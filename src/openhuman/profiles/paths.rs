@@ -2,7 +2,7 @@
 
 use std::path::{Component, Path};
 
-use crate::openhuman::agent::profiles::AgentProfile;
+use super::types::AgentProfile;
 
 /// Reject path strings that could escape the workspace: absolute paths,
 /// root/prefix components, or any `..` segment.
@@ -222,7 +222,6 @@ pub trait HasToolkit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::agent::profiles::AgentProfile;
     use tempfile::TempDir;
 
     fn test_profile(id: &str) -> AgentProfile {
@@ -241,6 +240,10 @@ mod tests {
             soul_md: None,
             soul_md_path: None,
             composio_integrations: None,
+            memory_sources: None,
+            include_agent_conversations: true,
+            allowed_skills: None,
+            allowed_mcp_servers: None,
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,

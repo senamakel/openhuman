@@ -59,17 +59,9 @@ use openhuman_core::openhuman::agent::multimodal::{
     contains_image_markers, count_image_markers, extract_ollama_image_payload, parse_image_markers,
     prepare_messages_for_provider, MultimodalError,
 };
-use openhuman_core::openhuman::agent::personality_paths::{
-    filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
-    resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
-    HasToolkit, PersonalityContext,
-};
 use openhuman_core::openhuman::agent::pformat::{
     build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
     PFormatParamType, PFormatRegistry, PFormatToolParams,
-};
-use openhuman_core::openhuman::agent::profiles::{
-    AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
 };
 use openhuman_core::openhuman::agent::prompts::{
     render_ambient_environment, render_subagent_system_prompt, render_tools, ConnectedIntegration,
@@ -176,6 +168,14 @@ use openhuman_core::openhuman::inference::{
     DeviceProfile,
 };
 use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
+use openhuman_core::openhuman::profiles::{
+    filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
+    resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
+    HasToolkit, PersonalityContext,
+};
+use openhuman_core::openhuman::profiles::{
+    AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
+};
 use openhuman_core::openhuman::security::SecurityPolicy;
 use openhuman_core::openhuman::todos::ops::BoardLocation;
 use openhuman_core::openhuman::tools::{Tool, ToolResult, ToolSpec};
@@ -1359,6 +1359,10 @@ fn agent_profile_store_and_personality_helpers_cover_normalisation_edges() {
             soul_md: Some(" inline soul ".to_string()),
             soul_md_path: None,
             composio_integrations: Some(vec![" gmail ".to_string(), String::new()]),
+            memory_sources: None,
+            include_agent_conversations: true,
+            allowed_skills: None,
+            allowed_mcp_servers: None,
             memory_dir_suffix: None,
             is_master: true,
             sort_order: Some(50),
@@ -1393,6 +1397,10 @@ fn agent_profile_store_and_personality_helpers_cover_normalisation_edges() {
             soul_md: None,
             soul_md_path: None,
             composio_integrations: Some(vec![]),
+            memory_sources: None,
+            include_agent_conversations: true,
+            allowed_skills: None,
+            allowed_mcp_servers: None,
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
@@ -1410,6 +1418,10 @@ fn agent_profile_store_and_personality_helpers_cover_normalisation_edges() {
 
     let reused = store
         .upsert(AgentProfile {
+            memory_sources: None,
+            include_agent_conversations: true,
+            allowed_skills: None,
+            allowed_mcp_servers: None,
             memory_dir_suffix: None,
             description: "updated".to_string(),
             ..second_profile.clone()
@@ -1719,6 +1731,10 @@ fn agent_personality_paths_cover_safe_fallbacks_and_integration_filters() {
         soul_md: Some("inline soul".into()),
         soul_md_path: Some("personality-soul.md".into()),
         composio_integrations: Some(vec!["gmail".into(), "slack".into()]),
+        memory_sources: None,
+        include_agent_conversations: true,
+        allowed_skills: None,
+        allowed_mcp_servers: None,
         memory_dir_suffix: Some("-7".into()),
         is_master: false,
         sort_order: Some(10),

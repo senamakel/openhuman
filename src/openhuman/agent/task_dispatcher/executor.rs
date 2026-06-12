@@ -9,10 +9,10 @@ use std::path::Path;
 use crate::openhuman::agent::harness::definition::{AgentDefinitionRegistry, PromptSource};
 use crate::openhuman::agent::harness::session::Agent;
 use crate::openhuman::agent::harness::subagent_runner::with_autonomous_iter_cap;
-use crate::openhuman::agent::personality_paths::PersonalityContext;
 use crate::openhuman::agent::task_board::TaskCardStatus;
 use crate::openhuman::agent::task_session;
 use crate::openhuman::config::Config;
+use crate::openhuman::profiles::PersonalityContext;
 use crate::openhuman::todos::ops::{self, BoardLocation, CardPatch};
 use crate::openhuman::todos::runs::{self, RunOutcome};
 
@@ -44,7 +44,7 @@ pub(super) fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> 
     }
 
     // 1) Personality (#2895): a user-defined profile with scoped identity.
-    if let Ok(state) = crate::openhuman::agent::profiles::load_profiles(workspace_dir) {
+    if let Ok(state) = crate::openhuman::profiles::load_profiles(workspace_dir) {
         if let Some(profile) = state.profiles.iter().find(|p| p.id == handle) {
             let ctx = PersonalityContext::from_profile(workspace_dir, profile.clone());
             let mut preamble = format!(

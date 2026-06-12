@@ -1,9 +1,9 @@
 use serde_json::json;
 use std::collections::HashSet;
 
-use crate::openhuman::agent::profiles::{AgentProfile, DEFAULT_PROFILE_ID};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;
+use crate::openhuman::profiles::{AgentProfile, DEFAULT_PROFILE_ID};
 
 use super::types::SessionCacheFingerprint;
 

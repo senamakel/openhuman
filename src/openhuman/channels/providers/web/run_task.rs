@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crate::openhuman::agent::profiles::AgentProfileStore;
 use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::profiles::AgentProfileStore;
 use crate::openhuman::threads::turn_state::TurnStateStore;
 
 use super::ops::{key_for, THREAD_SESSIONS};

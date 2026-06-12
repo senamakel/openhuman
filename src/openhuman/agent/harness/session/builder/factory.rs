@@ -595,7 +595,7 @@ impl Agent {
                 suffix.chars().count()
             );
             prompt_builder = prompt_builder.add_section(Box::new(
-                crate::openhuman::agent::profiles::AgentProfilePromptSection::new(suffix),
+                crate::openhuman::profiles::AgentProfilePromptSection::new(suffix),
             ));
         }
 

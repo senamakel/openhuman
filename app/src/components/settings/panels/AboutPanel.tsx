@@ -19,6 +19,7 @@ import Button from '../../ui/Button';
 import SettingsHeader from '../components/SettingsHeader';
 import { SettingsRow, SettingsSection } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SystemDiagnostics from './SystemDiagnostics';
 
 const AboutPanel = () => {
   const { t } = useT();
@@ -169,6 +170,10 @@ const AboutPanel = () => {
             </Button>
           </div>
         </SettingsSection>
+
+        {/* Diagnostics (app logs, restart tour, staging Sentry test) —
+            relocated here from the retired Developer & Diagnostics page. */}
+        <SystemDiagnostics />
       </div>
     </div>
   );

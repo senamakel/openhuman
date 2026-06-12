@@ -40,6 +40,8 @@ import NotificationsTabbedPanel from '../components/settings/panels/Notification
 import PermissionsPanel from '../components/settings/panels/PermissionsPanel';
 import PersonaPanel from '../components/settings/panels/PersonaPanel';
 import PrivacyPanel from '../components/settings/panels/PrivacyPanel';
+import ProfileEditorPage from '../components/settings/panels/ProfileEditorPage';
+import ProfilesPanel from '../components/settings/panels/ProfilesPanel';
 import RecoveryPhrasePanel from '../components/settings/panels/RecoveryPhrasePanel';
 import SandboxSettingsPanel from '../components/settings/panels/SandboxSettingsPanel';
 import ScreenAwarenessDebugPanel from '../components/settings/panels/ScreenAwarenessDebugPanel';
@@ -563,6 +565,9 @@ const Settings = () => {
         <Route path="agents" element={wrapSettingsPage(<AgentsPanel />)} />
         <Route path="agents/new" element={wrapSettingsPage(<AgentEditorPage />)} />
         <Route path="agents/edit/:id" element={wrapSettingsPage(<AgentEditorPage />)} />
+        <Route path="profiles" element={wrapSettingsPage(<ProfilesPanel />)} />
+        <Route path="profiles/new" element={wrapSettingsPage(<ProfileEditorPage />)} />
+        <Route path="profiles/edit/:id" element={wrapSettingsPage(<ProfileEditorPage />)} />
         <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
         <Route path="companion" element={wrapSettingsPage(<CompanionPanel />)} />
         {/* Developer Options */}

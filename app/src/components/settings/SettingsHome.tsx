@@ -294,6 +294,13 @@ const SettingsHome = () => {
       onClick: () => navigateToSettings('agents-settings'),
     },
     {
+      id: 'profiles',
+      title: t('settings.profiles.title'),
+      description: t('settings.profiles.menuDesc'),
+      icon: PersonalityIcon,
+      onClick: () => navigateToSettings('profiles'),
+    },
+    {
       id: 'persona',
       title: t('settings.assistant.personality'),
       description: t('settings.assistant.personalityDesc'),

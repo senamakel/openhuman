@@ -5434,6 +5434,54 @@ const messages: TranslationMap = {
   'notch.speaking': 'Falando…',
   'notch.transcribing': 'Transcrevendo…',
   'notch.executing': 'Executando…',
+  // ── Agent Profiles ───────────────────────────────────────────────────────
+  'settings.profiles.title': 'Perfis de agente',
+  'settings.profiles.subtitle':
+    'Agentes com personalidade — cada um com sua própria alma, memória, conectores e habilidades.',
+  'settings.profiles.menuDesc': 'Crie e gerencie perfis de agente',
+  'settings.profiles.new': 'Novo perfil',
+  'settings.profiles.empty': 'Ainda não há perfis de agente',
+  'settings.profiles.loadError': 'Não foi possível carregar os perfis',
+  'settings.profiles.active': 'Ativo',
+  'settings.profiles.setActive': 'Definir como ativo',
+  'settings.profiles.sourceBuiltIn': 'Integrado',
+  'settings.profiles.sourceCustom': 'Personalizado',
+  'settings.profiles.deleteConfirm': 'Excluir este perfil? Isso não pode ser desfeito.',
+  'settings.profiles.editor.createTitle': 'Novo perfil',
+  'settings.profiles.editor.editTitle': 'Editar perfil',
+  'settings.profiles.editor.name': 'Nome',
+  'settings.profiles.editor.id': 'Identificador',
+  'settings.profiles.editor.idHint': 'Apenas letras minúsculas, números e hífens.',
+  'settings.profiles.editor.description': 'Descrição',
+  'settings.profiles.editor.soul': 'Alma (SOUL.md)',
+  'settings.profiles.editor.soulHint':
+    'Identidade personalizada deste perfil. Vazio recorre ao SOUL.md do espaço de trabalho.',
+  'settings.profiles.editor.baseAgent': 'Agente base',
+  'settings.profiles.editor.baseAgentHint':
+    'Com qual definição de agente este perfil é executado (por exemplo, orchestrator).',
+  'settings.profiles.editor.model': 'Modelo',
+  'settings.profiles.editor.modelHint': 'Substituição de modelo opcional. Vazio herda o padrão.',
+  'settings.profiles.editor.temperature': 'Temperatura',
+  'settings.profiles.editor.systemPromptSuffix': 'Sufixo do prompt do sistema',
+  'settings.profiles.editor.agentConversations': 'Lembrar conversas do agente',
+  'settings.profiles.editor.agentConversationsHint':
+    'Incluir memória de conversas anteriores e entre conversas no contexto deste perfil.',
+  'settings.profiles.editor.memorySources': 'Fontes de memória',
+  'settings.profiles.editor.memorySourcesHint': 'Fontes de memória das quais este perfil recorda.',
+  'settings.profiles.editor.connectors': 'Conectores',
+  'settings.profiles.editor.connectorsHint':
+    'Kits de ferramentas do Composio que este perfil pode usar.',
+  'settings.profiles.editor.skills': 'Habilidades',
+  'settings.profiles.editor.skillsHint':
+    'Fluxos de trabalho que este perfil pode listar e executar.',
+  'settings.profiles.editor.mcpServers': 'Servidores MCP',
+  'settings.profiles.editor.mcpServersHint': 'Servidores MCP que este perfil pode acessar.',
+  'settings.profiles.editor.all': 'Todos',
+  'settings.profiles.editor.selected': 'Selecionados',
+  'settings.profiles.editor.addPlaceholder': 'Digite um identificador e pressione Enter',
+  'settings.profiles.editor.removeAria': 'Remover {item}',
+  'settings.profiles.editor.notFound': 'Perfil não encontrado',
+  'settings.profiles.editor.saving': 'Salvando…',
 };
 
 export default messages;

@@ -5339,6 +5339,53 @@ const messages: TranslationMap = {
   'notch.speaking': 'बोल रहा हूं…',
   'notch.transcribing': 'ट्रांसक्राइब कर रहा हूं…',
   'notch.executing': 'चला रहा हूं…',
+  // ── Agent Profiles ───────────────────────────────────────────────────────
+  'settings.profiles.title': 'एजेंट प्रोफ़ाइल',
+  'settings.profiles.subtitle': 'विशिष्ट एजेंट — हर एक की अपनी आत्मा, स्मृति, कनेक्टर और कौशल।',
+  'settings.profiles.menuDesc': 'एजेंट प्रोफ़ाइल बनाएँ और प्रबंधित करें',
+  'settings.profiles.new': 'नई प्रोफ़ाइल',
+  'settings.profiles.empty': 'अभी कोई एजेंट प्रोफ़ाइल नहीं',
+  'settings.profiles.loadError': 'प्रोफ़ाइल लोड नहीं हो सकीं',
+  'settings.profiles.active': 'सक्रिय',
+  'settings.profiles.setActive': 'सक्रिय बनाएँ',
+  'settings.profiles.sourceBuiltIn': 'अंतर्निहित',
+  'settings.profiles.sourceCustom': 'कस्टम',
+  'settings.profiles.deleteConfirm': 'यह प्रोफ़ाइल हटाएँ? इसे पूर्ववत नहीं किया जा सकता।',
+  'settings.profiles.editor.createTitle': 'नई प्रोफ़ाइल',
+  'settings.profiles.editor.editTitle': 'प्रोफ़ाइल संपादित करें',
+  'settings.profiles.editor.name': 'नाम',
+  'settings.profiles.editor.id': 'आईडी',
+  'settings.profiles.editor.idHint': 'केवल छोटे अक्षर, अंक और डैश।',
+  'settings.profiles.editor.description': 'विवरण',
+  'settings.profiles.editor.soul': 'आत्मा (SOUL.md)',
+  'settings.profiles.editor.soulHint':
+    'इस प्रोफ़ाइल की कस्टम पहचान। खाली होने पर वर्कस्पेस की SOUL.md पर लौटता है।',
+  'settings.profiles.editor.baseAgent': 'आधार एजेंट',
+  'settings.profiles.editor.baseAgentHint':
+    'यह प्रोफ़ाइल किस एजेंट परिभाषा के रूप में चलती है (जैसे orchestrator)।',
+  'settings.profiles.editor.model': 'मॉडल',
+  'settings.profiles.editor.modelHint':
+    'वैकल्पिक मॉडल ओवरराइड। खाली होने पर डिफ़ॉल्ट विरासत में लेता है।',
+  'settings.profiles.editor.temperature': 'तापमान',
+  'settings.profiles.editor.systemPromptSuffix': 'सिस्टम प्रॉम्प्ट प्रत्यय',
+  'settings.profiles.editor.agentConversations': 'एजेंट वार्तालाप स्मरण करें',
+  'settings.profiles.editor.agentConversationsHint':
+    'इस प्रोफ़ाइल के संदर्भ में पिछली और क्रॉस-चैट स्मृति शामिल करें।',
+  'settings.profiles.editor.memorySources': 'स्मृति स्रोत',
+  'settings.profiles.editor.memorySourcesHint': 'इस प्रोफ़ाइल के स्मरण के स्रोत।',
+  'settings.profiles.editor.connectors': 'कनेक्टर',
+  'settings.profiles.editor.connectorsHint': 'इस प्रोफ़ाइल द्वारा उपयोग योग्य Composio टूलकिट।',
+  'settings.profiles.editor.skills': 'कौशल',
+  'settings.profiles.editor.skillsHint':
+    'इस प्रोफ़ाइल द्वारा सूचीबद्ध और चलाए जा सकने वाले वर्कफ़्लो।',
+  'settings.profiles.editor.mcpServers': 'MCP सर्वर',
+  'settings.profiles.editor.mcpServersHint': 'इस प्रोफ़ाइल द्वारा पहुँचने योग्य MCP सर्वर।',
+  'settings.profiles.editor.all': 'सभी',
+  'settings.profiles.editor.selected': 'चयनित',
+  'settings.profiles.editor.addPlaceholder': 'आईडी टाइप करें, एंटर दबाएँ',
+  'settings.profiles.editor.removeAria': '{item} हटाएँ',
+  'settings.profiles.editor.notFound': 'प्रोफ़ाइल नहीं मिली',
+  'settings.profiles.editor.saving': 'सहेजा जा रहा है…',
 };
 
 export default messages;

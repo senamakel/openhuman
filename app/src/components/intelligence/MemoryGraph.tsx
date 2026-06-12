@@ -460,7 +460,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
     const root = ns.find(n => n.kind === 'root');
     const cx = root?.x ?? 0;
     const cy = root?.y ?? 0;
-    const scale = 1.2;
+    const scale = 0.4;
     setView({
       scale,
       tx: VIEWPORT_W / 2 - cx * scale,

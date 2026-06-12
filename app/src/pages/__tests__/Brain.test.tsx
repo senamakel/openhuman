@@ -18,9 +18,7 @@ vi.mock('../../components/intelligence/MemoryGraph', async () => {
   };
 });
 
-vi.mock('../../lib/i18n/I18nContext', () => ({
-  useT: () => ({ t: (k: string) => k }),
-}));
+vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
 
 vi.mock('../../hooks/useSubconscious', () => ({
   useSubconscious: () => ({

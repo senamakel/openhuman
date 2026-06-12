@@ -96,7 +96,10 @@ describe('Skills page — MCP Servers tab (MCP + Meeting bots)', () => {
   it('supports direct links via legacy ?tab=mcp (normalised to mcp-servers)', async () => {
     renderWithProviders(<Skills />, { initialEntries: ['/connections?tab=mcp'] });
 
-    expect(screen.getByRole('tab', { name: 'MCP Servers' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'MCP Servers' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
     });

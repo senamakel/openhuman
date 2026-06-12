@@ -30,6 +30,8 @@ const messages: TranslationMap = {
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': 'Seu grafo de conhecimento, fontes de memória e controles.',
+  'brain.tabs.memory': 'Memória',
+  'brain.tabs.subconscious': 'Subconsciente',
   'brain.empty':
     'Seu cérebro está vazio por enquanto — conecte uma fonte para começar a construir a memória.',
   'brain.error': 'Não foi possível carregar seu cérebro. Tente novamente.',

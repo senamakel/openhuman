@@ -30,6 +30,8 @@ const messages: TranslationMap = {
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': 'Grafik pengetahuan, sumber memori, dan kontrol Anda.',
+  'brain.tabs.memory': 'Memori',
+  'brain.tabs.subconscious': 'Alam Bawah Sadar',
   'brain.empty': 'Otak Anda masih kosong — hubungkan sumber untuk mulai membangun memori.',
   'brain.error': 'Tidak dapat memuat otak Anda. Silakan coba lagi.',
   'common.cancel': 'Batal',

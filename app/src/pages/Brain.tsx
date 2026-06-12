@@ -1,9 +1,9 @@
 /**
- * Brain — the centerpiece memory surface.
+ * Brain — the centerpiece memory + subconscious surface.
  *
- * Surfaces the live knowledge graph and the full memory workspace — controls,
- * tree status, and connected sources — framed as a clean, single-column
- * dashboard.
+ * Two sub-tabs:
+ *   - **Memory**: knowledge graph, tree status, and connected sources.
+ *   - **Subconscious**: background thinking engine controls.
  */
 import { useCallback, useEffect, useState } from 'react';
 
@@ -11,7 +11,11 @@ import { MemoryControls } from '../components/intelligence/MemoryControls';
 import { MemoryGraph } from '../components/intelligence/MemoryGraph';
 import { MemorySourcesRegistry } from '../components/intelligence/MemorySourcesRegistry';
 import { MemoryTreeStatusPanel } from '../components/intelligence/MemoryTreeStatusPanel';
+import IntelligenceSubconsciousTab from '../components/intelligence/IntelligenceSubconsciousTab';
 import { ToastContainer } from '../components/intelligence/Toast';
+import PillTabBar from '../components/PillTabBar';
+import BetaBanner from '../components/ui/BetaBanner';
+import { useSubconscious } from '../hooks/useSubconscious';
 import { useT } from '../lib/i18n/I18nContext';
 import type { ToastNotification } from '../types/intelligence';
 import {
@@ -20,13 +24,18 @@ import {
   memoryTreeGraphExport,
 } from '../utils/tauriCommands';
 
+type BrainTab = 'memory' | 'subconscious';
+
 export default function Brain() {
   const { t } = useT();
+  const [activeTab, setActiveTab] = useState<BrainTab>('memory');
   const [graph, setGraph] = useState<GraphExportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<GraphMode>('tree');
   const [refreshKey, setRefreshKey] = useState(0);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  const sub = useSubconscious();
 
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
     setToasts(prev => [...prev, { ...toast, id: `toast-${Date.now()}-${Math.random()}` }]);
@@ -36,13 +45,10 @@ export default function Brain() {
   }, []);
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
-  // ── Fetch the graph on mount / mode change / refresh, and refresh when the
-  //    tree finishes building.
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       console.debug('[brain] graph fetch: entry mode=%s', mode);
-      // Clear any prior error so a successful retry isn't masked by a stale one.
       setError(null);
       try {
         const resp = await memoryTreeGraphExport(mode);
@@ -84,33 +90,66 @@ export default function Brain() {
           <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">{t('brain.subtitle')}</p>
         </header>
 
-        <MemoryControls
-          mode={mode}
-          onModeChange={setMode}
-          onRefresh={refresh}
-          onToast={addToast}
-          contentRootAbs={graph?.content_root_abs}
+        <PillTabBar<BrainTab>
+          selected={activeTab}
+          onChange={setActiveTab}
+          items={[
+            { value: 'memory', label: t('brain.tabs.memory') },
+            { value: 'subconscious', label: t('brain.tabs.subconscious') },
+          ]}
         />
 
-        {graph ? (
-          <MemoryGraph
-            nodes={graph.nodes}
-            edges={graph.edges}
-            mode={mode}
-            emptyHint={t('brain.empty')}
-          />
-        ) : error ? (
-          <div className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`} role="alert">
-            {t('brain.error')}
-          </div>
-        ) : null}
+        {activeTab === 'memory' && (
+          <div className="space-y-5 animate-fade-up">
+            <MemoryControls
+              mode={mode}
+              onModeChange={setMode}
+              onRefresh={refresh}
+              onToast={addToast}
+              contentRootAbs={graph?.content_root_abs}
+            />
 
-        <div className="space-y-5">
-          <div className={cardClass}>
-            <MemoryTreeStatusPanel onToast={addToast} />
+            {graph ? (
+              <MemoryGraph
+                nodes={graph.nodes}
+                edges={graph.edges}
+                mode={mode}
+                emptyHint={t('brain.empty')}
+              />
+            ) : error ? (
+              <div
+                className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`}
+                role="alert">
+                {t('brain.error')}
+              </div>
+            ) : null}
+
+            <div className="space-y-5">
+              <div className={cardClass}>
+                <MemoryTreeStatusPanel onToast={addToast} />
+              </div>
+              <MemorySourcesRegistry onToast={addToast} />
+            </div>
           </div>
-          <MemorySourcesRegistry onToast={addToast} />
-        </div>
+        )}
+
+        {activeTab === 'subconscious' && (
+          <div className="space-y-3 animate-fade-up">
+            <BetaBanner />
+            <div className={cardClass}>
+              <IntelligenceSubconsciousTab
+                status={sub.status}
+                mode={sub.mode}
+                intervalMinutes={sub.intervalMinutes}
+                triggerTick={sub.triggerTick}
+                triggering={sub.triggering}
+                settingMode={sub.settingMode}
+                setMode={sub.setMode}
+                setIntervalMinutes={sub.setIntervalMinutes}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />

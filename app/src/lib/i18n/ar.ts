@@ -30,6 +30,8 @@ const messages: TranslationMap = {
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': 'خريطة معرفتك ومصادر الذاكرة وعناصر التحكم.',
+  'brain.tabs.memory': 'الذاكرة',
+  'brain.tabs.subconscious': 'اللاوعي',
   'brain.empty': 'دماغك فارغ في الوقت الحالي — قم بربط مصدر لبدء بناء الذاكرة.',
   'brain.error': 'تعذّر تحميل دماغك. يرجى المحاولة مرة أخرى.',
   'common.cancel': 'إلغاء',

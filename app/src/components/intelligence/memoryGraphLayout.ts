@@ -36,7 +36,7 @@ export const LEVEL_COLOR = [
 export const LEAF_COLOR = '#94A3B8'; // raw chunks / leaves (no level)
 export const CONTACT_COLOR = '#A78BFA'; // person entities (contacts mode)
 export const SOURCE_COLOR = '#F97316'; // synthetic source root nodes
-export const ROOT_COLOR = '#64748B'; // master root hub
+export const ROOT_COLOR = '#4A83DD'; // master root hub (ocean primary)
 
 /** Layout is computed in this fixed coordinate space; the renderer pans/zooms it. */
 export const VIEWPORT_W = 1100;

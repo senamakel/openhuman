@@ -456,18 +456,10 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
     if (!s || userInteractedRef.current) return;
     const ns = s.sim;
     if (ns.length === 0) return;
-    // Center on source nodes at a fixed comfortable zoom so the graph
-    // opens at a readable scale. Users can zoom/pan to explore further.
-    const sources = ns.filter(n => n.kind === 'source');
-    const anchor = sources.length > 0 ? sources : ns;
-    let cx = 0;
-    let cy = 0;
-    for (const n of anchor) {
-      cx += n.x;
-      cy += n.y;
-    }
-    cx /= anchor.length;
-    cy /= anchor.length;
+    // Center on the root node at a fixed comfortable zoom.
+    const root = ns.find(n => n.kind === 'root');
+    const cx = root?.x ?? 0;
+    const cy = root?.y ?? 0;
     const scale = 1.2;
     setView({
       scale,
@@ -703,7 +695,11 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
         <div
           className="border-t border-stone-100 dark:border-neutral-800 bg-stone-50/70 dark:bg-neutral-900/70 px-4 py-2 text-xs text-stone-700 dark:text-neutral-200"
           data-testid="memory-graph-tooltip">
-          {hovered.kind === 'source' ? (
+          {hovered.kind === 'root' ? (
+            <span className="font-medium text-slate-500 dark:text-slate-400">
+              {hovered.label}
+            </span>
+          ) : hovered.kind === 'source' ? (
             <span className="font-medium text-orange-600 dark:text-orange-400">
               {hovered.label}
             </span>
@@ -773,8 +769,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
 }
 
 function tooltipFor(n: GraphNode, t: (key: string, fallback?: string) => string): string {
-  // NOTE: the underlying t() does not interpolate params; placeholders in the
-  // translated string are rendered as-is. Preserved to match prior behavior.
+  if (n.kind === 'root') return n.label;
   if (n.kind === 'summary') return t('graph.tooltip.summary');
   if (n.kind === 'contact') return t('graph.tooltip.contact');
   return n.label || t('graph.document');

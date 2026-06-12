@@ -15,7 +15,7 @@ export default function ComposerTokenStats() {
   if (totalTokens === 0) return null;
 
   return (
-    <div className="flex items-center gap-3 px-1 pt-1.5 pb-0 text-[10px] font-mono text-stone-400 dark:text-neutral-500 select-none">
+    <div className="flex items-center gap-3 mt-1.5 text-[10px] font-mono text-stone-400 dark:text-neutral-500 select-none">
       <span title={t('token.inputTokens')}>
         {t('token.inLabel')} {fmt(usage.inputTokens)}
       </span>

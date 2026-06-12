@@ -78,7 +78,11 @@ const Settings = () => {
   );
 
   return (
-    <div>
+    // h-full chains the AppShell page-scroller height down to SettingsLayout so
+    // its panes can bound to the viewport (minus the bottom bar, via the
+    // scroller's pb-16) and scroll internally — instead of the whole page
+    // growing and scrolling as one.
+    <div className="h-full">
       <Routes>
         <Route element={<SettingsLayout />}>
           <Route index element={<SettingsIndexRedirect />} />

@@ -456,32 +456,23 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
     if (!s || userInteractedRef.current) return;
     const ns = s.sim;
     if (ns.length === 0) return;
-    // Frame source + summary nodes so the important structure is visible;
-    // leaf chunks further out can be reached by zooming out manually.
-    const important = ns.filter(n => n.kind === 'source' || n.kind === 'summary' || n.kind === 'contact');
-    const target = important.length > 0 ? important : ns;
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const n of target) {
-      if (n.x < minX) minX = n.x;
-      if (n.y < minY) minY = n.y;
-      if (n.x > maxX) maxX = n.x;
-      if (n.y > maxY) maxY = n.y;
+    // Center on source nodes at a fixed comfortable zoom so the graph
+    // opens at a readable scale. Users can zoom/pan to explore further.
+    const sources = ns.filter(n => n.kind === 'source');
+    const anchor = sources.length > 0 ? sources : ns;
+    let cx = 0;
+    let cy = 0;
+    for (const n of anchor) {
+      cx += n.x;
+      cy += n.y;
     }
-    if (!Number.isFinite(minX)) return;
-    const pad = 80;
-    const w = Math.max(1, maxX - minX);
-    const h = Math.max(1, maxY - minY);
-    const scale = Math.min(
-      ZOOM_MAX,
-      Math.max(ZOOM_MIN, Math.min((VIEWPORT_W - pad) / w, (VIEWPORT_H - pad) / h))
-    );
+    cx /= anchor.length;
+    cy /= anchor.length;
+    const scale = 1.2;
     setView({
       scale,
-      tx: VIEWPORT_W / 2 - ((minX + maxX) / 2) * scale,
-      ty: VIEWPORT_H / 2 - ((minY + maxY) / 2) * scale,
+      tx: VIEWPORT_W / 2 - cx * scale,
+      ty: VIEWPORT_H / 2 - cy * scale,
     });
   }, []);
   fitRef.current = fitToView;

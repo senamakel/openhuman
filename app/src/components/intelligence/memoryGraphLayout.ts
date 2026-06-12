@@ -161,12 +161,8 @@ export function createSimulation(
     .force(
       'charge',
       forceManyBody<SimNode>()
-        .strength(n => {
-          if (n.kind === 'root') return -600;
-          if (n.kind === 'source') return -400;
-          return -140;
-        })
-        .distanceMax(420)
+        .strength(-400)
+        .distanceMax(500)
     )
     .force(
       'link',

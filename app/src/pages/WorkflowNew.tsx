@@ -13,7 +13,7 @@
  *     new skills aren't auto-scheduled and the runner picker pre-select
  *     only makes sense once the user has filled in inputs. The
  *     Connections page (defaulting to Apps tab) provides a clear "here
- *     are your connections" signal. Use ?tab=explorer to deep-link to
+ *     are your connections" signal. Use ?tab=skills to deep-link to
  *     the Explorer tab if needed.
  *   - Cancel → /connections.
  */

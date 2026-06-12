@@ -392,7 +392,7 @@ const messages: TranslationMap = {
   'connections.tabs.apps': 'Aplicativos',
   'connections.tabs.messaging': 'Mensagens',
   'connections.tabs.tools': 'Ferramentas',
-  'connections.tabs.explorer': 'Explorar',
+  'connections.tabs.skills': 'Habilidades',
   'connections.tabs.talents': 'Talentos',
   'memory.title': 'Memória',
   'memory.search': 'Pesquisar memórias...',

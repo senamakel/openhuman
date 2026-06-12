@@ -383,7 +383,7 @@ const messages: TranslationMap = {
   'connections.tabs.apps': 'Aplikasi',
   'connections.tabs.messaging': 'Pesan',
   'connections.tabs.tools': 'Alat',
-  'connections.tabs.explorer': 'Penjelajah',
+  'connections.tabs.skills': 'Keterampilan',
   'connections.tabs.talents': 'Talenta',
   'memory.title': 'Memori',
   'memory.search': 'Cari memori...',

@@ -420,7 +420,7 @@ const en: TranslationMap = {
   'connections.tabs.apps': 'Apps',
   'connections.tabs.messaging': 'Messaging',
   'connections.tabs.tools': 'Tools',
-  'connections.tabs.explorer': 'Explorer',
+  'connections.tabs.skills': 'Skills',
   'connections.tabs.talents': 'Talents',
   // Intelligence / Memory
   'memory.title': 'Memory',

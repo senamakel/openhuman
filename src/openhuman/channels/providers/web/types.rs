@@ -46,6 +46,17 @@ pub(super) struct InFlightEntry {
     pub(super) cancel_token: tokio_util::sync::CancellationToken,
 }
 
+/// A concurrent, forked (`QueueMode::Parallel`) turn on a thread. Tracked in a
+/// separate lane keyed by `request_id` so any number can run alongside the
+/// primary in-flight turn without participating in interrupt/steer/queue
+/// semantics. Carries `thread_id` so cancellation-by-thread can find it.
+#[derive(Debug)]
+pub(super) struct ParallelEntry {
+    pub(super) thread_id: String,
+    pub(super) handle: tokio::task::JoinHandle<()>,
+    pub(super) cancel_token: tokio_util::sync::CancellationToken,
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct WebChatTaskResult {
     pub(super) full_response: String,

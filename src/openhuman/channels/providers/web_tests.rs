@@ -5,8 +5,8 @@ use super::{
     in_flight_entries_for_test, inference_budget_exceeded_user_message,
     is_inference_budget_exceeded_error, json_output, key_for, locale_reply_directive,
     normalize_model_override, optional_bool, optional_f64, optional_string, optional_u64,
-    provider_role_for_model_override, required_string, schemas,
-    set_test_forced_run_chat_task_error, set_test_run_chat_task_block, start_chat,
+    parallel_in_flight_entries_for_test, provider_role_for_model_override, required_string,
+    schemas, set_test_forced_run_chat_task_error, set_test_run_chat_task_block, start_chat,
     subscribe_web_channel_events, ChatRequestMetadata, ClassifiedError, TestRunChatTaskBlock,
     WebChatParams,
 };
@@ -1829,6 +1829,83 @@ async fn cancel_chat_cooperatively_stops_in_flight_turn() {
     // (cooperative cancel), long before the 30s test sleep would elapse.
     wait_for_in_flight(|e| !e.iter().any(|(k, _)| k == thread_id)).await;
     wait_for_flag(&block.dropped, "turn future dropped by cooperative cancel").await;
+
+    set_test_run_chat_task_block(None).await;
+}
+
+/// Helper: poll the parallel in-flight lane until `pred` holds (or time out).
+async fn wait_for_parallel<F: Fn(&[(String, String)]) -> bool>(pred: F) -> Vec<(String, String)> {
+    timeout(Duration::from_secs(5), async {
+        loop {
+            let entries = parallel_in_flight_entries_for_test().await;
+            if pred(&entries) {
+                return entries;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("parallel in-flight condition not met before timeout")
+}
+
+/// A `parallel`-mode turn runs CONCURRENTLY with the primary turn on the SAME
+/// thread (it does not interrupt it), and a thread-level cancel tears down both.
+#[tokio::test]
+async fn parallel_turn_runs_concurrently_with_primary_on_same_thread() {
+    let _serial = FORCED_ERROR_TEST_LOCK.lock().await;
+    let block = make_block();
+    set_test_run_chat_task_block(Some(block.clone())).await;
+
+    let thread_id = "parallel-same-thread";
+
+    // Primary turn (default interrupt mode) parks in IN_FLIGHT.
+    start_chat(
+        "pp-client",
+        thread_id,
+        "primary",
+        None,
+        None,
+        None,
+        None,
+        None,
+        ChatRequestMetadata::default(),
+    )
+    .await
+    .expect("primary turn should start");
+    wait_for_in_flight(|e| e.iter().any(|(k, _)| k == thread_id)).await;
+
+    // Parallel turn on the SAME thread must NOT interrupt the primary — it
+    // lives in the parallel lane while the primary stays in-flight.
+    start_chat(
+        "pp-client",
+        thread_id,
+        "branch",
+        None,
+        None,
+        None,
+        None,
+        Some("parallel".to_string()),
+        ChatRequestMetadata::default(),
+    )
+    .await
+    .expect("parallel turn should start");
+
+    wait_for_parallel(|e| e.iter().any(|(_, t)| t == thread_id)).await;
+    // Primary is still in-flight — the parallel send did not interrupt it.
+    assert!(
+        in_flight_entries_for_test()
+            .await
+            .iter()
+            .any(|(k, _)| k == thread_id),
+        "primary turn must remain in-flight alongside the parallel turn"
+    );
+
+    // A thread-level cancel tears down BOTH the primary and the parallel turn.
+    cancel_chat("pp-client", thread_id)
+        .await
+        .expect("cancel should succeed");
+    wait_for_in_flight(|e| !e.iter().any(|(k, _)| k == thread_id)).await;
+    wait_for_parallel(|e| !e.iter().any(|(_, t)| t == thread_id)).await;
 
     set_test_run_chat_task_block(None).await;
 }

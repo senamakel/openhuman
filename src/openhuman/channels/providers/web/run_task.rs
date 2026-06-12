@@ -30,6 +30,11 @@ pub(crate) async fn run_chat_task(
     locale: Option<String>,
     run_queue: Arc<crate::openhuman::agent::harness::run_queue::RunQueue>,
     metadata: ChatRequestMetadata,
+    // When true, run as an isolated fork: build a fresh agent seeded from the
+    // thread's history-at-start and never touch the shared `THREAD_SESSIONS`
+    // cache, so a concurrent same-thread (parallel) turn cannot clobber — or be
+    // clobbered by — the primary turn's cached agent. See `QueueMode::Parallel`.
+    fork: bool,
 ) -> Result<WebChatTaskResult, String> {
     #[cfg(any(test, debug_assertions))]
     {
@@ -96,7 +101,11 @@ pub(crate) async fn run_chat_task(
         provider_role,
     );
 
-    let prior = {
+    // A forked (parallel) turn never reuses or evicts the shared cached agent —
+    // it always builds fresh from the history snapshot below.
+    let prior = if fork {
+        None
+    } else {
         let mut sessions = THREAD_SESSIONS.lock().await;
         sessions.remove(&map_key)
     };
@@ -276,7 +285,9 @@ pub(crate) async fn run_chat_task(
 
     agent.set_on_progress(None);
 
-    {
+    // Only the primary (non-fork) turn writes its agent back to the shared
+    // cache; a fork is fully isolated and lets its agent drop here.
+    if !fork {
         let mut sessions = THREAD_SESSIONS.lock().await;
         sessions.insert(
             map_key,

@@ -20,8 +20,8 @@ export interface NavTab {
 }
 
 /**
- * Ordered list of bottom-bar tabs.  Seven entries:
- *   home → chat → human → brain → connections → activity → settings
+ * Ordered list of bottom-bar tabs.  Six entries:
+ *   home → chat → human → brain → connections → settings
  *
  * Chat is a regular pill tab (second after home). The Human tab is a
  * first-class destination again (it was briefly merged into Assistant in
@@ -40,7 +40,6 @@ export const NAV_TABS: NavTab[] = [
     path: '/connections',
     walkthroughAttr: 'tab-connections',
   },
-  { id: 'activity', labelKey: 'nav.activity', path: '/activity', walkthroughAttr: 'tab-activity' },
   { id: 'settings', labelKey: 'nav.settings', path: '/settings', walkthroughAttr: 'tab-settings' },
 ];
 

@@ -59,6 +59,7 @@ import VoicePanel from '../components/settings/panels/VoicePanel';
 import WalletBalancesPanel from '../components/settings/panels/WalletBalancesPanel';
 import WebhooksDebugPanel from '../components/settings/panels/WebhooksDebugPanel';
 import WorkflowRunnerPanel from '../components/settings/panels/WorkflowRunnerPanel';
+import WorkflowsTab from '../components/intelligence/WorkflowsTab';
 import SettingsHome from '../components/settings/SettingsHome';
 import SettingsSectionPage from '../components/settings/SettingsSectionPage';
 import { useT } from '../lib/i18n/I18nContext';
@@ -283,11 +284,16 @@ const Settings = () => {
   // notification preferences/routing panel under one section page.
   const notificationsHubItems = [
     {
+      id: 'automations',
+      title: t('activity.tabs.automations'),
+      description: t('activity.tabs.automationsDescription'),
+      route: 'automations',
+      icon: NotificationsIcon,
+    },
+    {
       id: 'alerts',
       title: t('nav.alerts'),
       description: t('settings.alertsDesc'),
-      // Alerts is the top-level inbox at `/notifications`, outside the settings
-      // tree, so navigate explicitly instead of via `navigateToSettings`.
       onClick: () => navigate('/notifications'),
       icon: NotificationsIcon,
     },
@@ -599,6 +605,7 @@ const Settings = () => {
         <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
         <Route path="task-sources" element={wrapSettingsPage(<TaskSourcesPanel />)} />
         <Route path="tasks" element={wrapSettingsPage(<TasksPanel />)} />
+        <Route path="automations" element={wrapSettingsPage(<WorkflowsTab />, { maxWidthClass: 'max-w-4xl' })} />
         <Route path="dev-workflow" element={wrapSettingsPage(<DevWorkflowPanel />)} />
         <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />
         <Route

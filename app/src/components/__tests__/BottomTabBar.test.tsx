@@ -1,8 +1,8 @@
 /**
  * Tests for BottomTabBar — verifies that:
- *  - 7 tabs are rendered (no Rewards tab; Human restored; Chat is a regular tab)
+ *  - 6 tabs are rendered (no Rewards or Activity tab; Human restored; Chat is a regular tab)
  *  - Chat tab is present (id 'chat', label 'Chat')
- *  - Walkthrough attributes reflect the new ids (tab-connections, tab-activity)
+ *  - Walkthrough attributes reflect the new ids (tab-connections)
  *  - Avatar menu opens and shows Account / Billing / Rewards / Invites / Wallet
  *  - Clicking an avatar menu item navigates or opens URL
  *  - The bar is hidden on '/' and '/login' paths
@@ -164,11 +164,11 @@ describe('BottomTabBar', () => {
     agentProfilesApiMock.select.mockResolvedValue(testProfiles);
   });
 
-  it('renders exactly 7 regular tab buttons (Chat is a regular tab)', async () => {
+  it('renders exactly 6 regular tab buttons (Chat is a regular tab)', async () => {
     await renderBottomTabBar('/home');
     const nav = document.querySelector('nav');
     const navButtons = nav?.querySelectorAll('button:not([aria-haspopup])');
-    expect(navButtons).toHaveLength(7);
+    expect(navButtons).toHaveLength(6);
   });
 
   it('gives every labelled tab a fixed width when labels are always visible', async () => {
@@ -228,9 +228,9 @@ describe('BottomTabBar', () => {
     });
   });
 
-  it('renders the Activity tab', async () => {
+  it('does NOT render an Activity tab', async () => {
     await renderBottomTabBar('/home');
-    expect(screen.getByRole('button', { name: 'Activity' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Activity' })).toBeNull();
   });
 
   it('renders the Brain tab in the regular row with data-walkthrough="tab-brain"', async () => {
@@ -245,12 +245,6 @@ describe('BottomTabBar', () => {
     const connectionsBtn = screen.getByRole('button', { name: 'Connections' });
     expect(connectionsBtn).toBeInTheDocument();
     expect(connectionsBtn).toHaveAttribute('data-walkthrough', 'tab-connections');
-  });
-
-  it('renders Activity tab with data-walkthrough="tab-activity"', async () => {
-    await renderBottomTabBar('/home');
-    const activityBtn = screen.getByRole('button', { name: 'Activity' });
-    expect(activityBtn).toHaveAttribute('data-walkthrough', 'tab-activity');
   });
 
   it('renders Settings tab with data-walkthrough="tab-settings"', async () => {

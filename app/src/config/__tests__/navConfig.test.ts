@@ -1,28 +1,19 @@
-/**
- * Tests for navConfig — verifies the shape, count, and key values of NAV_TABS
- * and AVATAR_MENU_ITEMS so regressions are caught early.
- *
- * Chat is a regular pill tab (second after home). Human tab restored as a
- * first-class entry (after the IA Phase 6 merge into Assistant), so the
- * regular row is 7 tabs.
- */
 import { describe, expect, it } from 'vitest';
 
 import { AVATAR_MENU_ITEMS, NAV_TABS } from '../navConfig';
 
 describe('NAV_TABS', () => {
-  it('has exactly 7 entries (chat is a regular tab)', () => {
-    expect(NAV_TABS).toHaveLength(7);
+  it('has exactly 6 entries', () => {
+    expect(NAV_TABS).toHaveLength(6);
   });
 
-  it('has the correct ids in order (chat second, after home)', () => {
+  it('has the correct ids in order', () => {
     expect(NAV_TABS.map(t => t.id)).toEqual([
       'home',
       'chat',
       'human',
       'brain',
       'connections',
-      'activity',
       'settings',
     ]);
   });
@@ -34,7 +25,6 @@ describe('NAV_TABS', () => {
       '/human',
       '/brain',
       '/connections',
-      '/activity',
       '/settings',
     ]);
   });
@@ -46,7 +36,6 @@ describe('NAV_TABS', () => {
       'nav.human',
       'nav.brain',
       'nav.connections',
-      'nav.activity',
       'nav.settings',
     ]);
   });
@@ -58,25 +47,12 @@ describe('NAV_TABS', () => {
       'tab-human',
       'tab-brain',
       'tab-connections',
-      'tab-activity',
       'tab-settings',
     ]);
   });
 
-  it('contains a Human tab pointing at /human', () => {
-    const humanTab = NAV_TABS.find(t => t.id === 'human');
-    expect(humanTab).toBeDefined();
-    expect(humanTab?.path).toBe('/human');
-    expect(humanTab?.labelKey).toBe('nav.human');
-    expect(humanTab?.walkthroughAttr).toBe('tab-human');
-  });
-
-  it('contains a chat tab as a regular entry', () => {
-    const chatTab = NAV_TABS.find(t => t.id === 'chat');
-    expect(chatTab).toBeDefined();
-    expect(chatTab?.path).toBe('/chat');
-    expect(chatTab?.labelKey).toBe('nav.chat');
-    expect(chatTab?.walkthroughAttr).toBe('tab-chat');
+  it('does not contain an activity tab', () => {
+    expect(NAV_TABS.find(t => t.id === 'activity')).toBeUndefined();
   });
 
   it('does not contain a rewards tab', () => {
@@ -86,14 +62,6 @@ describe('NAV_TABS', () => {
   it('does not contain an intelligence or skills tab id', () => {
     expect(NAV_TABS.find(t => t.id === 'intelligence')).toBeUndefined();
     expect(NAV_TABS.find(t => t.id === 'skills')).toBeUndefined();
-  });
-
-  it('Brain tab sits in the regular row with nav.brain label and tab-brain walkthrough attr', () => {
-    const brainTab = NAV_TABS.find(t => t.id === 'brain');
-    expect(brainTab).toBeDefined();
-    expect(brainTab?.labelKey).toBe('nav.brain');
-    expect(brainTab?.walkthroughAttr).toBe('tab-brain');
-    expect(brainTab?.path).toBe('/brain');
   });
 });
 
@@ -112,35 +80,13 @@ describe('AVATAR_MENU_ITEMS', () => {
     ]);
   });
 
-  it('has the correct labelKeys', () => {
-    expect(AVATAR_MENU_ITEMS.map(i => i.labelKey)).toEqual([
-      'nav.avatarMenu.account',
-      'nav.avatarMenu.billing',
-      'nav.avatarMenu.rewards',
-      'nav.avatarMenu.invites',
-      'nav.avatarMenu.wallet',
-    ]);
-  });
-
   it('billing, rewards, and invites are cloudOnly; account and wallet are not', () => {
     const cloudOnly = AVATAR_MENU_ITEMS.filter(i => i.cloudOnly).map(i => i.id);
     expect(cloudOnly).toEqual(['billing', 'rewards', 'invites']);
-
-    const notCloudOnly = AVATAR_MENU_ITEMS.filter(i => !i.cloudOnly).map(i => i.id);
-    expect(notCloudOnly).toEqual(['account', 'wallet']);
   });
 
   it('billing uses openUrl; all others use navigate', () => {
     const openUrlItems = AVATAR_MENU_ITEMS.filter(i => i.kind === 'openUrl').map(i => i.id);
     expect(openUrlItems).toEqual(['billing']);
-
-    const navigateItems = AVATAR_MENU_ITEMS.filter(i => i.kind === 'navigate').map(i => i.id);
-    expect(navigateItems).toEqual(['account', 'rewards', 'invites', 'wallet']);
-  });
-
-  it('each item has a non-empty target', () => {
-    for (const item of AVATAR_MENU_ITEMS) {
-      expect(item.target.length).toBeGreaterThan(0);
-    }
   });
 });

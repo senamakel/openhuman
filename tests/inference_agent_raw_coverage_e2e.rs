@@ -103,6 +103,9 @@ use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
 };
+use openhuman_core::openhuman::profiles::{
+    all_profiles_controller_schemas, all_profiles_registered_controllers,
+};
 use openhuman_core::openhuman::agent_registry::agents::BUILTINS;
 use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
@@ -1116,6 +1119,14 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
         .iter()
         .all(|controller| controller.rpc_method_name().starts_with("openhuman.agent_")));
 
+    // Profiles moved to their own top-level domain (`openhuman.profiles_*`).
+    let profile_schemas = all_profiles_controller_schemas();
+    let profiles = all_profiles_registered_controllers();
+    assert_eq!(profile_schemas.len(), profiles.len());
+    assert!(profiles
+        .iter()
+        .all(|controller| controller.rpc_method_name().starts_with("openhuman.profiles_")));
+
     let status = call(controller(&registered, "server_status"), json!({}))
         .await
         .expect("server status");
@@ -1155,7 +1166,7 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     assert_eq!(reload.pointer("/status"), Some(&json!("noop")));
     assert_eq!(reload.pointer("/registry_initialised"), Some(&json!(true)));
 
-    let list = call(controller(&registered, "profiles_list"), json!({}))
+    let list = call(controller(&profiles, "list"), json!({}))
         .await
         .expect("profiles list");
     assert_eq!(
@@ -1170,7 +1181,7 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
         .any(|profile| profile.pointer("/id") == Some(&json!("research"))));
 
     let unknown_agent = call(
-        controller(&registered, "profile_upsert"),
+        controller(&profiles, "upsert"),
         json!({
             "profile": {
                 "id": "Bad Agent",
@@ -1185,7 +1196,7 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     assert!(unknown_agent.contains("agent definition 'unknown-agent-id' not found"));
 
     let upserted = call(
-        controller(&registered, "profile_upsert"),
+        controller(&profiles, "upsert"),
         json!({
             "profile": {
                 "id": " My Research Profile ",
@@ -1220,7 +1231,7 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     );
 
     let selected = call(
-        controller(&registered, "profile_select"),
+        controller(&profiles, "select"),
         json!({ "profile_id": "my-research-profile" }),
     )
     .await
@@ -1231,7 +1242,7 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     );
 
     let missing_select = call(
-        controller(&registered, "profile_select"),
+        controller(&profiles, "select"),
         json!({ "profile_id": "missing-profile" }),
     )
     .await
@@ -1239,7 +1250,7 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     assert!(missing_select.contains("agent profile 'missing-profile' not found"));
 
     let delete_builtin = call(
-        controller(&registered, "profile_delete"),
+        controller(&profiles, "delete"),
         json!({ "profile_id": DEFAULT_PROFILE_ID }),
     )
     .await
@@ -1247,7 +1258,7 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     assert!(delete_builtin.contains("built-in agent profile"));
 
     let deleted = call(
-        controller(&registered, "profile_delete"),
+        controller(&profiles, "delete"),
         json!({ "profile_id": "my-research-profile" }),
     )
     .await

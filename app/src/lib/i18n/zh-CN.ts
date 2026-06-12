@@ -365,7 +365,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': '消息',
   'connections.tabs.mcp': 'MCP 服务器',
   'connections.tabs.skills': '技能',
-  'connections.tabs.talents': '才能',
+  'connections.tabs.meetings': '会议',
   'memory.title': '记忆',
   'memory.search': '搜索记忆...',
   'memory.noResults': '未找到记忆',

@@ -384,7 +384,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': 'Pesan',
   'connections.tabs.mcp': 'Server MCP',
   'connections.tabs.skills': 'Keterampilan',
-  'connections.tabs.talents': 'Talenta',
+  'connections.tabs.meetings': 'Rapat',
   'memory.title': 'Memori',
   'memory.search': 'Cari memori...',
   'memory.noResults': 'Memori tidak ditemukan',

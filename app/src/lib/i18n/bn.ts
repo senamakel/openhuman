@@ -381,7 +381,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': 'বার্তা পাঠানো',
   'connections.tabs.mcp': 'MCP সার্ভার',
   'connections.tabs.skills': 'দক্ষতা',
-  'connections.tabs.talents': 'ট্যালেন্ট',
+  'connections.tabs.meetings': 'মিটিং',
   'memory.title': 'মেমোরি',
   'memory.search': 'মেমোরি খুঁজুন...',
   'memory.noResults': 'কোনো মেমোরি পাওয়া যায়নি',

@@ -421,7 +421,7 @@ const en: TranslationMap = {
   'connections.tabs.messaging': 'Messaging',
   'connections.tabs.mcp': 'MCP Servers',
   'connections.tabs.skills': 'Skills',
-  'connections.tabs.talents': 'Talents',
+  'connections.tabs.meetings': 'Meetings',
   // Intelligence / Memory
   'memory.title': 'Memory',
   'memory.search': 'Search memories...',

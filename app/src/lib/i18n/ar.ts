@@ -376,7 +376,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': 'المراسلة',
   'connections.tabs.mcp': 'خوادم MCP',
   'connections.tabs.skills': 'المهارات',
-  'connections.tabs.talents': 'المواهب',
+  'connections.tabs.meetings': 'الاجتماعات',
   'memory.title': 'الذاكرة',
   'memory.search': 'البحث في الذكريات...',
   'memory.noResults': 'لم يتم العثور على ذكريات',

@@ -389,7 +389,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': 'Messaggistica',
   'connections.tabs.mcp': 'Server MCP',
   'connections.tabs.skills': 'Competenze',
-  'connections.tabs.talents': 'Talenti',
+  'connections.tabs.meetings': 'Riunioni',
   'memory.title': 'Memoria',
   'memory.search': 'Cerca memorie...',
   'memory.noResults': 'Nessuna memoria trovata',

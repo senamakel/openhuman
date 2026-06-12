@@ -381,7 +381,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': '메시징',
   'connections.tabs.mcp': 'MCP 서버',
   'connections.tabs.skills': '스킬',
-  'connections.tabs.talents': '재능',
+  'connections.tabs.meetings': '미팅',
   'memory.title': '메모리',
   'memory.search': '메모리 검색...',
   'memory.noResults': '메모리를 찾을 수 없습니다',

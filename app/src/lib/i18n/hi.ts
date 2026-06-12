@@ -380,7 +380,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': 'मैसेजिंग',
   'connections.tabs.mcp': 'MCP सर्वर',
   'connections.tabs.skills': 'कौशल',
-  'connections.tabs.talents': 'टैलेंट',
+  'connections.tabs.meetings': 'मीटिंग',
   'memory.title': 'मेमोरी',
   'memory.search': 'मेमोरी सर्च करें...',
   'memory.noResults': 'कोई मेमोरी नहीं मिली',

@@ -355,7 +355,7 @@ interface SkillItem {
  * Back-compat: the old ?tab= values (composio, channels, mcp, meetings) are
  * normalised to the new values so existing deep links continue to work.
  */
-type ConnectionsTab = 'apps' | 'messaging' | 'mcp' | 'skills' | 'talents';
+type ConnectionsTab = 'apps' | 'messaging' | 'mcp' | 'skills' | 'meetings';
 
 export default function Skills() {
   const { t } = useT();
@@ -375,14 +375,14 @@ export default function Skills() {
       raw === 'messaging' ||
       raw === 'mcp' ||
       raw === 'skills' ||
-      raw === 'talents'
+      raw === 'meetings'
     )
       return raw;
     // Legacy back-compat aliases
     if (raw === 'composio') return 'apps';
     if (raw === 'channels') return 'messaging';
     if (raw === 'tools') return 'mcp';
-    if (raw === 'meetings') return 'talents';
+    if (raw === 'talents') return 'meetings';
     if (raw === 'explorer') return 'skills';
     return 'apps';
   })();
@@ -821,7 +821,7 @@ export default function Skills() {
                 { value: 'messaging', label: t('connections.tabs.messaging') },
                 { value: 'mcp', label: t('connections.tabs.mcp') },
                 { value: 'skills', label: t('connections.tabs.skills') },
-                { value: 'talents', label: t('connections.tabs.talents') },
+                { value: 'meetings', label: t('connections.tabs.meetings') },
               ]}
             />
             {
@@ -975,9 +975,9 @@ export default function Skills() {
                   </div>
                 )}
 
-                {activeTab === 'talents' && (
+                {activeTab === 'meetings' && (
                   <div className="space-y-4 animate-fade-up">
-                    {/* Meeting bots live under Talents (moved out of Tools) */}
+                    {/* Meeting bots live under Meetings */}
                     <MeetingBotsCard onToast={addToast} />
                   </div>
                 )}

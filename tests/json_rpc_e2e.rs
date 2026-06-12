@@ -11620,7 +11620,10 @@ async fn json_rpc_memory_sources_reconcile_reports_pending_raw_files() {
         scope.get("tree_scope").and_then(Value::as_str),
         Some("github:owner/repo")
     );
-    assert_eq!(scope.get("total_raw_files").and_then(Value::as_u64), Some(2));
+    assert_eq!(
+        scope.get("total_raw_files").and_then(Value::as_u64),
+        Some(2)
+    );
     assert_eq!(scope.get("covered").and_then(Value::as_u64), Some(0));
     assert_eq!(scope.get("pending").and_then(Value::as_u64), Some(2));
     assert_eq!(

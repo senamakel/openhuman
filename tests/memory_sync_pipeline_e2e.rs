@@ -473,7 +473,11 @@ async fn check_and_rebuild_auto_detects_raw_without_summaries() {
 
     // A scope with no raw files on disk never triggers a rebuild.
     assert!(
-        !needs_rebuild(&cfg, "gmail:empty-at-example-dot-com", "gmail:empty-at-example-dot-com"),
+        !needs_rebuild(
+            &cfg,
+            "gmail:empty-at-example-dot-com",
+            "gmail:empty-at-example-dot-com"
+        ),
         "needs_rebuild must be false when no raw directory exists"
     );
 }

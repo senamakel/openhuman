@@ -238,10 +238,8 @@ fn backfill_coverage_from_summaries(
         let stem = filename.strip_suffix(".md").unwrap_or(filename);
         let uid = stem.split_once('_').map(|(_, u)| u).unwrap_or(stem);
 
-        let label_match = stems.contains(stem)
-            || kind_uids
-                .iter()
-                .any(|(k, u)| *k == kind_dir && u == uid);
+        let label_match =
+            stems.contains(stem) || kind_uids.iter().any(|(k, u)| *k == kind_dir && u == uid);
         if label_match {
             covered.push(f.rel.clone());
         }
@@ -648,7 +646,11 @@ mod tests {
         let inputs = vec![make(30_000, "a"), make(30_000, "b"), make(30_000, "c")];
         let labels: Vec<String> = vec!["a".into(), "b".into(), "c".into()];
         let basenames: Vec<Option<String>> = vec![None, None, None];
-        let rels: Vec<String> = vec!["raw/x/a.md".into(), "raw/x/b.md".into(), "raw/x/c.md".into()];
+        let rels: Vec<String> = vec![
+            "raw/x/a.md".into(),
+            "raw/x/b.md".into(),
+            "raw/x/c.md".into(),
+        ];
 
         let batches = batch_inputs(&inputs, &labels, &basenames, &rels, 50_000);
         assert_eq!(batches.len(), 3);

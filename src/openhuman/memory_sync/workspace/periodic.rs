@@ -308,7 +308,10 @@ mod tests {
         assert!(connection_is_due(interval, stale), "5-day-old sync is due");
 
         let fresh = persisted_since_last_sync(&idx, "src_fresh", now);
-        assert!(!connection_is_due(interval, fresh), "1h-old sync is not due");
+        assert!(
+            !connection_is_due(interval, fresh),
+            "1h-old sync is not due"
+        );
 
         // Never-synced source fires immediately.
         let never = persisted_since_last_sync(&idx, "src_new", now);

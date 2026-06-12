@@ -873,10 +873,7 @@ pub fn mark_raw_paths_ingested(config: &Config, rel_paths: &[String]) -> Result<
 
 /// Filter `rel_paths` down to the ones NOT yet recorded as ingested raw
 /// files. Order of the surviving paths is preserved.
-pub fn filter_raw_paths_not_ingested(
-    config: &Config,
-    rel_paths: &[String],
-) -> Result<Vec<String>> {
+pub fn filter_raw_paths_not_ingested(config: &Config, rel_paths: &[String]) -> Result<Vec<String>> {
     if rel_paths.is_empty() {
         return Ok(Vec::new());
     }
@@ -902,9 +899,8 @@ pub fn count_raw_paths_ingested_with_prefix(config: &Config, rel_prefix: &str) -
     with_connection(config, |conn| {
         // Rust-side prefix filter (not SQL LIKE) so `_` / `%` in slugs are
         // treated literally — same convention as delete_chunks_by_source_prefix.
-        let mut stmt = conn.prepare(
-            "SELECT source_id FROM mem_tree_ingested_sources WHERE source_kind = ?1",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT source_id FROM mem_tree_ingested_sources WHERE source_kind = ?1")?;
         let rows = stmt.query_map(params![RAW_FILE_GATE_KIND], |r| r.get::<_, String>(0))?;
         let mut n: u64 = 0;
         for row in rows {

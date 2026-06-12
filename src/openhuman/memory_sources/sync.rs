@@ -481,7 +481,10 @@ pub(crate) fn derive_scopes(source: &MemorySourceEntry, config: &Config) -> Vec<
             let Some(url) = source.url.as_deref() else {
                 return Vec::new();
             };
-            match (github::repo_chunk_scope(url), github::repo_archive_source_id(url)) {
+            match (
+                github::repo_chunk_scope(url),
+                github::repo_archive_source_id(url),
+            ) {
                 (Some(tree_scope), Some(archive_source_id)) => vec![SourceScope {
                     tree_scope,
                     archive_source_id,

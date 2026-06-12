@@ -46,6 +46,13 @@ import { IS_DEV } from '../utils/config';
 import { isLocalSessionToken } from '../utils/localSession';
 import { openhumanComposioGetMode } from '../utils/tauriCommands';
 
+/** Small inline icon helper for the Connections sidebar nav. */
+const navIcon = (d: string) => (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={d} />
+  </svg>
+);
+
 function channelStatusLabel(status: ChannelConnectionStatus, t: (key: string) => string): string {
   switch (status) {
     case 'connected':
@@ -785,15 +792,52 @@ export default function Skills() {
         showDividerHandle={false}
         sidebar={
           <TwoPaneNav
-            ariaLabel={t('connections.tabs.composio')}
+            ariaLabel={t('nav.connections')}
             selected={activeTab}
             onSelect={value => handleTabChange(value as ConnectionsTab)}
-            items={[
-              { value: 'composio', label: t('connections.tabs.composio') },
-              { value: 'channels', label: t('connections.tabs.channels') },
-              { value: 'mcp', label: t('connections.tabs.mcp') },
-              { value: 'skills', label: t('connections.tabs.skills') },
-              { value: 'meetings', label: t('connections.tabs.meetings') },
+            header={
+              <h1 className="text-base font-bold text-stone-900 dark:text-neutral-100">
+                {t('nav.connections')}
+              </h1>
+            }
+            groups={[
+              {
+                items: [
+                  {
+                    value: 'composio',
+                    label: t('connections.tabs.composio'),
+                    icon: navIcon('M13 10V3L4 14h7v7l9-11h-7z'),
+                  },
+                  {
+                    value: 'channels',
+                    label: t('connections.tabs.channels'),
+                    icon: navIcon(
+                      'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z'
+                    ),
+                  },
+                  {
+                    value: 'mcp',
+                    label: t('connections.tabs.mcp'),
+                    icon: navIcon(
+                      'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
+                    ),
+                  },
+                  {
+                    value: 'skills',
+                    label: t('connections.tabs.skills'),
+                    icon: navIcon(
+                      'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                    ),
+                  },
+                  {
+                    value: 'meetings',
+                    label: t('connections.tabs.meetings'),
+                    icon: navIcon(
+                      'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'
+                    ),
+                  },
+                ],
+              },
             ]}
           />
         }>

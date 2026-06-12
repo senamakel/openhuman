@@ -32,6 +32,9 @@ const messages: TranslationMap = {
   'brain.subtitle': 'Votre graphe de connaissances, vos sources de mémoire et vos commandes.',
   'brain.tabs.memory': 'Mémoire',
   'brain.tabs.subconscious': 'Subconscient',
+  'brain.tabs.graph': 'Graphe',
+  'brain.tabs.sources': 'Sources',
+  'brain.tabs.sync': 'Synchronisation',
   'brain.empty':
     'Votre cerveau est vide pour l’instant — connectez une source pour commencer à constituer votre mémoire.',
   'brain.error': 'Impossible de charger votre cerveau. Veuillez réessayer.',

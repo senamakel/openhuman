@@ -33,6 +33,9 @@ const en: TranslationMap = {
   'brain.subtitle': 'Your knowledge graph, memory sources, and controls.',
   'brain.tabs.memory': 'Memory',
   'brain.tabs.subconscious': 'Subconscious',
+  'brain.tabs.graph': 'Graph',
+  'brain.tabs.sources': 'Sources',
+  'brain.tabs.sync': 'Sync',
   'brain.empty': 'Your brain is empty for now — connect a source to start building memory.',
   'brain.error': "Couldn't load your brain. Please try again.",
 

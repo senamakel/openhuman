@@ -25,11 +25,18 @@ import {
   memoryTreeGraphExport,
 } from '../utils/tauriCommands';
 
-type BrainTab = 'memory' | 'subconscious';
+type BrainTab = 'graph' | 'sources' | 'sync' | 'subconscious';
+
+/** Small inline icon helper for the Brain sidebar nav. */
+const navIcon = (d: string) => (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={d} />
+  </svg>
+);
 
 export default function Brain() {
   const { t } = useT();
-  const [activeTab, setActiveTab] = useState<BrainTab>('memory');
+  const [activeTab, setActiveTab] = useState<BrainTab>('graph');
   const [graph, setGraph] = useState<GraphExportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<GraphMode>('tree');
@@ -96,9 +103,44 @@ export default function Brain() {
             ariaLabel={t('nav.brain')}
             selected={activeTab}
             onSelect={value => setActiveTab(value as BrainTab)}
-            items={[
-              { value: 'memory', label: t('brain.tabs.memory') },
-              { value: 'subconscious', label: t('brain.tabs.subconscious') },
+            groups={[
+              {
+                label: t('brain.tabs.memory'),
+                items: [
+                  {
+                    value: 'graph',
+                    label: t('brain.tabs.graph'),
+                    icon: navIcon(
+                      'M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z'
+                    ),
+                  },
+                  {
+                    value: 'sources',
+                    label: t('brain.tabs.sources'),
+                    icon: navIcon(
+                      'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4'
+                    ),
+                  },
+                  {
+                    value: 'sync',
+                    label: t('brain.tabs.sync'),
+                    icon: navIcon(
+                      'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+                    ),
+                  },
+                ],
+              },
+              {
+                items: [
+                  {
+                    value: 'subconscious',
+                    label: t('brain.tabs.subconscious'),
+                    icon: navIcon(
+                      'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z'
+                    ),
+                  },
+                ],
+              },
             ]}
             header={
               <div className="min-w-0">
@@ -114,7 +156,7 @@ export default function Brain() {
         }>
         <div className="h-full overflow-y-auto">
           <div className="mx-auto max-w-3xl space-y-5 px-2">
-            {activeTab === 'memory' && (
+            {activeTab === 'graph' && (
               <div className="space-y-5 animate-fade-up">
                 <MemoryControls
                   mode={mode}
@@ -138,12 +180,19 @@ export default function Brain() {
                     {t('brain.error')}
                   </div>
                 ) : null}
+              </div>
+            )}
 
-                <div className="space-y-5">
-                  <div className={cardClass}>
-                    <MemoryTreeStatusPanel onToast={addToast} />
-                  </div>
-                  <MemorySourcesRegistry onToast={addToast} />
+            {activeTab === 'sources' && (
+              <div className="space-y-5 animate-fade-up">
+                <MemorySourcesRegistry onToast={addToast} />
+              </div>
+            )}
+
+            {activeTab === 'sync' && (
+              <div className="space-y-5 animate-fade-up">
+                <div className={cardClass}>
+                  <MemoryTreeStatusPanel onToast={addToast} />
                 </div>
               </div>
             )}

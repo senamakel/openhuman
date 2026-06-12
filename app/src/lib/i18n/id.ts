@@ -399,6 +399,8 @@ const messages: TranslationMap = {
   'connections.tabs.mcp': 'Server MCP',
   'connections.tabs.skills': 'Keterampilan',
   'connections.tabs.meetings': 'Rapat',
+  'connections.groups.integrations': 'Integrasi',
+  'connections.groups.intelligence': 'Intelijen',
   'memory.title': 'Memori',
   'memory.search': 'Cari memori...',
   'memory.noResults': 'Memori tidak ditemukan',

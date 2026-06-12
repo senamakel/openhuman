@@ -294,8 +294,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'pages.settings.ai.llmDesc',
     section: 'ai',
     searchKeywords: ['model', 'anthropic', 'openai', 'claude', 'provider', 'api key'],
-    navGroup: 'assistant',
-    navOrder: 0,
+    // Surfaced on the Connections page (Intelligence group); route kept for
+    // deep-link compatibility but no longer in the settings sidebar.
   },
   {
     id: 'embeddings',
@@ -311,8 +311,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'pages.settings.ai.voiceDesc',
     section: 'ai',
     searchKeywords: ['tts', 'stt', 'speech', 'dictation', 'audio'],
-    navGroup: 'assistant',
-    navOrder: 1,
+    // Surfaced on the Connections page (Intelligence group); route kept for
+    // deep-link compatibility but no longer in the settings sidebar.
   },
   {
     // usage: merged Usage & Limits page (formerly heartbeat, ledger-usage and
@@ -666,12 +666,12 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   },
   {
     // search: web search engine settings (Brave / Google / Tavily provider).
-    // Surfaced under Developer & Diagnostics → Automation & Integrations.
+    // Surfaced on the Connections page (Intelligence group); route kept for
+    // deep-link compatibility but no longer in the settings sidebar.
     id: 'search',
     titleKey: 'settings.search.title',
     section: 'developer',
     devOnly: true,
-    navGroup: 'automationIntegrations',
     searchKeywords: ['search', 'engine', 'web', 'brave', 'google', 'tavily', 'provider'],
   },
   {

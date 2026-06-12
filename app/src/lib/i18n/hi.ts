@@ -395,6 +395,8 @@ const messages: TranslationMap = {
   'connections.tabs.mcp': 'MCP सर्वर',
   'connections.tabs.skills': 'कौशल',
   'connections.tabs.meetings': 'मीटिंग',
+  'connections.groups.integrations': 'इंटीग्रेशन',
+  'connections.groups.intelligence': 'इंटेलिजेंस',
   'memory.title': 'मेमोरी',
   'memory.search': 'मेमोरी सर्च करें...',
   'memory.noResults': 'कोई मेमोरी नहीं मिली',

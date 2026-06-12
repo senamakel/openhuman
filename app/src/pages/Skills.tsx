@@ -13,6 +13,11 @@ import EmptyStateCard from '../components/EmptyStateCard';
 import { ToastContainer } from '../components/intelligence/Toast';
 import TwoPanelLayout from '../components/layout/TwoPanelLayout';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
+import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
+import AIPanel from '../components/settings/panels/AIPanel';
+import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
+import SearchPanel from '../components/settings/panels/SearchPanel';
+import VoicePanel from '../components/settings/panels/VoicePanel';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import MeetingBotsCard from '../components/skills/MeetingBotsCard';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
@@ -364,7 +369,24 @@ interface SkillItem {
  * Back-compat: the old ?tab= values (composio, channels, mcp, meetings) are
  * normalised to the new values so existing deep links continue to work.
  */
-type ConnectionsTab = 'composio' | 'channels' | 'mcp' | 'skills' | 'meetings';
+type ConnectionsTab =
+  | 'composio'
+  | 'channels'
+  | 'mcp'
+  | 'skills'
+  | 'meetings'
+  | 'llm'
+  | 'voice'
+  | 'embeddings'
+  | 'search';
+
+/** Tabs that render a relocated settings panel (Intelligence group). */
+const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
+  'llm',
+  'voice',
+  'embeddings',
+  'search',
+]);
 
 export default function Skills() {
   const { t } = useT();
@@ -384,7 +406,11 @@ export default function Skills() {
       raw === 'channels' ||
       raw === 'mcp' ||
       raw === 'skills' ||
-      raw === 'meetings'
+      raw === 'meetings' ||
+      raw === 'llm' ||
+      raw === 'voice' ||
+      raw === 'embeddings' ||
+      raw === 'search'
     )
       return raw;
     // Legacy back-compat aliases
@@ -802,6 +828,7 @@ export default function Skills() {
             }
             groups={[
               {
+                label: t('connections.groups.integrations'),
                 items: [
                   {
                     value: 'composio',
@@ -835,6 +862,37 @@ export default function Skills() {
                     icon: navIcon(
                       'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'
                     ),
+                  },
+                ],
+              },
+              {
+                label: t('connections.groups.intelligence'),
+                items: [
+                  {
+                    value: 'llm',
+                    label: t('pages.settings.ai.llm'),
+                    icon: navIcon(
+                      'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z'
+                    ),
+                  },
+                  {
+                    value: 'voice',
+                    label: t('pages.settings.ai.voice'),
+                    icon: navIcon(
+                      'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z'
+                    ),
+                  },
+                  {
+                    value: 'embeddings',
+                    label: t('pages.settings.ai.embeddings'),
+                    icon: navIcon(
+                      'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4'
+                    ),
+                  },
+                  {
+                    value: 'search',
+                    label: t('settings.search.title'),
+                    icon: navIcon('M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'),
                   },
                 ],
               },
@@ -1050,6 +1108,20 @@ export default function Skills() {
                   <div className="space-y-3 animate-fade-up">
                     <BetaBanner />
                     <MeetingBotsCard onToast={addToast} />
+                  </div>
+                )}
+
+                {/* Intelligence panels relocated from Settings. Wrapped in the
+                    settings two-pane context so their headers hide the back
+                    button (the sidebar provides navigation here). */}
+                {INTELLIGENCE_TABS.has(activeTab) && (
+                  <div className="animate-fade-up">
+                    <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
+                      {activeTab === 'llm' && <AIPanel />}
+                      {activeTab === 'voice' && <VoicePanel />}
+                      {activeTab === 'embeddings' && <EmbeddingsPanel />}
+                      {activeTab === 'search' && <SearchPanel />}
+                    </SettingsLayoutProvider>
                   </div>
                 )}
               </>

@@ -401,6 +401,8 @@ const messages: TranslationMap = {
   'connections.tabs.mcp': 'MCP-серверы',
   'connections.tabs.skills': 'Навыки',
   'connections.tabs.meetings': 'Встречи',
+  'connections.groups.integrations': 'Интеграции',
+  'connections.groups.intelligence': 'Интеллект',
   'memory.title': 'Память',
   'memory.search': 'Поиск воспоминаний...',
   'memory.noResults': 'Воспоминания не найдены',

@@ -2924,9 +2924,6 @@ const messages: TranslationMap = {
   'pages.settings.ai.voiceDesc': '配置语音输入和输出',
   'pages.settings.aiSection.description': '语言模型提供商、本地 Ollama 以及语音（STT / TTS）。',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    '由 Composio 提供支持的集成的路由、触发器和历史记录。',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc': '路由模式、集成触发器和触发器历史存档。',
   'pages.settings.features.desktopCompanion': '桌面伴侣',
@@ -4511,6 +4508,8 @@ const messages: TranslationMap = {
   'walletSend.done': '完成',
   'walletSend.genericError': '无法完成转账。请重试。',
   'settings.taskSources.title': '任务来源',
+  'settings.integrations.title': '集成',
+  'settings.integrations.menuDesc': '任务来源、Composio 路由和 Webhook 触发器',
   'settings.taskSources.subtitle': '从你的工具拉取任务到智能体待办板',
   'settings.taskSources.description':
     '从 GitHub、Notion、Linear 和 ClickUp 收集工作项，补充信息后路由到智能体待办板。',

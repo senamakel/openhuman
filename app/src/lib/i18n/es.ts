@@ -3133,9 +3133,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'Proveedores de modelos de lenguaje, Ollama local y voz (STT / TTS).',
   'pages.settings.aiSection.title': 'IA',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Enrutamiento, activadores e historial para integraciones impulsadas por Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Modo de enrutamiento, activadores de integración y archivo de historial de activadores.',
@@ -4838,6 +4835,9 @@ const messages: TranslationMap = {
   'walletSend.done': 'Hecho',
   'walletSend.genericError': 'No se pudo completar la transferencia. Inténtalo de nuevo.',
   'settings.taskSources.title': 'Fuentes de tareas',
+  'settings.integrations.title': 'Integraciones',
+  'settings.integrations.menuDesc':
+    'Fuentes de tareas, enrutamiento de Composio y disparadores de webhooks',
   'settings.taskSources.subtitle':
     'Extrae tareas de tus herramientas al tablero de tareas del agente',
   'settings.taskSources.description':

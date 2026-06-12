@@ -178,7 +178,7 @@ const AppRoutes = () => {
 
       <Route path="/workflows" element={<Navigate to="/settings/automations" replace />} />
 
-      <Route path="/webhooks" element={<Navigate to="/settings/webhooks-triggers" replace />} />
+      <Route path="/webhooks" element={<Navigate to="/settings/integrations#webhooks" replace />} />
 
       <Route
         path="/settings/*"

@@ -3101,9 +3101,6 @@ const messages: TranslationMap = {
   'pages.settings.ai.voiceDesc': 'Описание голоса',
   'pages.settings.aiSection.description': 'Языковые модели, локальный Ollama и голос (STT / TTS).',
   'pages.settings.aiSection.title': 'ИИ',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Маршрутизация, триггеры и история интеграций на базе Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Режим маршрутизации, триггеры интеграции и архив истории триггеров.',
@@ -4793,6 +4790,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'Готово',
   'walletSend.genericError': 'Не удалось выполнить перевод. Повторите попытку.',
   'settings.taskSources.title': 'Источники задач',
+  'settings.integrations.title': 'Интеграции',
+  'settings.integrations.menuDesc': 'Источники задач, маршрутизация Composio и веб-хук триггеры',
   'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов на доску задач агента.',
   'settings.taskSources.description':
     'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и направляйте на доску задач агента.',

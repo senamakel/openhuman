@@ -119,12 +119,16 @@ describe('entriesForSection', () => {
     expect(ids).not.toContain('approval-history');
   });
 
-  it('returns the composio section entries', () => {
-    const composioEntries = entriesForSection('composio');
-    const ids = composioEntries.map(e => e.id);
-    expect(ids).toContain('task-sources');
-    expect(ids).toContain('composio-routing');
-    expect(ids).toContain('webhooks-triggers');
+  it('surfaces the merged integrations entry on home (composio section retired)', () => {
+    const homeEntries = entriesForSection('home');
+    const ids = homeEntries.map(e => e.id);
+    expect(ids).toContain('integrations');
+    // The old composio leaf slugs redirect to /settings/integrations and are
+    // no longer registry entries.
+    const allIds = SETTINGS_ROUTE_REGISTRY.map(e => e.id);
+    expect(allIds).not.toContain('task-sources');
+    expect(allIds).not.toContain('composio-routing');
+    expect(allIds).not.toContain('webhooks-triggers');
   });
 
   it('returns multiple developer entries', () => {
@@ -144,7 +148,7 @@ describe('entriesForSection', () => {
     expect(ids).toContain('ai');
     expect(ids).toContain('agents-settings');
     expect(ids).toContain('features');
-    expect(ids).toContain('composio');
+    expect(ids).toContain('integrations');
     expect(ids).toContain('notifications-hub');
     expect(ids).toContain('crypto');
     expect(ids).toContain('about');
@@ -182,7 +186,7 @@ describe('SETTINGS_ROUTE_REGISTRY integrity', () => {
     expect(homeIds).toContain('ai');
     expect(homeIds).toContain('agents-settings');
     expect(homeIds).toContain('features');
-    expect(homeIds).toContain('composio');
+    expect(homeIds).toContain('integrations');
     expect(homeIds).toContain('crypto');
   });
 });

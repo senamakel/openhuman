@@ -3076,9 +3076,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'ল্যাঙ্গুয়েজ মডেল প্রোভাইডার, লোকাল Ollama, এবং ভয়েস (STT / TTS)।',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Composio দ্বারা চালিত ইন্টিগ্রেশনের জন্য রাউটিং, ট্রিগার এবং ইতিহাস।',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc': 'রাউটিং মোড, ইন্টিগ্রেশন ট্রিগার, এবং ট্রিগার ইতিহাস।',
   'pages.settings.features.desktopCompanion': 'ডেস্কটপ কম্প্যানিয়ন',
@@ -4742,6 +4739,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'সম্পন্ন',
   'walletSend.genericError': 'স্থানান্তর সম্পূর্ণ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
   'settings.taskSources.title': 'কাজের উৎস',
+  'settings.integrations.title': 'ইন্টিগ্রেশন',
+  'settings.integrations.menuDesc': 'টাস্ক সোর্স, Composio রাউটিং এবং ওয়েবহুক ট্রিগার',
   'settings.taskSources.subtitle': 'আপনার টুল থেকে Tworet পরিচালনা করুন',
   'settings.taskSources.description':
     'GitHub, Notion, Linear, এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন, এবং এজেন্টের টোডো বোর্ডে রুট করুন।',

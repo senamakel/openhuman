@@ -3146,9 +3146,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'Fournisseurs de modèles de langage, Ollama local et voix (STT / TTS).',
   'pages.settings.aiSection.title': 'IA',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Routage, déclencheurs et historique pour les intégrations optimisées par Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     "Mode de routage, déclencheurs d'intégration et archive de l'historique des déclencheurs.",
@@ -4858,6 +4855,9 @@ const messages: TranslationMap = {
   'walletSend.done': 'Terminé',
   'walletSend.genericError': 'Impossible de finaliser le transfert. Veuillez réessayer.',
   'settings.taskSources.title': 'Sources de tâches',
+  'settings.integrations.title': 'Intégrations',
+  'settings.integrations.menuDesc':
+    'Sources de tâches, routage Composio et déclencheurs de webhooks',
   'settings.taskSources.subtitle':
     "Tirez les tâches de vos outils sur le tableau des tâches de l'agent",
   'settings.taskSources.description':

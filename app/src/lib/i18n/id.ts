@@ -3083,9 +3083,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'Penyedia model bahasa, Ollama lokal, dan suara (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Perutean, pemicu, dan riwayat untuk integrasi yang didukung oleh Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Mode perutean, pemicu integrasi, dan arsip riwayat pemicu.',
@@ -4761,6 +4758,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'Selesai',
   'walletSend.genericError': 'Tidak dapat menyelesaikan transfer. Silakan coba lagi.',
   'settings.taskSources.title': 'Sumber Tugas',
+  'settings.integrations.title': 'Integrasi',
+  'settings.integrations.menuDesc': 'Sumber tugas, perutean Composio, dan pemicu webhook',
   'settings.taskSources.subtitle': 'Tarik tugas dari alat Anda ke papan todo agen',
   'settings.taskSources.description':
     'Kumpulkan item kerja dari GitHub, Notion, Linear, dan ClickUp, perkaya mereka, dan rute mereka ke agen papan todo.',

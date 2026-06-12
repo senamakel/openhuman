@@ -3048,9 +3048,6 @@ const messages: TranslationMap = {
   'pages.settings.ai.voiceDesc': '음성 설명',
   'pages.settings.aiSection.description': '언어 모델 제공업체, 로컬 Ollama 및 음성(STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Composio에서 제공하는 통합에 대한 라우팅, 트리거 및 기록입니다.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc': '라우팅 모드, 통합 트리거 및 트리거 기록 아카이브.',
   'pages.settings.features.desktopCompanion': '데스크탑 동반자',
@@ -4697,6 +4694,8 @@ const messages: TranslationMap = {
   'walletSend.done': '완료',
   'walletSend.genericError': '전송을 완료할 수 없습니다. 다시 시도하세요.',
   'settings.taskSources.title': '작업 소스',
+  'settings.integrations.title': '통합',
+  'settings.integrations.menuDesc': '작업 소스, Composio 라우팅 및 웹훅 트리거',
   'settings.taskSources.subtitle': '도구의 작업을 에이전트 할 일 보드로 가져옵니다',
   'settings.taskSources.description':
     'GitHub, Notion, Linear, ClickUp에서 작업 항목을 수집하고 보강한 뒤 에이전트 할 일 보드로 라우팅합니다.',

@@ -314,14 +314,14 @@ describe('SettingsHome', () => {
 
   describe('Pass A section hubs', () => {
     it('renders the 5 newly-surfaced section entry hubs in the merged card', () => {
-      // Pass A merged AI, Agents, Features, Integrations (composio), and Crypto
-      // directly onto the home screen as section-hub entries. All 5 must render
-      // as navigable items in the settings-group-main card.
+      // Pass A merged AI, Agents, Features, Integrations, and Crypto directly
+      // onto the home screen as section-hub entries. All 5 must render as
+      // navigable items in the settings-group-main card.
       renderSettingsHome();
       expect(screen.getByTestId('settings-nav-ai')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-agents-settings')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-features')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-composio')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-integrations')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-crypto')).toBeInTheDocument();
     });
 
@@ -346,11 +346,11 @@ describe('SettingsHome', () => {
       expect(mockNavigateToSettings).toHaveBeenCalledWith('features');
     });
 
-    it('clicking composio hub navigates to composio', async () => {
+    it('clicking integrations navigates to the merged Integrations page', async () => {
       const user = userEvent.setup();
       renderSettingsHome();
-      await user.click(screen.getByTestId('settings-nav-composio'));
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('composio');
+      await user.click(screen.getByTestId('settings-nav-integrations'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('integrations');
     });
 
     it('clicking crypto hub navigates to crypto', async () => {

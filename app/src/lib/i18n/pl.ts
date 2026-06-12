@@ -3119,9 +3119,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'Dostawcy modeli językowych, lokalna Ollama i głos (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Trasowanie, wyzwalacze i historia integracji obsługiwanych przez Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Tryb trasowania, wyzwalacze integracji i archiwum historii wyzwalaczy.',
@@ -4822,6 +4819,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'Gotowe',
   'walletSend.genericError': 'Nie udało się zrealizować transferu. Spróbuj ponownie.',
   'settings.taskSources.title': 'Źródła zadań',
+  'settings.integrations.title': 'Integracje',
+  'settings.integrations.menuDesc': 'Źródła zadań, routing Composio i wyzwalacze webhooków',
   'settings.taskSources.subtitle': 'Pobieraj zadania z narzędzi na tablicę zadań agenta',
   'settings.taskSources.description':
     'Zbieraj elementy pracy z GitHub, Notion, Linear i ClickUp, wzbogacaj je i kieruj na tablicę zadań agenta.',

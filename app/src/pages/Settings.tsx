@@ -17,7 +17,6 @@ import AutocompleteDebugPanel from '../components/settings/panels/AutocompleteDe
 import AutocompletePanel from '../components/settings/panels/AutocompletePanel';
 import BillingPanel from '../components/settings/panels/BillingPanel';
 import CompanionPanel from '../components/settings/panels/CompanionPanel';
-import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import ComposioTriagePanel from '../components/settings/panels/ComposioTriagePanel';
 import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
@@ -25,6 +24,7 @@ import DevicesComingSoonPanel from '../components/settings/panels/DevicesComingS
 import DevWorkflowPanel from '../components/settings/panels/DevWorkflowPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import EventLogPanel from '../components/settings/panels/EventLogPanel';
+import IntegrationsPanel from '../components/settings/panels/IntegrationsPanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
 import McpServerPanel from '../components/settings/panels/McpServerPanel';
 import MemoryDataPanel from '../components/settings/panels/MemoryDataPanel';
@@ -42,7 +42,6 @@ import ScreenAwarenessDebugPanel from '../components/settings/panels/ScreenAware
 import ScreenIntelligencePanel from '../components/settings/panels/ScreenIntelligencePanel';
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import SecurityPanel from '../components/settings/panels/SecurityPanel';
-import TaskSourcesPanel from '../components/settings/panels/TaskSourcesPanel';
 import TasksPanel from '../components/settings/panels/TasksPanel';
 import TeamInvitesPanel from '../components/settings/panels/TeamInvitesPanel';
 import TeamManagementPanel from '../components/settings/panels/TeamManagementPanel';
@@ -61,7 +60,6 @@ import SettingsSectionPage from '../components/settings/SettingsSectionPage';
 import { useT } from '../lib/i18n/I18nContext';
 import { APP_VERSION } from '../utils/config';
 import Intelligence from './Intelligence';
-import Webhooks from './Webhooks';
 
 // Icon elements extracted as constants to avoid repeating JSX in each array factory below.
 const RecoveryPhraseIcon = (
@@ -410,30 +408,6 @@ const Settings = () => {
     },
   ];
 
-  const composioSettingsItems = [
-    {
-      id: 'task-sources',
-      title: t('settings.taskSources.title'),
-      description: t('settings.taskSources.subtitle'),
-      route: 'task-sources',
-      icon: ToolsIcon,
-    },
-    {
-      id: 'composio-routing',
-      title: t('settings.developerMenu.composioRouting.title'),
-      description: t('settings.developerMenu.composioRouting.desc'),
-      route: 'composio-routing',
-      icon: ToolsIcon,
-    },
-    {
-      id: 'webhooks-triggers',
-      title: t('settings.developerMenu.composeioTriggers.title'),
-      description: t('settings.developerMenu.composeioTriggers.desc'),
-      route: 'webhooks-triggers',
-      icon: ToolsIcon,
-    },
-  ];
-
   return (
     <div>
       <Routes>
@@ -469,16 +443,8 @@ const Settings = () => {
             />
           )}
         />
-        <Route
-          path="composio"
-          element={wrapSettingsPage(
-            <SettingsSectionPage
-              title={t('pages.settings.composioSection.title')}
-              description={t('pages.settings.composioSection.description')}
-              items={composioSettingsItems}
-            />
-          )}
-        />
+        {/* Composio hub retired — everything lives on the Integrations tabs. */}
+        <Route path="composio" element={<Navigate to="/settings/integrations" replace />} />
         <Route
           path="agents-settings"
           element={wrapSettingsPage(
@@ -578,7 +544,12 @@ const Settings = () => {
         <Route path="search" element={wrapSettingsPage(<SearchPanel />)} />
         <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
         <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
-        <Route path="task-sources" element={wrapSettingsPage(<TaskSourcesPanel />)} />
+        <Route
+          path="integrations"
+          element={wrapSettingsPage(<IntegrationsPanel />, { maxWidthClass: 'max-w-4xl' })}
+        />
+        {/* Legacy slugs for the merged Integrations page. */}
+        <Route path="task-sources" element={<Navigate to="/settings/integrations" replace />} />
         <Route path="tasks" element={wrapSettingsPage(<TasksPanel />)} />
         <Route
           path="automations"
@@ -615,10 +586,13 @@ const Settings = () => {
         />
         <Route
           path="webhooks-triggers"
-          element={wrapSettingsPage(<Webhooks />, { maxWidthClass: 'max-w-4xl' })}
+          element={<Navigate to="/settings/integrations#webhooks" replace />}
         />
         <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
-        <Route path="composio-routing" element={wrapSettingsPage(<ComposioPanel />)} />
+        <Route
+          path="composio-routing"
+          element={<Navigate to="/settings/integrations#composio" replace />}
+        />
         {/* Mobile devices */}
         <Route path="devices" element={wrapSettingsPage(<DevicesComingSoonPanel />)} />
         {/* About / updates */}

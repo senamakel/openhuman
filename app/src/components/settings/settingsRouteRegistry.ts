@@ -14,7 +14,6 @@ import debug from 'debug';
 //   'ai'        → Settings → AI & Models
 //   'agents'    → Settings → Agents
 //   'features'  → Settings → Features
-//   'composio'  → Settings → Integrations
 //   'crypto'    → Settings → Crypto
 //   'notifications' → Settings → Notifications
 //   'developer' → Settings → Developer & Diagnostics (devOnly entries)
@@ -28,7 +27,6 @@ export type SettingsSection =
   | 'ai'
   | 'agents'
   | 'features'
-  | 'composio'
   | 'crypto'
   | 'notifications'
   | 'developer';
@@ -155,11 +153,24 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     searchKeywords: ['features', 'screen', 'tools', 'companion'],
   },
   {
-    id: 'composio',
-    titleKey: 'pages.settings.composioSection.title',
-    descriptionKey: 'pages.settings.composioSection.description',
+    // integrations: merged Integrations page (formerly the composio hub with
+    // task-sources, composio-routing and webhooks-triggers — those slugs
+    // redirect here).
+    id: 'integrations',
+    titleKey: 'settings.integrations.title',
+    descriptionKey: 'settings.integrations.menuDesc',
     section: 'home',
-    searchKeywords: ['integrations', 'composio', 'webhooks', 'tasks'],
+    searchKeywords: [
+      'integrations',
+      'composio',
+      'webhooks',
+      'triggers',
+      'tasks',
+      'sources',
+      'inbox',
+      'routing',
+      'oauth',
+    ],
   },
 
   // --- Notifications ---
@@ -332,31 +343,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'pages.settings.features.desktopCompanionDesc',
     section: 'features',
     searchKeywords: ['desktop', 'overlay', 'companion'],
-  },
-
-  // =========================================================================
-  // COMPOSIO / INTEGRATIONS section leaf panels
-  // =========================================================================
-  {
-    id: 'task-sources',
-    titleKey: 'settings.taskSources.title',
-    descriptionKey: 'settings.taskSources.subtitle',
-    section: 'composio',
-    searchKeywords: ['tasks', 'sources', 'inbox'],
-  },
-  {
-    id: 'composio-routing',
-    titleKey: 'settings.developerMenu.composioRouting.title',
-    descriptionKey: 'settings.developerMenu.composioRouting.desc',
-    section: 'composio',
-    searchKeywords: ['composio', 'routing', 'integrations'],
-  },
-  {
-    id: 'webhooks-triggers',
-    titleKey: 'settings.developerMenu.composeioTriggers.title',
-    descriptionKey: 'settings.developerMenu.composeioTriggers.desc',
-    section: 'composio',
-    searchKeywords: ['webhooks', 'triggers', 'composio'],
   },
 
   // =========================================================================

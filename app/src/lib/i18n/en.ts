@@ -3615,9 +3615,6 @@ const en: TranslationMap = {
   'pages.settings.aiSection.description':
     'Language model providers, local Ollama, and voice (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Routing, triggers, and history for integrations powered by Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Routing mode, integration triggers, and trigger history archive.',
@@ -5303,6 +5300,8 @@ const en: TranslationMap = {
   'walletSend.genericError': 'Could not complete the transfer. Please try again.',
   // Task sources (#task-sources)
   'settings.taskSources.title': 'Task Sources',
+  'settings.integrations.title': 'Integrations',
+  'settings.integrations.menuDesc': 'Task sources, Composio routing, and webhook triggers',
   'settings.taskSources.subtitle': 'Pull tasks from your tools onto the agent todo board',
   'settings.taskSources.description':
     'Collect work items from GitHub, Notion, Linear, and ClickUp, enrich them, and route them onto the agent todo board.',

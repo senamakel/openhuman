@@ -300,11 +300,11 @@ const SettingsHome = () => {
       onClick: () => navigateToSettings('features'),
     },
     {
-      id: 'composio',
-      title: t('pages.settings.composioSection.title'),
-      description: t('pages.settings.composioSection.description'),
+      id: 'integrations',
+      title: t('settings.integrations.title'),
+      description: t('settings.integrations.menuDesc'),
       icon: IntegrationsIcon,
-      onClick: () => navigateToSettings('composio'),
+      onClick: () => navigateToSettings('integrations'),
     },
   ];
 

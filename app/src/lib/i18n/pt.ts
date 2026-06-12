@@ -3130,9 +3130,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'Provedores de modelos de linguagem, Ollama local e voz (STT / TTS).',
   'pages.settings.aiSection.title': 'IA',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Roteamento, gatilhos e histórico para integrações desenvolvidas por Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Modo de roteamento, gatilhos de integração e arquivo de histórico de gatilhos.',
@@ -4827,6 +4824,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'Concluído',
   'walletSend.genericError': 'Não foi possível concluir a transferência. Tente novamente.',
   'settings.taskSources.title': 'Fontes da Tarefa',
+  'settings.integrations.title': 'Integrações',
+  'settings.integrations.menuDesc': 'Fontes de tarefas, roteamento Composio e gatilhos de webhooks',
   'settings.taskSources.subtitle':
     'Puxe tarefas de suas ferramentas para o quadro de tarefas do agente',
   'settings.taskSources.description':

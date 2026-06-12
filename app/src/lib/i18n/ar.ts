@@ -3007,9 +3007,6 @@ const messages: TranslationMap = {
   'pages.settings.ai.voiceDesc': 'وصف الصوت',
   'pages.settings.aiSection.description': 'مزودو نماذج اللغة وOllama المحلي والصوت (STT / TTS).',
   'pages.settings.aiSection.title': 'الذكاء الاصطناعي',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'التوجيه والمشغلات وسجل عمليات التكامل المدعومة بواسطة Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc': 'وضع التوجيه ومشغلات التكامل وأرشيف محفوظات التشغيل.',
   'pages.settings.features.desktopCompanion': 'الرفيق المكتبي',
@@ -4651,6 +4648,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'تم',
   'walletSend.genericError': 'تعذّر إكمال التحويل. يرجى المحاولة مرة أخرى.',
   'settings.taskSources.title': 'المصادر',
+  'settings.integrations.title': 'التكاملات',
+  'settings.integrations.menuDesc': 'مصادر المهام وتوجيه Composio ومشغلات الويب هوك',
   'settings.taskSources.subtitle': 'سحب المهام من أدواتك على لوحة العميل (تود)',
   'settings.taskSources.description':
     'اجمع عناصر العمل من GitHub وNotion وLinear وClickUp، وأثرها، وقم بتوجيهها إلى لوحة مهام الوكيل.',

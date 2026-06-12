@@ -58,11 +58,8 @@ export type SettingsRoute =
   | 'appearance'
   | 'approval-history'
   | 'intelligence'
-  | 'webhooks-triggers'
+  | 'integrations'
   | 'composio-triggers'
-  | 'composio-routing'
-  | 'composio'
-  | 'task-sources'
   | 'tasks'
   | 'mcp-server'
   | 'dev-workflow'
@@ -167,7 +164,6 @@ const SECTION_LABEL: Record<SettingsSection, string> = {
   ai: 'AI & Models',
   agents: 'Agents',
   features: 'Features',
-  composio: 'Integrations',
   crypto: 'Crypto',
   notifications: 'Notifications',
   developer: 'Developer Options',
@@ -321,8 +317,6 @@ const sectionRouteForSection = (section: SettingsSection): string => {
       return '/settings/agents-settings';
     case 'features':
       return '/settings/features';
-    case 'composio':
-      return '/settings/composio';
     case 'crypto':
       return '/settings/crypto';
     case 'notifications':

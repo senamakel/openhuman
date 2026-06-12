@@ -3078,9 +3078,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'लैंग्वेज मॉडल प्रोवाइडर, लोकल Ollama और वॉइस (STT / TTS)।',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Composio द्वारा संचालित एकीकरण के लिए रूटिंग, ट्रिगर और इतिहास।',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc': 'रूटिंग मोड, एकीकरण ट्रिगर, और ट्रिगर इतिहास संग्रह।',
   'pages.settings.features.desktopCompanion': 'डेस्कटॉप कंपैनियन',
@@ -4747,6 +4744,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'हो गया',
   'walletSend.genericError': 'स्थानांतरण पूरा नहीं हो सका। कृपया पुनः प्रयास करें।',
   'settings.taskSources.title': 'कार्य स्रोत',
+  'settings.integrations.title': 'एकीकरण',
+  'settings.integrations.menuDesc': 'कार्य स्रोत, Composio रूटिंग और वेबहुक ट्रिगर',
   'settings.taskSources.subtitle': 'एजेंट टोडो बोर्ड पर अपने उपकरणों से कार्य खींचें',
   'settings.taskSources.description':
     'GitHub, नॉटियन, रैखिक और क्लिकअप से कार्य वस्तुओं को इकट्ठा करें, उन्हें समृद्ध करें और उन्हें एजेंट टोडो बोर्ड पर ले जाएं।',

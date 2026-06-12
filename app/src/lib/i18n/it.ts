@@ -3127,9 +3127,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'Provider di modelli linguistici, Ollama locale e voce (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Routing, trigger e cronologia per le integrazioni fornite da Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Modalità di routing, trigger di integrazione e archivio cronologico dei trigger.',
@@ -4831,6 +4828,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'Fatto',
   'walletSend.genericError': 'Impossibile completare il trasferimento. Riprova.',
   'settings.taskSources.title': 'Fonti del compito',
+  'settings.integrations.title': 'Integrazioni',
+  'settings.integrations.menuDesc': 'Sorgenti di attività, routing Composio e trigger webhook',
   'settings.taskSources.subtitle':
     "Estrai le attività dai tuoi strumenti sulla lavagna delle cose da fare dell'agente",
   'settings.taskSources.description':

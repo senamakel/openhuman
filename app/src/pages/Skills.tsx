@@ -778,7 +778,6 @@ export default function Skills() {
       <TwoPanelLayout
         id="connections"
         className="h-full p-4 pt-6"
-        paneClassName=""
         defaultSidebarVisible
         defaultSidebarWidth={210}
         minSidebarWidth={170}

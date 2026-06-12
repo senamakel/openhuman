@@ -86,7 +86,6 @@ export default function Brain() {
       <TwoPanelLayout
         id="brain"
         className="h-full p-4 pt-6"
-        paneClassName=""
         defaultSidebarVisible
         defaultSidebarWidth={210}
         minSidebarWidth={170}

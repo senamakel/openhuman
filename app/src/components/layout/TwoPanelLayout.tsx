@@ -263,7 +263,10 @@ export default function TwoPanelLayout({
             data-analytics-id="two-panel-resize-divider"
             onPointerDown={onPointerDown}
             onKeyDown={onDividerKeyDown}
-            className="group relative mx-1 flex flex-shrink-0 w-3 cursor-col-resize select-none items-center justify-center self-stretch focus:outline-none"
+            className={`group relative flex flex-shrink-0 cursor-col-resize select-none items-center justify-center self-stretch focus:outline-none ${
+              // Tighter gutter between panes when there's no visible handle.
+              showDividerHandle ? 'mx-1 w-3' : 'mx-0 w-1.5'
+            }`}
             title={t('layout.resizeSidebar')}>
             {/* Transparent hit area (full height) with a short grab handle
                 centered vertically. When the handle is hidden it stays

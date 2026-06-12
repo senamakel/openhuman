@@ -1488,7 +1488,7 @@ const Conversations = ({
           placeholder={t('chat.searchThreads')}
           aria-label={t('chat.searchThreads')}
           data-testid="chat-thread-search-input"
-          className="w-full border-0 bg-transparent py-2 pl-9 pr-8 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-0 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          className="w-full border-0 bg-transparent py-2.5 pl-10 pr-10 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-0 dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
         {threadSearch && (
           <button

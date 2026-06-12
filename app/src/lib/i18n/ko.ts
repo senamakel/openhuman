@@ -78,7 +78,8 @@ const messages: TranslationMap = {
   'common.comingSoon': '출시 예정',
   'common.breadcrumb': '탐색경로',
   'common.beta': '베타',
-  'common.betaDisclaimer': '이 기능은 베타 버전입니다. 변경되거나 불완전할 수 있습니다 — 피드백이 개선에 도움이 됩니다.',
+  'common.betaDisclaimer':
+    '이 기능은 베타 버전입니다. 변경되거나 불완전할 수 있습니다 — 피드백이 개선에 도움이 됩니다.',
   'settings.general': '일반',
   // Settings layman groups (Phase 4 IA revamp)
   'settings.groups.account': '계정',

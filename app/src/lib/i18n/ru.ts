@@ -78,7 +78,8 @@ const messages: TranslationMap = {
   'common.comingSoon': 'Скоро',
   'common.breadcrumb': 'Breadcrumb',
   'common.beta': 'Бета',
-  'common.betaDisclaimer': 'Эта функция находится в бета-версии. Она может измениться или иметь недоработки — ваши отзывы помогают нам её улучшить.',
+  'common.betaDisclaimer':
+    'Эта функция находится в бета-версии. Она может измениться или иметь недоработки — ваши отзывы помогают нам её улучшить.',
   'settings.general': 'Общие',
   // Settings layman groups (Phase 4 IA revamp)
   'settings.groups.account': 'Аккаунт',

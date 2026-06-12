@@ -288,7 +288,14 @@ const initialState: ChatRuntimeState = {
   inferenceTurnLifecycleByThread: {},
   pendingApprovalByThread: {},
   artifactsByThread: {},
-  sessionTokenUsage: { inputTokens: 0, outputTokens: 0, turns: 0, lastUpdated: 0, lastTurnInputTokens: 0, lastTurnOutputTokens: 0 },
+  sessionTokenUsage: {
+    inputTokens: 0,
+    outputTokens: 0,
+    turns: 0,
+    lastUpdated: 0,
+    lastTurnInputTokens: 0,
+    lastTurnOutputTokens: 0,
+  },
   queueStatusByThread: {},
 };
 
@@ -720,8 +727,12 @@ const chatRuntimeSlice = createSlice({
       state,
       action: PayloadAction<{ inputTokens: number; outputTokens: number }>
     ) => {
-      const inTok = Number.isFinite(action.payload.inputTokens) ? Math.max(0, action.payload.inputTokens) : 0;
-      const outTok = Number.isFinite(action.payload.outputTokens) ? Math.max(0, action.payload.outputTokens) : 0;
+      const inTok = Number.isFinite(action.payload.inputTokens)
+        ? Math.max(0, action.payload.inputTokens)
+        : 0;
+      const outTok = Number.isFinite(action.payload.outputTokens)
+        ? Math.max(0, action.payload.outputTokens)
+        : 0;
       state.sessionTokenUsage.inputTokens += inTok;
       state.sessionTokenUsage.outputTokens += outTok;
       state.sessionTokenUsage.turns += 1;
@@ -730,7 +741,14 @@ const chatRuntimeSlice = createSlice({
       state.sessionTokenUsage.lastTurnOutputTokens = outTok;
     },
     resetSessionTokenUsage: state => {
-      state.sessionTokenUsage = { inputTokens: 0, outputTokens: 0, turns: 0, lastUpdated: 0, lastTurnInputTokens: 0, lastTurnOutputTokens: 0 };
+      state.sessionTokenUsage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        turns: 0,
+        lastUpdated: 0,
+        lastTurnInputTokens: 0,
+        lastTurnOutputTokens: 0,
+      };
     },
     /**
      * Apply a persisted [TurnState] snapshot from the Rust core to the

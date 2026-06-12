@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 
 import CostDashboardPanel from '../components/dashboard/CostDashboardPanel';
+import WorkflowsTab from '../components/intelligence/WorkflowsTab';
 import LogoutAndClearActions from '../components/settings/LogoutAndClearActions';
 import AboutPanel from '../components/settings/panels/AboutPanel';
 import AgentAccessPanel from '../components/settings/panels/AgentAccessPanel';
@@ -59,7 +60,6 @@ import VoicePanel from '../components/settings/panels/VoicePanel';
 import WalletBalancesPanel from '../components/settings/panels/WalletBalancesPanel';
 import WebhooksDebugPanel from '../components/settings/panels/WebhooksDebugPanel';
 import WorkflowRunnerPanel from '../components/settings/panels/WorkflowRunnerPanel';
-import WorkflowsTab from '../components/intelligence/WorkflowsTab';
 import SettingsHome from '../components/settings/SettingsHome';
 import SettingsSectionPage from '../components/settings/SettingsSectionPage';
 import { useT } from '../lib/i18n/I18nContext';
@@ -605,7 +605,10 @@ const Settings = () => {
         <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
         <Route path="task-sources" element={wrapSettingsPage(<TaskSourcesPanel />)} />
         <Route path="tasks" element={wrapSettingsPage(<TasksPanel />)} />
-        <Route path="automations" element={wrapSettingsPage(<WorkflowsTab />, { maxWidthClass: 'max-w-4xl' })} />
+        <Route
+          path="automations"
+          element={wrapSettingsPage(<WorkflowsTab />, { maxWidthClass: 'max-w-4xl' })}
+        />
         <Route path="dev-workflow" element={wrapSettingsPage(<DevWorkflowPanel />)} />
         <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />
         <Route

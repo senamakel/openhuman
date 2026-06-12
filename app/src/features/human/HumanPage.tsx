@@ -75,7 +75,6 @@ const HumanPage = () => {
         {t('voice.pushToTalk')}
       </label>
 
-
       {/* Chat sidebar — vertically centered above the BottomTabBar (~80px). */}
       <div className="absolute right-4 top-0 bottom-20 z-10 flex items-center">
         <aside className="w-[420px] h-[min(720px,calc(100vh-160px))] rounded-2xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-soft flex flex-col overflow-hidden">

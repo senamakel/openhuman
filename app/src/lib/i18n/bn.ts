@@ -78,7 +78,8 @@ const messages: TranslationMap = {
   'common.comingSoon': 'শীঘ্রই আসছে',
   'common.breadcrumb': 'ব্রেডক্রাম্ব',
   'common.beta': 'বেটা',
-  'common.betaDisclaimer': 'এই বৈশিষ্ট্যটি বেটাতে আছে। এটি পরিবর্তন হতে পারে বা কিছু সমস্যা থাকতে পারে — আপনার মতামত আমাদের উন্নতিতে সাহায্য করে।',
+  'common.betaDisclaimer':
+    'এই বৈশিষ্ট্যটি বেটাতে আছে। এটি পরিবর্তন হতে পারে বা কিছু সমস্যা থাকতে পারে — আপনার মতামত আমাদের উন্নতিতে সাহায্য করে।',
   'settings.general': 'সাধারণ',
   // Settings layman groups (Phase 4 IA revamp)
   'settings.groups.account': 'অ্যাকাউন্ট',

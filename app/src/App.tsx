@@ -220,8 +220,7 @@ function AppShellDesktop() {
       <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
         <div
           ref={scrollRef}
-          className={`flex-1 overflow-y-auto ${fullscreen || onOnboardingRoute ? '' : 'pb-16'}`}
-        >
+          className={`flex-1 overflow-y-auto ${fullscreen || onOnboardingRoute ? '' : 'pb-16'}`}>
           <GlobalUpsellBanner />
           <AppRoutes />
         </div>

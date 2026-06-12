@@ -109,13 +109,7 @@ export function buildGraph(
   const ids = new Set(nodes.map(n => n.id));
 
   // Synthetic master root at the origin — all source nodes fan out from it.
-  const rootNode: SimNode = {
-    kind: 'root',
-    id: ROOT_NODE_ID,
-    label: 'Memory',
-    x: 0,
-    y: 0,
-  };
+  const rootNode: SimNode = { kind: 'root', id: ROOT_NODE_ID, label: 'Memory', x: 0, y: 0 };
 
   const simNodes: SimNode[] = [rootNode];
   for (let i = 0; i < nodes.length; i++) {

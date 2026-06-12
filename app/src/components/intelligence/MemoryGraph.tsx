@@ -465,11 +465,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
     const cx = root?.x ?? 0;
     const cy = root?.y ?? 0;
     const scale = 0.17;
-    setView({
-      scale,
-      tx: VIEWPORT_W / 2 - cx * scale,
-      ty: VIEWPORT_H / 2 - cy * scale,
-    });
+    setView({ scale, tx: VIEWPORT_W / 2 - cx * scale, ty: VIEWPORT_H / 2 - cy * scale });
   }, []);
   fitRef.current = fitToView;
 
@@ -636,7 +632,10 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
           data-testid="memory-graph-svg">
           {/* Pan / zoom group — drag the background to pan, scroll to zoom. */}
           <g transform={`translate(${view.tx} ${view.ty}) scale(${view.scale})`}>
-            <g stroke={isDark ? '#cbd5e1' : '#475569'} strokeWidth={isDark ? 0.6 : 1.2} opacity={isDark ? 0.7 : 0.7}>
+            <g
+              stroke={isDark ? '#cbd5e1' : '#475569'}
+              strokeWidth={isDark ? 0.6 : 1.2}
+              opacity={isDark ? 0.7 : 0.7}>
               {sim.edges.map(([ai, bi], idx) => {
                 // Only draw edges whose endpoints are both mounted yet.
                 if (ai >= svgVisible || bi >= svgVisible) return null;
@@ -675,7 +674,9 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
                     cy={n.y}
                     r={isHover ? r + 2 : r}
                     fill={fill}
-                    stroke={isHover ? (isDark ? '#0f172a' : '#1e293b') : isDark ? '#ffffff' : '#e2e8f0'}
+                    stroke={
+                      isHover ? (isDark ? '#0f172a' : '#1e293b') : isDark ? '#ffffff' : '#e2e8f0'
+                    }
                     strokeWidth={isHover ? 1.4 : 0.8}
                     style={{ cursor: grabbing ? 'grabbing' : 'pointer', filter: glow }}
                     onPointerDown={e => onNodePointerDown(e, n)}

@@ -20,7 +20,7 @@ function isSubconsciousThread(thread: Thread): boolean {
 export function isTaskThread(thread: Thread): boolean {
   return Boolean(
     thread.parentThreadId ||
-      hasAnyLabel(thread, [TASKS_TAB_VALUE, ...LEGACY_TASK_LABELS, ...MEETINGS_LABELS])
+    hasAnyLabel(thread, [TASKS_TAB_VALUE, ...LEGACY_TASK_LABELS, ...MEETINGS_LABELS])
   );
 }
 

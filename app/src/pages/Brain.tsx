@@ -7,11 +7,11 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 
+import IntelligenceSubconsciousTab from '../components/intelligence/IntelligenceSubconsciousTab';
 import { MemoryControls } from '../components/intelligence/MemoryControls';
 import { MemoryGraph } from '../components/intelligence/MemoryGraph';
 import { MemorySourcesRegistry } from '../components/intelligence/MemorySourcesRegistry';
 import { MemoryTreeStatusPanel } from '../components/intelligence/MemoryTreeStatusPanel';
-import IntelligenceSubconsciousTab from '../components/intelligence/IntelligenceSubconsciousTab';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PillTabBar from '../components/PillTabBar';
 import BetaBanner from '../components/ui/BetaBanner';

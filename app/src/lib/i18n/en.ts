@@ -81,7 +81,8 @@ const en: TranslationMap = {
   'common.comingSoon': 'Coming Soon',
   'common.breadcrumb': 'Breadcrumb',
   'common.beta': 'Beta',
-  'common.betaDisclaimer': 'This feature is in beta. It may change or have rough edges — your feedback helps us improve it.',
+  'common.betaDisclaimer':
+    'This feature is in beta. It may change or have rough edges — your feedback helps us improve it.',
 
   // Settings Home
   'settings.general': 'General',

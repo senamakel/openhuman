@@ -124,9 +124,7 @@ fn grounding_contract_appended_to_every_build_path() {
     //    `build()` appends it, so all 26 dynamic agents inherit it for free.
     //    `PromptBuilder` is a bare `fn` pointer, so this must be a
     //    non-capturing fn item, not a closure.
-    fn dynamic_body_builder(
-        _ctx: &PromptContext<'_>,
-    ) -> anyhow::Result<String> {
+    fn dynamic_body_builder(_ctx: &PromptContext<'_>) -> anyhow::Result<String> {
         Ok("## Custom Agent\n\nI render my own body.".to_string())
     }
     let dynamic = SystemPromptBuilder::from_dynamic(dynamic_body_builder)

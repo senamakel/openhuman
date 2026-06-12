@@ -992,7 +992,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         );
       });
 
-      expect(store.getState().thread.activeThreadId).toBe(threadId);
+      expect(store.getState().thread.activeThreadIds[threadId]).toBe(true);
       expect(store.getState().chatRuntime.inferenceTurnLifecycleByThread[threadId]).toBe('started');
 
       await act(async () => {
@@ -1000,7 +1000,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       });
 
       await waitFor(() => {
-        expect(store.getState().thread.activeThreadId).toBeNull();
+        expect(store.getState().thread.activeThreadIds[threadId]).toBeUndefined();
         expect(
           store.getState().chatRuntime.inferenceTurnLifecycleByThread[threadId]
         ).toBeUndefined();
@@ -1031,7 +1031,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       });
 
       await waitFor(() => {
-        expect(store.getState().thread.activeThreadId).toBeNull();
+        expect(store.getState().thread.activeThreadIds[threadId]).toBeUndefined();
       });
       expect(store.getState().chatRuntime.streamingAssistantByThread[threadId]).toMatchObject({
         content: 'Hello there, partial',

@@ -221,7 +221,7 @@ const emptyThreadState = {
   threads: [],
   selectedThreadId: null,
   threadSidebarVisible: false,
-  activeThreadId: null,
+  activeThreadIds: {},
   welcomeThreadId: null,
   messagesByThreadId: {},
   messages: [],

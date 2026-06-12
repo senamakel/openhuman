@@ -45,6 +45,7 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectSocketStatus } from '../store/socketSelectors';
 import {
   addInferenceResponse,
+  clearThreadInferenceActive,
   createNewThread,
   generateThreadTitleIfNeeded,
   setActiveThread,
@@ -259,10 +260,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const state = store.getState().thread;
-      // Resolution priority: selected > active (in-flight inference) > first thread.
-      // `activeThreadId` tracks the currently running inference thread.
+      // Resolution priority: selected > any in-flight inference thread > first
+      // thread. With parallel inference there may be several active threads;
+      // any one is an acceptable proactive target when nothing is selected.
+      const firstActiveThreadId = Object.keys(state.activeThreadIds)[0] ?? null;
       const targetFromState =
-        state.selectedThreadId ?? state.activeThreadId ?? state.threads[0]?.id ?? null;
+        state.selectedThreadId ?? firstActiveThreadId ?? state.threads[0]?.id ?? null;
       if (targetFromState) {
         return targetFromState;
       }
@@ -319,7 +322,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       });
       refetchSnapshot();
       dispatch(endInferenceTurn({ threadId: event.thread_id }));
-      dispatch(setActiveThread(null));
+      dispatch(clearThreadInferenceActive(event.thread_id));
     };
 
     rtLog('subscribe_chat_events', { socket: socketStatus });
@@ -1026,7 +1029,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         dispatch(endInferenceTurn({ threadId: event.thread_id }));
-        dispatch(setActiveThread(null));
+        dispatch(clearThreadInferenceActive(event.thread_id));
       },
     });
 
@@ -1055,12 +1058,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     const state = store.getState();
     const lifecycles = state.chatRuntime.inferenceTurnLifecycleByThread;
     const threadIds = Object.keys(lifecycles);
-    const activeThreadId = state.thread.activeThreadId;
-    if (threadIds.length === 0 && !activeThreadId) return;
+    const activeThreadIds = Object.keys(state.thread.activeThreadIds);
+    if (threadIds.length === 0 && activeThreadIds.length === 0) return;
     rtLog('socket_disconnect_reconcile', {
       socket: socketStatus,
       inFlight: threadIds.length,
-      active: activeThreadId,
+      active: activeThreadIds.length,
     });
     for (const threadId of threadIds) {
       dispatch(clearInferenceStatusForThread({ threadId }));
@@ -1069,7 +1072,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       dispatch(clearPendingApprovalForThread({ threadId }));
       dispatch(endInferenceTurn({ threadId }));
     }
-    if (activeThreadId) {
+    // A disconnect kills every in-flight turn on the dead session, so clear all
+    // active markers (setActiveThread(null) clears the whole set).
+    if (activeThreadIds.length > 0) {
       dispatch(setActiveThread(null));
     }
   }, [socketStatus, dispatch]);

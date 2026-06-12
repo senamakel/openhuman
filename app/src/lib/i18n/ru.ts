@@ -907,13 +907,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Подключен к удаленному ядру. Измените это в BootCheck или в средстве выбора облачного режима.',
   'settings.heartbeat.title': 'Heartbeat и циклы',
-  'settings.heartbeat.desc': 'Управляйте частотой фонового планирования и проверяйте карту циклов.',
-  'settings.ledgerUsage.title': 'Журнал использования',
-  'settings.ledgerUsage.desc':
-    'Недавние расходы по кредитам, математические расчеты бюджета и предыстория. API читает бюджет.',
+  'settings.usage.title': 'Использование и лимиты',
+  'settings.usage.menuDesc': 'Расходы, использование токенов, бюджеты и фоновая активность',
   'settings.costDashboard.title': 'Панель затрат',
-  'settings.costDashboard.desc':
-    '7-дневные расходы и сжигание токенов по всему множеству, с указанием темпа бюджета и разбивки по моделям.',
   'settings.costDashboard.sevenDayCost': '7-дневная ежедневная стоимость',
   'settings.costDashboard.sevenDayTokens': '7-дневное использование токена',
   'settings.costDashboard.totalSpend': 'всего 7 дней',

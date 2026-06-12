@@ -1245,12 +1245,9 @@ const en: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
   'settings.heartbeat.title': 'Heartbeat & loops',
-  'settings.heartbeat.desc': 'Control background scheduling cadences and inspect the loop map.',
-  'settings.ledgerUsage.title': 'Usage ledger',
-  'settings.ledgerUsage.desc': 'Recent credit spend, budget math, and background API read budget.',
+  'settings.usage.title': 'Usage & Limits',
+  'settings.usage.menuDesc': 'Costs, token usage, budgets, and background activity',
   'settings.costDashboard.title': 'Cost dashboard',
-  'settings.costDashboard.desc':
-    '7-day spend and token burn across the swarm, with budget pace and per-model breakdown.',
   'settings.costDashboard.sevenDayCost': '7-day daily cost',
   'settings.costDashboard.sevenDayTokens': '7-day token usage',
   'settings.costDashboard.totalSpend': '7-day total',

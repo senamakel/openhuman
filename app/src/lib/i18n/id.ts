@@ -900,13 +900,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Terhubung ke inti remote. Ubah ini dalam BootCheck atau mode awan picker.',
   'settings.heartbeat.title': 'Detak jantung & loop',
-  'settings.heartbeat.desc': 'Kontrol irama penjadwalan latar belakang dan periksa peta loop.',
-  'settings.ledgerUsage.title': 'Buku besar penggunaan',
-  'settings.ledgerUsage.desc':
-    'Menghabiskan kredit baru-baru ini, anggaran matematika, dan latar belakang API membaca anggaran.',
+  'settings.usage.title': 'Penggunaan & batas',
+  'settings.usage.menuDesc': 'Biaya, penggunaan token, anggaran, dan aktivitas latar belakang',
   'settings.costDashboard.title': 'Papan dashboard Biaya',
-  'settings.costDashboard.desc':
-    '7 hari menghabiskan dan token membakar seluruh kawanan, dengan kecepatan anggaran dan rusak.',
   'settings.costDashboard.sevenDayCost': '7 hari biaya harian',
   'settings.costDashboard.sevenDayTokens': 'Penggunaan token 7 hari',
   'settings.costDashboard.totalSpend': 'Total 7 hari',

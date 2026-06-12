@@ -914,14 +914,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Connesso a un core remoto. Cambia questo in BootCheck o nel selettore della modalità cloud.',
   'settings.heartbeat.title': 'Heartbeat e loop',
-  'settings.heartbeat.desc':
-    'Controlla le cadenze di pianificazione di background e ispeziona la mappa del ciclo.',
-  'settings.ledgerUsage.title': 'Registro di utilizzo',
-  'settings.ledgerUsage.desc':
-    'Spesa recente di credito, matematica del budget e lettura del budget di background API.',
+  'settings.usage.title': 'Utilizzo e limiti',
+  'settings.usage.menuDesc': 'Costi, utilizzo dei token, budget e attività in background',
   'settings.costDashboard.title': 'Cruscotto dei costi',
-  'settings.costDashboard.desc':
-    "Spesa e bruciatura di token nell'arco di 7 giorni attraverso lo sciame, con ritmo di budget e suddivisione per modello.",
   'settings.costDashboard.sevenDayCost': 'Costo giornaliero di 7 giorni',
   'settings.costDashboard.sevenDayTokens': 'Utilizzo del token di 7 giorni',
   'settings.costDashboard.totalSpend': 'Totale di 7 giorni',

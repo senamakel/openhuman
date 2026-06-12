@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 
-import CostDashboardPanel from '../components/dashboard/CostDashboardPanel';
 import WorkflowsTab from '../components/intelligence/WorkflowsTab';
 import LogoutAndClearActions from '../components/settings/LogoutAndClearActions';
 import AboutPanel from '../components/settings/panels/AboutPanel';
@@ -27,8 +26,6 @@ import DevicesComingSoonPanel from '../components/settings/panels/DevicesComingS
 import DevWorkflowPanel from '../components/settings/panels/DevWorkflowPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import EventLogPanel from '../components/settings/panels/EventLogPanel';
-import HeartbeatPanel from '../components/settings/panels/HeartbeatPanel';
-import LedgerUsagePanel from '../components/settings/panels/LedgerUsagePanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
 import MascotPanel from '../components/settings/panels/MascotPanel';
 import McpServerPanel from '../components/settings/panels/McpServerPanel';
@@ -55,6 +52,7 @@ import TeamMembersPanel from '../components/settings/panels/TeamMembersPanel';
 import TeamPanel from '../components/settings/panels/TeamPanel';
 import ToolPolicyDiagnosticsPanel from '../components/settings/panels/ToolPolicyDiagnosticsPanel';
 import ToolsPanel from '../components/settings/panels/ToolsPanel';
+import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoiceDebugPanel from '../components/settings/panels/VoiceDebugPanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
 import WalletBalancesPanel from '../components/settings/panels/WalletBalancesPanel';
@@ -374,24 +372,10 @@ const Settings = () => {
       icon: VoiceIcon,
     },
     {
-      id: 'heartbeat',
-      title: t('settings.heartbeat.title'),
-      description: t('settings.heartbeat.desc'),
-      route: 'heartbeat',
-      icon: LlmIcon,
-    },
-    {
-      id: 'ledger-usage',
-      title: t('settings.ledgerUsage.title'),
-      description: t('settings.ledgerUsage.desc'),
-      route: 'ledger-usage',
-      icon: LlmIcon,
-    },
-    {
-      id: 'cost-dashboard',
-      title: t('settings.costDashboard.title'),
-      description: t('settings.costDashboard.desc'),
-      route: 'cost-dashboard',
+      id: 'usage',
+      title: t('settings.usage.title'),
+      description: t('settings.usage.menuDesc'),
+      route: 'usage',
       icon: LlmIcon,
     },
   ];
@@ -589,17 +573,20 @@ const Settings = () => {
         <Route path="llm" element={wrapSettingsPage(<AIPanel />, { maxWidthClass: 'max-w-4xl' })} />
         <Route path="embeddings" element={wrapSettingsPage(<EmbeddingsPanel />)} />
         <Route
+          path="usage"
+          element={wrapSettingsPage(<UsagePanel />, { maxWidthClass: 'max-w-4xl' })}
+        />
+        {/* Legacy slugs for the merged Usage & Limits page — kept so existing
+            links (Developer Options entries, walkthroughs) keep working. */}
+        <Route
           path="heartbeat"
-          element={wrapSettingsPage(<HeartbeatPanel />, { maxWidthClass: 'max-w-4xl' })}
+          element={<Navigate to="/settings/usage#background" replace />}
         />
         <Route
           path="ledger-usage"
-          element={wrapSettingsPage(<LedgerUsagePanel />, { maxWidthClass: 'max-w-4xl' })}
+          element={<Navigate to="/settings/usage#background" replace />}
         />
-        <Route
-          path="cost-dashboard"
-          element={wrapSettingsPage(<CostDashboardPanel />, { maxWidthClass: 'max-w-4xl' })}
-        />
+        <Route path="cost-dashboard" element={<Navigate to="/settings/usage" replace />} />
         <Route path="search" element={wrapSettingsPage(<SearchPanel />)} />
         <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
         <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />

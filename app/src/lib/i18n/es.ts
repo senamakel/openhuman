@@ -921,14 +921,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Conectado a un núcleo remoto. Cambia esto en BootCheck o en el selector de modo en la nube.',
   'settings.heartbeat.title': 'Latidos y bucles',
-  'settings.heartbeat.desc':
-    'Controla los ritmos de programación en segundo plano e inspecciona el mapa del bucle.',
-  'settings.ledgerUsage.title': 'Libro mayor de uso',
-  'settings.ledgerUsage.desc':
-    'Gasto de crédito reciente, matemáticas de presupuesto y presupuesto de lectura de fondo API.',
+  'settings.usage.title': 'Uso y límites',
+  'settings.usage.menuDesc': 'Costos, uso de tokens, presupuestos y actividad en segundo plano',
   'settings.costDashboard.title': 'Panel de costos',
-  'settings.costDashboard.desc':
-    'Gasto de 7 días y quema de tokens en todo el enjambre, con ritmo de presupuesto y desglose por modelo.',
   'settings.costDashboard.sevenDayCost': 'Costo diario de 7 días',
   'settings.costDashboard.sevenDayTokens': 'Uso de token de 7 días',
   'settings.costDashboard.totalSpend': 'Total de 7 días',

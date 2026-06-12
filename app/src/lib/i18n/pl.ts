@@ -911,13 +911,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Połączono ze zdalnym rdzeniem. Zmień to w BootCheck lub w wyborze trybu chmury.',
   'settings.heartbeat.title': 'Heartbeat i pętle',
-  'settings.heartbeat.desc': 'Steruj częstotliwością harmonogramu tła i podglądaj mapę pętli.',
-  'settings.ledgerUsage.title': 'Księga zużycia',
-  'settings.ledgerUsage.desc':
-    'Ostatnie wydatki kredytów, matematyka budżetu i budżet odczytów API w tle.',
+  'settings.usage.title': 'Zużycie i limity',
+  'settings.usage.menuDesc': 'Koszty, zużycie tokenów, budżety i aktywność w tle',
   'settings.costDashboard.title': 'Panel kosztów',
-  'settings.costDashboard.desc':
-    'Wydatki i zużycie tokenów z 7 dni w całym roju, z tempem budżetu i rozbiciem per model.',
   'settings.costDashboard.sevenDayCost': 'Dzienny koszt z 7 dni',
   'settings.costDashboard.sevenDayTokens': 'Zużycie tokenów z 7 dni',
   'settings.costDashboard.totalSpend': 'Suma z 7 dni',

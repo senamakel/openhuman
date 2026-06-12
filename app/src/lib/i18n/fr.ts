@@ -922,14 +922,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Connecté à un noyau distant. Modifiez cela dans BootCheck ou le sélecteur de mode cloud.',
   'settings.heartbeat.title': 'Battement de coeur et boucles',
-  'settings.heartbeat.desc':
-    'Contrôlez les cadences de planification en arrière-plan et inspectez la carte de boucle.',
-  'settings.ledgerUsage.title': "Registre d'utilisation",
-  'settings.ledgerUsage.desc':
-    'Dépenses de crédit récentes, calcul du budget et lecture du budget de fond API.',
+  'settings.usage.title': 'Utilisation et limites',
+  'settings.usage.menuDesc': 'Coûts, utilisation des tokens, budgets et activité en arrière-plan',
   'settings.costDashboard.title': 'Tableau de bord des coûts',
-  'settings.costDashboard.desc':
-    "Dépense et combustion de tokens sur 7 jours à travers l'essaim, avec rythme budgétaire et répartition par modèle.",
   'settings.costDashboard.sevenDayCost': 'Coût quotidien sur 7 jours',
   'settings.costDashboard.sevenDayTokens': 'Utilisation du jeton sur 7 jours',
   'settings.costDashboard.totalSpend': 'Total sur 7 jours',

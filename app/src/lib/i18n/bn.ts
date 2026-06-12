@@ -897,11 +897,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'রিমোটের সাথে সংযুক্ত। এটি বুট করা অথবা মেঘের মোড দ্বারা পরিবর্তন করা হবে।',
   'settings.heartbeat.title': 'হার্টবিট এবং লুপস',
-  'settings.heartbeat.desc': 'ব্যাকরণ কালের সিডিউলিং এবং লুপ ম্যাপ পরীক্ষা করে দেখুন ।',
-  'settings.ledgerUsage.title': 'ইউসেজ লেজার',
-  'settings.ledgerUsage.desc': 'সাম্প্রতিক ক্রেডিট খরচ, বাজেটের গণিত, এবং পটভূমি API পড়া বাজেট।',
+  'settings.usage.title': 'ব্যবহার ও সীমা',
+  'settings.usage.menuDesc': 'খরচ, টোকেন ব্যবহার, বাজেট এবং পটভূমির কার্যকলাপ',
   'settings.costDashboard.title': 'বিভাজনের স্থান',
-  'settings.costDashboard.desc': '৭ দিনের মতো সময় কাটা আর সাইনবোর্ড সব জায়গায় জ্বলতে থাকে।',
   'settings.costDashboard.sevenDayCost': '৭ দিনের মূল্য',
   'settings.costDashboard.sevenDayTokens': '৭ দিনের ব্যবহার',
   'settings.costDashboard.totalSpend': '৭ দিনের মত',

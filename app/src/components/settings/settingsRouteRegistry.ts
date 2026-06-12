@@ -242,24 +242,24 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     searchKeywords: ['tts', 'stt', 'speech', 'dictation', 'audio'],
   },
   {
-    id: 'heartbeat',
-    titleKey: 'settings.heartbeat.title',
-    descriptionKey: 'settings.heartbeat.desc',
+    // usage: merged Usage & Limits page (formerly heartbeat, ledger-usage and
+    // cost-dashboard — those slugs redirect here).
+    id: 'usage',
+    titleKey: 'settings.usage.title',
+    descriptionKey: 'settings.usage.menuDesc',
     section: 'ai',
-  },
-  {
-    id: 'ledger-usage',
-    titleKey: 'settings.ledgerUsage.title',
-    descriptionKey: 'settings.ledgerUsage.desc',
-    section: 'ai',
-    searchKeywords: ['usage', 'tokens', 'ledger', 'cost'],
-  },
-  {
-    id: 'cost-dashboard',
-    titleKey: 'settings.costDashboard.title',
-    descriptionKey: 'settings.costDashboard.desc',
-    section: 'ai',
-    searchKeywords: ['cost', 'spend', 'usage', 'billing'],
+    searchKeywords: [
+      'usage',
+      'tokens',
+      'ledger',
+      'cost',
+      'spend',
+      'billing',
+      'budget',
+      'heartbeat',
+      'loops',
+      'background',
+    ],
   },
 
   // =========================================================================

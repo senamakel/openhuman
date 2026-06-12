@@ -947,7 +947,7 @@ export type BackgroundLoopControlsView = 'all' | 'heartbeat' | 'ledger';
 
 /** Minimal cloud-provider shape consumed by the loop map's `describeProvider`
  *  helper — only slug/label/id are read. Accepting this narrower shape lets
- *  external panels (HeartbeatPanel, LedgerUsagePanel) feed in the API view
+ *  external panels (UsagePanel) feed in the API view
  *  (`CloudProviderView`) without copying the AIPanel-internal extras
  *  (`authStyle`, `maskedKey`). */
 export type BackgroundLoopProviderView = { id: string; slug: string; label: string };

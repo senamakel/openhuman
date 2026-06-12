@@ -892,12 +892,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     '원격 코어에 연결되었습니다. BootCheck 또는 클라우드 모드 선택기에서 변경하세요.',
   'settings.heartbeat.title': '하트비트 및 루프',
-  'settings.heartbeat.desc': '백그라운드 예약 흐름을 제어하고 루프 맵을 검사합니다.',
-  'settings.ledgerUsage.title': '사용량 원장',
-  'settings.ledgerUsage.desc': '최근 크레딧 지출, 예산 계산 및 배경 API 읽기 예산.',
+  'settings.usage.title': '사용량 및 한도',
+  'settings.usage.menuDesc': '비용, 토큰 사용량, 예산 및 백그라운드 활동',
   'settings.costDashboard.title': '비용 대시보드',
-  'settings.costDashboard.desc':
-    '전체 스웜의 7일 지출과 토큰 사용량, 예산 속도 및 모델별 세부 내역입니다.',
   'settings.costDashboard.sevenDayCost': '7일 일별 비용',
   'settings.costDashboard.sevenDayTokens': '7일 토큰 사용량',
   'settings.costDashboard.totalSpend': '7일 합계',

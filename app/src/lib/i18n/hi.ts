@@ -894,13 +894,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'एक दूरस्थ कोर से जुड़ा हुआ है। इसे बूट चेक या क्लाउड मोड पिकर में बदलें।',
   'settings.heartbeat.title': 'दिल की धड़कन और लूप',
-  'settings.heartbeat.desc':
-    'नियंत्रण पृष्ठभूमि शेड्यूलिंग कैडेंस और लूप मानचित्र का निरीक्षण करें।',
-  'settings.ledgerUsage.title': 'उपयोग बही',
-  'settings.ledgerUsage.desc': 'हाल का क्रेडिट खर्च, बजट गणित, और पृष्ठभूमि API बजट पढ़ें।',
+  'settings.usage.title': 'उपयोग और सीमाएँ',
+  'settings.usage.menuDesc': 'लागत, टोकन उपयोग, बजट और पृष्ठभूमि गतिविधि',
   'settings.costDashboard.title': 'कॉस्ट डैशबोर्ड',
-  'settings.costDashboard.desc':
-    'बजट की गति और प्रति मॉडल ब्रेकडाउन के साथ, 7-day खर्च और टोकन पूरे दल में जलाते हैं।',
   'settings.costDashboard.sevenDayCost': '7 दिन दैनिक लागत',
   'settings.costDashboard.sevenDayTokens': '7 दिन टोकन उपयोग',
   'settings.costDashboard.totalSpend': '7 दिन कुल',

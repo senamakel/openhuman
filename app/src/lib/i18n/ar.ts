@@ -881,13 +881,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'متصلة بقاعدة نائية غيّر هذا في (بوتشيك) أو مُخلّق السحابة.',
   'settings.heartbeat.title': 'نبضات القلب والحلقات',
-  'settings.heartbeat.desc': 'التحكم في إيقاعات جدولة الخلفية وفحص خريطة الحلقة.',
-  'settings.ledgerUsage.title': 'دفتر الأستاذ الاستخدام',
-  'settings.ledgerUsage.desc':
-    'وتُقرأ الميزانية في الآونة الأخيرة، وحسابات الميزانية، والخلفية Xqx0xx.',
+  'settings.usage.title': 'الاستخدام والحدود',
+  'settings.usage.menuDesc': 'التكاليف واستخدام الرموز والميزانيات والنشاط في الخلفية',
   'settings.costDashboard.title': 'لوحة بيانات التكاليف',
-  'settings.costDashboard.desc':
-    'قضاء سبعة أيام والحرق عبر الحزام، مع سرعة الميزانية وانهيار كل نموذج.',
   'settings.costDashboard.sevenDayCost': 'التكلفة اليومية',
   'settings.costDashboard.sevenDayTokens': '7 أيام',
   'settings.costDashboard.totalSpend': 'المجموع 7 أيام',

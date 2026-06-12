@@ -921,14 +921,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Verbunden mit einem Remote-Core. Ändern Sie dies in BootCheck oder in der Cloud-Modus-Auswahl.',
   'settings.heartbeat.title': 'Heartbeat und Schleifen',
-  'settings.heartbeat.desc':
-    'Kontrollieren Sie die Hintergrundplanungskadenzen und inspizieren Sie die Schleifenkarte.',
-  'settings.ledgerUsage.title': 'Nutzungsbuch',
-  'settings.ledgerUsage.desc':
-    'Aktuelle Kreditausgaben, Budgetmathematik und Hintergrund API Lesebudget.',
+  'settings.usage.title': 'Nutzung & Limits',
+  'settings.usage.menuDesc': 'Kosten, Token-Verbrauch, Budgets und Hintergrundaktivität',
   'settings.costDashboard.title': 'Kosten-Dashboard',
-  'settings.costDashboard.desc':
-    '7-tägige Ausgaben und Token brennen über den Schwarm, mit Budgettempo und Aufschlüsselung nach Modell.',
   'settings.costDashboard.sevenDayCost': '7-Tage-Tageskosten',
   'settings.costDashboard.sevenDayTokens': '7-Tage-Token-Nutzung',
   'settings.costDashboard.totalSpend': '7 Tage insgesamt',

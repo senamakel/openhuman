@@ -15,29 +15,29 @@ use crate::openhuman::config::rpc as config_rpc;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
-        schemas("profiles_list"),
-        schemas("profile_select"),
-        schemas("profile_upsert"),
-        schemas("profile_delete"),
+        schemas("list"),
+        schemas("select"),
+        schemas("upsert"),
+        schemas("delete"),
     ]
 }
 
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
     vec![
         RegisteredController {
-            schema: schemas("profiles_list"),
+            schema: schemas("list"),
             handler: handle_profiles_list,
         },
         RegisteredController {
-            schema: schemas("profile_select"),
+            schema: schemas("select"),
             handler: handle_profile_select,
         },
         RegisteredController {
-            schema: schemas("profile_upsert"),
+            schema: schemas("upsert"),
             handler: handle_profile_upsert,
         },
         RegisteredController {
-            schema: schemas("profile_delete"),
+            schema: schemas("delete"),
             handler: handle_profile_delete,
         },
     ]
@@ -45,16 +45,16 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
 
 pub fn schemas(function: &str) -> ControllerSchema {
     match function {
-        "profiles_list" => ControllerSchema {
+        "list" => ControllerSchema {
             namespace: "profiles",
-            function: "profiles_list",
+            function: "list",
             description: "List persistent agent profiles and the active profile id.",
             inputs: vec![],
             outputs: vec![json_output("profiles", "Agent profile state payload.")],
         },
-        "profile_select" => ControllerSchema {
+        "select" => ControllerSchema {
             namespace: "profiles",
-            function: "profile_select",
+            function: "select",
             description: "Select the active persistent agent profile.",
             inputs: vec![required_string("profile_id", "Agent profile id.")],
             outputs: vec![json_output(
@@ -62,9 +62,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 "Updated agent profile state payload.",
             )],
         },
-        "profile_upsert" => ControllerSchema {
+        "upsert" => ControllerSchema {
             namespace: "profiles",
-            function: "profile_upsert",
+            function: "upsert",
             description: "Create or update an agent profile. The `profile` payload may include \
                           memory_sources, includeAgentConversations, allowedSkills, \
                           allowedMcpServers, composioIntegrations, allowedTools, and soulMd; \
@@ -80,9 +80,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 "Updated agent profile state payload.",
             )],
         },
-        "profile_delete" => ControllerSchema {
+        "delete" => ControllerSchema {
             namespace: "profiles",
-            function: "profile_delete",
+            function: "delete",
             description: "Delete a custom agent profile.",
             inputs: vec![required_string("profile_id", "Agent profile id.")],
             outputs: vec![json_output(
@@ -341,15 +341,7 @@ mod tests {
     fn controller_schema_inventory_is_stable() {
         let schemas = all_controller_schemas();
         let functions: Vec<_> = schemas.iter().map(|schema| schema.function).collect();
-        assert_eq!(
-            functions,
-            vec![
-                "profiles_list",
-                "profile_select",
-                "profile_upsert",
-                "profile_delete",
-            ]
-        );
+        assert_eq!(functions, vec!["list", "select", "upsert", "delete"]);
         assert_eq!(schemas.len(), all_registered_controllers().len());
         assert!(schemas.iter().all(|s| s.namespace == "profiles"));
     }

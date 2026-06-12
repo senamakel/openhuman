@@ -636,7 +636,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
           data-testid="memory-graph-svg">
           {/* Pan / zoom group — drag the background to pan, scroll to zoom. */}
           <g transform={`translate(${view.tx} ${view.ty}) scale(${view.scale})`}>
-            <g stroke={isDark ? '#cbd5e1' : '#94a3b8'} strokeWidth={0.6} opacity={isDark ? 0.7 : 0.4}>
+            <g stroke={isDark ? '#cbd5e1' : '#64748b'} strokeWidth={isDark ? 0.6 : 0.8} opacity={isDark ? 0.7 : 0.6}>
               {sim.edges.map(([ai, bi], idx) => {
                 // Only draw edges whose endpoints are both mounted yet.
                 if (ai >= svgVisible || bi >= svgVisible) return null;

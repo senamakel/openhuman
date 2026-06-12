@@ -4642,6 +4642,7 @@ async fn agent_subagent_public_types_cover_task_local_and_error_display_paths() 
         initial_history: None,
         checkpoint_dir: None,
         worktree_action_dir: None,
+        run_queue: None,
     };
     assert_eq!(options.skill_filter_override.as_deref(), Some("docs"));
     assert_eq!(options.toolkit_override.as_deref(), Some("github"));

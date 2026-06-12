@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
 import WorkflowsTab from '../components/intelligence/WorkflowsTab';
-import LogoutAndClearActions from '../components/settings/LogoutAndClearActions';
+import SettingsIndexRedirect from '../components/settings/layout/SettingsIndexRedirect';
+import SettingsLayout from '../components/settings/layout/SettingsLayout';
 import AboutPanel from '../components/settings/panels/AboutPanel';
+import AccountPanel from '../components/settings/panels/AccountPanel';
 import AgentAccessPanel from '../components/settings/panels/AgentAccessPanel';
 import AgentActivityPanel from '../components/settings/panels/AgentActivityPanel';
 import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
@@ -20,7 +22,7 @@ import CompanionPanel from '../components/settings/panels/CompanionPanel';
 import ComposioTriagePanel from '../components/settings/panels/ComposioTriagePanel';
 import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
-import DevicesComingSoonPanel from '../components/settings/panels/DevicesComingSoonPanel';
+import DevicesPanel from '../components/settings/panels/DevicesPanel';
 import DevWorkflowPanel from '../components/settings/panels/DevWorkflowPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import EventLogPanel from '../components/settings/panels/EventLogPanel';
@@ -55,173 +57,17 @@ import VoicePanel from '../components/settings/panels/VoicePanel';
 import WalletBalancesPanel from '../components/settings/panels/WalletBalancesPanel';
 import WebhooksDebugPanel from '../components/settings/panels/WebhooksDebugPanel';
 import WorkflowRunnerPanel from '../components/settings/panels/WorkflowRunnerPanel';
-import SettingsHome from '../components/settings/SettingsHome';
-import SettingsSectionPage from '../components/settings/SettingsSectionPage';
-import { useT } from '../lib/i18n/I18nContext';
-import { APP_VERSION } from '../utils/config';
 import Intelligence from './Intelligence';
-
-// Icon elements extracted as constants to avoid repeating JSX in each array factory below.
-const RecoveryPhraseIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-    />
-  </svg>
-);
-const TeamIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-    />
-  </svg>
-);
-const PrivacyIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-    />
-  </svg>
-);
-const SecurityIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-    />
-  </svg>
-);
-const MigrationIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-    />
-  </svg>
-);
-const ScreenIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 5h18v12H3zM8 21h8m-4-4v4"
-    />
-  </svg>
-);
-const NotificationsIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-    />
-  </svg>
-);
-const ToolsIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-    />
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-    />
-  </svg>
-);
-const NotificationSettingsIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-    />
-  </svg>
-);
-const LlmIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-    />
-  </svg>
-);
-const CompanionIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-    />
-  </svg>
-);
-const VoiceIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-    />
-  </svg>
-);
-
-const AgentAccessIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-    />
-  </svg>
-);
-
-const WalletIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-    />
-  </svg>
-);
 
 const WrappedSettingsPage = ({
   children,
-  // Default widened ~30% (max-w-lg 512px → max-w-2xl 672px) for a roomier
-  // settings list per design feedback.
   maxWidthClass = 'max-w-2xl',
 }: {
   children: ReactNode;
   maxWidthClass?: string;
 }) => {
   return (
-    <div className="p-4 pt-6">
+    <div className="p-4 pt-4">
       <div
         className={`${maxWidthClass} mx-auto bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 overflow-hidden`}>
         {children}
@@ -230,375 +76,176 @@ const WrappedSettingsPage = ({
   );
 };
 
+/**
+ * Settings routes, hosted inside the two-pane SettingsLayout (persistent
+ * sidebar on md+, drill-down on narrow viewports). Retired slugs are kept as
+ * redirects so deep links keep working.
+ */
 const Settings = () => {
-  const { t } = useT();
-  const navigate = useNavigate();
-
   const wrapSettingsPage = (element: ReactNode, opts?: { maxWidthClass?: string }) => (
-    <WrappedSettingsPage maxWidthClass={opts?.maxWidthClass}>
-      {element}
-      <div className="border-t border-stone-100 dark:border-neutral-800 px-4 py-3 text-center text-[11px] text-stone-400 dark:text-neutral-500">
-        {t('settings.betaBuild').replace('{version}', APP_VERSION)}
-      </div>
-    </WrappedSettingsPage>
+    <WrappedSettingsPage maxWidthClass={opts?.maxWidthClass}>{element}</WrappedSettingsPage>
   );
-
-  const accountSettingsItems = [
-    {
-      id: 'team',
-      title: t('pages.settings.account.team'),
-      description: t('pages.settings.account.teamDesc'),
-      route: 'team',
-      icon: TeamIcon,
-    },
-    {
-      id: 'privacy',
-      title: t('pages.settings.account.privacy'),
-      description: t('pages.settings.account.privacyDesc'),
-      route: 'privacy',
-      icon: PrivacyIcon,
-    },
-    {
-      id: 'security',
-      title: t('pages.settings.account.security'),
-      description: t('pages.settings.account.securityDesc'),
-      route: 'security',
-      icon: SecurityIcon,
-    },
-    {
-      id: 'migration',
-      title: t('pages.settings.account.migration'),
-      description: t('pages.settings.account.migrationDesc'),
-      route: 'migration',
-      icon: MigrationIcon,
-    },
-  ];
-
-  // Notifications hub (lives under Advanced) — gathers the Alerts inbox and the
-  // notification preferences/routing panel under one section page.
-  const notificationsHubItems = [
-    {
-      id: 'automations',
-      title: t('activity.tabs.automations'),
-      description: t('activity.tabs.automationsDescription'),
-      route: 'automations',
-      icon: NotificationsIcon,
-    },
-    {
-      id: 'alerts',
-      title: t('nav.alerts'),
-      description: t('settings.alertsDesc'),
-      onClick: () => navigate('/notifications'),
-      icon: NotificationsIcon,
-    },
-    {
-      id: 'notification-settings',
-      title: t('settings.notificationsHub.settingsItem'),
-      description: t('settings.notificationsHub.settingsItemDesc'),
-      route: 'notifications',
-      icon: NotificationSettingsIcon,
-    },
-  ];
-
-  const cryptoSettingsItems = [
-    {
-      id: 'recovery-phrase',
-      title: t('pages.settings.account.recoveryPhrase'),
-      description: t('pages.settings.account.recoveryPhraseDesc'),
-      route: 'recovery-phrase',
-      icon: RecoveryPhraseIcon,
-    },
-    {
-      id: 'wallet-balances',
-      title: t('pages.settings.account.walletBalances'),
-      description: t('pages.settings.account.walletBalancesDesc'),
-      route: 'wallet-balances',
-      icon: WalletIcon,
-    },
-  ];
-
-  const featuresSettingsItems = [
-    {
-      id: 'screen-intelligence',
-      title: t('pages.settings.features.screenAwareness'),
-      description: t('pages.settings.features.screenAwarenessDesc'),
-      route: 'screen-intelligence',
-      icon: ScreenIcon,
-    },
-    // Autocomplete + Voice Dictation hidden per #717 (routes retained for re-enable).
-    // notifications moved to notifications-hub section (no longer duplicated here).
-    {
-      id: 'tools',
-      title: t('pages.settings.features.tools'),
-      description: t('pages.settings.features.toolsDesc'),
-      route: 'tools',
-      icon: ToolsIcon,
-    },
-    {
-      id: 'companion',
-      title: t('pages.settings.features.desktopCompanion'),
-      description: t('pages.settings.features.desktopCompanionDesc'),
-      route: 'companion',
-      icon: CompanionIcon,
-    },
-  ];
-
-  // agent-chat and local-model-debug are debug tools — they live only in
-  // Developer & Diagnostics, not in the AI section page.
-  const aiSettingsItems = [
-    {
-      id: 'llm',
-      title: t('pages.settings.ai.llm'),
-      description: t('pages.settings.ai.llmDesc'),
-      route: 'llm',
-      icon: LlmIcon,
-    },
-    {
-      id: 'embeddings',
-      title: t('pages.settings.ai.embeddings'),
-      description: t('pages.settings.ai.embeddingsDesc'),
-      route: 'embeddings',
-      icon: LlmIcon,
-    },
-    {
-      id: 'voice',
-      title: t('pages.settings.ai.voice'),
-      description: t('pages.settings.ai.voiceDesc'),
-      route: 'voice',
-      icon: VoiceIcon,
-    },
-    {
-      id: 'usage',
-      title: t('settings.usage.title'),
-      description: t('settings.usage.menuDesc'),
-      route: 'usage',
-      icon: LlmIcon,
-    },
-  ];
-
-  // persona has its own canonical home entry (Assistant group) — not duplicated here.
-  const agentsSettingsItems = [
-    {
-      id: 'agents',
-      title: t('settings.agents.title'),
-      description: t('settings.agents.subtitle'),
-      route: 'agents',
-      icon: ToolsIcon,
-    },
-    {
-      id: 'agent-access',
-      title: t('settings.agentAccess.title'),
-      description: t('settings.agentAccess.menuDesc'),
-      route: 'agent-access',
-      icon: AgentAccessIcon,
-    },
-    {
-      id: 'activity-level',
-      title: t('activityLevel.title'),
-      description: t('activityLevel.description'),
-      route: 'activity-level',
-      icon: LlmIcon,
-    },
-    {
-      id: 'sandbox-settings',
-      title: t('settings.sandbox.title'),
-      description: t('settings.sandbox.menuDesc'),
-      route: 'sandbox-settings',
-      icon: AgentAccessIcon,
-    },
-  ];
 
   return (
     <div>
       <Routes>
-        <Route index element={wrapSettingsPage(<SettingsHome />)} />
-        <Route
-          path="account"
-          element={wrapSettingsPage(
-            <SettingsSectionPage
-              title={t('pages.settings.accountSection.title')}
-              description={t('pages.settings.accountSection.description')}
-              items={accountSettingsItems}
-              footer={<LogoutAndClearActions />}
-            />
-          )}
-        />
-        <Route
-          path="features"
-          element={wrapSettingsPage(
-            <SettingsSectionPage
-              title={t('pages.settings.featuresSection.title')}
-              description={t('pages.settings.featuresSection.description')}
-              items={featuresSettingsItems}
-            />
-          )}
-        />
-        <Route
-          path="ai"
-          element={wrapSettingsPage(
-            <SettingsSectionPage
-              title={t('pages.settings.aiSection.title')}
-              description={t('pages.settings.aiSection.description')}
-              items={aiSettingsItems}
-            />
-          )}
-        />
-        {/* Composio hub retired — everything lives on the Integrations tabs. */}
-        <Route path="composio" element={<Navigate to="/settings/integrations" replace />} />
-        <Route
-          path="agents-settings"
-          element={wrapSettingsPage(
-            <SettingsSectionPage
-              title={t('settings.agentsSection.title')}
-              description={t('settings.agentsSection.description')}
-              items={agentsSettingsItems}
-            />
-          )}
-        />
-        <Route
-          path="crypto"
-          element={wrapSettingsPage(
-            <SettingsSectionPage
-              title={t('settings.cryptoSection.title')}
-              description={t('settings.cryptoSection.description')}
-              items={cryptoSettingsItems}
-            />
-          )}
-        />
-        <Route
-          path="notifications-hub"
-          element={wrapSettingsPage(
-            <SettingsSectionPage
-              title={t('settings.notificationsHub.title')}
-              description={t('settings.notificationsHub.description')}
-              items={notificationsHubItems}
-            />
-          )}
-        />
-        {/* Account & Billing leaf panels */}
-        <Route path="recovery-phrase" element={wrapSettingsPage(<RecoveryPhrasePanel />)} />
-        <Route path="team" element={wrapSettingsPage(<TeamPanel />)} />
-        <Route path="team/manage/:teamId" element={wrapSettingsPage(<TeamManagementPanel />)} />
-        <Route
-          path="team/manage/:teamId/members"
-          element={wrapSettingsPage(<TeamMembersPanel />)}
-        />
-        <Route
-          path="team/manage/:teamId/invites"
-          element={wrapSettingsPage(<TeamInvitesPanel />)}
-        />
-        <Route path="team/members" element={wrapSettingsPage(<TeamMembersPanel />)} />
-        <Route path="team/invites" element={wrapSettingsPage(<TeamInvitesPanel />)} />
-        <Route path="billing" element={wrapSettingsPage(<BillingPanel />)} />
-        <Route path="privacy" element={wrapSettingsPage(<PrivacyPanel />)} />
-        <Route path="security" element={wrapSettingsPage(<SecurityPanel />)} />
-        <Route path="migration" element={wrapSettingsPage(<MigrationPanel />)} />
-        <Route path="wallet-balances" element={wrapSettingsPage(<WalletBalancesPanel />)} />
-        {/* Features leaf panels */}
-        <Route path="screen-intelligence" element={wrapSettingsPage(<ScreenIntelligencePanel />)} />
-        <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
-        <Route path="voice" element={wrapSettingsPage(<VoicePanel />)} />
-        <Route path="notifications" element={wrapSettingsPage(<NotificationsTabbedPanel />)} />
-        <Route path="personality" element={wrapSettingsPage(<PersonalityPanel />)} />
-        {/* Legacy slugs for the merged Personality & Face page. */}
-        <Route path="mascot" element={<Navigate to="/settings/personality#face" replace />} />
-        <Route path="persona" element={<Navigate to="/settings/personality" replace />} />
-        <Route path="appearance" element={wrapSettingsPage(<AppearancePanel />)} />
-        <Route path="agent-access" element={wrapSettingsPage(<AgentAccessPanel />)} />
-        <Route path="permissions" element={wrapSettingsPage(<PermissionsPanel />)} />
-        <Route path="activity-level" element={wrapSettingsPage(<AgentActivityPanel />)} />
-        <Route path="sandbox-settings" element={wrapSettingsPage(<SandboxSettingsPanel />)} />
-        <Route path="approval-history" element={wrapSettingsPage(<ApprovalHistoryPanel />)} />
-        <Route path="agents" element={wrapSettingsPage(<AgentsPanel />)} />
-        <Route path="agents/new" element={wrapSettingsPage(<AgentEditorPage />)} />
-        <Route path="agents/edit/:id" element={wrapSettingsPage(<AgentEditorPage />)} />
-        <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
-        <Route path="companion" element={wrapSettingsPage(<CompanionPanel />)} />
-        {/* Developer Options */}
-        <Route path="developer-options" element={wrapSettingsPage(<DeveloperOptionsPanel />)} />
-        <Route
-          path="tool-policy-diagnostics"
-          element={wrapSettingsPage(<ToolPolicyDiagnosticsPanel />)}
-        />
-        {/* Autonomy rate-limit lives inside Agent access now. */}
-        <Route path="autonomy" element={<Navigate to="/settings/agent-access" replace />} />
-        <Route path="mcp-server" element={wrapSettingsPage(<McpServerPanel />)} />
-        {/* Legacy direct path for the routing tab — kept so existing links
-            (Developer Options entries, walkthroughs) keep working. The
-            tabbed panel reads the URL hash to land on the right tab. */}
-        <Route
-          path="notification-routing"
-          element={<Navigate to="/settings/notifications#routing" replace />}
-        />
-        <Route path="llm" element={wrapSettingsPage(<AIPanel />, { maxWidthClass: 'max-w-4xl' })} />
-        <Route path="embeddings" element={wrapSettingsPage(<EmbeddingsPanel />)} />
-        <Route
-          path="usage"
-          element={wrapSettingsPage(<UsagePanel />, { maxWidthClass: 'max-w-4xl' })}
-        />
-        {/* Legacy slugs for the merged Usage & Limits page — kept so existing
-            links (Developer Options entries, walkthroughs) keep working. */}
-        <Route path="heartbeat" element={<Navigate to="/settings/usage#background" replace />} />
-        <Route path="ledger-usage" element={<Navigate to="/settings/usage#background" replace />} />
-        <Route path="cost-dashboard" element={<Navigate to="/settings/usage" replace />} />
-        <Route path="search" element={wrapSettingsPage(<SearchPanel />)} />
-        <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
-        <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
-        <Route
-          path="integrations"
-          element={wrapSettingsPage(<IntegrationsPanel />, { maxWidthClass: 'max-w-4xl' })}
-        />
-        {/* Legacy slugs for the merged Integrations page. */}
-        <Route path="task-sources" element={<Navigate to="/settings/integrations" replace />} />
-        <Route path="tasks" element={wrapSettingsPage(<TasksPanel />)} />
-        <Route
-          path="automations"
-          element={wrapSettingsPage(<WorkflowsTab />, { maxWidthClass: 'max-w-4xl' })}
-        />
-        <Route path="dev-workflow" element={wrapSettingsPage(<DevWorkflowPanel />)} />
-        <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />
-        <Route
-          path="screen-awareness-debug"
-          element={wrapSettingsPage(<ScreenAwarenessDebugPanel />)}
-        />
-        <Route path="autocomplete-debug" element={wrapSettingsPage(<AutocompleteDebugPanel />)} />
-        <Route path="voice-debug" element={wrapSettingsPage(<VoiceDebugPanel />)} />
-        <Route path="local-model-debug" element={wrapSettingsPage(<LocalModelDebugPanel />)} />
-        <Route path="webhooks-debug" element={wrapSettingsPage(<WebhooksDebugPanel />)} />
-        <Route path="event-log" element={wrapSettingsPage(<EventLogPanel />)} />
-        <Route
-          path="model-health"
-          element={wrapSettingsPage(<ModelHealthPanel />, { maxWidthClass: 'max-w-4xl' })}
-        />
-        <Route
-          path="memory-sync"
-          element={wrapSettingsPage(<MemorySyncPanel />, { maxWidthClass: 'max-w-4xl' })}
-        />
-        <Route path="memory-data" element={wrapSettingsPage(<MemoryDataPanel />)} />
-        <Route path="memory-debug" element={wrapSettingsPage(<MemoryDebugPanel />)} />
-        <Route
-          path="analysis-views"
-          element={wrapSettingsPage(<AnalysisViewsPanel />, { maxWidthClass: 'max-w-4xl' })}
-        />
-        <Route
-          path="intelligence"
-          element={wrapSettingsPage(<Intelligence />, { maxWidthClass: 'max-w-4xl' })}
-        />
-        <Route
-          path="webhooks-triggers"
-          element={<Navigate to="/settings/integrations#webhooks" replace />}
-        />
-        <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
-        <Route
-          path="composio-routing"
-          element={<Navigate to="/settings/integrations#composio" replace />}
-        />
-        {/* Mobile devices */}
-        <Route path="devices" element={wrapSettingsPage(<DevicesComingSoonPanel />)} />
-        {/* About / updates */}
-        <Route path="about" element={wrapSettingsPage(<AboutPanel />)} />
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/settings" replace />} />
+        <Route element={<SettingsLayout />}>
+          <Route index element={<SettingsIndexRedirect />} />
+
+          {/* ── General ─────────────────────────────────────────────── */}
+          <Route path="account" element={wrapSettingsPage(<AccountPanel />)} />
+          <Route path="team" element={wrapSettingsPage(<TeamPanel />)} />
+          <Route path="team/manage/:teamId" element={wrapSettingsPage(<TeamManagementPanel />)} />
+          <Route
+            path="team/manage/:teamId/members"
+            element={wrapSettingsPage(<TeamMembersPanel />)}
+          />
+          <Route
+            path="team/manage/:teamId/invites"
+            element={wrapSettingsPage(<TeamInvitesPanel />)}
+          />
+          <Route path="team/members" element={wrapSettingsPage(<TeamMembersPanel />)} />
+          <Route path="team/invites" element={wrapSettingsPage(<TeamInvitesPanel />)} />
+          <Route path="billing" element={wrapSettingsPage(<BillingPanel />)} />
+          <Route path="privacy" element={wrapSettingsPage(<PrivacyPanel />)} />
+          <Route path="security" element={wrapSettingsPage(<SecurityPanel />)} />
+          <Route path="migration" element={wrapSettingsPage(<MigrationPanel />)} />
+          <Route path="appearance" element={wrapSettingsPage(<AppearancePanel />)} />
+          <Route path="notifications" element={wrapSettingsPage(<NotificationsTabbedPanel />)} />
+          {/* Real device-pairing panel (replaces the old "Coming Soon" stub). */}
+          <Route path="devices" element={wrapSettingsPage(<DevicesPanel />)} />
+
+          {/* ── Assistant ───────────────────────────────────────────── */}
+          <Route
+            path="llm"
+            element={wrapSettingsPage(<AIPanel />, { maxWidthClass: 'max-w-4xl' })}
+          />
+          <Route path="embeddings" element={wrapSettingsPage(<EmbeddingsPanel />)} />
+          <Route
+            path="usage"
+            element={wrapSettingsPage(<UsagePanel />, { maxWidthClass: 'max-w-4xl' })}
+          />
+          <Route path="voice" element={wrapSettingsPage(<VoicePanel />)} />
+          <Route path="personality" element={wrapSettingsPage(<PersonalityPanel />)} />
+          <Route path="agents" element={wrapSettingsPage(<AgentsPanel />)} />
+          <Route path="agents/new" element={wrapSettingsPage(<AgentEditorPage />)} />
+          <Route path="agents/edit/:id" element={wrapSettingsPage(<AgentEditorPage />)} />
+          <Route path="agent-access" element={wrapSettingsPage(<AgentAccessPanel />)} />
+          <Route path="activity-level" element={wrapSettingsPage(<AgentActivityPanel />)} />
+          <Route path="sandbox-settings" element={wrapSettingsPage(<SandboxSettingsPanel />)} />
+          <Route path="approval-history" element={wrapSettingsPage(<ApprovalHistoryPanel />)} />
+
+          {/* ── Data ────────────────────────────────────────────────── */}
+          <Route
+            path="memory-sync"
+            element={wrapSettingsPage(<MemorySyncPanel />, { maxWidthClass: 'max-w-4xl' })}
+          />
+          <Route path="wallet-balances" element={wrapSettingsPage(<WalletBalancesPanel />)} />
+          <Route path="recovery-phrase" element={wrapSettingsPage(<RecoveryPhrasePanel />)} />
+
+          {/* ── Connections ─────────────────────────────────────────── */}
+          <Route
+            path="integrations"
+            element={wrapSettingsPage(<IntegrationsPanel />, { maxWidthClass: 'max-w-4xl' })}
+          />
+          <Route
+            path="screen-intelligence"
+            element={wrapSettingsPage(<ScreenIntelligencePanel />)}
+          />
+          <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
+          <Route path="companion" element={wrapSettingsPage(<CompanionPanel />)} />
+          <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
+
+          {/* ── System ──────────────────────────────────────────────── */}
+          <Route path="developer-options" element={wrapSettingsPage(<DeveloperOptionsPanel />)} />
+          <Route path="about" element={wrapSettingsPage(<AboutPanel />)} />
+
+          {/* ── Developer & Diagnostics leaf panels ─────────────────── */}
+          <Route
+            path="tool-policy-diagnostics"
+            element={wrapSettingsPage(<ToolPolicyDiagnosticsPanel />)}
+          />
+          <Route path="mcp-server" element={wrapSettingsPage(<McpServerPanel />)} />
+          <Route path="search" element={wrapSettingsPage(<SearchPanel />)} />
+          <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
+          <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
+          <Route path="tasks" element={wrapSettingsPage(<TasksPanel />)} />
+          <Route
+            path="automations"
+            element={wrapSettingsPage(<WorkflowsTab />, { maxWidthClass: 'max-w-4xl' })}
+          />
+          <Route path="dev-workflow" element={wrapSettingsPage(<DevWorkflowPanel />)} />
+          <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />
+          <Route
+            path="screen-awareness-debug"
+            element={wrapSettingsPage(<ScreenAwarenessDebugPanel />)}
+          />
+          <Route path="autocomplete-debug" element={wrapSettingsPage(<AutocompleteDebugPanel />)} />
+          <Route path="voice-debug" element={wrapSettingsPage(<VoiceDebugPanel />)} />
+          <Route path="local-model-debug" element={wrapSettingsPage(<LocalModelDebugPanel />)} />
+          <Route path="webhooks-debug" element={wrapSettingsPage(<WebhooksDebugPanel />)} />
+          <Route path="event-log" element={wrapSettingsPage(<EventLogPanel />)} />
+          <Route
+            path="model-health"
+            element={wrapSettingsPage(<ModelHealthPanel />, { maxWidthClass: 'max-w-4xl' })}
+          />
+          <Route path="memory-data" element={wrapSettingsPage(<MemoryDataPanel />)} />
+          <Route path="memory-debug" element={wrapSettingsPage(<MemoryDebugPanel />)} />
+          <Route
+            path="analysis-views"
+            element={wrapSettingsPage(<AnalysisViewsPanel />, { maxWidthClass: 'max-w-4xl' })}
+          />
+          <Route
+            path="intelligence"
+            element={wrapSettingsPage(<Intelligence />, { maxWidthClass: 'max-w-4xl' })}
+          />
+          <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
+          <Route path="permissions" element={wrapSettingsPage(<PermissionsPanel />)} />
+
+          {/* ── Legacy slugs → redirects (deep-link compatibility) ──── */}
+          {/* Old hub pages */}
+          <Route path="ai" element={<Navigate to="/settings/llm" replace />} />
+          <Route path="agents-settings" element={<Navigate to="/settings/agents" replace />} />
+          <Route
+            path="features"
+            element={<Navigate to="/settings/screen-intelligence" replace />}
+          />
+          <Route path="crypto" element={<Navigate to="/settings/wallet-balances" replace />} />
+          <Route
+            path="notifications-hub"
+            element={<Navigate to="/settings/notifications" replace />}
+          />
+          <Route path="composio" element={<Navigate to="/settings/integrations" replace />} />
+          {/* Merged Usage & Limits page */}
+          <Route path="heartbeat" element={<Navigate to="/settings/usage#background" replace />} />
+          <Route
+            path="ledger-usage"
+            element={<Navigate to="/settings/usage#background" replace />}
+          />
+          <Route path="cost-dashboard" element={<Navigate to="/settings/usage" replace />} />
+          {/* Autonomy rate-limit lives inside Agent access now */}
+          <Route path="autonomy" element={<Navigate to="/settings/agent-access" replace />} />
+          {/* Merged Personality & Face page */}
+          <Route path="mascot" element={<Navigate to="/settings/personality#face" replace />} />
+          <Route path="persona" element={<Navigate to="/settings/personality" replace />} />
+          {/* Merged Integrations page */}
+          <Route path="task-sources" element={<Navigate to="/settings/integrations" replace />} />
+          <Route
+            path="composio-routing"
+            element={<Navigate to="/settings/integrations#composio" replace />}
+          />
+          <Route
+            path="webhooks-triggers"
+            element={<Navigate to="/settings/integrations#webhooks" replace />}
+          />
+          {/* Notification routing tab */}
+          <Route
+            path="notification-routing"
+            element={<Navigate to="/settings/notifications#routing" replace />}
+          />
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/settings" replace />} />
+        </Route>
       </Routes>
     </div>
   );

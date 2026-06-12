@@ -12,6 +12,7 @@ import {
   type TabBarLabels,
   type ThemeMode,
 } from '../../../store/themeSlice';
+import LanguageSelect from '../../LanguageSelect';
 import SettingsHeader from '../components/SettingsHeader';
 import { SettingsRow, SettingsSection, SettingsSwitch } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -309,6 +310,15 @@ const AppearancePanel = () => {
                 aria-label={t('settings.appearance.assistantTextMode')}
               />
             }
+          />
+        </SettingsSection>
+
+        {/* ── Display language (moved from the old settings home list) ── */}
+        <SettingsSection title={t('settings.language')}>
+          <SettingsRow
+            label={t('settings.language')}
+            description={t('settings.languageDesc')}
+            control={<LanguageSelect ariaLabel={t('settings.language')} />}
           />
         </SettingsSection>
       </div>

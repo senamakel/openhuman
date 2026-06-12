@@ -106,6 +106,11 @@ export interface SettingsRegistryEntry {
    * top-level sidebar destination.
    */
   navGroup?: SettingsNavGroup;
+  /**
+   * Visually emphasise this sidebar entry (e.g. billing/upgrade) with an accent
+   * colour so it stands out from the regular nav rows.
+   */
+  highlight?: boolean;
   /** Sort order within the sidebar group (ascending; defaults to 0). */
   navOrder?: number;
   /**
@@ -206,6 +211,17 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     ],
     navGroup: 'assistant',
     navOrder: 2,
+  },
+  {
+    // automations: lifecycle-bound workflow rules (renders WorkflowsTab).
+    // Legacy /routines and /workflows routes redirect to /settings/automations.
+    id: 'automations',
+    titleKey: 'workflows.title',
+    descriptionKey: 'workflows.subtitle',
+    section: 'home',
+    searchKeywords: ['workflow', 'automation', 'routine', 'rule', 'trigger', 'lifecycle'],
+    navGroup: 'assistant',
+    navOrder: 4,
   },
 
   // --- Connections group ---
@@ -647,13 +663,14 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // INTENTIONALLY HIDDEN / DEEP-LINK ONLY (not surfaced in any menu)
   // =========================================================================
   {
-    // billing: deep-link only — avatar menu navigates here directly.
-    // Route retained; no home entry by design.
+    // billing: surfaced in the General group (also opened from the avatar menu).
     id: 'billing',
-    titleKey: 'settings.billing.movedToWeb',
+    titleKey: 'nav.avatarMenu.billing',
     section: 'home',
-    hiddenDeepLink: true,
-    navParent: 'account',
+    searchKeywords: ['billing', 'subscription', 'payment', 'plan', 'invoice'],
+    navGroup: 'general',
+    navOrder: 4,
+    highlight: true,
   },
   {
     // autocomplete: hidden per #717 (route retained for re-enable).
@@ -686,8 +703,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     id: 'approval-history',
     titleKey: 'settings.approvalHistory.title',
     section: 'agents',
-    hiddenDeepLink: true,
-    navParent: 'agents',
+    searchKeywords: ['approval', 'history', 'permission', 'audit'],
+    navGroup: 'agentsAutonomy',
   },
 ];
 

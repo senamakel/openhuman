@@ -63,6 +63,7 @@ const SettingsSidebar = () => {
             <ul>
               {entries.map(entry => {
                 const active = activeSidebarId === entry.id;
+                const highlighted = !active && entry.highlight;
                 return (
                   <li key={entry.id}>
                     <button
@@ -73,11 +74,13 @@ const SettingsSidebar = () => {
                       className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] transition-colors ${
                         active
                           ? 'bg-stone-100 font-medium text-stone-900 dark:bg-neutral-800 dark:text-neutral-100'
-                          : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-neutral-300 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100'
+                          : highlighted
+                            ? 'bg-primary-50 font-medium text-primary-700 hover:bg-primary-100 dark:bg-primary-500/10 dark:text-primary-300 dark:hover:bg-primary-500/20'
+                            : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-neutral-300 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100'
                       }`}>
                       <span
                         className={`shrink-0 ${
-                          active
+                          active || highlighted
                             ? 'text-primary-600 dark:text-primary-400'
                             : 'text-stone-400 dark:text-neutral-500'
                         }`}>

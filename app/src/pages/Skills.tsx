@@ -916,7 +916,7 @@ export default function Skills() {
                     </div>
                     {showLocalComposioApiKeyBanner && (
                       <ComposioApiKeyEmptyState
-                        onOpenSettings={() => navigate('/settings/composio-routing')}
+                        onOpenSettings={() => navigate('/settings/integrations#composio')}
                       />
                     )}
                     {!showLocalComposioApiKeyBanner && (

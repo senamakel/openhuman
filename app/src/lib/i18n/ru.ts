@@ -88,11 +88,11 @@ const messages: TranslationMap = {
   'settings.groups.notifications': 'Уведомления',
   'settings.groups.about': 'О приложении',
   'settings.assistant.personality': 'Личность',
-  'settings.assistant.personalityDesc': 'Имя, описание и персона SOUL.md',
+  'settings.personalityFace.title': 'Личность и лицо',
+  'settings.personalityFace.menuDesc': 'Настройте характер ассистента и выберите его лицо',
   'settings.assistant.voice': 'Голос',
   'settings.assistant.voiceDesc': 'Настройки распознавания и синтеза речи',
   'settings.assistant.faceMascot': 'Лицо / Маскот',
-  'settings.assistant.faceMascotDesc': 'Выберите цвет маскота в приложении',
   'settings.assistant.backgroundActivity': 'Подсознание',
   'settings.assistant.backgroundActivityDesc':
     'Управление тем, насколько активно ассистент работает в фоне',
@@ -172,6 +172,11 @@ const messages: TranslationMap = {
   'settings.exitLocalSession': 'Выход из локального сеанса',
   'settings.exitLocalSessionDesc': 'Возврат к экрану входа в систему',
   'settings.language': 'Язык',
+  'settings.navGroups.general': 'Общие',
+  'settings.navGroups.assistant': 'Ассистент',
+  'settings.navGroups.data': 'Данные',
+  'settings.navGroups.connections': 'Подключения',
+  'settings.navGroups.system': 'Система',
   'settings.betaBuild': 'Бета-сборка — v{version}',
   'settings.languageDesc': 'Язык отображения интерфейса',
   'settings.alerts': 'Оповещения',
@@ -907,13 +912,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Подключен к удаленному ядру. Измените это в BootCheck или в средстве выбора облачного режима.',
   'settings.heartbeat.title': 'Heartbeat и циклы',
-  'settings.heartbeat.desc': 'Управляйте частотой фонового планирования и проверяйте карту циклов.',
-  'settings.ledgerUsage.title': 'Журнал использования',
-  'settings.ledgerUsage.desc':
-    'Недавние расходы по кредитам, математические расчеты бюджета и предыстория. API читает бюджет.',
+  'settings.usage.title': 'Использование и лимиты',
+  'settings.usage.menuDesc': 'Расходы, использование токенов, бюджеты и фоновая активность',
   'settings.costDashboard.title': 'Панель затрат',
-  'settings.costDashboard.desc':
-    '7-дневные расходы и сжигание токенов по всему множеству, с указанием темпа бюджета и разбивки по моделям.',
   'settings.costDashboard.sevenDayCost': '7-дневная ежедневная стоимость',
   'settings.costDashboard.sevenDayTokens': '7-дневное использование токена',
   'settings.costDashboard.totalSpend': 'всего 7 дней',
@@ -3107,9 +3108,6 @@ const messages: TranslationMap = {
   'pages.settings.ai.voiceDesc': 'Описание голоса',
   'pages.settings.aiSection.description': 'Языковые модели, локальный Ollama и голос (STT / TTS).',
   'pages.settings.aiSection.title': 'ИИ',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Маршрутизация, триггеры и история интеграций на базе Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Режим маршрутизации, триггеры интеграции и архив истории триггеров.',
@@ -4799,6 +4797,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'Готово',
   'walletSend.genericError': 'Не удалось выполнить перевод. Повторите попытку.',
   'settings.taskSources.title': 'Источники задач',
+  'settings.integrations.title': 'Интеграции',
+  'settings.integrations.menuDesc': 'Источники задач, маршрутизация Composio и веб-хук триггеры',
   'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов на доску задач агента.',
   'settings.taskSources.description':
     'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и направляйте на доску задач агента.',

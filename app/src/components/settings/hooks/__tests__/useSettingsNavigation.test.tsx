@@ -40,8 +40,8 @@ describe('useSettingsNavigation breadcrumbs', () => {
     expect(screen.getByTestId('breadcrumbs')).toHaveTextContent('Settings');
   });
 
-  test('persona returns Settings (top-level)', () => {
-    renderWithProviders(<BreadcrumbProbe />, { initialEntries: ['/settings/persona'] });
+  test('personality returns Settings (top-level)', () => {
+    renderWithProviders(<BreadcrumbProbe />, { initialEntries: ['/settings/personality'] });
     expect(screen.getByTestId('breadcrumbs')).toHaveTextContent('Settings');
   });
 

@@ -88,11 +88,11 @@ const messages: TranslationMap = {
   'settings.groups.notifications': 'Powiadomienia',
   'settings.groups.about': 'O aplikacji',
   'settings.assistant.personality': 'Osobowość',
-  'settings.assistant.personalityDesc': 'Nazwa, opis i persona SOUL.md',
+  'settings.personalityFace.title': 'Osobowość i twarz',
+  'settings.personalityFace.menuDesc': 'Dostosuj charakter asystenta i wybierz jego twarz',
   'settings.assistant.voice': 'Głos',
   'settings.assistant.voiceDesc': 'Ustawienia mowy na tekst i tekstu na mowę',
   'settings.assistant.faceMascot': 'Twarz / Maskotka',
-  'settings.assistant.faceMascotDesc': 'Wybierz kolor maskotki używany w aplikacji',
   'settings.assistant.backgroundActivity': 'Podświadomość',
   'settings.assistant.backgroundActivityDesc': 'Kontroluj, jak aktywnie asystent pracuje w tle',
   'settings.assistant.screenAwareness': 'Świadomość ekranu',
@@ -169,6 +169,11 @@ const messages: TranslationMap = {
   'settings.exitLocalSession': 'Zakończ sesję lokalną',
   'settings.exitLocalSessionDesc': 'Wróć do ekranu logowania',
   'settings.language': 'Język',
+  'settings.navGroups.general': 'Ogólne',
+  'settings.navGroups.assistant': 'Asystent',
+  'settings.navGroups.data': 'Dane',
+  'settings.navGroups.connections': 'Połączenia',
+  'settings.navGroups.system': 'System',
   'settings.betaBuild': 'Wersja beta - v{version}',
   'settings.languageDesc': 'Język wyświetlania interfejsu aplikacji',
   'settings.alerts': 'Alerty',
@@ -911,13 +916,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Połączono ze zdalnym rdzeniem. Zmień to w BootCheck lub w wyborze trybu chmury.',
   'settings.heartbeat.title': 'Heartbeat i pętle',
-  'settings.heartbeat.desc': 'Steruj częstotliwością harmonogramu tła i podglądaj mapę pętli.',
-  'settings.ledgerUsage.title': 'Księga zużycia',
-  'settings.ledgerUsage.desc':
-    'Ostatnie wydatki kredytów, matematyka budżetu i budżet odczytów API w tle.',
+  'settings.usage.title': 'Zużycie i limity',
+  'settings.usage.menuDesc': 'Koszty, zużycie tokenów, budżety i aktywność w tle',
   'settings.costDashboard.title': 'Panel kosztów',
-  'settings.costDashboard.desc':
-    'Wydatki i zużycie tokenów z 7 dni w całym roju, z tempem budżetu i rozbiciem per model.',
   'settings.costDashboard.sevenDayCost': 'Dzienny koszt z 7 dni',
   'settings.costDashboard.sevenDayTokens': 'Zużycie tokenów z 7 dni',
   'settings.costDashboard.totalSpend': 'Suma z 7 dni',
@@ -3125,9 +3126,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'Dostawcy modeli językowych, lokalna Ollama i głos (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Trasowanie, wyzwalacze i historia integracji obsługiwanych przez Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Tryb trasowania, wyzwalacze integracji i archiwum historii wyzwalaczy.',
@@ -4828,6 +4826,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'Gotowe',
   'walletSend.genericError': 'Nie udało się zrealizować transferu. Spróbuj ponownie.',
   'settings.taskSources.title': 'Źródła zadań',
+  'settings.integrations.title': 'Integracje',
+  'settings.integrations.menuDesc': 'Źródła zadań, routing Composio i wyzwalacze webhooków',
   'settings.taskSources.subtitle': 'Pobieraj zadania z narzędzi na tablicę zadań agenta',
   'settings.taskSources.description':
     'Zbieraj elementy pracy z GitHub, Notion, Linear i ClickUp, wzbogacaj je i kieruj na tablicę zadań agenta.',

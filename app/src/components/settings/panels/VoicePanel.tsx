@@ -1283,7 +1283,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                     {t('voice.providers.mascotVoiceDescPrefix')}{' '}
                     <button
                       type="button"
-                      onClick={() => navigateToSettings('mascot')}
+                      onClick={() => navigateToSettings('personality#face')}
                       className="underline text-primary-600 dark:text-primary-300 hover:text-primary-700 dark:hover:text-primary-200">
                       {t('voice.providers.mascotSettings')}
                     </button>

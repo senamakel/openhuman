@@ -284,7 +284,7 @@ const DevicesPanel = () => {
     <div className="z-10 relative">
       <SettingsHeader
         title={t('devices.title')}
-        showBackButton={breadcrumbs.length > 0}
+        showBackButton
         onBack={navigateBack}
         breadcrumbs={breadcrumbs}
         action={

@@ -88,11 +88,11 @@ const messages: TranslationMap = {
   'settings.groups.notifications': 'Notifikasi',
   'settings.groups.about': 'Tentang',
   'settings.assistant.personality': 'Kepribadian',
-  'settings.assistant.personalityDesc': 'Nama, deskripsi, dan persona SOUL.md',
+  'settings.personalityFace.title': 'Kepribadian & wajah',
+  'settings.personalityFace.menuDesc': 'Sesuaikan karakter asisten Anda dan pilih wajahnya',
   'settings.assistant.voice': 'Suara',
   'settings.assistant.voiceDesc': 'Pengaturan ucapan-ke-teks dan teks-ke-ucapan',
   'settings.assistant.faceMascot': 'Wajah / Maskot',
-  'settings.assistant.faceMascotDesc': 'Pilih warna maskot yang digunakan di seluruh aplikasi',
   'settings.assistant.backgroundActivity': 'Bawah sadar',
   'settings.assistant.backgroundActivityDesc':
     'Kontrol seberapa aktif asisten Anda bekerja di latar belakang',
@@ -168,6 +168,11 @@ const messages: TranslationMap = {
   'settings.exitLocalSession': 'Keluar dari sesi lokal',
   'settings.exitLocalSessionDesc': 'Kembali ke layar masuk',
   'settings.language': 'Bahasa',
+  'settings.navGroups.general': 'Umum',
+  'settings.navGroups.assistant': 'Asisten',
+  'settings.navGroups.data': 'Data',
+  'settings.navGroups.connections': 'Koneksi',
+  'settings.navGroups.system': 'Sistem',
   'settings.betaBuild': 'Versi beta - v{version}',
   'settings.languageDesc': 'Bahasa tampilan untuk antarmuka aplikasi',
   'settings.alerts': 'Peringatan',
@@ -900,13 +905,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Terhubung ke inti remote. Ubah ini dalam BootCheck atau mode awan picker.',
   'settings.heartbeat.title': 'Detak jantung & loop',
-  'settings.heartbeat.desc': 'Kontrol irama penjadwalan latar belakang dan periksa peta loop.',
-  'settings.ledgerUsage.title': 'Buku besar penggunaan',
-  'settings.ledgerUsage.desc':
-    'Menghabiskan kredit baru-baru ini, anggaran matematika, dan latar belakang API membaca anggaran.',
+  'settings.usage.title': 'Penggunaan & batas',
+  'settings.usage.menuDesc': 'Biaya, penggunaan token, anggaran, dan aktivitas latar belakang',
   'settings.costDashboard.title': 'Papan dashboard Biaya',
-  'settings.costDashboard.desc':
-    '7 hari menghabiskan dan token membakar seluruh kawanan, dengan kecepatan anggaran dan rusak.',
   'settings.costDashboard.sevenDayCost': '7 hari biaya harian',
   'settings.costDashboard.sevenDayTokens': 'Penggunaan token 7 hari',
   'settings.costDashboard.totalSpend': 'Total 7 hari',
@@ -3089,9 +3090,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'Penyedia model bahasa, Ollama lokal, dan suara (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Perutean, pemicu, dan riwayat untuk integrasi yang didukung oleh Composio.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Mode perutean, pemicu integrasi, dan arsip riwayat pemicu.',
@@ -4767,6 +4765,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'Selesai',
   'walletSend.genericError': 'Tidak dapat menyelesaikan transfer. Silakan coba lagi.',
   'settings.taskSources.title': 'Sumber Tugas',
+  'settings.integrations.title': 'Integrasi',
+  'settings.integrations.menuDesc': 'Sumber tugas, perutean Composio, dan pemicu webhook',
   'settings.taskSources.subtitle': 'Tarik tugas dari alat Anda ke papan todo agen',
   'settings.taskSources.description':
     'Kumpulkan item kerja dari GitHub, Notion, Linear, dan ClickUp, perkaya mereka, dan rute mereka ke agen papan todo.',

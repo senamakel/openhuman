@@ -86,11 +86,6 @@ describe('ai section', () => {
 // ---------------------------------------------------------------------------
 
 describe('agents section', () => {
-  test('autonomy returns Settings > Agents breadcrumb', () => {
-    renderWithProviders(<NavigationProbe />, { initialEntries: ['/settings/autonomy'] });
-    expect(screen.getByTestId('breadcrumbs')).toHaveTextContent('Settings > Agents');
-  });
-
   test('agent-access returns Settings > Agents breadcrumb', () => {
     renderWithProviders(<NavigationProbe />, { initialEntries: ['/settings/agent-access'] });
     expect(screen.getByTestId('breadcrumbs')).toHaveTextContent('Settings > Agents');
@@ -120,25 +115,14 @@ describe('features section', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Section: composio — section page + leaf
+// Integrations — merged page (composio section retired)
 // ---------------------------------------------------------------------------
 
-describe('composio section', () => {
-  test('composio section page returns Settings only', () => {
-    renderWithProviders(<NavigationProbe />, { initialEntries: ['/settings/composio'] });
-    expect(screen.getByTestId('current-route')).toHaveTextContent('composio');
-    // composio is a home-level section hub — breadcrumb is just Settings.
+describe('integrations', () => {
+  test('integrations is a home-level page — breadcrumb is just Settings', () => {
+    renderWithProviders(<NavigationProbe />, { initialEntries: ['/settings/integrations'] });
+    expect(screen.getByTestId('current-route')).toHaveTextContent('integrations');
     expect(screen.getByTestId('breadcrumbs')).toHaveTextContent('Settings');
-  });
-
-  test('task-sources returns Settings > Integrations breadcrumb', () => {
-    renderWithProviders(<NavigationProbe />, { initialEntries: ['/settings/task-sources'] });
-    expect(screen.getByTestId('breadcrumbs')).toHaveTextContent('Settings > Integrations');
-  });
-
-  test('webhooks-triggers returns Settings > Integrations breadcrumb', () => {
-    renderWithProviders(<NavigationProbe />, { initialEntries: ['/settings/webhooks-triggers'] });
-    expect(screen.getByTestId('breadcrumbs')).toHaveTextContent('Settings > Integrations');
   });
 });
 

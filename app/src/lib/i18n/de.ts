@@ -88,11 +88,12 @@ const messages: TranslationMap = {
   'settings.groups.notifications': 'Benachrichtigungen',
   'settings.groups.about': 'Über',
   'settings.assistant.personality': 'Persönlichkeit',
-  'settings.assistant.personalityDesc': 'Name, Beschreibung und SOUL.md-Persona',
+  'settings.personalityFace.title': 'Persönlichkeit & Gesicht',
+  'settings.personalityFace.menuDesc':
+    'Charakter deines Assistenten anpassen und sein Gesicht wählen',
   'settings.assistant.voice': 'Stimme',
   'settings.assistant.voiceDesc': 'Sprache-zu-Text und Text-zu-Sprache Einstellungen',
   'settings.assistant.faceMascot': 'Gesicht / Maskottchen',
-  'settings.assistant.faceMascotDesc': 'Maskottchen-Farbe in der App auswählen',
   'settings.assistant.backgroundActivity': 'Unterbewusstsein',
   'settings.assistant.backgroundActivityDesc':
     'Steuern, wie aktiv Ihr Assistent im Hintergrund arbeitet',
@@ -170,6 +171,11 @@ const messages: TranslationMap = {
   'settings.exitLocalSession': 'Lokale Sitzung beenden',
   'settings.exitLocalSessionDesc': 'Zum Anmeldebildschirm zurückkehren',
   'settings.language': 'Sprache',
+  'settings.navGroups.general': 'Allgemein',
+  'settings.navGroups.assistant': 'Assistent',
+  'settings.navGroups.data': 'Daten',
+  'settings.navGroups.connections': 'Verbindungen',
+  'settings.navGroups.system': 'System',
   'settings.betaBuild': 'Beta-Build – v{version}',
   'settings.languageDesc': 'Anzeigesprache für die App-Oberfläche',
   'settings.alerts': 'Warnungen',
@@ -921,14 +927,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Verbunden mit einem Remote-Core. Ändern Sie dies in BootCheck oder in der Cloud-Modus-Auswahl.',
   'settings.heartbeat.title': 'Heartbeat und Schleifen',
-  'settings.heartbeat.desc':
-    'Kontrollieren Sie die Hintergrundplanungskadenzen und inspizieren Sie die Schleifenkarte.',
-  'settings.ledgerUsage.title': 'Nutzungsbuch',
-  'settings.ledgerUsage.desc':
-    'Aktuelle Kreditausgaben, Budgetmathematik und Hintergrund API Lesebudget.',
+  'settings.usage.title': 'Nutzung & Limits',
+  'settings.usage.menuDesc': 'Kosten, Token-Verbrauch, Budgets und Hintergrundaktivität',
   'settings.costDashboard.title': 'Kosten-Dashboard',
-  'settings.costDashboard.desc':
-    '7-tägige Ausgaben und Token brennen über den Schwarm, mit Budgettempo und Aufschlüsselung nach Modell.',
   'settings.costDashboard.sevenDayCost': '7-Tage-Tageskosten',
   'settings.costDashboard.sevenDayTokens': '7-Tage-Token-Nutzung',
   'settings.costDashboard.totalSpend': '7 Tage insgesamt',
@@ -3157,9 +3158,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'Sprachmodellanbieter, lokal Ollama und Sprache (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Routing, Trigger und Verlauf für Integrationen, die von Composio unterstützt werden.',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc':
     'Routing-Modus, Integrations-Trigger und Trigger-Verlaufsarchiv.',
@@ -4875,6 +4873,8 @@ const messages: TranslationMap = {
   'walletSend.genericError':
     'Überweisung konnte nicht abgeschlossen werden. Bitte versuche es erneut.',
   'settings.taskSources.title': 'Aufgabenquellen',
+  'settings.integrations.title': 'Integrationen',
+  'settings.integrations.menuDesc': 'Aufgabenquellen, Composio-Routing und Webhook-Trigger',
   'settings.taskSources.subtitle': 'Ziehen Sie Aufgaben aus Ihren Tools auf das Agenten-ToDo-Board',
   'settings.taskSources.description':
     'Sammeln Sie Arbeitselemente von GitHub, Notion, Linear und ClickUp, bereichern Sie sie und leiten Sie sie an das Agent-ToDo-Board weiter.',

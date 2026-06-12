@@ -88,11 +88,11 @@ const messages: TranslationMap = {
   'settings.groups.notifications': 'सूचनाएं',
   'settings.groups.about': 'के बारे में',
   'settings.assistant.personality': 'व्यक्तित्व',
-  'settings.assistant.personalityDesc': 'नाम, विवरण और SOUL.md व्यक्तित्व',
+  'settings.personalityFace.title': 'व्यक्तित्व और चेहरा',
+  'settings.personalityFace.menuDesc': 'अपने सहायक का चरित्र समायोजित करें और उसका चेहरा चुनें',
   'settings.assistant.voice': 'आवाज़',
   'settings.assistant.voiceDesc': 'स्पीच-टू-टेक्स्ट और टेक्स्ट-टू-स्पीच सेटिंग्स',
   'settings.assistant.faceMascot': 'चेहरा / शुभंकर',
-  'settings.assistant.faceMascotDesc': 'ऐप में उपयोग किया जाने वाला शुभंकर रंग चुनें',
   'settings.assistant.backgroundActivity': 'सबकॉन्शस',
   'settings.assistant.backgroundActivityDesc':
     'नियंत्रित करें कि आपका सहायक पृष्ठभूमि में कितना सक्रिय काम करे',
@@ -166,6 +166,11 @@ const messages: TranslationMap = {
   'settings.exitLocalSession': 'स्थानीय सत्र से बाहर निकलें',
   'settings.exitLocalSessionDesc': 'साइन-इन स्क्रीन पर वापस लौटें',
   'settings.language': 'भाषा',
+  'settings.navGroups.general': 'सामान्य',
+  'settings.navGroups.assistant': 'सहायक',
+  'settings.navGroups.data': 'डेटा',
+  'settings.navGroups.connections': 'कनेक्शन',
+  'settings.navGroups.system': 'सिस्टम',
   'settings.betaBuild': 'बीटा बिल्ड - v{version}',
   'settings.languageDesc': 'ऐप इंटरफेस की डिस्प्ले भाषा',
   'settings.alerts': 'अलर्ट',
@@ -894,13 +899,9 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'एक दूरस्थ कोर से जुड़ा हुआ है। इसे बूट चेक या क्लाउड मोड पिकर में बदलें।',
   'settings.heartbeat.title': 'दिल की धड़कन और लूप',
-  'settings.heartbeat.desc':
-    'नियंत्रण पृष्ठभूमि शेड्यूलिंग कैडेंस और लूप मानचित्र का निरीक्षण करें।',
-  'settings.ledgerUsage.title': 'उपयोग बही',
-  'settings.ledgerUsage.desc': 'हाल का क्रेडिट खर्च, बजट गणित, और पृष्ठभूमि API बजट पढ़ें।',
+  'settings.usage.title': 'उपयोग और सीमाएँ',
+  'settings.usage.menuDesc': 'लागत, टोकन उपयोग, बजट और पृष्ठभूमि गतिविधि',
   'settings.costDashboard.title': 'कॉस्ट डैशबोर्ड',
-  'settings.costDashboard.desc':
-    'बजट की गति और प्रति मॉडल ब्रेकडाउन के साथ, 7-day खर्च और टोकन पूरे दल में जलाते हैं।',
   'settings.costDashboard.sevenDayCost': '7 दिन दैनिक लागत',
   'settings.costDashboard.sevenDayTokens': '7 दिन टोकन उपयोग',
   'settings.costDashboard.totalSpend': '7 दिन कुल',
@@ -3084,9 +3085,6 @@ const messages: TranslationMap = {
   'pages.settings.aiSection.description':
     'लैंग्वेज मॉडल प्रोवाइडर, लोकल Ollama और वॉइस (STT / TTS)।',
   'pages.settings.aiSection.title': 'AI',
-  'pages.settings.composioSection.title': 'Composio',
-  'pages.settings.composioSection.description':
-    'Composio द्वारा संचालित एकीकरण के लिए रूटिंग, ट्रिगर और इतिहास।',
   'settings.developerMenu.composio.title': 'Composio',
   'settings.developerMenu.composio.desc': 'रूटिंग मोड, एकीकरण ट्रिगर, और ट्रिगर इतिहास संग्रह।',
   'pages.settings.features.desktopCompanion': 'डेस्कटॉप कंपैनियन',
@@ -4753,6 +4751,8 @@ const messages: TranslationMap = {
   'walletSend.done': 'हो गया',
   'walletSend.genericError': 'स्थानांतरण पूरा नहीं हो सका। कृपया पुनः प्रयास करें।',
   'settings.taskSources.title': 'कार्य स्रोत',
+  'settings.integrations.title': 'एकीकरण',
+  'settings.integrations.menuDesc': 'कार्य स्रोत, Composio रूटिंग और वेबहुक ट्रिगर',
   'settings.taskSources.subtitle': 'एजेंट टोडो बोर्ड पर अपने उपकरणों से कार्य खींचें',
   'settings.taskSources.description':
     'GitHub, नॉटियन, रैखिक और क्लिकअप से कार्य वस्तुओं को इकट्ठा करें, उन्हें समृद्ध करें और उन्हें एजेंट टोडो बोर्ड पर ले जाएं।',

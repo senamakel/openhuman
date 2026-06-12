@@ -700,7 +700,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
           className="border-t border-stone-100 dark:border-neutral-800 bg-stone-50/70 dark:bg-neutral-900/70 px-4 py-2 text-xs text-stone-700 dark:text-neutral-200"
           data-testid="memory-graph-tooltip">
           {hovered.kind === 'root' ? (
-            <span className="font-medium text-coral-600 dark:text-coral-400">
+            <span className="font-medium text-violet-600 dark:text-violet-400">
               {hovered.label}
             </span>
           ) : hovered.kind === 'source' ? (

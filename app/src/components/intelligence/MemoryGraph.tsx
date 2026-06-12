@@ -38,6 +38,8 @@ import {
 } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
+import { useAppSelector } from '../../store/hooks';
+import { resolveTheme, type ThemeMode } from '../../store/themeSlice';
 import { type GraphEdge, type GraphMode, type GraphNode } from '../../utils/tauriCommands';
 import { openWorkspacePath, previewWorkspaceText } from '../../utils/tauriCommands/workspacePaths';
 import {
@@ -194,6 +196,8 @@ function relaxLayout(nodes: SimNode[], edges: Array<[number, number]>, iteration
 
 export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGraphProps) {
   const { t } = useT();
+  const themeMode = useAppSelector(state => state.theme?.mode ?? 'system') as ThemeMode;
+  const isDark = resolveTheme(themeMode) === 'dark';
   const [hovered, setHovered] = useState<GraphNode | null>(null);
 
   // Fire `onReady` at most once across this component's lifetime. The latest
@@ -632,7 +636,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
           data-testid="memory-graph-svg">
           {/* Pan / zoom group — drag the background to pan, scroll to zoom. */}
           <g transform={`translate(${view.tx} ${view.ty}) scale(${view.scale})`}>
-            <g stroke="#cbd5e1" strokeWidth={0.6} opacity={0.7}>
+            <g stroke={isDark ? '#cbd5e1' : '#94a3b8'} strokeWidth={0.6} opacity={isDark ? 0.7 : 0.4}>
               {sim.edges.map(([ai, bi], idx) => {
                 // Only draw edges whose endpoints are both mounted yet.
                 if (ai >= svgVisible || bi >= svgVisible) return null;
@@ -671,7 +675,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
                     cy={n.y}
                     r={isHover ? r + 2 : r}
                     fill={fill}
-                    stroke={isHover ? '#0f172a' : '#ffffff'}
+                    stroke={isHover ? (isDark ? '#0f172a' : '#1e293b') : isDark ? '#ffffff' : '#e2e8f0'}
                     strokeWidth={isHover ? 1.4 : 0.8}
                     style={{ cursor: grabbing ? 'grabbing' : 'pointer', filter: glow }}
                     onPointerDown={e => onNodePointerDown(e, n)}

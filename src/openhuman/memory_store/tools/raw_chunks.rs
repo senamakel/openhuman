@@ -110,6 +110,14 @@ impl Tool for MemoryStoreRawChunksTool {
                 });
             }
         }
+        // Per-profile memory-source gate: drop chunks from sources the active
+        // profile didn't allow (non-source chunks always pass). None = all.
+        rows.retain(|c| {
+            crate::openhuman::memory::source_scope::chunk_source_allowed(
+                &c.metadata.tags,
+                &c.metadata.source_id,
+            )
+        });
         log::debug!(
             "[tool][memory_store] raw_chunks returning rows={}",
             rows.len()

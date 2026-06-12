@@ -155,6 +155,18 @@ impl Tool for MemoryVectorSearchTool {
         let chunks = list_chunks(&config, &query)
             .map_err(|e| anyhow::anyhow!("memory_vector_search: list chunks failed: {e}"))?;
 
+        // Per-profile memory-source gate: drop chunks from sources the active
+        // profile didn't allow (non-source chunks always pass). None = all.
+        let chunks: Vec<_> = chunks
+            .into_iter()
+            .filter(|c| {
+                crate::openhuman::memory::source_scope::chunk_source_allowed(
+                    &c.metadata.tags,
+                    &c.metadata.source_id,
+                )
+            })
+            .collect();
+
         if chunks.is_empty() {
             return Ok(ToolResult::success("No chunks found matching filters."));
         }

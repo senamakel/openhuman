@@ -12,6 +12,7 @@ import {
 import EmptyStateCard from '../components/EmptyStateCard';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PillTabBar from '../components/PillTabBar';
+import BetaBanner from '../components/ui/BetaBanner';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import MeetingBotsCard from '../components/skills/MeetingBotsCard';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
@@ -966,17 +967,25 @@ export default function Skills() {
 
                 {activeTab === 'composio' && otherGroups.map(group => renderGroup(group))}
 
-                {activeTab === 'skills' && <SkillsExplorerTab onToast={addToast} />}
+                {activeTab === 'skills' && (
+                  <div className="space-y-3 animate-fade-up">
+                    <BetaBanner />
+                    <SkillsExplorerTab onToast={addToast} />
+                  </div>
+                )}
 
                 {activeTab === 'mcp' && (
-                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-soft animate-fade-up">
-                    <McpServersTab />
+                  <div className="space-y-3 animate-fade-up">
+                    <BetaBanner />
+                    <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-soft">
+                      <McpServersTab />
+                    </div>
                   </div>
                 )}
 
                 {activeTab === 'meetings' && (
-                  <div className="space-y-4 animate-fade-up">
-                    {/* Meeting bots live under Meetings */}
+                  <div className="space-y-3 animate-fade-up">
+                    <BetaBanner />
                     <MeetingBotsCard onToast={addToast} />
                   </div>
                 )}

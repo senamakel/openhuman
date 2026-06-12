@@ -75,6 +75,8 @@ const messages: TranslationMap = {
   'common.continue': '继续',
   'common.comingSoon': '即将推出',
   'common.breadcrumb': '面包屑',
+  'common.beta': '测试版',
+  'common.betaDisclaimer': '此功能处于测试阶段。它可能会更改或存在不足——您的反馈有助于我们改进。',
   'settings.general': '通用',
   // Settings layman groups (Phase 4 IA revamp)
   'settings.groups.account': '账户',

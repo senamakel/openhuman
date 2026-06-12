@@ -76,6 +76,8 @@ const messages: TranslationMap = {
   'common.continue': 'Continuer',
   'common.comingSoon': 'Bientôt disponible',
   'common.breadcrumb': "Fil d'Ariane",
+  'common.beta': 'Bêta',
+  'common.betaDisclaimer': "Cette fonctionnalité est en bêta. Elle peut changer ou présenter des imperfections — vos retours nous aident à l'améliorer.",
   'settings.general': 'Général',
   // Settings layman groups (Phase 4 IA revamp)
   'settings.groups.account': 'Compte',

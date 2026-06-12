@@ -75,6 +75,8 @@ const messages: TranslationMap = {
   'common.continue': 'जारी रखें',
   'common.comingSoon': 'जल्द आ रहा है',
   'common.breadcrumb': 'ब्रेडक्रंब',
+  'common.beta': 'बीटा',
+  'common.betaDisclaimer': 'यह सुविधा बीटा में है। यह बदल सकती है या इसमें कुछ खामियाँ हो सकती हैं — आपकी प्रतिक्रिया इसे बेहतर बनाने में मदद करती है।',
   'settings.general': 'सामान्य',
   // Settings layman groups (Phase 4 IA revamp)
   'settings.groups.account': 'खाता',

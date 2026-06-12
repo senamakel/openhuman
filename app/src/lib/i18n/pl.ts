@@ -75,6 +75,8 @@ const messages: TranslationMap = {
   'common.continue': 'Kontynuuj',
   'common.comingSoon': 'Wkrótce',
   'common.breadcrumb': 'Ścieżka nawigacji',
+  'common.beta': 'Beta',
+  'common.betaDisclaimer': 'Ta funkcja jest w fazie beta. Może się zmienić lub mieć niedociągnięcia — Twoja opinia pomaga nam ją ulepszyć.',
   'settings.general': 'Ogólne',
   // Settings layman groups (Phase 4 IA revamp)
   'settings.groups.account': 'Konto',

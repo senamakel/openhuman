@@ -75,6 +75,8 @@ const messages: TranslationMap = {
   'common.continue': 'Lanjutkan',
   'common.comingSoon': 'Segera Hadir',
   'common.breadcrumb': 'Breadcrumb',
+  'common.beta': 'Beta',
+  'common.betaDisclaimer': 'Fitur ini dalam tahap beta. Mungkin berubah atau memiliki kekurangan — masukan Anda membantu kami memperbaikinya.',
   'settings.general': 'Umum',
   // Settings layman groups (Phase 4 IA revamp)
   'settings.groups.account': 'Akun',

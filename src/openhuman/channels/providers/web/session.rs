@@ -104,6 +104,7 @@ pub(super) fn build_session_agent(
         target_agent_id,
         reflection_chunks,
         composed_suffix,
+        Some(profile),
     );
 
     agent_result

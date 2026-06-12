@@ -146,6 +146,7 @@ pub(super) async fn run_autonomous(
         &executor.agent_id,
         None,
         executor.prompt_suffix.clone(),
+        None,
     )
     .map_err(|e| format!("build agent: {e:#}"))?;
     agent.set_event_context(run_id.to_string(), "task");

@@ -83,13 +83,17 @@ describe('<MemoryGraph />', () => {
       makeSummaryNode({ id: 'root', level: 0, parent_id: null }),
       makeSummaryNode({ id: 'child', level: 1, parent_id: 'root' }),
     ];
-    render(<MemoryGraph nodes={nodes} edges={[]} mode="tree" onReady={onReady} />, { wrapper: ReduxWrapper });
+    render(<MemoryGraph nodes={nodes} edges={[]} mode="tree" onReady={onReady} />, {
+      wrapper: ReduxWrapper,
+    });
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
   });
 
   it('does not fire onReady for an empty graph (nothing to lay out)', () => {
     const onReady = vi.fn();
-    render(<MemoryGraph nodes={[]} edges={[]} mode="tree" onReady={onReady} />, { wrapper: ReduxWrapper });
+    render(<MemoryGraph nodes={[]} edges={[]} mode="tree" onReady={onReady} />, {
+      wrapper: ReduxWrapper,
+    });
     expect(onReady).not.toHaveBeenCalled();
   });
 
@@ -98,7 +102,9 @@ describe('<MemoryGraph />', () => {
       makeSummaryNode({ id: 'root', level: 0, parent_id: null }),
       makeSummaryNode({ id: 'child', level: 1, parent_id: 'root' }),
     ];
-    const { container } = render(<MemoryGraph nodes={nodes} edges={[]} mode="tree" />, { wrapper: ReduxWrapper });
+    const { container } = render(<MemoryGraph nodes={nodes} edges={[]} mode="tree" />, {
+      wrapper: ReduxWrapper,
+    });
     expect(screen.getByTestId('memory-graph-svg')).toBeInTheDocument();
     expect(container.querySelectorAll('circle').length).toBe(2);
     expect(screen.getByTestId('memory-graph-node-root')).toBeInTheDocument();
@@ -288,7 +294,9 @@ describe('<MemoryGraph />', () => {
         file_basename: 'summary-A',
       }),
     ];
-    const { container } = render(<MemoryGraph nodes={nodes} edges={[]} mode="tree" />, { wrapper: ReduxWrapper });
+    const { container } = render(<MemoryGraph nodes={nodes} edges={[]} mode="tree" />, {
+      wrapper: ReduxWrapper,
+    });
 
     fireEvent.mouseEnter(screen.getByTestId('memory-graph-node-sum-A'));
     expect(screen.getByTestId('memory-graph-tooltip')).toBeInTheDocument();

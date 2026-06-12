@@ -82,7 +82,9 @@ describe('<MemoryGraph /> worker-backed SVG path', () => {
   });
 
   it('spins up a worker and applies streamed positions imperatively', () => {
-    const { container } = render(<MemoryGraph nodes={treeNodes(3)} edges={[]} mode="tree" />, { wrapper: ReduxWrapper });
+    const { container } = render(<MemoryGraph nodes={treeNodes(3)} edges={[]} mode="tree" />, {
+      wrapper: ReduxWrapper,
+    });
     const w = last();
     expect(w).toBeTruthy();
     expect(w.posted[0].type).toBe('init');
@@ -102,7 +104,9 @@ describe('<MemoryGraph /> worker-backed SVG path', () => {
   });
 
   it('frames the graph on settle (end → fit transform)', () => {
-    const { container } = render(<MemoryGraph nodes={treeNodes(3)} edges={[]} mode="tree" />, { wrapper: ReduxWrapper });
+    const { container } = render(<MemoryGraph nodes={treeNodes(3)} edges={[]} mode="tree" />, {
+      wrapper: ReduxWrapper,
+    });
     const w = last();
     act(() =>
       w.emit({
@@ -117,7 +121,9 @@ describe('<MemoryGraph /> worker-backed SVG path', () => {
   });
 
   it('freezes the worker on a drag, but NOT on a plain click', () => {
-    const { container } = render(<MemoryGraph nodes={treeNodes(3)} edges={[]} mode="tree" />, { wrapper: ReduxWrapper });
+    const { container } = render(<MemoryGraph nodes={treeNodes(3)} edges={[]} mode="tree" />, {
+      wrapper: ReduxWrapper,
+    });
     const svg = container.querySelector('[data-testid="memory-graph-svg"]') as Element;
     withCTM(svg);
     const w = last();
@@ -134,7 +140,9 @@ describe('<MemoryGraph /> worker-backed SVG path', () => {
   });
 
   it('reheats gently and carries positions over on an incremental update', () => {
-    const { rerender } = render(<MemoryGraph nodes={treeNodes(3)} edges={[]} mode="tree" />, { wrapper: ReduxWrapper });
+    const { rerender } = render(<MemoryGraph nodes={treeNodes(3)} edges={[]} mode="tree" />, {
+      wrapper: ReduxWrapper,
+    });
     const first = last();
     act(() =>
       first.emit({
@@ -153,7 +161,9 @@ describe('<MemoryGraph /> worker-backed SVG path', () => {
 
   it('mounts a large graph progressively without throwing', () => {
     expect(() =>
-      render(<MemoryGraph nodes={treeNodes(900)} edges={[]} mode="tree" />, { wrapper: ReduxWrapper })
+      render(<MemoryGraph nodes={treeNodes(900)} edges={[]} mode="tree" />, {
+        wrapper: ReduxWrapper,
+      })
     ).not.toThrow();
   });
 

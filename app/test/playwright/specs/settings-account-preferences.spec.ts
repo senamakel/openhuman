@@ -105,25 +105,39 @@ test.describe('Settings - Account Preferences', () => {
     await expect(page.getByRole('heading', { name: 'Privacy & Security' })).toBeVisible();
     await expect(page.getByText('Share Product Analytics and Diagnostics')).toBeVisible();
 
+    // Toggle + confirm each setting sequentially. Clicking both back-to-back and
+    // polling for the combined result is racy: each toggle triggers an async
+    // save and panel re-render, so the second click can land before the first
+    // settles, dropping one update. Also wait for each switch to reflect the
+    // persisted initial state before clicking — the panel can render from a
+    // not-yet-synced snapshot, and clicking then computes the wrong new value.
+    await expect(page.getByTestId('privacy-analytics-toggle')).toBeChecked({
+      checked: initialAnalytics,
+    });
     await page.getByTestId('privacy-analytics-toggle').click();
-    await page.getByTestId('privacy-meet-handoff-toggle').click();
-
     await expect
       .poll(async () => {
         const analytics = await callCoreRpc<{ result?: { enabled?: boolean } }>(
           'openhuman.config_get_analytics_settings',
           {}
         );
+        return Boolean(analytics.result?.enabled);
+      })
+      .toBe(!initialAnalytics);
+
+    await expect(page.getByTestId('privacy-meet-handoff-toggle')).toBeChecked({
+      checked: initialMeet,
+    });
+    await page.getByTestId('privacy-meet-handoff-toggle').click();
+    await expect
+      .poll(async () => {
         const meet = await callCoreRpc<{ result?: { auto_orchestrator_handoff?: boolean } }>(
           'openhuman.config_get_meet_settings',
           {}
         );
-        return {
-          analyticsEnabled: Boolean(analytics.result?.enabled),
-          meetHandoff: Boolean(meet.result?.auto_orchestrator_handoff),
-        };
+        return Boolean(meet.result?.auto_orchestrator_handoff);
       })
-      .toEqual({ analyticsEnabled: !initialAnalytics, meetHandoff: !initialMeet });
+      .toBe(!initialMeet);
 
     const snapshot = await callCoreRpc<{
       result?: { analyticsEnabled?: boolean; meetAutoOrchestratorHandoff?: boolean };

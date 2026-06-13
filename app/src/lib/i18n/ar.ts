@@ -1320,6 +1320,30 @@ const messages: TranslationMap = {
   'mcp.detail.disable': 'تعطيل',
   'mcp.status.disabled': 'معطّل',
   'mcp.detail.tools': 'الأدوات',
+  'mcp.connectAuth.title': 'الاتصال بـ {name}',
+  'mcp.connectAuth.hint':
+    'أضف أي مصادقة يحتاجها هذا الخادم، ثم اتصل. يتم تخزين الرموز مشفّرة. اتركها فارغة للخوادم التي لا تحتاج إلى مصادقة.',
+  'mcp.connectAuth.requiredLabel': 'مطلوب',
+  'mcp.connectAuth.customHeadersLabel': 'رؤوس مخصصة',
+  'mcp.connectAuth.customHeadersEmpty':
+    'لا توجد رؤوس مخصصة. أضف واحدة إذا كان هذا الخادم يحتاج إلى رأس مصادقة لم يُعلن عنه السجل.',
+  'mcp.connectAuth.addHeader': '+ إضافة رأس',
+  'mcp.connectAuth.headerName': 'اسم الرأس',
+  'mcp.connectAuth.headerValue': 'القيمة',
+  'mcp.connectAuth.removeHeader': 'إزالة الرأس',
+  'mcp.connectAuth.howToGetToken': 'المساعدة والإعداد',
+  'mcp.connectAuth.hideHelp': 'إخفاء المساعدة',
+  'mcp.connectAuth.schemeLabel': 'كيفية إرسال القيمة',
+  'mcp.connectAuth.schemeBearer': 'Bearer',
+  'mcp.connectAuth.schemeRaw': 'بدون',
+  'mcp.connectAuth.reconnectFailed': 'تم حفظ بيانات الاعتماد، لكن فشل الاتصال.',
+  'mcp.connectAuth.oauthHint':
+    'يستخدم هذا الخادم OAuth. سجّل الدخول عبر متصفحك للسماح لـ OpenHuman.',
+  'mcp.connectAuth.signIn': 'تسجيل الدخول عبر المتصفح',
+  'mcp.connectAuth.oauthWaiting': 'في انتظار تسجيل الدخول…',
+  'mcp.connectAuth.oauthOrToken':
+    'هل لديك بالفعل رمز وصول؟ الصقه بدلاً من ذلك كرأس Authorization أدناه.',
+  'mcp.connectAuth.oauthTimeout': 'انتهت مهلة انتظار تسجيل الدخول عبر المتصفح. حاول مرة أخرى.',
   'onboarding.skipForNow': 'التخطي الآن',
   'onboarding.localAI.continueWithCloud': 'متابعة مع السحابة',
   'onboarding.localAI.useLocalAnyway':
@@ -3150,6 +3174,53 @@ const messages: TranslationMap = {
   'skills.mcpComingSoon.description':
     'إدارة خادم MCP قادمة قريباً. ستكون هذه التبويبة المكان المخصص لاكتشاف خوادم MCP وتوصيلها ومراقبتها.',
   'settings.ai.routing': 'التوجيه',
+  'settings.ai.claudeCode.button': 'Claude Code',
+  'settings.ai.claudeCode.inlineNotConnected':
+    'غير متصل — يوجّه المحادثة عبر واجهة Claude Code CLI المحلية لديك.',
+  'settings.ai.claudeCode.checkingSignIn': 'جارٍ التحقق من تسجيل الدخول…',
+  'settings.ai.claudeCode.inlineConnected': 'متصل.',
+  'settings.ai.claudeCode.signedInAs': 'مسجّل الدخول باسم',
+  'settings.ai.claudeCode.subscriptionFallback': 'اشتراك Claude',
+  'settings.ai.claudeCode.usingApiKeyEnv': 'يستخدم ANTHROPIC_API_KEY',
+  'settings.ai.claudeCode.cliNotInstalled': 'واجهة CLI غير مثبَّتة',
+  'settings.ai.claudeCode.signInUnknown': 'حالة تسجيل الدخول غير معروفة',
+  'settings.ai.claudeCode.connectedNotSignedIn': 'متصل · لم يتم تسجيل الدخول',
+  'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modalDescription':
+    'يوجّه أعباء المحادثة والمهام الوكيلة والاستدلال عبر واجهة Claude Code CLI المثبَّتة محليًا. لا حاجة لمفتاح API — فهي تستخدم تسجيل الدخول الخاص بها.',
+  'settings.ai.claudeCode.close': 'إغلاق',
+  'settings.ai.claudeCode.connection': 'الاتصال',
+  'settings.ai.claudeCode.enabled': 'مُفعَّل',
+  'settings.ai.claudeCode.notEnabled': 'غير مُفعَّل',
+  'settings.ai.claudeCode.disconnect': 'قطع الاتصال',
+  'settings.ai.claudeCode.disconnecting': 'جارٍ قطع الاتصال…',
+  'settings.ai.claudeCode.enable': 'تفعيل Claude Code',
+  'settings.ai.claudeCode.enabling': 'جارٍ التفعيل…',
+  'settings.ai.claudeCode.authentication': 'المصادقة',
+  'settings.ai.claudeCode.recheck': 'إعادة الفحص',
+  'settings.ai.claudeCode.checking': 'جارٍ الفحص…',
+  'settings.ai.claudeCode.openingTerminal': 'جارٍ فتح الطرفية…',
+  'settings.ai.claudeCode.signIn': 'تسجيل الدخول عبر Claude',
+  'settings.ai.claudeCode.reconnect': 'إعادة الاتصال',
+  'settings.ai.claudeCode.loginHint':
+    'يفتح طرفية تُشغّل claude login. بعد اكتمالها، انقر على إعادة الفحص.',
+  'settings.ai.claudeCode.loginError': 'تعذّر فتح طرفية تسجيل الدخول. يُرجى المحاولة مرة أخرى.',
+  'settings.ai.claudeCode.fullAccess': 'وصول كامل',
+  'settings.ai.claudeCode.fullAccessOn':
+    'يمكن لـ Claude Code تشغيل الأوامر واستخدام الشبكة وإنشاء وكلاء فرعيين.',
+  'settings.ai.claudeCode.fullAccessOff':
+    'قبول التعديلات فقط — يطبّق تعديلات الملفات تلقائيًا ويقيّد الأوامر والشبكة.',
+  'settings.ai.claudeCode.sandboxNoteMac':
+    'على نظام macOS، يظل ~/.openhuman محميًا بواسطة البيئة المعزولة في كلا الوضعين.',
+  'settings.ai.claudeCode.sandboxNoteOther':
+    'الوصول الكامل غير مقيّد على هذه المنصة — فعّله فقط إذا كنت تثق بمساحة العمل.',
+  'settings.ai.claudeCode.enableToCheck': 'فعّل Claude Code للتحقق من تسجيل الدخول.',
+  'settings.ai.claudeCode.usingApiKeyEnvDetail': 'يستخدم ANTHROPIC_API_KEY من البيئة.',
+  'settings.ai.claudeCode.notFoundInstall':
+    'لم يتم العثور على Claude Code CLI — ثبّته عبر: npm install -g @anthropic-ai/claude-code',
+  'settings.ai.claudeCode.unknownDetail':
+    'تعذّر تحديد حالة تسجيل الدخول. قد تكون نسخة claude CLI لديك أقدم من دعم حالة المصادقة — جرّب إعادة الاتصال ثم إعادة الفحص.',
+  'settings.ai.claudeCode.notSignedIn': 'لم يتم تسجيل الدخول.',
   'settings.ai.routingCustom': 'توجيه مخصص',
   'settings.ai.routingDefault': 'افتراضي',
   'settings.ai.routingDesc': 'وصف التوجيه',

@@ -1691,6 +1691,30 @@ const en: TranslationMap = {
   'mcp.detail.reconfigureSaving': 'Saving…',
   'mcp.detail.reconfigureSuccess': 'Environment updated and reconnected.',
   'mcp.detail.reconfigureReconnectFailed': 'Saved, but reconnecting with the new values failed.',
+  'mcp.connectAuth.title': 'Connect {name}',
+  'mcp.connectAuth.hint':
+    'Add any authentication this server needs, then connect. Tokens are stored encrypted. Leave blank for servers that need no auth.',
+  'mcp.connectAuth.requiredLabel': 'Required',
+  'mcp.connectAuth.customHeadersLabel': 'Custom headers',
+  'mcp.connectAuth.customHeadersEmpty':
+    'No custom headers. Add one if this server needs an auth header the registry did not declare.',
+  'mcp.connectAuth.addHeader': '+ Add header',
+  'mcp.connectAuth.headerName': 'Header name',
+  'mcp.connectAuth.headerValue': 'Value',
+  'mcp.connectAuth.removeHeader': 'Remove header',
+  'mcp.connectAuth.howToGetToken': 'Help & configure',
+  'mcp.connectAuth.hideHelp': 'Hide help',
+  'mcp.connectAuth.schemeLabel': 'How to send the value',
+  'mcp.connectAuth.schemeBearer': 'Bearer',
+  'mcp.connectAuth.schemeRaw': 'None',
+  'mcp.connectAuth.reconnectFailed': 'Saved the credentials, but connecting failed.',
+  'mcp.connectAuth.oauthHint':
+    'This server uses OAuth. Sign in through your browser to authorize OpenHuman.',
+  'mcp.connectAuth.signIn': 'Sign in with browser',
+  'mcp.connectAuth.oauthWaiting': 'Waiting for sign-in…',
+  'mcp.connectAuth.oauthOrToken':
+    'Already have an access token? Paste it as an Authorization header below instead.',
+  'mcp.connectAuth.oauthTimeout': 'Timed out waiting for browser sign-in. Try again.',
   'mcp.detail.enable': 'Enable',
   'mcp.detail.disable': 'Disable',
   'mcp.status.disabled': 'Disabled',
@@ -3761,6 +3785,54 @@ const en: TranslationMap = {
   'skills.mcpComingSoon.description':
     'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.ai.routing': 'Routing',
+  // Claude Code CLI connect control + modal (ClaudeCodeStatusCard).
+  'settings.ai.claudeCode.button': 'Claude Code',
+  'settings.ai.claudeCode.inlineNotConnected':
+    'Not connected — routes chat through your local Claude Code CLI.',
+  'settings.ai.claudeCode.checkingSignIn': 'Checking sign-in…',
+  'settings.ai.claudeCode.inlineConnected': 'Connected.',
+  'settings.ai.claudeCode.signedInAs': 'Signed in as',
+  'settings.ai.claudeCode.subscriptionFallback': 'Claude subscription',
+  'settings.ai.claudeCode.usingApiKeyEnv': 'Using ANTHROPIC_API_KEY',
+  'settings.ai.claudeCode.cliNotInstalled': 'CLI not installed',
+  'settings.ai.claudeCode.signInUnknown': 'Sign-in state unknown',
+  'settings.ai.claudeCode.connectedNotSignedIn': 'Connected · not signed in',
+  'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modalDescription':
+    "Routes chat, agentic and reasoning workloads through your locally-installed Claude Code CLI. No API key — it uses the CLI's own login.",
+  'settings.ai.claudeCode.close': 'Close',
+  'settings.ai.claudeCode.connection': 'Connection',
+  'settings.ai.claudeCode.enabled': 'Enabled',
+  'settings.ai.claudeCode.notEnabled': 'Not enabled',
+  'settings.ai.claudeCode.disconnect': 'Disconnect',
+  'settings.ai.claudeCode.disconnecting': 'Disconnecting…',
+  'settings.ai.claudeCode.enable': 'Enable Claude Code',
+  'settings.ai.claudeCode.enabling': 'Enabling…',
+  'settings.ai.claudeCode.authentication': 'Authentication',
+  'settings.ai.claudeCode.recheck': 'Recheck',
+  'settings.ai.claudeCode.checking': 'Checking…',
+  'settings.ai.claudeCode.openingTerminal': 'Opening terminal…',
+  'settings.ai.claudeCode.signIn': 'Sign in with Claude',
+  'settings.ai.claudeCode.reconnect': 'Reconnect',
+  'settings.ai.claudeCode.loginHint':
+    'Opens a terminal running claude login. After it completes, click Recheck.',
+  'settings.ai.claudeCode.loginError': 'Could not open the login terminal. Please try again.',
+  'settings.ai.claudeCode.fullAccess': 'Full access',
+  'settings.ai.claudeCode.fullAccessOn':
+    'Claude Code can run commands, use the network, and spawn subagents.',
+  'settings.ai.claudeCode.fullAccessOff':
+    'Accept edits only — auto-applies file edits, gates commands & network.',
+  'settings.ai.claudeCode.sandboxNoteMac':
+    'On macOS, ~/.openhuman stays protected by the sandbox in either mode.',
+  'settings.ai.claudeCode.sandboxNoteOther':
+    'Full access is unconfined on this platform — enable only if you trust the workspace.',
+  'settings.ai.claudeCode.enableToCheck': 'Enable Claude Code to check sign-in.',
+  'settings.ai.claudeCode.usingApiKeyEnvDetail': 'Using ANTHROPIC_API_KEY from the environment.',
+  'settings.ai.claudeCode.notFoundInstall':
+    'Claude Code CLI not found — install with: npm install -g @anthropic-ai/claude-code',
+  'settings.ai.claudeCode.unknownDetail':
+    "Couldn't determine sign-in state. Your claude CLI may predate auth status — try Reconnect, then Recheck.",
+  'settings.ai.claudeCode.notSignedIn': 'Not signed in.',
   'settings.ai.routingCustom': 'Custom routing',
   'settings.ai.routingDefault': 'Default',
   'settings.ai.routingDesc': 'Choose which model handles each type of workload.',

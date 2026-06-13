@@ -1354,6 +1354,30 @@ const messages: TranslationMap = {
   'mcp.detail.disable': 'Nonaktifkan',
   'mcp.status.disabled': 'Dinonaktifkan',
   'mcp.detail.tools': 'Alat',
+  'mcp.connectAuth.title': 'Hubungkan {name}',
+  'mcp.connectAuth.hint':
+    'Tambahkan autentikasi yang dibutuhkan server ini, lalu hubungkan. Token disimpan terenkripsi. Biarkan kosong untuk server yang tidak memerlukan autentikasi.',
+  'mcp.connectAuth.requiredLabel': 'Wajib',
+  'mcp.connectAuth.customHeadersLabel': 'Header kustom',
+  'mcp.connectAuth.customHeadersEmpty':
+    'Tidak ada header kustom. Tambahkan satu jika server ini memerlukan header autentikasi yang tidak dideklarasikan oleh registri.',
+  'mcp.connectAuth.addHeader': '+ Tambah header',
+  'mcp.connectAuth.headerName': 'Nama header',
+  'mcp.connectAuth.headerValue': 'Nilai',
+  'mcp.connectAuth.removeHeader': 'Hapus header',
+  'mcp.connectAuth.howToGetToken': 'Bantuan & konfigurasi',
+  'mcp.connectAuth.hideHelp': 'Sembunyikan bantuan',
+  'mcp.connectAuth.schemeLabel': 'Cara mengirim nilai',
+  'mcp.connectAuth.schemeBearer': 'Bearer',
+  'mcp.connectAuth.schemeRaw': 'Tidak ada',
+  'mcp.connectAuth.reconnectFailed': 'Kredensial tersimpan, tetapi koneksi gagal.',
+  'mcp.connectAuth.oauthHint':
+    'Server ini menggunakan OAuth. Masuk melalui browser Anda untuk mengizinkan OpenHuman.',
+  'mcp.connectAuth.signIn': 'Masuk dengan browser',
+  'mcp.connectAuth.oauthWaiting': 'Menunggu proses masuk…',
+  'mcp.connectAuth.oauthOrToken':
+    'Sudah punya token akses? Tempelkan sebagai header Authorization di bawah ini saja.',
+  'mcp.connectAuth.oauthTimeout': 'Waktu menunggu proses masuk lewat browser habis. Coba lagi.',
   'onboarding.skipForNow': 'Lewati Sekarang',
   'onboarding.localAI.continueWithCloud': 'Lanjutkan dengan Cloud',
   'onboarding.localAI.useLocalAnyway':
@@ -3228,6 +3252,53 @@ const messages: TranslationMap = {
   'skills.mcpComingSoon.description':
     'Manajemen server MCP akan segera hadir. Tab ini akan menjadi tempat untuk menemukan, menghubungkan, dan memantau integrasi server MCP Anda.',
   'settings.ai.routing': 'Perutean',
+  'settings.ai.claudeCode.button': 'Claude Code',
+  'settings.ai.claudeCode.inlineNotConnected':
+    'Tidak terhubung — merutekan obrolan melalui Claude Code CLI lokal Anda.',
+  'settings.ai.claudeCode.checkingSignIn': 'Memeriksa status masuk…',
+  'settings.ai.claudeCode.inlineConnected': 'Terhubung.',
+  'settings.ai.claudeCode.signedInAs': 'Masuk sebagai',
+  'settings.ai.claudeCode.subscriptionFallback': 'Langganan Claude',
+  'settings.ai.claudeCode.usingApiKeyEnv': 'Menggunakan ANTHROPIC_API_KEY',
+  'settings.ai.claudeCode.cliNotInstalled': 'CLI belum terpasang',
+  'settings.ai.claudeCode.signInUnknown': 'Status masuk tidak diketahui',
+  'settings.ai.claudeCode.connectedNotSignedIn': 'Terhubung · belum masuk',
+  'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modalDescription':
+    'Merutekan beban kerja obrolan, agentik, dan penalaran melalui Claude Code CLI yang terpasang secara lokal. Tanpa kunci API — menggunakan login milik CLI itu sendiri.',
+  'settings.ai.claudeCode.close': 'Tutup',
+  'settings.ai.claudeCode.connection': 'Koneksi',
+  'settings.ai.claudeCode.enabled': 'Aktif',
+  'settings.ai.claudeCode.notEnabled': 'Tidak aktif',
+  'settings.ai.claudeCode.disconnect': 'Putuskan',
+  'settings.ai.claudeCode.disconnecting': 'Memutuskan…',
+  'settings.ai.claudeCode.enable': 'Aktifkan Claude Code',
+  'settings.ai.claudeCode.enabling': 'Mengaktifkan…',
+  'settings.ai.claudeCode.authentication': 'Autentikasi',
+  'settings.ai.claudeCode.recheck': 'Periksa ulang',
+  'settings.ai.claudeCode.checking': 'Memeriksa…',
+  'settings.ai.claudeCode.openingTerminal': 'Membuka terminal…',
+  'settings.ai.claudeCode.signIn': 'Masuk dengan Claude',
+  'settings.ai.claudeCode.reconnect': 'Hubungkan ulang',
+  'settings.ai.claudeCode.loginHint':
+    'Membuka terminal yang menjalankan claude login. Setelah selesai, klik Periksa ulang.',
+  'settings.ai.claudeCode.loginError': 'Tidak dapat membuka terminal login. Silakan coba lagi.',
+  'settings.ai.claudeCode.fullAccess': 'Akses penuh',
+  'settings.ai.claudeCode.fullAccessOn':
+    'Claude Code dapat menjalankan perintah, menggunakan jaringan, dan membuat subagen.',
+  'settings.ai.claudeCode.fullAccessOff':
+    'Hanya terima suntingan — menerapkan suntingan berkas secara otomatis, membatasi perintah & jaringan.',
+  'settings.ai.claudeCode.sandboxNoteMac':
+    'Di macOS, ~/.openhuman tetap dilindungi oleh sandbox di kedua mode.',
+  'settings.ai.claudeCode.sandboxNoteOther':
+    'Akses penuh tidak dibatasi di platform ini — aktifkan hanya jika Anda mempercayai ruang kerja.',
+  'settings.ai.claudeCode.enableToCheck': 'Aktifkan Claude Code untuk memeriksa status masuk.',
+  'settings.ai.claudeCode.usingApiKeyEnvDetail': 'Menggunakan ANTHROPIC_API_KEY dari lingkungan.',
+  'settings.ai.claudeCode.notFoundInstall':
+    'Claude Code CLI tidak ditemukan — pasang dengan: npm install -g @anthropic-ai/claude-code',
+  'settings.ai.claudeCode.unknownDetail':
+    'Tidak dapat menentukan status masuk. claude CLI Anda mungkin lebih lama dari dukungan status autentikasi — coba Hubungkan ulang, lalu Periksa ulang.',
+  'settings.ai.claudeCode.notSignedIn': 'Belum masuk.',
   'settings.ai.routingCustom': 'Routing kustom',
   'settings.ai.routingDefault': 'Bawaan',
   'settings.ai.routingDesc': 'Deskripsi routing',

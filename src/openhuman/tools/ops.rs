@@ -504,6 +504,7 @@ pub fn all_tools_with_runtime(
         Box::new(McpRegistryGetTool::new(config.clone())),
         Box::new(McpRegistryInstalledListTool::new(config.clone())),
         Box::new(McpRegistryStatusTool::new(config.clone())),
+        Box::new(McpRegistryListToolsTool),
         Box::new(McpRegistryConnectTool::new(config.clone())),
         Box::new(McpRegistryDisconnectTool),
         Box::new(McpRegistryToolCallTool),

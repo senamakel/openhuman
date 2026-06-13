@@ -1384,6 +1384,32 @@ const messages: TranslationMap = {
   'mcp.detail.disable': 'Deaktivieren',
   'mcp.status.disabled': 'Deaktiviert',
   'mcp.detail.tools': 'Werkzeuge',
+  'mcp.connectAuth.title': '{name} verbinden',
+  'mcp.connectAuth.hint':
+    'Fügen Sie die für diesen Server erforderliche Authentifizierung hinzu und verbinden Sie sich dann. Tokens werden verschlüsselt gespeichert. Bei Servern ohne Authentifizierung leer lassen.',
+  'mcp.connectAuth.requiredLabel': 'Erforderlich',
+  'mcp.connectAuth.customHeadersLabel': 'Benutzerdefinierte Header',
+  'mcp.connectAuth.customHeadersEmpty':
+    'Keine benutzerdefinierten Header. Fügen Sie einen hinzu, wenn dieser Server einen Authentifizierungs-Header benötigt, den die Registry nicht angegeben hat.',
+  'mcp.connectAuth.addHeader': '+ Header hinzufügen',
+  'mcp.connectAuth.headerName': 'Header-Name',
+  'mcp.connectAuth.headerValue': 'Wert',
+  'mcp.connectAuth.removeHeader': 'Header entfernen',
+  'mcp.connectAuth.howToGetToken': 'Hilfe & Einrichtung',
+  'mcp.connectAuth.hideHelp': 'Hilfe ausblenden',
+  'mcp.connectAuth.schemeLabel': 'Wie der Wert gesendet wird',
+  'mcp.connectAuth.schemeBearer': 'Bearer',
+  'mcp.connectAuth.schemeRaw': 'Keine',
+  'mcp.connectAuth.reconnectFailed':
+    'Anmeldedaten gespeichert, aber die Verbindung ist fehlgeschlagen.',
+  'mcp.connectAuth.oauthHint':
+    'Dieser Server verwendet OAuth. Melden Sie sich über Ihren Browser an, um OpenHuman zu autorisieren.',
+  'mcp.connectAuth.signIn': 'Im Browser anmelden',
+  'mcp.connectAuth.oauthWaiting': 'Warten auf Anmeldung…',
+  'mcp.connectAuth.oauthOrToken':
+    'Sie haben bereits ein Zugriffstoken? Fügen Sie es stattdessen unten als Authorization-Header ein.',
+  'mcp.connectAuth.oauthTimeout':
+    'Zeitüberschreitung beim Warten auf die Browser-Anmeldung. Versuchen Sie es erneut.',
   'onboarding.skipForNow': 'Vorerst überspringen',
   'onboarding.localAI.continueWithCloud': 'Fahren Sie mit der Cloud fort.',
   'onboarding.localAI.useLocalAnyway':
@@ -3297,6 +3323,54 @@ const messages: TranslationMap = {
   'skills.mcpComingSoon.description':
     'MCP-Server-Verwaltung kommt bald. Dieser Tab wird zur zentralen Anlaufstelle für das Entdecken, Verbinden und Überwachen deiner MCP-Server-Integrationen.',
   'settings.ai.routing': 'Routenführung',
+  'settings.ai.claudeCode.button': 'Claude Code',
+  'settings.ai.claudeCode.inlineNotConnected':
+    'Nicht verbunden — leitet den Chat über deine lokale Claude Code CLI.',
+  'settings.ai.claudeCode.checkingSignIn': 'Anmeldung wird geprüft…',
+  'settings.ai.claudeCode.inlineConnected': 'Verbunden.',
+  'settings.ai.claudeCode.signedInAs': 'Angemeldet als',
+  'settings.ai.claudeCode.subscriptionFallback': 'Claude-Abo',
+  'settings.ai.claudeCode.usingApiKeyEnv': 'Verwendet ANTHROPIC_API_KEY',
+  'settings.ai.claudeCode.cliNotInstalled': 'CLI nicht installiert',
+  'settings.ai.claudeCode.signInUnknown': 'Anmeldestatus unbekannt',
+  'settings.ai.claudeCode.connectedNotSignedIn': 'Verbunden · nicht angemeldet',
+  'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modalDescription':
+    'Leitet Chat-, Agenten- und Reasoning-Aufgaben über deine lokal installierte Claude Code CLI. Kein API-Schlüssel — sie nutzt die eigene Anmeldung der CLI.',
+  'settings.ai.claudeCode.close': 'Schließen',
+  'settings.ai.claudeCode.connection': 'Verbindung',
+  'settings.ai.claudeCode.enabled': 'Aktiviert',
+  'settings.ai.claudeCode.notEnabled': 'Nicht aktiviert',
+  'settings.ai.claudeCode.disconnect': 'Trennen',
+  'settings.ai.claudeCode.disconnecting': 'Wird getrennt…',
+  'settings.ai.claudeCode.enable': 'Claude Code aktivieren',
+  'settings.ai.claudeCode.enabling': 'Wird aktiviert…',
+  'settings.ai.claudeCode.authentication': 'Authentifizierung',
+  'settings.ai.claudeCode.recheck': 'Erneut prüfen',
+  'settings.ai.claudeCode.checking': 'Wird geprüft…',
+  'settings.ai.claudeCode.openingTerminal': 'Terminal wird geöffnet…',
+  'settings.ai.claudeCode.signIn': 'Mit Claude anmelden',
+  'settings.ai.claudeCode.reconnect': 'Erneut verbinden',
+  'settings.ai.claudeCode.loginHint':
+    'Öffnet ein Terminal, das claude login ausführt. Klicke nach Abschluss auf „Erneut prüfen“.',
+  'settings.ai.claudeCode.loginError':
+    'Das Anmelde-Terminal konnte nicht geöffnet werden. Bitte versuche es erneut.',
+  'settings.ai.claudeCode.fullAccess': 'Voller Zugriff',
+  'settings.ai.claudeCode.fullAccessOn':
+    'Claude Code kann Befehle ausführen, das Netzwerk nutzen und Subagenten starten.',
+  'settings.ai.claudeCode.fullAccessOff':
+    'Nur Änderungen akzeptieren — wendet Dateiänderungen automatisch an, begrenzt Befehle & Netzwerk.',
+  'settings.ai.claudeCode.sandboxNoteMac':
+    'Unter macOS bleibt ~/.openhuman in beiden Modi durch die Sandbox geschützt.',
+  'settings.ai.claudeCode.sandboxNoteOther':
+    'Voller Zugriff ist auf dieser Plattform uneingeschränkt — aktiviere ihn nur, wenn du dem Workspace vertraust.',
+  'settings.ai.claudeCode.enableToCheck': 'Aktiviere Claude Code, um die Anmeldung zu prüfen.',
+  'settings.ai.claudeCode.usingApiKeyEnvDetail': 'Verwendet ANTHROPIC_API_KEY aus der Umgebung.',
+  'settings.ai.claudeCode.notFoundInstall':
+    'Claude Code CLI nicht gefunden — installiere mit: npm install -g @anthropic-ai/claude-code',
+  'settings.ai.claudeCode.unknownDetail':
+    'Anmeldestatus konnte nicht ermittelt werden. Deine claude CLI ist möglicherweise älter als die Auth-Status-Unterstützung — versuche „Erneut verbinden“ und dann „Erneut prüfen“.',
+  'settings.ai.claudeCode.notSignedIn': 'Nicht angemeldet.',
   'settings.ai.routingCustom': 'Routing benutzerdefiniert',
   'settings.ai.routingDefault': 'Standard',
   'settings.ai.routingDesc': 'Routing-Beschreibung',

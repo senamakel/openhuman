@@ -1344,6 +1344,31 @@ const messages: TranslationMap = {
   'mcp.detail.disable': 'अक्षम करें',
   'mcp.status.disabled': 'अक्षम',
   'mcp.detail.tools': 'उपकरण',
+  'mcp.connectAuth.title': '{name} कनेक्ट करें',
+  'mcp.connectAuth.hint':
+    'इस सर्वर के लिए आवश्यक कोई भी प्रमाणीकरण जोड़ें, फिर कनेक्ट करें। टोकन एन्क्रिप्टेड रूप में संग्रहीत किए जाते हैं। जिन सर्वरों को प्रमाणीकरण की आवश्यकता नहीं है, उनके लिए इसे खाली छोड़ें।',
+  'mcp.connectAuth.requiredLabel': 'आवश्यक',
+  'mcp.connectAuth.customHeadersLabel': 'कस्टम हेडर',
+  'mcp.connectAuth.customHeadersEmpty':
+    'कोई कस्टम हेडर नहीं। यदि इस सर्वर को कोई प्रमाणीकरण हेडर चाहिए जिसे रजिस्ट्री ने घोषित नहीं किया, तो एक जोड़ें।',
+  'mcp.connectAuth.addHeader': '+ हेडर जोड़ें',
+  'mcp.connectAuth.headerName': 'हेडर का नाम',
+  'mcp.connectAuth.headerValue': 'मान',
+  'mcp.connectAuth.removeHeader': 'हेडर हटाएं',
+  'mcp.connectAuth.howToGetToken': 'सहायता और कॉन्फ़िगर करें',
+  'mcp.connectAuth.hideHelp': 'सहायता छिपाएं',
+  'mcp.connectAuth.schemeLabel': 'मान को कैसे भेजें',
+  'mcp.connectAuth.schemeBearer': 'Bearer',
+  'mcp.connectAuth.schemeRaw': 'कोई नहीं',
+  'mcp.connectAuth.reconnectFailed': 'क्रेडेंशियल सहेजे गए, लेकिन कनेक्ट होने में विफल रहे।',
+  'mcp.connectAuth.oauthHint':
+    'यह सर्वर OAuth का उपयोग करता है। OpenHuman को अधिकृत करने के लिए अपने ब्राउज़र से साइन इन करें।',
+  'mcp.connectAuth.signIn': 'ब्राउज़र से साइन इन करें',
+  'mcp.connectAuth.oauthWaiting': 'साइन-इन की प्रतीक्षा हो रही है…',
+  'mcp.connectAuth.oauthOrToken':
+    'क्या आपके पास पहले से एक एक्सेस टोकन है? इसके बजाय इसे नीचे Authorization हेडर के रूप में पेस्ट करें।',
+  'mcp.connectAuth.oauthTimeout':
+    'ब्राउज़र साइन-इन की प्रतीक्षा का समय समाप्त हो गया। पुनः प्रयास करें।',
   'onboarding.skipForNow': 'अभी के लिए छोड़ें',
   'onboarding.localAI.continueWithCloud': 'बादल के साथ जारी रखें',
   'onboarding.localAI.useLocalAnyway':
@@ -3222,6 +3247,54 @@ const messages: TranslationMap = {
   'skills.mcpComingSoon.description':
     'MCP सर्वर प्रबंधन जल्द आ रहा है। यह टैब आपके MCP सर्वर इंटीग्रेशन खोजने, कनेक्ट करने और मॉनिटर करने का केंद्र होगा।',
   'settings.ai.routing': 'रूटिंग',
+  'settings.ai.claudeCode.button': 'Claude Code',
+  'settings.ai.claudeCode.inlineNotConnected':
+    'कनेक्ट नहीं — चैट को आपके स्थानीय Claude Code CLI के माध्यम से रूट करता है।',
+  'settings.ai.claudeCode.checkingSignIn': 'साइन-इन जाँचा जा रहा है…',
+  'settings.ai.claudeCode.inlineConnected': 'कनेक्टेड।',
+  'settings.ai.claudeCode.signedInAs': 'इस रूप में साइन इन',
+  'settings.ai.claudeCode.subscriptionFallback': 'Claude सदस्यता',
+  'settings.ai.claudeCode.usingApiKeyEnv': 'ANTHROPIC_API_KEY का उपयोग',
+  'settings.ai.claudeCode.cliNotInstalled': 'CLI इंस्टॉल नहीं है',
+  'settings.ai.claudeCode.signInUnknown': 'साइन-इन स्थिति अज्ञात',
+  'settings.ai.claudeCode.connectedNotSignedIn': 'कनेक्टेड · साइन इन नहीं',
+  'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modalDescription':
+    'चैट, एजेंटिक और रीज़निंग कार्यभार को आपके स्थानीय रूप से इंस्टॉल किए गए Claude Code CLI के माध्यम से रूट करता है। कोई API कुंजी नहीं — यह CLI के अपने लॉगिन का उपयोग करता है।',
+  'settings.ai.claudeCode.close': 'बंद करें',
+  'settings.ai.claudeCode.connection': 'कनेक्शन',
+  'settings.ai.claudeCode.enabled': 'सक्षम',
+  'settings.ai.claudeCode.notEnabled': 'सक्षम नहीं',
+  'settings.ai.claudeCode.disconnect': 'डिस्कनेक्ट करें',
+  'settings.ai.claudeCode.disconnecting': 'डिस्कनेक्ट किया जा रहा है…',
+  'settings.ai.claudeCode.enable': 'Claude Code सक्षम करें',
+  'settings.ai.claudeCode.enabling': 'सक्षम किया जा रहा है…',
+  'settings.ai.claudeCode.authentication': 'प्रमाणीकरण',
+  'settings.ai.claudeCode.recheck': 'फिर से जाँचें',
+  'settings.ai.claudeCode.checking': 'जाँचा जा रहा है…',
+  'settings.ai.claudeCode.openingTerminal': 'टर्मिनल खोला जा रहा है…',
+  'settings.ai.claudeCode.signIn': 'Claude से साइन इन करें',
+  'settings.ai.claudeCode.reconnect': 'फिर से कनेक्ट करें',
+  'settings.ai.claudeCode.loginHint':
+    'claude login चलाने वाला एक टर्मिनल खोलता है। पूरा होने के बाद, फिर से जाँचें पर क्लिक करें।',
+  'settings.ai.claudeCode.loginError': 'लॉगिन टर्मिनल नहीं खोला जा सका। कृपया पुनः प्रयास करें।',
+  'settings.ai.claudeCode.fullAccess': 'पूर्ण पहुँच',
+  'settings.ai.claudeCode.fullAccessOn':
+    'Claude Code कमांड चला सकता है, नेटवर्क का उपयोग कर सकता है और सब-एजेंट बना सकता है।',
+  'settings.ai.claudeCode.fullAccessOff':
+    'केवल संपादन स्वीकारें — फ़ाइल संपादन स्वतः लागू करता है, कमांड और नेटवर्क को सीमित करता है।',
+  'settings.ai.claudeCode.sandboxNoteMac':
+    'macOS पर, दोनों मोड में ~/.openhuman सैंडबॉक्स द्वारा सुरक्षित रहता है।',
+  'settings.ai.claudeCode.sandboxNoteOther':
+    'इस प्लेटफ़ॉर्म पर पूर्ण पहुँच असीमित है — केवल तभी सक्षम करें जब आप वर्कस्पेस पर भरोसा करते हों।',
+  'settings.ai.claudeCode.enableToCheck': 'साइन-इन जाँचने के लिए Claude Code सक्षम करें।',
+  'settings.ai.claudeCode.usingApiKeyEnvDetail':
+    'पर्यावरण से ANTHROPIC_API_KEY का उपयोग कर रहा है।',
+  'settings.ai.claudeCode.notFoundInstall':
+    'Claude Code CLI नहीं मिला — इससे इंस्टॉल करें: npm install -g @anthropic-ai/claude-code',
+  'settings.ai.claudeCode.unknownDetail':
+    'साइन-इन स्थिति निर्धारित नहीं हो सकी। आपका claude CLI auth status समर्थन से पुराना हो सकता है — फिर से कनेक्ट करें, फिर फिर से जाँचें।',
+  'settings.ai.claudeCode.notSignedIn': 'साइन इन नहीं।',
   'settings.ai.routingCustom': 'कस्टम रूटिंग',
   'settings.ai.routingDefault': 'डिफ़ॉल्ट',
   'settings.ai.routingDesc': 'रूटिंग विवरण',

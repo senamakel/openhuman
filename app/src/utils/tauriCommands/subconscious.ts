@@ -11,7 +11,7 @@ import { type CommandResponse, isTauri } from './common';
 
 export interface SubconsciousStatus {
   enabled: boolean;
-  mode: 'off' | 'simple' | 'aggressive';
+  mode: 'off' | 'simple' | 'aggressive' | 'event_driven';
   provider_available: boolean;
   provider_unavailable_reason: string | null;
   interval_minutes: number;
@@ -24,6 +24,17 @@ export interface TickResult {
   tick_at: number;
   duration_ms: number;
   response_chars?: number;
+}
+
+/** Status of the event-driven subconscious trigger pipeline. */
+export interface SubconsciousTriggersStatus {
+  triggers_enabled: boolean;
+  mode: string;
+  max_promotions_per_hour: number;
+  orchestrator_running: boolean;
+  queue_depth: number | null;
+  orchestrator_thread_id: string;
+  user_thread_id: string;
 }
 
 // ── Status & Trigger ─────────────────────────────────────────────────────────
@@ -39,5 +50,14 @@ export async function subconsciousTrigger(): Promise<CommandResponse<TickResult>
   if (!isTauri()) throw new Error('Not running in Tauri');
   return await callCoreRpc<CommandResponse<TickResult>>({
     method: 'openhuman.subconscious_trigger',
+  });
+}
+
+export async function subconsciousTriggersStatus(): Promise<
+  CommandResponse<SubconsciousTriggersStatus>
+> {
+  if (!isTauri()) throw new Error('Not running in Tauri');
+  return await callCoreRpc<CommandResponse<SubconsciousTriggersStatus>>({
+    method: 'openhuman.subconscious_triggers_status',
   });
 }

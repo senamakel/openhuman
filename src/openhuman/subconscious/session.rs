@@ -197,6 +197,13 @@ impl LongLivedSession {
     /// logged but never fail the run (the in-memory history is the working
     /// set; the thread is audit/resume only).
     fn persist_message(&self, sender: &str, content: &str) {
+        // `append_message` requires the thread to exist; the reserved
+        // orchestrator thread is created lazily here (idempotent).
+        ensure_reserved_thread(
+            &self.workspace_dir,
+            &self.thread_id,
+            "Subconscious Orchestrator",
+        );
         let message = new_message(sender, content);
         if let Err(err) = crate::openhuman::memory_conversations::append_message(
             self.workspace_dir.clone(),
@@ -229,6 +236,33 @@ pub(crate) fn effective_config(config: &Config, mode: SubconsciousMode) -> Confi
         SubconsciousMode::Off => {}
     }
     effective
+}
+
+/// Ensure a reserved conversation thread exists before appending to it.
+/// Idempotent — safe to call before every append. Failures are logged and
+/// swallowed (persistence is best-effort audit, never load-bearing).
+pub(crate) fn ensure_reserved_thread(
+    workspace_dir: &std::path::Path,
+    thread_id: &str,
+    title: &str,
+) {
+    use crate::openhuman::memory_conversations::CreateConversationThread;
+    let req = CreateConversationThread {
+        id: thread_id.to_string(),
+        title: title.to_string(),
+        created_at: chrono::Utc::now().to_rfc3339(),
+        parent_thread_id: None,
+        labels: None,
+        personality_id: None,
+    };
+    if let Err(err) =
+        crate::openhuman::memory_conversations::ensure_thread(workspace_dir.to_path_buf(), req)
+    {
+        warn!(
+            "[subconscious::session] ensure reserved thread failed thread={} err={}",
+            thread_id, err
+        );
+    }
 }
 
 /// Construct a `ConversationMessage` for the reserved thread with a fresh

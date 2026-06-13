@@ -44,6 +44,9 @@ pub fn notify_user(workspace_dir: std::path::PathBuf, message: &str, subject: Op
         sender: "agent".to_string(),
         created_at: chrono::Utc::now().to_rfc3339(),
     };
+    // `append_message` requires the thread to exist; create the reserved
+    // user-facing thread lazily (idempotent).
+    super::session::ensure_reserved_thread(&workspace_dir, USER_THREAD_ID, "Subconscious → You");
     if let Err(err) = crate::openhuman::memory_conversations::append_message(
         workspace_dir,
         USER_THREAD_ID,

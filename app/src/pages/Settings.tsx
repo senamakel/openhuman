@@ -195,7 +195,11 @@ const Settings = () => {
             path="notifications-hub"
             element={<Navigate to="/settings/notifications" replace />}
           />
-          <Route path="composio" element={<Navigate to="/settings/integrations" replace />} />
+          {/* Composio (API key + routing) moved to Connections → API keys. */}
+          <Route
+            path="composio"
+            element={<Navigate to="/connections?tab=composio-key" replace />}
+          />
           {/* Merged Usage & Limits page */}
           <Route path="heartbeat" element={<Navigate to="/settings/usage#background" replace />} />
           <Route
@@ -212,7 +216,7 @@ const Settings = () => {
           <Route path="task-sources" element={<Navigate to="/settings/integrations" replace />} />
           <Route
             path="composio-routing"
-            element={<Navigate to="/settings/integrations#composio" replace />}
+            element={<Navigate to="/connections?tab=composio-key" replace />}
           />
           <Route
             path="webhooks-triggers"

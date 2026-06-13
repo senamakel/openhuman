@@ -5,30 +5,23 @@ import Webhooks from '../../../pages/Webhooks';
 import PanelPage from '../../layout/PanelPage';
 import SettingsBackButton from '../components/SettingsBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
-import ComposioPanel from './ComposioPanel';
 import TaskSourcesPanel from './TaskSourcesPanel';
 
-type TabId = 'task-sources' | 'composio' | 'webhooks';
+type TabId = 'task-sources' | 'webhooks';
 
-const TAB_HASH: Record<TabId, string> = {
-  'task-sources': '',
-  composio: '#composio',
-  webhooks: '#webhooks',
-};
+const TAB_HASH: Record<TabId, string> = { 'task-sources': '', webhooks: '#webhooks' };
 
 const hashToTab = (hash: string): TabId => {
-  if (hash === '#composio') return 'composio';
   if (hash === '#webhooks') return 'webhooks';
   return 'task-sources';
 };
 
 /**
  * Single Settings entry for integrations. Combines the task-source toggles
- * (TaskSourcesPanel), the Composio routing/auth controls (ComposioPanel) and
- * the webhook trigger history/triage (Webhooks page) as three tabs under one
- * header. The active tab is reflected in the URL hash (`#composio`,
- * `#webhooks`) so deep links and the legacy task-sources/composio-routing/
- * webhooks-triggers redirects land on the right view.
+ * (TaskSourcesPanel) and the webhook trigger history/triage (Webhooks page) as
+ * two tabs under one header. The active tab is reflected in the URL hash
+ * (`#webhooks`) so deep links and the legacy redirects land on the right view.
+ * Composio (API key + routing) moved to Connections → API keys.
  */
 const IntegrationsPanel = () => {
   const { t } = useT();
@@ -56,12 +49,6 @@ const IntegrationsPanel = () => {
           id: 'task-sources',
           label: t('settings.taskSources.title'),
           content: <TaskSourcesPanel embedded />,
-        },
-        {
-          id: 'composio',
-          label: t('settings.developerMenu.composioRouting.title'),
-          content: <ComposioPanel embedded />,
-          contentClassName: 'p-4',
         },
         {
           id: 'webhooks',

@@ -12,12 +12,6 @@ vi.mock('../TaskSourcesPanel', () => ({
   ),
 }));
 
-vi.mock('../ComposioPanel', () => ({
-  default: ({ embedded }: { embedded?: boolean }) => (
-    <div data-testid="stub-composio" data-embedded={String(embedded ?? false)} />
-  ),
-}));
-
 vi.mock('../../../../pages/Webhooks', () => ({
   default: ({ embedded }: { embedded?: boolean }) => (
     <div data-testid="stub-webhooks" data-embedded={String(embedded ?? false)} />
@@ -41,21 +35,7 @@ describe('IntegrationsPanel', () => {
       'true'
     );
     expect(screen.getByTestId('stub-task-sources')).toHaveAttribute('data-embedded', 'true');
-    expect(screen.queryByTestId('stub-composio')).not.toBeInTheDocument();
     expect(screen.queryByTestId('stub-webhooks')).not.toBeInTheDocument();
-  });
-
-  test('#composio hash selects the Composio tab embedded', () => {
-    renderWithProviders(<IntegrationsPanel />, {
-      initialEntries: ['/settings/integrations#composio'],
-    });
-
-    expect(screen.getByTestId('integrations-tab-composio')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    expect(screen.getByTestId('stub-composio')).toHaveAttribute('data-embedded', 'true');
-    expect(screen.queryByTestId('stub-task-sources')).not.toBeInTheDocument();
   });
 
   test('#webhooks hash selects the Webhooks tab embedded', () => {
@@ -72,9 +52,6 @@ describe('IntegrationsPanel', () => {
 
   test('clicking tabs switches the view in place', async () => {
     renderWithProviders(<IntegrationsPanel />, { initialEntries: ['/settings/integrations'] });
-
-    fireEvent.click(screen.getByTestId('integrations-tab-composio'));
-    await screen.findByTestId('stub-composio');
 
     fireEvent.click(screen.getByTestId('integrations-tab-webhooks'));
     await screen.findByTestId('stub-webhooks');

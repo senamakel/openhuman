@@ -16,6 +16,7 @@ import TwoPanelLayout from '../components/layout/TwoPanelLayout';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
 import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
 import AIPanel from '../components/settings/panels/AIPanel';
+import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
@@ -379,14 +380,16 @@ type ConnectionsTab =
   | 'llm'
   | 'voice'
   | 'embeddings'
-  | 'search';
+  | 'search'
+  | 'composio-key';
 
-/** Tabs that render a relocated settings panel (Intelligence group). */
+/** Tabs that render a relocated settings panel (the "API keys" group). */
 const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'llm',
   'voice',
   'embeddings',
   'search',
+  'composio-key',
 ]);
 
 export default function Skills() {
@@ -411,7 +414,8 @@ export default function Skills() {
       raw === 'llm' ||
       raw === 'voice' ||
       raw === 'embeddings' ||
-      raw === 'search'
+      raw === 'search' ||
+      raw === 'composio-key'
     )
       return raw;
     // Legacy back-compat aliases
@@ -835,7 +839,7 @@ export default function Skills() {
                 items: [
                   {
                     value: 'composio',
-                    label: t('connections.tabs.composio'),
+                    label: t('connections.tabs.oauth'),
                     icon: navIcon('M13 10V3L4 14h7v7l9-11h-7z'),
                   },
                   {
@@ -869,13 +873,20 @@ export default function Skills() {
                 ],
               },
               {
-                label: t('connections.groups.intelligence'),
+                label: t('connections.groups.apiKeys'),
                 items: [
                   {
                     value: 'llm',
                     label: t('pages.settings.ai.llm'),
                     icon: navIcon(
                       'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z'
+                    ),
+                  },
+                  {
+                    value: 'composio-key',
+                    label: t('connections.tabs.composioKey'),
+                    icon: navIcon(
+                      'M15 7a2 2 0 012 2m4-2a6 6 0 01-7.743 5.743L11 14H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z'
                     ),
                   },
                   {
@@ -912,6 +923,7 @@ export default function Skills() {
             {activeTab === 'voice' && <VoicePanel />}
             {activeTab === 'embeddings' && <EmbeddingsPanel />}
             {activeTab === 'search' && <SearchPanel />}
+            {activeTab === 'composio-key' && <ComposioPanel />}
           </SettingsLayoutProvider>
         ) : (
           <PanelPage
@@ -1035,7 +1047,7 @@ export default function Skills() {
                       data-testid="composio-integrations-card">
                       {showLocalComposioApiKeyBanner && (
                         <ComposioApiKeyEmptyState
-                          onOpenSettings={() => navigate('/settings/integrations#composio')}
+                          onOpenSettings={() => handleTabChange('composio-key')}
                         />
                       )}
                       {!showLocalComposioApiKeyBanner && (

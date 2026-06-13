@@ -157,7 +157,10 @@ impl TriggerOrchestrator {
                 }
                 self.notify.notify_one();
             }
-            GateDecision::Drop { acknowledge, reason } => {
+            GateDecision::Drop {
+                acknowledge,
+                reason,
+            } => {
                 debug!(
                     "[subconscious_triggers] dropped trigger source={source} ack={acknowledge} reason={reason}"
                 );

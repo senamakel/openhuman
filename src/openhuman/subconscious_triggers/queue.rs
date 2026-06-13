@@ -119,10 +119,7 @@ impl OrchestratorQueue {
         if trigger.priority > inner.slots[worst_idx].trigger.priority {
             let seq = inner.next_seq;
             inner.next_seq += 1;
-            let evicted = std::mem::replace(
-                &mut inner.slots[worst_idx],
-                Slot { seq, trigger },
-            );
+            let evicted = std::mem::replace(&mut inner.slots[worst_idx], Slot { seq, trigger });
             EnqueueOutcome::EvictedLowest {
                 evicted: Box::new(evicted.trigger),
             }
@@ -233,8 +230,9 @@ mod tests {
         );
         assert_eq!(q.len(), 2);
         // Both originals survive.
-        let labels: Vec<String> =
-            std::iter::from_fn(|| q.pop()).map(|t| t.display_label).collect();
+        let labels: Vec<String> = std::iter::from_fn(|| q.pop())
+            .map(|t| t.display_label)
+            .collect();
         assert_eq!(labels, vec!["b", "a"]);
     }
 
@@ -251,8 +249,9 @@ mod tests {
             other => panic!("expected eviction, got {other:?}"),
         }
         assert_eq!(q.len(), 2);
-        let labels: Vec<String> =
-            std::iter::from_fn(|| q.pop()).map(|t| t.display_label).collect();
+        let labels: Vec<String> = std::iter::from_fn(|| q.pop())
+            .map(|t| t.display_label)
+            .collect();
         assert_eq!(labels, vec!["urgent", "normal"]);
     }
 
@@ -268,8 +267,9 @@ mod tests {
             }
             other => panic!("expected eviction, got {other:?}"),
         }
-        let labels: Vec<String> =
-            std::iter::from_fn(|| q.pop()).map(|t| t.display_label).collect();
+        let labels: Vec<String> = std::iter::from_fn(|| q.pop())
+            .map(|t| t.display_label)
+            .collect();
         assert_eq!(labels, vec!["high", "low-old"]);
     }
 

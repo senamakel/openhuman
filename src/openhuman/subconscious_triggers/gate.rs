@@ -27,9 +27,7 @@
 use std::sync::Mutex;
 
 use crate::openhuman::agent::triage::decision::{TriageAction, TriageDecision};
-use crate::openhuman::agent::triage::envelope::{
-    TriggerEnvelope, TriggerSource as TriageSource,
-};
+use crate::openhuman::agent::triage::envelope::{TriggerEnvelope, TriggerSource as TriageSource};
 use crate::openhuman::agent::triage::evaluator::{run_triage, TriageOutcome};
 
 use super::types::{GateDecision, Trigger, TriggerPriority, TriggerSource};
@@ -122,11 +120,7 @@ impl GatePass {
 
 /// Downgrade a `Promote` to an acknowledged `Drop` when the hourly
 /// promotion budget is exhausted. `Drop`s pass through untouched.
-pub fn apply_budget(
-    decision: GateDecision,
-    budget: &PromotionBudget,
-    now: f64,
-) -> GateDecision {
+pub fn apply_budget(decision: GateDecision, budget: &PromotionBudget, now: f64) -> GateDecision {
     match decision {
         GateDecision::Promote {
             synthesized_summary,
@@ -142,9 +136,7 @@ pub fn apply_budget(
             } else {
                 GateDecision::Drop {
                     acknowledge: true,
-                    reason: format!(
-                        "promotion budget exhausted (would have promoted: {reason})"
-                    ),
+                    reason: format!("promotion budget exhausted (would have promoted: {reason})"),
                 }
             }
         }
@@ -215,7 +207,9 @@ fn build_envelope(trigger: &Trigger) -> TriggerEnvelope {
             job_name: job_name.clone(),
         },
         TriggerSource::ComposioWebhook {
-            toolkit, trigger: t, ..
+            toolkit,
+            trigger: t,
+            ..
         } => TriageSource::Composio {
             toolkit: toolkit.clone(),
             trigger: t.clone(),
@@ -276,7 +270,10 @@ mod tests {
 
     #[test]
     fn drop_maps_to_non_ack_drop() {
-        let g = map_triage_to_gate(&decision(TriageAction::Drop, None), &trigger(TriggerPriority::Normal));
+        let g = map_triage_to_gate(
+            &decision(TriageAction::Drop, None),
+            &trigger(TriggerPriority::Normal),
+        );
         assert_eq!(
             g,
             GateDecision::Drop {
@@ -363,7 +360,10 @@ mod tests {
         assert!(apply_budget(promote(), &budget, 0.0).is_promote());
         // Third within the hour → downgraded to ack-drop.
         match apply_budget(promote(), &budget, 0.0) {
-            GateDecision::Drop { acknowledge, reason } => {
+            GateDecision::Drop {
+                acknowledge,
+                reason,
+            } => {
                 assert!(acknowledge);
                 assert!(reason.contains("budget exhausted"));
             }

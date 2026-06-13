@@ -26,7 +26,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
             function: "status",
             description: "Status of the event-driven subconscious trigger pipeline.",
             inputs: vec![],
-            outputs: vec![field("result", TypeSchema::Json, "Trigger pipeline status.")],
+            outputs: vec![field(
+                "result",
+                TypeSchema::Json,
+                "Trigger pipeline status.",
+            )],
         },
         _other => ControllerSchema {
             namespace: "subconscious_triggers",
@@ -41,7 +45,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
 fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let status = ops::build_status().await?;
-        to_json(RpcOutcome::single_log(status, "subconscious_triggers status"))
+        to_json(RpcOutcome::single_log(
+            status,
+            "subconscious_triggers status",
+        ))
     })
 }
 

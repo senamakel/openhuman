@@ -19,9 +19,7 @@ use std::hash::{Hash, Hasher};
 
 use crate::core::event_bus::DomainEvent;
 
-use super::types::{
-    DedupeKey, Trigger, TriggerPayload, TriggerPriority, TriggerSource,
-};
+use super::types::{DedupeKey, Trigger, TriggerPayload, TriggerPriority, TriggerSource};
 
 /// Sender marker used by orchestrator-originated proactive messages so the
 /// fan-in can skip them (anti self-trigger). Kept in sync with the

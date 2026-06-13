@@ -20,9 +20,7 @@ use tracing::{info, warn};
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::memory_conversations::ConversationMessage;
-use crate::openhuman::tools::traits::{
-    PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope,
-};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope};
 
 /// Reserved conversation thread for agent↔user communication, distinct from
 /// the orchestrator's internal reasoning thread.
@@ -46,9 +44,11 @@ pub fn notify_user(workspace_dir: std::path::PathBuf, message: &str, subject: Op
         sender: "agent".to_string(),
         created_at: chrono::Utc::now().to_rfc3339(),
     };
-    if let Err(err) =
-        crate::openhuman::memory_conversations::append_message(workspace_dir, USER_THREAD_ID, record)
-    {
+    if let Err(err) = crate::openhuman::memory_conversations::append_message(
+        workspace_dir,
+        USER_THREAD_ID,
+        record,
+    ) {
         warn!("[subconscious::user_thread] persist notify_user message failed: {err}");
     }
 
@@ -159,10 +159,7 @@ mod tests {
     #[tokio::test]
     async fn notify_user_rejects_empty_message() {
         let tool = NotifyUserTool;
-        let err = tool
-            .execute(json!({ "message": "   " }))
-            .await
-            .unwrap_err();
+        let err = tool.execute(json!({ "message": "   " })).await.unwrap_err();
         assert!(err.to_string().contains("message"));
     }
 

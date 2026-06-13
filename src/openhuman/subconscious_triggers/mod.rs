@@ -27,10 +27,6 @@ pub mod schemas;
 pub mod types;
 
 pub use bus::register_subconscious_triggers_subscriber;
-pub use schemas::{
-    all_controller_schemas as all_subconscious_triggers_controller_schemas,
-    all_registered_controllers as all_subconscious_triggers_registered_controllers,
-};
 pub use gate::{GatePass, PromotionBudget};
 pub use normalize::{normalize, SUBCONSCIOUS_SENDER_MARKER};
 pub use queue::{EnqueueOutcome, OrchestratorQueue};
@@ -39,6 +35,8 @@ pub use runtime::{
     global as orchestrator_global, init_global as init_orchestrator, OrchestratorConfig,
     TriggerOrchestrator,
 };
-pub use types::{
-    DedupeKey, GateDecision, Trigger, TriggerPayload, TriggerPriority, TriggerSource,
+pub use schemas::{
+    all_controller_schemas as all_subconscious_triggers_controller_schemas,
+    all_registered_controllers as all_subconscious_triggers_registered_controllers,
 };
+pub use types::{DedupeKey, GateDecision, Trigger, TriggerPayload, TriggerPriority, TriggerSource};

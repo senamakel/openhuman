@@ -137,7 +137,10 @@ impl TriggerRegistry {
     /// limit. Dedupe is checked first so duplicates never consume rate
     /// tokens.
     pub fn admit(&self, trigger: &Trigger, now: f64) -> AdmitOutcome {
-        if !self.dedupe.check_and_record(trigger.dedupe_key.as_str(), now) {
+        if !self
+            .dedupe
+            .check_and_record(trigger.dedupe_key.as_str(), now)
+        {
             return AdmitOutcome::Duplicate;
         }
         if !self.rate.allow(trigger.source.family(), now) {
@@ -245,24 +248,39 @@ mod tests {
     #[test]
     fn admit_passes_fresh_trigger() {
         let reg = TriggerRegistry::with_defaults();
-        assert_eq!(reg.admit(&trigger("k", cron()), 0.0), AdmitOutcome::Admitted);
+        assert_eq!(
+            reg.admit(&trigger("k", cron()), 0.0),
+            AdmitOutcome::Admitted
+        );
     }
 
     #[test]
     fn admit_rejects_duplicate_before_consuming_rate() {
         let reg = TriggerRegistry::new(DedupeWindow::new(300.0), RateLimiter::new(1.0, 0.0));
-        assert_eq!(reg.admit(&trigger("k", cron()), 0.0), AdmitOutcome::Admitted);
+        assert_eq!(
+            reg.admit(&trigger("k", cron()), 0.0),
+            AdmitOutcome::Admitted
+        );
         // Same key → Duplicate (must NOT have consumed the single rate token
         // on the first call beyond the one admit, so a *different* key still
         // works within capacity).
-        assert_eq!(reg.admit(&trigger("k", cron()), 1.0), AdmitOutcome::Duplicate);
+        assert_eq!(
+            reg.admit(&trigger("k", cron()), 1.0),
+            AdmitOutcome::Duplicate
+        );
     }
 
     #[test]
     fn admit_rate_limits_distinct_keys_same_family() {
         let reg = TriggerRegistry::new(DedupeWindow::new(300.0), RateLimiter::new(1.0, 0.0));
-        assert_eq!(reg.admit(&trigger("a", cron()), 0.0), AdmitOutcome::Admitted);
+        assert_eq!(
+            reg.admit(&trigger("a", cron()), 0.0),
+            AdmitOutcome::Admitted
+        );
         // Distinct dedupe key (passes dedupe) but same family → rate limited.
-        assert_eq!(reg.admit(&trigger("b", cron()), 0.0), AdmitOutcome::RateLimited);
+        assert_eq!(
+            reg.admit(&trigger("b", cron()), 0.0),
+            AdmitOutcome::RateLimited
+        );
     }
 }

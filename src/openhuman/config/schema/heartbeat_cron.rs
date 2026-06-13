@@ -251,7 +251,10 @@ mod tests {
         assert!(SubconsciousMode::EventDriven.is_event_driven());
         assert!(!SubconsciousMode::Aggressive.is_event_driven());
         assert!(!SubconsciousMode::EventDriven.is_read_only());
-        assert_eq!(SubconsciousMode::from_str_lossy("event_driven"), SubconsciousMode::EventDriven);
+        assert_eq!(
+            SubconsciousMode::from_str_lossy("event_driven"),
+            SubconsciousMode::EventDriven
+        );
     }
 
     #[test]

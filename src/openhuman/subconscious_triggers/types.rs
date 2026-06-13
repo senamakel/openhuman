@@ -16,9 +16,7 @@ use serde::{Deserialize, Serialize};
 /// upgraded/downgraded by the gate. `Ord` is derived from declaration
 /// order — `Low < Normal < High < Urgent` — so a max-selection picks the
 /// most important trigger.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TriggerPriority {
     Low,

@@ -66,9 +66,9 @@ describe('ProfileEditorPage', () => {
 
   it('create mode: name drives the slug and Create dispatches an upsert', async () => {
     renderAt('/settings/profiles/new');
-    expect(screen.getByText('New profile')).toBeInTheDocument();
 
     const name = screen.getByLabelText('Name');
+    expect(name).toBeInTheDocument();
     fireEvent.change(name, { target: { value: 'My Research' } });
     const id = screen.getByLabelText('ID') as HTMLInputElement;
     expect(id.value).toBe('my-research'); // auto-slugged

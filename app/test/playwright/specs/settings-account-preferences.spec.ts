@@ -34,7 +34,9 @@ test.describe('Settings - Account Preferences', () => {
   test('renders the account settings section route', async ({ page }) => {
     await gotoSettingsRoute(page, '/settings/account');
 
-    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible();
+    // Panel titles were dropped in the PanelPage migration; assert the panel's
+    // stable test id instead of the old heading.
+    await expect(page.getByTestId('account-panel')).toBeVisible();
     // The Account family surfaces its leaves via the sub-nav pill row above the
     // panel (the two-pane sidebar replaced the old section-hub list).
     await expect(page.getByTestId('settings-subnav-team')).toBeVisible();
@@ -51,7 +53,8 @@ test.describe('Settings - Account Preferences', () => {
     // whose sub-nav family surfaces recovery-phrase + wallet-balances.
     await gotoSettingsRoute(page, '/settings/crypto');
 
-    await expect(page.getByRole('heading', { name: 'Wallet Balances' })).toBeVisible();
+    // Panel titles were dropped in the PanelPage migration; the Wallet family is
+    // confirmed by its sub-nav leaves below.
     await expect(page.getByTestId('settings-subnav-recovery-phrase')).toBeVisible();
     await expect(page.getByTestId('settings-subnav-wallet-balances')).toBeVisible();
   });
@@ -102,7 +105,7 @@ test.describe('Settings - Account Preferences', () => {
 
     await gotoSettingsRoute(page, '/settings/privacy');
 
-    await expect(page.getByRole('heading', { name: 'Privacy & Security' })).toBeVisible();
+    await expect(page.getByTestId('settings-privacy-panel')).toBeVisible();
     await expect(page.getByText('Share Product Analytics and Diagnostics')).toBeVisible();
 
     // Toggle + confirm each setting sequentially. Clicking both back-to-back and

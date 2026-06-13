@@ -14,6 +14,7 @@ import { MemoryGraph } from '../components/intelligence/MemoryGraph';
 import { MemorySourcesRegistry } from '../components/intelligence/MemorySourcesRegistry';
 import { MemoryTreeStatusPanel } from '../components/intelligence/MemoryTreeStatusPanel';
 import { ToastContainer } from '../components/intelligence/Toast';
+import PanelPage from '../components/layout/PanelPage';
 import TwoPanelLayout from '../components/layout/TwoPanelLayout';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
 import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
@@ -147,7 +148,7 @@ export default function Brain() {
         defaultSidebarWidth={210}
         minSidebarWidth={170}
         maxSidebarWidth={320}
-        showDividerHandle={false}
+        seamless
         sidebar={
           <TwoPaneNav
             ariaLabel={t('nav.brain')}
@@ -235,85 +236,86 @@ export default function Brain() {
             }
           />
         }>
-        <div className="h-full overflow-y-auto">
-          <div className="mx-auto max-w-3xl space-y-5 px-2">
-            {activeTab === 'graph' && (
-              <div className="space-y-5 animate-fade-up">
-                <MemoryControls
-                  mode={mode}
-                  onModeChange={setMode}
-                  onRefresh={refresh}
-                  onToast={addToast}
-                  contentRootAbs={graph?.content_root_abs}
-                />
-
-                {graph ? (
-                  <MemoryGraph
-                    nodes={graph.nodes}
-                    edges={graph.edges}
+        {/* Knowledge & Memory panels relocated from Settings are themselves
+            PanelPage panels (description, no title; the back button hides
+            because the Brain sidebar owns navigation here), so they fill the
+            content pane and own their own scroll directly. */}
+        {KNOWLEDGE_TABS.has(activeTab) ? (
+          <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
+            {/* Distinct tab query key so the embedded Intelligence panel's
+                internal tab switches don't overwrite Brain's own
+                `?tab=intelligence` and unmount it. */}
+            {activeTab === 'intelligence' && <Intelligence tabParamKey="itab" />}
+            {activeTab === 'memory-data' && <MemoryDataPanel />}
+            {activeTab === 'memory-debug' && <MemoryDebugPanel />}
+            {activeTab === 'analysis-views' && <AnalysisViewsPanel />}
+          </SettingsLayoutProvider>
+        ) : (
+          // Bespoke tabs share the standard scaffold: a single scrolling body,
+          // all custom controls live inside it.
+          <PanelPage contentClassName="p-4">
+            <div className="mx-auto max-w-3xl space-y-5">
+              {activeTab === 'graph' && (
+                <div className="space-y-5 animate-fade-up">
+                  <MemoryControls
                     mode={mode}
-                    emptyHint={t('brain.empty')}
+                    onModeChange={setMode}
+                    onRefresh={refresh}
+                    onToast={addToast}
+                    contentRootAbs={graph?.content_root_abs}
                   />
-                ) : error ? (
-                  <div
-                    className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`}
-                    role="alert">
-                    {t('brain.error')}
+
+                  {graph ? (
+                    <MemoryGraph
+                      nodes={graph.nodes}
+                      edges={graph.edges}
+                      mode={mode}
+                      emptyHint={t('brain.empty')}
+                    />
+                  ) : error ? (
+                    <div
+                      className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`}
+                      role="alert">
+                      {t('brain.error')}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {activeTab === 'sources' && (
+                <div className="space-y-5 animate-fade-up">
+                  <MemorySourcesRegistry onToast={addToast} />
+                </div>
+              )}
+
+              {activeTab === 'sync' && (
+                <div className="space-y-5 animate-fade-up">
+                  <div className={cardClass}>
+                    <MemoryTreeStatusPanel onToast={addToast} />
                   </div>
-                ) : null}
-              </div>
-            )}
-
-            {activeTab === 'sources' && (
-              <div className="space-y-5 animate-fade-up">
-                <MemorySourcesRegistry onToast={addToast} />
-              </div>
-            )}
-
-            {activeTab === 'sync' && (
-              <div className="space-y-5 animate-fade-up">
-                <div className={cardClass}>
-                  <MemoryTreeStatusPanel onToast={addToast} />
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Knowledge & Memory panels relocated from Settings. Wrapped in the
-                settings two-pane context so their headers hide the back button
-                (the Brain sidebar provides navigation here). */}
-            {KNOWLEDGE_TABS.has(activeTab) && (
-              <div className="animate-fade-up">
-                <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
-                  {/* Use a distinct tab query key so the embedded Intelligence
-                      panel's internal tab switches don't overwrite Brain's own
-                      `?tab=intelligence` and unmount it. */}
-                  {activeTab === 'intelligence' && <Intelligence tabParamKey="itab" />}
-                  {activeTab === 'memory-data' && <MemoryDataPanel />}
-                  {activeTab === 'memory-debug' && <MemoryDebugPanel />}
-                  {activeTab === 'analysis-views' && <AnalysisViewsPanel />}
-                </SettingsLayoutProvider>
-              </div>
-            )}
-
-            {activeTab === 'subconscious' && (
-              <div className="space-y-3 animate-fade-up">
-                <BetaBanner />
-                <div className={cardClass}>
-                  <IntelligenceSubconsciousTab
-                    status={sub.status}
-                    mode={sub.mode}
-                    intervalMinutes={sub.intervalMinutes}
-                    triggerTick={sub.triggerTick}
-                    triggering={sub.triggering}
-                    settingMode={sub.settingMode}
-                    setMode={sub.setMode}
-                    setIntervalMinutes={sub.setIntervalMinutes}
-                  />
+              {activeTab === 'subconscious' && (
+                <div className="space-y-3 animate-fade-up">
+                  <BetaBanner />
+                  <div className={cardClass}>
+                    <IntelligenceSubconsciousTab
+                      status={sub.status}
+                      mode={sub.mode}
+                      intervalMinutes={sub.intervalMinutes}
+                      triggerTick={sub.triggerTick}
+                      triggering={sub.triggering}
+                      settingMode={sub.settingMode}
+                      setMode={sub.setMode}
+                      setIntervalMinutes={sub.setIntervalMinutes}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
+              )}
+            </div>
+          </PanelPage>
+        )}
       </TwoPanelLayout>
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />

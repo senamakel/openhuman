@@ -432,12 +432,15 @@ const en: TranslationMap = {
   'skills.tabs.mcp': 'MCP Servers',
   // Connections page tabs (Phase 2 rename)
   'connections.tabs.composio': 'Composio',
+  'connections.tabs.oauth': 'OAuth',
+  'connections.tabs.composioKey': 'Composio',
   'connections.tabs.channels': 'Channels',
   'connections.tabs.mcp': 'MCP Servers',
   'connections.tabs.skills': 'Skills',
   'connections.tabs.meetings': 'Meetings',
   'connections.groups.integrations': 'Integrations',
   'connections.groups.intelligence': 'Intelligence',
+  'connections.groups.apiKeys': 'API keys',
   // Intelligence / Memory
   'memory.title': 'Memory',
   'memory.search': 'Search memories...',

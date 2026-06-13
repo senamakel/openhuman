@@ -19,8 +19,9 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { selectAgentProfiles, upsertAgentProfile } from '../../../store/agentProfileSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import type { AgentProfile } from '../../../types/agentProfile';
+import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsHeader from '../components/SettingsHeader';
+import SettingsBackButton from '../components/SettingsBackButton';
 import {
   SettingsRow,
   SettingsSection,
@@ -89,7 +90,7 @@ const ProfileEditorPage = () => {
   // fans out into multiple setters in an effect: the source is async Redux
   // state that may arrive after mount, so a keyed remount / lazy initial state
   // can't capture it. Mirrors the suppression used by other settings panels.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+
   useEffect(() => {
     if (isCreate) return;
     if (!existing) {
@@ -166,19 +167,12 @@ const ProfileEditorPage = () => {
     }
   };
 
-  const title = isCreate
-    ? t('settings.profiles.editor.createTitle')
-    : name || t('settings.profiles.editor.editTitle');
-
-  const breadcrumbs = [
-    { label: t('nav.settings'), onClick: () => navigate('/settings') },
-    { label: t('settings.profiles.title'), onClick: backToList },
-  ];
-
   return (
-    <div className="z-10 relative">
-      <SettingsHeader title={title} showBackButton onBack={backToList} breadcrumbs={breadcrumbs} />
-
+    <PanelPage
+      className="z-10"
+      contentClassName=""
+      description={t('settings.profiles.menuDesc')}
+      leading={<SettingsBackButton onBack={backToList} />}>
       <div className="p-4">
         {notFound ? (
           <div className="space-y-3">
@@ -404,7 +398,7 @@ const ProfileEditorPage = () => {
           </div>
         )}
       </div>
-    </div>
+    </PanelPage>
   );
 };
 

@@ -93,6 +93,13 @@ export interface TwoPanelLayoutProps {
    * front-and-center. Defaults to true.
    */
   showDividerHandle?: boolean;
+  /**
+   * Join the two panes into a single bordered card with no gap between them: the
+   * shared edge becomes a flush, hairline drag divider. This is the default for
+   * every two-pane surface; pass `false` for the legacy split-card look with a
+   * gutter divider (no current callers).
+   */
+  seamless?: boolean;
 }
 
 /** Default card look shared by both panes. */
@@ -128,6 +135,7 @@ export default function TwoPanelLayout({
   paneClassName = DEFAULT_PANE_CLASS,
   showCollapsedRail = false,
   showDividerHandle = true,
+  seamless = true,
 }: TwoPanelLayoutProps) {
   const { t } = useT();
   const dispatch = useAppDispatch();
@@ -239,12 +247,16 @@ export default function TwoPanelLayout({
     [commitWidth, persistedWidth, keyboardStep]
   );
 
-  return (
-    <div className={`flex min-h-0 ${className}`}>
+  // In seamless mode the card lives on the wrapper that holds both panes, so the
+  // panes themselves carry no border/rounding and sit flush against the divider.
+  const paneCard = seamless ? '' : paneClassName;
+
+  const panes = (
+    <>
       {isOpen && (
         <>
           <div
-            className={`flex-shrink-0 min-w-0 overflow-hidden ${paneClassName} ${sidebarClassName}`}
+            className={`flex-shrink-0 min-w-0 overflow-hidden ${paneCard} ${sidebarClassName}`}
             style={{ width }}
             data-testid={`two-panel-sidebar-${id}`}>
             {sidebar}
@@ -263,19 +275,35 @@ export default function TwoPanelLayout({
             data-analytics-id="two-panel-resize-divider"
             onPointerDown={onPointerDown}
             onKeyDown={onDividerKeyDown}
-            className={`group relative flex flex-shrink-0 cursor-col-resize select-none items-center justify-center self-stretch focus:outline-none ${
-              // Tighter gutter between panes when there's no visible handle.
-              showDividerHandle ? 'mx-1 w-3' : 'mx-0 w-1.5'
-            }`}
+            className={
+              seamless
+                ? // Flush hairline seam: 1px visible line, wider invisible hit
+                  // area, highlights on hover/focus.
+                  'group relative w-px flex-shrink-0 cursor-col-resize select-none self-stretch bg-stone-200 dark:bg-neutral-800 focus:outline-none'
+                : `group relative flex flex-shrink-0 cursor-col-resize select-none items-center justify-center self-stretch focus:outline-none ${
+                    // Tighter gutter between panes when there's no visible handle.
+                    showDividerHandle ? 'mx-1 w-3' : 'mx-0 w-1.5'
+                  }`
+            }
             title={t('layout.resizeSidebar')}>
-            {/* Transparent hit area (full height) with a short grab handle
-                centered vertically. When the handle is hidden it stays
-                transparent at rest and only surfaces on hover/focus. */}
-            <span
-              className={`h-10 w-1 rounded-full transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500 ${
-                showDividerHandle ? 'bg-stone-400 dark:bg-neutral-500' : 'bg-transparent'
-              }`}
-            />
+            {seamless ? (
+              <>
+                {/* Wider transparent grab strip straddling the 1px seam; z-10
+                    keeps it above the adjacent panes so it stays grabbable. */}
+                <span className="absolute inset-y-0 -left-1 -right-1 z-10" />
+                {/* The seam line itself, brightened on hover/focus. */}
+                <span className="absolute inset-0 transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500" />
+              </>
+            ) : (
+              /* Transparent hit area (full height) with a short grab handle
+                 centered vertically. When the handle is hidden it stays
+                 transparent at rest and only surfaces on hover/focus. */
+              <span
+                className={`h-10 w-1 rounded-full transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500 ${
+                  showDividerHandle ? 'bg-stone-400 dark:bg-neutral-500' : 'bg-transparent'
+                }`}
+              />
+            )}
           </div>
         </>
       )}
@@ -295,9 +323,19 @@ export default function TwoPanelLayout({
         </button>
       )}
 
-      <div className={`flex-1 min-w-0 overflow-hidden ${paneClassName} ${contentClassName}`}>
+      <div className={`flex-1 min-w-0 overflow-hidden ${paneCard} ${contentClassName}`}>
         {children}
       </div>
+    </>
+  );
+
+  return (
+    <div className={`flex min-h-0 ${className}`}>
+      {seamless ? (
+        <div className={`flex min-h-0 flex-1 overflow-hidden ${DEFAULT_PANE_CLASS}`}>{panes}</div>
+      ) : (
+        panes
+      )}
     </div>
   );
 }

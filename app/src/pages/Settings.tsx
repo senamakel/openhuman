@@ -54,11 +54,13 @@ import WebhooksDebugPanel from '../components/settings/panels/WebhooksDebugPanel
 import WorkflowRunnerPanel from '../components/settings/panels/WorkflowRunnerPanel';
 
 const WrappedSettingsPage = ({ children }: { children: ReactNode }) => {
-  // The surrounding two-pane card (bg / border / rounding) is now provided by
-  // SettingsLayout's content pane, so panels sit directly on it — matching the
-  // conversations page. The max-width is applied once to the whole settings
-  // panel (SettingsLayout), so individual panels just fill the content pane.
-  return <div className="p-4 pt-4">{children}</div>;
+  // The surrounding two-pane card (bg / border / rounding) is provided by
+  // SettingsLayout's content pane, so panels sit directly on it. This wrapper
+  // fills the bounded Outlet area and is the page's single vertical scroll
+  // region: PanelScaffold-based panels are `h-full` and own their own internal
+  // scroll (so this never scrolls for them), while legacy panels that overflow
+  // scroll here. Either way there's exactly one scrollbar.
+  return <div className="h-full min-h-0 overflow-y-auto">{children}</div>;
 };
 
 /**
@@ -193,7 +195,11 @@ const Settings = () => {
             path="notifications-hub"
             element={<Navigate to="/settings/notifications" replace />}
           />
-          <Route path="composio" element={<Navigate to="/settings/integrations" replace />} />
+          {/* Composio (API key + routing) moved to Connections → API keys. */}
+          <Route
+            path="composio"
+            element={<Navigate to="/connections?tab=composio-key" replace />}
+          />
           {/* Merged Usage & Limits page */}
           <Route path="heartbeat" element={<Navigate to="/settings/usage#background" replace />} />
           <Route
@@ -210,7 +216,7 @@ const Settings = () => {
           <Route path="task-sources" element={<Navigate to="/settings/integrations" replace />} />
           <Route
             path="composio-routing"
-            element={<Navigate to="/settings/integrations#composio" replace />}
+            element={<Navigate to="/connections?tab=composio-key" replace />}
           />
           <Route
             path="webhooks-triggers"

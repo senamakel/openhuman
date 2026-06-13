@@ -152,9 +152,7 @@ describe('Skills page — Channels grid', () => {
     fireEvent.click(screen.getByTestId('two-pane-nav-composio'));
 
     // The Composio tab owns the Integrations category filter.
-    const integrationsHeading = screen.getByRole('heading', { name: 'Composio Integrations' });
-    const integrationsCard = integrationsHeading.closest('.rounded-2xl');
-    expect(integrationsCard).not.toBeNull();
+    const integrationsCard = screen.getByTestId('composio-integrations-card');
     const filterTabs = within(integrationsCard as HTMLElement)
       .queryAllByRole('tab')
       .map(el => el.textContent?.trim());

@@ -11,8 +11,9 @@ import {
   type TrustedAccess,
   type TrustedRoot,
 } from '../../../utils/tauriCommands';
+import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsHeader from '../components/SettingsHeader';
+import SettingsBackButton from '../components/SettingsBackButton';
 import {
   SettingsBadge,
   SettingsEmptyState,
@@ -37,7 +38,7 @@ const ALLOW_TOOL_INSTALL = true;
 
 const AgentAccessPanel = () => {
   const { t } = useT();
-  const { navigateBack, navigateToSettings, breadcrumbs } = useSettingsNavigation();
+  const { navigateBack, navigateToSettings } = useSettingsNavigation();
 
   // Load `level` so we can carry it through when writing other fields, but
   // the tier-selection UI lives in PermissionsPanel. Never render tier radios
@@ -234,14 +235,11 @@ const AgentAccessPanel = () => {
   };
 
   return (
-    <div className="z-10 relative">
-      <SettingsHeader
-        title={t('settings.agentAccess.title')}
-        showBackButton
-        onBack={navigateBack}
-        breadcrumbs={breadcrumbs}
-      />
-
+    <PanelPage
+      className="z-10"
+      contentClassName=""
+      description={t('settings.agentAccess.menuDesc')}
+      leading={<SettingsBackButton onBack={navigateBack} />}>
       <div className="p-4 pt-2 space-y-5">
         {/* Desktop-only notice */}
         {!isTauri() && (
@@ -439,7 +437,7 @@ const AgentAccessPanel = () => {
           </>
         )}
       </div>
-    </div>
+    </PanelPage>
   );
 };
 

@@ -1,23 +1,20 @@
 import { useT } from '../../../lib/i18n/I18nContext';
 import { BILLING_DASHBOARD_URL } from '../../../utils/links';
 import { openUrl } from '../../../utils/openUrl';
+import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsHeader from '../components/SettingsHeader';
+import SettingsBackButton from '../components/SettingsBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 const BillingPanel = () => {
   const { t } = useT();
-  const { navigateBack, breadcrumbs } = useSettingsNavigation();
+  const { navigateBack } = useSettingsNavigation();
 
   return (
-    <div className="z-10 relative">
-      <SettingsHeader
-        title={t('nav.avatarMenu.billing')}
-        showBackButton
-        onBack={navigateBack}
-        breadcrumbs={breadcrumbs}
-      />
-
+    <PanelPage
+      className="z-10"
+      contentClassName=""
+      leading={<SettingsBackButton onBack={navigateBack} />}>
       <div className="p-4">
         <div className="max-w-xl space-y-4">
           <div>
@@ -48,7 +45,7 @@ const BillingPanel = () => {
           </div>
         </div>
       </div>
-    </div>
+    </PanelPage>
   );
 };
 

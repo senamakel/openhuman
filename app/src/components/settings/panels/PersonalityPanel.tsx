@@ -47,7 +47,11 @@ const PersonalityPanel = () => {
           label: t('settings.assistant.personality'),
           content: <PersonaPanel embedded />,
         },
-        { id: 'face', label: t('settings.assistant.faceMascot'), content: <MascotPanel embedded /> },
+        {
+          id: 'face',
+          label: t('settings.assistant.faceMascot'),
+          content: <MascotPanel embedded />,
+        },
       ]}
     />
   );

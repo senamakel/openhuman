@@ -19,8 +19,9 @@ import {
   selectAgentProfiles,
 } from '../../../store/agentProfileSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
+import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsHeader from '../components/SettingsHeader';
+import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsEmptyState, SettingsSection } from '../controls';
 
 const ProfilesPanel = () => {
@@ -51,7 +52,6 @@ const ProfilesPanel = () => {
 
   const remove = useCallback(
     async (id: string) => {
-      // eslint-disable-next-line no-alert
       if (!window.confirm(t('settings.profiles.deleteConfirm'))) return;
       setActionError(null);
       try {
@@ -63,27 +63,22 @@ const ProfilesPanel = () => {
     [dispatch, t]
   );
 
-  const breadcrumbs = [{ label: t('nav.settings'), onClick: () => navigate('/settings') }];
-
   return (
-    <div className="z-10 relative">
-      <SettingsHeader
-        title={t('settings.profiles.title')}
-        showBackButton
-        onBack={() => navigate('/settings')}
-        breadcrumbs={breadcrumbs}
-        action={
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={() => navigate('/settings/profiles/new')}>
-            <LuPlus className="h-4 w-4" />
-            {t('settings.profiles.new')}
-          </Button>
-        }
-      />
-
+    <PanelPage
+      className="z-10"
+      contentClassName=""
+      description={t('settings.profiles.menuDesc')}
+      leading={<SettingsBackButton onBack={() => navigate('/settings')} />}
+      action={
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={() => navigate('/settings/profiles/new')}>
+          <LuPlus className="h-4 w-4" />
+          {t('settings.profiles.new')}
+        </Button>
+      }>
       <div className="space-y-4 p-4">
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
           {t('settings.profiles.subtitle')}
@@ -169,7 +164,7 @@ const ProfilesPanel = () => {
           </SettingsSection>
         )}
       </div>
-    </div>
+    </PanelPage>
   );
 };
 

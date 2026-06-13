@@ -124,9 +124,7 @@ test.describe('Settings - Advanced Config', () => {
     // rate-limit section (Max actions per hour).
     await gotoSettingsRoute(page, '/settings/autonomy');
 
-    await expect(
-      page.getByRole('heading', { name: 'Max actions per hour' })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Max actions per hour' })).toBeVisible();
     await page.locator('#autonomy-max-actions').fill(String(target));
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Saved.')).toBeVisible();

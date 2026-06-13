@@ -16,7 +16,7 @@ export interface PanelPageTab<T extends string = string> {
   /**
    * Body spacing for this tab. Defaults to `''` (no padding) because tab bodies
    * are usually embedded sub-panels that self-pad; pass the canonical
-   * `p-4 pt-2 space-y-5` for raw content.
+   * `p-4 space-y-5` for raw content.
    */
   contentClassName?: string;
   /** Override the chip's `data-testid`. */
@@ -47,14 +47,14 @@ export interface PanelPageProps<T extends string = string> {
 
   /** Single-body content (when there are no `tabs`). */
   children?: ReactNode;
-  /** Body spacing for the single-body case. Defaults to `p-4 pt-2 space-y-5`. */
+  /** Body spacing for the single-body case. Defaults to `p-4 space-y-5`. */
   contentClassName?: string;
 
   className?: string;
   testId?: string;
 }
 
-const DEFAULT_CONTENT_CLASS = 'p-4 pt-2 space-y-5';
+const DEFAULT_CONTENT_CLASS = 'p-4 space-y-5';
 
 /**
  * The standard panel page: an optional fixed header (description) and an

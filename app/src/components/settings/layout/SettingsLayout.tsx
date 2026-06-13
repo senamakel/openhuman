@@ -26,14 +26,14 @@ const SettingsLayout = () => {
         id="settings"
         // Max-width is applied once to the whole panel (sidebar + content
         // together) and centered, rather than capping each settings panel.
-        // Card panes (bg / border / rounding) come from TwoPanelLayout's
-        // default paneClassName, matching the conversations two-pane.
+        // `seamless` joins both panes into one bordered card with a flush,
+        // draggable hairline seam — no gutter between the nav and the panel.
         className="mx-auto h-full w-full max-w-6xl p-4 pt-6"
         defaultSidebarVisible
         defaultSidebarWidth={288}
         minSidebarWidth={220}
         maxSidebarWidth={420}
-        showDividerHandle={false}
+        seamless
         sidebar={
           // overflow-hidden so the scroll lives on the sidebar's own content
           // area (below the fixed search header), not this wrapper.

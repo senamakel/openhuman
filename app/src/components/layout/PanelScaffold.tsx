@@ -20,7 +20,7 @@ export interface PanelScaffoldProps {
   className?: string;
   /**
    * Classes for the scrollable body wrapper. Defaults to the canonical settings
-   * spacing (`p-4 pt-2 space-y-5`); pass `''` when the body already supplies its
+   * spacing (`p-4 space-y-5`); pass `''` when the body already supplies its
    * own padding (e.g. an embedded sub-panel).
    */
   contentClassName?: string;
@@ -37,7 +37,7 @@ export interface PanelScaffoldProps {
   testId?: string;
 }
 
-const DEFAULT_CONTENT_CLASS = 'p-4 pt-2 space-y-5';
+const DEFAULT_CONTENT_CLASS = 'p-4 space-y-5';
 const BODY_BORDER_CLASS = 'border-t border-stone-200 dark:border-neutral-800';
 
 /**

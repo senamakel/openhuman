@@ -817,7 +817,7 @@ export default function Skills() {
         defaultSidebarWidth={210}
         minSidebarWidth={170}
         maxSidebarWidth={320}
-        showDividerHandle={false}
+        seamless
         sidebar={
           <TwoPaneNav
             ariaLabel={t('nav.connections')}

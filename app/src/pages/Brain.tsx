@@ -147,7 +147,7 @@ export default function Brain() {
         defaultSidebarWidth={210}
         minSidebarWidth={170}
         maxSidebarWidth={320}
-        showDividerHandle={false}
+        seamless
         sidebar={
           <TwoPaneNav
             ariaLabel={t('nav.brain')}

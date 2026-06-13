@@ -18,7 +18,9 @@ export interface PanelHeaderProps {
 // Horizontal padding matches the canonical body padding (`p-4`) so the
 // description lines up with the content beneath it — no extra indent.
 export const DEFAULT_PANEL_HEADER_CLASS = 'px-4 pt-4 pb-3';
-export const DEFAULT_PANEL_HEADER_BG = 'bg-white dark:bg-neutral-900';
+// Slightly off the white/neutral-900 body so the fixed header reads as its own
+// band (paired with the body's hairline top border).
+export const DEFAULT_PANEL_HEADER_BG = 'bg-stone-50 dark:bg-neutral-800/40';
 
 /**
  * The fixed header band shared by {@link PanelScaffold} (panel header) and

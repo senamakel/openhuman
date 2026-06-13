@@ -4,12 +4,14 @@ pub mod global;
 pub mod heartbeat;
 mod schemas;
 pub mod scratchpad;
+pub mod session;
 pub mod situation_report;
 pub mod source_chunk;
 pub mod store;
 pub mod types;
 
 pub use engine::SubconsciousEngine;
+pub use session::{LongLivedSession, ProcessOutcome, ORCHESTRATOR_THREAD_ID};
 pub use schemas::{
     all_controller_schemas as all_subconscious_controller_schemas,
     all_registered_controllers as all_subconscious_registered_controllers,

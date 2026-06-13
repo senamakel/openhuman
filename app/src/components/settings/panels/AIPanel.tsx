@@ -54,8 +54,9 @@ import {
   openhumanHeartbeatTickNow,
 } from '../../../utils/tauriCommands/heartbeat';
 import { ConfirmationModal } from '../../intelligence/ConfirmationModal';
+import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsHeader from '../components/SettingsHeader';
+import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsSelect, SettingsStatusLine, SettingsSwitch, SettingsTextField } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import { ClaudeCodeStatusCard } from './ai/ClaudeCodeStatusCard';
@@ -2709,7 +2710,7 @@ interface AIPanelProps {
 
 const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const { t } = useT();
-  const { navigateBack, breadcrumbs } = useSettingsNavigation();
+  const { navigateBack } = useSettingsNavigation();
   const { saved, draft, isDirty, save, persist, discard, loading, error, reload } = useAISettings();
   // #1574 §4b: advisory re-embed modal, driven by the backend status RPC.
   // Logic lives in a unit-testable hook (see useReembedBackfillModal).
@@ -2919,16 +2920,11 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const sharedModelRef = useMemo(() => inferSharedModelRef(draft.routing), [draft.routing]);
 
   return (
-    <div className="z-10 relative">
-      {!embedded && (
-        <SettingsHeader
-          title={t('pages.settings.ai.llm')}
-          showBackButton
-          onBack={navigateBack}
-          breadcrumbs={breadcrumbs}
-        />
-      )}
-
+    <PanelPage
+      className="z-10"
+      contentClassName=""
+      description={embedded ? undefined : t('pages.settings.ai.llmDesc')}
+      leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
       <div className={embedded ? 'space-y-6' : 'space-y-6 p-4'}>
         <ClaudeCodeStatusCard />
         {/* ═══════════════════════════════════════════════════════════════
@@ -3477,7 +3473,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           }
         />
       )}
-    </div>
+    </PanelPage>
   );
 };
 

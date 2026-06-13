@@ -259,27 +259,58 @@ impl TriggerOrchestrator {
     }
 }
 
-/// Process-global orchestrator instance.
-static ORCHESTRATOR: OnceLock<Arc<TriggerOrchestrator>> = OnceLock::new();
+/// Live orchestrator + the handle to its spawned event loop, so the loop can
+/// be aborted on teardown (user switch).
+struct OrchestratorSlot {
+    orchestrator: Arc<TriggerOrchestrator>,
+    loop_handle: tokio::task::JoinHandle<()>,
+}
 
-/// Initialize the global orchestrator and spawn its event loop. Idempotent:
-/// a second call returns the already-initialized instance without spawning a
-/// second loop. Returns the shared handle.
+/// Process-global orchestrator slot. The `OnceLock` only initializes the
+/// mutex; the contained `Option` is mutable so the orchestrator can be torn
+/// down and re-bound across user/workspace switches.
+static ORCHESTRATOR: OnceLock<std::sync::Mutex<Option<OrchestratorSlot>>> = OnceLock::new();
+
+fn slot() -> &'static std::sync::Mutex<Option<OrchestratorSlot>> {
+    ORCHESTRATOR.get_or_init(|| std::sync::Mutex::new(None))
+}
+
+/// Initialize the global orchestrator and spawn its event loop. Idempotent and
+/// race-safe: the check-and-set happens under one lock, so a concurrent caller
+/// never spawns a second loop. Returns the shared handle.
 pub fn init_global(orch: Arc<TriggerOrchestrator>) -> Arc<TriggerOrchestrator> {
-    if let Some(existing) = ORCHESTRATOR.get() {
-        return Arc::clone(existing);
+    let mut guard = slot().lock().expect("orchestrator slot poisoned");
+    if let Some(existing) = guard.as_ref() {
+        return Arc::clone(&existing.orchestrator);
     }
-    let _ = ORCHESTRATOR.set(Arc::clone(&orch));
-    let loop_handle = Arc::clone(&orch);
-    tokio::spawn(async move {
-        loop_handle.run_loop().await;
+    let loop_handle = {
+        let this = Arc::clone(&orch);
+        tokio::spawn(async move { this.run_loop().await })
+    };
+    *guard = Some(OrchestratorSlot {
+        orchestrator: Arc::clone(&orch),
+        loop_handle,
     });
     orch
 }
 
 /// Get the global orchestrator if it has been initialized.
 pub fn global() -> Option<Arc<TriggerOrchestrator>> {
-    ORCHESTRATOR.get().cloned()
+    slot()
+        .lock()
+        .expect("orchestrator slot poisoned")
+        .as_ref()
+        .map(|s| Arc::clone(&s.orchestrator))
+}
+
+/// Tear down the global orchestrator: abort its event loop and clear the slot
+/// so a subsequent [`init_global`] (e.g. after a user/workspace switch) binds a
+/// fresh session instead of routing through the stale one.
+pub fn shutdown_global() {
+    if let Some(s) = slot().lock().expect("orchestrator slot poisoned").take() {
+        s.loop_handle.abort();
+        info!("[subconscious_triggers] orchestrator loop shut down");
+    }
 }
 
 /// Epoch seconds with sub-second precision.

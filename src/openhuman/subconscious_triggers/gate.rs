@@ -97,24 +97,56 @@ impl GatePass {
     /// call via `run_triage`; pure mapping is covered by the unit tests on
     /// [`map_triage_to_gate`] / [`apply_budget`].
     pub async fn evaluate(&self, trigger: &Trigger, now: f64) -> GateDecision {
+        tracing::debug!(
+            source = trigger.source.family(),
+            label = %trigger.display_label,
+            dedupe_key = trigger.dedupe_key.as_str(),
+            external = trigger.external_content,
+            "[subconscious_triggers::gate] evaluating trigger"
+        );
         let envelope = build_envelope(trigger);
         let decision = match run_triage(&envelope).await {
-            Ok(TriageOutcome::Decision(run)) => map_triage_to_gate(&run.decision, trigger),
+            Ok(TriageOutcome::Decision(run)) => {
+                tracing::debug!(
+                    action = run.decision.action.as_str(),
+                    label = %trigger.display_label,
+                    "[subconscious_triggers::gate] triage decision"
+                );
+                map_triage_to_gate(&run.decision, trigger)
+            }
             Ok(TriageOutcome::Deferred { reason, .. }) => {
                 // Couldn't reach a verdict (both arms down / budget / guard).
                 // Acknowledge so the trigger isn't silently lost, but spend
                 // no session run.
+                tracing::debug!(
+                    reason = %reason,
+                    label = %trigger.display_label,
+                    "[subconscious_triggers::gate] triage deferred → drop(ack)"
+                );
                 GateDecision::Drop {
                     acknowledge: true,
                     reason: format!("triage deferred: {reason}"),
                 }
             }
-            Err(err) => GateDecision::Drop {
-                acknowledge: true,
-                reason: format!("triage error: {err}"),
-            },
+            Err(err) => {
+                tracing::warn!(
+                    error = %err,
+                    label = %trigger.display_label,
+                    "[subconscious_triggers::gate] triage error → drop(ack)"
+                );
+                GateDecision::Drop {
+                    acknowledge: true,
+                    reason: format!("triage error: {err}"),
+                }
+            }
         };
-        apply_budget(decision, &self.budget, now)
+        let final_decision = apply_budget(decision, &self.budget, now);
+        tracing::debug!(
+            decision = final_decision.as_str(),
+            label = %trigger.display_label,
+            "[subconscious_triggers::gate] gate verdict"
+        );
+        final_decision
     }
 }
 
@@ -224,12 +256,20 @@ fn build_envelope(trigger: &Trigger) -> TriggerEnvelope {
         },
     };
 
+    // Preserve the original trigger receipt time (epoch seconds) so triage
+    // latency/recency reflects when the event arrived, not gate-eval time.
+    let received_at = chrono::DateTime::<chrono::Utc>::from_timestamp(
+        trigger.received_at.trunc() as i64,
+        (trigger.received_at.fract() * 1_000_000_000.0) as u32,
+    )
+    .unwrap_or_else(chrono::Utc::now);
+
     TriggerEnvelope {
         source,
         external_id: trigger.id.clone(),
         display_label: trigger.display_label.clone(),
         payload,
-        received_at: chrono::Utc::now(),
+        received_at,
         card_link: None,
     }
 }

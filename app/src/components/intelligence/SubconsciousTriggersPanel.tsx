@@ -171,19 +171,15 @@ export default function SubconsciousTriggersPanel() {
   );
 }
 
-function StatusRow({
-  label,
-  value,
-  tone = 'default',
-  mono = false,
-  testid,
-}: {
+interface StatusRowProps {
   label: string;
   value: string;
   tone?: 'default' | 'good' | 'muted';
   mono?: boolean;
   testid?: string;
-}) {
+}
+
+function StatusRow({ label, value, tone = 'default', mono = false, testid }: StatusRowProps) {
   const toneClass =
     tone === 'good'
       ? 'text-sage-600 dark:text-sage-400'

@@ -48,12 +48,13 @@ mod tests {
 
     #[tokio::test]
     async fn status_reports_reserved_thread_ids() {
-        // No orchestrator bootstrapped in a unit-test process.
         let status = build_status().await.expect("status builds");
         assert_eq!(status.orchestrator_thread_id, "subconscious:orchestrator");
         assert_eq!(status.user_thread_id, "subconscious:user");
-        // Disabled by default → not running, no queue.
-        assert!(!status.orchestrator_running);
-        assert!(status.queue_depth.is_none());
+        // `orchestrator_running`/`queue_depth` reflect a process-global slot that
+        // another test in this binary may have initialized, so assert only the
+        // invariant between them rather than a fixed value: a running
+        // orchestrator reports a queue depth; a stopped one reports none.
+        assert_eq!(status.orchestrator_running, status.queue_depth.is_some());
     }
 }

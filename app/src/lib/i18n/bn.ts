@@ -2328,7 +2328,7 @@ const messages: TranslationMap = {
   'subconscious.decision.cancelled': 'বাতিল',
   'subconscious.decision.skipped': 'এড়িয়ে গেছে',
   // Subconscious triggers (event-driven orchestrator) debug panel
-  'subconsciousTriggers.title': 'অবচেতন ট্রিগার',
+  'subconsciousTriggers.title': 'সাবকনশাস ট্রিগার',
   'subconsciousTriggers.subtitle': 'ইভেন্ট-চালিত ব্যাকগ্রাউন্ড অর্কেস্ট্রেটর',
   'subconsciousTriggers.pipeline': 'পাইপলাইন',
   'subconsciousTriggers.mode': 'মোড',

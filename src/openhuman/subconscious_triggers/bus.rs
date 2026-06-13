@@ -6,7 +6,7 @@
 //! flowing through their existing handlers. This subscriber simply makes the
 //! background orchestrator *aware* of them.
 
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use async_trait::async_trait;
 
@@ -14,7 +14,14 @@ use crate::core::event_bus::{subscribe_global, DomainEvent, EventHandler, Subscr
 
 use super::runtime::TriggerOrchestrator;
 
-static SUBSCRIPTION: OnceLock<SubscriptionHandle> = OnceLock::new();
+/// Resettable subscription slot: the handle is dropped (cancelling the
+/// subscription) on teardown so a user/workspace switch can re-register
+/// against a fresh orchestrator instead of leaking the stale binding.
+static SUBSCRIPTION: OnceLock<Mutex<Option<SubscriptionHandle>>> = OnceLock::new();
+
+fn subscription_slot() -> &'static Mutex<Option<SubscriptionHandle>> {
+    SUBSCRIPTION.get_or_init(|| Mutex::new(None))
+}
 
 /// Domain filter — only the four v1 trigger-source families. `agent`
 /// carries sub-agent conclusion events.
@@ -48,16 +55,18 @@ impl EventHandler for SubconsciousTriggerSubscriber {
     }
 }
 
-/// Register the trigger subscriber. Idempotent — the handle lives in a
-/// process-global `OnceLock` so the subscription is never dropped (which
-/// would silently cancel it).
+/// Register the trigger subscriber. Idempotent — the handle is held so the
+/// subscription stays live; re-registering while already subscribed is a no-op.
 pub fn register_subconscious_triggers_subscriber(orchestrator: Arc<TriggerOrchestrator>) {
-    if SUBSCRIPTION.get().is_some() {
+    let mut guard = subscription_slot()
+        .lock()
+        .expect("subscription slot poisoned");
+    if guard.is_some() {
         return;
     }
     match subscribe_global(Arc::new(SubconsciousTriggerSubscriber::new(orchestrator))) {
         Some(handle) => {
-            let _ = SUBSCRIPTION.set(handle);
+            *guard = Some(handle);
             tracing::debug!("[subconscious_triggers:bus] subscriber registered");
         }
         None => {
@@ -65,6 +74,19 @@ pub fn register_subconscious_triggers_subscriber(orchestrator: Arc<TriggerOrches
                 "[subconscious_triggers:bus] event bus not initialized; subscriber not registered"
             );
         }
+    }
+}
+
+/// Drop the trigger subscriber (cancels the subscription). Used on user/
+/// workspace switch teardown so the next bootstrap re-binds cleanly.
+pub fn unregister_subconscious_triggers_subscriber() {
+    if subscription_slot()
+        .lock()
+        .expect("subscription slot poisoned")
+        .take()
+        .is_some()
+    {
+        tracing::debug!("[subconscious_triggers:bus] subscriber unregistered");
     }
 }
 

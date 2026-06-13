@@ -33,10 +33,10 @@ test.describe('Skills registry flow', () => {
   });
 
   test('navigates to /connections and renders the current tabs', async ({ page }) => {
-    await expect(page.getByRole('tab', { name: 'Composio', exact: true })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Channels', exact: true })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'MCP Servers', exact: true })).toBeVisible();
-    await page.getByRole('tab', { name: 'Composio', exact: true }).click();
+    await expect(page.getByTestId('two-pane-nav-composio')).toBeVisible();
+    await expect(page.getByTestId('two-pane-nav-channels')).toBeVisible();
+    await expect(page.getByTestId('two-pane-nav-mcp')).toBeVisible();
+    await page.getByTestId('two-pane-nav-composio').click();
     await expect(
       page.getByRole('heading', { name: 'Composio Integrations', exact: true })
     ).toBeVisible();
@@ -52,12 +52,12 @@ test.describe('Skills registry flow', () => {
   });
 
   test('channels tab renders messaging connectors', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Channels', exact: true }).click();
+    await page.getByTestId('two-pane-nav-channels').click();
     await expect(page.getByText(/Telegram|Discord|Slack/).first()).toBeVisible();
   });
 
   test('MCP Servers tab renders the server table', async ({ page }) => {
-    await page.getByRole('tab', { name: 'MCP Servers', exact: true }).click();
+    await page.getByTestId('two-pane-nav-mcp').click();
     await expect(
       page
         .getByRole('searchbox')

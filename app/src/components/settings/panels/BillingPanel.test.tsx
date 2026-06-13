@@ -34,7 +34,9 @@ describe('<BillingPanel />', () => {
     // Billing no longer auto-opens the dashboard on mount (auto-open removed):
     // the panel just explains billing moved to the web.
     expect(
-      screen.getByText(/Subscription changes, payment methods, credits, and invoices are now managed/)
+      screen.getByText(
+        /Subscription changes, payment methods, credits, and invoices are now managed/
+      )
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open billing dashboard' })).toBeInTheDocument();
     // No openUrl call happens on mount.

@@ -124,7 +124,9 @@ test.describe('Settings - Advanced Config', () => {
     // rate-limit section (Max actions per hour).
     await gotoSettingsRoute(page, '/settings/autonomy');
 
-    await expect(page.getByText('Max actions per hour')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Max actions per hour' })
+    ).toBeVisible();
     await page.locator('#autonomy-max-actions').fill(String(target));
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Saved.')).toBeVisible();
@@ -204,8 +206,11 @@ test.describe('Settings - Advanced Config', () => {
     await gotoSettingsRoute(page, '/settings/about');
     await expect(page.getByText('Software updates')).toBeVisible();
 
+    // /settings/llm now redirects to the Connections page (LLM moved there).
     await gotoSettingsRoute(page, '/settings/llm');
-    await expect(page.getByRole('button', { name: 'AI & Models', exact: true })).toBeVisible();
+    await expect
+      .poll(async () => page.evaluate(() => window.location.hash))
+      .toContain('/connections');
     await expect(page.getByText(/Reasoning|Cloud providers|OpenHuman/).first()).toBeVisible();
   });
 });

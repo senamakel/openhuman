@@ -103,8 +103,7 @@ describe('retired hub slugs resolve to home', () => {
   test('ai (retired hub) resolves to home', () => expectRoute('/settings/ai', 'home'));
   test('agents-settings (retired hub) resolves to home', () =>
     expectRoute('/settings/agents-settings', 'home'));
-  test('features (retired hub) resolves to home', () =>
-    expectRoute('/settings/features', 'home'));
+  test('features (retired hub) resolves to home', () => expectRoute('/settings/features', 'home'));
   test('notifications-hub (retired hub) resolves to home', () =>
     expectRoute('/settings/notifications-hub', 'home'));
   test('crypto (retired hub) resolves to home', () => expectRoute('/settings/crypto', 'home'));

@@ -179,7 +179,12 @@ pub fn normalize_with_id(event: &DomainEvent, now: f64, new_id: String) -> Optio
             priority: TriggerPriority::Normal,
             // task_id is unique per spawn; completion fires once.
             dedupe_key: DedupeKey(format!("subagent:{task_id}:done")),
-            external_content: false,
+            // The sub-agent may have processed untrusted content (e.g. a
+            // researcher reading a webhook/email). The completion event does
+            // not carry the parent's taint, so fail safe: treat conclusions as
+            // tainted so a promoted follow-up turn can't launder untrusted
+            // output back into trusted (external-effect) tool access.
+            external_content: true,
             received_at: now,
             source: TriggerSource::SubagentConclusion {
                 task_id: task_id.clone(),
@@ -210,7 +215,8 @@ pub fn normalize_with_id(event: &DomainEvent, now: f64, new_id: String) -> Optio
             },
             priority: TriggerPriority::Normal,
             dedupe_key: DedupeKey(format!("subagent:{task_id}:failed")),
-            external_content: false,
+            // Fail safe: conclusions are tainted (see SubagentCompleted above).
+            external_content: true,
             received_at: now,
             source: TriggerSource::SubagentConclusion {
                 task_id: task_id.clone(),
@@ -376,7 +382,7 @@ mod tests {
             iterations: 3,
         };
         let t = normalize_with_id(&ev, 0.0, "id".into()).unwrap();
-        assert!(!t.external_content);
+        assert!(t.external_content, "conclusions are tainted (fail-safe)");
         assert_eq!(t.dedupe_key.as_str(), "subagent:task-7:done");
         match t.source {
             TriggerSource::SubagentConclusion { ok, agent_id, .. } => {

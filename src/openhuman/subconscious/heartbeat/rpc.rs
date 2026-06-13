@@ -127,9 +127,13 @@ pub async fn settings_set(
     // and tool restrictions take effect. Toggling the trigger pipeline also
     // restarts so the orchestrator bootstraps/stops. stop + bootstrap is
     // idempotent.
+    // `max_promotions_per_hour` is included so a cap change re-bootstraps the
+    // orchestrator (which rebuilds `GatePass` with the new `PromotionBudget`);
+    // otherwise the running gate would keep enforcing the old cap.
     if patch.subconscious_mode.is_some()
         || patch.enabled.is_some()
         || patch.triggers_enabled.is_some()
+        || patch.max_promotions_per_hour.is_some()
     {
         crate::openhuman::subconscious::global::stop_heartbeat_loop().await;
         if config.heartbeat.effective_subconscious_mode().is_enabled() {

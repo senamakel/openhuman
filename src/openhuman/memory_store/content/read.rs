@@ -17,6 +17,17 @@ use crate::openhuman::memory::util::redact::redact;
 /// touching disk and (2) — when the target exists — canonicalize the resolved
 /// path and assert it stays under the canonicalized `content_root`.
 fn resolve_within_content_root(content_root: &Path, rel_path: &str) -> anyhow::Result<PathBuf> {
+    // Reject absolute inputs outright. A leading `/` (or a Windows drive/UNC
+    // prefix) would otherwise split into an empty leading component that gets
+    // silently skipped, treating `/etc/passwd` as a relative path under the
+    // content root rather than flagging the obvious traversal attempt.
+    if Path::new(rel_path).is_absolute() {
+        return Err(anyhow::anyhow!(
+            "[content_store::read] rejected absolute path in path_hash={}",
+            redact(rel_path),
+        ));
+    }
+
     let mut abs = content_root.to_path_buf();
     for component in rel_path.split('/') {
         // Skip empty components from leading/double/trailing slashes.

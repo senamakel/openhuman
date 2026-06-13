@@ -1059,7 +1059,7 @@ impl Provider for ReliableProvider {
             for (provider_name, provider) in &streaming_providers {
                 candidates.push((
                     (*provider_name).clone(),
-                    std::sync::Arc::clone(*provider),
+                    std::sync::Arc::clone(provider),
                     current_model.clone(),
                 ));
             }

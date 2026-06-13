@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import Webhooks from '../../../pages/Webhooks';
@@ -28,6 +28,13 @@ const IntegrationsPanel = () => {
   const { navigateBack } = useSettingsNavigation();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Legacy deep link: the old Composio tab lived at `#composio` on this page.
+  // It now lives under Connections → API keys, so normalize the bookmark.
+  if (location.hash === '#composio') {
+    return <Navigate to="/connections?tab=composio-key" replace />;
+  }
+
   // The router is the single source of truth for the active tab.
   const tab: TabId = hashToTab(location.hash);
 

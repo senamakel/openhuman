@@ -1,8 +1,15 @@
 import { fireEvent, screen } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
 import { describe, expect, test, vi } from 'vitest';
 
 import { renderWithProviders } from '../../../../test/test-utils';
 import IntegrationsPanel from '../IntegrationsPanel';
+
+// Surfaces the current router location so we can assert legacy-hash redirects.
+const LocationProbe = () => {
+  const location = useLocation();
+  return <div data-testid="location-probe">{`${location.pathname}${location.search}`}</div>;
+};
 
 // The tab bodies have their own test suites — stub them so these tests stay
 // focused on the hash <-> tab mapping that IntegrationsPanel owns.
@@ -48,6 +55,18 @@ describe('IntegrationsPanel', () => {
       'true'
     );
     expect(screen.getByTestId('stub-webhooks')).toHaveAttribute('data-embedded', 'true');
+  });
+
+  test('legacy #composio hash redirects to Connections → API keys', () => {
+    renderWithProviders(
+      <>
+        <IntegrationsPanel />
+        <LocationProbe />
+      </>,
+      { initialEntries: ['/settings/integrations#composio'] }
+    );
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/connections?tab=composio-key');
   });
 
   test('clicking tabs switches the view in place', async () => {

@@ -32,8 +32,8 @@ pub use normalize::{normalize, SUBCONSCIOUS_SENDER_MARKER};
 pub use queue::{EnqueueOutcome, OrchestratorQueue};
 pub use registry::{AdmitOutcome, DedupeWindow, RateLimiter, TriggerRegistry};
 pub use runtime::{
-    global as orchestrator_global, init_global as init_orchestrator, OrchestratorConfig,
-    TriggerOrchestrator,
+    global as orchestrator_global, init_global as init_orchestrator, Gate, OrchestratorConfig,
+    SessionExecutor, TriggerOrchestrator,
 };
 pub use schemas::{
     all_controller_schemas as all_subconscious_triggers_controller_schemas,

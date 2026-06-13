@@ -15,6 +15,7 @@
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
+use async_trait::async_trait;
 use tokio::sync::Notify;
 use tracing::{debug, info, warn};
 
@@ -25,7 +26,49 @@ use super::gate::GatePass;
 use super::normalize::normalize;
 use super::queue::{EnqueueOutcome, OrchestratorQueue};
 use super::registry::{AdmitOutcome, DedupeWindow, RateLimiter, TriggerRegistry};
-use super::types::GateDecision;
+use super::types::{GateDecision, Trigger};
+
+/// The promote/drop gate. The production implementation is [`GatePass`]
+/// (LLM-backed via `agent::triage`); tests inject a scripted gate so the
+/// orchestration flow can be driven deterministically.
+#[async_trait]
+pub trait Gate: Send + Sync {
+    async fn evaluate(&self, trigger: &Trigger, now: f64) -> GateDecision;
+}
+
+#[async_trait]
+impl Gate for GatePass {
+    async fn evaluate(&self, trigger: &Trigger, now: f64) -> GateDecision {
+        GatePass::evaluate(self, trigger, now).await
+    }
+}
+
+/// Executes a promoted trigger as a long-lived-session turn. The production
+/// implementation is [`LongLivedSession`]; tests inject a scripted executor
+/// to simulate agent / sub-agent behaviour and back-and-forth comms.
+#[async_trait]
+pub trait SessionExecutor: Send + Sync {
+    /// Run the promoted trigger. `summary` is the synthesized user-turn;
+    /// `external_content` marks third-party-tainted input. Returns the
+    /// session's response text.
+    async fn execute(&self, summary: &str, external_content: bool) -> Result<String, String>;
+
+    /// Reserved thread id this executor writes to (for logging).
+    fn thread_id(&self) -> &str;
+}
+
+#[async_trait]
+impl SessionExecutor for LongLivedSession {
+    async fn execute(&self, summary: &str, external_content: bool) -> Result<String, String> {
+        self.process_promoted(summary, external_content)
+            .await
+            .map(|outcome| outcome.response)
+    }
+
+    fn thread_id(&self) -> &str {
+        LongLivedSession::thread_id(self)
+    }
+}
 
 /// Tunables for the trigger pipeline. Sourced from `HeartbeatConfig` in
 /// slice 7; sensible defaults until then.
@@ -53,21 +96,34 @@ impl Default for OrchestratorConfig {
 /// Background orchestrator: trigger ingestion front-end + serial event loop.
 pub struct TriggerOrchestrator {
     registry: TriggerRegistry,
-    gate: GatePass,
+    gate: Arc<dyn Gate>,
     queue: Arc<OrchestratorQueue>,
-    session: Arc<LongLivedSession>,
+    session: Arc<dyn SessionExecutor>,
     notify: Arc<Notify>,
 }
 
 impl TriggerOrchestrator {
-    pub fn new(session: Arc<LongLivedSession>, config: OrchestratorConfig) -> Self {
+    /// Production constructor: real LLM gate ([`GatePass`]) over the given
+    /// session executor (normally a [`LongLivedSession`]).
+    pub fn new(session: Arc<dyn SessionExecutor>, config: OrchestratorConfig) -> Self {
+        let gate = Arc::new(GatePass::new(config.max_promotions_per_hour));
+        Self::with_components(session, gate, config)
+    }
+
+    /// Constructor with an injected [`Gate`] — used by tests to drive the
+    /// orchestration flow deterministically without an LLM.
+    pub fn with_components(
+        session: Arc<dyn SessionExecutor>,
+        gate: Arc<dyn Gate>,
+        config: OrchestratorConfig,
+    ) -> Self {
         let registry = TriggerRegistry::new(
             DedupeWindow::new(config.dedupe_ttl_secs),
             RateLimiter::new(config.rate_capacity, config.rate_refill_per_sec),
         );
         Self {
             registry,
-            gate: GatePass::new(config.max_promotions_per_hour),
+            gate,
             queue: Arc::new(OrchestratorQueue::new(config.queue_capacity)),
             session,
             notify: Arc::new(Notify::new()),
@@ -186,7 +242,7 @@ impl TriggerOrchestrator {
                     item.source.family(),
                     item.display_label
                 );
-                if let Err(err) = self.session.process_promoted(&summary, external).await {
+                if let Err(err) = self.session.execute(&summary, external).await {
                     warn!(
                         "[subconscious_triggers] session run failed label={} err={}",
                         item.display_label, err

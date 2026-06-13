@@ -34,8 +34,13 @@
 //!                          one-time login tokens, never raw session JWTs
 //! - `GET /auth/telegram` — external browser callback (carries its own token)
 //! - `GET /schema`        — read-only schema discovery
-//! - `GET /events`        — SSE stream; browser `EventSource` cannot set headers
-//! - `GET /ws/dictation`  — WebSocket upgrade; browser WS API cannot set headers
+//! - `GET /events`        — SSE stream; browser `EventSource` cannot set
+//!                          headers, so the handler enforces a bind-token /
+//!                          bearer credential itself
+//! - `GET /ws/dictation`  — WebSocket upgrade; browser WS API cannot set
+//!                          headers, so the handler enforces the bearer
+//!                          (header or `?token=`) + origin itself before the
+//!                          upgrade (C4 / issue #1924)
 //! - `OPTIONS *`          — CORS preflight (handled by outer CORS middleware)
 //!
 //! Endpoints that accept the bearer either via header **or** `?token=…` query
@@ -71,10 +76,13 @@ static RPC_TOKEN: OnceLock<String> = OnceLock::new();
 
 /// Paths that bypass bearer-token authentication.
 ///
-/// `/rpc` and `/v1/*` carry executable surfaces and must be protected. All
-/// other routes are read-only, streaming, or WebSocket upgrades whose clients
-/// (browser `EventSource`, browser `WebSocket`) cannot set `Authorization`
-/// headers via standard APIs.
+/// `/rpc` and `/v1/*` carry executable surfaces and must be protected. The
+/// other routes are read-only, or are streaming / WebSocket upgrades whose
+/// clients (browser `EventSource`, browser `WebSocket`) cannot set
+/// `Authorization` headers via standard APIs. The latter are not unauthenticated
+/// — `/events` and `/ws/dictation` are exempt from the *middleware* header check
+/// but enforce their own credential (bind token / bearer or `?token=`, plus an
+/// origin check for `/ws/dictation`) inside the handler.
 const PUBLIC_PATHS: &[&str] = &[
     "/",
     "/health",

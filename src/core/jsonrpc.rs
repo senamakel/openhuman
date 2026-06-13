@@ -831,9 +831,84 @@ async fn desktop_auth_handler(
     )
 }
 
+/// Query parameters for the dictation WebSocket endpoint.
+///
+/// Browser `WebSocket` cannot attach an `Authorization` header on upgrade, so
+/// the FE forwards the per-process core bearer as a `?token=…` query param —
+/// validated against the same in-process RPC token via [`verify_bearer_token`]
+/// (single source of truth, no separate credential).
+#[derive(Debug, serde::Deserialize)]
+struct DictationQuery {
+    #[serde(default)]
+    token: Option<String>,
+}
+
 /// WebSocket upgrade handler for streaming voice dictation.
-async fn dictation_ws_handler(ws: WebSocketUpgrade) -> Response {
+///
+/// Authenticated before upgrade (C4 / issue #1924): the request must carry the
+/// per-process core bearer either as `Authorization: Bearer <token>` (CLI /
+/// native callers) or as `?token=<token>` (browser `WebSocket`, which cannot
+/// set headers), and — when an `Origin` header is present — that origin must be
+/// on the local-app allowlist, mirroring the Socket.IO handshake check. Missing
+/// or wrong credentials are rejected with 401 and the socket is never upgraded.
+async fn dictation_ws_handler(
+    headers: axum::http::HeaderMap,
+    Query(query): Query<DictationQuery>,
+    ws: WebSocketUpgrade,
+) -> Response {
     log::info!("[ws] dictation WebSocket upgrade requested");
+
+    // Origin check (same allowlist Socket.IO enforces): native clients send no
+    // Origin and are accepted; cross-origin browser pages are rejected even if
+    // they somehow hold the bearer.
+    let origin = headers
+        .get(header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim);
+    if !crate::core::socketio::origin_is_allowed(origin) {
+        log::warn!("[ws] dictation upgrade rejected: disallowed origin {origin:?}");
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "error": "forbidden",
+                "message": "Origin not allowed for the dictation WebSocket."
+            })),
+        )
+            .into_response();
+    }
+
+    // Bearer check: header first, then `?token=` for browser WebSocket clients.
+    let header_token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let bearer_ok = header_token
+        .map(crate::core::auth::verify_bearer_token)
+        .unwrap_or(false);
+    let bearer_ok = bearer_ok
+        || query
+            .token
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(crate::core::auth::verify_bearer_token)
+            .unwrap_or(false);
+    if !bearer_ok {
+        log::warn!("[ws] dictation upgrade rejected: missing or invalid bearer token");
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "ok": false,
+                "error": "unauthorized",
+                "message": "Missing or invalid token. Supply 'Authorization: Bearer <core>' or ?token=<core>."
+            })),
+        )
+            .into_response();
+    }
+
     ws.on_upgrade(|socket| async move {
         let config = match crate::openhuman::config::rpc::load_config_with_timeout().await {
             Ok(c) => Arc::new(c),
@@ -1626,25 +1701,37 @@ async fn run_server_inner(
             .ok()
             .filter(|s| !s.trim().is_empty())
             .is_some();
-        // Auth subsystem was already initialised above; fall back to the live
-        // token if neither input matched but somehow a token is seeded (e.g.
-        // a future caller route that doesn't thread the value through here).
-        let has_initialized_token = crate::core::auth::get_rpc_token()
-            .map(|t| !t.trim().is_empty())
-            .unwrap_or(false);
-        let has_explicit_token = has_in_memory_token || has_env_token || has_initialized_token;
+        // Fail closed (#1919): a non-loopback bind exposes the entire RPC
+        // surface (tool execution, file access, credentials) to the network,
+        // so it must be guarded by an OPERATOR-supplied bearer. Only an
+        // explicit operator token counts here:
+        //   - in-memory handoff from the embedded caller (`rpc_token`), or
+        //   - `OPENHUMAN_CORE_TOKEN` in the process environment.
+        // The self-generated `core.token` file (which `init_rpc_token` may
+        // already have seeded into the auth subsystem above) does NOT satisfy
+        // this requirement: remote clients cannot read that file, so treating
+        // it as "explicit" would be fail-open. Refuse to bind instead of
+        // serving an effectively unauthenticated network surface.
+        let has_explicit_token = has_in_memory_token || has_env_token;
         if !has_explicit_token {
             log::error!(
-                "[core] ⚠️  SECURITY WARNING: Binding on public address {resolved_host} without \
-                 an explicit OPENHUMAN_CORE_TOKEN. The RPC server will auto-generate a token, \
-                 but external clients will not know it. Set OPENHUMAN_CORE_TOKEN in your \
-                 .env file to secure the RPC endpoint."
+                "[core] SECURITY: refusing to bind on public address {resolved_host} without an \
+                 explicit operator-supplied RPC token. Set {} in your environment (or hand the \
+                 bearer in-memory via the embedded core handle) to secure the RPC endpoint.",
+                crate::core::auth::CORE_TOKEN_ENV_VAR
             );
             eprintln!(
-                "\n\x1b[1;31m[SECURITY]\x1b[0m Binding on {resolved_host} without OPENHUMAN_CORE_TOKEN.\n\
-                 Set OPENHUMAN_CORE_TOKEN in .env to secure the RPC endpoint.\n\
-                 Without it, the auto-generated token is written to {{workspace}}/core.token\n\
-                 but remote clients will not be able to authenticate.\n"
+                "\n\x1b[1;31m[SECURITY]\x1b[0m Refusing to bind on {resolved_host} without {}.\n\
+                 The auto-generated {{workspace}}/core.token does NOT secure a public bind —\n\
+                 remote clients cannot read it. Set {} in your environment to secure the\n\
+                 RPC endpoint, or bind on a loopback address.\n",
+                crate::core::auth::CORE_TOKEN_ENV_VAR,
+                crate::core::auth::CORE_TOKEN_ENV_VAR
+            );
+            anyhow::bail!(
+                "refusing to bind on non-loopback address {resolved_host} without an explicit \
+                 operator-supplied RPC token ({})",
+                crate::core::auth::CORE_TOKEN_ENV_VAR
             );
         }
     }

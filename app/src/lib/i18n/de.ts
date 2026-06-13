@@ -5507,6 +5507,57 @@ const messages: TranslationMap = {
   'notch.speaking': 'Spreche…',
   'notch.transcribing': 'Transkribiere…',
   'notch.executing': 'Führe aus…',
+  // ── Agent Profiles ───────────────────────────────────────────────────────
+  'settings.profiles.title': 'Agentenprofile',
+  'settings.profiles.subtitle':
+    'Agenten mit Charakter – jeder mit eigener Seele, Erinnerung, Konnektoren und Fähigkeiten.',
+  'settings.profiles.menuDesc': 'Agentenprofile erstellen und verwalten',
+  'settings.profiles.new': 'Neues Profil',
+  'settings.profiles.empty': 'Noch keine Agentenprofile',
+  'settings.profiles.loadError': 'Profile konnten nicht geladen werden',
+  'settings.profiles.active': 'Aktiv',
+  'settings.profiles.setActive': 'Als aktiv festlegen',
+  'settings.profiles.sourceBuiltIn': 'Integriert',
+  'settings.profiles.sourceCustom': 'Benutzerdefiniert',
+  'settings.profiles.deleteConfirm':
+    'Dieses Profil löschen? Das kann nicht rückgängig gemacht werden.',
+  'settings.profiles.editor.createTitle': 'Neues Profil',
+  'settings.profiles.editor.editTitle': 'Profil bearbeiten',
+  'settings.profiles.editor.name': 'Name',
+  'settings.profiles.editor.id': 'Kennung',
+  'settings.profiles.editor.idHint': 'Nur Kleinbuchstaben, Ziffern und Bindestriche.',
+  'settings.profiles.editor.description': 'Beschreibung',
+  'settings.profiles.editor.soul': 'Seele (SOUL.md)',
+  'settings.profiles.editor.soulHint':
+    'Benutzerdefinierte Identität dieses Profils. Leer greift auf die SOUL.md des Arbeitsbereichs zurück.',
+  'settings.profiles.editor.baseAgent': 'Basis-Agent',
+  'settings.profiles.editor.baseAgentHint':
+    'Mit welcher Agentendefinition dieses Profil läuft (z. B. orchestrator).',
+  'settings.profiles.editor.model': 'Modell',
+  'settings.profiles.editor.modelHint':
+    'Optionale Modellüberschreibung. Leer erbt die Standardeinstellung.',
+  'settings.profiles.editor.temperature': 'Temperatur',
+  'settings.profiles.editor.systemPromptSuffix': 'Suffix der Systemaufforderung',
+  'settings.profiles.editor.agentConversations': 'Agentengespräche abrufen',
+  'settings.profiles.editor.agentConversationsHint':
+    'Erinnerungen aus früheren und chatübergreifenden Gesprächen in den Kontext dieses Profils einbeziehen.',
+  'settings.profiles.editor.memorySources': 'Gedächtnisquellen',
+  'settings.profiles.editor.memorySourcesHint':
+    'Gedächtnisquellen, aus denen dieses Profil abruft.',
+  'settings.profiles.editor.connectors': 'Konnektoren',
+  'settings.profiles.editor.connectorsHint': 'Composio-Toolkits, die dieses Profil verwenden kann.',
+  'settings.profiles.editor.skills': 'Fähigkeiten',
+  'settings.profiles.editor.skillsHint':
+    'Workflows, die dieses Profil auflisten und ausführen kann.',
+  'settings.profiles.editor.mcpServers': 'MCP-Server',
+  'settings.profiles.editor.mcpServersHint': 'MCP-Server, die dieses Profil erreichen kann.',
+  'settings.profiles.editor.all': 'Alle',
+  'settings.profiles.editor.selected': 'Ausgewählt',
+  'settings.profiles.editor.addPlaceholder': 'Kennung eingeben und Enter drücken',
+  'settings.profiles.editor.removeAria': '{item} entfernen',
+  'settings.profiles.editor.notFound': 'Profil nicht gefunden',
+  'settings.profiles.editor.saving': 'Wird gespeichert…',
+  'settings.profiles.editor.idRequired': 'Die Profil-Kennung darf nicht leer sein',
 };
 
 export default messages;

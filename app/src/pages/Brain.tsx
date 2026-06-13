@@ -140,7 +140,9 @@ export default function Brain() {
     <div className="h-full">
       <TwoPanelLayout
         id="brain"
-        className="h-full p-4 pt-6"
+        // Max-width applied once to the whole panel (sidebar + content) and
+        // centered, matching the settings two-pane shell.
+        className="mx-auto h-full w-full max-w-6xl p-4 pt-6"
         defaultSidebarVisible
         defaultSidebarWidth={210}
         minSidebarWidth={170}

@@ -355,6 +355,19 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navOrder: 2,
   },
 
+  // --- Agent profiles (top-level sidebar destination, Assistant group) ---
+  {
+    // profiles: top-level agent profiles (soul, memory, skills, MCP, connectors).
+    // Child routes profiles/new and profiles/edit/:id resolve to this entry.
+    id: 'profiles',
+    titleKey: 'settings.profiles.title',
+    descriptionKey: 'settings.profiles.menuDesc',
+    section: 'home',
+    searchKeywords: ['profile', 'profiles', 'agent', 'soul', 'memory', 'skills', 'mcp', 'connectors'],
+    navGroup: 'assistant',
+    navOrder: 3,
+  },
+
   // =========================================================================
   // AGENTS section leaf panels
   // =========================================================================
@@ -365,7 +378,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     section: 'agents',
     searchKeywords: ['agent', 'profiles'],
     navGroup: 'assistant',
-    navOrder: 3,
+    navOrder: 4,
   },
   {
     // agent-access also hosts the autonomy rate-limit section (formerly the

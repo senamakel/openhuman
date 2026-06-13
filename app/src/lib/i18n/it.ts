@@ -5466,6 +5466,55 @@ const messages: TranslationMap = {
   'notch.speaking': 'Parlo…',
   'notch.transcribing': 'Trascrizione…',
   'notch.executing': 'Eseguendo…',
+  // ── Agent Profiles ───────────────────────────────────────────────────────
+  'settings.profiles.title': 'Profili agente',
+  'settings.profiles.subtitle':
+    'Agenti con carattere: ognuno con la propria anima, memoria, connettori e competenze.',
+  'settings.profiles.menuDesc': 'Crea e gestisci i profili agente',
+  'settings.profiles.new': 'Nuovo profilo',
+  'settings.profiles.empty': 'Ancora nessun profilo agente',
+  'settings.profiles.loadError': 'Impossibile caricare i profili',
+  'settings.profiles.active': 'Attivo',
+  'settings.profiles.setActive': 'Imposta come attivo',
+  'settings.profiles.sourceBuiltIn': 'Integrato',
+  'settings.profiles.sourceCustom': 'Personalizzato',
+  'settings.profiles.deleteConfirm': 'Eliminare questo profilo? Operazione irreversibile.',
+  'settings.profiles.editor.createTitle': 'Nuovo profilo',
+  'settings.profiles.editor.editTitle': 'Modifica profilo',
+  'settings.profiles.editor.name': 'Nome',
+  'settings.profiles.editor.id': 'Identificativo',
+  'settings.profiles.editor.idHint': 'Solo lettere minuscole, numeri e trattini.',
+  'settings.profiles.editor.description': 'Descrizione',
+  'settings.profiles.editor.soul': 'Anima (SOUL.md)',
+  'settings.profiles.editor.soulHint':
+    "Identità personalizzata di questo profilo. Vuoto ricorre al SOUL.md dell'area di lavoro.",
+  'settings.profiles.editor.baseAgent': 'Agente di base',
+  'settings.profiles.editor.baseAgentHint':
+    'Con quale definizione di agente viene eseguito questo profilo (ad es. orchestrator).',
+  'settings.profiles.editor.model': 'Modello',
+  'settings.profiles.editor.modelHint':
+    'Override del modello opzionale. Vuoto eredita il valore predefinito.',
+  'settings.profiles.editor.temperature': 'Temperatura',
+  'settings.profiles.editor.systemPromptSuffix': 'Suffisso del prompt di sistema',
+  'settings.profiles.editor.agentConversations': "Richiamare le conversazioni dell'agente",
+  'settings.profiles.editor.agentConversationsHint':
+    'Includere la memoria delle chat precedenti e incrociate nel contesto di questo profilo.',
+  'settings.profiles.editor.memorySources': 'Fonti di memoria',
+  'settings.profiles.editor.memorySourcesHint': 'Fonti di memoria da cui questo profilo richiama.',
+  'settings.profiles.editor.connectors': 'Connettori',
+  'settings.profiles.editor.connectorsHint': 'Toolkit Composio utilizzabili da questo profilo.',
+  'settings.profiles.editor.skills': 'Competenze',
+  'settings.profiles.editor.skillsHint':
+    'Flussi di lavoro che questo profilo può elencare ed eseguire.',
+  'settings.profiles.editor.mcpServers': 'Server MCP',
+  'settings.profiles.editor.mcpServersHint': 'Server MCP raggiungibili da questo profilo.',
+  'settings.profiles.editor.all': 'Tutti',
+  'settings.profiles.editor.selected': 'Selezionati',
+  'settings.profiles.editor.addPlaceholder': 'Digita un identificativo e premi Invio',
+  'settings.profiles.editor.removeAria': 'Rimuovi {item}',
+  'settings.profiles.editor.notFound': 'Profilo non trovato',
+  'settings.profiles.editor.saving': 'Salvataggio…',
+  'settings.profiles.editor.idRequired': "L'identificativo del profilo non può essere vuoto",
 };
 
 export default messages;

@@ -1,6 +1,7 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { renderWithProviders } from '../../test/test-utils';
 import Brain from '../Brain';
 
 const graphExportMock = vi.hoisted(() => vi.fn());
@@ -69,7 +70,7 @@ describe('Brain page', () => {
   it('renders the graph once data is fetched', async () => {
     graphExportMock.mockResolvedValue(makeGraph(3));
     await act(async () => {
-      render(<Brain />);
+      renderWithProviders(<Brain />);
     });
     await waitFor(() => {
       expect(screen.getByTestId('memory-graph')).toHaveTextContent('nodes:3');
@@ -79,7 +80,7 @@ describe('Brain page', () => {
   it('renders empty-state graph when there are no nodes', async () => {
     graphExportMock.mockResolvedValue(makeGraph(0));
     await act(async () => {
-      render(<Brain />);
+      renderWithProviders(<Brain />);
     });
     await waitFor(() => {
       expect(screen.getByTestId('memory-graph')).toHaveTextContent('nodes:0');
@@ -89,7 +90,7 @@ describe('Brain page', () => {
   it('surfaces an error alert when the fetch fails', async () => {
     graphExportMock.mockRejectedValue(new Error('boom'));
     await act(async () => {
-      render(<Brain />);
+      renderWithProviders(<Brain />);
     });
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();

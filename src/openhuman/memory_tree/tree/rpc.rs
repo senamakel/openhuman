@@ -139,6 +139,7 @@ pub async fn list_chunks_rpc(
         since_ms: req.since_ms,
         until_ms: req.until_ms,
         limit: req.limit,
+        source_scope: None,
     };
     let rows = tokio::task::spawn_blocking({
         let config = config.clone();

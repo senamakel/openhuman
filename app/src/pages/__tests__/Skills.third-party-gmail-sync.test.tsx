@@ -41,7 +41,7 @@ vi.mock('../../lib/composio/hooks', () => ({
 describe('Skills page — Gmail composio integration', () => {
   it('renders Gmail as a connected composio integration and opens its management modal', async () => {
     renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
-    fireEvent.click(screen.getByRole('tab', { name: 'Composio' }));
+    fireEvent.click(screen.getByTestId('two-pane-nav-composio'));
 
     const integrationsSection = screen
       .getByRole('heading', { name: 'Composio Integrations' })

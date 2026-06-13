@@ -62,9 +62,10 @@ test.describe('Settings - Advanced Config', () => {
     await expect(page.getByRole('heading', { name: 'Developer & Diagnostics' })).toBeVisible();
     // Developer Options is debug-only now: user-facing sections (AI, Integrations…)
     // live on their section pages, so Developer Options surfaces diagnostics entries.
-    await expect(page.getByTestId('settings-nav-memory-debug')).toBeVisible();
-    await expect(page.getByTestId('settings-nav-event-log')).toBeVisible();
-    await expect(page.getByTestId('settings-nav-build-info')).toBeVisible();
+    // The two-pane sidebar may also surface these ids, so scope to the first match.
+    await expect(page.getByTestId('settings-nav-memory-debug').first()).toBeVisible();
+    await expect(page.getByTestId('settings-nav-event-log').first()).toBeVisible();
+    await expect(page.getByTestId('settings-nav-build-info').first()).toBeVisible();
   });
 
   test('persists notification routing settings through core RPC', async ({ page }) => {
@@ -119,9 +120,11 @@ test.describe('Settings - Advanced Config', () => {
     const current = before.result?.max_actions_per_hour ?? 20;
     const target = current === 250 ? 251 : 250;
 
+    // /settings/autonomy redirects to Agent access, which hosts the autonomy
+    // rate-limit section (Max actions per hour).
     await gotoSettingsRoute(page, '/settings/autonomy');
 
-    await expect(page.getByText('Agent autonomy')).toBeVisible();
+    await expect(page.getByText('Max actions per hour')).toBeVisible();
     await page.locator('#autonomy-max-actions').fill(String(target));
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Saved.')).toBeVisible();
@@ -195,7 +198,8 @@ test.describe('Settings - Advanced Config', () => {
 
   test('mounts the remaining advanced settings routes', async ({ page }) => {
     await gotoSettingsRoute(page, '/settings/local-model-debug');
-    await expect(page.getByText('Local Model Debug')).toBeVisible();
+    // The two-pane sidebar also renders this label, so scope to the first match.
+    await expect(page.getByText('Local Model Debug').first()).toBeVisible();
 
     await gotoSettingsRoute(page, '/settings/about');
     await expect(page.getByText('Software updates')).toBeVisible();

@@ -35,21 +35,25 @@ test.describe('Settings - Account Preferences', () => {
     await gotoSettingsRoute(page, '/settings/account');
 
     await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible();
-    await expect(page.getByTestId('settings-nav-team')).toBeVisible();
-    await expect(page.getByTestId('settings-nav-privacy')).toBeVisible();
-    await expect(page.getByTestId('settings-nav-migration')).toBeVisible();
-    // Recovery phrase + wallet balances moved out of Account into the Crypto hub.
-    await expect(page.getByTestId('settings-nav-recovery-phrase')).toHaveCount(0);
+    // The Account family surfaces its leaves via the sub-nav pill row above the
+    // panel (the two-pane sidebar replaced the old section-hub list).
+    await expect(page.getByTestId('settings-subnav-team')).toBeVisible();
+    await expect(page.getByTestId('settings-subnav-privacy')).toBeVisible();
+    await expect(page.getByTestId('settings-subnav-migration')).toBeVisible();
+    // Recovery phrase + wallet balances live under the Wallet family, not Account.
+    await expect(page.getByTestId('settings-subnav-recovery-phrase')).toHaveCount(0);
   });
 
   test('renders the crypto settings section route with recovery phrase + balances', async ({
     page,
   }) => {
+    // /settings/crypto is retired and redirects to the Wallet Balances panel,
+    // whose sub-nav family surfaces recovery-phrase + wallet-balances.
     await gotoSettingsRoute(page, '/settings/crypto');
 
-    await expect(page.getByRole('heading', { name: 'Crypto' })).toBeVisible();
-    await expect(page.getByTestId('settings-nav-recovery-phrase')).toBeVisible();
-    await expect(page.getByTestId('settings-nav-wallet-balances')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Wallet Balances' })).toBeVisible();
+    await expect(page.getByTestId('settings-subnav-recovery-phrase')).toBeVisible();
+    await expect(page.getByTestId('settings-subnav-wallet-balances')).toBeVisible();
   });
 
   test('saves a generated recovery phrase and exposes configured wallet state', async ({
@@ -132,10 +136,10 @@ test.describe('Settings - Account Preferences', () => {
     await gotoSettingsRoute(page, '/settings/billing');
 
     await expect(page.getByRole('heading', { name: 'Open billing dashboard' })).toBeVisible();
+    // Billing no longer auto-opens the browser; the panel explains billing
+    // moved to the web and offers an explicit open button.
     await expect(
-      page.getByText(
-        /If your browser did not open, use the button above\.|The browser could not be opened automatically\.|Opening your browser\.\.\./
-      )
+      page.getByText(/Subscription changes, payment methods, credits, and invoices are now managed/)
     ).toBeVisible();
 
     await page.getByRole('button', { name: 'Back to settings' }).click();

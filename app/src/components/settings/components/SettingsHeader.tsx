@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useInRouterContext, useLocation } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useSettingsLayout } from '../layout/SettingsLayoutContext';
@@ -29,21 +29,44 @@ interface SettingsHeaderProps {
   action?: ReactNode;
 }
 
-const SettingsHeader = ({
+/**
+ * Resolve the current pathname without throwing when the header is rendered
+ * outside a `<Router>` (e.g. isolated settings-panel unit tests). Inside the
+ * app the header always sits within the router, so this returns the real path;
+ * with no router it falls back to '' which callers treat as a top-level route.
+ *
+ * Split into its own component so `useLocation` is only ever called when a
+ * router is actually present — keeping the rules-of-hooks contract intact.
+ */
+const SettingsHeader = (props: SettingsHeaderProps) => {
+  const inRouter = useInRouterContext();
+  return inRouter ? (
+    <RoutedSettingsHeader {...props} />
+  ) : (
+    <SettingsHeaderView {...props} pathname="" />
+  );
+};
+
+const RoutedSettingsHeader = (props: SettingsHeaderProps) => {
+  const { pathname } = useLocation();
+  return <SettingsHeaderView {...props} pathname={pathname} />;
+};
+
+const SettingsHeaderView = ({
   className = '',
   title,
   showBackButton = false,
   onBack,
   action,
-}: SettingsHeaderProps) => {
+  pathname,
+}: SettingsHeaderProps & { pathname: string }) => {
   const { t } = useT();
   const { inTwoPaneShell } = useSettingsLayout();
-  const location = useLocation();
 
   // Inside the two-pane shell, top-level destinations (/settings/<slug>) hide
   // the back button on wide viewports — the sidebar provides navigation.
   // Nested pages (team/manage/:id, agents/edit/:id, …) keep it at all widths.
-  const isTopLevel = location.pathname.split('/').filter(Boolean).length <= 2;
+  const isTopLevel = pathname.split('/').filter(Boolean).length <= 2;
   const backButtonClass =
     inTwoPaneShell && isTopLevel
       ? 'md:hidden w-6 h-6 flex items-center justify-center rounded-full hover:bg-stone-100 dark:bg-neutral-800 dark:hover:bg-neutral-800 transition-colors mr-2'

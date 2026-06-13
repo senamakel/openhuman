@@ -18,10 +18,7 @@ test.describe('Google Meet Connections tab', () => {
       .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
       .toContain('/connections');
 
-    await expect(page.getByTestId('two-pane-nav-meetings')).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
+    await expect(page.getByTestId('two-pane-nav-meetings')).toHaveAttribute('aria-current', 'page');
 
     // The join form renders inline on the Meetings tab (no banner/modal).
     await expect(page.getByText('Send OpenHuman to a meeting')).toBeVisible();

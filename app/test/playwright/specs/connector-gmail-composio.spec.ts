@@ -76,7 +76,7 @@ async function bootSkillsPage(page: Page, userId: string) {
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
   // Navigate to the Composio tab
-  await page.getByRole('tab', { name: 'Composio' }).click();
+  await page.getByTestId('two-pane-nav-composio').click();
   const heading = page.getByRole('heading', { name: 'Composio Integrations', exact: true });
   if (!(await heading.isVisible().catch(() => false))) {
     const connectionsButton = page.getByRole('button', { name: 'Connections' });
@@ -110,7 +110,7 @@ async function ensureComposioSurface(page: Page) {
       .toContain('/connections');
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);
-    await page.getByRole('tab', { name: 'Composio' }).click();
+    await page.getByTestId('two-pane-nav-composio').click();
     if (await heading.isVisible().catch(() => false)) {
       return;
     }
@@ -119,7 +119,7 @@ async function ensureComposioSurface(page: Page) {
       await connectionsButton.click({ force: true });
       await waitForAppReady(page);
       await dismissWalkthroughIfPresent(page);
-      await page.getByRole('tab', { name: 'Composio' }).click();
+      await page.getByTestId('two-pane-nav-composio').click();
       if (await heading.isVisible().catch(() => false)) {
         return;
       }

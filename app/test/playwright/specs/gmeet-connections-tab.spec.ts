@@ -18,9 +18,9 @@ test.describe('Google Meet Connections tab', () => {
       .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
       .toContain('/connections');
 
-    await expect(page.getByRole('tab', { name: 'Meetings', exact: true })).toHaveAttribute(
-      'aria-selected',
-      'true'
+    await expect(page.getByTestId('two-pane-nav-meetings')).toHaveAttribute(
+      'aria-current',
+      'page'
     );
 
     // The join form renders inline on the Meetings tab (no banner/modal).

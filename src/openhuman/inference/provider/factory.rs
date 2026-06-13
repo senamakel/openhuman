@@ -325,11 +325,11 @@ pub(crate) fn resolve_byok_fallback_provider_string(config: &Config) -> Option<S
 /// detached `tokio::spawn`s — a thread/task-local would not reach them.
 ///
 /// Because it is global, tests that install an override MUST run serially
-/// (hold the shared lock in [`crate::openhuman::workflows::e2e_run_tests`])
 /// and clear it via the returned guard. Inert in production: the check below
-/// is `#[cfg(test)]`, so the override is never consulted in release builds.
-#[cfg(test)]
-pub(crate) mod test_provider_override {
+/// is gated on `cfg(test)` or the off-by-default `e2e-test-support` feature,
+/// so the override is never consulted in shipped builds.
+#[cfg(any(test, feature = "e2e-test-support"))]
+pub mod test_provider_override {
     use super::Provider;
     use crate::openhuman::inference::provider::traits::{
         ChatRequest, ChatResponse, ProviderCapabilities,
@@ -348,11 +348,11 @@ pub(crate) mod test_provider_override {
 
     /// Install a mock provider; the returned guard clears it on drop.
     #[must_use]
-    pub(crate) fn install(provider: Arc<dyn Provider>) -> InstallGuard {
+    pub fn install(provider: Arc<dyn Provider>) -> InstallGuard {
         *cell().lock().unwrap() = Some(provider);
         InstallGuard
     }
-    pub(crate) struct InstallGuard;
+    pub struct InstallGuard;
     impl Drop for InstallGuard {
         fn drop(&mut self) {
             *cell().lock().unwrap() = None;
@@ -399,8 +399,9 @@ pub fn create_chat_provider(
     config: &Config,
 ) -> anyhow::Result<(Box<dyn Provider>, String)> {
     // Test-only: a scripted mock provider injected by an e2e test wins over
-    // anything config-derived. Never compiled into release builds.
-    #[cfg(test)]
+    // anything config-derived. Gated on cfg(test) / the off-by-default
+    // `e2e-test-support` feature; never consulted in shipped builds.
+    #[cfg(any(test, feature = "e2e-test-support"))]
     if let Some(p) = test_provider_override::current() {
         return Ok((
             Box::new(test_provider_override::ProviderHandle(p)),

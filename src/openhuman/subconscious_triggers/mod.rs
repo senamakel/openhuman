@@ -16,16 +16,23 @@
 //! - [`registry`] — dedupe + rate-limit admission front-end
 //! - gate / bus / ops / schemas land in later slices.
 
+pub mod bus;
 pub mod gate;
 pub mod normalize;
 pub mod queue;
 pub mod registry;
+pub mod runtime;
 pub mod types;
 
+pub use bus::register_subconscious_triggers_subscriber;
 pub use gate::{GatePass, PromotionBudget};
 pub use normalize::{normalize, SUBCONSCIOUS_SENDER_MARKER};
 pub use queue::{EnqueueOutcome, OrchestratorQueue};
 pub use registry::{AdmitOutcome, DedupeWindow, RateLimiter, TriggerRegistry};
+pub use runtime::{
+    global as orchestrator_global, init_global as init_orchestrator, OrchestratorConfig,
+    TriggerOrchestrator,
+};
 pub use types::{
     DedupeKey, GateDecision, Trigger, TriggerPayload, TriggerPriority, TriggerSource,
 };

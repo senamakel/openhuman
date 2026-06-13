@@ -1,0 +1,283 @@
+//! The background orchestrator runtime: fan-in → gate → queue → session.
+//!
+//! [`TriggerOrchestrator`] ties the slices together:
+//! 1. `ingest` (called from the bus subscriber, non-blocking): normalize the
+//!    event, run dedupe + rate limiting, and — for admitted triggers —
+//!    spawn a gate task so the runtime never blocks event dispatch.
+//! 2. the gate task runs the LLM gate; on `Promote` it pushes onto the
+//!    [`OrchestratorQueue`] and wakes the loop.
+//! 3. `run_loop` drains the queue serially, handing each promoted trigger to
+//!    the [`LongLivedSession`].
+//!
+//! A process-global singleton holds the runtime so the bus subscriber and
+//! the spawned loop share one instance.
+
+use std::sync::{Arc, OnceLock};
+use std::time::Instant;
+
+use tokio::sync::Notify;
+use tracing::{debug, info, warn};
+
+use crate::core::event_bus::{publish_global, DomainEvent};
+use crate::openhuman::config::schema::SubconsciousMode;
+use crate::openhuman::subconscious::LongLivedSession;
+
+use super::gate::GatePass;
+use super::normalize::normalize;
+use super::queue::{EnqueueOutcome, OrchestratorQueue};
+use super::registry::{AdmitOutcome, DedupeWindow, RateLimiter, TriggerRegistry};
+use super::types::GateDecision;
+
+/// Tunables for the trigger pipeline. Sourced from `HeartbeatConfig` in
+/// slice 7; sensible defaults until then.
+#[derive(Debug, Clone)]
+pub struct OrchestratorConfig {
+    pub queue_capacity: usize,
+    pub dedupe_ttl_secs: f64,
+    pub rate_capacity: f64,
+    pub rate_refill_per_sec: f64,
+    pub max_promotions_per_hour: u32,
+}
+
+impl Default for OrchestratorConfig {
+    fn default() -> Self {
+        Self {
+            queue_capacity: 256,
+            dedupe_ttl_secs: 300.0,
+            rate_capacity: 30.0,
+            rate_refill_per_sec: 1.0,
+            max_promotions_per_hour: 30,
+        }
+    }
+}
+
+/// Background orchestrator: trigger ingestion front-end + serial event loop.
+pub struct TriggerOrchestrator {
+    registry: TriggerRegistry,
+    gate: GatePass,
+    queue: Arc<OrchestratorQueue>,
+    session: Arc<LongLivedSession>,
+    notify: Arc<Notify>,
+}
+
+impl TriggerOrchestrator {
+    pub fn new(session: Arc<LongLivedSession>, config: OrchestratorConfig) -> Self {
+        let registry = TriggerRegistry::new(
+            DedupeWindow::new(config.dedupe_ttl_secs),
+            RateLimiter::new(config.rate_capacity, config.rate_refill_per_sec),
+        );
+        Self {
+            registry,
+            gate: GatePass::new(config.max_promotions_per_hour),
+            queue: Arc::new(OrchestratorQueue::new(config.queue_capacity)),
+            session,
+            notify: Arc::new(Notify::new()),
+        }
+    }
+
+    /// Non-blocking ingestion entry point for the bus subscriber. Normalizes
+    /// + admits synchronously, then spawns the gate task for admitted
+    /// triggers so event dispatch is never blocked on an LLM call.
+    pub fn ingest(self: &Arc<Self>, event: &DomainEvent) {
+        let now = now_secs();
+        let Some(trigger) = normalize(event, now) else {
+            return;
+        };
+        match self.registry.admit(&trigger, now) {
+            AdmitOutcome::Admitted => {
+                let this = Arc::clone(self);
+                tokio::spawn(async move {
+                    this.gate_and_enqueue(trigger).await;
+                });
+            }
+            AdmitOutcome::Duplicate => {
+                debug!(
+                    "[subconscious_triggers] dropped duplicate trigger source={} key={}",
+                    trigger.source.family(),
+                    trigger.dedupe_key.as_str()
+                );
+            }
+            AdmitOutcome::RateLimited => {
+                debug!(
+                    "[subconscious_triggers] rate-limited trigger source={}",
+                    trigger.source.family()
+                );
+            }
+        }
+    }
+
+    /// Run the gate on an admitted trigger and enqueue promotions.
+    async fn gate_and_enqueue(self: Arc<Self>, trigger: super::types::Trigger) {
+        let started = Instant::now();
+        let now = now_secs();
+        let source = trigger.source.family().to_string();
+        let decision = self.gate.evaluate(&trigger, now).await;
+        let latency_ms = started.elapsed().as_millis() as u64;
+        let promoted = decision.is_promote();
+
+        publish_global(DomainEvent::SubconsciousTriggerProcessed {
+            source: source.clone(),
+            decision: decision.as_str().to_string(),
+            promoted,
+            latency_ms,
+        });
+
+        match decision {
+            GateDecision::Promote {
+                synthesized_summary,
+                priority,
+                reason,
+            } => {
+                info!(
+                    "[subconscious_triggers] promoting trigger source={} priority={} reason={}",
+                    source,
+                    priority.as_str(),
+                    reason
+                );
+                // Reuse the trigger as the queue item: stamp the gate's
+                // priority and carry the synthesized user-turn in
+                // `gate_summary` (the redacted summary is no longer needed
+                // post-promotion).
+                let mut item = trigger;
+                item.priority = priority;
+                item.payload.gate_summary = synthesized_summary;
+                match self.queue.push(item) {
+                    EnqueueOutcome::Accepted => {}
+                    EnqueueOutcome::EvictedLowest { evicted } => {
+                        warn!(
+                            "[subconscious_triggers] queue full — evicted lower-priority trigger {}",
+                            evicted.display_label
+                        );
+                    }
+                    EnqueueOutcome::DroppedIncoming => {
+                        warn!(
+                            "[subconscious_triggers] queue full — dropped promoted trigger source={source}"
+                        );
+                        return;
+                    }
+                }
+                self.notify.notify_one();
+            }
+            GateDecision::Drop { acknowledge, reason } => {
+                debug!(
+                    "[subconscious_triggers] dropped trigger source={source} ack={acknowledge} reason={reason}"
+                );
+            }
+        }
+    }
+
+    /// Serial event loop: drain the queue, process each promoted trigger
+    /// through the long-lived session, then wait for the next wake.
+    ///
+    /// Runs until the process exits.
+    pub async fn run_loop(self: Arc<Self>) {
+        info!(
+            "[subconscious_triggers] orchestrator loop started thread={}",
+            self.session.thread_id()
+        );
+        loop {
+            while let Some(item) = self.queue.pop() {
+                let summary = item.payload.gate_summary.clone();
+                let external = item.external_content;
+                debug!(
+                    "[subconscious_triggers] processing promoted item source={} label={}",
+                    item.source.family(),
+                    item.display_label
+                );
+                if let Err(err) = self.session.process_promoted(&summary, external).await {
+                    warn!(
+                        "[subconscious_triggers] session run failed label={} err={}",
+                        item.display_label, err
+                    );
+                }
+            }
+            self.notify.notified().await;
+        }
+    }
+
+    /// Test/diagnostic accessor for the pending queue depth.
+    pub fn queue_depth(&self) -> usize {
+        self.queue.len()
+    }
+}
+
+/// Process-global orchestrator instance.
+static ORCHESTRATOR: OnceLock<Arc<TriggerOrchestrator>> = OnceLock::new();
+
+/// Initialize the global orchestrator and spawn its event loop. Idempotent:
+/// a second call returns the already-initialized instance without spawning a
+/// second loop. Returns the shared handle.
+pub fn init_global(orch: Arc<TriggerOrchestrator>) -> Arc<TriggerOrchestrator> {
+    if let Some(existing) = ORCHESTRATOR.get() {
+        return Arc::clone(existing);
+    }
+    let _ = ORCHESTRATOR.set(Arc::clone(&orch));
+    let loop_handle = Arc::clone(&orch);
+    tokio::spawn(async move {
+        loop_handle.run_loop().await;
+    });
+    orch
+}
+
+/// Get the global orchestrator if it has been initialized.
+pub fn global() -> Option<Arc<TriggerOrchestrator>> {
+    ORCHESTRATOR.get().cloned()
+}
+
+/// Epoch seconds with sub-second precision.
+fn now_secs() -> f64 {
+    chrono::Utc::now().timestamp_millis() as f64 / 1000.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::openhuman::subconscious::LongLivedSession;
+    use std::path::PathBuf;
+
+    fn orchestrator() -> Arc<TriggerOrchestrator> {
+        let session = Arc::new(LongLivedSession::new(
+            PathBuf::from("/tmp/subconscious-triggers-test"),
+            SubconsciousMode::Simple,
+        ));
+        Arc::new(TriggerOrchestrator::new(
+            session,
+            OrchestratorConfig::default(),
+        ))
+    }
+
+    #[tokio::test]
+    async fn ingest_ignores_unrelated_events() {
+        let orch = orchestrator();
+        // ChannelConnected is in a watched domain but is not a trigger source
+        // → normalize returns None → no gate task, no enqueue.
+        orch.ingest(&DomainEvent::ChannelConnected {
+            channel: "slack".into(),
+        });
+        assert_eq!(orch.queue_depth(), 0);
+    }
+
+    #[tokio::test]
+    async fn ingest_skips_self_authored_user_messages() {
+        let orch = orchestrator();
+        // A message the orchestrator itself emitted (anti self-trigger).
+        orch.ingest(&DomainEvent::ChannelInboundMessage {
+            event_name: "msg".into(),
+            channel: "slack".into(),
+            message: "proactive".into(),
+            sender: Some(super::super::SUBCONSCIOUS_SENDER_MARKER.into()),
+            reply_target: None,
+            thread_ts: None,
+            raw_data: serde_json::Value::Null,
+        });
+        assert_eq!(orch.queue_depth(), 0);
+    }
+
+    #[test]
+    fn default_config_is_sane() {
+        let c = OrchestratorConfig::default();
+        assert!(c.queue_capacity > 0);
+        assert!(c.dedupe_ttl_secs > 0.0);
+        assert!(c.max_promotions_per_hour > 0);
+    }
+}

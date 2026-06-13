@@ -101,6 +101,20 @@ pub struct HeartbeatConfig {
     /// Aggressive = full access every 5 min.
     #[serde(default)]
     pub subconscious_mode: SubconsciousMode,
+    /// Enable the event-driven subconscious trigger pipeline (cron / user
+    /// message / Composio webhook / sub-agent conclusion → LLM gate →
+    /// long-lived orchestrator session). Opt-in: when false, the legacy
+    /// interval-only heartbeat path is unchanged.
+    #[serde(default)]
+    pub triggers_enabled: bool,
+    /// Per-hour cap on trigger promotions (long-lived session runs). Bounds
+    /// the always-on loop's spend ceiling.
+    #[serde(default = "default_max_promotions_per_hour")]
+    pub max_promotions_per_hour: u32,
+}
+
+fn default_max_promotions_per_hour() -> u32 {
+    30
 }
 
 fn default_context_budget() -> u32 {
@@ -148,6 +162,8 @@ impl Default for HeartbeatConfig {
             max_calendar_connections_per_tick: default_max_calendar_connections_per_tick(),
             reminder_lookahead_minutes: default_reminder_lookahead_minutes(),
             subconscious_mode: SubconsciousMode::Off,
+            triggers_enabled: false,
+            max_promotions_per_hour: default_max_promotions_per_hour(),
         }
     }
 }

@@ -284,7 +284,10 @@ export default function Brain() {
             {KNOWLEDGE_TABS.has(activeTab) && (
               <div className="animate-fade-up">
                 <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
-                  {activeTab === 'intelligence' && <Intelligence />}
+                  {/* Use a distinct tab query key so the embedded Intelligence
+                      panel's internal tab switches don't overwrite Brain's own
+                      `?tab=intelligence` and unmount it. */}
+                  {activeTab === 'intelligence' && <Intelligence tabParamKey="itab" />}
                   {activeTab === 'memory-data' && <MemoryDataPanel />}
                   {activeTab === 'memory-debug' && <MemoryDebugPanel />}
                   {activeTab === 'analysis-views' && <AnalysisViewsPanel />}

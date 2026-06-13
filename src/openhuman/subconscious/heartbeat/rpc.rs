@@ -105,6 +105,12 @@ pub async fn settings_set(
         config.heartbeat.enabled = mode.is_enabled() || config.heartbeat.enabled;
         config.heartbeat.inference_enabled = mode.is_enabled();
         config.heartbeat.interval_minutes = mode.default_interval_minutes();
+        // Switching to a non-event-driven mode (e.g. via the Subconscious mode
+        // selector) must also retire the trigger pipeline, otherwise a stale
+        // `triggers_enabled` flag would reactivate it on the next bootstrap.
+        if !mode.is_event_driven() {
+            config.heartbeat.triggers_enabled = false;
+        }
     }
     if let Some(triggers_enabled) = patch.triggers_enabled {
         config.heartbeat.triggers_enabled = triggers_enabled;

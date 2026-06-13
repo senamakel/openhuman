@@ -92,9 +92,17 @@ pub async fn bootstrap_after_login() -> Result<(), String> {
         config.heartbeat.interval_minutes
     );
 
-    // Opt-in event-driven trigger pipeline. When disabled, the legacy
-    // interval-only heartbeat path above is the whole story.
-    if config.heartbeat.triggers_enabled {
+    // Opt-in event-driven trigger pipeline. Require BOTH the flag and an
+    // event-driven effective mode: if the user enables triggers and later
+    // switches the subconscious mode to Off/Simple/Aggressive via the mode
+    // selector (which doesn't clear `triggers_enabled`), the stale flag must
+    // not silently reactivate background trigger processing.
+    if config.heartbeat.triggers_enabled
+        && config
+            .heartbeat
+            .effective_subconscious_mode()
+            .is_event_driven()
+    {
         bootstrap_trigger_orchestrator(&config);
     }
 

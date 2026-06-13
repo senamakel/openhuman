@@ -117,18 +117,6 @@ impl LongLivedSession {
             generation, self.thread_id, external_content
         );
 
-        // Persist the promoted user-turn first so the audit log is correct
-        // even if the run fails mid-way.
-        self.persist_message("user", summary);
-
-        // Sticky taint: this run is tainted if the trigger carries external
-        // content OR the session has *ever* ingested external content (it's
-        // still in the reused history).
-        if external_content {
-            self.tainted.store(true, Ordering::SeqCst);
-        }
-        let effective_tainted = self.tainted.load(Ordering::SeqCst);
-
         let config = Config::load_or_init()
             .await
             .map_err(|e| format!("load config: {e}"))?;
@@ -136,9 +124,26 @@ impl LongLivedSession {
         let response = {
             let mut guard = self.agent.lock().await;
             if guard.is_none() {
+                // Cold boot: build the agent and restore the persisted taint
+                // marker from the reserved thread so untrusted history from a
+                // previous process keeps the session tainted.
                 let agent = self.build_agent(&config, summary)?;
                 *guard = Some(agent);
             }
+
+            // Sticky taint: tainted if the trigger carries external content OR
+            // the session has *ever* ingested external content (still in the
+            // reused/restored history).
+            if external_content {
+                self.tainted.store(true, Ordering::SeqCst);
+            }
+            let effective_tainted = self.tainted.load(Ordering::SeqCst);
+
+            // Persist the promoted user-turn (with its taint marker) before the
+            // run so the audit log + cold-boot taint restore are correct even
+            // if the run fails mid-way.
+            self.persist_message("user", summary, effective_tainted);
+
             let agent = guard.as_mut().expect("agent built above");
 
             let origin = crate::openhuman::agent::turn_origin::AgentTurnOrigin::TrustedAutomation {
@@ -153,7 +158,7 @@ impl LongLivedSession {
                 })?
         };
 
-        self.persist_message("agent", &response);
+        self.persist_message("agent", &response, false);
 
         let response_chars = response.chars().count();
         info!(
@@ -186,6 +191,14 @@ impl LongLivedSession {
             &self.thread_id,
         ) {
             Ok(prior) if !prior.is_empty() => {
+                // Restore the persisted taint marker: if any prior turn was
+                // tainted, the untrusted content is about to be seeded back
+                // into history, so the session must stay tainted.
+                if prior.iter().any(|m| {
+                    m.extra_metadata.get("tainted").and_then(|v| v.as_bool()) == Some(true)
+                }) {
+                    self.tainted.store(true, Ordering::SeqCst);
+                }
                 let pairs: Vec<(String, String)> =
                     prior.into_iter().map(|m| (m.sender, m.content)).collect();
                 if let Err(err) = agent.seed_resume_from_messages(pairs, current_message) {
@@ -214,7 +227,7 @@ impl LongLivedSession {
     /// Best-effort append to the reserved thread. Persistence failures are
     /// logged but never fail the run (the in-memory history is the working
     /// set; the thread is audit/resume only).
-    fn persist_message(&self, sender: &str, content: &str) {
+    fn persist_message(&self, sender: &str, content: &str, tainted: bool) {
         // `append_message` requires the thread to exist; the reserved
         // orchestrator thread is created lazily here (idempotent).
         ensure_reserved_thread(
@@ -222,7 +235,7 @@ impl LongLivedSession {
             &self.thread_id,
             "Subconscious Orchestrator",
         );
-        let message = new_message(sender, content);
+        let message = new_message(sender, content, tainted);
         if let Err(err) = crate::openhuman::memory_conversations::append_message(
             self.workspace_dir.clone(),
             &self.thread_id,
@@ -284,13 +297,18 @@ pub(crate) fn ensure_reserved_thread(
 }
 
 /// Construct a `ConversationMessage` for the reserved thread with a fresh
-/// uuid and an RFC3339 timestamp. `sender` is `"user"` or `"agent"`.
-fn new_message(sender: &str, content: &str) -> ConversationMessage {
+/// uuid and an RFC3339 timestamp. `sender` is `"user"` or `"agent"`. The
+/// `tainted` marker is persisted so a cold-boot restore can keep the session
+/// tainted when untrusted history is seeded back in.
+fn new_message(sender: &str, content: &str, tainted: bool) -> ConversationMessage {
     ConversationMessage {
         id: uuid::Uuid::new_v4().to_string(),
         content: content.to_string(),
         message_type: "text".to_string(),
-        extra_metadata: serde_json::json!({ "origin": "subconscious_session" }),
+        extra_metadata: serde_json::json!({
+            "origin": "subconscious_session",
+            "tainted": tainted,
+        }),
         sender: sender.to_string(),
         created_at: chrono::Utc::now().to_rfc3339(),
     }
@@ -320,13 +338,24 @@ mod tests {
 
     #[test]
     fn new_message_roundtrips_sender_and_content() {
-        let user = new_message("user", "hello");
+        let user = new_message("user", "hello", true);
         assert_eq!(user.sender, "user");
         assert_eq!(user.content, "hello");
         assert_eq!(user.message_type, "text");
         assert!(!user.id.is_empty());
-        let agent = new_message("agent", "reply");
+        assert_eq!(
+            user.extra_metadata.get("tainted").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let agent = new_message("agent", "reply", false);
         assert_eq!(agent.sender, "agent");
+        assert_eq!(
+            agent
+                .extra_metadata
+                .get("tainted")
+                .and_then(|v| v.as_bool()),
+            Some(false)
+        );
         // Distinct ids per message.
         assert_ne!(user.id, agent.id);
     }

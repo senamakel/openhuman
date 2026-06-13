@@ -2340,6 +2340,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.orchestratorThread': 'অর্কেস্ট্রেটর থ্রেড',
   'subconsciousTriggers.userThread': 'ব্যবহারকারী থ্রেড',
   'subconsciousTriggers.disabledHint': 'পাইপলাইন সক্রিয় করতে ইভেন্ট-চালিত মোড সক্ষম করুন।',
+  'subconsciousTriggers.enable': 'সক্ষম করুন',
+  'subconsciousTriggers.disable': 'নিষ্ক্রিয় করুন',
   'actionable.complete': 'সম্পন্ন',
   'actionable.dismiss': 'বাদ দিন',
   'actionable.snooze': 'স্নুজ',

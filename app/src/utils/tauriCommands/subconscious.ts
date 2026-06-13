@@ -53,11 +53,30 @@ export async function subconsciousTrigger(): Promise<CommandResponse<TickResult>
   });
 }
 
+// The trigger-pipeline status + toggle work over any core transport (Tauri
+// invoke or cloud/tunnel HTTP), so they intentionally do NOT gate on
+// `isTauri()` — `callCoreRpc` resolves the active transport itself.
+
 export async function subconsciousTriggersStatus(): Promise<
   CommandResponse<SubconsciousTriggersStatus>
 > {
-  if (!isTauri()) throw new Error('Not running in Tauri');
   return await callCoreRpc<CommandResponse<SubconsciousTriggersStatus>>({
     method: 'openhuman.subconscious_triggers_status',
+  });
+}
+
+/**
+ * Enable or disable the event-driven trigger pipeline. Enabling also flips the
+ * subconscious into `event_driven` mode so the orchestrator bootstraps; the
+ * core restarts the heartbeat loop on this change.
+ */
+export async function setSubconsciousTriggersEnabled(
+  enabled: boolean
+): Promise<CommandResponse<{ settings: unknown }>> {
+  const params: Record<string, unknown> = { triggers_enabled: enabled };
+  if (enabled) params.subconscious_mode = 'event_driven';
+  return await callCoreRpc<CommandResponse<{ settings: unknown }>>({
+    method: 'openhuman.heartbeat_settings_set',
+    params,
   });
 }

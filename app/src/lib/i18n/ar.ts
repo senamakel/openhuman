@@ -2290,6 +2290,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.orchestratorThread': 'سلسلة المنسق',
   'subconsciousTriggers.userThread': 'سلسلة المستخدم',
   'subconsciousTriggers.disabledHint': 'فعّل الوضع المدفوع بالأحداث لتنشيط خط المعالجة.',
+  'subconsciousTriggers.enable': 'تفعيل',
+  'subconsciousTriggers.disable': 'تعطيل',
   'actionable.complete': 'إتمام',
   'actionable.dismiss': 'تجاهل',
   'actionable.snooze': 'تأجيل',

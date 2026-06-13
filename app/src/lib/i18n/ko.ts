@@ -2315,6 +2315,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.orchestratorThread': '오케스트레이터 스레드',
   'subconsciousTriggers.userThread': '사용자 스레드',
   'subconsciousTriggers.disabledHint': '파이프라인을 활성화하려면 이벤트 기반 모드를 켜세요.',
+  'subconsciousTriggers.enable': '활성화',
+  'subconsciousTriggers.disable': '비활성화',
   'actionable.complete': '완료',
   'actionable.dismiss': '닫기',
   'actionable.snooze': '다시 알림',

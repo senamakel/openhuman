@@ -2336,6 +2336,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.orchestratorThread': 'ऑर्केस्ट्रेटर थ्रेड',
   'subconsciousTriggers.userThread': 'उपयोगकर्ता थ्रेड',
   'subconsciousTriggers.disabledHint': 'पाइपलाइन सक्रिय करने के लिए इवेंट-संचालित मोड सक्षम करें।',
+  'subconsciousTriggers.enable': 'सक्षम करें',
+  'subconsciousTriggers.disable': 'अक्षम करें',
   'actionable.complete': 'पूरा करें',
   'actionable.dismiss': 'हटाएं',
   'actionable.snooze': 'स्नूज़ करें',

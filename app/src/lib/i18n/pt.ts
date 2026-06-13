@@ -2383,6 +2383,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.orchestratorThread': 'Thread do orquestrador',
   'subconsciousTriggers.userThread': 'Thread do usuário',
   'subconsciousTriggers.disabledHint': 'Ative o modo baseado em eventos para iniciar o pipeline.',
+  'subconsciousTriggers.enable': 'Ativar',
+  'subconsciousTriggers.disable': 'Desativar',
   'actionable.complete': 'Concluir',
   'actionable.dismiss': 'Dispensar',
   'actionable.snooze': 'Adiar',

@@ -2363,6 +2363,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.orchestratorThread': 'Wątek orkiestratora',
   'subconsciousTriggers.userThread': 'Wątek użytkownika',
   'subconsciousTriggers.disabledHint': 'Włącz tryb sterowany zdarzeniami, aby uruchomić potok.',
+  'subconsciousTriggers.enable': 'Włącz',
+  'subconsciousTriggers.disable': 'Wyłącz',
   'actionable.complete': 'Zakończ',
   'actionable.dismiss': 'Odrzuć',
   'actionable.snooze': 'Odłóż',

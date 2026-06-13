@@ -2386,6 +2386,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.userThread': 'Hilo del usuario',
   'subconsciousTriggers.disabledHint':
     'Activa el modo basado en eventos para iniciar la canalización.',
+  'subconsciousTriggers.enable': 'Activar',
+  'subconsciousTriggers.disable': 'Desactivar',
   'actionable.complete': 'Completar',
   'actionable.dismiss': 'Descartar',
   'actionable.snooze': 'Posponer',

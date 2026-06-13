@@ -2397,6 +2397,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.userThread': "Fil de l'utilisateur",
   'subconsciousTriggers.disabledHint':
     'Activez le mode piloté par événements pour démarrer le pipeline.',
+  'subconsciousTriggers.enable': 'Activer',
+  'subconsciousTriggers.disable': 'Désactiver',
   'actionable.complete': 'Terminer',
   'actionable.dismiss': 'Ignorer',
   'actionable.snooze': 'Reporter',

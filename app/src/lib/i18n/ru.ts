@@ -2359,6 +2359,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.userThread': 'Поток пользователя',
   'subconsciousTriggers.disabledHint':
     'Включите режим на основе событий, чтобы запустить конвейер.',
+  'subconsciousTriggers.enable': 'Включить',
+  'subconsciousTriggers.disable': 'Отключить',
   'actionable.complete': 'Выполнить',
   'actionable.dismiss': 'Закрыть',
   'actionable.snooze': 'Отложить',

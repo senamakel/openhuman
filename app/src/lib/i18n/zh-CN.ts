@@ -2226,6 +2226,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.orchestratorThread': '编排器线程',
   'subconsciousTriggers.userThread': '用户线程',
   'subconsciousTriggers.disabledHint': '启用事件驱动模式以激活流水线。',
+  'subconsciousTriggers.enable': '启用',
+  'subconsciousTriggers.disable': '停用',
   'actionable.complete': '完成',
   'actionable.dismiss': '忽略',
   'actionable.snooze': '稍后提醒',

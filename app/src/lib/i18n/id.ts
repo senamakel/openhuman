@@ -2342,6 +2342,8 @@ const messages: TranslationMap = {
   'subconsciousTriggers.orchestratorThread': 'Utas orkestrator',
   'subconsciousTriggers.userThread': 'Utas pengguna',
   'subconsciousTriggers.disabledHint': 'Aktifkan mode berbasis peristiwa untuk mengaktifkan alur.',
+  'subconsciousTriggers.enable': 'Aktifkan',
+  'subconsciousTriggers.disable': 'Nonaktifkan',
   'actionable.complete': 'Selesai',
   'actionable.dismiss': 'Abaikan',
   'actionable.snooze': 'Tunda',

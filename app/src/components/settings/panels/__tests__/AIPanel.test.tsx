@@ -142,7 +142,9 @@ const baseHeartbeatSettings = {
   meeting_lookahead_minutes: 60,
   max_calendar_connections_per_tick: 2,
   reminder_lookahead_minutes: 30,
-  subconscious_mode: 'off' as 'off' | 'simple' | 'aggressive',
+  subconscious_mode: 'off' as 'off' | 'simple' | 'aggressive' | 'event_driven',
+  triggers_enabled: false,
+  max_promotions_per_hour: 30,
 };
 
 const baseUsage = {

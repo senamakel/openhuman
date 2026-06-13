@@ -2828,6 +2828,8 @@ const en: TranslationMap = {
   'subconsciousTriggers.orchestratorThread': 'Orchestrator thread',
   'subconsciousTriggers.userThread': 'User thread',
   'subconsciousTriggers.disabledHint': 'Enable event-driven mode to activate the pipeline.',
+  'subconsciousTriggers.enable': 'Enable',
+  'subconsciousTriggers.disable': 'Disable',
 
   // Actionable
   'actionable.complete': 'Complete',

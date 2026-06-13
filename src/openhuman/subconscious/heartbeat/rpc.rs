@@ -21,6 +21,10 @@ pub struct HeartbeatSettingsPatch {
     pub max_calendar_connections_per_tick: Option<u32>,
     pub reminder_lookahead_minutes: Option<u32>,
     pub subconscious_mode: Option<String>,
+    /// Enable the event-driven trigger pipeline (opt-in).
+    pub triggers_enabled: Option<bool>,
+    /// Per-hour cap on trigger promotions.
+    pub max_promotions_per_hour: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -36,6 +40,8 @@ pub struct HeartbeatSettingsView {
     pub max_calendar_connections_per_tick: u32,
     pub reminder_lookahead_minutes: u32,
     pub subconscious_mode: String,
+    pub triggers_enabled: bool,
+    pub max_promotions_per_hour: u32,
 }
 
 pub async fn settings_get() -> Result<RpcOutcome<serde_json::Value>, String> {
@@ -100,6 +106,17 @@ pub async fn settings_set(
         config.heartbeat.inference_enabled = mode.is_enabled();
         config.heartbeat.interval_minutes = mode.default_interval_minutes();
     }
+    if let Some(triggers_enabled) = patch.triggers_enabled {
+        config.heartbeat.triggers_enabled = triggers_enabled;
+        // Enabling the trigger pipeline requires the heartbeat loop to be
+        // running so the orchestrator can bootstrap.
+        if triggers_enabled {
+            config.heartbeat.enabled = true;
+        }
+    }
+    if let Some(max_promotions_per_hour) = patch.max_promotions_per_hour {
+        config.heartbeat.max_promotions_per_hour = max_promotions_per_hour;
+    }
 
     config.save().await.map_err(|e| {
         warn!("[heartbeat][rpc] settings_set: config.save failed: {e}");
@@ -107,8 +124,13 @@ pub async fn settings_set(
     })?;
 
     // Mode change requires a full engine restart so the new mode's interval
-    // and tool restrictions take effect. stop + bootstrap is idempotent.
-    if patch.subconscious_mode.is_some() || patch.enabled.is_some() {
+    // and tool restrictions take effect. Toggling the trigger pipeline also
+    // restarts so the orchestrator bootstraps/stops. stop + bootstrap is
+    // idempotent.
+    if patch.subconscious_mode.is_some()
+        || patch.enabled.is_some()
+        || patch.triggers_enabled.is_some()
+    {
         crate::openhuman::subconscious::global::stop_heartbeat_loop().await;
         if config.heartbeat.effective_subconscious_mode().is_enabled() {
             debug!("[heartbeat][rpc] settings_set: (re)starting for mode change");
@@ -167,5 +189,7 @@ fn view(config: &Config) -> HeartbeatSettingsView {
             .effective_subconscious_mode()
             .as_str()
             .to_string(),
+        triggers_enabled: config.heartbeat.triggers_enabled,
+        max_promotions_per_hour: config.heartbeat.max_promotions_per_hour,
     }
 }

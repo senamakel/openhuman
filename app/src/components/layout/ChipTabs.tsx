@@ -86,8 +86,7 @@ export default function ChipTabs<T extends string>({
       data-testid={testId}>
       {items.map(item => {
         const active = item.id === value;
-        const chipTestId =
-          item.testId ?? (testIdPrefix ? `${testIdPrefix}-${item.id}` : undefined);
+        const chipTestId = item.testId ?? (testIdPrefix ? `${testIdPrefix}-${item.id}` : undefined);
 
         return (
           <button

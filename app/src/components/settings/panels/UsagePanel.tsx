@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { type AISettings, loadAISettings } from '../../../services/api/aiSettingsApi';
-import ChipTabs from '../../layout/ChipTabs';
 import CostDashboardPanel from '../../dashboard/CostDashboardPanel';
+import ChipTabs from '../../layout/ChipTabs';
 import SettingsHeader from '../components/SettingsHeader';
 import { SettingsStatusLine } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';

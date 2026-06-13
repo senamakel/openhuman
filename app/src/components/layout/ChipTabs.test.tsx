@@ -51,9 +51,7 @@ describe('ChipTabs', () => {
   });
 
   it('renders navigation semantics with aria-current when as="nav"', () => {
-    render(
-      <ChipTabs items={items} value="two" onChange={() => {}} as="nav" ariaLabel="Sub nav" />
-    );
+    render(<ChipTabs items={items} value="two" onChange={() => {}} as="nav" ariaLabel="Sub nav" />);
 
     expect(screen.getByRole('navigation', { name: 'Sub nav' })).toBeInTheDocument();
     // No tab roles in nav mode.

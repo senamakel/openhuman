@@ -63,8 +63,17 @@ const SettingsHeaderView = ({
   const { t } = useT();
   const { inTwoPaneShell } = useSettingsLayout();
 
-  // Inside the two-pane shell, top-level destinations (/settings/<slug>) hide
-  // the back button on wide viewports — the sidebar provides navigation.
+  // These panels are also embedded outside /settings — e.g. Brain
+  // (`/brain?tab=memory-data`) and Connections (`/connections?tab=llm`). There
+  // the host page's own sidebar owns navigation, and the panel's `onBack`
+  // (sourced from useSettingsNavigation, which has no settings slug on those
+  // routes) would navigate away from the host. Suppress the back button when
+  // embedded outside the settings route tree.
+  const isSettingsPath = pathname.startsWith('/settings');
+  const showBack = showBackButton && !!onBack && (isSettingsPath || !inTwoPaneShell);
+
+  // Inside the settings two-pane shell, top-level destinations (/settings/<slug>)
+  // hide the back button on wide viewports — the sidebar provides navigation.
   // Nested pages (team/manage/:id, agents/edit/:id, …) keep it at all widths.
   const isTopLevel = pathname.split('/').filter(Boolean).length <= 2;
   const backButtonClass =
@@ -77,7 +86,7 @@ const SettingsHeaderView = ({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center min-w-0">
           {/* Back button */}
-          {showBackButton && onBack && (
+          {showBack && onBack && (
             <button onClick={onBack} className={backButtonClass} aria-label={t('common.back')}>
               <svg
                 className="w-4 h-4 text-stone-500 dark:text-neutral-400"

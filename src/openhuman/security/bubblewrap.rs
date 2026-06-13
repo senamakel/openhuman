@@ -209,9 +209,9 @@ mod tests {
         );
 
         // ... and must NOT read-write bind the host /tmp into the sandbox.
-        let has_tmp_rw_bind = args.windows(3).any(|w| {
-            w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/tmp"
-        });
+        let has_tmp_rw_bind = args
+            .windows(3)
+            .any(|w| w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/tmp");
         assert!(
             !has_tmp_rw_bind,
             "must NOT bind host /tmp read-write into the sandbox"

@@ -1,10 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 
-import {
-  handleDeepLinkUrls,
-  registerAuthDeepLinkState,
-} from '../utils/desktopDeepLinkListener';
+import { handleDeepLinkUrls, registerAuthDeepLinkState } from '../utils/desktopDeepLinkListener';
 
 function buildSyntheticDeepLink(
   kind: string | undefined,

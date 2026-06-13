@@ -798,7 +798,10 @@ fn master_key_is_zeroizing_and_cache_stable() {
 
     // Second load must return identical key bytes from the process-wide cache.
     let key2 = store.load_or_create_key().unwrap();
-    assert_eq!(&*key, &*key2, "cached master key must be stable across loads");
+    assert_eq!(
+        &*key, &*key2,
+        "cached master key must be stable across loads"
+    );
 }
 
 #[test]

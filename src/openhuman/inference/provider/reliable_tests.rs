@@ -233,9 +233,7 @@ fn non_retryable_ignores_free_text_digit_runs() {
     );
     // "0409" embedded in a model id used to scan to 409.
     assert!(
-        !is_non_retryable(&anyhow::anyhow!(
-            "gpt-4-0409 returned an empty completion"
-        )),
+        !is_non_retryable(&anyhow::anyhow!("gpt-4-0409 returned an empty completion")),
         "model-id digits must not be read as an HTTP status"
     );
     // A bare 4xx-shaped token mid-sentence (not in a structured position) is
@@ -587,13 +585,8 @@ async fn streaming_retry_recreates_stream() {
         1,
     );
 
-    let mut stream = provider.stream_chat_with_system(
-        None,
-        "hi",
-        "reasoning-v1",
-        0.0,
-        StreamOptions::new(true),
-    );
+    let mut stream =
+        provider.stream_chat_with_system(None, "hi", "reasoning-v1", 0.0, StreamOptions::new(true));
 
     let mut chunks = Vec::new();
     while let Some(item) = stream.next().await {

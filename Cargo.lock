@@ -5254,6 +5254,7 @@ dependencies = [
  "wiremock",
  "x25519-dalek",
  "xz2",
+ "zeroize",
  "zip 2.4.2",
 ]
 

@@ -10,10 +10,7 @@ import {
 } from '../../store/deepLinkAuthState';
 import type { OAuthProviderConfig } from '../../types/oauth';
 import { IS_DEV } from '../../utils/config';
-import {
-  handleDeepLinkUrls,
-  registerAuthDeepLinkState,
-} from '../../utils/desktopDeepLinkListener';
+import { handleDeepLinkUrls, registerAuthDeepLinkState } from '../../utils/desktopDeepLinkListener';
 import { startLoopbackOauthListener } from '../../utils/loopbackOauthListener';
 import { prepareOAuthLoginLaunch } from '../../utils/oauthAppVersionGate';
 import { openUrl } from '../../utils/openUrl';

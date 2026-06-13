@@ -52,7 +52,9 @@ fn resolve_within_content_root(content_root: &Path, rel_path: &str) -> anyhow::R
     // no-op for not-yet-created files — the component check above already
     // blocks traversal in that case.)
     if abs.exists() {
-        let canon_root = content_root.canonicalize().unwrap_or_else(|_| content_root.to_path_buf());
+        let canon_root = content_root
+            .canonicalize()
+            .unwrap_or_else(|_| content_root.to_path_buf());
         let canon_abs = abs
             .canonicalize()
             .map_err(|e| anyhow::anyhow!("[content_store::read] canonicalize failed: {e}"))?;

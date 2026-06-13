@@ -9,7 +9,10 @@ import {
   subscribeDeepLinkAuthState,
 } from '../../store/deepLinkAuthState';
 import { getStoredCoreMode } from '../configPersistence';
-import { setupDesktopDeepLinkListener } from '../desktopDeepLinkListener';
+import {
+  registerAuthDeepLinkState,
+  setupDesktopDeepLinkListener,
+} from '../desktopDeepLinkListener';
 import { storeSession } from '../tauriCommands';
 
 vi.mock('../configPersistence', () => ({ getStoredCoreMode: vi.fn() }));
@@ -17,6 +20,14 @@ vi.mock('../../services/coreRpcClient', () => ({
   clearCoreRpcUrlCache: vi.fn(),
   clearCoreRpcTokenCache: vi.fn(),
 }));
+
+// Build an `openhuman://auth` deep link bound to a freshly registered state
+// nonce, mirroring how the real OAuth button registers the loopback/deep-link
+// state before the callback returns (finding C3 CSRF guard).
+const authDeepLinkWithState = (query: string): string => {
+  const state = registerAuthDeepLinkState();
+  return `openhuman://auth?${query}&state=${state}`;
+};
 
 const waitForAuthSettled = (): Promise<void> =>
   new Promise(resolve => {
@@ -120,7 +131,7 @@ describe('desktopDeepLinkListener', () => {
       new Error('Decryption failed — wrong key or tampered data')
     );
 
-    vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=abc&key=auth']);
+    vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
 
     await setupDesktopDeepLinkListener();
 
@@ -135,7 +146,7 @@ describe('desktopDeepLinkListener', () => {
   it('surfaces readiness failures instead of a generic sign-in error', async () => {
     waitForOAuthAuthReadiness.mockResolvedValueOnce({ ready: false, reason: 'core_mode_unset' });
 
-    vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=abc&key=auth']);
+    vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
 
     await setupDesktopDeepLinkListener();
 
@@ -145,10 +156,55 @@ describe('desktopDeepLinkListener', () => {
     expect(storeSession).not.toHaveBeenCalled();
   });
 
+  it('rejects an auth deep link with no state nonce (CSRF guard, finding C3)', async () => {
+    // A hostile page can fire `openhuman://auth?token=<attacker_jwt>&key=auth`
+    // with no state — it must never apply a session token.
+    vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=attacker&key=auth']);
+
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    expect(storeSession).not.toHaveBeenCalled();
+    const state = getDeepLinkAuthState();
+    expect(state.isProcessing).toBe(false);
+    expect(state.errorMessage).toBe('Sign-in could not be verified. Please start sign-in again.');
+  });
+
+  it('rejects an auth deep link whose state nonce does not match a pending one', async () => {
+    registerAuthDeepLinkState('the-real-nonce');
+    vi.mocked(getCurrent).mockResolvedValue([
+      'openhuman://auth?token=attacker&key=auth&state=wrong-nonce',
+    ]);
+
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    expect(storeSession).not.toHaveBeenCalled();
+    expect(getDeepLinkAuthState().errorMessage).toBe(
+      'Sign-in could not be verified. Please start sign-in again.'
+    );
+  });
+
+  it('consumes a state nonce one-shot so a replayed deep link is rejected', async () => {
+    const state = registerAuthDeepLinkState();
+    const url = `openhuman://auth?token=abc&key=auth&state=${state}`;
+
+    vi.mocked(getCurrent).mockResolvedValue([url]);
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+    expect(storeSession).toHaveBeenCalledWith('abc', {});
+
+    // Replay the exact same deep link — the nonce was consumed, so it fails.
+    vi.mocked(storeSession).mockClear();
+    await import('../desktopDeepLinkListener').then(m => m.handleDeepLinkUrls([url]));
+    await waitForAuthSettled();
+    expect(storeSession).not.toHaveBeenCalled();
+  });
+
   it('keeps requiresAppDataReset false for non-decryption auth failures', async () => {
     vi.mocked(storeSession).mockRejectedValueOnce(new Error('network down'));
 
-    vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=abc&key=auth']);
+    vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
 
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
@@ -173,7 +229,9 @@ describe('desktopDeepLinkListener', () => {
     ).__simulateDeepLink;
 
     expect(simulateDeepLink).toBeTypeOf('function');
-    await expect(simulateDeepLink!('openhuman://auth?token=abc&key=auth')).resolves.toBeUndefined();
+    await expect(
+      simulateDeepLink!('openhuman://auth?token=abc&key=auth&state=e2e-state-nonce')
+    ).resolves.toBeUndefined();
     expect(storeSession).not.toHaveBeenCalled();
 
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -208,7 +266,7 @@ describe('desktopDeepLinkListener', () => {
 
   it('busts RPC caches before storeSession in cloud mode', async () => {
     vi.mocked(getStoredCoreMode).mockReturnValue('cloud');
-    vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=abc&key=auth']);
+    vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
 
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
@@ -220,7 +278,7 @@ describe('desktopDeepLinkListener', () => {
 
   it('does NOT bust RPC caches before storeSession in local mode', async () => {
     vi.mocked(getStoredCoreMode).mockReturnValue('local');
-    vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=abc&key=auth']);
+    vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
 
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
@@ -232,7 +290,7 @@ describe('desktopDeepLinkListener', () => {
 
   it('dispatches suppress-reauth before storeSession and clears it after in cloud mode', async () => {
     vi.mocked(getStoredCoreMode).mockReturnValue('cloud');
-    vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=abc&key=auth']);
+    vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
 
     const suppressEvents: Array<{ until: number }> = [];
     window.addEventListener('core-state:suppress-reauth', event => {

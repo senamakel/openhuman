@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleDeepLinkUrls } from '../../utils/desktopDeepLinkListener';
 import WebCallbackPage from '../WebCallbackPage';
 
-vi.mock('../../utils/desktopDeepLinkListener', () => ({ handleDeepLinkUrls: vi.fn() }));
+vi.mock('../../utils/desktopDeepLinkListener', () => ({
+  handleDeepLinkUrls: vi.fn(),
+  registerAuthDeepLinkState: vi.fn((state?: string) => state ?? 'mock-state'),
+}));
 
 describe('WebCallbackPage', () => {
   afterEach(() => {

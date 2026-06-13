@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 
-import { handleDeepLinkUrls } from '../utils/desktopDeepLinkListener';
+import {
+  handleDeepLinkUrls,
+  registerAuthDeepLinkState,
+} from '../utils/desktopDeepLinkListener';
 
 function buildSyntheticDeepLink(
   kind: string | undefined,
@@ -26,6 +29,27 @@ export default function WebCallbackPage() {
   useEffect(() => {
     const synthetic = buildSyntheticDeepLink(kind, status, location.search);
     if (!synthetic) return;
+
+    // Web build: the OAuth button stashed the in-app `state` nonce in
+    // sessionStorage before the full-page navigation (module memory is lost on
+    // reload). Re-register it ONLY when the backend echoed back the exact same
+    // value, so `handleAuthDeepLink`'s CSRF guard (finding C3) accepts this
+    // same-origin callback while still rejecting an attacker-forged `state`.
+    if (kind === 'auth') {
+      try {
+        const stored = window.sessionStorage.getItem('openhuman:auth-deep-link-state');
+        const echoed = new URLSearchParams(location.search).get('state');
+        if (stored && echoed && stored === echoed) {
+          registerAuthDeepLinkState(stored);
+        }
+        if (stored) {
+          window.sessionStorage.removeItem('openhuman:auth-deep-link-state');
+        }
+      } catch {
+        // sessionStorage unavailable — handleDeepLinkUrls will reject below.
+      }
+    }
+
     void handleDeepLinkUrls([synthetic]);
   }, [kind, status, location.search]);
 

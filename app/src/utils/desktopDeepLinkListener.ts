@@ -23,6 +23,80 @@ import { isTauri as coreIsTauri } from './tauriCommands/common';
 
 const SESSION_TOKEN_UPDATED_EVENT = 'core-state:session-token-updated';
 
+/**
+ * CSRF / session-fixation protection for `openhuman://auth` deep links (finding
+ * C3). Because `openhuman://` is an OS-registered scheme, ANY web page the
+ * victim visits can navigate to `openhuman://auth?token=<attacker_jwt>&key=auth`
+ * and silently log them into the attacker's account. We defend by binding every
+ * auth deep link to a per-attempt `state` nonce that is generated *in-app*
+ * before the login/OAuth flow starts, held only in memory, and required +
+ * constant-time-compared in `handleAuthDeepLink`. A deep link with no `state`,
+ * or a `state` that does not match a pending nonce, is rejected before any token
+ * is applied.
+ */
+const pendingAuthDeepLinkStates = new Set<string>();
+
+/**
+ * Register an auth deep-link `state` nonce as pending and return it so the
+ * caller can carry it through the OAuth/login round-trip (the backend echoes it
+ * back on the callback URL). Callers MUST invoke this before starting the flow
+ * so the resulting `openhuman://auth?...&state=<nonce>` deep link can be
+ * verified on return.
+ *
+ * Pass an existing `state` (e.g. the loopback handle's Rust-verified nonce) to
+ * register that value; omit it to mint a fresh one for the bare deep-link path.
+ */
+export const registerAuthDeepLinkState = (state?: string): string => {
+  const nonce = state && state.length > 0 ? state : generateAuthDeepLinkState();
+  pendingAuthDeepLinkStates.add(nonce);
+  return nonce;
+};
+
+const generateAuthDeepLinkState = (): string => {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+};
+
+/**
+ * Constant-time string comparison so a mismatch can't be probed byte-by-byte
+ * via timing. Returns false for length mismatches without short-circuiting on
+ * the contents.
+ */
+const constantTimeEquals = (a: string, b: string): boolean => {
+  if (a.length !== b.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+};
+
+/**
+ * Verify an inbound auth deep-link `state` against the set of pending nonces
+ * using a constant-time compare, and consume (one-shot) the matched nonce.
+ * Returns false if `state` is absent or matches nothing.
+ */
+const verifyAndConsumeAuthDeepLinkState = (state: string | null): boolean => {
+  if (!state) {
+    return false;
+  }
+  let matched: string | null = null;
+  for (const candidate of pendingAuthDeepLinkStates) {
+    if (constantTimeEquals(candidate, state)) {
+      matched = candidate;
+      // Do not break — keep the comparison count independent of position.
+    }
+  }
+  if (matched === null) {
+    return false;
+  }
+  pendingAuthDeepLinkStates.delete(matched);
+  return true;
+};
+
 const sanitizeOAuthDiagnosticValue = (
   value: string | null,
   fallback: string,
@@ -106,9 +180,23 @@ const applySessionToken = async (sessionToken: string): Promise<void> => {
 const handleAuthDeepLink = async (parsed: URL) => {
   const token = parsed.searchParams.get('token');
   const key = parsed.searchParams.get('key');
+  const state = parsed.searchParams.get('state');
   if (!token) {
     console.warn('[DeepLink] URL did not contain a token query parameter');
     failDeepLinkAuthProcessing('Sign-in callback was missing a token. Please try again.');
+    return;
+  }
+
+  // CSRF / session-fixation guard (finding C3): only honour an auth deep link
+  // whose `state` matches a nonce this app generated before starting the flow.
+  // This is what stops a hostile page from navigating to
+  // `openhuman://auth?token=<attacker_jwt>&key=auth` and silently logging the
+  // victim into the attacker's account. The `key=auth` raw-JWT path in
+  // particular is ONLY safe behind this check — it must never be applied from an
+  // unverified custom-scheme URL.
+  if (!verifyAndConsumeAuthDeepLinkState(state)) {
+    console.warn('[DeepLink][auth] rejecting auth deep link: missing or unrecognized state nonce');
+    failDeepLinkAuthProcessing('Sign-in could not be verified. Please start sign-in again.');
     return;
   }
 
@@ -380,7 +468,28 @@ export const setupDesktopDeepLinkListener = async () => {
       // window.__simulateDeepLink('openhuman://oauth/success?integrationId=69cafd0b103bd070232d3223&skillId=discord')
       const win = window as Window & { __simulateDeepLink?: (url: string) => Promise<void> };
       win.__simulateDeepLink = async (url: string) => {
-        void handleDeepLinkUrls([url]);
+        // Dev/E2E convenience: simulated `openhuman://auth` links don't come from
+        // the real OAuth button, so they have no registered `state` nonce. Mint
+        // and attach one here so the CSRF guard (finding C3) accepts them without
+        // every spec having to script the button flow. This is safe because the
+        // helper is a test-only affordance — real inbound deep links go straight
+        // through `onOpenUrl`/`getCurrent` and never touch this code path.
+        let effectiveUrl = url;
+        try {
+          const parsed = new URL(url);
+          if (parsed.protocol === 'openhuman:' && parsed.hostname === 'auth') {
+            const existing = parsed.searchParams.get('state');
+            if (existing) {
+              registerAuthDeepLinkState(existing);
+            } else {
+              parsed.searchParams.set('state', registerAuthDeepLinkState());
+              effectiveUrl = parsed.toString();
+            }
+          }
+        } catch {
+          // Fall through — handleDeepLinkUrls will report the parse failure.
+        }
+        void handleDeepLinkUrls([effectiveUrl]);
       };
     }
   } catch (err) {

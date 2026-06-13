@@ -1,8 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import ChipTabs from '../../layout/ChipTabs';
-import PanelScaffold from '../../layout/PanelScaffold';
+import PanelPage from '../../layout/PanelPage';
 import SettingsBackButton from '../components/SettingsBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import NotificationRoutingPanel from './NotificationRoutingPanel';
@@ -34,31 +33,27 @@ const NotificationsTabbedPanel = () => {
     navigate(`${location.pathname}${TAB_HASH[next]}`, { replace: true });
   };
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'preferences', label: t('settings.notifications.tabs.preferences') },
-    { id: 'routing', label: t('settings.notifications.tabs.routing') },
-  ];
-
   return (
-    <PanelScaffold
+    <PanelPage<TabId>
       className="z-10"
-      contentClassName=""
-      title={t('settings.notifications')}
+      description={t('settings.notifications.menuDesc')}
       leading={<SettingsBackButton onBack={navigateBack} />}
-      headerExtra={
-        <ChipTabs
-          ariaLabel={t('settings.notifications')}
-          items={tabs}
-          value={tab}
-          onChange={selectTab}
-        />
-      }>
-      {tab === 'preferences' ? (
-        <NotificationsPanel embedded />
-      ) : (
-        <NotificationRoutingPanel embedded />
-      )}
-    </PanelScaffold>
+      tabsAriaLabel={t('settings.notifications')}
+      value={tab}
+      onChange={selectTab}
+      tabs={[
+        {
+          id: 'preferences',
+          label: t('settings.notifications.tabs.preferences'),
+          content: <NotificationsPanel embedded />,
+        },
+        {
+          id: 'routing',
+          label: t('settings.notifications.tabs.routing'),
+          content: <NotificationRoutingPanel embedded />,
+        },
+      ]}
+    />
   );
 };
 

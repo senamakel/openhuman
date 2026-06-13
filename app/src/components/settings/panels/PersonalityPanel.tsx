@@ -1,8 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import ChipTabs from '../../layout/ChipTabs';
-import PanelScaffold from '../../layout/PanelScaffold';
+import PanelPage from '../../layout/PanelPage';
 import SettingsBackButton from '../components/SettingsBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import MascotPanel from './MascotPanel';
@@ -33,28 +32,24 @@ const PersonalityPanel = () => {
     navigate(`${location.pathname}${TAB_HASH[next]}`, { replace: true });
   };
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'personality', label: t('settings.assistant.personality') },
-    { id: 'face', label: t('settings.assistant.faceMascot') },
-  ];
-
   return (
-    <PanelScaffold
+    <PanelPage<TabId>
       className="z-10"
-      contentClassName=""
-      title={t('settings.personalityFace.title')}
+      description={t('settings.personalityFace.menuDesc')}
       leading={<SettingsBackButton onBack={navigateBack} />}
-      headerExtra={
-        <ChipTabs
-          ariaLabel={t('settings.personalityFace.title')}
-          testIdPrefix="personality-tab"
-          items={tabs}
-          value={tab}
-          onChange={selectTab}
-        />
-      }>
-      {tab === 'personality' ? <PersonaPanel embedded /> : <MascotPanel embedded />}
-    </PanelScaffold>
+      tabsAriaLabel={t('settings.personalityFace.title')}
+      tabsTestIdPrefix="personality-tab"
+      value={tab}
+      onChange={selectTab}
+      tabs={[
+        {
+          id: 'personality',
+          label: t('settings.assistant.personality'),
+          content: <PersonaPanel embedded />,
+        },
+        { id: 'face', label: t('settings.assistant.faceMascot'), content: <MascotPanel embedded /> },
+      ]}
+    />
   );
 };
 

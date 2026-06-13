@@ -1,6 +1,6 @@
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCoreState } from '../../../providers/CoreStateProvider';
-import PanelScaffold from '../../layout/PanelScaffold';
+import PanelPage from '../../layout/PanelPage';
 import SettingsBackButton from '../components/SettingsBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import LogoutAndClearActions from '../LogoutAndClearActions';
@@ -21,10 +21,10 @@ const AccountPanel = () => {
   const username = user?.username ? `@${user.username}` : null;
 
   return (
-    <PanelScaffold
+    <PanelPage
       className="z-10"
       testId="account-panel"
-      title={t('pages.settings.accountSection.title')}
+      description={t('pages.settings.accountSection.description')}
       leading={<SettingsBackButton onBack={navigateBack} />}>
       {(name || username) && (
         <div className="flex items-center gap-3 rounded-2xl border border-stone-200 dark:border-neutral-800 px-4 py-3">
@@ -49,7 +49,7 @@ const AccountPanel = () => {
       <div className="rounded-2xl overflow-hidden border border-stone-200 dark:border-neutral-800">
         <LogoutAndClearActions />
       </div>
-    </PanelScaffold>
+    </PanelPage>
   );
 };
 

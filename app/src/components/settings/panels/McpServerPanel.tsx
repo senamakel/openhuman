@@ -8,7 +8,7 @@ import { useT } from '../../../lib/i18n/I18nContext';
 // as a regular IPC failure.
 import { safeInvoke as invoke, isTauri } from '../../../utils/tauriCommands/common';
 import ChipTabs from '../../layout/ChipTabs';
-import PanelScaffold from '../../layout/PanelScaffold';
+import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
 import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsSection } from '../controls';
@@ -170,10 +170,10 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
   ];
 
   return (
-    <PanelScaffold
+    <PanelPage
       className="z-10"
       contentClassName=""
-      title={embedded ? undefined : t('settings.mcpServer.title')}
+      description={embedded ? undefined : t('settings.developerMenu.mcpServer.desc')}
       leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
       {/* ----------------------------------------------------------------- */}
       {/* Section 1 — Available Tools                                        */}
@@ -267,7 +267,7 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
           )}
         </SettingsSection>
       </div>
-    </PanelScaffold>
+    </PanelPage>
   );
 };
 

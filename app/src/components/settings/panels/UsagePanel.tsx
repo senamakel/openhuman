@@ -4,8 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { type AISettings, loadAISettings } from '../../../services/api/aiSettingsApi';
 import CostDashboardPanel from '../../dashboard/CostDashboardPanel';
-import ChipTabs from '../../layout/ChipTabs';
-import PanelScaffold from '../../layout/PanelScaffold';
+import PanelPage from '../../layout/PanelPage';
 import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsStatusLine } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -37,28 +36,28 @@ const UsagePanel = () => {
     navigate(`${location.pathname}${TAB_HASH[next]}`, { replace: true });
   };
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'costs', label: t('settings.costDashboard.title') },
-    { id: 'background', label: t('settings.heartbeat.title') },
-  ];
-
   return (
-    <PanelScaffold
+    <PanelPage<TabId>
       className="z-10"
-      contentClassName=""
-      title={t('settings.usage.title')}
+      description={t('settings.usage.menuDesc')}
       leading={<SettingsBackButton onBack={navigateBack} />}
-      headerExtra={
-        <ChipTabs
-          ariaLabel={t('settings.usage.title')}
-          testIdPrefix="usage-tab"
-          items={tabs}
-          value={tab}
-          onChange={selectTab}
-        />
-      }>
-      {tab === 'costs' ? <CostDashboardPanel embedded /> : <BackgroundActivityTab />}
-    </PanelScaffold>
+      tabsAriaLabel={t('settings.usage.title')}
+      tabsTestIdPrefix="usage-tab"
+      value={tab}
+      onChange={selectTab}
+      tabs={[
+        {
+          id: 'costs',
+          label: t('settings.costDashboard.title'),
+          content: <CostDashboardPanel embedded />,
+        },
+        {
+          id: 'background',
+          label: t('settings.heartbeat.title'),
+          content: <BackgroundActivityTab />,
+        },
+      ]}
+    />
   );
 };
 

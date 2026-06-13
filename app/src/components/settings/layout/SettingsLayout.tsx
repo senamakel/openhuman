@@ -41,11 +41,17 @@ const SettingsLayout = () => {
             <SettingsSidebar />
           </div>
         }>
-        <div className="h-full overflow-y-auto">
-          <div className="px-4 pt-4 -mb-4">
+        {/* Bounded flex column: the sub-nav chips stay pinned at the top while
+            the routed panel owns the only vertical scroll (its WrappedSettingsPage
+            / PanelScaffold). No scroll here — that's what caused the page to
+            scroll twice. */}
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex-shrink-0">
             <SettingsSubNav />
           </div>
-          <Outlet />
+          <div className="min-h-0 flex-1">
+            <Outlet />
+          </div>
         </div>
       </TwoPanelLayout>
     </SettingsLayoutProvider>

@@ -1,28 +1,27 @@
 import type { ReactNode } from 'react';
 
+import PanelHeader, { DEFAULT_PANEL_HEADER_BG, DEFAULT_PANEL_HEADER_CLASS } from './PanelHeader';
+
 export interface PanelScaffoldProps {
   /**
    * Fixed header title. Optional — omit (along with the other header slots) for
-   * a header-less, body-only panel.
+   * a header-less, body-only scaffold.
    */
   title?: ReactNode;
   /** Fixed sub-title rendered under the title in a muted tone. */
   description?: ReactNode;
-  /**
-   * Leading node before the title (e.g. a back button). Bring your own spacing
-   * — the title sits immediately after it.
-   */
+  /** Leading node before the title (e.g. a back button); brings its own spacing. */
   leading?: ReactNode;
   /** Right-aligned header action(s) (e.g. a refresh or "add" button). */
   action?: ReactNode;
   /**
-   * Extra content pinned inside the fixed header, below the title row — e.g. a
+   * Extra content pinned inside the fixed header, below the description — e.g. a
    * {@link ChipTabs} row that should stay visible while the body scrolls.
    */
   headerExtra?: ReactNode;
   /** Scrollable body content. */
   children: ReactNode;
-  /** Extra classes on the panel root. */
+  /** Extra classes on the scaffold root. */
   className?: string;
   /**
    * Classes for the scrollable body wrapper. Defaults to the canonical settings
@@ -30,30 +29,27 @@ export interface PanelScaffoldProps {
    * own padding (e.g. an embedded sub-panel).
    */
   contentClassName?: string;
-  /** Classes for the fixed (sticky) header wrapper. */
+  /** Classes for the fixed header band. */
   headerClassName?: string;
-  /**
-   * Background applied to the sticky header so scrolling content is hidden
-   * behind it. Must match the surrounding pane. Defaults to the standard pane
-   * surface; pass `''` to opt out (e.g. a transparent host).
-   */
+  /** Background applied to the fixed header band. */
   headerBgClassName?: string;
   testId?: string;
 }
 
-const DEFAULT_HEADER_CLASS = 'px-5 pt-5 pb-3';
-const DEFAULT_HEADER_BG = 'bg-white dark:bg-neutral-900';
 const DEFAULT_CONTENT_CLASS = 'p-4 pt-2 space-y-5';
 
 /**
- * Standard right-pane panel scaffold: a fixed (sticky) header carrying an
- * optional title + description (and optional leading/action/tab slots) above a
- * scrollable body. Built so every settings/detail panel shares the same header
- * spacing and scroll behavior instead of hand-rolling a header + content `div`.
+ * Standard scaffold: a fixed header ({@link PanelHeader}) carrying an optional
+ * title + description (plus leading/action/headerExtra slots) above a scrollable
+ * body. The header never scrolls; only `children` do.
  *
- * The header sticks to the nearest scrolling ancestor (the two-pane content
- * pane in settings), so it stays put while `children` scroll beneath it. The
- * component is presentational — hosts own the data and the back/action nodes.
+ * The scaffold fills its parent's height and owns the *only* vertical scroll in
+ * its subtree — relying on an unbroken height chain from a bounded ancestor (in
+ * settings, the two-pane content pane). With no bounded height it degrades
+ * gracefully: the body grows and the nearest ancestor scroller takes over.
+ *
+ * Presentational. For the full page pattern (page title/description + chips over
+ * one or more scaffolds), use {@link PanelPage}, which composes this.
  */
 export default function PanelScaffold({
   title,
@@ -64,40 +60,32 @@ export default function PanelScaffold({
   children,
   className = '',
   contentClassName = DEFAULT_CONTENT_CLASS,
-  headerClassName = DEFAULT_HEADER_CLASS,
-  headerBgClassName = DEFAULT_HEADER_BG,
+  headerClassName = DEFAULT_PANEL_HEADER_CLASS,
+  headerBgClassName = DEFAULT_PANEL_HEADER_BG,
   testId,
 }: PanelScaffoldProps) {
-  const hasTitleRow = title != null || leading != null || action != null;
-  const hasHeader = hasTitleRow || description != null || headerExtra != null;
+  const hasHeader =
+    title != null ||
+    description != null ||
+    leading != null ||
+    action != null ||
+    headerExtra != null;
 
   return (
-    <div className={`relative ${className}`} data-testid={testId}>
+    <div className={`relative flex h-full min-h-0 flex-col ${className}`} data-testid={testId}>
       {hasHeader && (
-        <div className={`sticky top-0 z-20 ${headerBgClassName} ${headerClassName}`}>
-          {hasTitleRow && (
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center">
-                {leading}
-                {title != null && (
-                  <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
-                    {title}
-                  </h2>
-                )}
-              </div>
-              {action != null && <div className="flex-shrink-0">{action}</div>}
-            </div>
-          )}
-
-          {description != null && (
-            <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">{description}</p>
-          )}
-
+        <PanelHeader
+          title={title}
+          description={description}
+          leading={leading}
+          action={action}
+          className={`flex-shrink-0 ${headerClassName}`}
+          bgClassName={headerBgClassName}>
           {headerExtra}
-        </div>
+        </PanelHeader>
       )}
 
-      <div className={contentClassName}>{children}</div>
+      <div className={`min-h-0 flex-1 overflow-y-auto ${contentClassName}`}>{children}</div>
     </div>
   );
 }

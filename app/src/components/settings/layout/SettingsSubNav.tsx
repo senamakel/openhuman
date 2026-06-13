@@ -34,7 +34,7 @@ const SettingsSubNav = () => {
       as="nav"
       ariaLabel={t('nav.settings')}
       testId="settings-subnav"
-      className="flex flex-wrap gap-1.5 px-1 pb-3"
+      className="flex flex-wrap gap-1.5 px-4 pt-4 pb-3"
       items={items}
       value={value}
       onChange={id => {

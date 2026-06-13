@@ -2,8 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import Webhooks from '../../../pages/Webhooks';
-import ChipTabs from '../../layout/ChipTabs';
-import PanelScaffold from '../../layout/PanelScaffold';
+import PanelPage from '../../layout/PanelPage';
 import SettingsBackButton from '../components/SettingsBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import ComposioPanel from './ComposioPanel';
@@ -43,35 +42,34 @@ const IntegrationsPanel = () => {
     navigate(`${location.pathname}${TAB_HASH[next]}`, { replace: true });
   };
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'task-sources', label: t('settings.taskSources.title') },
-    { id: 'composio', label: t('settings.developerMenu.composioRouting.title') },
-    { id: 'webhooks', label: t('settings.developerMenu.composeioTriggers.title') },
-  ];
-
   return (
-    <PanelScaffold
+    <PanelPage<TabId>
       className="z-10"
-      contentClassName=""
-      title={t('settings.integrations.title')}
+      description={t('settings.integrations.menuDesc')}
       leading={<SettingsBackButton onBack={navigateBack} />}
-      headerExtra={
-        <ChipTabs
-          ariaLabel={t('settings.integrations.title')}
-          testIdPrefix="integrations-tab"
-          items={tabs}
-          value={tab}
-          onChange={selectTab}
-        />
-      }>
-      {tab === 'task-sources' && <TaskSourcesPanel embedded />}
-      {tab === 'composio' && (
-        <div className="p-4">
-          <ComposioPanel embedded />
-        </div>
-      )}
-      {tab === 'webhooks' && <Webhooks embedded />}
-    </PanelScaffold>
+      tabsAriaLabel={t('settings.integrations.title')}
+      tabsTestIdPrefix="integrations-tab"
+      value={tab}
+      onChange={selectTab}
+      tabs={[
+        {
+          id: 'task-sources',
+          label: t('settings.taskSources.title'),
+          content: <TaskSourcesPanel embedded />,
+        },
+        {
+          id: 'composio',
+          label: t('settings.developerMenu.composioRouting.title'),
+          content: <ComposioPanel embedded />,
+          contentClassName: 'p-4',
+        },
+        {
+          id: 'webhooks',
+          label: t('settings.developerMenu.composeioTriggers.title'),
+          content: <Webhooks embedded />,
+        },
+      ]}
+    />
   );
 };
 

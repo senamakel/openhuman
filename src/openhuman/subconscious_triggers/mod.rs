@@ -16,10 +16,12 @@
 //! - [`registry`] — dedupe + rate-limit admission front-end
 //! - gate / bus / ops / schemas land in later slices.
 
+pub mod normalize;
 pub mod queue;
 pub mod registry;
 pub mod types;
 
+pub use normalize::{normalize, SUBCONSCIOUS_SENDER_MARKER};
 pub use queue::{EnqueueOutcome, OrchestratorQueue};
 pub use registry::{AdmitOutcome, DedupeWindow, RateLimiter, TriggerRegistry};
 pub use types::{

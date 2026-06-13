@@ -139,7 +139,7 @@ impl ScriptedSession {
             .push(format!("SESSION spawn  sub-agent '{agent_id}' ({task_id})"));
         let event = if ok {
             DomainEvent::SubagentCompleted {
-                parent_session: "subconscious".into(),
+                parent_session: "subconscious:orchestrator".into(),
                 task_id: task_id.clone(),
                 agent_id: agent_id.into(),
                 elapsed_ms: 5,
@@ -148,7 +148,7 @@ impl ScriptedSession {
             }
         } else {
             DomainEvent::SubagentFailed {
-                parent_session: "subconscious".into(),
+                parent_session: "subconscious:orchestrator".into(),
                 task_id: task_id.clone(),
                 agent_id: agent_id.into(),
                 error: "tool timeout".into(),
@@ -387,7 +387,7 @@ async fn conversation_subagent_failure_recovers_with_retry() {
 
     // Inject a sub-agent FAILURE conclusion directly (as if a prior spawn failed).
     h.ingest(DomainEvent::SubagentFailed {
-        parent_session: "subconscious".into(),
+        parent_session: "subconscious:orchestrator".into(),
         task_id: "task-0".into(),
         agent_id: "researcher".into(),
         error: "tool timeout".into(),

@@ -66,7 +66,7 @@ fn composio_event(metadata_id: &str, subject: &str) -> DomainEvent {
 
 fn subagent_done_event(task_id: &str, agent_id: &str) -> DomainEvent {
     DomainEvent::SubagentCompleted {
-        parent_session: "s".into(),
+        parent_session: "subconscious:orchestrator".into(),
         task_id: task_id.into(),
         agent_id: agent_id.into(),
         elapsed_ms: 10,

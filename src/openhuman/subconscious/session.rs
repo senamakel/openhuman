@@ -18,7 +18,7 @@
 //! decided they're worth a reasoning-tier run.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
@@ -61,6 +61,12 @@ pub struct LongLivedSession {
     run_lock: Mutex<()>,
     /// Monotonic run counter / supersession hook.
     generation: AtomicU64,
+    /// Sticky taint: once any tainted (external-content) trigger is processed,
+    /// the untrusted payload lives on in the persistent history, so every
+    /// subsequent run stays `SubconsciousTainted` — otherwise a later benign
+    /// cron run could regain external-effect tool access while the context
+    /// still contains the earlier untrusted content.
+    tainted: AtomicBool,
 }
 
 impl LongLivedSession {
@@ -79,6 +85,7 @@ impl LongLivedSession {
             agent: Mutex::new(None),
             run_lock: Mutex::new(()),
             generation: AtomicU64::new(0),
+            tainted: AtomicBool::new(false),
         }
     }
 
@@ -114,6 +121,14 @@ impl LongLivedSession {
         // even if the run fails mid-way.
         self.persist_message("user", summary);
 
+        // Sticky taint: this run is tainted if the trigger carries external
+        // content OR the session has *ever* ingested external content (it's
+        // still in the reused history).
+        if external_content {
+            self.tainted.store(true, Ordering::SeqCst);
+        }
+        let effective_tainted = self.tainted.load(Ordering::SeqCst);
+
         let config = Config::load_or_init()
             .await
             .map_err(|e| format!("load config: {e}"))?;
@@ -128,7 +143,7 @@ impl LongLivedSession {
 
             let origin = crate::openhuman::agent::turn_origin::AgentTurnOrigin::TrustedAutomation {
                 job_id: format!("subconscious:session:{}:{}", self.thread_id, generation),
-                source: tick_origin_source(external_content),
+                source: tick_origin_source(effective_tainted),
             };
             crate::openhuman::agent::turn_origin::with_origin(origin, agent.run_single(summary))
                 .await
@@ -156,7 +171,10 @@ impl LongLivedSession {
     /// caps, seeding history from the reserved thread for cold-boot resume.
     fn build_agent(&self, config: &Config, current_message: &str) -> Result<Agent, String> {
         let effective = effective_config(config, self.mode);
-        let mut agent = Agent::from_config(&effective).map_err(|e| {
+        // Build as the `subconscious` agent (not the default orchestrator) so
+        // the session's promoted turns get the subconscious tool surface —
+        // scratchpad + spawn_subagent + the notify_user user-handoff tool.
+        let mut agent = Agent::from_config_for_agent(&effective, "subconscious").map_err(|e| {
             warn!("[subconscious::session] agent init failed: {e}");
             format!("agent init: {e}")
         })?;

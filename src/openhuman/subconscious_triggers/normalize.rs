@@ -18,6 +18,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use crate::core::event_bus::DomainEvent;
+use crate::openhuman::subconscious::ORCHESTRATOR_THREAD_ID;
 
 use super::types::{DedupeKey, Trigger, TriggerPayload, TriggerPriority, TriggerSource};
 
@@ -154,13 +155,18 @@ pub fn normalize_with_id(event: &DomainEvent, now: f64, new_id: String) -> Optio
             },
         }),
 
+        // Only sub-agents spawned by the subconscious orchestrator itself feed
+        // back into the pipeline — otherwise unrelated chat/workflow sub-agent
+        // completions (the whole `agent` domain) would contaminate the reserved
+        // thread and trigger spurious follow-up work.
         DomainEvent::SubagentCompleted {
+            parent_session,
             task_id,
             agent_id,
             output_chars,
             iterations,
             ..
-        } => Some(Trigger {
+        } if parent_session == ORCHESTRATOR_THREAD_ID => Some(Trigger {
             id: new_id,
             display_label: format!("subagent/{agent_id}/done"),
             payload: TriggerPayload {
@@ -194,11 +200,12 @@ pub fn normalize_with_id(event: &DomainEvent, now: f64, new_id: String) -> Optio
         }),
 
         DomainEvent::SubagentFailed {
+            parent_session,
             task_id,
             agent_id,
             error,
             ..
-        } => Some(Trigger {
+        } if parent_session == ORCHESTRATOR_THREAD_ID => Some(Trigger {
             id: new_id,
             display_label: format!("subagent/{agent_id}/failed"),
             payload: TriggerPayload {
@@ -374,7 +381,7 @@ mod tests {
     #[test]
     fn subagent_completed_maps_to_ok_conclusion() {
         let ev = DomainEvent::SubagentCompleted {
-            parent_session: "s".into(),
+            parent_session: ORCHESTRATOR_THREAD_ID.into(),
             task_id: "task-7".into(),
             agent_id: "researcher".into(),
             elapsed_ms: 1000,
@@ -396,7 +403,7 @@ mod tests {
     #[test]
     fn subagent_failed_maps_to_failed_conclusion() {
         let ev = DomainEvent::SubagentFailed {
-            parent_session: "s".into(),
+            parent_session: ORCHESTRATOR_THREAD_ID.into(),
             task_id: "task-8".into(),
             agent_id: "orchestrator".into(),
             error: "max iterations exceeded".into(),

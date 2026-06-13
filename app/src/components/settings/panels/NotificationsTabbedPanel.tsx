@@ -2,7 +2,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import ChipTabs from '../../layout/ChipTabs';
-import SettingsHeader from '../components/SettingsHeader';
+import PanelScaffold from '../../layout/PanelScaffold';
+import SettingsBackButton from '../components/SettingsBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import NotificationRoutingPanel from './NotificationRoutingPanel';
 import NotificationsPanel from './NotificationsPanel';
@@ -22,7 +23,7 @@ const hashToTab = (hash: string): TabId => (hash === '#routing' ? 'routing' : 'p
  */
 const NotificationsTabbedPanel = () => {
   const { t } = useT();
-  const { navigateBack, breadcrumbs } = useSettingsNavigation();
+  const { navigateBack } = useSettingsNavigation();
   const location = useLocation();
   const navigate = useNavigate();
   // The router is the single source of truth for the active tab — hash is the
@@ -39,27 +40,25 @@ const NotificationsTabbedPanel = () => {
   ];
 
   return (
-    <div className="z-10 relative">
-      <SettingsHeader
-        title={t('settings.notifications')}
-        showBackButton={true}
-        onBack={navigateBack}
-        breadcrumbs={breadcrumbs}
-      />
-
-      <ChipTabs
-        ariaLabel={t('settings.notifications')}
-        items={tabs}
-        value={tab}
-        onChange={selectTab}
-      />
-
+    <PanelScaffold
+      className="z-10"
+      contentClassName=""
+      title={t('settings.notifications')}
+      leading={<SettingsBackButton onBack={navigateBack} />}
+      headerExtra={
+        <ChipTabs
+          ariaLabel={t('settings.notifications')}
+          items={tabs}
+          value={tab}
+          onChange={selectTab}
+        />
+      }>
       {tab === 'preferences' ? (
         <NotificationsPanel embedded />
       ) : (
         <NotificationRoutingPanel embedded />
       )}
-    </div>
+    </PanelScaffold>
   );
 };
 

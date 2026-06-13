@@ -8,8 +8,9 @@ import { useT } from '../../../lib/i18n/I18nContext';
 // as a regular IPC failure.
 import { safeInvoke as invoke, isTauri } from '../../../utils/tauriCommands/common';
 import ChipTabs from '../../layout/ChipTabs';
+import PanelScaffold from '../../layout/PanelScaffold';
 import Button from '../../ui/Button';
-import SettingsHeader from '../components/SettingsHeader';
+import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsSection } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
@@ -102,7 +103,7 @@ interface McpServerPanelProps {
 
 const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
   const { t } = useT();
-  const { navigateBack, breadcrumbs } = useSettingsNavigation();
+  const { navigateBack } = useSettingsNavigation();
 
   const [binaryInfo, setBinaryInfo] = useState<McpBinaryInfo | null>(null);
   const [binaryError, setBinaryError] = useState<string | null>(null);
@@ -169,16 +170,11 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
   ];
 
   return (
-    <div className="z-10 relative">
-      {!embedded && (
-        <SettingsHeader
-          title={t('settings.mcpServer.title')}
-          showBackButton={true}
-          onBack={navigateBack}
-          breadcrumbs={breadcrumbs}
-        />
-      )}
-
+    <PanelScaffold
+      className="z-10"
+      contentClassName=""
+      title={embedded ? undefined : t('settings.mcpServer.title')}
+      leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
       {/* ----------------------------------------------------------------- */}
       {/* Section 1 — Available Tools                                        */}
       {/* ----------------------------------------------------------------- */}
@@ -271,7 +267,7 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
           )}
         </SettingsSection>
       </div>
-    </div>
+    </PanelScaffold>
   );
 };
 

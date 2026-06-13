@@ -5,7 +5,8 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { type AISettings, loadAISettings } from '../../../services/api/aiSettingsApi';
 import CostDashboardPanel from '../../dashboard/CostDashboardPanel';
 import ChipTabs from '../../layout/ChipTabs';
-import SettingsHeader from '../components/SettingsHeader';
+import PanelScaffold from '../../layout/PanelScaffold';
+import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsStatusLine } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import { BackgroundLoopControls } from './AIPanel';
@@ -26,7 +27,7 @@ const hashToTab = (hash: string): TabId => (hash === '#background' ? 'background
  */
 const UsagePanel = () => {
   const { t } = useT();
-  const { navigateBack, breadcrumbs } = useSettingsNavigation();
+  const { navigateBack } = useSettingsNavigation();
   const location = useLocation();
   const navigate = useNavigate();
   // The router is the single source of truth for the active tab.
@@ -42,24 +43,22 @@ const UsagePanel = () => {
   ];
 
   return (
-    <div className="z-10 relative">
-      <SettingsHeader
-        title={t('settings.usage.title')}
-        showBackButton
-        onBack={navigateBack}
-        breadcrumbs={breadcrumbs}
-      />
-
-      <ChipTabs
-        ariaLabel={t('settings.usage.title')}
-        testIdPrefix="usage-tab"
-        items={tabs}
-        value={tab}
-        onChange={selectTab}
-      />
-
+    <PanelScaffold
+      className="z-10"
+      contentClassName=""
+      title={t('settings.usage.title')}
+      leading={<SettingsBackButton onBack={navigateBack} />}
+      headerExtra={
+        <ChipTabs
+          ariaLabel={t('settings.usage.title')}
+          testIdPrefix="usage-tab"
+          items={tabs}
+          value={tab}
+          onChange={selectTab}
+        />
+      }>
       {tab === 'costs' ? <CostDashboardPanel embedded /> : <BackgroundActivityTab />}
-    </div>
+    </PanelScaffold>
   );
 };
 

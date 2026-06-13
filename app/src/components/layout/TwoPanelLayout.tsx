@@ -95,8 +95,9 @@ export interface TwoPanelLayoutProps {
   showDividerHandle?: boolean;
   /**
    * Join the two panes into a single bordered card with no gap between them: the
-   * shared edge becomes a flush, hairline drag divider. When false (default) the
-   * panes are separate cards (via `paneClassName`) split by a gutter divider.
+   * shared edge becomes a flush, hairline drag divider. This is the default for
+   * every two-pane surface; pass `false` for the legacy split-card look with a
+   * gutter divider (no current callers).
    */
   seamless?: boolean;
 }
@@ -134,7 +135,7 @@ export default function TwoPanelLayout({
   paneClassName = DEFAULT_PANE_CLASS,
   showCollapsedRail = false,
   showDividerHandle = true,
-  seamless = false,
+  seamless = true,
 }: TwoPanelLayoutProps) {
   const { t } = useT();
   const dispatch = useAppDispatch();

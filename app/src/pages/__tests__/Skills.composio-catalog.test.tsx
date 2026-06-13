@@ -86,7 +86,7 @@ describe('Skills page — Composio catalog fallback', () => {
     renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
     openAppsTab();
 
-    expect(screen.getByRole('heading', { name: 'Composio Integrations' })).toBeInTheDocument();
+    expect(screen.getByTestId('composio-integrations-card')).toBeInTheDocument();
     expect(screen.getByText('Discord')).toBeInTheDocument();
     expect(screen.getByText('Google Calendar')).toBeInTheDocument();
     expect(screen.getByText('Google Drive')).toBeInTheDocument();
@@ -102,10 +102,7 @@ describe('Skills page — Composio catalog fallback', () => {
     // Scope to the Integrations section so the assertion still catches a
     // missing Composio Zoom tile even though the Meeting bots card also
     // renders a "Zoom" entry on the same page.
-    const integrationsSection = screen
-      .getByRole('heading', { name: 'Composio Integrations' })
-      .closest('.rounded-2xl');
-    expect(integrationsSection).not.toBeNull();
+    const integrationsSection = screen.getByTestId('composio-integrations-card');
     expect(within(integrationsSection as HTMLElement).getByText('Zoom')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Other' })).not.toBeInTheDocument();
   });
@@ -119,10 +116,7 @@ describe('Skills page — Composio catalog fallback', () => {
     expect(screen.getByText('Connections are showing stale status')).toBeInTheDocument();
     expect(screen.getByText('Backend unavailable')).toBeInTheDocument();
 
-    const integrationsSection = screen
-      .getByRole('heading', { name: 'Composio Integrations' })
-      .closest('.rounded-2xl');
-    expect(integrationsSection).not.toBeNull();
+    const integrationsSection = screen.getByTestId('composio-integrations-card');
     const gmailTile = within(integrationsSection as HTMLElement).getByRole('button', {
       name: /Gmail.*Status unavailable/i,
     });
@@ -142,10 +136,7 @@ describe('Skills page — Composio catalog fallback', () => {
     renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
     openAppsTab();
 
-    const integrationsSection = screen
-      .getByRole('heading', { name: 'Composio Integrations' })
-      .closest('.rounded-2xl');
-    expect(integrationsSection).not.toBeNull();
+    const integrationsSection = screen.getByTestId('composio-integrations-card');
     const gmailTile = within(integrationsSection as HTMLElement).getByRole('button', {
       name: /Gmail.*Auth expired.*Reconnect/i,
     });
@@ -177,10 +168,7 @@ describe('Skills page — Composio catalog fallback', () => {
     renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
     openAppsTab();
 
-    const integrationsSection = screen
-      .getByRole('heading', { name: 'Composio Integrations' })
-      .closest('.rounded-2xl');
-    expect(integrationsSection).not.toBeNull();
+    const integrationsSection = screen.getByTestId('composio-integrations-card');
     expect(within(integrationsSection as HTMLElement).getByText('2')).toBeInTheDocument();
   });
 
@@ -197,10 +185,7 @@ describe('Skills page — Composio catalog fallback', () => {
     renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
     openAppsTab();
 
-    const integrationsSection = screen
-      .getByRole('heading', { name: 'Composio Integrations' })
-      .closest('.rounded-2xl');
-    expect(integrationsSection).not.toBeNull();
+    const integrationsSection = screen.getByTestId('composio-integrations-card');
     // No Preview badges anywhere in the integrations grid. The
     // badge carries a `data-testid` of the form
     // `composio-preview-badge-<slug>`; absence means we degraded
@@ -221,10 +206,7 @@ describe('Skills page — Composio catalog fallback', () => {
     renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
     openAppsTab();
 
-    const integrationsSection = screen
-      .getByRole('heading', { name: 'Composio Integrations' })
-      .closest('.rounded-2xl');
-    expect(integrationsSection).not.toBeNull();
+    const integrationsSection = screen.getByTestId('composio-integrations-card');
     const zohoTile = within(integrationsSection as HTMLElement).getByRole('button', {
       name: /Zoho Mail.*Preview/i,
     });

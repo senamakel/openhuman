@@ -104,9 +104,12 @@ pub fn normalize_with_id(event: &DomainEvent, now: f64, new_id: String) -> Optio
                     "user:{channel}:{thread_id}:{sender_label}:{}",
                     short_hash(message)
                 )),
-                // Principal-authored; not third-party tainted in v1. Group
-                // channels are an open question (see plan).
-                external_content: false,
+                // Inbound channel messages are untrusted third-party content
+                // (a co-channel/remote sender could otherwise drive a
+                // full-autonomy promoted run). Taint them so the promoted
+                // session runs under `SubconsciousTainted` and the approval
+                // gate refuses external-effect tools.
+                external_content: true,
                 received_at: now,
                 source: TriggerSource::UserMessage {
                     channel: channel.clone(),
@@ -286,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    fn user_message_maps_to_high_non_tainted_trigger() {
+    fn user_message_maps_to_high_tainted_trigger() {
         let ev = DomainEvent::ChannelInboundMessage {
             event_name: "msg".into(),
             channel: "slack".into(),
@@ -298,7 +301,7 @@ mod tests {
         };
         let t = normalize_with_id(&ev, 0.0, "id".into()).unwrap();
         assert_eq!(t.priority, TriggerPriority::High);
-        assert!(!t.external_content);
+        assert!(t.external_content, "inbound channel messages are untrusted");
         assert!(t.payload.gate_summary.contains("summarize the thread"));
         match t.source {
             TriggerSource::UserMessage {

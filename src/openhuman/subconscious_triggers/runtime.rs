@@ -191,11 +191,16 @@ impl TriggerOrchestrator {
                 );
                 // Reuse the trigger as the queue item: stamp the gate's
                 // priority and carry the synthesized user-turn in
-                // `gate_summary` (the redacted summary is no longer needed
-                // post-promotion).
+                // `gate_summary`. The gate only ever saw the *redacted*
+                // summary; the long-lived session needs the actionable
+                // content, so append a bounded rendering of the full payload
+                // here. This is safe because promoted runs from external
+                // triggers execute under the tainted automation origin (the
+                // approval gate refuses external-effect tools).
                 let mut item = trigger;
                 item.priority = priority;
-                item.payload.gate_summary = synthesized_summary;
+                item.payload.gate_summary =
+                    augment_with_payload(&synthesized_summary, &item.payload.raw);
                 match self.queue.push(item) {
                     EnqueueOutcome::Accepted => {}
                     EnqueueOutcome::EvictedLowest { evicted } => {
@@ -311,6 +316,25 @@ pub fn shutdown_global() {
         s.loop_handle.abort();
         info!("[subconscious_triggers] orchestrator loop shut down");
     }
+}
+
+/// Max characters of the raw payload appended to a promoted session turn.
+const PROMOTED_PAYLOAD_MAX_CHARS: usize = 4000;
+
+/// Append a bounded rendering of the trigger's full payload to the gate's
+/// synthesized summary so the long-lived session can act on the actual
+/// content (subject/body/etc.) the redacted gate summary omitted. No-op for a
+/// null payload.
+fn augment_with_payload(summary: &str, raw: &serde_json::Value) -> String {
+    if raw.is_null() {
+        return summary.to_string();
+    }
+    let mut rendered = serde_json::to_string_pretty(raw).unwrap_or_else(|_| raw.to_string());
+    if rendered.chars().count() > PROMOTED_PAYLOAD_MAX_CHARS {
+        rendered = rendered.chars().take(PROMOTED_PAYLOAD_MAX_CHARS).collect();
+        rendered.push_str("\n…(truncated)");
+    }
+    format!("{summary}\n\nTrigger payload:\n{rendered}")
 }
 
 /// Epoch seconds with sub-second precision.

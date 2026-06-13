@@ -66,17 +66,19 @@ export async function subconsciousTriggersStatus(): Promise<
 }
 
 /**
- * Enable or disable the event-driven trigger pipeline. Enabling also flips the
- * subconscious into `event_driven` mode so the orchestrator bootstraps; the
- * core restarts the heartbeat loop on this change.
+ * Enable or disable the event-driven trigger pipeline.
+ *
+ * Enabling flips the subconscious into `event_driven` mode so the orchestrator
+ * bootstraps. Disabling also resets the mode to `off` — otherwise the earlier
+ * enable would leave `event_driven`/`inference_enabled` set and the legacy
+ * heartbeat tick would keep running every 5 min after the pipeline is turned
+ * off. The core restarts the heartbeat loop on this change.
  */
 export async function setSubconsciousTriggersEnabled(
   enabled: boolean
 ): Promise<CommandResponse<{ settings: unknown }>> {
-  const params: Record<string, unknown> = { triggers_enabled: enabled };
-  if (enabled) params.subconscious_mode = 'event_driven';
   return await callCoreRpc<CommandResponse<{ settings: unknown }>>({
     method: 'openhuman.heartbeat_settings_set',
-    params,
+    params: { triggers_enabled: enabled, subconscious_mode: enabled ? 'event_driven' : 'off' },
   });
 }

@@ -100,7 +100,10 @@ fn scenario_normalization_covers_all_sources() {
     let user = normalize(&user_event("slack", Some("U1"), "what's on my plate?"), now)
         .expect("user normalizes");
     assert_eq!(user.priority, TriggerPriority::High);
-    assert!(!user.external_content);
+    assert!(
+        user.external_content,
+        "inbound channel messages are untrusted"
+    );
     assert!(user.payload.gate_summary.contains("what's on my plate"));
 
     let composio =

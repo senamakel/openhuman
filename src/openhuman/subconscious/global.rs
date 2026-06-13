@@ -144,17 +144,18 @@ pub async fn stop_heartbeat_loop() {
         }
     }
 
+    // Tear down the event-driven trigger orchestrator + its bus subscriber on
+    // every stop (disable, mode change, user switch) so a stale session/loop
+    // never keeps routing trigger work after the pipeline is turned off or the
+    // workspace changes. A subsequent bootstrap re-creates them when enabled.
+    crate::openhuman::subconscious_triggers::shutdown_orchestrator();
+    crate::openhuman::subconscious_triggers::unregister_subconscious_triggers_subscriber();
+
     BOOTSTRAPPED.store(false, Ordering::SeqCst);
 }
 
 pub async fn reset_engine_for_user_switch() {
     stop_heartbeat_loop().await;
-
-    // Tear down the event-driven trigger orchestrator + its bus subscriber so a
-    // re-bootstrap binds the new user's workspace instead of routing through the
-    // stale session.
-    crate::openhuman::subconscious_triggers::shutdown_orchestrator();
-    crate::openhuman::subconscious_triggers::unregister_subconscious_triggers_subscriber();
 
     let lock = engine_lock();
     let mut guard = lock.lock().await;

@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react';
 
 export interface PanelHeaderProps {
-  /** Header title. Optional — surrounding chrome (sidebar/chips) often names the view. */
-  title?: ReactNode;
-  /** Sub-title under the title, muted. */
+  /** Sub-title / hint, muted. The primary header content now that titles are gone. */
   description?: ReactNode;
-  /** Leading node before the title (e.g. a back button); brings its own spacing. */
+  /** Leading control before the description row (e.g. a back button). */
   leading?: ReactNode;
   /** Right-aligned action(s) (e.g. refresh / add). */
   action?: ReactNode;
@@ -17,17 +15,21 @@ export interface PanelHeaderProps {
   bgClassName?: string;
 }
 
-export const DEFAULT_PANEL_HEADER_CLASS = 'px-5 pt-5 pb-3';
+// Horizontal padding matches the canonical body padding (`p-4`) so the
+// description lines up with the content beneath it — no extra indent.
+export const DEFAULT_PANEL_HEADER_CLASS = 'px-4 pt-4 pb-3';
 export const DEFAULT_PANEL_HEADER_BG = 'bg-white dark:bg-neutral-900';
 
 /**
  * The fixed header band shared by {@link PanelScaffold} (panel header) and
- * {@link PanelPage} (page chrome above the chips). Renders an optional title row
- * (leading + title + action), an optional description, and arbitrary extra
- * content below — all presentational, no scroll of its own.
+ * {@link PanelPage} (page chrome above the chips). Renders an optional control
+ * row (leading + action), an optional description, and arbitrary extra content
+ * below (e.g. chips) — presentational, no scroll of its own.
+ *
+ * Titles were intentionally dropped: the sidebar, bottom bar and chip row
+ * already name the view, so the band leads with the description instead.
  */
 export default function PanelHeader({
-  title,
   description,
   leading,
   action,
@@ -35,26 +37,19 @@ export default function PanelHeader({
   className = DEFAULT_PANEL_HEADER_CLASS,
   bgClassName = DEFAULT_PANEL_HEADER_BG,
 }: PanelHeaderProps) {
-  const hasTitleRow = title != null || leading != null || action != null;
+  const hasControlRow = leading != null || action != null;
 
   return (
     <div className={`${bgClassName} ${className}`}>
-      {hasTitleRow && (
+      {hasControlRow && (
         <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center">
-            {leading}
-            {title != null && (
-              <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
-                {title}
-              </h2>
-            )}
-          </div>
+          <div className="flex min-w-0 items-center">{leading}</div>
           {action != null && <div className="flex-shrink-0">{action}</div>}
         </div>
       )}
 
       {description != null && (
-        <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">{description}</p>
+        <p className="text-sm text-stone-500 dark:text-neutral-400">{description}</p>
       )}
 
       {children}

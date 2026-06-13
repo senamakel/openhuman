@@ -9,9 +9,7 @@ export interface PanelPageTab<T extends string = string> {
   id: T;
   /** Chip label. */
   label: ReactNode;
-  /** Optional scaffold heading for this tab (the chip usually suffices). */
-  title?: ReactNode;
-  /** Optional scaffold sub-title for this tab. */
+  /** Optional scaffold sub-title for this tab (the chip usually suffices). */
   description?: ReactNode;
   /** Scrollable content for this tab. */
   content: ReactNode;
@@ -26,11 +24,9 @@ export interface PanelPageTab<T extends string = string> {
 }
 
 export interface PanelPageProps<T extends string = string> {
-  /** Page title — optional; the sidebar usually already names the view. */
-  title?: ReactNode;
-  /** Page description, shown under the title (and above any chips). */
+  /** Page description, shown above any chips. Titles are inferred from the chrome. */
   description?: ReactNode;
-  /** Leading node before the title (e.g. a back button). */
+  /** Leading node before the description (e.g. a back button). */
   leading?: ReactNode;
   /** Right-aligned page action(s). */
   action?: ReactNode;
@@ -61,20 +57,20 @@ export interface PanelPageProps<T extends string = string> {
 const DEFAULT_CONTENT_CLASS = 'p-4 pt-2 space-y-5';
 
 /**
- * The standard panel page: an optional fixed header (title + description) and an
+ * The standard panel page: an optional fixed header (description) and an
  * optional chip row, above one or more scrollable {@link PanelScaffold} bodies.
+ * A hairline border separates the fixed chrome from the scrolling content.
  *
- * - **No `tabs`** → a single scaffold whose header is the page title/description
- *   and whose body is `children`.
+ * - **No `tabs`** → a single scaffold whose header is the page description and
+ *   whose body is `children`.
  * - **With `tabs`** → a fixed page header + chip row, then the active tab's
- *   content in its own scaffold (with the tab's optional title/description).
+ *   content in its own scaffold.
  *
  * Either way the page fills its parent's height and exposes exactly one vertical
- * scroll (the active body). Titles are optional throughout — lean on the sidebar
- * and chips to name things and reach for `description` when a hint helps.
+ * scroll (the active body). Titles are intentionally absent — the sidebar,
+ * bottom bar and chips name the view; reach for `description` when a hint helps.
  */
 export default function PanelPage<T extends string = string>({
-  title,
   description,
   leading,
   action,
@@ -97,7 +93,6 @@ export default function PanelPage<T extends string = string>({
       <PanelScaffold
         className={className}
         testId={testId}
-        title={title}
         description={description}
         leading={leading}
         action={action}
@@ -116,13 +111,12 @@ export default function PanelPage<T extends string = string>({
 
   return (
     <div className={`relative flex h-full min-h-0 flex-col ${className}`} data-testid={testId}>
-      {/* Fixed page chrome: optional title/description, then the chip row. */}
+      {/* Fixed page chrome: optional description, then the chip row. */}
       <PanelHeader
-        title={title}
         description={description}
         leading={leading}
         action={action}
-        className="flex-shrink-0 px-5 pt-5 pb-3"
+        className="flex-shrink-0 px-4 pt-4 pb-3"
         bgClassName={DEFAULT_PANEL_HEADER_BG}>
         <ChipTabs
           className="flex flex-wrap gap-1.5 pt-2"
@@ -134,12 +128,13 @@ export default function PanelPage<T extends string = string>({
         />
       </PanelHeader>
 
-      {/* Active tab body — its own scaffold owns the scroll. */}
+      {/* Active tab body — its own scaffold owns the scroll. The border marks the
+          seam below the chips. */}
       <div className="min-h-0 flex-1">
         <PanelScaffold
-          title={active.title}
           description={active.description}
-          contentClassName={active.contentClassName ?? ''}>
+          contentClassName={active.contentClassName ?? ''}
+          bodyBorder>
           {active.content}
         </PanelScaffold>
       </div>

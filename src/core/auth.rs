@@ -79,10 +79,12 @@ static RPC_TOKEN: OnceLock<String> = OnceLock::new();
 /// `/rpc` and `/v1/*` carry executable surfaces and must be protected. The
 /// other routes are read-only, or are streaming / WebSocket upgrades whose
 /// clients (browser `EventSource`, browser `WebSocket`) cannot set
-/// `Authorization` headers via standard APIs. The latter are not unauthenticated
-/// — `/events` and `/ws/dictation` are exempt from the *middleware* header check
-/// but enforce their own credential (bind token / bearer or `?token=`, plus an
-/// origin check for `/ws/dictation`) inside the handler.
+/// `Authorization` headers via standard APIs. `/events` is not unauthenticated
+/// — it is exempt from the *middleware* header check but enforces its own
+/// bind-token credential inside the handler. `/ws/dictation` is NOT public: it
+/// is bearer-gated by this middleware via [`QUERY_TOKEN_PATHS`] (header or
+/// `?token=`) so an unauthenticated upgrade is rejected with 401 before the
+/// WebSocket handshake; the handler adds an origin check on top (finding C4).
 const PUBLIC_PATHS: &[&str] = &[
     "/",
     "/health",
@@ -94,7 +96,6 @@ const PUBLIC_PATHS: &[&str] = &[
     "/oauth/mcp/callback",
     "/schema",
     "/events",
-    "/ws/dictation",
 ];
 
 /// Paths that may authenticate via `?token=…` in the URL when no
@@ -110,7 +111,7 @@ const PUBLIC_PATHS: &[&str] = &[
 /// Add new entries here only for SSE / WebSocket routes whose clients cannot
 /// send headers and that carry per-user data. The follow-up approvals stream
 /// (#1339) is the next planned addition.
-const QUERY_TOKEN_PATHS: &[&str] = &["/events/webhooks"];
+const QUERY_TOKEN_PATHS: &[&str] = &["/events/webhooks", "/ws/dictation"];
 
 /// Operator-supplied environment variable that carries the RPC bearer in
 /// non-desktop deployments.

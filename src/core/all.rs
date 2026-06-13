@@ -702,7 +702,22 @@ fn check_type(value: &Value, ty: &crate::core::TypeSchema) -> Result<(), &'stati
 
     match ty {
         // Opaque / handler-validated shapes accept any JSON value.
-        TypeSchema::Json | TypeSchema::Bytes | TypeSchema::Ref(_) => Ok(()),
+        //
+        // Structured types (`Object`/`Map`/`Ref`) are deliberately lenient: a
+        // struct field may have a custom `Deserialize` impl that accepts more
+        // than one JSON shape (e.g. `agent_registry.update`'s `subagents`
+        // accepts both `{ "allowlist": [...] }` and a legacy bare array), and
+        // the declared schema can only describe one of them. Strictly checking
+        // the JSON kind here would reject inputs the handler's `serde_json`
+        // deserialization accepts. We therefore keep pre-dispatch validation to
+        // scalar leaf types (where a type confusion would otherwise reach an
+        // `as_str()/as_u64()`-style accessor) and defer object/map shape
+        // validation to the handler.
+        TypeSchema::Json
+        | TypeSchema::Bytes
+        | TypeSchema::Ref(_)
+        | TypeSchema::Object { .. }
+        | TypeSchema::Map(_) => Ok(()),
 
         TypeSchema::Bool => value.is_boolean().then_some(()).ok_or("bool"),
         TypeSchema::String => value.is_string().then_some(()).ok_or("string"),
@@ -732,32 +747,10 @@ fn check_type(value: &Value, ty: &crate::core::TypeSchema) -> Result<(), &'stati
             None => Err("array"),
         },
 
-        TypeSchema::Map(inner) => match value.as_object() {
-            Some(map) => {
-                for v in map.values() {
-                    check_type(v, inner)?;
-                }
-                Ok(())
-            }
-            None => Err("object"),
-        },
-
         TypeSchema::Enum { variants } => match value.as_str() {
             Some(s) if variants.contains(&s) => Ok(()),
             Some(_) => Err("one of the allowed enum variants"),
             None => Err("string"),
-        },
-
-        TypeSchema::Object { fields } => match value.as_object() {
-            Some(map) => {
-                for field in fields {
-                    if let Some(v) = map.get(field.name) {
-                        check_type(v, &field.ty)?;
-                    }
-                }
-                Ok(())
-            }
-            None => Err("object"),
         },
     }
 }

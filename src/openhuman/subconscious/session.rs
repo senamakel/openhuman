@@ -222,7 +222,7 @@ pub(crate) fn effective_config(config: &Config, mode: SubconsciousMode) -> Confi
             effective.autonomy.level = AutonomyLevel::ReadOnly;
             effective.agent.max_tool_iterations = 15;
         }
-        SubconsciousMode::Aggressive => {
+        SubconsciousMode::Aggressive | SubconsciousMode::EventDriven => {
             effective.autonomy.level = AutonomyLevel::Full;
             effective.agent.max_tool_iterations = 30;
         }

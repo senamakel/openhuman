@@ -19,7 +19,6 @@ use tokio::sync::Notify;
 use tracing::{debug, info, warn};
 
 use crate::core::event_bus::{publish_global, DomainEvent};
-use crate::openhuman::config::schema::SubconsciousMode;
 use crate::openhuman::subconscious::LongLivedSession;
 
 use super::gate::GatePass;
@@ -232,6 +231,7 @@ fn now_secs() -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::config::schema::SubconsciousMode;
     use crate::openhuman::subconscious::LongLivedSession;
     use std::path::PathBuf;
 

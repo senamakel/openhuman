@@ -16,6 +16,11 @@ pub enum SubconsciousMode {
     /// Full tool access every 5 minutes. Can write, spawn sub-agents,
     /// and delegate tasks to the orchestrator.
     Aggressive,
+    /// Event-driven: full tool access, woken by the trigger pipeline (cron /
+    /// user message / Composio webhook / sub-agent conclusion) rather than a
+    /// fixed interval. The cron cadence is the periodic-heartbeat fallback.
+    #[serde(rename = "event_driven")]
+    EventDriven,
 }
 
 impl SubconsciousMode {
@@ -28,6 +33,9 @@ impl SubconsciousMode {
             Self::Off => 5,
             Self::Simple => 30,
             Self::Aggressive => 5,
+            // Periodic heartbeat fallback cadence; real reactivity comes
+            // from the event pipeline, not the timer.
+            Self::EventDriven => 5,
         }
     }
 
@@ -35,11 +43,17 @@ impl SubconsciousMode {
         matches!(self, Self::Simple)
     }
 
+    /// Whether this mode runs the event-driven trigger pipeline.
+    pub fn is_event_driven(self) -> bool {
+        matches!(self, Self::EventDriven)
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Off => "off",
             Self::Simple => "simple",
             Self::Aggressive => "aggressive",
+            Self::EventDriven => "event_driven",
         }
     }
 
@@ -47,6 +61,7 @@ impl SubconsciousMode {
         match s {
             "simple" => Self::Simple,
             "aggressive" => Self::Aggressive,
+            "event_driven" => Self::EventDriven,
             _ => Self::Off,
         }
     }
@@ -202,6 +217,41 @@ mod tests {
         assert_eq!(config.interval_minutes, 5);
         assert_eq!(config.max_calendar_connections_per_tick, 2);
         assert_eq!(config.subconscious_mode, SubconsciousMode::Off);
+        // Event-driven trigger pipeline is opt-in (back-compat: old configs
+        // without these keys deserialize to the legacy interval-only path).
+        assert!(!config.triggers_enabled);
+        assert_eq!(config.max_promotions_per_hour, 30);
+    }
+
+    #[test]
+    fn legacy_config_without_trigger_keys_deserializes() {
+        // A config file predating the trigger pipeline must still parse and
+        // default to the disabled (legacy) path.
+        let legacy = r#"{ "enabled": true, "inference_enabled": true }"#;
+        let config: HeartbeatConfig = serde_json::from_str(legacy).unwrap();
+        assert!(!config.triggers_enabled);
+        assert_eq!(config.max_promotions_per_hour, 30);
+        assert_eq!(
+            config.effective_subconscious_mode(),
+            SubconsciousMode::Simple
+        );
+    }
+
+    #[test]
+    fn event_driven_mode_serde_and_helpers() {
+        assert_eq!(
+            serde_json::to_string(&SubconsciousMode::EventDriven).unwrap(),
+            r#""event_driven""#
+        );
+        assert_eq!(
+            serde_json::from_str::<SubconsciousMode>(r#""event_driven""#).unwrap(),
+            SubconsciousMode::EventDriven
+        );
+        assert!(SubconsciousMode::EventDriven.is_enabled());
+        assert!(SubconsciousMode::EventDriven.is_event_driven());
+        assert!(!SubconsciousMode::Aggressive.is_event_driven());
+        assert!(!SubconsciousMode::EventDriven.is_read_only());
+        assert_eq!(SubconsciousMode::from_str_lossy("event_driven"), SubconsciousMode::EventDriven);
     }
 
     #[test]

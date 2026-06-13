@@ -19,12 +19,18 @@
 pub mod bus;
 pub mod gate;
 pub mod normalize;
+pub mod ops;
 pub mod queue;
 pub mod registry;
 pub mod runtime;
+pub mod schemas;
 pub mod types;
 
 pub use bus::register_subconscious_triggers_subscriber;
+pub use schemas::{
+    all_controller_schemas as all_subconscious_triggers_controller_schemas,
+    all_registered_controllers as all_subconscious_triggers_registered_controllers,
+};
 pub use gate::{GatePass, PromotionBudget};
 pub use normalize::{normalize, SUBCONSCIOUS_SENDER_MARKER};
 pub use queue::{EnqueueOutcome, OrchestratorQueue};

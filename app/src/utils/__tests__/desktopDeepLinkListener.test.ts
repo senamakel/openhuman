@@ -170,6 +170,19 @@ describe('desktopDeepLinkListener', () => {
     expect(state.errorMessage).toBe('Sign-in could not be verified. Please start sign-in again.');
   });
 
+  it('accepts a same-origin web callback without a state nonce when requireStateNonce=false', async () => {
+    // The web callback route (WebCallbackPage) is same-origin and not reachable
+    // via the OS `openhuman://` scheme, so it opts out of the C3 nonce guard.
+    await import('../desktopDeepLinkListener').then(m =>
+      m.handleDeepLinkUrls(['openhuman://auth?token=web-token&key=auth'], {
+        requireStateNonce: false,
+      })
+    );
+    await waitForAuthSettled();
+
+    expect(storeSession).toHaveBeenCalledWith('web-token', {});
+  });
+
   it('rejects an auth deep link whose state nonce does not match a pending one', async () => {
     registerAuthDeepLinkState('the-real-nonce');
     vi.mocked(getCurrent).mockResolvedValue([

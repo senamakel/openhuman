@@ -31,9 +31,10 @@ describe('WebCallbackPage', () => {
 
     expect(screen.getByText('Completing sign-in')).toBeInTheDocument();
     await waitFor(() => {
-      expect(handleDeepLinkUrls).toHaveBeenCalledWith([
-        'openhuman://auth?token=jwt-token&key=auth',
-      ]);
+      expect(handleDeepLinkUrls).toHaveBeenCalledWith(
+        ['openhuman://auth?token=jwt-token&key=auth'],
+        { requireStateNonce: false }
+      );
     });
   });
 
@@ -41,9 +42,10 @@ describe('WebCallbackPage', () => {
     renderRoute('/callback/oauth/success?provider=google&integrationId=int-1');
 
     await waitFor(() => {
-      expect(handleDeepLinkUrls).toHaveBeenCalledWith([
-        'openhuman://oauth/success?provider=google&integrationId=int-1',
-      ]);
+      expect(handleDeepLinkUrls).toHaveBeenCalledWith(
+        ['openhuman://oauth/success?provider=google&integrationId=int-1'],
+        { requireStateNonce: false }
+      );
     });
   });
 

@@ -176,8 +176,14 @@ const applySessionToken = async (sessionToken: string): Promise<void> => {
 
 /**
  * Handle an `openhuman://auth?token=...` deep link for login.
+ *
+ * `requireStateNonce` defaults to true for genuine OS-registered custom-scheme
+ * deep links (the finding C3 vector — any external app can trigger
+ * `openhuman://`). The same-origin web callback route (`WebCallbackPage`) passes
+ * `false`: it is reached only through the app's own routing / the backend OAuth
+ * redirect on the same origin, not via the OS scheme, so it is outside C3's scope.
  */
-const handleAuthDeepLink = async (parsed: URL) => {
+const handleAuthDeepLink = async (parsed: URL, requireStateNonce = true) => {
   const token = parsed.searchParams.get('token');
   const key = parsed.searchParams.get('key');
   const state = parsed.searchParams.get('state');
@@ -189,12 +195,11 @@ const handleAuthDeepLink = async (parsed: URL) => {
 
   // CSRF / session-fixation guard (finding C3): only honour an auth deep link
   // whose `state` matches a nonce this app generated before starting the flow.
-  // This is what stops a hostile page from navigating to
+  // This is what stops a hostile page from triggering the OS custom scheme
   // `openhuman://auth?token=<attacker_jwt>&key=auth` and silently logging the
   // victim into the attacker's account. The `key=auth` raw-JWT path in
-  // particular is ONLY safe behind this check — it must never be applied from an
-  // unverified custom-scheme URL.
-  if (!verifyAndConsumeAuthDeepLinkState(state)) {
+  // particular is ONLY safe behind this check on the custom-scheme transport.
+  if (requireStateNonce && !verifyAndConsumeAuthDeepLinkState(state)) {
     console.warn('[DeepLink][auth] rejecting auth deep link: missing or unrecognized state nonce');
     failDeepLinkAuthProcessing('Sign-in could not be verified. Please start sign-in again.');
     return;
@@ -407,7 +412,10 @@ const handleOAuthDeepLink = async (parsed: URL) => {
  *   - `openhuman://payment/success?session_id=...` → Stripe payment confirmation
  *   - `openhuman://payment/cancel` → Stripe payment cancellation
  */
-export const handleDeepLinkUrls = async (urls: string[] | null | undefined) => {
+export const handleDeepLinkUrls = async (
+  urls: string[] | null | undefined,
+  options?: { requireStateNonce?: boolean }
+) => {
   if (!urls || urls.length === 0) {
     return;
   }
@@ -423,7 +431,7 @@ export const handleDeepLinkUrls = async (urls: string[] | null | undefined) => {
 
     switch (parsed.hostname) {
       case 'auth':
-        await handleAuthDeepLink(parsed);
+        await handleAuthDeepLink(parsed, options?.requireStateNonce ?? true);
         break;
       case 'oauth':
         await handleOAuthDeepLink(parsed);

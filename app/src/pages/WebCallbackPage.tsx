@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 
-import { handleDeepLinkUrls, registerAuthDeepLinkState } from '../utils/desktopDeepLinkListener';
+import { handleDeepLinkUrls } from '../utils/desktopDeepLinkListener';
 
 function buildSyntheticDeepLink(
   kind: string | undefined,
@@ -24,40 +24,16 @@ export default function WebCallbackPage() {
   const location = useLocation();
 
   useEffect(() => {
-    let search = location.search;
-
-    // Web build: the OAuth button stashed the in-app `state` nonce in
-    // sessionStorage before the full-page navigation (module memory is lost on
-    // reload). That app-written nonce is the CSRF proof for this same-origin
-    // callback (an attacker cannot write the victim's sessionStorage), so we
-    // accept it whether or not the backend echoed `state` back — but we reject
-    // a backend-echoed `state` that does NOT match it (a forged callback). When
-    // the backend did not echo `state`, inject the stored nonce into the
-    // synthetic deep link so `handleAuthDeepLink`'s guard (finding C3) matches.
-    if (kind === 'auth') {
-      try {
-        const params = new URLSearchParams(location.search);
-        const echoed = params.get('state');
-        const stored = window.sessionStorage.getItem('openhuman:auth-deep-link-state');
-        if (stored) {
-          window.sessionStorage.removeItem('openhuman:auth-deep-link-state');
-        }
-        if (stored && (!echoed || echoed === stored)) {
-          registerAuthDeepLinkState(stored);
-          if (!echoed) {
-            params.set('state', stored);
-            search = `?${params.toString()}`;
-          }
-        }
-      } catch {
-        // sessionStorage unavailable — handleDeepLinkUrls will reject below.
-      }
-    }
-
-    const synthetic = buildSyntheticDeepLink(kind, status, search);
+    const synthetic = buildSyntheticDeepLink(kind, status, location.search);
     if (!synthetic) return;
 
-    void handleDeepLinkUrls([synthetic]);
+    // This is the SAME-ORIGIN web callback route, reached only through the app's
+    // own routing / the backend OAuth redirect — not via the OS `openhuman://`
+    // scheme that any external app can trigger. The C3 state-nonce CSRF guard
+    // targets that custom-scheme transport, so it does not apply here; pass
+    // requireStateNonce:false. (Web-build login-CSRF hardening — binding this
+    // callback to a backend-echoed OAuth state — is tracked as a follow-up.)
+    void handleDeepLinkUrls([synthetic], { requireStateNonce: false });
   }, [kind, status, location.search]);
 
   return (

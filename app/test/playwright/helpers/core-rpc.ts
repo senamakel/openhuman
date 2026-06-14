@@ -75,7 +75,17 @@ async function applyBrowserCoreModeInPage(page: Page): Promise<void> {
 }
 
 async function completeAuthCallback(page: Page, token: string): Promise<void> {
-  await page.goto(`/#/callback/auth?token=${encodeURIComponent(token)}&key=auth`);
+  // Auth deep links now require a per-attempt `state` nonce (finding C3). The
+  // real OAuth button stashes it in sessionStorage before redirecting; this
+  // helper drives the callback directly, so seed the same nonce + echo it back
+  // in the URL so the WebCallbackPage CSRF guard accepts this same-origin flow.
+  const authStateNonce = `e2e-auth-${token.length}`;
+  await page.addInitScript(nonce => {
+    window.sessionStorage.setItem('openhuman:auth-deep-link-state', nonce);
+  }, authStateNonce);
+  await page.goto(
+    `/#/callback/auth?token=${encodeURIComponent(token)}&key=auth&state=${authStateNonce}`
+  );
   try {
     // The app-side auth callback waits up to 15s for CoreStateProvider to
     // commit currentUser before navigating to /home; CI occasionally needs
@@ -100,7 +110,11 @@ async function completeAuthCallback(page: Page, token: string): Promise<void> {
   }
 
   await applyBrowserCoreModeInPage(page);
-  await page.goto(`/#/callback/auth?token=${encodeURIComponent(token)}&key=auth`);
+  // The init script above already re-seeds the `state` nonce on this navigation;
+  // echo the same value in the URL so the WebCallbackPage CSRF guard (C3) matches.
+  await page.goto(
+    `/#/callback/auth?token=${encodeURIComponent(token)}&key=auth&state=${authStateNonce}`
+  );
   await expect
     .poll(async () => page.evaluate(() => window.location.hash), {
       timeout: AUTH_CALLBACK_HOME_TIMEOUT_MS,

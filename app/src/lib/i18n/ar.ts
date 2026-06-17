@@ -278,8 +278,7 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'مساء الخير',
   'home.greetingEvening': 'مساء النور',
   'home.askAssistant': 'اسأل مساعدك أي شيء...',
-  'home.statusOk':
-    'جهازك متصل. احتفظ بالتطبيق مفتوحًا للحفاظ على الاتصال. راسل وكيلك باستخدام الزر أدناه.',
+  'home.statusOk': 'مساعدك جاهز متى كنت مستعدًا. اكتب شيئًا في الأسفل للبدء.',
   'home.statusBackendOnly': 'جارٍ إعادة الاتصال بالخادم… سيتوفر وكيلك قريبًا.',
   'home.statusCoreUnreachable':
     'العملية الأساسية المحلية لا تستجيب. قد تكون عملية OpenHuman في الخلفية قد تعطلت أو فشلت في البدء.',

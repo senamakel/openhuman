@@ -314,7 +314,7 @@ const en: TranslationMap = {
   'home.greetingAfternoon': 'Good afternoon',
   'home.greetingEvening': 'Good evening',
   'home.askAssistant': 'Ask your assistant anything...',
-  'home.statusOk': 'Your device is connected. Keep the app running to keep the connection alive.',
+  'home.statusOk': 'Your assistant is ready when you are. Type something below to get started.',
   'home.statusBackendOnly': 'Reconnecting to backend… your agent will be available again shortly.',
   'home.statusCoreUnreachable':
     "The OpenHuman core isn't responding. The background process may have crashed or failed to start.",

@@ -280,8 +280,7 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': '좋은 오후입니다',
   'home.greetingEvening': '좋은 저녁입니다',
   'home.askAssistant': '어시스턴트에게 무엇이든 물어보세요...',
-  'home.statusOk':
-    '기기가 연결되었습니다. 연결을 유지하려면 앱을 계속 실행해 주세요. 아래 버튼으로 에이전트에게 메시지를 보내세요.',
+  'home.statusOk': '어시스턴트가 준비되어 있어요. 아래에 무언가 입력해 시작하세요.',
   'home.statusBackendOnly':
     '백엔드에 다시 연결하는 중입니다… 곧 에이전트를 다시 사용할 수 있습니다.',
   'home.statusCoreUnreachable':

@@ -293,8 +293,7 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'Buenas tardes',
   'home.greetingEvening': 'Buenas noches',
   'home.askAssistant': 'Pregúntale lo que quieras a tu asistente...',
-  'home.statusOk':
-    'Tu dispositivo está conectado. Mantén la app abierta para conservar la conexión. Envíale un mensaje a tu agente con el botón de abajo.',
+  'home.statusOk': 'Tu asistente está listo cuando tú lo estés. Escribe algo abajo para empezar.',
   'home.statusBackendOnly':
     'Reconectando al backend… tu agente estará disponible nuevamente en breve.',
   'home.statusCoreUnreachable':

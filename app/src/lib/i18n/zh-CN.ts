@@ -272,7 +272,7 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': '下午好',
   'home.greetingEvening': '晚上好',
   'home.askAssistant': '向你的助手提问...',
-  'home.statusOk': '你的设备已连接。保持应用运行以维持连接，通过下方按钮向你的智能体发送消息。',
+  'home.statusOk': '你的助手已准备就绪。在下方输入内容即可开始。',
   'home.statusBackendOnly': '正在重新连接后端…你的智能体很快将再次可用。',
   'home.statusCoreUnreachable': '本地核心 sidecar 无响应。OpenHuman 后台进程可能已崩溃或未能启动。',
   'home.statusInternetOffline': '你的设备当前处于离线状态。请检查网络或重启应用以重新连接。',

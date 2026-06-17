@@ -280,8 +280,7 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'नमस्ते',
   'home.greetingEvening': 'शुभ संध्या',
   'home.askAssistant': 'असिस्टेंट से कुछ भी पूछें...',
-  'home.statusOk':
-    'आपका डिवाइस कनेक्टेड है। कनेक्शन बनाए रखने के लिए ऐप चलाते रहें। नीचे बटन से अपने एजेंट को मैसेज करें।',
+  'home.statusOk': 'आपका सहायक तैयार है। शुरू करने के लिए नीचे कुछ लिखें।',
   'home.statusBackendOnly': 'बैकएंड से फिर से जुड़ रहे हैं… आपका एजेंट जल्द ही उपलब्ध होगा।',
   'home.statusCoreUnreachable':
     'लोकल कोर साइडकार रिस्पॉन्ड नहीं कर रहा। OpenHuman का बैकग्राउंड प्रोसेस क्रैश हो गया होगा या शुरू नहीं हो पाया।',

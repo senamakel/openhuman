@@ -283,8 +283,7 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'Selamat siang',
   'home.greetingEvening': 'Selamat malam',
   'home.askAssistant': 'Tanyakan apa saja ke asisten Anda...',
-  'home.statusOk':
-    'Perangkat Anda terhubung. Biarkan aplikasi tetap berjalan agar koneksi tetap aktif. Kirim pesan ke agen Anda dengan tombol di bawah.',
+  'home.statusOk': 'Asistenmu siap kapan pun kamu siap. Ketik sesuatu di bawah untuk memulai.',
   'home.statusBackendOnly':
     'Menghubungkan ulang ke backend... agen Anda akan segera tersedia lagi.',
   'home.statusCoreUnreachable':

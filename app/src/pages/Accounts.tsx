@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import AddAccountModal from '../components/accounts/AddAccountModal';
 import { AgentIcon, ProviderIcon } from '../components/accounts/providerIcons';
 import WebviewHost from '../components/accounts/WebviewHost';
+import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import {
   CustomGifMascot,
   getMascotPalette,
@@ -340,53 +341,56 @@ const Accounts = () => {
       className="relative flex h-full gap-3 overflow-hidden"
       data-testid="accounts-page"
       data-analytics-id="chat-right-sidebar">
-      {/* Narrow icon rail — always rendered. */}
-      <aside className="z-30 flex w-16 flex-none flex-col items-center gap-2 bg-white/60 dark:bg-neutral-900/60 py-3 backdrop-blur-md my-3 ml-3 rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 shadow-soft">
-        <RailButton
-          active={isAgentSelected}
-          onClick={selectAgent}
-          tooltip={t('accounts.agent')}
-          analyticsId="chat-right-sidebar-agent">
-          <AgentIcon className="h-9 w-9 rounded-lg bg-white dark:bg-neutral-200" />
-        </RailButton>
-
-        {accounts.map(acct => (
+      {/* App rail — projected into the root sidebar's dynamic region as a compact
+          horizontal row above the thread search (order-0 sits above the thread
+          list, which Conversations projects as order-1). */}
+      <SidebarContent>
+        <div
+          data-testid="accounts-app-rail"
+          data-analytics-id="chat-app-rail"
+          className="order-0 flex flex-none items-center gap-1.5 overflow-x-auto border-b border-stone-100 px-2 py-2 dark:border-neutral-800">
           <RailButton
-            key={acct.id}
-            active={acct.id === selectedId}
-            onClick={() => selectAccount(acct.id)}
-            onContextMenu={e => openContextMenu(acct.id, e)}
-            tooltip={acct.label}
-            analyticsId={`chat-right-sidebar-account-${acct.provider}`}
-            badge={unreadByAccount[acct.id]}>
-            <ProviderIcon provider={acct.provider} className="h-8 w-8 rounded-md" />
+            active={isAgentSelected}
+            onClick={selectAgent}
+            tooltip={t('accounts.agent')}
+            analyticsId="chat-app-rail-agent">
+            <AgentIcon className="h-7 w-7 rounded-lg bg-white dark:bg-neutral-200" />
           </RailButton>
-        ))}
 
-        <button
-          type="button"
-          onClick={() => {
-            trackEvent('tauri_browser_click', {
-              surface: 'chat_right_sidebar',
-              action: 'open_add_account',
-              provider: 'none',
-            });
-            setAddOpen(true);
-          }}
-          data-analytics-id="chat-right-sidebar-add-account"
-          data-testid="accounts-add-button"
-          className="group relative mt-2 flex h-11 w-11 items-center justify-center rounded-xl border border-dashed border-stone-300 dark:border-neutral-700 text-stone-400 dark:text-neutral-500 hover:z-50 hover:bg-stone-50 dark:hover:bg-neutral-800/60 hover:text-stone-600 dark:hover:text-neutral-300"
-          aria-label={t('accounts.addAccount')}>
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          {/* Issue #1284 — see RailButton for why the tooltip sits below
-              the icon instead of to the right. */}
-          <span className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-stone-900 px-2 py-1 text-xs text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 z-50">
-            {t('accounts.addAccount')}
-          </span>
-        </button>
-      </aside>
+          {accounts.map(acct => (
+            <RailButton
+              key={acct.id}
+              active={acct.id === selectedId}
+              onClick={() => selectAccount(acct.id)}
+              onContextMenu={e => openContextMenu(acct.id, e)}
+              tooltip={acct.label}
+              analyticsId={`chat-app-rail-account-${acct.provider}`}
+              badge={unreadByAccount[acct.id]}>
+              <ProviderIcon provider={acct.provider} className="h-6 w-6 rounded-md" />
+            </RailButton>
+          ))}
+
+          <button
+            type="button"
+            onClick={() => {
+              trackEvent('tauri_browser_click', {
+                surface: 'chat_app_rail',
+                action: 'open_add_account',
+                provider: 'none',
+              });
+              setAddOpen(true);
+            }}
+            data-analytics-id="chat-app-rail-add-account"
+            data-testid="accounts-add-button"
+            className="group relative flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-dashed border-stone-300 text-stone-400 hover:bg-stone-50 hover:text-stone-600 dark:border-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-300"
+            aria-label={t('accounts.addAccount')}
+            title={t('accounts.addAccount')}>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
+      </SidebarContent>
 
       {/* "Talk to Tiny" face-mode toggle — hidden (kept for potential re-enable). */}
 

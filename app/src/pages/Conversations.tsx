@@ -12,7 +12,6 @@ import ChatFilesChip from '../components/chat/ChatFilesChip';
 import ComposerTokenStats from '../components/chat/ComposerTokenStats';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
-import { useTwoPanelLayout } from '../components/layout/TwoPanelLayout';
 import PillTabBar from '../components/PillTabBar';
 import UpsellBanner from '../components/upsell/UpsellBanner';
 import { dismissBanner, shouldShowBanner } from '../components/upsell/upsellDismissState';
@@ -1443,11 +1442,6 @@ const Conversations = ({
     labelTabs.find(tab => tab.value === selectedLabel)?.label ?? selectedLabel;
 
   const isSidebar = variant === 'sidebar';
-  // Chat thread sidebar visibility/width are owned by the reusable
-  // TwoPanelLayout (persisted per-user in the `layout` slice under id `chat`).
-  // The hook lets this header's hamburger toggle the same persisted state.
-  const { sidebarVisible: chatSidebarVisible, toggleSidebar: toggleChatSidebar } =
-    useTwoPanelLayout('chat', { sidebarVisible: false });
 
   // Stable title resolver used by both the sidebar thread list and the header.
   const resolveThreadDisplayTitle = (threadId: string | null): string => {
@@ -1642,21 +1636,6 @@ const Conversations = ({
         <div
           className="flex items-center gap-2 px-4 py-2.5 border-b border-stone-100 dark:border-neutral-800"
           data-walkthrough="chat-agent-panel">
-          <button
-            type="button"
-            data-analytics-id="chat-header-toggle-sidebar"
-            onClick={toggleChatSidebar}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors"
-            title={chatSidebarVisible ? t('chat.hideSidebar') : t('chat.showSidebar')}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
           <div className="flex flex-col min-w-0 flex-1">
             {selectedThreadParent ? (
               <button
@@ -2568,15 +2547,15 @@ const Conversations = ({
       {isSidebar ? (
         mainPanel
       ) : (
-        // The thread list now lives in the root app sidebar's dynamic region,
-        // projected only while the header hamburger has it toggled on. The chat
-        // pane keeps a comfortable, centered reading width.
+        // The thread list always lives in the root app sidebar's dynamic region
+        // (order-1 so any app rail projected by the parent sits above it). The
+        // chat pane keeps a comfortable, centered reading width.
         <>
-          {chatSidebarVisible && (
-            <SidebarContent>
-              <div className="h-full overflow-hidden">{threadSidebar}</div>
-            </SidebarContent>
-          )}
+          <SidebarContent>
+            <div className="order-1 flex h-full min-h-0 flex-col overflow-hidden">
+              {threadSidebar}
+            </div>
+          </SidebarContent>
           <div className="flex h-full w-full max-w-2xl">{mainPanel}</div>
         </>
       )}

@@ -21,7 +21,9 @@ export default function AppSidebar() {
         <SidebarNav />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-stone-200/70 dark:border-neutral-800/70">
-        <SidebarSlotOutlet className="h-full" />
+        {/* Flex column so routes that project more than one region (e.g. Chat's
+            app rail above its thread list) can order them via Tailwind `order-*`. */}
+        <SidebarSlotOutlet className="flex h-full flex-col" />
       </div>
     </div>
   );

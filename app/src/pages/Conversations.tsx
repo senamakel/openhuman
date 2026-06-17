@@ -1535,8 +1535,8 @@ const Conversations = ({
           items={labelTabs}
           selected={selectedLabel}
           onChange={setSelectedLabel}
-          containerClassName="flex flex-wrap gap-1 py-1"
-          itemClassName="px-2"
+          containerClassName="scrollbar-hide flex flex-nowrap gap-1 overflow-x-auto py-1"
+          itemClassName="flex-none whitespace-nowrap px-2"
         />
       </div>
       <div className="flex-1 overflow-y-auto">

@@ -87,7 +87,7 @@ const ConnectionIndicator = ({
       <div
         className={`w-2 h-2 ${config.color} rounded-full ${config.pulse ? 'animate-pulse' : ''}`}
       />
-      <span className={`text-xs font-medium ${config.textColor}`}>{label}</span>
+      <span className={`text-[10px] font-medium ${config.textColor}`}>{label}</span>
     </div>
   );
 };

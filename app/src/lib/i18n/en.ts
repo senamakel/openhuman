@@ -3061,7 +3061,7 @@ const en: TranslationMap = {
   'accounts.webviewHost.timeoutHint': 'Timeout hint',
   'app.connectionBadge.composio': 'Composio',
   'app.connectionBadge.messaging': 'Messaging',
-  'app.connectionIndicator.connected': 'Connected to OpenHuman AI 🚀',
+  'app.connectionIndicator.connected': 'Connected',
   'app.connectionIndicator.connecting': 'Connecting',
   'app.connectionIndicator.coreOffline': 'Core offline',
   'app.connectionIndicator.disconnected': 'Disconnected',

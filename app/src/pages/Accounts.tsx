@@ -84,7 +84,7 @@ const RailButton = ({
     // tooltip rectangle. Belt-and-suspenders for the active-button case
     // too, where ring-2 + bg-primary-50 don't transform but the lifted
     // z still helps tooltips render cleanly above neighbours.
-    className={`group relative flex h-11 w-11 items-center justify-center rounded-xl transition-all hover:z-50 ${
+    className={`group relative flex h-9 w-9 flex-none items-center justify-center rounded-lg transition-all hover:z-50 ${
       active
         ? 'bg-primary-50 ring-2 ring-primary-500'
         : 'hover:bg-stone-100 dark:hover:bg-neutral-800/60 hover:scale-105'
@@ -354,7 +354,7 @@ const Accounts = () => {
             onClick={selectAgent}
             tooltip={t('accounts.agent')}
             analyticsId="chat-app-rail-agent">
-            <AgentIcon className="h-7 w-7 rounded-lg bg-white dark:bg-neutral-200" />
+            <AgentIcon className="h-5 w-5 rounded-md bg-white dark:bg-neutral-200" />
           </RailButton>
 
           {accounts.map(acct => (
@@ -366,7 +366,7 @@ const Accounts = () => {
               tooltip={acct.label}
               analyticsId={`chat-app-rail-account-${acct.provider}`}
               badge={unreadByAccount[acct.id]}>
-              <ProviderIcon provider={acct.provider} className="h-6 w-6 rounded-md" />
+              <ProviderIcon provider={acct.provider} className="h-5 w-5 rounded" />
             </RailButton>
           ))}
 

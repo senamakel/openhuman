@@ -25,8 +25,11 @@ export default function SidebarHeader() {
 
   return (
     <div className="flex items-center justify-end gap-0.5 px-2 py-1.5">
-      {/* Language — globe icon with a transparent select overlay. */}
-      <label className={`relative ${ICON_BTN}`} title={t('settings.language')}>
+      {/* Language — globe icon with a transparent select overlay. `overflow-hidden`
+          clips the native <select> to the icon box: a select won't shrink below
+          its longest option's width, so without clipping it spills to the right
+          and steals clicks from the Settings / collapse buttons. */}
+      <label className={`relative overflow-hidden ${ICON_BTN}`} title={t('settings.language')}>
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
@@ -40,7 +43,7 @@ export default function SidebarHeader() {
           onChange={e => dispatch(setLocale(e.target.value as Locale))}
           aria-label={t('settings.language')}
           data-analytics-id="sidebar-header-language"
-          className="absolute inset-0 cursor-pointer opacity-0">
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
           {LOCALE_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>
               {opt.flag} {opt.label}

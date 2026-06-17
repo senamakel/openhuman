@@ -820,11 +820,6 @@ export default function Skills() {
             ariaLabel={t('nav.connections')}
             selected={activeTab}
             onSelect={value => handleTabChange(value as ConnectionsTab)}
-            header={
-              <h1 className="text-base font-bold text-stone-900 dark:text-neutral-100">
-                {t('nav.connections')}
-              </h1>
-            }
             groups={[
               {
                 label: t('connections.groups.integrations'),

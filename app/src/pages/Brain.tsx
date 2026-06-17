@@ -217,14 +217,9 @@ export default function Brain() {
               },
             ]}
             header={
-              <div className="min-w-0">
-                <h1 className="text-base font-bold text-stone-900 dark:text-neutral-100">
-                  {t('nav.brain')}
-                </h1>
-                <p className="mt-0.5 text-[11px] text-stone-500 dark:text-neutral-400">
-                  {t('brain.subtitle')}
-                </p>
-              </div>
+              <p className="min-w-0 text-[11px] text-stone-500 dark:text-neutral-400">
+                {t('brain.subtitle')}
+              </p>
             }
           />
         </div>

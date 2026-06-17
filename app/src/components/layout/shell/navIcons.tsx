@@ -5,7 +5,12 @@
  * the icon set. Pure presentational SVGs — no state, no i18n.
  */
 
-export function NavIcon({ id, className = 'w-5 h-5' }: { id: string; className?: string }) {
+interface NavIconProps {
+  id: string;
+  className?: string;
+}
+
+export function NavIcon({ id, className = 'w-5 h-5' }: NavIconProps) {
   switch (id) {
     case 'home':
       return (

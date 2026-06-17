@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { Locale } from '../../../lib/i18n/types';
@@ -20,16 +20,22 @@ const ICON_BTN =
 export default function SidebarHeader() {
   const { t } = useT();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { hide } = useRootSidebar();
   const locale = useAppSelector(state => state.locale.current);
   const threads = useAppSelector(state => state.thread.threads);
 
-  // Home → the unified chat on a blank thread. Reuse an existing empty thread
-  // if one's around (so repeated clicks don't pile up blanks); otherwise make
-  // one. Mirrors Conversations' own landing logic.
+  // Home → the unified chat on a blank thread. When we're NOT already on chat,
+  // just navigate and let the mounting Conversations page own blank-thread
+  // landing (avoids a duplicate-create race). When already on chat (no remount),
+  // reset to a blank thread here: reuse an existing empty one, else create.
   const handleHome = () => {
-    navigate('/chat');
+    const onChat = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+    if (!onChat) {
+      navigate('/chat');
+      return;
+    }
     const empty = threads.find(thr => (thr.messageCount ?? 0) === 0);
     if (empty) {
       dispatch(setSelectedThread(empty.id));

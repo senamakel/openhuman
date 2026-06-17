@@ -365,6 +365,9 @@ const en: TranslationMap = {
   // Chat / Conversations
   'chat.newThread': 'New thread',
   'chat.newConversation': 'New Conversation',
+  'chat.newWindowWelcome1': 'Welcome, {name} 👋',
+  'chat.newWindowWelcome2': "Let's cook, {name} 🧑‍🍳.",
+  'chat.newWindowWelcome3': 'Time to Zone In 🧘🏻',
   'chat.typeMessage': 'How can I help you today?',
   'chat.send': 'Send message',
   'chat.parallelBranchHint': 'Type a parallel branch — ⌘/Ctrl+Enter to send',

@@ -1,5 +1,10 @@
+import debugFactory from 'debug';
 import { createContext, type ReactNode, useContext, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+import { IS_DEV } from '../../../utils/config';
+
+const debug = debugFactory('layout:sidebar-slot');
 
 /**
  * Portal-based plumbing for the root shell's *dynamic* sidebar region.
@@ -39,8 +44,8 @@ export function SidebarSlotProvider({ children }: { children: ReactNode }) {
 export function SidebarSlotOutlet({ className }: { className?: string }) {
   const ctx = useContext(SidebarSlotContext);
   if (!ctx) {
-    if (import.meta.env.DEV) {
-      console.warn('[sidebar-slot] SidebarSlotOutlet rendered outside SidebarSlotProvider');
+    if (IS_DEV) {
+      debug('SidebarSlotOutlet rendered outside SidebarSlotProvider');
     }
     return null;
   }

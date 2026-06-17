@@ -101,6 +101,8 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
       function detach() {
         window.removeEventListener('pointermove', handleMove);
         window.removeEventListener('pointerup', stop);
+        window.removeEventListener('pointercancel', stop);
+        window.removeEventListener('blur', stop);
         document.body.style.removeProperty('cursor');
         document.body.style.removeProperty('user-select');
         dragCleanupRef.current = null;
@@ -116,6 +118,8 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
       dragCleanupRef.current = detach;
       window.addEventListener('pointermove', handleMove);
       window.addEventListener('pointerup', stop);
+      window.addEventListener('pointercancel', stop);
+      window.addEventListener('blur', stop);
     },
     [width, commitWidth]
   );

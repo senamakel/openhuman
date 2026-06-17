@@ -1,3 +1,4 @@
+import debugFactory from 'debug';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useUsageState } from '../../hooks/useUsageState';
@@ -9,6 +10,8 @@ import { selectBlockingState } from '../../store/connectivitySelectors';
 import { useAppSelector } from '../../store/hooks';
 import { resolveUserName } from '../../utils/userName';
 import { DiscordBanner, PromotionalCreditsBanner, UsageLimitBanner } from '../home/HomeBanners';
+
+const debug = debugFactory('chat:new-window-hero');
 
 /**
  * Hero shown above the composer in the chat "new window" (empty thread) state —
@@ -36,8 +39,12 @@ export default function ChatNewWindowHero() {
   const [openRouterStatus, setOpenRouterStatus] = useState<'idle' | 'saving' | 'error'>('idle');
 
   const welcomeVariants = useMemo(
-    () => [`Welcome, ${userName} 👋`, `Let's cook, ${userName} 🧑‍🍳.`, `Time to Zone In 🧘🏻`],
-    [userName]
+    () => [
+      t('chat.newWindowWelcome1').replace('{name}', userName),
+      t('chat.newWindowWelcome2').replace('{name}', userName),
+      t('chat.newWindowWelcome3').replace('{name}', userName),
+    ],
+    [t, userName]
   );
   const [welcomeVariantIndex, setWelcomeVariantIndex] = useState(0);
   const [typedWelcome, setTypedWelcome] = useState('');
@@ -68,7 +75,7 @@ export default function ChatNewWindowHero() {
       await applyOpenRouterFreeModels();
       setOpenRouterStatus('idle');
     } catch (err) {
-      console.warn('[chat-hero] applyOpenRouterFreeModels failed', err);
+      debug('applyOpenRouterFreeModels failed: %o', err);
       setOpenRouterStatus('error');
     }
   };

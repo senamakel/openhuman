@@ -64,9 +64,7 @@ export default function SidebarAccountMenu() {
   };
 
   return (
-    <div
-      ref={menuRef}
-      className="relative border-t border-stone-200 p-1.5 dark:border-neutral-800">
+    <div ref={menuRef} className="relative border-t border-stone-200 p-1.5 dark:border-neutral-800">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}

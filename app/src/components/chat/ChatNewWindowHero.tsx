@@ -221,7 +221,9 @@ export default function ChatNewWindowHero() {
               className="w-full rounded-xl bg-amber-500 py-3 font-medium text-white transition-colors duration-200 hover:bg-amber-600 disabled:opacity-50">
               {isRestartingCore ? t('home.restartingCore') : t('home.restartCore')}
             </button>
-            {restartError && <p className="mt-2 text-center text-xs text-coral-500">{restartError}</p>}
+            {restartError && (
+              <p className="mt-2 text-center text-xs text-coral-500">{restartError}</p>
+            )}
           </div>
         )}
       </div>

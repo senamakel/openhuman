@@ -1520,16 +1520,16 @@ const Conversations = ({
         data-analytics-id="chat-sidebar-new-thread"
         onClick={() => void handleCreateNewThread()}
         title={t('chat.newThreadShortcut')}
-        className="group w-full cursor-pointer border-b border-stone-100/60 px-3 py-1.5 text-left transition-colors hover:bg-stone-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/60">
-        <div className="flex items-center gap-1.5">
+        className="group w-full cursor-pointer border-b border-stone-100/60 px-3 py-2 transition-colors hover:bg-stone-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/60">
+        <div className="flex items-center justify-center gap-1.5">
           <svg
-            className="h-3.5 w-3.5 flex-shrink-0 text-primary-600 dark:text-primary-400"
+            className="h-3.5 w-3.5 flex-shrink-0 text-stone-500 dark:text-neutral-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          <span className="flex-1 truncate text-xs font-medium text-primary-600 dark:text-primary-400">
+          <span className="truncate text-xs text-stone-700 dark:text-neutral-200">
             {t('chat.newConversation')}
           </span>
         </div>

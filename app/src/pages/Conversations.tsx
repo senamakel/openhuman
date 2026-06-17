@@ -2329,70 +2329,6 @@ const Conversations = ({
           );
         })()}
 
-        {/* Composer toolbar (page variant): the old top bar moved here, right
-            above the composer — quick/reasoning toggle, the worker-thread
-            back-to-parent breadcrumb, and the files chip. */}
-        {!isSidebar && (
-          <div
-            className="mb-2 flex items-center justify-between gap-2"
-            data-walkthrough="chat-agent-panel">
-            <div className="min-w-0 flex-1">
-              {selectedThreadParent ? (
-                <button
-                  type="button"
-                  data-analytics-id="chat-header-back-to-parent-thread"
-                  onClick={() => {
-                    dispatch(setSelectedThread(selectedThreadParent.id));
-                    void dispatch(loadThreadMessages(selectedThreadParent.id));
-                  }}
-                  className="flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
-                  data-testid="worker-thread-back-to-parent">
-                  <span aria-hidden="true">←</span>
-                  <span className="max-w-[16rem] truncate">
-                    {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
-                  </span>
-                </button>
-              ) : null}
-            </div>
-            <div className="flex flex-shrink-0 items-center gap-2">
-              <div
-                className="flex h-7 items-center rounded-full border border-stone-200 bg-stone-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-800"
-                role="radiogroup"
-                aria-label={t('chat.agentProfile.label')}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedAgentProfileId === 'default'}
-                  data-analytics-id="chat-header-mode-quick"
-                  onClick={() => void handleSelectAgentProfile('default')}
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
-                    selectedAgentProfileId === 'default'
-                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
-                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-                  }`}>
-                  {t('chat.agentProfile.quick')}
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedAgentProfileId === 'reasoning'}
-                  data-analytics-id="chat-header-mode-reasoning"
-                  onClick={() => void handleSelectAgentProfile('reasoning')}
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
-                    selectedAgentProfileId === 'reasoning'
-                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
-                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-                  }`}>
-                  {t('chat.agentProfile.reasoning')}
-                </button>
-              </div>
-              {(selectedThreadId ?? firstActiveThreadId) && (
-                <ChatFilesChip threadId={(selectedThreadId ?? firstActiveThreadId) as string} />
-              )}
-            </div>
-          </div>
-        )}
-
         {composer === 'mic-cloud' ? (
           <div className="flex flex-col items-center gap-3 py-1">
             <MicComposer
@@ -2477,6 +2413,70 @@ const Conversations = ({
             </p>
           </div>
         )}
+        {/* Composer toolbar (page variant): below the composer — quick/reasoning
+            toggle (right), worker-thread back-to-parent breadcrumb (left), and
+            the files chip. */}
+        {!isSidebar && (
+          <div
+            className="mt-2 flex items-center justify-between gap-2"
+            data-walkthrough="chat-agent-panel">
+            <div className="min-w-0 flex-1">
+              {selectedThreadParent ? (
+                <button
+                  type="button"
+                  data-analytics-id="chat-header-back-to-parent-thread"
+                  onClick={() => {
+                    dispatch(setSelectedThread(selectedThreadParent.id));
+                    void dispatch(loadThreadMessages(selectedThreadParent.id));
+                  }}
+                  className="flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
+                  data-testid="worker-thread-back-to-parent">
+                  <span aria-hidden="true">←</span>
+                  <span className="max-w-[16rem] truncate">
+                    {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
+                  </span>
+                </button>
+              ) : null}
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <div
+                className="flex h-7 items-center rounded-full border border-stone-200 bg-stone-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-800"
+                role="radiogroup"
+                aria-label={t('chat.agentProfile.label')}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedAgentProfileId === 'default'}
+                  data-analytics-id="chat-header-mode-quick"
+                  onClick={() => void handleSelectAgentProfile('default')}
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
+                    selectedAgentProfileId === 'default'
+                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                  }`}>
+                  {t('chat.agentProfile.quick')}
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedAgentProfileId === 'reasoning'}
+                  data-analytics-id="chat-header-mode-reasoning"
+                  onClick={() => void handleSelectAgentProfile('reasoning')}
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
+                    selectedAgentProfileId === 'reasoning'
+                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                  }`}>
+                  {t('chat.agentProfile.reasoning')}
+                </button>
+              </div>
+              {(selectedThreadId ?? firstActiveThreadId) && (
+                <ChatFilesChip threadId={(selectedThreadId ?? firstActiveThreadId) as string} />
+              )}
+            </div>
+          </div>
+        )}
+
         <ComposerTokenStats model={resolvedModel} />
       </div>
     </div>

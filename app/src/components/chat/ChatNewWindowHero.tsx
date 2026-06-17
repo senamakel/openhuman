@@ -9,7 +9,6 @@ import { selectBlockingState } from '../../store/connectivitySelectors';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { resolveTheme, setThemeMode, type ThemeMode } from '../../store/themeSlice';
 import { resolveUserName } from '../../utils/userName';
-import ConnectionIndicator from '../ConnectionIndicator';
 import { DiscordBanner, PromotionalCreditsBanner, UsageLimitBanner } from '../home/HomeBanners';
 
 /**
@@ -194,11 +193,6 @@ export default function ChatNewWindowHero() {
             |
           </span>
         </h1>
-
-        {/* Connection status */}
-        <div className="mb-3 flex justify-center">
-          <ConnectionIndicator />
-        </div>
 
         {/* Description — copy mirrors the active blocking state (incl. the
             "device connected" get-started line in the normal case). */}

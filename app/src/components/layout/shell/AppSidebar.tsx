@@ -1,5 +1,6 @@
 import { useT } from '../../../lib/i18n/I18nContext';
 import { APP_VERSION } from '../../../utils/config';
+import ConnectionIndicator from '../../ConnectionIndicator';
 import SidebarHeader from './SidebarHeader';
 import SidebarNav from './SidebarNav';
 import { SidebarSlotOutlet } from './SidebarSlot';
@@ -36,9 +37,13 @@ export default function AppSidebar() {
             app rail above its thread list) can order them via Tailwind `order-*`. */}
         <SidebarSlotOutlet className="flex h-full flex-col" />
       </div>
-      {/* App-wide build/version footer, pinned to the bottom of the sidebar. */}
-      <div className="flex-shrink-0 border-t border-stone-200 py-1 text-center text-[10px] text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
-        {t('settings.betaBuild').replace('{version}', APP_VERSION)}
+      {/* App-wide footer: connectivity status + build/version, pinned to the
+          bottom of the sidebar. */}
+      <div className="flex flex-shrink-0 items-center justify-center gap-2 border-t border-stone-200 px-2 py-1.5 dark:border-neutral-800">
+        <ConnectionIndicator />
+        <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+          {t('settings.betaBuild').replace('{version}', APP_VERSION)}
+        </span>
       </div>
     </div>
   );

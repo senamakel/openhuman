@@ -349,7 +349,7 @@ const Accounts = () => {
         <div
           data-testid="accounts-app-rail"
           data-analytics-id="chat-app-rail"
-          className="order-0 flex flex-none items-center gap-1.5 overflow-x-auto overflow-y-hidden border-b border-stone-100 px-2 py-2 dark:border-neutral-800">
+          className="scrollbar-hide order-0 flex flex-none items-center gap-1.5 overflow-x-auto overflow-y-hidden border-b border-stone-100 px-2 py-2 dark:border-neutral-800">
           <RailButton
             active={isAgentSelected}
             onClick={selectAgent}
@@ -387,7 +387,12 @@ const Accounts = () => {
             aria-label={t('accounts.addAccount')}
             title={t('accounts.addAccount')}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
           </button>
         </div>

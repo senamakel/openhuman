@@ -20,10 +20,11 @@ export interface NavTab {
 }
 
 /**
- * Ordered list of sidebar nav entries. Five entries:
- *   chat → human → brain → connections → settings
+ * Ordered list of sidebar nav entries. Four entries:
+ *   chat → human → brain → connections
  *
- * Chat is the default landing and the merged Home surface: its empty
+ * Settings has no primary tab — it's reached via the gear icon in the sidebar
+ * header. Chat is the default landing and the merged Home surface: its empty
  * "new window" state shows the former Home greeting + banners (Home was
  * folded into chat, so there is no separate Home entry). The Human tab is a
  * first-class destination again (briefly merged into Assistant in IA Phase 6,
@@ -41,7 +42,8 @@ export const NAV_TABS: NavTab[] = [
     path: '/connections',
     walkthroughAttr: 'tab-connections',
   },
-  { id: 'settings', labelKey: 'nav.settings', path: '/settings', walkthroughAttr: 'tab-settings' },
+  // Settings is reached via the gear icon in the sidebar header, so it no
+  // longer has its own primary nav tab.
 ];
 
 // ── Avatar / account menu ─────────────────────────────────────────────────────

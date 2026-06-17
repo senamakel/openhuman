@@ -26,12 +26,13 @@ const SettingsLayout = () => {
       </SidebarContent>
       {/* Bounded flex column: the sub-nav chips stay pinned at the top while
           the routed panel owns the only vertical scroll (its WrappedSettingsPage
-          / PanelScaffold). */}
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col">
+          / PanelScaffold). The panel is wrapped in a card so settings pages get
+          a surface/background instead of sitting flush on the shell. */}
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-3 p-4">
         <div className="flex-shrink-0">
           <SettingsSubNav />
         </div>
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
           <Outlet />
         </div>
       </div>

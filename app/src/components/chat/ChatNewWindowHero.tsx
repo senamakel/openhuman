@@ -6,8 +6,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { applyOpenRouterFreeModels } from '../../services/api/openrouterFreeModels';
 import { restartCoreProcess } from '../../services/coreProcessControl';
 import { selectBlockingState } from '../../store/connectivitySelectors';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { resolveTheme, setThemeMode, type ThemeMode } from '../../store/themeSlice';
+import { useAppSelector } from '../../store/hooks';
 import { resolveUserName } from '../../utils/userName';
 import { DiscordBanner, PromotionalCreditsBanner, UsageLimitBanner } from '../home/HomeBanners';
 
@@ -22,7 +21,6 @@ import { DiscordBanner, PromotionalCreditsBanner, UsageLimitBanner } from '../ho
 export default function ChatNewWindowHero() {
   const { t } = useT();
   const { user } = useUser();
-  const dispatch = useAppDispatch();
   const { shouldShowBudgetCompletedMessage } = useUsageState();
 
   const userName = resolveUserName(user).split(' ')[0];
@@ -32,9 +30,6 @@ export default function ChatNewWindowHero() {
   const showPromoBanner = isFreeTier && promoCredits > 0.01;
 
   const blocking = useAppSelector(selectBlockingState);
-  const themeMode = useAppSelector(state => state.theme.mode) as ThemeMode;
-  const isDark = resolveTheme(themeMode) === 'dark';
-  const toggleTheme = () => dispatch(setThemeMode(isDark ? 'light' : 'dark'));
 
   const [isRestartingCore, setIsRestartingCore] = useState(false);
   const [restartError, setRestartError] = useState<string | null>(null);

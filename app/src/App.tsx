@@ -219,7 +219,7 @@ function AppShellDesktop() {
   const chromeless = !token || onOnboardingRoute || onHiddenChromePath;
 
   const content = (
-    <div ref={scrollRef} className="h-full overflow-y-auto">
+    <div ref={scrollRef} className="relative h-full overflow-y-auto">
       <GlobalUpsellBanner />
       <AppRoutes />
     </div>

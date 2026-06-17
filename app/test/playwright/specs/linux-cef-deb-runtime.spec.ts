@@ -22,7 +22,7 @@ test.describe('Linux CEF deb package runtime', () => {
     await waitForAppReady(page);
     const text = await page.locator('#root').innerText();
     expect(
-      ['Ask your assistant anything', 'Your device is connected', 'Home', 'Chat'].some(marker =>
+      ['New Conversation', 'Threads', 'Chat'].some(marker =>
         text.includes(marker)
       )
     ).toBe(true);

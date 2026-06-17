@@ -137,11 +137,14 @@ test.describe('User journey - full research task', () => {
     await sendMessage(page, PROMPT);
     await expect(page.getByText(CANARY_FINAL).first()).toBeVisible({ timeout: 45_000 });
 
-    await page.goto('/#/home');
+    // Navigate to a genuinely different surface and back to confirm the thread
+    // (and its messages) persist. Home folded into chat, so /human is now the
+    // closest "leave the chat surface" destination.
+    await page.goto('/#/human');
     await waitForAppReady(page);
     await expect
       .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
-      .toContain('/home');
+      .toContain('/human');
 
     await page.goto('/#/chat');
     await waitForAppReady(page);

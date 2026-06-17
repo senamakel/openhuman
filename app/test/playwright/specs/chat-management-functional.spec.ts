@@ -65,7 +65,9 @@ async function openChat(page: Page, userId: string): Promise<void> {
 }
 
 async function newThread(page: Page): Promise<string> {
-  await page.getByRole('button', { name: /^New$/ }).click();
+  // The sidebar "new thread" control now reads "New Conversation" (was "New"),
+  // so anchor on its stable testid rather than the accessible name.
+  await page.getByTestId('new-thread-button').click({ force: true });
   await expect.poll(() => selectedThreadId(page), { timeout: 10_000 }).not.toBeNull();
   return (await selectedThreadId(page))!;
 }

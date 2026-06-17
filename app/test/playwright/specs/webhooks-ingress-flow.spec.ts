@@ -12,7 +12,7 @@ test.describe('Webhooks ingress surface (stub-level)', () => {
     await waitForAppReady(page);
     const text = await page.locator('#root').innerText();
     expect(
-      ['Ask your assistant anything', 'Your device is connected'].some(marker =>
+      ['New Conversation', 'Threads'].some(marker =>
         text.includes(marker)
       )
     ).toBe(true);

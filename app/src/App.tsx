@@ -13,10 +13,12 @@ import AppRoutes from './AppRoutes';
 import AppBackground from './components/AppBackground';
 import AppUpdatePrompt from './components/AppUpdatePrompt';
 import BootCheckGate from './components/BootCheckGate/BootCheckGate';
-import BottomTabBar from './components/BottomTabBar';
 import CommandProvider from './components/commands/CommandProvider';
 import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
+import AppSidebar from './components/layout/shell/AppSidebar';
+import RootShellLayout from './components/layout/shell/RootShellLayout';
+import { SidebarSlotProvider } from './components/layout/shell/SidebarSlot';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
 import KeyringConsentOverlay from './components/keyring/KeyringConsentOverlay';
 import LocalAIDownloadSnackbar from './components/LocalAIDownloadSnackbar';
@@ -54,8 +56,6 @@ import {
   stopWebviewAccountService,
 } from './services/webviewAccountService';
 import { persistor, store } from './store';
-import { useAppSelector } from './store/hooks';
-import { isAccountsFullscreen } from './utils/accountsFullscreen';
 import { DEV_FORCE_ONBOARDING } from './utils/config';
 
 // Attach the `webview:event` listener at app boot so background recipe
@@ -162,11 +162,6 @@ function AppShellDesktop() {
   const location = useLocation();
   const navigate = useNavigate();
   const { snapshot, isBootstrapping } = useCoreState();
-  const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
-  // On /accounts, only the agent view keeps the tab bar + its reserved
-  // bottom padding. Any other selected "app" (e.g. WhatsApp) takes the
-  // full viewport so the embedded webview goes edge-to-edge.
-  const fullscreen = isAccountsFullscreen(location.pathname, activeAccountId);
   const onOnboardingRoute = location.pathname.startsWith('/onboarding');
   const onboardingPending =
     !!snapshot.sessionToken && (DEV_FORCE_ONBOARDING || !snapshot.onboardingCompleted);
@@ -214,31 +209,47 @@ function AppShellDesktop() {
     }
   }, [location.pathname, navType]);
 
-  return (
-    <div className="relative h-screen flex flex-col overflow-hidden">
-      <AppBackground />
-      <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
-        <div
-          ref={scrollRef}
-          className={`flex-1 overflow-y-auto ${fullscreen || onOnboardingRoute ? '' : 'pb-16'}`}>
-          <GlobalUpsellBanner />
-          <AppRoutes />
-        </div>
-        {!onOnboardingRoute && <BottomTabBar />}
-      </div>
-      <OpenhumanLinkModal />
-      {/* Hidden Remotion-driven producer for the Meet camera. Mounts a
-          640×480 JPEG frame stream to the Rust frame bus while a meet
-          call is active; idle no-op otherwise. See
-          features/meet/MascotFrameProducer.tsx. */}
-      <MascotFrameProducer />
-      {/* Post-onboarding Joyride walkthrough — mounted here (outside routes) so
-          it persists across tab navigations. Joyride targets span Home + BottomTabBar
-          tabs so it must stay mounted while the user moves between routes. */}
-      {!isBootstrapping && !onOnboardingRoute && (
-        <AppWalkthrough onboarded={!!snapshot.onboardingCompleted} />
-      )}
+  // Routes that own the full viewport with no app chrome: the public
+  // welcome/login screens, the onboarding stepper, and any pre-auth state.
+  // Everything else renders inside the root two-pane shell (sidebar + main).
+  const token = snapshot.sessionToken;
+  const onHiddenChromePath = ['/', '/login'].some(
+    path => location.pathname === path || location.pathname.startsWith(`${path}/`)
+  );
+  const chromeless = !token || onOnboardingRoute || onHiddenChromePath;
+
+  const content = (
+    <div ref={scrollRef} className="h-full overflow-y-auto">
+      <GlobalUpsellBanner />
+      <AppRoutes />
     </div>
+  );
+
+  return (
+    <SidebarSlotProvider>
+      <div className="relative h-screen flex flex-col overflow-hidden">
+        <AppBackground />
+        <div className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden">
+          {chromeless ? (
+            content
+          ) : (
+            <RootShellLayout sidebar={<AppSidebar />}>{content}</RootShellLayout>
+          )}
+        </div>
+        <OpenhumanLinkModal />
+        {/* Hidden Remotion-driven producer for the Meet camera. Mounts a
+            640×480 JPEG frame stream to the Rust frame bus while a meet
+            call is active; idle no-op otherwise. See
+            features/meet/MascotFrameProducer.tsx. */}
+        <MascotFrameProducer />
+        {/* Post-onboarding Joyride walkthrough — mounted here (outside routes) so
+            it persists across tab navigations. Joyride targets span Home + the
+            sidebar nav so it must stay mounted while the user moves between routes. */}
+        {!isBootstrapping && !onOnboardingRoute && (
+          <AppWalkthrough onboarded={!!snapshot.onboardingCompleted} />
+        )}
+      </div>
+    </SidebarSlotProvider>
   );
 }
 

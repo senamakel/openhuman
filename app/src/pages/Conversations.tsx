@@ -1514,24 +1514,26 @@ const Conversations = ({
       </div>
       {/* New conversation — a subtle, centered thread-style row (not a loud
           button), below the pills and above the thread list. */}
-      <div className="px-2 pt-2">
-        <button
-          type="button"
-          data-testid="new-thread-button"
-          data-analytics-id="chat-sidebar-new-thread"
-          onClick={() => void handleCreateNewThread()}
-          title={t('chat.newThreadShortcut')}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-500/10">
+      <button
+        type="button"
+        data-testid="new-thread-button"
+        data-analytics-id="chat-sidebar-new-thread"
+        onClick={() => void handleCreateNewThread()}
+        title={t('chat.newThreadShortcut')}
+        className="group w-full cursor-pointer border-b border-stone-100/60 px-3 py-1.5 text-left transition-colors hover:bg-stone-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/60">
+        <div className="flex items-center gap-1.5">
           <svg
-            className="h-3.5 w-3.5 flex-shrink-0"
+            className="h-3.5 w-3.5 flex-shrink-0 text-primary-600 dark:text-primary-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          {t('chat.newConversation')}
-        </button>
-      </div>
+          <span className="flex-1 truncate text-xs font-medium text-primary-600 dark:text-primary-400">
+            {t('chat.newConversation')}
+          </span>
+        </div>
+      </button>
       <div className="flex-1 overflow-y-auto">
         {visibleThreads.length === 0 ? (
           <p className="px-4 py-6 text-xs text-stone-400 dark:text-neutral-500 text-center">

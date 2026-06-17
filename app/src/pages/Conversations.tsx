@@ -8,6 +8,7 @@ import { checkPromptInjection, promptGuardMessage } from '../chat/promptInjectio
 import ApprovalRequestCard from '../components/chat/ApprovalRequestCard';
 import ArtifactCard from '../components/chat/ArtifactCard';
 import ChatComposer from '../components/chat/ChatComposer';
+import ChatNewWindowHero from '../components/chat/ChatNewWindowHero';
 import ChatFilesChip from '../components/chat/ChatFilesChip';
 import ComposerTokenStats from '../components/chat/ComposerTokenStats';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
@@ -32,7 +33,6 @@ import { applyOpenRouterFreeModels } from '../services/api/openrouterFreeModels'
 import { threadApi } from '../services/api/threadApi';
 import { chatCancel, chatSend, useRustChat } from '../services/chatService';
 import { callCoreRpc } from '../services/coreRpcClient';
-import { store } from '../store';
 import {
   loadAgentProfiles,
   selectActiveAgentProfileId,
@@ -458,7 +458,6 @@ const Conversations = ({
       .unwrap()
       .then(data => {
         if (cancelled) return;
-        const threadStateForSelect = store.getState().thread;
         // Match the sidebar's default General filter here so initial/resume
         // selection can't auto-pick a thread hidden by the selected tab.
         const visibleThreads = data.threads.filter(t => isThreadVisibleInTab(t, GENERAL_TAB_VALUE));
@@ -483,19 +482,15 @@ const Conversations = ({
           void dispatch(loadThreadMessages(openThread.id));
           return;
         }
-        if (visibleThreads.length > 0) {
-          // Prefer the thread the user was last viewing (persisted across
-          // reloads via redux-persist on the `thread` slice). Only fall
-          // through to "most recent" if that thread no longer exists
-          // server-side (deleted, purged, or different user) — or is now
-          // hidden because it's a worker thread.
-          const persistedId = threadStateForSelect.selectedThreadId;
-          const resumeId =
-            persistedId && visibleThreads.some(t => t.id === persistedId)
-              ? persistedId
-              : visibleThreads[0].id;
-          dispatch(setSelectedThread(resumeId));
-          void dispatch(loadThreadMessages(resumeId));
+        // Default landing is a fresh "new window" (the merged Home surface) —
+        // we no longer resume the last conversation on open. Reuse an existing
+        // empty thread if one is lying around so repeated opens don't pile up
+        // blank threads; otherwise create a new one. Past conversations stay
+        // reachable from the thread list (clicking one selects it directly).
+        const emptyThread = visibleThreads.find(t => (t.messageCount ?? 0) === 0);
+        if (emptyThread) {
+          dispatch(setSelectedThread(emptyThread.id));
+          void dispatch(loadThreadMessages(emptyThread.id));
         } else {
           void handleCreateNewThread();
         }
@@ -1442,6 +1437,12 @@ const Conversations = ({
     labelTabs.find(tab => tab.value === selectedLabel)?.label ?? selectedLabel;
 
   const isSidebar = variant === 'sidebar';
+  // "New window" = the merged Home surface: a page-variant chat whose selected
+  // thread has no messages yet. We show the greeting + banners hero above a
+  // centered composer; the moment the first message lands, hasVisibleMessages
+  // flips true and this collapses back to the normal conversation layout.
+  const isNewWindow =
+    !isSidebar && !isLoadingMessages && !messagesError && !hasVisibleMessages && !hasTaskBoard;
 
   // Stable title resolver used by both the sidebar thread list and the header.
   const resolveThreadDisplayTitle = (threadId: string | null): string => {
@@ -1624,15 +1625,14 @@ const Conversations = ({
         isSidebar
           ? // Embedded variant keeps its own flush styling (no TwoPanelLayout).
             'flex-1 flex flex-col min-w-0 bg-white dark:bg-neutral-900 border-l border-stone-200 dark:border-neutral-800 overflow-hidden'
-          : // Page variant: card background / rounded corners come from the
-            // TwoPanelLayout pane wrapper.
-            'flex-1 flex flex-col min-w-0'
+          : // Page variant: flush over the shell background. In the new-window
+            // (empty) state the column centers its hero + composer group.
+            `flex-1 flex flex-col min-w-0${isNewWindow ? ' justify-center' : ''}`
       }>
-      {/* Chat header — only shown in page mode; the sidebar embed uses the
-            parent page's chrome instead. Hidden entirely during welcome
-            lockdown (#883) so the onboarding chat is just the conversation
-            with no chrome around it. */}
-      {!isSidebar && (
+      {/* Chat header — only shown in page mode with an active conversation; the
+            sidebar embed uses the parent page's chrome, and the new-window hero
+            needs no thread chrome. */}
+      {!isSidebar && !isNewWindow && (
         <div
           className="flex items-center gap-2 px-4 py-2.5 border-b border-stone-100 dark:border-neutral-800"
           data-walkthrough="chat-agent-panel">
@@ -1761,7 +1761,12 @@ const Conversations = ({
       )}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto px-5 py-4 bg-[#f6f6f6] dark:bg-neutral-950">
+        className={
+          isNewWindow
+            ? // New-window: auto-height so the hero + composer center as a group.
+              'flex-none px-5 py-4'
+            : 'flex-1 overflow-y-auto px-5 py-4 bg-[#f6f6f6] dark:bg-neutral-950'
+        }>
         {isLoadingMessages ? (
           <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -2257,6 +2262,8 @@ const Conversations = ({
             )}
             <div ref={messagesEndRef} />
           </div>
+        ) : isNewWindow ? (
+          <ChatNewWindowHero />
         ) : (
           <div className="flex-1 flex items-center justify-center h-full">
             <p className="text-sm text-stone-600 dark:text-neutral-300">{t('chat.noMessages')}</p>
@@ -2264,7 +2271,14 @@ const Conversations = ({
         )}
       </div>
 
-      <div className="flex-shrink-0 border-t border-stone-200 dark:border-neutral-800 px-4 py-3">
+      <div
+        data-walkthrough="home-cta"
+        className={
+          isNewWindow
+            ? // Centered CTA below the hero — no top border, reading-width cap.
+              'mx-auto w-full max-w-2xl flex-shrink-0 px-4 py-3'
+            : 'flex-shrink-0 border-t border-stone-200 dark:border-neutral-800 px-4 py-3'
+        }>
         <>
           {isNearLimit &&
             !isAtLimit &&

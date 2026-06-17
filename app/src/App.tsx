@@ -178,9 +178,9 @@ function AppShellDesktop() {
       navigate('/onboarding', { replace: true });
     } else if (!onboardingPending && onOnboardingRoute) {
       console.debug(
-        `[onboarding-gate] redirecting ${location.pathname} -> /home (onboarding complete)`
+        `[onboarding-gate] redirecting ${location.pathname} -> /chat (onboarding complete)`
       );
-      navigate('/home', { replace: true });
+      navigate('/chat', { replace: true });
     }
   }, [
     isBootstrapping,

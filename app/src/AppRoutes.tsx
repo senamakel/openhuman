@@ -9,7 +9,6 @@ import { getIsMobile } from './lib/platform';
 import Accounts from './pages/Accounts';
 import Brain from './pages/Brain';
 import AgentInsightsPreview from './pages/dev/AgentInsightsPreview';
-import Home from './pages/Home';
 import Invites from './pages/Invites';
 import Notifications from './pages/Notifications';
 import Onboarding from './pages/onboarding/Onboarding';
@@ -55,14 +54,9 @@ const AppRoutes = () => {
       />
 
       {/* Protected routes */}
-      <Route
-        path="/home"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <Home />
-          </ProtectedRoute>
-        }
-      />
+      {/* Home is merged into the unified chat surface — /home redirects to /chat
+          (the chat's empty "new window" state is the former Home greeting). */}
+      <Route path="/home" element={<Navigate to="/chat" replace />} />
 
       {/* Human — first-class destination again (restored after the IA Phase 6
           merge into Assistant). Renders the Human/mascot surface. iOS serves

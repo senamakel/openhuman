@@ -8,9 +8,21 @@
  * - Resets rate limiter module-level state between tests
  */
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import type React from 'react';
 import { afterAll, afterEach, beforeEach, vi } from 'vitest';
+
+// The full Vitest run is executed under v8 coverage instrumentation with a
+// single worker (see test/vitest.config.ts), which makes individual renders
+// markedly slower than an isolated, un-instrumented file run. Testing Library's
+// default 1000ms async-utility timeout is too tight in that environment, so
+// `findBy*`/`waitFor` assertions in render-heavy suites (e.g. the workflow
+// orchestration tab) flake intermittently — and which test trips first is
+// non-deterministic. Raising the global async-util budget removes that whole
+// class of false timeouts without masking real failures: `waitFor`/`findBy`
+// still resolve the instant their condition is met, this only widens the
+// ceiling before they give up (well within the 30s testTimeout).
+configure({ asyncUtilTimeout: 5000 });
 
 // @ts-ignore - test-only JS module outside app/src
 import {

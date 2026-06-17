@@ -12,6 +12,14 @@ import { cleanup, configure } from '@testing-library/react';
 import type React from 'react';
 import { afterAll, afterEach, beforeEach, vi } from 'vitest';
 
+// @ts-ignore - test-only JS module outside app/src
+import {
+  clearRequestLog,
+  resetMockBehavior,
+  startMockServer,
+  stopMockServer,
+} from '../../../scripts/mock-api-core.mjs';
+
 // The full Vitest run is executed under v8 coverage instrumentation with a
 // single worker (see test/vitest.config.ts), which makes individual renders
 // markedly slower than an isolated, un-instrumented file run. Testing Library's
@@ -23,14 +31,6 @@ import { afterAll, afterEach, beforeEach, vi } from 'vitest';
 // still resolve the instant their condition is met, this only widens the
 // ceiling before they give up (well within the 30s testTimeout).
 configure({ asyncUtilTimeout: 5000 });
-
-// @ts-ignore - test-only JS module outside app/src
-import {
-  clearRequestLog,
-  resetMockBehavior,
-  startMockServer,
-  stopMockServer,
-} from '../../../scripts/mock-api-core.mjs';
 
 const DEFAULT_TEST_MOCK_API_PORT = 5005;
 

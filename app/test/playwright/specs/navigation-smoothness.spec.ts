@@ -62,8 +62,6 @@ test.describe('Navigation Smoothness', () => {
     await waitForAppReady(page);
     await expect(page.locator('[data-walkthrough="home-card"]')).toBeVisible();
     await expect(page.getByText('New Conversation')).toBeVisible();
-    await expect
-      .poll(async () => page.evaluate(() => window.location.hash))
-      .toMatch(/^#\/chat/);
+    await expect.poll(async () => page.evaluate(() => window.location.hash)).toMatch(/^#\/chat/);
   });
 });

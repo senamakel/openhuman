@@ -2915,7 +2915,8 @@ const messages: TranslationMap = {
   'home.banners.earlyBirdTitle': 'Pierwszych 1000 użytkowników otrzymuje 60% zniżki.',
   'home.banners.earlyBirdUseCode': 'Użyj kodu early bird',
   'home.banners.getSubscription': 'wykup subskrypcję',
-  'home.banners.promoCreditsBody': 'Masz {amount} Przetestuj OpenHuman, a gdy będziesz gotowy(a) na więcej,',
+  'home.banners.promoCreditsBody':
+    'Masz {amount} Przetestuj OpenHuman, a gdy będziesz gotowy(a) na więcej,',
   'home.banners.promoCreditsUsage': 'i uzyskaj 10x więcej użycia.',
   'intelligence.memoryChunk.detail.chunk': 'Fragment',
   'intelligence.memoryChunk.detail.copyChunkId': 'Skopiuj ID fragmentu',

@@ -200,13 +200,11 @@ export default function ChatNewWindowHero() {
           <ConnectionIndicator />
         </div>
 
-        {/* Description — only when something's off; the "all connected" copy is
-            noise in the normal case. */}
-        {blocking !== 'ok' && (
-          <p className="text-center text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
-            {statusCopy}
-          </p>
-        )}
+        {/* Subtitle — a get-started prompt in the normal case; the active
+            blocking copy when something's off. */}
+        <p className="text-center text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
+          {blocking === 'ok' ? t('home.askAssistant') : statusCopy}
+        </p>
 
         {/* Recovery: only when the local core is the broken link. */}
         {blocking === 'core-unreachable' && (

@@ -8,7 +8,6 @@ import { restartCoreProcess } from '../../services/coreProcessControl';
 import { selectBlockingState } from '../../store/connectivitySelectors';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { resolveTheme, setThemeMode, type ThemeMode } from '../../store/themeSlice';
-import { APP_VERSION } from '../../utils/config';
 import { resolveUserName } from '../../utils/userName';
 import ConnectionIndicator from '../ConnectionIndicator';
 import { DiscordBanner, PromotionalCreditsBanner, UsageLimitBanner } from '../home/HomeBanners';
@@ -148,13 +147,8 @@ export default function ChatNewWindowHero() {
       <div
         data-walkthrough="home-card"
         className="animate-fade-up rounded-2xl border border-stone-200/80 bg-white/80 p-6 shadow-soft backdrop-blur-sm dark:border-neutral-800/80 dark:bg-neutral-900/80">
-        {/* Header row: version centered, theme toggle right-aligned. The empty
-            left spacer matches the toggle's width so the version stays centered. */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="w-9" aria-hidden="true" />
-          <span className="text-center text-xs text-stone-400 dark:text-neutral-500">
-            v{APP_VERSION}
-          </span>
+        {/* Header row: theme toggle, right-aligned. */}
+        <div className="mb-4 flex items-center justify-end">
           <button
             type="button"
             onClick={toggleTheme}
@@ -206,10 +200,13 @@ export default function ChatNewWindowHero() {
           <ConnectionIndicator />
         </div>
 
-        {/* Description — copy mirrors the active blocking state. */}
-        <p className="text-center text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
-          {statusCopy}
-        </p>
+        {/* Description — only when something's off; the "all connected" copy is
+            noise in the normal case. */}
+        {blocking !== 'ok' && (
+          <p className="text-center text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
+            {statusCopy}
+          </p>
+        )}
 
         {/* Recovery: only when the local core is the broken link. */}
         {blocking === 'core-unreachable' && (

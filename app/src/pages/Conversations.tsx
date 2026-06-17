@@ -8,8 +8,8 @@ import { checkPromptInjection, promptGuardMessage } from '../chat/promptInjectio
 import ApprovalRequestCard from '../components/chat/ApprovalRequestCard';
 import ArtifactCard from '../components/chat/ArtifactCard';
 import ChatComposer from '../components/chat/ChatComposer';
-import ChatNewWindowHero from '../components/chat/ChatNewWindowHero';
 import ChatFilesChip from '../components/chat/ChatFilesChip';
+import ChatNewWindowHero from '../components/chat/ChatNewWindowHero';
 import ComposerTokenStats from '../components/chat/ComposerTokenStats';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
@@ -1764,7 +1764,7 @@ const Conversations = ({
           isNewWindow
             ? // New-window: hero fills the height; composer stays pinned below.
               'flex-1 overflow-y-auto px-5 py-4'
-            : 'flex-1 overflow-y-auto px-5 py-4 bg-[#f6f6f6] dark:bg-neutral-950'
+            : 'flex-1 overflow-y-auto px-5 py-4'
         }>
         {isLoadingMessages ? (
           <div className="space-y-4">
@@ -2275,7 +2275,7 @@ const Conversations = ({
         className={
           isNewWindow
             ? // Centered CTA below the hero — no top border, reading-width cap.
-              'mx-auto w-full max-w-2xl flex-shrink-0 px-4 py-3'
+              'mx-auto w-full max-w-[48.75rem] flex-shrink-0 px-4 py-3'
             : 'flex-shrink-0 border-t border-stone-200 dark:border-neutral-800 px-4 py-3'
         }>
         <>
@@ -2555,7 +2555,7 @@ const Conversations = ({
       className={
         isSidebar
           ? 'h-full relative z-10 flex overflow-hidden'
-          : 'h-full relative z-10 flex justify-center overflow-hidden'
+          : 'h-full relative z-10 flex justify-center overflow-hidden bg-white/40 dark:bg-black/40'
       }>
       {isSidebar ? (
         mainPanel
@@ -2569,7 +2569,7 @@ const Conversations = ({
               {threadSidebar}
             </div>
           </SidebarContent>
-          <div className="flex h-full w-full max-w-2xl">{mainPanel}</div>
+          <div className="flex h-full w-full max-w-[48.75rem]">{mainPanel}</div>
         </>
       )}
       <ConfirmationModal

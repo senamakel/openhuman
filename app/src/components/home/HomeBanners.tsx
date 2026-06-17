@@ -85,10 +85,19 @@ export function PromotionalCreditsBanner({ promoCredits }: { promoCredits: numbe
           🎉
         </div>
         <p className="min-w-0 flex-1 text-sm leading-relaxed text-amber-600 dark:text-amber-300/80">
-          <span className="font-semibold text-amber-700 dark:text-amber-300">
-            {formatUsd(promoCredits)}
-          </span>{' '}
-          {t('home.banners.promoCreditsBody')}{' '}
+          {(() => {
+            // Single {amount} template; split so the amount renders bold inline.
+            const [before, after] = t('home.banners.promoCreditsBody').split('{amount}');
+            return (
+              <>
+                {before}
+                <span className="font-semibold text-amber-700 dark:text-amber-300">
+                  {formatUsd(promoCredits)}
+                </span>
+                {after}
+              </>
+            );
+          })()}{' '}
           <button
             type="button"
             onClick={() => {
@@ -161,8 +170,11 @@ export function DiscordBanner() {
             <path d="M20.317 4.37A19.79 19.79 0 0 0 15.885 3c-.191.328-.403.775-.552 1.124a18.27 18.27 0 0 0-5.29 0A11.56 11.56 0 0 0 9.49 3a19.74 19.74 0 0 0-4.433 1.37C2.253 8.51 1.492 12.55 1.872 16.533a19.9 19.9 0 0 0 5.239 2.673c.423-.58.8-1.196 1.123-1.845a12.84 12.84 0 0 1-1.767-.85c.148-.106.292-.217.43-.332c3.408 1.6 7.104 1.6 10.472 0c.14.115.283.226.43.332c-.565.338-1.157.623-1.771.851c.322.648.698 1.264 1.123 1.844a19.84 19.84 0 0 0 5.241-2.673c.446-4.617-.761-8.621-3.787-12.164ZM9.46 14.088c-1.02 0-1.855-.936-1.855-2.084c0-1.148.82-2.084 1.855-2.084c1.044 0 1.87.944 1.855 2.084c0 1.148-.82 2.084-1.855 2.084Zm5.08 0c-1.02 0-1.855-.936-1.855-2.084c0-1.148.82-2.084 1.855-2.084c1.044 0 1.87.944 1.855 2.084c0 1.148-.812 2.084-1.855 2.084Z" />
           </svg>
         </div>
-        <div className="min-w-0 flex-1 text-sm font-semibold">
-          {t('home.banners.discordTitle')}
+        <div className="min-w-0 flex-1 text-sm">
+          <span className="font-semibold">{t('home.banners.discordTitle')}</span>{' '}
+          <span className="text-[#5E66BC] dark:text-[#8B95DD]">
+            {t('home.banners.discordSubtitle')}
+          </span>
         </div>
       </div>
     </button>

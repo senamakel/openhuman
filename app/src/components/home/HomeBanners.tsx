@@ -79,30 +79,21 @@ export function UsageLimitBanner({
 export function PromotionalCreditsBanner({ promoCredits }: { promoCredits: number }) {
   const { t } = useT();
   return (
-    <div className="mb-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 px-4 py-4 text-left shadow-soft dark:border-amber-500/30 dark:from-amber-900/30 dark:via-amber-900/20 dark:to-amber-900/10">
-      <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/20 text-lg">
+    <button
+      type="button"
+      onClick={() => {
+        void openUrl(BILLING_DASHBOARD_URL);
+      }}
+      className="mb-3 block w-full rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 px-4 py-2.5 text-left shadow-soft transition-transform hover:-translate-y-0.5 dark:border-amber-500/30 dark:from-amber-900/30 dark:via-amber-900/20 dark:to-amber-900/10">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base dark:bg-amber-500/20">
           🎉
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-            {t('home.banners.promoCreditsTitle').replace('{amount}', formatUsd(promoCredits))}
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-amber-600 dark:text-amber-300/80">
-            {t('home.banners.promoCreditsBody')}{' '}
-            <button
-              type="button"
-              onClick={() => {
-                void openUrl(BILLING_DASHBOARD_URL);
-              }}
-              className="cursor-pointer border-b border-amber-700 border-dashed font-bold text-amber-700 hover:text-amber-800 dark:border-amber-300 dark:text-amber-300 dark:hover:text-amber-200">
-              {t('home.banners.getSubscription')}
-            </button>{' '}
-            {t('home.banners.promoCreditsUsage')}
-          </p>
-        </div>
+        <p className="min-w-0 flex-1 text-sm font-semibold text-amber-700 dark:text-amber-300">
+          {t('home.banners.promoCreditsTitle').replace('{amount}', formatUsd(promoCredits))}
+        </p>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -163,7 +154,7 @@ export function DiscordBanner() {
             <path d="M20.317 4.37A19.79 19.79 0 0 0 15.885 3c-.191.328-.403.775-.552 1.124a18.27 18.27 0 0 0-5.29 0A11.56 11.56 0 0 0 9.49 3a19.74 19.74 0 0 0-4.433 1.37C2.253 8.51 1.492 12.55 1.872 16.533a19.9 19.9 0 0 0 5.239 2.673c.423-.58.8-1.196 1.123-1.845a12.84 12.84 0 0 1-1.767-.85c.148-.106.292-.217.43-.332c3.408 1.6 7.104 1.6 10.472 0c.14.115.283.226.43.332c-.565.338-1.157.623-1.771.851c.322.648.698 1.264 1.123 1.844a19.84 19.84 0 0 0 5.241-2.673c.446-4.617-.761-8.621-3.787-12.164ZM9.46 14.088c-1.02 0-1.855-.936-1.855-2.084c0-1.148.82-2.084 1.855-2.084c1.044 0 1.87.944 1.855 2.084c0 1.148-.82 2.084-1.855 2.084Zm5.08 0c-1.02 0-1.855-.936-1.855-2.084c0-1.148.82-2.084 1.855-2.084c1.044 0 1.87.944 1.855 2.084c0 1.148-.812 2.084-1.855 2.084Z" />
           </svg>
         </div>
-        <div className="min-w-0 flex-1 truncate text-sm font-semibold">
+        <div className="min-w-0 flex-1 text-sm font-semibold">
           {t('home.banners.discordTitle')}
         </div>
       </div>

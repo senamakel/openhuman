@@ -922,9 +922,7 @@ export default function Skills() {
             </div>
           </div>
         ) : (
-          <PanelPage
-            description={activeTab === 'composio' ? t('skills.integrationsSubtitle') : undefined}
-            contentClassName="p-4">
+          <PanelPage contentClassName="p-4">
             <div className="mx-auto w-full max-w-3xl space-y-4">
               {/* <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
@@ -1042,6 +1040,9 @@ export default function Skills() {
                       className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up"
                       data-walkthrough="skills-grid"
                       data-testid="composio-integrations-card">
+                      <p className="px-1 pb-3 text-xs leading-relaxed text-stone-500 dark:text-neutral-400">
+                        {t('skills.integrationsSubtitle')}
+                      </p>
                       {showLocalComposioApiKeyBanner && (
                         <ComposioApiKeyEmptyState
                           onOpenSettings={() => handleTabChange('composio-key')}

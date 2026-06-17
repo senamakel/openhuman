@@ -9,6 +9,7 @@ import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
 import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import socketReducer from '../../store/socketSlice';
@@ -127,6 +128,10 @@ vi.mock('../../services/api/agentProfilesApi', () => ({
 }));
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
+
+// The new-window hero pulls useUser/useCoreState; stub it (these tests assert
+// the composer/attachments, not the empty-state hero).
+vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
 
 vi.mock('../../utils/config', async importActual => ({
   ...(await importActual<typeof import('../../utils/config')>()),
@@ -247,7 +252,10 @@ async function renderWithSelectedThread() {
   render(
     <Provider store={store}>
       <MemoryRouter initialEntries={['/conversations']}>
-        <Conversations />
+        <SidebarSlotProvider>
+          <SidebarSlotOutlet />
+          <Conversations />
+        </SidebarSlotProvider>
       </MemoryRouter>
     </Provider>
   );
@@ -564,7 +572,10 @@ describe('Conversations — attachment feature', () => {
     render(
       <Provider store={store}>
         <MemoryRouter>
-          <Conversations />
+          <SidebarSlotProvider>
+            <SidebarSlotOutlet />
+            <Conversations />
+          </SidebarSlotProvider>
         </MemoryRouter>
       </Provider>
     );
@@ -613,7 +624,10 @@ describe('Conversations — attachment feature', () => {
     render(
       <Provider store={store}>
         <MemoryRouter>
-          <Conversations />
+          <SidebarSlotProvider>
+            <SidebarSlotOutlet />
+            <Conversations />
+          </SidebarSlotProvider>
         </MemoryRouter>
       </Provider>
     );

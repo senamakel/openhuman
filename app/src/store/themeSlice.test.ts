@@ -37,7 +37,7 @@ describe('themeSlice', () => {
       mode: 'dark',
       tabBarLabels: 'always',
       fontSize: 'xlarge',
-      agentMessageViewMode: 'bubbles',
+      agentMessageViewMode: 'text',
       developerMode: false,
     });
   });

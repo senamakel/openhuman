@@ -2,9 +2,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { Locale } from '../../../lib/i18n/types';
+import { setActiveAccount } from '../../../store/accountsSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { setLocale } from '../../../store/localeSlice';
 import { createNewThread, loadThreadMessages, setSelectedThread } from '../../../store/threadSlice';
+import { AGENT_ACCOUNT_ID } from '../../../utils/accountsFullscreen';
 import { LOCALE_OPTIONS } from '../../LanguageSelect';
 import { useRootSidebar } from './RootShellLayout';
 
@@ -31,6 +33,10 @@ export default function SidebarHeader() {
   // landing (avoids a duplicate-create race). When already on chat (no remount),
   // reset to a blank thread here: reuse an existing empty one, else create.
   const handleHome = () => {
+    // Switch back to the agent account first — otherwise a selected connected
+    // app (WhatsApp/Slack/…) keeps Accounts rendering its webview instead of the
+    // blank agent thread.
+    dispatch(setActiveAccount(AGENT_ACCOUNT_ID));
     const onChat = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
     if (!onChat) {
       navigate('/chat');

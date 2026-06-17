@@ -338,8 +338,8 @@ const Accounts = () => {
 
   return (
     <div
-      // `h-full` makes this page fill the shell's content box, which bypasses
-      className="relative flex h-full gap-3 overflow-hidden"
+      // `h-full` makes this page fill the shell's content box edge-to-edge.
+      className="relative flex h-full overflow-hidden"
       data-testid="accounts-page"
       data-analytics-id="chat-right-sidebar">
       {/* App rail — projected into the root sidebar's dynamic region as a compact
@@ -395,48 +395,46 @@ const Accounts = () => {
 
       {/* "Talk to Tiny" face-mode toggle — hidden (kept for potential re-enable). */}
 
-      {/* Main pane
-          In face mode (agent selected), the layout is a horizontal split:
-          the chat panel on the left and the mascot panel on the right.
-          Face mode is ignored when an external webview account is active. */}
-      <main
-        className={`flex min-w-0 flex-1 gap-3 ${isAgentSelected && faceMode ? 'flex-row' : 'flex-col'}`}>
-        {isAgentSelected ? (
-          <>
-            {/* Agent chat — face mode uses sidebar variant to avoid a second
-                thread list; normal mode uses the full-page variant (AgentChatPanel). */}
-            <div
-              className={`flex min-h-0 min-w-0 flex-col ${faceMode ? 'w-[360px] flex-none' : 'flex-1'}`}>
-              {faceMode ? (
-                // Face mode: mascot sidebar chat. The toggle floats on the page
-                // root (see below) so it never steals height from the composer.
-                // `min-h-0` lets the inner message list scroll instead of growing
-                // and pushing the composer off-screen.
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0">
-                  <Conversations variant="sidebar" />
-                </div>
-              ) : (
-                // `min-h-0` is required so the chat's internal message list owns
-                // the overflow (scrolls) rather than expanding and shoving the
-                // composer below the viewport on long threads.
-                <div className="min-h-0 flex-1 overflow-hidden">
-                  <AgentChatPanel />
-                </div>
-              )}
+      {/* Main pane. In face mode (agent selected) it's a horizontal split with
+          the mascot panel. Otherwise the agent chat is ALWAYS mounted — so the
+          thread sidebar it projects stays consistent regardless of which app is
+          selected — and a selected app's webview fills the pane edge-to-edge on
+          top of it. */}
+      {isAgentSelected && faceMode ? (
+        <main className="flex min-w-0 flex-1 flex-row gap-3">
+          <div className="flex min-h-0 w-[360px] flex-none flex-col">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0">
+              <Conversations variant="sidebar" />
             </div>
-            {/* Mascot + TTS panel — only visible in face mode */}
-            {faceMode && <FaceModePanel />}
-          </>
-        ) : active ? (
-          <div className="flex-1 py-3 pr-3">
-            <WebviewHost accountId={active.id} provider={active.provider} />
           </div>
-        ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-stone-400 dark:text-neutral-500">
-            {t('accounts.noAccounts')}
+          <FaceModePanel />
+        </main>
+      ) : (
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Agent chat — kept mounted even while a webview app is shown so its
+              thread sidebar projection persists. `min-h-0` lets the message list
+              own the scroll instead of pushing the composer off-screen. */}
+          <div
+            className={`min-h-0 flex-1 overflow-hidden ${isAgentSelected ? '' : 'invisible'}`}
+            aria-hidden={!isAgentSelected}>
+            <AgentChatPanel />
           </div>
-        )}
-      </main>
+
+          {/* Selected connected app — fills the main content fully (no padding
+              or margins) on top of the hidden agent chat. */}
+          {!isAgentSelected && active && (
+            <div className="absolute inset-0">
+              <WebviewHost accountId={active.id} provider={active.provider} />
+            </div>
+          )}
+
+          {!isAgentSelected && !active && (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-stone-400 dark:text-neutral-500">
+              {t('accounts.noAccounts')}
+            </div>
+          )}
+        </main>
+      )}
 
       <AddAccountModal
         open={addOpen}

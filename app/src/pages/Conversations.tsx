@@ -137,6 +137,15 @@ interface ConversationsProps {
    * Used by the mascot tab so the only interaction is voice.
    */
   composer?: 'text' | 'mic-cloud';
+  /**
+   * Project the thread list into the root sidebar's dynamic region even in the
+   * `sidebar` variant. Page variant always projects it; this lets an embedded
+   * instance (e.g. the Human page's right-rail chat) surface the user's threads
+   * in the left sidebar while keeping the chat itself on the right. The list
+   * and the chat share the same selection state, so clicking a thread switches
+   * the embedded conversation.
+   */
+  projectThreadList?: boolean;
 }
 
 // Stable empty reference so the `activeThreadIds` selector returns the same
@@ -191,6 +200,7 @@ export function formatThreadLoadError(err: unknown): string {
 const Conversations = ({
   variant = 'page',
   composer: composerProp = 'text',
+  projectThreadList = false,
 }: ConversationsProps = {}) => {
   const [composerOverride, setComposerOverride] = useState<'mic-cloud' | 'text' | null>(null);
   const composer = composerOverride ?? composerProp;
@@ -1632,9 +1642,7 @@ const Conversations = ({
             sidebar embed uses the parent page's chrome, and the new-window hero
             needs no thread chrome. */}
       {!isSidebar && !isNewWindow && (
-        <div
-          className="flex items-center gap-2 px-4 py-2.5 border-b border-stone-100 dark:border-neutral-800"
-          data-walkthrough="chat-agent-panel">
+        <div className="flex items-center gap-2 px-4 py-2.5" data-walkthrough="chat-agent-panel">
           <div className="flex flex-col min-w-0 flex-1">
             {selectedThreadParent ? (
               <button
@@ -2276,7 +2284,7 @@ const Conversations = ({
           isNewWindow
             ? // Centered CTA below the hero — no top border, reading-width cap.
               'mx-auto w-full max-w-[48.75rem] flex-shrink-0 px-4 py-3'
-            : 'flex-shrink-0 border-t border-stone-200 dark:border-neutral-800 px-4 py-3'
+            : 'flex-shrink-0 px-4 py-3'
         }>
         <>
           {isNearLimit &&
@@ -2555,10 +2563,19 @@ const Conversations = ({
       className={
         isSidebar
           ? 'h-full relative z-10 flex overflow-hidden'
-          : 'h-full relative z-10 flex justify-center overflow-hidden bg-white/40 dark:bg-black/40'
+          : 'h-full relative z-10 flex justify-center overflow-hidden bg-white/40 dark:bg-black/60'
       }>
       {isSidebar ? (
-        mainPanel
+        <>
+          {projectThreadList && (
+            <SidebarContent>
+              <div className="order-1 flex h-full min-h-0 flex-col overflow-hidden">
+                {threadSidebar}
+              </div>
+            </SidebarContent>
+          )}
+          {mainPanel}
+        </>
       ) : (
         // The thread list always lives in the root app sidebar's dynamic region
         // (order-1 so any app rail projected by the parent sits above it). The

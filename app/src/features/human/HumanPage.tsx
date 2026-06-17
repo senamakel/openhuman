@@ -80,7 +80,9 @@ const HumanPage = () => {
           one surface that leaves the root sidebar's dynamic region empty). */}
       <div className="absolute right-4 top-4 bottom-4 z-10 flex items-center">
         <aside className="w-[420px] h-[min(760px,100%)] rounded-2xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-soft flex flex-col overflow-hidden">
-          <Conversations variant="sidebar" composer="mic-cloud" />
+          {/* Right-rail chat, but its thread list is surfaced in the (otherwise
+              empty) root sidebar so the Human page shows the user's threads. */}
+          <Conversations variant="sidebar" composer="mic-cloud" projectThreadList />
         </aside>
       </div>
     </div>

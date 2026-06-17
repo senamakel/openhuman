@@ -2413,31 +2413,31 @@ const Conversations = ({
             </p>
           </div>
         )}
-        {/* Composer toolbar (page variant): below the composer — quick/reasoning
-            toggle (right), worker-thread back-to-parent breadcrumb (left), and
-            the files chip. */}
-        {!isSidebar && (
-          <div
-            className="mt-2 flex items-center justify-between gap-2"
-            data-walkthrough="chat-agent-panel">
-            <div className="min-w-0 flex-1">
-              {selectedThreadParent ? (
-                <button
-                  type="button"
-                  data-analytics-id="chat-header-back-to-parent-thread"
-                  onClick={() => {
-                    dispatch(setSelectedThread(selectedThreadParent.id));
-                    void dispatch(loadThreadMessages(selectedThreadParent.id));
-                  }}
-                  className="flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
-                  data-testid="worker-thread-back-to-parent">
-                  <span aria-hidden="true">←</span>
-                  <span className="max-w-[16rem] truncate">
-                    {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
-                  </span>
-                </button>
-              ) : null}
-            </div>
+        {/* Worker-thread back-to-parent breadcrumb (page variant) — its own line. */}
+        {!isSidebar && selectedThreadParent && (
+          <button
+            type="button"
+            data-analytics-id="chat-header-back-to-parent-thread"
+            onClick={() => {
+              dispatch(setSelectedThread(selectedThreadParent.id));
+              void dispatch(loadThreadMessages(selectedThreadParent.id));
+            }}
+            className="mt-2 flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
+            data-testid="worker-thread-back-to-parent">
+            <span aria-hidden="true">←</span>
+            <span className="max-w-[16rem] truncate">
+              {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
+            </span>
+          </button>
+        )}
+
+        {/* Model + token stats (left) and the quick/reasoning toggle + files
+            chip (right) share one line. */}
+        <div
+          className="mt-2 flex items-center justify-between gap-2"
+          data-walkthrough="chat-agent-panel">
+          <ComposerTokenStats model={resolvedModel} />
+          {!isSidebar && (
             <div className="flex flex-shrink-0 items-center gap-2">
               <div
                 className="flex h-7 items-center rounded-full border border-stone-200 bg-stone-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-800"
@@ -2474,10 +2474,8 @@ const Conversations = ({
                 <ChatFilesChip threadId={(selectedThreadId ?? firstActiveThreadId) as string} />
               )}
             </div>
-          </div>
-        )}
-
-        <ComposerTokenStats model={resolvedModel} />
+          )}
+        </div>
       </div>
     </div>
   );

@@ -2151,7 +2151,7 @@ const Conversations = ({
       {!isSidebar && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-40 bg-gradient-to-t from-white to-transparent dark:from-black"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-40 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-black dark:via-black/90"
         />
       )}
 

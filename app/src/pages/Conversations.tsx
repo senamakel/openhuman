@@ -2154,7 +2154,7 @@ const Conversations = ({
         className={
           isSidebar
             ? 'mx-auto w-full max-w-[48.75rem] flex-shrink-0 px-4 py-3'
-            : 'absolute inset-x-0 bottom-0 mx-auto w-full max-w-[48.75rem] rounded-t-2xl bg-white/60 px-4 pb-4 pt-3 backdrop-blur-md dark:bg-neutral-900/60'
+            : 'absolute inset-x-0 bottom-0 mx-auto w-full max-w-[48.75rem] bg-gradient-to-t from-white via-white/90 to-transparent px-4 pb-4 pt-10 dark:from-neutral-900 dark:via-neutral-900/90 dark:to-transparent'
         }>
         <>
           {isNearLimit &&

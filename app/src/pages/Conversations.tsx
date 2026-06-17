@@ -1625,8 +1625,10 @@ const Conversations = ({
         isSidebar
           ? // Embedded variant keeps its own flush styling (no TwoPanelLayout).
             'flex-1 flex flex-col min-w-0 bg-white dark:bg-neutral-900 border-l border-stone-200 dark:border-neutral-800 overflow-hidden'
-          : // Page variant: flush over the shell background.
-            'flex-1 flex flex-col min-w-0'
+          : // Page variant: the main content container carries the ~80% tint
+            // over the shell background (the chat surface, incl. the new-window
+            // hero, sits on this).
+            'flex-1 flex flex-col min-w-0 bg-white/80 backdrop-blur-sm dark:bg-neutral-900/80'
       }>
       {/* Chat header — only shown in page mode with an active conversation; the
             sidebar embed uses the parent page's chrome, and the new-window hero

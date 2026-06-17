@@ -141,13 +141,11 @@ export default function ChatNewWindowHero() {
 
       {showPromoBanner && <PromotionalCreditsBanner promoCredits={promoCredits} />}
 
-      {/* Main card — sizes to its content. The full height lives on the
-          container (this column is h-full and centers the card), so the
-          composer stays pinned at the bottom of the surface. ~80% tint over
-          the app background. */}
-      <div
-        data-walkthrough="home-card"
-        className="animate-fade-up rounded-2xl border border-stone-200/80 bg-white/80 p-6 shadow-soft backdrop-blur-sm dark:border-neutral-800/80 dark:bg-neutral-900/80">
+      {/* Hero content — sits directly on the chat pane's tinted surface (the
+          opaque background lives on the main content container, not here).
+          Content is content-sized; the column's h-full centers it so the
+          composer stays pinned at the bottom of the surface. */}
+      <div data-walkthrough="home-card" className="animate-fade-up p-6">
         {/* Header row: version centered, theme toggle right-aligned. The empty
             left spacer matches the toggle's width so the version stays centered. */}
         <div className="mb-4 flex items-center justify-between">

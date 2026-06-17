@@ -75,6 +75,7 @@ const RailButton = ({
     type="button"
     onClick={onClick}
     onContextMenu={onContextMenu}
+    title={tooltip}
     data-analytics-id={analyticsId}
     // Issue #1284 — `hover:z-50` lifts the entire button (and its tooltip
     // child) above sibling rail buttons during hover. Without it, the
@@ -348,7 +349,7 @@ const Accounts = () => {
         <div
           data-testid="accounts-app-rail"
           data-analytics-id="chat-app-rail"
-          className="order-0 flex flex-none items-center gap-1.5 overflow-x-auto border-b border-stone-100 px-2 py-2 dark:border-neutral-800">
+          className="order-0 flex flex-none items-center gap-1.5 overflow-x-auto overflow-y-hidden border-b border-stone-100 px-2 py-2 dark:border-neutral-800">
           <RailButton
             active={isAgentSelected}
             onClick={selectAgent}

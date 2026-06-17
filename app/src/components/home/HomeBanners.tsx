@@ -79,21 +79,28 @@ export function UsageLimitBanner({
 export function PromotionalCreditsBanner({ promoCredits }: { promoCredits: number }) {
   const { t } = useT();
   return (
-    <button
-      type="button"
-      onClick={() => {
-        void openUrl(BILLING_DASHBOARD_URL);
-      }}
-      className="mb-3 block w-full rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 px-4 py-2.5 text-left shadow-soft transition-transform hover:-translate-y-0.5 dark:border-amber-500/30 dark:from-amber-900/30 dark:via-amber-900/20 dark:to-amber-900/10">
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base dark:bg-amber-500/20">
+    <div className="mb-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 px-4 py-2.5 text-left shadow-soft dark:border-amber-500/30 dark:from-amber-900/30 dark:via-amber-900/20 dark:to-amber-900/10">
+      <div className="flex items-start gap-2.5">
+        <div className="mt-px flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base dark:bg-amber-500/20">
           🎉
         </div>
-        <p className="min-w-0 flex-1 text-sm font-semibold text-amber-700 dark:text-amber-300">
-          {t('home.banners.promoCreditsTitle').replace('{amount}', formatUsd(promoCredits))}
+        <p className="min-w-0 flex-1 text-sm leading-relaxed text-amber-600 dark:text-amber-300/80">
+          <span className="font-semibold text-amber-700 dark:text-amber-300">
+            {formatUsd(promoCredits)}
+          </span>{' '}
+          {t('home.banners.promoCreditsBody')}{' '}
+          <button
+            type="button"
+            onClick={() => {
+              void openUrl(BILLING_DASHBOARD_URL);
+            }}
+            className="cursor-pointer border-b border-dashed border-amber-700 font-bold text-amber-700 hover:text-amber-800 dark:border-amber-300 dark:text-amber-300 dark:hover:text-amber-200">
+            {t('home.banners.getSubscription')}
+          </button>{' '}
+          {t('home.banners.promoCreditsUsage')}
         </p>
       </div>
-    </button>
+    </div>
   );
 }
 

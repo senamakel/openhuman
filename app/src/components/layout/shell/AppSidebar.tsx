@@ -41,6 +41,7 @@ export default function AppSidebar() {
           bottom of the sidebar. */}
       <div className="flex flex-shrink-0 items-center justify-center gap-2 border-t border-stone-200 px-2 py-1.5 dark:border-neutral-800">
         <ConnectionIndicator />
+        &middot;
         <span className="text-[10px] text-stone-400 dark:text-neutral-500">
           {t('settings.betaBuild').replace('{version}', APP_VERSION)}
         </span>

@@ -1520,7 +1520,7 @@ const Conversations = ({
         data-analytics-id="chat-sidebar-new-thread"
         onClick={() => void handleCreateNewThread()}
         title={t('chat.newThreadShortcut')}
-        className="group w-full cursor-pointer border-b border-stone-100/60 px-3 py-2 transition-colors hover:bg-stone-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/60">
+        className="group w-full cursor-pointer border-b border-stone-100/60 opacity-50 px-3 py-2 transition-colors hover:bg-stone-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/60">
         <div className="flex items-center justify-center gap-1.5">
           <svg
             className="h-3.5 w-3.5 flex-shrink-0 text-stone-500 dark:text-neutral-400"
@@ -1635,14 +1635,11 @@ const Conversations = ({
       }>
       <div
         ref={messagesContainerRef}
-        className={
-          isNewWindow
-            ? // New-window: hero fills the height; composer stays pinned below.
-              'flex-1 overflow-y-auto px-5 py-4'
-            : 'flex-1 overflow-y-auto px-5 py-4'
-        }>
+        // Full-width scroll (scrollbar hugs the window edge); inner content is
+        // centered and width-capped per branch below.
+        className="flex-1 overflow-y-auto">
         {isLoadingMessages ? (
-          <div className="space-y-4">
+          <div className="mx-auto w-full max-w-[48.75rem] space-y-4 px-5 py-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
                 <div
@@ -1682,7 +1679,7 @@ const Conversations = ({
             </button>
           </div>
         ) : hasVisibleMessages || hasTaskBoard ? (
-          <div className="space-y-3">
+          <div className="mx-auto w-full max-w-[48.75rem] space-y-3 px-5 py-4">
             {selectedTaskBoard && hasTaskBoard && (
               <TaskKanbanBoard
                 board={selectedTaskBoard}
@@ -2147,12 +2144,9 @@ const Conversations = ({
 
       <div
         data-walkthrough="home-cta"
-        className={
-          isNewWindow
-            ? // Centered CTA below the hero — no top border, reading-width cap.
-              'mx-auto w-full max-w-[48.75rem] flex-shrink-0 px-4 py-3'
-            : 'flex-shrink-0 px-4 py-3'
-        }>
+        // Centered + width-capped (matches the messages) while the scroll above
+        // runs full width to the window edge.
+        className="mx-auto w-full max-w-[48.75rem] flex-shrink-0 px-4 py-3">
         <>
           {isNearLimit &&
             !isAtLimit &&
@@ -2515,7 +2509,7 @@ const Conversations = ({
               {threadSidebar}
             </div>
           </SidebarContent>
-          <div className="flex h-full w-full max-w-[48.75rem]">{mainPanel}</div>
+          <div className="flex h-full w-full">{mainPanel}</div>
         </>
       )}
       <ConfirmationModal

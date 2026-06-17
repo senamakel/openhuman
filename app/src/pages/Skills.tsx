@@ -907,13 +907,20 @@ export default function Skills() {
             Connections sidebar owns navigation), so they fill the content pane
             and own their scroll directly. */}
         {INTELLIGENCE_TABS.has(activeTab) ? (
-          <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
-            {activeTab === 'llm' && <AIPanel />}
-            {activeTab === 'voice' && <VoicePanel />}
-            {activeTab === 'embeddings' && <EmbeddingsPanel />}
-            {activeTab === 'search' && <SearchPanel />}
-            {activeTab === 'composio-key' && <ComposioPanel />}
-          </SettingsLayoutProvider>
+          // API-keys / provider panels were orphaned flush on the shell — give
+          // them a card surface (the integrations/skills grids below already
+          // have their own card layouts, so they stay flush).
+          <div className="h-full p-4">
+            <div className="h-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+              <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
+                {activeTab === 'llm' && <AIPanel />}
+                {activeTab === 'voice' && <VoicePanel />}
+                {activeTab === 'embeddings' && <EmbeddingsPanel />}
+                {activeTab === 'search' && <SearchPanel />}
+                {activeTab === 'composio-key' && <ComposioPanel />}
+              </SettingsLayoutProvider>
+            </div>
+          </div>
         ) : (
           <PanelPage
             description={activeTab === 'composio' ? t('skills.integrationsSubtitle') : undefined}

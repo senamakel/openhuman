@@ -230,15 +230,22 @@ export default function Brain() {
             because the Brain sidebar owns navigation here), so they fill the
             content pane and own their own scroll directly. */}
         {KNOWLEDGE_TABS.has(activeTab) ? (
-          <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
-            {/* Distinct tab query key so the embedded Intelligence panel's
-                internal tab switches don't overwrite Brain's own
-                `?tab=intelligence` and unmount it. */}
-            {activeTab === 'intelligence' && <Intelligence tabParamKey="itab" />}
-            {activeTab === 'memory-data' && <MemoryDataPanel />}
-            {activeTab === 'memory-debug' && <MemoryDebugPanel />}
-            {activeTab === 'analysis-views' && <AnalysisViewsPanel />}
-          </SettingsLayoutProvider>
+          // Knowledge subpages were orphaned flush on the shell — give them a
+          // card surface (the bespoke graph/sources/etc. tabs keep their own
+          // scaffold below and stay flush).
+          <div className="h-full p-4">
+            <div className="h-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+              <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
+                {/* Distinct tab query key so the embedded Intelligence panel's
+                    internal tab switches don't overwrite Brain's own
+                    `?tab=intelligence` and unmount it. */}
+                {activeTab === 'intelligence' && <Intelligence tabParamKey="itab" />}
+                {activeTab === 'memory-data' && <MemoryDataPanel />}
+                {activeTab === 'memory-debug' && <MemoryDebugPanel />}
+                {activeTab === 'analysis-views' && <AnalysisViewsPanel />}
+              </SettingsLayoutProvider>
+            </div>
+          </div>
         ) : (
           // Bespoke tabs share the standard scaffold: a single scrolling body,
           // all custom controls live inside it.

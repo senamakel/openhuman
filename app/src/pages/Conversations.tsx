@@ -1630,8 +1630,9 @@ const Conversations = ({
         isSidebar
           ? // Embedded variant keeps its own flush styling (no TwoPanelLayout).
             'flex-1 flex flex-col min-w-0 bg-white dark:bg-neutral-900 border-l border-stone-200 dark:border-neutral-800 overflow-hidden'
-          : // Page variant: flush over the shell background.
-            'flex-1 flex flex-col min-w-0'
+          : // Page variant: flush over the shell background. `relative` anchors
+            // the absolutely-positioned floating composer.
+            'relative flex-1 flex flex-col min-w-0'
       }>
       <div
         ref={messagesContainerRef}
@@ -1679,7 +1680,10 @@ const Conversations = ({
             </button>
           </div>
         ) : hasVisibleMessages || hasTaskBoard ? (
-          <div className="mx-auto w-full max-w-[48.75rem] space-y-3 px-5 py-4">
+          <div
+            className={`mx-auto w-full max-w-[48.75rem] space-y-3 px-5 pt-4 ${
+              isSidebar ? 'pb-4' : 'pb-32'
+            }`}>
             {selectedTaskBoard && hasTaskBoard && (
               <TaskKanbanBoard
                 board={selectedTaskBoard}
@@ -2144,9 +2148,14 @@ const Conversations = ({
 
       <div
         data-walkthrough="home-cta"
-        // Centered + width-capped (matches the messages) while the scroll above
-        // runs full width to the window edge.
-        className="mx-auto w-full max-w-[48.75rem] flex-shrink-0 px-4 py-3">
+        // Page variant: float at the bottom (absolute) with a blurred backdrop
+        // so messages scroll behind it; centered + width-capped to match the
+        // messages. Sidebar embed keeps the in-flow composer.
+        className={
+          isSidebar
+            ? 'mx-auto w-full max-w-[48.75rem] flex-shrink-0 px-4 py-3'
+            : 'absolute inset-x-0 bottom-0 mx-auto w-full max-w-[48.75rem] rounded-t-2xl bg-white/60 px-4 pb-4 pt-3 backdrop-blur-md dark:bg-neutral-900/60'
+        }>
         <>
           {isNearLimit &&
             !isAtLimit &&

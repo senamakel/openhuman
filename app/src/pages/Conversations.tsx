@@ -11,7 +11,8 @@ import ChatComposer from '../components/chat/ChatComposer';
 import ChatFilesChip from '../components/chat/ChatFilesChip';
 import ComposerTokenStats from '../components/chat/ComposerTokenStats';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
-import TwoPanelLayout, { useTwoPanelLayout } from '../components/layout/TwoPanelLayout';
+import { SidebarContent } from '../components/layout/shell/SidebarSlot';
+import { useTwoPanelLayout } from '../components/layout/TwoPanelLayout';
 import PillTabBar from '../components/PillTabBar';
 import UpsellBanner from '../components/upsell/UpsellBanner';
 import { dismissBanner, shouldShowBanner } from '../components/upsell/upsellDismissState';
@@ -2567,18 +2568,17 @@ const Conversations = ({
       {isSidebar ? (
         mainPanel
       ) : (
-        // Max-width is applied to the whole two-pane layout (sidebar + chat
-        // together) and centered, rather than capping the chat pane alone. The
-        // cap widens when the threads pane is shown so the chat keeps a
-        // comfortable reading width in both states.
-        <TwoPanelLayout
-          id="chat"
-          className={`h-full w-full ${chatSidebarVisible ? 'max-w-5xl' : 'max-w-2xl'}`}
-          sidebar={threadSidebar}
-          contentClassName="flex"
-          defaultSidebarVisible={false}>
-          {mainPanel}
-        </TwoPanelLayout>
+        // The thread list now lives in the root app sidebar's dynamic region,
+        // projected only while the header hamburger has it toggled on. The chat
+        // pane keeps a comfortable, centered reading width.
+        <>
+          {chatSidebarVisible && (
+            <SidebarContent>
+              <div className="h-full overflow-hidden">{threadSidebar}</div>
+            </SidebarContent>
+          )}
+          <div className="flex h-full w-full max-w-2xl">{mainPanel}</div>
+        </>
       )}
       <ConfirmationModal
         modal={deleteModal}

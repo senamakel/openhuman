@@ -15,7 +15,7 @@ import { MemorySourcesRegistry } from '../components/intelligence/MemorySourcesR
 import { MemoryTreeStatusPanel } from '../components/intelligence/MemoryTreeStatusPanel';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
-import TwoPanelLayout from '../components/layout/TwoPanelLayout';
+import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
 import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
 import AnalysisViewsPanel from '../components/settings/panels/AnalysisViewsPanel';
@@ -139,17 +139,9 @@ export default function Brain() {
 
   return (
     <div className="h-full">
-      <TwoPanelLayout
-        id="brain"
-        // Max-width applied once to the whole panel (sidebar + content) and
-        // centered, matching the settings two-pane shell.
-        className="mx-auto h-full w-full max-w-6xl p-4 pt-6"
-        defaultSidebarVisible
-        defaultSidebarWidth={210}
-        minSidebarWidth={170}
-        maxSidebarWidth={320}
-        seamless
-        sidebar={
+      {/* The Brain navigation lives in the root app sidebar's dynamic region. */}
+      <SidebarContent>
+        <div className="h-full overflow-hidden">
           <TwoPaneNav
             ariaLabel={t('nav.brain')}
             selected={activeTab}
@@ -235,7 +227,9 @@ export default function Brain() {
               </div>
             }
           />
-        }>
+        </div>
+      </SidebarContent>
+      <div className="mx-auto h-full w-full max-w-5xl p-4 pt-6">
         {/* Knowledge & Memory panels relocated from Settings are themselves
             PanelPage panels (description, no title; the back button hides
             because the Brain sidebar owns navigation here), so they fill the
@@ -316,7 +310,7 @@ export default function Brain() {
             </div>
           </PanelPage>
         )}
-      </TwoPanelLayout>
+      </div>
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />
     </div>

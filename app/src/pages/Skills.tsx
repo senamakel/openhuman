@@ -12,7 +12,7 @@ import {
 import EmptyStateCard from '../components/EmptyStateCard';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
-import TwoPanelLayout from '../components/layout/TwoPanelLayout';
+import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
 import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
 import AIPanel from '../components/settings/panels/AIPanel';
@@ -813,17 +813,9 @@ export default function Skills() {
 
   return (
     <div className="h-full">
-      <TwoPanelLayout
-        id="connections"
-        // Max-width applied once to the whole panel (sidebar + content) and
-        // centered, matching the settings two-pane shell.
-        className="mx-auto h-full w-full max-w-6xl p-4 pt-6"
-        defaultSidebarVisible
-        defaultSidebarWidth={210}
-        minSidebarWidth={170}
-        maxSidebarWidth={320}
-        seamless
-        sidebar={
+      {/* The Connections navigation lives in the root app sidebar's dynamic region. */}
+      <SidebarContent>
+        <div className="h-full overflow-hidden">
           <TwoPaneNav
             ariaLabel={t('nav.connections')}
             selected={activeTab}
@@ -912,7 +904,9 @@ export default function Skills() {
               },
             ]}
           />
-        }>
+        </div>
+      </SidebarContent>
+      <div className="mx-auto h-full w-full max-w-5xl p-4 pt-6">
         {/* Intelligence panels relocated from Settings are themselves PanelPage
             panels (description, no title; the back button hides because the
             Connections sidebar owns navigation), so they fill the content pane
@@ -1134,7 +1128,7 @@ export default function Skills() {
             </div>
           </PanelPage>
         )}
-      </TwoPanelLayout>
+      </div>
 
       {channelModalDef && (
         <ChannelSetupModal definition={channelModalDef} onClose={() => setChannelModalDef(null)} />

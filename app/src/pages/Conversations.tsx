@@ -2563,7 +2563,7 @@ const Conversations = ({
       className={
         isSidebar
           ? 'h-full relative z-10 flex overflow-hidden'
-          : 'h-full relative z-10 flex justify-center overflow-hidden bg-white/40 dark:bg-black/60'
+          : 'h-full relative z-10 flex justify-center overflow-hidden bg-white/40 dark:bg-black/40'
       }>
       {isSidebar ? (
         <>

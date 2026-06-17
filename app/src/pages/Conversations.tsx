@@ -60,7 +60,6 @@ import {
   persistReaction,
   setSelectedThread,
   THREAD_NOT_FOUND_MESSAGE,
-  updateThreadTitle,
 } from '../store/threadSlice';
 import type { ConfirmationModal as ConfirmationModalType } from '../types/intelligence';
 import type { ThreadMessage } from '../types/thread';
@@ -300,10 +299,6 @@ const Conversations = ({
   );
   const rustChat = useRustChat();
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [editTitleValue, setEditTitleValue] = useState('');
-  const editTitleInputRef = useRef<HTMLInputElement>(null);
-  const ignoreNextTitleBlurRef = useRef(false);
 
   const {
     teamUsage,
@@ -429,28 +424,6 @@ const Conversations = ({
       console.warn('[chat] applyOpenRouterFreeModels failed', err);
       setOpenRouterStatus('error');
     }
-  };
-
-  const handleStartEditTitle = () => {
-    if (!selectedThreadId) return;
-    const thr = threads.find(t => t.id === selectedThreadId);
-    setEditTitleValue(thr?.title ?? '');
-    ignoreNextTitleBlurRef.current = true;
-    setEditingTitle(true);
-    const scheduleSelect = window.requestAnimationFrame ?? window.setTimeout;
-    scheduleSelect(() => {
-      editTitleInputRef.current?.select();
-      ignoreNextTitleBlurRef.current = false;
-    });
-  };
-
-  const handleCommitTitle = () => {
-    const trimmed = editTitleValue.trim();
-    setEditingTitle(false);
-    if (!selectedThreadId || !trimmed) return;
-    const currentTitle = threads.find(t => t.id === selectedThreadId)?.title?.trim();
-    if (trimmed === currentTitle) return;
-    void dispatch(updateThreadTitle({ threadId: selectedThreadId, title: trimmed }));
   };
 
   const handleSelectAgentProfile = async (profileId: string) => {
@@ -1530,6 +1503,21 @@ const Conversations = ({
           </button>
         )}
       </div>
+      {/* New chat — pinned below the search, above the thread list. */}
+      <div className="border-b border-stone-100 px-2 py-2 dark:border-neutral-800">
+        <button
+          type="button"
+          data-testid="new-thread-button"
+          data-analytics-id="chat-sidebar-new-thread"
+          onClick={() => void handleCreateNewThread()}
+          title={t('chat.newThreadShortcut')}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary-500 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-primary-600">
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          {t('chat.new')}
+        </button>
+      </div>
       <div className="px-2 py-2 border-b border-stone-50 dark:border-neutral-800">
         <PillTabBar
           items={labelTabs}
@@ -1638,134 +1626,6 @@ const Conversations = ({
           : // Page variant: flush over the shell background.
             'flex-1 flex flex-col min-w-0'
       }>
-      {/* Chat header — only shown in page mode with an active conversation; the
-            sidebar embed uses the parent page's chrome, and the new-window hero
-            needs no thread chrome. */}
-      {!isSidebar && !isNewWindow && (
-        <div className="flex items-center gap-2 px-4 py-2.5" data-walkthrough="chat-agent-panel">
-          <div className="flex flex-col min-w-0 flex-1">
-            {selectedThreadParent ? (
-              <button
-                type="button"
-                data-analytics-id="chat-header-back-to-parent-thread"
-                onClick={() => {
-                  dispatch(setSelectedThread(selectedThreadParent.id));
-                  void dispatch(loadThreadMessages(selectedThreadParent.id));
-                }}
-                className="self-start flex items-center gap-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 rounded -mx-1 px-1"
-                data-testid="worker-thread-back-to-parent">
-                <span aria-hidden="true">←</span>
-                <span className="truncate max-w-[16rem]">
-                  {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
-                </span>
-              </button>
-            ) : null}
-            {editingTitle ? (
-              <input
-                ref={editTitleInputRef}
-                value={editTitleValue}
-                onChange={e => setEditTitleValue(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleCommitTitle();
-                  } else if (e.key === 'Escape') {
-                    setEditingTitle(false);
-                  }
-                }}
-                onBlur={() => {
-                  if (ignoreNextTitleBlurRef.current) {
-                    ignoreNextTitleBlurRef.current = false;
-                    return;
-                  }
-                  handleCommitTitle();
-                }}
-                aria-label={t('chat.editThreadTitle')}
-                className="h-5 text-sm font-medium text-stone-700 dark:text-neutral-200 bg-transparent border-b border-primary-400 outline-none w-full min-w-0 leading-none py-0"
-                autoFocus
-              />
-            ) : (
-              <div className="flex items-center gap-1 group/title min-w-0">
-                <h3 className="text-sm font-medium text-stone-700 dark:text-neutral-200 truncate">
-                  {resolveThreadDisplayTitle(selectedThreadId)}
-                </h3>
-                {selectedThreadId && (
-                  <button
-                    type="button"
-                    data-analytics-id="chat-header-edit-thread-title"
-                    onMouseDown={e => {
-                      e.preventDefault();
-                      handleStartEditTitle();
-                    }}
-                    onClick={handleStartEditTitle}
-                    aria-label={t('chat.editThreadTitle')}
-                    title={t('chat.editThreadTitle')}
-                    className="opacity-0 group-hover/title:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-stone-100 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-all">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                      />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            )}
-            {resolvedModel && (
-              <span className="text-[10px] text-stone-400 dark:text-neutral-500 leading-none">
-                {resolvedModel}
-              </span>
-            )}
-          </div>
-          <>
-            <div
-              className="flex items-center h-7 rounded-full border border-stone-200 dark:border-neutral-700 bg-stone-100 dark:bg-neutral-800 p-0.5"
-              role="radiogroup"
-              aria-label={t('chat.agentProfile.label')}>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={selectedAgentProfileId === 'default'}
-                data-analytics-id="chat-header-mode-quick"
-                onClick={() => void handleSelectAgentProfile('default')}
-                className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-all ${
-                  selectedAgentProfileId === 'default'
-                    ? 'bg-white dark:bg-neutral-600 text-stone-800 dark:text-neutral-100 shadow-sm'
-                    : 'text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200'
-                }`}>
-                {t('chat.agentProfile.quick')}
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={selectedAgentProfileId === 'reasoning'}
-                data-analytics-id="chat-header-mode-reasoning"
-                onClick={() => void handleSelectAgentProfile('reasoning')}
-                className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-all ${
-                  selectedAgentProfileId === 'reasoning'
-                    ? 'bg-white dark:bg-neutral-600 text-stone-800 dark:text-neutral-100 shadow-sm'
-                    : 'text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200'
-                }`}>
-                {t('chat.agentProfile.reasoning')}
-              </button>
-            </div>
-            {(selectedThreadId ?? firstActiveThreadId) && (
-              <ChatFilesChip threadId={(selectedThreadId ?? firstActiveThreadId) as string} />
-            )}
-            <button
-              type="button"
-              data-testid="new-thread-button"
-              data-analytics-id="chat-header-new-thread"
-              onClick={() => void handleCreateNewThread()}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium text-white bg-primary-500 hover:bg-primary-600 shadow-sm transition-colors"
-              title={t('chat.newThreadShortcut')}>
-              {t('chat.new')}
-            </button>
-          </>
-        </div>
-      )}
       <div
         ref={messagesContainerRef}
         className={
@@ -2469,6 +2329,70 @@ const Conversations = ({
           );
         })()}
 
+        {/* Composer toolbar (page variant): the old top bar moved here, right
+            above the composer — quick/reasoning toggle, the worker-thread
+            back-to-parent breadcrumb, and the files chip. */}
+        {!isSidebar && (
+          <div
+            className="mb-2 flex items-center justify-between gap-2"
+            data-walkthrough="chat-agent-panel">
+            <div className="min-w-0 flex-1">
+              {selectedThreadParent ? (
+                <button
+                  type="button"
+                  data-analytics-id="chat-header-back-to-parent-thread"
+                  onClick={() => {
+                    dispatch(setSelectedThread(selectedThreadParent.id));
+                    void dispatch(loadThreadMessages(selectedThreadParent.id));
+                  }}
+                  className="flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
+                  data-testid="worker-thread-back-to-parent">
+                  <span aria-hidden="true">←</span>
+                  <span className="max-w-[16rem] truncate">
+                    {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
+                  </span>
+                </button>
+              ) : null}
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <div
+                className="flex h-7 items-center rounded-full border border-stone-200 bg-stone-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-800"
+                role="radiogroup"
+                aria-label={t('chat.agentProfile.label')}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedAgentProfileId === 'default'}
+                  data-analytics-id="chat-header-mode-quick"
+                  onClick={() => void handleSelectAgentProfile('default')}
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
+                    selectedAgentProfileId === 'default'
+                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                  }`}>
+                  {t('chat.agentProfile.quick')}
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedAgentProfileId === 'reasoning'}
+                  data-analytics-id="chat-header-mode-reasoning"
+                  onClick={() => void handleSelectAgentProfile('reasoning')}
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
+                    selectedAgentProfileId === 'reasoning'
+                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                  }`}>
+                  {t('chat.agentProfile.reasoning')}
+                </button>
+              </div>
+              {(selectedThreadId ?? firstActiveThreadId) && (
+                <ChatFilesChip threadId={(selectedThreadId ?? firstActiveThreadId) as string} />
+              )}
+            </div>
+          </div>
+        )}
+
         {composer === 'mic-cloud' ? (
           <div className="flex flex-col items-center gap-3 py-1">
             <MicComposer
@@ -2553,7 +2477,7 @@ const Conversations = ({
             </p>
           </div>
         )}
-        <ComposerTokenStats />
+        <ComposerTokenStats model={resolvedModel} />
       </div>
     </div>
   );
@@ -2563,7 +2487,7 @@ const Conversations = ({
       className={
         isSidebar
           ? 'h-full relative z-10 flex overflow-hidden'
-          : 'h-full relative z-10 flex justify-center overflow-hidden bg-white/40 dark:bg-black/40'
+          : 'h-full relative z-10 flex justify-center overflow-hidden bg-white/70 dark:bg-black/40'
       }>
       {isSidebar ? (
         <>

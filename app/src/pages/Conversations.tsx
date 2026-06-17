@@ -1503,22 +1503,6 @@ const Conversations = ({
           </button>
         )}
       </div>
-      {/* New conversation — a subtle thread-style row (not a loud button),
-          pinned below the search and above the thread list. */}
-      <div className="px-2 pt-2">
-        <button
-          type="button"
-          data-testid="new-thread-button"
-          data-analytics-id="chat-sidebar-new-thread"
-          onClick={() => void handleCreateNewThread()}
-          title={t('chat.newThreadShortcut')}
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-500/10">
-          <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          {t('chat.newConversation')}
-        </button>
-      </div>
       <div className="px-2 py-2 border-b border-stone-50 dark:border-neutral-800">
         <PillTabBar
           items={labelTabs}
@@ -1527,6 +1511,26 @@ const Conversations = ({
           containerClassName="scrollbar-hide flex flex-nowrap gap-1 overflow-x-auto py-1"
           itemClassName="flex-none whitespace-nowrap px-2"
         />
+      </div>
+      {/* New conversation — a subtle, centered thread-style row (not a loud
+          button), below the pills and above the thread list. */}
+      <div className="px-2 pt-2">
+        <button
+          type="button"
+          data-testid="new-thread-button"
+          data-analytics-id="chat-sidebar-new-thread"
+          onClick={() => void handleCreateNewThread()}
+          title={t('chat.newThreadShortcut')}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-500/10">
+          <svg
+            className="h-3.5 w-3.5 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          {t('chat.newConversation')}
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {visibleThreads.length === 0 ? (

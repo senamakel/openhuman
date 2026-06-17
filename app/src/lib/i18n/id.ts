@@ -331,6 +331,7 @@ const messages: TranslationMap = {
   'routines.typeCommand': 'Perintah',
   'nav.routines': 'Routines',
   'chat.newThread': 'Thread baru',
+  'chat.newConversation': 'Percakapan baru',
   'chat.typeMessage': 'Apa yang bisa saya bantu hari ini?',
   'chat.send': 'Kirim pesan',
   'chat.parallelBranchHint': 'Ketik cabang paralel — ⌘/Ctrl+Enter untuk mengirim',

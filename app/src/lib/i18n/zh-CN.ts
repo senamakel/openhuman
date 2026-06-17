@@ -313,6 +313,7 @@ const messages: TranslationMap = {
   'routines.typeCommand': '命令',
   'nav.routines': 'Routines',
   'chat.newThread': '新对话',
+  'chat.newConversation': '新对话',
   'chat.typeMessage': '今天我能帮您做什么？',
   'chat.send': '发送',
   'chat.parallelBranchHint': '输入并行分支 — ⌘/Ctrl+Enter 发送',

@@ -333,6 +333,7 @@ const messages: TranslationMap = {
   'routines.typeCommand': 'Команда',
   'nav.routines': 'Routines',
   'chat.newThread': 'Новый чат',
+  'chat.newConversation': 'Новый разговор',
   'chat.typeMessage': 'Чем я могу помочь тебе сегодня?',
   'chat.send': 'Отправить сообщение',
   'chat.parallelBranchHint': 'Введите параллельную ветку — ⌘/Ctrl+Enter для отправки',

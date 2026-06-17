@@ -341,6 +341,7 @@ const messages: TranslationMap = {
   'routines.typeCommand': 'Commande',
   'nav.routines': 'Routines',
   'chat.newThread': 'Nouveau fil',
+  'chat.newConversation': 'Nouvelle conversation',
   'chat.typeMessage': "Comment puis-je t'aider aujourd'hui ?",
   'chat.send': 'Envoyer le message',
   'chat.parallelBranchHint': 'Saisir une branche parallèle — ⌘/Ctrl+Entrée pour envoyer',

@@ -327,6 +327,7 @@ const messages: TranslationMap = {
   'routines.typeCommand': 'कमान',
   'nav.routines': 'Routines',
   'chat.newThread': 'नई थ्रेड',
+  'chat.newConversation': 'नई बातचीत',
   'chat.typeMessage': 'आज मैं आपकी कैसे मदद कर सकता हूँ?',
   'chat.send': 'मैसेज भेजें',
   'chat.parallelBranchHint': 'समानांतर शाखा टाइप करें — भेजने के लिए ⌘/Ctrl+Enter',

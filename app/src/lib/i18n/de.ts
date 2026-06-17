@@ -340,6 +340,7 @@ const messages: TranslationMap = {
   'routines.typeCommand': 'Kommandant',
   'nav.routines': 'Routines',
   'chat.newThread': 'Neuer Thread',
+  'chat.newConversation': 'Neue Unterhaltung',
   'chat.typeMessage': 'Wie kann ich dir heute helfen?',
   'chat.send': 'Nachricht senden',
   'chat.parallelBranchHint': 'Parallelen Zweig eingeben — ⌘/Strg+Enter zum Senden',

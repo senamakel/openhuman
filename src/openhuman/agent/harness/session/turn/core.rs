@@ -5,7 +5,7 @@ use super::super::turn_engine_adapter::{AgentCheckpoint, AgentObserver, AgentToo
 use super::super::types::Agent;
 use super::{
     integration_announcement_note, mcp_announcement_note, newly_connected_slugs,
-    normalize_tool_call,
+    skill_announcement_note,
 };
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
@@ -56,6 +56,11 @@ impl Agent {
             self.config.max_tool_iterations
         );
         self.ensure_composio_integrations_listener();
+        // Arm the installed-skills listener at turn start (not lazily inside
+        // `drain_skill_events`, which is only reached after the first turn) —
+        // broadcast subscriptions are not retroactive, so a skill installed
+        // during turn 1 would otherwise be missed until a later subscribe.
+        self.ensure_skill_events_listener();
         // ── Session transcript resume ─────────────────────────────────
         // On a fresh session (empty history), look for a previous
         // transcript to pre-populate the exact provider messages for
@@ -171,6 +176,20 @@ impl Agent {
             // old `Config::load_or_init()` round-trip on every turn.
             //
             let _ = self.refresh_delegation_tools_from_cached_integrations("turn-boundary");
+            // Same idea for installed skills. The system-prompt
+            // `## Installed Skills` block is frozen at turn 1 for KV-cache
+            // stability (history is non-empty here, so it is never rebuilt
+            // mid-session), so — exactly like the MCP mechanism — the
+            // user-turn announcement below is what surfaces a mid-session
+            // install to the model. `refresh_workflows` updates the tracked
+            // set (so the next refresh diffs correctly and a future fresh
+            // session renders the new catalogue) and parks the announcement.
+            // Event-driven (mirror of the composio path): only re-scan disk
+            // when a `WorkflowsChanged` event was published since the last
+            // turn — no per-turn filesystem walk on the steady-state hot path.
+            if self.drain_skill_events() {
+                let _ = self.refresh_workflows("event");
+            }
             // Cache empty/expired or config unavailable => no signal.
             // We leave the current tool surface alone and pick up any
             // real change on the next turn after the UI's 5 s poll has
@@ -327,42 +346,19 @@ impl Agent {
             .inject_agent_experience_context(user_message, enriched)
             .await;
 
-        // ── SKILL.md body injection (#781) ───────────────────────────
-        // Match installed SKILL.md skills against the user message and
-        // prepend their bodies ahead of the memory-context block so the
-        // LLM sees them at the top of the user turn. See the module
-        // docs on [`crate::openhuman::workflows::inject`] for the matching
-        // heuristic and size cap rationale.
-        let enriched = {
-            use crate::openhuman::workflows::inject;
-            let matches = inject::match_workflows(&self.workflows, user_message);
-            if matches.is_empty() {
-                log::debug!(
-                    "[workflows:inject] no skill matches for user message (skill_catalog_len={})",
-                    self.workflows.len()
-                );
-                enriched
-            } else {
-                let injection = inject::render_injection(
-                    &matches,
-                    inject::DEFAULT_MAX_INJECTION_BYTES,
-                    |skill| skill.read_body(),
-                );
-                let matched_count = injection.decisions.iter().filter(|d| d.matched).count();
-                log::info!(
-                    "[workflows:inject] summary candidates={} matched={} injected_bytes={} truncated_any={}",
-                    injection.decisions.len(),
-                    matched_count,
-                    injection.injected_bytes,
-                    injection.truncated
-                );
-                if injection.rendered.is_empty() {
-                    enriched
-                } else {
-                    format!("{}\n{}", injection.rendered, enriched)
-                }
-            }
-        };
+        // ── SKILL.md body injection: REMOVED (was #781) ──────────────
+        // We used to keyword-match installed skills against the user message
+        // and prepend their full SKILL.md bodies onto the user turn. That
+        // brittle name/description/tag match fired unintentionally and — by
+        // baking the body into the stored user message — left full skill text
+        // permanently in chat history (microcompact only clears tool results,
+        // not user messages).
+        //
+        // Skills are now surfaced via the compact `## Installed Skills`
+        // catalog in the orchestrator prompt and executed via `run_skill`,
+        // which loads and follows the SKILL.md inside an isolated worker, so
+        // the full body never enters this conversation. `self.workflows` still
+        // feeds the catalog through `PromptContext`.
 
         // Consume any one-shot mid-session connect announcement parked by
         // `refresh_delegation_tools_from_cached_integrations`. It rides on the
@@ -379,6 +375,15 @@ impl Agent {
         // (queued above). `.take()` clears it so it fires exactly once.
         let pending_mcp = std::mem::take(&mut self.pending_mcp_announcement);
         let enriched = match mcp_announcement_note(&pending_mcp) {
+            Some(note) => format!("{note}\n\n{enriched}"),
+            None => enriched,
+        };
+
+        // Same one-shot pattern for skills installed mid-session (parked by
+        // `refresh_workflows` above). Rides the user turn so the KV-cache
+        // prefix stays stable; `.take()` fires it exactly once.
+        let pending_skills = std::mem::take(&mut self.pending_skill_announcement);
+        let enriched = match skill_announcement_note(&pending_skills) {
             Some(note) => format!("{note}\n\n{enriched}"),
             None => enriched,
         };

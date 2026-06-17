@@ -1039,6 +1039,7 @@ async fn apply_meet_settings_updates_handoff_flag() {
         &mut cfg,
         MeetSettingsPatch {
             auto_orchestrator_handoff: Some(true),
+            ..Default::default()
         },
     )
     .await
@@ -1049,6 +1050,7 @@ async fn apply_meet_settings_updates_handoff_flag() {
         &mut cfg,
         MeetSettingsPatch {
             auto_orchestrator_handoff: Some(false),
+            ..Default::default()
         },
     )
     .await
@@ -1060,11 +1062,50 @@ async fn apply_meet_settings_updates_handoff_flag() {
         &mut cfg,
         MeetSettingsPatch {
             auto_orchestrator_handoff: None,
+            ..Default::default()
         },
     )
     .await
     .expect("apply noop");
     assert_eq!(prior, cfg.meet.auto_orchestrator_handoff);
+}
+
+#[tokio::test]
+async fn apply_meet_settings_updates_all_meeting_assistant_fields() {
+    use crate::openhuman::config::{AutoJoinPolicy, AutoSummarizePolicy};
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    // Defaults (issue #3511).
+    assert_eq!(cfg.meet.auto_join_policy, AutoJoinPolicy::AskEachTime);
+    assert_eq!(cfg.meet.auto_summarize_policy, AutoSummarizePolicy::Ask);
+    assert!(cfg.meet.listen_only_default);
+    assert!(!cfg.meet.ingest_backend_transcripts);
+
+    let _ = apply_meet_settings(
+        &mut cfg,
+        MeetSettingsPatch {
+            auto_join_policy: Some(AutoJoinPolicy::Always),
+            auto_summarize_policy: Some(AutoSummarizePolicy::Never),
+            listen_only_default: Some(false),
+            ingest_backend_transcripts: Some(true),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("apply all fields");
+    assert_eq!(cfg.meet.auto_join_policy, AutoJoinPolicy::Always);
+    assert_eq!(cfg.meet.auto_summarize_policy, AutoSummarizePolicy::Never);
+    assert!(!cfg.meet.listen_only_default);
+    assert!(cfg.meet.ingest_backend_transcripts);
+
+    // No-op patch must leave the prior values untouched.
+    let _ = apply_meet_settings(&mut cfg, MeetSettingsPatch::default())
+        .await
+        .expect("apply noop");
+    assert_eq!(cfg.meet.auto_join_policy, AutoJoinPolicy::Always);
+    assert_eq!(cfg.meet.auto_summarize_policy, AutoSummarizePolicy::Never);
+    assert!(!cfg.meet.listen_only_default);
+    assert!(cfg.meet.ingest_backend_transcripts);
 }
 
 #[tokio::test]

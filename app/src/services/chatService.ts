@@ -99,10 +99,12 @@ export interface ChatErrorEvent {
     | 'cancelled'
     | 'rate_limited'
     | 'auth_error'
+    | 'session_expired'
     | 'provider_error'
     | 'context_overflow'
     | 'model_unavailable'
     | 'payload_too_large'
+    | 'provider_request_rejected'
     | 'budget_exhausted';
   round: number | null;
 }

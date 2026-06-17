@@ -61,6 +61,18 @@ impl EventHandler for MeetingEventSubscriber {
                     "{LOG_PREFIX} transcript received — creating meeting thread"
                 );
 
+                // Record a recent-calls entry (meet id, duration, owner,
+                // participants) so the meeting-bots panel shows call history.
+                // Done first (before the heavier thread-creation path) so the
+                // record is on disk by the time the panel refetches at call-end.
+                // Best-effort: never blocks; logs on failure internally.
+                super::recent_calls::record_backend_call(
+                    turns,
+                    *duration_ms,
+                    correlation_id.as_deref(),
+                )
+                .await;
+
                 // Create the meeting thread with transcript.
                 if let Err(e) = create_meeting_thread_with_transcript(
                     turns,

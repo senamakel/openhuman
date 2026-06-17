@@ -32,6 +32,7 @@ const STATUS_DOT: Record<ServerStatus, string> = {
   connected: 'bg-sage-500',
   connecting: 'bg-amber-400',
   disconnected: 'bg-stone-300 dark:bg-neutral-600',
+  unauthorized: 'bg-amber-500',
   error: 'bg-coral-500',
   disabled: 'bg-stone-200 dark:bg-neutral-700',
 };
@@ -119,8 +120,18 @@ const McpServersTab = () => {
 
   // Poll status
   useEffect(() => {
-    const hasConnected = statuses.some(s => s.status === 'connected');
-    if (!hasConnected) {
+    // Poll while anything is in a non-terminal state — not just `connected`.
+    // An `unauthorized`/`error`/`connecting` server can transition (the
+    // background reconnect supervisor, a completed OAuth sign-in, an expiring
+    // token) and the UI must reflect that without a manual refresh (#3719 RC5).
+    const hasActive = statuses.some(
+      s =>
+        s.status === 'connected' ||
+        s.status === 'connecting' ||
+        s.status === 'unauthorized' ||
+        s.status === 'error'
+    );
+    if (!hasActive) {
       if (pollTimerRef.current) {
         clearTimeout(pollTimerRef.current);
         pollTimerRef.current = null;

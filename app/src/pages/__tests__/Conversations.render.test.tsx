@@ -1557,6 +1557,133 @@ describe('Conversations — worker thread back-to-parent navigation (#1624)', ()
   // toolbar (#3611) — those tests removed; the pill no longer renders here.
 });
 
+// #3717 (Bug 2) — A single logical assistant turn can be persisted as multiple
+// agent ThreadMessages. The "Agentic task insights" panel used to be anchored
+// inside the per-message map, immediately before the LAST agent message, which
+// dropped it BETWEEN the earlier agent content and the final message — splitting
+// one response into two disconnected chunks. The panel (and the "View full agent
+// process" button) are now hoisted out of the map so they render exactly once,
+// AFTER the complete response, regardless of how many agent messages the turn
+// produced.
+describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetThreads.mockResolvedValue({ threads: [], count: 0 });
+    mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
+    mockUseUsageState.mockReturnValue({
+      teamUsage: null,
+      currentPlan: null,
+      currentTier: 'FREE' as const,
+      isFreeTier: true,
+      usagePct: 0,
+      isNearLimit: false,
+      isAtLimit: false,
+      isBudgetExhausted: false,
+      shouldShowBudgetCompletedMessage: false,
+      isLoading: false,
+      refresh: vi.fn(),
+    });
+  });
+
+  it('renders the insights panel exactly once, after the last agent message of a multi-message turn', async () => {
+    const thread = makeThread({ id: 'multi-agent-thread', title: 'Multi-message turn' });
+    // One logical assistant turn persisted as TWO agent ThreadMessages.
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-user',
+        sender: 'user',
+        type: 'text',
+        content: 'Plan and then summarize.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'm-agent-1',
+        sender: 'agent',
+        type: 'text',
+        content: 'First part of the answer.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:01:00.000Z',
+      },
+      {
+        id: 'm-agent-2',
+        sender: 'agent',
+        type: 'text',
+        content: 'Second part of the answer.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:02:00.000Z',
+      },
+    ];
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
+
+    let store: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      store = await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
+        socket: socketState('connected'),
+      });
+    });
+
+    // Seed the tool timeline after mount settles (mount-time turn-state
+    // hydration would otherwise clobber a preloaded timeline). Include a
+    // running subagent row so the panel exposes its "view full processing"
+    // affordance (drives the onViewSubagent callback below).
+    await screen.findByText('Second part of the answer.');
+    await act(async () => {
+      store!.dispatch(
+        setToolTimelineForThread({
+          threadId: thread.id,
+          entries: [
+            { id: 'tl-1', name: 'web_fetch', round: 1, status: 'success' },
+            {
+              id: 'sa-1',
+              name: 'subagent:researcher',
+              round: 1,
+              status: 'running',
+              subagent: { taskId: 'task-1', agentId: 'researcher', toolCalls: [] },
+            },
+          ],
+        })
+      );
+    });
+
+    // Panel renders once — not once per agent message.
+    const panels = await screen.findAllByTestId('agent-task-insights');
+    expect(panels).toHaveLength(1);
+    const panel = panels[0];
+
+    // The "View full agent process" button is hoisted alongside it — also once.
+    expect(screen.getAllByTestId('view-process-source')).toHaveLength(1);
+
+    // DOM order: the panel must follow the LAST agent message's content, never
+    // sit between the two agent bubbles.
+    const lastAgentText = screen.getByText('Second part of the answer.');
+    const firstAgentText = screen.getByText('First part of the answer.');
+    expect(lastAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    expect(firstAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+
+    // Exercise the hoisted button: opens the "Agent Process Source" panel.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('view-process-source'));
+    });
+
+    // Exercise onViewSubagent: clicking the subagent row's "view full
+    // processing" affordance opens the subagent drawer for that task.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('subagent-view-processing'));
+    });
+  });
+});
+
 describe('Conversations — thread title editing', () => {
   beforeEach(() => {
     vi.clearAllMocks();

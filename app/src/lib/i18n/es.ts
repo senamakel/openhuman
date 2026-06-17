@@ -3,6 +3,22 @@ import type { TranslationMap } from './types';
 // Spanish (Español) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'conversations.backgroundTasks.title': 'Background tasks',
+  'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
+  'conversations.backgroundTasks.running': '{count} running',
+  'conversations.backgroundTasks.noneRunning': 'none running',
+  'conversations.backgroundTasks.total': '{count} total',
+  'conversations.backgroundTasks.empty':
+    'No background tasks in this chat. Ask the assistant to do something in the background and it shows up here.',
+  'conversations.backgroundTasks.statusRunning': 'Running',
+  'conversations.backgroundTasks.statusDone': 'Done',
+  'conversations.backgroundTasks.statusFailed': 'Failed',
+  'conversations.backgroundTasks.statusNeedsYou': 'Needs you',
+  'conversations.backgroundTasks.toolCallOne': '{count} tool call',
+  'conversations.backgroundTasks.toolCallOther': '{count} tool calls',
+  'conversations.backgroundTasks.steps': '{count} steps',
+  'conversations.backgroundTasks.viewDetails': 'View details →',
+  'conversations.backgroundTasks.close': 'Close',
   'nav.home': 'Inicio',
   'nav.human': 'Humano',
   'nav.chat': 'Charla',
@@ -1364,6 +1380,9 @@ const messages: TranslationMap = {
     'Reinstale este servidor con los valores sugeridos para aplicarlos: {keys}',
   'mcp.detail.connect': 'Conectar',
   'mcp.detail.connecting': 'Conectando...',
+  'mcp.detail.authenticate': 'Iniciar sesión',
+  'mcp.detail.authRequired':
+    'Este servidor necesita que inicies sesión o agregues un token de acceso antes de poder conectarse. Haz clic en “Iniciar sesión” para autenticarte.',
   'mcp.detail.disconnect': 'Desconectar',
   'mcp.detail.hideAssistant': 'Ocultar asistente',
   'mcp.detail.helpConfigure': 'Ayúdame a configurar',
@@ -1382,6 +1401,7 @@ const messages: TranslationMap = {
   'mcp.detail.enable': 'Habilitar',
   'mcp.detail.disable': 'Deshabilitar',
   'mcp.status.disabled': 'Deshabilitado',
+  'mcp.status.unauthorized': 'Inicio de sesión necesario',
   'mcp.detail.tools': 'Herramientas',
   'mcp.connectAuth.title': 'Conectar {name}',
   'mcp.connectAuth.hint':
@@ -3172,6 +3192,11 @@ const messages: TranslationMap = {
   'notifications.center.filterAll': 'Filtrar todo',
   'notifications.center.markAllRead': 'Marcar todo como leído',
   'notifications.center.title': 'Notificaciones',
+  'notifications.meeting.joinListen': 'Unirse (solo escuchar)',
+  'notifications.meeting.joinActive': 'Unirse y responder',
+  'notifications.meeting.skip': 'Esta no',
+  'notifications.meeting.alwaysJoin': 'Unirse siempre',
+  'notifications.meeting.actionError': 'No se pudo completar esa acción. Inténtalo de nuevo.',
   'oauth.button.connecting': 'Conectando...',
   'oauth.button.loopbackTimeout':
     'El inicio de sesión expiró — el navegador no completó la redirección OAuth. Por favor, inténtalo de nuevo.',
@@ -4317,6 +4342,32 @@ const messages: TranslationMap = {
   'settings.permissions.foldersDesc':
     'La carpeta predeterminada que el asistente lee y escribe. Puedes añadir más carpetas en los ajustes avanzados.',
 
+  'settings.meetings.title': 'Reuniones',
+  'settings.meetings.menuDesc':
+    'Auto-unión, resúmenes y transcripciones del Asistente de reuniones',
+  'settings.meetings.desktopOnly':
+    'Los ajustes de reuniones solo están disponibles en el escritorio.',
+  'settings.meetings.loading': 'Cargando…',
+  'settings.meetings.loadError': 'No se pudieron cargar los ajustes de reuniones.',
+  'settings.meetings.saveError': 'No se pudieron guardar los ajustes de reuniones.',
+  'settings.meetings.saved': 'Guardado',
+  'settings.meetings.saving': 'Guardando…',
+  'settings.meetings.autoJoin.title': 'Política de auto-unión',
+  'settings.meetings.autoJoin.desc':
+    'Cuando un evento del calendario tiene un enlace de Google Meet',
+  'settings.meetings.autoJoin.askEachTime': 'Preguntar cada vez',
+  'settings.meetings.autoJoin.always': 'Unirse siempre',
+  'settings.meetings.autoJoin.never': 'No unirse nunca',
+  'settings.meetings.autoSummarize.title': 'Resumen tras la llamada',
+  'settings.meetings.autoSummarize.desc': 'Generar un resumen al terminar la llamada',
+  'settings.meetings.autoSummarize.ask': 'Preguntar tras la llamada',
+  'settings.meetings.autoSummarize.always': 'Resumir siempre',
+  'settings.meetings.autoSummarize.never': 'No resumir nunca',
+  'settings.meetings.listenOnly': 'Modo solo escucha',
+  'settings.meetings.listenOnlyDesc': 'Unirse con el micrófono silenciado',
+  'settings.meetings.ingestTranscripts': 'Ingerir transcripciones del backend',
+  'settings.meetings.ingestTranscriptsDesc':
+    'Guardar las transcripciones de reuniones en la memoria',
   'settings.sandbox.title': 'Ejecución en sandbox',
   'settings.sandbox.menuDesc':
     'Configurar backends de sandbox para el aislamiento de herramientas del agente.',
@@ -4718,6 +4769,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.recentCallsEmpty':
     'Aún no hay llamadas anteriores — tu historial de reuniones aparecerá aquí.',
   'skills.meetingBots.recentCallsLoading': 'Cargando\u2026',
+  'skills.meetingBots.recentCallAddedBy': 'Añadido por {name}',
+  'skills.meetingBots.recentCallParticipants': 'Con {names}',
   'skills.meetingBots.liveBadge': 'En vivo',
   'skills.meetingBots.liveTitle': 'En reunión',
   'skills.meetingBots.liveStatusJoining': 'Uniéndose\u2026',

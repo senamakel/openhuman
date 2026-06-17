@@ -84,6 +84,10 @@ import {
   BubbleMarkdown,
 } from './conversations/components/AgentMessageBubble';
 import { AgentProcessSourcePanel } from './conversations/components/AgentProcessSourcePanel';
+import {
+  BackgroundProcessesPanel,
+  selectBackgroundProcesses,
+} from './conversations/components/BackgroundProcessesPanel';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
 import { SubagentDrawer } from './conversations/components/SubagentDrawer';
 import { TaskKanbanBoard } from './conversations/components/TaskKanbanBoard';
@@ -230,6 +234,8 @@ const Conversations = ({
   // Sub-agent whose full live transcript is open in the drawer, keyed by the
   // owning timeline row's spawn `taskId`. Null when the drawer is closed.
   const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
+  // Detached background sub-agents (spawn_async_subagent) panel visibility.
+  const [showBackgroundProcesses, setShowBackgroundProcesses] = useState(false);
   // Whether the consolidated "Agent Process Source" panel is open (the full
   // agent-run timeline + visited sources for the current thread).
   const [showProcessSource, setShowProcessSource] = useState(false);
@@ -1254,6 +1260,12 @@ const Conversations = ({
   const selectedThreadToolTimeline = selectedThreadId
     ? (toolTimelineByThread[selectedThreadId] ?? [])
     : [];
+  // Detached background sub-agents (mode === 'async') spawned in this thread.
+  const backgroundProcesses = useMemo(
+    () => selectBackgroundProcesses(selectedThreadToolTimeline),
+    [selectedThreadToolTimeline]
+  );
+  const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
   // Re-derive the open subagent's live activity (and its row status) from the
   // timeline on every render so the drawer streams token-by-token as
   // subagent_text_delta / subagent_thinking_delta events land in Redux.
@@ -1719,13 +1731,6 @@ const Conversations = ({
               const isAgentTextMode = msg.sender === 'agent' && agentMessageViewMode === 'text';
               return (
                 <div key={msg.id}>
-                  {shouldRenderTimelineBeforeLatestAgentMessage &&
-                    latestVisibleAgentMessage?.id === msg.id && (
-                      <ToolTimelineBlock
-                        entries={selectedThreadToolTimeline}
-                        onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
-                      />
-                    )}
                   <div
                     className={`group/msg flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div
@@ -1773,16 +1778,6 @@ const Conversations = ({
                             if (citations.length === 0) return null;
                             return <CitationChips citations={citations} />;
                           })()}
-                          {shouldRenderTimelineBeforeLatestAgentMessage &&
-                            latestVisibleAgentMessage?.id === msg.id && (
-                              <button
-                                type="button"
-                                onClick={() => setShowProcessSource(true)}
-                                data-testid="view-process-source"
-                                className="px-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
-                                {t('conversations.agentTaskInsights.viewProcessSource')} →
-                              </button>
-                            )}
                           {latestVisibleMessage?.id === msg.id && (
                             <p className="px-1 text-[10px] text-stone-400 dark:text-neutral-500">
                               {formatRelativeTime(msg.createdAt)}
@@ -2114,14 +2109,34 @@ const Conversations = ({
                   </span>
                 </div>
               )}
-            {/* Tool call timeline */}
-            {selectedThreadToolTimeline.length > 0 &&
-              !shouldRenderTimelineBeforeLatestAgentMessage && (
-                <ToolTimelineBlock
-                  entries={selectedThreadToolTimeline}
-                  onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
-                />
-              )}
+            {/* Agentic task insights — rendered exactly once AFTER the full
+                message list. A single logical assistant turn can be persisted
+                as multiple agent ThreadMessages; anchoring the panel before the
+                last agent message split the response into two disconnected
+                chunks (issue #3717, Bug 2). Hoisting it here keeps the panel
+                after the complete response regardless of how many agent
+                messages the turn produced — both for the settled/inline case
+                (shouldRenderTimelineBeforeLatestAgentMessage) and the live
+                in-flight fallback. */}
+            {selectedThreadToolTimeline.length > 0 && (
+              <ToolTimelineBlock
+                entries={selectedThreadToolTimeline}
+                onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
+              />
+            )}
+            {/* "View full agent process" — only in the settled/inline state
+                (turn finished, an agent message exists). Hoisted out of the
+                per-message map alongside the panel above so it renders once
+                after the response, never interleaved between bubbles. */}
+            {shouldRenderTimelineBeforeLatestAgentMessage && (
+              <button
+                type="button"
+                onClick={() => setShowProcessSource(true)}
+                data-testid="view-process-source"
+                className="px-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
+                {t('conversations.agentTaskInsights.viewProcessSource')} →
+              </button>
+            )}
             {isSending && rustChat && (
               <div className="flex justify-start px-1">
                 <button
@@ -2490,6 +2505,37 @@ const Conversations = ({
                   {t('chat.agentProfile.reasoning')}
                 </button>
               </div>
+              {selectedThreadId && (
+                <button
+                  type="button"
+                  data-testid="background-processes-toggle"
+                  data-analytics-id="chat-header-background-processes"
+                  onClick={() => setShowBackgroundProcesses(true)}
+                  aria-label={t('conversations.backgroundTasks.title')}
+                  title={
+                    backgroundProcesses.length > 0
+                      ? t('conversations.backgroundTasks.titleWithCount').replace(
+                          '{count}',
+                          String(backgroundProcesses.length)
+                        )
+                      : t('conversations.backgroundTasks.title')
+                  }
+                  className="relative flex h-7 w-7 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                    />
+                  </svg>
+                  {runningBackgroundCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-semibold leading-none text-white">
+                      {runningBackgroundCount}
+                    </span>
+                  )}
+                </button>
+              )}
               {(selectedThreadId ?? firstActiveThreadId) && (
                 <ChatFilesChip threadId={(selectedThreadId ?? firstActiveThreadId) as string} />
               )}
@@ -2534,6 +2580,15 @@ const Conversations = ({
       <ConfirmationModal
         modal={deleteModal}
         onClose={() => setDeleteModal(prev => ({ ...prev, isOpen: false }))}
+      />
+      <BackgroundProcessesPanel
+        open={showBackgroundProcesses}
+        processes={backgroundProcesses}
+        onClose={() => setShowBackgroundProcesses(false)}
+        onOpenProcess={taskId => {
+          setShowBackgroundProcesses(false);
+          setOpenSubagentTaskId(taskId);
+        }}
       />
       <SubagentDrawer
         subagent={openSubagentEntry?.subagent ?? null}

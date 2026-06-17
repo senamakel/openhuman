@@ -25,6 +25,13 @@ const ALLOWED_HOSTS: &[(&str, &str)] = &[
     ("webex.com", "webex"),
 ];
 
+/// Upper bound on the best-effort post-call summarisation call. The provider
+/// has a 120s per-request timeout and the reliable wrapper retries transient
+/// failures with backoff, so without a bound a slow/flaky `summarization`
+/// provider could stall the post-call persistence pipeline for minutes. On
+/// timeout we fall back to the plain-transcript thread.
+const SUMMARY_GENERATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 fn transcript_turns_to_chat_batch(
     turns: &[BackendMeetTurn],
     duration_ms: u64,
@@ -124,7 +131,7 @@ pub async fn create_meeting_thread_with_transcript(
 ) -> Result<(), String> {
     use crate::openhuman::memory::{
         AppendConversationMessageRequest, ConversationMessageRecord,
-        CreateConversationThreadRequest,
+        CreateConversationThreadRequest, UpdateConversationThreadTitleRequest,
     };
     use crate::openhuman::threads::ops;
 
@@ -132,7 +139,8 @@ pub async fn create_meeting_thread_with_transcript(
         return Ok(());
     }
 
-    // Format transcript body.
+    // Format the transcript body first — this is the durable artifact and must
+    // not depend on (or wait on) the summarisation LLM call.
     let mut body = String::new();
     let duration_min = duration_ms / 60_000;
     body.push_str(&format!("Duration: {duration_min} min\n\n"));
@@ -152,7 +160,13 @@ pub async fn create_meeting_thread_with_transcript(
         body.push_str(&format!("**{role_label}**: {text}\n\n"));
     }
 
-    // 1. Create thread with labels: ["Meetings"]
+    // 1. Create the thread under the shared "Meetings" label and append the
+    //    transcript *before* any LLM work, so thread/transcript persistence (and
+    //    the memory-tree ingest that runs after this returns) never gate on
+    //    summarisation. The per-meeting topic is applied later as the thread
+    //    *title* only — adding it as a second label would accrue a unique,
+    //    never-reused label per call and pollute the shared label taxonomy,
+    //    while the title already disambiguates calls in the list.
     let create_req = CreateConversationThreadRequest {
         labels: Some(vec!["Meetings".to_string()]),
         personality_id: None,
@@ -168,7 +182,8 @@ pub async fn create_meeting_thread_with_transcript(
         .id
         .clone();
 
-    // 2. Append the transcript as a message.
+    // 2. Append the transcript as a message. The durable record is now complete
+    //    regardless of whether summarisation succeeds below.
     let msg = ConversationMessageRecord {
         id: uuid::Uuid::new_v4().to_string(),
         content: body,
@@ -188,9 +203,78 @@ pub async fn create_meeting_thread_with_transcript(
         );
     }
 
+    // 3. Best-effort enrichment: generate a structured post-call summary + short
+    //    context label. Bounded by `SUMMARY_GENERATION_TIMEOUT` so a slow/flaky
+    //    provider can never dominate the path. Any failure or timeout logs a
+    //    warning and leaves the plain-transcript thread untouched.
+    let generated = match tokio::time::timeout(
+        SUMMARY_GENERATION_TIMEOUT,
+        super::summary::generate_meeting_summary(turns, correlation_id.as_deref()),
+    )
+    .await
+    {
+        Ok(Ok(g)) => Some(g),
+        Ok(Err(e)) => {
+            tracing::warn!("[agent_meetings] summary generation failed: {e}");
+            None
+        }
+        Err(_) => {
+            tracing::warn!(
+                timeout_secs = SUMMARY_GENERATION_TIMEOUT.as_secs(),
+                "[agent_meetings] summary generation timed out"
+            );
+            None
+        }
+    };
+
+    // 3a. Title the thread with the context label (e.g. "Q3 Roadmap") so the
+    //     meeting is identifiable in the list (default title is "Chat <date>").
+    let context_label = generated
+        .as_ref()
+        .map(|g| g.label.trim())
+        .filter(|l| !l.is_empty());
+    if let Some(title) = context_label {
+        if let Err(e) = ops::thread_update_title(UpdateConversationThreadTitleRequest {
+            thread_id: thread_id.clone(),
+            title: title.to_string(),
+        })
+        .await
+        {
+            tracing::warn!(
+                thread_id = %thread_id,
+                "[agent_meetings] failed to set meeting thread title: {e}"
+            );
+        }
+    }
+
+    // 3b. Append the structured summary as a closing message, so the thread ends
+    //     with the headline / key points / action items.
+    if let Some(g) = &generated {
+        let summary_body = super::summary::format_summary_markdown(&g.summary, &g.label);
+        let summary_msg = ConversationMessageRecord {
+            id: uuid::Uuid::new_v4().to_string(),
+            content: summary_body,
+            message_type: "system".to_string(),
+            extra_metadata: serde_json::Value::Null,
+            sender: "system".to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+        let summary_req = AppendConversationMessageRequest {
+            thread_id: thread_id.clone(),
+            message: summary_msg,
+        };
+        if let Err(e) = ops::message_append(summary_req).await {
+            tracing::warn!(
+                thread_id = %thread_id,
+                "[agent_meetings] failed to append summary message: {e}"
+            );
+        }
+    }
+
     tracing::info!(
         thread_id = %thread_id,
         turn_count = turns.len(),
+        summarized = generated.is_some(),
         "[agent_meetings] meeting thread created"
     );
     Ok(())
@@ -283,6 +367,70 @@ fn build_join_payload(
     payload
 }
 
+/// Pure: extract the reply anchor (`respondToParticipant`) carried by a
+/// notification action payload. Returns `None` when absent or blank.
+fn anchor_from_action_payload(payload: &Value) -> Option<String> {
+    payload
+        .get("respondToParticipant")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+}
+
+/// Pure: build the `agent_meetings_join` param map for an AskEachTime
+/// notification action.
+///
+/// Encapsulates the listen-only decision (reply mode without a known anchor is
+/// downgraded to listen-only via [`super::calendar::effective_listen_only`]),
+/// the wake phrase, and the `respond_to_participant` anchor wiring so they are
+/// unit-testable without a live socket/config.
+fn build_notification_join_map(
+    action_id: &str,
+    meet_url: &str,
+    correlation_id: &str,
+    display_name: Option<&str>,
+    respond_to_participant: Option<&str>,
+    config_listen_only_default: bool,
+) -> Map<String, Value> {
+    let requested_listen_only = match action_id {
+        "join_listen" => true,
+        "join_active" => false,
+        _ => config_listen_only_default,
+    };
+    // Reply mode needs a known anchor. Without one, downgrade to listen-only
+    // (still transcribes + summarizes) instead of replying to every speaker.
+    let listen_only = super::calendar::effective_listen_only(
+        requested_listen_only,
+        respond_to_participant.is_some(),
+    );
+    if listen_only && !requested_listen_only {
+        tracing::warn!(
+            action_id = %action_id,
+            "[agent_meetings] no reply anchor resolved — forcing listen-only join"
+        );
+    }
+
+    let mut join = Map::new();
+    join.insert("meet_url".to_string(), json!(meet_url));
+    join.insert("correlation_id".to_string(), json!(correlation_id));
+    join.insert("listen_only".to_string(), json!(listen_only));
+    if let Some(name) = display_name {
+        join.insert("display_name".to_string(), json!(name));
+    }
+    if !listen_only {
+        // Reply mode: the participant addresses the bot as "Hey Tiny"; the
+        // wake phrase is always required (no implicit address).
+        join.insert("wake_phrase".to_string(), json!("Hey Tiny"));
+        // Anchor replies to the meeting owner so the bot knows who it is
+        // answering (empty/absent = respond to everyone).
+        if let Some(owner) = respond_to_participant {
+            join.insert("respond_to_participant".to_string(), json!(owner));
+        }
+    }
+    join
+}
+
 /// Handle `openhuman.agent_meetings_join`.
 pub async fn handle_join(params: Map<String, Value>) -> Result<Value, String> {
     let req: BackendMeetJoinRequest = serde_json::from_value(Value::Object(params))
@@ -326,6 +474,26 @@ pub async fn handle_join(params: Map<String, Value>) -> Result<Value, String> {
     mgr.emit("bot:join", join_payload)
         .await
         .map_err(|e| format!("[agent_meetings] emit failed: {e}"))?;
+
+    // Snapshot join context so the post-call recent-calls record can show who
+    // launched the bot, into which meeting. Keyed by correlation_id; consumed
+    // when the `BackendMeetTranscript` event arrives at call-end. No-op when
+    // the caller didn't supply a correlation_id.
+    super::recent_calls::remember_join(
+        req.correlation_id.as_deref(),
+        super::recent_calls::JoinMeta {
+            meet_url: normalized_url.to_string(),
+            // "Your Name in This Meeting" — the human who launched the bot and
+            // whom it answers to. This is the owner shown in the recent-calls list.
+            owner_display_name: req.respond_to_participant.clone().unwrap_or_default(),
+            // The bot's tile name in the meeting (persona display name).
+            bot_display_name: display_name.clone(),
+            started_at_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0),
+        },
+    );
 
     // Active mode (listen_only = false, the modal's "respond when addressed"
     // toggle) enables in-call agency for just this meeting, so the toggle
@@ -473,6 +641,15 @@ pub async fn handle_notification_action(params: Map<String, Value>) -> Result<Va
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(String::from);
+    // Reply anchor carried from the calendar notification (issue: gmeet
+    // auto-join anchor). Falls back to the signed-in account identity so a
+    // notification raised before the anchor wiring still knows who to reply to.
+    let respond_to_participant = anchor_from_action_payload(&payload).or_else(|| {
+        crate::openhuman::app_state::peek_cached_current_user_identity()
+            .and_then(|i| i.name)
+            .map(|n| n.trim().to_string())
+            .filter(|s| !s.is_empty())
+    });
 
     tracing::info!(
         action_id = %action_id,
@@ -520,29 +697,17 @@ pub async fn handle_notification_action(params: Map<String, Value>) -> Result<Va
                 }
             }
 
-            let listen_only = match action_id.as_str() {
-                "join_listen" => true,
-                "join_active" => false,
-                _ => config.meet.listen_only_default,
-            };
-
-            let mut join = Map::new();
-            join.insert("meet_url".to_string(), json!(meet_url));
-            join.insert(
-                "correlation_id".to_string(),
-                json!(meeting_id
-                    .clone()
-                    .unwrap_or_else(|| uuid::Uuid::new_v4().to_string())),
+            let correlation_id = meeting_id
+                .clone()
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+            let join = build_notification_join_map(
+                &action_id,
+                &meet_url,
+                &correlation_id,
+                display_name.as_deref(),
+                respond_to_participant.as_deref(),
+                config.meet.listen_only_default,
             );
-            join.insert("listen_only".to_string(), json!(listen_only));
-            if let Some(name) = display_name {
-                join.insert("display_name".to_string(), json!(name));
-            }
-            if !listen_only {
-                // Reply mode: the participant addresses the bot as "Hey Tiny";
-                // the wake phrase is always required (no implicit address).
-                join.insert("wake_phrase".to_string(), json!("Hey Tiny"));
-            }
 
             handle_join(join).await
         }
@@ -593,6 +758,101 @@ mod tests {
         params.insert("action_id".to_string(), json!("explode"));
         let err = handle_notification_action(params).await.unwrap_err();
         assert!(err.contains("unknown action_id"));
+    }
+
+    // ── anchor_from_action_payload ──────────────────────────────
+
+    #[test]
+    fn anchor_extracted_from_payload() {
+        let payload = json!({ "respondToParticipant": "Shanu Goyanka" });
+        assert_eq!(
+            anchor_from_action_payload(&payload).as_deref(),
+            Some("Shanu Goyanka")
+        );
+    }
+
+    #[test]
+    fn anchor_none_when_absent_or_blank() {
+        assert!(anchor_from_action_payload(&json!({})).is_none());
+        assert!(anchor_from_action_payload(&json!({ "respondToParticipant": "  " })).is_none());
+    }
+
+    // ── build_notification_join_map ─────────────────────────────
+
+    #[test]
+    fn join_map_listen_only_action_has_no_anchor_or_wake() {
+        let join = build_notification_join_map(
+            "join_listen",
+            "https://meet.google.com/abc",
+            "corr-1",
+            Some("Tiny"),
+            Some("Shanu"),
+            false,
+        );
+        assert_eq!(join["listen_only"], json!(true));
+        assert_eq!(join["display_name"], json!("Tiny"));
+        // listen-only never carries wake/anchor
+        assert!(!join.contains_key("wake_phrase"));
+        assert!(!join.contains_key("respond_to_participant"));
+    }
+
+    #[test]
+    fn join_map_active_with_anchor_carries_wake_and_anchor() {
+        let join = build_notification_join_map(
+            "join_active",
+            "https://meet.google.com/abc",
+            "corr-1",
+            None,
+            Some("Shanu"),
+            false,
+        );
+        assert_eq!(join["listen_only"], json!(false));
+        assert_eq!(join["wake_phrase"], json!("Hey Tiny"));
+        assert_eq!(join["respond_to_participant"], json!("Shanu"));
+        assert!(!join.contains_key("display_name"));
+    }
+
+    #[test]
+    fn join_map_active_without_anchor_downgrades_to_listen_only() {
+        let join = build_notification_join_map(
+            "join_active",
+            "https://meet.google.com/abc",
+            "corr-1",
+            None,
+            None,
+            false,
+        );
+        // No anchor → forced listen-only, no wake/anchor emitted.
+        assert_eq!(join["listen_only"], json!(true));
+        assert!(!join.contains_key("wake_phrase"));
+        assert!(!join.contains_key("respond_to_participant"));
+    }
+
+    #[test]
+    fn join_map_always_join_uses_config_default() {
+        // always_join + config default reply (false) + anchor → reply mode.
+        let reply = build_notification_join_map(
+            "always_join",
+            "https://meet.google.com/abc",
+            "corr-1",
+            None,
+            Some("Shanu"),
+            false,
+        );
+        assert_eq!(reply["listen_only"], json!(false));
+        assert_eq!(reply["respond_to_participant"], json!("Shanu"));
+
+        // always_join + config default listen-only (true) → listen-only.
+        let passive = build_notification_join_map(
+            "always_join",
+            "https://meet.google.com/abc",
+            "corr-1",
+            None,
+            Some("Shanu"),
+            true,
+        );
+        assert_eq!(passive["listen_only"], json!(true));
+        assert!(!passive.contains_key("respond_to_participant"));
     }
 
     #[tokio::test]

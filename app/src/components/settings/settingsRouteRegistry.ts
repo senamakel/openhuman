@@ -473,6 +473,26 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'connections',
     navOrder: 4,
   },
+  {
+    // meetings: Meeting Assistant settings (issue #3511 / epic #3505 PR-5).
+    id: 'meetings',
+    titleKey: 'settings.meetings.title',
+    descriptionKey: 'settings.meetings.menuDesc',
+    section: 'features',
+    searchKeywords: [
+      'meeting',
+      'meet',
+      'google meet',
+      'auto join',
+      'auto-join',
+      'summarize',
+      'summary',
+      'listen only',
+      'transcript',
+    ],
+    navGroup: 'connections',
+    navOrder: 5,
+  },
 
   // =========================================================================
   // NOTIFICATIONS section leaf panels

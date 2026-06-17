@@ -1858,3 +1858,22 @@ fn integration_announcement_accumulates_two_connects_in_one_note() {
         "startup slug must not re-announce: {note}"
     );
 }
+
+#[test]
+fn skill_announcement_note_empty_yields_none() {
+    assert!(super::skill_announcement_note(&[]).is_none());
+}
+
+#[test]
+fn skill_announcement_note_mentions_ids_and_run_skill() {
+    let note =
+        super::skill_announcement_note(&["ascii-art".to_string(), "github-issues".to_string()])
+            .expect("non-empty input should yield a note");
+    assert!(note.contains("[skills update]"));
+    assert!(note.contains("ascii-art"));
+    assert!(note.contains("github-issues"));
+    assert!(
+        note.contains("run_skill"),
+        "note must steer the model to run_skill: {note}"
+    );
+}

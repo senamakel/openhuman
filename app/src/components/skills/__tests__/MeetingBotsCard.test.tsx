@@ -348,6 +348,32 @@ describe('MeetingBotsCard — recent calls section', () => {
     expect(screen.getByText(/5 turns/i)).toBeInTheDocument();
   });
 
+  it('renders the owner and participant names on a call row', async () => {
+    listMock.mockResolvedValueOnce([
+      makeCallRecord({
+        owner_display_name: 'Shanu Goyanka',
+        participants: ['Shanu Goyanka', 'Alex Rivera'],
+      }),
+    ]);
+    renderWithProviders(<MeetingBotsCard />);
+    await waitFor(() => {
+      expect(screen.getByText(/added by shanu goyanka/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/with shanu goyanka, alex rivera/i)).toBeInTheDocument();
+  });
+
+  it('omits the participants line when the record has none', async () => {
+    listMock.mockResolvedValueOnce([
+      makeCallRecord({ owner_display_name: '', participants: [] }),
+    ]);
+    renderWithProviders(<MeetingBotsCard />);
+    await waitFor(() => {
+      expect(screen.getByText(/3 turns/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/^with /i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/added by/i)).not.toBeInTheDocument();
+  });
+
   it('shows the count badge when there is at least one record', async () => {
     listMock.mockResolvedValueOnce([makeCallRecord()]);
     renderWithProviders(<MeetingBotsCard />);

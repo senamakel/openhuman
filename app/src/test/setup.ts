@@ -165,7 +165,16 @@ vi.mock('../utils/tauriCommands', () => ({
     }),
   openhumanGetMeetSettings: vi
     .fn()
-    .mockResolvedValue({ result: { auto_orchestrator_handoff: false }, logs: [] }),
+    .mockResolvedValue({
+      result: {
+        auto_orchestrator_handoff: false,
+        auto_join_policy: 'ask_each_time',
+        auto_summarize_policy: 'ask',
+        listen_only_default: true,
+        ingest_backend_transcripts: false,
+      },
+      logs: [],
+    }),
   exchangeToken: vi.fn(),
   invoke: vi.fn(),
 }));

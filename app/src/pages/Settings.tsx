@@ -28,6 +28,7 @@ import EventLogPanel from '../components/settings/panels/EventLogPanel';
 import IntegrationsPanel from '../components/settings/panels/IntegrationsPanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
 import McpServerPanel from '../components/settings/panels/McpServerPanel';
+import MeetingSettingsPanel from '../components/settings/panels/MeetingSettingsPanel';
 import MemorySyncPanel from '../components/settings/panels/MemorySyncPanel';
 import MigrationPanel from '../components/settings/panels/MigrationPanel';
 import ModelHealthPanel from '../components/settings/panels/ModelHealthPanel';
@@ -144,6 +145,7 @@ const Settings = () => {
           <Route path="desktop-agent" element={wrapSettingsPage(<DesktopAgentPanel />)} />
           <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
           <Route path="companion" element={wrapSettingsPage(<CompanionPanel />)} />
+          <Route path="meetings" element={wrapSettingsPage(<MeetingSettingsPanel />)} />
           <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
 
           {/* ── System ──────────────────────────────────────────────── */}

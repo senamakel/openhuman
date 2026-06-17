@@ -422,24 +422,68 @@ pub fn schemas(function: &str) -> ControllerSchema {
             namespace: "config",
             function: "update_meet_settings",
             description:
-                "Update Google Meet integration settings (currently the auto-orchestrator-handoff privacy gate).",
-            inputs: vec![optional_bool(
-                "auto_orchestrator_handoff",
-                "When true, ending a Meet call hands the transcript to the orchestrator for proactive follow-up actions.",
-            )],
+                "Update Meeting Assistant settings: auto-join, post-call summary, listen-only, transcript ingestion, and the orchestrator-handoff privacy gate.",
+            inputs: vec![
+                optional_bool(
+                    "auto_orchestrator_handoff",
+                    "When true, ending a Meet call hands the transcript to the orchestrator for proactive follow-up actions.",
+                ),
+                optional_string(
+                    "auto_join_policy",
+                    "Calendar auto-join policy: ask_each_time | always | never.",
+                ),
+                optional_string(
+                    "auto_summarize_policy",
+                    "Post-call summary policy: ask | always | never.",
+                ),
+                optional_bool(
+                    "listen_only_default",
+                    "When true, the bot joins in listen-only mode (mic muted).",
+                ),
+                optional_bool(
+                    "ingest_backend_transcripts",
+                    "When true, backend-bot meeting transcripts are ingested into memory.",
+                ),
+            ],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],
         },
         "get_meet_settings" => ControllerSchema {
             namespace: "config",
             function: "get_meet_settings",
-            description: "Read current Google Meet integration settings.",
+            description: "Read current Meeting Assistant settings.",
             inputs: vec![],
-            outputs: vec![FieldSchema {
-                name: "auto_orchestrator_handoff",
-                ty: TypeSchema::Bool,
-                comment: "Whether the orchestrator handoff fires on Meet call end.",
-                required: true,
-            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "auto_orchestrator_handoff",
+                    ty: TypeSchema::Bool,
+                    comment: "Whether the orchestrator handoff fires on Meet call end.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "auto_join_policy",
+                    ty: TypeSchema::String,
+                    comment: "Calendar auto-join policy: ask_each_time | always | never.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "auto_summarize_policy",
+                    ty: TypeSchema::String,
+                    comment: "Post-call summary policy: ask | always | never.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "listen_only_default",
+                    ty: TypeSchema::Bool,
+                    comment: "Whether the bot joins mic-muted (listen-only).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "ingest_backend_transcripts",
+                    ty: TypeSchema::Bool,
+                    comment: "Whether backend-bot transcripts are ingested into memory.",
+                    required: true,
+                },
+            ],
         },
         "update_search_settings" => ControllerSchema {
             namespace: "config",

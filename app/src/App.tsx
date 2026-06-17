@@ -52,10 +52,13 @@ import {
   stopInternetStatusListener,
 } from './services/internetStatusListener';
 import {
+  hideWebviewAccount,
   startWebviewAccountService,
   stopWebviewAccountService,
 } from './services/webviewAccountService';
 import { persistor, store } from './store';
+import { useAppSelector } from './store/hooks';
+import { AGENT_ACCOUNT_ID } from './utils/accountsFullscreen';
 import { DEV_FORCE_ONBOARDING } from './utils/config';
 
 // Attach the `webview:event` listener at app boot so background recipe
@@ -195,6 +198,17 @@ function AppShellDesktop() {
   useEffect(() => {
     trackPageView(location.pathname);
   }, [location.pathname]);
+
+  // Hide the active connected-app webview when we navigate away from the chat
+  // surface. The native CEF webview composites above the HTML, so without this
+  // it lingers on top of the newly-routed page until the user returns.
+  const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
+  useEffect(() => {
+    const onChat = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+    if (!onChat && activeAccountId && activeAccountId !== AGENT_ACCOUNT_ID) {
+      void hideWebviewAccount(activeAccountId);
+    }
+  }, [location.pathname, activeAccountId]);
 
   // Sync the notch indicator to the persisted always-on listening state once
   // the core is ready (once per boot). Extracted to a hook so it's testable.

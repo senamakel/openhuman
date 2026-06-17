@@ -290,7 +290,8 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'Buon pomeriggio',
   'home.greetingEvening': 'Buonasera',
   'home.askAssistant': 'Chiedi qualsiasi cosa al tuo assistente...',
-  'home.statusOk': 'Il tuo assistente è pronto quando lo sei tu. Scrivi qualcosa qui sotto per iniziare.',
+  'home.statusOk':
+    'Il tuo assistente è pronto quando lo sei tu. Scrivi qualcosa qui sotto per iniziare.',
   'home.statusBackendOnly': 'Riconnessione al backend… il tuo agente sarà disponibile a breve.',
   'home.statusCoreUnreachable':
     'Il sidecar core locale non risponde. Il processo in background di OpenHuman potrebbe essersi bloccato o non essere partito.',

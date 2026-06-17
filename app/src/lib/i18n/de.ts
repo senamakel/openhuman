@@ -292,7 +292,8 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'Guten Tag',
   'home.greetingEvening': 'Guten Abend',
   'home.askAssistant': 'Frag deinen Assistenten etwas ...',
-  'home.statusOk': 'Dein Assistent ist bereit, wenn du es bist. Schreib unten etwas, um loszulegen.',
+  'home.statusOk':
+    'Dein Assistent ist bereit, wenn du es bist. Schreib unten etwas, um loszulegen.',
   'home.statusBackendOnly':
     'Verbindung zum Backend wird wiederhergestellt. Dein Agent wird in Kürze wieder verfügbar sein.',
   'home.statusCoreUnreachable':

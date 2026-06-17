@@ -1625,9 +1625,8 @@ const Conversations = ({
         isSidebar
           ? // Embedded variant keeps its own flush styling (no TwoPanelLayout).
             'flex-1 flex flex-col min-w-0 bg-white dark:bg-neutral-900 border-l border-stone-200 dark:border-neutral-800 overflow-hidden'
-          : // Page variant: flush over the shell background. In the new-window
-            // (empty) state the column centers its hero + composer group.
-            `flex-1 flex flex-col min-w-0${isNewWindow ? ' justify-center' : ''}`
+          : // Page variant: flush over the shell background.
+            'flex-1 flex flex-col min-w-0'
       }>
       {/* Chat header — only shown in page mode with an active conversation; the
             sidebar embed uses the parent page's chrome, and the new-window hero
@@ -1763,8 +1762,8 @@ const Conversations = ({
         ref={messagesContainerRef}
         className={
           isNewWindow
-            ? // New-window: auto-height so the hero + composer center as a group.
-              'flex-none px-5 py-4'
+            ? // New-window: hero fills the height; composer stays pinned below.
+              'flex-1 overflow-y-auto px-5 py-4'
             : 'flex-1 overflow-y-auto px-5 py-4 bg-[#f6f6f6] dark:bg-neutral-950'
         }>
         {isLoadingMessages ? (

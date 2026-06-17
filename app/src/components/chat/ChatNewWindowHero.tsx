@@ -115,7 +115,7 @@ export default function ChatNewWindowHero() {
   }, [isDeletingWelcome, typedWelcome, welcomeVariantIndex, welcomeVariants]);
 
   return (
-    <div className="mx-auto w-full max-w-md">
+    <div className="mx-auto flex h-full w-full max-w-md flex-col py-4">
       {shouldShowBudgetCompletedMessage && (
         <UsageLimitBanner
           tone="danger"
@@ -141,10 +141,12 @@ export default function ChatNewWindowHero() {
 
       {showPromoBanner && <PromotionalCreditsBanner promoCredits={promoCredits} />}
 
-      {/* Main card */}
+      {/* Main card — fills the available height so the composer stays pinned at
+          the bottom of the surface; content is vertically centered within it.
+          ~80% tint over the app background. */}
       <div
         data-walkthrough="home-card"
-        className="animate-fade-up rounded-2xl border border-stone-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+        className="flex flex-1 flex-col justify-center animate-fade-up rounded-2xl border border-stone-200/80 bg-white/80 p-6 shadow-soft backdrop-blur-sm dark:border-neutral-800/80 dark:bg-neutral-900/80">
         {/* Header row: version centered, theme toggle right-aligned. The empty
             left spacer matches the toggle's width so the version stays centered. */}
         <div className="mb-4 flex items-center justify-between">

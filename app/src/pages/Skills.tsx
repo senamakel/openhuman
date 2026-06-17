@@ -906,7 +906,7 @@ export default function Skills() {
           />
         </div>
       </SidebarContent>
-      <div className="mx-auto h-full w-full max-w-5xl p-4 pt-6">
+      <div className="mx-auto h-full w-full max-w-5xl">
         {/* Intelligence panels relocated from Settings are themselves PanelPage
             panels (description, no title; the back button hides because the
             Connections sidebar owns navigation), so they fill the content pane

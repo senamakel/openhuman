@@ -27,7 +27,7 @@ const SettingsLayout = () => {
       {/* Bounded flex column: the sub-nav chips stay pinned at the top while
           the routed panel owns the only vertical scroll (its WrappedSettingsPage
           / PanelScaffold). */}
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col p-4 pt-6">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col">
         <div className="flex-shrink-0">
           <SettingsSubNav />
         </div>

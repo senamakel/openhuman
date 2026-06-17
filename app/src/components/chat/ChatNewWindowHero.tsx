@@ -146,48 +146,8 @@ export default function ChatNewWindowHero() {
       <div
         data-walkthrough="home-card"
         className="animate-fade-up rounded-2xl border border-stone-200/80 bg-white/80 p-6 shadow-soft backdrop-blur-sm dark:border-neutral-800/80 dark:bg-neutral-900/80">
-        {/* Header row: theme toggle, right-aligned. */}
-        <div className="mb-4 flex items-center justify-end">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
-            title={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
-            className="rounded-full p-2 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200">
-            {isDark ? (
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-                aria-hidden="true">
-                <circle cx="12" cy="12" r="4" />
-                <path
-                  strokeLinecap="round"
-                  d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-                />
-              </svg>
-            ) : (
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-                aria-hidden="true">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"
-                />
-              </svg>
-            )}
-          </button>
-        </div>
-
         {/* Animated greeting */}
-        <h1 className="min-h-[3.5rem] text-32l text-center font-bold text-stone-900 dark:text-neutral-100">
+        <h1 className="min-h-[3.5rem] text-2xl text-center font-bold text-stone-900 dark:text-neutral-100">
           {typedWelcome}
           <span aria-hidden="true" className="ml-0.5 inline-block animate-pulse text-primary-500">
             |

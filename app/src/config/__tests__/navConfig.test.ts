@@ -3,52 +3,39 @@ import { describe, expect, it } from 'vitest';
 import { AVATAR_MENU_ITEMS, NAV_TABS } from '../navConfig';
 
 describe('NAV_TABS', () => {
-  it('has exactly 6 entries', () => {
-    expect(NAV_TABS).toHaveLength(6);
+  it('has exactly 4 entries', () => {
+    expect(NAV_TABS).toHaveLength(4);
   });
 
   it('has the correct ids in order', () => {
-    expect(NAV_TABS.map(t => t.id)).toEqual([
-      'home',
-      'chat',
-      'human',
-      'brain',
-      'connections',
-      'settings',
-    ]);
+    expect(NAV_TABS.map(t => t.id)).toEqual(['chat', 'human', 'brain', 'connections']);
   });
 
   it('has the correct paths', () => {
-    expect(NAV_TABS.map(t => t.path)).toEqual([
-      '/home',
-      '/chat',
-      '/human',
-      '/brain',
-      '/connections',
-      '/settings',
-    ]);
+    expect(NAV_TABS.map(t => t.path)).toEqual(['/chat', '/human', '/brain', '/connections']);
   });
 
   it('has the correct labelKeys', () => {
     expect(NAV_TABS.map(t => t.labelKey)).toEqual([
-      'nav.home',
       'nav.chat',
       'nav.human',
       'nav.brain',
       'nav.connections',
-      'nav.settings',
     ]);
   });
 
   it('has the correct walkthroughAttrs', () => {
     expect(NAV_TABS.map(t => t.walkthroughAttr)).toEqual([
-      'tab-home',
       'tab-chat',
       'tab-human',
       'tab-brain',
       'tab-connections',
-      'tab-settings',
     ]);
+  });
+
+  it('no longer contains home or settings tabs (moved to the sidebar header)', () => {
+    expect(NAV_TABS.find(t => t.id === 'home')).toBeUndefined();
+    expect(NAV_TABS.find(t => t.id === 'settings')).toBeUndefined();
   });
 
   it('does not contain an activity tab', () => {

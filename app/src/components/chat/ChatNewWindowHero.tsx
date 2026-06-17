@@ -6,22 +6,25 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { applyOpenRouterFreeModels } from '../../services/api/openrouterFreeModels';
 import { restartCoreProcess } from '../../services/coreProcessControl';
 import { selectBlockingState } from '../../store/connectivitySelectors';
-import { useAppSelector } from '../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { resolveTheme, setThemeMode, type ThemeMode } from '../../store/themeSlice';
+import { APP_VERSION } from '../../utils/config';
 import { resolveUserName } from '../../utils/userName';
 import ConnectionIndicator from '../ConnectionIndicator';
 import { DiscordBanner, PromotionalCreditsBanner, UsageLimitBanner } from '../home/HomeBanners';
 
 /**
  * Hero shown above the composer in the chat "new window" (empty thread) state —
- * the merged Home surface. Reuses Home's animated greeting and banners, but
- * drops the framing card / version / theme toggle / "Ask Assistant" CTA: the
- * composer directly below is the call to action now. The core-unreachable
- * recovery button is preserved since the composer is disabled while the core is
- * down.
+ * the merged Home surface. Mirrors the former Home card (greeting, connection
+ * status, version + light/dark toggle, banners), but drops the "Ask Assistant"
+ * CTA: the composer directly below is the call to action now. The
+ * core-unreachable recovery button is preserved since the composer is disabled
+ * while the core is down.
  */
 export default function ChatNewWindowHero() {
   const { t } = useT();
   const { user } = useUser();
+  const dispatch = useAppDispatch();
   const { shouldShowBudgetCompletedMessage } = useUsageState();
 
   const userName = resolveUserName(user).split(' ')[0];
@@ -31,6 +34,10 @@ export default function ChatNewWindowHero() {
   const showPromoBanner = isFreeTier && promoCredits > 0.01;
 
   const blocking = useAppSelector(selectBlockingState);
+  const themeMode = useAppSelector(state => state.theme.mode) as ThemeMode;
+  const isDark = resolveTheme(themeMode) === 'dark';
+  const toggleTheme = () => dispatch(setThemeMode(isDark ? 'light' : 'dark'));
+
   const [isRestartingCore, setIsRestartingCore] = useState(false);
   const [restartError, setRestartError] = useState<string | null>(null);
   const [openRouterStatus, setOpenRouterStatus] = useState<'idle' | 'saving' | 'error'>('idle');
@@ -108,7 +115,7 @@ export default function ChatNewWindowHero() {
   }, [isDeletingWelcome, typedWelcome, welcomeVariantIndex, welcomeVariants]);
 
   return (
-    <div className="mx-auto w-full max-w-md" data-walkthrough="home-card">
+    <div className="mx-auto w-full max-w-md">
       {shouldShowBudgetCompletedMessage && (
         <UsageLimitBanner
           tone="danger"
@@ -134,39 +141,87 @@ export default function ChatNewWindowHero() {
 
       {showPromoBanner && <PromotionalCreditsBanner promoCredits={promoCredits} />}
 
-      {/* Animated greeting */}
-      <h1 className="min-h-[3.5rem] text-32l font-bold text-stone-900 dark:text-neutral-100 text-center">
-        {typedWelcome}
-        <span aria-hidden="true" className="ml-0.5 inline-block text-primary-500 animate-pulse">
-          |
-        </span>
-      </h1>
-
-      {/* Connection status — surfaces the broken link when not "ok". */}
-      <div className="mb-3 flex justify-center">
-        <ConnectionIndicator />
-      </div>
-      {blocking !== 'ok' && (
-        <p className="mb-4 text-center text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
-          {statusCopy}
-        </p>
-      )}
-
-      {/* Recovery: only when the local core is the broken link. */}
-      {blocking === 'core-unreachable' && (
-        <div className="mb-2">
+      {/* Main card */}
+      <div
+        data-walkthrough="home-card"
+        className="animate-fade-up rounded-2xl border border-stone-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+        {/* Header row: version centered, theme toggle right-aligned. The empty
+            left spacer matches the toggle's width so the version stays centered. */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="w-9" aria-hidden="true" />
+          <span className="text-center text-xs text-stone-400 dark:text-neutral-500">
+            v{APP_VERSION}
+          </span>
           <button
             type="button"
-            onClick={handleRestartCore}
-            disabled={isRestartingCore}
-            className="w-full rounded-xl bg-amber-500 py-3 font-medium text-white transition-colors duration-200 hover:bg-amber-600 disabled:opacity-50">
-            {isRestartingCore ? t('home.restartingCore') : t('home.restartCore')}
+            onClick={toggleTheme}
+            aria-label={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
+            title={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
+            className="rounded-full p-2 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200">
+            {isDark ? (
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+                aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <path
+                  strokeLinecap="round"
+                  d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+                aria-hidden="true">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"
+                />
+              </svg>
+            )}
           </button>
-          {restartError && (
-            <p className="mt-2 text-center text-xs text-coral-500">{restartError}</p>
-          )}
         </div>
-      )}
+
+        {/* Animated greeting */}
+        <h1 className="min-h-[3.5rem] text-32l text-center font-bold text-stone-900 dark:text-neutral-100">
+          {typedWelcome}
+          <span aria-hidden="true" className="ml-0.5 inline-block animate-pulse text-primary-500">
+            |
+          </span>
+        </h1>
+
+        {/* Connection status */}
+        <div className="mb-3 flex justify-center">
+          <ConnectionIndicator />
+        </div>
+
+        {/* Description — copy mirrors the active blocking state. */}
+        <p className="text-center text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
+          {statusCopy}
+        </p>
+
+        {/* Recovery: only when the local core is the broken link. */}
+        {blocking === 'core-unreachable' && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleRestartCore}
+              disabled={isRestartingCore}
+              className="w-full rounded-xl bg-amber-500 py-3 font-medium text-white transition-colors duration-200 hover:bg-amber-600 disabled:opacity-50">
+              {isRestartingCore ? t('home.restartingCore') : t('home.restartCore')}
+            </button>
+            {restartError && <p className="mt-2 text-center text-xs text-coral-500">{restartError}</p>}
+          </div>
+        )}
+      </div>
 
       <DiscordBanner />
     </div>

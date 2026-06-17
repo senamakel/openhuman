@@ -156,11 +156,11 @@ export function createSimulation(
       'charge',
       forceManyBody<SimNode>()
         .strength(n => {
-          if (n.kind === 'root') return -1100;
-          if (n.kind === 'source') return -450;
-          return -220;
+          if (n.kind === 'root') return -650;
+          if (n.kind === 'source') return -280;
+          return -140;
         })
-        .distanceMax(400)
+        .distanceMax(300)
     )
     .force(
       'link',
@@ -169,13 +169,13 @@ export function createSimulation(
         .distance(link => {
           const src = link.source as SimNode;
           const tgt = link.target as SimNode;
-          if (src.kind === 'root' || tgt.kind === 'root') return 150;
-          if (src.kind === 'source' || tgt.kind === 'source') return 64;
-          return 38;
+          if (src.kind === 'root' || tgt.kind === 'root') return 90;
+          if (src.kind === 'source' || tgt.kind === 'source') return 40;
+          return 22;
         })
-        .strength(0.5)
+        .strength(0.7)
     )
-    .force('center', forceCenter(0, 0).strength(0.09))
+    .force('center', forceCenter(0, 0).strength(0.12))
     .force(
       'collide',
       forceCollide<SimNode>().radius(n => {

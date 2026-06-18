@@ -156,7 +156,21 @@ fn provider_allowed_hosts(provider: &str) -> &'static [&'static str] {
             "fbcdn.net",
             "facebook.com",
         ],
-        "twitter" => &["x.com", "twitter.com", "twimg.com", "t.co"],
+        "twitter" => &[
+            "x.com",
+            "twitter.com",
+            "twimg.com",
+            "t.co",
+            // X offers "Continue with Google" — keep the OAuth
+            // account-chooser popup inside this account's CEF profile.
+            "accounts.google.com",
+            "accounts.googleusercontent.com",
+            "ssl.gstatic.com",
+            "fonts.gstatic.com",
+            "lh3.googleusercontent.com",
+            "oauth2.googleapis.com",
+            "www.googleapis.com",
+        ],
         "google-meet" => &[
             "google.com",
             "googleusercontent.com",
@@ -361,7 +375,7 @@ fn is_provider_native_deep_link_scheme(scheme: &str) -> bool {
 fn provider_supports_google_sso(provider: &str) -> bool {
     matches!(
         provider,
-        "google-meet" | "slack" | "zoom" | "linkedin" | "gmail"
+        "google-meet" | "slack" | "zoom" | "linkedin" | "gmail" | "twitter"
     )
 }
 

@@ -198,11 +198,16 @@ fn new_providers_allowed_hosts_cover_web_and_login_domains() {
     assert!(provider_allowed_hosts("instagram").contains(&"facebook.com"));
     assert!(provider_allowed_hosts("twitter").contains(&"x.com"));
     assert!(provider_allowed_hosts("twitter").contains(&"twitter.com"));
+    // X "Continue with Google" must keep the OAuth popup in-profile.
+    assert!(provider_allowed_hosts("twitter").contains(&"accounts.google.com"));
 }
 
 #[test]
-fn gmail_supports_google_sso() {
+fn gmail_and_twitter_support_google_sso() {
     assert!(provider_supports_google_sso("gmail"));
+    // X offers "Continue with Google" — the popup must stay in the
+    // per-account CEF session (#3755).
+    assert!(provider_supports_google_sso("twitter"));
 }
 
 #[test]

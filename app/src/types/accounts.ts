@@ -7,6 +7,10 @@ export type AccountProvider =
   | 'linkedin'
   | 'slack'
   | 'discord'
+  | 'gmail'
+  | 'outlook'
+  | 'instagram'
+  | 'twitter'
   | 'google-meet'
   | 'zoom'
   | 'browserscan';
@@ -104,6 +108,30 @@ const BASE_PROVIDERS: ProviderDescriptor[] = [
     label: 'Discord',
     description: 'Discord servers and DMs — channel list and unread counts.',
     serviceUrl: 'https://discord.com/channels/@me',
+  },
+  {
+    id: 'gmail',
+    label: 'Gmail',
+    description: 'Your Gmail inbox, embedded and observed.',
+    serviceUrl: 'https://mail.google.com/mail/u/0/',
+  },
+  {
+    id: 'outlook',
+    label: 'Outlook',
+    description: 'Outlook / Microsoft 365 mail, embedded in-app.',
+    serviceUrl: 'https://outlook.live.com/mail/',
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    description: 'Instagram direct messages — DMs and conversations.',
+    serviceUrl: 'https://www.instagram.com/direct/inbox/',
+  },
+  {
+    id: 'twitter',
+    label: 'X (Twitter)',
+    description: 'X / Twitter direct messages.',
+    serviceUrl: 'https://x.com/messages/',
   },
   // Google Meet + Zoom are hidden from the picker for now — usage is low
   // and the integrations need more polish before re-surfacing them. Their

@@ -69,6 +69,21 @@ pub(crate) const PROVIDERS: &[Provider] = &[
         session_cookie_names: &["li_at"],
     },
     Provider {
+        key: "outlook",
+        host_suffix: ".live.com",
+        session_cookie_names: &["MSPAuth", "MSPProf", "RPSSecAuth"],
+    },
+    Provider {
+        key: "instagram",
+        host_suffix: ".instagram.com",
+        session_cookie_names: &["sessionid", "ds_user_id"],
+    },
+    Provider {
+        key: "twitter",
+        host_suffix: ".x.com",
+        session_cookie_names: &["auth_token", "ct0"],
+    },
+    Provider {
         key: "zoom",
         host_suffix: ".zoom.us",
         session_cookie_names: &["_zm_ssid", "zm_aid"],
@@ -344,6 +359,28 @@ mod tests {
         let v = detect_webview_logins();
         assert_eq!(v["slack"], Value::Bool(true));
         assert_eq!(v["linkedin"], Value::Bool(true));
+        assert_eq!(v["gmail"], Value::Bool(false));
+        std::env::remove_var(COOKIES_DB_ENV);
+    }
+
+    #[test]
+    fn detects_outlook_instagram_and_twitter() {
+        let _lock = lock_env();
+        let tmp = TempDir::new().unwrap();
+        let db = tmp.path().join("Cookies");
+        make_cookies_db(
+            &db,
+            &[
+                ("login.live.com", "MSPAuth"),
+                (".instagram.com", "sessionid"),
+                (".x.com", "auth_token"),
+            ],
+        );
+        std::env::set_var(COOKIES_DB_ENV, &db);
+        let v = detect_webview_logins();
+        assert_eq!(v["outlook"], Value::Bool(true));
+        assert_eq!(v["instagram"], Value::Bool(true));
+        assert_eq!(v["twitter"], Value::Bool(true));
         assert_eq!(v["gmail"], Value::Bool(false));
         std::env::remove_var(COOKIES_DB_ENV);
     }

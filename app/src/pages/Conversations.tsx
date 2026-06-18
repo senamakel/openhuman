@@ -2522,6 +2522,9 @@ const Conversations = ({
                 value={editTitleValue}
                 onChange={e => setEditTitleValue(e.target.value)}
                 onKeyDown={e => {
+                  // Ignore the Enter that confirms an IME composition candidate
+                  // (CJK input) so it doesn't prematurely commit the rename.
+                  if (isImeCompositionKeyEvent(e)) return;
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     handleCommitTitle();

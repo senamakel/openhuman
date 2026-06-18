@@ -677,6 +677,22 @@ describe('Conversations — thread rename', () => {
     expect(threadApi.updateTitle).not.toHaveBeenCalled();
   });
 
+  it('does not commit on the Enter that confirms an IME composition', async () => {
+    await renderWithSelectedThread();
+    const { threadApi } = await import('../../services/api/threadApi');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit thread title' }));
+    const input = await screen.findByRole('textbox', { name: 'Edit thread title' });
+    fireEvent.change(input, { target: { value: '日本語' } });
+    // keyCode 229 marks an IME composition keydown — Enter here confirms a
+    // candidate, not the rename.
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+
+    expect(threadApi.updateTitle).not.toHaveBeenCalled();
+    // Editor stays open for continued composition.
+    expect(screen.getByRole('textbox', { name: 'Edit thread title' })).toBeInTheDocument();
+  });
+
   it('skips persistence when the committed title is unchanged', async () => {
     await renderWithSelectedThread();
     const { threadApi } = await import('../../services/api/threadApi');

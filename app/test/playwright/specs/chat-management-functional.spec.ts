@@ -155,13 +155,23 @@ test.describe('Chat management functional coverage', () => {
   // vision flag at runtime is a follow-up (needs a page re-mount so the
   // composer's resolve picks up the flag — out of scope here).
 
-  test('thread delete remains usable from the conversation UI', async ({ page }) => {
+  test('thread rename and delete remain usable from the conversation UI', async ({ page }) => {
     await resetMock();
     await openChat(page, 'pw-chat-rename-delete');
     const threadId = await newThread(page);
+    const title = `Playwright thread ${Date.now()}`;
 
-    // NOTE: the chat-as-home shell refactor (#3751) removed the inline
-    // thread-rename ("Edit thread title") control from the conversation header.
+    // Inline rename from the conversation header (restored after #3751). The
+    // chat-as-home surface may auto-select a different empty thread, so assert
+    // on the unique renamed title appearing in the thread list rather than
+    // pinning to a specific row — that deterministically proves the header
+    // rename committed end-to-end. (Rename targeting is covered deterministically
+    // by the Conversations rename unit test.)
+    await page.getByRole('button', { name: 'Edit thread title' }).click({ force: true });
+    await page.getByRole('textbox', { name: 'Edit thread title' }).fill(title);
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(title).first()).toBeVisible({ timeout: 10_000 });
+
     // Deletion remains available from the thread row in the chat sidebar, which
     // is visible by default on the /chat surface.
     await page

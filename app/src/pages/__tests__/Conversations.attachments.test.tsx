@@ -638,3 +638,42 @@ describe('Conversations — attachment feature', () => {
     });
   });
 });
+
+describe('Conversations — thread rename', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetThreads.mockResolvedValue({ threads: [], count: 0 });
+    mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
+  });
+
+  it('commits an inline thread-title rename from the conversation header', async () => {
+    const { thread } = await renderWithSelectedThread();
+    const { threadApi } = await import('../../services/api/threadApi');
+
+    // Enter edit mode via the header pencil affordance.
+    fireEvent.click(screen.getByRole('button', { name: 'Edit thread title' }));
+    const input = await screen.findByRole('textbox', { name: 'Edit thread title' });
+    fireEvent.change(input, { target: { value: 'Renamed in header' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(threadApi.updateTitle).toHaveBeenCalledWith(thread.id, 'Renamed in header');
+    });
+  });
+
+  it('cancels the rename on Escape without dispatching an update', async () => {
+    await renderWithSelectedThread();
+    const { threadApi } = await import('../../services/api/threadApi');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit thread title' }));
+    const input = await screen.findByRole('textbox', { name: 'Edit thread title' });
+    fireEvent.change(input, { target: { value: 'Discarded title' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    // Editor closes back to the title heading; no persistence call fired.
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: 'Edit thread title' })).toBeNull();
+    });
+    expect(threadApi.updateTitle).not.toHaveBeenCalled();
+  });
+});

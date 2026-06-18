@@ -67,9 +67,18 @@ async function openChat(page: Page, userId: string): Promise<void> {
 async function newThread(page: Page): Promise<string> {
   // The sidebar "new thread" control now reads "New Conversation" (was "New"),
   // so anchor on its stable testid rather than the accessible name.
+  //
+  // chat-as-home may already have a non-null selectedThreadId (an auto-created
+  // empty thread) before this click, so waiting only for "non-null" could
+  // return that stale id while the click-created thread is still racing in.
+  // Capture the prior id and wait for the selection to advance to the freshly
+  // created thread (handleCreateNewThread always creates a new unique id).
+  const before = await selectedThreadId(page);
   await page.getByTestId('new-thread-button').click({ force: true });
-  await expect.poll(() => selectedThreadId(page), { timeout: 10_000 }).not.toBeNull();
-  return (await selectedThreadId(page))!;
+  await expect.poll(() => selectedThreadId(page), { timeout: 10_000 }).not.toBe(before);
+  const created = await selectedThreadId(page);
+  expect(created).not.toBeNull();
+  return created!;
 }
 
 test.describe('Chat management functional coverage', () => {

@@ -441,6 +441,7 @@ const Conversations = ({
   const handleStartEditTitle = () => {
     if (!selectedThreadId) return;
     const thr = threads.find(t => t.id === selectedThreadId);
+    debug('[chat] thread rename: start thread=%s', selectedThreadId);
     setEditTitleValue(thr?.title ?? '');
     ignoreNextTitleBlurRef.current = true;
     setEditingTitle(true);
@@ -454,10 +455,27 @@ const Conversations = ({
   const handleCommitTitle = () => {
     const trimmed = editTitleValue.trim();
     setEditingTitle(false);
-    if (!selectedThreadId || !trimmed) return;
+    // Title length only — never log the title text itself (may carry PII).
+    if (!selectedThreadId || !trimmed) {
+      debug('[chat] thread rename: commit skipped thread=%s empty=%s', selectedThreadId, !trimmed);
+      return;
+    }
     const currentTitle = threads.find(t => t.id === selectedThreadId)?.title?.trim();
-    if (trimmed === currentTitle) return;
-    void dispatch(updateThreadTitle({ threadId: selectedThreadId, title: trimmed }));
+    if (trimmed === currentTitle) {
+      debug('[chat] thread rename: commit skipped thread=%s (unchanged)', selectedThreadId);
+      return;
+    }
+    debug('[chat] thread rename: commit thread=%s len=%d', selectedThreadId, trimmed.length);
+    void dispatch(updateThreadTitle({ threadId: selectedThreadId, title: trimmed }))
+      .unwrap()
+      .then(() => debug('[chat] thread rename: committed thread=%s', selectedThreadId))
+      .catch(err =>
+        debug(
+          '[chat] thread rename: failed thread=%s err=%s',
+          selectedThreadId,
+          err instanceof Error ? err.message : String(err)
+        )
+      );
   };
 
   const handleSelectAgentProfile = async (profileId: string) => {
@@ -2537,7 +2555,7 @@ const Conversations = ({
                   onClick={handleStartEditTitle}
                   aria-label={t('chat.editThreadTitle')}
                   title={t('chat.editThreadTitle')}
-                  className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-stone-400 opacity-0 transition-all hover:bg-stone-100 hover:text-stone-600 group-hover/title:opacity-100 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300">
+                  className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-stone-400 opacity-0 transition-all hover:bg-stone-100 hover:text-stone-600 group-hover/title:opacity-100 group-focus-within/title:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300">
                   <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"

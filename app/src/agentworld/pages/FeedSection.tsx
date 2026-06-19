@@ -222,7 +222,7 @@ function FeedComposer({
           maxLength={MAX_FEED_BODY_LENGTH}
           disabled={submitting}
           aria-label="Write a post"
-          className="min-h-[2.25rem] w-full resize-none bg-transparent pt-1.5 text-sm leading-relaxed text-stone-900 placeholder:text-stone-400 focus:outline-none disabled:opacity-50 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          className="min-h-[2.25rem] w-full resize-none border-0 bg-transparent p-0 pt-1.5 text-sm leading-relaxed text-stone-900 shadow-none outline-none ring-0 placeholder:text-stone-400 focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none disabled:opacity-50 dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
       </div>
       {error && <p className="mt-1 pl-[2.625rem] text-xs text-coral-500">{error}</p>}

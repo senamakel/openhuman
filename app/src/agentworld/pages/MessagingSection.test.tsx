@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
-import MessagingSection from './MessagingSection';
+import MessagingSection, { TABS } from './MessagingSection';
 
 // Typed helpers so vi.mocked() calls are terse below.
 // These are resolved after the vi.mock factory runs.
@@ -167,12 +167,10 @@ beforeEach(() => {
 // ── DMs panel (E2E enabled) ───────────────────────────────────────────────────
 
 describe('DMs panel (E2E enabled)', () => {
-  test('renders DM compose UI with peer input when DMs tab is active', async () => {
+  test('renders DM compose UI with peer input by default (DMs-only surface)', async () => {
     render(<MessagingSection />);
 
-    const dmsButton = screen.getByRole('button', { name: 'DMs' });
-    await userEvent.click(dmsButton);
-
+    // DMs is the default (and only) visible view now — no tab click needed.
     // Should see the peer input, not the "coming soon" placeholder
     expect(screen.getByPlaceholderText(/Recipient agent ID/)).toBeInTheDocument();
     expect(screen.queryByTestId('dms-coming-soon')).not.toBeInTheDocument();
@@ -188,7 +186,6 @@ describe('DMs panel (E2E enabled)', () => {
     });
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
 
     // Enter peer ID and open DM
     const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
@@ -211,7 +208,6 @@ describe('DMs panel (E2E enabled)', () => {
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
     await user.type(peerInput, 'peerEmpty');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -227,7 +223,6 @@ describe('DMs panel (E2E enabled)', () => {
     vi.mocked(apiClient.signal.sendMessage).mockRejectedValueOnce(new Error('encryption failed'));
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
     await user.type(peerInput, 'peer456');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -263,7 +258,6 @@ describe('DMs panel (E2E enabled)', () => {
 
     const user = userEvent.setup();
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
     await user.type(peerInput, 'peer789');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -279,7 +273,6 @@ describe('DMs panel (E2E enabled)', () => {
     const user = userEvent.setup();
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
     await user.type(peerInput, 'peer999');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -292,20 +285,20 @@ describe('DMs panel (E2E enabled)', () => {
 
 describe('tab navigation', () => {
   test('defaults to Channels tab', () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     const channelsBtn = screen.getByRole('button', { name: 'Channels' });
     expect(channelsBtn).toHaveAttribute('data-active', 'true');
   });
 
   test('can switch to Groups tab', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     const groupsBtn = screen.getByRole('button', { name: 'Groups' });
     await userEvent.click(groupsBtn);
     expect(groupsBtn).toHaveAttribute('data-active', 'true');
   });
 
   test('can switch to Inbox tab', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     const inboxBtn = screen.getByRole('button', { name: 'Inbox' });
     await userEvent.click(inboxBtn);
     expect(inboxBtn).toHaveAttribute('data-active', 'true');
@@ -316,25 +309,25 @@ describe('tab navigation', () => {
 
 describe('empty states', () => {
   test('shows "No channels found" when channels list is empty', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     // Wait for the async fetch to settle
     expect(await screen.findByText(/No channels found/i)).toBeInTheDocument();
   });
 
   test('shows "No groups found" when groups list is empty', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     expect(await screen.findByText(/No groups found/i)).toBeInTheDocument();
   });
 
   test('shows "No broadcasts found" when broadcasts list is empty', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Broadcasts' }));
     expect(await screen.findByText(/No broadcasts found/i)).toBeInTheDocument();
   });
 
   test('shows "Your inbox is empty" when inbox is empty', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
     expect(await screen.findByText(/Your inbox is empty/i)).toBeInTheDocument();
   });
@@ -368,7 +361,7 @@ describe('inbox actions', () => {
   });
 
   async function openInbox() {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
     await screen.findByText('Hello there');
   }
@@ -422,7 +415,7 @@ describe('membership actions', () => {
         },
       ],
     });
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await screen.findByText('General');
     await userEvent.click(screen.getByRole('button', { name: 'Join' }));
     expect(apiClient.channels.join).toHaveBeenCalledWith('ch-1');
@@ -438,7 +431,7 @@ describe('membership actions', () => {
         visibility: 'public',
       },
     ]);
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Broadcasts' }));
     await screen.findByText('Updates');
     await userEvent.click(screen.getByRole('button', { name: 'Subscribe' }));
@@ -459,7 +452,7 @@ describe('membership actions', () => {
     setWallet('agent-abc');
     // Both public and membership queries return the same group so button shows "Leave".
     vi.mocked(apiClient.groups.list).mockResolvedValue([group]);
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Builders');
     await userEvent.click(screen.getByRole('button', { name: 'Leave' }));
@@ -490,7 +483,7 @@ describe('group membership-aware button rendering', () => {
   };
 
   async function openGroups() {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Alpha');
   }
@@ -539,7 +532,7 @@ describe('group membership-aware button rendering', () => {
 
     vi.mocked(apiClient.groups.join).mockResolvedValue(undefined);
 
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Alpha');
 
@@ -567,7 +560,7 @@ describe('group membership-aware button rendering', () => {
 
     vi.mocked(apiClient.groups.leave).mockResolvedValue(undefined);
 
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Alpha');
 
@@ -586,7 +579,7 @@ describe('group membership-aware button rendering', () => {
     setWallet('agent-solana-123');
     vi.mocked(apiClient.groups.list).mockResolvedValue([]);
 
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText(/No groups found/i);
 
@@ -618,7 +611,7 @@ describe('group invite management', () => {
   });
 
   test('renders "Invites" button on group cards', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Invite Test Group');
     expect(screen.getByRole('button', { name: 'Invites' })).toBeInTheDocument();
@@ -626,7 +619,7 @@ describe('group invite management', () => {
 
   test('clicking "Invites" opens GroupInvitesPanel and calls listInvites', async () => {
     vi.mocked(apiClient.groups.listInvites).mockResolvedValue([]);
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Invite Test Group');
     await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
@@ -645,7 +638,7 @@ describe('group invite management', () => {
         maxUses: 10,
       },
     ]);
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Invite Test Group');
     await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
@@ -656,7 +649,7 @@ describe('group invite management', () => {
 
   test('Create Invite button calls groups.createInvite', async () => {
     vi.mocked(apiClient.groups.listInvites).mockResolvedValue([]);
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Invite Test Group');
     await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
@@ -675,7 +668,7 @@ describe('group invite management', () => {
         uses: 0,
       },
     ]);
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Invite Test Group');
     await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
@@ -686,7 +679,7 @@ describe('group invite management', () => {
 
   test('Close button returns to the group list', async () => {
     vi.mocked(apiClient.groups.listInvites).mockResolvedValue([]);
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByText('Invite Test Group');
     await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
@@ -699,13 +692,13 @@ describe('group invite management', () => {
 
 describe('redeem invite', () => {
   test('renders "Redeem Invite" button in the groups tab', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     expect(await screen.findByRole('button', { name: 'Redeem Invite' })).toBeInTheDocument();
   });
 
   test('clicking "Redeem Invite" opens the redeem panel with inputs', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await screen.findByRole('button', { name: 'Redeem Invite' });
     await userEvent.click(screen.getByRole('button', { name: 'Redeem Invite' }));
@@ -722,7 +715,7 @@ describe('redeem invite', () => {
       invitedBy: 'admin-1',
       valid: true,
     });
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await userEvent.click(screen.getByRole('button', { name: 'Redeem Invite' }));
     await userEvent.type(screen.getByPlaceholderText('Group ID'), 'g-prev');
@@ -741,7 +734,7 @@ describe('redeem invite', () => {
       joinedAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     });
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
     await userEvent.click(screen.getByRole('button', { name: 'Redeem Invite' }));
     await userEvent.type(screen.getByPlaceholderText('Group ID'), 'g-redeem');
@@ -776,7 +769,7 @@ describe('inbox stream lifecycle', () => {
   });
 
   test('calls streams.start with "inbox" when Inbox tab is opened', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
     // Wait for async effects to settle.
     await screen.findByText(/Your inbox is empty/i);
@@ -789,7 +782,7 @@ describe('inbox stream lifecycle', () => {
       status: 'connected',
       clearMessages: vi.fn(),
     }));
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
     // Wait for the async inbox fetch to settle and the live indicator to appear.
     await screen.findByTestId('inbox-live-indicator');
@@ -797,7 +790,7 @@ describe('inbox stream lifecycle', () => {
   });
 
   test('does NOT render the Live indicator when streamStatus is idle', async () => {
-    render(<MessagingSection />);
+    render(<MessagingSection tabs={TABS} />);
     await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
     await screen.findByText(/Your inbox is empty/i);
     expect(screen.queryByTestId('inbox-live-indicator')).not.toBeInTheDocument();

@@ -44,7 +44,7 @@ const E2E_MESSAGING_ENABLED = true;
 
 // ── Tab definition ────────────────────────────────────────────────────────────
 
-const TABS = ['channels', 'groups', 'broadcasts', 'inbox', 'dms'] as const;
+export const TABS = ['channels', 'groups', 'broadcasts', 'inbox', 'dms'] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -1276,29 +1276,45 @@ function DmsPanel() {
 
 // ── Messaging section root ────────────────────────────────────────────────────
 
-export default function MessagingSection() {
-  const [activeTab, setActiveTab] = useState<Tab>('channels');
+// Messaging is currently focused on DMs only. The channels / groups /
+// broadcasts / inbox panels (and their tab bar) are intentionally hidden — add
+// their slugs back here to restore the full tab bar; the panels below stay
+// wired up (hidden, not removed). With a single visible tab the bar is hidden
+// entirely so the surface goes straight to DMs.
+const VISIBLE_TABS: readonly Tab[] = ['dms'];
+
+export default function MessagingSection({
+  tabs = VISIBLE_TABS,
+}: {
+  // Which tabs to surface. Defaults to DMs-only (the tab bar hides itself when
+  // a single tab is visible). Overridable so the hidden panels stay testable.
+  tabs?: readonly Tab[];
+} = {}) {
+  const [activeTab, setActiveTab] = useState<Tab>(tabs[0]);
+  const showTabBar = tabs.length > 1;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tab chips */}
-      <div className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0">
-        {TABS.map(tab => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            data-active={activeTab === tab}
-            className={[
-              'whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors',
-              activeTab === tab
-                ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
-            ].join(' ')}>
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </div>
+      {/* Tab chips — only shown when more than one tab is enabled. */}
+      {showTabBar && (
+        <div className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0">
+          {tabs.map(tab => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              data-active={activeTab === tab}
+              className={[
+                'whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                activeTab === tab
+                  ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                  : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
+              ].join(' ')}>
+              {TAB_LABELS[tab]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Signal key status — always visible when wallet is connected */}
       <SignalKeyStatusCard />

@@ -1611,6 +1611,9 @@ const Conversations = ({
                         e.preventDefault();
                         handleCommitTitle(thread.id);
                       } else if (e.key === 'Escape') {
+                        // Escape is an explicit cancel — suppress the commit the
+                        // ensuing blur would otherwise fire.
+                        ignoreNextTitleBlurRef.current = true;
                         setEditingThreadId(null);
                       }
                     }}

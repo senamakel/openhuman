@@ -3832,35 +3832,35 @@ pub(crate) fn handle_tinyplace_graphql_bounties(params: Map<String, Value>) -> C
         // filter object by hand (all fields optional). Reject malformed input
         // rather than silently dropping it — a mistyped `limit`/`creator` must
         // not degrade into an unfiltered public list.
-        let query_params: Option<tinyplace::api::graphql::BountyGraphQLParams> =
-            match params.get("params") {
-                None | Some(Value::Null) => None,
-                Some(Value::Object(obj)) => {
-                    let str_field = |key: &str| -> Result<Option<String>, String> {
-                        match obj.get(key) {
-                            None | Some(Value::Null) => Ok(None),
-                            Some(Value::String(s)) => Ok(Some(s.clone())),
-                            Some(_) => Err(format!("graphql_bounties param '{key}' must be a string")),
-                        }
-                    };
-                    let int_field = |key: &str| -> Result<Option<i64>, String> {
-                        match obj.get(key) {
-                            None | Some(Value::Null) => Ok(None),
-                            Some(v) => v
-                                .as_i64()
-                                .map(Some)
-                                .ok_or_else(|| format!("graphql_bounties param '{key}' must be an integer")),
-                        }
-                    };
-                    Some(tinyplace::api::graphql::BountyGraphQLParams {
-                        status: str_field("status")?,
-                        creator: str_field("creator")?,
-                        limit: int_field("limit")?,
-                        offset: int_field("offset")?,
-                    })
-                }
-                Some(_) => return Err("graphql_bounties 'params' must be an object".to_string()),
-            };
+        let query_params: Option<tinyplace::api::graphql::BountyGraphQLParams> = match params
+            .get("params")
+        {
+            None | Some(Value::Null) => None,
+            Some(Value::Object(obj)) => {
+                let str_field = |key: &str| -> Result<Option<String>, String> {
+                    match obj.get(key) {
+                        None | Some(Value::Null) => Ok(None),
+                        Some(Value::String(s)) => Ok(Some(s.clone())),
+                        Some(_) => Err(format!("graphql_bounties param '{key}' must be a string")),
+                    }
+                };
+                let int_field = |key: &str| -> Result<Option<i64>, String> {
+                    match obj.get(key) {
+                        None | Some(Value::Null) => Ok(None),
+                        Some(v) => v.as_i64().map(Some).ok_or_else(|| {
+                            format!("graphql_bounties param '{key}' must be an integer")
+                        }),
+                    }
+                };
+                Some(tinyplace::api::graphql::BountyGraphQLParams {
+                    status: str_field("status")?,
+                    creator: str_field("creator")?,
+                    limit: int_field("limit")?,
+                    offset: int_field("offset")?,
+                })
+            }
+            Some(_) => return Err("graphql_bounties 'params' must be an object".to_string()),
+        };
 
         let client = global_state().client().await?;
         // GraphQLAuth::None — bounties are public.

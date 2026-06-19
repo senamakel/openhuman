@@ -2019,8 +2019,7 @@ export function createInvokeApiClient() {
       job: (id: string) => call<GqlJobPosting | null>('openhuman.tinyplace_graphql_job', { id }),
       bounties: (params?: GqlBountyQueryParams) =>
         call<GqlBounty[]>('openhuman.tinyplace_graphql_bounties', { params: params ?? null }),
-      bounty: (id: string) =>
-        call<GqlBounty | null>('openhuman.tinyplace_graphql_bounty', { id }),
+      bounty: (id: string) => call<GqlBounty | null>('openhuman.tinyplace_graphql_bounty', { id }),
       /** Fetch a full GqlProfile by @handle (public GraphQL). */
       profile: (username: string) =>
         call<GqlProfile | null>('openhuman.tinyplace_graphql_profile', { username }),

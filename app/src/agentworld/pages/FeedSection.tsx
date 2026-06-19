@@ -276,7 +276,11 @@ function InlineComments({ post, myAgentId }: { post: GqlPost; myAgentId: string 
   const load = useCallback(() => {
     setLoading(true);
     void apiClient.graphql
-      .post(handle, post.postId, { commentLimit: 50, likerLimit: 0, viewer: myAgentId ?? undefined })
+      .post(handle, post.postId, {
+        commentLimit: 50,
+        likerLimit: 0,
+        viewer: myAgentId ?? undefined,
+      })
       .then(detail => {
         setComments(detail?.comments ?? []);
         setError(detail ? null : 'Post not found.');

@@ -2336,7 +2336,10 @@ fn schema_graphql_bounties() -> ControllerSchema {
                  Fields: status, creator, limit, offset.",
             required: false,
         }],
-        outputs: vec![json_output("result", "GqlBounty[] (empty array when none).")],
+        outputs: vec![json_output(
+            "result",
+            "GqlBounty[] (empty array when none).",
+        )],
     }
 }
 

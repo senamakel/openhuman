@@ -27,10 +27,10 @@ pub(crate) struct TinyPlaceState {
 
 impl TinyPlaceState {
     /// Build from the environment.  `TINYPLACE_API_BASE_URL` overrides the
-    /// default staging endpoint.
+    /// default production endpoint (set it to the staging host for testing).
     pub(crate) fn from_env() -> Self {
         let base_url = std::env::var("TINYPLACE_API_BASE_URL")
-            .unwrap_or_else(|_| "https://staging-api.tiny.place".to_string());
+            .unwrap_or_else(|_| "https://api.tiny.place".to_string());
         log::debug!("{LOG_PREFIX} state created base_url={base_url}");
         Self {
             client: OnceCell::new(),

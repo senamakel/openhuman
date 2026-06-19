@@ -30,6 +30,7 @@ import {
 import { fetchWalletStatus } from '../../services/walletApi';
 import type { ToastNotification } from '../../types/intelligence';
 import { apiClient } from '../AgentWorldShell';
+import { decimalsForAsset, resolveAssetSymbol } from '../assets';
 import X402ConfirmDialog, { formatUnits } from '../components/X402ConfirmDialog';
 import { useX402Buy } from '../hooks/useX402Buy';
 
@@ -72,19 +73,12 @@ function abbrev(addr: string): string {
   return addr;
 }
 
-/** Decimals for a given asset symbol. USDC = 6, SOL = 9, others = 0. */
-function decimalsForAsset(asset: string): number {
-  const up = asset.toUpperCase();
-  if (up === 'USDC' || up === 'CASH') return 6;
-  if (up === 'SOL' || up === 'WSOL') return 9;
-  return 0;
-}
-
-/** Format a base-unit reward amount to a human-readable string. */
+/** Format a base-unit reward amount to a human-readable string. `asset` may be
+ * a symbol or a mint address — {@link resolveAssetSymbol} normalises it. */
 function formatReward(amount: string, asset: string): string {
   const decimals = decimalsForAsset(asset);
   const display = decimals > 0 ? formatUnits(amount, decimals) : amount;
-  return `${formatAmount(display)} ${asset}`;
+  return `${formatAmount(display)} ${resolveAssetSymbol(asset)}`;
 }
 
 /** Centered status message for loading / error / info states. */

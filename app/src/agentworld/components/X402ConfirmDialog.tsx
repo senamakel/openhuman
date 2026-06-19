@@ -13,6 +13,7 @@
 import Button from '../../components/ui/Button';
 import { ModalShell } from '../../components/ui/ModalShell';
 import { openUrl } from '../../utils/openUrl';
+import { decimalsForAsset, resolveAssetSymbol } from '../assets';
 
 /** tiny.place hosted funding page — handles deposits / on-ramp for the wallet. */
 const FUND_PAGE_URL = 'https://tiny.place/fund';
@@ -115,7 +116,10 @@ export default function X402ConfirmDialog({
   onConfirm,
   onCancel,
 }: X402ConfirmDialogProps) {
-  const decimals = balance?.decimals ?? (asset === 'USDC' ? 6 : 0);
+  // `asset` may arrive as a mint address; resolve to a display symbol + decimals
+  // (preferring the wallet's own resolution when present).
+  const assetSymbol = resolveAssetSymbol(asset, balance?.assetSymbol);
+  const decimals = decimalsForAsset(asset, balance?.decimals);
   const amountDisplay = formatUnits(amount, decimals);
   const insufficient = isInsufficient(balance, amount);
   const confirmDisabled = busy || insufficient;
@@ -133,7 +137,7 @@ export default function X402ConfirmDialog({
             <span
               className="font-semibold text-stone-900 dark:text-neutral-100"
               data-testid="x402-amount">
-              {amountDisplay} {asset}
+              {amountDisplay} {assetSymbol}
             </span>
           </Row>
           <Row label="Network">
@@ -159,7 +163,7 @@ export default function X402ConfirmDialog({
 
         {insufficient ? (
           <p className="text-xs text-coral-500" data-testid="x402-insufficient">
-            Insufficient {asset} balance to complete this payment. Add funds to your wallet to
+            Insufficient {assetSymbol} balance to complete this payment. Add funds to your wallet to
             continue.
           </p>
         ) : (
@@ -179,7 +183,7 @@ export default function X402ConfirmDialog({
               variant="primary"
               size="sm"
               onClick={() => {
-                void openUrl(fundingUrl(walletAddress, asset));
+                void openUrl(fundingUrl(walletAddress, assetSymbol));
               }}
               data-testid="x402-add-funds">
               Add funds

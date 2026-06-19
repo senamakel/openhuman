@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import { type GqlLedgerTransaction } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
+import { decimalsForAsset, resolveAssetSymbol } from '../assets';
 import { formatUnits, friendlyNetwork } from '../components/X402ConfirmDialog';
 import { explorerTxUrl } from '../hooks/useX402Buy';
 
@@ -59,19 +60,11 @@ export function formatAmount(amount: string | undefined): string {
   return negative ? `-${out}` : out;
 }
 
-/** Decimals for a given asset symbol. USDC/CASH = 6, SOL/WSOL = 9, others = 0. */
-function decimalsForAsset(asset: string | undefined): number {
-  const up = (asset ?? '').toUpperCase();
-  if (up === 'USDC' || up === 'CASH') return 6;
-  if (up === 'SOL' || up === 'WSOL') return 9;
-  return 0;
-}
-
 /**
  * Ledger amounts arrive in the asset's smallest base unit (e.g. USDC in 1e-6
  * micro-units), so they must be scaled to display units before grouping —
- * otherwise every value reads ~1,000,000× too large. Mirrors BountiesSection's
- * `formatReward`.
+ * otherwise every value reads ~1,000,000× too large. `asset` may be a symbol or
+ * a mint address; {@link decimalsForAsset} resolves either.
  */
 export function formatLedgerAmount(amount: string | undefined, asset: string | undefined): string {
   if (!amount) return formatAmount(amount);
@@ -178,7 +171,7 @@ function TransactionRow({
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
               {formatLedgerAmount(tx.amount, tx.asset)}
-              {tx.asset ? ` ${tx.asset}` : ''}
+              {tx.asset ? ` ${resolveAssetSymbol(tx.asset)}` : ''}
             </span>
             <TypeBadge type={tx.type} />
             <StatusBadge status={tx.status} />

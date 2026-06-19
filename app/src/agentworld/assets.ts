@@ -34,7 +34,7 @@ function looksLikeMint(value: string): boolean {
  * the value itself when it already looks like a symbol → a truncated address.
  */
 export function resolveAssetSymbol(asset: string | undefined, walletSymbol?: string): string {
-  if (walletSymbol && walletSymbol.trim()) return walletSymbol;
+  if (walletSymbol && walletSymbol.trim()) return walletSymbol.trim();
   if (!asset) return '';
   if (KNOWN_MINTS[asset]) return KNOWN_MINTS[asset];
   if (!looksLikeMint(asset)) return asset; // already a symbol

@@ -68,6 +68,9 @@ export function formatAmount(amount: string | undefined): string {
  */
 export function formatLedgerAmount(amount: string | undefined, asset: string | undefined): string {
   if (!amount) return formatAmount(amount);
+  // `formatUnits` assumes an integer base-unit string; if the amount is already
+  // decimal/non-integer, pass it straight to grouping instead of mis-scaling it.
+  if (!/^-?\d+$/.test(amount)) return formatAmount(amount);
   const decimals = decimalsForAsset(asset);
   const display = decimals > 0 ? formatUnits(amount, decimals) : amount;
   return formatAmount(display);

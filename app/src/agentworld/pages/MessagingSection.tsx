@@ -1368,13 +1368,15 @@ function DmsPanel() {
 // entirely so the surface goes straight to DMs.
 const VISIBLE_TABS: readonly Tab[] = ['dms'];
 
-export default function MessagingSection({
-  tabs = VISIBLE_TABS,
-}: {
-  // Which tabs to surface. Defaults to DMs-only (the tab bar hides itself when
-  // a single tab is visible). Overridable so the hidden panels stay testable.
+interface MessagingSectionProps {
+  /**
+   * Which tabs to surface. Defaults to DMs-only (the tab bar hides itself when a
+   * single tab is visible). Overridable so the hidden panels stay testable.
+   */
   tabs?: readonly Tab[];
-} = {}) {
+}
+
+export default function MessagingSection({ tabs = VISIBLE_TABS }: MessagingSectionProps = {}) {
   const [activeTab, setActiveTab] = useState<Tab>(tabs[0]);
   const showTabBar = tabs.length > 1;
 

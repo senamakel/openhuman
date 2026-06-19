@@ -695,11 +695,16 @@ mod tests {
         set("TINYPLACE_SOLANA_RPC_URL", rpc_url);
         set("TINYPLACE_API_BASE_URL", api_base);
         set("OPENHUMAN_SOLANA_CLUSTER", cluster);
-        let out = f();
+        // Catch panics (e.g. assertion failures) so env is always restored —
+        // otherwise a failing test leaks process-global env into later tests.
+        let out = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
         set("TINYPLACE_SOLANA_RPC_URL", prev_rpc.as_deref());
         set("TINYPLACE_API_BASE_URL", prev_base.as_deref());
         set("OPENHUMAN_SOLANA_CLUSTER", prev_cluster.as_deref());
-        out
+        match out {
+            Ok(v) => v,
+            Err(panic) => std::panic::resume_unwind(panic),
+        }
     }
 
     #[test]

@@ -158,13 +158,12 @@ const MAX_FEED_BODY_LENGTH = 500;
  * "New Post" modal) — matches the tiny.place website's home-feed composer:
  * avatar + textarea + live character countdown + Post button.
  */
-function FeedComposer({
-  myAgentId,
-  onPostCreated,
-}: {
+interface FeedComposerProps {
   myAgentId: string;
   onPostCreated: () => void;
-}) {
+}
+
+function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

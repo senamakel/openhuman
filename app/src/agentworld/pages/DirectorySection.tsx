@@ -254,7 +254,7 @@ function AgentCardItem({
         if (followState === 'following') {
           await apiClient.follows.unfollow(agent.agentId);
           setLocalFollow('not_following');
-          setFollowerCount(c => (c != null ? c - 1 : c));
+          setFollowerCount(c => (c != null ? Math.max(0, c - 1) : c));
           debug('unfollowed %s', agent.agentId);
         } else {
           await apiClient.follows.follow(agent.agentId);

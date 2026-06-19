@@ -22,7 +22,13 @@ import DirectorySection from './DirectorySection';
 vi.mock('../AgentWorldShell', () => ({
   apiClient: {
     directory: { listAgents: vi.fn() },
-    follows: { stats: vi.fn(), followers: vi.fn(), follow: vi.fn(), unfollow: vi.fn() },
+    follows: {
+      stats: vi.fn(),
+      followers: vi.fn(),
+      following: vi.fn(),
+      follow: vi.fn(),
+      unfollow: vi.fn(),
+    },
   },
 }));
 
@@ -31,7 +37,7 @@ vi.mock('../../services/walletApi', () => ({ fetchWalletStatus: vi.fn() }));
 const listAgents = vi.mocked(apiClient.directory.listAgents);
 const walletStatus = vi.mocked(fetchWalletStatus);
 const followStats = vi.mocked(apiClient.follows.stats);
-const followFollowers = vi.mocked(apiClient.follows.followers);
+const followFollowing = vi.mocked(apiClient.follows.following);
 const followFollow = vi.mocked(apiClient.follows.follow);
 const followUnfollow = vi.mocked(apiClient.follows.unfollow);
 
@@ -41,9 +47,9 @@ beforeEach(() => {
   walletStatus.mockResolvedValue({
     accounts: [{ chain: 'solana', address: 'MyWaLLetAddr123' }],
   } as unknown as Awaited<ReturnType<typeof fetchWalletStatus>>);
-  // Default: stats and followers return empty/zero.
+  // Default: stats return zero and we follow nobody (single batched lookup).
   followStats.mockResolvedValue({ agentId: '', followerCount: 0, followingCount: 0 });
-  followFollowers.mockResolvedValue({ followers: [] });
+  followFollowing.mockResolvedValue({ following: [] });
 });
 
 // ── Loading state ──────────────────────────────────────────────────────────────
@@ -329,7 +335,7 @@ describe('follow button', () => {
     listAgents.mockResolvedValueOnce({
       agents: [{ agentId: 'other-agent-001', username: 'alice', name: 'Alice' }],
     });
-    followFollowers.mockResolvedValueOnce({ followers: [] });
+    followFollowing.mockResolvedValueOnce({ following: [] });
     followStats.mockResolvedValueOnce({
       agentId: 'other-agent-001',
       followerCount: 5,
@@ -347,8 +353,8 @@ describe('follow button', () => {
     listAgents.mockResolvedValueOnce({
       agents: [{ agentId: 'other-agent-002', username: 'bob', name: 'Bob' }],
     });
-    followFollowers.mockResolvedValueOnce({
-      followers: [{ follower: 'MyWaLLetAddr123', followee: 'other-agent-002', createdAt: '' }],
+    followFollowing.mockResolvedValueOnce({
+      following: [{ follower: 'MyWaLLetAddr123', followee: 'other-agent-002', createdAt: '' }],
     });
     followStats.mockResolvedValueOnce({
       agentId: 'other-agent-002',
@@ -375,7 +381,7 @@ describe('follow button', () => {
     listAgents.mockResolvedValueOnce({
       agents: [{ agentId: 'other-agent-003', username: 'carol', name: 'Carol' }],
     });
-    followFollowers.mockResolvedValueOnce({ followers: [] });
+    followFollowing.mockResolvedValueOnce({ following: [] });
     followStats.mockResolvedValueOnce({
       agentId: 'other-agent-003',
       followerCount: 0,
@@ -393,13 +399,36 @@ describe('follow button', () => {
     expect(await screen.findByText('Following')).toBeInTheDocument();
   });
 
+  test('fetches the following-set once for the whole directory (no per-card N+1)', async () => {
+    listAgents.mockResolvedValueOnce({
+      agents: [
+        { agentId: 'other-agent-a', username: 'a', name: 'A' },
+        { agentId: 'other-agent-b', username: 'b', name: 'B' },
+        { agentId: 'other-agent-c', username: 'c', name: 'C' },
+      ],
+    });
+    followFollowing.mockResolvedValueOnce({
+      following: [{ follower: 'MyWaLLetAddr123', followee: 'other-agent-b', createdAt: '' }],
+    });
+    render(<DirectorySection />);
+
+    // Card B resolves to Following from the single batched lookup.
+    expect(await screen.findByText('Following')).toBeInTheDocument();
+
+    // One batched following lookup regardless of card count; the old per-card
+    // followers lookup must not fire at all.
+    expect(followFollowing).toHaveBeenCalledTimes(1);
+    expect(followFollowing).toHaveBeenCalledWith('MyWaLLetAddr123', expect.anything());
+    expect(apiClient.follows.followers).not.toHaveBeenCalled();
+  });
+
   test('clicking Following calls follows.unfollow and reverts to Follow', async () => {
     const user = userEvent.setup();
     listAgents.mockResolvedValueOnce({
       agents: [{ agentId: 'other-agent-004', username: 'dave', name: 'Dave' }],
     });
-    followFollowers.mockResolvedValueOnce({
-      followers: [{ follower: 'MyWaLLetAddr123', followee: 'other-agent-004', createdAt: '' }],
+    followFollowing.mockResolvedValueOnce({
+      following: [{ follower: 'MyWaLLetAddr123', followee: 'other-agent-004', createdAt: '' }],
     });
     followStats.mockResolvedValueOnce({
       agentId: 'other-agent-004',

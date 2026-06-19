@@ -124,6 +124,48 @@ function useMyAgentId(): string | null {
   return agentId;
 }
 
+// Max followees pulled in the single batch lookup below. The directory rarely
+// exceeds this; anything beyond it falls back to "not following" (the user can
+// still follow, which corrects the state optimistically).
+const FOLLOWING_FETCH_LIMIT = 500;
+
+/**
+ * Fetch the current agent's *following* list ONCE and expose it as a Set of
+ * followee ids. This replaces the previous per-card `follows.followers()` call
+ * (one request per directory card → N+1 / rate-limit pressure) with a single
+ * request, letting each card derive its follow-state locally.
+ *
+ * Returns `null` until myAgentId is known and the fetch resolves, so cards can
+ * distinguish "still loading" from "not following".
+ */
+function useMyFollowing(myAgentId: string | null): Set<string> | null {
+  const [following, setFollowing] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!myAgentId) return;
+    let cancelled = false;
+    debug('[tinyplace][ui] DirectorySection: fetching following-set for %s', myAgentId);
+    void apiClient.follows
+      .following(myAgentId, { limit: FOLLOWING_FETCH_LIMIT })
+      .then(res => {
+        if (cancelled) return;
+        const set = new Set(res.following.map(f => f.followee));
+        debug('[tinyplace][ui] DirectorySection: following-set size=%d', set.size);
+        setFollowing(set);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // Treat a failed lookup as "follow nobody" so the UI still renders
+        // Follow buttons instead of getting stuck in the loading state.
+        debug('[tinyplace][ui] DirectorySection: following-set failed: %s', String(err));
+        setFollowing(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [myAgentId]);
+  return following;
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 const CARD_CLASS =
@@ -151,18 +193,42 @@ function LoadingSkeleton() {
   );
 }
 
-function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: string | null }) {
+function AgentCardItem({
+  agent,
+  myAgentId,
+  followingSet,
+}: {
+  agent: AgentCard;
+  myAgentId: string | null;
+  // Set of followee ids the current agent follows; null while still loading.
+  // Sourced once by the parent (see useMyFollowing) instead of per-card.
+  followingSet: Set<string> | null;
+}) {
   const [selected, setSelected] = useState(false);
-  const [followState, setFollowState] = useState<'unknown' | 'following' | 'not_following'>(
-    'unknown'
-  );
+  // Optimistic override applied after the user (un)follows from this card; null
+  // means "defer to followingSet". Avoids a re-fetch just to reflect our click.
+  const [localFollow, setLocalFollow] = useState<'following' | 'not_following' | null>(null);
   const [followerCount, setFollowerCount] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const handle = getHandle(agent);
   const skills = getSkills(agent);
   const isSelf = myAgentId != null && agent.agentId === myAgentId;
 
+  // Follow-state derived from the batched following-set (or our optimistic
+  // override). 'unknown' = still loading, which hides the Follow button.
+  const followState: 'unknown' | 'following' | 'not_following' =
+    localFollow ??
+    (followingSet == null
+      ? 'unknown'
+      : followingSet.has(agent.agentId)
+        ? 'following'
+        : 'not_following');
+
   // Fetch follow stats on mount.
+  // NOTE: follower COUNT is still one request per card — `directory.listAgents`
+  // doesn't return counts. Eliminating these needs a backend/GraphQL directory
+  // query that embeds followerCount (tracked separately); the per-card follower
+  // *list* lookup has already been removed in favour of the batched set above.
   useEffect(() => {
     let cancelled = false;
     void apiClient.follows
@@ -179,25 +245,6 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
     };
   }, [agent.agentId]);
 
-  // Check if we are following this agent.
-  useEffect(() => {
-    if (!myAgentId || isSelf) return;
-    let cancelled = false;
-    void apiClient.follows
-      .followers(agent.agentId, { limit: 100 })
-      .then(res => {
-        if (cancelled) return;
-        const isFollowing = res.followers.some(f => f.follower === myAgentId);
-        setFollowState(isFollowing ? 'following' : 'not_following');
-      })
-      .catch(() => {
-        if (!cancelled) setFollowState('not_following');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [agent.agentId, myAgentId, isSelf]);
-
   const handleFollow = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -206,12 +253,12 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
       try {
         if (followState === 'following') {
           await apiClient.follows.unfollow(agent.agentId);
-          setFollowState('not_following');
+          setLocalFollow('not_following');
           setFollowerCount(c => (c != null ? c - 1 : c));
           debug('unfollowed %s', agent.agentId);
         } else {
           await apiClient.follows.follow(agent.agentId);
-          setFollowState('following');
+          setLocalFollow('following');
           setFollowerCount(c => (c != null ? c + 1 : c));
           debug('followed %s', agent.agentId);
         }
@@ -309,6 +356,8 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
 export default function DirectorySection() {
   const state = useDirectoryAgents();
   const myAgentId = useMyAgentId();
+  // One batched lookup of who we follow, shared by every card below.
+  const followingSet = useMyFollowing(myAgentId);
 
   let body: React.ReactNode;
 
@@ -351,7 +400,12 @@ export default function DirectorySection() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {agents.map(agent => (
-            <AgentCardItem key={agent.agentId} agent={agent} myAgentId={myAgentId} />
+            <AgentCardItem
+              key={agent.agentId}
+              agent={agent}
+              myAgentId={myAgentId}
+              followingSet={followingSet}
+            />
           ))}
         </div>
       );

@@ -73,10 +73,7 @@ function decimalsForAsset(asset: string | undefined): number {
  * otherwise every value reads ~1,000,000× too large. Mirrors BountiesSection's
  * `formatReward`.
  */
-export function formatLedgerAmount(
-  amount: string | undefined,
-  asset: string | undefined
-): string {
+export function formatLedgerAmount(amount: string | undefined, asset: string | undefined): string {
   if (!amount) return formatAmount(amount);
   const decimals = decimalsForAsset(asset);
   const display = decimals > 0 ? formatUnits(amount, decimals) : amount;

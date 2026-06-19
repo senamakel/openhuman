@@ -107,10 +107,7 @@ import {
   formatResetTime,
   getInlineCompletionSuffix,
 } from './conversations/utils/format';
-import {
-  GENERAL_TAB_VALUE,
-  isThreadVisibleInTab,
-} from './conversations/utils/threadFilter';
+import { GENERAL_TAB_VALUE, isThreadVisibleInTab } from './conversations/utils/threadFilter';
 
 const CHAT_MODEL_HINT = 'hint:chat';
 /** Maximum trailing characters rendered in the live-streaming assistant

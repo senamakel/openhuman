@@ -167,14 +167,9 @@ async fn rpc_call_to_inner<T: DeserializeOwned>(
         redact_rpc_url(url)
     );
     let client = client();
-    let response = client
-        .post(url)
-        .json(&payload)
-        .send()
-        .await
-        .map_err(|e| {
-            RpcCallError::Transport(format!("wallet RPC transport failed for {method}: {e}"))
-        })?;
+    let response = client.post(url).json(&payload).send().await.map_err(|e| {
+        RpcCallError::Transport(format!("wallet RPC transport failed for {method}: {e}"))
+    })?;
     let status = response.status();
     let raw_body = response.text().await.map_err(|e| {
         RpcCallError::Transport(format!("wallet RPC read body failed for {method}: {e}"))

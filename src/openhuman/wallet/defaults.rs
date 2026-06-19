@@ -263,7 +263,10 @@ pub fn rpc_url_for_chain(chain: WalletChain) -> String {
 /// General wallet operations are unaffected — they keep using the single
 /// [`rpc_url_for_chain`] endpoint.
 pub fn tinyplace_solana_rpc_endpoints() -> Vec<String> {
-    let mut endpoints: Vec<String> = vec![tinyplace_solana_rpc_url(), solana_cluster().rpc_url().to_string()];
+    let mut endpoints: Vec<String> = vec![
+        tinyplace_solana_rpc_url(),
+        solana_cluster().rpc_url().to_string(),
+    ];
 
     // De-dup while preserving order (the override may equal the public URL).
     let mut seen = std::collections::HashSet::new();

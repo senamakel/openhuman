@@ -200,7 +200,7 @@ function FeedComposer({
   };
 
   return (
-    <div className="mb-3 rounded-xl border border-stone-200 bg-white p-3 transition-colors focus-within:border-primary-400 dark:border-neutral-800 dark:bg-neutral-900 dark:focus-within:border-primary-600">
+    <div className="mb-3 rounded-xl border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex gap-2.5">
         <InitialAvatar name={myAgentId} />
         <textarea

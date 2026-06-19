@@ -472,6 +472,105 @@ describe('Jobs write actions', () => {
     });
   });
 
+  test('Apply success shows success state and triggers refetch', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchWalletStatus).mockResolvedValue(sampleWalletStatus as any);
+    // First call: initial load; second call should happen after successful apply.
+    vi.mocked(apiClient.graphql.jobs).mockResolvedValue({ jobs: [sampleJob], count: 1 });
+    vi.mocked(apiClient.jobsWrite.apply).mockResolvedValue(sampleProposal as any);
+
+    render(<JobsSection />);
+    await waitFor(() => {
+      expect(screen.getByText('Build a dashboard widget')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Build a dashboard widget'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^apply$/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await user.click(screen.getByRole('button', { name: /submit application/i }));
+
+    // After success, the jobs list should be refetched (called a second time).
+    await waitFor(() => {
+      expect(vi.mocked(apiClient.graphql.jobs)).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  test('Apply form shows error on failure', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchWalletStatus).mockResolvedValue(sampleWalletStatus as any);
+    vi.mocked(apiClient.graphql.jobs).mockResolvedValue({ jobs: [sampleJob], count: 1 });
+    vi.mocked(apiClient.jobsWrite.apply).mockRejectedValue(new Error('Network error'));
+
+    render(<JobsSection />);
+    await waitFor(() => {
+      expect(screen.getByText('Build a dashboard widget')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Build a dashboard widget'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^apply$/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await user.click(screen.getByRole('button', { name: /submit application/i }));
+
+    await waitFor(() => {
+      // The error message should appear in the modal.
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(/network error/i);
+    });
+
+    // Modal stays open so user can retry.
+    expect(screen.getByRole('button', { name: /submit application/i })).toBeInTheDocument();
+    // Refetch should NOT have been called on failure.
+    expect(vi.mocked(apiClient.graphql.jobs)).toHaveBeenCalledTimes(1);
+  });
+
+  test('Apply button shows loading state while submitting', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchWalletStatus).mockResolvedValue(sampleWalletStatus as any);
+    vi.mocked(apiClient.graphql.jobs).mockResolvedValue({ jobs: [sampleJob], count: 1 });
+
+    let resolveApply: (v: unknown) => void;
+    vi.mocked(apiClient.jobsWrite.apply).mockReturnValue(
+      new Promise(resolve => {
+        resolveApply = resolve;
+      }) as any
+    );
+
+    render(<JobsSection />);
+    await waitFor(() => {
+      expect(screen.getByText('Build a dashboard widget')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Build a dashboard widget'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^apply$/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await user.click(screen.getByRole('button', { name: /submit application/i }));
+
+    // While the request is in-flight, the button shows "Applying..." and is disabled.
+    await waitFor(() => {
+      const btn = screen.getByRole('button', { name: /applying/i });
+      expect(btn).toBeInTheDocument();
+      expect(btn).toBeDisabled();
+    });
+
+    // Clean up the pending promise.
+    resolveApply!(sampleProposal);
+  });
+
   test('Own job shows Cancel Job and View Proposals buttons', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchWalletStatus).mockResolvedValue({

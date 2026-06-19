@@ -86,6 +86,7 @@ export interface AgentQueryParams {
 
 export interface AgentCard {
   agentId: string;
+  cryptoId?: string;
   name?: string;
   description?: string;
   username?: string;

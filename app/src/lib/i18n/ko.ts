@@ -40,6 +40,7 @@ const messages: TranslationMap = {
   'nav.activity': '활동',
   'nav.brain': '브레인',
   'nav.agentWorld': 'Tiny.Place',
+  'nav.wallet': '지갑',
   'agentWorld.description':
     'Tiny.Place는 AI 에이전트를 위한 소셜 네트워크입니다. OpenHuman을 사용해 소통하고, 일자리를 찾고 올리며, 거래하고 함께 성장하세요.',
   'agentWorld.feed': '피드',
@@ -52,6 +53,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': '프로필',
   'agentWorld.marketplace': '마켓플레이스',
   'agentWorld.messaging': '메시지',
+  'agentWorld.walletNotConfigured': '지갑이 설정되지 않음',
+  'agentWorld.copyAddress': '주소 복사',
+  'agentWorld.addressCopied': '복사됨',
+  'agentWorld.walletUnavailable': '지갑을 사용할 수 없음',
+  'agentWorld.walletRetry': '지갑 다시 불러오기',
   // Agent World — Explore section live data
   'explore.networkOverview': '네트워크 개요',
   'explore.trendingCommunities': '트렌딩 커뮤니티',
@@ -1564,6 +1570,18 @@ const messages: TranslationMap = {
     '사용자가 로드되지 않았습니다. 다시 로그인하거나 페이지를 새로고침하세요.',
   'mnemonic.invalidPhrase': '유효하지 않은 복구 문구입니다. 단어를 확인하고 다시 시도하세요.',
   'mnemonic.somethingWentWrong': '문제가 발생했습니다. 다시 시도해 주세요.',
+  'mnemonic.walletAlreadyConfigured': '지갑이 이미 설정되어 있습니다.',
+  'mnemonic.walletSource': '출처',
+  'mnemonic.walletWordCount': '복구 구문 길이',
+  'mnemonic.walletLastUpdated': '마지막 업데이트',
+  'mnemonic.replaceWallet': '지갑 교체',
+  'mnemonic.replaceWalletWarning':
+    '현재 지갑이 영구적으로 교체됩니다. 진행하기 전에 복구 구문을 백업했는지 확인하세요.',
+  'mnemonic.replaceWalletConfirm': '이해합니다. 지갑을 교체합니다',
+  'mnemonic.loadingWalletStatus': '지갑 상태 확인 중...',
+  'mnemonic.viewAccounts': '지갑 계정',
+  'mnemonic.revealRecoveryPhrase': '복구 구문 표시',
+  'mnemonic.hidePhrase': '구문 숨기기',
   'team.failedToCreate': '팀 생성에 실패했습니다',
   'team.invalidInviteCode': '유효하지 않거나 만료된 초대 코드입니다',
   'team.failedToSwitch': '팀 전환에 실패했습니다',
@@ -5682,6 +5700,19 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': '프로필을 찾을 수 없습니다',
   'settings.profiles.editor.saving': '저장 중…',
   'settings.profiles.editor.idRequired': '프로필 식별자는 비워 둘 수 없습니다',
+  'agentworld.jobs.applyModal.title': '채용 지원',
+  'agentworld.jobs.applyModal.successHeading': '제안이 성공적으로 제출되었습니다!',
+  'agentworld.jobs.applyModal.successBody': '채용 공고 게시자가 지원서를 검토할 것입니다.',
+  'agentworld.jobs.applyModal.coverLetterLabel': '자기소개서',
+  'agentworld.jobs.applyModal.coverLetterPlaceholder':
+    '귀하의 경험과 이 직무에 적합한 이유를 설명하세요',
+  'agentworld.jobs.applyModal.bidAmountLabel': '제안 금액',
+  'agentworld.jobs.applyModal.bidAmountPlaceholder': '예: 450 USDC',
+  'agentworld.jobs.applyModal.deliveryLabel': '예상 납기',
+  'agentworld.jobs.applyModal.deliveryPlaceholder': '예: 2주',
+  'agentworld.jobs.applyModal.cancel': '취소',
+  'agentworld.jobs.applyModal.submit': '지원서 제출',
+  'agentworld.jobs.applyModal.submitting': '지원 중…',
 };
 
 export default messages;

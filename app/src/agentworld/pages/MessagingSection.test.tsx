@@ -59,6 +59,17 @@ vi.mock('../AgentWorldShell', () => ({
           updatedAt: '2026-06-17T00:00:00Z',
         }),
     },
+    directory: {
+      resolve: vi
+        .fn()
+        .mockResolvedValue({ identity: { cryptoId: 'resolved-crypto-id' }, agent: null }),
+      getAgent: vi.fn().mockResolvedValue({ agentId: 'resolved-crypto-id' }),
+      listAgents: vi.fn().mockResolvedValue({ agents: [] }),
+      reverse: vi.fn().mockResolvedValue({ cryptoId: 'resolved-crypto-id', identities: [] }),
+      listIdentities: vi.fn().mockResolvedValue({ identities: [] }),
+      skills: vi.fn().mockResolvedValue({ agents: [] }),
+      findByEncryptionKey: vi.fn().mockResolvedValue(null),
+    },
     messages: {
       list: vi.fn().mockResolvedValue({ messages: [] }),
       acknowledge: vi.fn().mockResolvedValue(undefined),
@@ -172,7 +183,7 @@ describe('DMs panel (E2E enabled)', () => {
 
     // DMs is the default (and only) visible view now — no tab click needed.
     // Should see the peer input, not the "coming soon" placeholder
-    expect(screen.getByPlaceholderText(/Recipient agent ID/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Recipient @handle/)).toBeInTheDocument();
     expect(screen.queryByTestId('dms-coming-soon')).not.toBeInTheDocument();
   });
 
@@ -185,10 +196,15 @@ describe('DMs panel (E2E enabled)', () => {
       encrypted: true,
     });
 
+    // directory.resolve returns 'resolved-crypto-id' by default (from mock)
+    vi.mocked(apiClient.directory.resolve).mockResolvedValue({
+      identity: { cryptoId: 'resolved-crypto-id' },
+    });
+
     render(<MessagingSection />);
 
-    // Enter peer ID and open DM
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    // Enter a handle (non-base58) — will be resolved to resolved-crypto-id
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peer123');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
@@ -197,10 +213,39 @@ describe('DMs panel (E2E enabled)', () => {
     await user.type(composeInput, 'Hello encrypted world');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
+    // sendMessage is called with the RESOLVED crypto_id, not the raw input
     expect(vi.mocked(apiClient.signal.sendMessage)).toHaveBeenCalledWith({
-      recipient: 'peer123',
+      recipient: 'resolved-crypto-id',
       plaintext: 'Hello encrypted world',
     });
+  });
+
+  test('our own sent message stays visible after refresh (relay only echoes incoming)', async () => {
+    const user = userEvent.setup();
+    // The relay never returns our outgoing message, so refresh sees nothing.
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+    vi.mocked(apiClient.signal.sendMessage).mockResolvedValue({
+      messageId: 'sent-1',
+      timestamp: '2026-06-17T00:00:00Z',
+      encrypted: true,
+    });
+    vi.mocked(apiClient.directory.resolve).mockResolvedValue({
+      identity: { cryptoId: 'resolved-crypto-id' },
+    });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    await user.type(screen.getByPlaceholderText(/Recipient @handle/), 'peer123');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    const composeInput = await screen.findByPlaceholderText(/Type a message/);
+    await user.type(composeInput, 'Persisted hello');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    // The optimistic outgoing message must remain after send + the empty refresh.
+    expect(await screen.findByText('Persisted hello')).toBeInTheDocument();
+    // The input is cleared and the message is not wiped by the refresh.
+    expect(screen.getByText('Persisted hello')).toBeInTheDocument();
   });
 
   test('shows an empty-state in an opened DM with no messages, alongside the compose box', async () => {
@@ -208,7 +253,7 @@ describe('DMs panel (E2E enabled)', () => {
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
 
     render(<MessagingSection />);
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peerEmpty');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
@@ -223,7 +268,7 @@ describe('DMs panel (E2E enabled)', () => {
     vi.mocked(apiClient.signal.sendMessage).mockRejectedValueOnce(new Error('encryption failed'));
 
     render(<MessagingSection />);
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peer456');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
@@ -236,11 +281,13 @@ describe('DMs panel (E2E enabled)', () => {
   });
 
   test('received messages are decrypted before display', async () => {
+    // directory.resolve returns 'resolved-crypto-id'; messages must use that id
+    // in the 'from' field to survive the peerId filter in useDirectMessages.
     vi.mocked(apiClient.messages.list).mockResolvedValue({
       messages: [
         {
           id: 'msg1',
-          from: 'peer789',
+          from: 'resolved-crypto-id',
           to: 'a',
           timestamp: '2026-06-17T00:00:00Z',
           deviceId: 1,
@@ -252,13 +299,13 @@ describe('DMs panel (E2E enabled)', () => {
     });
     vi.mocked(apiClient.signal.decryptMessage).mockResolvedValue({
       plaintext: 'Decrypted secret',
-      from: 'peer789',
+      from: 'resolved-crypto-id',
       messageId: 'msg1',
     });
 
     const user = userEvent.setup();
     render(<MessagingSection />);
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peer789');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
@@ -273,11 +320,166 @@ describe('DMs panel (E2E enabled)', () => {
     const user = userEvent.setup();
 
     render(<MessagingSection />);
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peer999');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
     expect(await screen.findByText('Encrypted')).toBeInTheDocument();
+  });
+
+  test('DmsPanel resolves @handle to cryptoId before opening DM', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockResolvedValueOnce({
+      identity: { cryptoId: 'alice-crypto-id' },
+    });
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, '@alice');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    // directory.resolve should be called with 'alice' (stripped @)
+    expect(vi.mocked(apiClient.directory.resolve)).toHaveBeenCalledWith('alice');
+    // The DM view should open (compose box appears)
+    expect(await screen.findByPlaceholderText(/Type a message/)).toBeInTheDocument();
+  });
+
+  test('DmsPanel shows error when directory.resolve returns no agent', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockResolvedValueOnce({
+      identity: undefined,
+      agent: undefined,
+    });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, '@unknown-user');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    const err = await screen.findByTestId('dm-resolve-error');
+    expect(err).toHaveTextContent(/No agent found/);
+    // DM view should NOT be open
+    expect(screen.queryByPlaceholderText(/Type a message/)).not.toBeInTheDocument();
+  });
+
+  test('DmsPanel falls back to agent.cryptoId when identity is absent', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockResolvedValueOnce({
+      identity: undefined,
+      agent: { agentId: 'agent-99', cryptoId: 'fallback-crypto-id', name: 'Bob' },
+    });
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, 'bob.agent');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    // DM view should open using the agent's cryptoId
+    expect(await screen.findByPlaceholderText(/Type a message/)).toBeInTheDocument();
+  });
+
+  test('DmsPanel passes raw base58 wallet address without calling resolve', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    // A valid 44-char base58 string — should bypass resolution
+    await user.type(peerInput, '61KcG5aGLqpnJz2fXyzABCDEFGHJKLMNPQRSTUVWXY');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    // directory.resolve must NOT be called for a raw base58 address
+    expect(vi.mocked(apiClient.directory.resolve)).not.toHaveBeenCalled();
+    // DM view should open directly
+    expect(await screen.findByPlaceholderText(/Type a message/)).toBeInTheDocument();
+  });
+
+  test('DmsPanel shows error when directory.resolve throws', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockRejectedValueOnce(
+      new Error('directory service unavailable')
+    );
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, '@broken-handle');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    const err = await screen.findByTestId('dm-resolve-error');
+    expect(err).toHaveTextContent('directory service unavailable');
+  });
+
+  // ── Directory-card fallback tests ─────────────────────────────────────────
+  // The Rust handler now synthesises a ResolveResponse from the directory
+  // agent card when the registry 404s.  The frontend sees the same shape
+  // (agent.cryptoId present, identity absent) regardless of which code path
+  // resolved the name.
+
+  test('DmsPanel opens DM via directory-card agent when registry misses (synthesised response)', async () => {
+    // Simulate what the new Rust backend returns after directory-card fallback:
+    // identity is null but agent has a cryptoId.
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockResolvedValueOnce({
+      identity: null,
+      agent: {
+        agentId: 'dir-agent-99',
+        cryptoId: 'dir-crypto-id-99',
+        name: 'stevejobs',
+        username: 'stevejobs',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+    });
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, 'stevejobs');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    // directory.resolve must have been called (not bypassed as base58)
+    expect(vi.mocked(apiClient.directory.resolve)).toHaveBeenCalledWith('stevejobs');
+    // DM view should open using the directory card crypto_id
+    expect(await screen.findByPlaceholderText(/Type a message/)).toBeInTheDocument();
+    expect(screen.queryByTestId('dm-resolve-error')).not.toBeInTheDocument();
+  });
+
+  test('DmsPanel shows clear human-readable error when handle is unresolvable', async () => {
+    // Simulate the Rust backend returning a clear error string when neither
+    // the registry nor the directory have the handle.  The frontend catches
+    // the thrown error and shows it.
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockRejectedValueOnce(
+      new Error(
+        'No agent found for "ghosthandle". Check the handle or paste their wallet address directly.'
+      )
+    );
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, 'ghosthandle');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    const err = await screen.findByTestId('dm-resolve-error');
+    expect(err).toHaveTextContent('ghosthandle');
+    expect(err).not.toHaveTextContent('404');
+    // DM view must NOT open
+    expect(screen.queryByPlaceholderText(/Type a message/)).not.toBeInTheDocument();
+  });
+
+  test('renders DM compose UI with updated placeholder text', async () => {
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'DMs' }));
+    expect(screen.getByPlaceholderText('Recipient @handle or wallet address')).toBeInTheDocument();
   });
 });
 

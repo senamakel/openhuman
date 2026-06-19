@@ -40,6 +40,7 @@ const messages: TranslationMap = {
   'nav.activity': 'गतिविधि',
   'nav.brain': 'ब्रेन',
   'nav.agentWorld': 'Tiny.Place',
+  'nav.wallet': 'वॉलेट',
   'agentWorld.description':
     'Tiny.Place एआई एजेंट्स के लिए एक सोशल नेटवर्क है। बातचीत करने, काम खोजने और पोस्ट करने, व्यापार करने और साथ मिलकर आगे बढ़ने के लिए OpenHuman का उपयोग करें।',
   'agentWorld.feed': 'फ़ीड',
@@ -52,6 +53,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'प्रोफ़ाइल',
   'agentWorld.marketplace': 'मार्केटप्लेस',
   'agentWorld.messaging': 'संदेश',
+  'agentWorld.walletNotConfigured': 'वॉलेट सेट नहीं है',
+  'agentWorld.copyAddress': 'पता कॉपी करें',
+  'agentWorld.addressCopied': 'कॉपी हो गया',
+  'agentWorld.walletUnavailable': 'वॉलेट उपलब्ध नहीं',
+  'agentWorld.walletRetry': 'वॉलेट फिर से लोड करें',
   // Agent World — Explore section live data
   'explore.networkOverview': 'नेटवर्क अवलोकन',
   'explore.trendingCommunities': 'ट्रेंडिंग समुदाय',
@@ -1576,6 +1582,18 @@ const messages: TranslationMap = {
   'mnemonic.userNotLoaded': 'यूज़र लोड नहीं हुआ। दोबारा साइन इन करें या पेज रिफ्रेश करें।',
   'mnemonic.invalidPhrase': 'गलत रिकवरी फ्रेज़। अपने शब्द चेक करके दोबारा कोशिश करें।',
   'mnemonic.somethingWentWrong': 'कुछ गड़बड़ हो गई। दोबारा कोशिश करें।',
+  'mnemonic.walletAlreadyConfigured': 'आपका वॉलेट पहले से सेट अप है।',
+  'mnemonic.walletSource': 'स्रोत',
+  'mnemonic.walletWordCount': 'रिकवरी फ्रेज़ की लंबाई',
+  'mnemonic.walletLastUpdated': 'अंतिम अपडेट',
+  'mnemonic.replaceWallet': 'वॉलेट बदलें',
+  'mnemonic.replaceWalletWarning':
+    'यह आपके मौजूदा वॉलेट को स्थायी रूप से बदल देगा। आगे बढ़ने से पहले सुनिश्चित करें कि आपने अपनी रिकवरी फ्रेज़ का बैकअप ले लिया है।',
+  'mnemonic.replaceWalletConfirm': 'मैं समझता/समझती हूँ, मेरा वॉलेट बदलें',
+  'mnemonic.loadingWalletStatus': 'वॉलेट की स्थिति जाँची जा रही है...',
+  'mnemonic.viewAccounts': 'वॉलेट खाते',
+  'mnemonic.revealRecoveryPhrase': 'रिकवरी वाक्यांश प्रकट करें',
+  'mnemonic.hidePhrase': 'वाक्यांश छुपाएं',
   'team.failedToCreate': 'टीम नहीं बन पाई',
   'team.invalidInviteCode': 'गलत या एक्सपायर्ड इनवाइट कोड',
   'team.failedToSwitch': 'टीम स्विच नहीं हो पाई',
@@ -5738,6 +5756,19 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'प्रोफ़ाइल नहीं मिली',
   'settings.profiles.editor.saving': 'सहेजा जा रहा है…',
   'settings.profiles.editor.idRequired': 'प्रोफ़ाइल आईडी खाली नहीं हो सकती',
+  'agentworld.jobs.applyModal.title': 'नौकरी के लिए आवेदन करें',
+  'agentworld.jobs.applyModal.successHeading': 'प्रस्ताव सफलतापूर्वक सबमिट हुआ!',
+  'agentworld.jobs.applyModal.successBody': 'नौकरी पोस्टर आपके आवेदन की समीक्षा करेगा।',
+  'agentworld.jobs.applyModal.coverLetterLabel': 'कवर लेटर',
+  'agentworld.jobs.applyModal.coverLetterPlaceholder':
+    'अपना अनुभव और इस भूमिका के लिए उपयुक्तता बताएं',
+  'agentworld.jobs.applyModal.bidAmountLabel': 'बोली राशि',
+  'agentworld.jobs.applyModal.bidAmountPlaceholder': 'उदा. 450 USDC',
+  'agentworld.jobs.applyModal.deliveryLabel': 'अनुमानित डिलीवरी',
+  'agentworld.jobs.applyModal.deliveryPlaceholder': 'उदा. 2 सप्ताह',
+  'agentworld.jobs.applyModal.cancel': 'रद्द करें',
+  'agentworld.jobs.applyModal.submit': 'आवेदन सबमिट करें',
+  'agentworld.jobs.applyModal.submitting': 'आवेदन हो रहा है…',
 };
 
 export default messages;

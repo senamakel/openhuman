@@ -40,6 +40,7 @@ const messages: TranslationMap = {
   'nav.activity': 'Aktivitas',
   'nav.brain': 'Otak',
   'nav.agentWorld': 'Tiny.Place',
+  'nav.wallet': 'Dompet',
   'agentWorld.description':
     'Tiny.Place adalah jejaring sosial untuk agen AI. Gunakan OpenHuman untuk berinteraksi, menemukan dan memasang pekerjaan, berdagang, serta tumbuh bersama.',
   'agentWorld.feed': 'Feed',
@@ -52,6 +53,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'Profil',
   'agentWorld.marketplace': 'Pasar',
   'agentWorld.messaging': 'Pesan',
+  'agentWorld.walletNotConfigured': 'Dompet belum diatur',
+  'agentWorld.copyAddress': 'Salin alamat',
+  'agentWorld.addressCopied': 'Disalin',
+  'agentWorld.walletUnavailable': 'Dompet tidak tersedia',
+  'agentWorld.walletRetry': 'Coba muat dompet lagi',
   // Agent World — Explore section live data
   'explore.networkOverview': 'Ikhtisar Jaringan',
   'explore.trendingCommunities': 'Komunitas Trending',
@@ -1585,6 +1591,18 @@ const messages: TranslationMap = {
   'mnemonic.userNotLoaded': 'Pengguna belum dimuat. Silakan masuk lagi atau segarkan halaman.',
   'mnemonic.invalidPhrase': 'Frasa pemulihan tidak valid. Periksa kata-kata Anda dan coba lagi.',
   'mnemonic.somethingWentWrong': 'Terjadi kesalahan. Silakan coba lagi.',
+  'mnemonic.walletAlreadyConfigured': 'Dompetmu sudah diatur.',
+  'mnemonic.walletSource': 'Sumber',
+  'mnemonic.walletWordCount': 'Jumlah kata frasa pemulihan',
+  'mnemonic.walletLastUpdated': 'Terakhir diperbarui',
+  'mnemonic.replaceWallet': 'Ganti dompet',
+  'mnemonic.replaceWalletWarning':
+    'Ini akan mengganti dompetmu saat ini secara permanen. Pastikan kamu telah mencadangkan frasa pemulihan sebelum melanjutkan.',
+  'mnemonic.replaceWalletConfirm': 'Saya mengerti, ganti dompet saya',
+  'mnemonic.loadingWalletStatus': 'Memeriksa status dompet...',
+  'mnemonic.viewAccounts': 'Akun dompet',
+  'mnemonic.revealRecoveryPhrase': 'Tampilkan frasa pemulihan',
+  'mnemonic.hidePhrase': 'Sembunyikan frasa',
   'team.failedToCreate': 'Gagal membuat tim',
   'team.invalidInviteCode': 'Kode undangan tidak valid atau sudah kedaluwarsa',
   'team.failedToSwitch': 'Gagal berpindah tim',
@@ -5755,6 +5773,19 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'Profil tidak ditemukan',
   'settings.profiles.editor.saving': 'Menyimpan…',
   'settings.profiles.editor.idRequired': 'ID profil tidak boleh kosong',
+  'agentworld.jobs.applyModal.title': 'Lamar Pekerjaan',
+  'agentworld.jobs.applyModal.successHeading': 'Proposal berhasil dikirim!',
+  'agentworld.jobs.applyModal.successBody': 'Pemasang lowongan akan meninjau lamaran Anda.',
+  'agentworld.jobs.applyModal.coverLetterLabel': 'Surat Lamaran',
+  'agentworld.jobs.applyModal.coverLetterPlaceholder':
+    'Jelaskan pengalaman Anda dan mengapa Anda cocok untuk posisi ini',
+  'agentworld.jobs.applyModal.bidAmountLabel': 'Jumlah Tawaran',
+  'agentworld.jobs.applyModal.bidAmountPlaceholder': 'mis. 450 USDC',
+  'agentworld.jobs.applyModal.deliveryLabel': 'Estimasi Pengiriman',
+  'agentworld.jobs.applyModal.deliveryPlaceholder': 'mis. 2 minggu',
+  'agentworld.jobs.applyModal.cancel': 'Batal',
+  'agentworld.jobs.applyModal.submit': 'Kirim Lamaran',
+  'agentworld.jobs.applyModal.submitting': 'Melamar…',
 };
 
 export default messages;

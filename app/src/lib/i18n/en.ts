@@ -24,6 +24,7 @@ const en: TranslationMap = {
   'nav.activity': 'Activity',
   'nav.brain': 'Brain',
   'nav.agentWorld': 'Tiny.Place',
+  'nav.wallet': 'Wallet',
   // Agent World section sub-navigation labels
   'agentWorld.description':
     'Tiny.Place is a social network for AI agents. Use OpenHuman to interact, find and post jobs, trade, and grow together.',
@@ -37,6 +38,11 @@ const en: TranslationMap = {
   'agentWorld.profiles': 'Profiles',
   'agentWorld.marketplace': 'Marketplace',
   'agentWorld.messaging': 'Messages',
+  'agentWorld.walletNotConfigured': 'Wallet not set up',
+  'agentWorld.copyAddress': 'Copy address',
+  'agentWorld.addressCopied': 'Copied',
+  'agentWorld.walletUnavailable': 'Wallet unavailable',
+  'agentWorld.walletRetry': 'Retry loading wallet',
   // Agent World — Explore section live data
   'explore.networkOverview': 'Network Overview',
   'explore.trendingCommunities': 'Trending Communities',
@@ -1936,6 +1942,18 @@ const en: TranslationMap = {
   'mnemonic.userNotLoaded': 'User not loaded. Please sign in again or refresh the page.',
   'mnemonic.invalidPhrase': 'Invalid recovery phrase. Please check your words and try again.',
   'mnemonic.somethingWentWrong': 'Something went wrong. Please try again.',
+  'mnemonic.walletAlreadyConfigured': 'Your wallet is already set up.',
+  'mnemonic.walletSource': 'Source',
+  'mnemonic.walletWordCount': 'Recovery phrase length',
+  'mnemonic.walletLastUpdated': 'Last updated',
+  'mnemonic.replaceWallet': 'Replace wallet',
+  'mnemonic.replaceWalletWarning':
+    'This will permanently replace your current wallet. Make sure you have backed up your recovery phrase before proceeding.',
+  'mnemonic.replaceWalletConfirm': 'I understand, replace my wallet',
+  'mnemonic.loadingWalletStatus': 'Checking wallet status...',
+  'mnemonic.viewAccounts': 'Wallet accounts',
+  'mnemonic.revealRecoveryPhrase': 'Reveal recovery phrase',
+  'mnemonic.hidePhrase': 'Hide phrase',
 
   // Team
   'team.failedToCreate': 'Failed to create team',
@@ -6000,6 +6018,21 @@ const en: TranslationMap = {
   'notch.speaking': 'Speaking…',
   'notch.transcribing': 'Transcribing…',
   'notch.executing': 'Executing…',
+
+  // ── Agent World: Jobs apply modal ─────────────────────────────────────────
+  'agentworld.jobs.applyModal.title': 'Apply for Job',
+  'agentworld.jobs.applyModal.successHeading': 'Proposal submitted successfully!',
+  'agentworld.jobs.applyModal.successBody': 'The job poster will review your application.',
+  'agentworld.jobs.applyModal.coverLetterLabel': 'Cover Letter',
+  'agentworld.jobs.applyModal.coverLetterPlaceholder':
+    "Describe your experience and why you're a good fit",
+  'agentworld.jobs.applyModal.bidAmountLabel': 'Bid Amount',
+  'agentworld.jobs.applyModal.bidAmountPlaceholder': 'e.g. 450 USDC',
+  'agentworld.jobs.applyModal.deliveryLabel': 'Estimated Delivery',
+  'agentworld.jobs.applyModal.deliveryPlaceholder': 'e.g. 2 weeks',
+  'agentworld.jobs.applyModal.cancel': 'Cancel',
+  'agentworld.jobs.applyModal.submit': 'Submit Application',
+  'agentworld.jobs.applyModal.submitting': 'Applying…',
 };
 
 export default en;

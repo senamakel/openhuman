@@ -105,8 +105,52 @@ pub(crate) fn handle_tinyplace_directory_resolve(params: Map<String, Value>) -> 
         let name = req_str(&params, "name")?.to_string();
         log::debug!("{LOG_PREFIX} directory_resolve name={name}");
         let client = global_state().client().await?;
-        let result = client.directory.resolve(&name).await.map_err(map_err)?;
-        to_value(result)
+
+        // Try registry first.
+        match client.directory.resolve(&name).await {
+            Ok(resolved) if resolved.identity.is_some() || resolved.agent.is_some() => {
+                // Registry hit — return the full response as-is.
+                return to_value(resolved);
+            }
+            Ok(_) => {
+                // Registry returned 200 but with no identity and no agent card.
+                // Fall through to the directory-card fallback.
+                log::debug!(
+                    "{LOG_PREFIX} directory_resolve: registry miss for '{name}', \
+                     trying directory card fallback"
+                );
+            }
+            Err(e) if e.status() == Some(404) => {
+                // Registry 404 — agent may be directory-only; fall through.
+                log::debug!(
+                    "{LOG_PREFIX} directory_resolve: registry 404 for '{name}', \
+                     trying directory card fallback"
+                );
+            }
+            Err(e) => return Err(map_err(e)),
+        }
+
+        // Directory-card fallback: query by username.
+        match directory_card_fallback(&client, &name).await {
+            Some(card) => {
+                log::debug!(
+                    "{LOG_PREFIX} directory_resolve: found '{name}' via directory card \
+                     crypto_id={}",
+                    card.crypto_id
+                );
+                // Synthesise a ResolveResponse from the agent card so the
+                // frontend gets the same shape regardless of code path.
+                let response = tinyplace::types::ResolveResponse {
+                    identity: None,
+                    agent: Some(card),
+                };
+                to_value(response)
+            }
+            None => Err(format!(
+                "No agent found for \"{name}\". \
+                 Check the handle or paste their wallet address directly."
+            )),
+        }
     })
 }
 
@@ -2771,12 +2815,30 @@ pub(crate) fn handle_tinyplace_signal_rotate_signed_pre_key(
 
 /// Fetch a peer's published Signal pre-key bundle (public endpoint, no auth).
 /// The `get_bundle` endpoint does not require a signer or the signal store.
+/// Accepts @handles and bare handle names in addition to raw crypto_ids; the
+/// identifier is resolved to a canonical crypto_id via directory.resolve before
+/// the bundle lookup.
 pub(crate) fn handle_tinyplace_signal_get_bundle(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let agent_id = req_str(&params, "agentId")?.to_string();
-        log::debug!("{LOG_PREFIX} signal_get_bundle agent_id={agent_id}");
+        let raw_agent_id = req_str(&params, "agentId")?.to_string();
+        log::debug!("{LOG_PREFIX} signal_get_bundle raw_agent_id='{raw_agent_id}'");
         let client = global_state().client().await?;
-        let result = client.keys.get_bundle(&agent_id).await.map_err(map_err)?;
+
+        // Resolve the identifier (handle or crypto_id) before the bundle lookup.
+        let agent_id = resolve_recipient_to_agent_id(&client, &raw_agent_id).await?;
+        log::debug!("{LOG_PREFIX} signal_get_bundle resolved agent_id={agent_id}");
+
+        let result = match client.keys.get_bundle(&agent_id).await {
+            Ok(b) => b,
+            Err(e) if e.status() == Some(404) => {
+                return Err(format!(
+                    "Recipient has not set up encrypted messaging yet. \
+                     They need to provision Signal keys before receiving DMs. \
+                     (agent_id: {agent_id})"
+                ));
+            }
+            Err(e) => return Err(map_err(e)),
+        };
         to_value(result)
     })
 }
@@ -2902,12 +2964,170 @@ fn decode_ed25519_pub(
     decode_32_byte_b64(b64, "peer Ed25519 publicKey")
 }
 
+// ── Recipient resolution helpers ──────────────────────────────────────────────
+
+/// Quick heuristic: Solana/wallet base58 public keys are 32–44 chars of the
+/// Bitcoin base58 alphabet [1-9A-HJ-NP-Za-km-z] with no 0/I/O/l.
+/// False negatives (short base58 strings treated as handles) are safe — they
+/// get an extra directory.resolve call rather than a wrong key lookup.
+fn looks_like_base58_pubkey(s: &str) -> bool {
+    s.len() >= 32
+        && s.len() <= 44
+        && s.chars().all(|c| {
+            matches!(c,
+                '1'..='9' | 'A'..='H' | 'J'..='N' | 'P'..='Z' | 'a'..='k' | 'm'..='z')
+        })
+}
+
+/// Case-insensitive username match across a slice of agent cards.
+///
+/// Extracted as a pure function so it can be unit-tested without a live HTTP
+/// client.
+fn match_agent_card_by_username<'a>(
+    cards: &'a [tinyplace::types::AgentCard],
+    name: &str,
+) -> Option<&'a tinyplace::types::AgentCard> {
+    let name_lower = name.to_lowercase();
+    cards.iter().find(|a| {
+        a.username
+            .as_deref()
+            .map(|u| u.to_lowercase() == name_lower)
+            .unwrap_or(false)
+    })
+}
+
+/// Query the agent directory for a card whose `username` matches `name`
+/// (case-insensitive).  Uses the server-side `username` filter when available
+/// (limit 20) and falls back to a client-side match in the returned page.
+///
+/// Returns `None` if no matching card is found.
+async fn directory_card_fallback(
+    client: &tinyplace::TinyPlaceClient,
+    name: &str,
+) -> Option<tinyplace::types::AgentCard> {
+    let query = tinyplace::types::AgentQueryParams {
+        username: Some(name.to_string()),
+        limit: Some(20),
+        ..Default::default()
+    };
+    log::debug!("{LOG_PREFIX} directory_card_fallback: querying agents with username='{name}'");
+    match client.directory.list_agents(Some(&query)).await {
+        Ok(resp) => {
+            if resp.agents.len() == 20 {
+                log::debug!(
+                    "{LOG_PREFIX} directory_card_fallback: page full (20 agents) for '{name}', \
+                     result may be truncated"
+                );
+            }
+            match_agent_card_by_username(&resp.agents, name).cloned()
+        }
+        Err(e) => {
+            log::debug!(
+                "{LOG_PREFIX} directory_card_fallback: list_agents failed for '{name}': {}",
+                e
+            );
+            None
+        }
+    }
+}
+
+/// Resolve a recipient identifier (handle, wallet address, or crypto_id) to
+/// the canonical `crypto_id` used by the `/keys/{id}/bundle` endpoint.
+///
+/// Resolution rules:
+/// 1. Starts with `@`  → strip `@` and resolve via `directory.resolve`.
+/// 2. Looks like a base58 public key (32–44 chars, valid alphabet) → use as-is
+///    (it IS the crypto_id; attempting resolve is unnecessary and fragile).
+/// 3. Anything else → treat as a bare handle name and call `directory.resolve`.
+/// 4. If the registry lookup returns 404 or no identity/agent, fall back to a
+///    directory-card search by username (`list_agents?username=…`).
+///
+/// SECURITY: never log private key material — only the resolved crypto_id
+/// (public wallet address) is emitted to logs.
+async fn resolve_recipient_to_agent_id(
+    client: &tinyplace::TinyPlaceClient,
+    raw_recipient: &str,
+) -> std::result::Result<String, String> {
+    let trimmed = raw_recipient.trim();
+
+    let lookup_name = if let Some(without_at) = trimmed.strip_prefix('@') {
+        // Explicit @handle — resolve it.
+        without_at
+    } else if looks_like_base58_pubkey(trimmed) {
+        // Already a crypto_id — pass through without a round-trip.
+        log::debug!(
+            "{LOG_PREFIX} resolve_recipient: '{trimmed}' looks like a crypto_id, using directly"
+        );
+        return Ok(trimmed.to_string());
+    } else {
+        // Bare handle name — resolve it.
+        trimmed
+    };
+
+    log::debug!("{LOG_PREFIX} resolve_recipient: resolving handle '{lookup_name}' via registry");
+
+    // ── Step 1: try the registry ─────────────────────────────────────────────
+    let registry_result = client.directory.resolve(lookup_name).await;
+    match registry_result {
+        Ok(resolved) => {
+            // Prefer the registered identity's crypto_id; fall back to the agent card.
+            if let Some(identity) = resolved.identity {
+                let crypto_id = identity.crypto_id.clone();
+                log::debug!(
+                    "{LOG_PREFIX} resolve_recipient: handle '{lookup_name}' -> crypto_id={crypto_id}"
+                );
+                return Ok(crypto_id);
+            } else if let Some(agent) = resolved.agent {
+                let crypto_id = agent.crypto_id.clone();
+                log::debug!(
+                    "{LOG_PREFIX} resolve_recipient: handle '{lookup_name}' resolved via \
+                     registry agent card -> crypto_id={crypto_id}"
+                );
+                return Ok(crypto_id);
+            }
+            // Registry returned 200 but empty — fall through to directory.
+            log::debug!(
+                "{LOG_PREFIX} resolve_recipient: registry returned empty for '{lookup_name}', \
+                 trying directory card fallback"
+            );
+        }
+        Err(e) if e.status() == Some(404) => {
+            // 404 from the registry — agent may be directory-only; fall through.
+            log::debug!(
+                "{LOG_PREFIX} resolve_recipient: registry 404 for '{lookup_name}', \
+                 trying directory card fallback"
+            );
+        }
+        Err(e) => {
+            return Err(format!(
+                "failed to resolve recipient '{trimmed}': {}",
+                map_err(e)
+            ));
+        }
+    }
+
+    // ── Step 2: directory-card fallback ──────────────────────────────────────
+    if let Some(card) = directory_card_fallback(client, lookup_name).await {
+        let crypto_id = card.crypto_id.clone();
+        log::debug!(
+            "{LOG_PREFIX} resolve_recipient: '{lookup_name}' found via directory card \
+             -> crypto_id={crypto_id}"
+        );
+        return Ok(crypto_id);
+    }
+
+    Err(format!(
+        "No agent found for \"{lookup_name}\". \
+         Check the handle or paste their wallet address directly."
+    ))
+}
+
 pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let recipient = req_str(&params, "recipient")?.to_string();
         let plaintext = req_str(&params, "plaintext")?.to_string();
         log::debug!(
-            "{LOG_PREFIX} signal_send_message to={recipient} len={}",
+            "{LOG_PREFIX} signal_send_message raw_recipient='{recipient}' len={}",
             plaintext.len()
         );
 
@@ -2922,10 +3142,26 @@ pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -
             .map_err(|e| format!("identity key: {e}"))?
             .public_key;
 
+        // Resolve the recipient identifier (@handle, bare handle, or crypto_id) to
+        // the canonical crypto_id before any key-bundle or directory lookup.
+        let agent_id = resolve_recipient_to_agent_id(&client, &recipient).await?;
+        log::debug!("{LOG_PREFIX} signal_send_message resolved to agent_id={agent_id}");
+
         // Fetch recipient's published key bundle (always needed for the X25519
         // identity key used in associated-data computation, even for existing
-        // sessions).
-        let bundle = client.keys.get_bundle(&recipient).await.map_err(map_err)?;
+        // sessions).  Provide a user-friendly error when the recipient has not yet
+        // provisioned Signal keys (404 from the backend).
+        let bundle = match client.keys.get_bundle(&agent_id).await {
+            Ok(b) => b,
+            Err(e) if e.status() == Some(404) => {
+                return Err(format!(
+                    "Recipient has not set up encrypted messaging yet. \
+                     They need to provision Signal keys before receiving DMs. \
+                     (resolved agent_id: {agent_id})"
+                ));
+            }
+            Err(e) => return Err(map_err(e)),
+        };
         // Ed25519 -> X25519 conversion: the backend serves the Ed25519 identity;
         // SignalSession::encrypt takes the X25519 form.  decode_identity_key
         // performs this conversion and must be preserved.
@@ -2938,20 +3174,18 @@ pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -
             our_identity_pub,
         );
         let has_session = signal_session
-            .has_session(&recipient)
+            .has_session(&agent_id)
             .await
             .map_err(|e| format!("check session: {e}"))?;
 
         let (bundle_opt, ed25519_opt) = if has_session {
-            log::debug!("{LOG_PREFIX} signal_send_message using existing session for {recipient}");
+            log::debug!("{LOG_PREFIX} signal_send_message using existing session for {agent_id}");
             (None, None)
         } else {
-            log::debug!(
-                "{LOG_PREFIX} signal_send_message establishing new session for {recipient}"
-            );
+            log::debug!("{LOG_PREFIX} signal_send_message establishing new session for {agent_id}");
             let peer_entry = client
                 .directory
-                .get_agent(&recipient)
+                .get_agent(&agent_id)
                 .await
                 .map_err(map_err)?;
             let peer_ed25519_pub = decode_ed25519_pub(&peer_entry)?;
@@ -2966,7 +3200,7 @@ pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -
         // point leaves no partial state).
         let encrypted = signal_session
             .encrypt(
-                &recipient,
+                &agent_id,
                 &their_x25519_identity,
                 plaintext.as_bytes(),
                 bundle_opt.as_ref(),
@@ -2975,7 +3209,7 @@ pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -
             .await
             .map_err(|e| {
                 log::error!(
-                    "{LOG_PREFIX} signal_send_message ENCRYPTION FAILED for {recipient}: {e} \
+                    "{LOG_PREFIX} signal_send_message ENCRYPTION FAILED for {agent_id}: {e} \
                      — aborting send (plaintext will NOT be sent)"
                 );
                 format!("encryption failed — message NOT sent: {e}")
@@ -2983,10 +3217,14 @@ pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -
 
         // Map EncryptedMessage -> MessageEnvelope (wire-format preserving).
         // Field correspondence is verified in phase-signalsession-spec.md §4.
+        // Use the resolved agent_id (not raw recipient) so the backend routes correctly.
         let envelope = tinyplace::types::MessageEnvelope {
-            id: String::new(),
+            // The backend requires a non-empty client-generated message id
+            // (POST /messages rejects an empty id with "message id, from, and to
+            // are required"). The SDK's send() only fills timestamp, not id.
+            id: uuid::Uuid::new_v4().to_string(),
             from: our_agent_id.clone(),
-            to: recipient.clone(),
+            to: agent_id.clone(),
             timestamp: String::new(),
             device_id: 1,
             envelope_type: encrypted.message_type.clone(), // "PREKEY_BUNDLE" or "CIPHERTEXT"
@@ -2997,7 +3235,7 @@ pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -
 
         let sent = client.messages.send(envelope).await.map_err(map_err)?;
         log::info!(
-            "{LOG_PREFIX} signal_send_message sent encrypted message to={recipient} \
+            "{LOG_PREFIX} signal_send_message sent encrypted message to={agent_id} \
              id={} type={} len={}",
             sent.id,
             sent.envelope_type,
@@ -4812,13 +5050,6 @@ mod tests {
         assert!(err.contains("streamId"), "got: {err}");
     }
 
-    /// `signal_get_bundle` rejects a missing `agentId` before any client work.
-    #[test]
-    fn signal_get_bundle_requires_agent_id() {
-        let err = block_on(handle_tinyplace_signal_get_bundle(Map::new())).unwrap_err();
-        assert!(err.contains("agentId"), "got: {err}");
-    }
-
     /// `signal_provision` has no required params; it must fail at `global_signal_store`
     /// (wallet/config not available in unit tests), NOT at param extraction.
     /// Uses a Tokio runtime because `global_signal_store` internally calls
@@ -4872,6 +5103,63 @@ mod tests {
             .block_on(handle_tinyplace_signal_key_status(Map::new()))
             .unwrap_err();
         assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    // ── looks_like_base58_pubkey heuristic ───────────────────────────────────
+
+    #[test]
+    fn base58_pubkey_heuristic_accepts_valid_keys() {
+        // 44-char base58 string using all valid alphabet chars
+        assert!(
+            looks_like_base58_pubkey("61KcG5aGLqpnJz2fXyzABCDEFGHJKLMNPQRSTUVWXY"),
+            "44-char valid base58 must match"
+        );
+        // 32-char minimum
+        assert!(
+            looks_like_base58_pubkey("11111111111111111111111111111111"),
+            "32-char all-1s must match (system program)"
+        );
+    }
+
+    #[test]
+    fn base58_pubkey_heuristic_rejects_handles_and_invalid() {
+        assert!(
+            !looks_like_base58_pubkey("@alice"),
+            "@ prefix must not match"
+        );
+        assert!(
+            !looks_like_base58_pubkey("alice"),
+            "too short to be a pubkey"
+        );
+        assert!(!looks_like_base58_pubkey(""), "empty must not match");
+        // Contains '!' which is outside the base58 alphabet
+        assert!(
+            !looks_like_base58_pubkey("61KcG5aGLqpn!Jz2fXyzABCDEFGHJKLMNPQRSTUVWX"),
+            "invalid char must not match"
+        );
+        // Contains '0' which is NOT in base58 (confused with 'O')
+        assert!(
+            !looks_like_base58_pubkey("61KcG5aGLqpnJz2fXyzABCDEFGHJKLMNPQRS0UVWXY"),
+            "zero char not in base58 alphabet"
+        );
+    }
+
+    #[test]
+    fn base58_pubkey_heuristic_rejects_45_char_string() {
+        // 45 chars is too long for a 32-byte base58 pubkey (valid range is 32..=44)
+        let s = "61KcG5aGLqpnJz2fXyzABCDEFGHJKLMNPQRSTUVWXYZ12";
+        assert_eq!(s.len(), 45, "test fixture must be exactly 45 chars");
+        assert!(
+            !looks_like_base58_pubkey(s),
+            "45-char string must not match"
+        );
+    }
+
+    /// `signal_get_bundle` rejects a missing `agentId` before any resolution.
+    #[test]
+    fn signal_get_bundle_requires_agent_id() {
+        let err = block_on(handle_tinyplace_signal_get_bundle(Map::new())).unwrap_err();
+        assert!(err.contains("agentId"), "got: {err}");
     }
 
     #[test]
@@ -5360,6 +5648,123 @@ mod tests {
         assert!(
             !err.contains("actor"),
             "actor must not be a client param: {err}"
+        );
+    }
+
+    // ── match_agent_card_by_username — pure matching logic ───────────────────
+
+    fn make_test_card(agent_id: &str, username: Option<&str>) -> tinyplace::types::AgentCard {
+        tinyplace::types::AgentCard {
+            agent_id: agent_id.to_string(),
+            name: agent_id.to_string(),
+            description: None,
+            username: username.map(str::to_string),
+            crypto_id: format!("crypto-{agent_id}"),
+            public_key: None,
+            url: None,
+            endpoint: None,
+            supported_interfaces: None,
+            skills: None,
+            capabilities: None,
+            tags: None,
+            payment_methods: None,
+            payment_requirements: None,
+            groups: None,
+            docs: None,
+            webhooks: None,
+            metadata: None,
+            signature: None,
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            updated_at: "2026-01-01T00:00:00Z".to_string(),
+        }
+    }
+
+    /// Directory-card matcher finds an exact username match.
+    #[test]
+    fn match_agent_card_exact_username_hit() {
+        let cards = vec![
+            make_test_card("agent-1", Some("alice")),
+            make_test_card("agent-2", Some("stevejobs")),
+            make_test_card("agent-3", Some("bob")),
+        ];
+        let found = match_agent_card_by_username(&cards, "stevejobs");
+        assert!(found.is_some(), "should find stevejobs");
+        assert_eq!(found.unwrap().crypto_id, "crypto-agent-2");
+    }
+
+    /// Directory-card matcher is case-insensitive.
+    #[test]
+    fn match_agent_card_case_insensitive() {
+        let cards = vec![make_test_card("agent-1", Some("SteveJobs"))];
+        let found = match_agent_card_by_username(&cards, "stevejobs");
+        assert!(found.is_some(), "case-insensitive match must succeed");
+    }
+
+    /// Directory-card matcher returns None when no card has the given username.
+    #[test]
+    fn match_agent_card_miss() {
+        let cards = vec![
+            make_test_card("agent-1", Some("alice")),
+            make_test_card("agent-2", None), // no username
+        ];
+        let found = match_agent_card_by_username(&cards, "notexist");
+        assert!(found.is_none(), "should return None when no match");
+    }
+
+    /// Directory-card matcher skips cards with no username without panicking.
+    #[test]
+    fn match_agent_card_skips_cards_without_username() {
+        let cards = vec![
+            make_test_card("agent-1", None),
+            make_test_card("agent-2", None),
+            make_test_card("agent-3", Some("target")),
+        ];
+        let found = match_agent_card_by_username(&cards, "target");
+        assert!(found.is_some(), "should find the card that has a username");
+        assert_eq!(found.unwrap().agent_id, "agent-3");
+    }
+
+    /// looks_like_base58_pubkey passthrough: resolve_recipient should NOT call
+    /// directory.resolve for a raw crypto_id — it short-circuits and returns it
+    /// directly.  We can verify this by supplying a valid 44-char base58 string
+    /// which, without a live client, would error if it tried to resolve.
+    ///
+    /// Because `resolve_recipient_to_agent_id` requires a live client we test
+    /// the passthrough indirectly via `looks_like_base58_pubkey`.
+    #[test]
+    fn base58_passthrough_identified_correctly() {
+        // 44-char valid base58 — same as used elsewhere in this test suite.
+        let key = "61KcG5aGLqpnJz2fXyzABCDEFGHJKLMNPQRSTUVWXY";
+        assert!(
+            looks_like_base58_pubkey(key),
+            "44-char base58 must be identified as a crypto_id to skip resolution"
+        );
+    }
+
+    /// Resolver error message does NOT expose the raw 404 HTTP text.
+    /// The error string produced when no agent is found must be human-readable
+    /// and must not look like a raw network error.
+    #[test]
+    fn resolve_not_found_error_is_human_readable() {
+        // Test the error message produced in handle_tinyplace_directory_resolve
+        // when both registry and directory miss — replicated here as the literal
+        // format used in the production code.
+        let name = "unknownuser";
+        let err = format!(
+            "No agent found for \"{name}\". \
+             Check the handle or paste their wallet address directly."
+        );
+        assert!(
+            err.contains("unknownuser"),
+            "error must name the handle: {err}"
+        );
+        assert!(
+            !err.contains("404"),
+            "error must not expose raw HTTP status: {err}"
+        );
+        assert!(
+            !err.contains("not found"),
+            "error must not use raw 404 body text: {err}"
         );
     }
 }

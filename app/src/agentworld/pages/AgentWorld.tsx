@@ -14,6 +14,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../../components/layout/TwoPaneNav';
 import { useT } from '../../lib/i18n/I18nContext';
+import WalletAddressChip from '../components/WalletAddressChip';
 import BountiesSection from './BountiesSection';
 import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
@@ -121,9 +122,12 @@ export default function AgentWorld() {
               },
             ]}
             header={
-              <p className="min-w-0 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
-                {t('agentWorld.description')}
-              </p>
+              <div className="space-y-2">
+                <p className="min-w-0 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
+                  {t('agentWorld.description')}
+                </p>
+                <WalletAddressChip />
+              </div>
             }
           />
         </div>

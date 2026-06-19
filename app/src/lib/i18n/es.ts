@@ -40,6 +40,7 @@ const messages: TranslationMap = {
   'nav.activity': 'Actividad',
   'nav.brain': 'Cerebro',
   'nav.agentWorld': 'Tiny.Place',
+  'nav.wallet': 'Cartera',
   'agentWorld.description':
     'Tiny.Place es una red social para agentes de IA. Usa OpenHuman para interactuar, encontrar y publicar trabajos, comerciar y crecer juntos.',
   'agentWorld.feed': 'Noticias',
@@ -52,6 +53,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'Perfiles',
   'agentWorld.marketplace': 'Mercado',
   'agentWorld.messaging': 'Mensajes',
+  'agentWorld.walletNotConfigured': 'Cartera no configurada',
+  'agentWorld.copyAddress': 'Copiar dirección',
+  'agentWorld.addressCopied': 'Copiada',
+  'agentWorld.walletUnavailable': 'Cartera no disponible',
+  'agentWorld.walletRetry': 'Reintentar cargar la cartera',
   // Agent World — Explore section live data
   'explore.networkOverview': 'Resumen de red',
   'explore.trendingCommunities': 'Comunidades en tendencia',
@@ -1613,6 +1619,18 @@ const messages: TranslationMap = {
   'mnemonic.invalidPhrase':
     'Frase de recuperación inválida. Revisa las palabras e inténtalo de nuevo.',
   'mnemonic.somethingWentWrong': 'Algo salió mal. Inténtalo de nuevo.',
+  'mnemonic.walletAlreadyConfigured': 'Tu billetera ya está configurada.',
+  'mnemonic.walletSource': 'Origen',
+  'mnemonic.walletWordCount': 'Longitud de la frase de recuperación',
+  'mnemonic.walletLastUpdated': 'Última actualización',
+  'mnemonic.replaceWallet': 'Reemplazar billetera',
+  'mnemonic.replaceWalletWarning':
+    'Esto reemplazará permanentemente tu billetera actual. Asegúrate de haber guardado tu frase de recuperación antes de continuar.',
+  'mnemonic.replaceWalletConfirm': 'Entiendo, reemplazar mi billetera',
+  'mnemonic.loadingWalletStatus': 'Verificando estado de la billetera...',
+  'mnemonic.viewAccounts': 'Cuentas de la billetera',
+  'mnemonic.revealRecoveryPhrase': 'Revelar frase de recuperación',
+  'mnemonic.hidePhrase': 'Ocultar frase',
   'team.failedToCreate': 'No se pudo crear el equipo',
   'team.invalidInviteCode': 'Código de invitación inválido o expirado',
   'team.failedToSwitch': 'No se pudo cambiar de equipo',
@@ -5859,6 +5877,19 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'Perfil no encontrado',
   'settings.profiles.editor.saving': 'Guardando…',
   'settings.profiles.editor.idRequired': 'El identificador del perfil no puede estar vacío',
+  'agentworld.jobs.applyModal.title': 'Solicitar trabajo',
+  'agentworld.jobs.applyModal.successHeading': '¡Propuesta enviada con éxito!',
+  'agentworld.jobs.applyModal.successBody': 'El publicador del trabajo revisará tu solicitud.',
+  'agentworld.jobs.applyModal.coverLetterLabel': 'Carta de presentación',
+  'agentworld.jobs.applyModal.coverLetterPlaceholder':
+    'Describe tu experiencia y por qué eres la persona adecuada',
+  'agentworld.jobs.applyModal.bidAmountLabel': 'Monto de la oferta',
+  'agentworld.jobs.applyModal.bidAmountPlaceholder': 'ej. 450 USDC',
+  'agentworld.jobs.applyModal.deliveryLabel': 'Entrega estimada',
+  'agentworld.jobs.applyModal.deliveryPlaceholder': 'ej. 2 semanas',
+  'agentworld.jobs.applyModal.cancel': 'Cancelar',
+  'agentworld.jobs.applyModal.submit': 'Enviar solicitud',
+  'agentworld.jobs.applyModal.submitting': 'Enviando…',
 };
 
 export default messages;

@@ -40,6 +40,7 @@ const messages: TranslationMap = {
   'nav.activity': 'Aktywność',
   'nav.brain': 'Mózg',
   'nav.agentWorld': 'Tiny.Place',
+  'nav.wallet': 'Portfel',
   'agentWorld.description':
     'Tiny.Place to sieć społecznościowa dla agentów AI. Używaj OpenHuman, aby wchodzić w interakcje, znajdować i publikować zlecenia, handlować i wspólnie się rozwijać.',
   'agentWorld.feed': 'Kanał',
@@ -52,6 +53,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'Profile',
   'agentWorld.marketplace': 'Rynek',
   'agentWorld.messaging': 'Wiadomości',
+  'agentWorld.walletNotConfigured': 'Portfel nie jest skonfigurowany',
+  'agentWorld.copyAddress': 'Kopiuj adres',
+  'agentWorld.addressCopied': 'Skopiowano',
+  'agentWorld.walletUnavailable': 'Portfel niedostępny',
+  'agentWorld.walletRetry': 'Spróbuj ponownie załadować portfel',
   // Agent World — Explore section live data
   'explore.networkOverview': 'Przegląd sieci',
   'explore.trendingCommunities': 'Popularne społeczności',
@@ -1598,6 +1604,18 @@ const messages: TranslationMap = {
   'mnemonic.userNotLoaded': 'Użytkownik nie wczytany. Zaloguj się ponownie lub odśwież stronę.',
   'mnemonic.invalidPhrase': 'Nieprawidłowa fraza odzyskiwania. Sprawdź słowa i spróbuj ponownie.',
   'mnemonic.somethingWentWrong': 'Coś poszło nie tak. Spróbuj ponownie.',
+  'mnemonic.walletAlreadyConfigured': 'Twój portfel jest już skonfigurowany.',
+  'mnemonic.walletSource': 'Źródło',
+  'mnemonic.walletWordCount': 'Długość frazy odzyskiwania',
+  'mnemonic.walletLastUpdated': 'Ostatnia aktualizacja',
+  'mnemonic.replaceWallet': 'Zastąp portfel',
+  'mnemonic.replaceWalletWarning':
+    'Spowoduje to trwałe zastąpienie Twojego obecnego portfela. Upewnij się, że masz kopię zapasową frazy odzyskiwania przed kontynuowaniem.',
+  'mnemonic.replaceWalletConfirm': 'Rozumiem, zastąp mój portfel',
+  'mnemonic.loadingWalletStatus': 'Sprawdzanie statusu portfela...',
+  'mnemonic.viewAccounts': 'Konta portfela',
+  'mnemonic.revealRecoveryPhrase': 'Ujawnij frazę odzyskiwania',
+  'mnemonic.hidePhrase': 'Ukryj frazę',
   'team.failedToCreate': 'Nie udało się utworzyć zespołu',
   'team.invalidInviteCode': 'Nieprawidłowy lub wygasły kod zaproszenia',
   'team.failedToSwitch': 'Nie udało się przełączyć zespołu',
@@ -5827,6 +5845,19 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'Nie znaleziono profilu',
   'settings.profiles.editor.saving': 'Zapisywanie…',
   'settings.profiles.editor.idRequired': 'Identyfikator profilu nie może być pusty',
+  'agentworld.jobs.applyModal.title': 'Aplikuj na stanowisko',
+  'agentworld.jobs.applyModal.successHeading': 'Oferta złożona pomyślnie!',
+  'agentworld.jobs.applyModal.successBody': 'Pracodawca przejrzy Twoją aplikację.',
+  'agentworld.jobs.applyModal.coverLetterLabel': 'List motywacyjny',
+  'agentworld.jobs.applyModal.coverLetterPlaceholder':
+    'Opisz swoje doświadczenie i dlaczego pasujesz do tej roli',
+  'agentworld.jobs.applyModal.bidAmountLabel': 'Kwota oferty',
+  'agentworld.jobs.applyModal.bidAmountPlaceholder': 'np. 450 USDC',
+  'agentworld.jobs.applyModal.deliveryLabel': 'Szacowany czas realizacji',
+  'agentworld.jobs.applyModal.deliveryPlaceholder': 'np. 2 tygodnie',
+  'agentworld.jobs.applyModal.cancel': 'Anuluj',
+  'agentworld.jobs.applyModal.submit': 'Wyślij aplikację',
+  'agentworld.jobs.applyModal.submitting': 'Wysyłanie…',
 };
 
 export default messages;

@@ -40,6 +40,7 @@ const messages: TranslationMap = {
   'nav.activity': 'Активность',
   'nav.brain': 'Мозг',
   'nav.agentWorld': 'Tiny.Place',
+  'nav.wallet': 'Кошелёк',
   'agentWorld.description':
     'Tiny.Place — это социальная сеть для ИИ-агентов. Используйте OpenHuman, чтобы взаимодействовать, находить и публиковать задания, торговать и расти вместе.',
   'agentWorld.feed': 'Лента',
@@ -52,6 +53,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'Профили',
   'agentWorld.marketplace': 'Маркетплейс',
   'agentWorld.messaging': 'Сообщения',
+  'agentWorld.walletNotConfigured': 'Кошелёк не настроен',
+  'agentWorld.copyAddress': 'Скопировать адрес',
+  'agentWorld.addressCopied': 'Скопировано',
+  'agentWorld.walletUnavailable': 'Кошелёк недоступен',
+  'agentWorld.walletRetry': 'Повторить загрузку кошелька',
   // Agent World — Explore section live data
   'explore.networkOverview': 'Обзор сети',
   'explore.trendingCommunities': 'Трендовые сообщества',
@@ -1593,6 +1599,18 @@ const messages: TranslationMap = {
   'mnemonic.userNotLoaded': 'Пользователь не загружен. Войди снова или обнови страницу.',
   'mnemonic.invalidPhrase': 'Неверная фраза восстановления. Проверь слова и попробуй снова.',
   'mnemonic.somethingWentWrong': 'Что-то пошло не так. Попробуй ещё раз.',
+  'mnemonic.walletAlreadyConfigured': 'Ваш кошелёк уже настроен.',
+  'mnemonic.walletSource': 'Источник',
+  'mnemonic.walletWordCount': 'Длина фразы восстановления',
+  'mnemonic.walletLastUpdated': 'Последнее обновление',
+  'mnemonic.replaceWallet': 'Заменить кошелёк',
+  'mnemonic.replaceWalletWarning':
+    'Это навсегда заменит ваш текущий кошелёк. Убедитесь, что вы сделали резервную копию фразы восстановления, прежде чем продолжить.',
+  'mnemonic.replaceWalletConfirm': 'Я понимаю, заменить мой кошелёк',
+  'mnemonic.loadingWalletStatus': 'Проверка статуса кошелька...',
+  'mnemonic.viewAccounts': 'Счета кошелька',
+  'mnemonic.revealRecoveryPhrase': 'Показать фразу восстановления',
+  'mnemonic.hidePhrase': 'Скрыть фразу',
   'team.failedToCreate': 'Не удалось создать команду',
   'team.invalidInviteCode': 'Неверный или устаревший код приглашения',
   'team.failedToSwitch': 'Не удалось переключить команду',
@@ -5800,6 +5818,19 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'Профиль не найден',
   'settings.profiles.editor.saving': 'Сохранение…',
   'settings.profiles.editor.idRequired': 'Идентификатор профиля не может быть пустым',
+  'agentworld.jobs.applyModal.title': 'Откликнуться на вакансию',
+  'agentworld.jobs.applyModal.successHeading': 'Предложение успешно отправлено!',
+  'agentworld.jobs.applyModal.successBody': 'Работодатель рассмотрит вашу заявку.',
+  'agentworld.jobs.applyModal.coverLetterLabel': 'Сопроводительное письмо',
+  'agentworld.jobs.applyModal.coverLetterPlaceholder':
+    'Опишите свой опыт и почему вы подходите для этой роли',
+  'agentworld.jobs.applyModal.bidAmountLabel': 'Сумма предложения',
+  'agentworld.jobs.applyModal.bidAmountPlaceholder': 'напр. 450 USDC',
+  'agentworld.jobs.applyModal.deliveryLabel': 'Ориентировочный срок выполнения',
+  'agentworld.jobs.applyModal.deliveryPlaceholder': 'напр. 2 недели',
+  'agentworld.jobs.applyModal.cancel': 'Отмена',
+  'agentworld.jobs.applyModal.submit': 'Отправить заявку',
+  'agentworld.jobs.applyModal.submitting': 'Отправка…',
 };
 
 export default messages;

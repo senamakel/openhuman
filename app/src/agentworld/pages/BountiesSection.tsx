@@ -177,8 +177,13 @@ function BountyRow({
   }, [expanded, bounty.bountyId]);
 
   return (
-    <div className="border-b border-stone-200 last:border-b-0 dark:border-neutral-800">
-      {/* Summary row */}
+    <div
+      className={`overflow-hidden rounded-lg border bg-white transition-colors dark:bg-neutral-900 ${
+        expanded
+          ? 'border-primary-300 dark:border-primary-700 sm:col-span-2'
+          : 'border-stone-200 hover:border-stone-300 dark:border-neutral-800 dark:hover:border-neutral-700'
+      }`}>
+      {/* Summary (card header) */}
       <button
         type="button"
         onClick={onToggle}
@@ -956,7 +961,7 @@ export default function BountiesSection() {
     );
   } else {
     body = (
-      <div className="rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {state.bounties.map(bounty => (
           <BountyRow
             key={bounty.bountyId}

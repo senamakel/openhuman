@@ -19,7 +19,6 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_bounties_cancel,
     handle_tinyplace_bounties_comment,
     handle_tinyplace_bounties_create,
-    handle_tinyplace_bounties_fund,
     handle_tinyplace_bounties_get,
     handle_tinyplace_bounties_list,
     handle_tinyplace_bounties_list_comments,
@@ -61,6 +60,8 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_follows_unfollow,
     // GraphQL Profile + Identity handlers
     handle_tinyplace_graphql_agent_card,
+    handle_tinyplace_graphql_bounties,
+    handle_tinyplace_graphql_bounty,
     // GraphQL Social Feed handlers
     handle_tinyplace_graphql_home_feed,
     handle_tinyplace_graphql_identities,
@@ -2041,24 +2042,6 @@ fn schema_bounties_create() -> ControllerSchema {
     }
 }
 
-fn schema_bounties_fund() -> ControllerSchema {
-    ControllerSchema {
-        namespace: "tinyplace",
-        function: "bounties_fund",
-        description: "Fund a bounty via x402 confirm-before-spend. confirmed=false returns the \
-             402 challenge + wallet balance (no spend); confirmed=true pays and funds.",
-        inputs: vec![
-            required_string("bountyId", "The bounty ID to fund."),
-            buy_confirmed_input(),
-        ],
-        outputs: vec![json_output(
-            "result",
-            "Either { bounty } (already funded), { challenge, walletBalance, walletAddress } \
-             (unconfirmed), or { bounty, payment: { onChainTx } } (paid).",
-        )],
-    }
-}
-
 fn schema_bounties_cancel() -> ControllerSchema {
     ControllerSchema {
         namespace: "tinyplace",
@@ -2340,6 +2323,34 @@ fn schema_graphql_job() -> ControllerSchema {
     }
 }
 
+fn schema_graphql_bounties() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_bounties",
+        description: "List bounties via GraphQL (public, no auth). Supports \
+             status/creator filters and limit/offset pagination. Returns GqlBounty[].",
+        inputs: vec![FieldSchema {
+            name: "params",
+            ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+            comment: "BountyGraphQLParams filter object (all fields optional). \
+                 Fields: status, creator, limit, offset.",
+            required: false,
+        }],
+        outputs: vec![json_output("result", "GqlBounty[] (empty array when none).")],
+    }
+}
+
+fn schema_graphql_bounty() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_bounty",
+        description: "Fetch a single bounty by ID via GraphQL (public, no auth). \
+             Returns full GqlBounty with reward, council, submissions metadata.",
+        inputs: vec![required_string("id", "The bounty ID to fetch.")],
+        outputs: vec![json_output("result", "GqlBounty or null if not found.")],
+    }
+}
+
 fn schema_graphql_profile() -> ControllerSchema {
     ControllerSchema {
         namespace: "tinyplace",
@@ -2536,7 +2547,6 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_bounties_list(),
         schema_bounties_get(),
         schema_bounties_create(),
-        schema_bounties_fund(),
         schema_bounties_cancel(),
         schema_bounties_submit(),
         schema_bounties_list_submissions(),
@@ -2556,6 +2566,9 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         // GraphQL Jobs
         schema_graphql_jobs(),
         schema_graphql_job(),
+        // GraphQL Bounties
+        schema_graphql_bounties(),
+        schema_graphql_bounty(),
         // GraphQL Profile + Identity
         schema_graphql_profile(),
         schema_graphql_user(),
@@ -3024,10 +3037,6 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
             handler: handle_tinyplace_bounties_create,
         },
         RegisteredController {
-            schema: schema_bounties_fund(),
-            handler: handle_tinyplace_bounties_fund,
-        },
-        RegisteredController {
             schema: schema_bounties_cancel(),
             handler: handle_tinyplace_bounties_cancel,
         },
@@ -3093,6 +3102,15 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_graphql_job(),
             handler: handle_tinyplace_graphql_job,
+        },
+        // GraphQL Bounties
+        RegisteredController {
+            schema: schema_graphql_bounties(),
+            handler: handle_tinyplace_graphql_bounties,
+        },
+        RegisteredController {
+            schema: schema_graphql_bounty(),
+            handler: handle_tinyplace_graphql_bounty,
         },
         // GraphQL Profile + Identity
         RegisteredController {
@@ -3291,7 +3309,6 @@ mod tests {
             "openhuman.tinyplace_bounties_list",
             "openhuman.tinyplace_bounties_get",
             "openhuman.tinyplace_bounties_create",
-            "openhuman.tinyplace_bounties_fund",
             "openhuman.tinyplace_bounties_cancel",
             "openhuman.tinyplace_bounties_submit",
             "openhuman.tinyplace_bounties_list_submissions",

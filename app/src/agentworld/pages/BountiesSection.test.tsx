@@ -23,7 +23,6 @@ vi.mock('../AgentWorldShell', () => ({
       list: vi.fn(),
       get: vi.fn(),
       create: vi.fn(),
-      fund: vi.fn(),
       cancel: vi.fn(),
       submit: vi.fn(),
       listSubmissions: vi.fn(),
@@ -485,62 +484,6 @@ describe('Comment flow', () => {
         sampleBounty.bountyId,
         'Great bounty!'
       );
-    });
-  });
-});
-
-// ── Fund flow (x402) ──────────────────────────────────────────────────────────
-
-describe('Fund flow (x402)', () => {
-  test('Fund button visible to creator on draft bounty', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.bounties.list).mockResolvedValue(listWithOwnBounty);
-    render(<BountiesSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText('My own draft bounty')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText('My own draft bounty'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Fund Bounty')).toBeInTheDocument();
-    });
-  });
-
-  test('Fund button triggers x402 challenge (confirmed:false)', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.bounties.list).mockResolvedValue(listWithOwnBounty);
-    vi.mocked(apiClient.bounties.fund).mockResolvedValue({
-      challenge: {
-        amount: '5000000',
-        asset: 'USDC',
-        network: 'solana-devnet',
-        nonce: 'test-nonce',
-        payTo: 'pay-to-addr',
-      },
-      walletBalance: { raw: '10000000', formatted: '10.00', decimals: 6, assetSymbol: 'USDC' },
-      walletAddress: MY_AGENT_ID,
-    } as never);
-    render(<BountiesSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText('My own draft bounty')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText('My own draft bounty'));
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /fund bounty/i })).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('button', { name: /fund bounty/i }));
-
-    // Verify fund was called with confirmed:false
-    await waitFor(() => {
-      expect(apiClient.bounties.fund).toHaveBeenCalledWith(sampleOwnBounty.bountyId, {
-        confirmed: false,
-      });
     });
   });
 });

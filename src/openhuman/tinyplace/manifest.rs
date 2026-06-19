@@ -3582,6 +3582,65 @@ pub(crate) fn handle_tinyplace_graphql_job(params: Map<String, Value>) -> Contro
     })
 }
 
+// ── GraphQL: Bounties ─────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_graphql_bounties(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} graphql_bounties params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        // BountyGraphQLParams isn't Deserialize, so build it from the optional
+        // filter object by hand (all fields optional).
+        let query_params: Option<tinyplace::api::graphql::BountyGraphQLParams> = params
+            .get("params")
+            .and_then(|v| v.as_object())
+            .map(|obj| tinyplace::api::graphql::BountyGraphQLParams {
+                status: obj.get("status").and_then(Value::as_str).map(String::from),
+                creator: obj.get("creator").and_then(Value::as_str).map(String::from),
+                limit: obj.get("limit").and_then(Value::as_i64),
+                offset: obj.get("offset").and_then(Value::as_i64),
+            });
+
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — bounties are public.
+        match client.graphql.bounties(query_params.as_ref()).await {
+            Ok(result) => to_value(result),
+            Err(e) => match graphql_bounties_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} graphql_bounties deserialization failed -> empty: {e}"
+                    );
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+/// The backend may return `{"bounties": null}` for an empty board. Degrade
+/// Serialization errors to an empty list; propagate everything else.
+pub(crate) fn graphql_bounties_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!([]))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_bounty(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let id = req_str(&params, "id")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_bounty id={id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.bounty(&id).await.map_err(map_err)?;
+        // Returns Option<GqlBounty> — null means bounty not found.
+        to_value(result)
+    })
+}
+
 // ── GraphQL: Profile + Identity ───────────────────────────────────────────────
 
 pub(crate) fn handle_tinyplace_graphql_profile(params: Map<String, Value>) -> ControllerFuture {
@@ -4095,97 +4154,6 @@ pub(crate) fn handle_tinyplace_bounties_create(params: Map<String, Value>) -> Co
             )),
             Err(SettleFailure::Exhausted(last)) => Err(format!(
                 "bounty paid but not confirmed in time (onChainTx={on_chain_tx}); last error: {last}"
-            )),
-        }
-    })
-}
-
-pub(crate) fn handle_tinyplace_bounties_fund(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let bounty_id = req_str(&params, "bountyId")?.trim().to_string();
-        if bounty_id.is_empty() {
-            return Err("missing required param 'bountyId'".to_string());
-        }
-        let confirmed = params
-            .get("confirmed")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        log::debug!("{LOG_PREFIX} bounties_fund bounty_id={bounty_id} confirmed={confirmed}");
-
-        let client = global_state().client().await?;
-        // ANTI-SPOOF: creator resolved from signer, never from params.
-        let signer = client
-            .http()
-            .signer()
-            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
-        let creator = signer.agent_id();
-
-        // Phase A: probe for the 402 challenge (or a free/already-funded bounty).
-        let challenge = match client.bounties.fund(&bounty_id, &creator, None).await {
-            Ok(bounty) => {
-                log::debug!("{LOG_PREFIX} bounties_fund no payment needed bounty_id={bounty_id}");
-                return to_value(serde_json::json!({ "bounty": bounty }));
-            }
-            Err(e) => match e.payment_required() {
-                Some(pr) => pr.payment.clone(),
-                None => return Err(map_err(e)),
-            },
-        };
-        log::debug!(
-            "{LOG_PREFIX} bounties_fund 402 challenge network={:?} asset={:?} amount={:?}",
-            challenge.network,
-            challenge.asset,
-            challenge.amount,
-        );
-
-        // Unconfirmed: surface the challenge + balance, spend nothing.
-        if !confirmed {
-            let (wallet_balance, wallet_address) = wallet_usdc_balance(&signer.agent_id()).await;
-            return to_value(serde_json::json!({
-                "challenge": challenge,
-                "walletBalance": wallet_balance,
-                "walletAddress": wallet_address,
-            }));
-        }
-
-        // Confirmed: cluster guards, pay on-chain, re-submit with the map.
-        if let Some(network) = challenge.network.as_deref() {
-            ensure_cluster_matches(network)?;
-        }
-        ensure_backend_mint_matches(&client).await?;
-
-        let mut extra_metadata = HashMap::new();
-        extra_metadata.insert("bountyId".to_string(), bounty_id.clone());
-        let fulfilled = fulfill_payment(
-            &challenge,
-            signer.as_ref(),
-            PaymentContext {
-                purpose: "bounties.fund".to_string(),
-                nonce_prefix: "fund".to_string(),
-                extra_metadata,
-            },
-        )
-        .await?;
-        let on_chain_tx = fulfilled.on_chain_tx.clone();
-
-        // Re-submit with the payment map, retrying while settlement confirms.
-        match settle_retry("bounties_fund", || {
-            client
-                .bounties
-                .fund(&bounty_id, &creator, Some(&fulfilled.payment_map))
-        })
-        .await
-        {
-            Ok(bounty) => to_value(serde_json::json!({
-                "bounty": bounty,
-                "payment": { "onChainTx": on_chain_tx },
-            })),
-            Err(SettleFailure::Hard(m)) => Err(format!(
-                "bounty funding failed after payment (onChainTx={on_chain_tx}): {m}"
-            )),
-            Err(SettleFailure::Exhausted(last)) => Err(format!(
-                "bounty funded but not confirmed in time (onChainTx={on_chain_tx}); \
-                 last error: {last}"
             )),
         }
     })
@@ -5318,19 +5286,6 @@ mod tests {
         assert!(
             result.unwrap_err().contains("amount"),
             "expected 'amount' in error"
-        );
-    }
-
-    /// bounties_fund rejects blank bountyId before any client work.
-    #[test]
-    fn bounties_fund_rejects_blank_bounty_id() {
-        let mut params = Map::new();
-        params.insert("bountyId".to_string(), Value::String("  ".to_string()));
-        let result = block_on(handle_tinyplace_bounties_fund(params));
-        assert!(result.is_err());
-        assert!(
-            result.unwrap_err().contains("bountyId"),
-            "expected 'bountyId' in error"
         );
     }
 

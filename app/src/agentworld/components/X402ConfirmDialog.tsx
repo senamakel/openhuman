@@ -12,6 +12,21 @@
  */
 import Button from '../../components/ui/Button';
 import { ModalShell } from '../../components/ui/ModalShell';
+import { openUrl } from '../../utils/openUrl';
+
+/** tiny.place hosted funding page — handles deposits / on-ramp for the wallet. */
+const FUND_PAGE_URL = 'https://tiny.place/fund';
+
+/**
+ * Build the tiny.place funding URL for a wallet + asset, e.g.
+ * `https://tiny.place/fund?address=<addr>&asset=USDC`. The fund page reads
+ * these params to pre-fill the deposit target, so the user lands ready to top
+ * up the exact wallet that came up short.
+ */
+export function fundingUrl(address: string, asset: string): string {
+  const params = new URLSearchParams({ address, asset });
+  return `${FUND_PAGE_URL}?${params.toString()}`;
+}
 
 export interface X402WalletBalance {
   /** Balance in raw base units (same scale as the challenge amount). */
@@ -144,7 +159,8 @@ export default function X402ConfirmDialog({
 
         {insufficient ? (
           <p className="text-xs text-coral-500" data-testid="x402-insufficient">
-            Insufficient {asset} balance to complete this payment.
+            Insufficient {asset} balance to complete this payment. Add funds to your wallet to
+            continue.
           </p>
         ) : (
           <p className="text-xs text-stone-400 dark:text-neutral-500">
@@ -156,14 +172,28 @@ export default function X402ConfirmDialog({
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onConfirm}
-            disabled={confirmDisabled}
-            data-testid="x402-confirm">
-            {busy ? busyLabel : 'Confirm & Pay'}
-          </Button>
+          {insufficient ? (
+            // Not enough balance — send the user to the tiny.place fund page for
+            // the exact wallet + asset instead of a dead, disabled Pay button.
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                void openUrl(fundingUrl(walletAddress, asset));
+              }}
+              data-testid="x402-add-funds">
+              Add funds
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onConfirm}
+              disabled={confirmDisabled}
+              data-testid="x402-confirm">
+              {busy ? busyLabel : 'Confirm & Pay'}
+            </Button>
+          )}
         </div>
       </div>
     </ModalShell>

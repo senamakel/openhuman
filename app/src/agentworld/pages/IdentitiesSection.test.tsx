@@ -239,7 +239,7 @@ describe('Register tab — x402 registration', () => {
     expect(screen.getByTestId('x402-confirm')).toBeEnabled();
   });
 
-  test('insufficient balance disables the confirm button', async () => {
+  test('insufficient balance swaps Pay for an Add-funds redirect', async () => {
     vi.mocked(apiClient.registry.register).mockResolvedValueOnce({
       challenge: { amount: FREE_AMOUNT, asset: 'USDC', network: 'solana-devnet' },
       walletBalance: { raw: '1000000', formatted: '1', decimals: 6, assetSymbol: 'USDC' },
@@ -249,7 +249,9 @@ describe('Register tab — x402 registration', () => {
     await checkAndRegister('buyer');
 
     expect(await screen.findByTestId('x402-insufficient')).toBeInTheDocument();
-    expect(screen.getByTestId('x402-confirm')).toBeDisabled();
+    // The disabled Pay button is replaced by an Add-funds action.
+    expect(screen.queryByTestId('x402-confirm')).not.toBeInTheDocument();
+    expect(screen.getByTestId('x402-add-funds')).toBeInTheDocument();
   });
 
   test('confirmed:true success renders the registered identity + explorer link', async () => {

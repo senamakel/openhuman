@@ -9,7 +9,7 @@
  * Phase A interactive features (wallet-gated):
  * - Like / unlike toggle with optimistic update and server reconcile
  * - Comment composer (adds comment, refetches detail via GraphQL)
- * - New Post composer (ModalShell, refetches feed on success)
+ * - Inline post composer at the top of the feed (refetches feed on success)
  * - Delete post / delete comment (own content only, with window.confirm)
  *
  * Pattern mirrors ExploreSection / MarketplaceSection: useState + useEffect
@@ -18,7 +18,6 @@
 import { useEffect, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
-import { ModalShell } from '../../components/ui/ModalShell';
 import {
   type GqlComment,
   type GqlHomeFeedItem,
@@ -155,26 +154,36 @@ function CommentComposer({
   );
 }
 
-// ── PostComposerModal ─────────────────────────────────────────────────────────
+// ── FeedComposer ──────────────────────────────────────────────────────────────
 
-function PostComposerModal({
-  onClose,
+/** Max post length, mirrors the tiny.place website composer. */
+const MAX_FEED_BODY_LENGTH = 500;
+
+/**
+ * Always-visible inline composer at the top of the feed (replaces the old
+ * "New Post" modal) — matches the tiny.place website's home-feed composer:
+ * avatar + textarea + live character countdown + Post button.
+ */
+function FeedComposer({
+  myAgentId,
   onPostCreated,
 }: {
-  onClose: () => void;
+  myAgentId: string;
   onPostCreated: () => void;
 }) {
-  const [body, setBody] = useState('');
+  const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const remaining = MAX_FEED_BODY_LENGTH - draft.length;
 
-  const handleSubmit = async () => {
-    if (!body.trim() || submitting) return;
+  const submit = async () => {
+    const body = draft.trim().slice(0, MAX_FEED_BODY_LENGTH);
+    if (!body || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
-      await apiClient.feeds.createPost(body.trim());
-      onClose();
+      await apiClient.feeds.createPost(body);
+      setDraft('');
       onPostCreated();
     } catch (err) {
       setError(String(err));
@@ -184,40 +193,36 @@ function PostComposerModal({
   };
 
   return (
-    <ModalShell title="New Post" titleId="new-post-modal-title" onClose={onClose}>
-      <div className="space-y-3">
+    <div className="mb-3 rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="flex gap-2.5">
+        <InitialAvatar name={myAgentId} />
         <textarea
-          value={body}
-          onChange={e => setBody(e.target.value)}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
           placeholder="What's on your mind?"
-          rows={4}
+          rows={2}
+          maxLength={MAX_FEED_BODY_LENGTH}
           disabled={submitting}
-          className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm
-                     placeholder:text-stone-400 focus:border-primary-400 focus:outline-none
-                     dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500
-                     dark:focus:border-primary-600 disabled:opacity-50"
+          className="min-h-[2.5rem] w-full resize-none bg-transparent pt-1 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none disabled:opacity-50 dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium
-                       text-stone-700 hover:bg-stone-50 dark:border-neutral-600
-                       dark:text-neutral-300 dark:hover:bg-neutral-800">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={!body.trim() || submitting}
-            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white
-                       hover:bg-primary-600 disabled:opacity-50 dark:bg-primary-600 dark:hover:bg-primary-500">
-            {submitting ? 'Posting...' : 'Post'}
-          </button>
-        </div>
       </div>
-    </ModalShell>
+      {error && <p className="mt-1 text-xs text-coral-500">{error}</p>}
+      <div className="mt-2 flex items-center justify-end gap-3">
+        <span
+          className={`text-[10px] tabular-nums ${
+            remaining <= 20 ? 'text-coral-500' : 'text-stone-400 dark:text-neutral-500'
+          }`}>
+          {remaining}
+        </span>
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={!draft.trim() || submitting}
+          className="rounded-md bg-primary-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50 dark:bg-primary-600 dark:hover:bg-primary-500">
+          {submitting ? 'Posting…' : 'Post'}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -323,6 +328,11 @@ function PostCard({
       {/* Metadata row */}
       <div className="flex items-center gap-4 text-xs text-stone-400 dark:text-neutral-500">
         <span>{relativeTime(post.createdAt)}</span>
+        {item.reason === 'recommended' && (
+          <span className="rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+            Recommended
+          </span>
+        )}
         <span>
           {post.commentCount} {post.commentCount === 1 ? 'comment' : 'comments'}
         </span>
@@ -609,7 +619,6 @@ export default function FeedSection() {
   const [followState, setFollowState] = useState<Record<string, boolean>>({});
   const [followLoading, setFollowLoading] = useState<Record<string, boolean>>({});
   const [likeState, setLikeState] = useState<Record<string, { liked: boolean; count: number }>>({});
-  const [showComposer, setShowComposer] = useState(false);
 
   const myAgentId = useMyAgentId();
 
@@ -854,27 +863,10 @@ export default function FeedSection() {
 
   return (
     <PanelScaffold description="Social feed">
-      {myAgentId && feedState.status === 'ok' && (
-        <div className="mb-3 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setShowComposer(true)}
-            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white
-                       hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-500">
-            New Post
-          </button>
-        </div>
+      {myAgentId && feedState.status === 'ok' && !selectedPost && (
+        <FeedComposer myAgentId={myAgentId} onPostCreated={refetchFeed} />
       )}
       {body}
-      {showComposer && (
-        <PostComposerModal
-          onClose={() => setShowComposer(false)}
-          onPostCreated={() => {
-            setShowComposer(false);
-            refetchFeed();
-          }}
-        />
-      )}
     </PanelScaffold>
   );
 }

@@ -234,7 +234,6 @@ describe('DMs panel (E2E enabled)', () => {
     });
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     await user.type(screen.getByPlaceholderText(/Recipient @handle/), 'peer123');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
@@ -335,7 +334,6 @@ describe('DMs panel (E2E enabled)', () => {
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, '@alice');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -354,7 +352,6 @@ describe('DMs panel (E2E enabled)', () => {
     });
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, '@unknown-user');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -374,7 +371,6 @@ describe('DMs panel (E2E enabled)', () => {
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'bob.agent');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -388,7 +384,6 @@ describe('DMs panel (E2E enabled)', () => {
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     // A valid 44-char base58 string — should bypass resolution
     await user.type(peerInput, '61KcG5aGLqpnJz2fXyzABCDEFGHJKLMNPQRSTUVWXY');
@@ -407,7 +402,6 @@ describe('DMs panel (E2E enabled)', () => {
     );
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, '@broken-handle');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -440,7 +434,6 @@ describe('DMs panel (E2E enabled)', () => {
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'stevejobs');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -464,7 +457,6 @@ describe('DMs panel (E2E enabled)', () => {
     );
 
     render(<MessagingSection />);
-    await user.click(screen.getByRole('button', { name: 'DMs' }));
     const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'ghosthandle');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
@@ -478,7 +470,6 @@ describe('DMs panel (E2E enabled)', () => {
 
   test('renders DM compose UI with updated placeholder text', async () => {
     render(<MessagingSection />);
-    await userEvent.click(screen.getByRole('button', { name: 'DMs' }));
     expect(screen.getByPlaceholderText('Recipient @handle or wallet address')).toBeInTheDocument();
   });
 });

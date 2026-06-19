@@ -226,92 +226,6 @@ describe('Feed list', () => {
   });
 });
 
-// ── Post detail drill-down ────────────────────────────────────────────────────
-
-describe('Post detail drill-down', () => {
-  test('clicking a post card loads the post detail', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
-    render(<FeedSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Hello from the network')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText('Hello from the network'));
-
-    expect(vi.mocked(apiClient.graphql.post)).toHaveBeenCalledWith(
-      samplePost.author.handle,
-      samplePost.postId,
-      expect.objectContaining({ commentLimit: 20, likerLimit: 10 })
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Great post!')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Agent Beta')).toBeInTheDocument();
-  });
-
-  test('back button returns to the feed list', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
-    render(<FeedSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Hello from the network')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText('Hello from the network'));
-    await waitFor(() => {
-      expect(screen.getByText(/back to feed/i)).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText(/back to feed/i));
-
-    await waitFor(() => {
-      expect(screen.getByText('Hello from the network')).toBeInTheDocument();
-    });
-    expect(screen.queryByText(/back to feed/i)).not.toBeInTheDocument();
-  });
-
-  test('shows empty comments and likers messages when post has none', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
-    vi.mocked(apiClient.graphql.post).mockResolvedValue({
-      ...samplePost,
-      comments: [],
-      likers: [],
-    });
-    render(<FeedSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Hello from the network')).toBeInTheDocument();
-    });
-    await user.click(screen.getByText('Hello from the network'));
-
-    await waitFor(() => {
-      expect(screen.getByText(/no comments yet/i)).toBeInTheDocument();
-      expect(screen.getByText(/no likes yet/i)).toBeInTheDocument();
-    });
-  });
-
-  test('shows error message when post detail fetch fails', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
-    vi.mocked(apiClient.graphql.post).mockRejectedValue(new Error('fetch failed'));
-    render(<FeedSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Hello from the network')).toBeInTheDocument();
-    });
-    await user.click(screen.getByText('Hello from the network'));
-
-    await waitFor(() => {
-      expect(screen.getByText(/failed to load post details/i)).toBeInTheDocument();
-    });
-  });
-});
-
 // ── Follow/Unfollow ───────────────────────────────────────────────────────────
 
 describe('Follow/Unfollow', () => {
@@ -500,14 +414,16 @@ describe('like toggle', () => {
 // ── Comment composer ──────────────────────────────────────────────────────────
 
 describe('comment composer', () => {
-  test('submitting comment calls feeds.addComment then refetches post detail', async () => {
+  // Comments expand inline under each post card (the comment-count toggle), then
+  // InlineComments fetches the thread via graphql.post.
+  test('submitting comment calls feeds.addComment then refetches comments', async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
     render(<FeedSection />);
     await waitFor(() => {
       expect(screen.getByText('Hello from the network')).toBeInTheDocument();
     });
-    await user.click(screen.getByText('Hello from the network'));
+    await user.click(screen.getByRole('button', { name: '3 comments' }));
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/write a comment/i)).toBeInTheDocument();
     });
@@ -520,7 +436,7 @@ describe('comment composer', () => {
         'My test comment'
       );
     });
-    // Refetch post detail after comment
+    // graphql.post: once on expand + once on refetch after comment.
     expect(vi.mocked(apiClient.graphql.post)).toHaveBeenCalledTimes(2);
   });
 
@@ -531,11 +447,8 @@ describe('comment composer', () => {
     await waitFor(() => {
       expect(screen.getByText('Hello from the network')).toBeInTheDocument();
     });
-    await user.click(screen.getByText('Hello from the network'));
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/write a comment/i)).toBeInTheDocument();
-    });
-    const input = screen.getByPlaceholderText(/write a comment/i);
+    await user.click(screen.getByRole('button', { name: '3 comments' }));
+    const input = await screen.findByPlaceholderText(/write a comment/i);
     await user.type(input, 'test');
     await user.click(screen.getByRole('button', { name: /^comment$/i }));
     await waitFor(() => {
@@ -544,15 +457,17 @@ describe('comment composer', () => {
   });
 
   test('comment composer hidden when wallet locked', async () => {
+    const user = userEvent.setup();
     vi.mocked(fetchWalletStatus).mockRejectedValue(new Error('wallet locked'));
     vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
     render(<FeedSection />);
     await waitFor(() => {
       expect(screen.getByText('Hello from the network')).toBeInTheDocument();
     });
-    await userEvent.setup().click(screen.getByText('Hello from the network'));
+    // Expand comments — the composer must stay hidden with no agent id.
+    await user.click(screen.getByRole('button', { name: '3 comments' }));
     await waitFor(() => {
-      expect(screen.getByText(/back to feed/i)).toBeInTheDocument();
+      expect(vi.mocked(apiClient.graphql.post)).toHaveBeenCalled();
     });
     expect(screen.queryByPlaceholderText(/write a comment/i)).not.toBeInTheDocument();
   });
@@ -688,11 +603,11 @@ describe('delete actions', () => {
     await waitFor(() => {
       expect(screen.getByText('Hello from the network')).toBeInTheDocument();
     });
-    await user.click(screen.getByText('Hello from the network'));
+    // Expand the inline comment thread, then delete own comment.
+    await user.click(screen.getByRole('button', { name: '3 comments' }));
     await waitFor(() => {
       expect(screen.getByText('Great post!')).toBeInTheDocument();
     });
-    // Delete button for own comment (use getByText to avoid matching parent wrappers)
     const deleteBtn = screen.getByText('Delete');
     await user.click(deleteBtn);
     await waitFor(() => {

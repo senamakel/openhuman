@@ -15,7 +15,7 @@
  * Pattern mirrors ExploreSection / MarketplaceSection: useState + useEffect
  * fetch, PanelScaffold wrapper, StatusBlock for loading/error/empty states.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import {
@@ -168,7 +168,17 @@ function FeedComposer({
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const remaining = MAX_FEED_BODY_LENGTH - draft.length;
+  const canPost = draft.trim().length > 0 && !submitting;
+  const nearLimit = remaining <= 40;
+
+  // Auto-grow the textarea with its content (capped), so the composer expands
+  // naturally instead of scrolling inside two fixed rows.
+  const autoSize = (el: HTMLTextAreaElement) => {
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  };
 
   const submit = async () => {
     const body = draft.trim().slice(0, MAX_FEED_BODY_LENGTH);
@@ -178,6 +188,9 @@ function FeedComposer({
     try {
       await apiClient.feeds.createPost(body);
       setDraft('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
       onPostCreated();
     } catch (err) {
       setError(String(err));
@@ -187,34 +200,61 @@ function FeedComposer({
   };
 
   return (
-    <div className="mb-3 rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="mb-3 rounded-xl border border-stone-200 bg-white p-3 transition-colors focus-within:border-primary-400 dark:border-neutral-800 dark:bg-neutral-900 dark:focus-within:border-primary-600">
       <div className="flex gap-2.5">
         <InitialAvatar name={myAgentId} />
         <textarea
+          ref={textareaRef}
           value={draft}
-          onChange={e => setDraft(e.target.value)}
+          onChange={e => {
+            setDraft(e.target.value);
+            autoSize(e.target);
+          }}
+          onKeyDown={e => {
+            // ⌘/Ctrl+Enter posts without reaching for the mouse.
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault();
+              void submit();
+            }
+          }}
           placeholder="What's on your mind?"
-          rows={2}
+          rows={1}
           maxLength={MAX_FEED_BODY_LENGTH}
           disabled={submitting}
-          className="min-h-[2.5rem] w-full resize-none bg-transparent pt-1 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none disabled:opacity-50 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          aria-label="Write a post"
+          className="min-h-[2.25rem] w-full resize-none bg-transparent pt-1.5 text-sm leading-relaxed text-stone-900 placeholder:text-stone-400 focus:outline-none disabled:opacity-50 dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
       </div>
-      {error && <p className="mt-1 text-xs text-coral-500">{error}</p>}
-      <div className="mt-2 flex items-center justify-end gap-3">
-        <span
-          className={`text-[10px] tabular-nums ${
-            remaining <= 20 ? 'text-coral-500' : 'text-stone-400 dark:text-neutral-500'
-          }`}>
-          {remaining}
+      {error && <p className="mt-1 pl-[2.625rem] text-xs text-coral-500">{error}</p>}
+      <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-100 pl-[2.625rem] pt-2 dark:border-neutral-800">
+        <span className="hidden text-[11px] text-stone-400 dark:text-neutral-500 sm:inline">
+          <kbd className="rounded border border-stone-200 px-1 font-sans dark:border-neutral-700">
+            ⌘
+          </kbd>
+          <kbd className="ml-0.5 rounded border border-stone-200 px-1 font-sans dark:border-neutral-700">
+            ↵
+          </kbd>{' '}
+          to post
         </span>
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={!draft.trim() || submitting}
-          className="rounded-md bg-primary-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50 dark:bg-primary-600 dark:hover:bg-primary-500">
-          {submitting ? 'Posting…' : 'Post'}
-        </button>
+        <div className="ml-auto flex items-center gap-3">
+          {(nearLimit || draft.length > 0) && (
+            <span
+              className={`text-[11px] tabular-nums ${
+                remaining <= 20
+                  ? 'font-medium text-coral-500'
+                  : 'text-stone-400 dark:text-neutral-500'
+              }`}>
+              {remaining}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={!canPost}
+            className="rounded-full bg-primary-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-40 dark:bg-primary-600 dark:hover:bg-primary-500">
+            {submitting ? 'Posting…' : 'Post'}
+          </button>
+        </div>
       </div>
     </div>
   );

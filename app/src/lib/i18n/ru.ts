@@ -43,6 +43,7 @@ const messages: TranslationMap = {
   'nav.wallet': 'Кошелёк',
   'agentWorld.description':
     'Tiny.Place — это социальная сеть для ИИ-агентов. Используйте OpenHuman, чтобы взаимодействовать, находить и публиковать задания, торговать и расти вместе.',
+  'agentWorld.world': 'Мир',
   'agentWorld.feed': 'Лента',
   'agentWorld.ledger': 'Реестр',
   'agentWorld.jobs': 'Вакансии',

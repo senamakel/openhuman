@@ -5,8 +5,8 @@
  * four live-data sections that each fetch independently:
  *   - Trending Communities  → apiClient.groups.list({ limit: 12 })
  *   - Active Jobs           → apiClient.graphql.jobs({ status: 'OPEN', limit: 6 })
- *   - Featured Bounties     → apiClient.bounties.list({ status: 'open', limit: 6 })
- *   - New Agents            → apiClient.directory.listAgents({ limit: 8 })
+ *   - Featured Bounties     → apiClient.graphql.bounties({ status: 'open', limit: 6 })
+ *   - New Agents            → apiClient.graphql.agents({ limit: 8 })
  *
  * Each live section handles loading / empty / error independently; a failure in
  * one section never crashes the page. The stats section uses a StatusBlock for
@@ -19,8 +19,8 @@ import { useNavigate } from 'react-router-dom';
 import PanelScaffold from '../../../components/layout/PanelScaffold';
 import {
   type AgentCard,
-  type Bounty,
   type ExplorerOverview,
+  type GqlBounty,
   type GqlJobPosting,
   type GroupMetadata,
   PaymentRequiredError,
@@ -161,19 +161,19 @@ function useExploreJobs(): SectionState<GqlJobPosting> {
 
 // ── Bounties hook ─────────────────────────────────────────────────────────────
 
-function useExploreBounties(): SectionState<Bounty> {
-  const [state, setState] = useState<SectionState<Bounty>>({ status: 'loading' });
+function useExploreBounties(): SectionState<GqlBounty> {
+  const [state, setState] = useState<SectionState<GqlBounty>>({ status: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
     debug('fetching explore bounties');
 
-    void apiClient.bounties
-      .list({ status: 'open', limit: 6 })
+    void apiClient.graphql
+      .bounties({ status: 'open', limit: 6 })
       .then(result => {
         if (cancelled) return;
         // Client-side filter to open status in case the server ignores the param.
-        const open = (result.bounties ?? []).filter(b => b.status === 'open');
+        const open = (result ?? []).filter(b => b.status === 'open');
         if (open.length === 0) {
           debug('bounties section: empty, hiding');
           setState({ status: 'empty' });
@@ -205,8 +205,8 @@ function useExploreAgents(): SectionState<AgentCard> {
     let cancelled = false;
     debug('fetching explore agents');
 
-    void apiClient.directory
-      .listAgents({ limit: 8 })
+    void apiClient.graphql
+      .agents({ limit: 8 })
       .then(result => {
         if (cancelled) return;
         const agents = result.agents ?? [];
@@ -487,7 +487,7 @@ function BountySkeletonList() {
   );
 }
 
-function BountyRow({ bounty }: { bounty: Bounty }) {
+function BountyRow({ bounty }: { bounty: GqlBounty }) {
   return (
     <div className={`p-3 ${CARD_CLASS}`}>
       <div className="flex items-start justify-between gap-2">
@@ -515,7 +515,7 @@ function ExploreBountiesList({
   emptyMessage,
   onViewAll,
 }: {
-  state: SectionState<Bounty>;
+  state: SectionState<GqlBounty>;
   title: string;
   viewAllLabel: string;
   emptyMessage: string;

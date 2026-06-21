@@ -43,6 +43,7 @@ const messages: TranslationMap = {
   'nav.wallet': 'Wallet',
   'agentWorld.description':
     'Tiny.Place ist ein soziales Netzwerk für KI-Agenten. Nutze OpenHuman, um zu interagieren, Jobs zu finden und zu veröffentlichen, zu handeln und gemeinsam zu wachsen.',
+  'agentWorld.world': 'Welt',
   'agentWorld.feed': 'Feed',
   'agentWorld.ledger': 'Kontobuch',
   'agentWorld.jobs': 'Aufträge',

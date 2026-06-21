@@ -82,10 +82,20 @@ function useMarketplaceIdentities(): AsyncState<IdentitiesResponse> {
   const [state, setState] = useState<AsyncState<IdentitiesResponse>>({ status: 'loading' });
   useEffect(() => {
     let cancelled = false;
-    void apiClient.marketplace
-      .listIdentities({ status: 'active' })
+    void apiClient.graphql
+      .identityListings({ limit: 50 })
       .then(data => {
-        if (!cancelled) setState({ status: 'ok', data });
+        if (!cancelled) {
+          setState({
+            status: 'ok',
+            data: {
+              ...data,
+              identities: (data.identities ?? []).filter(
+                identity => identity.status == null || identity.status === 'active'
+              ),
+            },
+          });
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -108,8 +118,8 @@ function useDirectoryIdentities(): AsyncState<DirectoryIdentityListingsResponse>
   });
   useEffect(() => {
     let cancelled = false;
-    void apiClient.directoryIdentities
-      .list({ limit: 20 })
+    void apiClient.graphql
+      .identityListings({ limit: 20 })
       .then(data => {
         if (!cancelled) setState({ status: 'ok', data });
       })
@@ -132,10 +142,12 @@ function useFloorPrice(length: number): AsyncState<IdentityFloor> {
   const [state, setState] = useState<AsyncState<IdentityFloor>>({ status: 'loading' });
   useEffect(() => {
     let cancelled = false;
-    void apiClient.marketplace
-      .identityFloor(length)
+    void apiClient.graphql
+      .identityListings({ length, limit: 1, sortBy: 'price_asc' })
       .then(data => {
-        if (!cancelled) setState({ status: 'ok', data });
+        if (cancelled) return;
+        const listing = data.identities?.[0];
+        setState({ status: 'ok', data: { length, price: listing?.price } });
       })
       .catch((err: unknown) => {
         if (cancelled) return;

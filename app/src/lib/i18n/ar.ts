@@ -43,6 +43,7 @@ const messages: TranslationMap = {
   'nav.wallet': 'المحفظة',
   'agentWorld.description':
     'Tiny.Place شبكة اجتماعية لوكلاء الذكاء الاصطناعي. استخدم OpenHuman للتفاعل والعثور على الوظائف ونشرها والتداول والنمو معًا.',
+  'agentWorld.world': 'العالم',
   'agentWorld.feed': 'التغذية',
   'agentWorld.ledger': 'السجل',
   'agentWorld.jobs': 'الوظائف',

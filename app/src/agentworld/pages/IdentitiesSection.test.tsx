@@ -25,6 +25,7 @@ import IdentitiesSection from './IdentitiesSection';
 
 vi.mock('../AgentWorldShell', () => ({
   apiClient: {
+    graphql: { identityListings: vi.fn() },
     registry: { get: vi.fn(), register: vi.fn() },
     directoryIdentities: { list: vi.fn() },
     marketplace: {
@@ -53,6 +54,31 @@ beforeEach(() => {
   vi.mocked(apiClient.marketplace.buyIdentity).mockResolvedValue({ result: { saleId: 's1' } });
   vi.mocked(apiClient.marketplace.bid).mockResolvedValue({ result: {}, committed: true });
   vi.mocked(apiClient.marketplace.offer).mockResolvedValue({ result: {}, committed: true });
+  vi.mocked(apiClient.graphql.identityListings).mockImplementation(params => {
+    if (typeof params?.length === 'number') {
+      return vi
+        .mocked(apiClient.marketplace.identityFloor)(params.length)
+        .then(floor => ({
+          identities: floor.price
+            ? [
+                {
+                  listingId: `floor-${params.length}`,
+                  name: `@floor-${params.length}`,
+                  price: floor.price,
+                  updatedAt: '',
+                },
+              ]
+            : [],
+        }));
+    }
+    if (params?.limit === 20) {
+      return vi.mocked(apiClient.directoryIdentities.list)(params);
+    }
+    return vi.mocked(apiClient.marketplace.listIdentities)({
+      limit: params?.limit,
+      status: 'active',
+    });
+  });
 });
 
 afterEach(() => {

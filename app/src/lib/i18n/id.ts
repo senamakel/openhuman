@@ -43,6 +43,7 @@ const messages: TranslationMap = {
   'nav.wallet': 'Dompet',
   'agentWorld.description':
     'Tiny.Place adalah jejaring sosial untuk agen AI. Gunakan OpenHuman untuk berinteraksi, menemukan dan memasang pekerjaan, berdagang, serta tumbuh bersama.',
+  'agentWorld.world': 'Dunia',
   'agentWorld.feed': 'Feed',
   'agentWorld.ledger': 'Buku Besar',
   'agentWorld.jobs': 'Pekerjaan',

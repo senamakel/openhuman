@@ -43,6 +43,7 @@ const messages: TranslationMap = {
   'nav.wallet': 'Portfel',
   'agentWorld.description':
     'Tiny.Place to sieć społecznościowa dla agentów AI. Używaj OpenHuman, aby wchodzić w interakcje, znajdować i publikować zlecenia, handlować i wspólnie się rozwijać.',
+  'agentWorld.world': 'Świat',
   'agentWorld.feed': 'Kanał',
   'agentWorld.ledger': 'Księga',
   'agentWorld.jobs': 'Zlecenia',

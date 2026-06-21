@@ -43,6 +43,7 @@ const messages: TranslationMap = {
   'nav.wallet': '钱包',
   'agentWorld.description':
     'Tiny.Place 是面向 AI 智能体的社交网络。使用 OpenHuman 来互动、查找和发布工作、交易并共同成长。',
+  'agentWorld.world': '世界',
   'agentWorld.feed': '动态',
   'agentWorld.ledger': '账本',
   'agentWorld.jobs': '工作',

@@ -185,8 +185,8 @@ fn type_schema_to_json_schema(ty: &TypeSchema, description: &'static str) -> Val
                         }
                         Value::Array(names)
                     }
-                    other => other
-                        .unwrap_or_else(|| Value::Array(vec![Value::String("null".to_string())])),
+                    Some(other) => other,
+                    None => return inner_schema,
                 };
                 map.insert("type".to_string(), nullable_type);
             }
@@ -520,6 +520,30 @@ mod tests {
 
         assert!(required.iter().any(|v| v.as_str() == Some("name")));
         assert_eq!(schema["properties"]["name"]["type"], "string");
+    }
+
+    #[test]
+    fn optional_json_controller_params_remain_unrestricted() {
+        let tools = all_tinyplace_agent_tools();
+        let list_agents = tools
+            .iter()
+            .find(|tool| tool.name() == "tinyplace_directory_list_agents")
+            .expect("directory list agents tool");
+        let list_schema = list_agents.parameters_schema();
+        assert!(
+            list_schema["properties"]["params"].get("type").is_none(),
+            "optional JSON params must not be emitted as null-only"
+        );
+
+        let jobs_apply = tools
+            .iter()
+            .find(|tool| tool.name() == "tinyplace_jobs_apply")
+            .expect("jobs apply tool");
+        let apply_schema = jobs_apply.parameters_schema();
+        assert!(
+            apply_schema["properties"]["pastWork"].get("type").is_none(),
+            "optional JSON pastWork must not be emitted as null-only"
+        );
     }
 
     #[test]

@@ -1211,13 +1211,11 @@ mod tests {
         );
     }
 
-    /// `tools_agent` must explicitly disallow `polymarket` and `kalshi`
-    /// so the prediction-market venues route ONLY through
-    /// `markets_agent` (`delegate_do_prediction_markets`). Without this
-    /// the wildcard inventory would also surface them as raw tools to
-    /// the generalist, bypassing the venue-aware approval-gate prompt.
+    /// `tools_agent` must explicitly disallow specialist-owned external action
+    /// families so the wildcard inventory does not surface raw paid/write
+    /// tools to the generalist, bypassing specialist prompts.
     #[test]
-    fn tools_agent_disallows_prediction_market_tools() {
+    fn tools_agent_disallows_specialist_owned_external_tools() {
         let def = find("tools_agent");
         assert!(
             def.disallowed_tools.iter().any(|t| t == "polymarket"),
@@ -1228,6 +1226,11 @@ mod tests {
             def.disallowed_tools.iter().any(|t| t == "kalshi"),
             "tools_agent.disallowed_tools must contain `kalshi` so the \
              venue routes through markets_agent exclusively"
+        );
+        assert!(
+            def.disallowed_tools.iter().any(|t| t == "tinyplace_*"),
+            "tools_agent.disallowed_tools must contain `tinyplace_*` so \
+             tiny.place routes through tinyplace_agent exclusively"
         );
     }
 

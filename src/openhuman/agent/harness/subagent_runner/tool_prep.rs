@@ -7,8 +7,6 @@
 //! [`crate::openhuman::agent::debug`] can mirror the live runner
 //! byte-for-byte instead of carrying its own drifting copies.
 
-use std::collections::HashSet;
-
 use super::super::definition::{PromptSource, ToolScope};
 use super::types::SubagentRunError;
 use crate::openhuman::context::prompt::PromptContext;
@@ -133,7 +131,6 @@ pub(crate) fn filter_tool_indices(
     disallowed: &[String],
     skill_filter: Option<&str>,
 ) -> Vec<usize> {
-    let disallow_set: HashSet<&str> = disallowed.iter().map(|s| s.as_str()).collect();
     let skill_prefix = skill_filter.map(|s| format!("{s}__"));
 
     parent_tools
@@ -141,7 +138,7 @@ pub(crate) fn filter_tool_indices(
         .enumerate()
         .filter(|(_, tool)| {
             let name = tool.name();
-            if disallow_set.contains(name) {
+            if disallowed_tool_matches(disallowed, name) {
                 return false;
             }
             if let Some(prefix) = skill_prefix.as_deref() {
@@ -156,6 +153,16 @@ pub(crate) fn filter_tool_indices(
         })
         .map(|(i, _)| i)
         .collect()
+}
+
+pub(crate) fn disallowed_tool_matches(disallowed: &[String], name: &str) -> bool {
+    disallowed.iter().any(|entry| {
+        if let Some(prefix) = entry.strip_suffix('*') {
+            name.starts_with(prefix)
+        } else {
+            entry == name
+        }
+    })
 }
 
 // ── Prompt loading ──────────────────────────────────────────────────────

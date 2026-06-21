@@ -20,10 +20,14 @@ use serde_json::{Map, Value};
 const SENSITIVE_KEYS: &[&str] = &[
     "body",
     "content",
+    "description",
     "plaintext",
     "text",
     "message",
     "messages",
+    "coverletter",
+    "note",
+    "reason",
     "html",
     "html_body",
     "snippet",
@@ -277,6 +281,33 @@ mod tests {
             "got {:?}",
             red["code"]
         );
+    }
+
+    #[test]
+    fn tinyplace_write_content_fields_are_redacted() {
+        let args = json!({
+            "title": "Build my thing",
+            "description": "Long private task brief",
+            "coverLetter": "I can do this because...",
+            "note": "Submission context",
+            "reason": "Dispute details",
+            "amount": "5",
+            "asset": "USDC"
+        });
+        let red = redact_args(&args);
+
+        for key in ["title", "description", "coverLetter", "note", "reason"] {
+            assert!(
+                red[key]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("<redacted: string ("),
+                "{key} was not redacted: {:?}",
+                red[key]
+            );
+        }
+        assert_eq!(red["amount"], "5");
+        assert_eq!(red["asset"], "USDC");
     }
 
     #[test]

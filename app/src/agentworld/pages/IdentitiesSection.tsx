@@ -48,6 +48,8 @@ type AsyncState<T> =
 const MARKETPLACE_PAGE_SIZE = 50;
 const MARKETPLACE_TARGET_ACTIVE = 50;
 const MARKETPLACE_MAX_PAGES = 5;
+const FLOOR_PAGE_SIZE = 20;
+const FLOOR_MAX_PAGES = 10;
 
 function isActiveListing(identity: IdentityListing): boolean {
   return identity.status == null || identity.status === 'active';
@@ -79,6 +81,27 @@ async function fetchActiveMarketplaceIdentities(): Promise<IdentitiesResponse> {
     identities: active.slice(0, MARKETPLACE_TARGET_ACTIVE),
     count: active.length,
   };
+}
+
+async function fetchActiveFloorPrice(length: number): Promise<IdentityFloor> {
+  for (let page = 0; page < FLOOR_MAX_PAGES; page++) {
+    const response = await apiClient.graphql.identityListings({
+      length,
+      limit: FLOOR_PAGE_SIZE,
+      offset: page * FLOOR_PAGE_SIZE,
+      sortBy: 'price_asc',
+    });
+    const identities = response.identities ?? [];
+    const listing = identities.find(isActiveListing);
+    if (listing) {
+      return { length, price: listing.price };
+    }
+    if (identities.length < FLOOR_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return { length, price: undefined };
 }
 
 // ── Small hooks ───────────────────────────────────────────────────────────────
@@ -169,14 +192,10 @@ function useFloorPrice(length: number): AsyncState<IdentityFloor> {
   const [state, setState] = useState<AsyncState<IdentityFloor>>({ status: 'loading' });
   useEffect(() => {
     let cancelled = false;
-    void apiClient.graphql
-      .identityListings({ length, limit: 20, sortBy: 'price_asc' })
+    void fetchActiveFloorPrice(length)
       .then(data => {
         if (cancelled) return;
-        const listing = data.identities?.find(
-          identity => identity.status == null || identity.status === 'active'
-        );
-        setState({ status: 'ok', data: { length, price: listing?.price } });
+        setState({ status: 'ok', data });
       })
       .catch((err: unknown) => {
         if (cancelled) return;

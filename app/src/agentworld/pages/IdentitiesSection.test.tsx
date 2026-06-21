@@ -666,6 +666,7 @@ describe('Trading tab — floor prices', () => {
     expect(apiClient.graphql.identityListings).toHaveBeenCalledWith({
       length: 3,
       limit: 20,
+      offset: 0,
       sortBy: 'price_asc',
     });
   });
@@ -699,6 +700,49 @@ describe('Trading tab — floor prices', () => {
     await gotoTab('Trading');
     expect(await screen.findByText('250 USDC')).toBeInTheDocument();
     expect(screen.queryByText('50 USDC')).not.toBeInTheDocument();
+  });
+
+  test('paginates floor lookup past inactive rows before declaring no floor', async () => {
+    vi.mocked(apiClient.graphql.identityListings).mockImplementation(params => {
+      if (params?.length !== 3) return Promise.resolve({ identities: [] });
+      if ((params.offset ?? 0) === 0) {
+        return Promise.resolve({
+          identities: Array.from({ length: 20 }, (_, index) => ({
+            listingId: `sold-floor-${index}`,
+            name: `@soldfloor${index}`,
+            price: { amount: '50', asset: 'USDC' },
+            status: 'sold',
+            updatedAt: '2026-02-03T00:00:00Z',
+          })),
+        });
+      }
+      return Promise.resolve({
+        identities: [
+          {
+            listingId: 'active-floor-page-2',
+            name: '@activefloorpage2',
+            price: { amount: '250', asset: 'USDC' },
+            status: 'active',
+            updatedAt: '2026-02-03T00:00:00Z',
+          },
+        ],
+      });
+    });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    expect(await screen.findByText('250 USDC')).toBeInTheDocument();
+    expect(apiClient.graphql.identityListings).toHaveBeenCalledWith({
+      length: 3,
+      limit: 20,
+      offset: 0,
+      sortBy: 'price_asc',
+    });
+    expect(apiClient.graphql.identityListings).toHaveBeenCalledWith({
+      length: 3,
+      limit: 20,
+      offset: 20,
+      sortBy: 'price_asc',
+    });
   });
 
   test('shows "Unavailable" when a floor card fetch rejects', async () => {

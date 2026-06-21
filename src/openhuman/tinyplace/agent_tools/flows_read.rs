@@ -358,15 +358,25 @@ fn messages_flow(args: Value) -> FlowFuture {
             }
         }
 
-        // Honour `limit` on the inbox read too (not just pending messages).
+        // Honour `limit` on the inbox read too (not just pending messages), and
+        // degrade an empty inbox (`{"items": null}` serialization error) to a
+        // clean "empty" instead of dropping the section.
         let inbox_params = InboxQueryParams {
             limit: Some(limit),
             ..Default::default()
         };
-        if let Ok(inbox) = client.inbox.list(Some(&inbox_params), None).await {
-            let v = serde_json::to_value(&inbox).unwrap_or(Value::Null);
-            md.subheading("Inbox");
-            md.raw_section(render_json(&v));
+        md.subheading("Inbox");
+        match client.inbox.list(Some(&inbox_params), None).await {
+            Ok(inbox) => {
+                let v = serde_json::to_value(&inbox).unwrap_or(Value::Null);
+                md.raw_section(render_json(&v));
+            }
+            Err(e) if super::common::is_empty_state(&e) => {
+                md.paragraph("Empty inbox.");
+            }
+            Err(_) => {
+                md.paragraph("_(unavailable this tick)_");
+            }
         }
 
         let mut suggestions = vec![Suggestion::new(

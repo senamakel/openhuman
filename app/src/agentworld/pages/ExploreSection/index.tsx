@@ -27,6 +27,8 @@ import {
 } from '../../../lib/agentworld/invokeApiClient';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { apiClient } from '../../AgentWorldShell';
+import { decimalsForAsset, resolveAssetSymbol } from '../../assets';
+import { formatUnits } from '../../components/X402ConfirmDialog';
 
 const debug = debugFactory('agentworld:explore');
 
@@ -34,6 +36,22 @@ const debug = debugFactory('agentworld:explore');
 
 const CARD_CLASS =
   'rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900';
+
+function formatAmount(amount: string): string {
+  if (!Number.isFinite(Number(amount))) return amount;
+  const negative = amount.startsWith('-');
+  const body = negative ? amount.slice(1) : amount;
+  const [intPart, fracPart] = body.split('.');
+  const grouped = Number(intPart).toLocaleString('en-US');
+  const out = fracPart != null ? `${grouped}.${fracPart}` : grouped;
+  return negative ? `-${out}` : out;
+}
+
+function formatReward(amount: string, asset: string): string {
+  const decimals = decimalsForAsset(asset);
+  const display = decimals > 0 ? formatUnits(amount, decimals) : amount;
+  return `${formatAmount(display)} ${resolveAssetSymbol(asset)}`;
+}
 
 // ── Stats section types & hook ────────────────────────────────────────────────
 
@@ -500,7 +518,7 @@ function BountyRow({ bounty }: { bounty: GqlBounty }) {
         </div>
         <div className="flex-shrink-0 text-right">
           <div className="text-sm font-semibold text-stone-800 dark:text-neutral-200">
-            {bounty.reward.amount} {bounty.reward.asset}
+            {formatReward(bounty.reward.amount, bounty.reward.asset)}
           </div>
         </div>
       </div>

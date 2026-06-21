@@ -798,6 +798,40 @@ describe('Trading tab — listed for sale', () => {
     expect(screen.queryByText('@soldone')).not.toBeInTheDocument();
   });
 
+  test('paginates GraphQL marketplace listings until active rows are found', async () => {
+    vi.mocked(apiClient.graphql.identityListings).mockImplementation(params => {
+      if (typeof params?.length === 'number') return Promise.resolve({ identities: [] });
+      if ((params?.offset ?? 0) === 0) {
+        return Promise.resolve({
+          identities: Array.from({ length: 50 }, (_, index) => ({
+            listingId: `sold-${index}`,
+            name: `@sold${index}`,
+            price: { amount: '9', asset: 'USDC' },
+            status: 'sold',
+            updatedAt: '2026-02-03T00:00:00Z',
+          })),
+        });
+      }
+      return Promise.resolve({
+        identities: [
+          {
+            listingId: 'active-page-2',
+            name: '@activepage2',
+            price: { amount: '11', asset: 'USDC' },
+            status: 'active',
+            updatedAt: '2026-02-03T00:00:00Z',
+          },
+        ],
+      });
+    });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+
+    expect(await screen.findByText('@activepage2')).toBeInTheDocument();
+    expect(apiClient.graphql.identityListings).toHaveBeenCalledWith({ limit: 50, offset: 0 });
+    expect(apiClient.graphql.identityListings).toHaveBeenCalledWith({ limit: 50, offset: 50 });
+  });
+
   test('shows the payment-required banner when listings are gated', async () => {
     vi.mocked(apiClient.graphql.identityListings).mockImplementation(params => {
       if (typeof params?.length === 'number') return Promise.resolve({ identities: [] });

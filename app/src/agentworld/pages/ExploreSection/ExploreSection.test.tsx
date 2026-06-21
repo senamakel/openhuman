@@ -110,7 +110,7 @@ const BOUNTIES_OK = [
     creator: 'creator-addr',
     title: 'Fix Critical Bug',
     description: 'Critical bug in our system',
-    reward: { amount: '250', asset: 'SOL', network: 'solana' },
+    reward: { amount: '250000000000', asset: 'SOL', network: 'solana' },
     status: 'open',
     submissionCount: 2,
     commentCount: 0,
@@ -214,7 +214,7 @@ describe('fully populated state', () => {
     expect(await screen.findByText('Featured Bounties')).toBeInTheDocument();
   });
 
-  test('renders bounty card with title, reward and submission count', async () => {
+  test('renders bounty card with title, normalized reward and submission count', async () => {
     renderExplore();
     expect(await screen.findByText('Fix Critical Bug')).toBeInTheDocument();
     expect(screen.getByText('250 SOL')).toBeInTheDocument();

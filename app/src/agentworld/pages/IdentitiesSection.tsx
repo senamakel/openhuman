@@ -45,6 +45,42 @@ type AsyncState<T> =
   | { status: 'error'; message: string }
   | { status: 'ok'; data: T };
 
+const MARKETPLACE_PAGE_SIZE = 50;
+const MARKETPLACE_TARGET_ACTIVE = 50;
+const MARKETPLACE_MAX_PAGES = 5;
+
+function isActiveListing(identity: IdentityListing): boolean {
+  return identity.status == null || identity.status === 'active';
+}
+
+async function fetchActiveMarketplaceIdentities(): Promise<IdentitiesResponse> {
+  const active: Array<IdentityListing> = [];
+  let lastResponse: IdentitiesResponse | null = null;
+
+  for (
+    let page = 0;
+    page < MARKETPLACE_MAX_PAGES && active.length < MARKETPLACE_TARGET_ACTIVE;
+    page++
+  ) {
+    const response = await apiClient.graphql.identityListings({
+      limit: MARKETPLACE_PAGE_SIZE,
+      offset: page * MARKETPLACE_PAGE_SIZE,
+    });
+    lastResponse = response;
+    const identities = response.identities ?? [];
+    active.push(...identities.filter(isActiveListing));
+    if (identities.length < MARKETPLACE_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return {
+    ...(lastResponse ?? { identities: [] }),
+    identities: active.slice(0, MARKETPLACE_TARGET_ACTIVE),
+    count: active.length,
+  };
+}
+
 // ── Small hooks ───────────────────────────────────────────────────────────────
 
 function useHandleAvailability(
@@ -82,19 +118,10 @@ function useMarketplaceIdentities(): AsyncState<IdentitiesResponse> {
   const [state, setState] = useState<AsyncState<IdentitiesResponse>>({ status: 'loading' });
   useEffect(() => {
     let cancelled = false;
-    void apiClient.graphql
-      .identityListings({ limit: 50 })
+    void fetchActiveMarketplaceIdentities()
       .then(data => {
         if (!cancelled) {
-          setState({
-            status: 'ok',
-            data: {
-              ...data,
-              identities: (data.identities ?? []).filter(
-                identity => identity.status == null || identity.status === 'active'
-              ),
-            },
-          });
+          setState({ status: 'ok', data });
         }
       })
       .catch((err: unknown) => {

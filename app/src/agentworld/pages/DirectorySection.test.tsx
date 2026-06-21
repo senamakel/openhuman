@@ -45,6 +45,11 @@ beforeEach(() => {
   walletStatus.mockResolvedValue({
     accounts: [{ chain: 'solana', address: 'MyWaLLetAddr123' }],
   } as unknown as Awaited<ReturnType<typeof fetchWalletStatus>>);
+  vi.mocked(apiClient.follows.stats).mockResolvedValue({
+    agentId: 'fallback-agent',
+    followerCount: 0,
+    followingCount: 0,
+  });
 });
 
 // ── Loading state ──────────────────────────────────────────────────────────────
@@ -398,7 +403,14 @@ describe('follow button', () => {
     expect(await screen.findByText('Following')).toBeInTheDocument();
   });
 
-  test('uses GraphQL follow edges without follow-list or stats fan-out', async () => {
+  test('uses GraphQL follow edges and count-only stats fallback without follow-list fan-out', async () => {
+    vi.mocked(apiClient.follows.stats).mockImplementation(agentId =>
+      Promise.resolve({
+        agentId,
+        followerCount: agentId === 'other-agent-b' ? 7 : 0,
+        followingCount: 0,
+      })
+    );
     listAgents.mockResolvedValueOnce({
       agents: [
         { agentId: 'other-agent-a', username: 'a', name: 'A', viewerIsFollowing: false },
@@ -409,8 +421,9 @@ describe('follow button', () => {
     render(<DirectorySection />);
 
     expect(await screen.findByText('Following')).toBeInTheDocument();
+    expect(await screen.findByText('7 followers')).toBeInTheDocument();
     expect(apiClient.follows.following).not.toHaveBeenCalled();
-    expect(apiClient.follows.stats).not.toHaveBeenCalled();
+    expect(apiClient.follows.stats).toHaveBeenCalledTimes(3);
     expect(apiClient.follows.followers).not.toHaveBeenCalled();
   });
 

@@ -1586,7 +1586,7 @@ describe('graphql marketplace reads', () => {
   test('normalizes identity listing sellers and nullable detail results', async () => {
     mockCallCoreRpc
       .mockResolvedValueOnce({
-        identities: [
+        listings: [
           {
             listingId: 'listing-1',
             seller: { handle: '@owner', cryptoId: 'owner-crypto' },

@@ -167,19 +167,40 @@ function LoadingSkeleton() {
 function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: string | null }) {
   const [selected, setSelected] = useState(false);
   const [localFollow, setLocalFollow] = useState<'following' | 'not_following' | null>(null);
+  const [statsFollowerCount, setStatsFollowerCount] = useState<number | null>(null);
   const [followerDelta, setFollowerDelta] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
   const handle = getHandle(agent);
   const skills = getSkills(agent);
   const isSelf = myAgentId != null && agent.agentId === myAgentId;
   const baseFollowerCount = getFollowerCount(agent);
+  const effectiveBaseFollowerCount = baseFollowerCount ?? statsFollowerCount;
   const followerCount =
-    baseFollowerCount == null ? null : Math.max(0, baseFollowerCount + followerDelta);
+    effectiveBaseFollowerCount == null
+      ? null
+      : Math.max(0, effectiveBaseFollowerCount + followerDelta);
   const serverFollow = getViewerIsFollowing(agent);
 
   const followState: 'unknown' | 'following' | 'not_following' =
     localFollow ??
     (serverFollow == null ? 'unknown' : serverFollow ? 'following' : 'not_following');
+
+  useEffect(() => {
+    if (baseFollowerCount != null) return;
+    let cancelled = false;
+    debug('fetching fallback follow stats agent=%s', agent.agentId);
+    void apiClient.follows
+      .stats(agent.agentId)
+      .then(stats => {
+        if (!cancelled) setStatsFollowerCount(stats.followerCount);
+      })
+      .catch(err => {
+        debug('fallback follow stats error agent=%s error=%s', agent.agentId, String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.agentId, baseFollowerCount]);
 
   const handleFollow = useCallback(
     async (e: React.MouseEvent) => {

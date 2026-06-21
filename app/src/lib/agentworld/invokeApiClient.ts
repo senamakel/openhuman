@@ -626,7 +626,8 @@ export interface GqlIdentityListing extends Omit<IdentityListing, 'seller' | 'se
 }
 
 export interface GqlIdentityListingListResult {
-  identities: GqlIdentityListing[];
+  identities?: GqlIdentityListing[];
+  listings?: GqlIdentityListing[];
   count?: number;
   [key: string]: unknown;
 }
@@ -2148,9 +2149,10 @@ export function createInvokeApiClient() {
           'openhuman.tinyplace_graphql_identity_listings',
           { params: params ?? null }
         );
+        const identities = result.identities ?? result.listings ?? [];
         return {
           ...result,
-          identities: result.identities.map(normalizeGraphqlIdentityListing),
+          identities: identities.map(normalizeGraphqlIdentityListing),
         } satisfies IdentitiesResponse & { count?: number };
       },
       identityListing: async (

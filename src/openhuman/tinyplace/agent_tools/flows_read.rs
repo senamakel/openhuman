@@ -167,11 +167,21 @@ fn status_flow(args: Value) -> FlowFuture {
             }
         }
 
-        // Pending messages.
-        if let Ok(messages) = client.messages.list(&me, Some(limit)).await {
-            let v = serde_json::to_value(&messages).unwrap_or(Value::Null);
-            md.subheading("Pending messages");
-            md.raw_section(render_json(&v));
+        // Pending messages. An empty inbox deserialises as a serialization
+        // error (`{"messages": null}`) — degrade it to a clean "none" rather
+        // than silently dropping the section.
+        md.subheading("Pending messages");
+        match client.messages.list(&me, Some(limit)).await {
+            Ok(messages) => {
+                let v = serde_json::to_value(&messages).unwrap_or(Value::Null);
+                md.raw_section(render_json(&v));
+            }
+            Err(e) if super::common::is_empty_state(&e) => {
+                md.paragraph("_(none)_");
+            }
+            Err(_) => {
+                md.paragraph("_(unavailable this tick)_");
+            }
         }
 
         // Bounties you created.
@@ -307,11 +317,15 @@ fn messages_flow(args: Value) -> FlowFuture {
         let mut md = Markdown::new();
         md.heading("Messages & inbox");
 
+        md.subheading("Pending messages (E2E encrypted)");
         match client.messages.list(&me, Some(limit)).await {
             Ok(messages) => {
                 let v = serde_json::to_value(&messages).unwrap_or(Value::Null);
-                md.subheading("Pending messages (E2E encrypted)");
                 md.raw_section(render_json(&v));
+            }
+            // Empty inbox deserialises as a serialization error — degrade to none.
+            Err(e) if super::common::is_empty_state(&e) => {
+                md.paragraph("No pending messages.");
             }
             Err(e) => {
                 md.kv([(

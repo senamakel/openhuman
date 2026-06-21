@@ -11,12 +11,15 @@
 //!   ([`sdk_error`]) so the LLM only ever sees markdown — including the
 //!   fund-and-retry guidance synthesised from an x402 `402` challenge.
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::OnceLock;
 
 use async_trait::async_trait;
-use serde_json::Value;
+use serde_json::{Map, Value};
 
+use crate::core::all::ControllerHandler;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 use super::render::Markdown;
@@ -364,14 +367,54 @@ pub fn sdk_error(action: &str, err: tinyplace::Error) -> ToolResult {
 /// Convenience: turn an SDK `Result` into `anyhow::Result<Value>`, rendering
 /// the error as markdown carried in the `anyhow` message (the FlowTool surfaces
 /// it to the LLM verbatim).
+///
+/// A `Serialization` error is **degraded to an empty result** (`Value::Null`)
+/// rather than surfaced as a failure: the backend returns `null` for empty
+/// collections (`{"messages": null}`, empty feeds/jobs/ledger), which the typed
+/// SDK can't deserialize. The internal GraphQL/list controllers do the same
+/// degradation, so first-run / empty-state users see an empty result instead of
+/// a spurious "could not complete".
 pub fn val_or_err<T: serde::Serialize>(
     action: &str,
     result: tinyplace::Result<T>,
 ) -> anyhow::Result<Value> {
     match result {
         Ok(v) => Ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) if is_empty_state(&e) => Ok(Value::Null),
         Err(e) => Err(anyhow::anyhow!("{}", sdk_error_text(action, e))),
     }
+}
+
+/// Whether an SDK error is really just an empty backend collection that failed
+/// to deserialize (e.g. a `null` array). Mirrors the `*_degrade` handling in the
+/// internal controllers.
+pub fn is_empty_state(err: &tinyplace::Error) -> bool {
+    matches!(err, tinyplace::Error::Serialization(_))
+}
+
+// ── Controller delegation ────────────────────────────────────────────────────
+
+/// Process-global map of tiny.place controller handlers keyed by bare function
+/// name (e.g. `registry_register`). Built once from the registered controllers.
+fn controller_handlers() -> &'static HashMap<&'static str, ControllerHandler> {
+    static MAP: OnceLock<HashMap<&'static str, ControllerHandler>> = OnceLock::new();
+    MAP.get_or_init(|| {
+        crate::openhuman::tinyplace::all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| (c.schema.function, c.handler))
+            .collect()
+    })
+}
+
+/// Invoke an internal tiny.place controller by name. Flows use this when the
+/// controller does essential work the raw SDK call does not — e.g.
+/// `registry_register` performs the x402 payment retry and publishes the
+/// directory Agent Card, neither of which `client.registry.register` does.
+pub async fn call_controller(function: &str, params: Map<String, Value>) -> Result<Value, String> {
+    let handler = controller_handlers()
+        .get(function)
+        .ok_or_else(|| format!("unknown tiny.place controller '{function}'"))?;
+    handler(params).await
 }
 
 #[cfg(test)]
@@ -413,6 +456,30 @@ mod tests {
             Some(vec!["a".to_string(), "b".to_string(), "c".to_string()])
         );
         assert_eq!(opt_str_list(&json!({ "t": [] }), "t"), None);
+    }
+
+    #[test]
+    fn empty_state_degrades_only_serialization_errors() {
+        let serde_err = serde_json::from_str::<i32>("not a number").unwrap_err();
+        assert!(is_empty_state(&tinyplace::Error::Serialization(serde_err)));
+        assert!(!is_empty_state(&tinyplace::Error::InvalidArgument(
+            "x".to_string()
+        )));
+    }
+
+    #[test]
+    fn val_or_err_degrades_empty_collection_to_null() {
+        let serde_err = serde_json::from_str::<i32>("not a number").unwrap_err();
+        let degraded =
+            val_or_err::<i32>("Read", Err(tinyplace::Error::Serialization(serde_err))).unwrap();
+        assert_eq!(degraded, Value::Null);
+
+        // A real error is surfaced (markdown carried in the anyhow message).
+        let surfaced = val_or_err::<i32>(
+            "Read",
+            Err(tinyplace::Error::InvalidArgument("nope".into())),
+        );
+        assert!(surfaced.is_err());
     }
 
     #[test]

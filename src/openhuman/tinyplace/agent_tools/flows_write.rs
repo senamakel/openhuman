@@ -9,16 +9,15 @@
 
 use serde_json::{json, Value};
 
-use tinyplace::api::registry::RegisterRequest;
 use tinyplace::types::{
     BountyCreateRequest, BountySubmissionCreateRequest, GroupCreateRequest, ProposalCreateRequest,
 };
 
-use crate::openhuman::tools::traits::Tool;
+use crate::openhuman::tools::traits::{Tool, ToolResult};
 
 use super::common::{
-    agent_id, client, collect_field, finish, opt_str, opt_str_list, req_str, resolve_agent,
-    sdk_error, FlowFuture, FlowTool,
+    agent_id, call_controller, client, collect_field, err_md, finish, ok_md, opt_bool, opt_str,
+    opt_str_list, req_str, resolve_agent, sdk_error, FlowFuture, FlowTool,
 };
 use super::render::{render_json, Markdown};
 use super::suggest::Suggestion;
@@ -27,15 +26,16 @@ pub fn write_tools() -> Vec<Box<dyn Tool>> {
     vec![
         FlowTool::write(
             "tinyplace_register",
-            "Claim a @handle on tiny.place. This is a paid, on-chain action: if your \
-             wallet is unfunded it returns a Payment required block — fund, then retry. \
-             Your cryptoId/public key are taken from your wallet automatically.",
+            "Claim a @handle on tiny.place. Free handles register immediately and \
+             publish your discoverable Agent Card. Paid handles preview the on-chain \
+             fee first; pass confirm=true to settle the payment from your wallet and \
+             claim. Your cryptoId/public key are taken from your wallet automatically.",
             json!({
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
                     "handle": { "type": "string", "description": "The @handle to claim (without the @)." },
-                    "bio": { "type": "string", "description": "Optional short bio." }
+                    "confirm": { "type": "boolean", "description": "Set true to settle the on-chain fee and claim a paid handle (default false = preview the fee)." }
                 },
                 "required": ["handle"]
             }),
@@ -176,30 +176,75 @@ fn register_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let handle = req_str(&args, "handle")?;
         let handle = handle.trim_start_matches('@').to_string();
-        let client = client().await?;
-        let me = agent_id(client)?;
-        let request = RegisterRequest {
-            username: handle.clone(),
-            crypto_id: me,
-            ..Default::default()
-        };
-        match client.registry.register(request).await {
-            Ok(identity) => {
-                let v = serde_json::to_value(identity).unwrap_or(Value::Null);
+        let confirm = opt_bool(&args, "confirm").unwrap_or(false);
+
+        // Route through the `registry_register` controller rather than calling
+        // `client.registry.register` directly: the controller fills the
+        // signer-derived fields, settles the x402 payment on confirm (retrying
+        // while it confirms on-chain), and publishes the directory Agent Card on
+        // success — none of which the raw SDK call does.
+        let mut params = serde_json::Map::new();
+        params.insert("username".to_string(), json!(handle));
+        params.insert("confirmed".to_string(), json!(confirm));
+
+        match call_controller("registry_register", params).await {
+            Ok(value) => render_register_result(&handle, value),
+            Err(message) => {
                 let mut md = Markdown::new();
-                md.heading(format!("Claimed @{handle}"));
-                md.raw_section(render_json(&v));
-                finish(
-                    md,
-                    &[
-                        Suggestion::new("Confirm your identity", "tinyplace_whoami", json!({})),
-                        Suggestion::new("Start your status loop", "tinyplace_status", json!({})),
-                    ],
-                )
+                md.heading(format!("Could not claim @{handle}"));
+                md.kv([("Reason", message)]);
+                Ok(err_md(md.build()))
             }
-            Err(e) => Ok(sdk_error(&format!("Claiming @{handle}"), e)),
         }
     })
+}
+
+/// Render the `registry_register` controller result. It returns one of:
+/// `{ identity }` (claimed — card published), or `{ challenge, walletBalance,
+/// walletAddress }` (paid handle previewed, nothing spent).
+fn render_register_result(handle: &str, value: Value) -> anyhow::Result<ToolResult> {
+    if let Some(identity) = value.get("identity") {
+        let mut md = Markdown::new();
+        md.heading(format!("Claimed @{handle}"));
+        md.paragraph("Registered and your discoverable Agent Card was published.");
+        md.raw_section(render_json(identity));
+        return finish(
+            md,
+            &[
+                Suggestion::new("Confirm your identity", "tinyplace_whoami", json!({})),
+                Suggestion::new("Start your status loop", "tinyplace_status", json!({})),
+            ],
+        );
+    }
+    if let Some(challenge) = value.get("challenge") {
+        let mut md = Markdown::new();
+        md.heading(format!("@{handle} needs an on-chain fee"));
+        md.paragraph(
+            "Claiming this handle is a paid action. Review the fee below, ensure your \
+             wallet is funded, then re-run with confirm=true to settle and claim.",
+        );
+        md.subheading("Fee");
+        md.raw_section(render_json(challenge));
+        if let Some(balance) = value.get("walletBalance") {
+            md.kv([("Wallet balance", super::render::scalar(balance))]);
+        }
+        if let Some(address) = value.get("walletAddress") {
+            md.kv([("Wallet address", super::render::scalar(address))]);
+        }
+        return finish(
+            md,
+            &[Suggestion::new(
+                format!("Settle the fee and claim @{handle}"),
+                "tinyplace_register",
+                json!({ "handle": handle, "confirm": true }),
+            )],
+        );
+    }
+    // Unexpected shape — render whatever came back.
+    let mut md = Markdown::new();
+    md.heading(format!("Register @{handle}"));
+    md.raw_section(render_json(&value));
+    Ok(ok_md(md.build()))
 }
 
 fn follow_flow(args: Value) -> FlowFuture {

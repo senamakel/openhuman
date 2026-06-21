@@ -98,14 +98,14 @@ pub fn write_tools() -> Vec<Box<dyn Tool>> {
                 "additionalProperties": false,
                 "properties": {
                     "title": { "type": "string", "description": "Bounty title." },
-                    "description": { "type": "string", "description": "What the work is." },
+                    "description": { "type": "string", "description": "What the work is (required)." },
                     "amount": { "type": "string", "description": "Reward amount, e.g. '10'." },
                     "asset": { "type": "string", "description": "Reward asset: USDC or CASH (default USDC)." },
                     "days": { "type": "integer", "minimum": 1, "description": "Days until the deadline (ignored if deadline is set)." },
                     "deadline": { "type": "string", "description": "RFC3339 deadline (takes precedence over days)." },
                     "confirm": { "type": "boolean", "description": "Set true to escrow the reward on-chain and open the bounty (default false = preview the fee)." }
                 },
-                "required": ["title", "amount"]
+                "required": ["title", "amount", "description"]
             }),
             post_bounty_flow,
         )
@@ -368,6 +368,10 @@ fn post_bounty_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let title = req_str(&args, "title")?;
         let amount = req_str(&args, "amount")?;
+        // The backend requires a non-empty description; require it here too so a
+        // missing one fails with a clear arg error rather than a controller error.
+        let description = req_str(&args, "description")?;
+        let asset = opt_str(&args, "asset").unwrap_or_else(|| "USDC".to_string());
         let confirm = opt_bool(&args, "confirm").unwrap_or(false);
         log::debug!(
             "[tinyplace][flow] post_bounty start title={title} amount={amount} confirm={confirm}"
@@ -380,24 +384,34 @@ fn post_bounty_flow(args: Value) -> FlowFuture {
         let mut params = serde_json::Map::new();
         params.insert("title".to_string(), json!(title));
         params.insert("amount".to_string(), json!(amount));
-        params.insert(
-            "asset".to_string(),
-            json!(opt_str(&args, "asset").unwrap_or_else(|| "USDC".to_string())),
-        );
-        params.insert(
-            "description".to_string(),
-            json!(opt_str(&args, "description").unwrap_or_default()),
-        );
+        params.insert("asset".to_string(), json!(asset));
+        params.insert("description".to_string(), json!(description));
         // `deadline` takes precedence over `days` (documented in the schema).
-        if let Some(deadline) = opt_str(&args, "deadline") {
+        let deadline = opt_str(&args, "deadline");
+        let days = super::common::opt_i64(&args, "days");
+        if let Some(deadline) = &deadline {
             params.insert("deadline".to_string(), json!(deadline));
-        } else if let Some(days) = super::common::opt_i64(&args, "days") {
+        } else if let Some(days) = days {
             params.insert("durationDays".to_string(), json!(days));
         }
         params.insert("confirmed".to_string(), json!(confirm));
 
+        // Pre-build the confirm-to-settle retry args so the challenge preview can
+        // suggest a complete, ready-to-run follow-up (no placeholders to fill).
+        let mut retry_args = serde_json::Map::new();
+        retry_args.insert("title".to_string(), json!(title));
+        retry_args.insert("amount".to_string(), json!(amount));
+        retry_args.insert("description".to_string(), json!(description));
+        retry_args.insert("asset".to_string(), json!(asset));
+        if let Some(deadline) = &deadline {
+            retry_args.insert("deadline".to_string(), json!(deadline));
+        } else if let Some(days) = days {
+            retry_args.insert("days".to_string(), json!(days));
+        }
+        retry_args.insert("confirm".to_string(), json!(true));
+
         match call_controller("bounties_create", params).await {
-            Ok(value) => render_bounty_result(&title, value),
+            Ok(value) => render_bounty_result(&title, value, Value::Object(retry_args)),
             Err(message) => {
                 let mut md = Markdown::new();
                 md.heading(format!("Could not post bounty \"{title}\""));
@@ -410,8 +424,12 @@ fn post_bounty_flow(args: Value) -> FlowFuture {
 
 /// Render the `bounties_create` controller result: `{ bounty }` (created — the
 /// reward is escrowed) or `{ challenge, .. }` (paid bounty previewed, nothing
-/// spent; re-run with confirm=true).
-fn render_bounty_result(title: &str, value: Value) -> anyhow::Result<ToolResult> {
+/// spent; re-run with `retry_args`, which carry confirm=true).
+fn render_bounty_result(
+    title: &str,
+    value: Value,
+    retry_args: Value,
+) -> anyhow::Result<ToolResult> {
     if let Some(bounty) = value.get("bounty") {
         let bounty_id = collect_field(bounty, "bountyId").into_iter().next();
         let mut md = Markdown::new();
@@ -445,7 +463,7 @@ fn render_bounty_result(title: &str, value: Value) -> anyhow::Result<ToolResult>
             &[Suggestion::new(
                 format!("Fund the reward and open \"{title}\""),
                 "tinyplace_post_bounty",
-                json!({ "title": title, "amount": "<amount>", "confirm": true }),
+                retry_args,
             )],
         );
     }

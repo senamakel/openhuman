@@ -515,8 +515,6 @@ pub fn all_tools_with_runtime(
         Box::new(WorkspaceUpdatePersonaTool::new(config.clone())),
         Box::new(WorkspaceResetPersonaTool::new(config.clone())),
         Box::new(WorkspaceInitTool),
-        // tiny.place focused write helper with anti-spoofed candidate identity.
-        Box::new(TinyplaceJobApplyTool),
     ];
 
     log::debug!(

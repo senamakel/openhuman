@@ -4,6 +4,7 @@
 
 use serde_json::{json, Value};
 
+use tinyplace::api::inbox::InboxQueryParams;
 use tinyplace::types::BountyQueryParams;
 
 use crate::openhuman::tools::traits::Tool;
@@ -357,7 +358,12 @@ fn messages_flow(args: Value) -> FlowFuture {
             }
         }
 
-        if let Ok(inbox) = client.inbox.list(None, None).await {
+        // Honour `limit` on the inbox read too (not just pending messages).
+        let inbox_params = InboxQueryParams {
+            limit: Some(limit),
+            ..Default::default()
+        };
+        if let Ok(inbox) = client.inbox.list(Some(&inbox_params), None).await {
             let v = serde_json::to_value(&inbox).unwrap_or(Value::Null);
             md.subheading("Inbox");
             md.raw_section(render_json(&v));

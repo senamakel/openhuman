@@ -128,7 +128,10 @@ pub fn write_tools() -> Vec<Box<dyn Tool>> {
             submit_work_flow,
         )
         .boxed(),
-        FlowTool::write(
+        // A read (list_submissions) — registered as a read flow so it isn't
+        // approval-gated; the suggested `bounties_run_council` action is gated
+        // on its own through `tinyplace_call`.
+        FlowTool::read(
             "tinyplace_submissions",
             "Review the submissions on a bounty you created, with a council command to \
              trigger judging.",

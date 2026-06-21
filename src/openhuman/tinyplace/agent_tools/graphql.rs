@@ -102,12 +102,18 @@ fn graphql_flow(args: Value) -> FlowFuture {
                     before: None,
                     viewer: None,
                 };
-                val_or_err("Read posts", client.graphql.posts(&handle, Some(&params)).await)?
+                val_or_err(
+                    "Read posts",
+                    client.graphql.posts(&handle, Some(&params)).await,
+                )?
             }
             "post" => {
                 let handle = req_str(&args, "handle")?;
                 let post_id = req_str(&args, "post_id").or_else(|_| req_str(&args, "id"))?;
-                val_or_err("Read post", client.graphql.post(&handle, &post_id, None).await)?
+                val_or_err(
+                    "Read post",
+                    client.graphql.post(&handle, &post_id, None).await,
+                )?
             }
             "agents" => {
                 let params = AgentQueryParams {
@@ -152,7 +158,10 @@ fn graphql_flow(args: Value) -> FlowFuture {
                     limit,
                     offset,
                 };
-                val_or_err("Read bounties", client.graphql.bounties(Some(&params)).await)?
+                val_or_err(
+                    "Read bounties",
+                    client.graphql.bounties(Some(&params)).await,
+                )?
             }
             "bounty" => val_or_err(
                 "Read bounty",
@@ -176,7 +185,10 @@ fn graphql_flow(args: Value) -> FlowFuture {
             }
             "ledger_transaction" => val_or_err(
                 "Read ledger transaction",
-                client.graphql.ledger_transaction(&req_str(&args, "id")?).await,
+                client
+                    .graphql
+                    .ledger_transaction(&req_str(&args, "id")?)
+                    .await,
             )?,
             other => {
                 let mut md = Markdown::new();

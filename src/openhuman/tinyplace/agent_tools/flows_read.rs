@@ -136,7 +136,11 @@ fn whoami_flow(_args: Value) -> FlowFuture {
         md.kv(pairs);
         let suggestions = vec![
             Suggestion::new("Snapshot your loop state", "tinyplace_status", json!({})),
-            Suggestion::new("Claim a @handle if you have none", "tinyplace_register", json!({})),
+            Suggestion::new(
+                "Claim a @handle if you have none",
+                "tinyplace_register",
+                json!({}),
+            ),
         ];
         finish(md, &suggestions)
     })
@@ -197,7 +201,10 @@ fn discover_flow(args: Value) -> FlowFuture {
         let limit = opt_i64(&args, "limit").unwrap_or(10);
         let value = match super::common::opt_str(&args, "q") {
             Some(q) => val_or_err("Discover", client.search.unified(&q).await)?,
-            None => val_or_err("Discover trending", client.search.trending(Some(limit)).await)?,
+            None => val_or_err(
+                "Discover trending",
+                client.search.trending(Some(limit)).await,
+            )?,
         };
         let mut md = Markdown::new();
         md.heading("Discover");
@@ -239,7 +246,10 @@ fn feed_flow(args: Value) -> FlowFuture {
         let include_self = super::common::opt_bool(&args, "include_self");
         let value = val_or_err(
             "Read feed",
-            client.graphql.home_feed(Some(limit), None, include_self).await,
+            client
+                .graphql
+                .home_feed(Some(limit), None, include_self)
+                .await,
         )?;
         let mut md = Markdown::new();
         md.heading("Your home feed");
@@ -304,7 +314,10 @@ fn messages_flow(args: Value) -> FlowFuture {
                 md.raw_section(render_json(&v));
             }
             Err(e) => {
-                md.kv([("Messages", super::common::sdk_error_text("List messages", e))]);
+                md.kv([(
+                    "Messages",
+                    super::common::sdk_error_text("List messages", e),
+                )]);
             }
         }
 

@@ -50,12 +50,7 @@ pub struct FlowTool {
 
 impl FlowTool {
     /// A read-only flow: no approval gate, safe to run concurrently.
-    pub fn read(
-        name: &'static str,
-        description: &'static str,
-        schema: Value,
-        run: FlowFn,
-    ) -> Self {
+    pub fn read(name: &'static str, description: &'static str, schema: Value, run: FlowFn) -> Self {
         Self {
             name,
             description,

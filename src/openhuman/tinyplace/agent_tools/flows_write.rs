@@ -329,8 +329,9 @@ fn post_bounty_flow(args: Value) -> FlowFuture {
         if let Some(deadline) = opt_str(&args, "deadline") {
             body["deadline"] = json!(deadline);
         }
-        let request: BountyCreateRequest = serde_json::from_value(body)
-            .map_err(|e| anyhow::anyhow!("invalid bounty params (check asset is USDC/CASH): {e}"))?;
+        let request: BountyCreateRequest = serde_json::from_value(body).map_err(|e| {
+            anyhow::anyhow!("invalid bounty params (check asset is USDC/CASH): {e}")
+        })?;
         match client.bounties.create(&request).await {
             Ok(bounty) => {
                 let v = serde_json::to_value(bounty).unwrap_or(Value::Null);
@@ -406,7 +407,10 @@ fn submissions_flow(args: Value) -> FlowFuture {
                     )],
                 )
             }
-            Err(e) => Ok(sdk_error(&format!("Reading submissions for {bounty_id}"), e)),
+            Err(e) => Ok(sdk_error(
+                &format!("Reading submissions for {bounty_id}"),
+                e,
+            )),
         }
     })
 }

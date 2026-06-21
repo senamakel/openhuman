@@ -52,7 +52,11 @@ mod tests {
         let names: HashSet<&str> = tools.iter().map(|t| t.name()).collect();
 
         // A handful of flows + the gateway + escape hatch + help — not 160.
-        assert!(tools.len() < 25, "surface should stay small, got {}", tools.len());
+        assert!(
+            tools.len() < 25,
+            "surface should stay small, got {}",
+            tools.len()
+        );
 
         for required in [
             "tinyplace_whoami",
@@ -68,7 +72,10 @@ mod tests {
             "tinyplace_call",
             "tinyplace_help",
         ] {
-            assert!(names.contains(required), "missing curated tool `{required}`");
+            assert!(
+                names.contains(required),
+                "missing curated tool `{required}`"
+            );
         }
     }
 
@@ -89,7 +96,11 @@ mod tests {
     #[test]
     fn every_tool_advertises_markdown() {
         for tool in all_tinyplace_agent_tools() {
-            assert!(tool.supports_markdown(), "{} should support markdown", tool.name());
+            assert!(
+                tool.supports_markdown(),
+                "{} should support markdown",
+                tool.name()
+            );
         }
     }
 }

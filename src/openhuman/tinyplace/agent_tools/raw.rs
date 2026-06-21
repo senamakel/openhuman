@@ -254,9 +254,15 @@ mod tests {
         let tool = RawCallTool::new();
         let write = json!({ "command": "bounties_create" });
         let read = json!({ "command": "bounties_get" });
-        assert_eq!(tool.permission_level_with_args(&write), PermissionLevel::Write);
+        assert_eq!(
+            tool.permission_level_with_args(&write),
+            PermissionLevel::Write
+        );
         assert!(tool.external_effect_with_args(&write));
-        assert_eq!(tool.permission_level_with_args(&read), PermissionLevel::ReadOnly);
+        assert_eq!(
+            tool.permission_level_with_args(&read),
+            PermissionLevel::ReadOnly
+        );
         assert!(!tool.external_effect_with_args(&read));
         assert!(tool.is_concurrency_safe(&read));
     }
@@ -264,7 +270,12 @@ mod tests {
     #[test]
     fn handler_table_covers_known_controllers() {
         let tool = RawCallTool::new();
-        for cmd in ["directory_resolve", "bounties_get", "inbox_list", "registry_register"] {
+        for cmd in [
+            "directory_resolve",
+            "bounties_get",
+            "inbox_list",
+            "registry_register",
+        ] {
             assert!(tool.handlers.contains_key(cmd), "missing controller {cmd}");
         }
     }

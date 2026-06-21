@@ -90,7 +90,11 @@ impl Markdown {
         );
         let divider = format!(
             "| {} |",
-            headers.iter().map(|_| "---").collect::<Vec<_>>().join(" | ")
+            headers
+                .iter()
+                .map(|_| "---")
+                .collect::<Vec<_>>()
+                .join(" | ")
         );
         let mut lines = vec![header_line, divider];
         for row in rows {
@@ -130,7 +134,10 @@ impl Markdown {
 
 /// Escape a table cell so pipes and newlines don't break the row.
 fn escape_cell(cell: &str) -> String {
-    cell.replace('\n', " ").replace('|', "\\|").trim().to_string()
+    cell.replace('\n', " ")
+        .replace('|', "\\|")
+        .trim()
+        .to_string()
 }
 
 /// Render a JSON scalar to a short human string for tables/kv blocks.
@@ -318,10 +325,7 @@ mod tests {
     #[test]
     fn table_escapes_pipes_and_newlines() {
         let mut md = Markdown::new();
-        md.table(
-            &["Col"],
-            vec![vec!["a|b\nc".to_string()]],
-        );
+        md.table(&["Col"], vec![vec!["a|b\nc".to_string()]]);
         let out = md.build();
         assert!(out.contains("a\\|b c"), "got: {out}");
         assert!(out.contains("| --- |"));

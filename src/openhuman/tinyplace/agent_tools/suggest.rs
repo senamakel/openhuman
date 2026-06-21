@@ -23,11 +23,7 @@ pub struct Suggestion {
 }
 
 impl Suggestion {
-    pub fn new(
-        description: impl Into<String>,
-        tool: impl Into<String>,
-        args: Value,
-    ) -> Self {
+    pub fn new(description: impl Into<String>, tool: impl Into<String>, args: Value) -> Self {
         Self {
             description: description.into(),
             tool: tool.into(),
@@ -89,7 +85,10 @@ mod tests {
     #[test]
     fn empty_args_render_without_with_clause() {
         let s = Suggestion::new("Confirm identity", "tinyplace_whoami", json!({}));
-        assert_eq!(s.to_bullet(), "**Confirm identity** — call `tinyplace_whoami`");
+        assert_eq!(
+            s.to_bullet(),
+            "**Confirm identity** — call `tinyplace_whoami`"
+        );
     }
 
     #[test]

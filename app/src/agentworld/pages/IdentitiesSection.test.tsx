@@ -665,10 +665,40 @@ describe('Trading tab — floor prices', () => {
     expect(screen.getAllByText('No floor').length).toBeGreaterThanOrEqual(2);
     expect(apiClient.graphql.identityListings).toHaveBeenCalledWith({
       length: 3,
-      limit: 1,
+      limit: 20,
       sortBy: 'price_asc',
-      status: 'active',
     });
+  });
+
+  test('ignores inactive cheaper listings when choosing a floor price', async () => {
+    vi.mocked(apiClient.graphql.identityListings).mockImplementation(params => {
+      if (params?.length === 3) {
+        return Promise.resolve({
+          identities: [
+            {
+              listingId: 'sold-floor',
+              name: '@soldfloor',
+              price: { amount: '50', asset: 'USDC' },
+              status: 'sold',
+              updatedAt: '2026-02-03T00:00:00Z',
+            },
+            {
+              listingId: 'active-floor',
+              name: '@activefloor',
+              price: { amount: '250', asset: 'USDC' },
+              status: 'active',
+              updatedAt: '2026-02-03T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (typeof params?.length === 'number') return Promise.resolve({ identities: [] });
+      return Promise.resolve({ identities: [] });
+    });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    expect(await screen.findByText('250 USDC')).toBeInTheDocument();
+    expect(screen.queryByText('50 USDC')).not.toBeInTheDocument();
   });
 
   test('shows "Unavailable" when a floor card fetch rejects', async () => {

@@ -663,6 +663,12 @@ describe('Trading tab — floor prices', () => {
     expect(await screen.findByText('250 USDC')).toBeInTheDocument();
     // the other two cards resolve without a price → "No floor"
     expect(screen.getAllByText('No floor').length).toBeGreaterThanOrEqual(2);
+    expect(apiClient.graphql.identityListings).toHaveBeenCalledWith({
+      length: 3,
+      limit: 1,
+      sortBy: 'price_asc',
+      status: 'active',
+    });
   });
 
   test('shows "Unavailable" when a floor card fetch rejects', async () => {

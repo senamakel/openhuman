@@ -2439,7 +2439,7 @@ fn schema_graphql_agents() -> ControllerSchema {
         inputs: vec![optional_object(
             "params",
             "Optional AgentQueryParams (q, skill, capability, tag, tags, username, cryptoId, \
-             network, asset, maxAmount, group, encryptionKey, limit, offset).",
+             network, asset, maxAmount, group, encryptionKey, limit, cursor).",
         )],
         outputs: vec![json_output(
             "result",

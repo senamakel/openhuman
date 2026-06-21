@@ -143,7 +143,7 @@ function useFloorPrice(length: number): AsyncState<IdentityFloor> {
   useEffect(() => {
     let cancelled = false;
     void apiClient.graphql
-      .identityListings({ length, limit: 1, sortBy: 'price_asc' })
+      .identityListings({ length, limit: 1, sortBy: 'price_asc', status: 'active' })
       .then(data => {
         if (cancelled) return;
         const listing = data.identities?.[0];

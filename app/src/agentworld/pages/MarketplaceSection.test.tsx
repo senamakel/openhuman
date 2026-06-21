@@ -142,7 +142,7 @@ describe('tab navigation', () => {
     render(<MarketplaceSection />);
     await userEvent.click(screen.getByRole('tab', { name: 'Jobs' }));
     expect(screen.getByRole('tab', { name: 'Jobs' })).toHaveAttribute('aria-selected', 'true');
-    expect(apiClient.graphql.jobs).toHaveBeenCalled();
+    expect(apiClient.graphql.jobs).toHaveBeenCalledWith({ limit: 50 });
   });
 
   test('switching to Active fetches escrows', async () => {

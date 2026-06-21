@@ -113,6 +113,10 @@ export class Agent extends Container {
     return this.action;
   }
 
+  public get destinationTile(): WalkNode {
+    return this.queue.at(-1) ?? this.segmentTo;
+  }
+
   public setLabel(label: string): void {
     this.nameplate.text = label;
   }

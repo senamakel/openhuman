@@ -53,6 +53,21 @@ export interface DepthObstacle {
   zIndex: number;
 }
 
+interface PixelSize {
+  width: number;
+  height: number;
+}
+
+interface RoomBounds extends PixelSize {
+  centerX: number;
+  centerY: number;
+}
+
+interface PathQueueNode {
+  x: number;
+  y: number;
+}
+
 export abstract class BaseRoom {
   public readonly view: Container = new Container();
   public readonly definition: RoomDefinition;
@@ -73,7 +88,7 @@ export abstract class BaseRoom {
   private readonly pieceByTile = new Map<string, FurnitureSprite>();
   private readonly obstacles: Array<DepthObstacle> = [];
   private readonly center: ScreenPoint;
-  private readonly size: { width: number; height: number };
+  private readonly size: PixelSize;
 
   protected constructor(definition: RoomDefinition, factory: TextureFactory) {
     this.definition = definition;
@@ -261,7 +276,7 @@ export abstract class BaseRoom {
     return this.obstacles;
   }
 
-  private computeBounds(): { centerX: number; centerY: number; width: number; height: number } {
+  private computeBounds(): RoomBounds {
     let minX = Number.POSITIVE_INFINITY;
     let minY = Number.POSITIVE_INFINITY;
     let maxX = Number.NEGATIVE_INFINITY;
@@ -302,7 +317,7 @@ export abstract class BaseRoom {
     return this.center;
   }
 
-  public get pixelSize(): { width: number; height: number } {
+  public get pixelSize(): PixelSize {
     return this.size;
   }
 
@@ -374,13 +389,16 @@ export abstract class BaseRoom {
       return [];
     }
 
-    const visited = new Set<string>([tileKey(startX, startY)]);
-    const queue: Array<{ x: number; y: number; path: Array<WalkNode> }> = [
-      { x: startX, y: startY, path: [] },
-    ];
+    const startKey = tileKey(startX, startY);
+    const visited = new Set<string>([startKey]);
+    const previousByKey = new Map<string, string>();
+    const nodeByKey = new Map<string, WalkNode>([[startKey, this.node(startX, startY)]]);
+    const queue: Array<PathQueueNode> = [{ x: startX, y: startY }];
+    let queueIndex = 0;
 
-    while (queue.length > 0) {
-      const current = queue.shift()!;
+    while (queueIndex < queue.length) {
+      const current = queue[queueIndex++]!;
+      const currentKey = tileKey(current.x, current.y);
       for (const [stepX, stepY] of NEIGHBOR_STEPS) {
         const nextX = current.x + stepX;
         const nextY = current.y + stepY;
@@ -414,14 +432,34 @@ export abstract class BaseRoom {
           continue;
         }
         const next = this.node(nextX, nextY);
-        const path = [...current.path, next];
+        previousByKey.set(key, currentKey);
+        nodeByKey.set(key, next);
         if (terminal) {
-          return path;
+          return this.reconstructPath(key, startKey, previousByKey, nodeByKey);
         }
         visited.add(key);
-        queue.push({ x: nextX, y: nextY, path });
+        queue.push({ x: nextX, y: nextY });
       }
     }
     return null;
+  }
+
+  private reconstructPath(
+    endKey: string,
+    startKey: string,
+    previousByKey: ReadonlyMap<string, string>,
+    nodeByKey: ReadonlyMap<string, WalkNode>
+  ): Array<WalkNode> {
+    const path: Array<WalkNode> = [];
+    let cursor: string | undefined = endKey;
+    while (cursor && cursor !== startKey) {
+      const node = nodeByKey.get(cursor);
+      if (!node) {
+        return [];
+      }
+      path.push(node);
+      cursor = previousByKey.get(cursor);
+    }
+    return path.reverse();
   }
 }

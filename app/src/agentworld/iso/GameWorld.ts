@@ -51,6 +51,7 @@ const ZOOM_BOOST = 0.5;
 const TAP_THRESHOLD = 6;
 const AGENT_PICK_RADIUS = 26;
 const PAN_LIMIT = 360;
+const TILE_EPSILON = 0.001;
 
 // Live traffic: cars cruise along the city's horizontal street rows (where the
 // 2x1 car sprite is already correctly oriented). Only the "outside" city has
@@ -542,8 +543,6 @@ export class GameWorld {
   private routeAgent(agent: Agent, state: AgentState): void {
     const room = this.room!;
     const start = agent.currentTile;
-    const startX = Math.round(start.x);
-    const startY = Math.round(start.y);
 
     let arrivalAction = state.action ?? 'idle';
     let facing = state.facing ?? null;
@@ -555,10 +554,24 @@ export class GameWorld {
       seatDrop = station.point.seatDropY ?? 6;
     }
 
-    if (startX === state.x && startY === state.y) {
+    const alreadyAtTarget =
+      Math.abs(start.x - state.x) < TILE_EPSILON && Math.abs(start.y - state.y) < TILE_EPSILON;
+    if (alreadyAtTarget) {
       agent.walkPath([], arrivalAction, facing, seatDrop);
       return;
     }
+
+    const destination = agent.destinationTile;
+    if (
+      agent.currentAction === 'walking' &&
+      destination.x === state.x &&
+      destination.y === state.y
+    ) {
+      return;
+    }
+
+    const startX = Math.round(start.x);
+    const startY = Math.round(start.y);
     const path = room.findPath(startX, startY, state.x, state.y);
     if (path) {
       agent.walkPath(path, arrivalAction, facing, seatDrop);

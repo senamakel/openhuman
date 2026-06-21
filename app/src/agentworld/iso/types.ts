@@ -32,6 +32,11 @@ export interface WalkNode {
   level: number;
 }
 
+export interface TileCoord {
+  x: number;
+  y: number;
+}
+
 export interface ChatMessage {
   text: string;
   /** Milliseconds the bubble stays before auto-fading. */
@@ -110,7 +115,7 @@ export interface RoomDefinition {
   palette: RoomPalette;
   furniture: Array<FurnitureConfig>;
   /** Where newly spawned agents enter. */
-  spawnTile: { x: number; y: number };
+  spawnTile: TileCoord;
   /** Extra vertical clearance above the floor for tall props (buildings). */
   topMargin?: number;
 }

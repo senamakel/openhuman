@@ -57,7 +57,7 @@ export class TextureFactory {
     const texture = this.renderer.generateTexture({
       target: graphics,
       resolution: 1,
-      antialias: true,
+      antialias: false,
     });
     texture.source.scaleMode = 'nearest';
     const baked: BakedTexture = { texture, anchorX: -bounds.minX, anchorY: -bounds.minY };

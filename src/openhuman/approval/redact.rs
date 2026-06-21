@@ -59,6 +59,7 @@ const SENSITIVE_KEYS: &[&str] = &[
     "password",
     "authorization",
     "auth",
+    "code",
 ];
 
 /// Produce a redacted clone of `args` suitable for persistence /
@@ -248,6 +249,34 @@ mod tests {
             red["recipient"]
         );
         assert_eq!(red["associatedData"]["topic"], "tinyplace dm");
+    }
+
+    #[test]
+    fn email_verification_code_is_redacted() {
+        let args = json!({
+            "cryptoId": "did:example:alice",
+            "email": "alice@example.test",
+            "code": "123456",
+        });
+        let red = redact_args(&args);
+
+        assert_eq!(red["cryptoId"], "did:example:alice");
+        assert!(
+            red["email"]
+                .as_str()
+                .unwrap()
+                .starts_with("<redacted: string ("),
+            "got {:?}",
+            red["email"]
+        );
+        assert!(
+            red["code"]
+                .as_str()
+                .unwrap()
+                .starts_with("<redacted: string ("),
+            "got {:?}",
+            red["code"]
+        );
     }
 
     #[test]

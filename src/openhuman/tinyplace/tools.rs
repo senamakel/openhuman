@@ -261,6 +261,7 @@ fn is_write_function(function: &str) -> bool {
         "messages_acknowledge",
         "registry_register",
         "signal_provision",
+        "signal_decrypt_message",
         "signal_register_encryption_key",
         "signal_rotate_signed_pre_key",
         "signal_send_message",
@@ -276,8 +277,8 @@ fn is_write_function(function: &str) -> bool {
     WRITE_FUNCTIONS.contains(&function)
 }
 
-fn has_external_effect(function: &str) -> bool {
-    !matches!(function, "signal_provision" | "signal_decrypt_message")
+fn has_external_effect(_function: &str) -> bool {
+    true
 }
 
 fn value_kind(value: &Value) -> &'static str {
@@ -506,6 +507,27 @@ mod tests {
         assert_eq!(inbox.permission_level(), PermissionLevel::ReadOnly);
         assert!(!inbox.external_effect());
         assert!(inbox.is_concurrency_safe(&json!({})));
+    }
+
+    #[test]
+    fn signal_state_mutating_tools_are_write_external_effects() {
+        let tools = all_tinyplace_agent_tools();
+
+        for name in [
+            "tinyplace_signal_provision",
+            "tinyplace_signal_decrypt_message",
+        ] {
+            let tool = tools
+                .iter()
+                .find(|tool| tool.name() == name)
+                .unwrap_or_else(|| panic!("missing {name}"));
+            assert_eq!(tool.permission_level(), PermissionLevel::Write);
+            assert!(tool.external_effect(), "{name} should prompt/audit");
+            assert!(
+                !tool.is_concurrency_safe(&json!({})),
+                "{name} mutates Signal state"
+            );
+        }
     }
 
     #[test]

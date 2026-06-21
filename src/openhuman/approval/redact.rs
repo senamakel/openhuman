@@ -20,6 +20,7 @@ use serde_json::{Map, Value};
 const SENSITIVE_KEYS: &[&str] = &[
     "body",
     "content",
+    "plaintext",
     "text",
     "message",
     "messages",
@@ -219,6 +220,34 @@ mod tests {
             "got {:?}",
             red["body"]
         );
+    }
+
+    #[test]
+    fn plaintext_field_is_redacted_for_encrypted_dm_tools() {
+        let args = json!({
+            "recipient": "@alice",
+            "plaintext": "meet me at the usual spot",
+            "associatedData": { "topic": "tinyplace dm" }
+        });
+        let red = redact_args(&args);
+
+        assert!(
+            red["plaintext"]
+                .as_str()
+                .unwrap()
+                .starts_with("<redacted: string ("),
+            "got {:?}",
+            red["plaintext"]
+        );
+        assert!(
+            red["recipient"]
+                .as_str()
+                .unwrap()
+                .starts_with("<redacted: string ("),
+            "got {:?}",
+            red["recipient"]
+        );
+        assert_eq!(red["associatedData"]["topic"], "tinyplace dm");
     }
 
     #[test]

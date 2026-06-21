@@ -876,6 +876,11 @@ mod tests {
         assert!(def.omit_identity);
         assert!(def.omit_safety_preamble);
         assert_eq!(def.max_iterations, 8);
+        assert!(
+            def.disallowed_tools.iter().any(|t| t == "tinyplace_*"),
+            "morning_briefing.disallowed_tools must contain `tinyplace_*` so \
+             tiny.place routes through tinyplace_agent exclusively"
+        );
     }
 
     #[test]

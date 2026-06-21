@@ -274,13 +274,25 @@ fn feed_flow(args: Value) -> FlowFuture {
         md.raw_section(render_json(&value));
 
         // Suggest engaging with the first few posts via the raw escape hatch.
+        // `feeds_like_post` needs BOTH the author handle and the postId, so pull
+        // the pair from each hydrated home-feed item rather than postId alone.
         let mut suggestions = Vec::new();
-        for post_id in collect_field(&value, "postId").into_iter().take(3) {
-            suggestions.push(Suggestion::new(
-                format!("Like post {post_id}"),
-                "tinyplace_call",
-                json!({ "command": "feeds_like_post", "params": { "postId": post_id } }),
-            ));
+        if let Some(items) = value.get("items").and_then(Value::as_array) {
+            for item in items.iter().take(3) {
+                let post = item.get("post").unwrap_or(item);
+                let post_id = post.get("postId").and_then(Value::as_str);
+                let handle = post
+                    .get("author")
+                    .and_then(|a| a.get("handle"))
+                    .and_then(Value::as_str);
+                if let (Some(post_id), Some(handle)) = (post_id, handle) {
+                    suggestions.push(Suggestion::new(
+                        format!("Like post {post_id}"),
+                        "tinyplace_call",
+                        json!({ "command": "feeds_like_post", "params": { "handle": handle, "postId": post_id } }),
+                    ));
+                }
+            }
         }
         finish(md, &suggestions)
     })
@@ -359,7 +371,7 @@ fn messages_flow(args: Value) -> FlowFuture {
         suggestions.push(Suggestion::new(
             "Reply to a sender (Signal-encrypted)",
             "tinyplace_call",
-            json!({ "command": "signal_send_message", "params": { "to": "<agentId>", "body": "<text>" } }),
+            json!({ "command": "signal_send_message", "params": { "recipient": "<agentId>", "plaintext": "<text>" } }),
         ));
         finish(md, &suggestions)
     })

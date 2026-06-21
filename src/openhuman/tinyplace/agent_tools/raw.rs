@@ -91,6 +91,12 @@ fn is_write_function(function: &str) -> bool {
     // Fail-closed against classification drift: a controller added after this
     // list whose name implies mutation is gated as a write rather than slipping
     // through un-prompted. Read verbs (get/list/resolve/…) don't match.
+    // Verb fragments are matched as substrings, so they MUST NOT appear inside a
+    // read controller name. Mutating actions that would collide with a read
+    // (e.g. `marketplace_bid` vs `marketplace_list_bids`, `feeds_create_post` vs
+    // `graphql_post`, `broadcasts_subscribe` vs `broadcasts_subscribers`) are
+    // covered by the explicit WRITE_FUNCTIONS list above, so their bare verbs are
+    // intentionally omitted here to avoid gating list reads.
     const WRITE_VERBS: &[&str] = &[
         "create",
         "update",
@@ -99,12 +105,9 @@ fn is_write_function(function: &str) -> bool {
         "add_",
         "set_",
         "send",
-        "post",
         "join",
         "leave",
         "buy",
-        "bid",
-        "offer",
         "apply",
         "submit",
         "approve",
@@ -116,7 +119,6 @@ fn is_write_function(function: &str) -> bool {
         "archive",
         "redeem",
         "revoke",
-        "subscribe",
         "start",
         "stop",
         "confirm",
@@ -327,6 +329,27 @@ mod tests {
         assert!(!is_write_function("widgets_get"));
         assert!(!is_write_function("widgets_list"));
         assert!(!is_write_function("directory_resolve"));
+    }
+
+    #[test]
+    fn list_reads_are_not_gated_by_verb_substrings() {
+        // These are read controllers whose names embed mutating-verb fragments;
+        // they must stay reads (the real write variants are in WRITE_FUNCTIONS).
+        for read in [
+            "marketplace_list_bids",
+            "marketplace_list_offers",
+            "graphql_identity_bids",
+            "graphql_identity_offers",
+            "graphql_posts",
+            "graphql_post_comments",
+            "broadcasts_subscribers",
+        ] {
+            assert!(!is_write_function(read), "{read} should be a read");
+        }
+        // …while the actual mutations remain writes (explicit list).
+        for write in ["marketplace_bid", "marketplace_offer", "feeds_create_post"] {
+            assert!(is_write_function(write), "{write} should be a write");
+        }
     }
 
     #[test]

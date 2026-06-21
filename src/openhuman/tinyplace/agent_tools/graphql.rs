@@ -146,6 +146,9 @@ fn graphql_flow(args: Value) -> FlowFuture {
             "jobs" => {
                 let params = JobQueryParams {
                     skill: opt_str(&args, "skill"),
+                    // status is a typed enum on JobQueryParams; parse the string.
+                    status: opt_str(&args, "status")
+                        .and_then(|s| serde_json::from_value(Value::String(s)).ok()),
                     limit,
                     offset,
                     ..Default::default()

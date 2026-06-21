@@ -138,6 +138,7 @@ pub fn help_tool() -> Box<dyn Tool> {
 fn help_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let topic = opt_str(&args, "topic").map(|t| t.to_ascii_lowercase());
+        log::debug!("[tinyplace][flow] help start topic={topic:?}");
         let md = match topic.as_deref() {
             None | Some("overview") => overview(),
             Some("commands") => commands_catalog(),

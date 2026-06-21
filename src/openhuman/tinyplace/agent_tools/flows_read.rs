@@ -9,8 +9,8 @@ use tinyplace::types::BountyQueryParams;
 use crate::openhuman::tools::traits::Tool;
 
 use super::common::{
-    agent_id, client, collect_field, finish, ok_md, opt_i64, public_key, req_str, val_or_err,
-    FlowFuture, FlowTool,
+    agent_id, client, collect_field, finish, ok_md, positive_limit, public_key, req_str,
+    val_or_err, FlowFuture, FlowTool,
 };
 use super::render::{render_json, Markdown};
 use super::suggest::Suggestion;
@@ -33,7 +33,7 @@ pub fn read_tools() -> Vec<Box<dyn Tool>> {
             json!({
                 "type": "object",
                 "additionalProperties": false,
-                "properties": { "limit": { "type": "integer", "description": "Max items per section (default 10)." } }
+                "properties": { "limit": { "type": "integer", "minimum": 1, "description": "Max items per section (default 10)." } }
             }),
             status_flow,
         )
@@ -47,7 +47,7 @@ pub fn read_tools() -> Vec<Box<dyn Tool>> {
                 "additionalProperties": false,
                 "properties": {
                     "q": { "type": "string", "description": "Free-text query." },
-                    "limit": { "type": "integer", "description": "Max results (default 10)." }
+                    "limit": { "type": "integer", "minimum": 1, "description": "Max results (default 10)." }
                 }
             }),
             discover_flow,
@@ -73,7 +73,7 @@ pub fn read_tools() -> Vec<Box<dyn Tool>> {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                    "limit": { "type": "integer", "description": "Max posts (default 15)." },
+                    "limit": { "type": "integer", "minimum": 1, "description": "Max posts (default 15)." },
                     "include_self": { "type": "boolean", "description": "Include your own posts." }
                 }
             }),
@@ -87,7 +87,7 @@ pub fn read_tools() -> Vec<Box<dyn Tool>> {
             json!({
                 "type": "object",
                 "additionalProperties": false,
-                "properties": { "limit": { "type": "integer", "description": "Max bounties (default 10)." } }
+                "properties": { "limit": { "type": "integer", "minimum": 1, "description": "Max bounties (default 10)." } }
             }),
             find_work_flow,
         )
@@ -99,7 +99,7 @@ pub fn read_tools() -> Vec<Box<dyn Tool>> {
             json!({
                 "type": "object",
                 "additionalProperties": false,
-                "properties": { "limit": { "type": "integer", "description": "Max items (default 20)." } }
+                "properties": { "limit": { "type": "integer", "minimum": 1, "description": "Max items (default 20)." } }
             }),
             messages_flow,
         )
@@ -111,6 +111,7 @@ fn whoami_flow(_args: Value) -> FlowFuture {
     Box::pin(async move {
         let client = client().await?;
         let me = agent_id(client)?;
+        log::debug!("[tinyplace][flow] whoami start");
         let pubkey = public_key(client)?;
         let mut md = Markdown::new();
         md.heading("Your tiny.place identity");
@@ -148,7 +149,8 @@ fn whoami_flow(_args: Value) -> FlowFuture {
 
 fn status_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
-        let limit = opt_i64(&args, "limit").unwrap_or(10);
+        let limit = positive_limit(&args, "limit", 10);
+        log::debug!("[tinyplace][flow] status start limit={limit}");
         let client = client().await?;
         let me = agent_id(client)?;
 
@@ -208,7 +210,11 @@ fn status_flow(args: Value) -> FlowFuture {
 fn discover_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let client = client().await?;
-        let limit = opt_i64(&args, "limit").unwrap_or(10);
+        let limit = positive_limit(&args, "limit", 10);
+        log::debug!(
+            "[tinyplace][flow] discover start limit={limit} has_q={}",
+            args.get("q").is_some()
+        );
         let value = match super::common::opt_str(&args, "q") {
             Some(q) => val_or_err("Discover", client.search.unified(&q).await)?,
             None => val_or_err(
@@ -233,6 +239,7 @@ fn discover_flow(args: Value) -> FlowFuture {
 fn search_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let q = req_str(&args, "q")?;
+        log::debug!("[tinyplace][flow] search start q={q}");
         let client = client().await?;
         let value = val_or_err("Search", client.search.unified(&q).await)?;
         let mut md = Markdown::new();
@@ -252,7 +259,8 @@ fn search_flow(args: Value) -> FlowFuture {
 fn feed_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let client = client().await?;
-        let limit = opt_i64(&args, "limit").unwrap_or(15);
+        let limit = positive_limit(&args, "limit", 15);
+        log::debug!("[tinyplace][flow] feed start limit={limit}");
         let include_self = super::common::opt_bool(&args, "include_self");
         let value = val_or_err(
             "Read feed",
@@ -281,7 +289,8 @@ fn feed_flow(args: Value) -> FlowFuture {
 fn find_work_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let client = client().await?;
-        let limit = opt_i64(&args, "limit").unwrap_or(10);
+        let limit = positive_limit(&args, "limit", 10);
+        log::debug!("[tinyplace][flow] find_work start limit={limit}");
         let params = tinyplace::api::graphql::BountyGraphQLParams {
             status: Some("open".to_string()),
             creator: None,
@@ -311,7 +320,8 @@ fn find_work_flow(args: Value) -> FlowFuture {
 fn messages_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let client = client().await?;
-        let limit = opt_i64(&args, "limit").unwrap_or(20);
+        let limit = positive_limit(&args, "limit", 20);
+        log::debug!("[tinyplace][flow] messages start limit={limit}");
         let me = agent_id(client)?;
 
         let mut md = Markdown::new();

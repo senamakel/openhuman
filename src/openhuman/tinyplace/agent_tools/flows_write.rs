@@ -10,14 +10,16 @@
 use serde_json::{json, Value};
 
 use tinyplace::types::{
-    BountyCreateRequest, BountySubmissionCreateRequest, GroupCreateRequest, ProposalCreateRequest,
+    BountySubmissionCreateRequest, BountySubmissionQueryParams, GroupCreateRequest,
+    ProposalCreateRequest,
 };
 
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 
 use super::common::{
-    agent_id, call_controller, client, collect_field, err_md, finish, ok_md, opt_bool, opt_str,
-    opt_str_list, req_str, resolve_agent, sdk_error, FlowFuture, FlowTool,
+    agent_id, call_controller, client, collect_field, err_md, finish, list_or_empty, ok_md,
+    opt_bool, opt_str, opt_str_list, positive_limit, req_str, resolve_agent, sdk_error, FlowFuture,
+    FlowTool,
 };
 use super::render::{render_json, Markdown};
 use super::suggest::Suggestion;
@@ -99,8 +101,9 @@ pub fn write_tools() -> Vec<Box<dyn Tool>> {
                     "description": { "type": "string", "description": "What the work is." },
                     "amount": { "type": "string", "description": "Reward amount, e.g. '10'." },
                     "asset": { "type": "string", "description": "Reward asset: USDC or CASH (default USDC)." },
-                    "days": { "type": "integer", "description": "Days until the deadline." },
-                    "deadline": { "type": "string", "description": "RFC3339 deadline (overrides days)." }
+                    "days": { "type": "integer", "minimum": 1, "description": "Days until the deadline (ignored if deadline is set)." },
+                    "deadline": { "type": "string", "description": "RFC3339 deadline (takes precedence over days)." },
+                    "confirm": { "type": "boolean", "description": "Set true to escrow the reward on-chain and open the bounty (default false = preview the fee)." }
                 },
                 "required": ["title", "amount"]
             }),
@@ -134,7 +137,7 @@ pub fn write_tools() -> Vec<Box<dyn Tool>> {
                 "additionalProperties": false,
                 "properties": {
                     "bounty_id": { "type": "string", "description": "The bounty id." },
-                    "limit": { "type": "integer", "description": "Max submissions (default 20)." }
+                    "limit": { "type": "integer", "minimum": 1, "description": "Max submissions (default 20)." }
                 },
                 "required": ["bounty_id"]
             }),
@@ -250,6 +253,7 @@ fn render_register_result(handle: &str, value: Value) -> anyhow::Result<ToolResu
 fn follow_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let target = req_str(&args, "target")?;
+        log::debug!("[tinyplace][flow] follow start target={target}");
         let client = client().await?;
         let id = resolve_agent(client, &target).await;
         match client.follows.follow(&id).await {
@@ -278,6 +282,7 @@ fn follow_flow(args: Value) -> FlowFuture {
 fn unfollow_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let target = req_str(&args, "target")?;
+        log::debug!("[tinyplace][flow] unfollow start target={target}");
         let client = client().await?;
         let id = resolve_agent(client, &target).await;
         match client.follows.unfollow(&id).await {
@@ -294,6 +299,7 @@ fn unfollow_flow(args: Value) -> FlowFuture {
 fn join_group_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let group_id = req_str(&args, "group_id")?;
+        log::debug!("[tinyplace][flow] join_group start group_id={group_id}");
         let client = client().await?;
         // `None` request → the SDK authenticates the join as the wallet signer.
         match client.groups.join(&group_id, None).await {
@@ -319,6 +325,7 @@ fn join_group_flow(args: Value) -> FlowFuture {
 fn create_group_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let name = req_str(&args, "name")?;
+        log::debug!("[tinyplace][flow] create_group start name={name}");
         let client = client().await?;
         // Build via JSON so the membership-policy enum and camelCase wire format
         // are handled by serde rather than re-declared here.
@@ -361,49 +368,98 @@ fn post_bounty_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let title = req_str(&args, "title")?;
         let amount = req_str(&args, "amount")?;
-        let client = client().await?;
-        let mut body = json!({
-            "title": title,
-            "amount": amount,
-            "asset": opt_str(&args, "asset").unwrap_or_else(|| "USDC".to_string()),
-        });
-        body["description"] = json!(opt_str(&args, "description").unwrap_or_default());
-        if let Some(days) = super::common::opt_i64(&args, "days") {
-            body["durationDays"] = json!(days);
-        }
+        let confirm = opt_bool(&args, "confirm").unwrap_or(false);
+        log::debug!(
+            "[tinyplace][flow] post_bounty start title={title} amount={amount} confirm={confirm}"
+        );
+
+        // Route through the `bounties_create` controller, not a raw SDK call: the
+        // reward is escrowed via x402 at creation, so the controller probes for
+        // the 402, settles with `fulfill_payment` on confirm, and retries while
+        // it confirms on-chain. The signer-derived creator is set there too.
+        let mut params = serde_json::Map::new();
+        params.insert("title".to_string(), json!(title));
+        params.insert("amount".to_string(), json!(amount));
+        params.insert(
+            "asset".to_string(),
+            json!(opt_str(&args, "asset").unwrap_or_else(|| "USDC".to_string())),
+        );
+        params.insert(
+            "description".to_string(),
+            json!(opt_str(&args, "description").unwrap_or_default()),
+        );
+        // `deadline` takes precedence over `days` (documented in the schema).
         if let Some(deadline) = opt_str(&args, "deadline") {
-            body["deadline"] = json!(deadline);
+            params.insert("deadline".to_string(), json!(deadline));
+        } else if let Some(days) = super::common::opt_i64(&args, "days") {
+            params.insert("durationDays".to_string(), json!(days));
         }
-        let request: BountyCreateRequest = serde_json::from_value(body).map_err(|e| {
-            anyhow::anyhow!("invalid bounty params (check asset is USDC/CASH): {e}")
-        })?;
-        match client.bounties.create(&request).await {
-            Ok(bounty) => {
-                let v = serde_json::to_value(bounty).unwrap_or(Value::Null);
-                let bounty_id = collect_field(&v, "bountyId").into_iter().next();
+        params.insert("confirmed".to_string(), json!(confirm));
+
+        match call_controller("bounties_create", params).await {
+            Ok(value) => render_bounty_result(&title, value),
+            Err(message) => {
                 let mut md = Markdown::new();
-                md.heading(format!("Posted bounty \"{title}\""));
-                md.raw_section(render_json(&v));
-                let suggestions = bounty_id
-                    .map(|id| {
-                        vec![Suggestion::new(
-                            "Watch submissions arrive",
-                            "tinyplace_submissions",
-                            json!({ "bounty_id": id }),
-                        )]
-                    })
-                    .unwrap_or_default();
-                finish(md, &suggestions)
+                md.heading(format!("Could not post bounty \"{title}\""));
+                md.kv([("Reason", message)]);
+                Ok(err_md(md.build()))
             }
-            Err(e) => Ok(sdk_error(&format!("Posting bounty \"{title}\""), e)),
         }
     })
+}
+
+/// Render the `bounties_create` controller result: `{ bounty }` (created — the
+/// reward is escrowed) or `{ challenge, .. }` (paid bounty previewed, nothing
+/// spent; re-run with confirm=true).
+fn render_bounty_result(title: &str, value: Value) -> anyhow::Result<ToolResult> {
+    if let Some(bounty) = value.get("bounty") {
+        let bounty_id = collect_field(bounty, "bountyId").into_iter().next();
+        let mut md = Markdown::new();
+        md.heading(format!("Posted bounty \"{title}\""));
+        md.raw_section(render_json(bounty));
+        let suggestions = bounty_id
+            .map(|id| {
+                vec![Suggestion::new(
+                    "Watch submissions arrive",
+                    "tinyplace_submissions",
+                    json!({ "bounty_id": id }),
+                )]
+            })
+            .unwrap_or_default();
+        return finish(md, &suggestions);
+    }
+    if let Some(challenge) = value.get("challenge") {
+        let mut md = Markdown::new();
+        md.heading(format!("Bounty \"{title}\" needs funding"));
+        md.paragraph(
+            "Creating this bounty escrows the reward on-chain. Review the fee below, \
+             ensure your wallet is funded, then re-run with confirm=true to settle and open it.",
+        );
+        md.subheading("Fee");
+        md.raw_section(render_json(challenge));
+        if let Some(balance) = value.get("walletBalance") {
+            md.kv([("Wallet balance", super::render::scalar(balance))]);
+        }
+        return finish(
+            md,
+            &[Suggestion::new(
+                format!("Fund the reward and open \"{title}\""),
+                "tinyplace_post_bounty",
+                json!({ "title": title, "amount": "<amount>", "confirm": true }),
+            )],
+        );
+    }
+    let mut md = Markdown::new();
+    md.heading(format!("Post bounty \"{title}\""));
+    md.raw_section(render_json(&value));
+    Ok(ok_md(md.build()))
 }
 
 fn submit_work_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let bounty_id = req_str(&args, "bounty_id")?;
         let url = req_str(&args, "url")?;
+        log::debug!("[tinyplace][flow] submit_work start bounty_id={bounty_id}");
         let client = client().await?;
         let me = agent_id(client)?;
         let request = BountySubmissionCreateRequest {
@@ -436,33 +492,40 @@ fn submit_work_flow(args: Value) -> FlowFuture {
 fn submissions_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let bounty_id = req_str(&args, "bounty_id")?;
+        let limit = positive_limit(&args, "limit", 20);
+        log::debug!("[tinyplace][flow] submissions start bounty_id={bounty_id} limit={limit}");
         let client = client().await?;
-        match client.bounties.list_submissions(&bounty_id, None).await {
-            Ok(submissions) => {
-                let v = serde_json::to_value(submissions).unwrap_or(Value::Null);
-                let mut md = Markdown::new();
-                md.heading(format!("Submissions for {bounty_id}"));
-                md.raw_section(render_json(&v));
-                finish(
-                    md,
-                    &[Suggestion::new(
-                        "Run the judging council now (creator/admin)",
-                        "tinyplace_call",
-                        json!({ "command": "bounties_run_council", "params": { "bountyId": bounty_id } }),
-                    )],
-                )
-            }
-            Err(e) => Ok(sdk_error(
-                &format!("Reading submissions for {bounty_id}"),
-                e,
-            )),
-        }
+        // Honour `limit`, and degrade the empty-submissions null collection (a
+        // serialization error) to an empty list rather than a tool failure.
+        let params = BountySubmissionQueryParams {
+            limit: Some(limit),
+            ..Default::default()
+        };
+        let v = list_or_empty(
+            &format!("Reading submissions for {bounty_id}"),
+            client
+                .bounties
+                .list_submissions(&bounty_id, Some(&params))
+                .await,
+        )?;
+        let mut md = Markdown::new();
+        md.heading(format!("Submissions for {bounty_id}"));
+        md.raw_section(render_json(&v));
+        finish(
+            md,
+            &[Suggestion::new(
+                "Run the judging council now (creator/admin)",
+                "tinyplace_call",
+                json!({ "command": "bounties_run_council", "params": { "bountyId": bounty_id } }),
+            )],
+        )
     })
 }
 
 fn job_apply_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let job_id = req_str(&args, "job_id")?;
+        log::debug!("[tinyplace][flow] job_apply start job_id={job_id}");
         let client = client().await?;
         let me = agent_id(client)?;
         let request = ProposalCreateRequest {

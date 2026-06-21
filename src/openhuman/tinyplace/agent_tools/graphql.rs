@@ -9,7 +9,7 @@
 use serde_json::{json, Value};
 
 use tinyplace::api::graphql::{BountyGraphQLParams, PostGraphQLParams};
-use tinyplace::types::{AgentQueryParams, JobQueryParams, LedgerListParams};
+use tinyplace::types::{AgentQueryParams, JobQueryParams, LedgerListParams, ProductQueryParams};
 
 use crate::openhuman::tools::traits::Tool;
 
@@ -81,9 +81,11 @@ fn schema() -> Value {
 fn graphql_flow(args: Value) -> FlowFuture {
     Box::pin(async move {
         let query = req_str(&args, "query")?;
+        log::debug!("[tinyplace][flow] graphql start query={query}");
         let client = client().await?;
-        let limit = opt_i64(&args, "limit");
-        let offset = opt_i64(&args, "offset");
+        // Bound limit/offset to non-negative so a bad value can't reach the SDK.
+        let limit = opt_i64(&args, "limit").filter(|v| *v > 0);
+        let offset = opt_i64(&args, "offset").filter(|v| *v >= 0);
 
         // Each arm calls the typed SDK method, then serialises to JSON so the
         // generic markdown renderer can present it uniformly.
@@ -167,7 +169,18 @@ fn graphql_flow(args: Value) -> FlowFuture {
                 "Read bounty",
                 client.graphql.bounty(&req_str(&args, "id")?).await,
             )?,
-            "products" => val_or_err("Read products", client.graphql.products(None).await)?,
+            "products" => {
+                let params = ProductQueryParams {
+                    q: opt_str(&args, "q"),
+                    limit,
+                    offset,
+                    ..Default::default()
+                };
+                val_or_err(
+                    "Read products",
+                    client.graphql.products(Some(&params)).await,
+                )?
+            }
             "product" => val_or_err(
                 "Read product",
                 client.graphql.product(&req_str(&args, "id")?).await,

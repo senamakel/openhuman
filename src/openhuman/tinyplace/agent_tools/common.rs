@@ -368,28 +368,53 @@ pub fn sdk_error(action: &str, err: tinyplace::Error) -> ToolResult {
 /// the error as markdown carried in the `anyhow` message (the FlowTool surfaces
 /// it to the LLM verbatim).
 ///
-/// A `Serialization` error is **degraded to an empty result** (`Value::Null`)
-/// rather than surfaced as a failure: the backend returns `null` for empty
-/// collections (`{"messages": null}`, empty feeds/jobs/ledger), which the typed
-/// SDK can't deserialize. The internal GraphQL/list controllers do the same
-/// degradation, so first-run / empty-state users see an empty result instead of
-/// a spurious "could not complete".
+/// Serialization errors are **propagated**, not hidden: a response that fails to
+/// deserialize is a real bug worth surfacing. Callers hitting endpoints that
+/// return `null` for an *empty* collection should use [`list_or_empty`] instead,
+/// which degrades only that specific case.
 pub fn val_or_err<T: serde::Serialize>(
     action: &str,
     result: tinyplace::Result<T>,
 ) -> anyhow::Result<Value> {
     match result {
-        Ok(v) => Ok(serde_json::to_value(v).unwrap_or(Value::Null)),
-        Err(e) if is_empty_state(&e) => Ok(Value::Null),
+        Ok(v) => serde_json::to_value(v)
+            .map_err(|e| anyhow::anyhow!("failed to serialize {action} response: {e}")),
+        Err(e) => Err(anyhow::anyhow!("{}", sdk_error_text(action, e))),
+    }
+}
+
+/// Like [`val_or_err`], but for the narrow set of SDK calls whose backend
+/// returns `null` for an empty collection (`{"messages": null}`, empty
+/// submissions) — which the typed SDK surfaces as a `Serialization` error.
+/// Degrades **only** that case to an empty array; every other error, including a
+/// genuine shape mismatch, is still surfaced. Mirrors the `*_degrade` handling
+/// in the internal controllers, scoped to the endpoints that actually need it.
+pub fn list_or_empty<T: serde::Serialize>(
+    action: &str,
+    result: tinyplace::Result<T>,
+) -> anyhow::Result<Value> {
+    match result {
+        Ok(v) => serde_json::to_value(v)
+            .map_err(|e| anyhow::anyhow!("failed to serialize {action} response: {e}")),
+        Err(e) if is_empty_state(&e) => Ok(Value::Array(Vec::new())),
         Err(e) => Err(anyhow::anyhow!("{}", sdk_error_text(action, e))),
     }
 }
 
 /// Whether an SDK error is really just an empty backend collection that failed
-/// to deserialize (e.g. a `null` array). Mirrors the `*_degrade` handling in the
-/// internal controllers.
+/// to deserialize (e.g. a `null` array). Used only by [`list_or_empty`] and the
+/// message flows, which hit endpoints known to return `null` when empty.
 pub fn is_empty_state(err: &tinyplace::Error) -> bool {
     matches!(err, tinyplace::Error::Serialization(_))
+}
+
+/// Parse an optional `limit`, clamping to `default` when absent, non-numeric, or
+/// `<= 0` so a bad value can't reach the SDK/GraphQL layer.
+pub fn positive_limit(args: &Value, key: &str, default: i64) -> i64 {
+    match opt_i64(args, key) {
+        Some(v) if v > 0 => v,
+        _ => default,
+    }
 }
 
 // ── Controller delegation ────────────────────────────────────────────────────
@@ -411,10 +436,18 @@ fn controller_handlers() -> &'static HashMap<&'static str, ControllerHandler> {
 /// `registry_register` performs the x402 payment retry and publishes the
 /// directory Agent Card, neither of which `client.registry.register` does.
 pub async fn call_controller(function: &str, params: Map<String, Value>) -> Result<Value, String> {
-    let handler = controller_handlers()
-        .get(function)
-        .ok_or_else(|| format!("unknown tiny.place controller '{function}'"))?;
-    handler(params).await
+    let param_keys: Vec<&str> = params.keys().map(String::as_str).collect();
+    log::debug!("{LOG_PREFIX} controller_call start function={function} param_keys={param_keys:?}");
+    let handler = controller_handlers().get(function).ok_or_else(|| {
+        log::warn!("{LOG_PREFIX} controller_call unknown function={function}");
+        format!("unknown tiny.place controller '{function}'")
+    })?;
+    let result = handler(params).await;
+    match &result {
+        Ok(_) => log::debug!("{LOG_PREFIX} controller_call ok function={function}"),
+        Err(e) => log::warn!("{LOG_PREFIX} controller_call failed function={function} err={e}"),
+    }
+    result
 }
 
 #[cfg(test)]
@@ -468,18 +501,38 @@ mod tests {
     }
 
     #[test]
-    fn val_or_err_degrades_empty_collection_to_null() {
+    fn val_or_err_propagates_serialization_errors() {
+        // val_or_err no longer hides serialization failures.
+        let serde_err = serde_json::from_str::<i32>("not a number").unwrap_err();
+        let surfaced = val_or_err::<i32>("Read", Err(tinyplace::Error::Serialization(serde_err)));
+        assert!(surfaced.is_err());
+
+        let ok = val_or_err::<i32>("Read", Ok(7)).unwrap();
+        assert_eq!(ok, serde_json::json!(7));
+    }
+
+    #[test]
+    fn list_or_empty_degrades_only_empty_collections() {
+        // Null collection (serialization error) → empty array.
         let serde_err = serde_json::from_str::<i32>("not a number").unwrap_err();
         let degraded =
-            val_or_err::<i32>("Read", Err(tinyplace::Error::Serialization(serde_err))).unwrap();
-        assert_eq!(degraded, Value::Null);
+            list_or_empty::<i32>("List", Err(tinyplace::Error::Serialization(serde_err))).unwrap();
+        assert_eq!(degraded, Value::Array(Vec::new()));
 
-        // A real error is surfaced (markdown carried in the anyhow message).
-        let surfaced = val_or_err::<i32>(
-            "Read",
+        // A genuine non-serialization error is still surfaced.
+        let surfaced = list_or_empty::<i32>(
+            "List",
             Err(tinyplace::Error::InvalidArgument("nope".into())),
         );
         assert!(surfaced.is_err());
+    }
+
+    #[test]
+    fn positive_limit_clamps_non_positive() {
+        assert_eq!(positive_limit(&json!({ "limit": 5 }), "limit", 10), 5);
+        assert_eq!(positive_limit(&json!({ "limit": 0 }), "limit", 10), 10);
+        assert_eq!(positive_limit(&json!({ "limit": -3 }), "limit", 10), 10);
+        assert_eq!(positive_limit(&json!({}), "limit", 10), 10);
     }
 
     #[test]

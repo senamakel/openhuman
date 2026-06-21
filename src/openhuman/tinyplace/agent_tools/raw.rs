@@ -85,7 +85,57 @@ fn is_write_function(function: &str) -> bool {
         "users_start_email_verification",
         "users_update_profile",
     ];
-    WRITE_FUNCTIONS.contains(&function)
+    if WRITE_FUNCTIONS.contains(&function) {
+        return true;
+    }
+    // Fail-closed against classification drift: a controller added after this
+    // list whose name implies mutation is gated as a write rather than slipping
+    // through un-prompted. Read verbs (get/list/resolve/…) don't match.
+    const WRITE_VERBS: &[&str] = &[
+        "create",
+        "update",
+        "delete",
+        "remove",
+        "add_",
+        "set_",
+        "send",
+        "post",
+        "join",
+        "leave",
+        "buy",
+        "bid",
+        "offer",
+        "apply",
+        "submit",
+        "approve",
+        "cancel",
+        "register",
+        "provision",
+        "rotate",
+        "mark_",
+        "archive",
+        "redeem",
+        "revoke",
+        "subscribe",
+        "start",
+        "stop",
+        "confirm",
+        "upload",
+        "select",
+        "shortlist",
+        "withdraw",
+        "vote",
+        "adjudicate",
+        "dispute",
+        "council",
+        "acknowledge",
+        "fanout",
+        "enforce",
+        "renew",
+        "transfer",
+        "claim",
+    ];
+    WRITE_VERBS.iter().any(|verb| function.contains(verb))
 }
 
 /// The raw escape-hatch tool. Holds the controller handler table, keyed by the
@@ -265,6 +315,18 @@ mod tests {
         );
         assert!(!tool.external_effect_with_args(&read));
         assert!(tool.is_concurrency_safe(&read));
+    }
+
+    #[test]
+    fn unknown_mutating_commands_fail_closed_to_write() {
+        // A controller not in the explicit list but whose name implies mutation
+        // is gated as a write (fail-closed), while an unknown read stays read.
+        assert!(is_write_function("widgets_create"));
+        assert!(is_write_function("foo_delete"));
+        assert!(is_write_function("thing_send_message"));
+        assert!(!is_write_function("widgets_get"));
+        assert!(!is_write_function("widgets_list"));
+        assert!(!is_write_function("directory_resolve"));
     }
 
     #[test]

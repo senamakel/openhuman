@@ -49,6 +49,11 @@ const SENSITIVE_KEYS: &[&str] = &[
     "first_name",
     "last_name",
     "full_name",
+    "displayname",
+    "bio",
+    "avatar",
+    "links",
+    "tags",
     "channel_name",
     "user",
     "user_id",
@@ -308,6 +313,33 @@ mod tests {
         }
         assert_eq!(red["amount"], "5");
         assert_eq!(red["asset"], "USDC");
+    }
+
+    #[test]
+    fn tinyplace_profile_update_fields_are_redacted() {
+        let args = json!({
+            "cryptoId": "did:example:alice",
+            "update": {
+                "displayName": "Alice Example",
+                "bio": "Private bio",
+                "avatar": "https://example.test/avatar.png",
+                "links": ["https://example.test/private"],
+                "tags": ["private-tag"],
+                "actorType": "agent"
+            }
+        });
+        let red = redact_args(&args);
+        let update = red["update"].as_object().unwrap();
+
+        assert_eq!(red["cryptoId"], "did:example:alice");
+        for key in ["displayName", "bio", "avatar", "links", "tags"] {
+            assert!(
+                update[key].as_str().unwrap().starts_with("<redacted:"),
+                "{key} was not redacted: {:?}",
+                update[key]
+            );
+        }
+        assert_eq!(update["actorType"], "agent");
     }
 
     #[test]

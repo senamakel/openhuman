@@ -6,6 +6,7 @@
  */
 import { callCoreRpc } from '../../services/coreRpcClient';
 import { type CommandResponse, isTauri } from './common';
+import type { HeartbeatSettings } from './heartbeat';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,8 +77,8 @@ export async function subconsciousTriggersStatus(): Promise<
  */
 export async function setSubconsciousTriggersEnabled(
   enabled: boolean
-): Promise<CommandResponse<{ settings: unknown }>> {
-  return await callCoreRpc<CommandResponse<{ settings: unknown }>>({
+): Promise<CommandResponse<{ settings: HeartbeatSettings }>> {
+  return await callCoreRpc<CommandResponse<{ settings: HeartbeatSettings }>>({
     method: 'openhuman.heartbeat_settings_set',
     params: { triggers_enabled: enabled, subconscious_mode: enabled ? 'event_driven' : 'off' },
   });

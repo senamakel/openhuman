@@ -32,7 +32,7 @@ export function isWalkthroughPending(userIsOnboarded = false): boolean {
 
 /**
  * Flags the walkthrough as pending. Called by OnboardingLayout when the user
- * completes the wizard and is about to navigate to /home.
+ * completes the wizard and is about to navigate to /chat.
  *
  * Best-effort: if localStorage is unavailable (SecurityError / quota) the
  * error is logged and the call is silently swallowed so navigation always
@@ -65,7 +65,7 @@ export function markWalkthroughComplete(): void {
 }
 
 /**
- * Resets the walkthrough so it will play again on next visit to /home.
+ * Resets the walkthrough so it will play again on the current app shell.
  *
  * - Removes the completed flag from localStorage.
  * - Sets the pending flag so `isWalkthroughPending()` returns true.

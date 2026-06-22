@@ -43,7 +43,7 @@ export function waitForTarget(selector: string, timeout = 3000): Promise<void> {
 }
 
 /**
- * Factory that produces the 10-step walkthrough sequence.
+ * Factory that produces the post-onboarding walkthrough sequence.
  *
  * Steps that navigate to a different page receive a `before` async hook that
  * calls `navigate(path)` and then waits for the target element to appear in
@@ -54,17 +54,17 @@ export function waitForTarget(selector: string, timeout = 3000): Promise<void> {
  */
 export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
   return [
-    // ── Step 1 — /home ────────────────────────────────────────────────────
+    // ── Step 1 — /chat empty state ────────────────────────────────────────
     {
       target: '[data-walkthrough="home-card"]',
-      title: 'Your command center',
+      title: 'Start in chat',
       content:
-        "This is your home base — a quick snapshot of what's happening and what needs your attention.",
+        'Chat is your starting point. New windows open with the same greeting and quick actions you saw after setup.',
       placement: 'bottom',
       skipBeacon: true,
     },
 
-    // ── Step 2 — /home ────────────────────────────────────────────────────
+    // ── Step 2 — /chat empty state ────────────────────────────────────────
     {
       target: '[data-walkthrough="home-cta"]',
       title: 'Say hello',
@@ -87,7 +87,7 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       },
     },
 
-    // ── Step 4 — /connections (Apps tab) ─────────────────────────────────
+    // ── Step 4 — /connections (Apps tab) ──────────────────────────────────
     {
       target: '[data-walkthrough="skills-grid"]',
       title: 'Connect your world',
@@ -114,20 +114,6 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       },
     },
 
-    // ── Step 6 — /activity (Activity) ────────────────────────────────────
-    {
-      target: '[data-walkthrough="intelligence-header"]',
-      title: 'Your activity hub',
-      content:
-        'This is where your assistant learns and remembers. It gets smarter the more you use it.',
-      placement: 'bottom',
-      skipBeacon: true,
-      before: async () => {
-        navigate('/activity');
-        await waitForTarget('intelligence-header');
-      },
-    },
-
     // ── Step 6 — /settings ────────────────────────────────────────────────
     {
       target: '[data-walkthrough="settings-menu"]',
@@ -142,29 +128,67 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       },
     },
 
-    // ── Step 7 — /home ────────────────────────────────────────────────────
+    // ── Step 7 — primary nav: Chat ────────────────────────────────────────
     {
       target: '[data-walkthrough="tab-chat"]',
-      title: 'Quick access',
-      content: 'These tabs are your shortcuts — always one tap away.',
+      title: 'Jump back to chat',
+      content: 'Use the Chat tab whenever you want to return to conversations.',
       placement: 'top',
       skipBeacon: true,
       before: async () => {
-        navigate('/home');
         await waitForTarget('tab-chat');
       },
     },
 
-    // ── Step 8 — /home (already there) ───────────────────────────────────
+    // ── Step 8 — primary nav: Human ───────────────────────────────────────
     {
-      target: '[data-walkthrough="tab-activity"]',
-      title: 'Stay in the loop',
-      content: 'Alerts and automations live here — briefings, notifications, background activity.',
+      target: '[data-walkthrough="tab-human"]',
+      title: 'Meet your human profile',
+      content:
+        'Human is where your personal context, identity, and assistant-facing profile come together.',
       placement: 'top',
       skipBeacon: true,
     },
 
-    // ── Step 9 — /chat (pre-seeded welcome message) ───────────────────────
+    // ── Step 9 — primary nav: Brain ───────────────────────────────────────
+    {
+      target: '[data-walkthrough="tab-brain"]',
+      title: 'Open your Brain',
+      content:
+        'Brain is the memory graph: the place to inspect what OpenHuman knows and how ideas connect.',
+      placement: 'top',
+      skipBeacon: true,
+    },
+
+    // ── Step 10 — primary nav: Agent World ────────────────────────────────
+    {
+      target: '[data-walkthrough="tab-agent-world"]',
+      title: 'Explore Agent World',
+      content: 'Agent World is where reusable agents and shared automations live.',
+      placement: 'top',
+      skipBeacon: true,
+    },
+
+    // ── Step 11 — primary nav: Connections ────────────────────────────────
+    {
+      target: '[data-walkthrough="tab-connections"]',
+      title: 'Manage connections',
+      content:
+        'Connections is always available from the main nav when you want to add or adjust services.',
+      placement: 'top',
+      skipBeacon: true,
+    },
+
+    // ── Step 12 — primary nav: Feedback ───────────────────────────────────
+    {
+      target: '[data-walkthrough="tab-feedback"]',
+      title: 'Send feedback',
+      content: 'Feedback gives you a direct place to report rough edges or ask for improvements.',
+      placement: 'top',
+      skipBeacon: true,
+    },
+
+    // ── Step 13 — /chat (pre-seeded welcome message) ──────────────────────
     {
       target: '[data-walkthrough="chat-agent-panel"]',
       title: "You're all set!",

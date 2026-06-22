@@ -1846,4 +1846,44 @@ describe('Conversations — open-session resume (View work)', () => {
     // onViewSession navigates the chat view to the card's session thread.
     await waitFor(() => expect(store.getState().thread.selectedThreadId).toBe('sess-99'));
   });
+
+  it('does not push chat routes when embedded chat opens task session work', async () => {
+    const thread = makeThread({ id: 'board-thread', title: 'Board thread' });
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+
+    const store = await renderEmbeddedConversationsRoute('/human', {
+      thread: selectedThreadState(thread),
+    });
+
+    const selectedId = store.getState().thread.selectedThreadId ?? 'board-thread';
+    await act(async () => {
+      store.dispatch(
+        setTaskBoardForThread({
+          threadId: selectedId,
+          board: {
+            threadId: selectedId,
+            updatedAt: '',
+            cards: [
+              {
+                id: 'tc1',
+                title: 'Worked card',
+                status: 'in_progress',
+                order: 0,
+                updatedAt: '',
+                sessionThreadId: 'sess-99',
+              },
+            ],
+          },
+        })
+      );
+    });
+
+    const viewBtn = await screen.findByTitle('View work');
+    await act(async () => {
+      fireEvent.click(viewBtn);
+    });
+
+    await waitFor(() => expect(store.getState().thread.selectedThreadId).toBe('sess-99'));
+    expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
+  });
 });

@@ -1818,7 +1818,9 @@ const Conversations = ({
                   // event, so forcing it active would wedge the composer.
                   dispatch(setSelectedThread(card.sessionThreadId));
                   void dispatch(loadThreadMessages(card.sessionThreadId));
-                  navigate(chatThreadPath(card.sessionThreadId));
+                  if (shouldSyncChatRoute) {
+                    navigate(chatThreadPath(card.sessionThreadId));
+                  }
                 }}
               />
             )}

@@ -8,11 +8,13 @@
 //! [`SyncOutcome`]. The copy-paste is exactly how the page-granular cap bug
 //! (#3304) ended up in five providers and was missed in a sixth.
 //!
-//! [`ItemCap`] (PR #3304) centralised the cap *math*; this module centralises
-//! the *control flow*. A provider now implements only the slim
-//! [`IncrementalSource`] primitives and rides [`run_sync`], inheriting the
-//! `max_items` cap, the `sync_depth_days` window, dedup, cursor advance, and
-//! budget enforcement for free.
+//! [`ItemCap`] (PR #3304) centralised the cap *math*; this module owns it and
+//! the *control flow*. Now that every provider rides [`run_sync`], `ItemCap`
+//! lives here (orchestrator-private), not in the shared `helpers` module — the
+//! cap rule exists in exactly one place. A provider implements only the slim
+//! [`IncrementalSource`] primitives and inherits the `max_items` cap, the
+//! `sync_depth_days` window, dedup, cursor advance, and budget enforcement for
+//! free.
 //!
 //! ## Scopes: flat AND nested in one loop
 //!
@@ -39,9 +41,85 @@
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use super::helpers::ItemCap;
 use super::sync_state::SyncState;
 use super::{ProviderContext, SyncOutcome, SyncReason};
+
+/// Compute the number of API pages needed to cover `max_items` at `page_size`
+/// items per page, rounding up.
+///
+/// Returns `u32::MAX` when `page_size == 0` to avoid division by zero;
+/// callers should treat this as "no page cap beyond the provider's own upper
+/// bound".
+fn pages_for_max_items(max_items: u32, page_size: u32) -> u32 {
+    if page_size == 0 {
+        return u32::MAX;
+    }
+    // Widen to u64 before the addition to prevent overflow for large cap values.
+    (((max_items as u64) + (page_size as u64) - 1) / (page_size as u64)).min(u32::MAX as u64) as u32
+}
+
+/// Single source of truth for the per-sync `max_items` cap.
+///
+/// Every Composio provider used to open-code three near-identical blocks — a
+/// page-count cap, a mid-page clamp, and a post-page hard stop — which is how
+/// the same off-by-a-page bug (#3304) ended up in five providers and was missed
+/// in a sixth. Now that every provider rides [`run_sync`], this type and its
+/// page math are **orchestrator-private**: the cap rule lives in exactly one
+/// place — construct it from `ctx.max_items`, derive the page cap, clamp each
+/// batch before ingest, and stop once the cap is reached.
+///
+/// `None` cap means "no item limit beyond the provider's own internal page
+/// ceiling" (e.g. after the user clicks "All In").
+#[derive(Debug, Clone, Copy)]
+struct ItemCap {
+    cap: Option<usize>,
+    persisted: usize,
+}
+
+impl ItemCap {
+    /// Build from a source's `max_items` value (`None` = uncapped).
+    fn new(max_items: Option<u32>) -> Self {
+        Self {
+            cap: max_items.map(|n| n as usize),
+            persisted: 0,
+        }
+    }
+
+    /// The page ceiling to actually fetch: the smaller of the provider's own
+    /// `fallback` (e.g. `MAX_PAGES_PER_SYNC`) and the pages needed to cover the
+    /// cap. Uncapped → `fallback` unchanged.
+    fn max_pages(&self, page_size: u32, fallback: u32) -> u32 {
+        match self.cap {
+            Some(cap) => pages_for_max_items(cap as u32, page_size).min(fallback),
+            None => fallback,
+        }
+    }
+
+    /// How many more items may still be persisted. `None` = unlimited.
+    fn remaining(&self) -> Option<usize> {
+        self.cap.map(|cap| cap.saturating_sub(self.persisted))
+    }
+
+    /// True once the cap is set and reached — callers `break` their pagination.
+    fn is_reached(&self) -> bool {
+        matches!(self.remaining(), Some(0))
+    }
+
+    /// Record `n` newly-persisted items against the budget.
+    fn record(&mut self, n: usize) {
+        self.persisted = self.persisted.saturating_add(n);
+    }
+
+    /// Truncate a to-ingest batch down to the remaining budget, so a single
+    /// page larger than the cap never over-persists. No-op when uncapped.
+    fn clamp_batch<T>(&self, batch: &mut Vec<T>) {
+        if let Some(remaining) = self.remaining() {
+            if batch.len() > remaining {
+                batch.truncate(remaining);
+            }
+        }
+    }
+}
 
 /// A unit of work to iterate within one sync pass.
 ///
@@ -134,6 +212,24 @@ pub(crate) trait IncrementalSource: Send + Sync {
     /// The provider's own internal page ceiling — the `fallback` handed to
     /// [`ItemCap::max_pages`], applied *per scope*.
     fn max_pages(&self) -> u32;
+
+    /// The page ceiling for *this pass*, given the reason and current state.
+    /// Defaults to the fixed [`Self::max_pages`]; gmail overrides it to apply an
+    /// adaptive cap (e.g. only a couple of pages when the previous sync ran very
+    /// recently). The orchestrator hands the result to [`ItemCap::max_pages`].
+    fn page_ceiling(&self, reason: SyncReason, state: &SyncState) -> u32 {
+        let _ = (reason, state);
+        self.max_pages()
+    }
+
+    /// Whether to stop paginating a scope once a fetched page yields **no new
+    /// items** (everything deduped away as already-synced). Default `false` —
+    /// the orchestrator keeps paginating until the cursor/depth boundary or the
+    /// last page. Gmail overrides to `true`: its result set is ordered so an
+    /// all-already-synced page means there is nothing newer left to fetch.
+    fn stop_on_empty_pending(&self) -> bool {
+        false
+    }
 
     /// Resolve identity and list the scopes to iterate.
     ///
@@ -435,8 +531,11 @@ pub(crate) async fn run_sync<S: IncrementalSource + ?Sized>(
     // ── Step 4: caps + window ───────────────────────────────────────────
     let page_size = source.page_size(reason);
     let mut cap = ItemCap::new(ctx.max_items);
-    let effective_max_pages = cap.max_pages(page_size, source.max_pages());
-    if ctx.max_items.is_some() && effective_max_pages < source.max_pages() {
+    // `page_ceiling` lets a provider apply a state-aware cap (gmail's adaptive
+    // cap); it defaults to the fixed `max_pages`.
+    let page_ceiling = source.page_ceiling(reason, &state);
+    let effective_max_pages = cap.max_pages(page_size, page_ceiling);
+    if ctx.max_items.is_some() && effective_max_pages < page_ceiling {
         tracing::debug!(
             toolkit,
             connection_id = %connection_id,
@@ -560,6 +659,11 @@ pub(crate) async fn run_sync<S: IncrementalSource + ?Sized>(
             let (mut pending, mut hit_cursor_boundary) =
                 select_pending(source, &fetch.items, boundary_cursor, &state, ts_acc);
 
+            // A non-empty page whose items all deduped away as already-synced
+            // (the gmail "all already synced" signal — captured before the
+            // depth/cap filters narrow `pending` for other reasons).
+            let page_had_no_new_items = pending.is_empty();
+
             // sync_depth_days: `pending` is in descending-timestamp order, so
             // truncate at the first item below the floor and stop paginating.
             if let Some(ref floor) = depth_floor {
@@ -604,6 +708,16 @@ pub(crate) async fn run_sync<S: IncrementalSource + ?Sized>(
                     scope = %scope.label,
                     page = page_num,
                     "[composio:sync_orch] reached cursor/depth boundary, stopping scope"
+                );
+                break;
+            }
+
+            if page_had_no_new_items && source.stop_on_empty_pending() {
+                tracing::debug!(
+                    toolkit,
+                    scope = %scope.label,
+                    page = page_num,
+                    "[composio:sync_orch] page had no new items, stopping scope"
                 );
                 break;
             }
@@ -780,6 +894,14 @@ mod tests {
         /// Scope id whose `fetch_page` returns a transport error (used to
         /// exercise per-scope error tolerance). `None` → every scope succeeds.
         fail_scope: Option<String>,
+        /// When `Some`, drive multi-page returns: page `i` returns `pages[i]`
+        /// with the opaque cursor = next page index. Overrides the single-page
+        /// synth path.
+        pages: Option<Vec<Vec<Value>>>,
+        /// When true, override `stop_on_empty_pending()` (gmail's behaviour).
+        stop_on_empty: bool,
+        /// When `Some`, override `page_ceiling()` (gmail's adaptive cap).
+        page_ceiling: Option<u32>,
     }
 
     impl FakeSource {
@@ -802,6 +924,12 @@ mod tests {
         }
         fn max_pages(&self) -> u32 {
             20
+        }
+        fn stop_on_empty_pending(&self) -> bool {
+            self.stop_on_empty
+        }
+        fn page_ceiling(&self, _reason: SyncReason, _state: &SyncState) -> u32 {
+            self.page_ceiling.unwrap_or_else(|| self.max_pages())
         }
         async fn preamble(
             &self,
@@ -854,6 +982,13 @@ mod tests {
             if self.provider_fail_fetch {
                 // Completed but the provider reported failure — already recorded.
                 return Err("fake provider-reported page failure".to_string());
+            }
+            // Multi-page mode: cursor is the page index.
+            if let Some(pages) = &self.pages {
+                let idx: usize = cursor.and_then(|c| c.parse().ok()).unwrap_or(0);
+                let items = pages.get(idx).cloned().unwrap_or_default();
+                let next = (idx + 1 < pages.len()).then(|| (idx + 1).to_string());
+                return Ok(PageFetch { items, next });
             }
             // Single page per scope: everything comes back on the first call.
             if cursor.is_some() {
@@ -1003,6 +1138,75 @@ mod tests {
         assert_eq!(
             outcome.items_ingested, 3,
             "server_side_depth must skip the orchestrator's client-side window filter"
+        );
+    }
+
+    /// Two pages of items, keyed `id`+`ts`.
+    fn page(prefix: &str, n: usize) -> Vec<Value> {
+        (0..n)
+            .map(|i| json!({ "id": format!("{prefix}{i}"), "ts": "2099-01-01T00:00:00Z" }))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn page_ceiling_caps_the_pages_fetched() {
+        let tmp = TempDir::new().unwrap();
+        let ctx = fake_ctx(&tmp, None, None);
+        // Two pages of 2 items each. With a page ceiling of 1 (gmail's adaptive
+        // cap), only the first page is fetched → 2 ingested, not 4.
+        let source = FakeSource {
+            scopes: vec![SyncScope::flat()],
+            pages: Some(vec![page("a", 2), page("b", 2)]),
+            page_ceiling: Some(1),
+            ..Default::default()
+        };
+        let outcome = run_sync(&source, &ctx, SyncReason::Periodic)
+            .await
+            .expect("run_sync");
+        assert_eq!(
+            outcome.items_ingested, 2,
+            "page_ceiling=1 must fetch only the first page"
+        );
+    }
+
+    #[tokio::test]
+    async fn stop_on_empty_pending_halts_at_an_all_synced_page() {
+        let tmp = TempDir::new().unwrap();
+        // Page 0 = [a0,a1] (new), page 1 = same ids (all synced after page 0),
+        // page 2 = [c0,c1] (new). With stop_on_empty the pass halts at page 1
+        // and never reaches page 2 → 2 ingested; without it, page 2's items are
+        // also ingested → 4.
+        let pages = vec![page("a", 2), page("a", 2), page("c", 2)];
+
+        let stop = FakeSource {
+            scopes: vec![SyncScope::flat()],
+            pages: Some(pages.clone()),
+            stop_on_empty: true,
+            ..Default::default()
+        };
+        let stop_ctx = fake_ctx(&tmp, None, None);
+        let stopped = run_sync(&stop, &stop_ctx, SyncReason::Periodic)
+            .await
+            .expect("run_sync");
+        assert_eq!(
+            stopped.items_ingested, 2,
+            "stop_on_empty must halt at the all-synced page before page 2"
+        );
+
+        // Control: same pages, no stop_on_empty → keeps going to page 2.
+        let tmp2 = TempDir::new().unwrap();
+        let keep = FakeSource {
+            scopes: vec![SyncScope::flat()],
+            pages: Some(pages),
+            ..Default::default()
+        };
+        let keep_ctx = fake_ctx(&tmp2, None, None);
+        let kept = run_sync(&keep, &keep_ctx, SyncReason::Periodic)
+            .await
+            .expect("run_sync");
+        assert_eq!(
+            kept.items_ingested, 4,
+            "without stop_on_empty the pass continues past the all-synced page"
         );
     }
 
@@ -1264,5 +1468,76 @@ mod tests {
             .await
             .expect_err("without tolerance a scope fetch error propagates");
         assert!(err.contains("scope fetch failure"), "got: {err}");
+    }
+
+    // ── ItemCap / pages_for_max_items (relocated from helpers.rs, #3902) ──
+
+    #[test]
+    fn pages_for_max_items_rounds_up() {
+        assert_eq!(pages_for_max_items(100, 25), 4);
+        assert_eq!(pages_for_max_items(101, 25), 5);
+        assert_eq!(pages_for_max_items(1, 25), 1);
+        assert_eq!(pages_for_max_items(50, 50), 1);
+        assert_eq!(pages_for_max_items(51, 50), 2);
+    }
+
+    #[test]
+    fn pages_for_max_items_zero_page_size() {
+        assert_eq!(pages_for_max_items(100, 0), u32::MAX);
+    }
+
+    #[test]
+    fn item_cap_uncapped_is_never_reached() {
+        let mut cap = ItemCap::new(None);
+        assert_eq!(cap.remaining(), None);
+        assert!(!cap.is_reached());
+        cap.record(1_000_000);
+        assert!(!cap.is_reached());
+        assert_eq!(
+            cap.max_pages(25, 20),
+            20,
+            "uncapped keeps the provider fallback"
+        );
+    }
+
+    #[test]
+    fn item_cap_tracks_remaining_and_reached() {
+        let mut cap = ItemCap::new(Some(3));
+        assert_eq!(cap.remaining(), Some(3));
+        assert!(!cap.is_reached());
+        cap.record(2);
+        assert_eq!(cap.remaining(), Some(1));
+        assert!(!cap.is_reached());
+        cap.record(5); // saturates, never underflows
+        assert_eq!(cap.remaining(), Some(0));
+        assert!(cap.is_reached());
+    }
+
+    #[test]
+    fn item_cap_max_pages_is_min_of_fallback_and_needed() {
+        // cap=2, page_size=50 → 1 page needed, well under the fallback.
+        assert_eq!(ItemCap::new(Some(2)).max_pages(50, 20), 1);
+        // cap=1000, page_size=25 → 40 pages needed, clamped to fallback 20.
+        assert_eq!(ItemCap::new(Some(1000)).max_pages(25, 20), 20);
+    }
+
+    #[test]
+    fn item_cap_clamp_batch_truncates_to_remaining() {
+        let cap = ItemCap::new(Some(2));
+        let mut batch = vec![1, 2, 3, 4, 5];
+        cap.clamp_batch(&mut batch);
+        assert_eq!(batch, vec![1, 2]);
+
+        // Uncapped leaves the batch untouched.
+        let mut full = vec![1, 2, 3];
+        ItemCap::new(None).clamp_batch(&mut full);
+        assert_eq!(full, vec![1, 2, 3]);
+
+        // After recording progress, clamp uses the reduced budget.
+        let mut cap2 = ItemCap::new(Some(5));
+        cap2.record(3);
+        let mut batch2 = vec![1, 2, 3, 4];
+        cap2.clamp_batch(&mut batch2);
+        assert_eq!(batch2, vec![1, 2], "only 2 of the 5 budget remained");
     }
 }

@@ -10,7 +10,7 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
@@ -1626,7 +1626,7 @@ describe('Conversations — open-session resume (View work)', () => {
     mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
   });
 
-  it('honours location.state.openThreadId to open a task session on mount', async () => {
+  it('honours /chat/:threadId to open a task session on mount', async () => {
     // A task-labelled session thread, reachable only via an explicit
     // open-intent because it's hidden behind the default General tab.
     const taskThread = makeThread({
@@ -1642,11 +1642,10 @@ describe('Conversations — open-session resume (View work)', () => {
     await act(async () => {
       render(
         <Provider store={store}>
-          <MemoryRouter
-            initialEntries={[
-              { pathname: '/conversations', state: { openThreadId: 'task-open-1' } },
-            ]}>
-            <Conversations />
+          <MemoryRouter initialEntries={['/chat/task-open-1']}>
+            <Routes>
+              <Route path="/chat/:threadId" element={<Conversations />} />
+            </Routes>
           </MemoryRouter>
         </Provider>
       );

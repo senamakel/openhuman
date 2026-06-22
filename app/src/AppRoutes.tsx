@@ -128,7 +128,7 @@ const AppRoutes = () => {
       {/* Unified chat = agent + connected web apps. Replaces the old
           /conversations and /accounts routes. */}
       <Route
-        path="/chat"
+        path="/chat/:threadId?"
         element={
           <ProtectedRoute requireAuth={true}>
             <Accounts />

@@ -1,6 +1,7 @@
+import debugFactory from 'debug';
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 
-import WebviewHost from '../components/accounts/WebviewHost';
 import {
   CustomGifMascot,
   getMascotPalette,
@@ -10,12 +11,9 @@ import {
 import { useHumanMascot } from '../features/human/useHumanMascot';
 import { usePrewarmMostRecentAccount } from '../hooks/usePrewarmMostRecentAccount';
 import { useT } from '../lib/i18n/I18nContext';
-import {
-  hideWebviewAccount,
-  showWebviewAccount,
-  startWebviewAccountService,
-} from '../services/webviewAccountService';
-import { useAppSelector } from '../store/hooks';
+import { startWebviewAccountService } from '../services/webviewAccountService';
+import { setActiveAccount } from '../store/accountsSlice';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   selectCustomMascotGifUrl,
   selectCustomPrimaryColor,
@@ -28,6 +26,7 @@ import Conversations, { AgentChatPanel } from './Conversations';
 
 // Persistence key for face-toggle state across sessions.
 const FACE_MODE_KEY = 'chat.faceMode';
+const debug = debugFactory('accounts');
 
 /**
  * Mascot + TTS panel rendered in face mode (right column of the Assistant
@@ -107,13 +106,11 @@ const FaceModePanel = () => {
 };
 
 const Accounts = () => {
-  const { t } = useT();
+  const dispatch = useAppDispatch();
+  const { threadId } = useParams<{ threadId?: string }>();
   const accountsById = useAppSelector(state => state.accounts.accounts);
   const order = useAppSelector(state => state.accounts.order);
   const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
-  // Overlay state is owned by the persistent app rail (now in the sidebar); we
-  // only read it here to hide/restore the active provider webview.
-  const overlayOpen = useAppSelector(state => state.accounts.overlayOpen);
 
   const [faceMode] = useState<boolean>(() => {
     try {
@@ -131,6 +128,12 @@ const Accounts = () => {
     startWebviewAccountService();
   }, []);
 
+  useEffect(() => {
+    if (!threadId) return;
+    debug('[chat][route] selecting agent for thread route thread=%s', threadId);
+    dispatch(setActiveAccount(AGENT_ID));
+  }, [dispatch, threadId]);
+
   // Issue #1233 — prewarm the MRU account once on mount so its CEF profile
   // and provider page are warm before the user actually clicks the rail.
   // Skipped for power users with many accounts to bound the spawn cost.
@@ -142,23 +145,7 @@ const Accounts = () => {
   usePrewarmMostRecentAccount({ accounts, accountsById, activeAccountId });
 
   const selectedId = activeAccountId ?? AGENT_ID;
-  const active = selectedId === AGENT_ID ? null : (accountsById[selectedId] ?? null);
   const isAgentSelected = selectedId === AGENT_ID;
-
-  // The child Tauri webview is a native view composited above the HTML
-  // canvas, so DOM z-index can't put React overlays on top of it. Hide
-  // the active webview while a rail overlay (add-account modal or the
-  // right-click context menu, both owned by the persistent sidebar rail) is
-  // open and restore it on close. No-op when the agent pane is selected.
-  const activeId = active?.id ?? null;
-  useEffect(() => {
-    if (!activeId) return;
-    if (overlayOpen) {
-      void hideWebviewAccount(activeId);
-    } else {
-      void showWebviewAccount(activeId);
-    }
-  }, [overlayOpen, activeId]);
 
   return (
     <div
@@ -184,28 +171,12 @@ const Accounts = () => {
         </main>
       ) : (
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Agent chat — kept mounted even while a webview app is shown so its
-              thread sidebar projection persists. `min-h-0` lets the message list
-              own the scroll instead of pushing the composer off-screen. */}
-          <div
-            className={`min-h-0 flex-1 overflow-hidden ${isAgentSelected ? '' : 'invisible'}`}
-            aria-hidden={!isAgentSelected}>
+          {/* Agent chat owns the routed /chat surface. Connected-app CEF views
+              are mounted at the desktop shell level so their selection stays
+              independent from URL routing. */}
+          <div className="min-h-0 flex-1 overflow-hidden" aria-hidden={!isAgentSelected}>
             <AgentChatPanel />
           </div>
-
-          {/* Selected connected app — fills the main content fully (no padding
-              or margins) on top of the hidden agent chat. */}
-          {!isAgentSelected && active && (
-            <div className="absolute inset-0">
-              <WebviewHost accountId={active.id} provider={active.provider} />
-            </div>
-          )}
-
-          {!isAgentSelected && !active && (
-            <div className="absolute inset-0 flex items-center justify-center text-sm text-stone-400 dark:text-neutral-500">
-              {t('accounts.noAccounts')}
-            </div>
-          )}
         </main>
       )}
     </div>

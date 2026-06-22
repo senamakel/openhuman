@@ -136,6 +136,7 @@ export function createWalkthroughSteps(
       placement: 'top',
       skipBeacon: true,
       before: async () => {
+        navigate('/chat');
         await waitForTarget('tab-chat');
       },
     },

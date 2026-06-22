@@ -737,6 +737,9 @@ const messages: TranslationMap = {
   'onboarding.welcome': 'Привет. Я OpenHuman.',
   'onboarding.welcomeDesc':
     'Твой суперинтеллектуальный AI-ассистент, работающий прямо на твоём компьютере. Приватный, простой и невероятно мощный.',
+  'onboarding.welcome.heroTitle': 'Ваш ИИ-хаб для работы и жизни',
+  'onboarding.welcome.heroSubtitle':
+    'OpenHuman подключает ваши инструменты, автоматизирует задачи и доставляет результаты — всё с вашего рабочего стола.',
   'onboarding.context': 'Сбор контекста',
   'onboarding.contextDesc': 'Подключи инструменты и сервисы, которыми пользуешься каждый день.',
   'onboarding.localAI': 'Локальный AI',
@@ -2546,6 +2549,11 @@ const messages: TranslationMap = {
   'bootCheck.tokenRequired': 'Для подключения нужен токен авторизации.',
   'bootCheck.httpPublicWarning':
     'Это обычный HTTP-адрес на публичном хосте — трафик не будет зашифрован. Используйте HTTPS, если вы не доверяете этой сети.',
+  'bootCheck.heroTitle': 'Добро пожаловать в OpenHuman',
+  'bootCheck.heroDesktopDesc':
+    'Ваш персональный ИИ-суперинтеллект. Конфиденциальный, простой и чрезвычайно мощный.',
+  'bootCheck.heroWebDesc':
+    'Подключитесь к вашей среде выполнения, чтобы начать. Введите URL и токен аутентификации ниже или скачайте десктопное приложение.',
   'bootCheck.chooseCoreMode': 'Выбрать среду выполнения',
   'bootCheck.connectToCore': 'Подключиться к среде выполнения',
   'bootCheck.desktopDescription':
@@ -5053,6 +5061,96 @@ const messages: TranslationMap = {
   'walkthrough.tooltip.next': 'Далее →',
   'walkthrough.tooltip.skip': 'Пропустить тур',
   'walkthrough.tooltip.stepCounter': '{n} из {total}',
+  'onboarding.welcome.inputTitle': 'Подключить',
+  'onboarding.welcome.inputDesc':
+    'Свяжите свои инструменты, аккаунты и сервисы. Всё собирается в одном месте.',
+  'onboarding.welcome.hubTitle': 'Автоматизировать',
+  'onboarding.welcome.hubDesc':
+    'Ваш ассистент работает в вашем подключённом мире — управляет, организует и выполняет.',
+  'onboarding.welcome.outputTitle': 'Доставить',
+  'onboarding.welcome.outputDesc':
+    'Получайте сводки, выполненные задачи и аналитику именно там, где они вам нужны.',
+  'onboarding.welcome.capability1Title': 'Управление работой',
+  'onboarding.welcome.capability1Desc':
+    'Позвольте ассистенту обрабатывать письма, планировать встречи и отслеживать проекты во всех ваших инструментах.',
+  'onboarding.welcome.capability2Title': 'Автоматизируйте всё',
+  'onboarding.welcome.capability2Desc':
+    'Настройте рутины, работающие на автопилоте — утренние брифинги, ежедневные сводки и повторяющиеся задачи.',
+  'onboarding.welcome.capability3Title': 'Оставайтесь конфиденциальными',
+  'onboarding.welcome.capability3Desc':
+    'Ваши данные остаются на вашем устройстве. Вы контролируете, что покидает его и куда направляется.',
+  'walkthrough.steps.welcome.title': 'Добро пожаловать в OpenHuman',
+  'walkthrough.steps.welcome.content':
+    'Давайте быстро осмотрим вашего нового ИИ-ассистента. Мы рассмотрим основы всего за несколько шагов.',
+  'walkthrough.steps.commandCenter.title': 'Ваш командный центр',
+  'walkthrough.steps.commandCenter.content':
+    'Это ваша база — быстрый обзор происходящего и того, что требует вашего внимания.',
+  'walkthrough.steps.startChat.title': 'Начать разговор',
+  'walkthrough.steps.startChat.content':
+    'Нажмите здесь в любое время, чтобы начать общение с вашим ИИ. Задавайте вопросы, обсуждайте идеи или выполняйте задачи.',
+  'walkthrough.steps.aiAtWork.title': 'Ваш ИИ в работе',
+  'walkthrough.steps.aiAtWork.content':
+    'Здесь происходят разговоры. Ваш ассистент может искать в интернете, запускать инструменты и запоминать контекст между чатами.',
+  'walkthrough.steps.connectTools.title': 'Усильте с помощью инструментов',
+  'walkthrough.steps.connectTools.content':
+    'Подключите Gmail, Slack, WhatsApp и другие сервисы. Каждое подключение дает вашему ассистенту новые возможности.',
+  'walkthrough.steps.chatAnywhere.title': 'Общайтесь где угодно',
+  'walkthrough.steps.chatAnywhere.content':
+    'WhatsApp, Telegram, Slack, Discord — подключите свои мессенджеры, чтобы ассистент мог связаться с вами где угодно.',
+  'walkthrough.steps.aiBrain.title': 'Мозг вашего ИИ',
+  'walkthrough.steps.aiBrain.content':
+    'Здесь ваш ассистент учится и запоминает. Он становится умнее, чем больше вы его используете — память, контекст и интеллект находятся здесь.',
+  'walkthrough.steps.customize.title': 'Сделайте его своим',
+  'walkthrough.steps.customize.content':
+    'Предпочтения, конфиденциальность, уведомления — всё здесь. Вы можете перезапустить этот тур в любое время из Настроек.',
+  'walkthrough.steps.quickAccess.title': 'Быстрый доступ',
+  'walkthrough.steps.quickAccess.content':
+    'Эти вкладки — ваши ярлыки: Чат, Навыки и Интеллект всегда в одном касании.',
+  'walkthrough.steps.stayInformed.title': 'Будьте в курсе',
+  'walkthrough.steps.stayInformed.content':
+    'Здесь находятся оповещения и автоматизация — брифинги, уведомления и фоновая активность.',
+  'walkthrough.steps.allSet.title': 'Вы полностью готовы!',
+  'walkthrough.steps.allSet.content':
+    'Ваш ассистент оставил вам приветственное сообщение — это ваше пространство для общения, вопросов и мозгового штурма. Веселитесь!',
+  'walkthrough.phase.welcome': 'Добро пожаловать',
+  'walkthrough.phase.connect': 'Подключить',
+  'walkthrough.phase.automate': 'Автоматизация',
+  'walkthrough.phase.review': 'Обзор',
+  'walkthrough.phase.done': 'Готово',
+  'walkthrough.phase.skip': 'Пропустить этот шаг',
+  'walkthrough.step.gmail': 'Gmail',
+  'walkthrough.step.slack': 'Slack',
+  'walkthrough.step.whatsapp': 'WhatsApp',
+  'walkthrough.step.telegram': 'Telegram',
+  'walkthrough.step.discord': 'Discord',
+  'walkthrough.step.briefings': 'Ежедневные брифинги',
+  'walkthrough.step.notifications': 'Умные уведомления',
+  'walkthrough.step.scheduling': 'Автоматическое планирование',
+  'walkthrough.step.summaries': 'Сводки встреч',
+  'walkthrough.desc.gmail': 'Подключите почту для умных ответов и сводок',
+  'walkthrough.desc.slack': 'Позвольте ассистенту присоединиться к командным беседам',
+  'walkthrough.desc.whatsapp': 'Общайтесь с ассистентом на ходу',
+  'walkthrough.desc.telegram': 'Безопасный обмен сообщениями с вашим ИИ',
+  'walkthrough.desc.discord': 'Приведите ассистента на ваш сервер',
+  'walkthrough.desc.briefings': 'Получайте ежедневную сводку важного',
+  'walkthrough.desc.notifications': 'Оставайтесь в курсе без лишнего шума',
+  'walkthrough.desc.scheduling': 'Позвольте ИИ управлять вашим календарем',
+  'walkthrough.desc.summaries': 'Больше никогда не упускайте детали встреч',
+  'walkthrough.card.completedAria': '{label} — завершено',
+  'walkthrough.card.actionAria': 'Завершить {label}',
+  'walkthrough.welcome.description': 'Позвольте нам помочь вам настроить вашего ИИ-ассистента.',
+  'walkthrough.connect.description':
+    'Подключите инструменты, которые вы уже используете. Каждое подключение дает ассистенту новые возможности.',
+  'walkthrough.automate.description':
+    'Выберите, что ваш ассистент должен обрабатывать автоматически.',
+  'walkthrough.review.description':
+    'Вот краткий обзор того, что вы настроили. Вы всегда можете изменить это позже.',
+  'walkthrough.review.skipped':
+    'Вы пропустили настройку. Вы можете настроить их в любое время в Настройках.',
+  'walkthrough.review.empty': 'Действия еще не выполнены.',
+  'walkthrough.done.title': 'Всё готово!',
+  'walkthrough.done.description':
+    'Ваш ассистент готов помочь. Подключения настроены, автоматизация сконфигурирована.',
   'webhooks.activity.empty': 'Пусто',
   'webhooks.activity.title': 'Последняя активность',
   'webhooks.composioHistory.empty': 'Пусто',

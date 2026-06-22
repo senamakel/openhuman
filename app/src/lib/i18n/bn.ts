@@ -733,6 +733,9 @@ const messages: TranslationMap = {
   'onboarding.welcome': 'হ্যালো। আমি OpenHuman।',
   'onboarding.welcomeDesc':
     'আপনার সুপার-ইন্টেলিজেন্ট AI অ্যাসিস্ট্যান্ট যা আপনার কম্পিউটারে চলে। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
+  'onboarding.welcome.heroTitle': 'কাজ ও জীবনের জন্য আপনার AI হাব',
+  'onboarding.welcome.heroSubtitle':
+    'OpenHuman আপনার টুল সংযুক্ত করে, আপনার কাজ স্বয়ংক্রিয় করে এবং ফলাফল প্রদান করে — সবই আপনার ডেস্কটপ থেকে।',
   'onboarding.context': 'কন্টেক্সট সংগ্রহ',
   'onboarding.contextDesc': 'প্রতিদিন ব্যবহার করা টুলস ও সার্ভিস সংযুক্ত করুন।',
   'onboarding.localAI': 'লোকাল AI',
@@ -2528,6 +2531,11 @@ const messages: TranslationMap = {
   'bootCheck.tokenRequired': 'সংযোগ করতে একটি অথ টোকেন প্রয়োজন।',
   'bootCheck.httpPublicWarning':
     'এটি একটি পাবলিক হোস্টে সাধারণ HTTP URL — ট্রাফিক এনক্রিপ্ট করা হবে না। এই নেটওয়ার্কে আস্থা না থাকলে HTTPS ব্যবহার করুন।',
+  'bootCheck.heroTitle': 'OpenHuman-এ স্বাগতম',
+  'bootCheck.heroDesktopDesc':
+    'আপনার ব্যক্তিগত AI সুপার বুদ্ধিমত্তা। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
+  'bootCheck.heroWebDesc':
+    'শুরু করতে আপনার রানটাইমের সাথে সংযোগ করুন। নিচে এর URL এবং অথ টোকেন দিন, অথবা ডেস্কটপ অ্যাপটি নিন।',
   'bootCheck.chooseCoreMode': 'একটি রানটাইম বেছে নিন',
   'bootCheck.connectToCore': 'আপনার রানটাইমে সংযুক্ত হন',
   'bootCheck.desktopDescription':
@@ -5007,6 +5015,96 @@ const messages: TranslationMap = {
   'walkthrough.tooltip.next': 'পরবর্তী →',
   'walkthrough.tooltip.skip': 'ট্যুর এড়িয়ে যান',
   'walkthrough.tooltip.stepCounter': '{total}-এর মধ্যে {n}',
+  'onboarding.welcome.inputTitle': 'সংযোগ',
+  'onboarding.welcome.inputDesc':
+    'আপনার টুল, অ্যাকাউন্ট এবং পরিষেবাগুলি সংযুক্ত করুন। সবকিছু এক জায়গায় প্রবাহিত হয়।',
+  'onboarding.welcome.hubTitle': 'স্বয়ংক্রিয়',
+  'onboarding.welcome.hubDesc':
+    'আপনার সহকারী আপনার সংযুক্ত বিশ্ব জুড়ে কাজ করে — পরিচালনা, সংগঠিত এবং সম্পাদন করে।',
+  'onboarding.welcome.outputTitle': 'প্রদান',
+  'onboarding.welcome.outputDesc':
+    'সারাংশ, সম্পন্ন কাজ এবং অন্তর্দৃষ্টি ঠিক যেখানে আপনার প্রয়োজন সেখানে পৌঁছে দেওয়া হয়।',
+  'onboarding.welcome.capability1Title': 'কাজ পরিচালনা',
+  'onboarding.welcome.capability1Desc':
+    'আপনার সহকারীকে ইমেল পরিচালনা, মিটিং নির্ধারণ এবং আপনার সমস্ত টুল জুড়ে প্রকল্প ট্র্যাক করতে দিন।',
+  'onboarding.welcome.capability2Title': 'সবকিছু স্বয়ংক্রিয় করুন',
+  'onboarding.welcome.capability2Desc':
+    'স্বয়ংক্রিয়ভাবে চালিত রুটিন সেটআপ করুন — সকালের ব্রিফিং, দৈনিক সারাংশ এবং পুনরাবৃত্তিমূলক কাজ।',
+  'onboarding.welcome.capability3Title': 'গোপনীয় থাকুন',
+  'onboarding.welcome.capability3Desc':
+    'আপনার ডেটা আপনার মেশিনে থাকে। আপনি নিয়ন্ত্রণ করেন কী বের হয় এবং কোথায় যায়।',
+  'walkthrough.steps.welcome.title': 'OpenHuman-এ স্বাগতম',
+  'walkthrough.steps.welcome.content':
+    'আসুন আপনার নতুন AI সহকারীর একটি দ্রুত ট্যুর করি। আমরা মাত্র কয়েক ধাপে প্রয়োজনীয় বিষয়গুলো কভার করব।',
+  'walkthrough.steps.commandCenter.title': 'আপনার কমান্ড সেন্টার',
+  'walkthrough.steps.commandCenter.content':
+    'এটি আপনার হোম বেস — কী ঘটছে এবং কীসে আপনার মনোযোগ প্রয়োজন তার একটি দ্রুত স্ন্যাপশট।',
+  'walkthrough.steps.startChat.title': 'একটি কথোপকথন শুরু করুন',
+  'walkthrough.steps.startChat.content':
+    'আপনার AI-এর সাথে চ্যাট শুরু করতে যেকোনো সময় এখানে ট্যাপ করুন। প্রশ্ন করুন, ধারণা নিয়ে চিন্তাভাবনা করুন, বা কাজ সম্পন্ন করুন।',
+  'walkthrough.steps.aiAtWork.title': 'আপনার AI কর্মক্ষেত্রে',
+  'walkthrough.steps.aiAtWork.content':
+    'এখানেই কথোপকথন ঘটে। আপনার সহকারী ওয়েব অনুসন্ধান করতে, টুল চালাতে এবং চ্যাট জুড়ে প্রসঙ্গ মনে রাখতে পারে।',
+  'walkthrough.steps.connectTools.title': 'টুল দিয়ে ক্ষমতা বাড়ান',
+  'walkthrough.steps.connectTools.content':
+    'Gmail, Slack, WhatsApp এবং আরও অনেক কিছু সংযুক্ত করুন। প্রতিটি সংযোগ আপনার সহকারীকে নতুন ক্ষমতা দেয়।',
+  'walkthrough.steps.chatAnywhere.title': 'যেখানে থাকুন চ্যাট করুন',
+  'walkthrough.steps.chatAnywhere.content':
+    'WhatsApp, Telegram, Slack, Discord — আপনার মেসেজিং অ্যাপ সংযুক্ত করুন যাতে আপনার সহকারী যেকোনো জায়গায় আপনার কাছে পৌঁছাতে পারে।',
+  'walkthrough.steps.aiBrain.title': 'আপনার AI-এর মস্তিষ্ক',
+  'walkthrough.steps.aiBrain.content':
+    'এখানেই আপনার সহকারী শেখে এবং মনে রাখে। আপনি যত বেশি ব্যবহার করবেন এটি তত বেশি স্মার্ট হবে — স্মৃতি, প্রসঙ্গ এবং বুদ্ধিমত্তা সব এখানেই থাকে।',
+  'walkthrough.steps.customize.title': 'এটি আপনার মতো করে সাজান',
+  'walkthrough.steps.customize.content':
+    'পছন্দ, গোপনীয়তা, বিজ্ঞপ্তি — সবকিছু এখানে আছে। আপনি সেটিংস থেকে যেকোনো সময় এই ট্যুর পুনরায় শুরু করতে পারেন।',
+  'walkthrough.steps.quickAccess.title': 'দ্রুত অ্যাক্সেস',
+  'walkthrough.steps.quickAccess.content':
+    'এই ট্যাবগুলি আপনার শর্টকাট — চ্যাট, দক্ষতা এবং বুদ্ধিমত্তা সর্বদা এক ট্যাপ দূরে।',
+  'walkthrough.steps.stayInformed.title': 'অবগত থাকুন',
+  'walkthrough.steps.stayInformed.content':
+    'সতর্কতা এবং স্বয়ংক্রিয়তা এখানে থাকে — ব্রিফিং, বিজ্ঞপ্তি এবং পটভূমির কার্যকলাপ।',
+  'walkthrough.steps.allSet.title': 'আপনি সম্পূর্ণ প্রস্তুত!',
+  'walkthrough.steps.allSet.content':
+    'আপনার সহকারী আপনার জন্য একটি স্বাগত বার্তা রেখে গেছেন — এটি আপনার চ্যাট, প্রশ্ন জিজ্ঞাসা বা ব্রেনস্টর্ম করার জায়গা। মজা করুন!',
+  'walkthrough.phase.welcome': 'স্বাগতম',
+  'walkthrough.phase.connect': 'সংযোগ',
+  'walkthrough.phase.automate': 'স্বয়ংক্রিয়',
+  'walkthrough.phase.review': 'পর্যালোচনা',
+  'walkthrough.phase.done': 'সম্পন্ন',
+  'walkthrough.phase.skip': 'এই ধাপটি এড়িয়ে যান',
+  'walkthrough.step.gmail': 'Gmail',
+  'walkthrough.step.slack': 'Slack',
+  'walkthrough.step.whatsapp': 'WhatsApp',
+  'walkthrough.step.telegram': 'Telegram',
+  'walkthrough.step.discord': 'Discord',
+  'walkthrough.step.briefings': 'দৈনিক ব্রিফিং',
+  'walkthrough.step.notifications': 'স্মার্ট বিজ্ঞপ্তি',
+  'walkthrough.step.scheduling': 'স্বয়ংক্রিয় সময়সূচী',
+  'walkthrough.step.summaries': 'মিটিং সারসংক্ষেপ',
+  'walkthrough.desc.gmail': 'স্মার্ট উত্তর এবং সারাংশের জন্য আপনার ইমেল সংযুক্ত করুন',
+  'walkthrough.desc.slack': 'আপনার সহকারীকে আপনার দলের কথোপকথনে যোগ দিতে দিন',
+  'walkthrough.desc.whatsapp': 'চলতে চলতে আপনার সহকারীর সাথে চ্যাট করুন',
+  'walkthrough.desc.telegram': 'আপনার AI-এর সাথে নিরাপদ মেসেজিং',
+  'walkthrough.desc.discord': 'আপনার সহকারীকে আপনার সার্ভারে নিয়ে আসুন',
+  'walkthrough.desc.briefings': 'গুরুত্বপূর্ণ বিষয়গুলির একটি দৈনিক সারাংশ পান',
+  'walkthrough.desc.notifications': 'শব্দ ছাড়াই অবগত থাকুন',
+  'walkthrough.desc.scheduling': 'AI-কে আপনার ক্যালেন্ডার পরিচালনা করতে দিন',
+  'walkthrough.desc.summaries': 'আর কখনো মিটিংয়ের বিস্তারিত মিস করবেন না',
+  'walkthrough.card.completedAria': '{label} — সম্পন্ন',
+  'walkthrough.card.actionAria': '{label} সম্পন্ন করুন',
+  'walkthrough.welcome.description': 'আমাদের আপনার AI সহকারী সেটআপ করার মাধ্যমে গাইড করতে দিন।',
+  'walkthrough.connect.description':
+    'আপনি ইতিমধ্যে ব্যবহার করেন এমন টুলগুলি সংযুক্ত করুন। প্রতিটি সংযোগ আপনার সহকারীকে নতুন ক্ষমতা দেয়।',
+  'walkthrough.automate.description':
+    'আপনার সহকারীকে স্বয়ংক্রিয়ভাবে কী পরিচালনা করা উচিত তা চয়ন করুন।',
+  'walkthrough.review.description':
+    'আপনি যা সেটআপ করেছেন তার একটি সারসংক্ষেপ এখানে দেওয়া হল। আপনি সবসময় পরে এগুলি পরিবর্তন করতে পারেন।',
+  'walkthrough.review.skipped':
+    'আপনি সেটআপ এড়িয়ে গেছেন। আপনি সেটিংস থেকে যেকোনো সময় এগুলি কনফিগার করতে পারেন।',
+  'walkthrough.review.empty': 'এখনও কোনো কাজ সম্পন্ন হয়নি।',
+  'walkthrough.done.title': 'আপনি সম্পূর্ণ প্রস্তুত!',
+  'walkthrough.done.description':
+    'আপনার সহকারী সাহায্য করতে প্রস্তুত। সংযোগগুলি সেটআপ করা হয়েছে এবং স্বয়ংক্রিয়তা কনফিগার করা হয়েছে।',
   'webhooks.activity.empty': 'খালি',
   'webhooks.activity.title': 'সাম্প্রতিক কার্যক্রম',
   'webhooks.composioHistory.empty': 'খালি',

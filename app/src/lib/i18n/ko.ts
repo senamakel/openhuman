@@ -729,6 +729,9 @@ const messages: TranslationMap = {
   'onboarding.welcome': '안녕하세요. 저는 OpenHuman입니다.',
   'onboarding.welcomeDesc':
     '컴퓨터에서 실행되는 초지능 AI 어시스턴트입니다. 비공개이며, 간단하고, 매우 강력합니다.',
+  'onboarding.welcome.heroTitle': '업무와 생활을 위한 AI 허브',
+  'onboarding.welcome.heroSubtitle':
+    'OpenHuman은 도구를 연결하고, 작업을 자동화하며, 결과를 제공합니다 — 모두 데스크톱에서.',
   'onboarding.context': '컨텍스트 수집',
   'onboarding.contextDesc': '매일 사용하는 도구와 서비스를 연결하세요.',
   'onboarding.localAI': '로컬 AI',
@@ -2501,6 +2504,10 @@ const messages: TranslationMap = {
   'bootCheck.tokenRequired': '연결하려면 인증 토큰이 필요합니다.',
   'bootCheck.httpPublicWarning':
     '공개 호스트의 일반 HTTP URL입니다 — 트래픽이 암호화되지 않습니다. 이 네트워크를 신뢰하지 않는다면 HTTPS를 사용하세요.',
+  'bootCheck.heroTitle': 'OpenHuman에 오신 것을 환영합니다',
+  'bootCheck.heroDesktopDesc': '개인 AI 슈퍼 인텔리전스. 비공개, 간단, 매우 강력합니다.',
+  'bootCheck.heroWebDesc':
+    '시작하려면 런타임에 연결하세요. 아래에 URL과 인증 토큰을 입력하거나 데스크톱 앱을 받으세요.',
   'bootCheck.chooseCoreMode': '런타임 선택',
   'bootCheck.connectToCore': '런타임에 연결',
   'bootCheck.desktopDescription':
@@ -4964,6 +4971,90 @@ const messages: TranslationMap = {
   'walkthrough.tooltip.next': '다음 →',
   'walkthrough.tooltip.skip': '투어 건너뛰기',
   'walkthrough.tooltip.stepCounter': '{total}개 중 {n}개',
+  'onboarding.welcome.inputTitle': '연결',
+  'onboarding.welcome.inputDesc': '도구, 계정, 서비스를 연결하세요. 모든 것이 한 곳으로 모입니다.',
+  'onboarding.welcome.hubTitle': '자동화',
+  'onboarding.welcome.hubDesc': '비서가 연결된 세계에서 작업합니다 — 관리, 구성, 실행.',
+  'onboarding.welcome.outputTitle': '전달',
+  'onboarding.welcome.outputDesc': '요약, 완료된 작업, 인사이트를 필요한 곳에서 바로 받아보세요.',
+  'onboarding.welcome.capability1Title': '업무 관리',
+  'onboarding.welcome.capability1Desc':
+    '비서가 이메일을 처리하고, 회의를 예약하고, 모든 도구에서 프로젝트를 추적하도록 하세요.',
+  'onboarding.welcome.capability2Title': '모든 것 자동화',
+  'onboarding.welcome.capability2Desc':
+    '자동으로 실행되는 루틴을 설정하세요 — 아침 브리핑, 일일 요약, 반복 작업.',
+  'onboarding.welcome.capability3Title': '개인정보 보호',
+  'onboarding.welcome.capability3Desc':
+    '데이터는 기기에 보관됩니다. 무엇이 나가고 어디로 가는지 제어할 수 있습니다.',
+  'walkthrough.steps.welcome.title': 'OpenHuman에 오신 것을 환영합니다',
+  'walkthrough.steps.welcome.content':
+    '새로운 AI 비서의 빠른 투어를 진행해 보겠습니다. 몇 단계만으로 핵심 사항을 다룰 것입니다.',
+  'walkthrough.steps.commandCenter.title': '커맨드 센터',
+  'walkthrough.steps.commandCenter.content':
+    '이곳은 홈 베이스입니다 — 현재 상황과 주의가 필요한 항목에 대한 빠른 개요를 제공합니다.',
+  'walkthrough.steps.startChat.title': '대화 시작하기',
+  'walkthrough.steps.startChat.content':
+    '언제든지 여기를 탭하여 AI와 채팅을 시작하세요. 질문하고, 아이디어를 브레인스토밍하고, 일을 처리하세요.',
+  'walkthrough.steps.aiAtWork.title': '작업 중인 AI',
+  'walkthrough.steps.aiAtWork.content':
+    '이곳에서 대화가 이루어집니다. 비서가 웹을 검색하고, 도구를 실행하며, 채팅 간 컨텍스트를 기억할 수 있습니다.',
+  'walkthrough.steps.connectTools.title': '도구로 강화하기',
+  'walkthrough.steps.connectTools.content':
+    'Gmail, Slack, WhatsApp 등을 연결하세요. 각 연결은 비서에게 새로운 능력을 부여합니다.',
+  'walkthrough.steps.chatAnywhere.title': '어디서나 채팅',
+  'walkthrough.steps.chatAnywhere.content':
+    'WhatsApp, Telegram, Slack, Discord — 메시징 앱을 연결하여 비서가 어디서든 연락할 수 있도록 하세요.',
+  'walkthrough.steps.aiBrain.title': 'AI의 두뇌',
+  'walkthrough.steps.aiBrain.content':
+    '이곳은 비서가 배우고 기억하는 곳입니다. 더 많이 사용할수록 더 똑똑해집니다 — 기억, 컨텍스트, 지능이 모두 여기에 있습니다.',
+  'walkthrough.steps.customize.title': '나만의 것으로 만들기',
+  'walkthrough.steps.customize.content':
+    '환경설정, 개인정보, 알림 — 모든 것이 여기에 있습니다. 설정에서 언제든지 이 투어를 다시 시작할 수 있습니다.',
+  'walkthrough.steps.quickAccess.title': '빠른 접근',
+  'walkthrough.steps.quickAccess.content':
+    '이 탭들은 바로 가기입니다 — 채팅, 스킬, 인텔리전스가 항상 한 번의 탭 거리에 있습니다.',
+  'walkthrough.steps.stayInformed.title': '정보 유지하기',
+  'walkthrough.steps.stayInformed.content':
+    '알림과 자동화가 여기에 있습니다 — 브리핑, 알림 및 백그라운드 활동.',
+  'walkthrough.steps.allSet.title': '모든 준비가 완료되었습니다!',
+  'walkthrough.steps.allSet.content':
+    '비서가 환영 메시지를 남겼습니다 — 이곳은 채팅하고, 질문하고, 브레인스토밍하는 공간입니다. 즐기세요!',
+  'walkthrough.phase.welcome': '환영',
+  'walkthrough.phase.connect': '연결',
+  'walkthrough.phase.automate': '자동화',
+  'walkthrough.phase.review': '검토',
+  'walkthrough.phase.done': '완료',
+  'walkthrough.phase.skip': '이 단계 건너뛰기',
+  'walkthrough.step.gmail': 'Gmail',
+  'walkthrough.step.slack': 'Slack',
+  'walkthrough.step.whatsapp': 'WhatsApp',
+  'walkthrough.step.telegram': 'Telegram',
+  'walkthrough.step.discord': 'Discord',
+  'walkthrough.step.briefings': '일일 브리핑',
+  'walkthrough.step.notifications': '스마트 알림',
+  'walkthrough.step.scheduling': '자동 일정',
+  'walkthrough.step.summaries': '회의 요약',
+  'walkthrough.desc.gmail': '스마트 답장과 요약을 위해 이메일을 연결하세요',
+  'walkthrough.desc.slack': '비서가 팀 대화에 참여하도록 하세요',
+  'walkthrough.desc.whatsapp': '이동 중에도 비서와 채팅하세요',
+  'walkthrough.desc.telegram': 'AI와의 안전한 메시징',
+  'walkthrough.desc.discord': '비서를 서버로 데려오세요',
+  'walkthrough.desc.briefings': '중요한 것들의 일일 요약을 받아보세요',
+  'walkthrough.desc.notifications': '소음 없이 정보를 받아보세요',
+  'walkthrough.desc.scheduling': 'AI가 캘린더를 관리하도록 하세요',
+  'walkthrough.desc.summaries': '회의 세부 사항을 다시는 놓치지 마세요',
+  'walkthrough.card.completedAria': '{label} — 완료됨',
+  'walkthrough.card.actionAria': '{label} 완료하기',
+  'walkthrough.welcome.description': 'AI 비서 설정을 안내해 드리겠습니다.',
+  'walkthrough.connect.description':
+    '이미 사용 중인 도구를 연결하세요. 각 연결은 비서에게 새로운 능력을 부여합니다.',
+  'walkthrough.automate.description': '비서가 자동으로 처리할 작업을 선택하세요.',
+  'walkthrough.review.description': '설정한 내용의 요약입니다. 나중에 언제든지 변경할 수 있습니다.',
+  'walkthrough.review.skipped': '설정을 건너뛰었습니다. 설정에서 언제든지 구성할 수 있습니다.',
+  'walkthrough.review.empty': '아직 완료된 작업이 없습니다.',
+  'walkthrough.done.title': '모든 준비가 완료되었습니다!',
+  'walkthrough.done.description':
+    '비서가 도움을 줄 준비가 되었습니다. 연결이 설정되고 자동화가 구성되었습니다.',
   'webhooks.activity.empty': '비어 있음',
   'webhooks.activity.title': '최근 활동',
   'webhooks.composioHistory.empty': '비어 있음',

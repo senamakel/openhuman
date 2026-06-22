@@ -36,6 +36,13 @@ function renderContextPage(completeAndExit: OnboardingContextValue['completeAndE
     draft: { connectedSources: ['composio:gmail'] },
     setDraft: vi.fn(),
     completeAndExit,
+    advanceWalkthrough: vi.fn(() => ({
+      phase: 'welcome' as const,
+      steps: [],
+      completed: false,
+      skipped: false,
+    })),
+    skipWalkthrough: vi.fn(),
   };
   return renderWithProviders(
     <OnboardingContext.Provider value={value}>

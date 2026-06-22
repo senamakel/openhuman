@@ -734,6 +734,9 @@ const messages: TranslationMap = {
   'onboarding.welcome': 'Hai. Saya OpenHuman.',
   'onboarding.welcomeDesc':
     'Asisten AI super cerdas yang berjalan di komputer Anda. Privat, sederhana, dan sangat kuat.',
+  'onboarding.welcome.heroTitle': 'Hub AI Anda untuk pekerjaan dan kehidupan',
+  'onboarding.welcome.heroSubtitle':
+    'OpenHuman menghubungkan alat Anda, mengotomatiskan tugas Anda, dan memberikan hasil — semuanya dari desktop Anda.',
   'onboarding.context': 'Pengumpulan Konteks',
   'onboarding.contextDesc': 'Hubungkan alat dan layanan yang Anda gunakan setiap hari.',
   'onboarding.localAI': 'AI Lokal',
@@ -2526,6 +2529,11 @@ const messages: TranslationMap = {
   'bootCheck.tokenRequired': 'Kami memerlukan token autentikasi untuk terhubung.',
   'bootCheck.httpPublicWarning':
     'Ini adalah URL HTTP biasa pada host publik — lalu lintas tidak akan dienkripsi. Gunakan HTTPS kecuali Anda memercayai jaringan ini.',
+  'bootCheck.heroTitle': 'Selamat datang di OpenHuman',
+  'bootCheck.heroDesktopDesc':
+    'Kecerdasan super AI pribadi Anda. Pribadi, sederhana, dan sangat kuat.',
+  'bootCheck.heroWebDesc':
+    'Hubungkan ke runtime Anda untuk memulai. Masukkan URL dan token autentikasinya di bawah, atau dapatkan aplikasi desktop.',
   'bootCheck.chooseCoreMode': 'Pilih Runtime',
   'bootCheck.connectToCore': 'Hubungkan ke Runtime Anda',
   'bootCheck.desktopDescription':
@@ -5022,6 +5030,96 @@ const messages: TranslationMap = {
   'walkthrough.tooltip.next': 'Berikutnya →',
   'walkthrough.tooltip.skip': 'Lewati tur',
   'walkthrough.tooltip.stepCounter': '{n} dari {total}',
+  'onboarding.welcome.inputTitle': 'Hubungkan',
+  'onboarding.welcome.inputDesc':
+    'Hubungkan alat, akun, dan layanan Anda. Semuanya mengalir ke satu tempat.',
+  'onboarding.welcome.hubTitle': 'Otomatisasi',
+  'onboarding.welcome.hubDesc':
+    'Asisten Anda bekerja di seluruh dunia terhubung Anda — mengelola, mengatur, dan mengeksekusi.',
+  'onboarding.welcome.outputTitle': 'Kirimkan',
+  'onboarding.welcome.outputDesc':
+    'Dapatkan ringkasan, tugas selesai, dan wawasan yang dikirimkan tepat di tempat Anda membutuhkannya.',
+  'onboarding.welcome.capability1Title': 'Kelola pekerjaan',
+  'onboarding.welcome.capability1Desc':
+    'Biarkan asisten Anda menangani email, menjadwalkan rapat, dan melacak proyek di semua alat Anda.',
+  'onboarding.welcome.capability2Title': 'Otomatiskan semuanya',
+  'onboarding.welcome.capability2Desc':
+    'Siapkan rutinitas yang berjalan otomatis — briefing pagi, ringkasan harian, dan tugas berulang.',
+  'onboarding.welcome.capability3Title': 'Tetap pribadi',
+  'onboarding.welcome.capability3Desc':
+    'Data Anda tetap di mesin Anda. Anda mengontrol apa yang keluar dan ke mana perginya.',
+  'walkthrough.steps.welcome.title': 'Selamat datang di OpenHuman',
+  'walkthrough.steps.welcome.content':
+    'Mari kita ikuti tur singkat asisten AI baru Anda. Kami akan membahas hal-hal penting hanya dalam beberapa langkah.',
+  'walkthrough.steps.commandCenter.title': 'Pusat Komando Anda',
+  'walkthrough.steps.commandCenter.content':
+    'Ini adalah markas Anda — gambaran singkat tentang apa yang terjadi dan apa yang perlu perhatian Anda.',
+  'walkthrough.steps.startChat.title': 'Mulai Percakapan',
+  'walkthrough.steps.startChat.content':
+    'Ketuk di sini kapan saja untuk mulai mengobrol dengan AI Anda. Ajukan pertanyaan, bertukar pikiran, atau selesaikan tugas.',
+  'walkthrough.steps.aiAtWork.title': 'AI Anda Sedang Bekerja',
+  'walkthrough.steps.aiAtWork.content':
+    'Di sinilah percakapan terjadi. Asisten Anda dapat mencari web, menjalankan alat, dan mengingat konteks di seluruh obrolan.',
+  'walkthrough.steps.connectTools.title': 'Tingkatkan dengan Alat',
+  'walkthrough.steps.connectTools.content':
+    'Hubungkan Gmail, Slack, WhatsApp, dan lainnya. Setiap koneksi memberikan kemampuan baru kepada asisten Anda.',
+  'walkthrough.steps.chatAnywhere.title': 'Ngobrol di Mana Saja',
+  'walkthrough.steps.chatAnywhere.content':
+    'WhatsApp, Telegram, Slack, Discord — hubungkan aplikasi perpesanan Anda agar asisten Anda dapat menghubungi Anda di mana saja.',
+  'walkthrough.steps.aiBrain.title': 'Otak AI Anda',
+  'walkthrough.steps.aiBrain.content':
+    'Di sinilah asisten Anda belajar dan mengingat. Semakin sering Anda menggunakannya, semakin pintar — memori, konteks, dan kecerdasan semuanya ada di sini.',
+  'walkthrough.steps.customize.title': 'Jadikan Milik Anda',
+  'walkthrough.steps.customize.content':
+    'Preferensi, privasi, notifikasi — semuanya ada di sini. Anda dapat memulai ulang tur ini kapan saja dari Pengaturan.',
+  'walkthrough.steps.quickAccess.title': 'Akses Cepat',
+  'walkthrough.steps.quickAccess.content':
+    'Tab ini adalah pintasan Anda — Obrolan, Keterampilan, dan Kecerdasan selalu berjarak satu ketukan.',
+  'walkthrough.steps.stayInformed.title': 'Tetap Terinformasi',
+  'walkthrough.steps.stayInformed.content':
+    'Peringatan dan otomatisasi ada di sini — briefing, notifikasi, dan aktivitas latar belakang.',
+  'walkthrough.steps.allSet.title': 'Anda Siap!',
+  'walkthrough.steps.allSet.content':
+    'Asisten Anda meninggalkan pesan selamat datang — ini adalah ruang Anda untuk mengobrol, bertanya, atau bertukar pikiran. Selamat bersenang-senang!',
+  'walkthrough.phase.welcome': 'Selamat Datang',
+  'walkthrough.phase.connect': 'Hubungkan',
+  'walkthrough.phase.automate': 'Otomatisasi',
+  'walkthrough.phase.review': 'Tinjau',
+  'walkthrough.phase.done': 'Selesai',
+  'walkthrough.phase.skip': 'Lewati langkah ini',
+  'walkthrough.step.gmail': 'Gmail',
+  'walkthrough.step.slack': 'Slack',
+  'walkthrough.step.whatsapp': 'WhatsApp',
+  'walkthrough.step.telegram': 'Telegram',
+  'walkthrough.step.discord': 'Discord',
+  'walkthrough.step.briefings': 'Briefing Harian',
+  'walkthrough.step.notifications': 'Notifikasi Cerdas',
+  'walkthrough.step.scheduling': 'Penjadwalan Otomatis',
+  'walkthrough.step.summaries': 'Ringkasan Rapat',
+  'walkthrough.desc.gmail': 'Hubungkan email Anda untuk balasan cerdas dan ringkasan',
+  'walkthrough.desc.slack': 'Biarkan asisten Anda bergabung dalam percakapan tim Anda',
+  'walkthrough.desc.whatsapp': 'Ngobrol dengan asisten Anda saat bepergian',
+  'walkthrough.desc.telegram': 'Pesan aman dengan AI Anda',
+  'walkthrough.desc.discord': 'Bawa asisten Anda ke server Anda',
+  'walkthrough.desc.briefings': 'Dapatkan ringkasan harian tentang hal-hal penting',
+  'walkthrough.desc.notifications': 'Tetap terinformasi tanpa kebisingan',
+  'walkthrough.desc.scheduling': 'Biarkan AI menangani kalender Anda',
+  'walkthrough.desc.summaries': 'Jangan lewatkan detail rapat lagi',
+  'walkthrough.card.completedAria': '{label} — selesai',
+  'walkthrough.card.actionAria': 'Selesaikan {label}',
+  'walkthrough.welcome.description': 'Biarkan kami memandu Anda menyiapkan asisten AI Anda.',
+  'walkthrough.connect.description':
+    'Hubungkan alat yang sudah Anda gunakan. Setiap koneksi memberikan kemampuan baru kepada asisten Anda.',
+  'walkthrough.automate.description':
+    'Pilih apa yang harus ditangani asisten Anda secara otomatis.',
+  'walkthrough.review.description':
+    'Berikut ringkasan dari apa yang telah Anda siapkan. Anda selalu dapat mengubahnya nanti.',
+  'walkthrough.review.skipped':
+    'Anda melewatkan pengaturan. Anda dapat mengonfigurasinya kapan saja di Pengaturan.',
+  'walkthrough.review.empty': 'Belum ada tindakan yang selesai.',
+  'walkthrough.done.title': 'Anda Siap!',
+  'walkthrough.done.description':
+    'Asisten Anda siap membantu. Koneksi telah disiapkan dan otomatisasi telah dikonfigurasi.',
   'webhooks.activity.empty': 'Kosong',
   'webhooks.activity.title': 'Aktivitas Terbaru',
   'webhooks.composioHistory.empty': 'Kosong',

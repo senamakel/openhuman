@@ -5,14 +5,25 @@ import { renderWithProviders } from '../../../../test/test-utils';
 import WelcomeStep from '../WelcomeStep';
 
 describe('WelcomeStep', () => {
-  it('renders display title + subtitle', () => {
+  it('renders the hero title', () => {
     renderWithProviders(<WelcomeStep onNext={() => {}} />);
     expect(
-      screen.getByRole('heading', { level: 1, name: /Hi\. I'm OpenHuman\./ })
+      screen.getByRole('heading', { level: 1, name: /AI hub for work and life/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/super-intelligent AI assistant that runs on your computer/i)
-    ).toBeInTheDocument();
+  });
+
+  it('renders the flow steps: Connect, Automate, Deliver', () => {
+    renderWithProviders(<WelcomeStep onNext={() => {}} />);
+    expect(screen.getByText('Connect')).toBeInTheDocument();
+    expect(screen.getByText('Automate')).toBeInTheDocument();
+    expect(screen.getByText('Deliver')).toBeInTheDocument();
+  });
+
+  it('renders capability cards', () => {
+    renderWithProviders(<WelcomeStep onNext={() => {}} />);
+    expect(screen.getByText('Manage work')).toBeInTheDocument();
+    expect(screen.getByText('Automate everything')).toBeInTheDocument();
+    expect(screen.getByText('Stay private')).toBeInTheDocument();
   });
 
   it('exposes a "What leaves my computer?" link', () => {
@@ -39,5 +50,24 @@ describe('WelcomeStep', () => {
     expect(button).toHaveAttribute('aria-label', 'Get Started');
     expect(button).toHaveAttribute('aria-live', 'polite');
     expect(button).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it('renders the logo image', () => {
+    renderWithProviders(<WelcomeStep onNext={() => {}} />);
+    expect(screen.getByAltText('OpenHuman')).toBeInTheDocument();
+  });
+
+  it('renders the hero subtitle', () => {
+    renderWithProviders(<WelcomeStep onNext={() => {}} />);
+    expect(screen.getByText(/connects your tools, automates your tasks/i)).toBeInTheDocument();
+  });
+
+  it('renders the flow step descriptions', () => {
+    renderWithProviders(<WelcomeStep onNext={() => {}} />);
+    expect(screen.getByText(/Link your tools, accounts, and services/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Your assistant works across your connected world/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Get summaries, completed tasks, and insights/i)).toBeInTheDocument();
   });
 });

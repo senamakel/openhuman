@@ -750,6 +750,9 @@ const messages: TranslationMap = {
   'onboarding.welcome': 'Salut. Je suis OpenHuman.',
   'onboarding.welcomeDesc':
     'Ton assistant IA super-intelligent qui tourne sur ton ordinateur. Privé, simple et extrêmement puissant.',
+  'onboarding.welcome.heroTitle': 'Votre hub IA pour le travail et la vie',
+  'onboarding.welcome.heroSubtitle':
+    'OpenHuman connecte vos outils, automatise vos tâches et fournit des résultats — le tout depuis votre bureau.',
   'onboarding.context': 'Collecte de contexte',
   'onboarding.contextDesc': 'Connecte les outils et services que tu utilises tous les jours.',
   'onboarding.localAI': 'IA locale',
@@ -2586,6 +2589,11 @@ const messages: TranslationMap = {
   'bootCheck.tokenRequired': "On aura besoin d'un token d'authentification pour se connecter.",
   'bootCheck.httpPublicWarning':
     'Ceci est une URL HTTP en clair sur un hôte public — le trafic ne sera pas chiffré. Utilisez HTTPS sauf si vous faites confiance à ce réseau.',
+  'bootCheck.heroTitle': 'Bienvenue sur OpenHuman',
+  'bootCheck.heroDesktopDesc':
+    'Votre super-intelligence IA personnelle. Privée, simple et extrêmement puissante.',
+  'bootCheck.heroWebDesc':
+    "Connectez-vous à votre runtime pour commencer. Saisissez son URL et son jeton d'authentification ci-dessous, ou téléchargez l'application de bureau.",
   'bootCheck.chooseCoreMode': 'Sélectionner un runtime',
   'bootCheck.connectToCore': 'Connecte-toi à ton runtime',
   'bootCheck.desktopDescription':
@@ -5120,6 +5128,98 @@ const messages: TranslationMap = {
   'walkthrough.tooltip.next': 'Suivant →',
   'walkthrough.tooltip.skip': 'Passer la visite',
   'walkthrough.tooltip.stepCounter': '{n} sur {total}',
+  'onboarding.welcome.inputTitle': 'Connecter',
+  'onboarding.welcome.inputDesc':
+    'Reliez vos outils, comptes et services. Tout converge en un seul endroit.',
+  'onboarding.welcome.hubTitle': 'Automatiser',
+  'onboarding.welcome.hubDesc':
+    'Votre assistant travaille dans votre monde connecté — gérant, organisant et exécutant.',
+  'onboarding.welcome.outputTitle': 'Livrer',
+  'onboarding.welcome.outputDesc':
+    'Recevez des résumés, des tâches terminées et des informations livrées exactement là où vous en avez besoin.',
+  'onboarding.welcome.capability1Title': 'Gérer le travail',
+  'onboarding.welcome.capability1Desc':
+    'Laissez votre assistant gérer les e-mails, planifier les réunions et suivre les projets sur tous vos outils.',
+  'onboarding.welcome.capability2Title': 'Tout automatiser',
+  'onboarding.welcome.capability2Desc':
+    "Configurez des routines qui s'exécutent automatiquement — briefings du matin, résumés quotidiens et tâches récurrentes.",
+  'onboarding.welcome.capability3Title': 'Restez privé',
+  'onboarding.welcome.capability3Desc':
+    'Vos données restent sur votre machine. Vous contrôlez ce qui en sort et où cela va.',
+  'walkthrough.steps.welcome.title': 'Bienvenue sur OpenHuman',
+  'walkthrough.steps.welcome.content':
+    "Faisons un rapide tour de votre nouvel assistant IA. Nous couvrirons l'essentiel en quelques étapes.",
+  'walkthrough.steps.commandCenter.title': 'Votre centre de commandement',
+  'walkthrough.steps.commandCenter.content':
+    "C'est votre base — un aperçu rapide de ce qui se passe et de ce qui nécessite votre attention.",
+  'walkthrough.steps.startChat.title': 'Démarrer une conversation',
+  'walkthrough.steps.startChat.content':
+    'Appuyez ici à tout moment pour discuter avec votre IA. Posez des questions, échangez des idées ou accomplissez des tâches.',
+  'walkthrough.steps.aiAtWork.title': 'Votre IA au travail',
+  'walkthrough.steps.aiAtWork.content':
+    "C'est ici que les conversations ont lieu. Votre assistant peut rechercher sur le web, exécuter des outils et se souvenir du contexte entre les discussions.",
+  'walkthrough.steps.connectTools.title': 'Boostez avec des outils',
+  'walkthrough.steps.connectTools.content':
+    'Connectez Gmail, Slack, WhatsApp et plus encore. Chaque connexion donne à votre assistant de nouvelles capacités.',
+  'walkthrough.steps.chatAnywhere.title': 'Discutez où que vous soyez',
+  'walkthrough.steps.chatAnywhere.content':
+    'WhatsApp, Telegram, Slack, Discord — connectez vos applications de messagerie pour que votre assistant puisse vous joindre partout.',
+  'walkthrough.steps.aiBrain.title': 'Le cerveau de votre IA',
+  'walkthrough.steps.aiBrain.content':
+    "C'est ici que votre assistant apprend et se souvient. Il devient plus intelligent à mesure que vous l'utilisez — la mémoire, le contexte et l'intelligence y résident.",
+  'walkthrough.steps.customize.title': 'Personnalisez-le',
+  'walkthrough.steps.customize.content':
+    'Préférences, confidentialité, notifications — tout est ici. Vous pouvez relancer cette visite à tout moment depuis les Paramètres.',
+  'walkthrough.steps.quickAccess.title': 'Accès rapide',
+  'walkthrough.steps.quickAccess.content':
+    'Ces onglets sont vos raccourcis — Chat, Compétences et Intelligence sont toujours à portée de clic.',
+  'walkthrough.steps.stayInformed.title': 'Restez informé',
+  'walkthrough.steps.stayInformed.content':
+    'Les alertes et les automatisations résident ici — briefings, notifications et activité en arrière-plan.',
+  'walkthrough.steps.allSet.title': 'Vous êtes prêt !',
+  'walkthrough.steps.allSet.content':
+    "Votre assistant vous a laissé un message d'accueil — c'est votre espace pour discuter, poser des questions ou réfléchir. Amusez-vous !",
+  'walkthrough.phase.welcome': 'Bienvenue',
+  'walkthrough.phase.connect': 'Connecter',
+  'walkthrough.phase.automate': 'Automatiser',
+  'walkthrough.phase.review': 'Réviser',
+  'walkthrough.phase.done': 'Terminé',
+  'walkthrough.phase.skip': 'Passer cette étape',
+  'walkthrough.step.gmail': 'Gmail',
+  'walkthrough.step.slack': 'Slack',
+  'walkthrough.step.whatsapp': 'WhatsApp',
+  'walkthrough.step.telegram': 'Telegram',
+  'walkthrough.step.discord': 'Discord',
+  'walkthrough.step.briefings': 'Briefings quotidiens',
+  'walkthrough.step.notifications': 'Notifications intelligentes',
+  'walkthrough.step.scheduling': 'Planification automatique',
+  'walkthrough.step.summaries': 'Résumés de réunions',
+  'walkthrough.desc.gmail':
+    'Connectez votre messagerie pour des réponses intelligentes et des résumés',
+  'walkthrough.desc.slack': 'Laissez votre assistant rejoindre les conversations de votre équipe',
+  'walkthrough.desc.whatsapp': 'Discutez avec votre assistant en déplacement',
+  'walkthrough.desc.telegram': 'Messagerie sécurisée avec votre IA',
+  'walkthrough.desc.discord': 'Amenez votre assistant sur votre serveur',
+  'walkthrough.desc.briefings': 'Recevez un résumé quotidien de ce qui compte',
+  'walkthrough.desc.notifications': 'Restez informé sans le bruit',
+  'walkthrough.desc.scheduling': "Laissez l'IA gérer votre agenda",
+  'walkthrough.desc.summaries': 'Ne manquez plus jamais un détail de réunion',
+  'walkthrough.card.completedAria': '{label} — terminé',
+  'walkthrough.card.actionAria': 'Terminer {label}',
+  'walkthrough.welcome.description':
+    'Laissez-nous vous guider dans la configuration de votre assistant IA.',
+  'walkthrough.connect.description':
+    'Connectez les outils que vous utilisez déjà. Chaque connexion donne à votre assistant de nouvelles capacités.',
+  'walkthrough.automate.description':
+    'Choisissez ce que votre assistant doit gérer automatiquement.',
+  'walkthrough.review.description':
+    'Voici un résumé de ce que vous avez configuré. Vous pouvez toujours les modifier plus tard.',
+  'walkthrough.review.skipped':
+    'Vous avez sauté la configuration. Vous pouvez les configurer à tout moment dans les Paramètres.',
+  'walkthrough.review.empty': 'Aucune action terminée pour le moment.',
+  'walkthrough.done.title': 'Vous êtes prêt !',
+  'walkthrough.done.description':
+    'Votre assistant est prêt à vous aider. Les connexions sont configurées et les automatisations sont en place.',
   'webhooks.activity.empty': 'Vide',
   'webhooks.activity.title': 'Activité récente',
   'webhooks.composioHistory.empty': 'Vide',

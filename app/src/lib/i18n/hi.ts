@@ -729,6 +729,9 @@ const messages: TranslationMap = {
   'onboarding.welcome': 'नमस्ते। मैं OpenHuman हूँ।',
   'onboarding.welcomeDesc':
     'आपका सुपर-इंटेलिजेंट AI असिस्टेंट जो आपके कंप्यूटर पर चलता है। प्राइवेट, सिंपल और बेहद पावरफुल।',
+  'onboarding.welcome.heroTitle': 'काम और जीवन के लिए आपका AI हब',
+  'onboarding.welcome.heroSubtitle':
+    'OpenHuman आपके उपकरणों को जोड़ता है, आपके कार्यों को स्वचालित करता है और परिणाम प्रदान करता है — सब कुछ आपके डेस्कटॉप से।',
   'onboarding.context': 'कॉन्टेक्स्ट गैदरिंग',
   'onboarding.contextDesc': 'अपने रोज़ इस्तेमाल के टूल्स और सर्विसेज़ कनेक्ट करें।',
   'onboarding.localAI': 'लोकल AI',
@@ -2522,6 +2525,10 @@ const messages: TranslationMap = {
   'bootCheck.tokenRequired': 'कनेक्ट करने के लिए एक auth टोकन चाहिए।',
   'bootCheck.httpPublicWarning':
     'यह किसी सार्वजनिक होस्ट पर सादा HTTP URL है — ट्रैफ़िक एन्क्रिप्ट नहीं होगा। जब तक आपको इस नेटवर्क पर भरोसा न हो, HTTPS का उपयोग करें।',
+  'bootCheck.heroTitle': 'OpenHuman में आपका स्वागत है',
+  'bootCheck.heroDesktopDesc': 'आपकी व्यक्तिगत AI सुपर इंटेलिजेंस। निजी, सरल और अत्यंत शक्तिशाली।',
+  'bootCheck.heroWebDesc':
+    'शुरू करने के लिए अपने रनटाइम से कनेक्ट करें। नीचे इसका URL और ऑथ टोकन डालें, या डेस्कटॉप ऐप लें।',
   'bootCheck.chooseCoreMode': 'रनटाइम चुनें',
   'bootCheck.connectToCore': 'अपने रनटाइम से कनेक्ट करें',
   'bootCheck.desktopDescription':
@@ -5010,6 +5017,95 @@ const messages: TranslationMap = {
   'walkthrough.tooltip.next': 'अगला →',
   'walkthrough.tooltip.skip': 'टूर छोड़ें',
   'walkthrough.tooltip.stepCounter': '{total} में से {n}',
+  'onboarding.welcome.inputTitle': 'कनेक्ट',
+  'onboarding.welcome.inputDesc':
+    'अपने उपकरणों, खातों और सेवाओं को जोड़ें। सब कुछ एक जगह पर आता है।',
+  'onboarding.welcome.hubTitle': 'स्वचालित',
+  'onboarding.welcome.hubDesc':
+    'आपका सहायक आपकी कनेक्टेड दुनिया में काम करता है — प्रबंधन, आयोजन और निष्पादन।',
+  'onboarding.welcome.outputTitle': 'वितरित',
+  'onboarding.welcome.outputDesc':
+    'सारांश, पूर्ण किए गए कार्य और अंतर्दृष्टि ठीक वहीं प्राप्त करें जहाँ आपको उनकी आवश्यकता है।',
+  'onboarding.welcome.capability1Title': 'काम प्रबंधित करें',
+  'onboarding.welcome.capability1Desc':
+    'अपने सहायक को ईमेल संभालने, बैठकें शेड्यूल करने और सभी उपकरणों में परियोजनाओं को ट्रैक करने दें।',
+  'onboarding.welcome.capability2Title': 'सब कुछ स्वचालित करें',
+  'onboarding.welcome.capability2Desc':
+    'ऐसी रूटीन सेटअप करें जो ऑटोपायलट पर चलती हैं — सुबह की ब्रीफिंग, दैनिक सारांश और आवर्ती कार्य।',
+  'onboarding.welcome.capability3Title': 'निजी रहें',
+  'onboarding.welcome.capability3Desc':
+    'आपका डेटा आपकी मशीन पर रहता है। आप नियंत्रित करते हैं कि क्या बाहर जाता है और कहाँ जाता है।',
+  'walkthrough.steps.welcome.title': 'OpenHuman में आपका स्वागत है',
+  'walkthrough.steps.welcome.content':
+    'आइए आपके नए AI सहायक का एक त्वरित दौरा करें। हम कुछ ही चरणों में आवश्यक बातें कवर करेंगे।',
+  'walkthrough.steps.commandCenter.title': 'आपका कमांड सेंटर',
+  'walkthrough.steps.commandCenter.content':
+    'यह आपका होम बेस है — क्या हो रहा है और किस पर आपका ध्यान चाहिए इसकी एक त्वरित झलक।',
+  'walkthrough.steps.startChat.title': 'बातचीत शुरू करें',
+  'walkthrough.steps.startChat.content':
+    'अपने AI के साथ चैट शुरू करने के लिए कभी भी यहाँ टैप करें। सवाल पूछें, विचार-मंथन करें, या काम पूरा करें।',
+  'walkthrough.steps.aiAtWork.title': 'आपका AI काम पर',
+  'walkthrough.steps.aiAtWork.content':
+    'यहीं पर बातचीत होती है। आपका सहायक वेब खोज सकता है, उपकरण चला सकता है, और चैट में संदर्भ याद रख सकता है।',
+  'walkthrough.steps.connectTools.title': 'उपकरणों के साथ क्षमता बढ़ाएं',
+  'walkthrough.steps.connectTools.content':
+    'Gmail, Slack, WhatsApp और अधिक कनेक्ट करें। प्रत्येक कनेक्शन आपके सहायक को नई क्षमताएं देता है।',
+  'walkthrough.steps.chatAnywhere.title': 'जहाँ भी हों, चैट करें',
+  'walkthrough.steps.chatAnywhere.content':
+    'WhatsApp, Telegram, Slack, Discord — अपने मैसेजिंग ऐप्स कनेक्ट करें ताकि आपका सहायक कहीं भी आप तक पहुंच सके।',
+  'walkthrough.steps.aiBrain.title': 'आपके AI का मस्तिष्क',
+  'walkthrough.steps.aiBrain.content':
+    'यहीं पर आपका सहायक सीखता और याद रखता है। जितना अधिक आप इसका उपयोग करेंगे यह उतना ही स्मार्ट होगा — स्मृति, संदर्भ और बुद्धिमत्ता सब यहीं रहते हैं।',
+  'walkthrough.steps.customize.title': 'इसे अपना बनाएं',
+  'walkthrough.steps.customize.content':
+    'प्राथमिकताएं, गोपनीयता, सूचनाएं — सब कुछ यहाँ है। आप सेटिंग्स से कभी भी इस टूर को फिर से शुरू कर सकते हैं।',
+  'walkthrough.steps.quickAccess.title': 'त्वरित पहुँच',
+  'walkthrough.steps.quickAccess.content':
+    'ये टैब आपके शॉर्टकट हैं — चैट, स्किल्स और इंटेलिजेंस हमेशा एक टैप की दूरी पर।',
+  'walkthrough.steps.stayInformed.title': 'सूचित रहें',
+  'walkthrough.steps.stayInformed.content':
+    'अलर्ट और स्वचालन यहाँ रहते हैं — ब्रीफिंग, सूचनाएं और पृष्ठभूमि गतिविधि।',
+  'walkthrough.steps.allSet.title': 'आप पूरी तरह तैयार हैं!',
+  'walkthrough.steps.allSet.content':
+    'आपके सहायक ने आपके लिए एक स्वागत संदेश छोड़ा है — यह चैट करने, सवाल पूछने या विचार-मंथन करने की आपकी जगह है। मज़े करें!',
+  'walkthrough.phase.welcome': 'स्वागत',
+  'walkthrough.phase.connect': 'कनेक्ट करें',
+  'walkthrough.phase.automate': 'स्वचालित',
+  'walkthrough.phase.review': 'समीक्षा',
+  'walkthrough.phase.done': 'पूर्ण',
+  'walkthrough.phase.skip': 'यह चरण छोड़ें',
+  'walkthrough.step.gmail': 'Gmail',
+  'walkthrough.step.slack': 'Slack',
+  'walkthrough.step.whatsapp': 'WhatsApp',
+  'walkthrough.step.telegram': 'Telegram',
+  'walkthrough.step.discord': 'Discord',
+  'walkthrough.step.briefings': 'दैनिक ब्रीफिंग',
+  'walkthrough.step.notifications': 'स्मार्ट सूचनाएं',
+  'walkthrough.step.scheduling': 'स्वचालित शेड्यूलिंग',
+  'walkthrough.step.summaries': 'बैठक सारांश',
+  'walkthrough.desc.gmail': 'स्मार्ट उत्तरों और सारांशों के लिए अपना ईमेल कनेक्ट करें',
+  'walkthrough.desc.slack': 'अपने सहायक को अपनी टीम की बातचीत में शामिल होने दें',
+  'walkthrough.desc.whatsapp': 'चलते-फिरते अपने सहायक से चैट करें',
+  'walkthrough.desc.telegram': 'अपने AI के साथ सुरक्षित मैसेजिंग',
+  'walkthrough.desc.discord': 'अपने सहायक को अपने सर्वर पर लाएं',
+  'walkthrough.desc.briefings': 'महत्वपूर्ण चीजों का दैनिक सारांश प्राप्त करें',
+  'walkthrough.desc.notifications': 'शोर के बिना सूचित रहें',
+  'walkthrough.desc.scheduling': 'AI को अपना कैलेंडर संभालने दें',
+  'walkthrough.desc.summaries': 'फिर कभी कोई मीटिंग विवरण न चूकें',
+  'walkthrough.card.completedAria': '{label} — पूर्ण',
+  'walkthrough.card.actionAria': '{label} पूरा करें',
+  'walkthrough.welcome.description': 'हमें आपके AI सहायक को सेटअप करने में मार्गदर्शन करने दें।',
+  'walkthrough.connect.description':
+    'उन उपकरणों को कनेक्ट करें जिनका आप पहले से उपयोग करते हैं। प्रत्येक कनेक्शन आपके सहायक को नई क्षमताएं देता है।',
+  'walkthrough.automate.description': 'चुनें कि आपके सहायक को स्वचालित रूप से क्या संभालना चाहिए।',
+  'walkthrough.review.description':
+    'यहां आपने जो सेटअप किया है उसका सारांश दिया गया है। आप इन्हें बाद में कभी भी बदल सकते हैं।',
+  'walkthrough.review.skipped':
+    'आपने सेटअप छोड़ दिया। आप सेटिंग्स में कभी भी इन्हें कॉन्फ़िगर कर सकते हैं।',
+  'walkthrough.review.empty': 'अभी तक कोई कार्रवाई पूरी नहीं हुई।',
+  'walkthrough.done.title': 'आप पूरी तरह तैयार हैं!',
+  'walkthrough.done.description':
+    'आपका सहायक मदद के लिए तैयार है। कनेक्शन सेटअप हो गए हैं और स्वचालन कॉन्फ़िगर हो गए हैं।',
   'webhooks.activity.empty': 'खाली है',
   'webhooks.activity.title': 'हाल की एक्टिविटी',
   'webhooks.composioHistory.empty': 'खाली है',

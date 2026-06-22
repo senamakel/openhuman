@@ -6,8 +6,8 @@
  *   2. Subsequent launches: run version / reachability check and block until
  *      the result is `match`.
  *
- * Visual language matches the rest of the app shell: light stone palette,
- * primary-500 accent, soft-shadow card on a stone-100 backdrop.
+ * Visual language matches the onboarding hero design: centered card, soft
+ * shadow, font-display headings, sage/primary accents, card-based choices.
  */
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -71,7 +71,7 @@ type Phase =
   | 'result'; // check finished with a non-match result
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// Shared layout: Onboarding Hero Panel
 // ---------------------------------------------------------------------------
 
 interface PanelProps {
@@ -84,7 +84,7 @@ function Panel({ children }: PanelProps) {
       className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
       style={{ backgroundColor: 'var(--color-background)' }}>
       <AppBackground />
-      <div className="relative z-10 w-full max-w-xl rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft animate-fade-up">
+      <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white dark:bg-neutral-900 p-10 shadow-soft animate-fade-up">
         {children}
       </div>
     </div>
@@ -94,7 +94,7 @@ function Panel({ children }: PanelProps) {
 function BootCheckLanguageSelect() {
   const { t } = useT();
   return (
-    <div className="absolute right-5 top-5">
+    <div className="absolute right-6 top-6">
       <LanguageSelect id="boot-check-language" ariaLabel={t('settings.language')} />
     </div>
   );
@@ -119,6 +119,48 @@ type TestStatus =
 // users without a remote core have a clear path to install the app instead
 // of being trapped on the cloud-only form.
 const DESKTOP_DOWNLOAD_URL = 'https://github.com/tinyhumansai/openhuman/releases/latest';
+
+type Accent = 'sage' | 'primary';
+
+const ACCENT_CLASSES: Record<Accent, { selected: string; dot: string }> = {
+  sage: {
+    selected: '!border-sage-300 dark:!border-sage-600 bg-sage-50 dark:bg-sage-500/10 shadow-sm',
+    dot: 'bg-sage-400',
+  },
+  primary: {
+    selected:
+      '!border-primary-400 dark:!border-primary-600 bg-primary-50 dark:bg-primary-500/15 shadow-sm',
+    dot: 'bg-primary-400',
+  },
+};
+
+interface ModeCardProps {
+  selected: boolean;
+  accent: Accent;
+  onClick: () => void;
+  title: string;
+  description: string;
+  testId: string;
+}
+
+function ModeCard({ selected, accent, onClick, title, description, testId }: ModeCardProps) {
+  const accentClasses = ACCENT_CLASSES[accent];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      data-testid={testId}
+      className={`flex flex-col rounded-2xl border-2 p-5 text-left transition-colors focus:outline-none h-full ${
+        selected
+          ? accentClasses.selected
+          : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+      }`}>
+      <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{title}</h3>
+      <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">{description}</p>
+    </button>
+  );
+}
 
 function ModePicker({ onConfirm }: PickerProps) {
   const { t } = useT();
@@ -234,16 +276,21 @@ function ModePicker({ onConfirm }: PickerProps) {
   return (
     <Panel>
       <BootCheckLanguageSelect />
-      <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-        {isDesktop ? t('bootCheck.chooseCoreMode') : t('bootCheck.connectToCore')}
-      </h2>
-      <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
-        {isDesktop ? t('bootCheck.desktopDescription') : t('bootCheck.webDescription')}
-      </p>
+
+      {/* Hero header — centered, onboarding style */}
+      <div className="flex flex-col items-center text-center">
+        <img src="/logo.png" alt="OpenHuman" className="w-16 h-16 rounded-xl mb-5" />
+        <h1 className="text-2xl font-display text-stone-900 dark:text-neutral-100 mb-2 leading-tight">
+          {t('bootCheck.heroTitle')}
+        </h1>
+        <p className="text-stone-500 dark:text-neutral-400 text-sm leading-relaxed max-w-md">
+          {isDesktop ? t('bootCheck.heroDesktopDesc') : t('bootCheck.heroWebDesc')}
+        </p>
+      </div>
 
       {!isDesktop && (
         <div
-          className="mt-4 rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3 text-xs text-stone-600 dark:text-neutral-300"
+          className="mt-6 rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-4 text-xs text-stone-600 dark:text-neutral-300 text-center"
           data-testid="web-download-cta">
           {t('bootCheck.preferDesktop')}{' '}
           <a
@@ -257,129 +304,117 @@ function ModePicker({ onConfirm }: PickerProps) {
         </div>
       )}
 
-      <div className="mt-5 flex flex-col gap-3">
-        {/* Local option — desktop only; web builds cannot spawn a sidecar. */}
+      {/* Mode selection cards — two-column grid like onboarding */}
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-stretch">
+        {/* Local option — desktop only */}
         {isDesktop && (
-          <button
-            type="button"
+          <ModeCard
+            testId="boot-check-mode-local"
+            accent="sage"
+            selected={selected === 'local'}
             onClick={() => setSelected('local')}
-            aria-pressed={selected === 'local'}
-            className={`rounded-xl border-2 p-5 text-left transition-colors focus:outline-none ${
-              selected === 'local'
-                ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-stone-900 dark:text-neutral-100 shadow-sm'
-                : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
-            }`}>
-            <div className="font-medium">{t('bootCheck.localRecommended')}</div>
-            <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
-              {t('bootCheck.localDescription')}
-            </div>
-          </button>
+            title={t('bootCheck.localRecommended')}
+            description={t('bootCheck.localDescription')}
+          />
         )}
 
-        {/* Cloud option — always available; the only option on the web build. */}
-        {isDesktop && (
-          <button
-            type="button"
-            onClick={() => setSelected('cloud')}
-            aria-pressed={selected === 'cloud'}
-            className={`rounded-xl border-2 p-5 text-left transition-colors focus:outline-none ${
-              selected === 'cloud'
-                ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-stone-900 dark:text-neutral-100 shadow-sm'
-                : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
-            }`}>
-            <div className="font-medium">{t('bootCheck.cloudMode')}</div>
-            <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
-              {t('bootCheck.cloudDescription')}
-            </div>
-          </button>
-        )}
-
-        {selected === 'cloud' && (
-          <div className="mt-1 flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
-                {t('bootCheck.coreRpcUrl')}
-              </label>
-              <input
-                type="url"
-                placeholder={t('bootCheck.rpcUrlPlaceholder')}
-                value={cloudUrl}
-                onChange={e => {
-                  const next = e.target.value;
-                  setCloudUrl(next);
-                  setUrlError(null);
-                  setUrlWarning(httpPublicHostWarning(next, t));
-                  setTestStatus({ kind: 'idle' });
-                }}
-                className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
-              {urlError && <p className="text-xs text-red-600">{urlError}</p>}
-              {!urlError && urlWarning && (
-                <p className="text-xs text-amber-600 dark:text-amber-500">{urlWarning}</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
-                {t('bootCheck.authToken')} (
-                <code className="text-[10px]">OPENHUMAN_CORE_TOKEN</code>)
-              </label>
-              <input
-                type="text"
-                autoComplete="off"
-                spellCheck={false}
-                data-1p-ignore
-                data-lpignore="true"
-                placeholder={t('bootCheck.bearerTokenPlaceholder')}
-                value={cloudToken}
-                onChange={e => {
-                  setCloudToken(e.target.value);
-                  setTokenError(null);
-                  setTestStatus({ kind: 'idle' });
-                }}
-                className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
-              {tokenError && <p className="text-xs text-red-600">{tokenError}</p>}
-              <p className="text-[11px] text-stone-500 dark:text-neutral-400 leading-snug">
-                {t('bootCheck.storedLocally')} <code>Authorization: Bearer …</code>{' '}
-                {t('bootCheck.rpcAuthSuffix')}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={testStatus.kind === 'testing'}
-                className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
-                {testStatus.kind === 'testing'
-                  ? t('bootCheck.testing')
-                  : t('bootCheck.testConnection')}
-              </button>
-              {testStatus.kind === 'ok' && (
-                <span className="text-xs text-emerald-600" data-testid="test-status-ok">
-                  {t('bootCheck.connectedOk')}
-                </span>
-              )}
-              {testStatus.kind === 'auth' && (
-                <span className="text-xs text-red-600" data-testid="test-status-auth">
-                  {t('bootCheck.authFailed')}
-                </span>
-              )}
-              {testStatus.kind === 'unreachable' && (
-                <span className="text-xs text-red-600" data-testid="test-status-unreachable">
-                  {t('bootCheck.unreachablePrefix')} {testStatus.reason}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Cloud option — always available; the only option on the web build */}
+        <ModeCard
+          testId="boot-check-mode-cloud"
+          accent="primary"
+          selected={selected === 'cloud'}
+          onClick={() => setSelected('cloud')}
+          title={t('bootCheck.cloudMode')}
+          description={t('bootCheck.cloudDescription')}
+        />
       </div>
 
-      <div className="mt-6 flex justify-end">
+      {/* Cloud URL + Token inputs — shown when cloud is selected */}
+      {selected === 'cloud' && (
+        <div className="mt-5 flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+              {t('bootCheck.coreRpcUrl')}
+            </label>
+            <input
+              type="url"
+              placeholder={t('bootCheck.rpcUrlPlaceholder')}
+              value={cloudUrl}
+              onChange={e => {
+                const next = e.target.value;
+                setCloudUrl(next);
+                setUrlError(null);
+                setUrlWarning(httpPublicHostWarning(next, t));
+                setTestStatus({ kind: 'idle' });
+              }}
+              className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+            {urlError && <p className="text-xs text-red-600">{urlError}</p>}
+            {!urlError && urlWarning && (
+              <p className="text-xs text-amber-600 dark:text-amber-500">{urlWarning}</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+              {t('bootCheck.authToken')} (<code className="text-[10px]">OPENHUMAN_CORE_TOKEN</code>)
+            </label>
+            <input
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              data-1p-ignore
+              data-lpignore="true"
+              placeholder={t('bootCheck.bearerTokenPlaceholder')}
+              value={cloudToken}
+              onChange={e => {
+                setCloudToken(e.target.value);
+                setTokenError(null);
+                setTestStatus({ kind: 'idle' });
+              }}
+              className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+            {tokenError && <p className="text-xs text-red-600">{tokenError}</p>}
+            <p className="text-[11px] text-stone-500 dark:text-neutral-400 leading-snug">
+              {t('bootCheck.storedLocally')} <code>Authorization: Bearer *** '</code>
+              {t('bootCheck.rpcAuthSuffix')}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={testStatus.kind === 'testing'}
+              className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+              {testStatus.kind === 'testing'
+                ? t('bootCheck.testing')
+                : t('bootCheck.testConnection')}
+            </button>
+            {testStatus.kind === 'ok' && (
+              <span className="text-xs text-emerald-600" data-testid="test-status-ok">
+                {t('bootCheck.connectedOk')}
+              </span>
+            )}
+            {testStatus.kind === 'auth' && (
+              <span className="text-xs text-red-600" data-testid="test-status-auth">
+                {t('bootCheck.authFailed')}
+              </span>
+            )}
+            {testStatus.kind === 'unreachable' && (
+              <span className="text-xs text-red-600" data-testid="test-status-unreachable">
+                {t('bootCheck.unreachablePrefix')} {testStatus.reason}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Continue button — centered like onboarding */}
+      <div className="mt-8 flex justify-center">
         <button
           type="button"
           onClick={handleContinue}
-          className="rounded-lg bg-primary-500 px-5 py-2 text-sm font-medium text-white hover:bg-primary-600">
+          className="rounded-xl bg-primary-500 px-8 py-3 text-sm font-semibold text-white hover:bg-primary-600 shadow-sm transition-colors">
           {t('common.continue')}
         </button>
       </div>
@@ -435,23 +470,27 @@ function ResultScreen({
     const isPortConflict = result.portConflict === true;
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-          {isPortConflict ? t('bootCheck.portConflictTitle') : t('bootCheck.cannotReach')}
-        </h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
-          {isPortConflict
-            ? t('bootCheck.portConflictBody')
-            : result.reason || t('bootCheck.cannotReachDesc')}
-        </p>
-        {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
-        <div className="mt-5 flex gap-3 flex-wrap">
+        <div className="flex flex-col items-center text-center">
+          <h2 className="text-xl font-display text-stone-900 dark:text-neutral-100 mb-2">
+            {isPortConflict ? t('bootCheck.portConflictTitle') : t('bootCheck.cannotReach')}
+          </h2>
+          <p className="text-sm text-stone-500 dark:text-neutral-400 max-w-md">
+            {isPortConflict
+              ? t('bootCheck.portConflictBody')
+              : result.reason || t('bootCheck.cannotReachDesc')}
+          </p>
+        </div>
+        {actionError && (
+          <p className="mt-4 text-xs text-red-600 font-medium text-center">{actionError}</p>
+        )}
+        <div className="mt-6 flex justify-center gap-3 flex-wrap">
           {isPortConflict && (
             <button
               type="button"
               onClick={onAction}
               disabled={actionBusy}
               data-testid="fix-automatically-btn"
-              className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+              className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60">
               {actionBusy
                 ? t('bootCheck.portConflictFixing')
                 : t('bootCheck.portConflictFixButton')}
@@ -461,21 +500,21 @@ function ResultScreen({
             type="button"
             onClick={onRetry}
             disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+            className="rounded-xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-5 py-2.5 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
             {t('common.retry')}
           </button>
           <button
             type="button"
             onClick={onSwitchMode}
             disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+            className="rounded-xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-5 py-2.5 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
             {t('bootCheck.switchMode')}
           </button>
           <button
             type="button"
             onClick={onQuit}
             disabled={actionBusy}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
+            className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">
             {t('bootCheck.quit')}
           </button>
         </div>
@@ -486,26 +525,30 @@ function ResultScreen({
   if (result.kind === 'daemonDetected') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-          {t('bootCheck.legacyDetected')}
-        </h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
-          {t('bootCheck.legacyDescription')}
-        </p>
-        {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
-        <div className="mt-5 flex gap-3">
+        <div className="flex flex-col items-center text-center">
+          <h2 className="text-xl font-display text-stone-900 dark:text-neutral-100 mb-2">
+            {t('bootCheck.legacyDetected')}
+          </h2>
+          <p className="text-sm text-stone-500 dark:text-neutral-400 max-w-md">
+            {t('bootCheck.legacyDescription')}
+          </p>
+        </div>
+        {actionError && (
+          <p className="mt-4 text-xs text-red-600 font-medium text-center">{actionError}</p>
+        )}
+        <div className="mt-6 flex justify-center gap-3">
           <button
             type="button"
             onClick={onAction}
             disabled={actionBusy}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
+            className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">
             {actionBusy ? t('bootCheck.removing') : t('bootCheck.removeContinue')}
           </button>
           <button
             type="button"
             onClick={onSwitchMode}
             disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+            className="rounded-xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-5 py-2.5 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
             {t('bootCheck.switchMode')}
           </button>
         </div>
@@ -516,26 +559,30 @@ function ResultScreen({
   if (result.kind === 'outdatedLocal') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-          {t('bootCheck.localNeedsRestart')}
-        </h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
-          {t('bootCheck.localNeedsRestartDesc')}
-        </p>
-        {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
-        <div className="mt-5 flex gap-3">
+        <div className="flex flex-col items-center text-center">
+          <h2 className="text-xl font-display text-stone-900 dark:text-neutral-100 mb-2">
+            {t('bootCheck.localNeedsRestart')}
+          </h2>
+          <p className="text-sm text-stone-500 dark:text-neutral-400 max-w-md">
+            {t('bootCheck.localNeedsRestartDesc')}
+          </p>
+        </div>
+        {actionError && (
+          <p className="mt-4 text-xs text-red-600 font-medium text-center">{actionError}</p>
+        )}
+        <div className="mt-6 flex justify-center gap-3">
           <button
             type="button"
             onClick={onAction}
             disabled={actionBusy}
-            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+            className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60">
             {actionBusy ? t('bootCheck.restarting') : t('bootCheck.restartCore')}
           </button>
           <button
             type="button"
             onClick={onSwitchMode}
             disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+            className="rounded-xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-5 py-2.5 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
             {t('bootCheck.switchMode')}
           </button>
         </div>
@@ -546,26 +593,30 @@ function ResultScreen({
   if (result.kind === 'outdatedCloud') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-          {t('bootCheck.cloudNeedsUpdate')}
-        </h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
-          {t('bootCheck.cloudNeedsUpdateDesc')}
-        </p>
-        {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
-        <div className="mt-5 flex gap-3">
+        <div className="flex flex-col items-center text-center">
+          <h2 className="text-xl font-display text-stone-900 dark:text-neutral-100 mb-2">
+            {t('bootCheck.cloudNeedsUpdate')}
+          </h2>
+          <p className="text-sm text-stone-500 dark:text-neutral-400 max-w-md">
+            {t('bootCheck.cloudNeedsUpdateDesc')}
+          </p>
+        </div>
+        {actionError && (
+          <p className="mt-4 text-xs text-red-600 font-medium text-center">{actionError}</p>
+        )}
+        <div className="mt-6 flex justify-center gap-3">
           <button
             type="button"
             onClick={onAction}
             disabled={actionBusy}
-            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+            className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60">
             {actionBusy ? t('bootCheck.updating') : t('bootCheck.updateCloudCore')}
           </button>
           <button
             type="button"
             onClick={onSwitchMode}
             disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+            className="rounded-xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-5 py-2.5 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
             {t('bootCheck.switchMode')}
           </button>
         </div>
@@ -576,26 +627,30 @@ function ResultScreen({
   // noVersionMethod — treat like outdated, user picks which flavor of action
   return (
     <Panel>
-      <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-        {t('bootCheck.versionCheckFailed')}
-      </h2>
-      <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
-        {t('bootCheck.versionCheckFailedDesc')}
-      </p>
-      {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
-      <div className="mt-5 flex gap-3">
+      <div className="flex flex-col items-center text-center">
+        <h2 className="text-xl font-display text-stone-900 dark:text-neutral-100 mb-2">
+          {t('bootCheck.versionCheckFailed')}
+        </h2>
+        <p className="text-sm text-stone-500 dark:text-neutral-400 max-w-md">
+          {t('bootCheck.versionCheckFailedDesc')}
+        </p>
+      </div>
+      {actionError && (
+        <p className="mt-4 text-xs text-red-600 font-medium text-center">{actionError}</p>
+      )}
+      <div className="mt-6 flex justify-center gap-3">
         <button
           type="button"
           onClick={onAction}
           disabled={actionBusy}
-          className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+          className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60">
           {actionBusy ? t('bootCheck.working') : t('bootCheck.restartUpdateCore')}
         </button>
         <button
           type="button"
           onClick={onSwitchMode}
           disabled={actionBusy}
-          className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+          className="rounded-xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-5 py-2.5 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
           {t('bootCheck.switchMode')}
         </button>
       </div>
@@ -664,9 +719,6 @@ export default function BootCheckGate({ children }: BootCheckGateProps) {
   );
 
   // Start check automatically when mode is set and we're in checking phase.
-  // The async setState calls inside runCheck() happen after an await, so they
-  // do not synchronously cascade — suppress the linter warning here.
-
   useEffect(() => {
     if (coreMode.kind !== 'unset' && phase === 'checking') {
       void runCheck(coreMode);
@@ -679,13 +731,6 @@ export default function BootCheckGate({ children }: BootCheckGateProps) {
   const handlePickerConfirm = useCallback(
     (mode: CoreMode) => {
       log('[boot-check] gate — picker confirmed mode=%s', mode.kind);
-      // Persist URL + token for cloud mode so getCoreRpcUrl/Token resolve
-      // correctly on the boot-check probe (and every subsequent RPC) without
-      // waiting for redux-persist's async rehydrate to complete. Also write
-      // the synchronous `openhuman_core_mode` marker so a reload triggered
-      // mid-flight (e.g. `handleIdentityFlip` → `restartApp`) recovers the
-      // chosen mode from localStorage before redux-persist flushes. Clear
-      // caches so any prior local-mode resolution doesn't leak into cloud.
       if (mode.kind === 'cloud') {
         storeRpcUrl(mode.url);
         storeCoreToken(mode.token ?? '');
@@ -787,7 +832,6 @@ export default function BootCheckGate({ children }: BootCheckGateProps) {
     } finally {
       setActionBusy(false);
     }
-    // transport is stable shape
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result, actionBusy, coreMode, runCheck]);
 
@@ -795,7 +839,6 @@ export default function BootCheckGate({ children }: BootCheckGateProps) {
   // Render
   // ------------------------------------------------------------------
 
-  // Unset — show picker (even if Redux persisted something; phase reflects truth).
   if (phase === 'picker' || coreMode.kind === 'unset') {
     return (
       <>
@@ -804,17 +847,14 @@ export default function BootCheckGate({ children }: BootCheckGateProps) {
     );
   }
 
-  // Check in flight.
   if (phase === 'checking') {
     return <CheckingScreen />;
   }
 
-  // Match — pass through.
   if (result?.kind === 'match') {
     return <>{children}</>;
   }
 
-  // Non-match result.
   return (
     <>
       <ResultScreen

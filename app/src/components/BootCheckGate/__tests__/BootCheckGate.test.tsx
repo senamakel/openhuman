@@ -96,7 +96,8 @@ beforeEach(() => {
 describe('BootCheckGate — picker (unset mode)', () => {
   it('shows the mode picker when coreMode is unset', () => {
     renderGate();
-    expect(screen.getByText('Select a Runtime')).toBeInTheDocument();
+    // Hero header is now shown instead of the old "Select a Runtime" text
+    expect(screen.getByText('Welcome to OpenHuman')).toBeInTheDocument();
     expect(screen.getByText('Run Locally (Recommended)')).toBeInTheDocument();
     expect(screen.getByText('Run on the Cloud (Complex)')).toBeInTheDocument();
   });
@@ -570,7 +571,7 @@ describe('BootCheckGate — unreachable', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pick a Different Runtime' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Select a Runtime')).toBeInTheDocument();
+      expect(screen.getByText('Welcome to OpenHuman')).toBeInTheDocument();
     });
   });
 });
@@ -596,7 +597,7 @@ describe('BootCheckGate — pre-set mode (subsequent launches)', () => {
       expect(screen.getByText('Waking up your runtime…')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Select a Runtime')).not.toBeInTheDocument();
+    expect(screen.queryByText('Welcome to OpenHuman')).not.toBeInTheDocument();
   });
 });
 
@@ -727,7 +728,7 @@ describe('BootCheckGate — picker (web build, !isTauri)', () => {
   it('uses the web-friendly title and hides the Local option', () => {
     renderGate();
 
-    expect(screen.getByText('Connect to Your Runtime')).toBeInTheDocument();
+    expect(screen.getByText('Welcome to OpenHuman')).toBeInTheDocument();
     expect(screen.queryByText('Select a Runtime')).not.toBeInTheDocument();
     expect(screen.queryByText('Run Locally (Recommended)')).not.toBeInTheDocument();
     // The selectable Cloud tile is also gone — cloud is implicit and the

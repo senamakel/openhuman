@@ -79,6 +79,53 @@ function TriggerComplete() {
   );
 }
 
+function TriggerWalkthroughControls() {
+  const { advanceWalkthrough, draft, skipWalkthrough } = useOnboardingContext();
+  return (
+    <div>
+      <div data-testid="walkthrough-phase">{draft.walkthrough?.phase}</div>
+      <div data-testid="walkthrough-step-count">{draft.walkthrough?.steps.length ?? 0}</div>
+      <div data-testid="walkthrough-completed">{String(draft.walkthrough?.completed ?? false)}</div>
+      <div data-testid="walkthrough-skipped">{String(draft.walkthrough?.skipped ?? false)}</div>
+      <button onClick={() => advanceWalkthrough()} data-testid="advance-empty">
+        Advance empty
+      </button>
+      <button onClick={() => advanceWalkthrough('gmail')} data-testid="advance-gmail">
+        Gmail
+      </button>
+      <button onClick={() => advanceWalkthrough('slack')} data-testid="advance-slack">
+        Slack
+      </button>
+      <button onClick={() => advanceWalkthrough('whatsapp')} data-testid="advance-whatsapp">
+        WhatsApp
+      </button>
+      <button onClick={() => advanceWalkthrough('telegram')} data-testid="advance-telegram">
+        Telegram
+      </button>
+      <button onClick={() => advanceWalkthrough('discord')} data-testid="advance-discord">
+        Discord
+      </button>
+      <button onClick={() => advanceWalkthrough('briefings')} data-testid="advance-briefings">
+        Briefings
+      </button>
+      <button
+        onClick={() => advanceWalkthrough('notifications')}
+        data-testid="advance-notifications">
+        Notifications
+      </button>
+      <button onClick={() => advanceWalkthrough('scheduling')} data-testid="advance-scheduling">
+        Scheduling
+      </button>
+      <button onClick={() => advanceWalkthrough('summaries')} data-testid="advance-summaries">
+        Summaries
+      </button>
+      <button onClick={() => skipWalkthrough()} data-testid="skip-walkthrough">
+        Skip
+      </button>
+    </div>
+  );
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function buildStore() {
@@ -150,6 +197,61 @@ async function setupLayout(onboardingTasks: unknown = null) {
   );
 
   return { store, mockSetOnboardingCompletedFlag, mockSetOnboardingTasks };
+}
+
+async function setupWalkthroughLayout() {
+  await setupCoreStateMock();
+
+  const { default: OnboardingLayout } = await import('../OnboardingLayout');
+  const store = buildStore();
+
+  render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={['/onboarding']}>
+        <Routes>
+          <Route path="/onboarding" element={<OnboardingLayout />}>
+            <Route index element={<TriggerWalkthroughControls />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </Provider>
+  );
+}
+
+async function setupCoreStateMock(onboardingTasks: unknown = null) {
+  const { useCoreState } = await import('../../../providers/CoreStateProvider');
+
+  const mockSetOnboardingCompletedFlag = vi.fn().mockResolvedValue(undefined);
+  const mockSetOnboardingTasks = vi.fn().mockResolvedValue(undefined);
+
+  vi.mocked(useCoreState).mockReturnValue({
+    snapshot: {
+      auth: { isAuthenticated: true, userId: 'u1', user: null, profileId: null },
+      sessionToken: null,
+      currentUser: null,
+      onboardingCompleted: false,
+      chatOnboardingCompleted: false,
+      analyticsEnabled: false,
+      localState: { encryptionKey: null, onboardingTasks, keyringConsent: null },
+      keyringStatus: {
+        available: true,
+        failureReason: null,
+        activeMode: 'os_keyring',
+        backendName: 'os',
+      },
+      runtime: { screenIntelligence: null, localAi: null, autocomplete: null, service: null },
+    },
+    isBootstrapping: false,
+    isReady: true,
+    teams: [],
+    teamMembersById: {},
+    teamInvitesById: {},
+    setOnboardingCompletedFlag: mockSetOnboardingCompletedFlag,
+    setOnboardingTasks: mockSetOnboardingTasks,
+    refreshSnapshot: vi.fn(),
+  } as never);
+
+  return { mockSetOnboardingCompletedFlag, mockSetOnboardingTasks };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -289,5 +391,92 @@ describe('OnboardingLayout — Joyride walkthrough integration (#1123)', () => {
     expect(mockSetOnboardingTasks).toHaveBeenCalledWith(
       expect.objectContaining({ enabledTools: existing })
     );
+  });
+});
+
+describe('OnboardingLayout — walkthrough state machine', () => {
+  beforeEach(() => {
+    mockSetWalkthroughPending.mockClear();
+    localStorage.clear();
+  });
+
+  it('keeps the current phase when not all action cards are complete', async () => {
+    await setupWalkthroughLayout();
+
+    expect(screen.getByTestId('walkthrough-phase')).toHaveTextContent('welcome');
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('advance-gmail'));
+    });
+
+    expect(screen.getByTestId('walkthrough-phase')).toHaveTextContent('welcome');
+    expect(screen.getByTestId('walkthrough-step-count')).toHaveTextContent('5');
+  });
+
+  it('advances through connect, automate, review, and done phases', async () => {
+    await setupWalkthroughLayout();
+
+    for (const testId of [
+      'advance-gmail',
+      'advance-slack',
+      'advance-whatsapp',
+      'advance-telegram',
+      'advance-discord',
+    ]) {
+      await act(async () => {
+        fireEvent.click(screen.getByTestId(testId));
+      });
+    }
+
+    expect(screen.getByTestId('walkthrough-phase')).toHaveTextContent('connect');
+    expect(screen.getByTestId('walkthrough-step-count')).toHaveTextContent('5');
+
+    for (const testId of [
+      'advance-gmail',
+      'advance-slack',
+      'advance-whatsapp',
+      'advance-telegram',
+      'advance-discord',
+    ]) {
+      await act(async () => {
+        fireEvent.click(screen.getByTestId(testId));
+      });
+    }
+
+    expect(screen.getByTestId('walkthrough-phase')).toHaveTextContent('automate');
+    expect(screen.getByTestId('walkthrough-step-count')).toHaveTextContent('4');
+
+    for (const testId of [
+      'advance-briefings',
+      'advance-notifications',
+      'advance-scheduling',
+      'advance-summaries',
+    ]) {
+      await act(async () => {
+        fireEvent.click(screen.getByTestId(testId));
+      });
+    }
+
+    expect(screen.getByTestId('walkthrough-phase')).toHaveTextContent('review');
+    expect(screen.getByTestId('walkthrough-step-count')).toHaveTextContent('0');
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('advance-empty'));
+    });
+
+    expect(screen.getByTestId('walkthrough-phase')).toHaveTextContent('done');
+    expect(screen.getByTestId('walkthrough-completed')).toHaveTextContent('true');
+  });
+
+  it('skips directly to review with skipped metadata', async () => {
+    await setupWalkthroughLayout();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('skip-walkthrough'));
+    });
+
+    expect(screen.getByTestId('walkthrough-phase')).toHaveTextContent('review');
+    expect(screen.getByTestId('walkthrough-step-count')).toHaveTextContent('0');
+    expect(screen.getByTestId('walkthrough-skipped')).toHaveTextContent('true');
   });
 });

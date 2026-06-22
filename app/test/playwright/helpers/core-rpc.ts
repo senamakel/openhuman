@@ -74,6 +74,20 @@ async function applyBrowserCoreModeInPage(page: Page): Promise<void> {
   );
 }
 
+async function isRuntimePickerVisible(page: Page): Promise<boolean> {
+  const modeCardVisible = await page
+    .getByTestId('boot-check-mode-cloud')
+    .isVisible()
+    .catch(() => false);
+  if (modeCardVisible) return true;
+
+  return page
+    .getByText(/Select a Runtime|Connect to Your Runtime/)
+    .count()
+    .then(count => count > 0)
+    .catch(() => false);
+}
+
 async function completeAuthCallback(page: Page, token: string): Promise<void> {
   await page.goto(`/#/callback/auth?token=${encodeURIComponent(token)}&key=auth`);
   try {
@@ -93,11 +107,7 @@ async function completeAuthCallback(page: Page, token: string): Promise<void> {
       .toMatch(/^#\/chat/);
     return;
   } catch {
-    const runtimePickerVisible = await page
-      .getByText(/Select a Runtime|Connect to Your Runtime/)
-      .count()
-      .then(count => count > 0)
-      .catch(() => false);
+    const runtimePickerVisible = await isRuntimePickerVisible(page);
     if (!runtimePickerVisible) {
       throw new Error(
         'auth callback did not reach the post-auth landing surface (/home → /chat) and no runtime picker fallback was available'
@@ -165,6 +175,12 @@ export async function waitForAppReady(page: Page): Promise<void> {
   await expect
     .poll(async () =>
       page.evaluate(() => {
+        const modeCard = document.querySelector('[data-testid="boot-check-mode-cloud"]');
+        if (modeCard) {
+          const rect = (modeCard as HTMLElement).getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) return true;
+        }
+
         const candidates = Array.from(document.querySelectorAll('h2, button, p, div, span'));
         return candidates.some(node => {
           const text = node.textContent?.trim() ?? '';

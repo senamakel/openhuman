@@ -86,7 +86,9 @@ test.describe('Logout -> re-login onboarding overlay', () => {
     await signInToOnboarding(page, 'pw-logout-relogin-user');
 
     await expect(page.getByTestId('onboarding-welcome-step')).toBeVisible();
-    await expect(page.getByText("Hi. I'm OpenHuman.")).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Your AI hub for work and life' })
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Get Started' })).toBeVisible();
     await expect
       .poll(async () => page.evaluate(() => window.location.hash))

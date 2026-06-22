@@ -143,18 +143,7 @@ impl Tool for SpawnAsyncSubagentTool {
             .filter(|s| !s.is_empty())
             .unwrap_or("Background subagent")
             .to_string();
-        let task_key_source = args
-            .get("task_key")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .or_else(|| {
-                args.get("task_title")
-                    .and_then(|v| v.as_str())
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-            })
-            .unwrap_or(&prompt);
+        let task_key_source = durable_task_key_source(&args, &prompt);
         let task_key = subagent_sessions::normalize_task_key(task_key_source);
         let force_fresh = args.get("fresh").and_then(|v| v.as_bool()).unwrap_or(false);
 
@@ -629,6 +618,14 @@ fn add_background_contract(prompt: &str) -> String {
     )
 }
 
+fn durable_task_key_source<'a>(args: &'a serde_json::Value, prompt: &'a str) -> &'a str {
+    args.get("task_key")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(prompt)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -659,6 +656,31 @@ mod tests {
         assert!(wrapped.contains("[Background Contract]"));
         assert!(wrapped.contains("Do not call ask_user_clarification"));
         assert!(wrapped.contains("[Task]\narchive this fact"));
+    }
+
+    #[test]
+    fn durable_task_key_defaults_to_prompt_not_display_title() {
+        let args = json!({
+            "task_title": "Research",
+            "prompt": "Research the async subagent cache behavior for example.com"
+        });
+        assert_eq!(
+            durable_task_key_source(&args, args["prompt"].as_str().unwrap()),
+            "Research the async subagent cache behavior for example.com"
+        );
+    }
+
+    #[test]
+    fn durable_task_key_uses_explicit_task_key_when_present() {
+        let args = json!({
+            "task_key": "audit:example.com",
+            "task_title": "Research",
+            "prompt": "Research the async subagent cache behavior for example.com"
+        });
+        assert_eq!(
+            durable_task_key_source(&args, args["prompt"].as_str().unwrap()),
+            "audit:example.com"
+        );
     }
 
     #[tokio::test]

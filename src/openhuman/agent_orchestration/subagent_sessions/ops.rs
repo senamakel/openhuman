@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 
 use crate::openhuman::agent::harness::subagent_runner::SubagentRunStatus;
 use crate::openhuman::inference::provider::ChatMessage;
@@ -12,7 +13,7 @@ pub fn normalize_task_key(input: &str) -> String {
     let mut out = String::new();
     let mut last_dash = false;
     for ch in input.trim().to_lowercase().chars() {
-        if ch.is_ascii_alphanumeric() {
+        if ch.is_alphanumeric() {
             out.push(ch);
             last_dash = false;
         } else if !last_dash && !out.is_empty() {
@@ -66,6 +67,9 @@ pub fn upsert_running(
     upsert: SubagentSessionUpsert,
     reuse: Option<&DurableSubagentSession>,
 ) -> Result<DurableSubagentSession, String> {
+    let _guard = store_write_lock()
+        .lock()
+        .map_err(|_| "subagent session store lock poisoned".to_string())?;
     let mut sessions = store.load()?;
     let now = chrono::Utc::now().to_rfc3339();
     let session_id = reuse
@@ -127,14 +131,21 @@ pub fn mark_finished(
     run_status: &SubagentRunStatus,
     history: Vec<ChatMessage>,
 ) -> Result<(), String> {
-    update_session(store, subagent_session_id, |session, now| {
+    let updated = update_session(store, subagent_session_id, |session, now| {
         session.current_task_id = Some(task_id.to_string());
         session.status = DurableSubagentStatus::from_run_status(run_status);
         session.latest_history = Some(history);
         session.latest_error = None;
         session.updated_at = now.clone();
         session.last_used_at = now;
-    })
+    })?;
+    if updated {
+        Ok(())
+    } else {
+        Err(format!(
+            "sub-agent session not found: {subagent_session_id}"
+        ))
+    }
 }
 
 pub fn mark_failed(
@@ -143,25 +154,29 @@ pub fn mark_failed(
     task_id: &str,
     error: String,
 ) -> Result<(), String> {
-    update_session(store, subagent_session_id, |session, now| {
+    let updated = update_session(store, subagent_session_id, |session, now| {
         session.current_task_id = Some(task_id.to_string());
         session.status = DurableSubagentStatus::Failed;
         session.latest_error = Some(error);
         session.updated_at = now.clone();
         session.last_used_at = now;
-    })
+    })?;
+    if updated {
+        Ok(())
+    } else {
+        Err(format!(
+            "sub-agent session not found: {subagent_session_id}"
+        ))
+    }
 }
 
 pub fn close(store: &SubagentSessionStore, subagent_session_id: &str) -> Result<bool, String> {
-    let mut changed = false;
     update_session(store, subagent_session_id, |session, now| {
         session.status = DurableSubagentStatus::Closed;
         session.reusable = false;
         session.updated_at = now.clone();
         session.last_used_at = now;
-        changed = true;
-    })?;
-    Ok(changed)
+    })
 }
 
 pub fn list_for_parent(
@@ -174,7 +189,9 @@ pub fn list_for_parent(
         .into_iter()
         .filter(|session| {
             session.parent_session == parent_session
-                && session.parent_thread_id.as_deref() == parent_thread_id
+                && parent_thread_id
+                    .map(|thread_id| session.parent_thread_id.as_deref() == Some(thread_id))
+                    .unwrap_or(true)
         })
         .collect();
     sessions.sort_by(|a, b| b.last_used_at.cmp(&a.last_used_at));
@@ -196,10 +213,13 @@ fn update_session<F>(
     store: &SubagentSessionStore,
     subagent_session_id: &str,
     update: F,
-) -> Result<(), String>
+) -> Result<bool, String>
 where
     F: FnOnce(&mut DurableSubagentSession, String),
 {
+    let _guard = store_write_lock()
+        .lock()
+        .map_err(|_| "subagent session store lock poisoned".to_string())?;
     let mut sessions = store.load()?;
     let now = chrono::Utc::now().to_rfc3339();
     if let Some(session) = sessions
@@ -208,8 +228,14 @@ where
     {
         update(session, now);
         store.save(&sessions)?;
+        return Ok(true);
     }
-    Ok(())
+    Ok(false)
+}
+
+fn store_write_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
 }
 
 #[cfg(test)]
@@ -237,6 +263,15 @@ mod tests {
             "review-github-pr-123"
         );
         assert_eq!(normalize_task_key("   "), "untitled-task");
+    }
+
+    #[test]
+    fn normalize_task_key_preserves_non_latin_words() {
+        assert_ne!(normalize_task_key("研究 caching"), "untitled-task");
+        assert_ne!(
+            normalize_task_key("研究 caching"),
+            normalize_task_key("調査 caching")
+        );
     }
 
     #[test]
@@ -289,5 +324,67 @@ mod tests {
 
         assert!(close(&store, &session.subagent_session_id).unwrap());
         assert!(find_reusable(&store, &selector("task")).unwrap().is_none());
+    }
+
+    #[test]
+    fn list_for_parent_without_thread_id_does_not_filter_by_thread() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = SubagentSessionStore::new(dir.path().to_path_buf());
+        let first = upsert_running(
+            &store,
+            SubagentSessionUpsert {
+                selector: selector("first"),
+                display_name: None,
+                task_title: "First".into(),
+                worker_thread_id: None,
+                task_id: "sub-1".into(),
+            },
+            None,
+        )
+        .unwrap();
+
+        let mut second_selector = selector("second");
+        second_selector.parent_thread_id = Some("thread-b".into());
+        let second = upsert_running(
+            &store,
+            SubagentSessionUpsert {
+                selector: second_selector,
+                display_name: None,
+                task_title: "Second".into(),
+                worker_thread_id: None,
+                task_id: "sub-2".into(),
+            },
+            None,
+        )
+        .unwrap();
+
+        let all = list_for_parent(&store, "parent-a", None).unwrap();
+        assert_eq!(all.len(), 2);
+        assert!(all
+            .iter()
+            .any(|session| session.subagent_session_id == first.subagent_session_id));
+        assert!(all
+            .iter()
+            .any(|session| session.subagent_session_id == second.subagent_session_id));
+
+        let thread_a = list_for_parent(&store, "parent-a", Some("thread-a")).unwrap();
+        assert_eq!(thread_a.len(), 1);
+        assert_eq!(thread_a[0].subagent_session_id, first.subagent_session_id);
+    }
+
+    #[test]
+    fn missing_session_updates_return_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = SubagentSessionStore::new(dir.path().to_path_buf());
+        assert!(mark_finished(
+            &store,
+            "missing",
+            "sub-1",
+            &SubagentRunStatus::Completed,
+            vec![]
+        )
+        .is_err());
+        assert!(mark_failed(&store, "missing", "sub-1", "boom".into()).is_err());
+        assert!(!close(&store, "missing").unwrap());
     }
 }

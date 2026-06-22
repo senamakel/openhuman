@@ -39,5 +39,11 @@ pub(crate) fn save_to_path(path: &Path, sessions: &[DurableSubagentSession]) -> 
     }
     let raw = serde_json::to_string_pretty(sessions)
         .map_err(|err| format!("failed to encode subagent session store: {err}"))?;
-    fs::write(path, raw).map_err(|err| format!("failed to write subagent session store: {err}"))
+    let tmp_path = path.with_extension(format!("json.tmp-{}", uuid::Uuid::new_v4().simple()));
+    fs::write(&tmp_path, raw)
+        .map_err(|err| format!("failed to write temporary subagent session store: {err}"))?;
+    fs::rename(&tmp_path, path).map_err(|err| {
+        let _ = fs::remove_file(&tmp_path);
+        format!("failed to commit subagent session store: {err}")
+    })
 }

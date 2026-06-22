@@ -414,12 +414,16 @@ impl Tool for SpawnSubagentTool {
 
         if !blocking {
             let mut async_args = args;
-            if async_args.get("task_title").is_none() {
-                let title =
-                    crate::openhuman::agent_orchestration::subagent_sessions::task_title_from_prompt(
-                        &prompt,
-                    );
-                if let Some(obj) = async_args.as_object_mut() {
+            if let Some(obj) = async_args.as_object_mut() {
+                obj.insert(
+                    "agent_id".to_string(),
+                    serde_json::Value::String(definition.id.clone()),
+                );
+                if obj.get("task_title").is_none() {
+                    let title =
+                        crate::openhuman::agent_orchestration::subagent_sessions::task_title_from_prompt(
+                            &prompt,
+                        );
                     obj.insert("task_title".to_string(), serde_json::Value::String(title));
                 }
             }
@@ -1058,6 +1062,32 @@ mod tests {
         assert!(result
             .output()
             .contains("unknown agent_id 'totally_made_up'"));
+    }
+
+    #[tokio::test]
+    async fn legacy_archetype_alias_is_forwarded_to_async_default_path() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
+        let tool = SpawnSubagentTool;
+        let result = tool
+            .execute(json!({
+                "archetype": "researcher",
+                "prompt": "research the reusable async default path",
+            }))
+            .await
+            .unwrap();
+        assert!(result.is_error);
+        assert!(
+            result
+                .output()
+                .contains("spawn_async_subagent called outside of an agent turn"),
+            "{}",
+            result.output()
+        );
+        assert!(
+            !result.output().contains("agent_id is required"),
+            "{}",
+            result.output()
+        );
     }
 
     #[tokio::test]

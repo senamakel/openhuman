@@ -1,7 +1,9 @@
 //! Tool: `list_subagents` - inspect reusable sub-agent sessions for this parent.
 
 use crate::openhuman::agent::harness::fork_context::current_parent;
-use crate::openhuman::agent_orchestration::subagent_sessions::{self, SubagentSessionStore};
+use crate::openhuman::agent_orchestration::subagent_sessions::{
+    self, DurableSubagentSessionSummary, SubagentSessionStore,
+};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -60,15 +62,19 @@ impl Tool for ListSubagentsTool {
             parent_thread_id.as_deref(),
         ) {
             Ok(sessions) => {
+                let summaries: Vec<DurableSubagentSessionSummary> = sessions
+                    .iter()
+                    .map(DurableSubagentSessionSummary::from)
+                    .collect();
                 log::debug!(
                     "[subagent_reuse] list parent_thread_id={} parent_session={} count={}",
                     parent_thread_id.as_deref().unwrap_or("none"),
                     parent.session_id,
-                    sessions.len()
+                    summaries.len()
                 );
                 Ok(ToolResult::success(format!(
                     "[subagent_sessions]\n{}\n[/subagent_sessions]",
-                    serde_json::to_string_pretty(&sessions).unwrap_or_else(|_| "[]".to_string())
+                    serde_json::to_string_pretty(&summaries).unwrap_or_else(|_| "[]".to_string())
                 )))
             }
             Err(err) => Ok(ToolResult::error(format!(
@@ -90,5 +96,31 @@ mod tests {
             .and_then(|v| v.as_array())
             .expect("required")
             .is_empty());
+    }
+
+    #[test]
+    fn summary_projection_does_not_include_history() {
+        let raw = serde_json::to_string(&DurableSubagentSessionSummary {
+            subagent_session_id: "subsess-1".into(),
+            parent_thread_id: Some("thread-1".into()),
+            worker_thread_id: Some("worker-1".into()),
+            agent_id: "researcher".into(),
+            display_name: Some("Researcher".into()),
+            toolkit: None,
+            model: Some("agentic-v1".into()),
+            sandbox_mode: "workspace".into(),
+            action_root: None,
+            task_key: "task".into(),
+            task_title: "Task".into(),
+            current_task_id: Some("sub-1".into()),
+            status: subagent_sessions::DurableSubagentStatus::Idle,
+            reusable: true,
+            latest_error: None,
+            created_at: "now".into(),
+            updated_at: "now".into(),
+            last_used_at: "now".into(),
+        })
+        .unwrap();
+        assert!(!raw.contains("latestHistory"));
     }
 }

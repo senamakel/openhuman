@@ -4774,45 +4774,39 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': '重置时间',
   'upsell.usageLimit.upgradePlan': '升级方案',
   'upsell.usageLimit.weeklyInference': '{amount}',
-  'walkthrough.steps.startChat.title': 'Empieza en el chat',
+  'walkthrough.steps.startChat.title': '从聊天开始',
   'walkthrough.steps.startChat.content':
-    'El chat es tu punto de partida. Las ventanas nuevas se abren con el mismo saludo y las acciones rapidas que viste despues de la configuracion.',
-  'walkthrough.steps.sayHello.title': 'Saluda',
-  'walkthrough.steps.sayHello.content':
-    'Toca aqui para iniciar una conversacion con tu asistente de IA cuando quieras.',
-  'walkthrough.steps.meetAi.title': 'Conoce tu IA',
+    '聊天是你的起点。新窗口会显示设置后看到的同一欢迎语和快捷操作。',
+  'walkthrough.steps.sayHello.title': '打个招呼',
+  'walkthrough.steps.sayHello.content': '随时点击这里，开始和你的 AI 助手对话。',
+  'walkthrough.steps.meetAi.title': '认识你的 AI',
   'walkthrough.steps.meetAi.content':
-    'Aqui ocurren las conversaciones. Haz preguntas, pide resumenes o explora ideas. Todo queda disponible para buscar.',
-  'walkthrough.steps.connectWorld.title': 'Conecta tu mundo',
-  'walkthrough.steps.connectWorld.content':
-    'Gmail, Slack, WhatsApp y mas: cada conexion le da mas capacidades a tu asistente.',
-  'walkthrough.steps.messagingApps.title': 'Chatea donde ya estas',
+    '对话都在这里进行。你可以提问、获取摘要或整理想法，所有内容都可以搜索。',
+  'walkthrough.steps.connectWorld.title': '连接你的世界',
+  'walkthrough.steps.connectWorld.content': 'Gmail、Slack、WhatsApp 等连接会为助手带来更多能力。',
+  'walkthrough.steps.messagingApps.title': '在常用地方聊天',
   'walkthrough.steps.messagingApps.content':
-    'WhatsApp, Telegram, Slack, Discord: conecta tus apps de mensajes para que tu asistente pueda encontrarte en cualquier lugar.',
-  'walkthrough.steps.settings.title': 'Hazlo tuyo',
+    '连接 WhatsApp、Telegram、Slack、Discord，让助手能在任何地方联系你。',
+  'walkthrough.steps.settings.title': '按你的方式设置',
   'walkthrough.steps.settings.content':
-    'Preferencias, privacidad y notificaciones estan aqui. Puedes reiniciar este recorrido desde esta pagina cuando quieras.',
-  'walkthrough.steps.chatTab.title': 'Vuelve al chat',
-  'walkthrough.steps.chatTab.content':
-    'Usa la pestana Chat cuando quieras volver a tus conversaciones.',
-  'walkthrough.steps.humanTab.title': 'Conoce tu perfil humano',
-  'walkthrough.steps.humanTab.content':
-    'Human reune tu contexto personal, identidad y perfil visible para el asistente.',
-  'walkthrough.steps.brainTab.title': 'Abre tu Brain',
+    '偏好、隐私和通知都在这里。你可以随时从此页面重新开始本引导。',
+  'walkthrough.steps.chatTab.title': '返回聊天',
+  'walkthrough.steps.chatTab.content': '想回到对话时，使用 Chat 标签。',
+  'walkthrough.steps.humanTab.title': '了解你的 Human 资料',
+  'walkthrough.steps.humanTab.content': 'Human 汇集你的个人上下文、身份以及助手可见的资料。',
+  'walkthrough.steps.brainTab.title': '打开 Brain',
   'walkthrough.steps.brainTab.content':
-    'Brain es el grafo de memoria: el lugar para revisar que sabe OpenHuman y como se conectan las ideas.',
-  'walkthrough.steps.agentWorldTab.title': 'Explora Agent World',
-  'walkthrough.steps.agentWorldTab.content':
-    'Agent World es donde viven agentes reutilizables y automatizaciones compartidas.',
-  'walkthrough.steps.connectionsTab.title': 'Gestiona conexiones',
+    'Brain 是记忆图谱，用来查看 OpenHuman 知道什么，以及想法如何相互连接。',
+  'walkthrough.steps.agentWorldTab.title': '探索 Agent World',
+  'walkthrough.steps.agentWorldTab.content': 'Agent World 是可复用代理和共享自动化所在的位置。',
+  'walkthrough.steps.connectionsTab.title': '管理连接',
   'walkthrough.steps.connectionsTab.content':
-    'Connections siempre esta disponible en la navegacion principal para agregar o ajustar servicios.',
-  'walkthrough.steps.feedbackTab.title': 'Enviar comentarios',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback te da un lugar directo para reportar problemas o pedir mejoras.',
-  'walkthrough.steps.allSet.title': 'Todo listo!',
+    '想添加或调整服务时，Connections 始终可从主导航进入。',
+  'walkthrough.steps.feedbackTab.title': '发送反馈',
+  'walkthrough.steps.feedbackTab.content': 'Feedback 提供直接入口，用来报告问题或请求改进。',
+  'walkthrough.steps.allSet.title': '全部就绪！',
   'walkthrough.steps.allSet.content':
-    'Tu asistente te dejo una nota de bienvenida: este es tu espacio para chatear, preguntar o explorar ideas. Diviertete!',
+    '你的助手留下了一条欢迎消息：这里就是你聊天、提问和整理想法的空间。祝你使用愉快！',
   'walkthrough.tooltip.letsGo': '出发吧！',
   'walkthrough.tooltip.next': '下一步 →',
   'walkthrough.tooltip.skip': '跳过引导',

@@ -4917,45 +4917,42 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'يُعاد التعيين {time}.',
   'upsell.usageLimit.upgradePlan': 'ترقية الخطة',
   'upsell.usageLimit.weeklyInference': '{amount}',
-  'walkthrough.steps.startChat.title': 'Empieza en el chat',
+  'walkthrough.steps.startChat.title': 'ابدأ من الدردشة',
   'walkthrough.steps.startChat.content':
-    'El chat es tu punto de partida. Las ventanas nuevas se abren con el mismo saludo y las acciones rapidas que viste despues de la configuracion.',
-  'walkthrough.steps.sayHello.title': 'Saluda',
-  'walkthrough.steps.sayHello.content':
-    'Toca aqui para iniciar una conversacion con tu asistente de IA cuando quieras.',
-  'walkthrough.steps.meetAi.title': 'Conoce tu IA',
+    'الدردشة هي نقطة البداية. تفتح النوافذ الجديدة بالترحيب نفسه والإجراءات السريعة التي رأيتها بعد الإعداد.',
+  'walkthrough.steps.sayHello.title': 'قل مرحباً',
+  'walkthrough.steps.sayHello.content': 'اضغط هنا لبدء محادثة مع مساعد الذكاء الاصطناعي في أي وقت.',
+  'walkthrough.steps.meetAi.title': 'تعرّف إلى الذكاء الاصطناعي',
   'walkthrough.steps.meetAi.content':
-    'Aqui ocurren las conversaciones. Haz preguntas, pide resumenes o explora ideas. Todo queda disponible para buscar.',
-  'walkthrough.steps.connectWorld.title': 'Conecta tu mundo',
+    'هنا تجري المحادثات. اطرح الأسئلة، واحصل على الملخصات، أو طوّر الأفكار. يبقى كل شيء قابلاً للبحث.',
+  'walkthrough.steps.connectWorld.title': 'صِل عالمك',
   'walkthrough.steps.connectWorld.content':
-    'Gmail, Slack, WhatsApp y mas: cada conexion le da mas capacidades a tu asistente.',
-  'walkthrough.steps.messagingApps.title': 'Chatea donde ya estas',
+    'Gmail وSlack وWhatsApp والمزيد: كل اتصال يمنح مساعدك قدرات جديدة.',
+  'walkthrough.steps.messagingApps.title': 'تحدث حيث أنت بالفعل',
   'walkthrough.steps.messagingApps.content':
-    'WhatsApp, Telegram, Slack, Discord: conecta tus apps de mensajes para que tu asistente pueda encontrarte en cualquier lugar.',
-  'walkthrough.steps.settings.title': 'Hazlo tuyo',
+    'اربط WhatsApp وTelegram وSlack وDiscord حتى يتمكن مساعدك من الوصول إليك في أي مكان.',
+  'walkthrough.steps.settings.title': 'اجعله مناسباً لك',
   'walkthrough.steps.settings.content':
-    'Preferencias, privacidad y notificaciones estan aqui. Puedes reiniciar este recorrido desde esta pagina cuando quieras.',
-  'walkthrough.steps.chatTab.title': 'Vuelve al chat',
-  'walkthrough.steps.chatTab.content':
-    'Usa la pestana Chat cuando quieras volver a tus conversaciones.',
-  'walkthrough.steps.humanTab.title': 'Conoce tu perfil humano',
-  'walkthrough.steps.humanTab.content':
-    'Human reune tu contexto personal, identidad y perfil visible para el asistente.',
-  'walkthrough.steps.brainTab.title': 'Abre tu Brain',
+    'التفضيلات والخصوصية والإشعارات كلها هنا. يمكنك إعادة تشغيل هذه الجولة من هذه الصفحة في أي وقت.',
+  'walkthrough.steps.chatTab.title': 'ارجع إلى الدردشة',
+  'walkthrough.steps.chatTab.content': 'استخدم تبويب Chat عندما تريد الرجوع إلى محادثاتك.',
+  'walkthrough.steps.humanTab.title': 'تعرّف إلى ملف Human',
+  'walkthrough.steps.humanTab.content': 'يجمع Human سياقك الشخصي وهويتك والملف الذي يراه المساعد.',
+  'walkthrough.steps.brainTab.title': 'افتح Brain',
   'walkthrough.steps.brainTab.content':
-    'Brain es el grafo de memoria: el lugar para revisar que sabe OpenHuman y como se conectan las ideas.',
-  'walkthrough.steps.agentWorldTab.title': 'Explora Agent World',
+    'Brain هو مخطط الذاكرة: المكان الذي تفحص فيه ما يعرفه OpenHuman وكيف ترتبط الأفكار.',
+  'walkthrough.steps.agentWorldTab.title': 'استكشف Agent World',
   'walkthrough.steps.agentWorldTab.content':
-    'Agent World es donde viven agentes reutilizables y automatizaciones compartidas.',
-  'walkthrough.steps.connectionsTab.title': 'Gestiona conexiones',
+    'Agent World هو مكان الوكلاء القابلين لإعادة الاستخدام والأتمتة المشتركة.',
+  'walkthrough.steps.connectionsTab.title': 'إدارة الاتصالات',
   'walkthrough.steps.connectionsTab.content':
-    'Connections siempre esta disponible en la navegacion principal para agregar o ajustar servicios.',
-  'walkthrough.steps.feedbackTab.title': 'Enviar comentarios',
+    'Connections متاح دائماً في التنقل الرئيسي عندما تريد إضافة الخدمات أو تعديلها.',
+  'walkthrough.steps.feedbackTab.title': 'إرسال ملاحظات',
   'walkthrough.steps.feedbackTab.content':
-    'Feedback te da un lugar directo para reportar problemas o pedir mejoras.',
-  'walkthrough.steps.allSet.title': 'Todo listo!',
+    'يوفر Feedback مكاناً مباشراً للإبلاغ عن المشاكل أو طلب التحسينات.',
+  'walkthrough.steps.allSet.title': 'كل شيء جاهز!',
   'walkthrough.steps.allSet.content':
-    'Tu asistente te dejo una nota de bienvenida: este es tu espacio para chatear, preguntar o explorar ideas. Diviertete!',
+    'ترك لك المساعد رسالة ترحيب: هذه مساحتك للدردشة وطرح الأسئلة وتطوير الأفكار. استمتع!',
   'walkthrough.tooltip.letsGo': 'هيا بنا!',
   'walkthrough.tooltip.next': 'التالي →',
   'walkthrough.tooltip.skip': 'تخطّي الجولة',

@@ -5017,45 +5017,44 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'यह {time} रीसेट होती है।',
   'upsell.usageLimit.upgradePlan': 'प्लान अपग्रेड करें',
   'upsell.usageLimit.weeklyInference': '{amount}',
-  'walkthrough.steps.startChat.title': 'Empieza en el chat',
+  'walkthrough.steps.startChat.title': 'चैट से शुरू करें',
   'walkthrough.steps.startChat.content':
-    'El chat es tu punto de partida. Las ventanas nuevas se abren con el mismo saludo y las acciones rapidas que viste despues de la configuracion.',
-  'walkthrough.steps.sayHello.title': 'Saluda',
+    'चैट आपका शुरुआती स्थान है। नई विंडो उसी स्वागत संदेश और तेज़ कार्रवाइयों के साथ खुलती हैं जो आपने सेटअप के बाद देखीं।',
+  'walkthrough.steps.sayHello.title': 'नमस्ते कहें',
   'walkthrough.steps.sayHello.content':
-    'Toca aqui para iniciar una conversacion con tu asistente de IA cuando quieras.',
-  'walkthrough.steps.meetAi.title': 'Conoce tu IA',
+    'कभी भी अपने AI सहायक से बातचीत शुरू करने के लिए यहां टैप करें।',
+  'walkthrough.steps.meetAi.title': 'अपने AI से मिलें',
   'walkthrough.steps.meetAi.content':
-    'Aqui ocurren las conversaciones. Haz preguntas, pide resumenes o explora ideas. Todo queda disponible para buscar.',
-  'walkthrough.steps.connectWorld.title': 'Conecta tu mundo',
+    'बातचीत यहीं होती है। सवाल पूछें, सारांश लें या विचार करें। सब कुछ खोजने योग्य रहता है।',
+  'walkthrough.steps.connectWorld.title': 'अपनी दुनिया जोड़ें',
   'walkthrough.steps.connectWorld.content':
-    'Gmail, Slack, WhatsApp y mas: cada conexion le da mas capacidades a tu asistente.',
-  'walkthrough.steps.messagingApps.title': 'Chatea donde ya estas',
+    'Gmail, Slack, WhatsApp और बहुत कुछ: हर कनेक्शन आपके सहायक को नई क्षमताएं देता है।',
+  'walkthrough.steps.messagingApps.title': 'जहां आप पहले से हैं वहीं चैट करें',
   'walkthrough.steps.messagingApps.content':
-    'WhatsApp, Telegram, Slack, Discord: conecta tus apps de mensajes para que tu asistente pueda encontrarte en cualquier lugar.',
-  'walkthrough.steps.settings.title': 'Hazlo tuyo',
+    'WhatsApp, Telegram, Slack, Discord जोड़ें ताकि आपका सहायक आपको कहीं भी पहुंच सके।',
+  'walkthrough.steps.settings.title': 'इसे अपना बनाएं',
   'walkthrough.steps.settings.content':
-    'Preferencias, privacidad y notificaciones estan aqui. Puedes reiniciar este recorrido desde esta pagina cuando quieras.',
-  'walkthrough.steps.chatTab.title': 'Vuelve al chat',
-  'walkthrough.steps.chatTab.content':
-    'Usa la pestana Chat cuando quieras volver a tus conversaciones.',
-  'walkthrough.steps.humanTab.title': 'Conoce tu perfil humano',
+    'पसंद, गोपनीयता और सूचनाएं यहां हैं। आप इस पेज से यह टूर कभी भी फिर शुरू कर सकते हैं।',
+  'walkthrough.steps.chatTab.title': 'चैट पर वापस जाएं',
+  'walkthrough.steps.chatTab.content': 'जब भी बातचीत पर लौटना हो, Chat टैब का उपयोग करें।',
+  'walkthrough.steps.humanTab.title': 'अपनी Human प्रोफ़ाइल देखें',
   'walkthrough.steps.humanTab.content':
-    'Human reune tu contexto personal, identidad y perfil visible para el asistente.',
-  'walkthrough.steps.brainTab.title': 'Abre tu Brain',
+    'Human आपका निजी संदर्भ, पहचान और सहायक को दिखने वाली प्रोफ़ाइल एक साथ रखता है।',
+  'walkthrough.steps.brainTab.title': 'अपना Brain खोलें',
   'walkthrough.steps.brainTab.content':
-    'Brain es el grafo de memoria: el lugar para revisar que sabe OpenHuman y como se conectan las ideas.',
-  'walkthrough.steps.agentWorldTab.title': 'Explora Agent World',
+    'Brain मेमोरी ग्राफ है: यहां देखें कि OpenHuman क्या जानता है और विचार कैसे जुड़े हैं।',
+  'walkthrough.steps.agentWorldTab.title': 'Agent World देखें',
   'walkthrough.steps.agentWorldTab.content':
-    'Agent World es donde viven agentes reutilizables y automatizaciones compartidas.',
-  'walkthrough.steps.connectionsTab.title': 'Gestiona conexiones',
+    'Agent World में पुन: उपयोग योग्य एजेंट और साझा ऑटोमेशन रहते हैं।',
+  'walkthrough.steps.connectionsTab.title': 'कनेक्शन प्रबंधित करें',
   'walkthrough.steps.connectionsTab.content':
-    'Connections siempre esta disponible en la navegacion principal para agregar o ajustar servicios.',
-  'walkthrough.steps.feedbackTab.title': 'Enviar comentarios',
+    'सेवाएं जोड़ने या बदलने के लिए Connections हमेशा मुख्य नेविगेशन में उपलब्ध है।',
+  'walkthrough.steps.feedbackTab.title': 'फ़ीडबैक भेजें',
   'walkthrough.steps.feedbackTab.content':
-    'Feedback te da un lugar directo para reportar problemas o pedir mejoras.',
-  'walkthrough.steps.allSet.title': 'Todo listo!',
+    'Feedback समस्याएं बताने या सुधार मांगने की सीधी जगह है।',
+  'walkthrough.steps.allSet.title': 'सब तैयार है!',
   'walkthrough.steps.allSet.content':
-    'Tu asistente te dejo una nota de bienvenida: este es tu espacio para chatear, preguntar o explorar ideas. Diviertete!',
+    'आपके सहायक ने स्वागत नोट छोड़ा है: यहां आप चैट कर सकते हैं, सवाल पूछ सकते हैं या विचार कर सकते हैं। आनंद लें!',
   'walkthrough.tooltip.letsGo': 'चलिए शुरू करें!',
   'walkthrough.tooltip.next': 'अगला →',
   'walkthrough.tooltip.skip': 'टूर छोड़ें',

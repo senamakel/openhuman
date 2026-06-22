@@ -5098,45 +5098,44 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'Será redefinido {time}.',
   'upsell.usageLimit.upgradePlan': 'Fazer upgrade do plano',
   'upsell.usageLimit.weeklyInference': '{amount}',
-  'walkthrough.steps.startChat.title': 'Empieza en el chat',
+  'walkthrough.steps.startChat.title': 'Comece no chat',
   'walkthrough.steps.startChat.content':
-    'El chat es tu punto de partida. Las ventanas nuevas se abren con el mismo saludo y las acciones rapidas que viste despues de la configuracion.',
-  'walkthrough.steps.sayHello.title': 'Saluda',
+    'O chat é seu ponto de partida. Novas janelas abrem com a mesma saudação e ações rápidas vistas na configuração.',
+  'walkthrough.steps.sayHello.title': 'Diga olá',
   'walkthrough.steps.sayHello.content':
-    'Toca aqui para iniciar una conversacion con tu asistente de IA cuando quieras.',
-  'walkthrough.steps.meetAi.title': 'Conoce tu IA',
+    'Toque aqui para iniciar uma conversa com seu assistente de IA quando quiser.',
+  'walkthrough.steps.meetAi.title': 'Conheça sua IA',
   'walkthrough.steps.meetAi.content':
-    'Aqui ocurren las conversaciones. Haz preguntas, pide resumenes o explora ideas. Todo queda disponible para buscar.',
-  'walkthrough.steps.connectWorld.title': 'Conecta tu mundo',
+    'É aqui que as conversas acontecem. Faça perguntas, peça resumos ou desenvolva ideias. Tudo continua pesquisável.',
+  'walkthrough.steps.connectWorld.title': 'Conecte seu mundo',
   'walkthrough.steps.connectWorld.content':
-    'Gmail, Slack, WhatsApp y mas: cada conexion le da mas capacidades a tu asistente.',
-  'walkthrough.steps.messagingApps.title': 'Chatea donde ya estas',
+    'Gmail, Slack, WhatsApp e mais: cada conexão dá novos poderes ao seu assistente.',
+  'walkthrough.steps.messagingApps.title': 'Converse onde você já está',
   'walkthrough.steps.messagingApps.content':
-    'WhatsApp, Telegram, Slack, Discord: conecta tus apps de mensajes para que tu asistente pueda encontrarte en cualquier lugar.',
-  'walkthrough.steps.settings.title': 'Hazlo tuyo',
+    'WhatsApp, Telegram, Slack, Discord: conecte seus apps de mensagens para que seu assistente alcance você em qualquer lugar.',
+  'walkthrough.steps.settings.title': 'Deixe do seu jeito',
   'walkthrough.steps.settings.content':
-    'Preferencias, privacidad y notificaciones estan aqui. Puedes reiniciar este recorrido desde esta pagina cuando quieras.',
-  'walkthrough.steps.chatTab.title': 'Vuelve al chat',
-  'walkthrough.steps.chatTab.content':
-    'Usa la pestana Chat cuando quieras volver a tus conversaciones.',
-  'walkthrough.steps.humanTab.title': 'Conoce tu perfil humano',
+    'Preferências, privacidade e notificações ficam aqui. Você pode reiniciar este tour por esta página a qualquer momento.',
+  'walkthrough.steps.chatTab.title': 'Volte ao chat',
+  'walkthrough.steps.chatTab.content': 'Use a aba Chat sempre que quiser retornar às conversas.',
+  'walkthrough.steps.humanTab.title': 'Conheça seu perfil humano',
   'walkthrough.steps.humanTab.content':
-    'Human reune tu contexto personal, identidad y perfil visible para el asistente.',
-  'walkthrough.steps.brainTab.title': 'Abre tu Brain',
+    'Human reúne seu contexto pessoal, identidade e perfil visível ao assistente.',
+  'walkthrough.steps.brainTab.title': 'Abra seu Brain',
   'walkthrough.steps.brainTab.content':
-    'Brain es el grafo de memoria: el lugar para revisar que sabe OpenHuman y como se conectan las ideas.',
-  'walkthrough.steps.agentWorldTab.title': 'Explora Agent World',
+    'Brain é o grafo de memória: o lugar para ver o que o OpenHuman sabe e como as ideias se conectam.',
+  'walkthrough.steps.agentWorldTab.title': 'Explore o Agent World',
   'walkthrough.steps.agentWorldTab.content':
-    'Agent World es donde viven agentes reutilizables y automatizaciones compartidas.',
-  'walkthrough.steps.connectionsTab.title': 'Gestiona conexiones',
+    'Agent World é onde ficam agentes reutilizáveis e automações compartilhadas.',
+  'walkthrough.steps.connectionsTab.title': 'Gerencie conexões',
   'walkthrough.steps.connectionsTab.content':
-    'Connections siempre esta disponible en la navegacion principal para agregar o ajustar servicios.',
-  'walkthrough.steps.feedbackTab.title': 'Enviar comentarios',
+    'Connections está sempre na navegação principal quando você quiser adicionar ou ajustar serviços.',
+  'walkthrough.steps.feedbackTab.title': 'Enviar feedback',
   'walkthrough.steps.feedbackTab.content':
-    'Feedback te da un lugar directo para reportar problemas o pedir mejoras.',
-  'walkthrough.steps.allSet.title': 'Todo listo!',
+    'Feedback oferece um lugar direto para relatar problemas ou pedir melhorias.',
+  'walkthrough.steps.allSet.title': 'Tudo pronto!',
   'walkthrough.steps.allSet.content':
-    'Tu asistente te dejo una nota de bienvenida: este es tu espacio para chatear, preguntar o explorar ideas. Diviertete!',
+    'Seu assistente deixou uma nota de boas-vindas: este é seu espaço para conversar, perguntar ou explorar ideias. Divirta-se!',
   'walkthrough.tooltip.letsGo': 'Vamos lá!',
   'walkthrough.tooltip.next': 'Próximo →',
   'walkthrough.tooltip.skip': 'Pular tour',

@@ -34,7 +34,7 @@ Options:
   --task-key <key>          Durable task key (default: audit-subagent-rpc-<timestamp>)
   --agent-id <id>           Subagent id to request (default: researcher)
   --model <model>           Optional model_override for openhuman.agent_chat
-  --provider-mode <mode>    Isolated provider config: direct-openai or openhuman-backend (default: direct-openai)
+  --provider-mode <mode>    Isolated provider config: openhuman-backend or direct-openai (default: openhuman-backend)
   --rpc-timeout-ms <n>      Parent agent_chat timeout (default: 600000)
   --spawn-wait-ms <n>       Time to wait for a running durable session (default: 120000)
   --settle-wait-ms <n>      Time to wait for final session status after parent returns (default: 60000)
@@ -46,10 +46,10 @@ Options:
 
 Examples:
   node scripts/debug/harness-subagent-rpc-audit.mjs
-  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini
-  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario parallel-research-code --model gpt-4.1-mini
-  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario reuse-parent-comm --model gpt-4.1-mini
-  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --provider-mode openhuman-backend --scenario reuse-parent-comm --model agentic-v1
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model agentic-v1
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario parallel-research-code --model agentic-v1
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario reuse-parent-comm --model agentic-v1
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --provider-mode direct-openai --scenario reuse-parent-comm --model gpt-4.1-mini
 `;
 }
 
@@ -62,7 +62,7 @@ function parseArgs(argv) {
     taskKey: `audit-subagent-rpc-${Date.now().toString(36)}`,
     agentId: "researcher",
     model: "",
-    providerMode: "direct-openai",
+    providerMode: "openhuman-backend",
     rpcTimeoutMs: 600_000,
     spawnWaitMs: 120_000,
     settleWaitMs: 60_000,

@@ -2,15 +2,15 @@
 
 These checks exercise the real harness through JSON-RPC with live model credentials. They are debug audits, not CI tests. They intentionally avoid printing prompt bodies, response bodies, tokens, or transcript contents.
 
-Use an isolated spawned core when validating provider behavior without relying on a signed-in desktop session:
+Use an isolated spawned core when validating managed OpenHuman backend behavior without relying on a running desktop core:
 
 ```bash
-node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini --scenario all
+node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model agentic-v1 --scenario all
 ```
 
-`--isolated-workspace` writes a temporary direct-provider config using `OPENAI_API_KEY` or `OPENAI_KEY`, starts `openhuman-core`, and removes the temp workspace by default. Only pass `--keep-workspace` when you need to inspect artifacts locally.
+`--isolated-workspace` defaults to `--provider-mode openhuman-backend`. It writes a temporary backend config, seeds the temp auth store from `JWT_TOKEN`, starts `openhuman-core`, and removes the temp workspace by default. Only pass `--keep-workspace` when you need to inspect artifacts locally.
 
-To exercise the managed OpenHuman backend instead of direct OpenAI, pass `--provider-mode openhuman-backend` and use an OpenHuman tier model such as `agentic-v1`. This mode writes a temporary backend config, seeds the temp auth store from `JWT_TOKEN`, and leaves `inference_url` unset so the core routes through `{api_url}/openai/v1`.
+The optional `--provider-mode direct-openai` control path writes a temporary direct-provider config using `OPENAI_API_KEY` or `OPENAI_KEY`.
 
 ## Cases
 
@@ -22,8 +22,8 @@ To exercise the managed OpenHuman backend instead of direct OpenAI, pass `--prov
 Useful focused commands:
 
 ```bash
-node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini --scenario async-steer
-node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini --scenario parallel-research-code
-node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini --scenario reuse-parent-comm
-node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --provider-mode openhuman-backend --model agentic-v1 --scenario reuse-parent-comm
+node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model agentic-v1 --scenario async-steer
+node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model agentic-v1 --scenario parallel-research-code
+node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model agentic-v1 --scenario reuse-parent-comm
+node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --provider-mode direct-openai --model gpt-4.1-mini --scenario reuse-parent-comm
 ```

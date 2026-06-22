@@ -27,7 +27,7 @@ then steers it through openhuman.subagent_steer while the parent/core process is
 No prompt, response, credential, or transcript bodies are printed.
 
 Options:
-  --scenario <name>        async-steer, parallel-research-code, or all (default: async-steer)
+  --scenario <name>        async-steer, parallel-research-code, reuse-parent-comm, or all (default: async-steer)
   --core-url <url>          JSON-RPC endpoint (default: OPENHUMAN_CORE_RPC_URL or ${DEFAULT_RPC_URL})
   --token <token>           RPC bearer (default: OPENHUMAN_CORE_TOKEN or <workspace>/core.token)
   --workspace <path>        Workspace containing .openhuman/subagent_sessions.json
@@ -47,6 +47,7 @@ Examples:
   node scripts/debug/harness-subagent-rpc-audit.mjs
   node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini
   node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario parallel-research-code --model gpt-4.1-mini
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario reuse-parent-comm --model gpt-4.1-mini
 `;
 }
 
@@ -130,7 +131,12 @@ function parseArgs(argv) {
         throw new Error(`unknown option: ${arg}`);
     }
   }
-  const scenarios = new Set(["async-steer", "parallel-research-code", "all"]);
+  const scenarios = new Set([
+    "async-steer",
+    "parallel-research-code",
+    "reuse-parent-comm",
+    "all",
+  ]);
   if (!scenarios.has(opts.scenario)) {
     throw new Error(
       `--scenario must be one of ${Array.from(scenarios).join(", ")}`,
@@ -352,6 +358,97 @@ async function transcriptSnapshot(workspace) {
   return snapshot;
 }
 
+function num(value) {
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+async function usageSnapshot(workspace) {
+  const transcriptDir = path.join(workspace, "session_raw");
+  const files = await listJsonlFiles(transcriptDir);
+  const snapshot = new Map();
+  await Promise.all(
+    files.map(async (file) => {
+      try {
+        const data = await readFile(file, "utf8");
+        const firstLine = data.split(/\r?\n/, 1)[0];
+        const parsed = JSON.parse(firstLine);
+        const meta = parsed._meta || {};
+        snapshot.set(file, {
+          file,
+          agent: String(meta.agent || "(unknown)"),
+          input: num(meta.input_tokens),
+          output: num(meta.output_tokens),
+          cached: num(meta.cached_input_tokens),
+          charged: num(meta.charged_amount_usd),
+          isSubagent: path.basename(file).includes("__"),
+        });
+      } catch {
+        // Ignore malformed or partially-written transcripts during live audit sampling.
+      }
+    }),
+  );
+  return snapshot;
+}
+
+function diffUsageSnapshots(before, after) {
+  const rows = [];
+  for (const [file, current] of after.entries()) {
+    const prior = before.get(file);
+    const row = {
+      file,
+      agent: current.agent,
+      isSubagent: current.isSubagent,
+      input: Math.max(0, current.input - (prior?.input || 0)),
+      output: Math.max(0, current.output - (prior?.output || 0)),
+      cached: Math.max(0, current.cached - (prior?.cached || 0)),
+      charged: Math.max(0, current.charged - (prior?.charged || 0)),
+    };
+    if (row.input || row.output || row.cached || row.charged || !prior) {
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+function summarizeUsage(rows) {
+  return rows.reduce(
+    (acc, row) => {
+      acc.input += row.input;
+      acc.output += row.output;
+      acc.cached += row.cached;
+      acc.charged += row.charged;
+      acc.sessions += 1;
+      if (row.isSubagent) acc.subagentSessions += 1;
+      return acc;
+    },
+    {
+      input: 0,
+      output: 0,
+      cached: 0,
+      charged: 0,
+      sessions: 0,
+      subagentSessions: 0,
+    },
+  );
+}
+
+function printUsageReport(label, rows) {
+  const totals = summarizeUsage(rows);
+  const cacheRate = totals.input > 0 ? (totals.cached / totals.input) * 100 : 0;
+  console.log(
+    `[harness-subagent-rpc-audit] usage ${label} total in=${totals.input} cache=${totals.cached} out=${totals.output} cost=$${totals.charged.toFixed(6)} cache_rate=${cacheRate.toFixed(2)}% sessions=${totals.sessions} subagents=${totals.subagentSessions}`,
+  );
+  for (const row of rows.sort((a, b) => {
+    if (a.isSubagent !== b.isSubagent) return a.isSubagent ? 1 : -1;
+    return a.agent.localeCompare(b.agent);
+  })) {
+    console.log(
+      `  ${row.isSubagent ? "subagent" : "parent"} agent=${row.agent} in=${row.input} cache=${row.cached} out=${row.output} cost=$${row.charged.toFixed(6)}`,
+    );
+  }
+  return totals;
+}
+
 function changedTranscriptFiles(before, after) {
   return [...after.entries()]
     .filter(([file, current]) => {
@@ -384,6 +481,24 @@ Call spawn_parallel_agents exactly once with these two tasks:
 2. agent_id "code_executor", ownership "code draft", prompt "Write a small Python function normalize_title(title: str) -> str that trims whitespace, collapses internal whitespace, and title-cases the result. Include one tiny assert-style example. Return only the code block; do not modify files."
 After spawn_parallel_agents returns, reply with one concise sentence summarizing that both parallel workers completed.
 Audit marker: ${opts.taskKey}.`;
+}
+
+function reusePrompt(opts, turn) {
+  const base = `${opts.taskKey}-reuse`;
+  if (turn === 1) {
+    return `Harness reusable subagent parent communication audit, turn 1.
+Call spawn_subagent exactly twice, both with blocking false and fresh false:
+1. agent_id "async_audit_worker", task_key "${base}-alpha", prompt "You are alpha. Send a concise parent-facing status update with marker ${base}-alpha and remember that the topic is cache-aware reuse."
+2. agent_id "async_audit_worker", task_key "${base}-beta", prompt "You are beta. Send a concise parent-facing status update with marker ${base}-beta and remember that the topic is durable worker reuse."
+Then call wait_subagent for each returned task_id and collect both final updates.
+After both workers are collected, reply with one concise sentence saying both worker updates were collected.`;
+  }
+  return `Harness reusable subagent parent communication audit, turn 2.
+Call spawn_subagent exactly twice again with the same agent_id, same task_key values, blocking false, fresh false:
+1. agent_id "async_audit_worker", task_key "${base}-alpha", prompt "Continue alpha's prior work. Mention the remembered cache-aware reuse topic and send a new concise parent-facing update."
+2. agent_id "async_audit_worker", task_key "${base}-beta", prompt "Continue beta's prior work. Mention the remembered durable worker reuse topic and send a new concise parent-facing update."
+Then call wait_subagent for each returned task_id and collect both final updates.
+After both workers are collected, reply with one concise sentence saying both reusable worker updates were collected.`;
 }
 
 function steerMessage(opts) {
@@ -435,11 +550,12 @@ inline = """
 You are the OpenHuman async subagent RPC audit orchestrator.
 For async steering audit messages, call spawn_subagent exactly once with agent_id "async_audit_worker", blocking false, fresh false, and the task_key provided by the user.
 For parallel audit messages, call spawn_parallel_agents exactly once with the task list provided by the user.
-After the requested tool returns, provide one concise sentence. Do not call wait_subagent. Do not call any other tools.
+For reusable subagent parent communication audit messages, call spawn_subagent exactly as many times as requested, preserving each requested task_key, blocking setting, and fresh setting. When asked to collect workers, call wait_subagent for the returned task_id values.
+After the requested tool call or calls return, provide one concise sentence. Do not call wait_subagent for async steering audits. Do not call any tools other than the requested audit tools.
 """
 
 [tools]
-named = ["spawn_subagent", "spawn_parallel_agents"]
+named = ["spawn_subagent", "spawn_parallel_agents", "wait_subagent"]
 
 [subagents]
 allowlist = ["async_audit_worker", "researcher", "code_executor"]
@@ -706,6 +822,79 @@ async function runParallelResearchCodeScenario(opts) {
   return failures;
 }
 
+async function runReuseParentCommScenario(opts) {
+  const transcriptWorkspace = opts.sessionWorkspace || opts.workspace;
+  const sessionWorkspace = opts.sessionWorkspace || opts.workspace;
+  const failures = [];
+  const turnSummaries = [];
+  const sessionSets = [];
+
+  for (let turn = 1; turn <= 2; turn += 1) {
+    const before = await usageSnapshot(transcriptWorkspace);
+    const params = { message: reusePrompt(opts, turn) };
+    if (opts.model) params.model_override = opts.model;
+
+    const started = Date.now();
+    const result = await rpc(
+      opts.coreUrl,
+      opts.token,
+      "openhuman.agent_chat",
+      params,
+      opts.rpcTimeoutMs,
+    );
+    const response = responseText(result);
+    const after = await usageSnapshot(transcriptWorkspace);
+    const rows = diffUsageSnapshots(before, after);
+    const totals = printUsageReport(`reuse-parent-comm turn=${turn}`, rows);
+    const sessions = [
+      ...(await readSessions(sessionWorkspace, `${opts.taskKey}-reuse-alpha`)),
+      ...(await readSessions(sessionWorkspace, `${opts.taskKey}-reuse-beta`)),
+    ];
+    const durableIds = sessions
+      .map((session) => session.subagentSessionId)
+      .filter(Boolean)
+      .sort();
+    sessionSets.push(durableIds);
+    turnSummaries.push({
+      ms: Date.now() - started,
+      responseChars: response.length,
+      totals,
+      durableIds,
+    });
+    console.log(
+      `[harness-subagent-rpc-audit] reuse turn ${turn} completed in ${turnSummaries.at(-1).ms}ms sessions=${durableIds.join(",") || "none"}${
+        opts.verbose ? ` response_chars=${response.length}` : ""
+      }`,
+    );
+    if (response.length === 0) {
+      failures.push(`reuse turn ${turn} parent response was empty`);
+    }
+    if (totals.input === 0) {
+      failures.push(`reuse turn ${turn} had no transcript usage metadata`);
+    }
+    if (totals.subagentSessions < 2) {
+      failures.push(
+        `reuse turn ${turn} expected at least two subagent usage deltas, observed ${totals.subagentSessions}`,
+      );
+    }
+    if (durableIds.length !== 2) {
+      failures.push(
+        `reuse turn ${turn} expected two durable subagent sessions, observed ${durableIds.length}`,
+      );
+    }
+  }
+
+  if (
+    sessionSets.length === 2 &&
+    JSON.stringify(sessionSets[0]) !== JSON.stringify(sessionSets[1])
+  ) {
+    failures.push(
+      `durable subagent sessions were not reused across turns: first=${sessionSets[0].join(",") || "none"} second=${sessionSets[1].join(",") || "none"}`,
+    );
+  }
+  return failures;
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (!opts.workspace) opts.workspace = await defaultWorkspace();
@@ -760,7 +949,7 @@ async function main() {
   try {
     const scenarios =
       opts.scenario === "all"
-        ? ["async-steer", "parallel-research-code"]
+        ? ["async-steer", "parallel-research-code", "reuse-parent-comm"]
         : [opts.scenario];
     for (const scenario of scenarios) {
       console.log(`[harness-subagent-rpc-audit] scenario ${scenario}`);
@@ -773,6 +962,8 @@ async function main() {
         failures.push(...(await runAsyncSteerScenario(scenarioOpts)));
       } else if (scenario === "parallel-research-code") {
         failures.push(...(await runParallelResearchCodeScenario(scenarioOpts)));
+      } else if (scenario === "reuse-parent-comm") {
+        failures.push(...(await runReuseParentCommScenario(scenarioOpts)));
       }
     }
   } finally {

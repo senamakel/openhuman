@@ -150,52 +150,67 @@ pub(crate) fn reset_local_data_marker_remove_error(path: &Path, error: &std::io:
     format!("Failed to remove active workspace marker: {error}")
 }
 
-/// Internal helper to reset local data by removing specific directories and markers.
+/// Internal helper to reset local data for the **active user only**.
+///
+/// Removes the current user's data directory (`~/.openhuman/users/<id>`) plus
+/// the two shared marker files at the root — `active_workspace.toml` and
+/// `active_user.toml` — so the next launch boots signed-out into the
+/// pre-login (`users/local`) scope.
+///
+/// It deliberately does **not** delete the shared root `~/.openhuman`
+/// directory: that root holds every user's `users/<other>` subtree, and
+/// wiping it during a single user's "Clear App Data" destroyed sibling
+/// accounts' data (the scoping bug this replaces). The root is left in place;
+/// only the current user's slice and the active markers are removed.
 pub(crate) async fn reset_local_data_for_paths(
     current_openhuman_dir: &Path,
     default_openhuman_dir: &Path,
 ) -> Result<RpcOutcome<serde_json::Value>, String> {
     let active_workspace_marker = active_workspace_marker_path(default_openhuman_dir);
+    let active_user_marker =
+        crate::openhuman::config::active_user_marker_path(default_openhuman_dir);
     tracing::debug!(
         current_dir = %current_openhuman_dir.display(),
         default_dir = %default_openhuman_dir.display(),
-        marker = %active_workspace_marker.display(),
-        "[config] reset_local_data: starting"
+        workspace_marker = %active_workspace_marker.display(),
+        user_marker = %active_user_marker.display(),
+        "[config] reset_local_data: starting (user-scoped)"
     );
 
     let mut removed_paths = Vec::new();
 
-    if active_workspace_marker.exists() {
-        if let Err(error) = tokio::fs::remove_file(&active_workspace_marker).await {
-            return Err(reset_local_data_marker_remove_error(
-                &active_workspace_marker,
-                &error,
-            ));
+    // Remove the two shared root-level markers so the current user is signed
+    // out and any non-default workspace pointer is dropped. Each is a single
+    // file under the root; the root itself is preserved for sibling users.
+    for marker in [&active_workspace_marker, &active_user_marker] {
+        if marker.exists() {
+            if let Err(error) = tokio::fs::remove_file(marker).await {
+                return Err(reset_local_data_marker_remove_error(marker, &error));
+            }
+            tracing::debug!(
+                marker = %marker.display(),
+                "[config] reset_local_data: removed marker"
+            );
+            removed_paths.push(marker.display().to_string());
         }
-        tracing::debug!(
-            marker = %active_workspace_marker.display(),
-            "[config] reset_local_data: removed active workspace marker"
-        );
-        removed_paths.push(active_workspace_marker.display().to_string());
     }
 
-    for target_dir in [current_openhuman_dir, default_openhuman_dir] {
-        if !target_dir.exists() {
-            tracing::debug!(
-                dir = %target_dir.display(),
-                "[config] reset_local_data: directory already absent"
-            );
-            continue;
-        }
-
-        if let Err(error) = tokio::fs::remove_dir_all(target_dir).await {
-            return Err(reset_local_data_remove_error(target_dir, &error));
+    // Remove only the active user's directory — NOT the shared root, which
+    // contains other users' `users/<id>` subtrees.
+    if current_openhuman_dir.exists() {
+        if let Err(error) = tokio::fs::remove_dir_all(current_openhuman_dir).await {
+            return Err(reset_local_data_remove_error(current_openhuman_dir, &error));
         }
         tracing::debug!(
-            dir = %target_dir.display(),
-            "[config] reset_local_data: removed directory"
+            dir = %current_openhuman_dir.display(),
+            "[config] reset_local_data: removed current user directory"
         );
-        removed_paths.push(target_dir.display().to_string());
+        removed_paths.push(current_openhuman_dir.display().to_string());
+    } else {
+        tracing::debug!(
+            dir = %current_openhuman_dir.display(),
+            "[config] reset_local_data: current user directory already absent"
+        );
     }
 
     Ok(RpcOutcome::new(
@@ -204,16 +219,11 @@ pub(crate) async fn reset_local_data_for_paths(
             "current_openhuman_dir": current_openhuman_dir.display().to_string(),
             "default_openhuman_dir": default_openhuman_dir.display().to_string(),
         }),
-        vec![
-            format!(
-                "reset local data for active config dir {}",
-                current_openhuman_dir.display()
-            ),
-            format!(
-                "removed default data dir {} if present",
-                default_openhuman_dir.display()
-            ),
-        ],
+        vec![format!(
+            "reset local data for active user dir {} (shared root {} preserved)",
+            current_openhuman_dir.display(),
+            default_openhuman_dir.display()
+        )],
     ))
 }
 
@@ -537,11 +547,18 @@ pub async fn get_data_paths() -> Result<RpcOutcome<serde_json::Value>, String> {
     let current_openhuman_dir = config_openhuman_dir(&config);
     let default_openhuman_dir = default_openhuman_dir();
     let active_workspace_marker = active_workspace_marker_path(&default_openhuman_dir);
+    // The active-user marker lives at the *shared* root `~/.openhuman`, not
+    // inside the per-user dir. A clear removes it (to sign the current user
+    // out) but must leave the sibling `users/<other>` dirs and the root
+    // itself intact — see `reset_local_data_for_paths`.
+    let active_user_marker =
+        crate::openhuman::config::active_user_marker_path(&default_openhuman_dir);
     Ok(RpcOutcome::new(
         json!({
             "current_openhuman_dir": current_openhuman_dir.display().to_string(),
             "default_openhuman_dir": default_openhuman_dir.display().to_string(),
             "active_workspace_marker_path": active_workspace_marker.display().to_string(),
+            "active_user_marker_path": active_user_marker.display().to_string(),
         }),
         vec![format!(
             "data paths resolved (current={}, default={})",

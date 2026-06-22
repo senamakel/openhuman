@@ -2,19 +2,22 @@ use super::*;
 use tempfile::tempdir;
 
 #[tokio::test]
-async fn reset_local_data_removes_current_dir_default_dir_and_marker() {
+async fn reset_local_data_removes_active_user_and_markers_only() {
     let temp = tempdir().unwrap();
     let default_openhuman_dir = temp.path().join("default-openhuman");
-    let current_openhuman_dir = temp.path().join("custom-openhuman");
-    let marker = active_workspace_marker_path(&default_openhuman_dir);
+    // Active user lives under the shared root's `users/` tree, mirroring the
+    // real layout (`~/.openhuman/users/<id>`).
+    let current_openhuman_dir = default_openhuman_dir.join("users").join("active-user");
+    let workspace_marker = active_workspace_marker_path(&default_openhuman_dir);
+    let user_marker = crate::openhuman::config::active_user_marker_path(&default_openhuman_dir);
 
-    tokio::fs::create_dir_all(default_openhuman_dir.join("workspace"))
-        .await
-        .unwrap();
     tokio::fs::create_dir_all(current_openhuman_dir.join("workspace"))
         .await
         .unwrap();
-    tokio::fs::write(&marker, "config_dir = '/tmp/custom-openhuman'\n")
+    tokio::fs::write(&workspace_marker, "config_dir = 'users/active-user'\n")
+        .await
+        .unwrap();
+    tokio::fs::write(&user_marker, "user_id = 'active-user'\n")
         .await
         .unwrap();
 
@@ -22,13 +25,66 @@ async fn reset_local_data_removes_current_dir_default_dir_and_marker() {
         .await
         .unwrap();
 
+    // Active user's slice and both shared markers are gone …
     assert!(!current_openhuman_dir.exists());
-    assert!(!default_openhuman_dir.exists());
+    assert!(!workspace_marker.exists());
+    assert!(!user_marker.exists());
+    // … but the shared root itself survives.
+    assert!(default_openhuman_dir.exists());
     assert!(outcome
         .value
         .get("removed_paths")
         .and_then(|value| value.as_array())
         .is_some_and(|paths| !paths.is_empty()));
+}
+
+#[tokio::test]
+async fn reset_local_data_preserves_sibling_users() {
+    let temp = tempdir().unwrap();
+    let default_openhuman_dir = temp.path().join("default-openhuman");
+    let current_openhuman_dir = default_openhuman_dir.join("users").join("active-user");
+    let sibling_user_dir = default_openhuman_dir.join("users").join("other-user");
+    let sibling_file = sibling_user_dir.join("config.toml");
+
+    tokio::fs::create_dir_all(current_openhuman_dir.join("workspace"))
+        .await
+        .unwrap();
+    tokio::fs::create_dir_all(&sibling_user_dir).await.unwrap();
+    tokio::fs::write(&sibling_file, "api_key = 'sibling'\n")
+        .await
+        .unwrap();
+
+    reset_local_data_for_paths(&current_openhuman_dir, &default_openhuman_dir)
+        .await
+        .unwrap();
+
+    // The active user is wiped; the sibling account is untouched — this is the
+    // regression this fix addresses.
+    assert!(!current_openhuman_dir.exists());
+    assert!(sibling_user_dir.exists());
+    assert!(sibling_file.exists());
+}
+
+#[tokio::test]
+async fn reset_local_data_tolerates_absent_paths() {
+    let temp = tempdir().unwrap();
+    let default_openhuman_dir = temp.path().join("default-openhuman");
+    let current_openhuman_dir = default_openhuman_dir.join("users").join("active-user");
+    tokio::fs::create_dir_all(&default_openhuman_dir)
+        .await
+        .unwrap();
+
+    // No current user dir, no markers — a fresh / already-cleared install.
+    let outcome = reset_local_data_for_paths(&current_openhuman_dir, &default_openhuman_dir)
+        .await
+        .unwrap();
+
+    assert!(default_openhuman_dir.exists());
+    assert!(outcome
+        .value
+        .get("removed_paths")
+        .and_then(|value| value.as_array())
+        .is_some_and(|paths| paths.is_empty()));
 }
 
 // ── env_flag_enabled ────────────────────────────────────────────

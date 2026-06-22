@@ -10,6 +10,8 @@ node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-worksp
 
 `--isolated-workspace` writes a temporary direct-provider config using `OPENAI_API_KEY` or `OPENAI_KEY`, starts `openhuman-core`, and removes the temp workspace by default. Only pass `--keep-workspace` when you need to inspect artifacts locally.
 
+To exercise the managed OpenHuman backend instead of direct OpenAI, pass `--provider-mode openhuman-backend` and use an OpenHuman tier model such as `agentic-v1`. This mode writes a temporary backend config, seeds the temp auth store from `JWT_TOKEN`, and leaves `inference_url` unset so the core routes through `{api_url}/openai/v1`.
+
 ## Cases
 
 - `async-steer`: starts a durable async subagent with `spawn_subagent`, waits until the live registry shows it running, then sends `openhuman.subagent_steer` mid-run and verifies the steer was accepted.
@@ -23,4 +25,5 @@ Useful focused commands:
 node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini --scenario async-steer
 node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini --scenario parallel-research-code
 node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini --scenario reuse-parent-comm
+node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --provider-mode openhuman-backend --model agentic-v1 --scenario reuse-parent-comm
 ```

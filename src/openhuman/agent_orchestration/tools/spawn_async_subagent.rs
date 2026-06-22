@@ -405,6 +405,9 @@ impl Tool for SpawnAsyncSubagentTool {
         let background_worker_thread_id = worker_thread_id.clone();
         let background_store = store.clone();
         let background_subagent_session_id = durable_session.subagent_session_id.clone();
+        let background_thread_affinity_id = background_worker_thread_id
+            .clone()
+            .unwrap_or_else(|| background_subagent_session_id.clone());
         let background_initial_history = initial_history;
         // Capture the parent chat thread NOW (the spawning turn's thread) so the
         // finished result can be delivered back into it as a system turn.
@@ -438,7 +441,13 @@ impl Tool for SpawnAsyncSubagentTool {
             };
 
             let result = with_parent_context(background_parent, async move {
-                run_subagent(&background_definition, &background_prompt, options).await
+                crate::openhuman::inference::provider::thread_context::with_thread_id(
+                    background_thread_affinity_id,
+                    async move {
+                        run_subagent(&background_definition, &background_prompt, options).await
+                    },
+                )
+                .await
             })
             .await;
 

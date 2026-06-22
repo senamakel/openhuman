@@ -34,6 +34,7 @@ Options:
   --task-key <key>          Durable task key (default: audit-subagent-rpc-<timestamp>)
   --agent-id <id>           Subagent id to request (default: researcher)
   --model <model>           Optional model_override for openhuman.agent_chat
+  --provider-mode <mode>    Isolated provider config: direct-openai or openhuman-backend (default: direct-openai)
   --rpc-timeout-ms <n>      Parent agent_chat timeout (default: 600000)
   --spawn-wait-ms <n>       Time to wait for a running durable session (default: 120000)
   --settle-wait-ms <n>      Time to wait for final session status after parent returns (default: 60000)
@@ -48,6 +49,7 @@ Examples:
   node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini
   node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario parallel-research-code --model gpt-4.1-mini
   node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario reuse-parent-comm --model gpt-4.1-mini
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --provider-mode openhuman-backend --scenario reuse-parent-comm --model agentic-v1
 `;
 }
 
@@ -60,6 +62,7 @@ function parseArgs(argv) {
     taskKey: `audit-subagent-rpc-${Date.now().toString(36)}`,
     agentId: "researcher",
     model: "",
+    providerMode: "direct-openai",
     rpcTimeoutMs: 600_000,
     spawnWaitMs: 120_000,
     settleWaitMs: 60_000,
@@ -102,6 +105,9 @@ function parseArgs(argv) {
       case "--model":
         opts.model = next();
         break;
+      case "--provider-mode":
+        opts.providerMode = next();
+        break;
       case "--rpc-timeout-ms":
         opts.rpcTimeoutMs = parsePositiveInt(next(), "--rpc-timeout-ms");
         break;
@@ -140,6 +146,12 @@ function parseArgs(argv) {
   if (!scenarios.has(opts.scenario)) {
     throw new Error(
       `--scenario must be one of ${Array.from(scenarios).join(", ")}`,
+    );
+  }
+  const providerModes = new Set(["direct-openai", "openhuman-backend"]);
+  if (!providerModes.has(opts.providerMode)) {
+    throw new Error(
+      `--provider-mode must be one of ${Array.from(providerModes).join(", ")}`,
     );
   }
   return opts;
@@ -485,18 +497,19 @@ Audit marker: ${opts.taskKey}.`;
 
 function reusePrompt(opts, turn) {
   const base = `${opts.taskKey}-reuse`;
+  const agentId = opts.agentId;
   if (turn === 1) {
     return `Harness reusable subagent parent communication audit, turn 1.
 Call spawn_subagent exactly twice, both with blocking false and fresh false:
-1. agent_id "async_audit_worker", task_key "${base}-alpha", prompt "You are alpha. Send a concise parent-facing status update with marker ${base}-alpha and remember that the topic is cache-aware reuse."
-2. agent_id "async_audit_worker", task_key "${base}-beta", prompt "You are beta. Send a concise parent-facing status update with marker ${base}-beta and remember that the topic is durable worker reuse."
+1. agent_id "${agentId}", task_key "${base}-alpha", prompt "You are alpha. Send a concise parent-facing status update with marker ${base}-alpha and remember that the topic is cache-aware reuse."
+2. agent_id "${agentId}", task_key "${base}-beta", prompt "You are beta. Send a concise parent-facing status update with marker ${base}-beta and remember that the topic is durable worker reuse."
 Then call wait_subagent for each returned task_id and collect both final updates.
 After both workers are collected, reply with one concise sentence saying both worker updates were collected.`;
   }
   return `Harness reusable subagent parent communication audit, turn 2.
 Call spawn_subagent exactly twice again with the same agent_id, same task_key values, blocking false, fresh false:
-1. agent_id "async_audit_worker", task_key "${base}-alpha", prompt "Continue alpha's prior work. Mention the remembered cache-aware reuse topic and send a new concise parent-facing update."
-2. agent_id "async_audit_worker", task_key "${base}-beta", prompt "Continue beta's prior work. Mention the remembered durable worker reuse topic and send a new concise parent-facing update."
+1. agent_id "${agentId}", task_key "${base}-alpha", prompt "Continue alpha's prior work. Mention the remembered cache-aware reuse topic and send a new concise parent-facing update."
+2. agent_id "${agentId}", task_key "${base}-beta", prompt "Continue beta's prior work. Mention the remembered durable worker reuse topic and send a new concise parent-facing update."
 Then call wait_subagent for each returned task_id and collect both final updates.
 After both workers are collected, reply with one concise sentence saying both reusable worker updates were collected.`;
 }
@@ -617,6 +630,73 @@ endpoint = "https://api.openai.com/v1"
 auth_style = "bearer"
 default_model = ${JSON.stringify(providerModel)}
 `,
+    { mode: 0o600 },
+  );
+}
+
+function backendApiUrl() {
+  const explicit =
+    process.env.BACKEND_URL?.trim() ||
+    process.env.VITE_BACKEND_URL?.trim() ||
+    "";
+  if (explicit) return explicit.replace(/\/+$/, "");
+  return process.env.OPENHUMAN_APP_ENV === "staging"
+    ? "https://staging-api.tinyhumans.ai"
+    : "https://api.tinyhumans.ai";
+}
+
+async function writeIsolatedOpenHumanBackendConfig(workspace, model) {
+  const providerModel = model?.trim() || "agentic-v1";
+  await writeFile(
+    path.join(workspace, "config.toml"),
+    `api_url = ${JSON.stringify(backendApiUrl())}
+default_model = ${JSON.stringify(providerModel)}
+chat_provider = "openhuman"
+reasoning_provider = "openhuman"
+agentic_provider = "openhuman"
+coding_provider = "openhuman"
+memory_provider = "openhuman"
+embedding_provider = "none"
+
+[secrets]
+encrypt = false
+`,
+    { mode: 0o600 },
+  );
+}
+
+async function writeIsolatedAppSessionAuth(workspace) {
+  const token = process.env.JWT_TOKEN?.trim() || "";
+  if (!token) {
+    throw new Error(
+      "--provider-mode openhuman-backend with --isolated-workspace requires JWT_TOKEN from scripts/load-dotenv.sh or your shell",
+    );
+  }
+  const now = new Date().toISOString();
+  await writeFile(
+    path.join(workspace, "auth-profiles.json"),
+    JSON.stringify(
+      {
+        schema_version: 1,
+        updated_at: now,
+        active_profiles: {
+          "app-session": "app-session:default",
+        },
+        profiles: {
+          "app-session:default": {
+            provider: "app-session",
+            profile_name: "default",
+            kind: "token",
+            token,
+            created_at: now,
+            updated_at: now,
+            metadata: {},
+          },
+        },
+      },
+      null,
+      2,
+    ),
     { mode: 0o600 },
   );
 }
@@ -912,10 +992,20 @@ async function main() {
     await mkdir(opts.workspace, { recursive: true });
     await writeAuditDefinitions(opts.workspace);
     await writeAuditDefinitions(path.join(opts.workspace, "workspace"));
-    await writeIsolatedDirectProviderConfig(opts.workspace, opts.model);
+    if (opts.providerMode === "openhuman-backend") {
+      await writeIsolatedOpenHumanBackendConfig(opts.workspace, opts.model);
+      await writeIsolatedAppSessionAuth(opts.workspace);
+    } else {
+      await writeIsolatedDirectProviderConfig(opts.workspace, opts.model);
+    }
     opts.sessionWorkspace = path.join(opts.workspace, "workspace");
     if (!opts.agentIdExplicit) opts.agentId = "async_audit_worker";
-    if (!opts.model) opts.model = "gpt-4.1-mini";
+    if (!opts.model) {
+      opts.model =
+        opts.providerMode === "openhuman-backend"
+          ? "agentic-v1"
+          : "gpt-4.1-mini";
+    }
   }
 
   if (opts.spawnCore) {
@@ -943,6 +1033,7 @@ async function main() {
   console.log(`  mode: ${opts.spawnCore ? "spawned-core" : "attached-core"}`);
   if (opts.isolatedWorkspace) {
     console.log("  definitions: isolated audit overrides enabled");
+    console.log(`  provider_mode: ${opts.providerMode}`);
   }
 
   const failures = [];

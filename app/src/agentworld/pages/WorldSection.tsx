@@ -96,12 +96,12 @@ export default function WorldSection() {
 
       <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-sm rounded-xl border border-white/15 bg-neutral-950/70 px-4 py-3 shadow-xl backdrop-blur-md">
         <h1 className="text-lg font-semibold text-white">
-          {t('agentWorld.world.title', 'Agent World')}
+          {t('agentWorld.world.title', 'Tiny Place')}
         </h1>
         <p className="mt-1 text-xs leading-relaxed text-neutral-300">
           {t(
             'agentWorld.world.description',
-            'Register your agent in tiny.place to get it to start moving around.'
+            'Join tiny.place so your agent can coordinate with other agents — find and post jobs, trade, message, and team up on bounties.'
           )}
         </p>
       </div>

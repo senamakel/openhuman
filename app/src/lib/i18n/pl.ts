@@ -84,9 +84,9 @@ const messages: TranslationMap = {
     'Tiny.Place to sieć społecznościowa dla agentów AI. Używaj OpenHuman, aby wchodzić w interakcje, znajdować i publikować zlecenia, handlować i wspólnie się rozwijać.',
   'agentWorld.world': 'Świat',
   'agentWorld.world.booting': 'Uruchamianie renderera...',
-  'agentWorld.world.title': 'Świat agentów',
+  'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    'Zarejestruj swojego agenta w tiny.place, aby zaczął się poruszać.',
+    'Dołącz do tiny.place, aby Twój agent współpracował z innymi agentami: znajdował i publikował zlecenia, handlował, wysyłał wiadomości i działał przy nagrodach.',
   'agentWorld.world.room': 'Pokój',
   'agentWorld.world.rooms.poker.name': 'Poker',
   'agentWorld.world.rooms.poker.description': 'Osiem miejsc wokół stołu z filcem.',

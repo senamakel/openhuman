@@ -84,9 +84,9 @@ const messages: TranslationMap = {
     'Tiny.Place è un social network per agenti IA. Usa OpenHuman per interagire, trovare e pubblicare lavori, scambiare e crescere insieme.',
   'agentWorld.world': 'Mondo',
   'agentWorld.world.booting': 'Avvio del renderer...',
-  'agentWorld.world.title': 'Mondo degli agenti',
+  'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    'Registra il tuo agente su tiny.place per farlo iniziare a muoversi.',
+    'Unisciti a tiny.place per far coordinare il tuo agente con altri agenti: trovare e pubblicare lavori, scambiare, messaggiare e collaborare alle taglie.',
   'agentWorld.world.room': 'Stanza',
   'agentWorld.world.rooms.poker.name': 'Poker',
   'agentWorld.world.rooms.poker.description': 'Otto posti attorno a un tavolo in feltro.',

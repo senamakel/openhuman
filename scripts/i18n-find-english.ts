@@ -52,6 +52,7 @@ const ALL_LOCALES = [...Object.keys(NATIVE_SCRIPT), ...LATIN_LOCALES];
 // locales. These are reviewed exceptions — a value flagged here is expected, not a bug.
 // A key NOT in this set that the detector flags is a genuine untranslated string to fix.
 const INTENTIONAL_ENGLISH = new Set([
+  "agentWorld.world.title", // "Tiny Place" — brand/product name, same in every locale
   "app.connectionIndicator.coreOffline",
   "channels.activeRouteValue",
   "composio.integrationSlugsExample",

@@ -2,7 +2,15 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
@@ -19,6 +27,7 @@ then steers it through openhuman.subagent_steer while the parent/core process is
 No prompt, response, credential, or transcript bodies are printed.
 
 Options:
+  --scenario <name>        async-steer, parallel-research-code, or all (default: async-steer)
   --core-url <url>          JSON-RPC endpoint (default: OPENHUMAN_CORE_RPC_URL or ${DEFAULT_RPC_URL})
   --token <token>           RPC bearer (default: OPENHUMAN_CORE_TOKEN or <workspace>/core.token)
   --workspace <path>        Workspace containing .openhuman/subagent_sessions.json
@@ -30,18 +39,20 @@ Options:
   --settle-wait-ms <n>      Time to wait for final session status after parent returns (default: 60000)
   --spawn-core              Start openhuman-core run --jsonrpc-only for the audit
   --isolated-workspace      With --spawn-core, use a temp workspace and custom audit agent definitions
-  --keep-workspace          Do not remove an isolated temp workspace after the run
+  --keep-workspace          Do not remove an isolated temp workspace after the run; this can leave a temp config with a live API key
   --verbose                 Print response char counts and spawned core logs
   -h, --help                Show this help
 
 Examples:
   node scripts/debug/harness-subagent-rpc-audit.mjs
   node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario parallel-research-code --model gpt-4.1-mini
 `;
 }
 
 function parseArgs(argv) {
   const opts = {
+    scenario: "async-steer",
     coreUrl: process.env.OPENHUMAN_CORE_RPC_URL || DEFAULT_RPC_URL,
     token: process.env.OPENHUMAN_CORE_TOKEN || "",
     workspace: process.env.OPENHUMAN_WORKSPACE || "",
@@ -67,6 +78,9 @@ function parseArgs(argv) {
       return value;
     };
     switch (arg) {
+      case "--scenario":
+        opts.scenario = next();
+        break;
       case "--core-url":
         opts.coreUrl = next();
         opts.coreUrlExplicit = true;
@@ -115,6 +129,12 @@ function parseArgs(argv) {
       default:
         throw new Error(`unknown option: ${arg}`);
     }
+  }
+  const scenarios = new Set(["async-steer", "parallel-research-code", "all"]);
+  if (!scenarios.has(opts.scenario)) {
+    throw new Error(
+      `--scenario must be one of ${Array.from(scenarios).join(", ")}`,
+    );
   }
   return opts;
 }
@@ -295,12 +315,75 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function listJsonlFiles(dir) {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const files = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listJsonlFiles(full)));
+    } else if (entry.isFile() && full.endsWith(".jsonl")) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+async function transcriptSnapshot(workspace) {
+  const transcriptDir = path.join(workspace, "session_raw");
+  const files = await listJsonlFiles(transcriptDir);
+  const snapshot = new Map();
+  for (const file of files) {
+    try {
+      const metadata = await stat(file);
+      snapshot.set(file, {
+        size: metadata.size,
+        mtimeMs: metadata.mtimeMs,
+      });
+    } catch {
+      // Ignore racing transcript writes during live audit sampling.
+    }
+  }
+  return snapshot;
+}
+
+function changedTranscriptFiles(before, after) {
+  return [...after.entries()]
+    .filter(([file, current]) => {
+      const previous = before.get(file);
+      return (
+        !previous ||
+        previous.size !== current.size ||
+        previous.mtimeMs !== current.mtimeMs
+      );
+    })
+    .map(([file]) => file);
+}
+
+function subagentTranscriptFiles(files) {
+  return files.filter((file) => path.basename(file).includes("__"));
+}
+
 function spawnPrompt(opts) {
   return `Harness async subagent RPC audit.
 Call spawn_subagent exactly once with agent_id \`${opts.agentId}\`, task_key \`${opts.taskKey}\`, blocking false, and fresh false.
 Ask the sub-agent to produce a concise confirmation for audit marker \`${opts.taskKey}\`.
 After the tool returns, reply with one short sentence saying the async worker was started.
 Do not call wait_subagent.`;
+}
+
+function parallelPrompt(opts) {
+  return `Harness parallel subagent audit.
+Call spawn_parallel_agents exactly once with these two tasks:
+1. agent_id "researcher", ownership "website research", prompt "Research https://example.com and return a concise factual note with the page title or domain purpose. Include one short evidence phrase. Do not browse unrelated sites."
+2. agent_id "code_executor", ownership "code draft", prompt "Write a small Python function normalize_title(title: str) -> str that trims whitespace, collapses internal whitespace, and title-cases the result. Include one tiny assert-style example. Return only the code block; do not modify files."
+After spawn_parallel_agents returns, reply with one concise sentence summarizing that both parallel workers completed.
+Audit marker: ${opts.taskKey}.`;
 }
 
 function steerMessage(opts) {
@@ -350,15 +433,16 @@ omit_memory_md = true
 [system_prompt]
 inline = """
 You are the OpenHuman async subagent RPC audit orchestrator.
-For every user message, call spawn_subagent exactly once with agent_id "async_audit_worker", blocking false, fresh false, and the task_key provided by the user.
-After the tool returns, provide one sentence saying the async worker was started. Do not call wait_subagent. Do not call any other tools.
+For async steering audit messages, call spawn_subagent exactly once with agent_id "async_audit_worker", blocking false, fresh false, and the task_key provided by the user.
+For parallel audit messages, call spawn_parallel_agents exactly once with the task list provided by the user.
+After the requested tool returns, provide one concise sentence. Do not call wait_subagent. Do not call any other tools.
 """
 
 [tools]
-named = ["spawn_subagent"]
+named = ["spawn_subagent", "spawn_parallel_agents"]
 
 [subagents]
-allowlist = ["async_audit_worker"]
+allowlist = ["async_audit_worker", "researcher", "code_executor"]
 `,
   );
   await writeFile(
@@ -497,6 +581,131 @@ function unwrapData(result) {
   return result?.data && typeof result.data === "object" ? result.data : result;
 }
 
+async function runAsyncSteerScenario(opts) {
+  const params = { message: spawnPrompt(opts) };
+  if (opts.model) params.model_override = opts.model;
+
+  const parentStarted = Date.now();
+  const parentPromise = rpc(
+    opts.coreUrl,
+    opts.token,
+    "openhuman.agent_chat",
+    params,
+    opts.rpcTimeoutMs,
+  );
+
+  const runningSession = await waitForRunningSession(
+    opts.sessionWorkspace || opts.workspace,
+    opts.taskKey,
+    opts.spawnWaitMs,
+    parentPromise,
+  );
+  console.log(
+    `[harness-subagent-rpc-audit] running session task_id=${runningSession.currentTaskId} subagent_session_id=${runningSession.subagentSessionId}`,
+  );
+
+  const steerResult = unwrapData(
+    await rpc(
+      opts.coreUrl,
+      opts.token,
+      "openhuman.subagent_steer",
+      {
+        taskId: runningSession.currentTaskId,
+        message: steerMessage(opts),
+        mode: "steer",
+      },
+      30_000,
+    ),
+  );
+  console.log(
+    `[harness-subagent-rpc-audit] steer result steered=${Boolean(steerResult.steered)} reason=${steerResult.reason || "none"}`,
+  );
+
+  const parentResult = await parentPromise;
+  const response = responseText(parentResult);
+  console.log(
+    `[harness-subagent-rpc-audit] parent turn completed in ${Date.now() - parentStarted}ms${
+      opts.verbose ? ` response_chars=${response.length}` : ""
+    }`,
+  );
+
+  const sessions = await waitForSettledSessions(
+    opts.sessionWorkspace || opts.workspace,
+    opts.taskKey,
+    opts.settleWaitMs,
+  );
+
+  console.log("[harness-subagent-rpc-audit] sessions");
+  if (sessions.length === 0) {
+    console.log("  none");
+  } else {
+    for (const session of sessions) {
+      console.log(
+        `  subagent_session_id=${session.subagentSessionId} task_id=${session.currentTaskId || "none"} status=${session.status} reusable=${session.reusable} updated_at=${session.updatedAt}`,
+      );
+    }
+  }
+
+  const failures = [];
+  if (!runningSession?.currentTaskId)
+    failures.push("no running subagent task observed");
+  if (!steerResult?.steered) {
+    failures.push(
+      `subagent steer was not accepted (${steerResult?.reason || "unknown"})`,
+    );
+  }
+  const uniqueSessions = new Set(
+    sessions.map((session) => session.subagentSessionId),
+  );
+  if (uniqueSessions.size !== 1) {
+    failures.push(
+      `expected one durable session for task key, observed ${uniqueSessions.size}`,
+    );
+  }
+  if (sessions.length === 0)
+    failures.push("no durable session remained after audit");
+  return failures;
+}
+
+async function runParallelResearchCodeScenario(opts) {
+  const transcriptWorkspace = opts.sessionWorkspace || opts.workspace;
+  const before = await transcriptSnapshot(transcriptWorkspace);
+  const params = { message: parallelPrompt(opts) };
+  if (opts.model) params.model_override = opts.model;
+
+  const started = Date.now();
+  const result = await rpc(
+    opts.coreUrl,
+    opts.token,
+    "openhuman.agent_chat",
+    params,
+    opts.rpcTimeoutMs,
+  );
+  const response = responseText(result);
+  const after = await transcriptSnapshot(transcriptWorkspace);
+  const changed = changedTranscriptFiles(before, after);
+  const changedSubagents = subagentTranscriptFiles(changed);
+
+  console.log(
+    `[harness-subagent-rpc-audit] parallel turn completed in ${Date.now() - started}ms${
+      opts.verbose ? ` response_chars=${response.length}` : ""
+    }`,
+  );
+  console.log(
+    `[harness-subagent-rpc-audit] transcript changes changed=${changed.length} subagent_changed=${changedSubagents.length}`,
+  );
+
+  const failures = [];
+  if (response.length === 0)
+    failures.push("parallel parent response was empty");
+  if (changedSubagents.length < 2) {
+    failures.push(
+      `expected at least two changed subagent transcripts, observed ${changedSubagents.length}`,
+    );
+  }
+  return failures;
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (!opts.workspace) opts.workspace = await defaultWorkspace();
@@ -538,105 +747,40 @@ async function main() {
     console.log(`  session_workspace: ${opts.sessionWorkspace}`);
   }
   console.log(`  task_key: ${opts.taskKey}`);
-  console.log(`  agent_id: ${opts.agentId}`);
+  console.log(`  scenario: ${opts.scenario}`);
+  if (opts.scenario !== "parallel-research-code") {
+    console.log(`  agent_id: ${opts.agentId}`);
+  }
   console.log(`  mode: ${opts.spawnCore ? "spawned-core" : "attached-core"}`);
   if (opts.isolatedWorkspace) {
     console.log("  definitions: isolated audit overrides enabled");
   }
 
-  let parentResult;
-  let runningSession;
-  let steerResult;
-  let sessions = [];
+  const failures = [];
   try {
-    const params = { message: spawnPrompt(opts) };
-    if (opts.model) params.model_override = opts.model;
-
-    const parentStarted = Date.now();
-    const parentPromise = rpc(
-      opts.coreUrl,
-      opts.token,
-      "openhuman.agent_chat",
-      params,
-      opts.rpcTimeoutMs,
-    );
-
-    runningSession = await waitForRunningSession(
-      opts.sessionWorkspace || opts.workspace,
-      opts.taskKey,
-      opts.spawnWaitMs,
-      parentPromise,
-    );
-    console.log(
-      `[harness-subagent-rpc-audit] running session task_id=${runningSession.currentTaskId} subagent_session_id=${runningSession.subagentSessionId}`,
-    );
-
-    steerResult = unwrapData(
-      await rpc(
-        opts.coreUrl,
-        opts.token,
-        "openhuman.subagent_steer",
-        {
-          taskId: runningSession.currentTaskId,
-          message: steerMessage(opts),
-          mode: "steer",
-        },
-        30_000,
-      ),
-    );
-    console.log(
-      `[harness-subagent-rpc-audit] steer result steered=${Boolean(steerResult.steered)} reason=${steerResult.reason || "none"}`,
-    );
-
-    parentResult = await parentPromise;
-    const response = responseText(parentResult);
-    console.log(
-      `[harness-subagent-rpc-audit] parent turn completed in ${Date.now() - parentStarted}ms${
-        opts.verbose ? ` response_chars=${response.length}` : ""
-      }`,
-    );
-
-    sessions = await waitForSettledSessions(
-      opts.sessionWorkspace || opts.workspace,
-      opts.taskKey,
-      opts.settleWaitMs,
-    );
+    const scenarios =
+      opts.scenario === "all"
+        ? ["async-steer", "parallel-research-code"]
+        : [opts.scenario];
+    for (const scenario of scenarios) {
+      console.log(`[harness-subagent-rpc-audit] scenario ${scenario}`);
+      const scenarioOpts = {
+        ...opts,
+        taskKey:
+          scenarios.length > 1 ? `${opts.taskKey}-${scenario}` : opts.taskKey,
+      };
+      if (scenario === "async-steer") {
+        failures.push(...(await runAsyncSteerScenario(scenarioOpts)));
+      } else if (scenario === "parallel-research-code") {
+        failures.push(...(await runParallelResearchCodeScenario(scenarioOpts)));
+      }
+    }
   } finally {
     if (spawned?.child) await stopChild(spawned.child);
     if (tempWorkspace && !opts.keepWorkspace) {
       await rm(tempWorkspace, { recursive: true, force: true });
     }
   }
-
-  console.log("[harness-subagent-rpc-audit] sessions");
-  if (sessions.length === 0) {
-    console.log("  none");
-  } else {
-    for (const session of sessions) {
-      console.log(
-        `  subagent_session_id=${session.subagentSessionId} task_id=${session.currentTaskId || "none"} status=${session.status} reusable=${session.reusable} updated_at=${session.updatedAt}`,
-      );
-    }
-  }
-
-  const failures = [];
-  if (!runningSession?.currentTaskId)
-    failures.push("no running subagent task observed");
-  if (!steerResult?.steered) {
-    failures.push(
-      `subagent steer was not accepted (${steerResult?.reason || "unknown"})`,
-    );
-  }
-  const uniqueSessions = new Set(
-    sessions.map((session) => session.subagentSessionId),
-  );
-  if (uniqueSessions.size !== 1) {
-    failures.push(
-      `expected one durable session for task key, observed ${uniqueSessions.size}`,
-    );
-  }
-  if (sessions.length === 0)
-    failures.push("no durable session remained after audit");
 
   if (failures.length > 0) {
     console.error("\n[harness-subagent-rpc-audit] FAIL");

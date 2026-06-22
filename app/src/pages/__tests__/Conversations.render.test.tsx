@@ -453,6 +453,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('route-path')).toHaveTextContent('/chat');
     });
+    expect(threadApi.createNewThread).not.toHaveBeenCalled();
   });
 
   it('updates the route when selecting sidebar threads by click or keyboard', async () => {

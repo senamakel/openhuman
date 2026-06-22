@@ -523,6 +523,7 @@ const Conversations = ({
         if (openThreadId) {
           debug('[chat][route] requested thread not found thread=%s; falling back', openThreadId);
           navigate('/chat', { replace: true });
+          return;
         }
         // Default landing is a fresh "new window" (the merged Home surface) —
         // we no longer resume the last conversation on open. Reuse an existing

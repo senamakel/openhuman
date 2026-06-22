@@ -1195,6 +1195,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': "Fournisseur d'embeddings",
   'settings.embeddings.statusConfigured': 'Configuré',
   'settings.embeddings.statusNeedsKey': 'Clé API requise',
+  'settings.embeddings.statusNeedsSignIn': 'Connexion requise',
   'settings.embeddings.apiKeyLabel': 'Clé API {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (stocké)',
   'settings.embeddings.placeholderKey': 'Collez votre clé API…',
@@ -1214,6 +1215,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'Test en cours…',
   'settings.embeddings.testSuccess': 'Connecté — {dims} dimensions',
   'settings.embeddings.testFailed': 'Échec : {error}',
+  'settings.embeddings.testFailedFallback': 'Test échoué',
   'settings.embeddings.saving': 'Enregistrement…',
   'settings.embeddings.saved': 'Enregistré.',
   'settings.embeddings.errorPrefix': 'Échec',
@@ -1228,6 +1230,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'La recherche vectorielle est désactivée. Le rappel de la mémoire utilisera uniquement la correspondance de mots-clés et la récence — pas de classement sémantique.',
   'settings.embeddings.clearKey': 'Effacer la clé API',
+  'settings.embeddings.managedSignInMessage':
+    'Les embeddings gérés nécessitent une connexion OpenHuman. Connectez-vous de nouveau pour utiliser le backend OpenHuman, ou choisissez un fournisseur local ou avec votre propre clé API.',
+  'settings.embeddings.signInAgain': 'Se reconnecter',
   'pages.settings.ai.embeddings': 'Intégrations',
   'pages.settings.ai.embeddingsDesc':
     "Modèle d'encodage vectoriel pour la récupération de la mémoire",

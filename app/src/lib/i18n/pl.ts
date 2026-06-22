@@ -1180,6 +1180,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'Dostawca embeddings',
   'settings.embeddings.statusConfigured': 'Skonfigurowano',
   'settings.embeddings.statusNeedsKey': 'Wymaga klucza API',
+  'settings.embeddings.statusNeedsSignIn': 'Wymaga logowania',
   'settings.embeddings.apiKeyLabel': 'Klucz API {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (zapisane)',
   'settings.embeddings.placeholderKey': 'Wklej swój klucz API…',
@@ -1198,6 +1199,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'Testowanie…',
   'settings.embeddings.testSuccess': 'Połączono — wymiarów: {dims}',
   'settings.embeddings.testFailed': 'Niepowodzenie: {error}',
+  'settings.embeddings.testFailedFallback': 'Test nie powiódł się',
   'settings.embeddings.saving': 'Zapisywanie…',
   'settings.embeddings.saved': 'Zapisano.',
   'settings.embeddings.errorPrefix': 'Niepowodzenie',
@@ -1212,6 +1214,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'Wyszukiwanie wektorowe jest wyłączone. Pamięć będzie używać tylko dopasowania słów kluczowych i świeżości — bez rankingu semantycznego.',
   'settings.embeddings.clearKey': 'Wyczyść klucz API',
+  'settings.embeddings.managedSignInMessage':
+    'Zarządzane embeddings wymagają logowania do OpenHuman. Zaloguj się ponownie, aby użyć backendu OpenHuman, albo wybierz lokalnego dostawcę lub dostawcę z własnym kluczem API.',
+  'settings.embeddings.signInAgain': 'Zaloguj ponownie',
   'pages.settings.ai.embeddings': 'Embeddingi',
   'pages.settings.ai.embeddingsDesc': 'Model kodowania wektorowego do wyszukiwania w pamięci',
   'mcp.alphaBadge': 'Alfa',

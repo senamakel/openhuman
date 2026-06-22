@@ -1161,6 +1161,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': '임베딩 제공자',
   'settings.embeddings.statusConfigured': '구성됨',
   'settings.embeddings.statusNeedsKey': 'API 키 필요',
+  'settings.embeddings.statusNeedsSignIn': '로그인 필요',
   'settings.embeddings.apiKeyLabel': '{provider} API 키',
   'settings.embeddings.placeholderStored': '•••••••(저장됨)',
   'settings.embeddings.placeholderKey': 'API 키를 붙여넣으세요…',
@@ -1179,6 +1180,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': '테스트 중…',
   'settings.embeddings.testSuccess': '연결됨 — {dims} 차원',
   'settings.embeddings.testFailed': '실패: {error}',
+  'settings.embeddings.testFailedFallback': '테스트 실패',
   'settings.embeddings.saving': '저장 중…',
   'settings.embeddings.saved': '저장됨.',
   'settings.embeddings.errorPrefix': '실패',
@@ -1193,6 +1195,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     '벡터 검색이 비활성화되어 있습니다. 메모리 회상은 의미 순위 없이 키워드 매칭과 최신성만 사용합니다.',
   'settings.embeddings.clearKey': 'API 키 삭제',
+  'settings.embeddings.managedSignInMessage':
+    '관리형 임베딩을 사용하려면 OpenHuman 로그인이 필요합니다. OpenHuman 백엔드를 사용하려면 다시 로그인하거나, 로컬 또는 자체 API 키 임베딩 제공자를 선택하세요.',
+  'settings.embeddings.signInAgain': '다시 로그인',
   'pages.settings.ai.embeddings': '임베딩',
   'pages.settings.ai.embeddingsDesc': '메모리 검색을 위한 벡터 인코딩 모델',
   'mcp.alphaBadge': '알파',

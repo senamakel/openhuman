@@ -1163,6 +1163,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'এমবেডিং প্রদানকারী',
   'settings.embeddings.statusConfigured': 'কনফিগার করা হয়েছে',
   'settings.embeddings.statusNeedsKey': 'API কী প্রয়োজন',
+  'settings.embeddings.statusNeedsSignIn': 'সাইন-ইন প্রয়োজন',
   'settings.embeddings.apiKeyLabel': '{provider} API কী',
   'settings.embeddings.placeholderStored': '•••••••• (সঞ্চিত)',
   'settings.embeddings.placeholderKey': 'আপনার API কী পেস্ট করুন…',
@@ -1181,6 +1182,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'পরীক্ষা হচ্ছে…',
   'settings.embeddings.testSuccess': 'সংযুক্ত — {dims} মাত্রা',
   'settings.embeddings.testFailed': 'ব্যর্থ: {error}',
+  'settings.embeddings.testFailedFallback': 'পরীক্ষা ব্যর্থ হয়েছে',
   'settings.embeddings.saving': 'সংরক্ষণ হচ্ছে…',
   'settings.embeddings.saved': 'সংরক্ষিত।',
   'settings.embeddings.errorPrefix': 'ব্যর্থ',
@@ -1195,6 +1197,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'ভেক্টর অনুসন্ধান নিষ্ক্রিয় করা হয়েছে । মনে রাখবেন যে, শুধু শব্দ ও ছাদের সঙ্গে মিল রেখে শব্দ ব্যবহার করা হবে ।',
   'settings.embeddings.clearKey': 'API কী মুছুন',
+  'settings.embeddings.managedSignInMessage':
+    'ম্যানেজড এমবেডিং ব্যবহার করতে OpenHuman-এ সাইন ইন করতে হবে। OpenHuman ব্যাকএন্ড ব্যবহার করতে আবার সাইন ইন করুন, অথবা স্থানীয় বা নিজের API কী-ভিত্তিক এমবেডিং প্রদানকারী বেছে নিন।',
+  'settings.embeddings.signInAgain': 'আবার সাইন ইন করুন',
   'pages.settings.ai.embeddings': 'এমবেডিংস',
   'pages.settings.ai.embeddingsDesc': 'মেমরি পুনরুদ্ধারের জন্য ভেক্টর এনকোডিং মডেল',
   'mcp.alphaBadge': 'আলফা',

@@ -1186,6 +1186,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'Fornitore di embeddings',
   'settings.embeddings.statusConfigured': 'Configurato',
   'settings.embeddings.statusNeedsKey': 'Chiave API necessaria',
+  'settings.embeddings.statusNeedsSignIn': 'Accesso richiesto',
   'settings.embeddings.apiKeyLabel': 'Chiave API {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (memorizzato)',
   'settings.embeddings.placeholderKey': 'Incolla la tua chiave API…',
@@ -1205,6 +1206,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'Test in corso…',
   'settings.embeddings.testSuccess': 'Connesso — {dims} dimensioni',
   'settings.embeddings.testFailed': 'Fallito: {error}',
+  'settings.embeddings.testFailedFallback': 'Test non riuscito',
   'settings.embeddings.saving': 'Salvataggio…',
   'settings.embeddings.saved': 'Salvato.',
   'settings.embeddings.errorPrefix': 'Fallito',
@@ -1219,6 +1221,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'La ricerca vettoriale è disabilitata. Il richiamo della memoria utilizzerà solo il confronto delle parole chiave e la recenza — nessuna classificazione semantica.',
   'settings.embeddings.clearKey': 'Cancella chiave API',
+  'settings.embeddings.managedSignInMessage':
+    'Gli embedding gestiti richiedono l’accesso a OpenHuman. Accedi di nuovo per usare il backend OpenHuman oppure scegli un provider locale o con la tua chiave API.',
+  'settings.embeddings.signInAgain': 'Accedi di nuovo',
   'pages.settings.ai.embeddings': 'Incorporamenti',
   'pages.settings.ai.embeddingsDesc':
     'Modello di codifica vettoriale per il recupero della memoria',

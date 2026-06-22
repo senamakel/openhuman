@@ -1168,6 +1168,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'Penyedia embedding',
   'settings.embeddings.statusConfigured': 'Dikonfigurasi',
   'settings.embeddings.statusNeedsKey': 'Perlu kunci API',
+  'settings.embeddings.statusNeedsSignIn': 'Perlu masuk',
   'settings.embeddings.apiKeyLabel': 'Kunci API {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (disimpan)',
   'settings.embeddings.placeholderKey': 'Tempel kunci API Anda…',
@@ -1186,6 +1187,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'Menguji…',
   'settings.embeddings.testSuccess': 'Terhubung — {dims} dimensi',
   'settings.embeddings.testFailed': 'Gagal: {error}',
+  'settings.embeddings.testFailedFallback': 'Pengujian gagal',
   'settings.embeddings.saving': 'Menyimpan…',
   'settings.embeddings.saved': 'Tersimpan.',
   'settings.embeddings.errorPrefix': 'Gagal',
@@ -1200,6 +1202,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'Pencarian Vektor dinonaktifkan. Recall memori akan menggunakan kata kunci pencocokan dan retensi saja - tidak ada peringkat semantik.',
   'settings.embeddings.clearKey': 'Hapus kunci API',
+  'settings.embeddings.managedSignInMessage':
+    'Embedding terkelola memerlukan masuk ke OpenHuman. Masuk lagi untuk menggunakan backend OpenHuman, atau pilih penyedia embedding lokal atau dengan kunci API sendiri.',
+  'settings.embeddings.signInAgain': 'Masuk lagi',
   'pages.settings.ai.embeddings': 'Penyematan',
   'pages.settings.ai.embeddingsDesc': 'Model encoding vektor untuk pengambilan memori',
   'mcp.alphaBadge': 'Alfa',

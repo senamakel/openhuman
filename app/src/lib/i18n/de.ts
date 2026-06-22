@@ -1195,6 +1195,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'Embedding-Anbieter',
   'settings.embeddings.statusConfigured': 'Konfiguriert',
   'settings.embeddings.statusNeedsKey': 'API-Schlüssel benötigt',
+  'settings.embeddings.statusNeedsSignIn': 'Anmeldung erforderlich',
   'settings.embeddings.apiKeyLabel': '{provider} API-Schlüssel',
   'settings.embeddings.placeholderStored': '•••••••• (gespeichert)',
   'settings.embeddings.placeholderKey': 'API-Schlüssel einfügen…',
@@ -1214,6 +1215,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'Wird getestet…',
   'settings.embeddings.testSuccess': 'Verbunden — {dims} Dimensionen',
   'settings.embeddings.testFailed': 'Fehlgeschlagen: {error}',
+  'settings.embeddings.testFailedFallback': 'Test fehlgeschlagen',
   'settings.embeddings.saving': 'Wird gespeichert…',
   'settings.embeddings.saved': 'Gespeichert.',
   'settings.embeddings.errorPrefix': 'Fehlgeschlagen',
@@ -1228,6 +1230,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'Die Vektorsuche ist deaktiviert. Der Speicherabruf verwendet nur Keyword-Matching und Aktualität — kein semantisches Ranking.',
   'settings.embeddings.clearKey': 'API-Schlüssel löschen',
+  'settings.embeddings.managedSignInMessage':
+    'Verwaltete Embeddings erfordern eine OpenHuman-Anmeldung. Melde dich erneut an, um das OpenHuman-Backend zu verwenden, oder wähle einen lokalen Anbieter bzw. einen Anbieter mit eigenem API-Schlüssel.',
+  'settings.embeddings.signInAgain': 'Erneut anmelden',
   'pages.settings.ai.embeddings': 'Einbettungen',
   'pages.settings.ai.embeddingsDesc': 'Vektorkodierungsmodell für den Speicherabruf',
   'mcp.alphaBadge': 'Alpha',

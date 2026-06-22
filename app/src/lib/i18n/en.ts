@@ -1511,6 +1511,7 @@ const en: TranslationMap = {
   'settings.embeddings.providerAria': 'Embedding provider',
   'settings.embeddings.statusConfigured': 'Configured',
   'settings.embeddings.statusNeedsKey': 'Needs API key',
+  'settings.embeddings.statusNeedsSignIn': 'Requires sign-in',
   'settings.embeddings.apiKeyLabel': '{provider} API key',
   'settings.embeddings.placeholderStored': '•••••••• (stored)',
   'settings.embeddings.placeholderKey': 'Paste your API key…',
@@ -1529,6 +1530,7 @@ const en: TranslationMap = {
   'settings.embeddings.testing': 'Testing…',
   'settings.embeddings.testSuccess': 'Connected — {dims} dimensions',
   'settings.embeddings.testFailed': 'Failed: {error}',
+  'settings.embeddings.testFailedFallback': 'Test failed',
   'settings.embeddings.saving': 'Saving…',
   'settings.embeddings.saved': 'Saved.',
   'settings.embeddings.errorPrefix': 'Failed',
@@ -1543,6 +1545,9 @@ const en: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'Vector search is disabled. Memory recall will use keyword matching and recency only — no semantic ranking.',
   'settings.embeddings.clearKey': 'Clear API key',
+  'settings.embeddings.managedSignInMessage':
+    'Managed embeddings require OpenHuman sign-in. Sign in again to use the OpenHuman backend, or choose a local or bring-your-own-key embeddings provider.',
+  'settings.embeddings.signInAgain': 'Sign in again',
   'pages.settings.ai.embeddings': 'Embeddings',
   'pages.settings.ai.embeddingsDesc': 'Vector encoding model for memory retrieval',
 

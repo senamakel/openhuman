@@ -1160,6 +1160,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'एम्बेडिंग प्रदाता',
   'settings.embeddings.statusConfigured': 'कॉन्फ़िगर किया गया',
   'settings.embeddings.statusNeedsKey': 'API कुंजी चाहिए',
+  'settings.embeddings.statusNeedsSignIn': 'साइन इन आवश्यक',
   'settings.embeddings.apiKeyLabel': '{provider} API कुंजी',
   'settings.embeddings.placeholderStored': '•••••••• (संग्रहीत)',
   'settings.embeddings.placeholderKey': 'अपनी API कुंजी पेस्ट करें…',
@@ -1179,6 +1180,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'परीक्षण हो रहा है…',
   'settings.embeddings.testSuccess': 'कनेक्ट — {dims} आयाम',
   'settings.embeddings.testFailed': 'विफल: {error}',
+  'settings.embeddings.testFailedFallback': 'परीक्षण विफल',
   'settings.embeddings.saving': 'सहेजा जा रहा है…',
   'settings.embeddings.saved': 'सहेजा गया।',
   'settings.embeddings.errorPrefix': 'विफल',
@@ -1193,6 +1195,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'वेक्टर खोज अक्षम है। मेमोरी रिकॉल केवल कीवर्ड मेलिंग और रीसेंसी का उपयोग करेगा - कोई सेमैनेटिक रैंकिंग नहीं।',
   'settings.embeddings.clearKey': 'API कुंजी साफ़ करें',
+  'settings.embeddings.managedSignInMessage':
+    'मैनेज्ड एम्बेडिंग्स के लिए OpenHuman में साइन इन करना आवश्यक है। OpenHuman बैकएंड उपयोग करने के लिए फिर से साइन इन करें, या स्थानीय/अपनी API कुंजी वाले एम्बेडिंग प्रदाता को चुनें।',
+  'settings.embeddings.signInAgain': 'फिर से साइन इन करें',
   'pages.settings.ai.embeddings': 'एम्बेडिंग्स',
   'pages.settings.ai.embeddingsDesc': 'मेमोरी पुनर्प्राप्ति के लिए वेक्टर एन्कोडिंग मॉडल',
   'mcp.alphaBadge': 'अल्फ़ा',

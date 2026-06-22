@@ -10,6 +10,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { patchCoreStateSnapshot } from '../../../../lib/coreState/store';
 import {
   clearEmbeddingsApiKey,
   type EmbeddingProviderEntry,
@@ -20,6 +21,7 @@ import {
   updateEmbeddingsSettings,
 } from '../../../../services/api/embeddingsApi';
 import { renderWithProviders } from '../../../../test/test-utils';
+import { createLocalSessionToken } from '../../../../utils/localSession';
 import EmbeddingsPanel from '../EmbeddingsPanel';
 
 vi.mock('../../../../services/api/embeddingsApi', () => ({
@@ -76,6 +78,7 @@ const makeSettings = (overrides: Partial<EmbeddingsSettings> = {}): EmbeddingsSe
 describe('EmbeddingsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    patchCoreStateSnapshot({ snapshot: { sessionToken: null } });
     vi.mocked(loadEmbeddingsSettings).mockResolvedValue(makeSettings());
     vi.mocked(updateEmbeddingsSettings).mockResolvedValue({
       provider: 'managed',
@@ -158,6 +161,41 @@ describe('EmbeddingsPanel', () => {
     // No RPC — already selected
     await new Promise(r => setTimeout(r, 50));
     expect(vi.mocked(updateEmbeddingsSettings)).not.toHaveBeenCalled();
+  });
+
+  it('labels selected Managed embeddings as requiring sign-in during local sessions', async () => {
+    patchCoreStateSnapshot({ snapshot: { sessionToken: createLocalSessionToken() } });
+
+    renderWithProviders(<EmbeddingsPanel />);
+
+    expect(await screen.findByText('Requires sign-in')).toBeInTheDocument();
+    expect(screen.getByText(/Managed embeddings require OpenHuman sign-in/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign in again/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /test connection/i })).toBeDisabled();
+  });
+
+  it('blocks switching to Managed embeddings during local sessions', async () => {
+    patchCoreStateSnapshot({ snapshot: { sessionToken: createLocalSessionToken() } });
+    const settings = makeSettings({
+      provider: 'openai',
+      model: 'openai-model-v1',
+      providers: [
+        makeProvider('managed', { requires_api_key: false }),
+        makeProvider('openai', { requires_api_key: true, has_api_key: true }),
+      ],
+    });
+    vi.mocked(loadEmbeddingsSettings).mockResolvedValue(settings);
+
+    renderWithProviders(<EmbeddingsPanel />);
+    await screen.findByText('Managed');
+
+    fireEvent.click(screen.getByRole('radio', { name: /managed/i }));
+
+    expect(vi.mocked(updateEmbeddingsSettings)).not.toHaveBeenCalled();
+    expect(
+      (await screen.findAllByText(/Managed embeddings require OpenHuman sign-in/i)).length
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /sign in again/i })).toBeInTheDocument();
   });
 
   // ─── Setup popup — API key entry ──────────────────────────────────────────
@@ -632,6 +670,44 @@ describe('EmbeddingsPanel', () => {
     fireEvent.click(testBtn);
 
     await waitFor(() => expect(screen.getByText(/connection refused/i)).toBeInTheDocument());
+  });
+
+  it('maps Managed backend-session test failures to sign-in guidance', async () => {
+    const settings = makeSettings({
+      provider: 'managed',
+      providers: [
+        makeProvider('managed', {
+          requires_api_key: false,
+          models: [
+            {
+              id: 'managed-model-v1',
+              label: 'Managed Model v1',
+              default_dimensions: 1536,
+              allowed_dimensions: [1536],
+            },
+          ],
+        }),
+      ],
+    });
+    vi.mocked(loadEmbeddingsSettings).mockResolvedValue(settings);
+    vi.mocked(testEmbeddingsConnection).mockResolvedValueOnce({
+      success: false,
+      provider: 'managed',
+      model: 'managed-model-v1',
+      error:
+        'No backend session for cloud embeddings: log in to OpenHuman, or set memory.embedding_provider to "ollama"',
+    });
+
+    renderWithProviders(<EmbeddingsPanel />);
+    await screen.findByText('Managed');
+
+    fireEvent.click(await screen.findByRole('button', { name: /test connection/i }));
+
+    expect(
+      (await screen.findAllByText(/Managed embeddings require OpenHuman sign-in/i)).length
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /sign in again/i })).toBeInTheDocument();
+    expect(screen.queryByText(/No backend session for cloud embeddings/i)).not.toBeInTheDocument();
   });
 
   // ─── Model select (multiple catalog models) ───────────────────────────────

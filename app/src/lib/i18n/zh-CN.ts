@@ -1110,6 +1110,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': '嵌入提供商',
   'settings.embeddings.statusConfigured': '已配置',
   'settings.embeddings.statusNeedsKey': '需要 API 密钥',
+  'settings.embeddings.statusNeedsSignIn': '需要登录',
   'settings.embeddings.apiKeyLabel': '{provider} API 密钥',
   'settings.embeddings.placeholderStored': '••••••••（已存储）',
   'settings.embeddings.placeholderKey': '粘贴您的 API 密钥…',
@@ -1128,6 +1129,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': '测试中…',
   'settings.embeddings.testSuccess': '已连接 — {dims} 维度',
   'settings.embeddings.testFailed': '失败：{error}',
+  'settings.embeddings.testFailedFallback': '测试失败',
   'settings.embeddings.saving': '保存中…',
   'settings.embeddings.saved': '已保存。',
   'settings.embeddings.errorPrefix': '失败',
@@ -1142,6 +1144,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     '向量搜索已禁用。记忆召回将只使用关键词匹配和时间新近度，不进行语义排序。',
   'settings.embeddings.clearKey': '清除 API 密钥',
+  'settings.embeddings.managedSignInMessage':
+    '托管嵌入需要登录 OpenHuman。请重新登录以使用 OpenHuman 后端，或选择本地/自带 API 密钥的嵌入提供商。',
+  'settings.embeddings.signInAgain': '重新登录',
   'pages.settings.ai.embeddings': '向量嵌入',
   'pages.settings.ai.embeddingsDesc': '用于记忆检索的向量编码模型',
   'mcp.alphaBadge': '阿尔法',

@@ -1190,6 +1190,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'Proveedor de embeddings',
   'settings.embeddings.statusConfigured': 'Configurado',
   'settings.embeddings.statusNeedsKey': 'Necesita clave API',
+  'settings.embeddings.statusNeedsSignIn': 'Requiere inicio de sesión',
   'settings.embeddings.apiKeyLabel': 'Clave API de {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (almacenado)',
   'settings.embeddings.placeholderKey': 'Pega tu clave API…',
@@ -1208,6 +1209,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'Probando…',
   'settings.embeddings.testSuccess': 'Conectado — {dims} dimensiones',
   'settings.embeddings.testFailed': 'Fallido: {error}',
+  'settings.embeddings.testFailedFallback': 'La prueba falló',
   'settings.embeddings.saving': 'Guardando…',
   'settings.embeddings.saved': 'Guardado.',
   'settings.embeddings.errorPrefix': 'Fallido',
@@ -1222,6 +1224,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'La búsqueda vectorial está desactivada. La recuperación de memoria utilizará únicamente la coincidencia de palabras clave y la actualidad — sin clasificación semántica.',
   'settings.embeddings.clearKey': 'Borrar clave API',
+  'settings.embeddings.managedSignInMessage':
+    'Las incrustaciones administradas requieren iniciar sesión en OpenHuman. Vuelve a iniciar sesión para usar el backend de OpenHuman, o elige un proveedor local o con tu propia clave API.',
+  'settings.embeddings.signInAgain': 'Iniciar sesión de nuevo',
   'pages.settings.ai.embeddings': 'Incrustaciones',
   'pages.settings.ai.embeddingsDesc':
     'Modelo de codificación vectorial para recuperación de memoria',

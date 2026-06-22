@@ -1144,6 +1144,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'مزود التضمينات',
   'settings.embeddings.statusConfigured': 'تم التهيئة',
   'settings.embeddings.statusNeedsKey': 'يحتاج مفتاح API',
+  'settings.embeddings.statusNeedsSignIn': 'يتطلب تسجيل الدخول',
   'settings.embeddings.apiKeyLabel': 'مفتاح API لـ {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (مخزن)',
   'settings.embeddings.placeholderKey': 'الصق مفتاح API الخاص بك…',
@@ -1162,6 +1163,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'جارٍ الاختبار…',
   'settings.embeddings.testSuccess': 'متصل — {dims} بُعد',
   'settings.embeddings.testFailed': 'فشل: {error}',
+  'settings.embeddings.testFailedFallback': 'فشل الاختبار',
   'settings.embeddings.saving': 'جارٍ الحفظ…',
   'settings.embeddings.saved': 'تم الحفظ.',
   'settings.embeddings.errorPrefix': 'فشل',
@@ -1176,6 +1178,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'تم تعطيل البحث والتذكير بالذاكرة سيستخدم مضاهاة الكلمات الرئيسية والراحة فقط - لا ترتيب ساكن.',
   'settings.embeddings.clearKey': 'مسح مفتاح API',
+  'settings.embeddings.managedSignInMessage':
+    'تتطلب التضمينات المُدارة تسجيل الدخول إلى OpenHuman. سجّل الدخول مرة أخرى لاستخدام واجهة OpenHuman الخلفية، أو اختر مزود تضمينات محليًا أو بمفتاحك الخاص.',
+  'settings.embeddings.signInAgain': 'سجّل الدخول مرة أخرى',
   'pages.settings.ai.embeddings': 'التضمينات',
   'pages.settings.ai.embeddingsDesc': 'نموذج ترميز المتجهات لاسترجاع الذاكرة',
   'mcp.alphaBadge': 'ألفا',

@@ -5,9 +5,12 @@
  * to enter the key, test connection, and save. Dimension changes show a
  * destructive confirm dialog since they invalidate stored vectors.
  */
+import debugFactory from 'debug';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
+import { useCoreState } from '../../../providers/CoreStateProvider';
 import {
   clearEmbeddingsApiKey,
   type EmbeddingProviderEntry,
@@ -18,6 +21,7 @@ import {
   testEmbeddingsConnection,
   updateEmbeddingsSettings,
 } from '../../../services/api/embeddingsApi';
+import { isLocalSessionToken } from '../../../utils/localSession';
 import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
 import SettingsBackButton from '../components/SettingsBackButton';
@@ -42,9 +46,15 @@ interface EmbeddingsPanelProps {
   embedded?: boolean;
 }
 
+const log = debugFactory('app:settings:embeddings');
+const MANAGED_BACKEND_SESSION_ERROR = /No backend session for cloud embeddings/i;
+
 const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
   const { t } = useT();
+  const navigate = useNavigate();
+  const { clearSession, snapshot } = useCoreState();
   const { navigateBack } = useSettingsNavigation();
+  const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
 
   const [settings, setSettings] = useState<EmbeddingsSettings | null>(null);
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
@@ -57,6 +67,7 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
   const [setupTestResult, setSetupTestResult] = useState<EmbeddingsTestResult | null>(null);
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupError, setSetupError] = useState('');
+  const [managedSignInPromptVisible, setManagedSignInPromptVisible] = useState(false);
 
   // Confirm wipe dialog
   const [pendingWipe, setPendingWipe] = useState<{
@@ -110,9 +121,21 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
   const currentModels = currentEntry?.models ?? [];
   const currentModel = currentModels.find(m => m.id === settings.model) ?? currentModels[0];
   const allowedDims = currentModel?.allowed_dimensions ?? [];
+  const managedBlocked = isLocalSession && selectedProvider === 'managed';
+  const showManagedSignInPrompt = managedBlocked || managedSignInPromptVisible;
+  const managedSignInMessage = t('settings.embeddings.managedSignInMessage');
 
   function handleProviderClick(entry: EmbeddingProviderEntry) {
     if (entry.slug === selectedProvider) return;
+
+    if (entry.slug === 'managed' && isLocalSession) {
+      log('[ui-flow] blocked managed provider switch for local session');
+      setManagedSignInPromptVisible(true);
+      setStatus({ kind: 'error', message: managedSignInMessage });
+      return;
+    }
+
+    setManagedSignInPromptVisible(false);
 
     if (entry.slug === 'custom') {
       // For custom, open setup popup to enter endpoint
@@ -338,12 +361,45 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
     try {
       const result = await testEmbeddingsConnection();
       if (result.success) {
+        setManagedSignInPromptVisible(false);
         setStatus({ kind: 'saved' });
+      } else if (
+        selectedProvider === 'managed' &&
+        result.error &&
+        MANAGED_BACKEND_SESSION_ERROR.test(result.error)
+      ) {
+        log('[ui-flow] mapped managed embeddings backend-session test failure to sign-in guidance');
+        setManagedSignInPromptVisible(true);
+        setStatus({ kind: 'error', message: managedSignInMessage });
       } else {
-        setStatus({ kind: 'error', message: result.error ?? 'Test failed' });
+        setStatus({
+          kind: 'error',
+          message: result.error ?? t('settings.embeddings.testFailedFallback'),
+        });
       }
     } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      if (selectedProvider === 'managed' && MANAGED_BACKEND_SESSION_ERROR.test(message)) {
+        log(
+          '[ui-flow] mapped managed embeddings thrown backend-session failure to sign-in guidance'
+        );
+        setManagedSignInPromptVisible(true);
+        setStatus({ kind: 'error', message: managedSignInMessage });
+      } else {
+        setStatus({ kind: 'error', message });
+      }
+    }
+  }
+
+  async function handleManagedSignIn() {
+    log('[ui-flow] managed embeddings sign-in recovery clicked');
+    try {
+      await clearSession();
+      navigate('/', { replace: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log('[ui-flow] managed embeddings sign-in recovery failed: %s', message);
+      setStatus({ kind: 'error', message });
     }
   }
 
@@ -389,6 +445,11 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
                             : t('settings.embeddings.statusNeedsKey')}
                         </SettingsBadge>
                       )}
+                      {entry.slug === 'managed' && isLocalSession && (
+                        <SettingsBadge variant="warning">
+                          {t('settings.embeddings.statusNeedsSignIn')}
+                        </SettingsBadge>
+                      )}
                     </span>
                     <span className="block mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
                       {entry.description}
@@ -421,6 +482,21 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
             <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
               {t('settings.embeddings.vectorSearchDisabled')}
             </p>
+          </div>
+        )}
+
+        {showManagedSignInPrompt && (
+          <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-900/10 p-3 space-y-3">
+            <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+              {managedSignInMessage}
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="xs"
+              onClick={() => void handleManagedSignIn()}>
+              {t('settings.embeddings.signInAgain')}
+            </Button>
           </div>
         )}
 
@@ -487,7 +563,8 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
                   variant="secondary"
                   size="xs"
                   onClick={() => void handleTestConnection()}
-                  disabled={selectedProvider === 'none'}>
+                  disabled={selectedProvider === 'none' || managedBlocked}
+                  title={managedBlocked ? managedSignInMessage : undefined}>
                   {t('settings.embeddings.testConnection')}
                 </Button>
               </div>

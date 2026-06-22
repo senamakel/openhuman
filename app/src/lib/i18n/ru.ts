@@ -1177,6 +1177,7 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'Провайдер эмбеддингов',
   'settings.embeddings.statusConfigured': 'Настроено',
   'settings.embeddings.statusNeedsKey': 'Нужен API-ключ',
+  'settings.embeddings.statusNeedsSignIn': 'Требуется вход',
   'settings.embeddings.apiKeyLabel': 'API-ключ {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (сохранено)',
   'settings.embeddings.placeholderKey': 'Вставьте API-ключ…',
@@ -1196,6 +1197,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testing': 'Проверка…',
   'settings.embeddings.testSuccess': 'Подключено — {dims} измерений',
   'settings.embeddings.testFailed': 'Ошибка: {error}',
+  'settings.embeddings.testFailedFallback': 'Тест не пройден',
   'settings.embeddings.saving': 'Сохранение…',
   'settings.embeddings.saved': 'Сохранено.',
   'settings.embeddings.errorPrefix': 'Ошибка',
@@ -1210,6 +1212,9 @@ const messages: TranslationMap = {
   'settings.embeddings.vectorSearchDisabled':
     'Векторный поиск отключен. При вызове из памяти будут использоваться только сопоставление ключевых слов и актуальность — без семантического ранжирования.',
   'settings.embeddings.clearKey': 'Удалить API-ключ',
+  'settings.embeddings.managedSignInMessage':
+    'Управляемые эмбеддинги требуют входа в OpenHuman. Войдите снова, чтобы использовать backend OpenHuman, или выберите локального провайдера либо провайдера со своим API-ключом.',
+  'settings.embeddings.signInAgain': 'Войти снова',
   'pages.settings.ai.embeddings': 'Эмбеддинги',
   'pages.settings.ai.embeddingsDesc': 'Модель векторного кодирования для извлечения из памяти',
   'mcp.alphaBadge': 'Альфа',

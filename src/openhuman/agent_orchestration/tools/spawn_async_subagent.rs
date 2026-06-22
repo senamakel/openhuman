@@ -143,8 +143,8 @@ impl Tool for SpawnAsyncSubagentTool {
             .filter(|s| !s.is_empty())
             .unwrap_or("Background subagent")
             .to_string();
-        let task_key_source = durable_task_key_source(&args, &prompt);
-        let task_key = subagent_sessions::normalize_task_key(task_key_source);
+        let task_key_source = durable_task_key_source(&args, &prompt, context.as_deref());
+        let task_key = subagent_sessions::normalize_task_key(&task_key_source);
         let force_fresh = args.get("fresh").and_then(|v| v.as_bool()).unwrap_or(false);
 
         if agent_id.is_empty() {
@@ -673,12 +673,24 @@ fn add_background_contract(prompt: &str) -> String {
     )
 }
 
-fn durable_task_key_source<'a>(args: &'a serde_json::Value, prompt: &'a str) -> &'a str {
-    args.get("task_key")
+fn durable_task_key_source(
+    args: &serde_json::Value,
+    prompt: &str,
+    context: Option<&str>,
+) -> String {
+    if let Some(task_key) = args
+        .get("task_key")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .unwrap_or(prompt)
+    {
+        return task_key.to_string();
+    }
+
+    match context.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(context) => format!("{prompt}\n\n[Context]\n{context}"),
+        None => prompt.to_string(),
+    }
 }
 
 fn reusable_follow_up_message(prompt: &str, context: Option<&str>) -> String {
@@ -732,8 +744,30 @@ mod tests {
             "prompt": "Research the async subagent cache behavior for example.com"
         });
         assert_eq!(
-            durable_task_key_source(&args, args["prompt"].as_str().unwrap()),
+            durable_task_key_source(&args, args["prompt"].as_str().unwrap(), None),
             "Research the async subagent cache behavior for example.com"
+        );
+    }
+
+    #[test]
+    fn durable_task_key_includes_context_when_no_explicit_key() {
+        let args = json!({
+            "prompt": "Analyze this issue"
+        });
+        let source = durable_task_key_source(
+            &args,
+            args["prompt"].as_str().unwrap(),
+            Some("issue body A"),
+        );
+        assert!(source.contains("Analyze this issue"));
+        assert!(source.contains("[Context]\nissue body A"));
+        assert_ne!(
+            subagent_sessions::normalize_task_key(&source),
+            subagent_sessions::normalize_task_key(&durable_task_key_source(
+                &args,
+                args["prompt"].as_str().unwrap(),
+                Some("issue body B")
+            ))
         );
     }
 
@@ -745,7 +779,7 @@ mod tests {
             "prompt": "Research the async subagent cache behavior for example.com"
         });
         assert_eq!(
-            durable_task_key_source(&args, args["prompt"].as_str().unwrap()),
+            durable_task_key_source(&args, args["prompt"].as_str().unwrap(), Some("ignored")),
             "audit:example.com"
         );
     }

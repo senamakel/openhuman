@@ -1,13 +1,20 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { createServer } from 'node:net';
-import { homedir, tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { createServer } from "node:net";
+import { homedir, tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const DEFAULT_RPC_URL = 'http://127.0.0.1:7788/rpc';
+const DEFAULT_RPC_URL = "http://127.0.0.1:7788/rpc";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 function usage() {
@@ -22,6 +29,7 @@ Options:
   --workspace <path>      Workspace whose session_raw transcripts should be audited
   --turns <n>             Number of agent turns to run (default: 3)
   --model <model>         Optional model_override passed to openhuman.agent_chat
+  --thread-id <id>        Stable backend thread_id to group audit inference/cache logs
   --prompt <text>         Prompt to send each turn (default: cache-audit delegation prompt)
   --spawn-core            Start openhuman-core serve --jsonrpc-only for the audit
   --isolated-workspace    With --spawn-core, use a temp workspace and custom audit agent definitions
@@ -41,11 +49,12 @@ Examples:
 function parseArgs(argv) {
   const opts = {
     coreUrl: process.env.OPENHUMAN_CORE_RPC_URL || DEFAULT_RPC_URL,
-    token: process.env.OPENHUMAN_CORE_TOKEN || '',
-    workspace: process.env.OPENHUMAN_WORKSPACE || '',
+    token: process.env.OPENHUMAN_CORE_TOKEN || "",
+    workspace: process.env.OPENHUMAN_WORKSPACE || "",
     turns: 3,
-    model: '',
-    prompt: '',
+    model: "",
+    threadId: `harness-cache-audit-${Date.now().toString(36)}`,
+    prompt: "",
     spawnCore: false,
     isolatedWorkspace: false,
     keepWorkspace: false,
@@ -63,45 +72,51 @@ function parseArgs(argv) {
       return value;
     };
     switch (arg) {
-      case '--core-url':
+      case "--core-url":
         opts.coreUrl = next();
         opts.coreUrlExplicit = true;
         break;
-      case '--token':
+      case "--token":
         opts.token = next();
         break;
-      case '--workspace':
+      case "--workspace":
         opts.workspace = next();
         break;
-      case '--turns':
-        opts.turns = parsePositiveInt(next(), '--turns');
+      case "--turns":
+        opts.turns = parsePositiveInt(next(), "--turns");
         break;
-      case '--model':
+      case "--model":
         opts.model = next();
         break;
-      case '--prompt':
+      case "--thread-id":
+        opts.threadId = next();
+        break;
+      case "--prompt":
         opts.prompt = next();
         break;
-      case '--spawn-core':
+      case "--spawn-core":
         opts.spawnCore = true;
         break;
-      case '--isolated-workspace':
+      case "--isolated-workspace":
         opts.isolatedWorkspace = true;
         break;
-      case '--keep-workspace':
+      case "--keep-workspace":
         opts.keepWorkspace = true;
         break;
-      case '--min-hit-rate':
-        opts.minHitRate = parseNonNegativeNumber(next(), '--min-hit-rate');
+      case "--min-hit-rate":
+        opts.minHitRate = parseNonNegativeNumber(next(), "--min-hit-rate");
         break;
-      case '--max-turns-without-cache':
-        opts.maxTurnsWithoutCache = parseNonNegativeInt(next(), '--max-turns-without-cache');
+      case "--max-turns-without-cache":
+        opts.maxTurnsWithoutCache = parseNonNegativeInt(
+          next(),
+          "--max-turns-without-cache",
+        );
         break;
-      case '--verbose':
+      case "--verbose":
         opts.verbose = true;
         break;
-      case '-h':
-      case '--help':
+      case "-h":
+      case "--help":
         console.log(usage());
         process.exit(0);
       default:
@@ -113,34 +128,40 @@ function parseArgs(argv) {
 
 function parsePositiveInt(raw, label) {
   const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1) throw new Error(`${label} must be a positive integer`);
+  if (!Number.isInteger(value) || value < 1)
+    throw new Error(`${label} must be a positive integer`);
   return value;
 }
 
 function parseNonNegativeInt(raw, label) {
   const value = Number(raw);
-  if (!Number.isInteger(value) || value < 0) throw new Error(`${label} must be a non-negative integer`);
+  if (!Number.isInteger(value) || value < 0)
+    throw new Error(`${label} must be a non-negative integer`);
   return value;
 }
 
 function parseNonNegativeNumber(raw, label) {
   const value = Number(raw);
-  if (!Number.isFinite(value) || value < 0) throw new Error(`${label} must be a non-negative number`);
+  if (!Number.isFinite(value) || value < 0)
+    throw new Error(`${label} must be a non-negative number`);
   return value;
 }
 
 function defaultWorkspace() {
   if (process.env.OPENHUMAN_WORKSPACE) return process.env.OPENHUMAN_WORKSPACE;
-  return process.env.OPENHUMAN_APP_ENV === 'staging'
-    ? path.join(homedir(), '.openhuman-staging')
-    : path.join(homedir(), '.openhuman');
+  return process.env.OPENHUMAN_APP_ENV === "staging"
+    ? path.join(homedir(), ".openhuman-staging")
+    : path.join(homedir(), ".openhuman");
 }
 
 async function readToken(opts) {
   if (opts.token.trim()) return opts.token.trim();
-  const tokenPath = path.join(opts.workspace || defaultWorkspace(), 'core.token');
+  const tokenPath = path.join(
+    opts.workspace || defaultWorkspace(),
+    "core.token",
+  );
   try {
-    return (await readFile(tokenPath, 'utf8')).trim();
+    return (await readFile(tokenPath, "utf8")).trim();
   } catch {
     throw new Error(
       `RPC token not provided and ${tokenPath} could not be read. Pass --token or set OPENHUMAN_CORE_TOKEN.`,
@@ -150,13 +171,13 @@ async function readToken(opts) {
 
 async function rpc(coreUrl, token, method, params) {
   const res = await fetch(coreUrl, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'content-type': 'application/json',
+      "content-type": "application/json",
       authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id: `audit-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       method,
       params,
@@ -167,13 +188,19 @@ async function rpc(coreUrl, token, method, params) {
   try {
     body = JSON.parse(bodyText);
   } catch {
-    throw new Error(`RPC ${method} returned non-JSON HTTP ${res.status}: ${bodyText.slice(0, 300)}`);
+    throw new Error(
+      `RPC ${method} returned non-JSON HTTP ${res.status}: ${bodyText.slice(0, 300)}`,
+    );
   }
   if (!res.ok) {
-    throw new Error(`RPC ${method} HTTP ${res.status}: ${JSON.stringify(body).slice(0, 500)}`);
+    throw new Error(
+      `RPC ${method} HTTP ${res.status}: ${JSON.stringify(body).slice(0, 500)}`,
+    );
   }
   if (body.error) {
-    throw new Error(`RPC ${method} error: ${body.error.message || JSON.stringify(body.error)}`);
+    throw new Error(
+      `RPC ${method} error: ${body.error.message || JSON.stringify(body.error)}`,
+    );
   }
   return body.result;
 }
@@ -191,7 +218,7 @@ async function walkJsonl(dir) {
       entries.map(async (entry) => {
         const full = path.join(current, entry.name);
         if (entry.isDirectory()) return walk(full);
-        if (entry.isFile() && entry.name.endsWith('.jsonl')) out.push(full);
+        if (entry.isFile() && entry.name.endsWith(".jsonl")) out.push(full);
       }),
     );
   }
@@ -204,23 +231,23 @@ function num(value) {
 }
 
 async function readTranscriptMeta(file) {
-  const data = await readFile(file, 'utf8');
+  const data = await readFile(file, "utf8");
   const firstLine = data.split(/\r?\n/, 1)[0];
   const parsed = JSON.parse(firstLine);
   const meta = parsed._meta || {};
   return {
     file,
-    agent: String(meta.agent || '(unknown)'),
+    agent: String(meta.agent || "(unknown)"),
     input: num(meta.input_tokens),
     output: num(meta.output_tokens),
     cached: num(meta.cached_input_tokens),
     charged: num(meta.charged_amount_usd),
-    isSubagent: path.basename(file).includes('__'),
+    isSubagent: path.basename(file).includes("__"),
   };
 }
 
 async function snapshotTranscripts(workspace) {
-  const files = await walkJsonl(path.join(workspace, 'session_raw'));
+  const files = await walkJsonl(path.join(workspace, "session_raw"));
   const entries = new Map();
   await Promise.all(
     files.map(async (file) => {
@@ -247,7 +274,8 @@ function diffSnapshots(before, after) {
       cached: Math.max(0, current.cached - (prior?.cached || 0)),
       charged: Math.max(0, current.charged - (prior?.charged || 0)),
     };
-    if (delta.input || delta.output || delta.cached || delta.charged || !prior) rows.push(delta);
+    if (delta.input || delta.output || delta.cached || delta.charged || !prior)
+      rows.push(delta);
   }
   return rows;
 }
@@ -263,7 +291,14 @@ function summarize(rows) {
       if (row.isSubagent) acc.subagentSessions += 1;
       return acc;
     },
-    { input: 0, output: 0, cached: 0, charged: 0, sessions: 0, subagentSessions: 0 },
+    {
+      input: 0,
+      output: 0,
+      cached: 0,
+      charged: 0,
+      sessions: 0,
+      subagentSessions: 0,
+    },
   );
   totals.hitRate = totals.input > 0 ? (totals.cached / totals.input) * 100 : 0;
   return totals;
@@ -291,7 +326,7 @@ function printReport(opts, rows, turnResults) {
     byAgent.set(row.agent, item);
   }
 
-  console.log('\n[harness-cache-audit] summary');
+  console.log("\n[harness-cache-audit] summary");
   console.log(`  turns completed: ${turnResults.length}/${opts.turns}`);
   console.log(`  transcript sessions changed: ${totals.sessions}`);
   console.log(`  subagent transcript sessions: ${totals.subagentSessions}`);
@@ -302,7 +337,7 @@ function printReport(opts, rows, turnResults) {
   console.log(`  charged amount: $${totals.charged.toFixed(6)}`);
 
   if (byAgent.size > 0) {
-    console.log('\n[harness-cache-audit] by agent');
+    console.log("\n[harness-cache-audit] by agent");
     const rowsForTable = [...byAgent.values()].map((row) => ({
       agent: row.agent,
       sessions: row.sessions,
@@ -310,14 +345,17 @@ function printReport(opts, rows, turnResults) {
       input: row.input,
       output: row.output,
       cached: row.cached,
-      hit_rate: row.input > 0 ? `${((row.cached / row.input) * 100).toFixed(2)}%` : '0.00%',
+      hit_rate:
+        row.input > 0
+          ? `${((row.cached / row.input) * 100).toFixed(2)}%`
+          : "0.00%",
       charged: `$${row.charged.toFixed(6)}`,
     }));
     console.table(rowsForTable);
   }
 
   if (opts.verbose) {
-    console.log('\n[harness-cache-audit] changed transcript files');
+    console.log("\n[harness-cache-audit] changed transcript files");
     for (const row of rows) {
       console.log(`  ${row.agent}: ${row.file}`);
     }
@@ -336,17 +374,17 @@ Then reply with only a concise one-sentence summary.`;
 }
 
 function responseText(result) {
-  if (typeof result === 'string') return result;
-  if (typeof result?.result === 'string') return result.result;
-  if (typeof result?.response === 'string') return result.response;
+  if (typeof result === "string") return result;
+  if (typeof result?.result === "string") return result.result;
+  if (typeof result?.response === "string") return result.response;
   return JSON.stringify(result);
 }
 
 async function writeAuditDefinitions(workspace) {
-  const agentsDir = path.join(workspace, 'agents');
+  const agentsDir = path.join(workspace, "agents");
   await mkdir(agentsDir, { recursive: true });
   await writeFile(
-    path.join(agentsDir, 'orchestrator.toml'),
+    path.join(agentsDir, "orchestrator.toml"),
     `id = "orchestrator"
 display_name = "Cache Audit Orchestrator"
 when_to_use = "Deterministic live harness cache audit orchestrator."
@@ -376,7 +414,7 @@ allowlist = ["audit_worker"]
 `,
   );
   await writeFile(
-    path.join(agentsDir, 'audit_worker.toml'),
+    path.join(agentsDir, "audit_worker.toml"),
     `id = "audit_worker"
 display_name = "Cache Audit Worker"
 delegate_name = "delegate_audit_worker"
@@ -405,33 +443,39 @@ async function pickFreePort() {
   return await new Promise((resolve, reject) => {
     const server = createServer();
     server.unref();
-    server.on('error', reject);
-    server.listen(0, '127.0.0.1', () => {
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
       const address = server.address();
-      const port = typeof address === 'object' && address ? address.port : 0;
+      const port = typeof address === "object" && address ? address.port : 0;
       server.close(() => resolve(port));
     });
   });
 }
 
 async function startCore(opts) {
-  const token = opts.token || `audit-${randomBytes(24).toString('hex')}`;
+  const token = opts.token || `audit-${randomBytes(24).toString("hex")}`;
   const env = { ...process.env, OPENHUMAN_CORE_TOKEN: token };
   if (opts.workspace) {
     env.OPENHUMAN_WORKSPACE = opts.workspace;
   }
-  const port = new URL(opts.coreUrl).port || '7788';
+  const port = new URL(opts.coreUrl).port || "7788";
   env.OPENHUMAN_CORE_PORT = port;
   env.OPENHUMAN_CORE_RPC_URL = opts.coreUrl;
-  const args = ['run', '--host', '127.0.0.1', '--port', port, '--jsonrpc-only'];
-  const child = spawn('cargo', ['run', '--quiet', '--bin', 'openhuman-core', '--', ...args], {
-    cwd: path.resolve(SCRIPT_DIR, '../..'),
-    env,
-    stdio: opts.verbose ? ['ignore', 'inherit', 'inherit'] : ['ignore', 'ignore', 'pipe'],
-  });
-  let stderr = '';
+  const args = ["run", "--host", "127.0.0.1", "--port", port, "--jsonrpc-only"];
+  const child = spawn(
+    "cargo",
+    ["run", "--quiet", "--bin", "openhuman-core", "--", ...args],
+    {
+      cwd: path.resolve(SCRIPT_DIR, "../.."),
+      env,
+      stdio: opts.verbose
+        ? ["ignore", "inherit", "inherit"]
+        : ["ignore", "ignore", "pipe"],
+    },
+  );
+  let stderr = "";
   if (child.stderr) {
-    child.stderr.on('data', (chunk) => {
+    child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
       if (stderr.length > 8000) stderr = stderr.slice(-8000);
     });
@@ -444,27 +488,34 @@ async function waitForCore(coreUrl, token, child, stderrFn) {
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
-      throw new Error(`spawned core exited with ${child.exitCode}\n${stderrFn()}`);
+      throw new Error(
+        `spawned core exited with ${child.exitCode}\n${stderrFn()}`,
+      );
     }
     try {
-      await rpc(coreUrl, token, 'core.ping', {});
+      await rpc(coreUrl, token, "core.ping", {});
       return;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 750));
     }
   }
-  throw new Error(`timed out waiting for spawned core at ${coreUrl}\n${stderrFn()}`);
+  throw new Error(
+    `timed out waiting for spawned core at ${coreUrl}\n${stderrFn()}`,
+  );
 }
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (!opts.workspace) opts.workspace = defaultWorkspace();
 
-  let tempWorkspace = '';
+  let tempWorkspace = "";
   let spawned;
   if (opts.isolatedWorkspace) {
-    if (!opts.spawnCore) throw new Error('--isolated-workspace requires --spawn-core');
-    tempWorkspace = await mkdtemp(path.join(tmpdir(), 'openhuman-harness-cache-audit-'));
+    if (!opts.spawnCore)
+      throw new Error("--isolated-workspace requires --spawn-core");
+    tempWorkspace = await mkdtemp(
+      path.join(tmpdir(), "openhuman-harness-cache-audit-"),
+    );
     opts.workspace = tempWorkspace;
     await writeAuditDefinitions(opts.workspace);
   }
@@ -480,13 +531,13 @@ async function main() {
     opts.token = await readToken(opts);
   }
 
-  console.log('[harness-cache-audit] starting live audit');
+  console.log("[harness-cache-audit] starting live audit");
   console.log(`  rpc: ${opts.coreUrl}`);
   console.log(`  workspace: ${opts.workspace}`);
   console.log(`  turns: ${opts.turns}`);
-  console.log(`  mode: ${opts.spawnCore ? 'spawned-core' : 'attached-core'}`);
+  console.log(`  mode: ${opts.spawnCore ? "spawned-core" : "attached-core"}`);
   if (opts.isolatedWorkspace) {
-    console.log('  definitions: isolated audit overrides enabled');
+    console.log("  definitions: isolated audit overrides enabled");
   }
 
   const before = await snapshotTranscripts(opts.workspace);
@@ -497,20 +548,26 @@ async function main() {
         message: opts.prompt || auditPrompt(i),
       };
       if (opts.model) params.model_override = opts.model;
+      if (opts.threadId) params.thread_id = opts.threadId;
       const started = Date.now();
-      const result = await rpc(opts.coreUrl, opts.token, 'openhuman.agent_chat', params);
+      const result = await rpc(
+        opts.coreUrl,
+        opts.token,
+        "openhuman.agent_chat",
+        params,
+      );
       const response = responseText(result);
       turnResults.push({ ms: Date.now() - started, chars: response.length });
       console.log(
         `[harness-cache-audit] turn ${i}/${opts.turns} ok (${turnResults.at(-1).ms}ms${
-          opts.verbose ? `, response_chars=${response.length}` : ''
+          opts.verbose ? `, response_chars=${response.length}` : ""
         })`,
       );
     }
   } finally {
     if (spawned?.child) {
-      spawned.child.kill('SIGTERM');
-      await new Promise((resolve) => spawned.child.once('exit', resolve));
+      spawned.child.kill("SIGTERM");
+      await new Promise((resolve) => spawned.child.once("exit", resolve));
     }
   }
 
@@ -518,13 +575,19 @@ async function main() {
   const rows = diffSnapshots(before, after);
   const totals = printReport(opts, rows, turnResults);
 
-  const zeroCacheTurns = rows.filter((row) => !row.isSubagent && row.input > 0 && row.cached === 0).length;
+  const zeroCacheTurns = rows.filter(
+    (row) => !row.isSubagent && row.input > 0 && row.cached === 0,
+  ).length;
   const failures = [];
   if (totals.input === 0) {
-    failures.push('no transcript usage metadata changed; the provider may not have emitted usage');
+    failures.push(
+      "no transcript usage metadata changed; the provider may not have emitted usage",
+    );
   }
   if (totals.hitRate < opts.minHitRate) {
-    failures.push(`cache hit rate ${totals.hitRate.toFixed(2)}% is below ${opts.minHitRate}%`);
+    failures.push(
+      `cache hit rate ${totals.hitRate.toFixed(2)}% is below ${opts.minHitRate}%`,
+    );
   }
   if (zeroCacheTurns > opts.maxTurnsWithoutCache) {
     failures.push(
@@ -532,21 +595,23 @@ async function main() {
     );
   }
   if (totals.subagentSessions === 0) {
-    failures.push('no subagent transcript deltas were observed');
+    failures.push("no subagent transcript deltas were observed");
   }
 
   if (tempWorkspace && !opts.keepWorkspace) {
     await rm(tempWorkspace, { recursive: true, force: true });
   } else if (tempWorkspace) {
-    console.log(`[harness-cache-audit] kept isolated workspace: ${tempWorkspace}`);
+    console.log(
+      `[harness-cache-audit] kept isolated workspace: ${tempWorkspace}`,
+    );
   }
 
   if (failures.length > 0) {
-    console.error('\n[harness-cache-audit] FAIL');
+    console.error("\n[harness-cache-audit] FAIL");
     for (const failure of failures) console.error(`  - ${failure}`);
     process.exit(1);
   }
-  console.log('\n[harness-cache-audit] PASS');
+  console.log("\n[harness-cache-audit] PASS");
 }
 
 main().catch((err) => {

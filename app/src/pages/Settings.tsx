@@ -8,6 +8,7 @@ import AboutPanel from '../components/settings/panels/AboutPanel';
 import AccountPanel from '../components/settings/panels/AccountPanel';
 import AgentAccessPanel from '../components/settings/panels/AgentAccessPanel';
 import AgentActivityPanel from '../components/settings/panels/AgentActivityPanel';
+import AgentBoxPanel from '../components/settings/panels/AgentBoxPanel';
 import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
 import AgentEditorPage from '../components/settings/panels/AgentEditorPage';
 import AgentsPanel from '../components/settings/panels/AgentsPanel';
@@ -19,6 +20,7 @@ import BillingPanel from '../components/settings/panels/BillingPanel';
 import CompanionPanel from '../components/settings/panels/CompanionPanel';
 import ComposioTriagePanel from '../components/settings/panels/ComposioTriagePanel';
 import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
+import DesktopAgentPanel from '../components/settings/panels/DesktopAgentPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
 import DevicesPanel from '../components/settings/panels/DevicesPanel';
 import DevWorkflowPanel from '../components/settings/panels/DevWorkflowPanel';
@@ -26,6 +28,7 @@ import EventLogPanel from '../components/settings/panels/EventLogPanel';
 import IntegrationsPanel from '../components/settings/panels/IntegrationsPanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
 import McpServerPanel from '../components/settings/panels/McpServerPanel';
+import MeetingSettingsPanel from '../components/settings/panels/MeetingSettingsPanel';
 import MemorySyncPanel from '../components/settings/panels/MemorySyncPanel';
 import MigrationPanel from '../components/settings/panels/MigrationPanel';
 import ModelHealthPanel from '../components/settings/panels/ModelHealthPanel';
@@ -139,8 +142,10 @@ const Settings = () => {
             path="screen-intelligence"
             element={wrapSettingsPage(<ScreenIntelligencePanel />)}
           />
+          <Route path="desktop-agent" element={wrapSettingsPage(<DesktopAgentPanel />)} />
           <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
           <Route path="companion" element={wrapSettingsPage(<CompanionPanel />)} />
+          <Route path="meetings" element={wrapSettingsPage(<MeetingSettingsPanel />)} />
           <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
 
           {/* ── System ──────────────────────────────────────────────── */}
@@ -152,6 +157,7 @@ const Settings = () => {
             path="tool-policy-diagnostics"
             element={wrapSettingsPage(<ToolPolicyDiagnosticsPanel />)}
           />
+          <Route path="agentbox" element={wrapSettingsPage(<AgentBoxPanel />)} />
           <Route path="mcp-server" element={wrapSettingsPage(<McpServerPanel />)} />
           {/* Search engine settings moved to the Connections page. */}
           <Route path="search" element={<Navigate to="/connections?tab=search" replace />} />

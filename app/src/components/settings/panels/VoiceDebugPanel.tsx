@@ -13,13 +13,7 @@ import {
 import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
 import SettingsBackButton from '../components/SettingsBackButton';
-import {
-  SettingsNumberField,
-  SettingsRow,
-  SettingsSection,
-  SettingsStatusLine,
-  SettingsSwitch,
-} from '../controls';
+import { SettingsNumberField, SettingsRow, SettingsSection, SettingsStatusLine } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 const VoiceDebugPanel = () => {
@@ -111,7 +105,6 @@ const VoiceDebugPanel = () => {
         min_duration_secs: settings.min_duration_secs,
         silence_threshold: settings.silence_threshold,
         custom_dictionary: settings.custom_dictionary,
-        always_on_enabled: settings.always_on_enabled,
       });
       setNotice(t('voice.debug.settingsSaved'));
       await loadData(true);
@@ -201,20 +194,7 @@ const VoiceDebugPanel = () => {
           description={t('voice.debug.advancedSettingsDesc')}>
           {settings && (
             <>
-              <SettingsRow
-                htmlFor="switch-always-on"
-                label={t('voice.debug.alwaysOn')}
-                description={t('voice.debug.alwaysOnDesc')}
-                control={
-                  <SettingsSwitch
-                    id="switch-always-on"
-                    checked={settings.always_on_enabled}
-                    onCheckedChange={next => updateSetting('always_on_enabled', next)}
-                    aria-label={t('voice.debug.alwaysOn')}
-                    data-testid="voice-always-on-toggle"
-                  />
-                }
-              />
+              {/* Always-on listening moved to Settings → Features → Desktop Agent. */}
               <SettingsRow
                 stacked
                 label={t('voice.debug.minimumRecordingSeconds')}

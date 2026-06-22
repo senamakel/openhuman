@@ -588,6 +588,7 @@ inline = "Answer the delegated cache probe directly."
                     "agent_id": "cache_probe_child",
                     "prompt": "Inspect whether the child turn can answer a cache probe.",
                     "context": "Parent observed request id cache-42.",
+                    "blocking": true,
                 }),
             )],
             140,

@@ -846,7 +846,8 @@ async fn turn_dispatches_spawn_subagent_through_full_path() {
                     name: "spawn_subagent".into(),
                     arguments: serde_json::json!({
                         "agent_id": "__test_inherit_echo",
-                        "prompt": "find out about X"
+                        "prompt": "find out about X",
+                        "blocking": true
                     })
                     .to_string(),
                     extra_content: None,

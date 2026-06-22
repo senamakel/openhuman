@@ -2,9 +2,9 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,12 +29,14 @@ Options:
   --spawn-wait-ms <n>       Time to wait for a running durable session (default: 120000)
   --settle-wait-ms <n>      Time to wait for final session status after parent returns (default: 60000)
   --spawn-core              Start openhuman-core run --jsonrpc-only for the audit
+  --isolated-workspace      With --spawn-core, use a temp workspace and custom audit agent definitions
+  --keep-workspace          Do not remove an isolated temp workspace after the run
   --verbose                 Print response char counts and spawned core logs
   -h, --help                Show this help
 
 Examples:
   node scripts/debug/harness-subagent-rpc-audit.mjs
-  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --verbose
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model gpt-4.1-mini
 `;
 }
 
@@ -50,8 +52,11 @@ function parseArgs(argv) {
     spawnWaitMs: 120_000,
     settleWaitMs: 60_000,
     spawnCore: false,
+    isolatedWorkspace: false,
+    keepWorkspace: false,
     verbose: false,
     coreUrlExplicit: Boolean(process.env.OPENHUMAN_CORE_RPC_URL),
+    agentIdExplicit: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -77,6 +82,7 @@ function parseArgs(argv) {
         break;
       case "--agent-id":
         opts.agentId = next();
+        opts.agentIdExplicit = true;
         break;
       case "--model":
         opts.model = next();
@@ -92,6 +98,12 @@ function parseArgs(argv) {
         break;
       case "--spawn-core":
         opts.spawnCore = true;
+        break;
+      case "--isolated-workspace":
+        opts.isolatedWorkspace = true;
+        break;
+      case "--keep-workspace":
+        opts.keepWorkspace = true;
         break;
       case "--verbose":
         opts.verbose = true;
@@ -316,10 +328,104 @@ async function pickFreePort() {
   });
 }
 
+async function writeAuditDefinitions(workspace) {
+  const agentsDir = path.join(workspace, "agents");
+  await mkdir(agentsDir, { recursive: true });
+  await writeFile(
+    path.join(agentsDir, "orchestrator.toml"),
+    `id = "orchestrator"
+display_name = "Subagent RPC Audit Orchestrator"
+when_to_use = "Deterministic live harness async subagent RPC steering audit orchestrator."
+temperature = 0.0
+max_iterations = 4
+sandbox_mode = "none"
+agent_tier = "chat"
+omit_identity = true
+omit_memory_context = true
+omit_safety_preamble = true
+omit_skills_catalog = true
+omit_profile = true
+omit_memory_md = true
+
+[system_prompt]
+inline = """
+You are the OpenHuman async subagent RPC audit orchestrator.
+For every user message, call spawn_subagent exactly once with agent_id "async_audit_worker", blocking false, fresh false, and the task_key provided by the user.
+After the tool returns, provide one sentence saying the async worker was started. Do not call wait_subagent. Do not call any other tools.
+"""
+
+[tools]
+named = ["spawn_subagent"]
+
+[subagents]
+allowlist = ["async_audit_worker"]
+`,
+  );
+  await writeFile(
+    path.join(agentsDir, "async_audit_worker.toml"),
+    `id = "async_audit_worker"
+display_name = "Async Audit Worker"
+delegate_name = "delegate_async_audit_worker"
+when_to_use = "Tiny worker used only by harness async subagent RPC steering audit runs."
+temperature = 0.0
+max_iterations = 2
+sandbox_mode = "none"
+agent_tier = "worker"
+omit_identity = true
+omit_memory_context = true
+omit_safety_preamble = true
+omit_skills_catalog = true
+omit_profile = true
+omit_memory_md = true
+
+[system_prompt]
+inline = "Return one short sentence confirming the async audit worker ran and mention whether a steering instruction was received. Do not call tools."
+
+[tools]
+named = []
+`,
+  );
+}
+
+async function writeIsolatedDirectProviderConfig(workspace, model) {
+  const apiKey =
+    process.env.OPENAI_API_KEY?.trim() || process.env.OPENAI_KEY?.trim() || "";
+  if (!apiKey) {
+    throw new Error(
+      "--isolated-workspace requires OPENAI_API_KEY or OPENAI_KEY for direct OpenAI provider routing",
+    );
+  }
+  const providerModel = model?.trim() || "gpt-4.1-mini";
+  const providerRoute = `openai:${providerModel}`;
+  await writeFile(
+    path.join(workspace, "config.toml"),
+    `api_key = ${JSON.stringify(apiKey)}
+inference_url = "https://api.openai.com/v1"
+default_model = ${JSON.stringify(providerModel)}
+chat_provider = ${JSON.stringify(providerRoute)}
+reasoning_provider = ${JSON.stringify(providerRoute)}
+agentic_provider = ${JSON.stringify(providerRoute)}
+coding_provider = ${JSON.stringify(providerRoute)}
+memory_provider = "openhuman"
+embedding_provider = "none"
+
+[[cloud_providers]]
+id = "audit_openai"
+slug = "openai"
+label = "OpenAI"
+endpoint = "https://api.openai.com/v1"
+auth_style = "bearer"
+default_model = ${JSON.stringify(providerModel)}
+`,
+    { mode: 0o600 },
+  );
+}
+
 async function startCore(opts) {
   const token = opts.token || `audit-${randomBytes(24).toString("hex")}`;
   const env = { ...process.env, OPENHUMAN_CORE_TOKEN: token };
   if (opts.workspace) env.OPENHUMAN_WORKSPACE = opts.workspace;
+  if (opts.isolatedWorkspace) env.OPENHUMAN_AGENTBOX_MODE = "1";
   const port = new URL(opts.coreUrl).port || "7788";
   env.OPENHUMAN_CORE_PORT = port;
   env.OPENHUMAN_CORE_RPC_URL = opts.coreUrl;
@@ -395,7 +501,25 @@ async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (!opts.workspace) opts.workspace = await defaultWorkspace();
 
+  let tempWorkspace = "";
   let spawned;
+  if (opts.isolatedWorkspace) {
+    if (!opts.spawnCore) {
+      throw new Error("--isolated-workspace requires --spawn-core");
+    }
+    tempWorkspace = await mkdtemp(
+      path.join(tmpdir(), "openhuman-harness-subagent-rpc-audit-"),
+    );
+    opts.workspace = path.join(tempWorkspace, "workspace");
+    await mkdir(opts.workspace, { recursive: true });
+    await writeAuditDefinitions(opts.workspace);
+    await writeAuditDefinitions(path.join(opts.workspace, "workspace"));
+    await writeIsolatedDirectProviderConfig(opts.workspace, opts.model);
+    opts.sessionWorkspace = path.join(opts.workspace, "workspace");
+    if (!opts.agentIdExplicit) opts.agentId = "async_audit_worker";
+    if (!opts.model) opts.model = "gpt-4.1-mini";
+  }
+
   if (opts.spawnCore) {
     if (!opts.coreUrlExplicit) {
       const port = await pickFreePort();
@@ -410,13 +534,20 @@ async function main() {
   console.log("[harness-subagent-rpc-audit] starting live audit");
   console.log(`  rpc: ${opts.coreUrl}`);
   console.log(`  workspace: ${opts.workspace}`);
+  if (opts.sessionWorkspace) {
+    console.log(`  session_workspace: ${opts.sessionWorkspace}`);
+  }
   console.log(`  task_key: ${opts.taskKey}`);
   console.log(`  agent_id: ${opts.agentId}`);
   console.log(`  mode: ${opts.spawnCore ? "spawned-core" : "attached-core"}`);
+  if (opts.isolatedWorkspace) {
+    console.log("  definitions: isolated audit overrides enabled");
+  }
 
   let parentResult;
   let runningSession;
   let steerResult;
+  let sessions = [];
   try {
     const params = { message: spawnPrompt(opts) };
     if (opts.model) params.model_override = opts.model;
@@ -431,7 +562,7 @@ async function main() {
     );
 
     runningSession = await waitForRunningSession(
-      opts.workspace,
+      opts.sessionWorkspace || opts.workspace,
       opts.taskKey,
       opts.spawnWaitMs,
       parentPromise,
@@ -464,15 +595,19 @@ async function main() {
         opts.verbose ? ` response_chars=${response.length}` : ""
       }`,
     );
+
+    sessions = await waitForSettledSessions(
+      opts.sessionWorkspace || opts.workspace,
+      opts.taskKey,
+      opts.settleWaitMs,
+    );
   } finally {
     if (spawned?.child) await stopChild(spawned.child);
+    if (tempWorkspace && !opts.keepWorkspace) {
+      await rm(tempWorkspace, { recursive: true, force: true });
+    }
   }
 
-  const sessions = await waitForSettledSessions(
-    opts.workspace,
-    opts.taskKey,
-    opts.settleWaitMs,
-  );
   console.log("[harness-subagent-rpc-audit] sessions");
   if (sessions.length === 0) {
     console.log("  none");
@@ -507,6 +642,11 @@ async function main() {
     console.error("\n[harness-subagent-rpc-audit] FAIL");
     for (const failure of failures) console.error(`  - ${failure}`);
     process.exit(1);
+  }
+  if (tempWorkspace && opts.keepWorkspace) {
+    console.log(
+      `[harness-subagent-rpc-audit] kept isolated workspace: ${opts.workspace}`,
+    );
   }
   console.log("\n[harness-subagent-rpc-audit] PASS");
 }

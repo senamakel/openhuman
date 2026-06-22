@@ -4698,6 +4698,7 @@ async fn agent_subagent_public_types_cover_task_local_and_error_display_paths() 
         elapsed: Duration::from_millis(12),
         mode: SubagentMode::Typed,
         status: SubagentRunStatus::Completed,
+        final_history: Vec::new(),
     };
     assert_eq!(outcome.mode.as_str(), "typed");
     assert_eq!(outcome.elapsed.as_millis(), 12);

@@ -479,22 +479,26 @@ async fn drain_progress(
                         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
                         .is_ok()
                     {
-                        let attempt = steer_after_spawn(config.clone(), spawned.clone()).await;
-                        eprintln!(
-                            "[harness_subagent_audit] steer_attempt turn={} task_id={} delivered={} attempts={} elapsed_ms={} message_chars={} error={}",
-                            attempt.turn,
-                            attempt.task_id,
-                            attempt.delivered,
-                            attempt.attempts,
-                            attempt.elapsed_ms,
-                            attempt.message_chars,
-                            attempt.error.as_deref().unwrap_or("none")
-                        );
-                        stats
-                            .lock()
-                            .expect("progress stats mutex poisoned")
-                            .steer_attempts
-                            .push(attempt);
+                        let config = config.clone();
+                        let stats = stats.clone();
+                        tokio::spawn(async move {
+                            let attempt = steer_after_spawn(config, spawned).await;
+                            eprintln!(
+                                "[harness_subagent_audit] steer_attempt turn={} task_id={} delivered={} attempts={} elapsed_ms={} message_chars={} error={}",
+                                attempt.turn,
+                                attempt.task_id,
+                                attempt.delivered,
+                                attempt.attempts,
+                                attempt.elapsed_ms,
+                                attempt.message_chars,
+                                attempt.error.as_deref().unwrap_or("none")
+                            );
+                            stats
+                                .lock()
+                                .expect("progress stats mutex poisoned")
+                                .steer_attempts
+                                .push(attempt);
+                        });
                     }
                 }
             }

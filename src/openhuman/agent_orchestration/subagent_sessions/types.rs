@@ -24,7 +24,7 @@ impl DurableSubagentStatus {
     }
 
     pub fn reusable(self) -> bool {
-        matches!(self, Self::Running | Self::Idle | Self::AwaitingUser)
+        matches!(self, Self::Running | Self::Idle)
     }
 }
 

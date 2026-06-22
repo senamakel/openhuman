@@ -1,5 +1,9 @@
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 
 use crate::openhuman::agent::harness::subagent_runner::SubagentRunStatus;
 use crate::openhuman::inference::provider::ChatMessage;
@@ -20,18 +24,38 @@ pub fn normalize_task_key(input: &str) -> String {
             out.push('-');
             last_dash = true;
         }
-        if out.len() >= 96 {
-            break;
-        }
     }
     while out.ends_with('-') {
         out.pop();
     }
     if out.is_empty() {
-        "untitled-task".to_string()
+        if input.trim().is_empty() {
+            "untitled-task".to_string()
+        } else {
+            format!("task-{:016x}", task_key_hash(input))
+        }
+    } else if out.len() > 96 {
+        let hash = format!("{:016x}", task_key_hash(input));
+        let mut prefix = String::new();
+        for ch in out.chars() {
+            if prefix.len() + ch.len_utf8() + hash.len() + 1 > 96 {
+                break;
+            }
+            prefix.push(ch);
+        }
+        while prefix.ends_with('-') {
+            prefix.pop();
+        }
+        format!("{prefix}-{hash}")
     } else {
         out
     }
+}
+
+fn task_key_hash(input: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    input.hash(&mut hasher);
+    hasher.finish()
 }
 
 pub fn task_title_from_prompt(prompt: &str) -> String {
@@ -272,6 +296,17 @@ mod tests {
             normalize_task_key("研究 caching"),
             normalize_task_key("調査 caching")
         );
+    }
+
+    #[test]
+    fn normalize_task_key_hashes_empty_or_long_colliding_slugs() {
+        assert_ne!(normalize_task_key("🙂🙂🙂"), "untitled-task");
+        let prefix = "research ".repeat(40);
+        let first = normalize_task_key(&(prefix.clone() + "alpha"));
+        let second = normalize_task_key(&(prefix + "beta"));
+        assert!(first.len() <= 96, "{first}");
+        assert!(second.len() <= 96, "{second}");
+        assert_ne!(first, second);
     }
 
     #[test]

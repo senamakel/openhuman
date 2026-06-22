@@ -210,6 +210,11 @@ impl Tool for SpawnAsyncSubagentTool {
         let parent_thread_id =
             crate::openhuman::inference::provider::thread_context::current_thread_id();
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
+        let effective_action_root = crate::openhuman::agent::harness::current_action_dir_override()
+            .or_else(|| {
+                crate::openhuman::security::live_policy::current()
+                    .map(|policy| policy.action_dir.clone())
+            });
         let selector = SubagentSessionSelector {
             parent_session: parent_session.clone(),
             parent_thread_id: parent_thread_id.clone(),
@@ -217,11 +222,40 @@ impl Tool for SpawnAsyncSubagentTool {
             toolkit: toolkit_override.clone(),
             model: model_override.clone(),
             sandbox_mode: format!("{:?}", definition.sandbox_mode),
-            action_root: None,
+            action_root: subagent_sessions::action_root_key(effective_action_root.as_deref()),
             task_key: task_key.clone(),
         };
 
         let reusable = if force_fresh {
+            match subagent_sessions::find_reusable(&store, &selector) {
+                Ok(Some(session)) => {
+                    let _ = running_subagents::cancel_by_session(
+                        &session.subagent_session_id,
+                        &parent_session,
+                    );
+                    if let Err(err) = subagent_sessions::close(&store, &session.subagent_session_id)
+                    {
+                        log::warn!(
+                            "[subagent_reuse] fresh close failed parent_thread_id={} subagent_session_id={} agent_id={} task_key={} error={}",
+                            parent_thread_id.as_deref().unwrap_or("none"),
+                            session.subagent_session_id,
+                            definition.id,
+                            task_key,
+                            err
+                        );
+                    }
+                }
+                Ok(None) => {}
+                Err(err) => {
+                    log::warn!(
+                        "[subagent_reuse] fresh lookup failed parent_thread_id={} agent_id={} task_key={} error={}",
+                        parent_thread_id.as_deref().unwrap_or("none"),
+                        definition.id,
+                        task_key,
+                        err
+                    );
+                }
+            }
             None
         } else {
             match subagent_sessions::find_reusable(&store, &selector) {
@@ -239,6 +273,7 @@ impl Tool for SpawnAsyncSubagentTool {
             }
         };
         let reuse_decision = subagent_sessions::reuse_decision(reusable.as_ref(), force_fresh);
+        let follow_up_prompt = reusable_follow_up_message(&prompt, context.as_deref());
 
         if let Some(session) = reusable.as_ref() {
             if session.status == DurableSubagentStatus::Running {
@@ -246,7 +281,7 @@ impl Tool for SpawnAsyncSubagentTool {
                     match running_subagents::steer(
                         running_task_id,
                         &parent_session,
-                        prompt.clone(),
+                        follow_up_prompt.clone(),
                         crate::openhuman::agent::harness::run_queue::QueueMode::Steer,
                     )
                     .await
@@ -309,6 +344,28 @@ impl Tool for SpawnAsyncSubagentTool {
                     .ok()
                 })
             });
+        if let (Some(session), Some(worker_thread_id)) =
+            (reusable.as_ref(), worker_thread_id.as_ref())
+        {
+            if session.worker_thread_id.as_deref() == Some(worker_thread_id.as_str()) {
+                if let Err(err) = super::worker_thread::append_worker_user_message(
+                    parent.workspace_dir.clone(),
+                    worker_thread_id,
+                    &definition.id,
+                    &task_id,
+                    &follow_up_prompt,
+                ) {
+                    log::warn!(
+                        "[subagent_reuse] worker follow-up append failed parent_thread_id={} subagent_session_id={} worker_thread_id={} task_id={} error={}",
+                        parent_thread_id.as_deref().unwrap_or("none"),
+                        session.subagent_session_id,
+                        worker_thread_id,
+                        task_id,
+                        err
+                    );
+                }
+            }
+        }
         let durable_session = match subagent_sessions::upsert_running(
             &store,
             SubagentSessionUpsert {
@@ -340,9 +397,7 @@ impl Tool for SpawnAsyncSubagentTool {
             .as_ref()
             .and_then(|session| session.latest_history.clone())
             .map(|mut history| {
-                history.push(ChatMessage::user(format!(
-                    "[Follow-up instruction for reusable sub-agent]\n{prompt}"
-                )));
+                history.push(ChatMessage::user(follow_up_prompt.clone()));
                 history
             });
 
@@ -443,11 +498,6 @@ impl Tool for SpawnAsyncSubagentTool {
             match result {
                 Ok(outcome) => match outcome.status {
                     SubagentRunStatus::Completed => {
-                        // Unblock `wait_subagent` with the final output first.
-                        let _ = status_tx.send(SubagentStatus::Completed {
-                            output: outcome.output.clone(),
-                            iterations: outcome.iterations,
-                        });
                         if let Err(err) = subagent_sessions::mark_finished(
                             &background_store,
                             &background_subagent_session_id,
@@ -463,6 +513,10 @@ impl Tool for SpawnAsyncSubagentTool {
                                 err
                             );
                         }
+                        let _ = status_tx.send(SubagentStatus::Completed {
+                            output: outcome.output.clone(),
+                            iterations: outcome.iterations,
+                        });
                         // Queue the finished result for idle-gated, batched
                         // delivery back into the parent chat (the session
                         // runtime drains this when the session is next idle).
@@ -497,9 +551,6 @@ impl Tool for SpawnAsyncSubagentTool {
                         }
                     }
                     SubagentRunStatus::AwaitingUser { ref question, .. } => {
-                        let _ = status_tx.send(SubagentStatus::AwaitingUser {
-                            question: question.clone(),
-                        });
                         if let Err(err) = subagent_sessions::mark_finished(
                             &background_store,
                             &background_subagent_session_id,
@@ -515,6 +566,9 @@ impl Tool for SpawnAsyncSubagentTool {
                                 err
                             );
                         }
+                        let _ = status_tx.send(SubagentStatus::AwaitingUser {
+                            question: question.clone(),
+                        });
                         let error = format!(
                             "async sub-agent requested user clarification and was not continued: {question}"
                         );
@@ -537,9 +591,6 @@ impl Tool for SpawnAsyncSubagentTool {
                 },
                 Err(err) => {
                     let error = err.to_string();
-                    let _ = status_tx.send(SubagentStatus::Failed {
-                        error: error.clone(),
-                    });
                     if let Err(store_err) = subagent_sessions::mark_failed(
                         &background_store,
                         &background_subagent_session_id,
@@ -554,6 +605,9 @@ impl Tool for SpawnAsyncSubagentTool {
                             store_err
                         );
                     }
+                    let _ = status_tx.send(SubagentStatus::Failed {
+                        error: error.clone(),
+                    });
                     publish_global(DomainEvent::SubagentFailed {
                         parent_session: background_parent_session,
                         task_id: background_task_id.clone(),
@@ -580,6 +634,7 @@ impl Tool for SpawnAsyncSubagentTool {
             definition.id.clone(),
             parent_session.clone(),
             Some(durable_session.subagent_session_id.clone()),
+            parent.workspace_dir.clone(),
             register_parent_thread_id,
             steer_queue,
             join.abort_handle(),
@@ -624,6 +679,18 @@ fn durable_task_key_source<'a>(args: &'a serde_json::Value, prompt: &'a str) -> 
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .unwrap_or(prompt)
+}
+
+fn reusable_follow_up_message(prompt: &str, context: Option<&str>) -> String {
+    let mut message = String::from("[Follow-up instruction for reusable sub-agent]\n");
+    if let Some(context) = context.map(str::trim).filter(|s| !s.is_empty()) {
+        message.push_str("\n[Context]\n");
+        message.push_str(context);
+        message.push_str("\n\n");
+    }
+    message.push_str("[Task]\n");
+    message.push_str(prompt);
+    message
 }
 
 #[cfg(test)]
@@ -681,6 +748,13 @@ mod tests {
             durable_task_key_source(&args, args["prompt"].as_str().unwrap()),
             "audit:example.com"
         );
+    }
+
+    #[test]
+    fn reusable_follow_up_message_preserves_context() {
+        let rendered = reusable_follow_up_message("Continue the audit", Some("prior result: 42"));
+        assert!(rendered.contains("[Context]\nprior result: 42"));
+        assert!(rendered.contains("[Task]\nContinue the audit"));
     }
 
     #[tokio::test]

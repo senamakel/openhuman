@@ -19,6 +19,7 @@
 //! mode — openai/codex#18335).
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -51,6 +52,7 @@ struct RunningSubagentEntry {
     agent_id: String,
     parent_session: String,
     subagent_session_id: Option<String>,
+    workspace_dir: PathBuf,
     /// Parent chat thread that spawned this sub-agent, captured at registration.
     /// `None` for a headless spawn with no originating thread. Used to abort the
     /// sub-agent when its parent thread is deleted (see [`cancel_for_thread`]).
@@ -95,6 +97,7 @@ pub fn register(
     agent_id: String,
     parent_session: String,
     subagent_session_id: Option<String>,
+    workspace_dir: PathBuf,
     parent_thread_id: Option<String>,
     run_queue: Arc<RunQueue>,
     abort: AbortHandle,
@@ -104,6 +107,7 @@ pub fn register(
         agent_id,
         parent_session,
         subagent_session_id,
+        workspace_dir,
         parent_thread_id,
         run_queue,
         abort,
@@ -131,16 +135,28 @@ pub fn task_id_for_session(
     parent_session: &str,
 ) -> Result<String, WaitError> {
     let map = registry().lock().expect("running_subagents mutex poisoned");
-    let Some((task_id, entry)) = map
+    let mut saw_unowned = false;
+    let mut owned_terminal: Option<String> = None;
+    for (task_id, entry) in map
         .iter()
-        .find(|(_, entry)| entry.subagent_session_id.as_deref() == Some(subagent_session_id))
-    else {
-        return Err(WaitError::Unknown);
-    };
-    if entry.parent_session != parent_session {
+        .filter(|(_, entry)| entry.subagent_session_id.as_deref() == Some(subagent_session_id))
+    {
+        if entry.parent_session != parent_session {
+            saw_unowned = true;
+            continue;
+        }
+        if !entry.status.borrow().is_terminal() {
+            return Ok(task_id.clone());
+        }
+        owned_terminal.get_or_insert_with(|| task_id.clone());
+    }
+    if let Some(task_id) = owned_terminal {
+        return Ok(task_id);
+    }
+    if saw_unowned {
         return Err(WaitError::NotOwned);
     }
-    Ok(task_id.clone())
+    Err(WaitError::Unknown)
 }
 
 /// Why a steer could not be delivered.
@@ -302,6 +318,8 @@ pub async fn wait(
 pub struct CancelledSubagent {
     pub agent_id: String,
     pub parent_session: String,
+    pub subagent_session_id: Option<String>,
+    pub workspace_dir: PathBuf,
     pub parent_thread_id: Option<String>,
 }
 
@@ -326,6 +344,8 @@ pub fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
     Some(CancelledSubagent {
         agent_id: entry.agent_id,
         parent_session: entry.parent_session,
+        subagent_session_id: entry.subagent_session_id,
+        workspace_dir: entry.workspace_dir,
         parent_thread_id: entry.parent_thread_id,
     })
 }
@@ -464,6 +484,7 @@ mod tests {
             "researcher".into(),
             parent_session.into(),
             None,
+            std::env::temp_dir(),
             parent_thread_id.map(Into::into),
             rq,
             dummy_abort(),
@@ -482,6 +503,7 @@ mod tests {
             "researcher".into(),
             "session-owner".into(),
             Some("subsess-1".into()),
+            std::env::temp_dir(),
             Some("thread-1".into()),
             rq,
             dummy_abort(),
@@ -501,6 +523,46 @@ mod tests {
             iterations: 1,
         });
         prune("task-session");
+    }
+
+    #[tokio::test]
+    async fn task_id_for_session_prefers_live_task_over_terminal_task() {
+        let _guard = test_guard();
+        let (old_tx, old_rx) = status_channel();
+        register(
+            "task-old".into(),
+            "researcher".into(),
+            "session-owner".into(),
+            Some("subsess-live".into()),
+            std::env::temp_dir(),
+            Some("thread-1".into()),
+            RunQueue::new(),
+            dummy_abort(),
+            old_rx,
+        );
+        let _ = old_tx.send(SubagentStatus::Completed {
+            output: "old".into(),
+            iterations: 1,
+        });
+        let (_new_tx, new_rx) = status_channel();
+        register(
+            "task-new".into(),
+            "researcher".into(),
+            "session-owner".into(),
+            Some("subsess-live".into()),
+            std::env::temp_dir(),
+            Some("thread-1".into()),
+            RunQueue::new(),
+            dummy_abort(),
+            new_rx,
+        );
+
+        assert_eq!(
+            task_id_for_session("subsess-live", "session-owner").unwrap(),
+            "task-new"
+        );
+        prune("task-old");
+        prune("task-new");
     }
 
     #[tokio::test]

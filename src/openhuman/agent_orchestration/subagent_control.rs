@@ -20,7 +20,9 @@ use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::agent::harness::run_queue::QueueMode;
 use crate::openhuman::agent_orchestration::running_subagents::SteerError;
-use crate::openhuman::agent_orchestration::{background_completions, running_subagents};
+use crate::openhuman::agent_orchestration::{
+    background_completions, running_subagents, subagent_sessions,
+};
 use crate::rpc::RpcOutcome;
 
 /// Controller schemas exposed for detached sub-agent control.
@@ -122,12 +124,26 @@ fn handle_subagent_cancel(params: Map<String, Value>) -> ControllerFuture {
                 // record a completion that flows through the same idle-gated
                 // delivery and surfaces the cancellation in chat.
                 background_completions::record_completion(
-                    meta.parent_session,
+                    meta.parent_session.clone(),
                     &task_id,
-                    meta.agent_id,
+                    meta.agent_id.clone(),
                     summary,
-                    meta.parent_thread_id,
+                    meta.parent_thread_id.clone(),
                 );
+                if let Some(subagent_session_id) = meta.subagent_session_id {
+                    let store = subagent_sessions::SubagentSessionStore::new(meta.workspace_dir);
+                    if let Err(err) = subagent_sessions::mark_failed(
+                        &store,
+                        &subagent_session_id,
+                        &task_id,
+                        "cancelled by user".to_string(),
+                    ) {
+                        log::warn!(
+                            target: "subagent_control_rpc",
+                            "[subagent_control_rpc][{cid}] cancel.mark_failed_failed task_id={task_id} subagent_session_id={subagent_session_id} error={err}"
+                        );
+                    }
+                }
                 true
             }
             None => false,

@@ -6,6 +6,8 @@ import { store } from '../../store';
 import { addMessageLocal, createNewThread, setSelectedThread } from '../../store/threadSlice';
 import type { ThreadMessage } from '../../types/thread';
 
+type Translator = (key: string, fallback?: string) => string;
+
 /**
  * Polls via setTimeout until `[data-walkthrough="<selector>"]` appears in the
  * DOM, then resolves. Rejects after `timeout` ms (default 3000).
@@ -52,14 +54,16 @@ export function waitForTarget(selector: string, timeout = 3000): Promise<void> {
  * All targets follow the `[data-walkthrough="<name>"]` convention — add the
  * attribute to the corresponding DOM element in the page/component.
  */
-export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
+export function createWalkthroughSteps(
+  navigate: NavigateFunction,
+  t: Translator = (_key, fallback) => fallback ?? _key
+): Step[] {
   return [
     // ── Step 1 — /chat empty state ────────────────────────────────────────
     {
       target: '[data-walkthrough="home-card"]',
-      title: 'Start in chat',
-      content:
-        'Chat is your starting point. New windows open with the same greeting and quick actions you saw after setup.',
+      title: t('walkthrough.steps.startChat.title'),
+      content: t('walkthrough.steps.startChat.content'),
       placement: 'bottom',
       skipBeacon: true,
     },
@@ -67,8 +71,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 2 — /chat empty state ────────────────────────────────────────
     {
       target: '[data-walkthrough="home-cta"]',
-      title: 'Say hello',
-      content: 'Tap here to start a conversation with your AI assistant anytime.',
+      title: t('walkthrough.steps.sayHello.title'),
+      content: t('walkthrough.steps.sayHello.content'),
       placement: 'bottom',
       skipBeacon: true,
     },
@@ -76,9 +80,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 3 — /chat ────────────────────────────────────────────────────
     {
       target: '[data-walkthrough="chat-agent-panel"]',
-      title: 'Meet your AI',
-      content:
-        'This is where conversations happen. Ask questions, get summaries, or brainstorm. Everything stays searchable.',
+      title: t('walkthrough.steps.meetAi.title'),
+      content: t('walkthrough.steps.meetAi.content'),
       placement: 'bottom',
       skipBeacon: true,
       before: async () => {
@@ -90,9 +93,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 4 — /connections (Apps tab) ──────────────────────────────────
     {
       target: '[data-walkthrough="skills-grid"]',
-      title: 'Connect your world',
-      content:
-        'Gmail, Slack, WhatsApp, and more — each connection gives your assistant superpowers.',
+      title: t('walkthrough.steps.connectWorld.title'),
+      content: t('walkthrough.steps.connectWorld.content'),
       placement: 'top',
       skipBeacon: true,
       before: async () => {
@@ -104,9 +106,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 5 — /connections (Messaging tab) ────────────────────────────
     {
       target: '[data-walkthrough="skills-channels"]',
-      title: 'Chat where you already are',
-      content:
-        'WhatsApp, Telegram, Slack, Discord — connect your messaging apps so your assistant can reach you anywhere.',
+      title: t('walkthrough.steps.messagingApps.title'),
+      content: t('walkthrough.steps.messagingApps.content'),
       placement: 'bottom',
       skipBeacon: true,
       before: async () => {
@@ -117,9 +118,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 6 — /settings ────────────────────────────────────────────────
     {
       target: '[data-walkthrough="settings-menu"]',
-      title: 'Make it yours',
-      content:
-        'Preferences, privacy, notifications — everything is here. You can restart this tour anytime from this page.',
+      title: t('walkthrough.steps.settings.title'),
+      content: t('walkthrough.steps.settings.content'),
       placement: 'top',
       skipBeacon: true,
       before: async () => {
@@ -131,8 +131,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 7 — primary nav: Chat ────────────────────────────────────────
     {
       target: '[data-walkthrough="tab-chat"]',
-      title: 'Jump back to chat',
-      content: 'Use the Chat tab whenever you want to return to conversations.',
+      title: t('walkthrough.steps.chatTab.title'),
+      content: t('walkthrough.steps.chatTab.content'),
       placement: 'top',
       skipBeacon: true,
       before: async () => {
@@ -143,9 +143,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 8 — primary nav: Human ───────────────────────────────────────
     {
       target: '[data-walkthrough="tab-human"]',
-      title: 'Meet your human profile',
-      content:
-        'Human is where your personal context, identity, and assistant-facing profile come together.',
+      title: t('walkthrough.steps.humanTab.title'),
+      content: t('walkthrough.steps.humanTab.content'),
       placement: 'top',
       skipBeacon: true,
     },
@@ -153,9 +152,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 9 — primary nav: Brain ───────────────────────────────────────
     {
       target: '[data-walkthrough="tab-brain"]',
-      title: 'Open your Brain',
-      content:
-        'Brain is the memory graph: the place to inspect what OpenHuman knows and how ideas connect.',
+      title: t('walkthrough.steps.brainTab.title'),
+      content: t('walkthrough.steps.brainTab.content'),
       placement: 'top',
       skipBeacon: true,
     },
@@ -163,8 +161,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 10 — primary nav: Agent World ────────────────────────────────
     {
       target: '[data-walkthrough="tab-agent-world"]',
-      title: 'Explore Agent World',
-      content: 'Agent World is where reusable agents and shared automations live.',
+      title: t('walkthrough.steps.agentWorldTab.title'),
+      content: t('walkthrough.steps.agentWorldTab.content'),
       placement: 'top',
       skipBeacon: true,
     },
@@ -172,9 +170,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 11 — primary nav: Connections ────────────────────────────────
     {
       target: '[data-walkthrough="tab-connections"]',
-      title: 'Manage connections',
-      content:
-        'Connections is always available from the main nav when you want to add or adjust services.',
+      title: t('walkthrough.steps.connectionsTab.title'),
+      content: t('walkthrough.steps.connectionsTab.content'),
       placement: 'top',
       skipBeacon: true,
     },
@@ -182,8 +179,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 12 — primary nav: Feedback ───────────────────────────────────
     {
       target: '[data-walkthrough="tab-feedback"]',
-      title: 'Send feedback',
-      content: 'Feedback gives you a direct place to report rough edges or ask for improvements.',
+      title: t('walkthrough.steps.feedbackTab.title'),
+      content: t('walkthrough.steps.feedbackTab.content'),
       placement: 'top',
       skipBeacon: true,
     },
@@ -191,9 +188,8 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
     // ── Step 13 — /chat (pre-seeded welcome message) ──────────────────────
     {
       target: '[data-walkthrough="chat-agent-panel"]',
-      title: "You're all set!",
-      content:
-        'Your assistant left you a welcome note — this is your space to chat, ask questions, or brainstorm. Have fun!',
+      title: t('walkthrough.steps.allSet.title'),
+      content: t('walkthrough.steps.allSet.content'),
       placement: 'bottom',
       skipBeacon: true,
       before: async () => {

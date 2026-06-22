@@ -9,7 +9,7 @@
  *  - AppWalkthrough does not render when already completed
  *  - AppWalkthrough restarts when walkthrough:restart event fires
  *  - Completing/skipping the tour calls markWalkthroughComplete (localStorage set)
- *  - createWalkthroughSteps: 9 steps, cross-page steps have before functions
+ *  - createWalkthroughSteps: current targets, cross-page steps have before functions
  *  - waitForTarget: resolves when element added, rejects on timeout
  *  - WalkthroughTooltip renders step title, content, and navigation buttons
  */

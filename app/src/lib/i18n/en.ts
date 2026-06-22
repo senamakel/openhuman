@@ -5627,6 +5627,45 @@ const en: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'Resets in {time}',
   'upsell.usageLimit.upgradePlan': 'Upgrade plan',
   'upsell.usageLimit.weeklyInference': '{amount}',
+  'walkthrough.steps.startChat.title': 'Start in chat',
+  'walkthrough.steps.startChat.content':
+    'Chat is your starting point. New windows open with the same greeting and quick actions you saw after setup.',
+  'walkthrough.steps.sayHello.title': 'Say hello',
+  'walkthrough.steps.sayHello.content':
+    'Tap here to start a conversation with your AI assistant anytime.',
+  'walkthrough.steps.meetAi.title': 'Meet your AI',
+  'walkthrough.steps.meetAi.content':
+    'This is where conversations happen. Ask questions, get summaries, or brainstorm. Everything stays searchable.',
+  'walkthrough.steps.connectWorld.title': 'Connect your world',
+  'walkthrough.steps.connectWorld.content':
+    'Gmail, Slack, WhatsApp, and more - each connection gives your assistant superpowers.',
+  'walkthrough.steps.messagingApps.title': 'Chat where you already are',
+  'walkthrough.steps.messagingApps.content':
+    'WhatsApp, Telegram, Slack, Discord - connect your messaging apps so your assistant can reach you anywhere.',
+  'walkthrough.steps.settings.title': 'Make it yours',
+  'walkthrough.steps.settings.content':
+    'Preferences, privacy, notifications - everything is here. You can restart this tour anytime from this page.',
+  'walkthrough.steps.chatTab.title': 'Jump back to chat',
+  'walkthrough.steps.chatTab.content':
+    'Use the Chat tab whenever you want to return to conversations.',
+  'walkthrough.steps.humanTab.title': 'Meet your human profile',
+  'walkthrough.steps.humanTab.content':
+    'Human is where your personal context, identity, and assistant-facing profile come together.',
+  'walkthrough.steps.brainTab.title': 'Open your Brain',
+  'walkthrough.steps.brainTab.content':
+    'Brain is the memory graph: the place to inspect what OpenHuman knows and how ideas connect.',
+  'walkthrough.steps.agentWorldTab.title': 'Explore Agent World',
+  'walkthrough.steps.agentWorldTab.content':
+    'Agent World is where reusable agents and shared automations live.',
+  'walkthrough.steps.connectionsTab.title': 'Manage connections',
+  'walkthrough.steps.connectionsTab.content':
+    'Connections is always available from the main nav when you want to add or adjust services.',
+  'walkthrough.steps.feedbackTab.title': 'Send feedback',
+  'walkthrough.steps.feedbackTab.content':
+    'Feedback gives you a direct place to report rough edges or ask for improvements.',
+  'walkthrough.steps.allSet.title': "You're all set!",
+  'walkthrough.steps.allSet.content':
+    'Your assistant left you a welcome note - this is your space to chat, ask questions, or brainstorm. Have fun!',
   'walkthrough.tooltip.letsGo': "Let's go!",
   'walkthrough.tooltip.next': 'Next →',
   'walkthrough.tooltip.skip': 'Skip tour',

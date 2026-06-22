@@ -445,8 +445,12 @@ mod tests {
     fn schemas_expose_expected_inputs_and_unknown_fallback() {
         let chat = schemas("chat");
         assert_eq!(chat.namespace, "agent");
-        assert_eq!(chat.inputs.len(), 3);
+        assert_eq!(chat.inputs.len(), 4);
         assert!(matches!(chat.inputs[1].ty, TypeSchema::Option(_)));
+        assert!(chat
+            .inputs
+            .iter()
+            .any(|input| input.name == "thread_id" && !input.required));
 
         let triage = schemas("triage_evaluate");
         assert_eq!(triage.inputs.len(), 7);

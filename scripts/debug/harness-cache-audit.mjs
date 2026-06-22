@@ -562,7 +562,8 @@ async function main() {
     tempWorkspace = await mkdtemp(
       path.join(tmpdir(), "openhuman-harness-cache-audit-"),
     );
-    opts.workspace = tempWorkspace;
+    opts.workspace = path.join(tempWorkspace, "workspace");
+    await mkdir(opts.workspace, { recursive: true });
     await writeAuditDefinitions(opts.workspace);
   }
 
@@ -652,7 +653,7 @@ async function main() {
     await rm(tempWorkspace, { recursive: true, force: true });
   } else if (tempWorkspace) {
     console.log(
-      `[harness-cache-audit] kept isolated workspace: ${tempWorkspace}`,
+      `[harness-cache-audit] kept isolated workspace: ${opts.workspace}`,
     );
   }
 

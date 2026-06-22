@@ -249,6 +249,37 @@ async function renderConversationsRoute(route: string, preload: Record<string, u
   return store;
 }
 
+async function renderEmbeddedConversationsRoute(
+  route: string,
+  preload: Record<string, unknown> = {}
+) {
+  const store = buildStore(preload);
+  const { default: Conversations } = await import('../Conversations');
+
+  render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[route]}>
+        <SidebarSlotProvider>
+          <SidebarSlotOutlet />
+          <Routes>
+            <Route
+              path="/human"
+              element={
+                <>
+                  <LocationProbe />
+                  <Conversations variant="sidebar" composer="mic-cloud" projectThreadList />
+                </>
+              }
+            />
+          </Routes>
+        </SidebarSlotProvider>
+      </MemoryRouter>
+    </Provider>
+  );
+
+  return store;
+}
+
 function LocationProbe() {
   const location = useLocation();
   return <span data-testid="route-path">{location.pathname}</span>;
@@ -451,6 +482,36 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('route-path')).toHaveTextContent('/chat/t-2');
     });
+  });
+
+  it('does not push chat routes when embedded chat creates a thread', async () => {
+    mockGetThreads.mockResolvedValue({ threads: [], count: 0 });
+
+    await act(async () => {
+      await renderEmbeddedConversationsRoute('/human', { thread: emptyThreadState });
+    });
+
+    await waitFor(() => {
+      expect(threadApi.createNewThread).toHaveBeenCalled();
+    });
+    expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
+  });
+
+  it('does not push chat routes when embedded chat selects a thread', async () => {
+    const threads = [makeThread({ id: 't-1', title: 'Thread Alpha' })];
+    mockGetThreads.mockResolvedValue({ threads, count: 1 });
+
+    await act(async () => {
+      await renderEmbeddedConversationsRoute('/human', { thread: emptyThreadState });
+    });
+    await openSidebar();
+
+    const alphaRow = await screen.findByRole('button', { name: /Thread Alpha/ });
+    await act(async () => {
+      fireEvent.click(alphaRow);
+    });
+
+    expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
   });
 
   // Covers line 1083: messagesError branch renders error state

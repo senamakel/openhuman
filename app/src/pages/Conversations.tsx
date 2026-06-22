@@ -210,6 +210,7 @@ const Conversations = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { threadId: routeThreadId } = useParams<{ threadId?: string }>();
+  const shouldSyncChatRoute = variant === 'page' && location.pathname.startsWith('/chat');
   const { threads, selectedThreadId, messages, isLoadingMessages, messagesError } = useAppSelector(
     state => state.thread
   );
@@ -427,8 +428,12 @@ const Conversations = ({
     const thread = await dispatch(createNewThread()).unwrap();
     dispatch(setSelectedThread(thread.id));
     void dispatch(loadThreadMessages(thread.id));
-    debug('[chat][route] created thread thread=%s navigate=true', thread.id);
-    navigate(chatThreadPath(thread.id));
+    if (shouldSyncChatRoute) {
+      debug('[chat][route] created thread thread=%s navigate=true', thread.id);
+      navigate(chatThreadPath(thread.id));
+    } else {
+      debug('[chat][route] created thread thread=%s navigate=false', thread.id);
+    }
   };
 
   const handleUseOpenRouterFree = async () => {
@@ -1591,7 +1596,9 @@ const Conversations = ({
               onClick={() => {
                 dispatch(setSelectedThread(thread.id));
                 void dispatch(loadThreadMessages(thread.id));
-                navigate(chatThreadPath(thread.id));
+                if (shouldSyncChatRoute) {
+                  navigate(chatThreadPath(thread.id));
+                }
               }}
               onKeyDown={e => {
                 if (e.target !== e.currentTarget) return;
@@ -1599,7 +1606,9 @@ const Conversations = ({
                   e.preventDefault();
                   dispatch(setSelectedThread(thread.id));
                   void dispatch(loadThreadMessages(thread.id));
-                  navigate(chatThreadPath(thread.id));
+                  if (shouldSyncChatRoute) {
+                    navigate(chatThreadPath(thread.id));
+                  }
                 }
               }}
               className={`w-full text-left px-3 py-1.5 border-b border-stone-100/60 dark:border-neutral-800/60 transition-colors group cursor-pointer ${

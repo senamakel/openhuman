@@ -156,10 +156,9 @@ const Accounts = () => {
       {/* "Talk to Tiny" face-mode toggle — hidden (kept for potential re-enable). */}
 
       {/* Main pane. In face mode (agent selected) it's a horizontal split with
-          the mascot panel. Otherwise the agent chat is ALWAYS mounted — so the
-          thread sidebar it projects stays consistent regardless of which app is
-          selected — and a selected app's webview fills the pane edge-to-edge on
-          top of it. */}
+          the mascot panel. Connected-app CEF views are hosted above this page
+          by the desktop shell, so the routed chat panel must only mount while
+          the agent is active; its thread effects own `/chat/:threadId`. */}
       {isAgentSelected && faceMode ? (
         <main className="flex min-w-0 flex-1 flex-row gap-3">
           <div className="flex min-h-0 w-[360px] flex-none flex-col">
@@ -171,12 +170,11 @@ const Accounts = () => {
         </main>
       ) : (
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Agent chat owns the routed /chat surface. Connected-app CEF views
-              are mounted at the desktop shell level so their selection stays
-              independent from URL routing. */}
-          <div className="min-h-0 flex-1 overflow-hidden" aria-hidden={!isAgentSelected}>
-            <AgentChatPanel />
-          </div>
+          {isAgentSelected && (
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <AgentChatPanel />
+            </div>
+          )}
         </main>
       )}
     </div>

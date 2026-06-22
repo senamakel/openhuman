@@ -77,7 +77,7 @@ const en: TranslationMap = {
   'nav.avatarMenu.rewards': 'Rewards',
   'nav.avatarMenu.invites': 'Invite a friend',
   'nav.avatarMenu.wallet': 'Wallet',
-  'nav.feedback': 'Feedback',
+  'nav.feedback': 'Share Feedback',
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': 'Your knowledge graph, memory sources, and controls.',

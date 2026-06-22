@@ -4,7 +4,7 @@ import type { TranslationMap } from './types';
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
   'conversations.backgroundTasks.title': 'Background tasks',
-  'nav.feedback': '피드백',
+  'nav.feedback': '피드백 보내기',
   'feedback.board': '피드백 보드',
   'feedback.empty': '아직 피드백이 없습니다. 가장 먼저 아이디어를 공유해 보세요.',
   'feedback.loadMore': '더 불러오기',

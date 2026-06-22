@@ -4,7 +4,7 @@ import type { TranslationMap } from './types';
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
   'conversations.backgroundTasks.title': 'Background tasks',
-  'nav.feedback': 'Отзывы',
+  'nav.feedback': 'Поделиться отзывом',
   'feedback.board': 'Доска отзывов',
   'feedback.empty': 'Пока нет отзывов. Поделитесь идеей первым.',
   'feedback.loadMore': 'Загрузить ещё',

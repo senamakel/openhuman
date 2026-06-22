@@ -1696,6 +1696,9 @@ const Conversations = ({
                       cancelText: t('common.cancel'),
                       destructive: true,
                       onConfirm: () => {
+                        if (shouldSyncChatRoute && routeThreadId === thread.id) {
+                          navigate('/chat', { replace: true });
+                        }
                         void dispatch(deleteThread(thread.id));
                       },
                       onCancel: () => {},

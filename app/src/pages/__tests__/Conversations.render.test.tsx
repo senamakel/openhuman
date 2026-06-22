@@ -774,6 +774,27 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(screen.getByText(/Are you sure you want to delete/i)).toBeInTheDocument();
   });
 
+  it('replaces the route when deleting the currently-routed thread', async () => {
+    const thread = makeThread({ id: 't-del', title: 'Deletable Thread' });
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+
+    await act(async () => {
+      await renderConversationsRoute('/chat/t-del', { thread: selectedThreadState(thread) });
+    });
+    await openSidebar();
+
+    const deleteBtn = await screen.findByTitle('Delete thread');
+    await act(async () => {
+      fireEvent.click(deleteBtn);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    });
+
+    await waitFor(() => expect(threadApi.deleteThread).toHaveBeenCalledWith('t-del'));
+    expect(screen.getByTestId('route-path')).toHaveTextContent('/chat');
+  });
+
   // Covers lines 1399, 1409-1410: isNearLimit UpsellBanner render + onCtaClick
   it('renders near-limit UpsellBanner and clicking Upgrade calls openUrl', async () => {
     const { openUrl } = await import('../../utils/openUrl');

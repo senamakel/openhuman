@@ -36,7 +36,8 @@ async fn spawn_subagent_tool_runs_child_agent_e2e() {
                     "agent_id": "researcher",
                     "prompt": format!("Investigate {SPAWN_SUBAGENT_CANARY}"),
                     "context": "parent supplied context",
-                    "model": "test-model"
+                    "model": "test-model",
+                    "blocking": true
                 }))
                 .await
         },

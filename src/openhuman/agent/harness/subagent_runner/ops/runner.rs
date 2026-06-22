@@ -772,5 +772,6 @@ async fn run_typed_mode(
         elapsed: started.elapsed(),
         mode: SubagentMode::Typed,
         status,
+        final_history: history,
     })
 }

@@ -48,11 +48,15 @@ impl Tool for WaitSubagentTool {
     fn parameters_schema(&self) -> serde_json::Value {
         json!({
             "type": "object",
-            "required": ["task_id"],
+            "required": [],
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "The task_id returned by spawn_async_subagent."
+                    "description": "Transient task_id returned by reusable async delegation."
+                },
+                "subagent_session_id": {
+                    "type": "string",
+                    "description": "Durable subagent_session_id returned by reusable async delegation. Preferred for cross-turn waits."
                 },
                 "timeout_secs": {
                     "type": "integer",
@@ -75,8 +79,16 @@ impl Tool for WaitSubagentTool {
             .unwrap_or("")
             .trim()
             .to_string();
-        if task_id.is_empty() {
-            return Ok(ToolResult::error("wait_subagent: `task_id` is required"));
+        let subagent_session_id = args
+            .get("subagent_session_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if task_id.is_empty() && subagent_session_id.is_empty() {
+            return Ok(ToolResult::error(
+                "wait_subagent: `subagent_session_id` or `task_id` is required",
+            ));
         }
 
         let timeout_secs = args
@@ -94,14 +106,37 @@ impl Tool for WaitSubagentTool {
             }
         };
 
+        let resolved_task_id = if task_id.is_empty() {
+            match running_subagents::task_id_for_session(&subagent_session_id, &parent_session) {
+                Ok(id) => id,
+                Err(WaitError::Unknown) => {
+                    return Ok(ToolResult::error(format!(
+                        "wait_subagent: no running sub-agent with subagent_session_id `{subagent_session_id}`."
+                    )));
+                }
+                Err(WaitError::NotOwned) => {
+                    return Ok(ToolResult::error(format!(
+                        "wait_subagent: sub-agent session `{subagent_session_id}` was not started by this agent."
+                    )));
+                }
+            }
+        } else {
+            task_id.clone()
+        };
+
         log::info!(
-            "[wait_subagent] task_id={} timeout_secs={}",
-            task_id,
+            "[wait_subagent] task_id={} subagent_session_id={} timeout_secs={}",
+            resolved_task_id,
+            if subagent_session_id.is_empty() {
+                "none"
+            } else {
+                &subagent_session_id
+            },
             timeout_secs
         );
 
         match running_subagents::wait(
-            &task_id,
+            &resolved_task_id,
             &parent_session,
             Duration::from_secs(timeout_secs),
         )
@@ -109,30 +144,33 @@ impl Tool for WaitSubagentTool {
         {
             Ok(WaitOutcome::Terminal(SubagentStatus::Completed { output, iterations })) => {
                 Ok(ToolResult::success(format!(
-                    "Sub-agent `{task_id}` completed in {iterations} iteration(s):\n\n{output}"
+                    "Sub-agent `{task_id}` completed in {iterations} iteration(s):\n\n{output}",
+                    task_id = resolved_task_id
                 )))
             }
             Ok(WaitOutcome::Terminal(SubagentStatus::AwaitingUser { question })) => {
                 Ok(ToolResult::success(format!(
-                    "Sub-agent `{task_id}` paused for clarification and did not finish: {question}\n\n\
+                    "Sub-agent `{}` paused for clarification and did not finish: {question}\n\n\
                      It cannot proceed unattended. Resume it with continue_subagent once you have an answer."
+                    , resolved_task_id
                 )))
             }
             Ok(WaitOutcome::Terminal(SubagentStatus::Failed { error })) => Ok(ToolResult::error(
-                format!("Sub-agent `{task_id}` failed: {error}"),
+                format!("Sub-agent `{resolved_task_id}` failed: {error}"),
             )),
             // `Running` is never terminal; treat defensively as a timeout-style result.
             Ok(WaitOutcome::Terminal(SubagentStatus::Running))
             | Ok(WaitOutcome::TimedOut(_)) => Ok(ToolResult::success(format!(
                 "Sub-agent `{task_id}` is still running after {timeout_secs}s. \
-                 Continue with other work and call wait_subagent again later, or steer_subagent to redirect it."
+                 Continue with other work and call wait_subagent again later, or steer_subagent to redirect it.",
+                task_id = resolved_task_id
             ))),
             Err(WaitError::Unknown) => Ok(ToolResult::error(format!(
-                "wait_subagent: no sub-agent with task_id `{task_id}`. It may have already finished and \
+                "wait_subagent: no sub-agent with task_id `{resolved_task_id}`. It may have already finished and \
                  been collected, or the task_id is wrong."
             ))),
             Err(WaitError::NotOwned) => Ok(ToolResult::error(format!(
-                "wait_subagent: sub-agent `{task_id}` was not started by this agent."
+                "wait_subagent: sub-agent `{resolved_task_id}` was not started by this agent."
             ))),
         }
     }
@@ -149,14 +187,14 @@ mod tests {
             .get("required")
             .and_then(|v| v.as_array())
             .expect("required list");
-        assert!(required.iter().any(|v| v.as_str() == Some("task_id")));
+        assert!(required.is_empty());
     }
 
     #[tokio::test]
     async fn missing_task_id_is_rejected() {
         let res = WaitSubagentTool::new().execute(json!({})).await.unwrap();
         assert!(res.is_error);
-        assert!(res.output().contains("task_id"));
+        assert!(res.output().contains("subagent_session_id"));
     }
 
     #[tokio::test]

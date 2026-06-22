@@ -107,6 +107,10 @@ pub struct SubagentRunOutcome {
     pub mode: SubagentMode,
     /// Whether the run completed or paused for user input.
     pub status: SubagentRunStatus,
+    /// Final in-memory history after the run loop exits. Durable sub-agent
+    /// sessions persist this so an idle worker can resume without rebuilding
+    /// its context from only the parent transcript.
+    pub final_history: Vec<ChatMessage>,
 }
 
 /// Which prompt-construction path the runner took for a sub-agent.

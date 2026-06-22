@@ -133,6 +133,18 @@ impl Tool for SpawnSubagentTool {
                 "dedicated_thread": {
                     "type": "boolean",
                     "description": "Legacy compatibility flag. Delegations now always create a persistent worker thread when parent context is available, so this flag no longer gates thread creation."
+                },
+                "blocking": {
+                    "type": "boolean",
+                    "description": "Explicitly run the sub-agent inline and return its final output. Defaults to false; reusable async delegation is the default."
+                },
+                "task_key": {
+                    "type": "string",
+                    "description": "Optional deterministic identity key for reusable async delegation. Defaults to a normalized prompt/title."
+                },
+                "fresh": {
+                    "type": "boolean",
+                    "description": "When true, bypass reusable subagent matching and create a fresh durable worker."
                 }
             }
         })
@@ -183,6 +195,10 @@ impl Tool for SpawnSubagentTool {
         // worker thread. (#3049 supersedes the #1624 disable.)
         let dedicated_thread = args
             .get("dedicated_thread")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let blocking = args
+            .get("blocking")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
@@ -394,6 +410,27 @@ impl Tool for SpawnSubagentTool {
                     }
                 }
             }
+        }
+
+        if !blocking {
+            let mut async_args = args;
+            if async_args.get("task_title").is_none() {
+                let title =
+                    crate::openhuman::agent_orchestration::subagent_sessions::task_title_from_prompt(
+                        &prompt,
+                    );
+                if let Some(obj) = async_args.as_object_mut() {
+                    obj.insert("task_title".to_string(), serde_json::Value::String(title));
+                }
+            }
+            tracing::info!(
+                target: "spawn_subagent",
+                agent_id = %definition.id,
+                "[spawn_subagent] routing to reusable async sub-agent by default"
+            );
+            return super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
+                .execute(async_args)
+                .await;
         }
 
         // ── Publish SubagentSpawned event ──────────────────────────────
@@ -817,6 +854,7 @@ mod tests {
             iterations: 3,
             mode: SubagentMode::Typed,
             status: SubagentRunStatus::Completed,
+            final_history: Vec::new(),
         }
     }
 

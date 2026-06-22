@@ -13,6 +13,7 @@ mod ops;
 pub(crate) mod parent_context;
 pub mod running_subagents;
 pub mod subagent_control;
+pub mod subagent_sessions;
 pub mod tools;
 pub mod types;
 pub mod workflow_runs;

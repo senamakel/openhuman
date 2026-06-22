@@ -167,13 +167,12 @@ pub fn all_tools_with_runtime(
         // `agent::harness::subagent_runner` for the dispatch path.
         Box::new(SpawnSubagentTool::new()),
         Box::new(SpawnAsyncSubagentTool::new()),
-        // Steer a running async sub-agent mid-flight and collect its result:
-        // `steer_subagent { task_id, message }` injects into the child's
-        // run-queue (drained at its next iteration boundary), `wait_subagent
-        // { task_id }` blocks for the final output. See
-        // `agent_orchestration::running_subagents`.
+        // Steer/list/close reusable async sub-agents and collect results by
+        // durable `subagent_session_id` (preferred) or transient `task_id`.
+        Box::new(ListSubagentsTool::new()),
         Box::new(SteerSubagentTool::new()),
         Box::new(WaitSubagentTool::new()),
+        Box::new(CloseSubagentTool::new()),
         Box::new(ContinueSubagentTool::new()),
         Box::new(SpawnParallelAgentsTool::new()),
         Box::new(DelegateToPersonalityTool::new()),

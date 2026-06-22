@@ -157,18 +157,24 @@ Each archetype lives under `agents/<name>/` with an `agent.toml` (metadata, tool
 
 Custom archetypes ship as TOML files under `$OPENHUMAN_WORKSPACE/agents/*.toml` (or `~/.openhuman/agents/*.toml` for user-global specialists). Custom definitions override built-ins on id collision.
 
-### Running a sub-agent
+### Running a reusable sub-agent
 
-When the orchestrator calls `spawn_subagent` (or one of the `delegate_*` convenience tools), the runner:
+When the orchestrator calls `spawn_subagent`, the default contract is durable and asynchronous. The tool builds a deterministic compatibility selector from the parent session/thread, agent id, toolkit scope, model override, sandbox mode, action root, and normalized task key/title. It then checks `agent_orchestration::subagent_sessions` before spawning:
+
+* If a compatible worker is already running, the instruction is injected through its `RunQueue` and the parent gets a quick `subagent_session_id` / `task_id` reference.
+* If a compatible worker is idle or paused with reusable history, the harness starts a new transient run for the same durable `subagent_session_id` and passes the saved child history through `SubagentRunOptions.initial_history`, with the new instruction appended as a user-visible follow-up.
+* If the shape is incompatible, the worker was closed, `fresh: true` was passed, or no session exists, the harness creates a new durable session and worker thread.
+
+The child run itself still uses the same runner:
 
 1. Reads the parent's execution context from a task-local - the parent's provider, sandbox mode, cancellation fence, transcript root.
 2. Resolves the sub-agent's model - inline `model` override first, then config-level pins (`[orchestrator].model`, `[teams.*].lead_model`, `[teams.*].agent_model`), then the archetype hint or inherited parent model.
 3. Filters the parent's tool registry per the definition's `tools`, `disallowed_tools`, and `skill_filter`. In `fork` mode, the parent's full registry is inherited verbatim.
 4. Builds a narrow system prompt, omitting the sections the definition asks to strip.
 5. Runs an inner tool-call loop using the same machinery as the parent.
-6. Returns one compact text result. The intra-sub-agent history is never spliced back into the parent - the orchestrator sees a single tool result and moves on.
+6. Persists the child history and worker thread pointer under the durable `subagent_session_id` so later turns can resume or inspect it.
 
-For tasks that don't need to block the orchestrator's turn, `spawn_worker_thread` runs the sub-agent in the background and the orchestrator continues immediately.
+`wait_subagent` and `steer_subagent` accept either the durable `subagent_session_id` or the transient `task_id`; durable ids are preferred across turns. `list_subagents` shows reusable children for the current parent thread, and `close_subagent` marks a worker non-reusable and cancels it if it is still running. Inline blocking is explicit via `blocking: true`; it is no longer the default.
 
 ### Spawn hierarchy and tiers
 
@@ -295,7 +301,8 @@ The harness lives entirely under `src/openhuman/agent/`. The README in that dire
 | ----------------------------- | ----------------------------------------------------------------- |
 | `harness/session/turn.rs`     | `Agent::turn` - the lifecycle described above.                    |
 | `harness/tool_loop.rs`        | The inner tool-call loop.                                         |
-| `harness/subagent_runner/`    | `run_subagent`, fork-mode, oversized-result handoff.              |
+| `harness/subagent_runner/`    | `run_subagent`, history replay, fork-mode, oversized-result handoff. |
+| `agent_orchestration/subagent_sessions/` | Durable reusable sub-agent identity, compatibility matching, persisted status/history. |
 | `harness/definition.rs`       | `AgentDefinition` - what an archetype declares.                   |
 | `harness/tool_filter.rs`      | Toolkit-action ranking for integrations sub-agents.               |
 | `harness/payload_summarizer.rs` | Oversized-tool-result detour.                                   |

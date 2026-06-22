@@ -50,6 +50,7 @@ impl SubagentStatus {
 struct RunningSubagentEntry {
     agent_id: String,
     parent_session: String,
+    subagent_session_id: Option<String>,
     /// Parent chat thread that spawned this sub-agent, captured at registration.
     /// `None` for a headless spawn with no originating thread. Used to abort the
     /// sub-agent when its parent thread is deleted (see [`cancel_for_thread`]).
@@ -93,6 +94,7 @@ pub fn register(
     task_id: String,
     agent_id: String,
     parent_session: String,
+    subagent_session_id: Option<String>,
     parent_thread_id: Option<String>,
     run_queue: Arc<RunQueue>,
     abort: AbortHandle,
@@ -101,6 +103,7 @@ pub fn register(
     let entry = RunningSubagentEntry {
         agent_id,
         parent_session,
+        subagent_session_id,
         parent_thread_id,
         run_queue,
         abort,
@@ -119,6 +122,25 @@ pub fn register(
         task_id,
         map.len()
     );
+}
+
+/// Resolve a durable `subagent_session_id` to the currently-running transient
+/// `task_id`, enforcing parent-session ownership.
+pub fn task_id_for_session(
+    subagent_session_id: &str,
+    parent_session: &str,
+) -> Result<String, WaitError> {
+    let map = registry().lock().expect("running_subagents mutex poisoned");
+    let Some((task_id, entry)) = map
+        .iter()
+        .find(|(_, entry)| entry.subagent_session_id.as_deref() == Some(subagent_session_id))
+    else {
+        return Err(WaitError::Unknown);
+    };
+    if entry.parent_session != parent_session {
+        return Err(WaitError::NotOwned);
+    }
+    Ok(task_id.clone())
 }
 
 /// Why a steer could not be delivered.
@@ -271,6 +293,14 @@ pub fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
     })
 }
 
+pub fn cancel_by_session(
+    subagent_session_id: &str,
+    parent_session: &str,
+) -> Option<CancelledSubagent> {
+    let task_id = task_id_for_session(subagent_session_id, parent_session).ok()?;
+    cancel_by_task(&task_id)
+}
+
 /// Abort a running sub-agent and drop its registry entry. Kept for a future
 /// `close_agent` tool; the abort handle is stored at spawn time.
 pub fn close(task_id: &str, parent_session: &str) -> bool {
@@ -396,12 +426,44 @@ mod tests {
             task_id.into(),
             "researcher".into(),
             parent_session.into(),
+            None,
             parent_thread_id.map(Into::into),
             rq,
             dummy_abort(),
             rx,
         );
         tx
+    }
+
+    #[tokio::test]
+    async fn task_id_for_session_enforces_parent_ownership() {
+        let _guard = test_guard();
+        let rq = RunQueue::new();
+        let (tx, rx) = status_channel();
+        register(
+            "task-session".into(),
+            "researcher".into(),
+            "session-owner".into(),
+            Some("subsess-1".into()),
+            Some("thread-1".into()),
+            rq,
+            dummy_abort(),
+            rx,
+        );
+
+        assert_eq!(
+            task_id_for_session("subsess-1", "session-owner").unwrap(),
+            "task-session"
+        );
+        assert!(matches!(
+            task_id_for_session("subsess-1", "session-other"),
+            Err(WaitError::NotOwned)
+        ));
+        let _ = tx.send(SubagentStatus::Completed {
+            output: "done".into(),
+            iterations: 1,
+        });
+        prune("task-session");
     }
 
     #[tokio::test]

@@ -14,17 +14,19 @@
 
 use std::collections::BTreeSet;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex,
 };
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use openhuman_core::openhuman::agent::harness::run_queue::QueueMode;
 use openhuman_core::openhuman::agent::progress::AgentProgress;
 use openhuman_core::openhuman::agent::Agent;
-use openhuman_core::openhuman::agent_orchestration::subagent_sessions::{
-    DurableSubagentSession, DurableSubagentStatus, SubagentSessionStore,
+use openhuman_core::openhuman::agent_orchestration::{
+    running_subagents,
+    subagent_sessions::{DurableSubagentSession, DurableSubagentStatus, SubagentSessionStore},
 };
 use openhuman_core::openhuman::config::Config;
 use serde::Serialize;
@@ -64,6 +66,22 @@ struct Args {
     /// Print sanitized JSON summary in addition to the human summary.
     #[arg(long)]
     json: bool,
+
+    /// After the first async sub-agent spawn, steer the running child through its run queue.
+    #[arg(long)]
+    steer_mid_run: bool,
+
+    /// Delay after SubagentSpawned before attempting the steer.
+    #[arg(long, default_value_t = 250)]
+    steer_delay_ms: u64,
+
+    /// Seconds to retry resolving/registering the running child before steering fails.
+    #[arg(long, default_value_t = 10)]
+    steer_wait_secs: u64,
+
+    /// Override the steering message. The message itself is never printed.
+    #[arg(long)]
+    steer_message: Option<String>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -75,6 +93,7 @@ struct ProgressStats {
     subagent_failed: Vec<SubagentFailedEvent>,
     subagent_tool_started: Vec<SubagentToolEvent>,
     subagent_tool_completed: Vec<SubagentToolCompletedEvent>,
+    steer_attempts: Vec<SteerAttemptEvent>,
     turn_completed: usize,
 }
 
@@ -98,7 +117,7 @@ struct ParentToolCompleted {
     iteration: u32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct SubagentSpawnedEvent {
     turn: usize,
     agent_id: String,
@@ -108,6 +127,29 @@ struct SubagentSpawnedEvent {
     prompt_chars: usize,
     worker_thread_id: Option<String>,
     display_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct SteerAttemptEvent {
+    turn: usize,
+    agent_id: String,
+    task_id: String,
+    subagent_session_id: Option<String>,
+    delivered: bool,
+    error: Option<String>,
+    attempts: usize,
+    elapsed_ms: u128,
+    message_chars: usize,
+}
+
+#[derive(Clone)]
+struct SteerAuditConfig {
+    store: SubagentSessionStore,
+    task_key: String,
+    message: String,
+    delay: Duration,
+    wait_for: Duration,
+    fired: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -188,7 +230,14 @@ struct AuditCheck {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
+    if let Err(err) = run().await {
+        eprintln!("[harness_subagent_audit] ERROR: {err:#}");
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let args = Args::parse();
     let task_key = args
@@ -237,7 +286,23 @@ async fn main() -> Result<()> {
     let current_turn = Arc::new(AtomicUsize::new(0));
     let (tx, rx) = mpsc::channel(512);
     agent.set_on_progress(Some(tx));
-    let progress_task = tokio::spawn(drain_progress(rx, stats.clone(), current_turn.clone()));
+    let steer_config = args.steer_mid_run.then(|| SteerAuditConfig {
+        store: store.clone(),
+        task_key: task_key.clone(),
+        message: args
+            .steer_message
+            .clone()
+            .unwrap_or_else(|| default_steer_message(&task_key)),
+        delay: Duration::from_millis(args.steer_delay_ms),
+        wait_for: Duration::from_secs(args.steer_wait_secs),
+        fired: Arc::new(AtomicBool::new(false)),
+    });
+    let progress_task = tokio::spawn(drain_progress(
+        rx,
+        stats.clone(),
+        current_turn.clone(),
+        steer_config,
+    ));
 
     let turns = args.turns.clamp(1, 2);
     let mut assistant_reply_chars = Vec::new();
@@ -320,10 +385,10 @@ async fn drain_progress(
     mut rx: mpsc::Receiver<AgentProgress>,
     stats: Arc<Mutex<ProgressStats>>,
     current_turn: Arc<AtomicUsize>,
+    steer_config: Option<SteerAuditConfig>,
 ) {
     while let Some(event) = rx.recv().await {
         let turn = current_turn.load(Ordering::SeqCst);
-        let mut stats = stats.lock().expect("progress stats mutex poisoned");
         match event {
             AgentProgress::ToolCallStarted {
                 call_id,
@@ -336,13 +401,17 @@ async fn drain_progress(
                     "[harness_subagent_audit] progress turn={} parent_tool_started tool={} call_id={} iteration={} argument_keys={:?}",
                     turn, tool_name, call_id, iteration, argument_keys
                 );
-                stats.parent_tool_started.push(ParentToolStarted {
-                    turn,
-                    call_id,
-                    tool_name,
-                    iteration,
-                    argument_keys,
-                });
+                stats
+                    .lock()
+                    .expect("progress stats mutex poisoned")
+                    .parent_tool_started
+                    .push(ParentToolStarted {
+                        turn,
+                        call_id,
+                        tool_name,
+                        iteration,
+                        argument_keys,
+                    });
             }
             AgentProgress::ToolCallCompleted {
                 call_id,
@@ -356,15 +425,19 @@ async fn drain_progress(
                     "[harness_subagent_audit] progress turn={} parent_tool_completed tool={} call_id={} success={} output_chars={} elapsed_ms={} iteration={}",
                     turn, tool_name, call_id, success, output_chars, elapsed_ms, iteration
                 );
-                stats.parent_tool_completed.push(ParentToolCompleted {
-                    turn,
-                    call_id,
-                    tool_name,
-                    success,
-                    output_chars,
-                    elapsed_ms,
-                    iteration,
-                });
+                stats
+                    .lock()
+                    .expect("progress stats mutex poisoned")
+                    .parent_tool_completed
+                    .push(ParentToolCompleted {
+                        turn,
+                        call_id,
+                        tool_name,
+                        success,
+                        output_chars,
+                        elapsed_ms,
+                        iteration,
+                    });
             }
             AgentProgress::SubagentSpawned {
                 agent_id,
@@ -385,7 +458,7 @@ async fn drain_progress(
                     prompt_chars,
                     worker_thread_id.as_deref().unwrap_or("none")
                 );
-                stats.subagent_spawned.push(SubagentSpawnedEvent {
+                let spawned = SubagentSpawnedEvent {
                     turn,
                     agent_id,
                     task_id,
@@ -394,7 +467,36 @@ async fn drain_progress(
                     prompt_chars,
                     worker_thread_id,
                     display_name,
-                });
+                };
+                stats
+                    .lock()
+                    .expect("progress stats mutex poisoned")
+                    .subagent_spawned
+                    .push(spawned.clone());
+                if let Some(config) = steer_config.as_ref() {
+                    if config
+                        .fired
+                        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                        .is_ok()
+                    {
+                        let attempt = steer_after_spawn(config.clone(), spawned.clone()).await;
+                        eprintln!(
+                            "[harness_subagent_audit] steer_attempt turn={} task_id={} delivered={} attempts={} elapsed_ms={} message_chars={} error={}",
+                            attempt.turn,
+                            attempt.task_id,
+                            attempt.delivered,
+                            attempt.attempts,
+                            attempt.elapsed_ms,
+                            attempt.message_chars,
+                            attempt.error.as_deref().unwrap_or("none")
+                        );
+                        stats
+                            .lock()
+                            .expect("progress stats mutex poisoned")
+                            .steer_attempts
+                            .push(attempt);
+                    }
+                }
             }
             AgentProgress::SubagentCompleted {
                 agent_id,
@@ -408,14 +510,18 @@ async fn drain_progress(
                     "[harness_subagent_audit] progress turn={} subagent_completed agent_id={} task_id={} elapsed_ms={} iterations={} output_chars={}",
                     turn, agent_id, task_id, elapsed_ms, iterations, output_chars
                 );
-                stats.subagent_completed.push(SubagentCompletedEvent {
-                    turn,
-                    agent_id,
-                    task_id,
-                    elapsed_ms,
-                    iterations,
-                    output_chars,
-                });
+                stats
+                    .lock()
+                    .expect("progress stats mutex poisoned")
+                    .subagent_completed
+                    .push(SubagentCompletedEvent {
+                        turn,
+                        agent_id,
+                        task_id,
+                        elapsed_ms,
+                        iterations,
+                        output_chars,
+                    });
             }
             AgentProgress::SubagentFailed {
                 agent_id,
@@ -429,12 +535,16 @@ async fn drain_progress(
                     task_id,
                     error.chars().count()
                 );
-                stats.subagent_failed.push(SubagentFailedEvent {
-                    turn,
-                    agent_id,
-                    task_id,
-                    error_chars: error.chars().count(),
-                });
+                stats
+                    .lock()
+                    .expect("progress stats mutex poisoned")
+                    .subagent_failed
+                    .push(SubagentFailedEvent {
+                        turn,
+                        agent_id,
+                        task_id,
+                        error_chars: error.chars().count(),
+                    });
             }
             AgentProgress::SubagentToolCallStarted {
                 agent_id,
@@ -447,14 +557,18 @@ async fn drain_progress(
                     "[harness_subagent_audit] progress turn={} subagent_tool_started agent_id={} task_id={} tool={} call_id={} iteration={}",
                     turn, agent_id, task_id, tool_name, call_id, iteration
                 );
-                stats.subagent_tool_started.push(SubagentToolEvent {
-                    turn,
-                    agent_id,
-                    task_id,
-                    call_id,
-                    tool_name,
-                    iteration,
-                });
+                stats
+                    .lock()
+                    .expect("progress stats mutex poisoned")
+                    .subagent_tool_started
+                    .push(SubagentToolEvent {
+                        turn,
+                        agent_id,
+                        task_id,
+                        call_id,
+                        tool_name,
+                        iteration,
+                    });
             }
             AgentProgress::SubagentToolCallCompleted {
                 agent_id,
@@ -471,6 +585,8 @@ async fn drain_progress(
                     turn, agent_id, task_id, tool_name, call_id, success, output_chars, elapsed_ms, iteration
                 );
                 stats
+                    .lock()
+                    .expect("progress stats mutex poisoned")
                     .subagent_tool_completed
                     .push(SubagentToolCompletedEvent {
                         turn,
@@ -485,7 +601,10 @@ async fn drain_progress(
                     });
             }
             AgentProgress::TurnCompleted { .. } => {
-                stats.turn_completed += 1;
+                stats
+                    .lock()
+                    .expect("progress stats mutex poisoned")
+                    .turn_completed += 1;
             }
             AgentProgress::SubagentAwaitingUser {
                 agent_id,
@@ -516,6 +635,108 @@ async fn drain_progress(
     }
 }
 
+async fn steer_after_spawn(
+    config: SteerAuditConfig,
+    spawned: SubagentSpawnedEvent,
+) -> SteerAttemptEvent {
+    tokio::time::sleep(config.delay).await;
+    let started = std::time::Instant::now();
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        let attempt_error;
+        match find_session_for_task(&config.store, &config.task_key, &spawned.task_id) {
+            Ok(Some(session)) => {
+                match running_subagents::steer(
+                    &spawned.task_id,
+                    &session.parent_session,
+                    config.message.clone(),
+                    QueueMode::Steer,
+                )
+                .await
+                {
+                    Ok(()) => {
+                        return SteerAttemptEvent {
+                            turn: spawned.turn,
+                            agent_id: spawned.agent_id,
+                            task_id: spawned.task_id,
+                            subagent_session_id: Some(session.subagent_session_id),
+                            delivered: true,
+                            error: None,
+                            attempts,
+                            elapsed_ms: started.elapsed().as_millis(),
+                            message_chars: config.message.chars().count(),
+                        };
+                    }
+                    Err(err) => {
+                        attempt_error = Some(format!("{err:?}"));
+                        if !matches!(err, running_subagents::SteerError::Unknown) {
+                            return failed_steer_attempt(
+                                spawned,
+                                attempt_error,
+                                attempts,
+                                started.elapsed().as_millis(),
+                                config.message.chars().count(),
+                            );
+                        }
+                    }
+                }
+            }
+            Ok(None) => {
+                attempt_error = Some("durable session not found yet".to_string());
+            }
+            Err(err) => {
+                attempt_error = Some(err.to_string());
+            }
+        }
+
+        if started.elapsed() >= config.wait_for {
+            return failed_steer_attempt(
+                spawned,
+                attempt_error,
+                attempts,
+                started.elapsed().as_millis(),
+                config.message.chars().count(),
+            );
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+fn failed_steer_attempt(
+    spawned: SubagentSpawnedEvent,
+    error: Option<String>,
+    attempts: usize,
+    elapsed_ms: u128,
+    message_chars: usize,
+) -> SteerAttemptEvent {
+    SteerAttemptEvent {
+        turn: spawned.turn,
+        agent_id: spawned.agent_id,
+        task_id: spawned.task_id,
+        subagent_session_id: None,
+        delivered: false,
+        error,
+        attempts,
+        elapsed_ms,
+        message_chars,
+    }
+}
+
+fn find_session_for_task(
+    store: &SubagentSessionStore,
+    task_key: &str,
+    task_id: &str,
+) -> Result<Option<SessionSummary>> {
+    Ok(store
+        .load()
+        .map_err(anyhow::Error::msg)?
+        .into_iter()
+        .filter(|session| session.task_key == task_key)
+        .find(|session| session.current_task_id.as_deref() == Some(task_id))
+        .map(SessionSummary::from))
+}
+
 fn argument_keys(value: &serde_json::Value) -> Vec<String> {
     value
         .as_object()
@@ -540,6 +761,12 @@ fn second_turn_prompt(agent_id: &str, task_key: &str) -> String {
          and fresh false. The delegated prompt should add one short follow-up instruction for \
          audit marker `{task_key}`. After the tool returns, answer briefly. Do not call \
          wait_subagent in this turn."
+    )
+}
+
+fn default_steer_message(task_key: &str) -> String {
+    format!(
+        "Mid-run steering audit for marker `{task_key}`: acknowledge that this instruction arrived through the async steering queue, then keep the final answer concise."
     )
 }
 
@@ -622,6 +849,22 @@ fn evaluate_checks(
             "observed {parent_spawn_calls} spawn_subagent/spawn_async_subagent start event(s)"
         ),
     });
+
+    if !progress.steer_attempts.is_empty() {
+        let delivered = progress
+            .steer_attempts
+            .iter()
+            .filter(|attempt| attempt.delivered)
+            .count();
+        checks.push(AuditCheck {
+            name: "mid_run_steer_delivered",
+            passed: delivered > 0,
+            detail: format!(
+                "observed {delivered} delivered steer attempt(s) out of {}",
+                progress.steer_attempts.len()
+            ),
+        });
+    }
 
     let completed_spawn_calls = progress
         .parent_tool_completed
@@ -734,6 +977,19 @@ fn print_human_summary(summary: &AuditSummary) {
         summary.progress.subagent_tool_started.len(),
         summary.progress.subagent_tool_completed.len()
     );
+    if !summary.progress.steer_attempts.is_empty() {
+        for attempt in &summary.progress.steer_attempts {
+            println!(
+                "steer: task_id={} delivered={} attempts={} elapsed_ms={} message_chars={} error={}",
+                attempt.task_id,
+                attempt.delivered,
+                attempt.attempts,
+                attempt.elapsed_ms,
+                attempt.message_chars,
+                attempt.error.as_deref().unwrap_or("none")
+            );
+        }
+    }
     println!("sessions:");
     if summary.sessions.is_empty() {
         println!("  none");

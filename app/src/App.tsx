@@ -163,7 +163,7 @@ function AppShell() {
 }
 
 /** Desktop inner shell — lives inside the Router so it can use useLocation. */
-function AppShellDesktop() {
+export function AppShellDesktop() {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -208,6 +208,7 @@ function AppShellDesktop() {
   // cannot linger over the newly-routed page.
   const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
   const accountsById = useAppSelector(state => state.accounts.accounts);
+  const accountsOverlayOpen = useAppSelector(state => state.accounts.overlayOpen);
   const previousPathRef = useRef(location.pathname);
   useEffect(() => {
     if (
@@ -252,7 +253,7 @@ function AppShellDesktop() {
     <div ref={scrollRef} className="relative h-full overflow-y-auto">
       <GlobalUpsellBanner />
       <AppRoutes />
-      {activeProviderAccount && (
+      {activeProviderAccount && !accountsOverlayOpen && (
         <div className="absolute inset-0 z-30">
           <WebviewHost
             accountId={activeProviderAccount.id}

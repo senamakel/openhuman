@@ -30,6 +30,7 @@ Options:
   --turns <n>             Number of agent turns to run (default: 3)
   --model <model>         Optional model_override passed to openhuman.agent_chat
   --thread-id <id>        Stable backend thread_id to group audit inference/cache logs
+  --rpc-timeout-ms <n>    Per-RPC timeout in milliseconds (default: 600000)
   --prompt <text>         Prompt to send each turn (default: cache-audit delegation prompt)
   --spawn-core            Start openhuman-core serve --jsonrpc-only for the audit
   --isolated-workspace    With --spawn-core, use a temp workspace and custom audit agent definitions
@@ -54,6 +55,7 @@ function parseArgs(argv) {
     turns: 3,
     model: "",
     threadId: `harness-cache-audit-${Date.now().toString(36)}`,
+    rpcTimeoutMs: 600_000,
     prompt: "",
     spawnCore: false,
     isolatedWorkspace: false,
@@ -90,6 +92,9 @@ function parseArgs(argv) {
         break;
       case "--thread-id":
         opts.threadId = next();
+        break;
+      case "--rpc-timeout-ms":
+        opts.rpcTimeoutMs = parsePositiveInt(next(), "--rpc-timeout-ms");
         break;
       case "--prompt":
         opts.prompt = next();
@@ -147,17 +152,34 @@ function parseNonNegativeNumber(raw, label) {
   return value;
 }
 
-function defaultWorkspace() {
-  if (process.env.OPENHUMAN_WORKSPACE) return process.env.OPENHUMAN_WORKSPACE;
+function defaultOpenhumanDir() {
   return process.env.OPENHUMAN_APP_ENV === "staging"
     ? path.join(homedir(), ".openhuman-staging")
     : path.join(homedir(), ".openhuman");
 }
 
+async function defaultWorkspace() {
+  if (process.env.OPENHUMAN_WORKSPACE) return process.env.OPENHUMAN_WORKSPACE;
+  const openhumanDir = defaultOpenhumanDir();
+  try {
+    const active = await readFile(
+      path.join(openhumanDir, "active_user.toml"),
+      "utf8",
+    );
+    const match = active.match(/^\s*user_id\s*=\s*"([^"]+)"\s*$/m);
+    if (match?.[1]) {
+      return path.join(openhumanDir, "users", match[1], "workspace");
+    }
+  } catch {
+    // Fall back to the legacy root workspace below.
+  }
+  return openhumanDir;
+}
+
 async function readToken(opts) {
   if (opts.token.trim()) return opts.token.trim();
   const tokenPath = path.join(
-    opts.workspace || defaultWorkspace(),
+    opts.workspace || (await defaultWorkspace()),
     "core.token",
   );
   try {
@@ -169,38 +191,45 @@ async function readToken(opts) {
   }
 }
 
-async function rpc(coreUrl, token, method, params) {
-  const res = await fetch(coreUrl, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: `audit-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      method,
-      params,
-    }),
-  });
+async function rpc(coreUrl, token, method, params, timeoutMs = 600_000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(coreUrl, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: `audit-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        method,
+        params,
+      }),
+    });
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error(`RPC ${method} timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
   const bodyText = await res.text();
   let body;
   try {
     body = JSON.parse(bodyText);
   } catch {
-    throw new Error(
-      `RPC ${method} returned non-JSON HTTP ${res.status}: ${bodyText.slice(0, 300)}`,
-    );
+    throw new Error(`RPC ${method} returned non-JSON HTTP ${res.status}`);
   }
   if (!res.ok) {
-    throw new Error(
-      `RPC ${method} HTTP ${res.status}: ${JSON.stringify(body).slice(0, 500)}`,
-    );
+    throw new Error(`RPC ${method} HTTP ${res.status}`);
   }
   if (body.error) {
-    throw new Error(
-      `RPC ${method} error: ${body.error.message || JSON.stringify(body.error)}`,
-    );
+    throw new Error(`RPC ${method} error`);
   }
   return body.result;
 }
@@ -484,6 +513,23 @@ async function startCore(opts) {
   return { child, token };
 }
 
+async function stopChild(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+
+  child.kill("SIGTERM");
+  const exited = await Promise.race([
+    once(child, "exit").then(() => true),
+    new Promise((resolve) => setTimeout(() => resolve(false), 5_000)),
+  ]);
+  if (exited || child.exitCode !== null || child.signalCode !== null) return;
+
+  child.kill("SIGKILL");
+  await Promise.race([
+    once(child, "exit"),
+    new Promise((resolve) => setTimeout(resolve, 2_000)),
+  ]);
+}
+
 async function waitForCore(coreUrl, token, child, stderrFn) {
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
@@ -493,7 +539,7 @@ async function waitForCore(coreUrl, token, child, stderrFn) {
       );
     }
     try {
-      await rpc(coreUrl, token, "core.ping", {});
+      await rpc(coreUrl, token, "core.ping", {}, 10_000);
       return;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 750));
@@ -506,7 +552,7 @@ async function waitForCore(coreUrl, token, child, stderrFn) {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  if (!opts.workspace) opts.workspace = defaultWorkspace();
+  if (!opts.workspace) opts.workspace = await defaultWorkspace();
 
   let tempWorkspace = "";
   let spawned;
@@ -542,8 +588,10 @@ async function main() {
 
   const before = await snapshotTranscripts(opts.workspace);
   const turnResults = [];
+  let zeroCacheTurns = 0;
   try {
     for (let i = 1; i <= opts.turns; i += 1) {
+      const turnBefore = await snapshotTranscripts(opts.workspace);
       const params = {
         message: opts.prompt || auditPrompt(i),
       };
@@ -555,8 +603,14 @@ async function main() {
         opts.token,
         "openhuman.agent_chat",
         params,
+        opts.rpcTimeoutMs,
       );
       const response = responseText(result);
+      const turnAfter = await snapshotTranscripts(opts.workspace);
+      const rootDelta = summarize(
+        diffSnapshots(turnBefore, turnAfter).filter((row) => !row.isSubagent),
+      );
+      if (rootDelta.input > 0 && rootDelta.cached === 0) zeroCacheTurns += 1;
       turnResults.push({ ms: Date.now() - started, chars: response.length });
       console.log(
         `[harness-cache-audit] turn ${i}/${opts.turns} ok (${turnResults.at(-1).ms}ms${
@@ -566,8 +620,7 @@ async function main() {
     }
   } finally {
     if (spawned?.child) {
-      spawned.child.kill("SIGTERM");
-      await new Promise((resolve) => spawned.child.once("exit", resolve));
+      await stopChild(spawned.child);
     }
   }
 
@@ -575,9 +628,6 @@ async function main() {
   const rows = diffSnapshots(before, after);
   const totals = printReport(opts, rows, turnResults);
 
-  const zeroCacheTurns = rows.filter(
-    (row) => !row.isSubagent && row.input > 0 && row.cached === 0,
-  ).length;
   const failures = [];
   if (totals.input === 0) {
     failures.push(
@@ -591,7 +641,7 @@ async function main() {
   }
   if (zeroCacheTurns > opts.maxTurnsWithoutCache) {
     failures.push(
-      `${zeroCacheTurns} root transcript delta(s) had zero cached input, above limit ${opts.maxTurnsWithoutCache}`,
+      `${zeroCacheTurns} root turn(s) had zero cached input, above limit ${opts.maxTurnsWithoutCache}`,
     );
   }
   if (totals.subagentSessions === 0) {

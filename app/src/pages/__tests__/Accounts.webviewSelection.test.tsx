@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import Accounts from '../Accounts';
@@ -75,12 +75,23 @@ describe('Accounts provider selection', () => {
 
     expect(screen.queryByTestId('agent-chat-panel')).not.toBeInTheDocument();
   });
+
+  it('selects the agent account for thread routes', () => {
+    renderAccounts('/chat/thread-route-1');
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'accounts/setActiveAccount',
+      payload: '__agent__',
+    });
+  });
 });
 
-function renderAccounts() {
+function renderAccounts(route = '/chat') {
   return render(
-    <MemoryRouter>
-      <Accounts />
+    <MemoryRouter initialEntries={[route]}>
+      <Routes>
+        <Route path="/chat/:threadId?" element={<Accounts />} />
+      </Routes>
     </MemoryRouter>
   );
 }

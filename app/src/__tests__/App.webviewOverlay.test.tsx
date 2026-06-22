@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { render, screen, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppShellDesktop } from '../App';
@@ -93,6 +94,7 @@ vi.mock('../components/walkthrough/AppWalkthrough', () => ({ default: () => null
 describe('AppShellDesktop provider webview visibility', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    HTMLElement.prototype.scrollTo = vi.fn();
     mockState = baseState;
   });
 
@@ -109,12 +111,43 @@ describe('AppShellDesktop provider webview visibility', () => {
 
     expect(screen.queryByTestId('webview-host')).not.toBeInTheDocument();
   });
+
+  it('does not mount a provider webview when the active account is missing', () => {
+    mockState = {
+      ...baseState,
+      accounts: { ...baseState.accounts, activeAccountId: 'missing-account' },
+    };
+
+    renderShell();
+
+    expect(screen.queryByTestId('webview-host')).not.toBeInTheDocument();
+  });
+
+  it('hides the active provider and restores the agent selection on route changes', async () => {
+    renderShell('/chat/thread-1', '/settings');
+
+    await waitFor(() => expect(hideWebviewAccountMock).toHaveBeenCalledWith('acct-whatsapp'));
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'accounts/setActiveAccount',
+      payload: '__agent__',
+    });
+  });
 });
 
-function renderShell() {
+function renderShell(initialPath = '/chat/thread-1', nextPath?: string) {
   return render(
-    <MemoryRouter initialEntries={['/chat/thread-1']}>
-      <AppShellDesktop />
+    <MemoryRouter initialEntries={[initialPath]}>
+      <RouteChangeHarness nextPath={nextPath} />
     </MemoryRouter>
   );
+}
+
+function RouteChangeHarness({ nextPath }: { nextPath?: string }) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (nextPath) {
+      navigate(nextPath);
+    }
+  }, [navigate, nextPath]);
+  return <AppShellDesktop />;
 }

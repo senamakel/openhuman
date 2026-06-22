@@ -10,7 +10,7 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
@@ -221,6 +221,39 @@ async function renderConversations(preload: Record<string, unknown> = {}) {
   return store;
 }
 
+async function renderConversationsRoute(route: string, preload: Record<string, unknown> = {}) {
+  const store = buildStore(preload);
+  const { default: Conversations } = await import('../Conversations');
+
+  render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[route]}>
+        <SidebarSlotProvider>
+          <SidebarSlotOutlet />
+          <Routes>
+            <Route
+              path="/chat/:threadId?"
+              element={
+                <>
+                  <LocationProbe />
+                  <Conversations />
+                </>
+              }
+            />
+          </Routes>
+        </SidebarSlotProvider>
+      </MemoryRouter>
+    </Provider>
+  );
+
+  return store;
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="route-path">{location.pathname}</span>;
+}
+
 /** The thread sidebar is always projected now (no toggle); just flush effects. */
 async function openSidebar() {
   await act(async () => {});
@@ -374,6 +407,50 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       expect(screen.getAllByText('Thread Alpha').length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText('Thread Beta').length).toBeGreaterThan(0);
+  });
+
+  it('falls back to /chat when the routed thread id is missing', async () => {
+    mockGetThreads.mockResolvedValue({
+      threads: [makeThread({ id: 't-1', title: 'Thread Alpha' })],
+      count: 1,
+    });
+
+    await act(async () => {
+      await renderConversationsRoute('/chat/missing-thread', { thread: emptyThreadState });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('route-path')).toHaveTextContent('/chat');
+    });
+  });
+
+  it('updates the route when selecting sidebar threads by click or keyboard', async () => {
+    const threads = [
+      makeThread({ id: 't-1', title: 'Thread Alpha' }),
+      makeThread({ id: 't-2', title: 'Thread Beta' }),
+    ];
+    mockGetThreads.mockResolvedValue({ threads, count: 2 });
+
+    await act(async () => {
+      await renderConversationsRoute('/chat', { thread: emptyThreadState });
+    });
+    await openSidebar();
+
+    const alphaRow = await screen.findByRole('button', { name: /Thread Alpha/ });
+    await act(async () => {
+      fireEvent.click(alphaRow);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('route-path')).toHaveTextContent('/chat/t-1');
+    });
+
+    const betaRow = await screen.findByRole('button', { name: /Thread Beta/ });
+    await act(async () => {
+      fireEvent.keyDown(betaRow, { key: 'Enter' });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('route-path')).toHaveTextContent('/chat/t-2');
+    });
   });
 
   // Covers line 1083: messagesError branch renders error state

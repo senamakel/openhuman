@@ -18,20 +18,28 @@ use serde_json::{json, Map, Value};
 
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
+use crate::openhuman::agent::harness::run_queue::QueueMode;
+use crate::openhuman::agent_orchestration::running_subagents::SteerError;
 use crate::openhuman::agent_orchestration::{background_completions, running_subagents};
 use crate::rpc::RpcOutcome;
 
 /// Controller schemas exposed for detached sub-agent control.
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
-    vec![schema_for("subagent_cancel")]
+    vec![schema_for("subagent_cancel"), schema_for("subagent_steer")]
 }
 
 /// Registered controllers (schema + handler) for detached sub-agent control.
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
-    vec![RegisteredController {
-        schema: schema_for("subagent_cancel"),
-        handler: handle_subagent_cancel,
-    }]
+    vec![
+        RegisteredController {
+            schema: schema_for("subagent_cancel"),
+            handler: handle_subagent_cancel,
+        },
+        RegisteredController {
+            schema: schema_for("subagent_steer"),
+            handler: handle_subagent_steer,
+        },
+    ]
 }
 
 fn schema_for(function: &str) -> ControllerSchema {
@@ -56,6 +64,28 @@ fn schema_for(function: &str) -> ControllerSchema {
             outputs: vec![json_output(
                 "result",
                 "{ cancelled: bool, taskId: string } — cancelled=false if nothing was running.",
+            )],
+        },
+        "subagent_steer" => ControllerSchema {
+            namespace: "subagent",
+            function: "steer",
+            description: "Inject a message into a still-running detached background sub-agent by \
+                          spawn task id. This trusted RPC control mirrors the steer_subagent agent \
+                          tool and returns immediately after the message is queued.",
+            inputs: vec![
+                required_str(
+                    "taskId",
+                    "Spawn task id (`sub-…`) of the running background sub-agent.",
+                ),
+                required_str(
+                    "message",
+                    "Instruction or context to queue for the running sub-agent.",
+                ),
+                optional_str("mode", "Optional queue mode: steer (default) or collect."),
+            ],
+            outputs: vec![json_output(
+                "result",
+                "{ steered: bool, taskId: string, mode: string }.",
             )],
         },
         _ => ControllerSchema {
@@ -108,6 +138,50 @@ fn handle_subagent_cancel(params: Map<String, Value>) -> ControllerFuture {
             "[subagent_control_rpc][{cid}] cancel.done task_id={task_id} cancelled={cancelled}"
         );
         to_json(json!({ "cancelled": cancelled, "taskId": task_id }))
+    })
+}
+
+fn handle_subagent_steer(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let cid = new_correlation_id();
+        let task_id = require_str(&params, "taskId")?;
+        let message = require_str(&params, "message")?;
+        let mode = match opt_str(&params, "mode").as_deref() {
+            Some("collect") => QueueMode::Collect,
+            _ => QueueMode::Steer,
+        };
+        log::debug!(
+            target: "subagent_control_rpc",
+            "[subagent_control_rpc][{cid}] steer.entry task_id={task_id} mode={mode} chars={}",
+            message.chars().count()
+        );
+
+        match running_subagents::steer_control(&task_id, message, mode).await {
+            Ok(()) => {
+                log::debug!(
+                    target: "subagent_control_rpc",
+                    "[subagent_control_rpc][{cid}] steer.done task_id={task_id} mode={mode} steered=true"
+                );
+                to_json(json!({ "steered": true, "taskId": task_id, "mode": mode.to_string() }))
+            }
+            Err(err) => {
+                let reason = match err {
+                    SteerError::Unknown => "unknown",
+                    SteerError::AlreadyDone => "already_done",
+                    SteerError::NotOwned => "not_owned",
+                };
+                log::debug!(
+                    target: "subagent_control_rpc",
+                    "[subagent_control_rpc][{cid}] steer.done task_id={task_id} mode={mode} steered=false reason={reason}"
+                );
+                to_json(json!({
+                    "steered": false,
+                    "taskId": task_id,
+                    "mode": mode.to_string(),
+                    "reason": reason,
+                }))
+            }
+        }
     })
 }
 
@@ -177,9 +251,11 @@ mod tests {
         let schemas = all_controller_schemas();
         let registered = all_registered_controllers();
         assert_eq!(schemas.len(), registered.len());
-        assert_eq!(schemas.len(), 1);
+        assert_eq!(schemas.len(), 2);
         assert_eq!(schema_for("subagent_cancel").namespace, "subagent");
         assert_eq!(schema_for("subagent_cancel").function, "cancel");
+        assert_eq!(schema_for("subagent_steer").namespace, "subagent");
+        assert_eq!(schema_for("subagent_steer").function, "steer");
     }
 
     #[test]
@@ -210,5 +286,19 @@ mod tests {
             .or_else(|| out.get("cancelled"))
             .and_then(Value::as_bool);
         assert_eq!(cancelled, Some(false));
+    }
+
+    #[tokio::test]
+    async fn steer_unknown_task_is_a_noop_false() {
+        let _lock = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let mut params = Map::new();
+        params.insert("taskId".into(), json!("sub-does-not-exist"));
+        params.insert("message".into(), json!("redirect"));
+        let out = handle_subagent_steer(params).await.expect("handler ok");
+        let data = out.get("data").unwrap_or(&out);
+        assert_eq!(data.get("steered").and_then(Value::as_bool), Some(false));
+        assert_eq!(data.get("reason").and_then(Value::as_str), Some("unknown"));
     }
 }

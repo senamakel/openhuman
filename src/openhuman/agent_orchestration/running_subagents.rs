@@ -195,6 +195,43 @@ pub async fn steer(
     Ok(())
 }
 
+/// Trusted-control variant used by JSON-RPC sub-agent controls.
+///
+/// This intentionally does not require the caller to provide `parent_session`:
+/// the RPC layer is already bearer-protected and mirrors the existing
+/// `subagent_cancel` control surface, which can abort a task by id. The function
+/// still refuses unknown or terminal tasks and never logs the steered text.
+pub async fn steer_control(task_id: &str, text: String, mode: QueueMode) -> Result<(), SteerError> {
+    let run_queue = {
+        let map = registry().lock().expect("running_subagents mutex poisoned");
+        let entry = map.get(task_id).ok_or(SteerError::Unknown)?;
+        if entry.status.borrow().is_terminal() {
+            return Err(SteerError::AlreadyDone);
+        }
+        entry.run_queue.clone()
+    };
+
+    run_queue
+        .push(QueuedMessage {
+            text,
+            mode,
+            client_id: "subagent_control_rpc".to_string(),
+            thread_id: task_id.to_string(),
+            queued_at_ms: now_ms(),
+            model_override: None,
+            temperature: None,
+            profile_id: None,
+            locale: None,
+        })
+        .await;
+    log::info!(
+        "[running_subagents] control_steered task_id={} mode={}",
+        task_id,
+        mode
+    );
+    Ok(())
+}
+
 /// Why a wait could not be set up.
 #[derive(Debug, PartialEq, Eq)]
 pub enum WaitError {

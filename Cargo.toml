@@ -26,6 +26,10 @@ name = "inference-probe"
 path = "src/bin/inference_probe.rs"
 
 [[bin]]
+name = "harness-subagent-audit"
+path = "src/bin/harness_subagent_audit.rs"
+
+[[bin]]
 name = "test-mcp-stub"
 path = "src/bin/test_mcp_stub.rs"
 

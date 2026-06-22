@@ -23,14 +23,6 @@ pub use store::JobStore;
 pub use types::{AgentBoxProviderInfo, AgentBoxStatus};
 
 #[cfg(test)]
-static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-#[cfg(test)]
-fn test_env_lock() -> std::sync::MutexGuard<'static, ()> {
-    TEST_ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
-}
-
-#[cfg(test)]
 mod disabled_mode_tests;
 #[cfg(test)]
 mod env_tests;
@@ -40,3 +32,5 @@ mod http_tests;
 mod ops_tests;
 #[cfg(test)]
 mod store_tests;
+#[cfg(test)]
+mod test_support;

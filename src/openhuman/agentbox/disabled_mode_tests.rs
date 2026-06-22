@@ -20,7 +20,7 @@ use tower::ServiceExt;
 #[tokio::test]
 async fn run_route_absent_when_mode_off() {
     let router = {
-        let _lock = super::test_env_lock();
+        let _lock = super::test_support::test_env_lock();
         // Ensure flag is OFF while the router is built.
         std::env::remove_var("OPENHUMAN_AGENTBOX_MODE");
         crate::core::jsonrpc::build_core_http_router(false)

@@ -4,11 +4,11 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
 import { APP_VERSION } from '../../../utils/config';
 import ConnectionIndicator from '../../ConnectionIndicator';
+import { NavIcon } from './navIcons';
 import SidebarAppRail from './SidebarAppRail';
 import SidebarHeader from './SidebarHeader';
 import SidebarNav from './SidebarNav';
 import { SidebarSlotOutlet } from './SidebarSlot';
-import { NavIcon } from './navIcons';
 
 /**
  * The root-shell sidebar, split top-to-bottom into:

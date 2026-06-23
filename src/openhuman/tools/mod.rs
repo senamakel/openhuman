@@ -31,6 +31,7 @@ pub use crate::openhuman::learning::tools::*;
 pub use crate::openhuman::mcp_registry::tools::*;
 pub use crate::openhuman::memory::tools::*;
 pub use crate::openhuman::memory_diff::tools::*;
+pub use crate::openhuman::memory_goals::tools::*;
 pub use crate::openhuman::memory_search::*;
 pub use crate::openhuman::monitor::tools::*;
 pub use crate::openhuman::people::tools::*;

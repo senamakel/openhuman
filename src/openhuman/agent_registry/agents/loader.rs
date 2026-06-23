@@ -169,6 +169,11 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::archivist::prompt::build,
     },
     BuiltinAgent {
+        id: "goals_agent",
+        toml: include_str!("goals_agent/agent.toml"),
+        prompt_fn: super::goals_agent::prompt::build,
+    },
+    BuiltinAgent {
         id: "trigger_triage",
         toml: include_str!("trigger_triage/agent.toml"),
         prompt_fn: super::trigger_triage::prompt::build,

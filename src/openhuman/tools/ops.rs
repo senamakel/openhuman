@@ -551,6 +551,25 @@ pub fn all_tools_with_runtime(
         security.clone(),
     )));
 
+    // Long-term goals list tools. Used primarily by the background
+    // `goals_agent` (which filters to these via its `[tools] named`
+    // allowlist); also available to the main agent for explicit edits.
+    {
+        let goals_dir = root_config.workspace_dir.clone();
+        tools.push(Box::new(crate::openhuman::memory_goals::GoalsListTool::new(
+            goals_dir.clone(),
+        )));
+        tools.push(Box::new(crate::openhuman::memory_goals::GoalsAddTool::new(
+            goals_dir.clone(),
+        )));
+        tools.push(Box::new(crate::openhuman::memory_goals::GoalsEditTool::new(
+            goals_dir.clone(),
+        )));
+        tools.push(Box::new(
+            crate::openhuman::memory_goals::GoalsDeleteTool::new(goals_dir),
+        ));
+    }
+
     if browser_config.enabled {
         // Unified web-access allowlist (merge fetch + browser firewalls): the
         // browser tool shares the single `http_request.allowed_domains` host

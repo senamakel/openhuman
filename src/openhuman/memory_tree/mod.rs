@@ -9,6 +9,7 @@ pub mod graph;
 pub mod health;
 pub mod ingest;
 pub mod io;
+pub mod nlp;
 pub mod retrieval;
 pub mod score;
 pub mod summarise;

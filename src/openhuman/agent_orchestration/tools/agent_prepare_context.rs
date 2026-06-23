@@ -150,9 +150,13 @@ impl Tool for AgentPrepareContextTool {
     }
 
     fn permission_level(&self) -> PermissionLevel {
-        // Spawns a sub-agent (like spawn_subagent), even though the scout
-        // itself is read-only.
-        PermissionLevel::Execute
+        // ReadOnly, not Execute: this tool only ever runs the read-only
+        // `context_scout` (read_only sandbox, no write/exec tools). Marking it
+        // Execute would make `ToolPolicyEngine` strip it from the provider-
+        // visible set on a `ReadOnly`-capped channel, which would hide the
+        // orchestrator's mandatory first-turn context-prep call and either
+        // skip the pass or surface an unavailable-tool error.
+        PermissionLevel::ReadOnly
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {

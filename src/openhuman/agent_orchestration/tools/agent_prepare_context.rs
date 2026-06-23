@@ -11,11 +11,13 @@
 //! The scout's output is bounded by `context_scout`'s `max_result_chars`
 //! (≈1000 tokens) so the parent's context only grows by a bounded amount.
 
+use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::current_parent;
 use crate::openhuman::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunStatus,
 };
+use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -194,8 +196,39 @@ impl Tool for AgentPrepareContextTool {
             "[agent_prepare_context] spawning context_scout (blocking)"
         );
 
+        let task_id = format!("ctx-{}", uuid::Uuid::new_v4());
+        let parent_session = current_parent()
+            .map(|p| p.session_id.clone())
+            .unwrap_or_else(|| "standalone".into());
+        let progress_sink = current_parent().and_then(|p| p.on_progress.clone());
+
+        // Surface the scout as a live subagent row in the parent thread. The
+        // child's own iterations/tool-calls already stream to this sink from
+        // inside run_subagent; we bookend them with spawned/completed so the
+        // UI opens and closes the card. Best-effort — a closed sink is fine.
+        publish_global(DomainEvent::SubagentSpawned {
+            parent_session: parent_session.clone(),
+            agent_id: definition.id.clone(),
+            mode: "typed".to_string(),
+            task_id: task_id.clone(),
+            prompt_chars: scout_prompt.chars().count(),
+        });
+        if let Some(ref tx) = progress_sink {
+            let _ = tx
+                .send(AgentProgress::SubagentSpawned {
+                    agent_id: definition.id.clone(),
+                    task_id: task_id.clone(),
+                    mode: "typed".to_string(),
+                    dedicated_thread: false,
+                    prompt_chars: scout_prompt.chars().count(),
+                    worker_thread_id: None,
+                    display_name: Some(definition.display_name().to_string()),
+                })
+                .await;
+        }
+
         let options = SubagentRunOptions {
-            task_id: Some(format!("ctx-{}", uuid::Uuid::new_v4())),
+            task_id: Some(task_id.clone()),
             ..Default::default()
         };
 
@@ -210,6 +243,28 @@ impl Tool for AgentPrepareContextTool {
                         output_chars = outcome.output.chars().count(),
                         "[agent_prepare_context] context bundle ready"
                     );
+                    publish_global(DomainEvent::SubagentCompleted {
+                        parent_session: parent_session.clone(),
+                        task_id: outcome.task_id.clone(),
+                        agent_id: outcome.agent_id.clone(),
+                        elapsed_ms: outcome.elapsed.as_millis() as u64,
+                        output_chars: outcome.output.chars().count(),
+                        iterations: outcome.iterations,
+                    });
+                    if let Some(ref tx) = progress_sink {
+                        let _ = tx
+                            .send(AgentProgress::SubagentCompleted {
+                                agent_id: outcome.agent_id.clone(),
+                                task_id: outcome.task_id.clone(),
+                                elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                iterations: outcome.iterations as u32,
+                                output_chars: outcome.output.chars().count(),
+                                worktree_path: None,
+                                changed_files: Vec::new(),
+                                dirty_status: None,
+                            })
+                            .await;
+                    }
                     Ok(ToolResult::success(outcome.output))
                 }
                 // The scout has no `ask_user_clarification` tool, so this
@@ -221,6 +276,20 @@ impl Tool for AgentPrepareContextTool {
                         task_id = %outcome.task_id,
                         "[agent_prepare_context] scout unexpectedly awaited user input"
                     );
+                    if let Some(ref tx) = progress_sink {
+                        let _ = tx
+                            .send(AgentProgress::SubagentCompleted {
+                                agent_id: outcome.agent_id.clone(),
+                                task_id: outcome.task_id.clone(),
+                                elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                iterations: outcome.iterations as u32,
+                                output_chars: 0,
+                                worktree_path: None,
+                                changed_files: Vec::new(),
+                                dirty_status: None,
+                            })
+                            .await;
+                    }
                     Ok(ToolResult::success(format!(
                         "[context_bundle]\nhas_enough_context: false\n\
                          summary: The context scout could not complete without clarification: {question}\n\
@@ -240,6 +309,21 @@ impl Tool for AgentPrepareContextTool {
                     error_kind = %error_kind,
                     "[agent_prepare_context] context_scout run failed"
                 );
+                publish_global(DomainEvent::SubagentFailed {
+                    parent_session: parent_session.clone(),
+                    task_id: task_id.clone(),
+                    agent_id: definition.id.clone(),
+                    error: message.clone(),
+                });
+                if let Some(ref tx) = progress_sink {
+                    let _ = tx
+                        .send(AgentProgress::SubagentFailed {
+                            agent_id: definition.id.clone(),
+                            task_id: task_id.clone(),
+                            error: message.clone(),
+                        })
+                        .await;
+                }
                 Ok(ToolResult::error(format!(
                     "agent_prepare_context failed: {message}"
                 )))

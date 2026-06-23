@@ -374,7 +374,9 @@ pub(super) const CAPABILITIES: &[Capability] = &[
             memory_goals.list / memory_goals.add / memory_goals.edit / memory_goals.delete / \
             memory_goals.reflect (RPC), or the goals_* agent tools.",
         status: CapabilityStatus::Beta,
-        privacy: LOCAL_RAW,
+        // Enrichment runs a cloud agentic model, so goal/context text can leave
+        // the device during a reflect pass (CRUD/storage stays local).
+        privacy: DERIVED_TO_BACKEND,
     },
     Capability {
         id: "intelligence.memory_tree_retrieval",

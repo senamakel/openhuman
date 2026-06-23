@@ -63,6 +63,7 @@ export default function GoalsPanel() {
     try {
       const list = await goalsApi.add(text);
       if (mountedRef.current) {
+        setError(null);
         setGoals(list);
         setNewText('');
       }
@@ -94,6 +95,7 @@ export default function GoalsPanel() {
       try {
         const list = await goalsApi.edit(id, text);
         if (mountedRef.current) {
+          setError(null);
           setGoals(list);
           setEditingId(null);
           setEditText('');
@@ -114,7 +116,10 @@ export default function GoalsPanel() {
       setBusyId(id);
       try {
         const list = await goalsApi.remove(id);
-        if (mountedRef.current) setGoals(list);
+        if (mountedRef.current) {
+          setError(null);
+          setGoals(list);
+        }
       } catch (err) {
         if (mountedRef.current)
           setActionError(err instanceof Error ? err.message : t('brain.goals.actionError'));
@@ -132,6 +137,7 @@ export default function GoalsPanel() {
     try {
       const res = await goalsApi.reflect();
       if (mountedRef.current) {
+        setError(null);
         setGoals(res.items);
         setReflectSummary(
           res.ran

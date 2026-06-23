@@ -11,8 +11,18 @@
 //! truncates.
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+
+use tokio::sync::Mutex;
 
 use super::types::GoalsDoc;
+
+/// Serialises load→mutate→save sequences so concurrent callers (user edits via
+/// RPC/tools and background `spawn_enrich_goals`) can't clobber each other.
+fn goals_mutation_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
 
 /// File name of the goals document inside `workspace_dir`.
 pub const GOALS_FILE: &str = "MEMORY_GOALS.md";
@@ -48,13 +58,28 @@ fn validate_within_workspace(workspace_dir: &Path) -> Result<PathBuf, String> {
             "[memory_goals] goals path resolves outside workspace: {path:?}"
         ));
     }
+    // If the file already exists as a symlink, ensure its target also stays
+    // inside the workspace — a symlinked MEMORY_GOALS.md could otherwise
+    // read/write outside the boundary even with a valid parent dir.
+    if let Ok(meta) = std::fs::symlink_metadata(&path) {
+        if meta.file_type().is_symlink() {
+            let resolved = path.canonicalize().map_err(|e| {
+                format!("[memory_goals] failed to resolve goals symlink {path:?}: {e}")
+            })?;
+            if !resolved.starts_with(&workspace_canon) {
+                return Err(format!(
+                    "[memory_goals] goals symlink resolves outside workspace: {resolved:?}"
+                ));
+            }
+        }
+    }
     Ok(path)
 }
 
 /// Load the goals document from disk. Returns an empty document when the
 /// file does not exist yet (first run).
 pub async fn load(workspace_dir: &Path) -> Result<GoalsDoc, String> {
-    let path = goals_path(workspace_dir);
+    let path = validate_within_workspace(workspace_dir)?;
     match tokio::fs::read_to_string(&path).await {
         Ok(body) => {
             let doc = GoalsDoc::parse(&body);
@@ -127,6 +152,7 @@ pub async fn save(workspace_dir: &Path, doc: &mut GoalsDoc) -> Result<(), String
 
 /// Add a goal, persist, and return `(new_id, updated_doc)`.
 pub async fn add(workspace_dir: &Path, text: &str) -> Result<(String, GoalsDoc), String> {
+    let _guard = goals_mutation_lock().lock().await;
     let mut doc = load(workspace_dir).await?;
     let id = doc.add(text)?;
     save(workspace_dir, &mut doc).await?;
@@ -136,6 +162,7 @@ pub async fn add(workspace_dir: &Path, text: &str) -> Result<(String, GoalsDoc),
 
 /// Edit a goal's text, persist, and return the updated document.
 pub async fn edit(workspace_dir: &Path, id: &str, text: &str) -> Result<GoalsDoc, String> {
+    let _guard = goals_mutation_lock().lock().await;
     let mut doc = load(workspace_dir).await?;
     doc.edit(id, text)?;
     save(workspace_dir, &mut doc).await?;
@@ -145,6 +172,7 @@ pub async fn edit(workspace_dir: &Path, id: &str, text: &str) -> Result<GoalsDoc
 
 /// Delete a goal, persist, and return the updated document.
 pub async fn delete(workspace_dir: &Path, id: &str) -> Result<GoalsDoc, String> {
+    let _guard = goals_mutation_lock().lock().await;
     let mut doc = load(workspace_dir).await?;
     doc.delete(id)?;
     save(workspace_dir, &mut doc).await?;

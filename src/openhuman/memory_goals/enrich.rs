@@ -64,7 +64,11 @@ pub async fn enrich_goals(
     workspace_dir: &Path,
     context_input: &str,
 ) -> Result<String, String> {
-    let doc = store::load(workspace_dir).await.unwrap_or_default();
+    // Surface real storage failures instead of masking them as an empty
+    // first-run doc — `load` already maps a missing file to an empty doc.
+    let doc = store::load(workspace_dir)
+        .await
+        .map_err(|e| format!("goals load failed: {e}"))?;
     let first_run = doc.is_empty();
     log::info!(
         "[memory_goals] enrich start (first_run={first_run}, existing_items={})",

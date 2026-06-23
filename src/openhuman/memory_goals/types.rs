@@ -107,6 +107,9 @@ impl GoalsDoc {
         if text.is_empty() {
             return Err("goal text must not be empty".to_string());
         }
+        if text.contains('\n') || text.contains('\r') {
+            return Err("goal text must be a single line".to_string());
+        }
         let id = self.next_id();
         self.items.push(GoalItem::new(&id, text));
         Ok(id)
@@ -118,6 +121,9 @@ impl GoalsDoc {
         let text = text.trim();
         if text.is_empty() {
             return Err("goal text must not be empty".to_string());
+        }
+        if text.contains('\n') || text.contains('\r') {
+            return Err("goal text must be a single line".to_string());
         }
         let item = self
             .items
@@ -175,6 +181,16 @@ mod tests {
     fn add_rejects_empty_text() {
         let mut doc = GoalsDoc::default();
         assert!(doc.add("   ").is_err());
+    }
+
+    #[test]
+    fn add_and_edit_reject_multiline_text() {
+        let mut doc = GoalsDoc::default();
+        // A newline-bearing goal would inject extra "- [..]" list lines on
+        // reload, corrupting the stored shape — reject it outright.
+        assert!(doc.add("line one\n- [x] injected").is_err());
+        let id = doc.add("legit goal").unwrap();
+        assert!(doc.edit(&id, "still\rinjected").is_err());
     }
 
     #[test]

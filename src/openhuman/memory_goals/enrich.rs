@@ -16,6 +16,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::store;
+use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;
@@ -71,6 +72,16 @@ pub async fn enrich_goals(
     );
 
     let prompt = build_prompt(context_input, first_run);
+
+    // Ensure the agent definition registry is initialised. The full server
+    // startup does this, but one-shot contexts (the `openhuman call` CLI,
+    // cron, tests) may not — without it `from_config_for_agent` fails with
+    // "registry not initialised". `init_global` is idempotent (OnceLock).
+    if AgentDefinitionRegistry::global().is_none() {
+        if let Err(e) = AgentDefinitionRegistry::init_global(workspace_dir) {
+            log::warn!("[memory_goals] agent registry init failed: {e}");
+        }
+    }
 
     let mut agent = Agent::from_config_for_agent(config, GOALS_AGENT_ID)
         .map_err(|e| format!("goals agent init failed: {e}"))?;

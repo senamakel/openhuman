@@ -132,7 +132,8 @@ fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![FieldSchema {
                 name: "context",
                 ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                comment: "Optional context/prompt to enrich from (defaults to a generic review nudge).",
+                comment:
+                    "Optional context/prompt to enrich from (defaults to a generic review nudge).",
                 required: false,
             }],
             outputs: vec![FieldSchema {

@@ -86,4 +86,84 @@ describe('<GoalsPanel />', () => {
     fireEvent.click(screen.getByRole('button', { name: /Add/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('boom');
   });
+
+  it('edits a goal inline and saves', async () => {
+    api.list.mockResolvedValueOnce([{ id: 'g1', text: 'old text' }]);
+    api.edit.mockResolvedValueOnce([{ id: 'g1', text: 'new text' }]);
+    render(<GoalsPanel />);
+    await screen.findByText('old text');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit goal' }));
+    const input = screen.getByDisplayValue('old text');
+    fireEvent.change(input, { target: { value: 'new text' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.edit).toHaveBeenCalledWith('g1', 'new text'));
+    expect(await screen.findByText('new text')).toBeInTheDocument();
+  });
+
+  it('cancels an inline edit without saving', async () => {
+    api.list.mockResolvedValueOnce([{ id: 'g1', text: 'keep me' }]);
+    render(<GoalsPanel />);
+    await screen.findByText('keep me');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit goal' }));
+    fireEvent.change(screen.getByDisplayValue('keep me'), { target: { value: 'discarded' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(api.edit).not.toHaveBeenCalled();
+    expect(screen.getByText('keep me')).toBeInTheDocument();
+  });
+
+  it('surfaces an action error when edit fails', async () => {
+    api.list.mockResolvedValueOnce([{ id: 'g1', text: 'x' }]);
+    api.edit.mockRejectedValueOnce(new Error('edit blew up'));
+    render(<GoalsPanel />);
+    await screen.findByText('x');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit goal' }));
+    fireEvent.change(screen.getByDisplayValue('x'), { target: { value: 'y' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('edit blew up');
+  });
+
+  it('surfaces an action error when delete fails', async () => {
+    api.list.mockResolvedValueOnce([{ id: 'g1', text: 'x' }]);
+    api.remove.mockRejectedValueOnce(new Error('delete failed'));
+    render(<GoalsPanel />);
+    await screen.findByText('x');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete goal' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('delete failed');
+  });
+
+  it('renders the load error branch when list rejects', async () => {
+    api.list.mockRejectedValueOnce(new Error('cannot load goals'));
+    render(<GoalsPanel />);
+    expect(await screen.findByText('cannot load goals')).toBeInTheDocument();
+  });
+
+  it('shows the summary when reflect reports ran=false', async () => {
+    api.list.mockResolvedValueOnce([]);
+    api.reflect.mockResolvedValueOnce({
+      ran: false,
+      summary: 'enrichment failed: no model',
+      items: [],
+    });
+    render(<GoalsPanel />);
+    await screen.findByText(/No goals yet/);
+
+    fireEvent.click(screen.getByRole('button', { name: /Reflect/ }));
+    expect(await screen.findByText('enrichment failed: no model')).toBeInTheDocument();
+  });
+
+  it('surfaces an action error when reflect throws', async () => {
+    api.list.mockResolvedValueOnce([]);
+    api.reflect.mockRejectedValueOnce(new Error('reflect crashed'));
+    render(<GoalsPanel />);
+    await screen.findByText(/No goals yet/);
+
+    fireEvent.click(screen.getByRole('button', { name: /Reflect/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('reflect crashed');
+  });
 });

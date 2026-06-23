@@ -85,6 +85,25 @@ describe('goalsApi', () => {
     );
   });
 
+  it('reflect parses a bare (un-enveloped) response', async () => {
+    mockCall.mockResolvedValueOnce({ ran: true, summary: 'bare', goals: { items: [] } });
+    const res = await goalsApi.reflect();
+    expect(res.ran).toBe(true);
+    expect(res.summary).toBe('bare');
+    expect(res.items).toEqual([]);
+  });
+
+  it('reflect tolerates a null response', async () => {
+    mockCall.mockResolvedValueOnce(null);
+    const res = await goalsApi.reflect();
+    expect(res).toEqual({ ran: false, summary: '', items: [] });
+  });
+
+  it('list returns [] when the payload has neither items nor goals', async () => {
+    mockCall.mockResolvedValueOnce({ something: 'else' });
+    expect(await goalsApi.list()).toEqual([]);
+  });
+
   it('extractItems drops malformed entries', async () => {
     mockCall.mockResolvedValueOnce({
       items: [{ id: 'g1', text: 'ok' }, { id: 5 }, null, { text: 'no id' }],

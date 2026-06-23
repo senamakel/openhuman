@@ -288,6 +288,17 @@ impl Tool for AgentPrepareContextTool {
                         task_id = %outcome.task_id,
                         "[agent_prepare_context] scout unexpectedly awaited user input"
                     );
+                    // Close the domain-event lifecycle too — a SubagentSpawned
+                    // was already published, so emit Completed to avoid a
+                    // dangling spawned state for event-bus consumers.
+                    publish_global(DomainEvent::SubagentCompleted {
+                        parent_session: parent_session.clone(),
+                        task_id: outcome.task_id.clone(),
+                        agent_id: outcome.agent_id.clone(),
+                        elapsed_ms: outcome.elapsed.as_millis() as u64,
+                        output_chars: 0,
+                        iterations: outcome.iterations,
+                    });
                     if let Some(ref tx) = progress_sink {
                         let _ = tx
                             .send(AgentProgress::SubagentCompleted {

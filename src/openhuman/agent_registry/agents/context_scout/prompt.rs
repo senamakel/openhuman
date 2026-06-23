@@ -18,6 +18,14 @@ use anyhow::Result;
 const ARCHETYPE: &str = include_str!("prompt.md");
 
 pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
+    tracing::debug!(
+        target: "context_scout",
+        agent_id = %ctx.agent_id,
+        include_profile = ctx.include_profile,
+        include_memory_md = ctx.include_memory_md,
+        tool_count = ctx.tools.len(),
+        "[context_scout] building system prompt"
+    );
     let mut out = String::with_capacity(4096);
     out.push_str(ARCHETYPE.trim_end());
     out.push_str("\n\n");
@@ -43,6 +51,11 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         out.push('\n');
     }
 
+    tracing::debug!(
+        target: "context_scout",
+        prompt_chars = out.chars().count(),
+        "[context_scout] system prompt built"
+    );
     Ok(out)
 }
 

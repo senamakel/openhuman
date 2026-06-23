@@ -511,6 +511,25 @@ async function main() {
 
   const cases = (opts.queries.length > 0 ? opts.queries.map((q, i) => ({ name: `custom-${i + 1}`, query: q })) : DEFAULT_CASES);
 
+  // Write the optional context_scout prompt override BEFORE the core starts,
+  // so a spawned core loads it (the override is read at boot). For attached
+  // mode the caller must have already started the core after writing it — but
+  // writing first here still beats writing after, and we warn below.
+  let overridePath = "";
+  if (opts.scoutPromptFile) {
+    const promptBody = await readFile(opts.scoutPromptFile, "utf8");
+    const agentsDir = path.join(opts.workspace, "agents");
+    await mkdir(agentsDir, { recursive: true });
+    overridePath = path.join(agentsDir, "context_scout.toml");
+    await writeFile(overridePath, scoutOverrideToml(promptBody.trim()));
+    console.log(`[apc-audit] wrote scout prompt override → ${overridePath}`);
+    if (!opts.spawnCore) {
+      console.log(
+        "[apc-audit] NOTE: attached mode — restart your core now so it loads the override before audits run.",
+      );
+    }
+  }
+
   let spawned;
   if (opts.spawnCore) {
     if (!opts.coreUrlExplicit) {
@@ -521,18 +540,6 @@ async function main() {
     opts.token = spawned.token;
   } else {
     opts.token = await readToken(opts);
-  }
-
-  // Optional: write a temporary context_scout prompt override into the workspace.
-  let overridePath = "";
-  if (opts.scoutPromptFile) {
-    const promptBody = await readFile(opts.scoutPromptFile, "utf8");
-    const agentsDir = path.join(opts.workspace, "agents");
-    await mkdir(agentsDir, { recursive: true });
-    overridePath = path.join(agentsDir, "context_scout.toml");
-    await writeFile(overridePath, scoutOverrideToml(promptBody.trim()));
-    console.log(`[apc-audit] wrote scout prompt override → ${overridePath}`);
-    console.log("[apc-audit] NOTE: restart/spawn the core AFTER this so the override loads.");
   }
 
   console.log("[apc-audit] starting live agent_prepare_context audit");

@@ -25,7 +25,7 @@ call next.
 Emit a **single** `[context_bundle] … [/context_bundle]` block and nothing
 outside it. No preamble, no closing prose. Use exactly this shape:
 
-```
+```text
 [context_bundle]
 has_enough_context: true|false
 summary: <≤ ~700 tokens of distilled, source-attributed context. Lead with what

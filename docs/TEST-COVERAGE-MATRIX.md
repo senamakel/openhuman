@@ -347,6 +347,13 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 8.4.5 | Cross-Topic Contradiction Surfacing        | RU    | `src/openhuman/agent/tools/save_preference_tests.rs::save_surfaces_related_preference_for_contradiction_check` | ✅     | Related prefs surfaced in the tool result for the chat agent to resolve |
 | 8.4.6 | vector_chunks Model-Signature Recall Guard | RU    | `src/openhuman/memory/store/unified/query_tests.rs::vector_recall_excludes_other_model_signature`              | ✅     | Excludes cross-model vectors; dim-guards legacy rows                    |
 
+### 8.5 Long-term Goals
+
+| ID    | Feature                       | Test  | Source / Test File                                                                                                                                  | Status | Notes                                                                                          |
+| ----- | ----------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| 8.5.1 | Goals CRUD (list/add/edit/delete) | RU+VU | `src/openhuman/memory_goals/store.rs`, `src/openhuman/memory_goals/ops.rs`, `src/openhuman/memory_goals/tools.rs`, `app/src/services/api/goalsApi.test.ts`, `app/src/components/intelligence/GoalsPanel.test.tsx` | ✅     | Editable `MEMORY_GOALS.md` list over `memory_goals_*` RPC + Brain > Goals UI                   |
+| 8.5.2 | Goals enrichment (reflect)        | RU+VU | `src/openhuman/memory_goals/enrich.rs`, `src/openhuman/memory_goals/schemas.rs`, `app/src/components/intelligence/GoalsPanel.test.tsx`            | 🟡     | Turn-based `goals_agent` enrichment; prompt/registry/error paths unit-tested, live LLM run manual |
+
 ---
 
 ## 9. Automation Engine

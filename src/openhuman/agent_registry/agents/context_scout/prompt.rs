@@ -26,7 +26,17 @@ const ARCHETYPE: &str = include_str!("prompt.md");
 fn render_connected_integrations(integrations: &[ConnectedIntegration]) -> String {
     let connected: Vec<&ConnectedIntegration> =
         integrations.iter().filter(|ci| ci.connected).collect();
+    tracing::trace!(
+        target: "context_scout",
+        total = integrations.len(),
+        connected = connected.len(),
+        "[context_scout] rendering connected integrations block"
+    );
     if connected.is_empty() {
+        tracing::trace!(
+            target: "context_scout",
+            "[context_scout] no connected integrations — omitting block"
+        );
         return String::new();
     }
     let mut out = String::from(
@@ -70,8 +80,17 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
 
     let integrations = render_connected_integrations(ctx.connected_integrations);
     if !integrations.trim().is_empty() {
+        tracing::debug!(
+            target: "context_scout",
+            "[context_scout] appended connected-integrations section"
+        );
         out.push_str(integrations.trim_end());
         out.push_str("\n\n");
+    } else {
+        tracing::debug!(
+            target: "context_scout",
+            "[context_scout] no connected-integrations section to append"
+        );
     }
 
     let workspace = render_workspace(ctx)?;

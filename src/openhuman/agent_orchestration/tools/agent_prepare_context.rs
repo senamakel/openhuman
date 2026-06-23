@@ -46,13 +46,25 @@ impl AgentPrepareContextTool {
     /// would be circular). Returns an empty string when there's no parent
     /// context (e.g. a direct CLI/RPC tool call outside an agent turn) — the
     /// subsequent `run_subagent` call surfaces the no-parent error.
+    ///
+    /// Restricted to the parent's **visible** tool set (what it actually
+    /// advertises and will execute this turn), not the full registry —
+    /// otherwise the scout could recommend hidden direct-exec/spawn tools
+    /// the parent can't call, which the runtime would reject or which would
+    /// bypass specialist routing. Falls back to the full registry only when
+    /// the visible set is unknown (empty), to preserve behaviour in contexts
+    /// that don't populate it.
     fn render_parent_tool_catalog() -> String {
         let Some(parent) = current_parent() else {
             return String::new();
         };
+        let visible = &parent.visible_tool_names;
         let mut out = String::with_capacity(2048);
         for spec in parent.all_tool_specs.iter() {
             if spec.name == "agent_prepare_context" {
+                continue;
+            }
+            if !visible.is_empty() && !visible.contains(&spec.name) {
                 continue;
             }
             // One line per tool; trim the description to keep the catalogue

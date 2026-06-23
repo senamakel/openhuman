@@ -922,18 +922,25 @@ mod tests {
     }
 
     #[test]
-    fn orchestrator_and_planner_expose_agent_prepare_context() {
-        for id in ["orchestrator", "planner"] {
-            let def = find(id);
-            match &def.tools {
-                ToolScope::Named(tools) => assert!(
-                    tools.iter().any(|t| t == "agent_prepare_context"),
-                    "{id} must allowlist `agent_prepare_context` for pre-flight context scouting"
-                ),
-                ToolScope::Wildcard => {
-                    // Wildcard agents inherit the full surface — nothing to assert.
-                }
-            }
+    fn orchestrator_exposes_agent_prepare_context_planner_does_not() {
+        // The orchestrator owns the first-message context-scout pass.
+        let orch = find("orchestrator");
+        match &orch.tools {
+            ToolScope::Named(tools) => assert!(
+                tools.iter().any(|t| t == "agent_prepare_context"),
+                "orchestrator must allowlist `agent_prepare_context`"
+            ),
+            ToolScope::Wildcard => {}
+        }
+        // The planner must NOT: when invoked via delegate_plan it runs under
+        // the orchestrator's PARENT_CONTEXT, so a nested scout would render the
+        // wrong (orchestrator) visible catalog/session.
+        let planner = find("planner");
+        if let ToolScope::Named(tools) = &planner.tools {
+            assert!(
+                !tools.iter().any(|t| t == "agent_prepare_context"),
+                "planner must NOT allowlist `agent_prepare_context` (nested-context mismatch)"
+            );
         }
         // The scout itself must NOT see the tool (would be circular).
         let scout = find("context_scout");

@@ -120,6 +120,7 @@ impl Agent {
             provider: Arc::clone(&self.provider),
             all_tools: Arc::clone(&self.tools),
             all_tool_specs: Arc::clone(&self.tool_specs),
+            visible_tool_names: self.visible_tool_names.clone(),
             model_name: self.model_name.clone(),
             temperature: self.temperature,
             workspace_dir: self.workspace_dir.clone(),

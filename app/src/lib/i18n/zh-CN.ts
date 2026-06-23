@@ -135,6 +135,18 @@ const messages: TranslationMap = {
   'brain.tabs.memory': '记忆',
   'brain.tabs.subconscious': '潜意识',
   'brain.tabs.graph': '图谱',
+  'brain.tabs.goals': '目标',
+  'brain.goals.title': '长期目标',
+  'brain.goals.description': '智能体与你协作的持久目标。在此编辑，或使用反思功能自动更新。',
+  'brain.goals.reflect': '反思',
+  'brain.goals.reflecting': '反思中…',
+  'brain.goals.reflectDone': '目标已更新。',
+  'brain.goals.add': '添加',
+  'brain.goals.addPlaceholder': '添加一个长期目标…',
+  'brain.goals.empty': '暂无目标。添加一个，或使用反思根据近期上下文生成。',
+  'brain.goals.editGoal': '编辑目标',
+  'brain.goals.deleteGoal': '删除目标',
+  'brain.goals.actionError': '出了点问题。请重试。',
   'brain.tabs.sources': '来源',
   'brain.tabs.sync': '同步',
   'brain.empty': '你的大脑暂时是空的——连接一个来源即可开始构建记忆。',
@@ -2472,6 +2484,11 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixButton': '自动修复',
   'bootCheck.portConflictFixing': '修复中…',
   'bootCheck.portConflictFixFailed': '自动修复未成功。请重启您的计算机后重试。',
+  'bootCheck.portConflictOwner': '{name}（PID {pid}）正在占用 OpenHuman 所需的网络端口。',
+  'bootCheck.portConflictGuidance': '请关闭该程序以释放端口，或在下方强制退出，然后重试。',
+  'bootCheck.portConflictForceQuit': '强制退出 {name}',
+  'bootCheck.portConflictForceQuitting': '正在关闭 {name}…',
+  'bootCheck.portConflictForceQuitFailed': '无法关闭该程序。您可能需要手动关闭它，然后重试。',
   'notifications.justNow': '刚刚',
   'notifications.minAgo': '{n} 分钟前',
   'notifications.hrAgo': '{n} 小时前',
@@ -2578,6 +2595,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': '离线',
   'app.connectionIndicator.reconnecting': '重新连接中…',
   'app.errorFallback.componentStack': '组件堆栈',
+  'app.errorFallback.contactSupport': '联系支持',
+  'app.errorFallback.copyEventId': '复制',
+  'app.errorFallback.eventIdCopied': '已复制',
+  'app.errorFallback.eventIdLabel': '错误 ID',
+  'app.errorFallback.revealLogs': '显示日志',
   'app.errorFallback.downloadLatest': '下载最新版本',
   'app.errorFallback.heading': '出现错误',
   'app.errorFallback.hint': '提示',
@@ -2904,6 +2926,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.sourcesHeading': '来源',
   'conversations.agentTaskInsights.noSteps': '未记录任何步骤',
   'conversations.agentTaskInsights.viewProcessSource': '查看完整的智能体处理来源',
+  'conversations.agentTaskInsights.processing': '处理中',
   'daemon.serviceBlockingGate.body': '核心服务不可用，请等待或下载最新版本。',
   'daemon.serviceBlockingGate.downloadHint': '下载最新版本',
   'daemon.serviceBlockingGate.downloadLatest': '下载最新版本',
@@ -3501,6 +3524,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': '内存工作者民意调查',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': '托管',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman 会在云端运行所有推理，为任务选择最佳模型，优化成本，并保持最安全的路由默认值。',
   'settings.ai.routing.managedMsg':
@@ -4200,6 +4226,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': '要求批准任务计划',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     '在指定智能体执行由智能体编写的任务简报前暂停。',
+  'settings.agentAccess.tinyplaceAutopilot.title': '自主 tiny.place 代理',
+  'settings.agentAccess.tinyplaceAutopilot.desc':
+    '让 OpenHuman 自行在 tiny.place 上行动：按计划寻找有价值的工作（优先开放的悬赏），完成符合其技能的任务，并以你的身份行动。它在无人监督下运行且可以花费资金，测试时请使用 devnet。默认关闭。',
+  'settings.agentAccess.tinyplaceAutopilot.label': '自动运行',
   'settings.agentAccess.timeout.label': '操作超时',
   'settings.agentAccess.timeout.desc':
     '单个工具或操作在被取消前可运行的时长。如果大型本地模型在完成响应前被中断，请增大此值。',
@@ -4363,6 +4393,9 @@ const messages: TranslationMap = {
   'settings.appearance.tabBarAlwaysShowLabelsDesc': '关闭时，标签仅出现在悬停时或活动选项卡上。',
   'settings.appearance.chatHeading': '聊天',
   'settings.appearance.assistantTextMode': '助手回复以文本显示',
+  'settings.appearance.hideAgentInsights': '隐藏智能体思考过程',
+  'settings.appearance.hideAgentInsightsDesc':
+    '折叠聊天中智能体逐步执行的实时时间线。闪烁的“处理中”链接仍可让你打开完整过程。',
   'settings.appearance.assistantTextModeDesc': '将助手回复渲染为无边框文本，同时保留你的消息气泡。',
   'settings.mascot.active': '活跃',
   'settings.mascot.characterDesc': '选择你的 OpenHuman 角色',
@@ -5647,6 +5680,17 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': '申请中…',
   'agentworld.messaging.missingSignalBundle':
     '此用户尚未启用加密消息。发送消息前，请让对方打开 Agent World 并启用安全私信。',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': '需要操作',
+  'userErrors.dismiss': '忽略',
+  'userErrors.action.openBilling': '打开账单',
+  'userErrors.action.openProviderSettings': '提供商设置',
+  'userErrors.budgetExceeded.title': '托管预算已用尽',
+  'userErrors.budgetExceeded.body': '托管 AI 预算已用尽，请增加预算或更改套餐。',
+  'userErrors.insufficientCredits.title': '需要提供商额度',
+  'userErrors.insufficientCredits.body': '提供商额度已用完，请充值或更新 API 密钥。',
+  'userErrors.scope.chat': '聊天',
 };
 
 export default messages;

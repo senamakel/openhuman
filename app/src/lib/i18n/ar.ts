@@ -135,6 +135,18 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'الذاكرة',
   'brain.tabs.subconscious': 'اللاوعي',
   'brain.tabs.graph': 'الرسم البياني',
+  'brain.tabs.goals': 'الأهداف',
+  'brain.goals.title': 'الأهداف طويلة المدى',
+  'brain.goals.description': 'أهداف الوكيل الدائمة للعمل معك. عدّلها هنا أو دع التأمل يحدّثها.',
+  'brain.goals.reflect': 'تأمّل',
+  'brain.goals.reflecting': 'جارٍ التأمل…',
+  'brain.goals.reflectDone': 'تم تحديث الأهداف.',
+  'brain.goals.add': 'إضافة',
+  'brain.goals.addPlaceholder': 'أضف هدفًا طويل المدى…',
+  'brain.goals.empty': 'لا توجد أهداف بعد. أضف هدفًا أو استخدم التأمل لملئها من السياق الأخير.',
+  'brain.goals.editGoal': 'تعديل الهدف',
+  'brain.goals.deleteGoal': 'حذف الهدف',
+  'brain.goals.actionError': 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
   'brain.tabs.sources': 'المصادر',
   'brain.tabs.sync': 'المزامنة',
   'brain.empty': 'دماغك فارغ في الوقت الحالي — قم بربط مصدر لبدء بناء الذاكرة.',
@@ -2543,6 +2555,13 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'جارٍ الإصلاح…',
   'bootCheck.portConflictFixFailed':
     'لم ينجح الإصلاح التلقائي. يُرجى إعادة تشغيل الكمبيوتر والمحاولة مجددًا.',
+  'bootCheck.portConflictOwner': '{name} (المعرّف {pid}) يستخدم منفذ الشبكة الذي يحتاجه OpenHuman.',
+  'bootCheck.portConflictGuidance':
+    'أغلق ذلك البرنامج لتحرير المنفذ، أو افرض إنهاءه أدناه، ثم حاول مرة أخرى.',
+  'bootCheck.portConflictForceQuit': 'فرض إنهاء {name}',
+  'bootCheck.portConflictForceQuitting': 'جارٍ إغلاق {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'تعذّر إغلاق ذلك البرنامج. قد تحتاج إلى إغلاقه يدويًا ثم إعادة المحاولة.',
   'notifications.justNow': 'الآن',
   'notifications.minAgo': 'منذ {n} د',
   'notifications.hrAgo': 'منذ {n} س',
@@ -2651,6 +2670,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'غير متصل بالإنترنت',
   'app.connectionIndicator.reconnecting': 'إعادة الاتصال…',
   'app.errorFallback.componentStack': 'مكدس المكوّنات',
+  'app.errorFallback.contactSupport': 'تواصل مع الدعم',
+  'app.errorFallback.copyEventId': 'نسخ',
+  'app.errorFallback.eventIdCopied': 'تم النسخ',
+  'app.errorFallback.eventIdLabel': 'معرّف الخطأ',
+  'app.errorFallback.revealLogs': 'إظهار السجلات',
   'app.errorFallback.downloadLatest': 'تنزيل الأحدث',
   'app.errorFallback.heading': 'العنوان',
   'app.errorFallback.hint': 'تلميح',
@@ -2985,6 +3009,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.sourcesHeading': 'المصادر',
   'conversations.agentTaskInsights.noSteps': 'لم يتم تسجيل أي خطوات',
   'conversations.agentTaskInsights.viewProcessSource': 'عرض مصدر عملية الوكيل الكامل',
+  'conversations.agentTaskInsights.processing': 'قيد المعالجة',
   'daemon.serviceBlockingGate.body': 'المحتوى',
   'daemon.serviceBlockingGate.downloadHint': 'تلميح التنزيل',
   'daemon.serviceBlockingGate.downloadLatest': 'تنزيل أحدث إصدار',
@@ -3604,6 +3629,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'استطلاعات عاملي الذاكرة',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'المُدارة',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     '(Xqx0xx) سيحقق كل شيء في السحابة، ويختار أفضل نموذج للمهمة، ويرفع التكاليف إلى أقصى حد، ويحتفظ بأمن التخلف عن الدفع.',
   'settings.ai.routing.managedMsg':
@@ -4324,6 +4352,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'الموافقة على خطة العمل المطلوبة',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
+  'settings.agentAccess.tinyplaceAutopilot.title': 'وكيل tiny.place المستقل',
+  'settings.agentAccess.tinyplaceAutopilot.desc':
+    'دع OpenHuman يتصرف على tiny.place بمفرده: وفق جدول زمني يبحث عن عمل مجدٍ — المكافآت المفتوحة أولًا —، وينجز ما يناسب مهاراته ويتصرف من هويتك. يعمل دون إشراف ويمكنه الإنفاق، لذا أبقِه على devnet أثناء الاختبار. معطّل افتراضيًا.',
+  'settings.agentAccess.tinyplaceAutopilot.label': 'التشغيل تلقائيًا',
   'settings.agentAccess.timeout.label': 'مهلة الإجراء',
   'settings.agentAccess.timeout.desc':
     'المدة التي يُسمح خلالها بتشغيل أداة أو إجراء واحد قبل إلغائه. زِد هذه القيمة إذا كان نموذج محلي كبير يُقاطَع قبل أن ينهي رده.',
@@ -4491,6 +4523,9 @@ const messages: TranslationMap = {
     'عند إيقاف التشغيل، تظهر التسميات فقط عند التمرير أو لعلامة التبويب النشطة.',
   'settings.appearance.chatHeading': 'الدردشة',
   'settings.appearance.assistantTextMode': 'ردود المساعد كنص',
+  'settings.appearance.hideAgentInsights': 'إخفاء تفكير الوكيل',
+  'settings.appearance.hideAgentInsightsDesc':
+    'طيّ الجدول الزمني المباشر لخطوات الوكيل في المحادثة. سيظل رابط "قيد المعالجة" الوامض يتيح لك فتح العملية الكاملة.',
   'settings.appearance.assistantTextModeDesc':
     'اعرض ردود المساعد كنص بلا إطار مع إبقاء رسائلك داخل فقاعات.',
   'settings.mascot.active': 'نشط',
@@ -5825,6 +5860,17 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'جارٍ التقديم…',
   'agentworld.messaging.missingSignalBundle':
     'لم يفعّل هذا المستخدم الرسائل المشفرة بعد. اطلب منه فتح Agent World وتفعيل الرسائل المباشرة الآمنة قبل إرسال رسالة.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'إجراء مطلوب',
+  'userErrors.dismiss': 'تجاهل',
+  'userErrors.action.openBilling': 'فتح الفوترة',
+  'userErrors.action.openProviderSettings': 'إعدادات المزود',
+  'userErrors.budgetExceeded.title': 'تم استنفاد الميزانية المُدارة',
+  'userErrors.budgetExceeded.body': 'نفدت الميزانية المُدارة. أضف ميزانية أو غيّر خطتك.',
+  'userErrors.insufficientCredits.title': 'مطلوب رصيد المزود',
+  'userErrors.insufficientCredits.body': 'نفد رصيد المزود. أعد الشحن أو حدّث مفتاح API.',
+  'userErrors.scope.chat': 'الدردشة',
 };
 
 export default messages;

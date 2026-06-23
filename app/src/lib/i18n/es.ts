@@ -136,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Memoria',
   'brain.tabs.subconscious': 'Subconsciente',
   'brain.tabs.graph': 'Gráfico',
+  'brain.tabs.goals': 'Objetivos',
+  'brain.goals.title': 'Objetivos a largo plazo',
+  'brain.goals.description':
+    'Los objetivos duraderos del agente para trabajar contigo. Edítalos aquí o deja que Reflexionar los actualice.',
+  'brain.goals.reflect': 'Reflexionar',
+  'brain.goals.reflecting': 'Reflexionando…',
+  'brain.goals.reflectDone': 'Objetivos actualizados.',
+  'brain.goals.add': 'Añadir',
+  'brain.goals.addPlaceholder': 'Añade un objetivo a largo plazo…',
+  'brain.goals.empty':
+    'Aún no hay objetivos. Añade uno o usa Reflexionar para generarlos a partir del contexto reciente.',
+  'brain.goals.editGoal': 'Editar objetivo',
+  'brain.goals.deleteGoal': 'Eliminar objetivo',
+  'brain.goals.actionError': 'Algo salió mal. Inténtalo de nuevo.',
   'brain.tabs.sources': 'Fuentes',
   'brain.tabs.sync': 'Sincronización',
   'brain.empty':
@@ -2644,6 +2658,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Corrigiendo…',
   'bootCheck.portConflictFixFailed':
     'La corrección automática no funcionó. Reinicia tu equipo e inténtalo de nuevo.',
+  'bootCheck.portConflictOwner':
+    '{name} (PID {pid}) está usando el puerto de red que OpenHuman necesita.',
+  'bootCheck.portConflictGuidance':
+    'Cierra ese programa para liberar el puerto, o fuérzalo a cerrarse abajo y vuelve a intentarlo.',
+  'bootCheck.portConflictForceQuit': 'Forzar cierre de {name}',
+  'bootCheck.portConflictForceQuitting': 'Cerrando {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'No se pudo cerrar ese programa. Es posible que tengas que cerrarlo manualmente y volver a intentarlo.',
   'notifications.justNow': 'justo ahora',
   'notifications.minAgo': 'hace {n}m',
   'notifications.hrAgo': 'hace {n}h',
@@ -2752,6 +2774,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Sin conexión',
   'app.connectionIndicator.reconnecting': 'Reconectando…',
   'app.errorFallback.componentStack': 'Pila de componentes',
+  'app.errorFallback.contactSupport': 'Contactar con soporte',
+  'app.errorFallback.copyEventId': 'Copiar',
+  'app.errorFallback.eventIdCopied': 'Copiado',
+  'app.errorFallback.eventIdLabel': 'ID de error',
+  'app.errorFallback.revealLogs': 'Mostrar registros',
   'app.errorFallback.downloadLatest': 'Descargar la última versión',
   'app.errorFallback.heading': 'Encabezado',
   'app.errorFallback.hint': 'Sugerencia',
@@ -3098,6 +3125,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'No hay pasos registrados',
   'conversations.agentTaskInsights.viewProcessSource':
     'Ver la fuente completa del proceso del agente',
+  'conversations.agentTaskInsights.processing': 'Procesando',
   'daemon.serviceBlockingGate.body': 'Cuerpo',
   'daemon.serviceBlockingGate.downloadHint': 'Sugerencia de descarga',
   'daemon.serviceBlockingGate.downloadLatest': 'Descargar la última versión',
@@ -3743,6 +3771,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Encuestas de trabajadores de la memoria',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Gestionado',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman ejecutará toda la inferencia en la nube, elegirá el mejor modelo para la tarea, optimizará para el costo y mantendrá los valores predeterminados de enrutamiento más seguros.',
   'settings.ai.routing.managedMsg':
@@ -4488,6 +4519,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Requerir la aprobación del plan de tareas',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pausa antes de que un agente asignado ejecute un breve tarea elaborada por el agente.',
+  'settings.agentAccess.tinyplaceAutopilot.title': 'Agente autónomo de tiny.place',
+  'settings.agentAccess.tinyplaceAutopilot.desc':
+    'Deja que OpenHuman actúe en tiny.place por su cuenta: de forma programada busca trabajo que valga la pena —recompensas abiertas primero—, hace lo que encaja con sus habilidades y actúa desde tu identidad. Funciona sin supervisión y puede gastar, así que mantenlo en devnet mientras pruebas. Desactivado por defecto.',
+  'settings.agentAccess.tinyplaceAutopilot.label': 'Ejecutar automáticamente',
   'settings.agentAccess.timeout.label': 'Tiempo de espera de la acción',
   'settings.agentAccess.timeout.desc':
     'Cuánto tiempo puede ejecutarse una sola herramienta o acción antes de cancelarse. Aumenta este valor si un modelo local grande se interrumpe antes de terminar su respuesta.',
@@ -4669,6 +4704,9 @@ const messages: TranslationMap = {
     'Cuando está desactivado, las etiquetas solo aparecen al pasar el mouse o para la pestaña activa.',
   'settings.appearance.chatHeading': 'Chat',
   'settings.appearance.assistantTextMode': 'Respuestas del asistente en texto',
+  'settings.appearance.hideAgentInsights': 'Ocultar el razonamiento del agente',
+  'settings.appearance.hideAgentInsightsDesc':
+    'Contrae la cronología paso a paso del agente en el chat. Un enlace «Procesando» parpadeante te permite abrir el proceso completo.',
   'settings.appearance.assistantTextModeDesc':
     'Muestra las respuestas del asistente como texto sin marco y mantiene tus mensajes en burbujas.',
   'settings.mascot.active': 'Activo',
@@ -6069,6 +6107,19 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Enviando…',
   'agentworld.messaging.missingSignalBundle':
     'Este usuario aún no ha activado la mensajería cifrada. Pídele que abra Agent World y active los DM seguros antes de enviarle un mensaje.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Acción necesaria',
+  'userErrors.dismiss': 'Descartar',
+  'userErrors.action.openBilling': 'Abrir facturación',
+  'userErrors.action.openProviderSettings': 'Configuración del proveedor',
+  'userErrors.budgetExceeded.title': 'Presupuesto gestionado agotado',
+  'userErrors.budgetExceeded.body':
+    'Tu presupuesto de IA gestionado se ha agotado. Añade presupuesto o cambia de plan.',
+  'userErrors.insufficientCredits.title': 'Se requieren créditos del proveedor',
+  'userErrors.insufficientCredits.body':
+    'Tu proveedor de IA se quedó sin créditos. Recárgalo o actualiza su clave de API.',
+  'userErrors.scope.chat': 'Chat',
 };
 
 export default messages;

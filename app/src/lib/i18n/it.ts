@@ -136,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Memoria',
   'brain.tabs.subconscious': 'Subconscio',
   'brain.tabs.graph': 'Grafico',
+  'brain.tabs.goals': 'Obiettivi',
+  'brain.goals.title': 'Obiettivi a lungo termine',
+  'brain.goals.description':
+    'Gli obiettivi duraturi dell’agente per lavorare con te. Modificali qui o lascia che Rifletti li aggiorni.',
+  'brain.goals.reflect': 'Rifletti',
+  'brain.goals.reflecting': 'Riflessione…',
+  'brain.goals.reflectDone': 'Obiettivi aggiornati.',
+  'brain.goals.add': 'Aggiungi',
+  'brain.goals.addPlaceholder': 'Aggiungi un obiettivo a lungo termine…',
+  'brain.goals.empty':
+    'Ancora nessun obiettivo. Aggiungine uno o usa Rifletti per generarli dal contesto recente.',
+  'brain.goals.editGoal': 'Modifica obiettivo',
+  'brain.goals.deleteGoal': 'Elimina obiettivo',
+  'brain.goals.actionError': 'Qualcosa è andato storto. Riprova.',
   'brain.tabs.sources': 'Fonti',
   'brain.tabs.sync': 'Sincronizzazione',
   'brain.empty':
@@ -2637,6 +2651,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Correzione in corso…',
   'bootCheck.portConflictFixFailed':
     'La correzione automatica non ha funzionato. Riavvia il computer e riprova.',
+  'bootCheck.portConflictOwner':
+    '{name} (PID {pid}) sta usando la porta di rete necessaria a OpenHuman.',
+  'bootCheck.portConflictGuidance':
+    'Chiudi quel programma per liberare la porta, oppure forzane la chiusura qui sotto, poi riprova.',
+  'bootCheck.portConflictForceQuit': 'Forza chiusura di {name}',
+  'bootCheck.portConflictForceQuitting': 'Chiusura di {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'Impossibile chiudere quel programma. Potrebbe essere necessario chiuderlo manualmente e riprovare.',
   'notifications.justNow': 'adesso',
   'notifications.minAgo': '{n}m fa',
   'notifications.hrAgo': '{n}h fa',
@@ -2745,6 +2767,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Riconnessione…',
   'app.errorFallback.componentStack': 'Stack del componente',
+  'app.errorFallback.contactSupport': "Contatta l'assistenza",
+  'app.errorFallback.copyEventId': 'Copia',
+  'app.errorFallback.eventIdCopied': 'Copiato',
+  'app.errorFallback.eventIdLabel': 'ID errore',
+  'app.errorFallback.revealLogs': 'Mostra i log',
   'app.errorFallback.downloadLatest': "Scarica l'ultima versione",
   'app.errorFallback.heading': 'Intestazione',
   'app.errorFallback.hint': 'Suggerimento',
@@ -3092,6 +3119,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'Nessun passaggio registrato',
   'conversations.agentTaskInsights.viewProcessSource':
     "Visualizza l'origine completa del processo dell'agente",
+  'conversations.agentTaskInsights.processing': 'Elaborazione',
   'daemon.serviceBlockingGate.body': 'Corpo',
   'daemon.serviceBlockingGate.downloadHint': 'Suggerimento di download',
   'daemon.serviceBlockingGate.downloadLatest': "Scarica l'ultima versione",
@@ -3734,6 +3762,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Sondaggi del Memory Worker',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Gestiti',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman eseguirà tutte le inferenze nel cloud, sceglierà il miglior modello per il compito, ottimizzerà i costi e manterrà le impostazioni di routing più sicure.',
   'settings.ai.routing.managedMsg':
@@ -4481,6 +4512,10 @@ const messages: TranslationMap = {
     "Richiedere l'approvazione del piano di lavoro",
   'settings.agentAccess.requireTaskPlanApproval.desc':
     "Pausa prima che un agente assegnato esegua un brief del compito scritto dall'agente.",
+  'settings.agentAccess.tinyplaceAutopilot.title': 'Agente tiny.place autonomo',
+  'settings.agentAccess.tinyplaceAutopilot.desc':
+    'Lascia che OpenHuman agisca su tiny.place da solo: in modo pianificato cerca lavoro utile — prima le taglie aperte —, fa ciò che si adatta alle sue competenze e agisce dalla tua identità. Funziona senza supervisione e può spendere, quindi tienilo su devnet durante i test. Disattivato per impostazione predefinita.',
+  'settings.agentAccess.tinyplaceAutopilot.label': 'Esegui automaticamente',
   'settings.agentAccess.timeout.label': "Timeout dell'azione",
   'settings.agentAccess.timeout.desc':
     'Per quanto tempo un singolo strumento o azione può essere eseguito prima di essere annullato. Aumenta questo valore se un modello locale di grandi dimensioni viene interrotto prima di completare la risposta.',
@@ -4657,6 +4692,9 @@ const messages: TranslationMap = {
     'Quando disattivata, le etichette vengono visualizzate solo al passaggio del mouse o per la scheda attiva.',
   'settings.appearance.chatHeading': 'Chat',
   'settings.appearance.assistantTextMode': "Risposte dell'assistente in testo",
+  'settings.appearance.hideAgentInsights': 'Nascondi il ragionamento dell’agente',
+  'settings.appearance.hideAgentInsightsDesc':
+    'Comprime la cronologia in tempo reale dei passaggi dell’agente nella chat. Un link lampeggiante «Elaborazione» consente comunque di aprire l’intero processo.',
   'settings.appearance.assistantTextModeDesc':
     "Mostra le risposte dell'assistente come testo senza cornice mantenendo i tuoi messaggi nei fumetti.",
   'settings.mascot.active': 'Attivo',
@@ -6054,6 +6092,19 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Candidatura in corso…',
   'agentworld.messaging.missingSignalBundle':
     'Questo utente non ha ancora attivato la messaggistica crittografata. Chiedigli di aprire Agent World e attivare i DM sicuri prima di inviare un messaggio.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Azione necessaria',
+  'userErrors.dismiss': 'Ignora',
+  'userErrors.action.openBilling': 'Apri fatturazione',
+  'userErrors.action.openProviderSettings': 'Impostazioni del provider',
+  'userErrors.budgetExceeded.title': 'Budget gestito esaurito',
+  'userErrors.budgetExceeded.body':
+    'Il tuo budget IA gestito è esaurito. Aggiungi budget o cambia piano.',
+  'userErrors.insufficientCredits.title': 'Crediti del provider necessari',
+  'userErrors.insufficientCredits.body':
+    'Il tuo provider IA ha esaurito i crediti. Ricaricalo o aggiorna la chiave API.',
+  'userErrors.scope.chat': 'Chat',
 };
 
 export default messages;

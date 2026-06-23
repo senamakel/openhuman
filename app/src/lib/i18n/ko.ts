@@ -136,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': '기억',
   'brain.tabs.subconscious': '잠재의식',
   'brain.tabs.graph': '그래프',
+  'brain.tabs.goals': '목표',
+  'brain.goals.title': '장기 목표',
+  'brain.goals.description':
+    '당신과 함께 일하기 위한 에이전트의 지속적인 목표입니다. 여기서 편집하거나 리플렉트로 업데이트하세요.',
+  'brain.goals.reflect': '리플렉트',
+  'brain.goals.reflecting': '리플렉트 중…',
+  'brain.goals.reflectDone': '목표가 업데이트되었습니다.',
+  'brain.goals.add': '추가',
+  'brain.goals.addPlaceholder': '장기 목표 추가…',
+  'brain.goals.empty':
+    '아직 목표가 없습니다. 하나를 추가하거나 리플렉트로 최근 컨텍스트에서 채워 보세요.',
+  'brain.goals.editGoal': '목표 편집',
+  'brain.goals.deleteGoal': '목표 삭제',
+  'brain.goals.actionError': '문제가 발생했습니다. 다시 시도해 주세요.',
   'brain.tabs.sources': '소스',
   'brain.tabs.sync': '동기화',
   'brain.empty': '아직 브레인이 비어 있습니다 — 소스를 연결하여 메모리를 만들어 보세요.',
@@ -2570,6 +2584,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': '수정 중…',
   'bootCheck.portConflictFixFailed':
     '자동 수정에 실패했습니다. 컴퓨터를 재시작한 후 다시 시도해 주세요.',
+  'bootCheck.portConflictOwner':
+    '{name}(PID {pid})이(가) OpenHuman에 필요한 네트워크 포트를 사용하고 있습니다.',
+  'bootCheck.portConflictGuidance':
+    '포트를 비우려면 해당 프로그램을 닫거나 아래에서 강제 종료한 후 다시 시도하세요.',
+  'bootCheck.portConflictForceQuit': '{name} 강제 종료',
+  'bootCheck.portConflictForceQuitting': '{name} 종료 중…',
+  'bootCheck.portConflictForceQuitFailed':
+    '해당 프로그램을 닫지 못했습니다. 수동으로 닫은 후 다시 시도해야 할 수 있습니다.',
   'notifications.justNow': '방금 전',
   'notifications.minAgo': '{n}분 전',
   'notifications.hrAgo': '{n}시간 전',
@@ -2678,6 +2700,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': '오프라인',
   'app.connectionIndicator.reconnecting': '다시 연결 중…',
   'app.errorFallback.componentStack': '컴포넌트 스택',
+  'app.errorFallback.contactSupport': '지원팀에 문의',
+  'app.errorFallback.copyEventId': '복사',
+  'app.errorFallback.eventIdCopied': '복사됨',
+  'app.errorFallback.eventIdLabel': '오류 ID',
+  'app.errorFallback.revealLogs': '로그 보기',
   'app.errorFallback.downloadLatest': '최신 버전 다운로드',
   'app.errorFallback.heading': '제목',
   'app.errorFallback.hint': '힌트',
@@ -3022,6 +3049,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.sourcesHeading': '소스',
   'conversations.agentTaskInsights.noSteps': '기록된 단계 없음',
   'conversations.agentTaskInsights.viewProcessSource': '전체 에이전트 프로세스 소스 보기',
+  'conversations.agentTaskInsights.processing': '처리 중',
   'daemon.serviceBlockingGate.body': '본문',
   'daemon.serviceBlockingGate.downloadHint': '다운로드 안내',
   'daemon.serviceBlockingGate.downloadLatest': '최신 버전 다운로드',
@@ -3651,6 +3679,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': '메모리 작업자 설문 조사',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': '관리됨',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman이 모든 추론을 클라우드에서 실행하고, 작업에 가장 적합한 모델을 선택하며, 비용을 최적화하고 가장 안전한 라우팅 기본값을 유지합니다.',
   'settings.ai.routing.managedMsg':
@@ -4370,6 +4401,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': '작업 계획 승인 필요',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     '할당된 에이전트가 에이전트가 작성한 작업 브리프를 실행하기 전에 일시 중지합니다.',
+  'settings.agentAccess.tinyplaceAutopilot.title': '자율 tiny.place 에이전트',
+  'settings.agentAccess.tinyplaceAutopilot.desc':
+    'OpenHuman이 tiny.place에서 스스로 행동하게 하세요: 일정에 따라 가치 있는 일을 찾고(열린 현상금 우선) 자신의 능력에 맞는 작업을 수행하며 당신의 신원으로 행동합니다. 감독 없이 작동하며 비용을 지출할 수 있으니 테스트 중에는 devnet을 사용하세요. 기본값은 꺼짐입니다.',
+  'settings.agentAccess.tinyplaceAutopilot.label': '자동 실행',
   'settings.agentAccess.timeout.label': '작업 제한 시간',
   'settings.agentAccess.timeout.desc':
     '단일 도구나 작업이 취소되기 전까지 실행될 수 있는 시간입니다. 대형 로컬 모델이 응답을 끝내기 전에 중단되는 경우 이 값을 늘리세요.',
@@ -4537,6 +4572,9 @@ const messages: TranslationMap = {
     '끄면 레이블은 마우스를 가져가거나 활성 탭에 대해서만 표시됩니다.',
   'settings.appearance.chatHeading': '채팅',
   'settings.appearance.assistantTextMode': '어시스턴트 답변을 텍스트로 표시',
+  'settings.appearance.hideAgentInsights': '에이전트 사고 숨기기',
+  'settings.appearance.hideAgentInsightsDesc':
+    '채팅에서 에이전트의 단계별 실시간 타임라인을 접습니다. 깜박이는 "처리 중" 링크로 전체 과정을 열 수 있습니다.',
   'settings.appearance.assistantTextModeDesc':
     '사용자 메시지는 말풍선으로 유지하고 어시스턴트 답변은 프레임 없는 텍스트로 표시합니다.',
   'settings.mascot.active': '활성',
@@ -5889,6 +5927,17 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': '지원 중…',
   'agentworld.messaging.missingSignalBundle':
     '이 사용자는 아직 암호화 메시지를 활성화하지 않았습니다. 메시지를 보내기 전에 Agent World를 열고 보안 DM을 활성화해 달라고 요청하세요.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': '조치 필요',
+  'userErrors.dismiss': '닫기',
+  'userErrors.action.openBilling': '결제 열기',
+  'userErrors.action.openProviderSettings': '제공업체 설정',
+  'userErrors.budgetExceeded.title': '관리형 예산 소진',
+  'userErrors.budgetExceeded.body': '관리형 AI 예산이 모두 소진되었습니다.',
+  'userErrors.insufficientCredits.title': '제공업체 크레딧 필요',
+  'userErrors.insufficientCredits.body': 'AI 제공업체 크레딧이 소진되었습니다.',
+  'userErrors.scope.chat': '채팅',
 };
 
 export default messages;

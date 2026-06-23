@@ -136,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Память',
   'brain.tabs.subconscious': 'Подсознание',
   'brain.tabs.graph': 'Граф',
+  'brain.tabs.goals': 'Цели',
+  'brain.goals.title': 'Долгосрочные цели',
+  'brain.goals.description':
+    'Постоянные цели агента для работы с вами. Измените их здесь или позвольте Рефлексии обновить их.',
+  'brain.goals.reflect': 'Рефлексия',
+  'brain.goals.reflecting': 'Рефлексия…',
+  'brain.goals.reflectDone': 'Цели обновлены.',
+  'brain.goals.add': 'Добавить',
+  'brain.goals.addPlaceholder': 'Добавьте долгосрочную цель…',
+  'brain.goals.empty':
+    'Целей пока нет. Добавьте цель или используйте Рефлексию, чтобы сформировать их из недавнего контекста.',
+  'brain.goals.editGoal': 'Изменить цель',
+  'brain.goals.deleteGoal': 'Удалить цель',
+  'brain.goals.actionError': 'Что-то пошло не так. Пожалуйста, попробуйте снова.',
   'brain.tabs.sources': 'Источники',
   'brain.tabs.sync': 'Синхронизация',
   'brain.empty': 'Ваш мозг пока пуст — подключите источник, чтобы начать формировать память.',
@@ -2616,6 +2630,13 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Исправление…',
   'bootCheck.portConflictFixFailed':
     'Автоматическое исправление не сработало. Перезагрузите компьютер и попробуйте снова.',
+  'bootCheck.portConflictOwner': '{name} (PID {pid}) использует сетевой порт, нужный OpenHuman.',
+  'bootCheck.portConflictGuidance':
+    'Закройте эту программу, чтобы освободить порт, или принудительно завершите её ниже, затем повторите попытку.',
+  'bootCheck.portConflictForceQuit': 'Принудительно закрыть {name}',
+  'bootCheck.portConflictForceQuitting': 'Закрытие {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'Не удалось закрыть эту программу. Возможно, потребуется закрыть её вручную и повторить попытку.',
   'notifications.justNow': 'только что',
   'notifications.minAgo': '{n} мин назад',
   'notifications.hrAgo': '{n} ч назад',
@@ -2725,6 +2746,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Офлайн',
   'app.connectionIndicator.reconnecting': 'Переподключение…',
   'app.errorFallback.componentStack': 'Стек компонентов',
+  'app.errorFallback.contactSupport': 'Связаться с поддержкой',
+  'app.errorFallback.copyEventId': 'Копировать',
+  'app.errorFallback.eventIdCopied': 'Скопировано',
+  'app.errorFallback.eventIdLabel': 'Идентификатор ошибки',
+  'app.errorFallback.revealLogs': 'Показать журналы',
   'app.errorFallback.downloadLatest': 'Скачать последнюю версию',
   'app.errorFallback.heading': 'Заголовок',
   'app.errorFallback.hint': 'Подсказка',
@@ -3070,6 +3096,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.sourcesHeading': 'Источники',
   'conversations.agentTaskInsights.noSteps': 'Шаги не записаны',
   'conversations.agentTaskInsights.viewProcessSource': 'Показать полный источник процесса агента',
+  'conversations.agentTaskInsights.processing': 'Обработка',
   'daemon.serviceBlockingGate.body': 'Текст',
   'daemon.serviceBlockingGate.downloadHint': 'Подсказка по загрузке',
   'daemon.serviceBlockingGate.downloadLatest': 'Скачать последнюю версию',
@@ -3712,6 +3739,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Опросы работников памяти',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Управляемый',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman выполнит все логические выводы в облаке, выберет лучшую модель для задачи, оптимизирует затраты и сохранит самые безопасные настройки маршрутизации по умолчанию.',
   'settings.ai.routing.managedMsg':
@@ -4452,6 +4482,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Требовать утверждения плана задач',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Сделайте паузу перед тем, как назначенный агент выполнит задание, созданное агентом.',
+  'settings.agentAccess.tinyplaceAutopilot.title': 'Автономный агент tiny.place',
+  'settings.agentAccess.tinyplaceAutopilot.desc':
+    'Позвольте OpenHuman действовать в tiny.place самостоятельно: по расписанию он ищет стоящую работу — сначала открытые награды —, выполняет подходящее его навыкам и действует от вашего имени. Работает без присмотра и может тратить средства, поэтому при тестировании используйте devnet. По умолчанию выключено.',
+  'settings.agentAccess.tinyplaceAutopilot.label': 'Запускать автоматически',
   'settings.agentAccess.timeout.label': 'Тайм-аут действия',
   'settings.agentAccess.timeout.desc':
     'Сколько времени может выполняться отдельный инструмент или действие до отмены. Увеличьте это значение, если крупная локальная модель прерывается до завершения ответа.',
@@ -4625,6 +4659,9 @@ const messages: TranslationMap = {
     'Если этот параметр отключен, метки отображаются только при наведении курсора мыши или на активной вкладке.',
   'settings.appearance.chatHeading': 'Чат',
   'settings.appearance.assistantTextMode': 'Ответы ассистента текстом',
+  'settings.appearance.hideAgentInsights': 'Скрыть размышления агента',
+  'settings.appearance.hideAgentInsightsDesc':
+    'Сворачивает пошаговую ленту действий агента в чате. Мигающая ссылка «Обработка» по-прежнему позволяет открыть весь процесс.',
   'settings.appearance.assistantTextModeDesc':
     'Показывает ответы ассистента как текст без рамки, оставляя ваши сообщения в пузырьках.',
   'settings.mascot.active': 'Активно',
@@ -6010,6 +6047,17 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Отправка…',
   'agentworld.messaging.missingSignalBundle':
     'Этот пользователь еще не включил зашифрованные сообщения. Попросите его открыть Agent World и включить безопасные личные сообщения перед отправкой.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Требуется действие',
+  'userErrors.dismiss': 'Отклонить',
+  'userErrors.action.openBilling': 'Открыть оплату',
+  'userErrors.action.openProviderSettings': 'Настройки провайдера',
+  'userErrors.budgetExceeded.title': 'Управляемый бюджет исчерпан',
+  'userErrors.budgetExceeded.body': 'Управляемый бюджет ИИ исчерпан. Измените план.',
+  'userErrors.insufficientCredits.title': 'Требуются кредиты провайдера',
+  'userErrors.insufficientCredits.body': 'У провайдера закончились кредиты. Пополните их.',
+  'userErrors.scope.chat': 'Чат',
 };
 
 export default messages;

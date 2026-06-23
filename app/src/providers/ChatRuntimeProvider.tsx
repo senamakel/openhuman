@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { requestUsageRefresh } from '../hooks/usageRefresh';
 import { useRefetchSnapshotOnTurnEnd } from '../hooks/useRefetchSnapshotOnTurnEnd';
+import { ingestRuntimeErrorSignal } from '../lib/userErrors/report';
 import {
   type ChatApprovalRequestEvent,
   type ChatDoneEvent,
@@ -1101,6 +1102,19 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           request: event.request_id,
           err: event.error_type,
         });
+
+        // #3931: surface expected, user-actionable provider/billing states
+        // (insufficient BYO credits, managed-budget exhaustion) in the shell's
+        // dedicated error panel — in ADDITION to the inline chat message below.
+        // Additive + defensive: no-op for non-actionable errors, never throws.
+        if (event.error_type !== 'cancelled') {
+          ingestRuntimeErrorSignal(dispatch, {
+            message: event.message,
+            errorType: event.error_type,
+            scope: 'chat',
+            sourceDomain: 'chat',
+          });
+        }
 
         // Parallel (forked) turn error: resolve only its lane, leaving the
         // primary turn untouched. Surface a non-cancellation error as a message

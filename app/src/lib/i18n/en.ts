@@ -84,10 +84,24 @@ const en: TranslationMap = {
   'brain.tabs.memory': 'Memory',
   'brain.tabs.subconscious': 'Subconscious',
   'brain.tabs.graph': 'Graph',
+  'brain.tabs.goals': 'Goals',
   'brain.tabs.sources': 'Sources',
   'brain.tabs.sync': 'Sync',
   'brain.empty': 'Your brain is empty for now — connect a source to start building memory.',
   'brain.error': "Couldn't load your brain. Please try again.",
+  'brain.goals.title': 'Long-term Goals',
+  'brain.goals.description':
+    "The agent's durable goals for working with you. Edit them here or let Reflect update them.",
+  'brain.goals.reflect': 'Reflect',
+  'brain.goals.reflecting': 'Reflecting…',
+  'brain.goals.reflectDone': 'Goals updated.',
+  'brain.goals.add': 'Add',
+  'brain.goals.addPlaceholder': 'Add a long-term goal…',
+  'brain.goals.empty':
+    'No goals yet. Add one, or use Reflect to populate them from recent context.',
+  'brain.goals.editGoal': 'Edit goal',
+  'brain.goals.deleteGoal': 'Delete goal',
+  'brain.goals.actionError': 'Something went wrong. Please try again.',
 
   // Feedback board
   'feedback.board': 'Feedback board',
@@ -3085,6 +3099,13 @@ const en: TranslationMap = {
   'bootCheck.portConflictFixing': 'Fixing…',
   'bootCheck.portConflictFixFailed':
     "Automatic fix didn't work. Please restart your computer and try again.",
+  'bootCheck.portConflictOwner': '{name} (PID {pid}) is using the network port OpenHuman needs.',
+  'bootCheck.portConflictGuidance':
+    'Close that program to free the port, or force-quit it below, then try again.',
+  'bootCheck.portConflictForceQuit': 'Force-quit {name}',
+  'bootCheck.portConflictForceQuitting': 'Closing {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    "Couldn't close that program. You may need to close it manually, then retry.",
 
   // Notifications: category labels & timestamps
   'notifications.justNow': 'just now',
@@ -3223,11 +3244,16 @@ const en: TranslationMap = {
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Reconnecting…',
   'app.errorFallback.componentStack': 'Component stack',
+  'app.errorFallback.contactSupport': 'Contact support',
+  'app.errorFallback.copyEventId': 'Copy',
   'app.errorFallback.downloadLatest': 'Download latest',
+  'app.errorFallback.eventIdCopied': 'Copied',
+  'app.errorFallback.eventIdLabel': 'Error ID',
   'app.errorFallback.heading': 'Something went wrong',
   'app.errorFallback.hint':
     'Try reloading the app. If the problem persists, download the latest version.',
   'app.errorFallback.reloadApp': 'Reload app',
+  'app.errorFallback.revealLogs': 'Reveal logs',
   'app.errorFallback.subheading': 'An unexpected error occurred',
   'app.errorFallback.tryRecover': 'Try recover',
   'app.localAiDownload.installing': 'Installing...',
@@ -3594,6 +3620,7 @@ const en: TranslationMap = {
   'conversations.agentTaskInsights.sourcesHeading': 'Sources',
   'conversations.agentTaskInsights.noSteps': 'No steps recorded',
   'conversations.agentTaskInsights.viewProcessSource': 'View full agent process Source',
+  'conversations.agentTaskInsights.processing': 'Processing',
   'daemon.serviceBlockingGate.body':
     'Retrying in the background. This usually resolves in a few seconds.',
   'daemon.serviceBlockingGate.downloadHint':
@@ -4282,6 +4309,9 @@ const en: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Memory worker polls',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Managed',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman will run all inference in the cloud, choose the best model for the task, optimize for cost, and keep the safest routing defaults.',
   'settings.ai.routing.managedMsg':
@@ -5011,6 +5041,10 @@ const en: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Require task plan approval',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pause before an assigned agent executes an agent-authored task brief.',
+  'settings.agentAccess.tinyplaceAutopilot.title': 'Autonomous tiny.place agent',
+  'settings.agentAccess.tinyplaceAutopilot.desc':
+    'Let OpenHuman act on tiny.place on its own: on a schedule it finds worthwhile work — open bounties first — does what fits its skills, and acts from your identity. It runs unattended and can spend, so keep it on devnet while testing. Off by default.',
+  'settings.agentAccess.tinyplaceAutopilot.label': 'Run automatically',
   'settings.agentAccess.timeout.label': 'Action timeout',
   'settings.agentAccess.timeout.desc':
     'How long a single tool or action may run before it is cancelled. Increase this if a large local model is interrupted before it finishes responding.',
@@ -5184,6 +5218,9 @@ const en: TranslationMap = {
   'settings.appearance.assistantTextMode': 'Plain assistant responses',
   'settings.appearance.assistantTextModeDesc':
     'Render assistant replies as unframed text while keeping your messages in bubbles.',
+  'settings.appearance.hideAgentInsights': 'Hide agent thinking',
+  'settings.appearance.hideAgentInsightsDesc':
+    'Collapse the live step-by-step agent timeline in chat. A blinking “Processing” link still lets you open the full run.',
   'settings.mascot.active': 'Active',
   'settings.mascot.characterDesc': 'Choose your OpenHuman character.',
   'settings.mascot.characterHeading': 'Character',
@@ -6213,6 +6250,19 @@ const en: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Applying…',
   'agentworld.messaging.missingSignalBundle':
     "This user hasn't enabled encrypted messaging yet. Ask them to open Agent World and enable secure DMs before sending a message.",
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Action needed',
+  'userErrors.dismiss': 'Dismiss',
+  'userErrors.action.openBilling': 'Open billing',
+  'userErrors.action.openProviderSettings': 'Provider settings',
+  'userErrors.budgetExceeded.title': 'Managed budget reached',
+  'userErrors.budgetExceeded.body':
+    'Your managed AI budget is used up. Add budget or change your plan to continue.',
+  'userErrors.insufficientCredits.title': 'Provider credits required',
+  'userErrors.insufficientCredits.body':
+    'Your AI provider is out of credits. Top it up or update its API key to continue.',
+  'userErrors.scope.chat': 'Chat',
 };
 
 export default en;

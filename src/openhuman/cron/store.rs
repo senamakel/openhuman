@@ -78,6 +78,7 @@ pub fn add_agent_job(
         delivery,
         delete_after_run,
         None,
+        true,
     )
 }
 
@@ -95,6 +96,7 @@ pub fn add_agent_job_with_definition(
     delivery: Option<DeliveryConfig>,
     delete_after_run: bool,
     agent_id: Option<String>,
+    enabled: bool,
 ) -> Result<CronJob> {
     let now = Utc::now();
     validate_schedule(&schedule, now)?;
@@ -105,11 +107,15 @@ pub fn add_agent_job_with_definition(
     let delivery = delivery.unwrap_or_default();
 
     with_connection(config, |conn| {
+        // `enabled` is bound (?13) rather than hard-coded so callers can insert a
+        // job in its final disabled state in one statement — important for opt-in
+        // jobs (e.g. the autopilot) where a create-then-disable sequence could
+        // leave the row enabled if the process died between the two writes.
         conn.execute(
             "INSERT INTO cron_jobs (
                 id, expression, command, schedule, job_type, prompt, name, session_target, model,
                 enabled, delivery, delete_after_run, created_at, next_run, agent_id
-             ) VALUES (?1, ?2, '', ?3, 'agent', ?4, ?5, ?6, ?7, 1, ?8, ?9, ?10, ?11, ?12)",
+             ) VALUES (?1, ?2, '', ?3, 'agent', ?4, ?5, ?6, ?7, ?13, ?8, ?9, ?10, ?11, ?12)",
             params![
                 id,
                 expression,
@@ -123,6 +129,7 @@ pub fn add_agent_job_with_definition(
                 now.to_rfc3339(),
                 next_run.to_rfc3339(),
                 agent_id,
+                if enabled { 1 } else { 0 },
             ],
         )
         .context("Failed to insert cron agent job")?;

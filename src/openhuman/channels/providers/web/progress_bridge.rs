@@ -6,6 +6,15 @@ use crate::openhuman::threads::turn_state::{TurnStateMirror, TurnStateStore};
 use super::event_bus::publish_web_channel_event;
 use super::types::ChatRequestMetadata;
 
+/// Current wall-clock time as Unix-epoch milliseconds, used to stamp tracing
+/// spans (issue #3886). Saturates to `0` if the clock is before the epoch.
+fn unix_epoch_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
 pub(super) fn ledger_upsert_agent_run(
     config: &crate::openhuman::config::Config,
     upsert: crate::openhuman::session_db::run_ledger::AgentRunUpsert,
@@ -94,9 +103,30 @@ pub(crate) fn spawn_progress_bridge(
         let mut child_tool_counts: HashMap<String, u64> = HashMap::new();
         let mut turn_state =
             TurnStateMirror::new(turn_state_store, thread_id.clone(), request_id.clone());
+
+        // #3886: opt-in structured tracing export. When enabled, fold the same
+        // progress stream into OTel/Langfuse-style spans correlated by session
+        // id (falling back to the thread id for headless/autonomous runs) with
+        // the client id as user attribution. `None` (disabled) is zero-cost.
+        let mut span_collector = if config.observability.agent_tracing.enabled {
+            use crate::openhuman::agent::progress_tracing::{
+                trace_session_id, SpanCollector, TraceContext,
+            };
+            let session_id = trace_session_id(metadata.session_id, &thread_id);
+            Some(SpanCollector::new(TraceContext::new(
+                session_id,
+                Some(client_id.clone()),
+            )))
+        } else {
+            None
+        };
+
         while let Some(event) = rx.recv().await {
             events_seen += 1;
             turn_state.observe(&event);
+            if let Some(collector) = span_collector.as_mut() {
+                collector.record(&event, unix_epoch_ms());
+            }
             match &event {
                 AgentProgress::TextDelta { delta, iteration } => {
                     log::trace!(
@@ -971,6 +1001,17 @@ pub(crate) fn spawn_progress_bridge(
                 },
             );
         }
+        // #3886: seal any spans still open after the stream closed and hand the
+        // run's trace to the configured tracing sink. Best-effort and gated;
+        // never affects the turn outcome.
+        if let Some(mut collector) = span_collector.take() {
+            collector.finish(unix_epoch_ms());
+            crate::openhuman::agent::progress_tracing::export_spans(
+                &config.observability.agent_tracing,
+                collector.spans(),
+            );
+        }
+
         log::debug!(
             "[web_channel][bridge] exit client_id={} thread_id={} request_id={} round={} events_seen={}",
             client_id,

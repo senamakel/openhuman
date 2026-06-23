@@ -11,11 +11,34 @@
 //! scout's own gathering surface.
 
 use crate::openhuman::context::prompt::{
-    render_tools, render_user_files, render_workspace, PromptContext,
+    render_tools, render_user_files, render_workspace, ConnectedIntegration, PromptContext,
 };
 use anyhow::Result;
+use std::fmt::Write as _;
 
 const ARCHETYPE: &str = include_str!("prompt.md");
+
+/// Render a compact `## Connected Integrations` block listing the platforms
+/// the user actually has connected. The scout's role prompt tells it to use
+/// this to decide whether a request is serviceable by a connected app, so the
+/// builder must emit it (the orchestrator surfaces the same data via its own
+/// delegation guide). Empty when nothing is connected.
+fn render_connected_integrations(integrations: &[ConnectedIntegration]) -> String {
+    let connected: Vec<&ConnectedIntegration> =
+        integrations.iter().filter(|ci| ci.connected).collect();
+    if connected.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "## Connected Integrations\n\nThese platforms are connected and reachable via the \
+         orchestrator's delegation tools — factor them into the plan when a request needs \
+         live data from one:\n",
+    );
+    for ci in connected {
+        let _ = writeln!(out, "- {}", ci.toolkit);
+    }
+    out
+}
 
 pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     tracing::debug!(
@@ -42,6 +65,12 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     let tools = render_tools(ctx)?;
     if !tools.trim().is_empty() {
         out.push_str(tools.trim_end());
+        out.push_str("\n\n");
+    }
+
+    let integrations = render_connected_integrations(ctx.connected_integrations);
+    if !integrations.trim().is_empty() {
+        out.push_str(integrations.trim_end());
         out.push_str("\n\n");
     }
 
@@ -103,5 +132,37 @@ mod tests {
         assert!(body.contains("[context_bundle]"));
         assert!(body.contains("has_enough_context"));
         assert!(body.contains("recommended_tool_calls"));
+    }
+
+    fn integration(toolkit: &str, connected: bool) -> ConnectedIntegration {
+        ConnectedIntegration {
+            toolkit: toolkit.to_string(),
+            description: String::new(),
+            tools: vec![],
+            gated_tools: vec![],
+            connected,
+            connections: vec![],
+            non_active_status: None,
+        }
+    }
+
+    #[test]
+    fn render_connected_integrations_lists_only_connected() {
+        let out = render_connected_integrations(&[
+            integration("gmail", true),
+            integration("notion", false),
+        ]);
+        assert!(out.contains("## Connected Integrations"));
+        assert!(out.contains("- gmail"));
+        assert!(
+            !out.contains("notion"),
+            "unconnected toolkits must be omitted"
+        );
+    }
+
+    #[test]
+    fn render_connected_integrations_empty_when_none_connected() {
+        assert!(render_connected_integrations(&[integration("gmail", false)]).is_empty());
+        assert!(render_connected_integrations(&[]).is_empty());
     }
 }

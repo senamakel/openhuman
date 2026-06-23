@@ -684,6 +684,11 @@ impl Config {
                 self.memory_tree.cloud_summarization_opt_in = val;
             }
         }
+        if let Some(raw) = env.get("OPENHUMAN_MEMORY_TREE_SPACY_ENABLED") {
+            if let Some(val) = parse_env_bool("OPENHUMAN_MEMORY_TREE_SPACY_ENABLED", &raw) {
+                self.memory_tree.spacy_enabled = val;
+            }
+        }
     }
 
     fn apply_update_env<E: super::env::EnvLookup + ?Sized>(&mut self, env: &E) {

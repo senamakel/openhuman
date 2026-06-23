@@ -13,9 +13,10 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { statSync } from "node:fs";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -82,6 +83,7 @@ function parseArgs(argv) {
     json: false,
     verbose: false,
     coreUrlExplicit: Boolean(process.env.OPENHUMAN_CORE_RPC_URL),
+    workspaceExplicit: Boolean(process.env.OPENHUMAN_WORKSPACE),
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -93,7 +95,7 @@ function parseArgs(argv) {
     switch (arg) {
       case "--core-url": opts.coreUrl = next(); opts.coreUrlExplicit = true; break;
       case "--token": opts.token = next(); break;
-      case "--workspace": opts.workspace = next(); break;
+      case "--workspace": opts.workspace = next(); opts.workspaceExplicit = true; break;
       case "--model": opts.model = next(); break;
       case "--query": opts.queries.push(next()); break;
       case "--raw": opts.raw = true; break;
@@ -123,9 +125,26 @@ function parsePositiveInt(raw, label) {
 }
 
 function defaultOpenhumanDir() {
-  return process.env.OPENHUMAN_APP_ENV === "staging"
-    ? path.join(homedir(), ".openhuman-staging")
-    : path.join(homedir(), ".openhuman");
+  if (process.env.OPENHUMAN_APP_ENV === "staging") {
+    return path.join(homedir(), ".openhuman-staging");
+  }
+  if (process.env.OPENHUMAN_APP_ENV) {
+    return path.join(homedir(), ".openhuman");
+  }
+  // APP_ENV unset: the core (launched from a shell that may export
+  // OPENHUMAN_APP_ENV=staging) and this script can disagree. Auto-pick the
+  // dir whose active_user.toml was touched most recently so transcript reads
+  // land in the same env the core actually uses. Falls back to prod.
+  const prod = path.join(homedir(), ".openhuman");
+  const staging = path.join(homedir(), ".openhuman-staging");
+  const mtime = (p) => {
+    try {
+      return statSync(path.join(p, "active_user.toml")).mtimeMs;
+    } catch {
+      return -1;
+    }
+  };
+  return mtime(staging) > mtime(prod) ? staging : prod;
 }
 
 async function defaultWorkspace() {
@@ -359,7 +378,13 @@ async function pickFreePort() {
 async function startCore(opts) {
   const token = opts.token || `apc-${randomBytes(24).toString("hex")}`;
   const env = { ...process.env, OPENHUMAN_CORE_TOKEN: token };
-  if (opts.workspace) env.OPENHUMAN_WORKSPACE = opts.workspace;
+  // Only pin OPENHUMAN_WORKSPACE when the user explicitly asked for one.
+  // Setting it to the auto-resolved active-user workspace makes the core
+  // create a *nested* `.openhuman/` config dir without the signed-in
+  // session (→ SESSION_EXPIRED). Leaving it unset lets the core resolve the
+  // active user from ~/.openhuman/active_user.toml and load its live session;
+  // transcripts then land in that same workspace the script reads.
+  if (opts.workspaceExplicit && opts.workspace) env.OPENHUMAN_WORKSPACE = opts.workspace;
   const port = new URL(opts.coreUrl).port || "7788";
   env.OPENHUMAN_CORE_PORT = port;
   env.OPENHUMAN_CORE_RPC_URL = opts.coreUrl;

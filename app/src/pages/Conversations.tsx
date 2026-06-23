@@ -2043,8 +2043,9 @@ const Conversations = ({
                   avoid jitter from partially-parsed fences. The final bubble
                   replaces this via addInferenceResponse on chat_done. */}
             {selectedStreamingAssistant &&
-              (selectedStreamingAssistant.content.length > 0 ||
-                selectedStreamingAssistant.thinking.length > 0) && (
+              (selectedStreamingAssistant.thinking.length > 0 ||
+                (selectedStreamingAssistant.content.length > 0 &&
+                  (selectedThreadToolTimeline.length === 0 || hideAgentInsights))) && (
                 <div className="flex justify-start">
                   <div className="relative w-fit max-w-[75%]">
                     {selectedStreamingAssistant.thinking.length > 0 && (
@@ -2058,17 +2059,19 @@ const Conversations = ({
                         </pre>
                       </details>
                     )}
-                    {selectedStreamingAssistant.content.length > 0 && (
-                      <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100">
-                        <p className="text-xs text-stone-700 dark:text-neutral-200 font-mono whitespace-pre-wrap break-words leading-snug">
-                          {selectedStreamingAssistant.content.length > STREAMING_PREVIEW_CHARS && (
-                            <span className="text-stone-400 dark:text-neutral-500">…</span>
-                          )}
-                          {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
-                          <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
-                        </p>
-                      </div>
-                    )}
+                    {selectedStreamingAssistant.content.length > 0 &&
+                      (selectedThreadToolTimeline.length === 0 || hideAgentInsights) && (
+                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100">
+                          <p className="text-xs text-stone-700 dark:text-neutral-200 font-mono whitespace-pre-wrap break-words leading-snug">
+                            {selectedStreamingAssistant.content.length >
+                              STREAMING_PREVIEW_CHARS && (
+                              <span className="text-stone-400 dark:text-neutral-500">…</span>
+                            )}
+                            {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
+                            <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
+                          </p>
+                        </div>
+                      )}
                   </div>
                 </div>
               )}
@@ -2187,6 +2190,7 @@ const Conversations = ({
                 <ToolTimelineBlock
                   entries={selectedThreadToolTimeline}
                   onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
+                  liveResponse={selectedStreamingAssistant?.content}
                 />
               ))}
             {/* "View full agent process" — only in the settled/inline state

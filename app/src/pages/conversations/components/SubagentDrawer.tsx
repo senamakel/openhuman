@@ -8,6 +8,7 @@ import type {
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
 import type { ThreadMessage } from '../../../types/thread';
+import { stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
 
 /**
@@ -349,7 +350,7 @@ export function SubagentDrawer({
                           {t('conversations.subagent.thinking')}
                         </div>
                         <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-stone-600 dark:text-neutral-300">
-                          {item.text}
+                          {stripToolCallEnvelopes(item.text).trim()}
                         </pre>
                       </div>
                     </ItemWrapper>
@@ -360,7 +361,7 @@ export function SubagentDrawer({
                   return (
                     <ItemWrapper key={`tx-${idx}`} divider={turnDivider}>
                       <div data-testid="subagent-transcript-text">
-                        <BubbleMarkdown content={item.text} />
+                        <BubbleMarkdown content={stripToolCallEnvelopes(item.text)} />
                         {isRunning && idx === lastTextIdx ? (
                           <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-primary-400 align-middle" />
                         ) : null}

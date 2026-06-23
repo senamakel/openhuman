@@ -3179,6 +3179,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         task_id: "task-1".into(),
         call_id: "child-call".into(),
         tool_name: "memory.read".into(),
+        arguments: serde_json::Value::Null,
         iteration: 1,
     }));
     assert!(!mirror.observe(&AgentProgress::SubagentToolCallCompleted {
@@ -3188,6 +3189,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         tool_name: "memory.read".into(),
         success: true,
         output_chars: 44,
+        output: "child tool output".into(),
         elapsed_ms: 22,
         iteration: 1,
     }));

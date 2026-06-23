@@ -1768,30 +1768,109 @@ const Conversations = ({
                       }`}>
                       {msg.sender === 'agent' ? (
                         <div className="space-y-1">
-                          {agentMessageViewMode === 'text' ? (
-                            <AgentMessageText content={msg.content} />
-                          ) : (
-                            splitAgentMessageIntoBubbles(msg.content).map(
-                              (segment, index, parts) => {
-                                const position: AgentBubblePosition =
-                                  parts.length === 1
-                                    ? 'single'
-                                    : index === 0
-                                      ? 'first'
-                                      : index === parts.length - 1
-                                        ? 'last'
-                                        : 'middle';
+                          <div className="relative space-y-1">
+                            {agentMessageViewMode === 'text' ? (
+                              <AgentMessageText content={msg.content} />
+                            ) : (
+                              splitAgentMessageIntoBubbles(msg.content).map(
+                                (segment, index, parts) => {
+                                  const position: AgentBubblePosition =
+                                    parts.length === 1
+                                      ? 'single'
+                                      : index === 0
+                                        ? 'first'
+                                        : index === parts.length - 1
+                                          ? 'last'
+                                          : 'middle';
 
+                                  return (
+                                    <AgentMessageBubble
+                                      key={`${msg.id}:${index}`}
+                                      content={segment}
+                                      position={position}
+                                    />
+                                  );
+                                }
+                              )
+                            )}
+                            {/* Reaction affordance — the closed "+", the open picker,
+                                and the resulting reaction chips all live here, tucked
+                                onto the bubble's bottom-left corner so the control
+                                never jumps to a separate row below the timestamp. */}
+                            {latestVisibleMessage?.id === msg.id &&
+                              (() => {
+                                const myReactions =
+                                  (msg.extraMetadata?.myReactions as string[] | undefined) ?? [];
+                                const pickerOpen = reactionPickerMsgId === msg.id;
                                 return (
-                                  <AgentMessageBubble
-                                    key={`${msg.id}:${index}`}
-                                    content={segment}
-                                    position={position}
-                                  />
+                                  <div className="absolute -bottom-2 left-3 z-10 flex items-center gap-1">
+                                    {myReactions.map(emoji => (
+                                      <button
+                                        key={emoji}
+                                        type="button"
+                                        data-analytics-id="chat-message-reaction-remove"
+                                        onClick={() =>
+                                          selectedThreadId &&
+                                          void dispatch(
+                                            persistReaction({
+                                              threadId: selectedThreadId,
+                                              messageId: msg.id,
+                                              emoji,
+                                            })
+                                          )
+                                        }
+                                        className="flex items-center rounded-full border border-primary-200 bg-primary-100 px-1.5 text-xs leading-[1.5] shadow-sm transition-colors hover:bg-primary-200 dark:border-primary-400/40 dark:bg-primary-500/25"
+                                        title={t('chat.removeReaction').replace('{emoji}', emoji)}>
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                    {pickerOpen ? (
+                                      <div className="flex items-center gap-0.5 rounded-full bg-white px-1 py-0.5 shadow-sm ring-1 ring-stone-200 dark:bg-neutral-900 dark:ring-neutral-700">
+                                        {['👍', '❤️', '😂', '🔥', '👀', '🎯'].map(emoji => (
+                                          <button
+                                            key={emoji}
+                                            type="button"
+                                            data-analytics-id="chat-message-reaction-pick"
+                                            onClick={() => {
+                                              if (selectedThreadId) {
+                                                void dispatch(
+                                                  persistReaction({
+                                                    threadId: selectedThreadId,
+                                                    messageId: msg.id,
+                                                    emoji,
+                                                  })
+                                                );
+                                              }
+                                              setReactionPickerMsgId(null);
+                                            }}
+                                            className="rounded px-0.5 text-sm transition-transform hover:scale-125"
+                                            title={emoji}>
+                                            {emoji}
+                                          </button>
+                                        ))}
+                                        <button
+                                          type="button"
+                                          data-analytics-id="chat-message-reaction-close"
+                                          onClick={() => setReactionPickerMsgId(null)}
+                                          className="ml-0.5 px-0.5 text-xs text-stone-600 hover:text-stone-400 dark:text-neutral-300 dark:hover:text-neutral-500">
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        data-analytics-id="chat-message-reaction-open"
+                                        onClick={() => setReactionPickerMsgId(msg.id)}
+                                        className="flex h-[18px] items-center rounded-full bg-white px-1.5 text-xs leading-none text-stone-500 opacity-0 shadow-sm ring-1 ring-stone-200 transition-opacity hover:bg-stone-100 hover:text-stone-700 group-hover/msg:opacity-100 dark:bg-neutral-900 dark:text-neutral-400 dark:ring-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                                        title={t('chat.addReaction')}
+                                        aria-label={t('chat.addReaction')}>
+                                        +
+                                      </button>
+                                    )}
+                                  </div>
                                 );
-                              }
-                            )
-                          )}
+                              })()}
+                          </div>
                           {(() => {
                             const raw = msg.extraMetadata?.citations;
                             if (!Array.isArray(raw)) return null;
@@ -1935,81 +2014,6 @@ const Conversations = ({
                           </svg>
                         )}
                       </button>
-                      {(() => {
-                        if (latestVisibleMessage?.id !== msg.id) return null;
-                        const myReactions =
-                          (msg.extraMetadata?.myReactions as string[] | undefined) ?? [];
-                        const hasReactions = myReactions.length > 0;
-                        // Show reaction row only for the most recent visible message.
-                        if (!hasReactions && msg.sender !== 'agent') return null;
-                        return (
-                          <div className="mt-1 flex items-center gap-1 flex-wrap min-h-[20px]">
-                            {myReactions.map(emoji => (
-                              <button
-                                key={emoji}
-                                type="button"
-                                data-analytics-id="chat-message-reaction-remove"
-                                onClick={() =>
-                                  selectedThreadId &&
-                                  void dispatch(
-                                    persistReaction({
-                                      threadId: selectedThreadId,
-                                      messageId: msg.id,
-                                      emoji,
-                                    })
-                                  )
-                                }
-                                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary-100 border border-primary-200 text-xs transition-colors hover:bg-primary-200"
-                                title={t('chat.removeReaction').replace('{emoji}', emoji)}>
-                                {emoji}
-                              </button>
-                            ))}
-                            {msg.sender === 'agent' &&
-                              (reactionPickerMsgId === msg.id ? (
-                                <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-stone-100 dark:bg-neutral-800">
-                                  {['👍', '❤️', '😂', '🔥', '👀', '🎯'].map(emoji => (
-                                    <button
-                                      key={emoji}
-                                      type="button"
-                                      data-analytics-id="chat-message-reaction-pick"
-                                      onClick={() => {
-                                        if (selectedThreadId) {
-                                          void dispatch(
-                                            persistReaction({
-                                              threadId: selectedThreadId,
-                                              messageId: msg.id,
-                                              emoji,
-                                            })
-                                          );
-                                        }
-                                        setReactionPickerMsgId(null);
-                                      }}
-                                      className="px-0.5 rounded text-sm hover:scale-125 transition-transform"
-                                      title={emoji}>
-                                      {emoji}
-                                    </button>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    data-analytics-id="chat-message-reaction-close"
-                                    onClick={() => setReactionPickerMsgId(null)}
-                                    className="ml-0.5 text-stone-600 dark:text-neutral-300 hover:text-stone-400 dark:hover:text-neutral-500 text-xs px-0.5">
-                                    ✕
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  data-analytics-id="chat-message-reaction-open"
-                                  onClick={() => setReactionPickerMsgId(msg.id)}
-                                  className="opacity-0 group-hover/msg:opacity-100 flex items-center px-1.5 py-0.5 rounded-full bg-stone-50 dark:bg-neutral-800/60 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-500 dark:text-neutral-400 hover:text-stone-300 dark:hover:text-neutral-600 text-xs transition-all"
-                                  title={t('chat.addReaction')}>
-                                  +
-                                </button>
-                              ))}
-                          </div>
-                        );
-                      })()}
                     </div>
                   </div>
                 </div>
@@ -2039,8 +2043,9 @@ const Conversations = ({
                   avoid jitter from partially-parsed fences. The final bubble
                   replaces this via addInferenceResponse on chat_done. */}
             {selectedStreamingAssistant &&
-              (selectedStreamingAssistant.content.length > 0 ||
-                selectedStreamingAssistant.thinking.length > 0) && (
+              (selectedStreamingAssistant.thinking.length > 0 ||
+                (selectedStreamingAssistant.content.length > 0 &&
+                  (selectedThreadToolTimeline.length === 0 || hideAgentInsights))) && (
                 <div className="flex justify-start">
                   <div className="relative w-fit max-w-[75%]">
                     {selectedStreamingAssistant.thinking.length > 0 && (
@@ -2054,17 +2059,19 @@ const Conversations = ({
                         </pre>
                       </details>
                     )}
-                    {selectedStreamingAssistant.content.length > 0 && (
-                      <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100">
-                        <p className="text-xs text-stone-700 dark:text-neutral-200 font-mono whitespace-pre-wrap break-words leading-snug">
-                          {selectedStreamingAssistant.content.length > STREAMING_PREVIEW_CHARS && (
-                            <span className="text-stone-400 dark:text-neutral-500">…</span>
-                          )}
-                          {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
-                          <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
-                        </p>
-                      </div>
-                    )}
+                    {selectedStreamingAssistant.content.length > 0 &&
+                      (selectedThreadToolTimeline.length === 0 || hideAgentInsights) && (
+                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100">
+                          <p className="text-xs text-stone-700 dark:text-neutral-200 font-mono whitespace-pre-wrap break-words leading-snug">
+                            {selectedStreamingAssistant.content.length >
+                              STREAMING_PREVIEW_CHARS && (
+                              <span className="text-stone-400 dark:text-neutral-500">…</span>
+                            )}
+                            {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
+                            <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
+                          </p>
+                        </div>
+                      )}
                   </div>
                 </div>
               )}
@@ -2183,6 +2190,7 @@ const Conversations = ({
                 <ToolTimelineBlock
                   entries={selectedThreadToolTimeline}
                   onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
+                  liveResponse={selectedStreamingAssistant?.content}
                 />
               ))}
             {/* "View full agent process" — only in the settled/inline state

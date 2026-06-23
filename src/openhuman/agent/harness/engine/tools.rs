@@ -71,14 +71,14 @@ pub(crate) async fn run_one_tool(
     // (denied / CliRpcOnly / unknown) so the client row flips to `error`
     // instead of staying running.
     let emit_failed_completion = |message: &str| {
-        let output_chars = message.chars().count();
+        let message = message.to_string();
         async move {
             progress
                 .tool_completed(
                     progress_call_id,
                     &call.name,
                     false,
-                    output_chars,
+                    &message,
                     0,
                     iteration_u32,
                 )
@@ -361,7 +361,7 @@ pub(crate) async fn run_one_tool(
             progress_call_id,
             &call.name,
             success,
-            result_text.chars().count(),
+            &result_text,
             elapsed_ms,
             iteration_u32,
         )

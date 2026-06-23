@@ -81,6 +81,20 @@ export function formatToolName(toolName: string): string {
   return TOOL_DISPLAY_NAMES[toolName] ?? humanizeIdentifier(toolName);
 }
 
+/**
+ * Strip `<tool_call>…</tool_call>` envelopes that some models emit inline in
+ * their visible / reasoning text. The structured call is already surfaced as
+ * its own timeline row, so the raw envelope is pure noise in displayed prose.
+ * Also removes a trailing, still-streaming unclosed `<tool_call>…` so a
+ * half-arrived delta never flashes raw markup. Whitespace is left intact —
+ * callers that render single-line previews collapse it themselves.
+ */
+export function stripToolCallEnvelopes(text: string): string {
+  return text
+    .replace(/<tool_call\b[^>]*>[\s\S]*?<\/tool_call>/gi, '')
+    .replace(/<tool_call\b[^>]*>[\s\S]*$/i, '');
+}
+
 export function formatTimelineEntry(entry: ToolTimelineEntry): { title: string; detail?: string } {
   const parsedArgs = parseToolArgs(entry.argsBuffer);
 

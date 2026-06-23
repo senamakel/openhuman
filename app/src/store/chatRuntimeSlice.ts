@@ -133,6 +133,10 @@ export type SubagentTranscriptItem =
       status: ToolTimelineEntryStatus;
       elapsedMs?: number;
       outputChars?: number;
+      /** Arguments the child invoked the tool with (set on start). */
+      args?: unknown;
+      /** The tool's actual output text (set on completion). */
+      result?: string;
     };
 
 /** One child tool call performed by a running sub-agent. */
@@ -148,6 +152,10 @@ export interface SubagentToolCallEntry {
   elapsedMs?: number;
   /** Character length of the tool result (set on completion). */
   outputChars?: number;
+  /** Arguments the child invoked the tool with (set on start). */
+  args?: unknown;
+  /** The tool's actual output text (set on completion). */
+  result?: string;
 }
 
 export interface ToolTimelineEntry {
@@ -630,14 +638,15 @@ const chatRuntimeSlice = createSlice({
         callId: string;
         toolName: string;
         iteration?: number;
+        args?: unknown;
       }>
     ) => {
-      const { threadId, rowId, callId, toolName, iteration } = action.payload;
+      const { threadId, rowId, callId, toolName, iteration, args } = action.payload;
       const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
       if (!entry?.subagent) return;
       const transcript = (entry.subagent.transcript ??= []);
       if (transcript.some(i => i.kind === 'tool' && i.callId === callId)) return;
-      transcript.push({ kind: 'tool', iteration, callId, toolName, status: 'running' });
+      transcript.push({ kind: 'tool', iteration, callId, toolName, status: 'running', args });
     },
     /**
      * Flip a transcript `tool` item to its terminal status when the child
@@ -653,15 +662,17 @@ const chatRuntimeSlice = createSlice({
         success: boolean;
         elapsedMs?: number;
         outputChars?: number;
+        result?: string;
       }>
     ) => {
-      const { threadId, rowId, callId, success, elapsedMs, outputChars } = action.payload;
+      const { threadId, rowId, callId, success, elapsedMs, outputChars, result } = action.payload;
       const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
       const item = entry?.subagent?.transcript?.find(i => i.kind === 'tool' && i.callId === callId);
       if (!item || item.kind !== 'tool') return;
       item.status = success ? 'success' : 'error';
       if (elapsedMs != null) item.elapsedMs = elapsedMs;
       if (outputChars != null) item.outputChars = outputChars;
+      if (result != null) item.result = result;
     },
     setTaskBoardForThread: (
       state,

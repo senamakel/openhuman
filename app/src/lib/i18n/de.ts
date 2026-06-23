@@ -5810,6 +5810,9 @@ const messages: TranslationMap = {
     'Einige Einrichtungsschritte wurden nicht abgeschlossen. Du kannst es erneut versuchen oder fortfahren — OpenHuman verwendet dann eine integrierte Ausweichlösung.',
   'harnessInit.retry': 'Erneut versuchen',
   'harnessInit.continueAnyway': 'Trotzdem fortfahren',
+  'harnessInit.runInBackground': 'Im Hintergrund ausführen',
+  'harnessInit.backgroundHint':
+    'Du kannst OpenHuman weiter verwenden, während dies abgeschlossen wird.',
 
   'keyring.consent.title': 'Sicherer Speicher nicht verfügbar',
   'keyring.consent.description':

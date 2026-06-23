@@ -5612,6 +5612,8 @@ const messages: TranslationMap = {
     '일부 설정 단계가 완료되지 않았습니다. 다시 시도하거나 계속 진행할 수 있습니다 — OpenHuman이 내장 대체 기능을 사용합니다.',
   'harnessInit.retry': '다시 시도',
   'harnessInit.continueAnyway': '그래도 계속',
+  'harnessInit.runInBackground': '백그라운드에서 실행',
+  'harnessInit.backgroundHint': '이 작업이 완료되는 동안 계속 OpenHuman을 사용할 수 있습니다.',
 
   'keyring.consent.title': '보안 저장소를 사용할 수 없음',
   'keyring.consent.description':

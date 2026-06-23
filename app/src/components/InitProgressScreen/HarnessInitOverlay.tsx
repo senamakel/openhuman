@@ -16,12 +16,13 @@ const POLL_MS = 2000;
  * Blocking first-run initialization gate.
  *
  * Polls `openhuman.harness_init_status` and, while the run is in progress,
- * covers the app with a full-screen overlay showing per-step progress (the
- * user blocks until init reaches a terminal state). On a warm host every step
- * is already provisioned, so the snapshot reports `done` on the first poll and
+ * covers the app with a full-screen overlay showing per-step progress. The
+ * overlay offers a "Run in background" action so the user can dismiss it and
+ * keep working while setup continues — the core runs init as a background task
+ * regardless of whether the overlay is shown. On a warm host every step is
+ * already provisioned, so the snapshot reports `done` on the first poll and
  * this renders nothing. On a terminal `failed` it offers Retry / Continue —
- * failures are non-fatal (the core degrades to a fallback), so the user can
- * always proceed.
+ * failures are non-fatal (the core degrades to a fallback).
  *
  * Polling-based (not socket) to sidestep the cold-start race where the socket
  * is not yet connected when init begins.
@@ -31,6 +32,8 @@ export default function HarnessInitOverlay() {
   const [dismissed, setDismissed] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const cancelledRef = useRef(false);
+  // Mirrors `dismissed` so the poll loop can stop without re-running the effect.
+  const dismissedRef = useRef(false);
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -39,7 +42,7 @@ export default function HarnessInitOverlay() {
     const poll = async () => {
       try {
         const next = await fetchHarnessInitStatus();
-        if (cancelledRef.current) {
+        if (cancelledRef.current || dismissedRef.current) {
           return;
         }
         if (next) {
@@ -54,7 +57,7 @@ export default function HarnessInitOverlay() {
         // Status can fail while the core is still coming up — keep polling.
         log('status poll failed: %O', err);
       }
-      if (!cancelledRef.current) {
+      if (!cancelledRef.current && !dismissedRef.current) {
         timeoutId = window.setTimeout(() => void poll(), POLL_MS);
       }
     };
@@ -84,6 +87,9 @@ export default function HarnessInitOverlay() {
   }, []);
 
   const handleContinue = useCallback(() => {
+    // Hide the overlay and stop polling; the core keeps running init as a
+    // background task regardless.
+    dismissedRef.current = true;
     setDismissed(true);
   }, []);
 

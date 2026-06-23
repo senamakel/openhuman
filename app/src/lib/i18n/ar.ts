@@ -5550,6 +5550,8 @@ const messages: TranslationMap = {
     'لم تكتمل بعض خطوات الإعداد. يمكنك إعادة المحاولة أو المتابعة — سيستخدم OpenHuman بديلاً مدمجاً.',
   'harnessInit.retry': 'إعادة المحاولة',
   'harnessInit.continueAnyway': 'المتابعة على أي حال',
+  'harnessInit.runInBackground': 'التشغيل في الخلفية',
+  'harnessInit.backgroundHint': 'يمكنك مواصلة استخدام OpenHuman حتى ينتهي هذا.',
 
   'keyring.consent.title': 'التخزين الآمن غير متاح',
   'keyring.consent.description':

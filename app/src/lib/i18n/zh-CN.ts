@@ -5379,6 +5379,8 @@ const messages: TranslationMap = {
     '部分设置步骤未完成。你可以重试或继续 — OpenHuman 将使用内置的后备方案。',
   'harnessInit.retry': '重试',
   'harnessInit.continueAnyway': '仍然继续',
+  'harnessInit.runInBackground': '在后台运行',
+  'harnessInit.backgroundHint': '在此完成期间，你可以继续使用 OpenHuman。',
 
   'keyring.consent.title': '安全存储不可用',
   'keyring.consent.description':

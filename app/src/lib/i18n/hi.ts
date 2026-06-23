@@ -5668,6 +5668,8 @@ const messages: TranslationMap = {
     'कुछ सेटअप चरण पूरे नहीं हुए। आप पुनः प्रयास कर सकते हैं, या जारी रख सकते हैं — OpenHuman एक अंतर्निहित फॉलबैक का उपयोग करेगा।',
   'harnessInit.retry': 'पुनः प्रयास करें',
   'harnessInit.continueAnyway': 'फिर भी जारी रखें',
+  'harnessInit.runInBackground': 'पृष्ठभूमि में चलाएँ',
+  'harnessInit.backgroundHint': 'जब तक यह पूरा होता है, आप OpenHuman का उपयोग जारी रख सकते हैं।',
 
   'keyring.consent.title': 'सुरक्षित भंडारण अनुपलब्ध',
   'keyring.consent.description':

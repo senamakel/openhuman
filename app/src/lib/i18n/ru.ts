@@ -5720,6 +5720,9 @@ const messages: TranslationMap = {
     'Некоторые шаги настройки не завершились. Вы можете повторить попытку или продолжить — OpenHuman использует встроенный резервный вариант.',
   'harnessInit.retry': 'Повторить',
   'harnessInit.continueAnyway': 'Всё равно продолжить',
+  'harnessInit.runInBackground': 'Запустить в фоновом режиме',
+  'harnessInit.backgroundHint':
+    'Вы можете продолжать пользоваться OpenHuman, пока это завершается.',
 
   'keyring.consent.title': 'Безопасное хранилище недоступно',
   'keyring.consent.description':

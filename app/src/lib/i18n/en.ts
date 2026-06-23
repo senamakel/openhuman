@@ -6152,6 +6152,8 @@ const en: TranslationMap = {
     'Some setup steps did not finish. You can retry, or continue — OpenHuman will use a built-in fallback.',
   'harnessInit.retry': 'Retry',
   'harnessInit.continueAnyway': 'Continue anyway',
+  'harnessInit.runInBackground': 'Run in background',
+  'harnessInit.backgroundHint': 'You can keep using OpenHuman while this finishes.',
 
   // Keyring consent & security
   'keyring.consent.title': 'Secure Storage Unavailable',

@@ -5751,6 +5751,8 @@ const messages: TranslationMap = {
     'Niektóre kroki konfiguracji nie zostały ukończone. Możesz spróbować ponownie lub kontynuować — OpenHuman użyje wbudowanego rozwiązania zastępczego.',
   'harnessInit.retry': 'Spróbuj ponownie',
   'harnessInit.continueAnyway': 'Kontynuuj mimo to',
+  'harnessInit.runInBackground': 'Uruchom w tle',
+  'harnessInit.backgroundHint': 'Możesz dalej korzystać z OpenHuman, dopóki to się nie zakończy.',
 
   'keyring.consent.title': 'Bezpieczne przechowywanie niedostępne',
   'keyring.consent.description':

@@ -98,6 +98,18 @@ export default function InitProgressScreen({
           ))}
         </ul>
 
+        {!failed && (
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <p className="text-xs text-stone-500">{t('harnessInit.backgroundHint')}</p>
+            <button
+              type="button"
+              onClick={onContinue}
+              className="shrink-0 rounded-lg border border-stone-700 px-3 py-1.5 text-sm text-stone-300 hover:bg-stone-800 hover:text-white">
+              {t('harnessInit.runInBackground')}
+            </button>
+          </div>
+        )}
+
         {failed && (
           <div className="mt-5">
             <div className="rounded-xl border border-coral-500/20 bg-coral-500/10 p-3">

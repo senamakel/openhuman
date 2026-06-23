@@ -59,6 +59,16 @@ describe('InitProgressScreen', () => {
     expect(screen.queryByText('Retry')).not.toBeInTheDocument();
   });
 
+  it('offers a Run in background action while running', () => {
+    const onContinue = vi.fn();
+    renderWithProviders(
+      <InitProgressScreen snapshot={snapshot()} onRetry={vi.fn()} onContinue={onContinue} />
+    );
+
+    fireEvent.click(screen.getByText('Run in background'));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
   it('shows the failing message and Retry / Continue on a failed run', () => {
     const onRetry = vi.fn();
     const onContinue = vi.fn();

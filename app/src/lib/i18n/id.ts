@@ -5681,6 +5681,8 @@ const messages: TranslationMap = {
     'Beberapa langkah penyiapan tidak selesai. Anda dapat mencoba lagi atau melanjutkan — OpenHuman akan menggunakan cadangan bawaan.',
   'harnessInit.retry': 'Coba lagi',
   'harnessInit.continueAnyway': 'Lanjutkan saja',
+  'harnessInit.runInBackground': 'Jalankan di latar belakang',
+  'harnessInit.backgroundHint': 'Anda dapat terus menggunakan OpenHuman saat proses ini selesai.',
 
   'keyring.consent.title': 'Penyimpanan aman tidak tersedia',
   'keyring.consent.description':

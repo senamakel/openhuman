@@ -5665,6 +5665,9 @@ const messages: TranslationMap = {
     'কিছু সেটআপ ধাপ সম্পন্ন হয়নি। আপনি পুনরায় চেষ্টা করতে পারেন, অথবা চালিয়ে যেতে পারেন — OpenHuman একটি অন্তর্নির্মিত ফলব্যাক ব্যবহার করবে।',
   'harnessInit.retry': 'পুনরায় চেষ্টা করুন',
   'harnessInit.continueAnyway': 'তবুও চালিয়ে যান',
+  'harnessInit.runInBackground': 'ব্যাকগ্রাউন্ডে চালান',
+  'harnessInit.backgroundHint':
+    'এটি শেষ হওয়া পর্যন্ত আপনি OpenHuman ব্যবহার করা চালিয়ে যেতে পারেন।',
 
   'keyring.consent.title': 'নিরাপদ সঞ্চয়স্থান অনুপলব্ধ',
   'keyring.consent.description':

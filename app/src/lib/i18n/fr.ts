@@ -5794,6 +5794,9 @@ const messages: TranslationMap = {
     'Certaines étapes de configuration ne se sont pas terminées. Vous pouvez réessayer ou continuer — OpenHuman utilisera une solution de secours intégrée.',
   'harnessInit.retry': 'Réessayer',
   'harnessInit.continueAnyway': 'Continuer quand même',
+  'harnessInit.runInBackground': 'Exécuter en arrière-plan',
+  'harnessInit.backgroundHint':
+    'Vous pouvez continuer à utiliser OpenHuman pendant que cela se termine.',
 
   'keyring.consent.title': 'Stockage sécurisé indisponible',
   'keyring.consent.description':

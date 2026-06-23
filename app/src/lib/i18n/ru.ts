@@ -3003,6 +3003,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Переместить влево',
   'conversations.taskKanban.moveRight': 'Переместить вправо',
   'conversations.taskKanban.title': 'Задачи',
+  'conversations.threadTodo.title': 'План',
   'conversations.taskKanban.approval.default': 'По умолчанию',
   'conversations.taskKanban.approval.notRequired': 'Не требуется',
   'conversations.taskKanban.approval.notRequiredBadge': 'нет одобрения',

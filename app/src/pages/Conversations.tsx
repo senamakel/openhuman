@@ -65,7 +65,6 @@ import {
 } from '../store/threadSlice';
 import type { ConfirmationModal as ConfirmationModalType } from '../types/intelligence';
 import type { ThreadMessage } from '../types/thread';
-import type { TaskBoardCard, TaskBoardCardStatus } from '../types/turnState';
 import { splitAgentMessageIntoBubbles } from '../utils/agentMessageBubbles';
 import { chatThreadPath } from '../utils/chatRoutes';
 import { CHAT_ATTACHMENTS_ENABLED } from '../utils/config';
@@ -93,14 +92,13 @@ import {
 } from './conversations/components/BackgroundProcessesPanel';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
 import { SubagentDrawer } from './conversations/components/SubagentDrawer';
-import { TaskKanbanBoard } from './conversations/components/TaskKanbanBoard';
+import { ThreadTodoStrip } from './conversations/components/ThreadTodoStrip';
 import { ToolTimelineBlock } from './conversations/components/ToolTimelineBlock';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
 } from './conversations/composerSendDecision';
-import { runDecidePlan } from './conversations/taskPlanActions';
 import {
   type AgentBubblePosition,
   buildAcceptedInlineCompletion,
@@ -1406,60 +1404,6 @@ const Conversations = ({
   const shouldRenderTimelineBeforeLatestAgentMessage =
     selectedThreadToolTimeline.length > 0 && !isSending && Boolean(latestVisibleAgentMessage);
 
-  const handleMoveTaskCard = async (
-    card: TaskBoardCard,
-    nextStatus: TaskBoardCardStatus
-  ): Promise<void> => {
-    if (!selectedThreadId || !selectedTaskBoard) return;
-    const now = new Date().toISOString();
-    const nextBoard = {
-      ...selectedTaskBoard,
-      cards: selectedTaskBoard.cards.map(existing =>
-        existing.id === card.id ? { ...existing, status: nextStatus, updatedAt: now } : existing
-      ),
-      updatedAt: now,
-    };
-    dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: nextBoard }));
-    try {
-      const saved = await threadApi.putTaskBoard(selectedThreadId, nextBoard.cards);
-      if (!saved) {
-        throw new Error('Task board update returned no board');
-      }
-      dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: saved }));
-    } catch (error) {
-      debug('putTaskBoard failed: %o', error);
-      setSendAdvisory(t('conversations.taskKanban.updateFailed'));
-      dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: selectedTaskBoard }));
-    }
-  };
-
-  const handleUpdateTaskCard = async (
-    card: TaskBoardCard,
-    nextCard: TaskBoardCard
-  ): Promise<void> => {
-    if (!selectedThreadId || !selectedTaskBoard) return;
-    const now = new Date().toISOString();
-    const nextBoard = {
-      ...selectedTaskBoard,
-      cards: selectedTaskBoard.cards.map(existing =>
-        existing.id === card.id ? { ...nextCard, updatedAt: now } : existing
-      ),
-      updatedAt: now,
-    };
-    dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: nextBoard }));
-    try {
-      const saved = await threadApi.putTaskBoard(selectedThreadId, nextBoard.cards);
-      if (!saved) {
-        throw new Error('Task board update returned no board');
-      }
-      dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: saved }));
-    } catch (error) {
-      debug('putTaskBoard failed: %o', error);
-      setSendAdvisory(t('conversations.taskKanban.updateFailed'));
-      dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: selectedTaskBoard }));
-    }
-  };
-
   const filteredThreads = useMemo(() => {
     return threads.filter(t => isThreadVisibleInTab(t, selectedLabel));
   }, [threads, selectedLabel]);
@@ -1799,40 +1743,6 @@ const Conversations = ({
             className={`mx-auto w-full max-w-[48.75rem] space-y-3 px-5 pt-4 ${
               isSidebar ? 'pb-4' : 'pb-32'
             }`}>
-            {selectedTaskBoard && hasTaskBoard && (
-              <TaskKanbanBoard
-                board={selectedTaskBoard}
-                disabled={!selectedThreadId}
-                onMove={(card, status) => {
-                  void handleMoveTaskCard(card, status);
-                }}
-                onUpdateCard={(card, nextCard) => {
-                  void handleUpdateTaskCard(card, nextCard);
-                }}
-                onDecidePlan={(card, approve) => {
-                  void runDecidePlan({
-                    threadId: selectedThreadId,
-                    card,
-                    approve,
-                    dispatch,
-                    notify: setSendAdvisory,
-                    t,
-                  });
-                }}
-                onViewSession={card => {
-                  if (!card.sessionThreadId) return;
-                  // Navigation only — do NOT mark the thread active. activeThreadId
-                  // tracks a true in-flight turn (set on send, cleared on
-                  // done/error). A completed session never emits that lifecycle
-                  // event, so forcing it active would wedge the composer.
-                  dispatch(setSelectedThread(card.sessionThreadId));
-                  void dispatch(loadThreadMessages(card.sessionThreadId));
-                  if (shouldSyncChatRoute) {
-                    navigate(chatThreadPath(card.sessionThreadId));
-                  }
-                }}
-              />
-            )}
             {visibleMessages.map(msg => {
               const isAgentTextMode = msg.sender === 'agent' && agentMessageViewMode === 'text';
               // Parsed once per message: for current messages (extraMetadata
@@ -2488,6 +2398,12 @@ const Conversations = ({
             </div>
           );
         })()}
+
+        {/* Thread-scoped todo list the agent maintains as it works — read-only,
+            pinned above the composer. Distinct from the Intelligence-tab kanban
+            (global `user-tasks`). Renders nothing when the thread has no active
+            cards. */}
+        {selectedThreadId && <ThreadTodoStrip board={selectedTaskBoard} />}
 
         {composer === 'mic-cloud' ? (
           <div className="flex flex-col items-center gap-3 py-1">

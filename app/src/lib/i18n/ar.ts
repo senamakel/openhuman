@@ -2918,6 +2918,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'نقل لليسار',
   'conversations.taskKanban.moveRight': 'نقل لليمين',
   'conversations.taskKanban.title': 'المهام',
+  'conversations.threadTodo.title': 'الخطة',
   'conversations.taskKanban.approval.default': 'التقصير',
   'conversations.taskKanban.approval.notRequired': 'غير مطلوب',
   'conversations.taskKanban.approval.notRequiredBadge': 'عدم الموافقة',

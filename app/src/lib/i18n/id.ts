@@ -2983,6 +2983,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Pindah ke kiri',
   'conversations.taskKanban.moveRight': 'Pindah ke kanan',
   'conversations.taskKanban.title': 'Tugas',
+  'conversations.threadTodo.title': 'Rencana',
   'conversations.taskKanban.approval.default': 'Default',
   'conversations.taskKanban.approval.notRequired': 'Tidak diperlukan',
   'conversations.taskKanban.approval.notRequiredBadge': 'tidak ada persetujuan',

@@ -2954,6 +2954,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': '왼쪽으로 이동',
   'conversations.taskKanban.moveRight': '오른쪽으로 이동',
   'conversations.taskKanban.title': '작업',
+  'conversations.threadTodo.title': '계획',
   'conversations.taskKanban.approval.default': '기본값',
   'conversations.taskKanban.approval.notRequired': '필요 없음',
   'conversations.taskKanban.approval.notRequiredBadge': '승인 없음',

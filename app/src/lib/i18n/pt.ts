@@ -3028,6 +3028,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Mover para esquerda',
   'conversations.taskKanban.moveRight': 'Mover para direita',
   'conversations.taskKanban.title': 'Tarefas',
+  'conversations.threadTodo.title': 'Plano',
   'conversations.taskKanban.approval.default': 'Padrão',
   'conversations.taskKanban.approval.notRequired': 'Não obrigatório',
   'conversations.taskKanban.approval.notRequiredBadge': 'sem aprovação',

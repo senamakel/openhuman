@@ -2838,6 +2838,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': '向左移动',
   'conversations.taskKanban.moveRight': '向右移动',
   'conversations.taskKanban.title': '任务',
+  'conversations.threadTodo.title': '计划',
   'conversations.taskKanban.approval.default': '默认',
   'conversations.taskKanban.approval.notRequired': '无需审批',
   'conversations.taskKanban.approval.notRequiredBadge': '无需审批',

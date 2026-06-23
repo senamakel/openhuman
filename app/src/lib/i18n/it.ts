@@ -3023,6 +3023,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Sposta a sinistra',
   'conversations.taskKanban.moveRight': 'Sposta a destra',
   'conversations.taskKanban.title': 'Attività',
+  'conversations.threadTodo.title': 'Piano',
   'conversations.taskKanban.approval.default': 'Predefinito',
   'conversations.taskKanban.approval.notRequired': 'Non richiesto',
   'conversations.taskKanban.approval.notRequiredBadge': 'nessuna approvazione',

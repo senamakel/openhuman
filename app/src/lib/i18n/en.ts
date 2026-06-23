@@ -3510,6 +3510,7 @@ const en: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Move left',
   'conversations.taskKanban.moveRight': 'Move right',
   'conversations.taskKanban.title': 'Tasks',
+  'conversations.threadTodo.title': 'Plan',
   'conversations.taskKanban.approval.default': 'Default',
   'conversations.taskKanban.approval.notRequired': 'Not required',
   'conversations.taskKanban.approval.notRequiredBadge': 'no approval',

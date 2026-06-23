@@ -2980,6 +2980,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'बाएं ले जाएं',
   'conversations.taskKanban.moveRight': 'दाएं ले जाएं',
   'conversations.taskKanban.title': 'टास्क',
+  'conversations.threadTodo.title': 'योजना',
   'conversations.taskKanban.approval.default': 'डिफ़ॉल्ट',
   'conversations.taskKanban.approval.notRequired': 'आवश्यकता नहीं',
   'conversations.taskKanban.approval.notRequiredBadge': 'कोई अनुमोदन नहीं',

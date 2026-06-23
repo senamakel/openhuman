@@ -2980,6 +2980,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'বামে সরান',
   'conversations.taskKanban.moveRight': 'ডানে সরান',
   'conversations.taskKanban.title': 'টাস্ক',
+  'conversations.threadTodo.title': 'পরিকল্পনা',
   'conversations.taskKanban.approval.default': 'ডিফল্ট',
   'conversations.taskKanban.approval.notRequired': 'প্রয়োজন নেই',
   'conversations.taskKanban.approval.notRequiredBadge': 'অনুমোদন করা হবে না',

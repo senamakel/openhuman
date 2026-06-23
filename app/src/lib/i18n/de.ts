@@ -3050,6 +3050,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Bewege dich nach links',
   'conversations.taskKanban.moveRight': 'Bewege dich nach rechts',
   'conversations.taskKanban.title': 'Aufgaben',
+  'conversations.threadTodo.title': 'Plan',
   'conversations.taskKanban.approval.default': 'Standard',
   'conversations.taskKanban.approval.notRequired': 'Nicht erforderlich',
   'conversations.taskKanban.approval.notRequiredBadge': 'keine Genehmigung',

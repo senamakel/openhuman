@@ -3011,6 +3011,7 @@ const messages: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Przesuń w lewo',
   'conversations.taskKanban.moveRight': 'Przesuń w prawo',
   'conversations.taskKanban.title': 'Zadania',
+  'conversations.threadTodo.title': 'Plan',
   'conversations.taskKanban.approval.default': 'Domyślne',
   'conversations.taskKanban.approval.notRequired': 'Niewymagane',
   'conversations.taskKanban.approval.notRequiredBadge': 'bez zatwierdzenia',

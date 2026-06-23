@@ -136,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Memória',
   'brain.tabs.subconscious': 'Subconsciente',
   'brain.tabs.graph': 'Gráfico',
+  'brain.tabs.goals': 'Objetivos',
+  'brain.goals.title': 'Objetivos de longo prazo',
+  'brain.goals.description':
+    'Os objetivos duradouros do agente para trabalhar com você. Edite-os aqui ou deixe o Refletir atualizá-los.',
+  'brain.goals.reflect': 'Refletir',
+  'brain.goals.reflecting': 'Refletindo…',
+  'brain.goals.reflectDone': 'Objetivos atualizados.',
+  'brain.goals.add': 'Adicionar',
+  'brain.goals.addPlaceholder': 'Adicione um objetivo de longo prazo…',
+  'brain.goals.empty':
+    'Ainda não há objetivos. Adicione um ou use Refletir para gerá-los a partir do contexto recente.',
+  'brain.goals.editGoal': 'Editar objetivo',
+  'brain.goals.deleteGoal': 'Excluir objetivo',
+  'brain.goals.actionError': 'Algo deu errado. Tente novamente.',
   'brain.tabs.sources': 'Fontes',
   'brain.tabs.sync': 'Sincronização',
   'brain.empty':

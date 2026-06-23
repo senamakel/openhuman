@@ -84,10 +84,24 @@ const en: TranslationMap = {
   'brain.tabs.memory': 'Memory',
   'brain.tabs.subconscious': 'Subconscious',
   'brain.tabs.graph': 'Graph',
+  'brain.tabs.goals': 'Goals',
   'brain.tabs.sources': 'Sources',
   'brain.tabs.sync': 'Sync',
   'brain.empty': 'Your brain is empty for now — connect a source to start building memory.',
   'brain.error': "Couldn't load your brain. Please try again.",
+  'brain.goals.title': 'Long-term Goals',
+  'brain.goals.description':
+    "The agent's durable goals for working with you. Edit them here or let Reflect update them.",
+  'brain.goals.reflect': 'Reflect',
+  'brain.goals.reflecting': 'Reflecting…',
+  'brain.goals.reflectDone': 'Goals updated.',
+  'brain.goals.add': 'Add',
+  'brain.goals.addPlaceholder': 'Add a long-term goal…',
+  'brain.goals.empty':
+    'No goals yet. Add one, or use Reflect to populate them from recent context.',
+  'brain.goals.editGoal': 'Edit goal',
+  'brain.goals.deleteGoal': 'Delete goal',
+  'brain.goals.actionError': 'Something went wrong. Please try again.',
 
   // Feedback board
   'feedback.board': 'Feedback board',

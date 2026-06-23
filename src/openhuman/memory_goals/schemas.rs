@@ -226,7 +226,10 @@ mod tests {
             "memory_goals.delete",
             "memory_goals.reflect",
         ] {
-            assert!(methods.contains(&expected.to_string()), "missing {expected}");
+            assert!(
+                methods.contains(&expected.to_string()),
+                "missing {expected}"
+            );
         }
     }
 

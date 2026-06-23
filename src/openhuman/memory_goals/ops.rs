@@ -41,7 +41,10 @@ pub async fn add(workspace_dir: &Path, text: &str) -> Result<RpcOutcome<AddResul
     log::debug!("[memory_goals] rpc=add");
     let (id, goals) = store::add(workspace_dir, text).await?;
     Ok(RpcOutcome::single_log(
-        AddResult { id: id.clone(), goals },
+        AddResult {
+            id: id.clone(),
+            goals,
+        },
         format!("added goal {id}"),
     ))
 }

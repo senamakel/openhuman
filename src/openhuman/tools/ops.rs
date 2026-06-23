@@ -556,15 +556,15 @@ pub fn all_tools_with_runtime(
     // allowlist); also available to the main agent for explicit edits.
     {
         let goals_dir = root_config.workspace_dir.clone();
-        tools.push(Box::new(crate::openhuman::memory_goals::GoalsListTool::new(
-            goals_dir.clone(),
-        )));
+        tools.push(Box::new(
+            crate::openhuman::memory_goals::GoalsListTool::new(goals_dir.clone()),
+        ));
         tools.push(Box::new(crate::openhuman::memory_goals::GoalsAddTool::new(
             goals_dir.clone(),
         )));
-        tools.push(Box::new(crate::openhuman::memory_goals::GoalsEditTool::new(
-            goals_dir.clone(),
-        )));
+        tools.push(Box::new(
+            crate::openhuman::memory_goals::GoalsEditTool::new(goals_dir.clone()),
+        ));
         tools.push(Box::new(
             crate::openhuman::memory_goals::GoalsDeleteTool::new(goals_dir),
         ));

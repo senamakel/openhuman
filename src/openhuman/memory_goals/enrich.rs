@@ -16,9 +16,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::store;
-use crate::openhuman::agent::turn_origin::{
-    with_origin, AgentTurnOrigin, TrustedAutomationSource,
-};
+use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;
 
@@ -101,7 +99,11 @@ pub async fn enrich_goals(
 /// Spawn [`enrich_goals`] as a detached best-effort background task. Used by
 /// the automatic summarization trigger, where we must not block the caller
 /// and any failure is non-fatal.
-pub fn spawn_enrich_goals(config: Config, workspace_dir: std::path::PathBuf, context_input: String) {
+pub fn spawn_enrich_goals(
+    config: Config,
+    workspace_dir: std::path::PathBuf,
+    context_input: String,
+) {
     tokio::spawn(async move {
         match enrich_goals(&config, &workspace_dir, &context_input).await {
             Ok(_) => log::debug!("[memory_goals] background enrich finished"),

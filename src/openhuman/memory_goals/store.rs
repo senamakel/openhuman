@@ -40,7 +40,9 @@ fn validate_within_workspace(workspace_dir: &Path) -> Result<PathBuf, String> {
         .canonicalize()
         .unwrap_or_else(|_| workspace_dir.to_path_buf());
     let parent = path.parent().unwrap_or(workspace_dir);
-    let parent_canon = parent.canonicalize().unwrap_or_else(|_| parent.to_path_buf());
+    let parent_canon = parent
+        .canonicalize()
+        .unwrap_or_else(|_| parent.to_path_buf());
     if !parent_canon.starts_with(&workspace_canon) {
         return Err(format!(
             "[memory_goals] goals path resolves outside workspace: {path:?}"

@@ -5781,7 +5781,7 @@ const messages: TranslationMap = {
 
   'harnessInit.title': 'Configuration en cours',
   'harnessInit.subtitle':
-    "OpenHuman prépare les composants dont il a besoin lors du premier lancement.",
+    'OpenHuman prépare les composants dont il a besoin lors du premier lancement.',
   'harnessInit.stepPython': "Environnement d'exécution Python",
   'harnessInit.stepSpacy': 'Modèle de langage',
   'harnessInit.stepNode': "Environnement d'exécution Node.js",
@@ -5791,7 +5791,7 @@ const messages: TranslationMap = {
   'harnessInit.stateSkipped': 'Ignoré',
   'harnessInit.stateFailed': 'Échec',
   'harnessInit.failedMessage':
-    "Certaines étapes de configuration ne se sont pas terminées. Vous pouvez réessayer ou continuer — OpenHuman utilisera une solution de secours intégrée.",
+    'Certaines étapes de configuration ne se sont pas terminées. Vous pouvez réessayer ou continuer — OpenHuman utilisera une solution de secours intégrée.',
   'harnessInit.retry': 'Réessayer',
   'harnessInit.continueAnyway': 'Continuer quand même',
 

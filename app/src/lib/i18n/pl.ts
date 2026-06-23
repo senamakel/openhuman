@@ -5737,7 +5737,8 @@ const messages: TranslationMap = {
   'chat.files.error.delete_failed': 'Nie udało się usunąć pliku. Prosimy spróbować ponownie.',
 
   'harnessInit.title': 'Trwa konfiguracja',
-  'harnessInit.subtitle': 'OpenHuman przygotowuje komponenty potrzebne przy pierwszym uruchomieniu.',
+  'harnessInit.subtitle':
+    'OpenHuman przygotowuje komponenty potrzebne przy pierwszym uruchomieniu.',
   'harnessInit.stepPython': 'Środowisko uruchomieniowe Python',
   'harnessInit.stepSpacy': 'Model językowy',
   'harnessInit.stepNode': 'Środowisko uruchomieniowe Node.js',

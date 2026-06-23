@@ -935,7 +935,10 @@ pub enum DomainEvent {
     },
     /// The harness-init run reached a terminal state. `failed_required` is true
     /// only when a *required* step failed (no required steps today).
-    HarnessInitCompleted { overall: String, failed_required: bool },
+    HarnessInitCompleted {
+        overall: String,
+        failed_required: bool,
+    },
 
     // ── Keyring ─────────────────────────────────────────────────────────
     /// The OS keyring is unavailable and no user consent for local fallback

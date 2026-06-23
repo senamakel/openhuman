@@ -1120,7 +1120,13 @@ async fn json_rpc_harness_init_status_returns_snapshot_envelope() {
     // status is read-only — no provisioning is triggered, so it is safe in CI
     // (we deliberately do NOT call `openhuman.harness_init_run`, which would
     // attempt real Python/Node/spaCy downloads).
-    let resp = post_json_rpc(&rpc_base, 4471_1, "openhuman.harness_init_status", json!({})).await;
+    let resp = post_json_rpc(
+        &rpc_base,
+        4471_1,
+        "openhuman.harness_init_status",
+        json!({}),
+    )
+    .await;
     let result = assert_no_jsonrpc_error(&resp, "harness_init_status");
 
     let snapshot = result

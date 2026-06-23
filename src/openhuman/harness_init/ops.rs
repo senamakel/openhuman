@@ -43,12 +43,7 @@ pub async fn run_harness_init(config: Config) {
     run_harness_init_with(config, false).await;
 }
 
-async fn run_one(
-    config: &Config,
-    step: &HarnessInitStep,
-    force: bool,
-    failed_required: &mut bool,
-) {
+async fn run_one(config: &Config, step: &HarnessInitStep, force: bool, failed_required: &mut bool) {
     if !force && (step.is_done)(config).await {
         log::debug!("[harness_init] step {} already satisfied", step.id);
         store::update_step(
@@ -89,7 +84,10 @@ pub fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
 /// already-satisfied steps; defaults to false (only retries pending/failed).
 pub fn handle_run(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let force = params.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
+        let force = params
+            .get("force")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
         let snapshot = run_harness_init_with(config, force).await;
         snapshot_response(snapshot)

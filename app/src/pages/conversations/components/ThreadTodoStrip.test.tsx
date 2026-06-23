@@ -123,21 +123,17 @@ describe('ThreadTodoStrip', () => {
     expect(screen.getAllByText('chat.approval.deny')).toHaveLength(1);
 
     fireEvent.click(screen.getByText('chat.approval.approve'));
-    expect(onDecidePlan).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'parked' }),
-      true
-    );
+    expect(onDecidePlan).toHaveBeenCalledWith(expect.objectContaining({ id: 'parked' }), true);
     fireEvent.click(screen.getByText('chat.approval.deny'));
-    expect(onDecidePlan).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'parked' }),
-      false
-    );
+    expect(onDecidePlan).toHaveBeenCalledWith(expect.objectContaining({ id: 'parked' }), false);
   });
 
   it('stays fully read-only (no approve/reject) when onDecidePlan is omitted', () => {
     render(
       <ThreadTodoStrip
-        board={board([card({ id: 'parked', title: 'Needs sign-off', status: 'awaiting_approval' })])}
+        board={board([
+          card({ id: 'parked', title: 'Needs sign-off', status: 'awaiting_approval' }),
+        ])}
       />
     );
     expect(screen.getByText('Needs sign-off')).toBeInTheDocument();

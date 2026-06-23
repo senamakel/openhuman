@@ -27,7 +27,7 @@ use crate::openhuman::memory_store::content::read as content_read;
 use crate::openhuman::memory_store::trees::store as tree_store;
 use crate::openhuman::memory_tree::graph;
 use crate::openhuman::memory_tree::nlp;
-use crate::openhuman::memory_tree::retrieval::fetch::fetch_leaves;
+use crate::openhuman::memory_tree::retrieval::fetch::{self, fetch_leaves};
 use crate::openhuman::memory_tree::retrieval::source::query_source;
 use crate::openhuman::memory_tree::retrieval::types::{
     hit_from_summary, QueryResponse, RetrievalHit,
@@ -62,13 +62,29 @@ impl Default for FastRetrieveOptions {
 /// bounds the intersection work while staying well above any realistic `k`.
 const LOOKUP_LIMIT: usize = 500;
 
+/// Default / ceiling for `limit` (`k`). The tool and RPC paths expose this, so
+/// a huge value must not be able to request oversized dense/local result sets.
+const DEFAULT_LIMIT: usize = 10;
+const MAX_RETRIEVE_LIMIT: usize = 100;
+/// Default / ceiling for the hop threshold. A large `max_hops` would force many
+/// bounded-BFS passes through the tightening loop; cap it.
+const DEFAULT_MAX_HOPS: u32 = 2;
+const MAX_GRAPH_HOPS: u32 = 4;
+
 /// Run deterministic retrieval for `query`. Never invokes an LLM.
 pub async fn fast_retrieve(
     config: &Config,
     query: &str,
     opts: FastRetrieveOptions,
 ) -> Result<QueryResponse> {
-    let k = if opts.limit == 0 { 10 } else { opts.limit };
+    let k = match opts.limit {
+        0 => DEFAULT_LIMIT,
+        n => n.min(MAX_RETRIEVE_LIMIT),
+    };
+    let max_hops = match opts.max_hops {
+        0 => DEFAULT_MAX_HOPS,
+        n => n.min(MAX_GRAPH_HOPS),
+    };
     let trimmed = query.trim();
     if trimmed.is_empty() {
         return Ok(QueryResponse::empty());
@@ -82,7 +98,7 @@ pub async fn fast_retrieve(
         trimmed.len(),
         eq.len(),
         k,
-        opts.max_hops
+        max_hops
     );
 
     // 2. No entities → pure global dense retrieval.
@@ -92,14 +108,14 @@ pub async fn fast_retrieve(
     }
 
     // 3. Graph filter: related entity pairs within `h` hops.
-    let pairs = graph::pair_distances(config, &eq, opts.max_hops)?;
+    let pairs = graph::pair_distances(config, &eq, max_hops)?;
     if pairs.is_empty() {
         log::debug!("[retrieval::fast] branch=global_occurrence (no related pairs)");
         return global_occurrence(config, trimmed, &eq, k, opts.time_window_days).await;
     }
 
     // 4. Local branch: index-mapping intersection with `h` tightening.
-    let mut h = opts.max_hops;
+    let mut h = max_hops;
     let mut cands = local_candidates(config, &eq, &pairs)?;
     let mut last_non_empty = cands.clone();
     while cands.len() > k && h > 1 {
@@ -181,14 +197,15 @@ fn local_candidates(
     Ok(out)
 }
 
-/// Rank candidates by entity coverage (desc) then recency (desc), truncate to
-/// `k`, resolve to hits, and apply the profile source-scope gate.
+/// Rank candidates by entity coverage (desc) then recency (desc), resolve to
+/// hits, apply the profile source-scope gate **before** counting/truncating
+/// (so an out-of-scope top hit never displaces an allowed lower-ranked one,
+/// and `total` never reveals out-of-scope match counts), then truncate to `k`.
 async fn resolve_local(
     config: &Config,
     cands: HashMap<String, Candidate>,
     k: usize,
 ) -> Result<QueryResponse> {
-    let total = cands.len();
     let mut ordered: Vec<(String, Candidate)> = cands.into_iter().collect();
     ordered.sort_by(|a, b| {
         b.1.matched
@@ -197,7 +214,6 @@ async fn resolve_local(
             .then_with(|| b.1.latest_ts.cmp(&a.1.latest_ts))
             .then_with(|| a.0.cmp(&b.0))
     });
-    ordered.truncate(k);
 
     // Coverage score per node id so resolved hits carry the ranking signal.
     let coverage: HashMap<String, f32> = ordered
@@ -217,8 +233,10 @@ async fn resolve_local(
         .collect();
 
     let mut by_id: HashMap<String, RetrievalHit> = HashMap::new();
-    if !leaf_ids.is_empty() {
-        for hit in fetch_leaves(config, &leaf_ids).await? {
+    // `fetch_leaves` caps each batch at MAX_BATCH and would silently drop the
+    // rest, so chunk to resolve every candidate leaf before the scope gate.
+    for chunk in leaf_ids.chunks(fetch::MAX_BATCH) {
+        for hit in fetch_leaves(config, chunk).await? {
             by_id.insert(hit.node_id.clone(), hit);
         }
     }
@@ -228,6 +246,7 @@ async fn resolve_local(
         }
     }
 
+    // Scope-gate the full ranked set first; `total` reflects only in-scope hits.
     let scope = current_source_scope();
     let mut hits: Vec<RetrievalHit> = Vec::with_capacity(ordered.len());
     for (id, _) in &ordered {
@@ -241,6 +260,8 @@ async fn resolve_local(
             hits.push(hit);
         }
     }
+    let total = hits.len();
+    hits.truncate(k);
     Ok(QueryResponse::new(hits, total))
 }
 

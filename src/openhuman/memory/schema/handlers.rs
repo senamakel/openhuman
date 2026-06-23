@@ -254,9 +254,13 @@ pub(super) fn handle_smart_walk(params: Map<String, Value>) -> ControllerFuture 
     Box::pin(async move {
         use crate::openhuman::memory_tree::retrieval::{fast_retrieve, FastRetrieveOptions};
 
-        // `namespace`/`max_turns`/`model` are accepted for backwards
-        // compatibility but ignored — retrieval is now deterministic
-        // (E2GraphRAG), so there are no LLM turns or model to select.
+        // `max_turns`/`model` are accepted for backwards compatibility but
+        // ignored — retrieval is now deterministic (E2GraphRAG), so there are
+        // no LLM turns or model to select. `namespace` is NOT silently
+        // ignored: fast-retrieve operates over the whole leaf/summary store
+        // (leaf storage is intentionally not namespace-scoped), so a caller
+        // that previously relied on `namespace` as a retrieval boundary must
+        // fail closed rather than receive unscoped hits.
         #[derive(serde::Deserialize)]
         struct Req {
             query: String,
@@ -267,7 +271,6 @@ pub(super) fn handle_smart_walk(params: Map<String, Value>) -> ControllerFuture 
             #[serde(default)]
             max_hops: Option<u32>,
             #[serde(default)]
-            #[allow(dead_code)]
             namespace: Option<String>,
             #[serde(default)]
             #[allow(dead_code)]
@@ -278,6 +281,20 @@ pub(super) fn handle_smart_walk(params: Map<String, Value>) -> ControllerFuture 
         }
 
         let req = parse_value::<Req>(Value::Object(params))?;
+
+        // Fail closed for a non-default namespace: deterministic retrieval has
+        // no namespace boundary, so honouring it silently would leak
+        // cross-namespace hits. The default namespace is the whole store.
+        if let Some(ns) = req.namespace.as_deref() {
+            if !ns.is_empty() && ns != "default" {
+                return Err(format!(
+                    "smart_walk: namespace `{ns}` is not supported — deterministic \
+                     retrieval is not namespace-scoped (leaf storage is global). \
+                     Omit `namespace` or pass \"default\"."
+                ));
+            }
+        }
+
         let config = config_rpc::load_config_with_timeout().await?;
 
         let opts = FastRetrieveOptions {

@@ -85,6 +85,17 @@ pub fn pair_distances(
     let mut seen: HashSet<(String, String)> = HashSet::new();
 
     for src in &unique {
+        // Peers we still need to reach from `src`; once empty we can stop the
+        // BFS early instead of draining the whole frontier (latency then
+        // scales with unresolved pairs, not graph size).
+        let mut remaining: HashSet<&str> = targets
+            .iter()
+            .copied()
+            .filter(|t| *t != src.as_str())
+            .collect();
+        if remaining.is_empty() {
+            continue;
+        }
         // BFS frontier from `src` bounded to `max_h`.
         let mut visited: HashSet<String> = HashSet::new();
         visited.insert(src.clone());
@@ -92,7 +103,7 @@ pub fn pair_distances(
         queue.push_back((src.clone(), 0));
 
         while let Some((node, dist)) = queue.pop_front() {
-            if dist >= max_h {
+            if dist >= max_h || remaining.is_empty() {
                 continue;
             }
             let neighbors: Vec<String> = cache.neighbors(&node)?.to_vec();
@@ -103,7 +114,7 @@ pub fn pair_distances(
                 let nd = dist + 1;
                 // Record a pair the moment we reach another query target. BFS
                 // guarantees `nd` is the shortest distance.
-                if nb.as_str() != src.as_str() && targets.contains(nb.as_str()) {
+                if nb.as_str() != src.as_str() && remaining.remove(nb.as_str()) {
                     let (a, b) = if src.as_str() < nb.as_str() {
                         (src.clone(), nb.clone())
                     } else {

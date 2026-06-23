@@ -90,7 +90,12 @@ impl Tool for MemoryTreeTool {
                 },
                 "time_window_days": {
                     "type": "integer",
-                    "description": "query_source: look-back window in days."
+                    "description": "query_source / walk / smart_walk: look-back window in days (applied to the dense/global branch for walk)."
+                },
+                // walk / smart_walk params
+                "max_hops": {
+                    "type": "integer",
+                    "description": "walk / smart_walk: entity-graph relatedness hop threshold for E2GraphRAG routing (default 2, capped at 4)."
                 },
                 // drill_down params
                 "node_id": {

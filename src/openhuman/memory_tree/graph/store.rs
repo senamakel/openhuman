@@ -61,7 +61,17 @@ pub fn upsert_edges_tx(
     pairs: &[(String, String)],
     timestamp_ms: i64,
 ) -> Result<usize> {
-    if pairs.is_empty() {
+    // Defensively canonicalise (`a < b`) and dedup here too, so a caller that
+    // passes reversed or duplicate pairs can never split one edge across two
+    // rows (`a,b` + `b,a`) or double-count a single chunk's contribution.
+    // `pairs_from_entities` already does this, but the table invariant must not
+    // depend on callers getting it right.
+    use std::collections::BTreeSet;
+    let canonical: BTreeSet<(String, String)> = pairs
+        .iter()
+        .filter_map(|(a, b)| order_pair(a, b).map(|(x, y)| (x.to_string(), y.to_string())))
+        .collect();
+    if canonical.is_empty() {
         return Ok(0);
     }
     let mut stmt = tx.prepare(
@@ -70,10 +80,10 @@ pub fn upsert_edges_tx(
          ON CONFLICT(entity_a, entity_b)
              DO UPDATE SET weight = weight + 1, updated_ms = ?3",
     )?;
-    for (a, b) in pairs {
+    for (a, b) in &canonical {
         stmt.execute(params![a, b, timestamp_ms])?;
     }
-    Ok(pairs.len())
+    Ok(canonical.len())
 }
 
 /// Convenience wrapper that opens its own connection + transaction. Prefer

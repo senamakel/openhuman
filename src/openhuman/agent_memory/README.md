@@ -65,4 +65,4 @@ The built-in agent is registered at `src/openhuman/agent_memory/agent/`:
 - `prompt.rs` — dynamic prompt builder
 - `prompt.md` — system prompt archetype
 
-The agent has access to the full memory retrieval tool surface: `memory_tree` (with deterministic E2GraphRAG `walk`/`smart_walk` modes plus `search_entities`/`query_source`/`drill_down`/`fetch_leaves`), `memory_recall`, and `query_memory`.
+The agent has access to the full memory retrieval tool surface: `memory_tree` (with deterministic E2GraphRAG `walk`/`smart_walk` modes plus `search_entities`/`query_source`/`cover_window`/`drill_down`/`fetch_leaves`), `memory_recall`, and `query_memory`.

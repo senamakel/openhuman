@@ -968,12 +968,7 @@ mod tests {
         // Strictly read-only gathering surface — no writes / shell / delegation.
         match &def.tools {
             ToolScope::Named(tools) => {
-                for required in [
-                    "memory_recall",
-                    "memory_tree",
-                    "web_search_tool",
-                    "web_fetch",
-                ] {
+                for required in ["memory_recall", "web_search_tool", "web_fetch"] {
                     assert!(
                         tools.iter().any(|t| t == required),
                         "context_scout needs read-only gathering tool `{required}`"
@@ -985,6 +980,9 @@ mod tests {
                     "spawn_subagent",
                     "spawn_async_subagent",
                     "agent_prepare_context",
+                    // memory_tree bundles a write mode (ingest_document) under a
+                    // ReadOnly wrapper — must not be reachable by the auto-run scout.
+                    "memory_tree",
                 ] {
                     assert!(
                         !tools.iter().any(|t| t == forbidden),

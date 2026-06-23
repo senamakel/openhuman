@@ -36,10 +36,12 @@ hint = "agentic"
 # delegation — the scout collects and reports.
 named = [
     # Targeted recall over the memory namespaces (global, background, …).
+    # NOTE: `memory_tree` is intentionally NOT here. That tool bundles a
+    # write mode (`ingest_document` → MemoryTreeIngestDocumentTool) under a
+    # ReadOnly-declared wrapper, so an auto-run, prompt-injectable scout could
+    # mutate memory ("remember this document") despite running read-only.
+    # Retrieval-only `memory_recall` covers the scout's needs safely.
     "memory_recall",
-    # Time-windowed / source-scoped memory-tree retrieval ("last 24h",
-    # "everything from <source>"). Same tool morning_briefing uses.
-    "memory_tree",
     # Fresh external facts when the question needs them.
     "web_search_tool",
     "web_fetch",

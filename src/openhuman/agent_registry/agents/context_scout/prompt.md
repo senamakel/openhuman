@@ -8,8 +8,8 @@ call next.
 
 1. Read the request (and any `[Focus]` the orchestrator passed).
 2. Gather only what's actually needed to act on it, drawing on:
-   - **Memory** — `memory_recall` for relevant facts; `memory_tree` for
-     time-windowed or source-scoped history when recency matters.
+   - **Memory** — `memory_recall` for relevant facts (search by namespace +
+     query). This is read-only; you cannot and must not write to memory.
    - **Goals / profile** — the user's `PROFILE.md` (their stated goals and
      preferences) and `MEMORY.md` are already in your prompt below. Mine them.
    - **Connected integrations** — the Connected Integrations section below tells

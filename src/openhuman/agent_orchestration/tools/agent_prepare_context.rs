@@ -55,7 +55,11 @@ impl AgentPrepareContextTool {
             }
             // One line per tool; trim the description to keep the catalogue
             // from dwarfing the scout's own prompt.
-            let desc: String = spec.description.split_whitespace().collect::<Vec<_>>().join(" ");
+            let desc: String = spec
+                .description
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
             let desc = if desc.chars().count() > 160 {
                 let cut = desc
                     .char_indices()
@@ -226,7 +230,11 @@ impl Tool for AgentPrepareContextTool {
             },
             Err(err) => {
                 let message = err.to_string();
-                let error_kind = message.split(':').next().map(str::trim).unwrap_or("unknown");
+                let error_kind = message
+                    .split(':')
+                    .next()
+                    .map(str::trim)
+                    .unwrap_or("unknown");
                 tracing::error!(
                     target: "agent_prepare_context",
                     error_kind = %error_kind,

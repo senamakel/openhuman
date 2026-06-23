@@ -956,7 +956,12 @@ mod tests {
         // Strictly read-only gathering surface — no writes / shell / delegation.
         match &def.tools {
             ToolScope::Named(tools) => {
-                for required in ["memory_recall", "memory_tree", "web_search_tool", "web_fetch"] {
+                for required in [
+                    "memory_recall",
+                    "memory_tree",
+                    "web_search_tool",
+                    "web_fetch",
+                ] {
                     assert!(
                         tools.iter().any(|t| t == required),
                         "context_scout needs read-only gathering tool `{required}`"

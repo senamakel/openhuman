@@ -2463,6 +2463,17 @@ const Conversations = ({
                 t,
               });
             }}
+            onViewSession={card => {
+              if (!card.sessionThreadId) return;
+              // Navigation only — do NOT mark the thread active. activeThreadId
+              // tracks a true in-flight turn; forcing a completed session active
+              // would wedge the composer.
+              dispatch(setSelectedThread(card.sessionThreadId));
+              void dispatch(loadThreadMessages(card.sessionThreadId));
+              if (shouldSyncChatRoute) {
+                navigate(chatThreadPath(card.sessionThreadId));
+              }
+            }}
           />
         )}
 

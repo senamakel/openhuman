@@ -128,6 +128,39 @@ describe('ThreadTodoStrip', () => {
     expect(onDecidePlan).toHaveBeenCalledWith(expect.objectContaining({ id: 'parked' }), false);
   });
 
+  it('surfaces the blocker reason for blocked cards', () => {
+    render(
+      <ThreadTodoStrip
+        board={board([
+          card({ id: 'b', title: 'Stuck step', status: 'blocked', blocker: 'needs API key' }),
+        ])}
+      />
+    );
+    expect(screen.getByText('Stuck step')).toBeInTheDocument();
+    expect(screen.getByText('needs API key')).toBeInTheDocument();
+  });
+
+  it('renders a View work jump only for cards with a session when onViewSession is provided', () => {
+    const onViewSession = vi.fn();
+    render(
+      <ThreadTodoStrip
+        board={board([
+          card({
+            id: 'linked',
+            title: 'Has session',
+            status: 'in_progress',
+            sessionThreadId: 's1',
+          }),
+          card({ id: 'plain', title: 'No session', status: 'in_progress' }),
+        ])}
+        onViewSession={onViewSession}
+      />
+    );
+    expect(screen.getAllByText('conversations.taskKanban.viewWork')).toHaveLength(1);
+    fireEvent.click(screen.getByText('conversations.taskKanban.viewWork'));
+    expect(onViewSession).toHaveBeenCalledWith(expect.objectContaining({ id: 'linked' }));
+  });
+
   it('stays fully read-only (no approve/reject) when onDecidePlan is omitted', () => {
     render(
       <ThreadTodoStrip

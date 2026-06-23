@@ -16,7 +16,7 @@ mod client;
 mod provision;
 
 pub use client::{shared_ner, SpacyNer};
-pub use provision::{ensure_spacy, SpacyRuntime, SPACY_MODEL};
+pub use provision::{ensure_spacy, spacy_provisioned, SpacyRuntime, SPACY_MODEL};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::score::extract::{

@@ -5746,6 +5746,21 @@ const messages: TranslationMap = {
   'graphCohesion.title': 'Coesione del grafo',
   'memory.tab.cohesion': 'Cohesion',
 
+  'harnessInit.title': 'Preparazione in corso',
+  'harnessInit.subtitle': 'OpenHuman sta preparando i componenti necessari al primo avvio.',
+  'harnessInit.stepPython': 'Ambiente di esecuzione Python',
+  'harnessInit.stepSpacy': 'Modello linguistico',
+  'harnessInit.stepNode': 'Ambiente di esecuzione Node.js',
+  'harnessInit.statePending': 'In attesa',
+  'harnessInit.stateRunning': 'Installazione…',
+  'harnessInit.stateDone': 'Pronto',
+  'harnessInit.stateSkipped': 'Saltato',
+  'harnessInit.stateFailed': 'Non riuscito',
+  'harnessInit.failedMessage':
+    "Alcuni passaggi di configurazione non sono stati completati. Puoi riprovare o continuare — OpenHuman userà un'alternativa integrata.",
+  'harnessInit.retry': 'Riprova',
+  'harnessInit.continueAnyway': 'Continua comunque',
+
   'keyring.consent.title': 'Archivio sicuro non disponibile',
   'keyring.consent.description':
     "Il portachiavi del sistema operativo non è accessibile. OpenHuman necessita del tuo permesso per archiviare i segreti utilizzando l'archiviazione locale crittografata.",

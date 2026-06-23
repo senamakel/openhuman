@@ -5706,6 +5706,21 @@ const messages: TranslationMap = {
   'graphCohesion.title': 'Связность графа',
   'memory.tab.cohesion': 'Cohesion',
 
+  'harnessInit.title': 'Идёт настройка',
+  'harnessInit.subtitle': 'OpenHuman готовит компоненты, необходимые при первом запуске.',
+  'harnessInit.stepPython': 'Среда выполнения Python',
+  'harnessInit.stepSpacy': 'Языковая модель',
+  'harnessInit.stepNode': 'Среда выполнения Node.js',
+  'harnessInit.statePending': 'Ожидание',
+  'harnessInit.stateRunning': 'Установка…',
+  'harnessInit.stateDone': 'Готово',
+  'harnessInit.stateSkipped': 'Пропущено',
+  'harnessInit.stateFailed': 'Ошибка',
+  'harnessInit.failedMessage':
+    'Некоторые шаги настройки не завершились. Вы можете повторить попытку или продолжить — OpenHuman использует встроенный резервный вариант.',
+  'harnessInit.retry': 'Повторить',
+  'harnessInit.continueAnyway': 'Всё равно продолжить',
+
   'keyring.consent.title': 'Безопасное хранилище недоступно',
   'keyring.consent.description':
     'Связка ключей вашей операционной системы недоступна. OpenHuman необходимо ваше разрешение на хранение секретов в локальном зашифрованном хранилище.',

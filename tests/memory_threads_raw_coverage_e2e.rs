@@ -24,7 +24,6 @@ use openhuman_core::openhuman::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::query::{
     MemoryQueryTool, MemoryTreeDrillDownTool, MemoryTreeFetchLeavesTool,
     MemoryTreeIngestDocumentTool, MemoryTreeQuerySourceTool, MemoryTreeSearchEntitiesTool,
-    MemoryTreeWalkTool,
 };
 use openhuman_core::openhuman::memory::tools::{
     MemoryForgetTool, MemoryRecallTool, MemoryStoreTool,
@@ -1060,7 +1059,6 @@ fn memory_schema_registries_and_query_tool_metadata_cover_public_surfaces() {
         &MemoryTreeDrillDownTool,
         &MemoryTreeFetchLeavesTool,
         &MemoryTreeIngestDocumentTool,
-        &MemoryTreeWalkTool,
     ] {
         assert!(!tool.name().is_empty());
         assert!(!tool.description().is_empty());

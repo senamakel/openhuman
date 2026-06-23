@@ -136,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Память',
   'brain.tabs.subconscious': 'Подсознание',
   'brain.tabs.graph': 'Граф',
+  'brain.tabs.goals': 'Цели',
+  'brain.goals.title': 'Долгосрочные цели',
+  'brain.goals.description':
+    'Постоянные цели агента для работы с вами. Измените их здесь или позвольте Рефлексии обновить их.',
+  'brain.goals.reflect': 'Рефлексия',
+  'brain.goals.reflecting': 'Рефлексия…',
+  'brain.goals.reflectDone': 'Цели обновлены.',
+  'brain.goals.add': 'Добавить',
+  'brain.goals.addPlaceholder': 'Добавьте долгосрочную цель…',
+  'brain.goals.empty':
+    'Целей пока нет. Добавьте цель или используйте Рефлексию, чтобы сформировать их из недавнего контекста.',
+  'brain.goals.editGoal': 'Изменить цель',
+  'brain.goals.deleteGoal': 'Удалить цель',
+  'brain.goals.actionError': 'Что-то пошло не так. Пожалуйста, попробуйте снова.',
   'brain.tabs.sources': 'Источники',
   'brain.tabs.sync': 'Синхронизация',
   'brain.empty': 'Ваш мозг пока пуст — подключите источник, чтобы начать формировать память.',
@@ -2616,6 +2630,13 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Исправление…',
   'bootCheck.portConflictFixFailed':
     'Автоматическое исправление не сработало. Перезагрузите компьютер и попробуйте снова.',
+  'bootCheck.portConflictOwner': '{name} (PID {pid}) использует сетевой порт, нужный OpenHuman.',
+  'bootCheck.portConflictGuidance':
+    'Закройте эту программу, чтобы освободить порт, или принудительно завершите её ниже, затем повторите попытку.',
+  'bootCheck.portConflictForceQuit': 'Принудительно закрыть {name}',
+  'bootCheck.portConflictForceQuitting': 'Закрытие {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'Не удалось закрыть эту программу. Возможно, потребуется закрыть её вручную и повторить попытку.',
   'notifications.justNow': 'только что',
   'notifications.minAgo': '{n} мин назад',
   'notifications.hrAgo': '{n} ч назад',

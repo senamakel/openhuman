@@ -136,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Pamięć',
   'brain.tabs.subconscious': 'Podświadomość',
   'brain.tabs.graph': 'Graf',
+  'brain.tabs.goals': 'Cele',
+  'brain.goals.title': 'Cele długoterminowe',
+  'brain.goals.description':
+    'Trwałe cele agenta we współpracy z Tobą. Edytuj je tutaj lub pozwól, aby Refleksja je zaktualizowała.',
+  'brain.goals.reflect': 'Refleksja',
+  'brain.goals.reflecting': 'Refleksja…',
+  'brain.goals.reflectDone': 'Cele zaktualizowane.',
+  'brain.goals.add': 'Dodaj',
+  'brain.goals.addPlaceholder': 'Dodaj cel długoterminowy…',
+  'brain.goals.empty':
+    'Brak celów. Dodaj jeden lub użyj Refleksji, aby utworzyć je na podstawie ostatniego kontekstu.',
+  'brain.goals.editGoal': 'Edytuj cel',
+  'brain.goals.deleteGoal': 'Usuń cel',
+  'brain.goals.actionError': 'Coś poszło nie tak. Spróbuj ponownie.',
   'brain.tabs.sources': 'Źródła',
   'brain.tabs.sync': 'Synchronizacja',
   'brain.empty': 'Twój mózg jest na razie pusty — połącz źródło, aby zacząć budować pamięć.',
@@ -2620,6 +2634,13 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Naprawianie…',
   'bootCheck.portConflictFixFailed':
     'Automatyczna naprawa się nie powiodła. Zrestartuj komputer i spróbuj ponownie.',
+  'bootCheck.portConflictOwner': '{name} (PID {pid}) używa portu sieciowego potrzebnego OpenHuman.',
+  'bootCheck.portConflictGuidance':
+    'Zamknij ten program, aby zwolnić port, lub wymuś jego zamknięcie poniżej, a następnie spróbuj ponownie.',
+  'bootCheck.portConflictForceQuit': 'Wymuś zamknięcie {name}',
+  'bootCheck.portConflictForceQuitting': 'Zamykanie {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'Nie udało się zamknąć tego programu. Może być konieczne zamknięcie go ręcznie i ponowienie próby.',
   'notifications.justNow': 'przed chwilą',
   'notifications.minAgo': '{n} min temu',
   'notifications.hrAgo': '{n} godz. temu',

@@ -83,4 +83,31 @@ describe('CollapsedNavRail', () => {
       'page'
     );
   });
+
+  it('renders a Settings icon that navigates to /settings', () => {
+    renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
+    const settings = screen.getByRole('button', { name: 'nav.settings' });
+    expect(settings).toBeInTheDocument();
+    fireEvent.click(settings);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings');
+  });
+
+  it('marks Settings active on /settings routes', () => {
+    renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/settings/general'] });
+    expect(screen.getByRole('button', { name: 'nav.settings' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
+
+  it('defers to Wallet on the wallet sub-page — only one icon stays active', () => {
+    renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/settings/wallet-balances'] });
+    expect(screen.getByRole('button', { name: 'nav.settings' })).not.toHaveAttribute(
+      'aria-current'
+    );
+    expect(screen.getByRole('button', { name: 'nav.wallet' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
 });

@@ -134,6 +134,12 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         content: include_str!("../agent_registry/agents/archivist/prompt.md"),
     },
     PromptResource {
+        uri: "openhuman://prompts/agents/goals_agent",
+        name: "goals_agent",
+        description: "Background curator that keeps the user's long-term goals list fresh.",
+        content: include_str!("../agent_registry/agents/goals_agent/prompt.md"),
+    },
+    PromptResource {
         uri: "openhuman://prompts/agents/trigger_triage",
         name: "trigger_triage",
         description: "Read-only worker that classifies incoming automation triggers.",

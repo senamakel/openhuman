@@ -136,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Memoria',
   'brain.tabs.subconscious': 'Subconscio',
   'brain.tabs.graph': 'Grafico',
+  'brain.tabs.goals': 'Obiettivi',
+  'brain.goals.title': 'Obiettivi a lungo termine',
+  'brain.goals.description':
+    'Gli obiettivi duraturi dell’agente per lavorare con te. Modificali qui o lascia che Rifletti li aggiorni.',
+  'brain.goals.reflect': 'Rifletti',
+  'brain.goals.reflecting': 'Riflessione…',
+  'brain.goals.reflectDone': 'Obiettivi aggiornati.',
+  'brain.goals.add': 'Aggiungi',
+  'brain.goals.addPlaceholder': 'Aggiungi un obiettivo a lungo termine…',
+  'brain.goals.empty':
+    'Ancora nessun obiettivo. Aggiungine uno o usa Rifletti per generarli dal contesto recente.',
+  'brain.goals.editGoal': 'Modifica obiettivo',
+  'brain.goals.deleteGoal': 'Elimina obiettivo',
+  'brain.goals.actionError': 'Qualcosa è andato storto. Riprova.',
   'brain.tabs.sources': 'Fonti',
   'brain.tabs.sync': 'Sincronizzazione',
   'brain.empty':
@@ -2637,6 +2651,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Correzione in corso…',
   'bootCheck.portConflictFixFailed':
     'La correzione automatica non ha funzionato. Riavvia il computer e riprova.',
+  'bootCheck.portConflictOwner':
+    '{name} (PID {pid}) sta usando la porta di rete necessaria a OpenHuman.',
+  'bootCheck.portConflictGuidance':
+    'Chiudi quel programma per liberare la porta, oppure forzane la chiusura qui sotto, poi riprova.',
+  'bootCheck.portConflictForceQuit': 'Forza chiusura di {name}',
+  'bootCheck.portConflictForceQuitting': 'Chiusura di {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'Impossibile chiudere quel programma. Potrebbe essere necessario chiuderlo manualmente e riprovare.',
   'notifications.justNow': 'adesso',
   'notifications.minAgo': '{n}m fa',
   'notifications.hrAgo': '{n}h fa',

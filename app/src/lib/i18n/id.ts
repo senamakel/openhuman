@@ -135,6 +135,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Memori',
   'brain.tabs.subconscious': 'Alam Bawah Sadar',
   'brain.tabs.graph': 'Grafik',
+  'brain.tabs.goals': 'Tujuan',
+  'brain.goals.title': 'Tujuan jangka panjang',
+  'brain.goals.description':
+    'Tujuan tetap agen untuk bekerja dengan Anda. Edit di sini atau biarkan Refleksi memperbaruinya.',
+  'brain.goals.reflect': 'Refleksi',
+  'brain.goals.reflecting': 'Merefleksikan…',
+  'brain.goals.reflectDone': 'Tujuan diperbarui.',
+  'brain.goals.add': 'Tambah',
+  'brain.goals.addPlaceholder': 'Tambahkan tujuan jangka panjang…',
+  'brain.goals.empty':
+    'Belum ada tujuan. Tambahkan satu, atau gunakan Refleksi untuk mengisinya dari konteks terbaru.',
+  'brain.goals.editGoal': 'Edit tujuan',
+  'brain.goals.deleteGoal': 'Hapus tujuan',
+  'brain.goals.actionError': 'Terjadi kesalahan. Silakan coba lagi.',
   'brain.tabs.sources': 'Sumber',
   'brain.tabs.sync': 'Sinkronisasi',
   'brain.empty': 'Otak Anda masih kosong — hubungkan sumber untuk mulai membangun memori.',
@@ -2597,6 +2611,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Memperbaiki…',
   'bootCheck.portConflictFixFailed':
     'Perbaikan otomatis tidak berhasil. Silakan restart komputer Anda dan coba lagi.',
+  'bootCheck.portConflictOwner':
+    '{name} (PID {pid}) sedang menggunakan port jaringan yang dibutuhkan OpenHuman.',
+  'bootCheck.portConflictGuidance':
+    'Tutup program tersebut untuk membebaskan port, atau paksa tutup di bawah, lalu coba lagi.',
+  'bootCheck.portConflictForceQuit': 'Paksa tutup {name}',
+  'bootCheck.portConflictForceQuitting': 'Menutup {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'Tidak dapat menutup program tersebut. Anda mungkin perlu menutupnya secara manual, lalu coba lagi.',
   'notifications.justNow': 'baru saja',
   'notifications.minAgo': '{n}m lalu',
   'notifications.hrAgo': '{n}j lalu',

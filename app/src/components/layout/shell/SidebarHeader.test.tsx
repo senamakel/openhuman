@@ -46,6 +46,8 @@ describe('SidebarHeader', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
     const btn = screen.getByRole('button', { name: 'nav.wallet' });
     expect(btn).toHaveAttribute('aria-label', 'nav.wallet');
+    // The styled <Tooltip> wrapper re-applies a native `title` fallback so the
+    // label still surfaces if the portal pill is occluded by a CEF webview.
     expect(btn).toHaveAttribute('title', 'nav.wallet');
   });
 

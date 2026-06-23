@@ -136,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'स्मृति',
   'brain.tabs.subconscious': 'अवचेतन',
   'brain.tabs.graph': 'ग्राफ़',
+  'brain.tabs.goals': 'लक्ष्य',
+  'brain.goals.title': 'दीर्घकालिक लक्ष्य',
+  'brain.goals.description':
+    'आपके साथ काम करने के लिए एजेंट के स्थायी लक्ष्य। इन्हें यहाँ संपादित करें या Reflect से अपडेट होने दें।',
+  'brain.goals.reflect': 'रिफ़्लेक्ट',
+  'brain.goals.reflecting': 'रिफ़्लेक्ट हो रहा है…',
+  'brain.goals.reflectDone': 'लक्ष्य अपडेट हो गए।',
+  'brain.goals.add': 'जोड़ें',
+  'brain.goals.addPlaceholder': 'एक दीर्घकालिक लक्ष्य जोड़ें…',
+  'brain.goals.empty':
+    'अभी कोई लक्ष्य नहीं है। एक जोड़ें, या हाल के संदर्भ से भरने के लिए Reflect का उपयोग करें।',
+  'brain.goals.editGoal': 'लक्ष्य संपादित करें',
+  'brain.goals.deleteGoal': 'लक्ष्य हटाएँ',
+  'brain.goals.actionError': 'कुछ गलत हो गया। कृपया पुनः प्रयास करें।',
   'brain.tabs.sources': 'स्रोत',
   'brain.tabs.sync': 'सिंक',
   'brain.empty': 'आपका ब्रेन अभी खाली है — मेमोरी बनाना शुरू करने के लिए कोई स्रोत कनेक्ट करें।',
@@ -2593,6 +2607,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'ठीक हो रहा है…',
   'bootCheck.portConflictFixFailed':
     'स्वचालित सुधार काम नहीं आया। कृपया अपना कंप्यूटर पुनः आरंभ करें और पुनः प्रयास करें।',
+  'bootCheck.portConflictOwner':
+    '{name} (PID {pid}) उस नेटवर्क पोर्ट का उपयोग कर रहा है जिसकी OpenHuman को ज़रूरत है।',
+  'bootCheck.portConflictGuidance':
+    'पोर्ट खाली करने के लिए उस प्रोग्राम को बंद करें, या नीचे से उसे ज़बरदस्ती बंद करें, फिर पुनः प्रयास करें।',
+  'bootCheck.portConflictForceQuit': '{name} को ज़बरदस्ती बंद करें',
+  'bootCheck.portConflictForceQuitting': '{name} बंद हो रहा है…',
+  'bootCheck.portConflictForceQuitFailed':
+    'वह प्रोग्राम बंद नहीं किया जा सका। आपको इसे मैन्युअल रूप से बंद करके पुनः प्रयास करना पड़ सकता है।',
   'notifications.justNow': 'अभी-अभी',
   'notifications.minAgo': '{n}मि. पहले',
   'notifications.hrAgo': '{n}घं. पहले',

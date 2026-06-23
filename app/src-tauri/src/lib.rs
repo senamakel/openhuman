@@ -307,6 +307,24 @@ async fn recover_port_conflict(
     Ok(outcome)
 }
 
+/// Terminate the foreign process holding the core RPC port, after the user
+/// consented to the specific pid surfaced by `recover_port_conflict`.
+#[tauri::command]
+async fn force_quit_port_owner(
+    pid: u32,
+    state: tauri::State<'_, core_process::CoreProcessHandle>,
+) -> Result<core_process::RecoveryOutcome, String> {
+    log::info!("[core] force_quit_port_owner: command invoked for pid {pid}");
+    let _guard = state.inner().restart_lock().await;
+    let outcome = state.inner().force_quit_port_owner(pid).await;
+    log::debug!(
+        "[core] force_quit_port_owner: result success={} message={}",
+        outcome.success,
+        outcome.message
+    );
+    Ok(outcome)
+}
+
 /// Start the embedded core process on demand.
 ///
 /// Called by the BootCheckGate (Local mode) before the version check.  The
@@ -3479,6 +3497,7 @@ pub fn run() {
             install_app_update,
             restart_core_process,
             recover_port_conflict,
+            force_quit_port_owner,
             start_core_process,
             local_data_reset::reset_local_data,
             app_quit,

@@ -215,6 +215,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::tool_registry::all_tool_registry_registered_controllers());
     // Document and knowledge graph storage
     controllers.extend(crate::openhuman::memory::all_memory_registered_controllers());
+    // Long-term goals list (editable list + turn-based enrichment agent)
+    controllers.extend(crate::openhuman::memory_goals::all_memory_goals_registered_controllers());
     // Memory tree ingestion layer (#707 — canonicalised chunks with provenance)
     controllers.extend(crate::openhuman::memory_tree::all_memory_tree_registered_controllers());
     // Memory tree retrieval layer (#710 — LLM-callable read tools over the tree)
@@ -397,6 +399,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::tools::all_tools_controller_schemas());
     schemas.extend(crate::openhuman::tool_registry::all_tool_registry_controller_schemas());
     schemas.extend(crate::openhuman::memory::all_memory_controller_schemas());
+    schemas.extend(crate::openhuman::memory_goals::all_memory_goals_controller_schemas());
     schemas.extend(crate::openhuman::memory_tree::all_memory_tree_controller_schemas());
     schemas.extend(crate::openhuman::memory_tree::all_retrieval_controller_schemas());
     schemas.extend(
@@ -526,6 +529,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "workflows" => Some("Discovered workflows (WORKFLOW.md/SKILL.md bundles) and their resources."),
         "socket" => Some("Backend Socket.IO bridge controls."),
         "memory" => Some("Document storage, vector search, key-value store, and knowledge graph."),
+        "memory_goals" => Some(
+            "The agent's long-term goals list for working with the user — editable items plus turn-based enrichment.",
+        ),
         "memory_tree" => Some(
             "Canonical chunk ingestion, provenance capture, and chunk retrieval for source-grounded memory.",
         ),

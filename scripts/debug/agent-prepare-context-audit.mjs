@@ -356,7 +356,11 @@ ${esc}
 """
 
 [tools]
-named = ["memory_recall", "memory_tree", "web_search_tool", "web_fetch"]
+# Retrieval-only surface, matching the builtin context_scout. memory_tree is
+# intentionally excluded: it bundles a write mode (ingest_document) under a
+# ReadOnly wrapper, so it must not be reachable by the read-only scout — even
+# via a prompt-override used in a "read-only" audit.
+named = ["memory_recall", "web_search_tool", "web_fetch"]
 `;
 }
 

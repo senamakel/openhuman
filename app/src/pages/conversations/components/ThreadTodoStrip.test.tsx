@@ -96,7 +96,9 @@ describe('ThreadTodoStrip', () => {
   });
 
   it('collapses and expands the list when the header is clicked', () => {
-    render(<ThreadTodoStrip board={board([card({ id: 'a', title: 'Active work', status: 'todo' })])} />);
+    render(
+      <ThreadTodoStrip board={board([card({ id: 'a', title: 'Active work', status: 'todo' })])} />
+    );
     expect(screen.getByText('Active work')).toBeInTheDocument();
     const header = screen.getByRole('button', { expanded: true });
     fireEvent.click(header);

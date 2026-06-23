@@ -56,7 +56,11 @@ async function boardCardTitles(threadId: string): Promise<string[]> {
   return (await browser.execute((tid: string) => {
     const winAny = window as unknown as { __OPENHUMAN_STORE__?: { getState: () => unknown } };
     const state = winAny.__OPENHUMAN_STORE__?.getState() as
-      | { chatRuntime?: { taskBoardByThread?: Record<string, { cards?: Array<{ title?: string }> }> } }
+      | {
+          chatRuntime?: {
+            taskBoardByThread?: Record<string, { cards?: Array<{ title?: string }> }>;
+          };
+        }
       | undefined;
     const board = state?.chatRuntime?.taskBoardByThread?.[tid];
     return (board?.cards ?? []).map(c => c?.title ?? '');
@@ -109,10 +113,10 @@ describe('Chat thread todo strip', () => {
 
     // The board lands in redux once the core processes the `todo` tool call and
     // emits task_board_updated.
-    await browser.waitUntil(
-      async () => (await boardCardTitles(threadId)).includes(CARD_TITLE),
-      { timeout: 45_000, timeoutMsg: 'thread board never received the agent-authored card' }
-    );
+    await browser.waitUntil(async () => (await boardCardTitles(threadId)).includes(CARD_TITLE), {
+      timeout: 45_000,
+      timeoutMsg: 'thread board never received the agent-authored card',
+    });
 
     // The read-only strip mounts above the composer and lists the active card.
     const strip = await $('[data-testid="thread-todo-strip"]');

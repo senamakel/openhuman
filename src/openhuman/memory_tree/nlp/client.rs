@@ -98,13 +98,13 @@ impl SpacyNer {
         let mut lines = BufReader::new(stdout).lines();
 
         // Handshake: wait for the ready line.
-        let ready_line = match tokio::time::timeout(Duration::from_secs(30), lines.next_line()).await
-        {
-            Ok(Ok(Some(line))) => line,
-            Ok(Ok(None)) => bail!("spaCy service exited before readiness handshake"),
-            Ok(Err(e)) => return Err(e).context("reading spaCy readiness line"),
-            Err(_) => bail!("spaCy service readiness handshake timed out"),
-        };
+        let ready_line =
+            match tokio::time::timeout(Duration::from_secs(30), lines.next_line()).await {
+                Ok(Ok(Some(line))) => line,
+                Ok(Ok(None)) => bail!("spaCy service exited before readiness handshake"),
+                Ok(Err(e)) => return Err(e).context("reading spaCy readiness line"),
+                Err(_) => bail!("spaCy service readiness handshake timed out"),
+            };
         let ready: ReadyLine = serde_json::from_str(&ready_line)
             .with_context(|| format!("parsing spaCy ready line: {ready_line}"))?;
         if !ready.ready {
@@ -140,7 +140,11 @@ impl SpacyNer {
             .write_all(line.as_bytes())
             .await
             .context("writing spaCy request")?;
-        guard.stdin.flush().await.context("flushing spaCy request")?;
+        guard
+            .stdin
+            .flush()
+            .await
+            .context("flushing spaCy request")?;
 
         // Read until the response matching our id (skip stray lines).
         loop {
@@ -182,9 +186,7 @@ pub async fn shared_ner(config: &Config) -> Option<Arc<SpacyNer>> {
             match init_ner(config).await {
                 Ok(ner) => Some(Arc::new(ner)),
                 Err(e) => {
-                    log::warn!(
-                        "[memory_tree::nlp] spaCy unavailable, using Rust fallback: {e:#}"
-                    );
+                    log::warn!("[memory_tree::nlp] spaCy unavailable, using Rust fallback: {e:#}");
                     None
                 }
             }
@@ -204,7 +206,8 @@ mod tests {
 
     #[test]
     fn ready_line_parses() {
-        let r: ReadyLine = serde_json::from_str(r#"{"ready":true,"model":"en_core_web_sm"}"#).unwrap();
+        let r: ReadyLine =
+            serde_json::from_str(r#"{"ready":true,"model":"en_core_web_sm"}"#).unwrap();
         assert!(r.ready);
         let bad: ReadyLine = serde_json::from_str(r#"{"ready":false,"error":"no spacy"}"#).unwrap();
         assert!(!bad.ready);

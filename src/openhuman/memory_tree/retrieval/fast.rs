@@ -29,7 +29,9 @@ use crate::openhuman::memory_tree::graph;
 use crate::openhuman::memory_tree::nlp;
 use crate::openhuman::memory_tree::retrieval::fetch::fetch_leaves;
 use crate::openhuman::memory_tree::retrieval::source::query_source;
-use crate::openhuman::memory_tree::retrieval::types::{hit_from_summary, QueryResponse, RetrievalHit};
+use crate::openhuman::memory_tree::retrieval::types::{
+    hit_from_summary, QueryResponse, RetrievalHit,
+};
 use crate::openhuman::memory_tree::score::store::lookup_entity;
 
 /// Tunables for [`fast_retrieve`]. Defaults match the E2GraphRAG paper's
@@ -158,8 +160,10 @@ fn local_candidates(
         if hits_b.is_empty() {
             continue;
         }
-        let b_nodes: HashMap<&str, i64> =
-            hits_b.iter().map(|h| (h.node_id.as_str(), h.timestamp_ms)).collect();
+        let b_nodes: HashMap<&str, i64> = hits_b
+            .iter()
+            .map(|h| (h.node_id.as_str(), h.timestamp_ms))
+            .collect();
         for ha in &hits_a {
             let Some(&b_ts) = b_nodes.get(ha.node_id.as_str()) else {
                 continue;
@@ -348,7 +352,9 @@ mod tests {
                 source_ref: Some("slack://x".into()),
             }],
         };
-        ingest_chat(cfg, source, "alice", vec![], batch).await.unwrap();
+        ingest_chat(cfg, source, "alice", vec![], batch)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -365,9 +371,13 @@ mod tests {
         let (_tmp, cfg) = test_config();
         // A query with no mechanical entities (regex fallback finds nothing)
         // must take the global branch and return cleanly on an empty store.
-        let resp = fast_retrieve(&cfg, "what happened recently", FastRetrieveOptions::default())
-            .await
-            .unwrap();
+        let resp = fast_retrieve(
+            &cfg,
+            "what happened recently",
+            FastRetrieveOptions::default(),
+        )
+        .await
+        .unwrap();
         assert!(resp.hits.is_empty());
     }
 

@@ -118,7 +118,12 @@ pub fn pair_distances(
         }
     }
 
-    out.sort_by(|x, y| x.dist.cmp(&y.dist).then_with(|| x.a.cmp(&y.a)).then_with(|| x.b.cmp(&y.b)));
+    out.sort_by(|x, y| {
+        x.dist
+            .cmp(&y.dist)
+            .then_with(|| x.a.cmp(&y.a))
+            .then_with(|| x.b.cmp(&y.b))
+    });
     Ok(out)
 }
 
@@ -169,7 +174,10 @@ mod tests {
         let ids = vec!["person:alice".to_string(), "person:carol".to_string()];
 
         let h1 = pair_distances(&cfg, &ids, 1).unwrap();
-        assert!(h1.is_empty(), "alice-carol is 2 hops apart; h=1 finds nothing");
+        assert!(
+            h1.is_empty(),
+            "alice-carol is 2 hops apart; h=1 finds nothing"
+        );
 
         let h2 = pair_distances(&cfg, &ids, 2).unwrap();
         assert_eq!(h2.len(), 1);

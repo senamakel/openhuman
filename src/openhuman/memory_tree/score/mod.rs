@@ -451,7 +451,8 @@ pub(crate) fn persist_score_tx(
                 .map(|e| e.canonical_id.clone())
                 .collect();
             let pairs = crate::openhuman::memory_tree::graph::pairs_from_entities(&ids);
-            let n = crate::openhuman::memory_tree::graph::upsert_edges_tx(tx, &pairs, timestamp_ms)?;
+            let n =
+                crate::openhuman::memory_tree::graph::upsert_edges_tx(tx, &pairs, timestamp_ms)?;
             log::debug!("[memory_tree::graph] indexed cooccurrence edges (tx) count={n}");
         }
     }

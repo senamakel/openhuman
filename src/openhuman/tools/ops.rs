@@ -249,8 +249,6 @@ pub fn all_tools_with_runtime(
         // can explain an empty/stalled wiki + the fix.
         Box::new(MemoryDoctorTool::new(config.clone())),
         Box::new(MemoryQueryTool),
-        Box::new(MemoryQueryWalkTool),
-        Box::new(SmartMemoryWalkTool),
         // memory_search tools — vector search, chunk context, hybrid search,
         // and previously unregistered raw store tools.
         Box::new(MemoryVectorSearchTool),

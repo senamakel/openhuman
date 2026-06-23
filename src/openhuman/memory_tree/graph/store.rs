@@ -80,7 +80,11 @@ pub fn upsert_edges_tx(
 /// [`upsert_edges_tx`] when an enclosing transaction already exists (the
 /// ingest hook does), so the graph write commits atomically with the entity
 /// index write.
-pub fn upsert_edges(config: &Config, pairs: &[(String, String)], timestamp_ms: i64) -> Result<usize> {
+pub fn upsert_edges(
+    config: &Config,
+    pairs: &[(String, String)],
+    timestamp_ms: i64,
+) -> Result<usize> {
     if pairs.is_empty() {
         return Ok(0);
     }
@@ -125,9 +129,8 @@ pub fn clear_edges_for_entities_tx(tx: &Transaction<'_>, entity_ids: &[String]) 
         return Ok(0);
     }
     let mut removed = 0;
-    let mut stmt = tx.prepare(
-        "DELETE FROM mem_tree_entity_edges WHERE entity_a = ?1 OR entity_b = ?1",
-    )?;
+    let mut stmt =
+        tx.prepare("DELETE FROM mem_tree_entity_edges WHERE entity_a = ?1 OR entity_b = ?1")?;
     for id in entity_ids {
         removed += stmt.execute(params![id])?;
     }
@@ -137,8 +140,9 @@ pub fn clear_edges_for_entities_tx(tx: &Transaction<'_>, entity_ids: &[String]) 
 /// Count edge rows (for tests / diagnostics).
 pub fn count_edges(config: &Config) -> Result<u64> {
     with_connection(config, |conn| {
-        let n: i64 =
-            conn.query_row("SELECT COUNT(*) FROM mem_tree_entity_edges", [], |r| r.get(0))?;
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM mem_tree_entity_edges", [], |r| {
+            r.get(0)
+        })?;
         Ok(n.max(0) as u64)
     })
 }

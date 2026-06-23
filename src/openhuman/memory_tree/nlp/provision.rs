@@ -148,7 +148,11 @@ pub async fn ensure_spacy(config: &Config) -> Result<SpacyRuntime> {
 /// Run one provisioning subprocess, capturing output and surfacing a useful
 /// error on non-zero exit or timeout.
 async fn run_step(python_bin: &Path, args: &[&str], timeout: Duration, label: &str) -> Result<()> {
-    log::debug!("[memory_tree::nlp] step `{label}`: {} {:?}", python_bin.display(), args);
+    log::debug!(
+        "[memory_tree::nlp] step `{label}`: {} {:?}",
+        python_bin.display(),
+        args
+    );
     let mut cmd = Command::new(python_bin);
     cmd.args(args);
     cmd.kill_on_drop(true);
@@ -163,7 +167,14 @@ async fn run_step(python_bin: &Path, args: &[&str], timeout: Duration, label: &s
         let stderr = String::from_utf8_lossy(&output.stderr);
         // Tail only — pip output is verbose and may include paths but no
         // secrets; cap to keep logs and the error bounded.
-        let tail: String = stderr.chars().rev().take(800).collect::<String>().chars().rev().collect();
+        let tail: String = stderr
+            .chars()
+            .rev()
+            .take(800)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect();
         bail!("step `{label}` failed (status {}): {tail}", output.status);
     }
     Ok(())

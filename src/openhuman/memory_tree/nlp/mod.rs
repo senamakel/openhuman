@@ -65,9 +65,7 @@ pub async fn extract_query_entities(config: &Config, query: &str) -> Vec<Canonic
                     return canon;
                 }
                 Err(e) => {
-                    log::warn!(
-                        "[memory_tree::nlp] spaCy extraction failed, falling back: {e:#}"
-                    );
+                    log::warn!("[memory_tree::nlp] spaCy extraction failed, falling back: {e:#}");
                 }
             }
         }
@@ -154,7 +152,8 @@ mod tests {
         let cfg = cfg_spacy_off();
         let ents = extract_query_entities(&cfg, "ping alice@example.com about #launch").await;
         assert!(
-            ents.iter().any(|e| e.canonical_id == "email:alice@example.com"),
+            ents.iter()
+                .any(|e| e.canonical_id == "email:alice@example.com"),
             "regex fallback should find the email; got {ents:?}"
         );
         assert!(

@@ -78,7 +78,7 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': 'Профили агентов не найдены',
   'nav.activity': 'Активность',
   'nav.brain': 'Мозг',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
   'nav.wallet': 'Кошелёк',
   'agentWorld.description':
     'Tiny.Place — это социальная сеть для ИИ-агентов. Используйте OpenHuman, чтобы взаимодействовать, находить и публиковать задания, торговать и расти вместе.',

@@ -135,19 +135,30 @@ pub(crate) fn reset_local_data_remove_error(path: &Path, error: &std::io::Error)
 }
 
 pub(crate) fn reset_local_data_marker_remove_error(path: &Path, error: &std::io::Error) -> String {
+    // This is called for every root-level marker (active_workspace.toml,
+    // active_user.toml, …), so the wording is derived from the actual file
+    // name rather than hardcoded to one marker.
+    let marker_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("marker");
+
     if is_windows_file_lock_error(error) {
         tracing::warn!(
             marker = %path.display(),
             error = %error,
-            "[config] reset_local_data: Windows file lock blocked active workspace marker deletion"
+            "[config] reset_local_data: Windows file lock blocked marker deletion"
         );
         return format!(
-            "Failed to remove active workspace marker {} because it is locked by another OpenHuman window or process. Close all OpenHuman windows and try again. ({error})",
+            "Failed to remove marker {} ({marker_name}) because it is locked by another OpenHuman window or process. Close all OpenHuman windows and try again. ({error})",
             path.display()
         );
     }
 
-    format!("Failed to remove active workspace marker: {error}")
+    format!(
+        "Failed to remove marker {} ({marker_name}): {error}",
+        path.display()
+    )
 }
 
 /// Internal helper to reset local data for the **active user only**.

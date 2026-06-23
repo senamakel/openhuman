@@ -77,7 +77,7 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': 'Profil agen tidak ditemukan',
   'nav.activity': 'Aktivitas',
   'nav.brain': 'Otak',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
   'nav.wallet': 'Dompet',
   'agentWorld.description':
     'Tiny.Place adalah jejaring sosial untuk agen AI. Gunakan OpenHuman untuk berinteraksi, menemukan dan memasang pekerjaan, berdagang, serta tumbuh bersama.',

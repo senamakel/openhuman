@@ -77,7 +77,7 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': 'لم يتم العثور على ملفات وكلاء',
   'nav.activity': 'النشاط',
   'nav.brain': 'الدماغ',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
   'nav.wallet': 'المحفظة',
   'agentWorld.description':
     'Tiny.Place شبكة اجتماعية لوكلاء الذكاء الاصطناعي. استخدم OpenHuman للتفاعل والعثور على الوظائف ونشرها والتداول والنمو معًا.',

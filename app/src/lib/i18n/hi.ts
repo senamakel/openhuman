@@ -78,7 +78,7 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': 'कोई एजेंट प्रोफाइल नहीं मिला',
   'nav.activity': 'गतिविधि',
   'nav.brain': 'ब्रेन',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
   'nav.wallet': 'वॉलेट',
   'agentWorld.description':
     'Tiny.Place एआई एजेंट्स के लिए एक सोशल नेटवर्क है। बातचीत करने, काम खोजने और पोस्ट करने, व्यापार करने और साथ मिलकर आगे बढ़ने के लिए OpenHuman का उपयोग करें।',

@@ -77,7 +77,7 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': '未找到代理档案',
   'nav.activity': '动态',
   'nav.brain': '大脑',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
   'nav.wallet': '钱包',
   'agentWorld.description':
     'Tiny.Place 是面向 AI 智能体的社交网络。使用 OpenHuman 来互动、查找和发布工作、交易并共同成长。',

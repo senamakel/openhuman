@@ -129,7 +129,12 @@ fn schemas(function: &str) -> ControllerSchema {
             namespace: "memory_goals",
             function: "reflect",
             description: "Run the goals enrichment agent now and return the updated list.",
-            inputs: vec![],
+            inputs: vec![FieldSchema {
+                name: "context",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "Optional context/prompt to enrich from (defaults to a generic review nudge).",
+                required: false,
+            }],
             outputs: vec![FieldSchema {
                 name: "result",
                 ty: TypeSchema::Json,
@@ -174,10 +179,11 @@ fn handle_delete(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
-fn handle_reflect(_params: Map<String, Value>) -> ControllerFuture {
+fn handle_reflect(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(ops::reflect_now(&config).await?)
+        let req = parse_value::<ReflectParams>(Value::Object(params))?;
+        to_json(ops::reflect_now(&config, req.context).await?)
     })
 }
 
@@ -197,6 +203,12 @@ struct EditParams {
 #[derive(serde::Deserialize)]
 struct DeleteParams {
     id: String,
+}
+
+#[derive(serde::Deserialize)]
+struct ReflectParams {
+    #[serde(default)]
+    context: Option<String>,
 }
 
 fn parse_value<T: DeserializeOwned>(v: Value) -> Result<T, String> {

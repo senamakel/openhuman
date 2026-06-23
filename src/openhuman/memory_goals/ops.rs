@@ -71,11 +71,19 @@ pub async fn delete(workspace_dir: &Path, id: &str) -> Result<RpcOutcome<GoalsDo
 /// resulting list. Unlike the automatic summarization trigger (which fires
 /// best-effort in the background), this awaits the agent so the caller sees
 /// the updated list in the response.
-pub async fn reflect_now(config: &Config) -> Result<RpcOutcome<ReflectResult>, String> {
+pub async fn reflect_now(
+    config: &Config,
+    context: Option<String>,
+) -> Result<RpcOutcome<ReflectResult>, String> {
     log::info!("[memory_goals] rpc=reflect — running goals agent on demand");
     let workspace_dir = config.workspace_dir.clone();
-    let nudge = "Review the user's long-term goals against recent memory and the \
+    let default_nudge = "Review the user's long-term goals against recent memory and the \
                  current conversation. Add, edit, or delete goals as needed.";
+    let nudge = context
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty())
+        .unwrap_or(default_nudge);
 
     let summary = match super::enrich::enrich_goals(config, &workspace_dir, nudge).await {
         Ok(s) => s,

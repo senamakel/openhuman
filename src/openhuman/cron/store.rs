@@ -304,6 +304,7 @@ pub fn due_jobs(config: &Config, now: DateTime<Utc>) -> Result<Vec<CronJob>> {
 
 pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<CronJob> {
     let mut job = get_job(config, job_id)?;
+    let was_enabled = job.enabled;
     let mut schedule_changed = false;
 
     if let Some(schedule) = patch.schedule {
@@ -342,6 +343,24 @@ pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<
 
     if schedule_changed {
         job.next_run = next_run_for_schedule(&job.schedule, Utc::now())?;
+    } else if job.enabled && !was_enabled {
+        // Disabled→enabled transition (e.g. opting into a seeded morning
+        // briefing). A job that sat disabled past its originally computed
+        // next_run would otherwise fire immediately on opt-in, because the
+        // scheduler selects `enabled = 1 AND next_run <= now`. Refresh a stale
+        // next_run so the first run lands on the next scheduled occurrence
+        // rather than firing the instant the user flips the switch.
+        let now = Utc::now();
+        if job.next_run <= now {
+            let refreshed = next_run_for_schedule(&job.schedule, now)?;
+            tracing::debug!(
+                job_id = %job.id,
+                stale_next_run = %job.next_run.to_rfc3339(),
+                next_run = %refreshed.to_rfc3339(),
+                "[cron::update_job] refreshed stale next_run on disabled→enabled transition"
+            );
+            job.next_run = refreshed;
+        }
     }
 
     with_connection(config, |conn| {

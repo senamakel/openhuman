@@ -1082,10 +1082,11 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       });
     });
 
-    it('ignores subagent_tool_call events that arrive before subagent_spawned', () => {
+    it('lazily creates the subagent row for a tool_call before spawned, then merges the late spawn', () => {
       const listeners = renderProvider();
       const threadId = 'tsa-orphan';
 
+      // A child tool call races ahead of (or fires without) subagent_spawned.
       act(() => {
         listeners.onSubagentToolCall?.({
           thread_id: threadId,
@@ -1094,14 +1095,61 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
           tool_name: 'web_search',
           skill_id: 'sub-missing',
           tool_call_id: 'cc-1',
+          args: { query: 'rust traits' },
           subagent: { agent_id: 'researcher', task_id: 'sub-missing', child_iteration: 1 },
         });
       });
 
-      // No row was created — the orphan child tool call is dropped rather
-      // than synthesising a partial subagent row from incomplete data.
-      const timeline = store.getState().chatRuntime.toolTimelineByThread[threadId] ?? [];
-      expect(timeline).toHaveLength(0);
+      // The row is lazily created and the call recorded, rather than dropped.
+      let timeline = store.getState().chatRuntime.toolTimelineByThread[threadId] ?? [];
+      expect(timeline).toHaveLength(1);
+      expect(timeline[0]?.subagent).toMatchObject({ agentId: 'researcher', taskId: 'sub-missing' });
+      expect(timeline[0]?.subagent?.toolCalls).toEqual([
+        {
+          callId: 'cc-1',
+          toolName: 'web_search',
+          status: 'running',
+          iteration: 1,
+          args: { query: 'rust traits' },
+        },
+      ]);
+
+      // The late spawn merges its metadata into the SAME row — no duplicate,
+      // and the already-recorded call is preserved.
+      act(() => {
+        listeners.onSubagentSpawned?.({
+          thread_id: threadId,
+          request_id: 'r1',
+          tool_name: 'researcher',
+          skill_id: 'sub-missing',
+          message: 'spawned',
+          round: 1,
+          subagent: {
+            mode: 'typed',
+            dedicated_thread: false,
+            display_name: 'Researcher',
+            prompt_chars: 10,
+          },
+        });
+      });
+
+      timeline = store.getState().chatRuntime.toolTimelineByThread[threadId] ?? [];
+      expect(timeline).toHaveLength(1);
+      expect(timeline[0]?.subagent).toMatchObject({
+        agentId: 'researcher',
+        taskId: 'sub-missing',
+        mode: 'typed',
+        displayName: 'Researcher',
+      });
+      expect(timeline[0]?.subagent?.toolCalls).toEqual([
+        {
+          callId: 'cc-1',
+          toolName: 'web_search',
+          status: 'running',
+          iteration: 1,
+          args: { query: 'rust traits' },
+        },
+      ]);
     });
   });
 

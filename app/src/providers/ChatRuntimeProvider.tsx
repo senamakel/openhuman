@@ -513,33 +513,53 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         const base = pendingContext.spawnEntryId
           ? existing.filter(e => e.id !== pendingContext.spawnEntryId)
           : existing;
-        dispatch(
-          setToolTimelineForThread({
-            threadId: event.thread_id,
-            entries: [
-              ...base,
-              decorateEntry({
-                id: `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`,
-                name: `subagent:${event.tool_name}`,
-                round: event.round,
-                status: 'running',
-                detail: pendingContext.prompt,
-                sourceToolName: pendingContext.sourceToolName,
-                subagent: {
-                  taskId: event.skill_id,
-                  agentId: event.tool_name,
-                  displayName: event.subagent?.display_name,
-                  workerThreadId: event.subagent?.worker_thread_id,
-                  mode: event.subagent?.mode,
-                  dedicatedThread: event.subagent?.dedicated_thread,
-                  prompt: pendingContext.prompt,
-                  toolCalls: [],
-                  transcript: [],
-                },
-              }),
-            ],
-          })
-        );
+        const spawnRowId = `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`;
+        // Spawn metadata to seed/merge onto the sub-agent row.
+        const spawnMeta = {
+          taskId: event.skill_id,
+          agentId: event.tool_name,
+          displayName: event.subagent?.display_name,
+          workerThreadId: event.subagent?.worker_thread_id,
+          mode: event.subagent?.mode,
+          dedicatedThread: event.subagent?.dedicated_thread,
+          prompt: pendingContext.prompt,
+        };
+        // Upsert by id: a tool-call/iteration event may have raced ahead and
+        // lazily created this row already (see onSubagentToolCall). If so, merge
+        // the spawn metadata in while preserving the calls/transcript collected
+        // so far, rather than appending a duplicate row.
+        const existingRowIdx = base.findIndex(e => e.id === spawnRowId);
+        const entries =
+          existingRowIdx >= 0
+            ? base.map((e, i) =>
+                i === existingRowIdx
+                  ? decorateEntry({
+                      ...e,
+                      name: `subagent:${event.tool_name}`,
+                      round: event.round,
+                      detail: pendingContext.prompt ?? e.detail,
+                      sourceToolName: pendingContext.sourceToolName ?? e.sourceToolName,
+                      subagent: {
+                        ...spawnMeta,
+                        toolCalls: e.subagent?.toolCalls ?? [],
+                        transcript: e.subagent?.transcript ?? [],
+                      },
+                    })
+                  : e
+              )
+            : [
+                ...base,
+                decorateEntry({
+                  id: spawnRowId,
+                  name: `subagent:${event.tool_name}`,
+                  round: event.round,
+                  status: 'running',
+                  detail: pendingContext.prompt,
+                  sourceToolName: pendingContext.sourceToolName,
+                  subagent: { ...spawnMeta, toolCalls: [], transcript: [] },
+                }),
+              ];
+        dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
       },
       onSubagentAwaitingUser: (event: ChatSubagentDoneEvent) => {
         const subagentRowId = `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`;
@@ -622,14 +642,40 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         if (!agentId) return;
         const rowId = `${event.thread_id}:subagent:${taskId}:${agentId}`;
         const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        const idx = existing.findIndex(entry => entry.id === rowId);
-        if (idx < 0) return;
-        const entry = existing[idx];
+        let idx = existing.findIndex(entry => entry.id === rowId);
+        // Lazily create the sub-agent row when its tool call arrives before (or
+        // without) a `subagent_spawned` event — out-of-order socket delivery or
+        // delegation flows that never emit a spawn used to drop EVERY tool call
+        // here (idx < 0). `subagent_spawned` upserts into this row by id when it
+        // does arrive, so its richer metadata (prompt, worker thread) is merged
+        // in without losing the calls accumulated meanwhile.
+        let rows = existing;
+        if (idx < 0) {
+          const created = decorateEntry({
+            id: rowId,
+            name: `subagent:${agentId}`,
+            round: event.round,
+            status: 'running',
+            subagent: {
+              taskId,
+              agentId,
+              displayName: event.subagent?.display_name,
+              workerThreadId: event.subagent?.worker_thread_id,
+              mode: event.subagent?.mode,
+              dedicatedThread: event.subagent?.dedicated_thread,
+              toolCalls: [],
+              transcript: [],
+            },
+          });
+          rows = [...existing, created];
+          idx = rows.length - 1;
+        }
+        const entry = rows[idx];
         if (!entry.subagent) return;
         // De-dupe on call_id — the same call should not append twice if
         // the socket layer redelivers (e.g. on reconnect during a run).
         if (entry.subagent.toolCalls.some(c => c.callId === event.tool_call_id)) return;
-        const next = [...existing];
+        const next = [...rows];
         next[idx] = {
           ...entry,
           subagent: {

@@ -645,10 +645,32 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       onSubagentToolCall: event => {
         const taskId = event.subagent?.task_id ?? event.skill_id;
         const agentId = event.subagent?.agent_id;
-        if (!agentId) return;
+        if (!agentId) {
+          // The only path that silently drops a child tool call: the payload
+          // carries no `subagent.agent_id`, so we can't key it to a row. Log it
+          // loudly — a recurring hit here explains "sub-agent tool calls aren't
+          // showing" and points at the emitter (progress_bridge) rather than the
+          // UI.
+          logChatRuntime(
+            '[subagent] DROP tool_call — missing subagent.agent_id thread=%s task=%s tool=%s call=%s',
+            event.thread_id,
+            taskId,
+            event.tool_name,
+            event.tool_call_id
+          );
+          return;
+        }
         const rowId = `${event.thread_id}:subagent:${taskId}:${agentId}`;
         const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
         let idx = existing.findIndex(entry => entry.id === rowId);
+        logChatRuntime(
+          '[subagent] tool_call thread=%s row=%s tool=%s call=%s rowExists=%s',
+          event.thread_id,
+          rowId,
+          event.tool_name,
+          event.tool_call_id,
+          idx >= 0
+        );
         // Lazily create the sub-agent row when its tool call arrives before (or
         // without) a `subagent_spawned` event — out-of-order socket delivery or
         // delegation flows that never emit a spawn used to drop EVERY tool call
@@ -719,11 +741,27 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         const rowId = `${event.thread_id}:subagent:${taskId}:${agentId}`;
         const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
         const idx = existing.findIndex(entry => entry.id === rowId);
-        if (idx < 0) return;
+        if (idx < 0) {
+          logChatRuntime(
+            '[subagent] DROP tool_result — no row thread=%s row=%s call=%s',
+            event.thread_id,
+            rowId,
+            event.tool_call_id
+          );
+          return;
+        }
         const entry = existing[idx];
         if (!entry.subagent) return;
         const callIdx = entry.subagent.toolCalls.findIndex(c => c.callId === event.tool_call_id);
-        if (callIdx < 0) return;
+        if (callIdx < 0) {
+          logChatRuntime(
+            '[subagent] DROP tool_result — call not recorded thread=%s row=%s call=%s',
+            event.thread_id,
+            rowId,
+            event.tool_call_id
+          );
+          return;
+        }
         const updatedCalls = [...entry.subagent.toolCalls];
         updatedCalls[callIdx] = {
           ...updatedCalls[callIdx],

@@ -1,7 +1,8 @@
 //! Seed default proactive agent cron jobs.
 //!
 //! Called once after onboarding completes to create:
-//! - A recurring daily morning briefing job (7 AM, user's local time or UTC)
+//! - A recurring daily morning briefing job (7 AM, user's local time or UTC),
+//!   seeded disabled until the user opts in
 //!
 //! The morning briefing uses `mode: "proactive"` delivery so the
 //! channels module's
@@ -73,7 +74,7 @@ pub fn seed_proactive_agents(config: &Config) -> Result<()> {
     prune_legacy_welcome(config, &existing);
 
     if !has(MORNING_BRIEFING_JOB_NAME) {
-        tracing::info!("[cron::seed] creating morning_briefing daily cron job");
+        tracing::info!("[cron::seed] creating morning_briefing daily cron job (disabled — opt-in)");
         seed_morning_briefing(config)?;
     } else {
         tracing::debug!("[cron::seed] morning_briefing job already exists — skipping");
@@ -164,7 +165,12 @@ fn prune_legacy_welcome(config: &Config, existing: &[crate::openhuman::cron::Cro
 /// (unless a timezone is later set explicitly).
 /// The cron expression `0 7 * * *` fires once per day. Users can later
 /// adjust the schedule or time zone via `cron.update_job`.
+///
+/// Created disabled in a single insert. The briefing is a full proactive agent
+/// turn, so it must not start billing inference until the user explicitly
+/// enables it from Settings/Routines (`cron.update_job → enabled=true`).
 fn seed_morning_briefing(config: &Config) -> Result<()> {
+    tracing::debug!("[cron::seed] seed_morning_briefing start");
     let schedule = Schedule::Cron {
         expr: "0 7 * * *".to_string(),
         tz: None,
@@ -178,7 +184,7 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
         "efficient briefing they can scan in 30 seconds over coffee."
     );
 
-    add_agent_job_with_definition(
+    let job = add_agent_job_with_definition(
         config,
         Some(MORNING_BRIEFING_JOB_NAME.to_string()),
         schedule,
@@ -188,9 +194,14 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
         Some(proactive_delivery()),
         false, // recurring — do not delete after run
         Some(MORNING_BRIEFING_JOB_NAME.to_string()),
-        true, // enabled
+        false, // enabled=false — opt-in, created disabled atomically
     )?;
 
+    tracing::debug!(
+        job_id = %job.id,
+        enabled = job.enabled,
+        "[cron::seed] seed_morning_briefing done — created disabled (opt-in)"
+    );
     Ok(())
 }
 
@@ -325,6 +336,54 @@ mod tests {
                 .count(),
             1,
             "second seed must not duplicate the tinyplace_autopilot job"
+        );
+    }
+
+    #[test]
+    fn seeds_morning_briefing_disabled_and_idempotent() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+
+        seed_proactive_agents(&config).expect("first seed");
+        let jobs = list_jobs(&config).unwrap();
+        assert!(
+            jobs.iter()
+                .filter(|j| matches!(j.job_type, crate::openhuman::cron::JobType::Agent))
+                .all(|j| !j.enabled),
+            "fresh onboarding seed must not create enabled billable agent cron jobs: {jobs:?}"
+        );
+        let briefings: Vec<_> = jobs
+            .iter()
+            .filter(|j| j.name.as_deref() == Some(MORNING_BRIEFING_JOB_NAME))
+            .collect();
+        assert_eq!(
+            briefings.len(),
+            1,
+            "exactly one morning_briefing job, got {briefings:?}"
+        );
+        let briefing = briefings[0];
+        assert!(
+            !briefing.enabled,
+            "morning_briefing must be seeded disabled until explicit opt-in"
+        );
+        assert_eq!(
+            briefing.agent_id.as_deref(),
+            Some(MORNING_BRIEFING_JOB_NAME)
+        );
+        assert!(matches!(
+            briefing.schedule,
+            Schedule::Cron { ref expr, .. } if expr == "0 7 * * *"
+        ));
+
+        seed_proactive_agents(&config).expect("second seed");
+        let after = list_jobs(&config).unwrap();
+        assert_eq!(
+            after
+                .iter()
+                .filter(|j| j.name.as_deref() == Some(MORNING_BRIEFING_JOB_NAME))
+                .count(),
+            1,
+            "second seed must not duplicate the morning_briefing job"
         );
     }
 

@@ -474,7 +474,9 @@ fn managed_backend_chat_role_inherits_default_model() {
 #[test]
 fn coding_workload_byok_route_wins_over_managed_pin() {
     let mut config = Config::default();
-    config.cloud_providers.push(anthropic_entry("p_ant", "anthropic"));
+    config
+        .cloud_providers
+        .push(anthropic_entry("p_ant", "anthropic"));
     config.coding_provider = Some("anthropic:claude-sonnet-4-6".to_string());
     let (_, model) =
         create_chat_provider("coding", &config).expect("create_chat_provider must succeed");

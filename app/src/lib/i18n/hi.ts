@@ -2153,6 +2153,8 @@ const messages: TranslationMap = {
   'chat.left': 'बचा हुआ',
   'chat.setup': 'सेट अप करें',
   'chat.switchToText': 'टेक्स्ट पर स्विच करें',
+  'chat.superContext.label': 'सुपर कॉन्टेक्स्ट',
+  'chat.superContext.hint': 'जवाब देने से पहले संदर्भ इकट्ठा करता है — नए थ्रेड पर लागू',
   'chat.transcribing': 'ट्रांसक्राइब हो रहा है...',
   'chat.stopAndSend': 'रोकें और भेजें',
   'chat.startTalking': 'बोलना शुरू करें',

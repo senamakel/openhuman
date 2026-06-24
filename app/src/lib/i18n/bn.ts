@@ -2157,6 +2157,8 @@ const messages: TranslationMap = {
   'chat.left': 'বাকি',
   'chat.setup': 'সেটআপ করুন',
   'chat.switchToText': 'টেক্সটে পরিবর্তন করুন',
+  'chat.superContext.label': 'সুপার কনটেক্সট',
+  'chat.superContext.hint': 'উত্তর দেওয়ার আগে প্রসঙ্গ সংগ্রহ করে — নতুন থ্রেডে প্রযোজ্য',
   'chat.transcribing': 'ট্রান্সক্রাইব হচ্ছে...',
   'chat.stopAndSend': 'থামুন ও পাঠান',
   'chat.startTalking': 'কথা বলা শুরু করুন',

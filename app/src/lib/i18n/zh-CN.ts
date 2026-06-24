@@ -2042,6 +2042,8 @@ const messages: TranslationMap = {
   'chat.left': '剩余',
   'chat.setup': '设置',
   'chat.switchToText': '切换到文本',
+  'chat.superContext.label': '超级上下文',
+  'chat.superContext.hint': '回复前收集上下文 — 适用于新会话',
   'chat.transcribing': '转录中...',
   'chat.stopAndSend': '停止并发送',
   'chat.startTalking': '开始说话',

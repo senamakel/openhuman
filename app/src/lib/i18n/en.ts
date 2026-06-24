@@ -2548,6 +2548,8 @@ const en: TranslationMap = {
   'chat.left': 'left',
   'chat.setup': 'Set up',
   'chat.switchToText': 'Switch to text',
+  'chat.superContext.label': 'Super context',
+  'chat.superContext.hint': 'Gathers context before replying — applies to new threads',
   'chat.transcribing': 'Transcribing...',
   'chat.stopAndSend': 'Stop and send',
   'chat.startTalking': 'Start talking',

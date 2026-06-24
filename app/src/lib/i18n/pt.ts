@@ -2197,6 +2197,8 @@ const messages: TranslationMap = {
   'chat.left': 'restante',
   'chat.setup': 'Configurar',
   'chat.switchToText': 'Mudar para texto',
+  'chat.superContext.label': 'Supercontexto',
+  'chat.superContext.hint': 'Reúne contexto antes de responder — aplica-se a novas conversas',
   'chat.transcribing': 'Transcrevendo...',
   'chat.stopAndSend': 'Parar e enviar',
   'chat.startTalking': 'Comece a falar',

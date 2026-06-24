@@ -77,6 +77,9 @@ vi.mock('../../services/api/threadApi', () => ({
     putTaskBoard: vi
       .fn()
       .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
+    decidePlan: vi
+      .fn()
+      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
     appendMessage: vi.fn().mockResolvedValue({}),
     deleteThread: vi.fn().mockResolvedValue({ deleted: true }),
     generateTitleIfNeeded: vi.fn().mockResolvedValue({}),
@@ -1982,5 +1985,42 @@ describe('Conversations — open-session resume (View work)', () => {
 
     await waitFor(() => expect(store.getState().thread.selectedThreadId).toBe('sess-99'));
     expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
+  });
+
+  it('approves a parked plan card from the thread todo strip', async () => {
+    const thread = makeThread({ id: 'approve-thread', title: 'Approve thread' });
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+
+    const store = await renderConversations({ thread: selectedThreadState(thread) });
+    const selectedId = store.getState().thread.selectedThreadId ?? 'approve-thread';
+    await act(async () => {
+      store.dispatch(
+        setTaskBoardForThread({
+          threadId: selectedId,
+          board: {
+            threadId: selectedId,
+            updatedAt: '',
+            cards: [
+              {
+                id: 'pc1',
+                title: 'Needs sign-off',
+                status: 'awaiting_approval',
+                order: 0,
+                updatedAt: '',
+              },
+            ],
+          },
+        })
+      );
+    });
+
+    // The strip surfaces Approve/Reject only for parked cards; approving routes
+    // through onDecidePlan → runDecidePlan → threadApi.decidePlan.
+    const approveBtn = await screen.findByTitle('Approve');
+    await act(async () => {
+      fireEvent.click(approveBtn);
+    });
+
+    await waitFor(() => expect(threadApi.decidePlan).toHaveBeenCalledWith(selectedId, 'pc1', true));
   });
 });

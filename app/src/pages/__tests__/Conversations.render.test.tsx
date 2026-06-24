@@ -1673,10 +1673,10 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
       fireEvent.click(screen.getByTestId('view-process-source'));
     });
 
-    // Exercise onViewSubagent: clicking the subagent row's "view full
-    // processing" affordance opens the subagent drawer for that task.
+    // Exercise onViewSubagent: clicking the subagent row opens the subagent
+    // drawer for that task (the row is now a single click-to-open affordance).
     await act(async () => {
-      fireEvent.click(screen.getByTestId('subagent-view-processing'));
+      fireEvent.click(screen.getByTestId('subagent-open-panel'));
     });
   });
 

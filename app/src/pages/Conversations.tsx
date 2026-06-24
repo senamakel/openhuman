@@ -92,6 +92,7 @@ import {
   selectBackgroundProcesses,
 } from './conversations/components/BackgroundProcessesPanel';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
+import { ConversationView } from './conversations/components/ConversationView';
 import { SubagentDrawer } from './conversations/components/SubagentDrawer';
 import { ThreadTodoStrip } from './conversations/components/ThreadTodoStrip';
 import { ToolTimelineBlock } from './conversations/components/ToolTimelineBlock';
@@ -1687,6 +1688,411 @@ const Conversations = ({
     </div>
   );
 
+  // Footer for the page/sidebar chat: banners, the composer, and the token
+  // stats strip. Passed to `ConversationView` as its footer slot so the page
+  // renders through the same frame as the sub-agent side panel (`panel`
+  // variant), which passes just the stats strip there (composer removed).
+  const chatFooter = (
+    <>
+      <>
+        {isNearLimit &&
+          !isAtLimit &&
+          isFreeTier &&
+          shouldShowBanner('conversations-warning', 24 * 60 * 60 * 1000) && (
+            <div className="mb-3">
+              <UpsellBanner
+                variant="warning"
+                title={t('chat.approachingLimit')}
+                message={t('chat.approachingLimitMsg').replace(
+                  '{pct}',
+                  String(Math.round(usagePct * 100))
+                )}
+                ctaLabel={t('chat.upgrade')}
+                onCtaClick={() => {
+                  void openUrl(BILLING_DASHBOARD_URL);
+                }}
+                dismissible
+                onDismiss={() => dismissBanner('conversations-warning')}
+              />
+            </div>
+          )}
+        {teamUsage && shouldShowBudgetCompletedMessage && (
+          <div className="mb-3 p-3 rounded-xl bg-coral-50 border border-coral-200 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <svg
+                className="w-4 h-4 text-coral-400 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <p className="text-xs text-coral-600">
+                {teamUsage.cycleBudgetUsd > 0
+                  ? `${t('chat.weeklyLimitHit')}${teamUsage.cycleEndsAt ? ` ${t('chat.resets')} ${formatResetTime(teamUsage.cycleEndsAt)}.` : ''} ${t('chat.topUpToContinue')}`
+                  : t('chat.budgetComplete')}
+              </p>
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <button
+                type="button"
+                data-analytics-id="chat-budget-openrouter-free"
+                disabled={openRouterStatus === 'saving'}
+                onClick={() => {
+                  void handleUseOpenRouterFree();
+                }}
+                className="px-3 py-1.5 rounded-lg border border-coral-300 bg-white text-coral-700 hover:bg-coral-100 disabled:cursor-wait disabled:opacity-70 text-xs font-medium transition-colors">
+                {openRouterStatus === 'saving'
+                  ? t('openrouterFree.saving')
+                  : t('openrouterFree.cta')}
+              </button>
+              <button
+                type="button"
+                data-analytics-id="chat-budget-top-up"
+                onClick={() => {
+                  void openUrl(BILLING_DASHBOARD_URL);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-white text-xs font-medium transition-colors">
+                {t('chat.topUp')}
+              </button>
+            </div>
+          </div>
+        )}
+        {openRouterStatus === 'error' && (
+          <div className="mb-3 rounded-lg border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700">
+            {t('openrouterFree.error')}
+          </div>
+        )}
+
+        {/* Cycle usage pill moved into ChatComposer toolbar */}
+      </>
+
+      {sendAdvisory && (
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-amber-700" data-chat-send-advisory>
+            {sendAdvisory}
+          </p>
+          <button
+            type="button"
+            data-analytics-id="chat-send-advisory-dismiss"
+            onClick={() => setSendAdvisory(null)}
+            className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors ml-2">
+            {t('common.dismiss')}
+          </button>
+        </div>
+      )}
+
+      {attachError && (
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-coral-500" data-chat-send-error-code={attachError.code}>
+            {attachError.message}
+          </p>
+          <button
+            type="button"
+            data-analytics-id="chat-attach-error-dismiss"
+            onClick={() => setAttachError(null)}
+            className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors ml-2">
+            {t('common.dismiss')}
+          </button>
+        </div>
+      )}
+
+      {sendError && (
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-coral-500" data-chat-send-error-code={sendError.code}>
+            {sendError.message}
+          </p>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+            {(sendError.code === 'stt_not_ready' ||
+              sendError.code === 'voice_transcription' ||
+              sendError.code === 'tts_not_ready' ||
+              sendError.code === 'voice_synthesis') && (
+              <button
+                type="button"
+                data-analytics-id="chat-send-error-setup"
+                onClick={() => {
+                  setSendError(null);
+                  // STT/TTS provider settings live on the Voice panel
+                  // since PR 2; the legacy local-model route was for
+                  // back when speech assets were lumped with Ollama.
+                  navigate('/settings/voice', settingsNavState(location));
+                }}
+                className="text-xs text-primary-500 hover:text-primary-600 font-medium transition-colors">
+                {t('chat.setup')}
+              </button>
+            )}
+            <button
+              type="button"
+              data-analytics-id="chat-send-error-dismiss"
+              onClick={() => setSendError(null)}
+              className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors">
+              {t('common.dismiss')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(() => {
+        // Surface a parked ApprovalGate request for the shown thread just
+        // above the composer, so it stays visible regardless of scroll.
+        const approvalThreadId = selectedThreadId ?? firstActiveThreadId;
+        const pendingApproval = approvalThreadId
+          ? pendingApprovalByThread[approvalThreadId]
+          : undefined;
+        return pendingApproval && approvalThreadId ? (
+          <div className="mb-2">
+            <ApprovalRequestCard threadId={approvalThreadId} approval={pendingApproval} />
+          </div>
+        ) : null;
+      })()}
+
+      {(() => {
+        // Surface in-flight + failed artifact cards above the composer
+        // (#2779). Mirrors the approval-card placement so the user sees
+        // the spinner / error without scrolling. `ready` cards are
+        // delegated to the header ChatFilesChip panel (#3024) so the
+        // chat scroll area isn't permanently occupied — restored decks
+        // are listable from the chip on demand.
+        //
+        // NOTE: `onRetry` is intentionally omitted on `ArtifactCard`
+        // below — real retry (either `removeArtifact(thread, id)` to
+        // let the user re-prompt, or full re-dispatch of the producing
+        // tool call) is tracked in follow-up issue #3162. The
+        // failed-card UI still surfaces the truncated error reason;
+        // the button just stays hidden until #3162 lands.
+        const artifactThreadId = selectedThreadId ?? firstActiveThreadId;
+        const all = artifactThreadId ? (artifactsByThread[artifactThreadId] ?? []) : [];
+        const live = all.filter(a => a.status !== 'ready');
+        if (live.length === 0) return null;
+        return (
+          <div className="mb-2 flex flex-col gap-2">
+            {live.map(artifact => (
+              <ArtifactCard key={artifact.artifactId} artifact={artifact} />
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Thread-scoped todo list the agent maintains as it works — read-only,
+            pinned above the composer. Distinct from the Intelligence-tab kanban
+            (global `user-tasks`). Renders nothing when the thread has no active
+            cards. */}
+      {selectedThreadId && (
+        <ThreadTodoStrip
+          board={selectedTaskBoard}
+          disabled={!selectedThreadId}
+          onDecidePlan={(card, approve) => {
+            void runDecidePlan({
+              threadId: selectedThreadId,
+              card,
+              approve,
+              dispatch,
+              notify: setSendAdvisory,
+              t,
+            });
+          }}
+          onViewSession={card => {
+            if (!card.sessionThreadId) return;
+            // Navigation only — do NOT mark the thread active. activeThreadId
+            // tracks a true in-flight turn; forcing a completed session active
+            // would wedge the composer.
+            dispatch(setSelectedThread(card.sessionThreadId));
+            void dispatch(loadThreadMessages(card.sessionThreadId));
+            if (shouldSyncChatRoute) {
+              navigate(chatThreadPath(card.sessionThreadId));
+            }
+          }}
+        />
+      )}
+
+      {composer === 'mic-cloud' ? (
+        <div className="flex flex-col items-center gap-3 py-1">
+          <MicComposer
+            // Without `!selectedThreadId`, a mic submit before a thread is
+            // ready hits `handleSendMessage`'s early return and the
+            // transcript is silently dropped — the user spoke into the void.
+            disabled={composerInteractionBlocked || isSending || !selectedThreadId}
+            onSubmit={text => handleSendMessage(text)}
+            onError={message => setSendError(chatSendError('voice_transcription', message))}
+            showDeviceSelector
+            onSwitchToText={() => setComposerOverride('text')}
+          />
+        </div>
+      ) : inputMode === 'text' ? (
+        <ChatComposer
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          onSend={handleSendMessage}
+          textInputRef={textInputRef}
+          fileInputRef={fileInputRef}
+          composerInteractionBlocked={composerInteractionBlocked}
+          isSending={isSending}
+          allowParallelSend={selectedThreadActive}
+          attachments={attachments}
+          onAttachFiles={handleAttachFiles}
+          onRemoveAttachment={id => setAttachments(prev => prev.filter(a => a.id !== id))}
+          attachError={attachError}
+          onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
+          handleInputKeyDown={handleInputKeyDown}
+          inlineCompletionSuffix={inlineCompletionSuffix}
+          isComposingTextRef={isComposingTextRef}
+          maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
+          // Empty → no native `accept` filter (it greys valid files on
+          // macOS/CEF). Type enforcement happens in handleAttachFiles via
+          // validateAndReadFile, which honors modelSupportsVision.
+          allowedMimeTypes={[]}
+          attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
+        />
+      ) : (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-analytics-id="chat-voice-switch-to-text"
+            onClick={() => setInputMode('text')}
+            disabled={isRecording || isTranscribing}
+            className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
+            title={t('chat.switchToText')}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M4 6h16M4 12h10m-10 6h16"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            data-analytics-id="chat-voice-record-toggle"
+            onClick={() => {
+              void handleVoiceRecordToggle();
+            }}
+            disabled={!rustChat || isSending || isTranscribing || !canUseMicrophoneApi}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+              isRecording
+                ? 'bg-coral-500 hover:bg-coral-400 text-white'
+                : 'bg-primary-600 hover:bg-primary-500 text-white'
+            } disabled:opacity-40 disabled:cursor-not-allowed`}>
+            {isTranscribing
+              ? t('chat.transcribing')
+              : isRecording
+                ? t('chat.stopAndSend')
+                : t('chat.startTalking')}
+          </button>
+          <p className="text-xs text-stone-400 dark:text-neutral-500 truncate">
+            {voiceStatus ??
+              (isPlayingReply && replyMode === 'voice'
+                ? t('chat.playingVoiceReply')
+                : canUseMicrophoneApi
+                  ? t('chat.voiceHint')
+                  : t('chat.micUnavailable'))}
+          </p>
+        </div>
+      )}
+      {/* Worker-thread back-to-parent breadcrumb (page variant) — its own line. */}
+      {!isSidebar && selectedThreadParent && (
+        <button
+          type="button"
+          data-analytics-id="chat-header-back-to-parent-thread"
+          onClick={() => {
+            dispatch(setSelectedThread(selectedThreadParent.id));
+            void dispatch(loadThreadMessages(selectedThreadParent.id));
+            navigate(chatThreadPath(selectedThreadParent.id));
+          }}
+          className="mt-2 flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
+          data-testid="worker-thread-back-to-parent">
+          <span aria-hidden="true">←</span>
+          <span className="max-w-[16rem] truncate">
+            {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
+          </span>
+        </button>
+      )}
+
+      {/* Thread title + inline rename moved to the sidebar thread list rows. */}
+
+      {/* Model + token stats (left) and the quick/reasoning toggle + files
+            chip (right) share one line. */}
+      <div
+        className="mt-2 flex items-center justify-between gap-2"
+        data-walkthrough="chat-agent-panel">
+        <ComposerTokenStats model={resolvedModel} />
+        {!isSidebar && (
+          <div className="flex flex-shrink-0 items-center gap-2">
+            <div
+              className="flex h-7 items-center rounded-full border border-stone-200 bg-stone-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-800"
+              role="radiogroup"
+              aria-label={t('chat.agentProfile.label')}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selectedAgentProfileId === 'default'}
+                data-analytics-id="chat-header-mode-quick"
+                onClick={() => void handleSelectAgentProfile('default')}
+                className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
+                  selectedAgentProfileId === 'default'
+                    ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                    : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                }`}>
+                {t('chat.agentProfile.quick')}
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selectedAgentProfileId === 'reasoning'}
+                data-analytics-id="chat-header-mode-reasoning"
+                onClick={() => void handleSelectAgentProfile('reasoning')}
+                className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
+                  selectedAgentProfileId === 'reasoning'
+                    ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                    : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                }`}>
+                {t('chat.agentProfile.reasoning')}
+              </button>
+            </div>
+            {selectedThreadId && (
+              <button
+                type="button"
+                data-testid="background-processes-toggle"
+                data-analytics-id="chat-header-background-processes"
+                onClick={() => setShowBackgroundProcesses(true)}
+                aria-label={t('conversations.backgroundTasks.title')}
+                title={
+                  backgroundProcesses.length > 0
+                    ? t('conversations.backgroundTasks.titleWithCount').replace(
+                        '{count}',
+                        String(backgroundProcesses.length)
+                      )
+                    : t('conversations.backgroundTasks.title')
+                }
+                className="relative flex h-7 w-7 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                  />
+                </svg>
+                {runningBackgroundCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-semibold leading-none text-white">
+                    {runningBackgroundCount}
+                  </span>
+                )}
+              </button>
+            )}
+            {(selectedThreadId ?? firstActiveThreadId) && (
+              <ChatFilesChip threadId={(selectedThreadId ?? firstActiveThreadId) as string} />
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   // Main chat area (right pane): header, message list, composer.
   const mainPanel = (
     <div
@@ -1698,13 +2104,11 @@ const Conversations = ({
             // the absolutely-positioned floating composer.
             'relative flex-1 flex flex-col min-w-0'
       }>
-      <div
+      <ConversationView
         ref={messagesContainerRef}
-        // Full-width scroll (scrollbar hugs the window edge); inner content is
-        // centered and width-capped per branch below. `min-h-0` lets this
-        // basis-0 flex child shrink to 0 so the composer footer can take the
-        // space (and scroll) on short windows (#3785).
-        className="flex-1 min-h-0 overflow-y-auto">
+        variant={isSidebar ? 'sidebar' : 'page'}
+        footerWalkthrough="home-cta"
+        footer={chatFooter}>
         {isLoadingMessages ? (
           <div className="mx-auto w-full max-w-[48.75rem] space-y-4 px-5 py-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -2229,436 +2633,7 @@ const Conversations = ({
             <p className="text-sm text-stone-600 dark:text-neutral-300">{t('chat.noMessages')}</p>
           </div>
         )}
-      </div>
-
-      {/* Full-width fade so messages dissolve into the background (black/white
-          per theme) behind the floating composer. Page variant only. */}
-      {!isSidebar && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-black dark:via-black/90"
-        />
-      )}
-
-      <div
-        data-walkthrough="home-cta"
-        // Page variant: float at the bottom (absolute) over the fade; centered +
-        // width-capped to match the messages. `z-20` keeps it above messages
-        // that would otherwise paint over it while scrolling.
-        //
-        // Sidebar embed keeps the in-flow composer pinned at the bottom, but it
-        // must stay reachable when the panel is too short to hold the whole
-        // footer — it stacks the upsell/error banners + actionable error CTAs
-        // (e.g. the voice "Setup" link) + the composer (#3785). Rather than a
-        // percentage `max-height` (which does not reliably resolve inside a
-        // stretched flex item in Chromium), let the footer SHRINK: dropping
-        // `flex-shrink-0` and adding `min-h-0 overflow-y-auto` makes the flex
-        // algorithm cap it to the available height (the basis-0 message list
-        // gives up its space first) and scroll internally instead of being
-        // clipped by the `overflow-hidden` mainPanel. On a tall window there is
-        // free space, so the footer keeps its natural height (composer pinned).
-        className={
-          isSidebar
-            ? 'mx-auto w-full max-w-[48.75rem] min-h-0 overflow-y-auto px-4 py-3'
-            : 'absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[48.75rem] px-4 pb-4 pt-6'
-        }>
-        <>
-          {isNearLimit &&
-            !isAtLimit &&
-            isFreeTier &&
-            shouldShowBanner('conversations-warning', 24 * 60 * 60 * 1000) && (
-              <div className="mb-3">
-                <UpsellBanner
-                  variant="warning"
-                  title={t('chat.approachingLimit')}
-                  message={t('chat.approachingLimitMsg').replace(
-                    '{pct}',
-                    String(Math.round(usagePct * 100))
-                  )}
-                  ctaLabel={t('chat.upgrade')}
-                  onCtaClick={() => {
-                    void openUrl(BILLING_DASHBOARD_URL);
-                  }}
-                  dismissible
-                  onDismiss={() => dismissBanner('conversations-warning')}
-                />
-              </div>
-            )}
-          {teamUsage && shouldShowBudgetCompletedMessage && (
-            <div className="mb-3 p-3 rounded-xl bg-coral-50 border border-coral-200 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <svg
-                  className="w-4 h-4 text-coral-400 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-                <p className="text-xs text-coral-600">
-                  {teamUsage.cycleBudgetUsd > 0
-                    ? `${t('chat.weeklyLimitHit')}${teamUsage.cycleEndsAt ? ` ${t('chat.resets')} ${formatResetTime(teamUsage.cycleEndsAt)}.` : ''} ${t('chat.topUpToContinue')}`
-                    : t('chat.budgetComplete')}
-                </p>
-              </div>
-              <div className="flex flex-shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  data-analytics-id="chat-budget-openrouter-free"
-                  disabled={openRouterStatus === 'saving'}
-                  onClick={() => {
-                    void handleUseOpenRouterFree();
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-coral-300 bg-white text-coral-700 hover:bg-coral-100 disabled:cursor-wait disabled:opacity-70 text-xs font-medium transition-colors">
-                  {openRouterStatus === 'saving'
-                    ? t('openrouterFree.saving')
-                    : t('openrouterFree.cta')}
-                </button>
-                <button
-                  type="button"
-                  data-analytics-id="chat-budget-top-up"
-                  onClick={() => {
-                    void openUrl(BILLING_DASHBOARD_URL);
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-white text-xs font-medium transition-colors">
-                  {t('chat.topUp')}
-                </button>
-              </div>
-            </div>
-          )}
-          {openRouterStatus === 'error' && (
-            <div className="mb-3 rounded-lg border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700">
-              {t('openrouterFree.error')}
-            </div>
-          )}
-
-          {/* Cycle usage pill moved into ChatComposer toolbar */}
-        </>
-
-        {sendAdvisory && (
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-amber-700" data-chat-send-advisory>
-              {sendAdvisory}
-            </p>
-            <button
-              type="button"
-              data-analytics-id="chat-send-advisory-dismiss"
-              onClick={() => setSendAdvisory(null)}
-              className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors ml-2">
-              {t('common.dismiss')}
-            </button>
-          </div>
-        )}
-
-        {attachError && (
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-coral-500" data-chat-send-error-code={attachError.code}>
-              {attachError.message}
-            </p>
-            <button
-              type="button"
-              data-analytics-id="chat-attach-error-dismiss"
-              onClick={() => setAttachError(null)}
-              className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors ml-2">
-              {t('common.dismiss')}
-            </button>
-          </div>
-        )}
-
-        {sendError && (
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-coral-500" data-chat-send-error-code={sendError.code}>
-              {sendError.message}
-            </p>
-            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-              {(sendError.code === 'stt_not_ready' ||
-                sendError.code === 'voice_transcription' ||
-                sendError.code === 'tts_not_ready' ||
-                sendError.code === 'voice_synthesis') && (
-                <button
-                  type="button"
-                  data-analytics-id="chat-send-error-setup"
-                  onClick={() => {
-                    setSendError(null);
-                    // STT/TTS provider settings live on the Voice panel
-                    // since PR 2; the legacy local-model route was for
-                    // back when speech assets were lumped with Ollama.
-                    navigate('/settings/voice', settingsNavState(location));
-                  }}
-                  className="text-xs text-primary-500 hover:text-primary-600 font-medium transition-colors">
-                  {t('chat.setup')}
-                </button>
-              )}
-              <button
-                type="button"
-                data-analytics-id="chat-send-error-dismiss"
-                onClick={() => setSendError(null)}
-                className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors">
-                {t('common.dismiss')}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {(() => {
-          // Surface a parked ApprovalGate request for the shown thread just
-          // above the composer, so it stays visible regardless of scroll.
-          const approvalThreadId = selectedThreadId ?? firstActiveThreadId;
-          const pendingApproval = approvalThreadId
-            ? pendingApprovalByThread[approvalThreadId]
-            : undefined;
-          return pendingApproval && approvalThreadId ? (
-            <div className="mb-2">
-              <ApprovalRequestCard threadId={approvalThreadId} approval={pendingApproval} />
-            </div>
-          ) : null;
-        })()}
-
-        {(() => {
-          // Surface in-flight + failed artifact cards above the composer
-          // (#2779). Mirrors the approval-card placement so the user sees
-          // the spinner / error without scrolling. `ready` cards are
-          // delegated to the header ChatFilesChip panel (#3024) so the
-          // chat scroll area isn't permanently occupied — restored decks
-          // are listable from the chip on demand.
-          //
-          // NOTE: `onRetry` is intentionally omitted on `ArtifactCard`
-          // below — real retry (either `removeArtifact(thread, id)` to
-          // let the user re-prompt, or full re-dispatch of the producing
-          // tool call) is tracked in follow-up issue #3162. The
-          // failed-card UI still surfaces the truncated error reason;
-          // the button just stays hidden until #3162 lands.
-          const artifactThreadId = selectedThreadId ?? firstActiveThreadId;
-          const all = artifactThreadId ? (artifactsByThread[artifactThreadId] ?? []) : [];
-          const live = all.filter(a => a.status !== 'ready');
-          if (live.length === 0) return null;
-          return (
-            <div className="mb-2 flex flex-col gap-2">
-              {live.map(artifact => (
-                <ArtifactCard key={artifact.artifactId} artifact={artifact} />
-              ))}
-            </div>
-          );
-        })()}
-
-        {/* Thread-scoped todo list the agent maintains as it works — read-only,
-            pinned above the composer. Distinct from the Intelligence-tab kanban
-            (global `user-tasks`). Renders nothing when the thread has no active
-            cards. */}
-        {selectedThreadId && (
-          <ThreadTodoStrip
-            board={selectedTaskBoard}
-            disabled={!selectedThreadId}
-            onDecidePlan={(card, approve) => {
-              void runDecidePlan({
-                threadId: selectedThreadId,
-                card,
-                approve,
-                dispatch,
-                notify: setSendAdvisory,
-                t,
-              });
-            }}
-            onViewSession={card => {
-              if (!card.sessionThreadId) return;
-              // Navigation only — do NOT mark the thread active. activeThreadId
-              // tracks a true in-flight turn; forcing a completed session active
-              // would wedge the composer.
-              dispatch(setSelectedThread(card.sessionThreadId));
-              void dispatch(loadThreadMessages(card.sessionThreadId));
-              if (shouldSyncChatRoute) {
-                navigate(chatThreadPath(card.sessionThreadId));
-              }
-            }}
-          />
-        )}
-
-        {composer === 'mic-cloud' ? (
-          <div className="flex flex-col items-center gap-3 py-1">
-            <MicComposer
-              // Without `!selectedThreadId`, a mic submit before a thread is
-              // ready hits `handleSendMessage`'s early return and the
-              // transcript is silently dropped — the user spoke into the void.
-              disabled={composerInteractionBlocked || isSending || !selectedThreadId}
-              onSubmit={text => handleSendMessage(text)}
-              onError={message => setSendError(chatSendError('voice_transcription', message))}
-              showDeviceSelector
-              onSwitchToText={() => setComposerOverride('text')}
-            />
-          </div>
-        ) : inputMode === 'text' ? (
-          <ChatComposer
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            onSend={handleSendMessage}
-            textInputRef={textInputRef}
-            fileInputRef={fileInputRef}
-            composerInteractionBlocked={composerInteractionBlocked}
-            isSending={isSending}
-            allowParallelSend={selectedThreadActive}
-            attachments={attachments}
-            onAttachFiles={handleAttachFiles}
-            onRemoveAttachment={id => setAttachments(prev => prev.filter(a => a.id !== id))}
-            attachError={attachError}
-            onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
-            handleInputKeyDown={handleInputKeyDown}
-            inlineCompletionSuffix={inlineCompletionSuffix}
-            isComposingTextRef={isComposingTextRef}
-            maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
-            // Empty → no native `accept` filter (it greys valid files on
-            // macOS/CEF). Type enforcement happens in handleAttachFiles via
-            // validateAndReadFile, which honors modelSupportsVision.
-            allowedMimeTypes={[]}
-            attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
-          />
-        ) : (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              data-analytics-id="chat-voice-switch-to-text"
-              onClick={() => setInputMode('text')}
-              disabled={isRecording || isTranscribing}
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
-              title={t('chat.switchToText')}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.8}
-                  d="M4 6h16M4 12h10m-10 6h16"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              data-analytics-id="chat-voice-record-toggle"
-              onClick={() => {
-                void handleVoiceRecordToggle();
-              }}
-              disabled={!rustChat || isSending || isTranscribing || !canUseMicrophoneApi}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                isRecording
-                  ? 'bg-coral-500 hover:bg-coral-400 text-white'
-                  : 'bg-primary-600 hover:bg-primary-500 text-white'
-              } disabled:opacity-40 disabled:cursor-not-allowed`}>
-              {isTranscribing
-                ? t('chat.transcribing')
-                : isRecording
-                  ? t('chat.stopAndSend')
-                  : t('chat.startTalking')}
-            </button>
-            <p className="text-xs text-stone-400 dark:text-neutral-500 truncate">
-              {voiceStatus ??
-                (isPlayingReply && replyMode === 'voice'
-                  ? t('chat.playingVoiceReply')
-                  : canUseMicrophoneApi
-                    ? t('chat.voiceHint')
-                    : t('chat.micUnavailable'))}
-            </p>
-          </div>
-        )}
-        {/* Worker-thread back-to-parent breadcrumb (page variant) — its own line. */}
-        {!isSidebar && selectedThreadParent && (
-          <button
-            type="button"
-            data-analytics-id="chat-header-back-to-parent-thread"
-            onClick={() => {
-              dispatch(setSelectedThread(selectedThreadParent.id));
-              void dispatch(loadThreadMessages(selectedThreadParent.id));
-              navigate(chatThreadPath(selectedThreadParent.id));
-            }}
-            className="mt-2 flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
-            data-testid="worker-thread-back-to-parent">
-            <span aria-hidden="true">←</span>
-            <span className="max-w-[16rem] truncate">
-              {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
-            </span>
-          </button>
-        )}
-
-        {/* Thread title + inline rename moved to the sidebar thread list rows. */}
-
-        {/* Model + token stats (left) and the quick/reasoning toggle + files
-            chip (right) share one line. */}
-        <div
-          className="mt-2 flex items-center justify-between gap-2"
-          data-walkthrough="chat-agent-panel">
-          <ComposerTokenStats model={resolvedModel} />
-          {!isSidebar && (
-            <div className="flex flex-shrink-0 items-center gap-2">
-              <div
-                className="flex h-7 items-center rounded-full border border-stone-200 bg-stone-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-800"
-                role="radiogroup"
-                aria-label={t('chat.agentProfile.label')}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedAgentProfileId === 'default'}
-                  data-analytics-id="chat-header-mode-quick"
-                  onClick={() => void handleSelectAgentProfile('default')}
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
-                    selectedAgentProfileId === 'default'
-                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
-                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-                  }`}>
-                  {t('chat.agentProfile.quick')}
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedAgentProfileId === 'reasoning'}
-                  data-analytics-id="chat-header-mode-reasoning"
-                  onClick={() => void handleSelectAgentProfile('reasoning')}
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
-                    selectedAgentProfileId === 'reasoning'
-                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
-                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-                  }`}>
-                  {t('chat.agentProfile.reasoning')}
-                </button>
-              </div>
-              {selectedThreadId && (
-                <button
-                  type="button"
-                  data-testid="background-processes-toggle"
-                  data-analytics-id="chat-header-background-processes"
-                  onClick={() => setShowBackgroundProcesses(true)}
-                  aria-label={t('conversations.backgroundTasks.title')}
-                  title={
-                    backgroundProcesses.length > 0
-                      ? t('conversations.backgroundTasks.titleWithCount').replace(
-                          '{count}',
-                          String(backgroundProcesses.length)
-                        )
-                      : t('conversations.backgroundTasks.title')
-                  }
-                  className="relative flex h-7 w-7 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-                    />
-                  </svg>
-                  {runningBackgroundCount > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-semibold leading-none text-white">
-                      {runningBackgroundCount}
-                    </span>
-                  )}
-                </button>
-              )}
-              {(selectedThreadId ?? firstActiveThreadId) && (
-                <ChatFilesChip threadId={(selectedThreadId ?? firstActiveThreadId) as string} />
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      </ConversationView>
     </div>
   );
 

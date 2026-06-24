@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 
+import ComposerTokenStats from '../../../components/chat/ComposerTokenStats';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { threadApi } from '../../../services/api/threadApi';
 import type {
@@ -301,88 +302,88 @@ export function SubagentDrawer({
             as one chronological transcript (thinking, the text it produced, the
             tool calls that text triggered, the next turn — exactly as it was
             emitted). */}
-        <ConversationView variant="panel" showStats>
+        <ConversationView variant="panel" footer={<ComposerTokenStats />}>
           <div className="space-y-3 px-4 py-4">
-          {/* Parent → sub-agent: the delegation prompt (the "input"). */}
-          {promptText ? (
-            <div className="flex justify-end" data-testid="subagent-parent-prompt">
-              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary-500 px-3 py-2 text-sm text-white">
-                <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/70">
-                  {t('conversations.subagent.parent')}
+            {/* Parent → sub-agent: the delegation prompt (the "input"). */}
+            {promptText ? (
+              <div className="flex justify-end" data-testid="subagent-parent-prompt">
+                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary-500 px-3 py-2 text-sm text-white">
+                  <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/70">
+                    {t('conversations.subagent.parent')}
+                  </div>
+                  <div className="whitespace-pre-wrap break-words">{promptText}</div>
                 </div>
-                <div className="whitespace-pre-wrap break-words">{promptText}</div>
               </div>
+            ) : null}
+
+            {/* Sub-agent side: avatar label + its turns. */}
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+              <span>🤖</span>
+              {subagent.agentId}
             </div>
-          ) : null}
 
-          {/* Sub-agent side: avatar label + its turns. */}
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
-            <span>🤖</span>
-            {subagent.agentId}
-          </div>
+            {transcript.length === 0 ? (
+              <p className="text-xs italic text-stone-400 dark:text-neutral-500">
+                {isRunning
+                  ? t('conversations.subagent.working')
+                  : t('conversations.subagent.noOutputYet')}
+              </p>
+            ) : (
+              <ol className="space-y-2">
+                {transcript.map((item, idx) => {
+                  // Insert a "Turn N" divider when the iteration advances.
+                  const prevIteration = idx > 0 ? transcript[idx - 1].iteration : undefined;
+                  const showTurn = item.iteration != null && item.iteration !== prevIteration;
+                  const turnDivider = showTurn ? (
+                    <li
+                      aria-hidden
+                      className="flex items-center gap-2 pt-1 text-[10px] font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500"
+                      data-testid="subagent-turn-divider">
+                      <span className="h-px flex-1 bg-stone-200 dark:bg-neutral-800" />
+                      {t('conversations.toolTimeline.turn')} {item.iteration}
+                      <span className="h-px flex-1 bg-stone-200 dark:bg-neutral-800" />
+                    </li>
+                  ) : null;
 
-          {transcript.length === 0 ? (
-            <p className="text-xs italic text-stone-400 dark:text-neutral-500">
-              {isRunning
-                ? t('conversations.subagent.working')
-                : t('conversations.subagent.noOutputYet')}
-            </p>
-          ) : (
-            <ol className="space-y-2">
-              {transcript.map((item, idx) => {
-                // Insert a "Turn N" divider when the iteration advances.
-                const prevIteration = idx > 0 ? transcript[idx - 1].iteration : undefined;
-                const showTurn = item.iteration != null && item.iteration !== prevIteration;
-                const turnDivider = showTurn ? (
-                  <li
-                    aria-hidden
-                    className="flex items-center gap-2 pt-1 text-[10px] font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500"
-                    data-testid="subagent-turn-divider">
-                    <span className="h-px flex-1 bg-stone-200 dark:bg-neutral-800" />
-                    {t('conversations.toolTimeline.turn')} {item.iteration}
-                    <span className="h-px flex-1 bg-stone-200 dark:bg-neutral-800" />
-                  </li>
-                ) : null;
-
-                if (item.kind === 'thinking') {
-                  return (
-                    <ItemWrapper key={`th-${idx}`} divider={turnDivider}>
-                      <div
-                        className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2"
-                        data-testid="subagent-transcript-thinking">
-                        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-stone-500 dark:text-neutral-400">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />
-                          {t('conversations.subagent.thinking')}
+                  if (item.kind === 'thinking') {
+                    return (
+                      <ItemWrapper key={`th-${idx}`} divider={turnDivider}>
+                        <div
+                          className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2"
+                          data-testid="subagent-transcript-thinking">
+                          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-stone-500 dark:text-neutral-400">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />
+                            {t('conversations.subagent.thinking')}
+                          </div>
+                          <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-stone-600 dark:text-neutral-300">
+                            {stripToolCallEnvelopes(item.text).trim()}
+                          </pre>
                         </div>
-                        <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-stone-600 dark:text-neutral-300">
-                          {stripToolCallEnvelopes(item.text).trim()}
-                        </pre>
-                      </div>
-                    </ItemWrapper>
-                  );
-                }
+                      </ItemWrapper>
+                    );
+                  }
 
-                if (item.kind === 'text') {
+                  if (item.kind === 'text') {
+                    return (
+                      <ItemWrapper key={`tx-${idx}`} divider={turnDivider}>
+                        <div data-testid="subagent-transcript-text">
+                          <BubbleMarkdown content={stripToolCallEnvelopes(item.text)} />
+                          {isRunning && idx === lastTextIdx ? (
+                            <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-primary-400 align-middle" />
+                          ) : null}
+                        </div>
+                      </ItemWrapper>
+                    );
+                  }
+
                   return (
-                    <ItemWrapper key={`tx-${idx}`} divider={turnDivider}>
-                      <div data-testid="subagent-transcript-text">
-                        <BubbleMarkdown content={stripToolCallEnvelopes(item.text)} />
-                        {isRunning && idx === lastTextIdx ? (
-                          <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-primary-400 align-middle" />
-                        ) : null}
-                      </div>
+                    <ItemWrapper key={`tl-${item.callId}`} divider={turnDivider}>
+                      <ToolCallRow item={item} />
                     </ItemWrapper>
                   );
-                }
-
-                return (
-                  <ItemWrapper key={`tl-${item.callId}`} divider={turnDivider}>
-                    <ToolCallRow item={item} />
-                  </ItemWrapper>
-                );
-              })}
-            </ol>
-          )}
+                })}
+              </ol>
+            )}
           </div>
         </ConversationView>
       </aside>

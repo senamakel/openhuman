@@ -264,6 +264,12 @@ export interface SubagentProgressDetail {
   changed_files?: string[];
   /** Whether the worker's worktree had uncommitted changes (on `subagent_completed`). */
   dirty_status?: boolean;
+  /** Total input tokens the sub-agent charged across its run (on `subagent_completed`). */
+  input_tokens?: number;
+  /** Total output tokens the sub-agent generated across its run (on `subagent_completed`). */
+  output_tokens?: number;
+  /** Total cached (prompt-cache hit) input tokens across the run (on `subagent_completed`). */
+  cached_input_tokens?: number;
 }
 
 /** Extended payload for `subagent_spawned`. */

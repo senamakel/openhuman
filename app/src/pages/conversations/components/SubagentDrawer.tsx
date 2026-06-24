@@ -1,6 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
 
-import ComposerTokenStats from '../../../components/chat/ComposerTokenStats';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { threadApi } from '../../../services/api/threadApi';
 import type {
@@ -97,6 +96,64 @@ function statusTone(status: ToolTimelineEntryStatus | undefined): {
 
 function formatElapsed(ms: number): string {
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+}
+
+/** SI-style compact token count (123 / 1.2K / 3.4M), matching the composer's. */
+function formatTokens(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '0';
+  if (n < 1000) return String(Math.round(n));
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}K`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
+}
+
+/**
+ * The footer token strip for a sub-agent's side panel — the sub-agent's *own*
+ * input/output token usage (delivered on `subagent_completed`), distinct from
+ * the global session totals the main composer shows. Renders nothing until the
+ * child reports usage, so a still-running sub-agent simply has no footer rather
+ * than a misleading "0 tokens" strip.
+ */
+function SubagentTokenStats({ subagent }: { subagent: SubagentActivity }) {
+  const { t } = useT();
+  const inTok = subagent.inputTokens ?? 0;
+  const outTok = subagent.outputTokens ?? 0;
+  if (inTok <= 0 && outTok <= 0) return null;
+
+  const parts: ReactNode[] = [];
+  if (inTok > 0) {
+    parts.push(
+      <span key="in" title={t('token.inputTokens')}>
+        {t('token.inLabel')} {formatTokens(inTok)}
+      </span>
+    );
+  }
+  if (outTok > 0) {
+    parts.push(
+      <span key="out" title={t('token.outputTokens')}>
+        {t('token.outLabel')} {formatTokens(outTok)}
+      </span>
+    );
+  }
+  if (subagent.iterations != null) {
+    parts.push(
+      <span key="turns" title={t('token.turnsCount')}>
+        {subagent.iterations} {subagent.iterations === 1 ? t('token.turn') : t('token.turns')}
+      </span>
+    );
+  }
+
+  return (
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-2.5 font-mono text-[10px] text-stone-400 select-none dark:text-neutral-500"
+      data-testid="subagent-token-stats">
+      {parts.map((part, i) => (
+        <span key={i} className="contents">
+          {i > 0 ? <span className="text-stone-300 dark:text-neutral-700">·</span> : null}
+          {part}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -302,7 +359,7 @@ export function SubagentDrawer({
             as one chronological transcript (thinking, the text it produced, the
             tool calls that text triggered, the next turn — exactly as it was
             emitted). */}
-        <ConversationView variant="panel" footer={<ComposerTokenStats />}>
+        <ConversationView variant="panel" footer={<SubagentTokenStats subagent={subagent} />}>
           <div className="space-y-3 px-4 py-4">
             {/* Parent → sub-agent: the delegation prompt (the "input"). */}
             {promptText ? (

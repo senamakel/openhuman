@@ -593,6 +593,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                     iterations: event.subagent?.iterations ?? entry.subagent.iterations,
                     elapsedMs: event.subagent?.elapsed_ms ?? entry.subagent.elapsedMs,
                     outputChars: event.subagent?.output_chars ?? entry.subagent.outputChars,
+                    // Per-subagent token usage, delivered on completion — drives
+                    // the side panel's subagent-scoped token strip.
+                    inputTokens: event.subagent?.input_tokens ?? entry.subagent.inputTokens,
+                    outputTokens: event.subagent?.output_tokens ?? entry.subagent.outputTokens,
+                    cachedInputTokens:
+                      event.subagent?.cached_input_tokens ?? entry.subagent.cachedInputTokens,
                     // Worktree isolation metadata (#3376) — present only for
                     // workers that ran with `isolation = "worktree"`. Drives the
                     // inline worktree row's open/diff/remove affordances.

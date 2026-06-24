@@ -115,6 +115,15 @@ export interface SubagentActivity {
    * explicit user choice. `undefined` for non-isolated workers.
    */
   isDirty?: boolean;
+  /**
+   * The sub-agent's own token usage, delivered on `subagent_completed` so the
+   * parent thread's row / side panel can show "in 12.4K · out 3.1K" for the
+   * child specifically (distinct from the global session totals). `undefined`
+   * while the sub-agent is still running, or `0` when none was reported.
+   */
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedInputTokens?: number;
 }
 
 /**

@@ -326,4 +326,41 @@ describe('SubagentDrawer', () => {
     expect(screen.queryByTestId('subagent-tool-call-input')).toBeNull();
     expect(screen.queryByTestId('subagent-tool-call-output')).toBeNull();
   });
+
+  it('shows the sub-agent token strip when usage is reported on completion', () => {
+    render(
+      <SubagentDrawer
+        subagent={activity({ inputTokens: 12400, outputTokens: 3100, iterations: 4 })}
+        status="success"
+        onClose={() => {}}
+      />
+    );
+    const strip = screen.getByTestId('subagent-token-stats');
+    // ≥10K rounds to whole-K (matches the composer's SI formatting).
+    expect(strip.textContent).toContain('12K');
+    expect(strip.textContent).toContain('3.1K');
+  });
+
+  it('renders no token strip while the sub-agent is still running (no usage yet)', () => {
+    render(<SubagentDrawer subagent={activity()} status="running" onClose={() => {}} />);
+    expect(screen.queryByTestId('subagent-token-stats')).toBeNull();
+  });
+
+  it('enriches a tool-call label from its args (web_search → query)', () => {
+    const transcript: SubagentTranscriptItem[] = [
+      {
+        kind: 'tool',
+        iteration: 1,
+        callId: 'c1',
+        toolName: 'web_search',
+        status: 'success',
+        args: { query: 'rust async traits' },
+      },
+    ];
+    render(
+      <SubagentDrawer subagent={activity({ transcript })} status="success" onClose={() => {}} />
+    );
+    const row = screen.getByTestId('subagent-drawer-tool-call');
+    expect(row.textContent).toContain('Searching: rust async traits');
+  });
 });

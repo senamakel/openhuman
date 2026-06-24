@@ -339,6 +339,67 @@ describe('ToolTimelineBlock — subagent rendering', () => {
     expect(screen.getByTestId('subagent-activity').textContent).toContain('turn 1/5');
   });
 
+  it('renders a subagent row as a single click-to-open button with a status summary', async () => {
+    const onViewSubagent = vi.fn();
+    const entry: ToolTimelineEntry = {
+      id: 'tid:subagent:sub-9:researcher',
+      name: 'subagent:researcher',
+      round: 1,
+      status: 'running',
+      subagent: {
+        taskId: 'sub-9',
+        agentId: 'researcher',
+        childIteration: 2,
+        childMaxIterations: 5,
+        elapsedMs: 4200,
+        toolCalls: [{ callId: 'c', toolName: 'web_search', status: 'running', iteration: 2 }],
+      },
+    };
+    renderInStore(<ToolTimelineBlock entries={[entry]} onViewSubagent={onViewSubagent} />);
+
+    // No inline expandable block — the row opens the panel directly.
+    expect(screen.queryByTestId('subagent-activity')).toBeNull();
+    const btn = screen.getByTestId('subagent-open-panel');
+    // Compact status summary derived from the subagent (turn + elapsed).
+    expect(btn.textContent).toContain('turn 2/5');
+    expect(btn.textContent).toContain('4.2s');
+    await userEvent.click(btn);
+    expect(onViewSubagent).toHaveBeenCalledTimes(1);
+    expect(onViewSubagent.mock.calls[0][0]).toMatchObject({ taskId: 'sub-9' });
+  });
+
+  it('summarizes step N + ms for a subagent open-panel row without a turn cap', () => {
+    const entry: ToolTimelineEntry = {
+      id: 'tid:subagent:sub-10:scout',
+      name: 'subagent:scout',
+      round: 1,
+      status: 'running',
+      subagent: {
+        taskId: 'sub-10',
+        agentId: 'scout',
+        childIteration: 3,
+        elapsedMs: 750,
+        toolCalls: [],
+      },
+    };
+    renderInStore(<ToolTimelineBlock entries={[entry]} onViewSubagent={vi.fn()} />);
+    const btn = screen.getByTestId('subagent-open-panel');
+    expect(btn.textContent).toContain('step 3');
+    expect(btn.textContent).toContain('750ms');
+  });
+
+  it('summarizes total iterations for an open-panel row without a child counter', () => {
+    const entry: ToolTimelineEntry = {
+      id: 'tid:subagent:sub-11:critic',
+      name: 'subagent:critic',
+      round: 1,
+      status: 'success',
+      subagent: { taskId: 'sub-11', agentId: 'critic', iterations: 4, toolCalls: [] },
+    };
+    renderInStore(<ToolTimelineBlock entries={[entry]} onViewSubagent={vi.fn()} />);
+    expect(screen.getByTestId('subagent-open-panel').textContent).toContain('4 turn');
+  });
+
   it('renders a non-subagent row without crashing when there is no detail', () => {
     const entry: ToolTimelineEntry = {
       id: 'plain',

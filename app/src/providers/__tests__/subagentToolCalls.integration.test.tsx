@@ -242,4 +242,112 @@ describe('sub-agent tool calls — save + render', () => {
     renderDrawer(sub!, 'running');
     expect(screen.getByTestId('subagent-drawer').textContent).toContain('Searching: early call');
   });
+
+  it('merges a late spawn onto the existing row, preserving recorded fields and filling gaps', () => {
+    const listeners = renderProvider();
+    const threadId = 't-merge';
+
+    act(() => {
+      // Tool call lazily creates the row and carries a display name.
+      listeners.onSubagentToolCall?.({
+        thread_id: threadId,
+        request_id: 'r1',
+        round: 1,
+        tool_name: 'web_search',
+        skill_id: 'sub-m',
+        tool_call_id: 'm1',
+        args: { query: 'merge me' },
+        subagent: {
+          agent_id: 'researcher',
+          task_id: 'sub-m',
+          child_iteration: 2,
+          display_name: 'Researcher',
+        },
+      });
+      // Spawn arrives later WITHOUT a display name → the merge must fall back to
+      // the already-recorded one rather than clobbering it with undefined.
+      listeners.onSubagentSpawned?.({
+        thread_id: threadId,
+        request_id: 'r1',
+        tool_name: 'researcher',
+        skill_id: 'sub-m',
+        message: 'spawned',
+        round: 1,
+        subagent: { mode: 'typed', dedicated_thread: false },
+      });
+    });
+
+    const sub = subagentFromStore(threadId, 'sub-m');
+    expect(sub).toBeDefined();
+    // No duplicate row; the recorded call survives the merge, the display name
+    // is preserved from the earlier event (spawn sent none → fallback), and the
+    // spawn's own metadata (mode) is filled in.
+    expect((sub?.transcript ?? []).filter(i => i.kind === 'tool')).toHaveLength(1);
+    expect(sub?.displayName).toBe('Researcher');
+    expect(sub?.mode).toBe('typed');
+  });
+
+  it('drops (and logs) a tool call with no subagent.agent_id', () => {
+    const listeners = renderProvider();
+    const threadId = 't-noagent';
+
+    act(() => {
+      listeners.onSubagentToolCall?.({
+        thread_id: threadId,
+        request_id: 'r1',
+        round: 1,
+        tool_name: 'web_search',
+        skill_id: 'sub-z',
+        tool_call_id: 'z1',
+        args: { query: 'orphan' },
+        // No `subagent` detail → no agent_id to key the row.
+      });
+    });
+
+    expect(store.getState().chatRuntime.toolTimelineByThread[threadId] ?? []).toHaveLength(0);
+  });
+
+  it('drops a tool result that has no row and one whose call was never recorded', () => {
+    const listeners = renderProvider();
+    const threadId = 't-result-drop';
+
+    act(() => {
+      // (a) Result with no matching row at all.
+      listeners.onSubagentToolResult?.({
+        thread_id: threadId,
+        request_id: 'r1',
+        round: 1,
+        tool_name: 'web_search',
+        skill_id: 'sub-none',
+        tool_call_id: 'none-1',
+        success: true,
+        subagent: { agent_id: 'researcher', task_id: 'sub-none' },
+      });
+      // (b) Row exists (via spawn) but the result references an unrecorded call.
+      listeners.onSubagentSpawned?.({
+        thread_id: threadId,
+        request_id: 'r1',
+        tool_name: 'researcher',
+        skill_id: 'sub-r',
+        message: 'spawned',
+        round: 1,
+        subagent: { mode: 'typed', dedicated_thread: false },
+      });
+      listeners.onSubagentToolResult?.({
+        thread_id: threadId,
+        request_id: 'r1',
+        round: 1,
+        tool_name: 'web_search',
+        skill_id: 'sub-r',
+        tool_call_id: 'never-recorded',
+        success: true,
+        subagent: { agent_id: 'researcher', task_id: 'sub-r' },
+      });
+    });
+
+    // (a) created no row; (b) recorded no tool call on the spawned row.
+    expect(subagentFromStore(threadId, 'sub-none')).toBeUndefined();
+    const sub = subagentFromStore(threadId, 'sub-r');
+    expect(sub?.toolCalls ?? []).toHaveLength(0);
+  });
 });

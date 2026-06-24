@@ -3444,9 +3444,9 @@ fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
             elapsed_ms: Some(250),
             output_chars: Some(42),
             worker_thread_id: None,
-            input_tokens: Some(1200),
-            output_tokens: Some(340),
-            cached_input_tokens: Some(0),
+            input_tokens: None,
+            output_tokens: None,
+            cached_input_tokens: None,
             tool_calls: vec![SubagentToolCall {
                 call_id: "call-1".into(),
                 tool_name: "memory.search".into(),

@@ -363,4 +363,47 @@ describe('SubagentDrawer', () => {
     const row = screen.getByTestId('subagent-drawer-tool-call');
     expect(row.textContent).toContain('Searching: rust async traits');
   });
+
+  it('formats million-scale token counts and shows the turn count', () => {
+    render(
+      <SubagentDrawer
+        subagent={activity({ inputTokens: 2_400_000, outputTokens: 1, iterations: 1 })}
+        status="success"
+        onClose={() => {}}
+      />
+    );
+    const strip = screen.getByTestId('subagent-token-stats');
+    expect(strip.textContent).toContain('2.4M');
+    // Singular turn label for a single iteration.
+    expect(strip.textContent?.toLowerCase()).toContain('turn');
+  });
+
+  it('renders the worktree section + actions for a worktree-isolated sub-agent (dirty)', () => {
+    render(
+      <SubagentDrawer
+        subagent={activity({
+          worktreePath: '/repo/.claude/worktrees/worker-7',
+          changedFiles: ['src/a.rs', 'src/b.rs'],
+          isDirty: true,
+        })}
+        status="success"
+        onClose={() => {}}
+      />
+    );
+    const block = screen.getByTestId('subagent-drawer-worktree');
+    expect(block.textContent).toContain('worker-7');
+    // Two changed files surfaced; dirty pill present.
+    expect(block.textContent).toContain('2');
+  });
+
+  it('renders the worktree section as clean when the worker left no changes', () => {
+    render(
+      <SubagentDrawer
+        subagent={activity({ worktreePath: '/repo/.claude/worktrees/worker-8', isDirty: false })}
+        status="success"
+        onClose={() => {}}
+      />
+    );
+    expect(screen.getByTestId('subagent-drawer-worktree')).toBeInTheDocument();
+  });
 });

@@ -569,6 +569,9 @@ impl Tool for SpawnSubagentTool {
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,
+                                    input_tokens: outcome.input_tokens,
+                                    output_tokens: outcome.output_tokens,
+                                    cached_input_tokens: outcome.cached_input_tokens,
                                 })
                                 .await;
                         }
@@ -859,6 +862,9 @@ mod tests {
             mode: SubagentMode::Typed,
             status: SubagentRunStatus::Completed,
             final_history: Vec::new(),
+            input_tokens: 1200,
+            output_tokens: 340,
+            cached_input_tokens: 0,
         }
     }
 

@@ -522,6 +522,14 @@ impl Tool for SpawnParallelAgentsTool {
                                 worktree_path: worktree_path.clone(),
                                 changed_files: changed_files.clone(),
                                 dirty_status: *dirty_status,
+                                // Per-agent token usage isn't threaded through
+                                // `ParallelAgentResult` yet — emit 0 so the UI
+                                // treats it as "no usage" rather than showing a
+                                // bogus 0-token strip. (Follow-up if parallel
+                                // agents need per-agent token display.)
+                                input_tokens: 0,
+                                output_tokens: 0,
+                                cached_input_tokens: 0,
                             })
                             .await
                         {

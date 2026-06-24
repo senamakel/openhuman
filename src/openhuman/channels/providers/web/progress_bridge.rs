@@ -474,6 +474,9 @@ pub(crate) fn spawn_progress_bridge(
                     worktree_path,
                     changed_files,
                     dirty_status,
+                    input_tokens,
+                    output_tokens,
+                    cached_input_tokens,
                 } => {
                     let completed_at = chrono::Utc::now();
                     ledger_upsert_agent_run(
@@ -541,6 +544,12 @@ pub(crate) fn spawn_progress_bridge(
                             elapsed_ms: Some(elapsed_ms),
                             iterations: Some(iterations),
                             output_chars: Some(output_chars as u64),
+                            // Per-subagent token usage — surfaced in the parent
+                            // thread's subagent row / side panel once the child
+                            // settles. `0` when the provider reported none.
+                            input_tokens: Some(input_tokens),
+                            output_tokens: Some(output_tokens),
+                            cached_input_tokens: Some(cached_input_tokens),
                             // Worktree isolation metadata (#3376) — drives the
                             // inline subagent worktree row's open/diff/remove
                             // actions. All `None`/absent for non-isolated workers.

@@ -256,6 +256,9 @@ fn subagent_lifecycle_records_and_clears_active() {
         worktree_path: None,
         changed_files: Vec::new(),
         dirty_status: None,
+        input_tokens: 4096,
+        output_tokens: 512,
+        cached_input_tokens: 0,
     });
     let s = m.snapshot();
     assert_eq!(s.tool_timeline[0].status, ToolTimelineStatus::Success);

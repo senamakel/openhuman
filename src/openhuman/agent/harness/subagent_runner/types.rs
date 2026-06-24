@@ -111,6 +111,14 @@ pub struct SubagentRunOutcome {
     /// sessions persist this so an idle worker can resume without rebuilding
     /// its context from only the parent transcript.
     pub final_history: Vec<ChatMessage>,
+    /// Total input tokens charged across the sub-agent's inner loop, surfaced to
+    /// the parent thread's UI as the sub-agent's own token usage. Aggregated
+    /// from every child turn's usage; `0` when the provider reported none.
+    pub input_tokens: u64,
+    /// Total output tokens the sub-agent generated across its inner loop.
+    pub output_tokens: u64,
+    /// Total cached (prompt-cache hit) input tokens across the inner loop.
+    pub cached_input_tokens: u64,
 }
 
 /// Which prompt-construction path the runner took for a sub-agent.

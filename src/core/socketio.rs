@@ -277,6 +277,19 @@ pub struct SubagentProgressDetail {
     /// the UI requires an explicit user decision. `None` for non-isolated.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dirty_status: Option<bool>,
+    /// Total input tokens the sub-agent charged across its run (on
+    /// `subagent_completed`). The frontend surfaces this as the sub-agent's own
+    /// token usage in the parent thread's row / side panel.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<u64>,
+    /// Total output tokens the sub-agent generated across its run
+    /// (on `subagent_completed`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<u64>,
+    /// Total cached (prompt-cache hit) input tokens across the run
+    /// (on `subagent_completed`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cached_input_tokens: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -103,6 +103,14 @@ pub enum AgentProgress {
         /// run. A dirty worktree must not be auto-removed — surfaced so the UI
         /// can require an explicit user decision. `None` for non-isolated.
         dirty_status: Option<bool>,
+        /// Total input tokens the sub-agent charged across its inner loop, so
+        /// the parent thread's subagent row can show the child's own usage
+        /// ("researcher · in 12.4K · out 3.1K"). `0` when none was reported.
+        input_tokens: u64,
+        /// Total output tokens the sub-agent generated across its inner loop.
+        output_tokens: u64,
+        /// Total cached (prompt-cache hit) input tokens across the inner loop.
+        cached_input_tokens: u64,
     },
 
     /// A sub-agent failed.

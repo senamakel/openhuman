@@ -674,7 +674,7 @@ async fn run_typed_mode(
         model_vision,
         "[subagent_runner] resolved sub-agent model vision capability"
     );
-    let (output, iterations, _agg_usage, early_exit_tool) = Box::pin(run_inner_loop(
+    let (output, iterations, agg_usage, early_exit_tool) = Box::pin(run_inner_loop(
         subagent_provider.as_ref(),
         &mut history,
         &parent.all_tools,
@@ -773,5 +773,8 @@ async fn run_typed_mode(
         mode: SubagentMode::Typed,
         status,
         final_history: history,
+        input_tokens: agg_usage.input_tokens,
+        output_tokens: agg_usage.output_tokens,
+        cached_input_tokens: agg_usage.cached_input_tokens,
     })
 }

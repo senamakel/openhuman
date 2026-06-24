@@ -278,6 +278,9 @@ impl Tool for AgentPrepareContextTool {
                                 worktree_path: None,
                                 changed_files: Vec::new(),
                                 dirty_status: None,
+                                input_tokens: outcome.input_tokens,
+                                output_tokens: outcome.output_tokens,
+                                cached_input_tokens: outcome.cached_input_tokens,
                             })
                             .await;
                     }
@@ -314,6 +317,9 @@ impl Tool for AgentPrepareContextTool {
                                 worktree_path: None,
                                 changed_files: Vec::new(),
                                 dirty_status: None,
+                                input_tokens: outcome.input_tokens,
+                                output_tokens: outcome.output_tokens,
+                                cached_input_tokens: outcome.cached_input_tokens,
                             })
                             .await;
                     }

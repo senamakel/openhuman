@@ -8,8 +8,6 @@ use serde_json::json;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-/// Maximum shell command execution time before kill.
-const SHELL_TIMEOUT_SECS: u64 = 60;
 /// Maximum output size in bytes (1MB).
 const MAX_OUTPUT_BYTES: usize = 1_048_576;
 /// Environment variables safe to pass to shell commands.
@@ -151,6 +149,14 @@ impl ShellTool {
     fn effective_action_dir(&self) -> std::path::PathBuf {
         crate::openhuman::agent::harness::current_action_dir_override()
             .unwrap_or_else(|| self.security.action_dir.clone())
+    }
+
+    fn timeout_secs(&self) -> u64 {
+        crate::openhuman::tool_timeout::tool_execution_timeout_secs()
+    }
+
+    fn timeout_duration(&self) -> Duration {
+        crate::openhuman::tool_timeout::tool_execution_timeout_duration()
     }
 }
 
@@ -343,8 +349,12 @@ impl ShellTool {
             }
         }
 
-        let result =
-            tokio::time::timeout(Duration::from_secs(SHELL_TIMEOUT_SECS), cmd.output()).await;
+        let timeout = self.timeout_duration();
+        tracing::debug!(
+            timeout_secs = timeout.as_secs(),
+            "[shell] starting command with configured timeout"
+        );
+        let result = tokio::time::timeout(timeout, cmd.output()).await;
 
         let tool_result = match result {
             Ok(Ok(output)) => {
@@ -381,7 +391,8 @@ impl ShellTool {
             }
             Ok(Err(e)) => ToolResult::error(format!("Failed to execute command: {e}")),
             Err(_) => ToolResult::error(format!(
-                "Command timed out after {SHELL_TIMEOUT_SECS}s and was killed"
+                "Command timed out after {}s and was killed",
+                timeout.as_secs()
             )),
         };
         (true, tool_result)
@@ -420,19 +431,26 @@ impl ShellTool {
             }
         }
 
+        let timeout = self.timeout_duration();
+        tracing::debug!(
+            timeout_secs = timeout.as_secs(),
+            "[shell] starting sandboxed command with configured timeout"
+        );
+
         match sandbox::execute_in_sandbox(
             &policy,
             command,
             &self.security.action_dir,
             extra_env,
-            Duration::from_secs(SHELL_TIMEOUT_SECS),
+            timeout,
         )
         .await
         {
             Ok(result) => {
                 let tool_result = if result.timed_out {
                     ToolResult::error(format!(
-                        "Command timed out after {SHELL_TIMEOUT_SECS}s and was killed"
+                        "Command timed out after {}s and was killed",
+                        timeout.as_secs()
                     ))
                 } else if result.success() {
                     if result.stderr.is_empty() {
@@ -1003,8 +1021,24 @@ mod tests {
     // ── §5.2 Shell timeout enforcement tests ─────────────────
 
     #[test]
-    fn shell_timeout_constant_is_reasonable() {
-        assert_eq!(SHELL_TIMEOUT_SECS, 60, "shell timeout must be 60 seconds");
+    fn shell_timeout_uses_runtime_tool_timeout() {
+        let tool = ShellTool::new(
+            test_security(AutonomyLevel::Supervised),
+            test_runtime(),
+            test_audit(),
+        );
+
+        let previous = crate::openhuman::tool_timeout::tool_execution_timeout_secs();
+        let requested = if previous == 300 { 301 } else { 300 };
+        let configured = crate::openhuman::tool_timeout::set_tool_timeout_secs(requested);
+
+        assert_eq!(
+            tool.timeout_secs(),
+            configured,
+            "shell timeout must honor the shared tool timeout runtime"
+        );
+
+        crate::openhuman::tool_timeout::set_tool_timeout_secs(previous);
     }
 
     #[test]

@@ -8,7 +8,7 @@ import type {
 import { basename } from '../../../utils/pathUtils';
 import {
   formatTimelineEntry,
-  formatToolName,
+  formatToolCallLabel,
   stripToolCallEnvelopes,
 } from '../../../utils/toolTimelineFormatting';
 import { parseWorkerThreadRef } from '../utils/workerThreadRef';
@@ -55,15 +55,27 @@ function ToolCallRow({
     status: ToolTimelineEntryStatus;
     elapsedMs?: number;
     iteration?: number;
+    /** The arguments the sub-agent invoked the tool with, used to enrich the
+     * row label (the URL fetched, the query searched, the file written). */
+    args?: unknown;
   };
 }) {
   const tone = toolCallTone(call.status);
+  // Reuse the main-timeline label builder so a sub-agent row reads "Fetching
+  // github.com" / "Searching: …" instead of a bare "web_fetch". `detail` (e.g.
+  // the file path) trails the title, dimmed, when the title alone isn't enough.
+  const { title, detail } = formatToolCallLabel(call.toolName, call.args);
   return (
     <div className="flex items-center gap-1.5" data-testid="subagent-tool-call">
       <span className={`text-[9px] ${tone}`}>•</span>
-      <span className="text-[10px] text-stone-700 dark:text-neutral-200">
-        {formatToolName(call.toolName)}
-      </span>
+      <span className="text-[10px] text-stone-700 dark:text-neutral-200">{title}</span>
+      {detail ? (
+        <span
+          className="max-w-[16rem] truncate text-[9px] text-stone-400 dark:text-neutral-500"
+          title={detail}>
+          {detail}
+        </span>
+      ) : null}
       {call.iteration != null ? (
         <span className="text-[9px] text-stone-400 dark:text-neutral-500">·t{call.iteration}</span>
       ) : null}

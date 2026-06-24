@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ToolTimelineEntry } from '../../store/chatRuntimeSlice';
 import {
   formatTimelineEntry,
+  formatToolCallLabel,
   formatToolName,
   stripToolCallEnvelopes,
 } from '../toolTimelineFormatting';
@@ -269,5 +270,40 @@ describe('stripToolCallEnvelopes', () => {
 
   it('leaves text without an envelope untouched', () => {
     expect(stripToolCallEnvelopes('just a normal sentence')).toBe('just a normal sentence');
+  });
+});
+
+describe('formatToolCallLabel', () => {
+  it('enriches web_fetch with the host (object args)', () => {
+    expect(formatToolCallLabel('web_fetch', { url: 'https://github.com/foo/bar' })).toEqual({
+      title: 'Fetching github.com',
+      detail: 'https://github.com/foo/bar',
+    });
+  });
+
+  it('enriches web_search with the query', () => {
+    expect(formatToolCallLabel('web_search', { query: 'rust async traits' })).toEqual({
+      title: 'Searching: rust async traits',
+    });
+  });
+
+  it('enriches file_write with a shortened path as detail', () => {
+    expect(formatToolCallLabel('file_write', { path: '/a/b/c/d/store/slice.ts' })).toEqual({
+      title: 'Writing file',
+      detail: '…/store/slice.ts',
+    });
+  });
+
+  it('accepts args delivered as a JSON string', () => {
+    expect(formatToolCallLabel('web_search', JSON.stringify({ query: 'hello' }))).toEqual({
+      title: 'Searching: hello',
+    });
+  });
+
+  it('falls back to the humanised tool name when args are absent/unknown', () => {
+    expect(formatToolCallLabel('web_fetch')).toEqual({ title: 'Fetching' });
+    expect(formatToolCallLabel('some_custom_tool', { irrelevant: true })).toEqual({
+      title: 'Some Custom Tool',
+    });
   });
 });

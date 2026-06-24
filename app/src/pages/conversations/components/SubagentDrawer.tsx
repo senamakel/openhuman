@@ -9,7 +9,7 @@ import type {
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
 import type { ThreadMessage } from '../../../types/thread';
-import { stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
+import { formatToolCallLabel, stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
 import { ConversationView } from './ConversationView';
 
@@ -452,6 +452,10 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
             ? t('conversations.subagent.statusAwaitingUser')
             : t('conversations.subagent.statusFailed');
 
+  // Rich label ("Fetching github.com" / "Searching: …") from the call's args,
+  // shared with the inline activity + main timeline. The exact tool name still
+  // shows as a dim mono suffix, and expanding reveals the full args/output.
+  const { title, detail } = formatToolCallLabel(item.toolName, item.args);
   const argsText = formatArgs(item.args);
   const hasOutput = item.result != null;
   const expandable = argsText != null || hasOutput;
@@ -481,7 +485,17 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
           <span className="w-[9px] shrink-0" aria-hidden />
         )}
         <span className={callTone}>🔧</span>
-        <span className="font-mono text-stone-700 dark:text-neutral-200">{item.toolName}</span>
+        <span className="text-stone-700 dark:text-neutral-200">{title}</span>
+        {detail ? (
+          <span
+            className="max-w-[12rem] truncate text-[11px] text-stone-400 dark:text-neutral-500"
+            title={detail}>
+            {detail}
+          </span>
+        ) : null}
+        <span className="font-mono text-[10px] text-stone-400 dark:text-neutral-500">
+          {item.toolName}
+        </span>
         <span className={`ml-auto ${callTone}`}>{statusLabel}</span>
         {item.elapsedMs != null && item.status !== 'running' ? (
           <span className="text-[10px] text-stone-400 dark:text-neutral-500">

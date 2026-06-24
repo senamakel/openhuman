@@ -82,6 +82,38 @@ export function formatToolName(toolName: string): string {
 }
 
 /**
+ * Build a context-rich label for a single tool call from its name *and* its
+ * arguments — the same `{ title, detail }` shape `formatTimelineEntry` derives
+ * for the main-agent timeline, but driven off a bare `(name, args)` pair so the
+ * sub-agent rows (inline activity + the side-panel transcript) can show *what*
+ * a call did ("Fetching github.com", "Searching: rust traits", "Writing file
+ * …/slice.ts") instead of just the verb. `args` may be the already-parsed
+ * object the socket delivered, or a JSON string; anything else falls back to
+ * the plain humanised tool name.
+ */
+export function formatToolCallLabel(
+  toolName: string,
+  args?: unknown
+): { title: string; detail?: string } {
+  const parsed = coerceToolArgs(args);
+  const detail = formatToolDetail(toolName, parsed);
+  if (detail) return detail;
+  return { title: formatToolName(toolName) };
+}
+
+/**
+ * Normalise a tool-call `args` value of unknown provenance into the
+ * `ParsedToolArgs` shape `formatToolDetail` reads. Sub-agent tool events carry
+ * the arguments as an already-parsed object; older/main-agent paths buffer them
+ * as a JSON string. Returns `null` for absent/unparseable args.
+ */
+function coerceToolArgs(args: unknown): ParsedToolArgs | null {
+  if (args == null) return null;
+  if (typeof args === 'string') return parseToolArgs(args);
+  return typeof args === 'object' ? (args as ParsedToolArgs) : null;
+}
+
+/**
  * Strip `<tool_call>…</tool_call>` envelopes that some models emit inline in
  * their visible / reasoning text. The structured call is already surfaced as
  * its own timeline row, so the raw envelope is pure noise in displayed prose.

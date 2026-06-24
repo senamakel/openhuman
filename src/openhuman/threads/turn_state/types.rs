@@ -96,6 +96,15 @@ pub struct SubagentActivity {
     /// from memory after a cold boot / interrupted turn.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worker_thread_id: Option<String>,
+    /// Sub-agent's own token usage, recorded on completion so a rehydrated
+    /// snapshot (cold boot / reopened thread) keeps the token strip the live
+    /// run showed. `None` for legacy snapshots and still-running sub-agents.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_input_tokens: Option<u64>,
     #[serde(default)]
     pub tool_calls: Vec<SubagentToolCall>,
 }

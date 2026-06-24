@@ -171,6 +171,9 @@ impl TurnStateMirror {
                         elapsed_ms: None,
                         output_chars: None,
                         worker_thread_id: worker_thread_id.clone(),
+                        input_tokens: None,
+                        output_tokens: None,
+                        cached_input_tokens: None,
                         tool_calls: Vec::new(),
                     }),
                 });
@@ -182,6 +185,9 @@ impl TurnStateMirror {
                 elapsed_ms,
                 iterations,
                 output_chars,
+                input_tokens,
+                output_tokens,
+                cached_input_tokens,
                 ..
             } => {
                 if let Some(entry) = self.find_subagent_entry_mut(task_id) {
@@ -190,6 +196,11 @@ impl TurnStateMirror {
                         activity.elapsed_ms = Some(*elapsed_ms);
                         activity.iterations = Some(*iterations);
                         activity.output_chars = Some(*output_chars);
+                        // Persist the sub-agent's token usage so a rehydrated
+                        // snapshot keeps the token strip after a cold boot.
+                        activity.input_tokens = Some(*input_tokens);
+                        activity.output_tokens = Some(*output_tokens);
+                        activity.cached_input_tokens = Some(*cached_input_tokens);
                     }
                 }
                 self.state.active_subagent = None;

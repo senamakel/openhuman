@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 
+import WorktreeActions from '../../../components/worktree/WorktreeActions';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { threadApi } from '../../../services/api/threadApi';
 import type {
@@ -8,6 +9,7 @@ import type {
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
 import type { ThreadMessage } from '../../../types/thread';
+import { basename } from '../../../utils/pathUtils';
 import { formatToolCallLabel, stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
 import { ConversationView } from './ConversationView';
@@ -441,9 +443,66 @@ export function SubagentDrawer({
                 })}
               </ol>
             )}
+            {subagent.worktreePath ? (
+              <SubagentWorktreeSection
+                worktreePath={subagent.worktreePath}
+                changedFiles={subagent.changedFiles}
+                isDirty={subagent.isDirty}
+              />
+            ) : null}
           </div>
         </ConversationView>
       </aside>
+    </div>
+  );
+}
+
+/**
+ * Worktree summary + open/diff/remove actions for a worktree-isolated
+ * sub-agent, carried into the side panel so the click-to-open row doesn't lose
+ * the cleanup/diff affordances the old inline `SubagentActivityBlock` exposed.
+ * Renders nothing for non-isolated workers (no `worktreePath`).
+ */
+function SubagentWorktreeSection({
+  worktreePath,
+  changedFiles,
+  isDirty,
+}: {
+  worktreePath: string;
+  changedFiles?: string[];
+  isDirty?: boolean;
+}) {
+  const { t } = useT();
+  return (
+    <div
+      className="mt-1 space-y-1 rounded-md border border-stone-200 bg-stone-50/70 p-2 text-xs dark:border-neutral-800 dark:bg-neutral-900/50"
+      data-testid="subagent-drawer-worktree">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="font-medium text-stone-600 dark:text-neutral-300">
+          {t('worktree.label')}
+        </span>
+        <span
+          className="truncate font-mono text-[10px] text-stone-500 dark:text-neutral-400"
+          title={worktreePath}>
+          {basename(worktreePath)}
+        </span>
+        {isDirty ? (
+          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+            {t('worktree.dirty')}
+          </span>
+        ) : (
+          <span className="rounded-full bg-sage-100 px-1.5 py-0.5 text-[9px] font-medium text-sage-700 dark:bg-sage-500/15 dark:text-sage-300">
+            {t('worktree.clean')}
+          </span>
+        )}
+        {changedFiles && changedFiles.length > 0 ? (
+          <span className="text-[9px] text-stone-400 dark:text-neutral-500">
+            {changedFiles.length}{' '}
+            {changedFiles.length === 1 ? t('worktree.changedFile') : t('worktree.changedFiles')}
+          </span>
+        ) : null}
+      </div>
+      <WorktreeActions path={worktreePath} isDirty={isDirty} compact />
     </div>
   );
 }

@@ -74,6 +74,11 @@ export interface PersistedSubagentActivity {
   outputChars?: number;
   /** Persistent worker sub-thread id backing this delegation (camelCase from core). */
   workerThreadId?: string;
+  /** Sub-agent's own token usage, persisted on completion so a rehydrated row
+   * keeps its token strip after a cold boot / reopened thread. */
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedInputTokens?: number;
   toolCalls: PersistedSubagentToolCall[];
 }
 

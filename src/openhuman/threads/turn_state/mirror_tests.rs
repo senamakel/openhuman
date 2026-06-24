@@ -263,4 +263,13 @@ fn subagent_lifecycle_records_and_clears_active() {
     let s = m.snapshot();
     assert_eq!(s.tool_timeline[0].status, ToolTimelineStatus::Success);
     assert!(s.active_subagent.is_none());
+    // Token usage is persisted onto the rehydratable snapshot so a cold-boot
+    // reopen keeps the sub-agent's token strip.
+    let activity = s.tool_timeline[0]
+        .subagent
+        .as_ref()
+        .expect("subagent activity");
+    assert_eq!(activity.input_tokens, Some(4096));
+    assert_eq!(activity.output_tokens, Some(512));
+    assert_eq!(activity.cached_input_tokens, Some(0));
 }

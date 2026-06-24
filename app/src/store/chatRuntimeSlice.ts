@@ -387,6 +387,9 @@ function subagentActivityFromPersisted(activity: PersistedSubagentActivity): Sub
     iterations: activity.iterations,
     elapsedMs: activity.elapsedMs,
     outputChars: activity.outputChars,
+    inputTokens: activity.inputTokens,
+    outputTokens: activity.outputTokens,
+    cachedInputTokens: activity.cachedInputTokens,
     toolCalls: activity.toolCalls.map(subagentToolCallFromPersisted),
     // Streamed text/thinking is live-only and never persisted, so a
     // rehydrated run can't replay the prose. Rebuild the transcript from
@@ -506,6 +509,12 @@ function timelineEntryFromRun(run: AgentRun): ToolTimelineEntry | null {
           : undefined,
       elapsedMs,
       outputChars,
+      // Run-ledger telemetry carries the sub-agent's token usage (persisted by
+      // the progress bridge), so a row rebuilt from the ledger keeps its token
+      // strip. `0` telemetry reads as "no usage" and the strip stays hidden.
+      inputTokens: run.telemetry?.inputTokens,
+      outputTokens: run.telemetry?.outputTokens,
+      cachedInputTokens: run.telemetry?.cachedInputTokens,
       toolCalls: [],
       transcript: [],
     },

@@ -395,14 +395,15 @@ fn create_chat_provider_uses_role() {
 // `default_model` (which defaults to `chat-v1`). Before the fix,
 // `make_openhuman_backend` only special-cased `vision`, so `hint = "coding"`
 // sub-agents (code_executor, skill_creator, tool_maker) silently ran on
-// `chat-v1` instead of `coding-v1`, and likewise for `agentic`/`reasoning`/
-// `summarization`. This drives `make_openhuman_backend` directly via the
-// explicit `"openhuman"` provider string.
+// `chat-v1` instead of `coding-v1`, and likewise for `agentic`/`reasoning`.
+// (`summarization` is intentionally excluded — see
+// `managed_backend_summarization_role_inherits_default_model`.) This drives
+// `make_openhuman_backend` directly via the explicit `"openhuman"` provider
+// string.
 #[test]
 fn managed_backend_pins_specialised_role_to_tier() {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1,
-        MODEL_VISION_V1,
+        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
     };
     // default_model is chat-v1 — the value the buggy path would have leaked.
     let config = Config::default();
@@ -412,7 +413,6 @@ fn managed_backend_pins_specialised_role_to_tier() {
         ("reasoning", MODEL_REASONING_V1),
         ("agentic", MODEL_AGENTIC_V1),
         ("coding", MODEL_CODING_V1),
-        ("summarization", MODEL_SUMMARIZATION_V1),
         ("vision", MODEL_VISION_V1),
     ] {
         let (_, model) = create_chat_provider_from_string(role, "openhuman", &config)
@@ -422,6 +422,26 @@ fn managed_backend_pins_specialised_role_to_tier() {
             "role={role} must pin to {expected_tier} on the managed backend, got {model}"
         );
     }
+}
+
+// `summarization` is deliberately NOT pinned: the memory subsystem
+// (`memory::chat::build_chat_runtime`) routes the summarization model through
+// `default_model` (sourced from the user-configurable
+// `memory_tree.cloud_llm_model`), so it must keep inheriting `default_model`.
+#[test]
+fn managed_backend_summarization_role_inherits_default_model() {
+    let mut config = Config::default();
+    config.default_model = Some("summarization-v1".to_string());
+    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, "summarization-v1");
+
+    // A non-tier custom override is not pinned away — it follows the existing
+    // known-tier validation (unknown → platform default reasoning-v1).
+    config.default_model = Some("custom-summary-model".to_string());
+    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, "reasoning-v1");
 }
 
 // End-to-end of the sub-agent path: the subagent runner resolves a

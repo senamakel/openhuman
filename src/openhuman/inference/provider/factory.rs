@@ -828,13 +828,18 @@ pub(crate) fn create_local_chat_provider_from_string(
 /// be mapped explicitly.
 ///
 /// Returns `Some(tier)` for the specialised roles that map 1:1 to a managed
-/// tier (these are exactly the `hint = "..."` values shipped sub-agents declare:
-/// `reasoning`, `agentic`, `coding`, `summarization`, `vision`). Returns `None`
-/// for the generic `chat` role (and any background/unknown role), which keeps
-/// inheriting `default_model`: the front-line chat turn and legacy
-/// `default_model = "reasoning-v1"` installs deliberately fall through to the
-/// `chat` role (see the session builder) and rely on `default_model` driving the
-/// model — pinning `chat` here would regress them.
+/// tier (`reasoning`, `agentic`, `coding`, `vision`). Returns `None` for:
+///
+/// - the generic `chat` role (and any background/unknown role), which keeps
+///   inheriting `default_model`: the front-line chat turn and legacy
+///   `default_model = "reasoning-v1"` installs deliberately fall through to the
+///   `chat` role (see the session builder) and rely on `default_model` driving
+///   the model — pinning `chat` here would regress them.
+/// - `summarization`, which is intentionally NOT pinned: the memory subsystem
+///   ([`crate::openhuman::memory::chat::build_chat_runtime`]) routes the
+///   summarization model through `routed.default_model`, sourced from the
+///   user-configurable `memory_tree.cloud_llm_model`. Pinning `summarization`
+///   to a fixed tier would silently ignore that override.
 ///
 /// For `vision` the default-inheritance mismatch is not just suboptimal but
 /// fatal: an unset `vision_provider` would resolve to `chat-v1`,
@@ -842,14 +847,12 @@ pub(crate) fn create_local_chat_provider_from_string(
 /// every attached image — leaving the managed vision sub-agent blind.
 fn managed_tier_for_role(role: &str) -> Option<&'static str> {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1,
-        MODEL_VISION_V1,
+        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
     };
     match role {
         "reasoning" => Some(MODEL_REASONING_V1),
         "agentic" => Some(MODEL_AGENTIC_V1),
         "coding" => Some(MODEL_CODING_V1),
-        "summarization" => Some(MODEL_SUMMARIZATION_V1),
         "vision" => Some(MODEL_VISION_V1),
         _ => None,
     }

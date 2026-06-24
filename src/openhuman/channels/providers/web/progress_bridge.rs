@@ -509,6 +509,12 @@ pub(crate) fn spawn_progress_bridge(
                             run_id: task_id.clone(),
                             elapsed_ms: Some(elapsed_ms),
                             tool_count: child_tool_counts.get(&task_id).copied(),
+                            // Persist the sub-agent's token usage alongside the
+                            // socket forward, so the run ledger isn't blank for
+                            // tokens when the bridge already has the counts.
+                            input_tokens: Some(input_tokens),
+                            output_tokens: Some(output_tokens),
+                            cached_input_tokens: Some(cached_input_tokens),
                             ..Default::default()
                         },
                     );

@@ -569,6 +569,9 @@ async fn thread_ops_welcome_migration_and_turn_state_cover_error_and_cleanup_pat
         worktree_path: None,
         changed_files: vec![],
         dirty_status: None,
+        input_tokens: 0,
+        output_tokens: 0,
+        cached_input_tokens: 0,
     }));
     mirror.finish();
 

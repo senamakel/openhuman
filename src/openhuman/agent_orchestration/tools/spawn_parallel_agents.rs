@@ -81,6 +81,14 @@ struct ParallelAgentResult {
     /// user can choose). `None` for non-isolated workers.
     #[serde(skip_serializing_if = "Option::is_none")]
     dirty_status: Option<bool>,
+    /// Input tokens this worker charged across its run. `0` for tasks that never
+    /// ran (validation/early-reject) so the parent's per-agent token display
+    /// reflects real usage instead of zeroing out workers that did consume.
+    input_tokens: u64,
+    /// Output tokens this worker generated across its run.
+    output_tokens: u64,
+    /// Cached (prompt-cache hit) input tokens across the run.
+    cached_input_tokens: u64,
 }
 
 #[async_trait]
@@ -245,6 +253,9 @@ impl Tool for SpawnParallelAgentsTool {
                     worktree_path: None,
                     changed_files: Vec::new(),
                     dirty_status: None,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    cached_input_tokens: 0,
                 });
                 continue;
             }
@@ -269,6 +280,9 @@ impl Tool for SpawnParallelAgentsTool {
                     worktree_path: None,
                     changed_files: Vec::new(),
                     dirty_status: None,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    cached_input_tokens: 0,
                 });
                 continue;
             };
@@ -298,6 +312,9 @@ impl Tool for SpawnParallelAgentsTool {
                     worktree_path: None,
                     changed_files: Vec::new(),
                     dirty_status: None,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    cached_input_tokens: 0,
                 });
                 continue;
             }
@@ -328,6 +345,9 @@ impl Tool for SpawnParallelAgentsTool {
                     worktree_path: None,
                     changed_files: Vec::new(),
                     dirty_status: None,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    cached_input_tokens: 0,
                 });
                 continue;
             }
@@ -418,6 +438,9 @@ impl Tool for SpawnParallelAgentsTool {
                                 worktree_path: None,
                                 changed_files: Vec::new(),
                                 dirty_status: None,
+                                input_tokens: 0,
+                                output_tokens: 0,
+                                cached_input_tokens: 0,
                             });
                             continue;
                         }
@@ -444,6 +467,9 @@ impl Tool for SpawnParallelAgentsTool {
                             worktree_path: None,
                             changed_files: Vec::new(),
                             dirty_status: None,
+                            input_tokens: 0,
+                            output_tokens: 0,
+                            cached_input_tokens: 0,
                         });
                         continue;
                     }
@@ -490,6 +516,9 @@ impl Tool for SpawnParallelAgentsTool {
                     worktree_path,
                     changed_files,
                     dirty_status,
+                    input_tokens,
+                    output_tokens,
+                    cached_input_tokens,
                     ..
                 } => {
                     tracing::debug!(
@@ -522,14 +551,11 @@ impl Tool for SpawnParallelAgentsTool {
                                 worktree_path: worktree_path.clone(),
                                 changed_files: changed_files.clone(),
                                 dirty_status: *dirty_status,
-                                // Per-agent token usage isn't threaded through
-                                // `ParallelAgentResult` yet — emit 0 so the UI
-                                // treats it as "no usage" rather than showing a
-                                // bogus 0-token strip. (Follow-up if parallel
-                                // agents need per-agent token display.)
-                                input_tokens: 0,
-                                output_tokens: 0,
-                                cached_input_tokens: 0,
+                                // Real per-agent token usage, threaded through
+                                // ParallelAgentResult from the worker outcome.
+                                input_tokens: *input_tokens,
+                                output_tokens: *output_tokens,
+                                cached_input_tokens: *cached_input_tokens,
                             })
                             .await
                         {
@@ -763,6 +789,9 @@ async fn run_one_parallel_task(
                 worktree_path: worktree_str,
                 changed_files,
                 dirty_status,
+                input_tokens: outcome.input_tokens,
+                output_tokens: outcome.output_tokens,
+                cached_input_tokens: outcome.cached_input_tokens,
             }
         }
         Err(err) => {
@@ -786,6 +815,9 @@ async fn run_one_parallel_task(
                 worktree_path: worktree_str,
                 changed_files,
                 dirty_status,
+                input_tokens: 0,
+                output_tokens: 0,
+                cached_input_tokens: 0,
             }
         }
     }

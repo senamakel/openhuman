@@ -539,8 +539,23 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                       round: event.round,
                       detail: pendingContext.prompt ?? e.detail,
                       sourceToolName: pendingContext.sourceToolName ?? e.sourceToolName,
+                      // MERGE onto the existing sub-agent, don't replace it: a
+                      // tool/iteration/completion event may have raced ahead and
+                      // recorded childIteration, iterations, elapsedMs, token
+                      // stats, etc. Spreading `e.subagent` first preserves those;
+                      // spawn metadata only overlays the fields it actually
+                      // carries (falling back to the existing value when absent).
                       subagent: {
-                        ...spawnMeta,
+                        ...e.subagent,
+                        taskId: event.skill_id,
+                        agentId: event.tool_name,
+                        displayName: event.subagent?.display_name ?? e.subagent?.displayName,
+                        workerThreadId:
+                          event.subagent?.worker_thread_id ?? e.subagent?.workerThreadId,
+                        mode: event.subagent?.mode ?? e.subagent?.mode,
+                        dedicatedThread:
+                          event.subagent?.dedicated_thread ?? e.subagent?.dedicatedThread,
+                        prompt: pendingContext.prompt ?? e.subagent?.prompt,
                         toolCalls: e.subagent?.toolCalls ?? [],
                         transcript: e.subagent?.transcript ?? [],
                       },

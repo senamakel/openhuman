@@ -96,6 +96,9 @@ fn result_omits_worktree_fields_when_absent() {
         worktree_path: None,
         changed_files: Vec::new(),
         dirty_status: None,
+        input_tokens: 0,
+        output_tokens: 0,
+        cached_input_tokens: 0,
     };
     let v = serde_json::to_value(&result).unwrap();
     assert!(v.get("worktreePath").is_none());
@@ -118,6 +121,9 @@ fn result_serializes_worktree_fields_when_present() {
         worktree_path: Some("/repo/.claude/worktrees/t2".into()),
         changed_files: vec!["src/a.rs".into()],
         dirty_status: Some(true),
+        input_tokens: 1500,
+        output_tokens: 320,
+        cached_input_tokens: 0,
     };
     let v = serde_json::to_value(&result).unwrap();
     assert_eq!(v["worktreePath"], "/repo/.claude/worktrees/t2");

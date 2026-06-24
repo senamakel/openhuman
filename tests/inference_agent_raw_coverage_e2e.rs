@@ -4699,6 +4699,9 @@ async fn agent_subagent_public_types_cover_task_local_and_error_display_paths() 
         mode: SubagentMode::Typed,
         status: SubagentRunStatus::Completed,
         final_history: Vec::new(),
+        input_tokens: 0,
+        output_tokens: 0,
+        cached_input_tokens: 0,
     };
     assert_eq!(outcome.mode.as_str(), "typed");
     assert_eq!(outcome.elapsed.as_millis(), 12);

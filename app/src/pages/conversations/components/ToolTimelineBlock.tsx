@@ -42,6 +42,33 @@ function toolCallTone(status: ToolTimelineEntryStatus): string {
 }
 
 /**
+ * A compact one-line status suffix for a collapsed sub-agent row ("turn 2/5 ·
+ * 4.2s · 3 tools") — just enough liveness/context that the row reads as
+ * informative before the user opens the full side panel. Uses only existing
+ * i18n keys; returns '' when there's nothing meaningful to show.
+ */
+function subagentSummaryBits(subagent: SubagentActivity, t: (k: string) => string): string {
+  const bits: string[] = [];
+  if (subagent.childIteration != null) {
+    bits.push(
+      subagent.childMaxIterations != null
+        ? `${t('conversations.toolTimeline.turn')} ${subagent.childIteration}/${subagent.childMaxIterations}`
+        : `${t('conversations.toolTimeline.step')} ${subagent.childIteration}`
+    );
+  } else if (subagent.iterations != null) {
+    bits.push(`${subagent.iterations} ${t('conversations.toolTimeline.turn')}`);
+  }
+  if (subagent.elapsedMs != null) {
+    bits.push(
+      subagent.elapsedMs >= 1000
+        ? `${(subagent.elapsedMs / 1000).toFixed(1)}s`
+        : `${subagent.elapsedMs}ms`
+    );
+  }
+  return bits.join(' · ');
+}
+
+/**
  * One child tool-call row in a sub-agent's inline activity. Shared by the
  * ordered transcript (interleaved with {@link ThoughtBlock}) and the flat
  * `toolCalls` fallback, so the row markup lives in exactly one place.
@@ -394,7 +421,31 @@ export function ToolTimelineBlock({
               key={entry.id}
               isFirst={index === 0}
               isLast={index === entries.length - 1}>
-              {expandable ? (
+              {subagent && onViewSubagent ? (
+                // A sub-agent is one click away from its in-depth view: instead
+                // of an inline toggle that reveals the prompt + transcript as
+                // separate sub-sections, the whole row opens the side panel,
+                // where the full parent↔sub-agent conversation (prompt, thoughts,
+                // tool calls, tokens) lives. One component, one click.
+                <button
+                  type="button"
+                  onClick={() => onViewSubagent(subagent)}
+                  data-testid="subagent-open-panel"
+                  className="group/sub flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-stone-100/70 dark:hover:bg-neutral-800/50">
+                  <span className={`text-[11px] font-medium ${nameTone}`}>{formatted.title}</span>
+                  {subagentSummaryBits(subagent, t) ? (
+                    <span className="truncate text-[9px] text-stone-400 dark:text-neutral-500">
+                      {subagentSummaryBits(subagent, t)}
+                    </span>
+                  ) : null}
+                  <span className="ml-auto shrink-0 text-[9px] font-medium text-primary-600 opacity-0 transition-opacity group-hover/sub:opacity-100 dark:text-primary-300">
+                    {t('conversations.subagent.viewProcessing')} →
+                  </span>
+                  <span className="shrink-0 text-[10px] text-stone-300 dark:text-neutral-600">
+                    ›
+                  </span>
+                </button>
+              ) : expandable ? (
                 <details open={shouldAutoExpand} className="group/row">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
                     <span className={`text-[11px] font-medium ${nameTone}`}>{formatted.title}</span>

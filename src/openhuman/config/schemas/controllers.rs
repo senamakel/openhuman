@@ -13,8 +13,7 @@ use super::helpers::{
     OnboardingCompletedSetParams, RuntimeSettingsUpdate, SandboxSettingsUpdate,
     ScreenIntelligenceSettingsUpdate, SearchSettingsUpdate, SetBrowserAllowAllParams,
     SuperContextSetParams, VoiceServerSettingsUpdate, WorkspaceOnboardingFlagParams,
-    WorkspaceOnboardingFlagSetParams,
-    DEFAULT_ONBOARDING_FLAG_NAME,
+    WorkspaceOnboardingFlagSetParams, DEFAULT_ONBOARDING_FLAG_NAME,
 };
 use super::schema_defs::schemas;
 

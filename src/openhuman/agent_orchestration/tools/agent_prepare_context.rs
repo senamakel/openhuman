@@ -43,10 +43,7 @@ const SCOUT_AGENT_ID: &str = "context_scout";
 /// task-local installed) — it reads the parent's visible tool catalogue
 /// and runs the scout against the parent's provider. Outside a turn the
 /// `run_subagent` call surfaces a no-parent error as a [`ToolResult::error`].
-pub async fn run_context_scout(
-    question: &str,
-    focus: Option<&str>,
-) -> anyhow::Result<ToolResult> {
+pub async fn run_context_scout(question: &str, focus: Option<&str>) -> anyhow::Result<ToolResult> {
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
 

@@ -125,11 +125,12 @@ impl Tool for AgentPrepareContextTool {
 
     fn description(&self) -> &str {
         "Before answering or delegating, scout existing context. Runs a fast \
-         read-only context-collector that checks memory, your goals/profile, \
-         connected integrations, and the web, then returns whether there's \
-         enough context to answer, a compact context summary, and an ordered \
-         list of recommended next tool calls (your own tools, by exact name, \
-         with args). Use at the start of non-trivial turns."
+         read-only context-collector that checks memory, past conversations \
+         (transcripts), your goals/profile, installed/registry skills, connected \
+         integrations, and the web, then returns whether there's enough context \
+         to answer, a compact context summary, an ordered list of recommended \
+         next tool calls (your own tools, by exact name, with args), and any \
+         skills worth running. Use at the start of non-trivial turns."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {

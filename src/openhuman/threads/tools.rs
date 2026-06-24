@@ -824,6 +824,34 @@ mod tests {
             PermissionLevel::Write
         );
         assert_eq!(ThreadListTool.scope(), ToolScope::All);
+        assert_eq!(
+            ThreadTranscriptSearchTool.name(),
+            "transcript_search"
+        );
+        assert_eq!(
+            ThreadTranscriptSearchTool.permission_level(),
+            PermissionLevel::ReadOnly
+        );
+        assert!(ThreadTranscriptSearchTool.is_concurrency_safe(&json!({})));
+    }
+
+    #[test]
+    fn transcript_search_requires_query() {
+        let schema = ThreadTranscriptSearchTool.parameters_schema();
+        let required = schema["required"].as_array().expect("required array");
+        assert!(required.iter().any(|v| v == "query"));
+    }
+
+    #[test]
+    fn transcript_search_snippet_collapses_and_truncates() {
+        // Short content is returned with whitespace collapsed, untruncated.
+        let short = ThreadTranscriptSearchTool::snippet("hello   there\n\nworld");
+        assert_eq!(short, "hello there world");
+        // Long content is cut to the cap with an ellipsis.
+        let long_src = "x ".repeat(400);
+        let long = ThreadTranscriptSearchTool::snippet(&long_src);
+        assert!(long.ends_with('…'));
+        assert!(long.chars().count() <= ThreadTranscriptSearchTool::SNIPPET_CHARS + 1);
     }
 
     #[test]

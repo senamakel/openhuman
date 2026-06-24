@@ -26,6 +26,218 @@ use std::fmt::Write as _;
 /// The sub-agent archetype this tool drives.
 const SCOUT_AGENT_ID: &str = "context_scout";
 
+/// Run the `context_scout` sub-agent inline (blocking) for `question` and
+/// return its bounded `[context_bundle]` envelope as a [`ToolResult`].
+///
+/// This is the shared engine behind two callers:
+///
+/// 1. The [`AgentPrepareContextTool`] — invoked *autonomously by the LLM*
+///    when it decides to scout context mid-turn.
+/// 2. The agent harness itself — when "super context" is enabled it calls
+///    this directly on the first turn of a new thread (see
+///    [`crate::openhuman::config::ContextConfig::super_context_enabled`]),
+///    so the collection happens regardless of the model's decision.
+///
+/// Must be called from within an active agent turn (i.e. with the
+/// [`crate::openhuman::agent::harness::fork_context::PARENT_CONTEXT`]
+/// task-local installed) — it reads the parent's visible tool catalogue
+/// and runs the scout against the parent's provider. Outside a turn the
+/// `run_subagent` call surfaces a no-parent error as a [`ToolResult::error`].
+pub async fn run_context_scout(
+    question: &str,
+    focus: Option<&str>,
+) -> anyhow::Result<ToolResult> {
+    let question = question.trim().to_string();
+    let focus = focus.map(|s| s.to_string());
+
+    tracing::info!(
+        target: "agent_prepare_context",
+        question_chars = question.chars().count(),
+        has_focus = focus.as_deref().map(|f| !f.trim().is_empty()).unwrap_or(false),
+        "[agent_prepare_context] invoked"
+    );
+
+    if question.is_empty() {
+        return Ok(ToolResult::error(
+            "agent_prepare_context: `question` is required",
+        ));
+    }
+
+    let registry = match AgentDefinitionRegistry::global() {
+        Some(reg) => reg,
+        None => {
+            return Ok(ToolResult::error(
+                "agent_prepare_context: AgentDefinitionRegistry has not been initialised.",
+            ));
+        }
+    };
+    let definition = match registry.get(SCOUT_AGENT_ID) {
+        Some(def) => def,
+        None => {
+            return Ok(ToolResult::error(format!(
+                "agent_prepare_context: built-in agent `{SCOUT_AGENT_ID}` is not registered.",
+            )));
+        }
+    };
+
+    let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog();
+    let catalog_tool_count = tool_catalog.lines().filter(|l| !l.is_empty()).count();
+    let scout_prompt =
+        AgentPrepareContextTool::build_scout_prompt(&question, focus.as_deref(), &tool_catalog);
+
+    tracing::debug!(
+        target: "agent_prepare_context",
+        catalog_tool_count,
+        scout_prompt_chars = scout_prompt.chars().count(),
+        "[agent_prepare_context] spawning context_scout (blocking)"
+    );
+
+    let task_id = format!("ctx-{}", uuid::Uuid::new_v4());
+    let parent_session = current_parent()
+        .map(|p| p.session_id.clone())
+        .unwrap_or_else(|| "standalone".into());
+    let progress_sink = current_parent().and_then(|p| p.on_progress.clone());
+
+    // Surface the scout as a live subagent row in the parent thread. The
+    // child's own iterations/tool-calls already stream to this sink from
+    // inside run_subagent; we bookend them with spawned/completed so the
+    // UI opens and closes the card. Best-effort — a closed sink is fine.
+    publish_global(DomainEvent::SubagentSpawned {
+        parent_session: parent_session.clone(),
+        agent_id: definition.id.clone(),
+        mode: "typed".to_string(),
+        task_id: task_id.clone(),
+        prompt_chars: scout_prompt.chars().count(),
+    });
+    if let Some(ref tx) = progress_sink {
+        let _ = tx
+            .send(AgentProgress::SubagentSpawned {
+                agent_id: definition.id.clone(),
+                task_id: task_id.clone(),
+                mode: "typed".to_string(),
+                dedicated_thread: false,
+                prompt_chars: scout_prompt.chars().count(),
+                worker_thread_id: None,
+                display_name: Some(definition.display_name().to_string()),
+            })
+            .await;
+    }
+
+    let options = SubagentRunOptions {
+        task_id: Some(task_id.clone()),
+        ..Default::default()
+    };
+
+    match run_subagent(definition, &scout_prompt, options).await {
+        Ok(outcome) => match &outcome.status {
+            SubagentRunStatus::Completed => {
+                tracing::info!(
+                    target: "agent_prepare_context",
+                    task_id = %outcome.task_id,
+                    elapsed_ms = outcome.elapsed.as_millis() as u64,
+                    iterations = outcome.iterations,
+                    output_chars = outcome.output.chars().count(),
+                    "[agent_prepare_context] context bundle ready"
+                );
+                publish_global(DomainEvent::SubagentCompleted {
+                    parent_session: parent_session.clone(),
+                    task_id: outcome.task_id.clone(),
+                    agent_id: outcome.agent_id.clone(),
+                    elapsed_ms: outcome.elapsed.as_millis() as u64,
+                    output_chars: outcome.output.chars().count(),
+                    iterations: outcome.iterations,
+                });
+                if let Some(ref tx) = progress_sink {
+                    let _ = tx
+                        .send(AgentProgress::SubagentCompleted {
+                            agent_id: outcome.agent_id.clone(),
+                            task_id: outcome.task_id.clone(),
+                            elapsed_ms: outcome.elapsed.as_millis() as u64,
+                            iterations: outcome.iterations as u32,
+                            output_chars: outcome.output.chars().count(),
+                            worktree_path: None,
+                            changed_files: Vec::new(),
+                            dirty_status: None,
+                        })
+                        .await;
+                }
+                Ok(ToolResult::success(outcome.output))
+            }
+            // The scout has no `ask_user_clarification` tool, so this
+            // branch should not fire — handle defensively rather than
+            // leaking a confusing checkpoint envelope to the parent.
+            SubagentRunStatus::AwaitingUser { question, .. } => {
+                tracing::warn!(
+                    target: "agent_prepare_context",
+                    task_id = %outcome.task_id,
+                    "[agent_prepare_context] scout unexpectedly awaited user input"
+                );
+                // Close the domain-event lifecycle too — a SubagentSpawned
+                // was already published, so emit Completed to avoid a
+                // dangling spawned state for event-bus consumers.
+                publish_global(DomainEvent::SubagentCompleted {
+                    parent_session: parent_session.clone(),
+                    task_id: outcome.task_id.clone(),
+                    agent_id: outcome.agent_id.clone(),
+                    elapsed_ms: outcome.elapsed.as_millis() as u64,
+                    output_chars: 0,
+                    iterations: outcome.iterations,
+                });
+                if let Some(ref tx) = progress_sink {
+                    let _ = tx
+                        .send(AgentProgress::SubagentCompleted {
+                            agent_id: outcome.agent_id.clone(),
+                            task_id: outcome.task_id.clone(),
+                            elapsed_ms: outcome.elapsed.as_millis() as u64,
+                            iterations: outcome.iterations as u32,
+                            output_chars: 0,
+                            worktree_path: None,
+                            changed_files: Vec::new(),
+                            dirty_status: None,
+                        })
+                        .await;
+                }
+                Ok(ToolResult::success(format!(
+                    "[context_bundle]\nhas_enough_context: false\n\
+                     summary: The context scout could not complete without clarification: {question}\n\
+                     recommended_tool_calls:\n[/context_bundle]"
+                )))
+            }
+        },
+        Err(err) => {
+            let message = err.to_string();
+            let error_kind = message
+                .split(':')
+                .next()
+                .map(str::trim)
+                .unwrap_or("unknown");
+            tracing::error!(
+                target: "agent_prepare_context",
+                error_kind = %error_kind,
+                "[agent_prepare_context] context_scout run failed"
+            );
+            publish_global(DomainEvent::SubagentFailed {
+                parent_session: parent_session.clone(),
+                task_id: task_id.clone(),
+                agent_id: definition.id.clone(),
+                error: message.clone(),
+            });
+            if let Some(ref tx) = progress_sink {
+                let _ = tx
+                    .send(AgentProgress::SubagentFailed {
+                        agent_id: definition.id.clone(),
+                        task_id: task_id.clone(),
+                        error: message.clone(),
+                    })
+                    .await;
+            }
+            Ok(ToolResult::error(format!(
+                "agent_prepare_context failed: {message}"
+            )))
+        }
+    }
+}
+
 /// Spawns the `context_scout` sub-agent to collect context and propose a plan.
 pub struct AgentPrepareContextTool;
 
@@ -160,202 +372,9 @@ impl Tool for AgentPrepareContextTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let question = args
-            .get("question")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        let focus = args
-            .get("focus")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-
-        tracing::info!(
-            target: "agent_prepare_context",
-            question_chars = question.chars().count(),
-            has_focus = focus.as_deref().map(|f| !f.trim().is_empty()).unwrap_or(false),
-            "[agent_prepare_context] invoked"
-        );
-
-        if question.is_empty() {
-            return Ok(ToolResult::error(
-                "agent_prepare_context: `question` is required",
-            ));
-        }
-
-        let registry = match AgentDefinitionRegistry::global() {
-            Some(reg) => reg,
-            None => {
-                return Ok(ToolResult::error(
-                    "agent_prepare_context: AgentDefinitionRegistry has not been initialised.",
-                ));
-            }
-        };
-        let definition = match registry.get(SCOUT_AGENT_ID) {
-            Some(def) => def,
-            None => {
-                return Ok(ToolResult::error(format!(
-                    "agent_prepare_context: built-in agent `{SCOUT_AGENT_ID}` is not registered.",
-                )));
-            }
-        };
-
-        let tool_catalog = Self::render_parent_tool_catalog();
-        let catalog_tool_count = tool_catalog.lines().filter(|l| !l.is_empty()).count();
-        let scout_prompt = Self::build_scout_prompt(&question, focus.as_deref(), &tool_catalog);
-
-        tracing::debug!(
-            target: "agent_prepare_context",
-            catalog_tool_count,
-            scout_prompt_chars = scout_prompt.chars().count(),
-            "[agent_prepare_context] spawning context_scout (blocking)"
-        );
-
-        let task_id = format!("ctx-{}", uuid::Uuid::new_v4());
-        let parent_session = current_parent()
-            .map(|p| p.session_id.clone())
-            .unwrap_or_else(|| "standalone".into());
-        let progress_sink = current_parent().and_then(|p| p.on_progress.clone());
-
-        // Surface the scout as a live subagent row in the parent thread. The
-        // child's own iterations/tool-calls already stream to this sink from
-        // inside run_subagent; we bookend them with spawned/completed so the
-        // UI opens and closes the card. Best-effort — a closed sink is fine.
-        publish_global(DomainEvent::SubagentSpawned {
-            parent_session: parent_session.clone(),
-            agent_id: definition.id.clone(),
-            mode: "typed".to_string(),
-            task_id: task_id.clone(),
-            prompt_chars: scout_prompt.chars().count(),
-        });
-        if let Some(ref tx) = progress_sink {
-            let _ = tx
-                .send(AgentProgress::SubagentSpawned {
-                    agent_id: definition.id.clone(),
-                    task_id: task_id.clone(),
-                    mode: "typed".to_string(),
-                    dedicated_thread: false,
-                    prompt_chars: scout_prompt.chars().count(),
-                    worker_thread_id: None,
-                    display_name: Some(definition.display_name().to_string()),
-                })
-                .await;
-        }
-
-        let options = SubagentRunOptions {
-            task_id: Some(task_id.clone()),
-            ..Default::default()
-        };
-
-        match run_subagent(definition, &scout_prompt, options).await {
-            Ok(outcome) => match &outcome.status {
-                SubagentRunStatus::Completed => {
-                    tracing::info!(
-                        target: "agent_prepare_context",
-                        task_id = %outcome.task_id,
-                        elapsed_ms = outcome.elapsed.as_millis() as u64,
-                        iterations = outcome.iterations,
-                        output_chars = outcome.output.chars().count(),
-                        "[agent_prepare_context] context bundle ready"
-                    );
-                    publish_global(DomainEvent::SubagentCompleted {
-                        parent_session: parent_session.clone(),
-                        task_id: outcome.task_id.clone(),
-                        agent_id: outcome.agent_id.clone(),
-                        elapsed_ms: outcome.elapsed.as_millis() as u64,
-                        output_chars: outcome.output.chars().count(),
-                        iterations: outcome.iterations,
-                    });
-                    if let Some(ref tx) = progress_sink {
-                        let _ = tx
-                            .send(AgentProgress::SubagentCompleted {
-                                agent_id: outcome.agent_id.clone(),
-                                task_id: outcome.task_id.clone(),
-                                elapsed_ms: outcome.elapsed.as_millis() as u64,
-                                iterations: outcome.iterations as u32,
-                                output_chars: outcome.output.chars().count(),
-                                worktree_path: None,
-                                changed_files: Vec::new(),
-                                dirty_status: None,
-                            })
-                            .await;
-                    }
-                    Ok(ToolResult::success(outcome.output))
-                }
-                // The scout has no `ask_user_clarification` tool, so this
-                // branch should not fire — handle defensively rather than
-                // leaking a confusing checkpoint envelope to the parent.
-                SubagentRunStatus::AwaitingUser { question, .. } => {
-                    tracing::warn!(
-                        target: "agent_prepare_context",
-                        task_id = %outcome.task_id,
-                        "[agent_prepare_context] scout unexpectedly awaited user input"
-                    );
-                    // Close the domain-event lifecycle too — a SubagentSpawned
-                    // was already published, so emit Completed to avoid a
-                    // dangling spawned state for event-bus consumers.
-                    publish_global(DomainEvent::SubagentCompleted {
-                        parent_session: parent_session.clone(),
-                        task_id: outcome.task_id.clone(),
-                        agent_id: outcome.agent_id.clone(),
-                        elapsed_ms: outcome.elapsed.as_millis() as u64,
-                        output_chars: 0,
-                        iterations: outcome.iterations,
-                    });
-                    if let Some(ref tx) = progress_sink {
-                        let _ = tx
-                            .send(AgentProgress::SubagentCompleted {
-                                agent_id: outcome.agent_id.clone(),
-                                task_id: outcome.task_id.clone(),
-                                elapsed_ms: outcome.elapsed.as_millis() as u64,
-                                iterations: outcome.iterations as u32,
-                                output_chars: 0,
-                                worktree_path: None,
-                                changed_files: Vec::new(),
-                                dirty_status: None,
-                            })
-                            .await;
-                    }
-                    Ok(ToolResult::success(format!(
-                        "[context_bundle]\nhas_enough_context: false\n\
-                         summary: The context scout could not complete without clarification: {question}\n\
-                         recommended_tool_calls:\n[/context_bundle]"
-                    )))
-                }
-            },
-            Err(err) => {
-                let message = err.to_string();
-                let error_kind = message
-                    .split(':')
-                    .next()
-                    .map(str::trim)
-                    .unwrap_or("unknown");
-                tracing::error!(
-                    target: "agent_prepare_context",
-                    error_kind = %error_kind,
-                    "[agent_prepare_context] context_scout run failed"
-                );
-                publish_global(DomainEvent::SubagentFailed {
-                    parent_session: parent_session.clone(),
-                    task_id: task_id.clone(),
-                    agent_id: definition.id.clone(),
-                    error: message.clone(),
-                });
-                if let Some(ref tx) = progress_sink {
-                    let _ = tx
-                        .send(AgentProgress::SubagentFailed {
-                            agent_id: definition.id.clone(),
-                            task_id: task_id.clone(),
-                            error: message.clone(),
-                        })
-                        .await;
-                }
-                Ok(ToolResult::error(format!(
-                    "agent_prepare_context failed: {message}"
-                )))
-            }
-        }
+        let question = args.get("question").and_then(|v| v.as_str()).unwrap_or("");
+        let focus = args.get("focus").and_then(|v| v.as_str());
+        run_context_scout(question, focus).await
     }
 }
 

@@ -47,6 +47,10 @@ impl Agent {
     ///    extraction asynchronously.
     pub async fn turn(&mut self, user_message: &str) -> Result<String> {
         let turn_started = std::time::Instant::now();
+        // Capture before any system-prompt push mutates `history`: this is the
+        // signal that gates first-turn-only work (system prompt build, and the
+        // "super context" harness-driven context-collection pass below).
+        let first_turn = self.history.is_empty();
         self.emit_progress(AgentProgress::TurnStarted).await;
         log::info!("[agent] turn started — awaiting user message processing");
         log::info!(
@@ -427,6 +431,68 @@ impl Agent {
         let enriched = self
             .inject_triggered_memory_agent_context(user_message, enriched, &parent_context)
             .await;
+
+        // ── "Super context": harness-driven first-turn context collection ──
+        // When enabled (config `context.super_context_enabled`, surfaced as the
+        // composer toggle), run the read-only `context_scout` BEFORE the
+        // orchestrator LLM gets the turn, and fold its bounded
+        // `[context_bundle]` into the user message. This is the harness driving
+        // the collection deterministically — unlike the `agent_prepare_context`
+        // tool, which the model chooses to call. First turn only (the value is
+        // baked into the frozen turn-1 prefix; later turns reuse it). The tool
+        // stays exposed so the model can still scout again mid-turn.
+        //
+        // Runs inside the parent-context scope because `run_context_scout`
+        // reads the parent's visible tool catalogue and runs the scout against
+        // the parent's provider via the PARENT_CONTEXT task-local. Best-effort:
+        // any failure (scout error, no bundle) leaves the turn to proceed with
+        // the un-augmented message rather than blocking the user.
+        let enriched = if first_turn && self.context.super_context_enabled() {
+            log::info!(
+                "[agent_loop] super_context enabled — running harness-driven context collection (first turn)"
+            );
+            let scout = harness::with_parent_context(parent_context.clone(), {
+                let user_message = user_message.to_string();
+                async move {
+                    crate::openhuman::agent_orchestration::tools::run_context_scout(
+                        &user_message,
+                        None,
+                    )
+                    .await
+                }
+            })
+            .await;
+            match scout {
+                Ok(result) if !result.is_error => {
+                    let bundle = result.output();
+                    log::info!(
+                        "[agent_loop] super_context bundle collected bundle_chars={}",
+                        bundle.chars().count()
+                    );
+                    format!(
+                        "## Prepared context (super context)\n\nThe following context was \
+                         collected up-front by a read-only context scout before this turn. \
+                         Use it to ground your response; you may still gather more if needed.\n\n\
+                         {bundle}\n\n---\n\n{enriched}"
+                    )
+                }
+                Ok(result) => {
+                    log::warn!(
+                        "[agent_loop] super_context scout returned an error — proceeding without bundle: {}",
+                        result.output()
+                    );
+                    enriched
+                }
+                Err(err) => {
+                    log::warn!(
+                        "[agent_loop] super_context collection failed — proceeding without bundle: {err}"
+                    );
+                    enriched
+                }
+            }
+        } else {
+            enriched
+        };
 
         // #3602: stamp every turn's user message with the live local time
         // so time-relative phrasing (greetings, "today"/"tonight") is

@@ -18,6 +18,7 @@ import CommandProvider from './components/commands/CommandProvider';
 import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
+import HarnessInitOverlay from './components/InitProgressScreen/HarnessInitOverlay';
 import KeyringConsentOverlay from './components/keyring/KeyringConsentOverlay';
 import AppSidebar from './components/layout/shell/AppSidebar';
 import RootShellLayout from './components/layout/shell/RootShellLayout';
@@ -154,6 +155,7 @@ function App() {
                             {!onMobile && <LocalAIDownloadSnackbar />}
                             {!onMobile && <AppUpdatePrompt />}
                             <KeyringConsentOverlay />
+                            <HarnessInitOverlay />
                             <SecretPromptDialog />
                           </ServiceBlockingGate>
                         </CommandProvider>

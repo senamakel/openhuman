@@ -180,6 +180,18 @@ async fn run_step(python_bin: &Path, args: &[&str], timeout: Duration, label: &s
     Ok(())
 }
 
+/// Cheap, network-free probe: is spaCy already provisioned on this host?
+///
+/// Mirrors the early-return guard in [`ensure_spacy`] (marker file + venv
+/// interpreter present) without creating directories, writing the service
+/// script, or resolving Python. Used by the harness-init orchestrator to mark
+/// the spaCy step `Done` instantly on a warm host.
+pub fn spacy_provisioned(config: &Config) -> bool {
+    let venv_dir = nlp_cache_root(config).join("spacy-venv");
+    let marker = venv_dir.join(".openhuman-spacy-ready");
+    marker.exists() && venv_python_path(&venv_dir).exists()
+}
+
 /// Resolve the venv's python executable across platforms.
 fn venv_python_path(venv_dir: &Path) -> PathBuf {
     if cfg!(windows) {

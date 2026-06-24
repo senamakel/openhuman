@@ -5785,6 +5785,25 @@ const messages: TranslationMap = {
   'graphCohesion.title': 'Cohésion du graphe',
   'memory.tab.cohesion': 'Cohesion',
 
+  'harnessInit.title': 'Configuration en cours',
+  'harnessInit.subtitle':
+    'OpenHuman prépare les composants dont il a besoin lors du premier lancement.',
+  'harnessInit.stepPython': "Environnement d'exécution Python",
+  'harnessInit.stepSpacy': 'Modèle de langage',
+  'harnessInit.stepNode': "Environnement d'exécution Node.js",
+  'harnessInit.statePending': 'En attente',
+  'harnessInit.stateRunning': 'Installation…',
+  'harnessInit.stateDone': 'Prêt',
+  'harnessInit.stateSkipped': 'Ignoré',
+  'harnessInit.stateFailed': 'Échec',
+  'harnessInit.failedMessage':
+    'Certaines étapes de configuration ne se sont pas terminées. Vous pouvez réessayer ou continuer — OpenHuman utilisera une solution de secours intégrée.',
+  'harnessInit.retry': 'Réessayer',
+  'harnessInit.continueAnyway': 'Continuer quand même',
+  'harnessInit.runInBackground': 'Exécuter en arrière-plan',
+  'harnessInit.backgroundHint':
+    'Vous pouvez continuer à utiliser OpenHuman pendant que cela se termine.',
+
   'keyring.consent.title': 'Stockage sécurisé indisponible',
   'keyring.consent.description':
     "Le trousseau de votre système d'exploitation n'est pas accessible. OpenHuman a besoin de votre autorisation pour stocker les secrets en utilisant un stockage local chiffré.",

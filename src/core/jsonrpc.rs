@@ -2374,6 +2374,20 @@ pub async fn bootstrap_core_runtime(host_kind: crate::core::types::HostKind) {
     // Uses a Once guard so repeated calls to bootstrap_core_runtime()
     // cannot double-subscribe.
     register_domain_subscribers(workspace_dir.clone(), cfg.clone(), embedded_core);
+
+    // One-time first-run initialization (managed Python runtime, spaCy model,
+    // managed Node runtime). Spawned AFTER subscribers are live but does NOT
+    // block the ready signal — the core becomes RPC-ready immediately and the
+    // frontend watches per-step progress via `openhuman.harness_init_status`.
+    // On a warm host every step's `is_done` probe passes and this settles
+    // instantly. See `crate::openhuman::harness_init`.
+    {
+        let cfg_for_init = cfg.clone();
+        tokio::spawn(async move {
+            crate::openhuman::harness_init::run_harness_init(cfg_for_init).await;
+        });
+    }
+
     // Warm the remote skills catalog on every core load. This updates the
     // cached registry used by skill discovery/search, but runs best-effort in
     // the background so Hermes/network latency cannot block core readiness.

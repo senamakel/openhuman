@@ -6143,6 +6143,24 @@ const en: TranslationMap = {
   'chat.files.error.download_failed': 'Download failed. Please try again.',
   'chat.files.error.delete_failed': 'Couldn’t delete the file. Please try again.',
 
+  // First-run initialization (harness_init)
+  'harnessInit.title': 'Setting things up',
+  'harnessInit.subtitle': 'OpenHuman is preparing components it needs on first launch.',
+  'harnessInit.stepPython': 'Python runtime',
+  'harnessInit.stepSpacy': 'Language model',
+  'harnessInit.stepNode': 'Node.js runtime',
+  'harnessInit.statePending': 'Waiting',
+  'harnessInit.stateRunning': 'Installing…',
+  'harnessInit.stateDone': 'Ready',
+  'harnessInit.stateSkipped': 'Skipped',
+  'harnessInit.stateFailed': 'Failed',
+  'harnessInit.failedMessage':
+    'Some setup steps did not finish. You can retry, or continue — OpenHuman will use a built-in fallback.',
+  'harnessInit.retry': 'Retry',
+  'harnessInit.continueAnyway': 'Continue anyway',
+  'harnessInit.runInBackground': 'Run in background',
+  'harnessInit.backgroundHint': 'You can keep using OpenHuman while this finishes.',
+
   // Keyring consent & security
   'keyring.consent.title': 'Secure Storage Unavailable',
   'keyring.consent.description':

@@ -5748,6 +5748,24 @@ const messages: TranslationMap = {
   'graphCohesion.title': 'Coesão do grafo',
   'memory.tab.cohesion': 'Cohesion',
 
+  'harnessInit.title': 'Preparando tudo',
+  'harnessInit.subtitle':
+    'O OpenHuman está preparando os componentes necessários na primeira inicialização.',
+  'harnessInit.stepPython': 'Ambiente de execução Python',
+  'harnessInit.stepSpacy': 'Modelo de linguagem',
+  'harnessInit.stepNode': 'Ambiente de execução Node.js',
+  'harnessInit.statePending': 'Aguardando',
+  'harnessInit.stateRunning': 'Instalando…',
+  'harnessInit.stateDone': 'Pronto',
+  'harnessInit.stateSkipped': 'Ignorado',
+  'harnessInit.stateFailed': 'Falhou',
+  'harnessInit.failedMessage':
+    'Algumas etapas de configuração não foram concluídas. Você pode tentar novamente ou continuar — o OpenHuman usará uma alternativa integrada.',
+  'harnessInit.retry': 'Tentar novamente',
+  'harnessInit.continueAnyway': 'Continuar mesmo assim',
+  'harnessInit.runInBackground': 'Executar em segundo plano',
+  'harnessInit.backgroundHint': 'Você pode continuar usando o OpenHuman enquanto isso termina.',
+
   'keyring.consent.title': 'Armazenamento seguro indisponível',
   'keyring.consent.description':
     'O chaveiro do sistema operacional não está acessível. O OpenHuman precisa da sua permissão para armazenar segredos usando armazenamento local criptografado.',

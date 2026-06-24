@@ -5742,6 +5742,24 @@ const messages: TranslationMap = {
   'chat.files.error.download_failed': 'Pobieranie nie powiodło się. Prosimy spróbować ponownie.',
   'chat.files.error.delete_failed': 'Nie udało się usunąć pliku. Prosimy spróbować ponownie.',
 
+  'harnessInit.title': 'Trwa konfiguracja',
+  'harnessInit.subtitle':
+    'OpenHuman przygotowuje komponenty potrzebne przy pierwszym uruchomieniu.',
+  'harnessInit.stepPython': 'Środowisko uruchomieniowe Python',
+  'harnessInit.stepSpacy': 'Model językowy',
+  'harnessInit.stepNode': 'Środowisko uruchomieniowe Node.js',
+  'harnessInit.statePending': 'Oczekiwanie',
+  'harnessInit.stateRunning': 'Instalowanie…',
+  'harnessInit.stateDone': 'Gotowe',
+  'harnessInit.stateSkipped': 'Pominięto',
+  'harnessInit.stateFailed': 'Niepowodzenie',
+  'harnessInit.failedMessage':
+    'Niektóre kroki konfiguracji nie zostały ukończone. Możesz spróbować ponownie lub kontynuować — OpenHuman użyje wbudowanego rozwiązania zastępczego.',
+  'harnessInit.retry': 'Spróbuj ponownie',
+  'harnessInit.continueAnyway': 'Kontynuuj mimo to',
+  'harnessInit.runInBackground': 'Uruchom w tle',
+  'harnessInit.backgroundHint': 'Możesz dalej korzystać z OpenHuman, dopóki to się nie zakończy.',
+
   'keyring.consent.title': 'Bezpieczne przechowywanie niedostępne',
   'keyring.consent.description':
     'Pęk kluczy systemu operacyjnego jest niedostępny. OpenHuman potrzebuje Twojej zgody na przechowywanie sekretów w lokalnym zaszyfrowanym magazynie.',

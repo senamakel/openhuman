@@ -5802,6 +5802,24 @@ const messages: TranslationMap = {
   'graphCohesion.title': 'Graph-Kohäsion',
   'memory.tab.cohesion': 'Cohesion',
 
+  'harnessInit.title': 'Einrichtung läuft',
+  'harnessInit.subtitle': 'OpenHuman bereitet beim ersten Start benötigte Komponenten vor.',
+  'harnessInit.stepPython': 'Python-Laufzeitumgebung',
+  'harnessInit.stepSpacy': 'Sprachmodell',
+  'harnessInit.stepNode': 'Node.js-Laufzeitumgebung',
+  'harnessInit.statePending': 'Wartet',
+  'harnessInit.stateRunning': 'Wird installiert…',
+  'harnessInit.stateDone': 'Bereit',
+  'harnessInit.stateSkipped': 'Übersprungen',
+  'harnessInit.stateFailed': 'Fehlgeschlagen',
+  'harnessInit.failedMessage':
+    'Einige Einrichtungsschritte wurden nicht abgeschlossen. Du kannst es erneut versuchen oder fortfahren — OpenHuman verwendet dann eine integrierte Ausweichlösung.',
+  'harnessInit.retry': 'Erneut versuchen',
+  'harnessInit.continueAnyway': 'Trotzdem fortfahren',
+  'harnessInit.runInBackground': 'Im Hintergrund ausführen',
+  'harnessInit.backgroundHint':
+    'Du kannst OpenHuman weiter verwenden, während dies abgeschlossen wird.',
+
   'keyring.consent.title': 'Sicherer Speicher nicht verfügbar',
   'keyring.consent.description':
     'Der Schlüsselbund Ihres Betriebssystems ist nicht erreichbar. OpenHuman benötigt Ihre Erlaubnis, Geheimnisse stattdessen in einem lokal verschlüsselten Speicher abzulegen.',

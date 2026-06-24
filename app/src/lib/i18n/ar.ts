@@ -5542,6 +5542,23 @@ const messages: TranslationMap = {
   'graphCohesion.title': 'تماسك الرسم البياني',
   'memory.tab.cohesion': 'Cohesion',
 
+  'harnessInit.title': 'جارٍ الإعداد',
+  'harnessInit.subtitle': 'يقوم OpenHuman بتجهيز المكونات التي يحتاجها عند التشغيل الأول.',
+  'harnessInit.stepPython': 'بيئة تشغيل Python',
+  'harnessInit.stepSpacy': 'النموذج اللغوي',
+  'harnessInit.stepNode': 'بيئة تشغيل Node.js',
+  'harnessInit.statePending': 'في الانتظار',
+  'harnessInit.stateRunning': 'جارٍ التثبيت…',
+  'harnessInit.stateDone': 'جاهز',
+  'harnessInit.stateSkipped': 'تم التخطي',
+  'harnessInit.stateFailed': 'فشل',
+  'harnessInit.failedMessage':
+    'لم تكتمل بعض خطوات الإعداد. يمكنك إعادة المحاولة أو المتابعة — سيستخدم OpenHuman بديلاً مدمجاً.',
+  'harnessInit.retry': 'إعادة المحاولة',
+  'harnessInit.continueAnyway': 'المتابعة على أي حال',
+  'harnessInit.runInBackground': 'التشغيل في الخلفية',
+  'harnessInit.backgroundHint': 'يمكنك مواصلة استخدام OpenHuman حتى ينتهي هذا.',
+
   'keyring.consent.title': 'التخزين الآمن غير متاح',
   'keyring.consent.description':
     'سلسلة مفاتيح نظام التشغيل غير متاحة. يحتاج OpenHuman إلى إذنك لتخزين الأسرار باستخدام التخزين المشفّر المحلي بدلاً من ذلك.',

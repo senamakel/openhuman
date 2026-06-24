@@ -5660,6 +5660,23 @@ const messages: TranslationMap = {
   'graphCohesion.title': 'ग्राफ संसक्ति',
   'memory.tab.cohesion': 'Cohesion',
 
+  'harnessInit.title': 'सेटअप किया जा रहा है',
+  'harnessInit.subtitle': 'OpenHuman पहली बार शुरू होने पर आवश्यक घटक तैयार कर रहा है।',
+  'harnessInit.stepPython': 'Python रनटाइम',
+  'harnessInit.stepSpacy': 'भाषा मॉडल',
+  'harnessInit.stepNode': 'Node.js रनटाइम',
+  'harnessInit.statePending': 'प्रतीक्षारत',
+  'harnessInit.stateRunning': 'इंस्टॉल हो रहा है…',
+  'harnessInit.stateDone': 'तैयार',
+  'harnessInit.stateSkipped': 'छोड़ा गया',
+  'harnessInit.stateFailed': 'विफल',
+  'harnessInit.failedMessage':
+    'कुछ सेटअप चरण पूरे नहीं हुए। आप पुनः प्रयास कर सकते हैं, या जारी रख सकते हैं — OpenHuman एक अंतर्निहित फॉलबैक का उपयोग करेगा।',
+  'harnessInit.retry': 'पुनः प्रयास करें',
+  'harnessInit.continueAnyway': 'फिर भी जारी रखें',
+  'harnessInit.runInBackground': 'पृष्ठभूमि में चलाएँ',
+  'harnessInit.backgroundHint': 'जब तक यह पूरा होता है, आप OpenHuman का उपयोग जारी रख सकते हैं।',
+
   'keyring.consent.title': 'सुरक्षित भंडारण अनुपलब्ध',
   'keyring.consent.description':
     'आपके ऑपरेटिंग सिस्टम का कीचेन सुलभ नहीं है। OpenHuman को इसके बजाय स्थानीय एन्क्रिप्टेड भंडारण का उपयोग करके रहस्य संग्रहीत करने के लिए आपकी अनुमति चाहिए।',

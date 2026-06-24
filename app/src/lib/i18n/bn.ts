@@ -5657,6 +5657,24 @@ const messages: TranslationMap = {
   'memory.tab.cohesion': 'Cohesion',
 
   // Keyring consent & security
+  'harnessInit.title': 'সেটআপ করা হচ্ছে',
+  'harnessInit.subtitle': 'প্রথম চালুর সময় OpenHuman প্রয়োজনীয় উপাদানগুলো প্রস্তুত করছে।',
+  'harnessInit.stepPython': 'Python রানটাইম',
+  'harnessInit.stepSpacy': 'ভাষা মডেল',
+  'harnessInit.stepNode': 'Node.js রানটাইম',
+  'harnessInit.statePending': 'অপেক্ষমাণ',
+  'harnessInit.stateRunning': 'ইনস্টল করা হচ্ছে…',
+  'harnessInit.stateDone': 'প্রস্তুত',
+  'harnessInit.stateSkipped': 'এড়িয়ে যাওয়া হয়েছে',
+  'harnessInit.stateFailed': 'ব্যর্থ',
+  'harnessInit.failedMessage':
+    'কিছু সেটআপ ধাপ সম্পন্ন হয়নি। আপনি পুনরায় চেষ্টা করতে পারেন, অথবা চালিয়ে যেতে পারেন — OpenHuman একটি অন্তর্নির্মিত ফলব্যাক ব্যবহার করবে।',
+  'harnessInit.retry': 'পুনরায় চেষ্টা করুন',
+  'harnessInit.continueAnyway': 'তবুও চালিয়ে যান',
+  'harnessInit.runInBackground': 'ব্যাকগ্রাউন্ডে চালান',
+  'harnessInit.backgroundHint':
+    'এটি শেষ হওয়া পর্যন্ত আপনি OpenHuman ব্যবহার করা চালিয়ে যেতে পারেন।',
+
   'keyring.consent.title': 'নিরাপদ সঞ্চয়স্থান অনুপলব্ধ',
   'keyring.consent.description':
     'আপনার অপারেটিং সিস্টেমের কিচেন অ্যাক্সেসযোগ্য নয়। OpenHuman-এর পরিবর্তে স্থানীয় এনক্রিপ্টেড সঞ্চয়স্থান ব্যবহার করে গোপনীয়তা সংরক্ষণ করতে আপনার অনুমতি প্রয়োজন।',

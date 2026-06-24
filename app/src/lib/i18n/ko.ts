@@ -5604,6 +5604,23 @@ const messages: TranslationMap = {
   'graphCohesion.title': '그래프 응집도',
   'memory.tab.cohesion': 'Cohesion',
 
+  'harnessInit.title': '설정하는 중',
+  'harnessInit.subtitle': 'OpenHuman이 처음 실행에 필요한 구성 요소를 준비하고 있습니다.',
+  'harnessInit.stepPython': 'Python 런타임',
+  'harnessInit.stepSpacy': '언어 모델',
+  'harnessInit.stepNode': 'Node.js 런타임',
+  'harnessInit.statePending': '대기 중',
+  'harnessInit.stateRunning': '설치 중…',
+  'harnessInit.stateDone': '준비됨',
+  'harnessInit.stateSkipped': '건너뜀',
+  'harnessInit.stateFailed': '실패',
+  'harnessInit.failedMessage':
+    '일부 설정 단계가 완료되지 않았습니다. 다시 시도하거나 계속 진행할 수 있습니다 — OpenHuman이 내장 대체 기능을 사용합니다.',
+  'harnessInit.retry': '다시 시도',
+  'harnessInit.continueAnyway': '그래도 계속',
+  'harnessInit.runInBackground': '백그라운드에서 실행',
+  'harnessInit.backgroundHint': '이 작업이 완료되는 동안 계속 OpenHuman을 사용할 수 있습니다.',
+
   'keyring.consent.title': '보안 저장소를 사용할 수 없음',
   'keyring.consent.description':
     '운영 체제 키체인에 접근할 수 없습니다. OpenHuman이 로컬 암호화 저장소를 사용하여 비밀을 저장하려면 귀하의 허가가 필요합니다.',

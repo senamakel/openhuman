@@ -5371,6 +5371,23 @@ const messages: TranslationMap = {
   'graphCohesion.title': '图的凝聚度',
   'memory.tab.cohesion': 'Cohesion',
 
+  'harnessInit.title': '正在进行设置',
+  'harnessInit.subtitle': 'OpenHuman 正在准备首次启动所需的组件。',
+  'harnessInit.stepPython': 'Python 运行时',
+  'harnessInit.stepSpacy': '语言模型',
+  'harnessInit.stepNode': 'Node.js 运行时',
+  'harnessInit.statePending': '等待中',
+  'harnessInit.stateRunning': '正在安装…',
+  'harnessInit.stateDone': '就绪',
+  'harnessInit.stateSkipped': '已跳过',
+  'harnessInit.stateFailed': '失败',
+  'harnessInit.failedMessage':
+    '部分设置步骤未完成。你可以重试或继续 — OpenHuman 将使用内置的后备方案。',
+  'harnessInit.retry': '重试',
+  'harnessInit.continueAnyway': '仍然继续',
+  'harnessInit.runInBackground': '在后台运行',
+  'harnessInit.backgroundHint': '在此完成期间，你可以继续使用 OpenHuman。',
+
   'keyring.consent.title': '安全存储不可用',
   'keyring.consent.description':
     '您的操作系统密钥链不可访问。OpenHuman 需要您的许可，以便使用本地加密存储来保存密钥。',

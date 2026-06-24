@@ -106,4 +106,71 @@ describe('ThreadTodoStrip', () => {
     fireEvent.click(screen.getByRole('button', { expanded: false }));
     expect(screen.getByText('Active work')).toBeInTheDocument();
   });
+
+  it('renders Approve/Reject only for awaiting_approval cards when onDecidePlan is provided', () => {
+    const onDecidePlan = vi.fn();
+    render(
+      <ThreadTodoStrip
+        board={board([
+          card({ id: 'parked', title: 'Needs sign-off', status: 'awaiting_approval' }),
+          card({ id: 'plain', title: 'Just working', status: 'in_progress' }),
+        ])}
+        onDecidePlan={onDecidePlan}
+      />
+    );
+    // Exactly one Approve and one Reject — only the parked card has them.
+    expect(screen.getAllByText('chat.approval.approve')).toHaveLength(1);
+    expect(screen.getAllByText('chat.approval.deny')).toHaveLength(1);
+
+    fireEvent.click(screen.getByText('chat.approval.approve'));
+    expect(onDecidePlan).toHaveBeenCalledWith(expect.objectContaining({ id: 'parked' }), true);
+    fireEvent.click(screen.getByText('chat.approval.deny'));
+    expect(onDecidePlan).toHaveBeenCalledWith(expect.objectContaining({ id: 'parked' }), false);
+  });
+
+  it('surfaces the blocker reason for blocked cards', () => {
+    render(
+      <ThreadTodoStrip
+        board={board([
+          card({ id: 'b', title: 'Stuck step', status: 'blocked', blocker: 'needs API key' }),
+        ])}
+      />
+    );
+    expect(screen.getByText('Stuck step')).toBeInTheDocument();
+    expect(screen.getByText('needs API key')).toBeInTheDocument();
+  });
+
+  it('renders a View work jump only for cards with a session when onViewSession is provided', () => {
+    const onViewSession = vi.fn();
+    render(
+      <ThreadTodoStrip
+        board={board([
+          card({
+            id: 'linked',
+            title: 'Has session',
+            status: 'in_progress',
+            sessionThreadId: 's1',
+          }),
+          card({ id: 'plain', title: 'No session', status: 'in_progress' }),
+        ])}
+        onViewSession={onViewSession}
+      />
+    );
+    expect(screen.getAllByText('conversations.taskKanban.viewWork')).toHaveLength(1);
+    fireEvent.click(screen.getByText('conversations.taskKanban.viewWork'));
+    expect(onViewSession).toHaveBeenCalledWith(expect.objectContaining({ id: 'linked' }));
+  });
+
+  it('stays fully read-only (no approve/reject) when onDecidePlan is omitted', () => {
+    render(
+      <ThreadTodoStrip
+        board={board([
+          card({ id: 'parked', title: 'Needs sign-off', status: 'awaiting_approval' }),
+        ])}
+      />
+    );
+    expect(screen.getByText('Needs sign-off')).toBeInTheDocument();
+    expect(screen.queryByText('chat.approval.approve')).not.toBeInTheDocument();
+    expect(screen.queryByText('chat.approval.deny')).not.toBeInTheDocument();
+  });
 });

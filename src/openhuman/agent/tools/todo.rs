@@ -371,8 +371,8 @@ mod tests {
             "missing single-in_progress discipline"
         );
         assert!(
-            desc.contains("do not pass a"),
-            "missing current-thread binding note"
+            desc.contains("do not pass a thread id"),
+            "missing explicit 'do not pass a thread id' note"
         );
     }
 

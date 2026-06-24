@@ -77,6 +77,9 @@ vi.mock('../../services/api/threadApi', () => ({
     putTaskBoard: vi
       .fn()
       .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
+    decidePlan: vi
+      .fn()
+      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
     appendMessage: vi.fn().mockResolvedValue({}),
     deleteThread: vi.fn().mockResolvedValue({ deleted: true }),
     generateTitleIfNeeded: vi.fn().mockResolvedValue({}),
@@ -1296,109 +1299,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
   });
 
-  it('rolls back and shows feedback when task board move persistence fails', async () => {
-    const thread = makeThread({ id: 'board-thread', title: 'Board Thread' });
-    const board = {
-      threadId: 'board-thread',
-      updatedAt: '2026-05-04T10:00:00Z',
-      cards: [
-        {
-          id: 'task-1',
-          title: 'Plan rollout',
-          status: 'todo' as const,
-          order: 0,
-          updatedAt: '2026-05-04T10:00:00Z',
-        },
-      ],
-    };
-    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
-    mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
-    vi.mocked(threadApi.getTaskBoard).mockResolvedValueOnce(board);
-    vi.mocked(threadApi.putTaskBoard).mockRejectedValueOnce(new Error('write failed'));
-
-    await act(async () => {
-      await renderConversations({
-        thread: selectedThreadState(thread),
-        socket: socketState('connected'),
-      });
-    });
-
-    expect(await screen.findByText('Plan rollout')).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Move right'));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Could not update task; changes were not saved.')
-      ).toBeInTheDocument();
-    });
-    // With the 5-column model, todo → right → awaiting_approval (not in_progress)
-    expect(threadApi.putTaskBoard).toHaveBeenCalledWith(
-      'board-thread',
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'task-1', status: 'awaiting_approval' }),
-      ])
-    );
-  });
-
-  it('rolls back and shows feedback when task board edit persistence fails', async () => {
-    const thread = makeThread({ id: 'edit-board-thread', title: 'Edit Board Thread' });
-    const board = {
-      threadId: 'edit-board-thread',
-      updatedAt: '2026-05-04T10:00:00Z',
-      cards: [
-        {
-          id: 'task-1',
-          title: 'Plan rollout',
-          status: 'todo' as const,
-          objective: 'Draft the launch task brief',
-          assignedAgent: 'planner',
-          approvalMode: 'required' as const,
-          plan: ['Read docs'],
-          allowedTools: ['todo'],
-          acceptanceCriteria: ['Saved board round-trips'],
-          evidence: [],
-          order: 0,
-          updatedAt: '2026-05-04T10:00:00Z',
-        },
-      ],
-    };
-    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
-    mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
-    vi.mocked(threadApi.getTaskBoard).mockResolvedValueOnce(board);
-    vi.mocked(threadApi.putTaskBoard).mockRejectedValueOnce(new Error('write failed'));
-
-    await act(async () => {
-      await renderConversations({
-        thread: selectedThreadState(thread),
-        socket: socketState('connected'),
-      });
-    });
-
-    expect(await screen.findByText('Plan rollout')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Task brief'));
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Updated rollout' } });
-    fireEvent.change(screen.getByLabelText('Assigned agent'), {
-      target: { value: 'code_executor' },
-    });
-    fireEvent.click(screen.getByText('Save changes'));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Could not update task; changes were not saved.')
-      ).toBeInTheDocument();
-    });
-    expect(threadApi.putTaskBoard).toHaveBeenCalledWith(
-      'edit-board-thread',
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: 'task-1',
-          title: 'Updated rollout',
-          assignedAgent: 'code_executor',
-        }),
-      ])
-    );
-  });
-
   it('sends with Enter when the composer is not composing text', async () => {
     const { textarea, thread } = await renderSelectedConversation();
 
@@ -2085,5 +1985,42 @@ describe('Conversations — open-session resume (View work)', () => {
 
     await waitFor(() => expect(store.getState().thread.selectedThreadId).toBe('sess-99'));
     expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
+  });
+
+  it('approves a parked plan card from the thread todo strip', async () => {
+    const thread = makeThread({ id: 'approve-thread', title: 'Approve thread' });
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+
+    const store = await renderConversations({ thread: selectedThreadState(thread) });
+    const selectedId = store.getState().thread.selectedThreadId ?? 'approve-thread';
+    await act(async () => {
+      store.dispatch(
+        setTaskBoardForThread({
+          threadId: selectedId,
+          board: {
+            threadId: selectedId,
+            updatedAt: '',
+            cards: [
+              {
+                id: 'pc1',
+                title: 'Needs sign-off',
+                status: 'awaiting_approval',
+                order: 0,
+                updatedAt: '',
+              },
+            ],
+          },
+        })
+      );
+    });
+
+    // The strip surfaces Approve/Reject only for parked cards; approving routes
+    // through onDecidePlan → runDecidePlan → threadApi.decidePlan.
+    const approveBtn = await screen.findByTitle('Approve');
+    await act(async () => {
+      fireEvent.click(approveBtn);
+    });
+
+    await waitFor(() => expect(threadApi.decidePlan).toHaveBeenCalledWith(selectedId, 'pc1', true));
   });
 });

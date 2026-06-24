@@ -65,9 +65,28 @@ function statusColorClass(status: TaskBoardCardStatus): string {
 
 interface Props {
   board: TaskBoard | null;
+  /**
+   * Decide a parked plan (`awaiting_approval` card). When provided, those cards —
+   * and only those — gain inline Approve/Reject controls; every other card stays
+   * read-only. Omit to keep the strip fully read-only.
+   */
+  onDecidePlan?: (card: TaskBoardCard, approve: boolean) => void;
+  /**
+   * Jump to a card's linked agent session. When provided, cards that carry a
+   * `sessionThreadId` (stamped by the autonomous/manual task-session flow) gain a
+   * "View work" affordance. Omit to hide it.
+   */
+  onViewSession?: (card: TaskBoardCard) => void;
+  /** Disable the approve/reject controls (e.g. no thread selected). */
+  disabled?: boolean;
 }
 
-export const ThreadTodoStrip: React.FC<Props> = ({ board }) => {
+export const ThreadTodoStrip: React.FC<Props> = ({
+  board,
+  onDecidePlan,
+  onViewSession,
+  disabled = false,
+}) => {
   const { t } = useT();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -109,7 +128,9 @@ export const ThreadTodoStrip: React.FC<Props> = ({ board }) => {
       </button>
 
       {!collapsed && (
-        <ul className="flex flex-col gap-0.5 px-3 pb-2 pl-5">
+        // Cap the expanded list so a long plan (one card per step) can't cover
+        // the latest messages/controls above the composer — scroll instead.
+        <ul className="flex max-h-48 flex-col gap-0.5 overflow-y-auto px-3 pb-2 pl-5">
           {activeCards.map(card => (
             <li
               key={card.id}
@@ -117,7 +138,43 @@ export const ThreadTodoStrip: React.FC<Props> = ({ board }) => {
               <span aria-hidden className="font-mono">
                 {statusGlyph(card.status)}
               </span>
-              <span className="min-w-0 flex-1">{cardLabel(card)}</span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="min-w-0">{cardLabel(card)}</span>
+                {card.status === 'blocked' && card.blocker?.trim() && (
+                  // Surface why a step is stuck + what's needed next, matching
+                  // the todo-tool guidance to set `blocked` with a `blocker`.
+                  <span className="min-w-0 text-[11px] text-coral/80">{card.blocker.trim()}</span>
+                )}
+              </span>
+              {card.sessionThreadId && onViewSession && (
+                <button
+                  type="button"
+                  title={t('conversations.taskKanban.viewWork')}
+                  onClick={() => onViewSession(card)}
+                  className="flex-shrink-0 rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 transition-colors hover:bg-stone-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                  {t('conversations.taskKanban.viewWork')}
+                </button>
+              )}
+              {card.status === 'awaiting_approval' && onDecidePlan && (
+                <span className="flex flex-shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    title={t('chat.approval.approve')}
+                    disabled={disabled}
+                    onClick={() => onDecidePlan(card, true)}
+                    className="rounded-md bg-ocean-600 px-1.5 py-0.5 text-[10px] font-medium text-white transition-colors hover:bg-ocean-700 disabled:opacity-40">
+                    {t('chat.approval.approve')}
+                  </button>
+                  <button
+                    type="button"
+                    title={t('chat.approval.deny')}
+                    disabled={disabled}
+                    onClick={() => onDecidePlan(card, false)}
+                    className="rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 transition-colors hover:bg-stone-100 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                    {t('chat.approval.deny')}
+                  </button>
+                </span>
+              )}
             </li>
           ))}
         </ul>

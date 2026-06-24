@@ -100,6 +100,7 @@ import {
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
 } from './conversations/composerSendDecision';
+import { runDecidePlan } from './conversations/taskPlanActions';
 import {
   type AgentBubblePosition,
   buildAcceptedInlineCompletion,
@@ -2448,7 +2449,33 @@ const Conversations = ({
             pinned above the composer. Distinct from the Intelligence-tab kanban
             (global `user-tasks`). Renders nothing when the thread has no active
             cards. */}
-        {selectedThreadId && <ThreadTodoStrip board={selectedTaskBoard} />}
+        {selectedThreadId && (
+          <ThreadTodoStrip
+            board={selectedTaskBoard}
+            disabled={!selectedThreadId}
+            onDecidePlan={(card, approve) => {
+              void runDecidePlan({
+                threadId: selectedThreadId,
+                card,
+                approve,
+                dispatch,
+                notify: setSendAdvisory,
+                t,
+              });
+            }}
+            onViewSession={card => {
+              if (!card.sessionThreadId) return;
+              // Navigation only — do NOT mark the thread active. activeThreadId
+              // tracks a true in-flight turn; forcing a completed session active
+              // would wedge the composer.
+              dispatch(setSelectedThread(card.sessionThreadId));
+              void dispatch(loadThreadMessages(card.sessionThreadId));
+              if (shouldSyncChatRoute) {
+                navigate(chatThreadPath(card.sessionThreadId));
+              }
+            }}
+          />
+        )}
 
         {composer === 'mic-cloud' ? (
           <div className="flex flex-col items-center gap-3 py-1">

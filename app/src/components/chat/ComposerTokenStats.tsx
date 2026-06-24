@@ -25,13 +25,17 @@ interface ComposerTokenStatsProps {
 
 export default function ComposerTokenStats({ model }: ComposerTokenStatsProps = {}) {
   const { t } = useT();
-  const usage = useAppSelector(state => state.chatRuntime.sessionTokenUsage);
+  // Optional-chain the slice: this strip is reused inside the sub-agent side
+  // panel (via ConversationView), which can mount in lighter contexts where the
+  // `chatRuntime` slice isn't wired. Fall back to a zeroed usage so it simply
+  // renders the model (or nothing) rather than throwing.
+  const usage = useAppSelector(state => state.chatRuntime?.sessionTokenUsage);
 
-  const inTok = usage.inputTokens || 0;
-  const outTok = usage.outputTokens || 0;
-  const turns = usage.turns || 0;
-  const lastIn = usage.lastTurnInputTokens || 0;
-  const lastOut = usage.lastTurnOutputTokens || 0;
+  const inTok = usage?.inputTokens || 0;
+  const outTok = usage?.outputTokens || 0;
+  const turns = usage?.turns || 0;
+  const lastIn = usage?.lastTurnInputTokens || 0;
+  const lastOut = usage?.lastTurnOutputTokens || 0;
 
   // Still render when only the model is known (no turns yet) so the resolved
   // model stays visible in the composer footer.

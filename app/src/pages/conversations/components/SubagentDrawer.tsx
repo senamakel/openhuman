@@ -10,6 +10,7 @@ import type {
 import type { ThreadMessage } from '../../../types/thread';
 import { stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
+import { ConversationView } from './ConversationView';
 
 /**
  * Rebuild a renderable transcript from a worker sub-thread's persisted
@@ -293,11 +294,15 @@ export function SubagentDrawer({
           </div>
         ) : null}
 
-        {/* Body — a parent↔subagent conversation: the parent's delegation
-            prompt opens it, then the sub-agent replies as one chronological
-            transcript (thinking, the text it produced, the tool calls that
-            text triggered, the next turn — exactly as it was emitted). */}
-        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        {/* Body — a parent↔subagent conversation rendered through the shared
+            `ConversationView` frame (same flow as the main chat), but in its
+            `panel` format: no composer, and the bottom token-stats strip kept.
+            The parent's delegation prompt opens it, then the sub-agent replies
+            as one chronological transcript (thinking, the text it produced, the
+            tool calls that text triggered, the next turn — exactly as it was
+            emitted). */}
+        <ConversationView variant="panel" showStats>
+          <div className="space-y-3 px-4 py-4">
           {/* Parent → sub-agent: the delegation prompt (the "input"). */}
           {promptText ? (
             <div className="flex justify-end" data-testid="subagent-parent-prompt">
@@ -378,7 +383,8 @@ export function SubagentDrawer({
               })}
             </ol>
           )}
-        </div>
+          </div>
+        </ConversationView>
       </aside>
     </div>
   );

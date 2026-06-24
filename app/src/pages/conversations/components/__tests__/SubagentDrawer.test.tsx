@@ -1,14 +1,27 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
+import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
 import { threadApi } from '../../../../services/api/threadApi';
 import type { SubagentActivity, SubagentTranscriptItem } from '../../../../store/chatRuntimeSlice';
+import { createTestStore } from '../../../../test/test-utils';
 import { SubagentDrawer } from '../SubagentDrawer';
 
 vi.mock('../../../../services/api/threadApi', () => ({
   threadApi: { getThreadMessages: vi.fn() },
 }));
+
+// The drawer now renders the shared `ConversationView` footer, which mounts
+// `ComposerTokenStats` — a Redux-connected strip. Wrap every render in a
+// Provider so the bare-component tests still mount. The `wrapper` option also
+// applies to `rerender`, so the status-transition test keeps working.
+function render(ui: ReactElement) {
+  return rtlRender(ui, {
+    wrapper: ({ children }) => <Provider store={createTestStore()}>{children}</Provider>,
+  });
+}
 
 function activity(overrides: Partial<SubagentActivity> = {}): SubagentActivity {
   return { taskId: 'sub-1', agentId: 'researcher', toolCalls: [], transcript: [], ...overrides };

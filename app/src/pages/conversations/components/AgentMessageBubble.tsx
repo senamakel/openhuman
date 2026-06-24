@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
+import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
@@ -17,8 +18,14 @@ import {
   parseBubbleSegments,
 } from '../utils/format';
 
-const GFM_REMARK_PLUGINS = [remarkGfm];
-const MATH_REMARK_PLUGINS = [remarkGfm, remarkMath];
+// `remarkBreaks` turns a single newline into a hard line break (`<br>`) instead
+// of the CommonMark default (a soft break collapsed to a space). Agent messages
+// routinely separate lines — plan items, numbered steps, key/value pairs — with
+// a SINGLE `\n` (bubble splitting only breaks on blank lines, #3807), so without
+// this every such message renders as one run-on paragraph. Chat surfaces (Slack/
+// Discord/GitHub) all treat single newlines as breaks; this matches that.
+const GFM_REMARK_PLUGINS = [remarkGfm, remarkBreaks];
+const MATH_REMARK_PLUGINS = [remarkGfm, remarkMath, remarkBreaks];
 const MATH_REHYPE_PLUGINS = [rehypeKatex];
 const EMPTY_PLUGINS: [] = [];
 type ParsedMarkdownTable = NonNullable<ReturnType<typeof parseMarkdownTable>>;

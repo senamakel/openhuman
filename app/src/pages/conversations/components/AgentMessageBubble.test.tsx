@@ -152,3 +152,32 @@ describe('AgentMessageText', () => {
     expect(screen.getByRole('cell', { name: 'OpenHuman' })).toBeInTheDocument();
   });
 });
+
+describe('BubbleMarkdown line breaks', () => {
+  // Regression: agent plans/steps separated by SINGLE newlines used to collapse
+  // into one run-on paragraph (CommonMark soft break → space). `remark-breaks`
+  // now renders each as its own line. Repro is the real "cooking recipes plan"
+  // thread that rendered as a wall of text.
+  test('preserves single newlines as hard breaks', () => {
+    const plan =
+      '**1. Project Scaffold** — Vite + React + TS init\n' +
+      '**2. Data Model & Mock Data** — TypeScript types\n' +
+      '**3. Home Page** — Recipe card grid';
+    const { container } = render(<BubbleMarkdown content={plan} />);
+
+    // Each item still reads as a distinct line — a <br> separates them rather
+    // than the items running together on one line.
+    expect(container.querySelectorAll('br').length).toBeGreaterThanOrEqual(2);
+    const text = container.textContent ?? '';
+    expect(text).toContain('1. Project Scaffold');
+    expect(text).toContain('2. Data Model & Mock Data');
+    expect(text).toContain('3. Home Page');
+  });
+
+  test('blank-line-separated paragraphs still render as separate blocks', () => {
+    const { container } = render(
+      <BubbleMarkdown content={'First paragraph.\n\nSecond paragraph.'} />
+    );
+    expect(container.querySelectorAll('p').length).toBeGreaterThanOrEqual(2);
+  });
+});

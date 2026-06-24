@@ -281,6 +281,125 @@ impl Tool for ThreadMessageListTool {
     }
 }
 
+/// Search past conversations (all threads) for messages matching a query.
+pub struct ThreadTranscriptSearchTool;
+
+impl ThreadTranscriptSearchTool {
+    /// Default and ceiling for the number of matches returned. Kept small so a
+    /// context-gathering caller's prompt only grows by a bounded amount.
+    const DEFAULT_LIMIT: usize = 8;
+    const MAX_LIMIT: usize = 25;
+    /// Per-hit snippet cap (chars) — enough to recognise the message without
+    /// dumping whole turns into the caller's context.
+    const SNIPPET_CHARS: usize = 220;
+
+    fn snippet(content: &str) -> String {
+        let collapsed: String = content.split_whitespace().collect::<Vec<_>>().join(" ");
+        if collapsed.chars().count() <= Self::SNIPPET_CHARS {
+            return collapsed;
+        }
+        let cut = collapsed
+            .char_indices()
+            .nth(Self::SNIPPET_CHARS)
+            .map(|(i, _)| i)
+            .unwrap_or(collapsed.len());
+        format!("{}…", &collapsed[..cut])
+    }
+}
+
+#[async_trait]
+impl Tool for ThreadTranscriptSearchTool {
+    fn name(&self) -> &str {
+        "transcript_search"
+    }
+
+    fn description(&self) -> &str {
+        "Search your PAST conversations across all threads for messages matching \
+         a query (keyword/substring, recency-ranked). Returns the most relevant \
+         recent matches — each with its thread id, sender, timestamp, and a \
+         snippet. Use to recall what the user said, asked, or decided in earlier \
+         chats before answering."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Keywords or phrase to match against past messages. Be specific — short common words are ignored."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max matches to return (default 8, max 25).",
+                    "minimum": 1,
+                    "maximum": 25
+                },
+                "exclude_thread_id": {
+                    "type": "string",
+                    "description": "Optional thread id to omit from results (e.g. the active chat)."
+                }
+            }
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::ReadOnly
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let query = read_required_str(&args, "query")?;
+        let limit = args
+            .get("limit")
+            .and_then(serde_json::Value::as_u64)
+            .map(|n| (n as usize).clamp(1, Self::MAX_LIMIT))
+            .unwrap_or(Self::DEFAULT_LIMIT);
+        let exclude = args
+            .get("exclude_thread_id")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        log::debug!(
+            "[tool][threads] transcript_search invoked query_chars={} limit={}",
+            query.chars().count(),
+            limit
+        );
+
+        let hits = ops::transcript_search(&query, limit, exclude)
+            .await
+            .map_err(|e| anyhow::anyhow!("transcript_search: {e}"))?;
+
+        if hits.is_empty() {
+            return Ok(ToolResult::success(format!(
+                "No past messages matched `{query}`."
+            )));
+        }
+
+        let mut out = format!(
+            "{} past message(s) matched `{query}` (newest first):\n",
+            hits.len()
+        );
+        for hit in &hits {
+            let _ = std::fmt::Write::write_fmt(
+                &mut out,
+                format_args!(
+                    "- [thread {} · {} · {}] {}\n",
+                    hit.thread_id,
+                    hit.role,
+                    hit.created_at,
+                    Self::snippet(&hit.content)
+                ),
+            );
+        }
+        Ok(ToolResult::success(out))
+    }
+
+    fn is_concurrency_safe(&self, _args: &serde_json::Value) -> bool {
+        true
+    }
+}
+
 /// Append a message to a thread.
 pub struct ThreadMessageAppendTool;
 

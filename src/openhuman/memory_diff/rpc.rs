@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::openhuman::config::rpc as config_rpc;
 use crate::rpc::RpcOutcome;
 
+use super::git_store::Ledger;
 use super::ops;
-use super::store;
 use super::types::*;
 
 // ── Request / Response types ──────────────────────────────────────────
@@ -166,10 +166,9 @@ pub async fn list_snapshots_rpc(
     let limit = req.limit.unwrap_or(50) as u32;
     let source_id = req.source_id;
 
-    let snapshots = tokio::task::spawn_blocking(move || {
-        store::with_connection(&workspace_dir, |conn| {
-            store::list_snapshots(conn, source_id.as_deref(), limit)
-        })
+    let snapshots = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Snapshot>> {
+        let ledger = Ledger::open(&workspace_dir)?;
+        ledger.list_snapshots(source_id.as_deref(), limit)
     })
     .await
     .map_err(|e| format!("list_snapshots join: {e}"))?
@@ -286,8 +285,9 @@ pub async fn list_checkpoints_rpc(
     let workspace_dir = config.workspace_dir.clone();
     let limit = req.limit.unwrap_or(20) as u32;
 
-    let checkpoints = tokio::task::spawn_blocking(move || {
-        store::with_connection(&workspace_dir, |conn| store::list_checkpoints(conn, limit))
+    let checkpoints = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Checkpoint>> {
+        let ledger = Ledger::open(&workspace_dir)?;
+        ledger.list_checkpoints(limit)
     })
     .await
     .map_err(|e| format!("list_checkpoints join: {e}"))?

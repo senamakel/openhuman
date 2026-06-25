@@ -136,19 +136,19 @@ impl Tool for MemoryDiffTool {
             .map(|s| (s.id.clone(), s.label.clone(), s.kind.as_str().to_string()))
             .collect();
 
-        let counts: Vec<(String, String, String, usize)> = tokio::task::spawn_blocking(move || {
-            super::store::with_connection(&workspace_dir, |conn| {
+        let counts: Vec<(String, String, String, usize)> =
+            tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
+                let ledger = super::git_store::Ledger::open(&workspace_dir)?;
                 let mut out = Vec::new();
                 for (sid, label, kind) in &source_ids {
-                    let snaps = super::store::list_snapshots(conn, Some(sid), 1000)?;
-                    out.push((sid.clone(), label.clone(), kind.clone(), snaps.len()));
+                    let count = ledger.snapshot_count_for_source(sid)?;
+                    out.push((sid.clone(), label.clone(), kind.clone(), count));
                 }
                 Ok(out)
             })
-        })
-        .await
-        .map_err(|e| anyhow::anyhow!("join: {e}"))?
-        .map_err(|e: anyhow::Error| anyhow::anyhow!("{e:#}"))?;
+            .await
+            .map_err(|e| anyhow::anyhow!("join: {e}"))?
+            .map_err(|e: anyhow::Error| anyhow::anyhow!("{e:#}"))?;
 
         let mut md = String::from("## Memory Sources (snapshot status)\n\n");
         if counts.is_empty() {

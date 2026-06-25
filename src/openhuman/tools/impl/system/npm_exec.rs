@@ -324,8 +324,13 @@ impl Tool for NpmExecTool {
                         Ok(ToolResult::success(format!("{stdout}\n[stderr]\n{stderr}")))
                     }
                 } else {
-                    let err_msg = if stderr.is_empty() { stdout } else { stderr };
-                    Ok(ToolResult::error(err_msg))
+                    // Surface exit code + both streams so the agent can diagnose
+                    // the failure instead of re-running it (#4095).
+                    Ok(super::command_output::command_failure(
+                        output.status.code(),
+                        &stdout,
+                        &stderr,
+                    ))
                 }
             }
             Ok(Err(e)) => Ok(ToolResult::error(format!("Failed to execute npm: {e}"))),
@@ -428,12 +433,11 @@ impl NpmExecTool {
                         ))
                     }
                 } else {
-                    let err_msg = if result.stderr.is_empty() {
-                        result.stdout
-                    } else {
-                        result.stderr
-                    };
-                    ToolResult::error(err_msg)
+                    super::command_output::command_failure(
+                        super::command_output::sandbox_exit_code(result.exit_code),
+                        &result.stdout,
+                        &result.stderr,
+                    )
                 }
             }
             Err(e) => ToolResult::error(format!("Sandbox execution failed: {e}")),

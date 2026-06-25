@@ -27,11 +27,13 @@ use crate::openhuman::agent::stop_hooks::{current_stop_hooks, StopDecision, Turn
 use crate::openhuman::context::guard::{ContextCheckResult, ContextGuard};
 use crate::openhuman::context::{summarize_chat_history, EngineAutocompact};
 use crate::openhuman::inference::provider::{
-    ChatMessage, ChatRequest, Provider, ProviderCapabilityError, AGENT_TURN_MAX_OUTPUT_TOKENS,
+    ChatMessage, ChatRequest, Provider, ProviderCapabilityError, ToolCall, UsageInfo,
+    AGENT_TURN_MAX_OUTPUT_TOKENS,
 };
 
 use super::super::parse::build_native_assistant_history;
 use super::super::run_queue::RunQueue;
+use super::super::session::transcript::{self, MessageUsage, TurnUsage};
 use super::super::token_budget::trim_chat_messages_to_budget;
 use super::super::tool_loop::{RepeatFailureGuard, RepeatOutputGuard, STREAM_CHUNK_MIN_CHARS};
 use super::checkpoint::CheckpointStrategy;
@@ -39,6 +41,35 @@ use super::parser::ResponseParser;
 use super::progress::ProgressReporter;
 use super::state::TurnObserver;
 use super::tool_source::ToolSource;
+
+fn transcript_turn_usage(
+    provider: &str,
+    model: &str,
+    usage: Option<&UsageInfo>,
+    reasoning_content: Option<&str>,
+    tool_calls: &[ToolCall],
+    iteration: usize,
+) -> Option<TurnUsage> {
+    let usage = usage?;
+    Some(TurnUsage {
+        provider: provider.to_string(),
+        model: model.to_string(),
+        usage: MessageUsage {
+            input: usage.input_tokens,
+            output: usage.output_tokens,
+            cached_input: usage.cached_input_tokens,
+            context_window: usage.context_window,
+            cost_usd: usage.charged_amount_usd,
+        },
+        ts: chrono::Utc::now().to_rfc3339(),
+        reasoning_content: reasoning_content
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToString::to_string),
+        tool_calls: tool_calls.to_vec(),
+        iteration: (iteration + 1) as u32,
+    })
+}
 
 /// What a completed turn yields. `text` is the final assistant text (or the
 /// circuit-breaker / checkpoint summary); `iterations` and `cost` let stateful
@@ -550,13 +581,14 @@ pub(crate) async fn run_turn_engine(
             tool_calls,
             assistant_history_content,
             native_tool_calls,
+            response_usage,
         ) = match chat_result {
             Ok(resp) => {
                 // Update context guard + cost with token usage from this response.
                 if let Some(ref usage) = resp.usage {
                     context_guard.update_usage(usage);
                     turn_cost.add_call(model, usage);
-                    observer.record_usage(model, usage);
+                    observer.record_usage(provider_name, model, usage);
                     tracing::debug!(
                         iteration,
                         input_tokens = usage.input_tokens,
@@ -597,6 +629,7 @@ pub(crate) async fn run_turn_engine(
 
                 let reasoning_content = resp.reasoning_content;
                 let native_calls = resp.tool_calls;
+                let response_usage = resp.usage;
                 (
                     response_text,
                     display_text,
@@ -604,6 +637,7 @@ pub(crate) async fn run_turn_engine(
                     calls,
                     assistant_history_content,
                     native_calls,
+                    response_usage,
                 )
             }
             Err(e) => {
@@ -686,7 +720,18 @@ pub(crate) async fn run_turn_engine(
                     let _ = tx.send(chunk).await;
                 }
             }
-            history.push(ChatMessage::assistant(response_text.clone()));
+            let mut assistant_msg = ChatMessage::assistant(response_text.clone());
+            if let Some(turn_usage) = transcript_turn_usage(
+                provider_name,
+                model,
+                response_usage.as_ref(),
+                reasoning_content.as_deref(),
+                &[],
+                iteration,
+            ) {
+                transcript::attach_turn_usage_metadata(&mut assistant_msg, &turn_usage);
+            }
+            history.push(assistant_msg);
             observer
                 .on_assistant(
                     &final_out,
@@ -736,7 +781,18 @@ pub(crate) async fn run_turn_engine(
                     iteration,
                     "[agent_loop] repeat-output circuit breaker tripped — identical response+tool-call repeated; halting with no-progress summary"
                 );
-                history.push(ChatMessage::assistant(assistant_history_content.clone()));
+                let mut assistant_msg = ChatMessage::assistant(assistant_history_content.clone());
+                if let Some(turn_usage) = transcript_turn_usage(
+                    provider_name,
+                    model,
+                    response_usage.as_ref(),
+                    reasoning_content.as_deref(),
+                    &native_tool_calls,
+                    iteration,
+                ) {
+                    transcript::attach_turn_usage_metadata(&mut assistant_msg, &turn_usage);
+                }
+                history.push(assistant_msg);
                 // Mirror the assistant turn to the observer like every other
                 // assistant-append path, so transcript/mirroring isn't skipped
                 // for the final repeated iteration on this early exit.
@@ -907,7 +963,18 @@ pub(crate) async fn run_turn_engine(
         // Native mode: JSON-structured messages so convert_messages() can
         // reconstruct OpenAI-format tool_calls + tool result messages. Prompt
         // mode: XML-based text format.
-        history.push(ChatMessage::assistant(assistant_history_content));
+        let mut assistant_msg = ChatMessage::assistant(assistant_history_content);
+        if let Some(turn_usage) = transcript_turn_usage(
+            provider_name,
+            model,
+            response_usage.as_ref(),
+            reasoning_content.as_deref(),
+            executed_native_calls,
+            iteration,
+        ) {
+            transcript::attach_turn_usage_metadata(&mut assistant_msg, &turn_usage);
+        }
+        history.push(assistant_msg);
         observer
             .on_assistant(
                 &display_text,
@@ -990,7 +1057,7 @@ pub(crate) async fn run_turn_engine(
     // accounting stays complete.
     if let Some(ref u) = co.usage {
         turn_cost.add_call(model, u);
-        observer.record_usage(model, u);
+        observer.record_usage(provider_name, model, u);
     }
     // Emit the terminal lifecycle event on this successful (checkpoint) exit
     // too, so consumers aren't left waiting — matching the final-response and

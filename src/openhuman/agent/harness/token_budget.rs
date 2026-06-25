@@ -89,6 +89,7 @@ pub fn estimate_conversation_message_tokens(msg: &ConversationMessage) -> usize 
             text,
             tool_calls,
             reasoning_content,
+            ..
         } => {
             let body = text.as_deref().unwrap_or_default();
             let mut total = estimate_tokens(body);
@@ -579,6 +580,7 @@ mod tests {
                 extra_content: None,
             }],
             reasoning_content: None,
+            extra_metadata: None,
         };
         assert!(estimate_conversation_message_tokens(&msg) > 0);
     }
@@ -639,6 +641,7 @@ mod tests {
                 text: Some("x".repeat(400_000)), // oldest non-system → evicted
                 tool_calls: vec![tool_call("X"), tool_call("Y")],
                 reasoning_content: None,
+                extra_metadata: None,
             },
             tool_results(&["X"]),
             tool_results(&["Y"]),
@@ -669,6 +672,7 @@ mod tests {
                 text: None,
                 tool_calls: vec![tool_call("A")],
                 reasoning_content: None,
+                extra_metadata: None,
             },
             tool_results(&["A"]),
             ConversationMessage::Chat(user_msg("keep")),

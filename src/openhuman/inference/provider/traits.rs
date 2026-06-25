@@ -212,6 +212,8 @@ pub enum ConversationMessage {
         tool_calls: Vec<ToolCall>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reasoning_content: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        extra_metadata: Option<serde_json::Value>,
     },
     /// Results of tool executions, fed back to the LLM.
     ToolResults(Vec<ToolResultMessage>),

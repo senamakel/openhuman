@@ -212,11 +212,19 @@ impl Agent {
 
         let meta = transcript::TranscriptMeta {
             agent_name: self.agent_definition_name.clone(),
+            agent_id: Some(self.agent_definition_id.clone()),
+            agent_type: Some(if self.session_parent_prefix.is_some() {
+                "subagent".to_string()
+            } else {
+                "root".to_string()
+            }),
             dispatcher: if self.tool_dispatcher.should_send_tool_specs() {
                 "native".into()
             } else {
                 "xml".into()
             },
+            provider: turn_usage.map(|usage| usage.provider.clone()),
+            model: turn_usage.map(|usage| usage.model.clone()),
             created: now.clone(),
             updated: now,
             turn_count: self.context.stats().session_memory_current_turn as usize,
@@ -225,6 +233,7 @@ impl Agent {
             cached_input_tokens,
             charged_amount_usd,
             thread_id: crate::openhuman::inference::provider::thread_context::current_thread_id(),
+            task_id: None,
         };
 
         if let Err(err) = transcript::write_transcript(path, messages, &meta, turn_usage) {

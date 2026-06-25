@@ -417,6 +417,7 @@ fn trim_history_snaps_past_orphaned_tool_results() {
                 extra_content: None,
             }],
             reasoning_content: None,
+            extra_metadata: None,
         },
         // ...orphaning this result at the head of the kept window.
         ConversationMessage::ToolResults(vec![ToolResultMessage {

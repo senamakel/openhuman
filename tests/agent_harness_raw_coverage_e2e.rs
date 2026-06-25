@@ -363,6 +363,10 @@ async fn agent_turn_executes_tools_persists_and_resumes_raw_transcript() -> Resu
     assert_eq!(files.len(), 1, "expected one root transcript: {files:?}");
     let transcript = std::fs::read_to_string(&files[0])?;
     assert!(transcript.contains("\"agent\":\"coverage_main\""));
+    assert!(transcript.contains("\"agent_id\":\"coverage_main\""));
+    assert!(transcript.contains("\"agent_type\":\"root\""));
+    assert!(transcript.contains("\"provider\":\"coverage-channel\""));
+    assert!(transcript.contains("\"model\":\"coverage-model\""));
     assert!(transcript.contains("final after echo"));
     assert!(transcript.contains("\"input_tokens\":252"));
     assert!(workspace.path().join("sessions").exists());
@@ -523,6 +527,12 @@ async fn repeated_subagent_spawns_keep_cacheable_prefix_and_record_provider_cach
         "provider-reported cached input tokens from the second child run should be preserved \
          in subagent transcript accounting:\n{joined}"
     );
+    assert!(
+        joined.contains("\"agent_type\":\"subagent\"")
+            && joined.contains("\"provider\":\"subagent\"")
+            && joined.contains("\"model\":\"coverage-model\""),
+        "subagent transcript metadata should retain agent type, provider, and model:\n{joined}"
+    );
 
     Ok(())
 }
@@ -674,6 +684,9 @@ inline = "Answer the delegated cache probe directly."
         .join("\n");
     assert!(
         joined.contains("\"agent\":\"cache_probe_child\"")
+            && joined.contains("\"agent_id\":\"cache_probe_child\"")
+            && joined.contains("\"agent_type\":\"subagent\"")
+            && joined.contains("\"task_id\":\"sub-")
             && joined.contains(child_answer)
             && joined.contains("\"cached_input_tokens\":64"),
         "child transcript should be persisted alongside the parent turn:\n{joined}"

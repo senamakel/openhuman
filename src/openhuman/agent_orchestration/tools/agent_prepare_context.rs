@@ -447,10 +447,12 @@ impl AgentPrepareContextTool {
     /// fixed (no multibyte), so slicing past it is safe.
     fn parse_proposed_goal(bundle: &str) -> Option<String> {
         const PREFIX: &str = "proposed_goal:";
-        let line = bundle
-            .lines()
-            .map(str::trim)
-            .find(|l| l.len() >= PREFIX.len() && l[..PREFIX.len()].eq_ignore_ascii_case(PREFIX))?;
+        // Boundary-safe prefix match: `get(..len)` returns None rather than
+        // panicking when the line begins with a multibyte char before byte 14.
+        let line = bundle.lines().map(str::trim).find(|l| {
+            l.get(..PREFIX.len())
+                .is_some_and(|p| p.eq_ignore_ascii_case(PREFIX))
+        })?;
         let value = line[PREFIX.len()..].trim();
         if value.is_empty() || value.eq_ignore_ascii_case("none") {
             return None;
@@ -577,6 +579,14 @@ mod tests {
         assert_eq!(
             AgentPrepareContextTool::parse_proposed_goal(cased).as_deref(),
             Some("Land the migration")
+        );
+
+        // Lines starting with a multibyte char must not panic the byte-prefix
+        // match (regression for the `l[..14]` non-boundary slice).
+        let multibyte = "[context_bundle]\n日本語の要約 summary line\nproposed_goal: 目標を達成する\n[/context_bundle]";
+        assert_eq!(
+            AgentPrepareContextTool::parse_proposed_goal(multibyte).as_deref(),
+            Some("目標を達成する")
         );
     }
 

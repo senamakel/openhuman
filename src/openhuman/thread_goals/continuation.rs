@@ -107,18 +107,27 @@ pub async fn run_continuation_tick(config: &Config) {
             }
         };
 
-        dispatch_continuation(config, &goal).await;
+        let ran = dispatch_continuation(config, &goal).await;
 
         // One-shot: suppress further continuations on this goal until a
-        // user-initiated turn clears the flag.
-        if let Err(e) =
-            store::set_continuation_suppressed(&workspace_dir, &goal.thread_id, true).await
-        {
-            tracing::debug!(
-                thread_id = %goal.thread_id,
-                error = %e,
-                "[thread_goals] failed to set continuation_suppressed"
-            );
+        // user-initiated turn clears the flag. Only when the turn actually ran,
+        // and only if THIS goal is still current (compare-and-set on goal_id) —
+        // a goal completed or replaced during the turn must not be suppressed.
+        if ran {
+            if let Err(e) = store::set_continuation_suppressed_if(
+                &workspace_dir,
+                &goal.thread_id,
+                &goal.goal_id,
+                true,
+            )
+            .await
+            {
+                tracing::debug!(
+                    thread_id = %goal.thread_id,
+                    error = %e,
+                    "[thread_goals] failed to set continuation_suppressed"
+                );
+            }
         }
         drop(permit);
     }
@@ -150,7 +159,11 @@ fn continuation_prompt(objective: &str) -> String {
 
 /// Build and run a single continuation turn for `goal`. Best-effort: failures
 /// are logged, never propagated (the heartbeat must keep ticking).
-async fn dispatch_continuation(config: &Config, goal: &ThreadGoal) {
+///
+/// Returns `true` when a turn was actually attempted (agent built + run_single
+/// invoked), `false` when the agent couldn't even be built — the caller only
+/// suppresses further continuations when a turn actually ran.
+async fn dispatch_continuation(config: &Config, goal: &ThreadGoal) -> bool {
     let thread_id = goal.thread_id.clone();
     tracing::info!(
         thread_id = %thread_id,
@@ -166,7 +179,7 @@ async fn dispatch_continuation(config: &Config, goal: &ThreadGoal) {
                 error = %e,
                 "[thread_goals] continuation: failed to build orchestrator agent"
             );
-            return;
+            return false;
         }
     };
     // Tag events so subscribers can correlate goal-continuation turns and filter
@@ -200,6 +213,9 @@ async fn dispatch_continuation(config: &Config, goal: &ThreadGoal) {
             "[thread_goals] continuation turn failed"
         ),
     }
+    // A turn was attempted (built + run) regardless of Ok/Err — suppress so we
+    // don't re-fire it every tick until the user re-engages.
+    true
 }
 
 #[cfg(test)]

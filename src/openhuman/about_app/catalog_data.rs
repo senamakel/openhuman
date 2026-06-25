@@ -381,7 +381,7 @@ pub(super) const CAPABILITIES: &[Capability] = &[
     Capability {
         id: "conversation.thread_goal",
         name: "Thread Goal",
-        domain: "conversations",
+        domain: "conversation",
         category: CapabilityCategory::Conversation,
         description: "A single, thread-scoped goal (Codex-style \"completion contract\") the \
             assistant keeps pursuing across turns, interrupts, resumes, and budget boundaries — \

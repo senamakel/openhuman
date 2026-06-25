@@ -161,22 +161,47 @@ pub async fn set(
     let thread_id = validate_thread_id(thread_id)?;
     let _guard = goal_mutation_lock().lock().await;
     let store = ThreadGoalStore::new(workspace_dir.to_path_buf());
-    let now = now_ms();
+    let goal = compute_and_put_set(&store, &thread_id, objective, token_budget)?;
+    tracing::info!(
+        thread_id = %thread_id,
+        goal_id = %goal.goal_id,
+        "[thread_goals] set objective ({} chars), budget={:?}",
+        goal.objective.chars().count(),
+        goal.token_budget
+    );
+    Ok(goal)
+}
 
-    let goal = match store.get(&thread_id)? {
+/// Build + persist the goal for a `set`. The caller MUST hold
+/// [`goal_mutation_lock`] so the read-modify-write is atomic.
+fn compute_and_put_set(
+    store: &ThreadGoalStore,
+    thread_id: &str,
+    objective: &str,
+    token_budget: Option<u64>,
+) -> Result<ThreadGoal, String> {
+    let now = now_ms();
+    let goal = match store.get(thread_id)? {
         Some(mut existing) if existing.objective == objective => {
-            // Same objective → preserve counters/goal_id; refresh budget + reopen.
+            // Same objective → preserve counters/goal_id; refresh budget.
             existing.token_budget = token_budget;
-            existing.status = ThreadGoalStatus::Active;
             existing.continuation_suppressed = false;
             existing.updated_at_ms = now;
+            // Re-open to Active, but don't un-limit a goal that is still over its
+            // (possibly updated) budget — counters are only reset by a *changed*
+            // objective, so a same-objective re-set must stay budget_limited.
+            existing.status = if existing.over_budget() {
+                ThreadGoalStatus::BudgetLimited
+            } else {
+                ThreadGoalStatus::Active
+            };
             existing
         }
         existing => {
             // New / changed objective → fresh goal_id, reset counters.
             let created_at_ms = existing.as_ref().map(|g| g.created_at_ms).unwrap_or(now);
             ThreadGoal {
-                thread_id: thread_id.clone(),
+                thread_id: thread_id.to_string(),
                 goal_id: uuid::Uuid::new_v4().to_string(),
                 objective: objective.to_string(),
                 status: ThreadGoalStatus::Active,
@@ -190,13 +215,6 @@ pub async fn set(
         }
     };
     store.put(&goal)?;
-    tracing::info!(
-        thread_id = %thread_id,
-        goal_id = %goal.goal_id,
-        "[thread_goals] set objective ({} chars), budget={:?}",
-        goal.objective.chars().count(),
-        goal.token_budget
-    );
     Ok(goal)
 }
 
@@ -205,24 +223,27 @@ pub async fn set(
 ///
 /// This backs the "scout proposes if empty, orchestrator authoritative"
 /// precedence: the context-gathering path may bootstrap a goal on the first
-/// turn but must never clobber a user/orchestrator-refined one.
+/// turn but must never clobber a user/orchestrator-refined one. The check and
+/// the write run under a single lock acquisition so a concurrent `set` /
+/// `set_if_absent` can't slip into the gap and get clobbered.
 pub async fn set_if_absent(
     workspace_dir: &Path,
     thread_id: &str,
     objective: &str,
     token_budget: Option<u64>,
 ) -> Result<Option<ThreadGoal>, String> {
-    let thread_id = validate_thread_id(thread_id)?;
-    {
-        let _guard = goal_mutation_lock().lock().await;
-        let store = ThreadGoalStore::new(workspace_dir.to_path_buf());
-        if store.get(&thread_id)?.is_some() {
-            tracing::debug!(thread_id = %thread_id, "[thread_goals] set_if_absent skipped (exists)");
-            return Ok(None);
-        }
+    let objective = objective.trim();
+    if objective.is_empty() {
+        return Err("thread goal objective must not be empty".to_string());
     }
-    // No goal yet — fall through to the normal set path (re-acquires the lock).
-    let goal = set(workspace_dir, &thread_id, objective, token_budget).await?;
+    let thread_id = validate_thread_id(thread_id)?;
+    let _guard = goal_mutation_lock().lock().await;
+    let store = ThreadGoalStore::new(workspace_dir.to_path_buf());
+    if store.get(&thread_id)?.is_some() {
+        tracing::debug!(thread_id = %thread_id, "[thread_goals] set_if_absent skipped (exists)");
+        return Ok(None);
+    }
+    let goal = compute_and_put_set(&store, &thread_id, objective, token_budget)?;
     Ok(Some(goal))
 }
 
@@ -344,6 +365,33 @@ pub async fn set_continuation_suppressed(
     .await
 }
 
+/// Set `continuation_suppressed` only when the thread's current goal still
+/// matches `expected_goal_id` (compare-and-set). Returns the goal as it stands
+/// after the (possibly skipped) write, or `None` when the thread has no goal.
+///
+/// Used by the continuation runtime so a goal that was completed or replaced
+/// during the autonomous turn is never suppressed by the post-dispatch write.
+pub async fn set_continuation_suppressed_if(
+    workspace_dir: &Path,
+    thread_id: &str,
+    expected_goal_id: &str,
+    suppressed: bool,
+) -> Result<Option<ThreadGoal>, String> {
+    let thread_id = validate_thread_id(thread_id)?;
+    let _guard = goal_mutation_lock().lock().await;
+    let store = ThreadGoalStore::new(workspace_dir.to_path_buf());
+    let Some(mut goal) = store.get(&thread_id)? else {
+        return Ok(None);
+    };
+    if goal.goal_id != expected_goal_id || goal.continuation_suppressed == suppressed {
+        return Ok(Some(goal));
+    }
+    goal.continuation_suppressed = suppressed;
+    goal.updated_at_ms = now_ms();
+    store.put(&goal)?;
+    Ok(Some(goal))
+}
+
 /// Account token + time usage against the goal, applying the budget constraint.
 ///
 /// **Stale-write guard (Codex parity):** the delta is **silently ignored** when
@@ -432,6 +480,31 @@ mod tests {
         assert_eq!(g1.goal_id, g2.goal_id, "same objective keeps goal_id");
         assert_eq!(g2.tokens_used, 30, "counters preserved");
         assert_eq!(g2.token_budget, Some(200), "budget refreshed");
+    }
+
+    #[tokio::test]
+    async fn set_same_objective_stays_budget_limited_when_over_budget() {
+        let tmp = tempdir().unwrap();
+        let dir = tmp.path();
+        let g = set(dir, "t", "obj", Some(100)).await.unwrap();
+        // Burn past the budget → BudgetLimited.
+        let limited = account_usage(dir, "t", &g.goal_id, 120, 0)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(limited.status, ThreadGoalStatus::BudgetLimited);
+        // Re-setting the SAME objective preserves counters, so it must NOT
+        // silently re-activate while still over budget.
+        let resed = set(dir, "t", "obj", Some(100)).await.unwrap();
+        assert_eq!(resed.tokens_used, 120, "same-objective preserves counters");
+        assert_eq!(
+            resed.status,
+            ThreadGoalStatus::BudgetLimited,
+            "still over budget → must stay budget_limited, not active"
+        );
+        // Raising the budget above usage re-opens it.
+        let raised = set(dir, "t", "obj", Some(1000)).await.unwrap();
+        assert_eq!(raised.status, ThreadGoalStatus::Active);
     }
 
     #[tokio::test]

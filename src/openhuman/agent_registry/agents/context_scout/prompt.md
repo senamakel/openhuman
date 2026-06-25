@@ -41,9 +41,10 @@ outside it. No preamble, no closing prose. Use exactly this shape:
 ```text
 [context_bundle]
 has_enough_context: true|false
-proposed_goal: <one sentence naming the durable objective this thread should
-pursue — what "done" looks like — or `none` for a trivial/one-shot request that
-needs no goal.>
+proposed_goal: <ONE single line — the durable objective this thread should
+pursue (what "done" looks like), or `none` for a trivial/one-shot request that
+needs no goal. Keep it on this one line; the harness only reads the text on the
+same line as `proposed_goal:`.>
 summary: <≤ ~700 tokens of distilled, source-attributed context. Lead with what
 matters. Attribute facts: (memory), (transcript: <thread>), (profile),
 (web: <url>), (integrations).>

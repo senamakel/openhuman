@@ -41,6 +41,7 @@
 //!
 //! When two layers define the same rule `id`, the higher-priority layer wins.
 
+pub mod cache;
 pub mod classify;
 pub mod compressors;
 pub mod detect;
@@ -48,14 +49,17 @@ pub mod reduce;
 pub mod rules;
 pub mod text;
 pub mod tool_integration;
+pub mod tools;
 pub mod types;
 
 #[cfg(test)]
 #[path = "text_tests.rs"]
 mod text_tests;
 
+pub use cache::{RETRIEVE_TOOL_NAME, LEGACY_RETRIEVE_TOOL_NAME};
 pub use compressors::{compressor_for, generic_compressor, Compressor};
 pub use detect::detect_content_kind;
+pub use tools::TokenjuiceRetrieveTool;
 pub use reduce::reduce_execution_with_rules;
 pub use rules::{load_builtin_rules, load_rules, LoadRuleOptions};
 pub use tool_integration::{compact_tool_output, CompactionStats};

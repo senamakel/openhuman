@@ -903,12 +903,6 @@ const Conversations = ({
     // may proceed concurrently.
     if (selectedThreadId && pendingSendsRef.current.has(selectedThreadId)) return;
 
-    // If the user just flipped the Super Context toggle, make sure that config
-    // write has landed before the core builds this thread's session (which
-    // reads `context.super_context_enabled`). Resolves instantly when nothing
-    // is pending.
-    await whenSuperContextWriteSettled();
-
     const normalized = text ?? inputValue;
     const trimmedInput = normalized.trim();
 
@@ -953,6 +947,12 @@ const Conversations = ({
     if (!sendingThreadId) return;
     pendingSendsRef.current.add(sendingThreadId);
     addPendingSendingThread(sendingThreadId);
+    // If the user just flipped the Super Context toggle, make sure that config
+    // write has landed before the core builds this thread's session (which
+    // reads `context.super_context_enabled`). Done AFTER the duplicate-send
+    // guard above is set so this await can't open a check→add race for rapid
+    // repeat clicks. Resolves instantly when nothing is pending.
+    await whenSuperContextWriteSettled();
     const pendingAttachments = attachments.slice();
     const modelOverride =
       agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ?? CHAT_MODEL_HINT;

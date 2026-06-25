@@ -30,7 +30,7 @@ export default function MeshGradient() {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const hex = (token: string, fallback: string) => {
-        const v = getComputedStyle(root).getPropertyValue(`--${token}`).trim();
+        const v = window.getComputedStyle(root).getPropertyValue(`--${token}`).trim();
         return v ? channelsToHex(v) : fallback;
       };
       // Accent-led stops + the surface base, so the mesh reads on any theme.
@@ -50,10 +50,10 @@ export default function MeshGradient() {
 
     // Defer one frame so ThemeProvider (an ancestor) has applied the theme's
     // CSS variables before we read them — child effects run before parents.
-    raf = requestAnimationFrame(start);
+    raf = window.requestAnimationFrame(start);
 
     return () => {
-      cancelAnimationFrame(raf);
+      window.cancelAnimationFrame(raf);
       try {
         if (gradient) {
           gradient.disconnect();

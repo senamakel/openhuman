@@ -1018,6 +1018,17 @@ pub enum DomainEvent {
         reason: String,
     },
 
+    // ── Thread goals ──────────────────────────────────────────────────
+    /// A thread's goal was created, replaced, or transitioned state
+    /// (active/paused/budget_limited/complete). Drives the desktop goal chip.
+    ThreadGoalUpdated {
+        thread_id: String,
+        goal_id: String,
+        status: String,
+    },
+    /// A thread's goal was cleared (deleted).
+    ThreadGoalCleared { thread_id: String },
+
     // ── Backend Meet Bot ──────────────────────────────────────────────
     /// Backend gmeet bot successfully joined the meeting.
     BackendMeetJoined {
@@ -1249,6 +1260,8 @@ impl DomainEvent {
 
             Self::TaskPlanAwaitingApproval { .. } | Self::TaskRunReclaimed { .. } => "agent",
 
+            Self::ThreadGoalUpdated { .. } | Self::ThreadGoalCleared { .. } => "agent",
+
             Self::SubconsciousTriggerProcessed { .. } => "subconscious",
 
             Self::Voice(_) => "voice",
@@ -1400,6 +1413,8 @@ impl DomainEvent {
             Self::TaskSourceFetchFailed { .. } => "TaskSourceFetchFailed",
             Self::TaskPlanAwaitingApproval { .. } => "TaskPlanAwaitingApproval",
             Self::TaskRunReclaimed { .. } => "TaskRunReclaimed",
+            Self::ThreadGoalUpdated { .. } => "ThreadGoalUpdated",
+            Self::ThreadGoalCleared { .. } => "ThreadGoalCleared",
             Self::BackendMeetJoined { .. } => "BackendMeetJoined",
             Self::BackendMeetLeft { .. } => "BackendMeetLeft",
             Self::BackendMeetReply { .. } => "BackendMeetReply",

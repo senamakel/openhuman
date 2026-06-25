@@ -2520,6 +2520,163 @@ async fn json_rpc_todos_crud_on_personal_board() {
 }
 
 #[tokio::test]
+async fn json_rpc_thread_goal_lifecycle() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // `thread_goals_*` handlers never require the thread to exist (mirrors
+    // `todos_*`), so a synthetic thread id is fine.
+    let thread = "thread-goal-e2e";
+
+    // Pull the `{ goal }` payload out of either response shape: a bare
+    // `{ goal }` (get) or the `{ result: { goal }, logs }` CLI envelope
+    // (mutations).
+    fn goal_of<'a>(result: &'a Value) -> Option<&'a Value> {
+        let envelope = result.get("result").unwrap_or(result);
+        envelope.get("goal").filter(|g| !g.is_null())
+    }
+
+    // 1. No goal yet.
+    let got = post_json_rpc(
+        &rpc_base,
+        9201,
+        "openhuman.thread_goals_get",
+        json!({ "thread_id": thread }),
+    )
+    .await;
+    assert!(
+        goal_of(assert_no_jsonrpc_error(&got, "thread_goals_get")).is_none(),
+        "no goal initially"
+    );
+
+    // 2. Set with a token budget.
+    let set = post_json_rpc(
+        &rpc_base,
+        9202,
+        "openhuman.thread_goals_set",
+        json!({ "thread_id": thread, "objective": "Ship the release", "token_budget": 5000 }),
+    )
+    .await;
+    let goal = goal_of(assert_no_jsonrpc_error(&set, "thread_goals_set")).expect("goal after set");
+    let goal_id = goal
+        .get("goalId")
+        .and_then(Value::as_str)
+        .expect("goalId")
+        .to_string();
+    assert_eq!(
+        goal.get("objective").and_then(Value::as_str),
+        Some("Ship the release")
+    );
+    assert_eq!(goal.get("status").and_then(Value::as_str), Some("active"));
+    assert_eq!(goal.get("tokenBudget").and_then(Value::as_u64), Some(5000));
+
+    // 3. Get reflects the persisted goal (same goal id).
+    let got2 = post_json_rpc(
+        &rpc_base,
+        9203,
+        "openhuman.thread_goals_get",
+        json!({ "thread_id": thread }),
+    )
+    .await;
+    assert_eq!(
+        goal_of(assert_no_jsonrpc_error(&got2, "thread_goals_get#2"))
+            .and_then(|g| g.get("goalId"))
+            .and_then(Value::as_str),
+        Some(goal_id.as_str())
+    );
+
+    // 4. Pause then resume (system-driven lifecycle).
+    let paused = post_json_rpc(
+        &rpc_base,
+        9204,
+        "openhuman.thread_goals_pause",
+        json!({ "thread_id": thread }),
+    )
+    .await;
+    assert_eq!(
+        goal_of(assert_no_jsonrpc_error(&paused, "pause"))
+            .and_then(|g| g.get("status"))
+            .and_then(Value::as_str),
+        Some("paused")
+    );
+    let resumed = post_json_rpc(
+        &rpc_base,
+        9205,
+        "openhuman.thread_goals_resume",
+        json!({ "thread_id": thread }),
+    )
+    .await;
+    assert_eq!(
+        goal_of(assert_no_jsonrpc_error(&resumed, "resume"))
+            .and_then(|g| g.get("status"))
+            .and_then(Value::as_str),
+        Some("active")
+    );
+
+    // 5. Complete.
+    let done = post_json_rpc(
+        &rpc_base,
+        9206,
+        "openhuman.thread_goals_complete",
+        json!({ "thread_id": thread }),
+    )
+    .await;
+    assert_eq!(
+        goal_of(assert_no_jsonrpc_error(&done, "complete"))
+            .and_then(|g| g.get("status"))
+            .and_then(Value::as_str),
+        Some("complete")
+    );
+
+    // 6. Clear → removed; subsequent get is null.
+    let cleared = post_json_rpc(
+        &rpc_base,
+        9207,
+        "openhuman.thread_goals_clear",
+        json!({ "thread_id": thread }),
+    )
+    .await;
+    let cleared_result = assert_no_jsonrpc_error(&cleared, "clear");
+    assert_eq!(
+        cleared_result
+            .get("result")
+            .and_then(|r| r.get("removed"))
+            .and_then(Value::as_bool),
+        Some(true),
+        "clear reports removal"
+    );
+    let got3 = post_json_rpc(
+        &rpc_base,
+        9208,
+        "openhuman.thread_goals_get",
+        json!({ "thread_id": thread }),
+    )
+    .await;
+    assert!(
+        goal_of(assert_no_jsonrpc_error(&got3, "thread_goals_get#3")).is_none(),
+        "goal gone after clear"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_thread_title_create_and_update() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");

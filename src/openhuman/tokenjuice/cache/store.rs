@@ -109,7 +109,10 @@ impl Inner {
         max_entries: usize,
         max_bytes: usize,
     ) -> bool {
-        if self.map.contains_key(&hash) {
+        if let Some(entry) = self.map.get_mut(&hash) {
+            entry.created = Instant::now();
+            self.order.retain(|candidate| candidate != &hash);
+            self.order.push_back(hash);
             return true;
         }
         let bytes = content.len();
@@ -374,6 +377,26 @@ mod tests {
         }
         assert!(inner.map.len() <= 50);
         assert!(!inner.map.contains_key("e0"));
+    }
+
+    #[test]
+    fn reoffloading_existing_entry_refreshes_ttl_and_order() {
+        let mut inner = Inner::default();
+        assert!(inner.insert("old".into(), "old payload".into(), 2, usize::MAX));
+        assert!(inner.insert("fresh".into(), "fresh payload".into(), 2, usize::MAX));
+        let stale_created = Instant::now() - Duration::from_secs(60);
+        inner.map.get_mut("old").unwrap().created = stale_created;
+
+        assert!(inner.insert("old".into(), "old payload".into(), 2, usize::MAX));
+        assert!(
+            inner.map["old"].created > stale_created,
+            "existing entry timestamp should refresh"
+        );
+        assert_eq!(inner.order.back().map(String::as_str), Some("old"));
+
+        assert!(inner.insert("third".into(), "third payload".into(), 2, usize::MAX));
+        assert!(inner.map.contains_key("old"));
+        assert!(!inner.map.contains_key("fresh"));
     }
 
     #[test]

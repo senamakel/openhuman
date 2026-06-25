@@ -79,14 +79,24 @@ fn venv_python_path(venv_dir: &Path) -> PathBuf {
     }
 }
 
-fn marker_path(venv_dir: &Path) -> PathBuf {
-    venv_dir.join(".openhuman-kompress-ready")
+fn marker_path(venv_dir: &Path, model_id: &str) -> PathBuf {
+    let safe_model: String = model_id
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    venv_dir.join(format!(".openhuman-kompress-ready-{safe_model}"))
 }
 
 /// Cheap, network-free probe: are torch + transformers + the model provisioned?
 pub fn kompress_provisioned(config: &Config) -> bool {
     let venv = kompress_venv_dir(config);
-    marker_path(&venv).exists() && venv_python_path(&venv).exists()
+    marker_path(&venv, &config.tokenjuice.ml_model_id).exists() && venv_python_path(&venv).exists()
 }
 
 /// Ensure a dedicated Kompress venv exists (torch + transformers + model).
@@ -103,7 +113,7 @@ pub async fn ensure_kompress(config: &Config) -> Result<KompressRuntime> {
     let venv_python = venv_python_path(&venv_dir);
     let hf = hf_home(config);
 
-    if marker_path(&venv_dir).exists() && venv_python.exists() {
+    if marker_path(&venv_dir, &config.tokenjuice.ml_model_id).exists() && venv_python.exists() {
         return Ok(KompressRuntime {
             python_bin: venv_python,
             hf_home: hf,
@@ -142,9 +152,12 @@ pub async fn ensure_kompress(config: &Config) -> Result<KompressRuntime> {
 
     install_deps_and_model(&venv_python, &hf, &config.tokenjuice.ml_model_id).await?;
 
-    tokio::fs::write(marker_path(&venv_dir), base.version.as_bytes())
-        .await
-        .with_context(|| "writing kompress ready marker")?;
+    tokio::fs::write(
+        marker_path(&venv_dir, &config.tokenjuice.ml_model_id),
+        base.version.as_bytes(),
+    )
+    .await
+    .with_context(|| "writing kompress ready marker")?;
 
     log::info!("[runtime_python_server::kompress] provisioning complete");
     Ok(KompressRuntime {
@@ -161,8 +174,8 @@ pub async fn install_into(config: &Config, venv_python: &Path) -> Result<PathBuf
     let hf = hf_home(config);
     let shared_marker = venv_python
         .parent()
-        .map(|d| d.join(".openhuman-kompress-ready"))
-        .unwrap_or_else(|| PathBuf::from(".openhuman-kompress-ready"));
+        .map(|d| marker_path(d, &config.tokenjuice.ml_model_id))
+        .unwrap_or_else(|| marker_path(Path::new("."), &config.tokenjuice.ml_model_id));
     if shared_marker.exists() {
         return Ok(hf);
     }
@@ -174,7 +187,7 @@ pub async fn install_into(config: &Config, venv_python: &Path) -> Result<PathBuf
         venv_python.display()
     );
     install_deps_and_model(venv_python, &hf, &config.tokenjuice.ml_model_id).await?;
-    let _ = tokio::fs::write(&shared_marker, b"shared").await;
+    let _ = tokio::fs::write(&shared_marker, config.tokenjuice.ml_model_id.as_bytes()).await;
     Ok(hf)
 }
 
@@ -285,5 +298,20 @@ mod tests {
         let mut config = Config::default();
         config.runtime_python.cache_dir = "/nonexistent/tj-test".to_string();
         assert!(!kompress_provisioned(&config));
+    }
+
+    #[test]
+    fn ready_marker_is_model_specific_and_path_safe() {
+        let venv = Path::new("/tmp/openhuman-kompress-test-venv");
+        let first = marker_path(venv, "answerdotai/ModernBERT-base");
+        let second = marker_path(venv, "other/model");
+
+        assert_ne!(first, second);
+        assert_eq!(first.parent(), Some(venv));
+        assert!(first
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .contains("answerdotai_ModernBERT-base"));
     }
 }

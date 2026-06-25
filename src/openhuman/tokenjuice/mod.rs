@@ -42,6 +42,8 @@
 //! When two layers define the same rule `id`, the higher-priority layer wins.
 
 pub mod classify;
+pub mod compressors;
+pub mod detect;
 pub mod reduce;
 pub mod rules;
 pub mod text;
@@ -52,7 +54,12 @@ pub mod types;
 #[path = "text_tests.rs"]
 mod text_tests;
 
+pub use compressors::{compressor_for, generic_compressor, Compressor};
+pub use detect::detect_content_kind;
 pub use reduce::reduce_execution_with_rules;
 pub use rules::{load_builtin_rules, load_rules, LoadRuleOptions};
 pub use tool_integration::{compact_tool_output, CompactionStats};
-pub use types::{CompactResult, ReduceOptions, ToolExecutionInput};
+pub use types::{
+    CompactResult, CompressInput, CompressOptions, CompressOutput, CompressedOutput, CompressorKind,
+    ContentHint, ContentKind, ReduceOptions, ToolExecutionInput,
+};

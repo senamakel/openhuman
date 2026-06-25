@@ -95,23 +95,23 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
-      <section className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-stone-200 bg-white p-4 shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
+      <section className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-line bg-surface p-4 shadow-xl">
         <div className="mb-3 flex items-start justify-between gap-3">
-          <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-50">
+          <h3 className="text-base font-semibold text-content">
             {t('intelligence.tasks.composer.title')}
           </h3>
           <button
             type="button"
             aria-label={t('common.cancel')}
             onClick={onClose}
-            className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
+            className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-content-muted hover:bg-surface-hover hover:text-content">
             <LuX className="h-4 w-4" />
           </button>
         </div>
 
         <div className="space-y-3 text-sm">
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+            <span className="mb-1 block text-xs font-semibold text-content-muted">
               {t('intelligence.tasks.composer.titleLabel')}
             </span>
             <input
@@ -122,19 +122,19 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit();
               }}
               placeholder={t('intelligence.tasks.composer.titlePlaceholder')}
-              className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50"
+              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
             />
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+              <span className="mb-1 block text-xs font-semibold text-content-muted">
                 {t('intelligence.tasks.composer.statusLabel')}
               </span>
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value as TaskBoardCardStatus)}
-                className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50">
+                className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
                 {STATUS_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
                     {t(option.labelKey)}
@@ -144,13 +144,13 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+              <span className="mb-1 block text-xs font-semibold text-content-muted">
                 {t('intelligence.tasks.composer.attachLabel')}
               </span>
               <select
                 value={attachThreadId}
                 onChange={e => setAttachThreadId(e.target.value)}
-                className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50">
+                className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
                 <option value="">{t('intelligence.tasks.composer.attachNone')}</option>
                 {attachableThreads.map(thread => (
                   <option key={thread.id} value={thread.id}>
@@ -162,19 +162,19 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+            <span className="mb-1 block text-xs font-semibold text-content-muted">
               {t('intelligence.tasks.composer.objectiveLabel')}
             </span>
             <input
               value={objective}
               onChange={e => setObjective(e.target.value)}
               placeholder={t('intelligence.tasks.composer.objectivePlaceholder')}
-              className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50"
+              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+            <span className="mb-1 block text-xs font-semibold text-content-muted">
               {t('intelligence.tasks.composer.notesLabel')}
             </span>
             <textarea
@@ -182,7 +182,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
               onChange={e => setNotes(e.target.value)}
               rows={3}
               placeholder={t('intelligence.tasks.composer.notesPlaceholder')}
-              className="w-full resize-y rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50"
+              className="w-full resize-y rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
             />
           </label>
 
@@ -192,13 +192,13 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
               checked={assignToAgent && !attachThreadId}
               disabled={attachThreadId !== ''}
               onChange={e => setAssignToAgent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 flex-none rounded border-stone-300 text-ocean-600 focus:ring-ocean-500 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-950"
+              className="mt-0.5 h-4 w-4 flex-none rounded border-line-strong text-ocean-600 focus:ring-ocean-500 disabled:opacity-50 dark:border-neutral-600 dark:bg-surface-canvas"
             />
-            <span className="text-xs text-stone-600 dark:text-neutral-300">
-              <span className="font-semibold text-stone-700 dark:text-neutral-200">
+            <span className="text-xs text-content-secondary">
+              <span className="font-semibold text-content-secondary">
                 {t('intelligence.tasks.composer.assignAgentLabel')}
               </span>
-              <span className="mt-0.5 block text-stone-500 dark:text-neutral-400">
+              <span className="mt-0.5 block text-content-muted">
                 {t('intelligence.tasks.composer.assignAgentHint')}
               </span>
             </span>

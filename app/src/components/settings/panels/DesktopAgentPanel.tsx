@@ -246,9 +246,7 @@ const DesktopAgentPanel = () => {
         className="rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
         {t('settings.desktopAgent.beta')}
       </div>
-      <p className="text-sm text-neutral-600 dark:text-neutral-300">
-        {t('settings.desktopAgent.description')}
-      </p>
+      <p className="text-sm text-content-secondary">{t('settings.desktopAgent.description')}</p>
 
       <SettingsSection title={t('settings.screenIntel.permissions.title')}>
         {PERMISSIONS.map(({ kind, labelKey }) => {
@@ -264,7 +262,7 @@ const DesktopAgentPanel = () => {
                 <div className="flex items-center gap-2">
                   <SettingsBadge variant={STATE_VARIANT[state]}>{state}</SettingsBadge>
                   {unsupported ? (
-                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                    <span className="text-xs text-content-muted">
                       {t('settings.desktopAgent.notRequiredOnOs')}
                     </span>
                   ) : canGrant ? (
@@ -303,9 +301,7 @@ const DesktopAgentPanel = () => {
           }
         />
       </SettingsSection>
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 -mt-2">
-        {t('settings.desktopAgent.seamless.note')}
-      </p>
+      <p className="text-xs text-content-muted -mt-2">{t('settings.desktopAgent.seamless.note')}</p>
 
       <SettingsSection title={t('voice.debug.alwaysOn')}>
         <SettingsRow
@@ -358,7 +354,7 @@ const DesktopAgentPanel = () => {
           {status?.permission_check_process_path ? (
             <p className="opacity-75 text-xs mt-1">
               {t('settings.screenIntel.permissions.macosAppliesPrivacy')}{' '}
-              <span className="font-mono break-all text-stone-600 dark:text-neutral-300">
+              <span className="font-mono break-all text-content-secondary">
                 {status.permission_check_process_path}
               </span>
             </p>

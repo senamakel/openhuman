@@ -100,7 +100,7 @@ export default function VoiceSetupModal({ onClose, skillStatus }: Props) {
             </div>
           </SetupNotice>
 
-          <p className="text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
+          <p className="text-xs text-content-muted leading-relaxed">
             {t('skills.setup.voice.sttReturnHint')}
           </p>
 
@@ -122,7 +122,7 @@ export default function VoiceSetupModal({ onClose, skillStatus }: Props) {
             {t('skills.setup.voice.sttReady')}
           </SetupNotice>
 
-          <p className="text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
+          <p className="text-xs text-content-muted leading-relaxed">
             {t('skills.setup.voice.enableDesc')}
           </p>
 

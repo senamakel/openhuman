@@ -138,8 +138,7 @@ export default function Brain() {
     };
   }, [mode, refreshKey]);
 
-  const cardClass =
-    'rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900';
+  const cardClass = 'rounded-lg border border-line bg-surface p-4';
 
   return (
     <div className="h-full">
@@ -225,11 +224,7 @@ export default function Brain() {
                 ],
               },
             ]}
-            header={
-              <p className="min-w-0 text-[11px] text-stone-500 dark:text-neutral-400">
-                {t('brain.subtitle')}
-              </p>
-            }
+            header={<p className="min-w-0 text-[11px] text-content-muted">{t('brain.subtitle')}</p>}
           />
         </div>
       </SidebarContent>
@@ -243,7 +238,7 @@ export default function Brain() {
           // card surface (the bespoke graph/sources/etc. tabs keep their own
           // scaffold below and stay flush).
           <div className="h-full p-4">
-            <div className="h-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="h-full overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
               <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
                 {/* Distinct tab query key so the embedded Intelligence panel's
                     internal tab switches don't overwrite Brain's own

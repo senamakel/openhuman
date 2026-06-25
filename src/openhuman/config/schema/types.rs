@@ -394,6 +394,10 @@ pub struct Config {
     #[serde(default)]
     pub runtime_python: RuntimePythonConfig,
 
+    /// TokenJuice content-router / compaction configuration.
+    #[serde(default)]
+    pub tokenjuice: TokenjuiceConfig,
+
     #[serde(default)]
     pub voice_server: VoiceServerConfig,
 
@@ -785,6 +789,7 @@ impl Default for Config {
             subconscious_provider: None,
             node: NodeConfig::default(),
             runtime_python: RuntimePythonConfig::default(),
+            tokenjuice: TokenjuiceConfig::default(),
             voice_server: VoiceServerConfig::default(),
             voice_providers: Vec::new(),
             stt_provider: None,

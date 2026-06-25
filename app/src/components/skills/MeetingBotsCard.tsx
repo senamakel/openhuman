@@ -173,17 +173,17 @@ function ActiveMeetingView({ onToast }: Props) {
           <RiveMascot face={face} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          <div className="text-sm font-semibold text-content">
             {t('skills.meetingBots.liveTitle')}
           </div>
-          <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{statusText}</div>
+          <div className="mt-0.5 text-xs text-content-muted">{statusText}</div>
           {meetingCode && (
-            <div className="mt-1 truncate font-mono text-[11px] text-stone-600 dark:text-neutral-400">
+            <div className="mt-1 truncate font-mono text-[11px] text-content-secondary">
               {meetingCode}
             </div>
           )}
           {lastReply?.reply && (
-            <div className="mt-1.5 text-xs text-stone-600 dark:text-neutral-300 line-clamp-2 italic">
+            <div className="mt-1.5 text-xs text-content-secondary line-clamp-2 italic">
               &ldquo;{lastReply.reply}&rdquo;
             </div>
           )}
@@ -297,19 +297,19 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
   };
 
   return (
-    <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-soft animate-fade-up">
+    <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft animate-fade-up">
       <div className="mb-4">
-        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+        <h2 className="text-sm font-semibold text-content">
           {t('skills.meetingBots.modalTitle')}
         </h2>
-        <p className="mt-1 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
+        <p className="mt-1 text-xs leading-relaxed text-content-secondary">
           {t('skills.meetingBots.modalDesc')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <label className="block">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
             {t('skills.meetingBots.meetingLink')}
           </span>
           <input
@@ -321,13 +321,13 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
             onChange={e => setMeetUrl(e.target.value)}
             placeholder={t('skills.meetingBots.platformHints.gmeet')}
             disabled={submitting}
-            className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
+            className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-surface-muted dark:disabled:bg-surface-muted/60"
             required
           />
         </label>
 
         <label className="block">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
             {t('skills.meetingBots.respondToParticipant')}
           </span>
           <input
@@ -339,26 +339,26 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
             placeholder={t('skills.meetingBots.respondToParticipantHint')}
             disabled={submitting}
             required
-            className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
+            className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-surface-muted dark:disabled:bg-surface-muted/60"
           />
-          <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+          <p className="mt-1 text-[10px] text-content-faint">
             {t('skills.meetingBots.respondToParticipantDesc')}
           </p>
         </label>
 
-        <label className="flex items-start gap-3 rounded-xl border border-stone-200 dark:border-neutral-800 px-3 py-2.5">
+        <label className="flex items-start gap-3 rounded-xl border border-line px-3 py-2.5">
           <input
             type="checkbox"
             checked={!listenOnly}
             onChange={e => setListenOnly(!e.target.checked)}
             disabled={submitting}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-stone-300 text-primary-500 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-line-strong text-primary-500 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed"
           />
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-stone-800 dark:text-neutral-100">
+            <span className="block text-sm font-medium text-content">
               {t('skills.meetingBots.activeMode')}
             </span>
-            <span className="mt-0.5 block text-[10px] leading-relaxed text-stone-400 dark:text-neutral-500">
+            <span className="mt-0.5 block text-[10px] leading-relaxed text-content-faint">
               {t('skills.meetingBots.activeModeDesc')}
             </span>
           </span>

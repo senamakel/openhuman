@@ -240,12 +240,9 @@ const EventLogPanel = () => {
           disabled={filteredEntries.length === 0}>
           {t('settings.developerMenu.eventLog.download')}
         </Button>
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">
+        <span className="text-xs text-content-muted">
           {filteredEntries.length} {t('settings.developerMenu.eventLog.events')} &middot;{' '}
-          <span
-            className={
-              isLive ? 'text-sage-600 dark:text-sage-300' : 'text-neutral-500 dark:text-neutral-400'
-            }>
+          <span className={isLive ? 'text-sage-600 dark:text-sage-300' : 'text-content-muted'}>
             {isLive
               ? t('settings.developerMenu.eventLog.live')
               : t('settings.developerMenu.eventLog.disconnected')}
@@ -277,7 +274,7 @@ const EventLogPanel = () => {
           onScroll={handleScroll}
           className="max-h-[60vh] overflow-y-auto space-y-1">
           {filteredEntries.length === 0 && (
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 py-4 text-center">
+            <p className="text-xs text-content-muted py-4 text-center">
               {isLive
                 ? t('settings.developerMenu.eventLog.waiting')
                 : t('settings.developerMenu.eventLog.notConnected')}
@@ -286,13 +283,13 @@ const EventLogPanel = () => {
           {filteredEntries.map(entry => {
             const colors = DOMAIN_BADGE_COLORS[entry.domain] || {
               bg: 'bg-neutral-500/20',
-              text: 'text-neutral-400',
+              text: 'text-content-faint',
             };
             return (
               <div
                 key={entry.id}
-                className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2 flex items-start gap-2">
-                <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono shrink-0 pt-0.5">
+                className="rounded-xl border border-line bg-surface-muted px-3 py-2 flex items-start gap-2">
+                <span className="text-[10px] text-content-muted font-mono shrink-0 pt-0.5">
                   {entry.timestamp}
                 </span>
                 <span
@@ -302,13 +299,11 @@ const EventLogPanel = () => {
                     : entry.domain.toUpperCase()}
                 </span>
                 {entry.agent && (
-                  <span className="text-[10px] text-neutral-500 dark:text-neutral-400 shrink-0 font-mono">
+                  <span className="text-[10px] text-content-muted shrink-0 font-mono">
                     {entry.agent}
                   </span>
                 )}
-                <span className="text-xs text-neutral-800 dark:text-neutral-100 truncate">
-                  {entry.event}
-                </span>
+                <span className="text-xs text-content truncate">{entry.event}</span>
               </div>
             );
           })}

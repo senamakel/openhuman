@@ -31,9 +31,9 @@ const DebugSection = ({
         <button
           type="button"
           onClick={() => setIsOpen(prev => !prev)}
-          className="flex w-full items-center justify-between text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+          className="flex w-full items-center justify-between text-sm font-semibold text-content">
           <span>{t('screenAwareness.debug.debugAndDiagnostics')}</span>
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">
+          <span className="text-xs text-content-muted">
             {isOpen ? t('screenAwareness.debug.collapse') : t('screenAwareness.debug.expand')}
           </span>
         </button>
@@ -120,10 +120,8 @@ const ScreenAwarenessDebugPanel = () => {
         {/* Advanced policy settings */}
         <SettingsSection title={t('screenAwareness.debug.policyTitle')}>
           <div className="px-4 py-3 space-y-3">
-            <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-              <span className="text-sm text-neutral-800 dark:text-neutral-200">
-                {t('screenAwareness.debug.baselineFps')}
-              </span>
+            <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
+              <span className="text-sm text-content">{t('screenAwareness.debug.baselineFps')}</span>
               <Input
                 type="number"
                 inputSize="sm"
@@ -164,7 +162,7 @@ const ScreenAwarenessDebugPanel = () => {
             />
 
             <div className="space-y-1">
-              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+              <div className="text-xs text-content-muted">
                 {t('screenAwareness.debug.allowlist')}
               </div>
               <SettingsTextArea
@@ -176,7 +174,7 @@ const ScreenAwarenessDebugPanel = () => {
             </div>
 
             <div className="space-y-1">
-              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+              <div className="text-xs text-content-muted">
                 {t('screenAwareness.debug.denylist')}
               </div>
               <SettingsTextArea
@@ -201,7 +199,7 @@ const ScreenAwarenessDebugPanel = () => {
 
         {/* Session stats */}
         <SettingsSection title={t('screenAwareness.debug.sessionStats')}>
-          <div className="px-4 py-3 text-sm text-neutral-500 dark:text-neutral-400 space-y-1">
+          <div className="px-4 py-3 text-sm text-content-muted space-y-1">
             <div>
               {t('screenAwareness.debug.framesEphemeral')}: {status?.session.frames_in_memory ?? 0}
             </div>
@@ -246,15 +244,13 @@ const ScreenAwarenessDebugPanel = () => {
                 {recentVisionSummaries.map(summary => (
                   <div
                     key={summary.id}
-                    className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-xs">
-                    <div className="text-neutral-500 dark:text-neutral-400">
+                    className="rounded-xl border border-line bg-surface p-3 text-xs">
+                    <div className="text-content-muted">
                       {new Date(summary.captured_at_ms).toLocaleTimeString()} ·{' '}
                       {summary.app_name ?? t('screenAwareness.debug.unknownApp')}
                       {summary.window_title ? ` · ${summary.window_title}` : ''}
                     </div>
-                    <div className="mt-1 text-neutral-800 dark:text-neutral-100">
-                      {summary.actionable_notes}
-                    </div>
+                    <div className="mt-1 text-content">{summary.actionable_notes}</div>
                   </div>
                 ))}
               </div>

@@ -110,7 +110,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
       <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -119,7 +119,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
 function InitialAvatar({ name }: { name: string }) {
   const initial = (name[0] ?? '?').toUpperCase();
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-semibold text-white">
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-semibold text-content-inverted">
       {initial}
     </div>
   );
@@ -209,9 +209,9 @@ function CommentComposer({
         }}
         placeholder="Write a comment..."
         disabled={submitting}
-        className="flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm
+        className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm
                    placeholder:text-stone-400 focus:border-primary-400 focus:outline-none
-                   dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500
+                   dark:border-line-strong dark:bg-surface-muted dark:placeholder:text-neutral-500
                    dark:focus:border-primary-600 disabled:opacity-50"
       />
       <Button
@@ -276,7 +276,7 @@ function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
   };
 
   return (
-    <div className="mb-3 rounded-xl border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="mb-3 rounded-xl border border-line bg-surface p-3">
       <div className="flex gap-2.5">
         <InitialAvatar name={myAgentId} />
         <textarea
@@ -298,27 +298,20 @@ function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
           maxLength={MAX_FEED_BODY_LENGTH}
           disabled={submitting}
           aria-label="Write a post"
-          className="min-h-[2.25rem] w-full resize-none border-0 bg-transparent p-0 pt-1.5 text-sm leading-relaxed text-stone-900 shadow-none outline-none ring-0 placeholder:text-stone-400 focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none disabled:opacity-50 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          className="min-h-[2.25rem] w-full resize-none border-0 bg-transparent p-0 pt-1.5 text-sm leading-relaxed text-content shadow-none outline-none ring-0 placeholder:text-stone-400 focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none disabled:opacity-50 dark:placeholder:text-neutral-500"
         />
       </div>
       {error && <p className="mt-1 pl-[2.625rem] text-xs text-coral-500">{error}</p>}
-      <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-100 pl-[2.625rem] pt-2 dark:border-neutral-800">
-        <span className="hidden text-[11px] text-stone-400 dark:text-neutral-500 sm:inline">
-          <kbd className="rounded border border-stone-200 px-1 font-sans dark:border-neutral-700">
-            ⌘
-          </kbd>
-          <kbd className="ml-0.5 rounded border border-stone-200 px-1 font-sans dark:border-neutral-700">
-            ↵
-          </kbd>{' '}
-          to post
+      <div className="mt-2 flex items-center justify-between gap-3 border-t border-line-subtle pl-[2.625rem] pt-2">
+        <span className="hidden text-[11px] text-content-faint sm:inline">
+          <kbd className="rounded border border-line px-1 font-sans">⌘</kbd>
+          <kbd className="ml-0.5 rounded border border-line px-1 font-sans">↵</kbd> to post
         </span>
         <div className="ml-auto flex items-center gap-3">
           {(nearLimit || draft.length > 0) && (
             <span
               className={`text-[11px] tabular-nums ${
-                remaining <= 20
-                  ? 'font-medium text-coral-500'
-                  : 'text-stone-400 dark:text-neutral-500'
+                remaining <= 20 ? 'font-medium text-coral-500' : 'text-content-faint'
               }`}>
               {remaining}
             </span>
@@ -371,17 +364,15 @@ function InlineComments({ post, myAgentId }: { post: GqlPost; myAgentId: string 
   }, [load]);
 
   return (
-    <div className="mt-3 border-t border-stone-100 pt-2 dark:border-neutral-800">
+    <div className="mt-3 border-t border-line-subtle pt-2">
       {loading && (
-        <p className="animate-pulse py-2 text-xs text-stone-400 dark:text-neutral-500">
-          Loading comments…
-        </p>
+        <p className="animate-pulse py-2 text-xs text-content-faint">Loading comments…</p>
       )}
       {error && <p className="py-2 text-xs text-red-500">{error}</p>}
       {!loading && !error && comments.length === 0 && (
-        <p className="py-2 text-xs text-stone-400 dark:text-neutral-500">No comments yet.</p>
+        <p className="py-2 text-xs text-content-faint">No comments yet.</p>
       )}
-      <div className="divide-y divide-stone-100 dark:divide-neutral-800">
+      <div className="divide-y divide-line-subtle dark:divide-neutral-800">
         {comments.map(c => (
           <CommentRow
             key={c.commentId}
@@ -421,7 +412,7 @@ function PostCard({
   const [showComments, setShowComments] = useState(false);
 
   return (
-    <article className="rounded-lg border border-stone-200 bg-white p-4 transition-colors hover:border-stone-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+    <article className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong dark:hover:border-line-strong">
       {/* Author row */}
       <div className="mb-2 flex items-center gap-2">
         {post.author.avatarUrl ? (
@@ -435,7 +426,7 @@ function PostCard({
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-1">
-            <span className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-100">
+            <span className="truncate text-sm font-semibold text-content">
               {post.author.displayName || post.author.handle}
             </span>
             {post.author.verified && (
@@ -451,9 +442,7 @@ function PostCard({
               </svg>
             )}
           </div>
-          <span className="text-xs text-stone-400 dark:text-neutral-500">
-            @{post.author.handle}
-          </span>
+          <span className="text-xs text-content-faint">@{post.author.handle}</span>
         </div>
         {myAgentId && post.author.cryptoId !== myAgentId && (
           <button
@@ -462,8 +451,8 @@ function PostCard({
             onClick={() => onToggleFollow(post.author.cryptoId)}
             className={`ml-auto shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
               followState[post.author.cryptoId]
-                ? 'border-stone-300 text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
-                : 'border-primary-600 bg-primary-600 text-white hover:bg-primary-700 dark:border-primary-500 dark:bg-primary-500'
+                ? 'border-line-strong text-content-secondary hover:bg-surface-hover'
+                : 'border-primary-600 bg-primary-600 text-content-inverted hover:bg-primary-700 dark:border-primary-500 dark:bg-primary-500'
             }`}>
             {followState[post.author.cryptoId] ? 'Following' : 'Follow'}
           </button>
@@ -472,7 +461,7 @@ function PostCard({
           <button
             type="button"
             onClick={() => onDeletePost(post)}
-            className="ml-auto text-xs text-stone-400 hover:text-red-500 dark:text-neutral-500
+            className="ml-auto text-xs text-content-faint hover:text-red-500
                        dark:hover:text-red-400">
             Delete
           </button>
@@ -480,12 +469,10 @@ function PostCard({
       </div>
 
       {/* Post body */}
-      <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-stone-800 dark:text-neutral-200">
-        {post.body}
-      </p>
+      <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-content">{post.body}</p>
 
       {/* Metadata row */}
-      <div className="flex items-center gap-4 text-xs text-stone-400 dark:text-neutral-500">
+      <div className="flex items-center gap-4 text-xs text-content-faint">
         <span>{relativeTime(post.createdAt)}</span>
         {item.reason === 'recommended' && (
           <span className="rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
@@ -495,7 +482,7 @@ function PostCard({
         <button
           type="button"
           onClick={() => setShowComments(open => !open)}
-          className="hover:text-stone-600 dark:hover:text-neutral-300">
+          className="hover:text-content-secondary">
           {post.commentCount} {post.commentCount === 1 ? 'comment' : 'comments'}
         </button>
         {myAgentId ? (
@@ -505,7 +492,7 @@ function PostCard({
             className={`flex items-center gap-1 ${
               (likeState[post.postId]?.liked ?? post.viewerHasLiked)
                 ? 'text-red-500'
-                : 'text-stone-400 dark:text-neutral-500 hover:text-red-400'
+                : 'text-content-faint hover:text-red-400'
             }`}>
             <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -556,12 +543,10 @@ function CommentRow({
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+          <span className="text-sm font-medium text-content">
             {comment.author.displayName || comment.author.handle}
           </span>
-          <span className="text-xs text-stone-400 dark:text-neutral-500">
-            {relativeTime(comment.createdAt)}
-          </span>
+          <span className="text-xs text-content-faint">{relativeTime(comment.createdAt)}</span>
           {myAgentId && comment.author.cryptoId === myAgentId && (
             <button
               type="button"
@@ -573,13 +558,13 @@ function CommentRow({
                     .catch(err => console.error('[FeedSection] delete comment failed:', err));
                 }
               }}
-              className="text-xs text-stone-400 hover:text-red-500 dark:text-neutral-500
+              className="text-xs text-content-faint hover:text-red-500
                          dark:hover:text-red-400">
               Delete
             </button>
           )}
         </div>
-        <p className="mt-0.5 text-sm text-stone-700 dark:text-neutral-300">{comment.body}</p>
+        <p className="mt-0.5 text-sm text-content-secondary">{comment.body}</p>
       </div>
     </div>
   );
@@ -750,14 +735,14 @@ export default function FeedSection() {
 
   if (feedState.status === 'loading') {
     body = (
-      <div className="flex h-64 items-center justify-center text-stone-400 dark:text-neutral-500">
+      <div className="flex h-64 items-center justify-center text-content-faint">
         <span className="animate-pulse text-sm">Loading feed…</span>
       </div>
     );
   } else if (feedState.status === 'wallet_unconfigured') {
     body = (
       <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
+        tone="text-content-secondary"
         title="Set up your wallet to view your feed"
         body="Your personalized feed uses your wallet identity. Set up or import a wallet in Settings to continue."
       />
@@ -773,7 +758,7 @@ export default function FeedSection() {
   } else if (feedState.status === 'error') {
     body = isWalletLocked(feedState.message) ? (
       <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
+        tone="text-content-secondary"
         title="Unlock your wallet to view your feed"
         body="Your personalized feed uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
@@ -787,7 +772,7 @@ export default function FeedSection() {
   } else if (feedState.items.length === 0) {
     body = (
       <StatusBlock
-        tone="text-stone-500 dark:text-neutral-400"
+        tone="text-content-muted"
         title="No posts in your feed yet"
         body="Follow some agents to see their posts here."
       />

@@ -94,8 +94,8 @@ const SETTLED_ENTRIES: ToolTimelineEntry[] = RUNNING_ENTRIES.map(e => ({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-stone-200 bg-[#f6f6f6] p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <h2 className="mb-3 text-sm font-semibold text-stone-700 dark:text-neutral-200">{title}</h2>
+    <section className="rounded-2xl border border-line bg-[#f6f6f6] p-4 dark:border-line dark:bg-surface-canvas">
+      <h2 className="mb-3 text-sm font-semibold text-content-secondary">{title}</h2>
       {children}
     </section>
   );
@@ -105,13 +105,11 @@ export default function AgentInsightsPreview() {
   const [panelOpen, setPanelOpen] = useState(false);
 
   return (
-    <div className="h-full overflow-y-auto bg-white p-8 dark:bg-neutral-900">
+    <div className="h-full overflow-y-auto bg-surface p-8">
       <div className="mx-auto max-w-2xl space-y-6">
         <header>
-          <h1 className="text-lg font-bold text-stone-900 dark:text-neutral-100">
-            Agentic task insights — preview
-          </h1>
-          <p className="text-xs text-stone-500 dark:text-neutral-400">
+          <h1 className="text-lg font-bold text-content">Agentic task insights — preview</h1>
+          <p className="text-xs text-content-muted">
             Dev-only harness (#/dev/agent-insights). Sample data — not a live run.
           </p>
         </header>

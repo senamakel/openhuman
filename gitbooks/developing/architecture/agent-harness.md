@@ -117,6 +117,20 @@ Some tool calls return enormous payloads - a Composio action dumping 200 KB of J
 
 When a tool result exceeds the summarizer's threshold, it gets routed through a dedicated `summarizer` sub-agent before entering the parent's history. The summarizer compresses the payload per an extraction contract that preserves identifiers and key facts, and the parent agent only sees the compressed summary. Hard truncation remains the backstop downstream when summarization fails or the payload is so absurdly large that paying for an LLM call on it makes no economic sense.
 
+### TokenJuice - content-aware tool-output compaction (Stage 1a)
+
+Before a fresh tool result enters history (and ahead of the byte-budget backstop), it passes through the **TokenJuice content router** (`src/openhuman/tokenjuice/`). Inspired by Headroom, the router *detects the content kind* (JSON, code, log, search, diff, HTML, plain text) from the bytes and/or a hint derived from the tool name and arguments, then dispatches to a specialised compressor:
+
+* **JSON** → SmartCrusher: array-of-objects → table (each key once), preserving rows that carry errors or numeric outliers.
+* **Code** → tree-sitter (Rust/TS/JS/Python) signature keeper that collapses function bodies; brace-depth heuristic fallback.
+* **Log** → the 100-rule engine for *command* output (git/cargo/npm/…), signal-based keep-failures otherwise.
+* **Search** → relevance-ranked top-K matches per file with a `+N more` tally.
+* **Diff** → keep changed hunks, collapse unchanged context, summarise lockfile hunks.
+* **HTML** → strip markup to readable text.
+* **Plain text** → the opt-in Python/ML "Kompress" compressor (ModernBERT), or pass-through.
+
+Every lossy compression offloads the original to the **CCR (Compress-Cache-Retrieve)** store behind a `⟦tj:<hash>⟧` marker, so compaction is effectively lossless: the agent calls `tokenjuice_retrieve` (token + optional byte/line range) to fetch the full original on demand. The same engine is exposed as a universal `compress_content(content, hint, opts)` for any large payload (file reads, web fetches), and as read-only `tokenjuice.*` debug RPCs. Configured via the `[tokenjuice]` block / `OPENHUMAN_TOKENJUICE_*` env. The ML (Kompress) path runs as a `kompress` backend of the shared [`runtime_python_server`](../../../src/openhuman/runtime_python_server/) (torch + ModernBERT pip-installed at runtime), gated by the `ml_compression_enabled` flag and degrading gracefully to a native compressor when the Python runtime is unavailable.
+
 ### Self-healing for missing commands
 
 When the code-executor sub-agent runs a shell command and the runtime answers "command not found", a self-healing interceptor catches the error, spawns a `ToolMaker` sub-agent to write a polyfill script for the missing command, and retries the original call. There's a per-command attempt cap so a genuinely impossible command can't loop forever.

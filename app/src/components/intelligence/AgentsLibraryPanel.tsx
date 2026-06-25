@@ -117,13 +117,11 @@ export default function AgentsLibraryPanel({
     <section className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="flex items-center gap-2 truncate text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          <h3 className="flex items-center gap-2 truncate text-sm font-semibold text-content-secondary">
             <LuBot className="h-4 w-4 text-ocean-500" />
             {t('intelligence.agents.title')}
           </h3>
-          <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
-            {t('intelligence.agents.subtitle')}
-          </p>
+          <p className="mt-1 text-xs text-content-faint">{t('intelligence.agents.subtitle')}</p>
         </div>
         <Button
           variant="secondary"
@@ -135,7 +133,7 @@ export default function AgentsLibraryPanel({
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center rounded-xl border border-stone-200 py-5 text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+        <div className="flex items-center justify-center rounded-xl border border-line py-5 text-sm text-content-faint">
           <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
           {t('intelligence.agents.loading')}
         </div>
@@ -148,13 +146,13 @@ export default function AgentsLibraryPanel({
       )}
 
       {!loading && !error && visibleAgents.length === 0 && (
-        <div className="rounded-xl border border-dashed border-stone-200 py-6 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+        <div className="rounded-xl border border-dashed border-line py-6 text-center text-sm text-content-faint">
           {t('intelligence.agents.empty')}
         </div>
       )}
 
       {!loading && !error && visibleAgents.length > 0 && (
-        <ul className="divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+        <ul className="divide-y divide-line-subtle rounded-xl border border-line bg-surface dark:divide-neutral-800">
           {visibleAgents.map(agent => {
             const draft = drafts[agent.id] ?? '';
             const running = runningAgentId === agent.id;
@@ -163,24 +161,22 @@ export default function AgentsLibraryPanel({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                      <span className="truncate text-sm font-semibold text-content">
                         {agent.display_name}
                       </span>
-                      <span className="rounded-md bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+                      <span className="rounded-md bg-surface-subtle px-1.5 py-0.5 font-mono text-[10px] text-content-muted">
                         {agent.id}
                       </span>
                       <span className="rounded-md bg-ocean-50 px-1.5 py-0.5 text-[10px] font-medium text-ocean-700 dark:bg-ocean-500/10 dark:text-ocean-200">
                         {modelLabel(agent, t)}
                       </span>
                     </div>
-                    <p className="text-xs leading-5 text-stone-500 dark:text-neutral-400">
-                      {agent.when_to_use}
-                    </p>
+                    <p className="text-xs leading-5 text-content-muted">{agent.when_to_use}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {capabilityChips(agent, t).map(chip => (
                         <span
                           key={chip}
-                          className="rounded-md bg-stone-50 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+                          className="rounded-md bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
                           {chip}
                         </span>
                       ))}
@@ -218,7 +214,7 @@ export default function AgentsLibraryPanel({
                       setDrafts(prev => ({ ...prev, [agent.id]: event.target.value }))
                     }
                     placeholder={t('intelligence.agents.taskPlaceholder')}
-                    className="min-w-0 flex-1 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-600"
+                    className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100 dark:bg-surface-canvas dark:placeholder:text-neutral-600"
                   />
                   <button
                     type="button"

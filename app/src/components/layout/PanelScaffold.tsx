@@ -40,7 +40,7 @@ export interface PanelScaffoldProps {
 }
 
 const DEFAULT_CONTENT_CLASS = 'p-4 space-y-5';
-const BODY_BORDER_CLASS = 'border-t border-stone-200 dark:border-neutral-800';
+const BODY_BORDER_CLASS = 'border-t border-line';
 
 /**
  * Standard scaffold: a fixed header ({@link PanelHeader}) carrying an optional

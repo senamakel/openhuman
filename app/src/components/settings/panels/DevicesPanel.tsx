@@ -101,8 +101,8 @@ function DeviceRow({
   const statusBadge = (
     <div className="flex items-center gap-1.5">
       <PeerDot online={device.peer_online} />
-      <span className="font-mono text-xs text-neutral-400">{truncateId(device.channel_id)}</span>
-      <span className="text-xs text-neutral-400">
+      <span className="font-mono text-xs text-content-faint">{truncateId(device.channel_id)}</span>
+      <span className="text-xs text-content-faint">
         {formatRelativeTime(relativeTime(device.last_seen_at), t)}
       </span>
     </div>
@@ -131,11 +131,11 @@ function ConfirmRevokeDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
-      <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-sm w-full p-6 border border-neutral-200 dark:border-neutral-800 shadow-large">
-        <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 mb-2">
+      <div className="bg-surface rounded-2xl max-w-sm w-full p-6 border border-line shadow-large">
+        <h3 className="text-base font-semibold text-content mb-2">
           {t('devices.confirmRevokeTitle')}
         </h3>
-        <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-5">
+        <p className="text-sm text-content-secondary mb-5">
           {t('devices.confirmRevokeBody').replace('{label}', device.label)}
         </p>
         <div className="flex gap-3">
@@ -290,13 +290,16 @@ const DevicesPanel = () => {
       <div className="pb-3 flex items-center gap-2">
         {/* Bespoke beta badge — intentional marketing chip */}
         <SettingsBadge variant="warning">{t('devices.betaBadge')}</SettingsBadge>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('devices.betaText')}</p>
+        <p className="text-xs text-content-muted">{t('devices.betaText')}</p>
       </div>
 
       <div className="pb-5 space-y-3">
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <svg className="w-5 h-5 animate-spin text-neutral-400" fill="none" viewBox="0 0 24 24">
+            <svg
+              className="w-5 h-5 animate-spin text-content-faint"
+              fill="none"
+              viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"
@@ -334,9 +337,7 @@ const DevicesPanel = () => {
                 </svg>
               </div>
               <SettingsEmptyState label={t('devices.noPaired')} />
-              <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4 max-w-xs">
-                {t('devices.emptyState')}
-              </p>
+              <p className="text-xs text-content-faint mb-4 max-w-xs">{t('devices.emptyState')}</p>
               <Button type="button" variant="primary" size="sm" onClick={handleOpenPairModal}>
                 {t('devices.pairIphone')}
               </Button>

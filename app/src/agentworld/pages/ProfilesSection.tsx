@@ -241,7 +241,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
   }, [agentId]);
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="rounded-lg border border-line bg-surface p-4">
       <div className="flex items-start gap-4">
         {avatarUrl ? (
           <img
@@ -250,12 +250,12 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
             className="h-14 w-14 shrink-0 rounded-full object-cover"
           />
         ) : (
-          <div className="bg-primary-600 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white">
+          <div className="bg-primary-600 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-content-inverted">
             {initials}
           </div>
         )}
         <div className="min-w-0">
-          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-content">
             {handle}
             {verified && (
               <span className="text-xs text-blue-500" title="Verified">
@@ -274,28 +274,22 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
             )}
           </h3>
           {cryptoId && (
-            <p
-              className="mt-0.5 font-mono text-xs text-stone-500 dark:text-neutral-400"
-              title={cryptoId}>
+            <p className="mt-0.5 font-mono text-xs text-content-muted" title={cryptoId}>
               {truncateCryptoId(cryptoId)}
             </p>
           )}
-          {bio && (
-            <p className="mt-1.5 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
-              {bio}
-            </p>
-          )}
+          {bio && <p className="mt-1.5 text-xs leading-relaxed text-content-secondary">{bio}</p>}
         </div>
       </div>
 
       {skills.length > 0 && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
-          <h4 className="mb-2 text-xs font-medium text-stone-900 dark:text-neutral-100">Skills</h4>
+        <div className="mt-4 border-t border-line pt-4">
+          <h4 className="mb-2 text-xs font-medium text-content">Skills</h4>
           <div className="flex flex-wrap gap-1.5">
             {skills.map(skill => (
               <span
                 key={skill}
-                className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600 dark:bg-neutral-800 dark:text-neutral-300">
+                className="rounded-full bg-surface-subtle px-2 py-0.5 text-xs text-content-secondary">
                 {skill}
               </span>
             ))}
@@ -304,10 +298,8 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
       )}
 
       {attestations.length > 0 && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
-          <h4 className="mb-2 text-xs font-medium text-stone-900 dark:text-neutral-100">
-            Verified Accounts
-          </h4>
+        <div className="mt-4 border-t border-line pt-4">
+          <h4 className="mb-2 text-xs font-medium text-content">Verified Accounts</h4>
           <div className="flex flex-wrap gap-2">
             {attestations.map(a => (
               <span
@@ -321,16 +313,16 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
       )}
 
       {ownedIdentities.length > 0 && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
-          <h4 className="mb-2 text-xs font-medium text-stone-900 dark:text-neutral-100">
+        <div className="mt-4 border-t border-line pt-4">
+          <h4 className="mb-2 text-xs font-medium text-content">
             Handles owned{ownedIdentities.length > 1 ? ` (${ownedIdentities.length})` : ''}
           </h4>
           <div className="space-y-1.5">
             {ownedIdentities.map(id => (
               <div
                 key={id.username}
-                className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-1.5 text-sm dark:border-neutral-800">
-                <span className="truncate font-medium text-stone-800 dark:text-neutral-200">
+                className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-1.5 text-sm">
+                <span className="truncate font-medium text-content">
                   @{id.username.replace(/^@+/, '')}
                 </span>
                 <span className="flex items-center gap-2">
@@ -339,7 +331,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
                       primary
                     </span>
                   )}
-                  <span className="text-[10px] uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+                  <span className="text-[10px] uppercase tracking-wide text-content-faint">
                     {id.status}
                   </span>
                 </span>
@@ -350,36 +342,34 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
       )}
 
       {followStats && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+        <div className="mt-4 border-t border-line pt-4">
           <div className="flex gap-6">
             <div>
-              <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+              <span className="text-sm font-semibold text-content">
                 {followStats.followerCount}
               </span>
-              <span className="ml-1 text-xs text-stone-500 dark:text-neutral-400">
+              <span className="ml-1 text-xs text-content-muted">
                 {followStats.followerCount === 1 ? 'follower' : 'followers'}
               </span>
             </div>
             <div>
-              <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+              <span className="text-sm font-semibold text-content">
                 {followStats.followingCount}
               </span>
-              <span className="ml-1 text-xs text-stone-500 dark:text-neutral-400">following</span>
+              <span className="ml-1 text-xs text-content-muted">following</span>
             </div>
           </div>
         </div>
       )}
 
       {createdAt && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
-          <span className="text-xs text-stone-500 dark:text-neutral-400">
-            Joined {formatDate(createdAt)}
-          </span>
+        <div className="mt-4 border-t border-line pt-4">
+          <span className="text-xs text-content-muted">Joined {formatDate(createdAt)}</span>
         </div>
       )}
 
       {/* Export identity */}
-      <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+      <div className="mt-4 border-t border-line pt-4">
         <Button variant="secondary" size="sm" disabled={exportLoading} onClick={handleExport}>
           {exportLoading ? 'Exporting...' : exportData ? 'Hide Export' : 'Export Identity'}
         </Button>
@@ -387,7 +377,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
           <p className="mt-2 text-xs text-red-600 dark:text-red-400">{exportError}</p>
         )}
         {exportData && (
-          <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-stone-50 p-3 text-xs text-stone-700 dark:bg-neutral-950 dark:text-neutral-300">
+          <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-surface-muted p-3 text-xs text-content-secondary">
             {JSON.stringify(exportData, null, 2)}
           </pre>
         )}
@@ -401,7 +391,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
       <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -415,14 +405,14 @@ export default function ProfilesSection() {
 
   if (state.status === 'loading') {
     body = (
-      <div className="flex h-64 items-center justify-center text-stone-400 dark:text-neutral-500">
+      <div className="flex h-64 items-center justify-center text-content-faint">
         <span className="animate-pulse text-sm">Loading your profile…</span>
       </div>
     );
   } else if (state.status === 'wallet_locked') {
     body = (
       <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
+        tone="text-content-secondary"
         title="Unlock your wallet to use Agent World"
         body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
@@ -430,7 +420,7 @@ export default function ProfilesSection() {
   } else if (state.status === 'no_handle') {
     body = (
       <StatusBlock
-        tone="text-stone-600 dark:text-neutral-300"
+        tone="text-content-secondary"
         title="No handle registered yet"
         body={`Your wallet (${truncateCryptoId(state.cryptoId)}) doesn't own a @handle yet. Register one in the Identities tab to claim your profile.`}
       />

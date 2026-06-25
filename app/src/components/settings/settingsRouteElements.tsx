@@ -25,6 +25,7 @@ import DevicesPanel from './panels/DevicesPanel';
 import DevWorkflowPanel from './panels/DevWorkflowPanel';
 import EventLogPanel from './panels/EventLogPanel';
 import IntegrationsPanel from './panels/IntegrationsPanel';
+import KeyboardShortcutsPanel from './panels/KeyboardShortcutsPanel';
 import LocalModelDebugPanel from './panels/LocalModelDebugPanel';
 import McpServerPanel from './panels/McpServerPanel';
 import MeetingSettingsPanel from './panels/MeetingSettingsPanel';
@@ -47,6 +48,8 @@ import TeamInvitesPanel from './panels/TeamInvitesPanel';
 import TeamManagementPanel from './panels/TeamManagementPanel';
 import TeamMembersPanel from './panels/TeamMembersPanel';
 import TeamPanel from './panels/TeamPanel';
+import ThemeStudioPanel from './panels/ThemeStudioPanel';
+import TokenUsagePanel from './panels/TokenUsagePanel';
 import ToolPolicyDiagnosticsPanel from './panels/ToolPolicyDiagnosticsPanel';
 import ToolsPanel from './panels/ToolsPanel';
 import UsagePanel from './panels/UsagePanel';
@@ -112,6 +115,7 @@ export function settingsRouteElements(): ReactNode {
       <Route path="security" element={wrapSettingsPage(<SecurityPanel />)} />
       <Route path="migration" element={wrapSettingsPage(<MigrationPanel />)} />
       <Route path="appearance" element={wrapSettingsPage(<AppearancePanel />)} />
+      <Route path="theme" element={wrapSettingsPage(<ThemeStudioPanel />)} />
       <Route path="notifications" element={wrapSettingsPage(<NotificationsTabbedPanel />)} />
       {/* Real device-pairing panel (replaces the old "Coming Soon" stub). */}
       <Route path="devices" element={wrapSettingsPage(<DevicesPanel />)} />
@@ -150,7 +154,9 @@ export function settingsRouteElements(): ReactNode {
       <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
 
       {/* ── System ──────────────────────────────────────────────── */}
+      <Route path="keyboard-shortcuts" element={wrapSettingsPage(<KeyboardShortcutsPanel />)} />
       <Route path="developer-options" element={wrapSettingsPage(<DeveloperOptionsPanel />)} />
+      <Route path="token-usage" element={wrapSettingsPage(<TokenUsagePanel />)} />
       <Route path="about" element={wrapSettingsPage(<AboutPanel />)} />
 
       {/* ── Developer & Diagnostics leaf panels ─────────────────── */}

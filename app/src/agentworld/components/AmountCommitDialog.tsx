@@ -130,15 +130,13 @@ export default function AmountCommitDialog({
       maxWidthClassName="max-w-sm">
       <div className="space-y-4">
         <div>
-          <label
-            className="mb-1 block text-xs text-stone-400 dark:text-neutral-500"
-            htmlFor="x402-commit-amount">
+          <label className="mb-1 block text-xs text-content-faint" htmlFor="x402-commit-amount">
             {t('agentWorld.trading.amountLabel', 'Amount')} ({asset})
           </label>
           <input
             id="x402-commit-amount"
             data-testid="commit-amount-input"
-            className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 outline-none focus:border-primary-500"
+            className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content outline-none focus:border-primary-500"
             inputMode="decimal"
             placeholder="0.0"
             value={amount}
@@ -162,7 +160,7 @@ export default function AmountCommitDialog({
           )}
         </div>
 
-        <p className="text-xs text-stone-400 dark:text-neutral-500">
+        <p className="text-xs text-content-faint">
           {t(
             'agentWorld.trading.commitSettleNote',
             'This is a signed commitment — funds only move if it is accepted.'

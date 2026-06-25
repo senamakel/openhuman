@@ -15,7 +15,7 @@ function ok(n: number): boolean {
 }
 
 function dot() {
-  return <span className="text-stone-300 dark:text-neutral-700">·</span>;
+  return <span className="text-content-faint dark:text-neutral-700">·</span>;
 }
 
 interface ComposerTokenStatsProps {
@@ -86,7 +86,7 @@ export default function ComposerTokenStats({ model }: ComposerTokenStatsProps = 
   if (parts.length === 0) return null;
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2.5 text-[10px] font-mono text-stone-400 dark:text-neutral-500 select-none">
+    <div className="flex min-w-0 flex-wrap items-center gap-2.5 text-[10px] font-mono text-content-faint select-none">
       {parts.map((part, i) => (
         <span key={i} className="contents">
           {i > 0 && dot()}

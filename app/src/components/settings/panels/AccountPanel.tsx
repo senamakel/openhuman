@@ -22,26 +22,18 @@ const AccountPanel = () => {
       testId="account-panel"
       description={t('pages.settings.accountSection.description')}>
       {(name || username) && (
-        <div className="flex items-center gap-3 rounded-2xl border border-stone-200 dark:border-neutral-800 px-4 py-3">
+        <div className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-500/15 text-sm font-semibold text-primary-700 dark:text-primary-300">
             {(name ?? username ?? '?').replace('@', '').slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0">
-            {name && (
-              <div className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">
-                {name}
-              </div>
-            )}
-            {username && (
-              <div className="truncate text-xs text-stone-500 dark:text-neutral-400">
-                {username}
-              </div>
-            )}
+            {name && <div className="truncate text-sm font-medium text-content">{name}</div>}
+            {username && <div className="truncate text-xs text-content-muted">{username}</div>}
           </div>
         </div>
       )}
 
-      <div className="rounded-2xl overflow-hidden border border-stone-200 dark:border-neutral-800">
+      <div className="rounded-2xl overflow-hidden border border-line">
         <LogoutAndClearActions />
       </div>
     </SettingsPanel>

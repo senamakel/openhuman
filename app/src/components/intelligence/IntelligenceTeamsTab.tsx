@@ -240,7 +240,7 @@ export default function IntelligenceTeamsTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-10 text-stone-400 dark:text-neutral-500">
+      <div className="flex items-center justify-center py-10 text-content-faint">
         <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
         <span className="text-sm">{t('intelligence.teams.loading')}</span>
       </div>
@@ -261,17 +261,11 @@ export default function IntelligenceTeamsTab() {
   if (teams.length === 0) {
     return (
       <div className="space-y-4">
-        <p className="text-xs text-stone-400 dark:text-neutral-500">
-          {t('intelligence.teams.subtitle')}
-        </p>
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-stone-200 py-12 text-center dark:border-neutral-800">
-          <LuUsers className="h-6 w-6 text-stone-300 dark:text-neutral-600" />
-          <p className="text-sm text-stone-500 dark:text-neutral-400">
-            {t('intelligence.teams.empty')}
-          </p>
-          <p className="max-w-sm text-xs text-stone-400 dark:text-neutral-500">
-            {t('intelligence.teams.emptyHint')}
-          </p>
+        <p className="text-xs text-content-faint">{t('intelligence.teams.subtitle')}</p>
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line py-12 text-center">
+          <LuUsers className="h-6 w-6 text-content-faint dark:text-neutral-600" />
+          <p className="text-sm text-content-muted">{t('intelligence.teams.empty')}</p>
+          <p className="max-w-sm text-xs text-content-faint">{t('intelligence.teams.emptyHint')}</p>
         </div>
       </div>
     );
@@ -330,23 +324,21 @@ export default function IntelligenceTeamsTab() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-stone-400 dark:text-neutral-500">
-          {t('intelligence.teams.subtitle')}
-        </p>
+        <p className="text-xs text-content-faint">{t('intelligence.teams.subtitle')}</p>
         <RefreshButton refreshing={refreshing} onClick={() => void refresh()} t={t} />
       </div>
-      <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+      <ul className="divide-y divide-line-subtle overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
         {teams.map(team => (
           <li key={team.id}>
             <button
               type="button"
               onClick={() => selectTeam(team.id)}
-              className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+              className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-surface-hover">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-stone-800 dark:text-neutral-100">
+                <p className="truncate text-sm font-medium text-content">
                   {team.summary?.trim() || team.leadAgentId}
                 </p>
-                <p className="truncate text-[11px] text-stone-500 dark:text-neutral-400">
+                <p className="truncate text-[11px] text-content-muted">
                   {t('intelligence.teams.header.lead')}{' '}
                   <span className="font-mono">{team.leadAgentId}</span>
                 </p>
@@ -355,7 +347,7 @@ export default function IntelligenceTeamsTab() {
                 className={`flex-none rounded-md px-1.5 py-0.5 text-[10px] ${
                   team.status === 'active'
                     ? 'bg-sage-50 text-sage-700 dark:bg-sage-500/10 dark:text-sage-300'
-                    : 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400'
+                    : 'bg-surface-subtle text-content-muted'
                 }`}>
                 {team.status === 'active'
                   ? t('intelligence.teams.status.active')

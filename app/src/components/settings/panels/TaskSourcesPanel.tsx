@@ -332,12 +332,8 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
   const body = (
     <>
       <div className="space-y-1">
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          {t('settings.taskSources.description')}
-        </p>
-        <p className="text-xs text-neutral-400 dark:text-neutral-500">
-          {t('settings.taskSources.connectHint')}
-        </p>
+        <p className="text-xs text-content-muted">{t('settings.taskSources.description')}</p>
+        <p className="text-xs text-content-faint">{t('settings.taskSources.connectHint')}</p>
       </div>
 
       {status && !status.enabled && (
@@ -463,7 +459,7 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
           }
         />
 
-        <div className="flex gap-2 px-4 py-3 border-t border-neutral-100 dark:border-neutral-800">
+        <div className="flex gap-2 px-4 py-3 border-t border-line-subtle">
           <Button
             type="button"
             variant="primary"
@@ -485,7 +481,7 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
 
       {/* ── Configured sources ───────────────────────────────────── */}
       <SettingsSection title={t('settings.taskSources.configured')}>
-        <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800">
+        <div className="px-4 py-3 border-b border-line-subtle">
           <Button
             type="button"
             variant="secondary"
@@ -500,12 +496,12 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
 
         {loading ? (
           <div className="px-4 py-3">
-            <p className="text-sm text-neutral-400 dark:text-neutral-500">{t('common.loading')}</p>
+            <p className="text-sm text-content-faint">{t('common.loading')}</p>
           </div>
         ) : sources.length === 0 ? (
           <SettingsEmptyState label={t('settings.taskSources.empty')} />
         ) : (
-          <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+          <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
             {sources.map(source => (
               <li
                 key={source.id}
@@ -513,16 +509,16 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
                 data-testid={`task-source-${source.id}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
+                    <p className="text-sm font-medium text-content">
                       {source.name || providerLabel(source.provider, t)}
                     </p>
-                    <p className="text-xs text-neutral-400 dark:text-neutral-500">
+                    <p className="text-xs text-content-faint">
                       {providerLabel(source.provider, t)}
                       {source.target === 'agent_todo_proactive'
                         ? ` · ${t('settings.taskSources.proactive')}`
                         : ''}
                     </p>
-                    <p className="text-xs text-neutral-400 dark:text-neutral-500">
+                    <p className="text-xs text-content-faint">
                       {t('settings.taskSources.lastFetch')}:{' '}
                       {source.lastFetchAt
                         ? new Date(source.lastFetchAt).toLocaleString()
@@ -572,7 +568,7 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
           </ul>
         )}
 
-        <div className="px-4 py-3 border-t border-neutral-100 dark:border-neutral-800">
+        <div className="px-4 py-3 border-t border-line-subtle">
           <Button
             type="button"
             variant="tertiary"

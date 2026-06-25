@@ -61,7 +61,7 @@ export function SettingsModalFrame({ onClose, children, labelledBy }: SettingsMo
           aria-label={t('common.close')}
           data-testid="settings-modal-close"
           onClick={onClose}
-          className="absolute bottom-full right-0 mb-2 h-8 w-8 rounded-full text-stone-500 shadow-md hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200">
+          className="absolute bottom-full right-0 mb-2 h-8 w-8 rounded-full text-content-muted shadow-md hover:text-content-secondary">
           <CloseIcon className="h-4 w-4" />
         </Button>
         <div
@@ -72,7 +72,7 @@ export function SettingsModalFrame({ onClose, children, labelledBy }: SettingsMo
           aria-label={labelledBy ? undefined : t('nav.settings')}
           tabIndex={-1}
           data-testid="settings-modal-card"
-          className="flex h-full w-full overflow-hidden rounded-2xl bg-white shadow-xl animate-fade-up focus:outline-none dark:bg-neutral-900">
+          className="flex h-full w-full overflow-hidden rounded-2xl bg-surface shadow-xl animate-fade-up focus:outline-none">
           {children}
         </div>
       </div>

@@ -74,8 +74,9 @@ pub(super) fn visible_tool_specs_for_policy(
 /// the deliberately tool-less `Named([])` case, which must stay tool-less.
 pub(super) fn ensure_recovery_tool_visible(visible: &mut std::collections::HashSet<String>) {
     if !visible.is_empty() {
-        visible
-            .insert(crate::openhuman::agent::harness::compaction::RECOVERY_TOOL_NAME.to_string());
+        for name in crate::openhuman::tokenjuice::RECOVERY_TOOL_NAMES {
+            visible.insert((*name).to_string());
+        }
     }
 }
 

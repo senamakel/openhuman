@@ -91,7 +91,7 @@ const NotificationsPanel = ({ embedded = false }: NotificationsPanelProps = {}) 
           description={t('settings.notifications.suppressAllDesc')}
           control={
             dndLoading ? (
-              <div className="w-[38px] h-[22px] rounded-full bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+              <div className="w-[38px] h-[22px] rounded-full bg-surface-strong animate-pulse" />
             ) : (
               <SettingsSwitch
                 id="switch-dnd"
@@ -131,7 +131,7 @@ const NotificationsPanel = ({ embedded = false }: NotificationsPanelProps = {}) 
         })}
       </SettingsSection>
 
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed px-1">
+      <p className="text-xs text-content-muted leading-relaxed px-1">
         {t('settings.notifications.categoryFooter')}
       </p>
     </>

@@ -134,9 +134,9 @@ const ConfigAssistantPanel = ({
   return (
     <div className="flex flex-col h-full space-y-2">
       {/* Message list */}
-      <div className="flex-1 overflow-y-auto space-y-2 min-h-0 rounded-lg border border-stone-100 dark:border-neutral-800 p-2">
+      <div className="flex-1 overflow-y-auto space-y-2 min-h-0 rounded-lg border border-line-subtle p-2">
         {messages.length === 0 && (
-          <p className="text-xs text-stone-400 dark:text-neutral-500 py-2 text-center">
+          <p className="text-xs text-content-faint py-2 text-center">
             {t('mcp.configAssistant.empty')}
           </p>
         )}
@@ -147,8 +147,8 @@ const ConfigAssistantPanel = ({
             <div
               className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                 msg.role === 'user'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-stone-100 dark:bg-neutral-800 text-stone-800 dark:text-neutral-100'
+                  ? 'bg-primary-500 text-content-inverted'
+                  : 'bg-surface-subtle text-content'
               }`}>
               {msg.role === 'assistant' ? (
                 <BubbleMarkdown content={msg.content} tone="agent" />
@@ -172,7 +172,7 @@ const ConfigAssistantPanel = ({
                     <button
                       type="button"
                       onClick={() => onApplySuggestedEnv(msg.suggested_env!)}
-                      className="mt-1 rounded px-2 py-1 text-[11px] font-medium bg-white/20 hover:bg-white/30 transition-colors">
+                      className="mt-1 rounded px-2 py-1 text-[11px] font-medium bg-surface/20 hover:bg-white/30 transition-colors">
                       {t('mcp.configAssistant.applySuggested')}
                     </button>
                   )}
@@ -188,7 +188,7 @@ const ConfigAssistantPanel = ({
         ))}
         {sending && (
           <div className="flex justify-start">
-            <div className="rounded-lg px-3 py-2 text-sm bg-stone-100 dark:bg-neutral-800 text-stone-400 dark:text-neutral-500">
+            <div className="rounded-lg px-3 py-2 text-sm bg-surface-subtle text-content-faint">
               {t('mcp.configAssistant.thinking')}
             </div>
           </div>
@@ -212,7 +212,7 @@ const ConfigAssistantPanel = ({
           onKeyDown={handleKeyDown}
           disabled={sending}
           placeholder={t('mcp.configAssistant.inputPlaceholder')}
-          className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50 resize-none"
+          className="flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50 resize-none"
         />
         <Button
           variant="primary"

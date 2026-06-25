@@ -61,7 +61,7 @@ function StatusTag({ status }: { status: ToolTimelineEntryStatus }) {
         : status === 'cancelled'
           ? {
               label: t('conversations.agentTaskInsights.cancelled'),
-              classes: 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400',
+              classes: 'bg-surface-subtle text-content-muted',
             }
           : status === 'awaiting_user'
             ? {
@@ -101,18 +101,18 @@ function ToolCallRow({
   return (
     <div className="flex items-center gap-1.5" data-testid="subagent-tool-call">
       <span className={`text-[11px] ${tone}`}>•</span>
-      <span className="text-[12px] text-stone-700 dark:text-neutral-200">
+      <span className="text-[12px] text-content-secondary">
         {call.displayName ?? formatToolName(call.toolName)}
       </span>
       {call.detail ? (
-        <span className="rounded bg-stone-100 px-1 font-mono text-[11px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+        <span className="rounded bg-surface-subtle px-1 font-mono text-[11px] text-content-muted">
           {call.detail}
         </span>
       ) : null}
       {/* Status reads as a tinted "Done" / "Failed" / "Running" tag. */}
       <StatusTag status={call.status} />
       {call.elapsedMs != null && call.status !== 'running' ? (
-        <span className="text-[11px] text-stone-400 dark:text-neutral-500">
+        <span className="text-[11px] text-content-faint">
           {call.elapsedMs >= 1000
             ? `${(call.elapsedMs / 1000).toFixed(1)}s`
             : `${call.elapsedMs}ms`}
@@ -138,7 +138,7 @@ function ThoughtBlock({ text }: { text: string }) {
   return (
     <div
       data-testid="subagent-thought"
-      className="my-0.5 border-l-2 border-stone-200 pl-2 text-[12px] break-words text-stone-500 italic dark:border-neutral-700 dark:text-neutral-400">
+      className="my-0.5 border-l-2 border-line pl-2 text-[12px] break-words text-content-muted italic">
       “{clean}”
     </div>
   );
@@ -174,13 +174,13 @@ function LiveResponseBlock({ text }: { text: string }) {
         <span className="text-[11px] font-semibold tracking-wide text-primary-500 uppercase dark:text-primary-300">
           {t('conversations.agentTaskInsights.response')}
         </span>
-        <span className="text-[10px] text-stone-300 transition-transform group-open/resp:rotate-90 dark:text-neutral-600">
+        <span className="text-[10px] text-content-faint transition-transform group-open/resp:rotate-90 dark:text-neutral-600">
           ▶
         </span>
       </summary>
-      <p className="mt-0.5 text-[12px] leading-snug break-words whitespace-pre-wrap text-stone-600 dark:text-neutral-300">
+      <p className="mt-0.5 text-[12px] leading-snug break-words whitespace-pre-wrap text-content-secondary">
         {clean.length > RESPONSE_PREVIEW_CHARS ? (
-          <span className="text-stone-400 dark:text-neutral-500">…</span>
+          <span className="text-content-faint">…</span>
         ) : null}
         {shown}
         <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-primary-400 align-middle" />
@@ -245,14 +245,14 @@ export function SubagentActivityBlock({
 
   return (
     <div
-      className="mt-1 space-y-0.5 text-[12px] text-stone-500 dark:text-neutral-400"
+      className="mt-1 space-y-0.5 text-[12px] text-content-muted"
       data-testid="subagent-activity">
       {headerBits.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {headerBits.map(bit => (
             <span
               key={bit}
-              className="rounded-full bg-stone-100 dark:bg-neutral-800 px-1.5 py-0.5 font-medium text-stone-600 dark:text-neutral-300">
+              className="rounded-full bg-surface-subtle px-1.5 py-0.5 font-medium text-content-secondary">
               {bit}
             </span>
           ))}
@@ -277,14 +277,12 @@ export function SubagentActivityBlock({
       ) : null}
       {subagent.worktreePath ? (
         <div
-          className="mt-1 space-y-1 rounded-md border border-stone-200 bg-stone-50/70 p-1.5 dark:border-neutral-800 dark:bg-neutral-900/50"
+          className="mt-1 space-y-1 rounded-md border border-line bg-surface-muted/70 p-1.5 dark:bg-surface/50"
           data-testid="subagent-worktree">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-medium text-stone-600 dark:text-neutral-300">
-              {t('worktree.label')}
-            </span>
+            <span className="font-medium text-content-secondary">{t('worktree.label')}</span>
             <span
-              className="truncate font-mono text-[12px] text-stone-500 dark:text-neutral-400"
+              className="truncate font-mono text-[12px] text-content-muted"
               title={subagent.worktreePath}>
               {basename(subagent.worktreePath)}
             </span>
@@ -298,7 +296,7 @@ export function SubagentActivityBlock({
               </span>
             )}
             {subagent.changedFiles && subagent.changedFiles.length > 0 ? (
-              <span className="text-[11px] text-stone-400 dark:text-neutral-500">
+              <span className="text-[11px] text-content-faint">
                 {subagent.changedFiles.length}{' '}
                 {subagent.changedFiles.length === 1
                   ? t('worktree.changedFile')
@@ -337,7 +335,7 @@ function normalizeToolBody(value?: string): string | undefined {
  * panels — the row's *status* is conveyed by the agent name (see
  * {@link agentNameTone}), so the body stays visually quiet.
  */
-const BODY_SURFACE = 'bg-stone-50 dark:bg-neutral-800/60';
+const BODY_SURFACE = 'bg-surface-muted';
 
 /**
  * The agent-run timeline rendered above an assistant answer — the
@@ -391,7 +389,7 @@ export function ToolTimelineBlock({
   const isRunning = latestRunningEntryId != null;
 
   const titleLabel = (
-    <span className="text-[13px] font-medium text-stone-500 dark:text-neutral-400">
+    <span className="text-[13px] font-medium text-content-muted">
       {t('conversations.agentTaskInsights.title')}
     </span>
   );
@@ -417,7 +415,7 @@ export function ToolTimelineBlock({
   // (in-flight) and static (settled) header layouts below.
   const body = (
     <>
-      <div className="text-sm text-stone-400 dark:text-neutral-500">
+      <div className="text-sm text-content-faint">
         {entries.map((entry, index) => {
           const formatted = formatTimelineEntry(entry);
           const detailContent =
@@ -464,13 +462,13 @@ export function ToolTimelineBlock({
                 <details open={shouldAutoExpand} className="group/row">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
                     <span className={`text-[13px] font-medium ${nameTone}`}>{formatted.title}</span>
-                    <span className="text-[11px] text-stone-300 transition-transform group-open/row:rotate-90 dark:text-neutral-600">
+                    <span className="text-[11px] text-content-faint transition-transform group-open/row:rotate-90 dark:text-neutral-600">
                       ▶
                     </span>
                   </summary>
                   {workerRef ? (
                     <div
-                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
+                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-content-secondary ${BODY_SURFACE}`}>
                       {workerRef.before}
                       <WorkerThreadRefCard
                         ref={workerRef.ref}
@@ -480,12 +478,12 @@ export function ToolTimelineBlock({
                     </div>
                   ) : formatted.detail ? (
                     <div
-                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
+                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-content-secondary ${BODY_SURFACE}`}>
                       {formatted.detail}
                     </div>
                   ) : detailContent ? (
                     <pre
-                      className={`mt-1 max-h-24 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
+                      className={`mt-1 max-h-24 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-content-secondary ${BODY_SURFACE}`}>
                       {detailContent}
                     </pre>
                   ) : null}
@@ -527,7 +525,7 @@ export function ToolTimelineBlock({
               onClick={onViewWholeRun}
               data-testid="view-process-source"
               className="group/insights-link flex items-center gap-1.5 text-left">
-              <span className="text-[13px] font-medium text-stone-500 group-hover/insights-link:underline dark:text-neutral-400">
+              <span className="text-[13px] font-medium text-content-muted group-hover/insights-link:underline">
                 {t('conversations.agentTaskInsights.title')}
               </span>
               <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
@@ -547,7 +545,7 @@ export function ToolTimelineBlock({
     <details open className="group/insights mb-2 px-1 py-0" data-testid="agent-task-insights">
       <summary className="mb-1.5 flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
         {titleLabel}
-        <span className="text-[11px] text-stone-400 transition-transform group-open/insights:rotate-90 dark:text-neutral-500">
+        <span className="text-[11px] text-content-faint transition-transform group-open/insights:rotate-90">
           ▶
         </span>
         {wholeRunLink}

@@ -181,13 +181,10 @@ const WebhooksDebugPanel = () => {
           disabled={clearing || logs.length === 0}>
           {clearing ? t('webhooks.clearing') : t('webhooks.clearLogs')}
         </Button>
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">
+        <span className="text-xs text-content-muted">
           {registrations.length} {t('webhooks.registered')} &middot; {logs.length}{' '}
           {t('webhooks.captured')} &middot;{' '}
-          <span
-            className={
-              isLive ? 'text-sage-600 dark:text-sage-300' : 'text-neutral-500 dark:text-neutral-400'
-            }>
+          <span className={isLive ? 'text-sage-600 dark:text-sage-300' : 'text-content-muted'}>
             {isLive ? t('webhooks.live') : t('webhooks.disconnected')}
           </span>
         </span>
@@ -196,11 +193,9 @@ const WebhooksDebugPanel = () => {
       <SettingsStatusLine saving={false} error={error} savingLabel="" />
 
       {lastEvent && (
-        <div className="text-xs text-neutral-500 dark:text-neutral-400">
+        <div className="text-xs text-content-muted">
           {t('webhooks.lastEvent')}:{' '}
-          <span className="font-medium text-neutral-800 dark:text-neutral-200">
-            {lastEvent.event_type}
-          </span>{' '}
+          <span className="font-medium text-content">{lastEvent.event_type}</span>{' '}
           {t('webhooks.at')} {formatDateTime(lastEvent.timestamp)}
         </div>
       )}
@@ -215,9 +210,9 @@ const WebhooksDebugPanel = () => {
               {registrations.map(registration => (
                 <div
                   key={registration.tunnel_uuid}
-                  className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-3">
+                  className="rounded-xl border border-line bg-surface-muted p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-100">
+                    <span className="text-xs font-semibold text-content">
                       {registration.tunnel_name || registration.tunnel_uuid}
                     </span>
                     <div className="flex gap-1">
@@ -225,7 +220,7 @@ const WebhooksDebugPanel = () => {
                       <SettingsBadge variant="neutral">{registration.skill_id}</SettingsBadge>
                     </div>
                   </div>
-                  <div className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400 font-mono break-all">
+                  <div className="mt-1 text-[11px] text-content-muted font-mono break-all">
                     {backendUrl
                       ? tunnelsApi.ingressUrl(backendUrl, registration.tunnel_uuid)
                       : t('webhooks.resolvingBackendUrl')}
@@ -252,17 +247,17 @@ const WebhooksDebugPanel = () => {
                   className={`w-full rounded-xl border p-3 text-left transition-colors ${
                     selectedLog?.correlation_id === entry.correlation_id
                       ? 'border-primary-300 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/10'
-                      : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                      : 'border-line bg-surface-muted hover:bg-surface-hover'
                   }`}>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-100">
+                    <span className="text-xs font-semibold text-content">
                       {entry.method} {entry.path}
                     </span>
-                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                    <span className="text-[10px] text-content-muted">
                       {entry.status_code ?? '...'}
                     </span>
                   </div>
-                  <div className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                  <div className="mt-1 text-[11px] text-content-muted">
                     {entry.tunnel_name}{' '}
                     {entry.skill_id ? `· ${entry.skill_id}` : `· ${t('webhooks.unrouted')}`} ·{' '}
                     {formatDateTime(entry.updated_at)}
@@ -271,12 +266,12 @@ const WebhooksDebugPanel = () => {
               ))}
 
               {selectedLog && (
-                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-3 space-y-3">
+                <div className="rounded-xl border border-line bg-surface-muted p-3 space-y-3">
                   <div>
-                    <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-100">
+                    <div className="text-xs font-semibold text-content">
                       {selectedLog.method} {selectedLog.path}
                     </div>
-                    <div className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
+                    <div className="text-[10px] text-content-muted font-mono">
                       {selectedLog.correlation_id}
                     </div>
                   </div>
@@ -338,10 +333,10 @@ const WebhooksDebugPanel = () => {
 function PayloadBlock({ title, value }: { title: string; value: string }) {
   return (
     <details className="text-xs">
-      <summary className="cursor-pointer font-semibold text-stone-500 dark:text-neutral-400 uppercase tracking-wide text-[10px]">
+      <summary className="cursor-pointer font-semibold text-content-muted uppercase tracking-wide text-[10px]">
         {title}
       </summary>
-      <pre className="mt-1 max-h-40 overflow-auto rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-950 dark:bg-neutral-50 p-2 text-[11px] text-stone-100 whitespace-pre-wrap break-words">
+      <pre className="mt-1 max-h-40 overflow-auto rounded-lg border border-line bg-stone-950 dark:bg-neutral-50 p-2 text-[11px] text-stone-100 whitespace-pre-wrap break-words">
         {value}
       </pre>
     </details>

@@ -22,16 +22,16 @@ export default function QueuedFollowups({ items, onClear }: QueuedFollowupsProps
   return (
     <div
       data-testid="queued-followups"
-      className="mb-2 rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2">
+      className="mb-2 rounded-xl border border-line bg-surface px-3 py-2">
       <div className="flex items-center justify-between gap-2 mb-1.5">
-        <span className="text-xs font-medium text-stone-500 dark:text-neutral-400">
+        <span className="text-xs font-medium text-content-muted">
           {t('chat.queuedFollowups.label')} · {items.length}
         </span>
         <button
           type="button"
           data-analytics-id="chat-queued-followups-clear"
           onClick={onClear}
-          className="text-xs font-medium text-stone-500 dark:text-neutral-400 hover:text-coral-500 dark:hover:text-coral-400 transition-colors">
+          className="text-xs font-medium text-content-muted hover:text-coral-500 dark:hover:text-coral-400 transition-colors">
           {t('chat.queuedFollowups.clear')}
         </button>
       </div>
@@ -39,7 +39,7 @@ export default function QueuedFollowups({ items, onClear }: QueuedFollowupsProps
         {items.map(item => (
           <li
             key={item.message.id}
-            className="truncate text-sm text-stone-700 dark:text-neutral-200"
+            className="truncate text-sm text-content-secondary"
             title={item.label}>
             {item.label}
           </li>

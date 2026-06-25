@@ -12,11 +12,11 @@ const PermissionBadge = ({ label, value }: PermissionsBadgeProps) => {
       ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/30'
       : value === 'denied'
         ? 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/30'
-        : 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 border-stone-200 dark:border-neutral-800';
+        : 'bg-surface-subtle text-content-secondary border-line';
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
-      <span className="text-sm text-stone-700 dark:text-neutral-200">{label}</span>
+    <div className="flex items-center justify-between rounded-xl border border-line bg-surface p-3">
+      <span className="text-sm text-content-secondary">{label}</span>
       <span className={`rounded-md border px-2 py-1 text-xs uppercase tracking-wide ${colorClass}`}>
         {value}
       </span>
@@ -56,7 +56,7 @@ const PermissionsSection = ({
   const { t } = useT();
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+      <h3 className="text-sm font-semibold text-content">
         {t('settings.screenIntel.permissions.title')}
       </h3>
       <PermissionBadge
@@ -78,7 +78,7 @@ const PermissionsSection = ({
           {permissionCheckProcessPath ? (
             <p className="opacity-75 text-xs">
               {t('settings.screenIntel.permissions.macosAppliesPrivacy')}{' '}
-              <span className="font-mono break-all text-stone-600 dark:text-neutral-300">
+              <span className="font-mono break-all text-content-secondary">
                 {permissionCheckProcessPath}
               </span>
             </p>
@@ -134,7 +134,7 @@ const PermissionsSection = ({
           type="button"
           onClick={() => void refreshStatus()}
           disabled={isLoading || isRestartingCore}
-          className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-sm text-stone-700 dark:text-neutral-200 disabled:opacity-50">
+          className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-content-secondary disabled:opacity-50">
           {isLoading
             ? t('settings.screenIntel.permissions.refreshing')
             : t('settings.screenIntel.permissions.refreshStatus')}

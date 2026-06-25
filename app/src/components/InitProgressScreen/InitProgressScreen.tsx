@@ -52,7 +52,7 @@ function StepRow({ step }: { step: HarnessInitStep }) {
         {icon}
       </span>
       <span className="flex-1 text-sm text-stone-200">{label}</span>
-      <span className="text-xs text-stone-400">{stateText}</span>
+      <span className="text-xs text-content-faint">{stateText}</span>
     </li>
   );
 }
@@ -90,7 +90,7 @@ export default function InitProgressScreen({
         <h2 id="harness-init-title" className="text-lg font-semibold text-white">
           {t('harnessInit.title')}
         </h2>
-        <p className="mt-1 text-sm text-stone-400">{t('harnessInit.subtitle')}</p>
+        <p className="mt-1 text-sm text-content-faint">{t('harnessInit.subtitle')}</p>
 
         <ul className="mt-5 divide-y divide-stone-800">
           {snapshot.steps.map(step => (
@@ -100,11 +100,11 @@ export default function InitProgressScreen({
 
         {!failed && (
           <div className="mt-5 flex items-center justify-between gap-3">
-            <p className="text-xs text-stone-500">{t('harnessInit.backgroundHint')}</p>
+            <p className="text-xs text-content-muted">{t('harnessInit.backgroundHint')}</p>
             <button
               type="button"
               onClick={onContinue}
-              className="shrink-0 rounded-lg border border-stone-700 px-3 py-1.5 text-sm text-stone-300 hover:bg-stone-800 hover:text-white">
+              className="shrink-0 rounded-lg border border-stone-700 px-3 py-1.5 text-sm text-content-faint hover:bg-stone-800 hover:text-white">
               {t('harnessInit.runInBackground')}
             </button>
           </div>
@@ -124,14 +124,14 @@ export default function InitProgressScreen({
               <button
                 type="button"
                 onClick={onContinue}
-                className="rounded-lg px-3 py-1.5 text-sm text-stone-300 hover:text-white">
+                className="rounded-lg px-3 py-1.5 text-sm text-content-faint hover:text-white">
                 {t('harnessInit.continueAnyway')}
               </button>
               <button
                 type="button"
                 onClick={onRetry}
                 disabled={retrying}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-500/90 disabled:opacity-60">
+                className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-content-inverted hover:bg-primary-500/90 disabled:opacity-60">
                 {retrying && <Spinner className="h-3 w-3" />}
                 {t('harnessInit.retry')}
               </button>

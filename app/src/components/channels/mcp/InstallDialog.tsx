@@ -166,7 +166,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
 
   if (loadingDetail) {
     return (
-      <div className="py-10 text-center text-sm text-stone-400 dark:text-neutral-500">
+      <div className="py-10 text-center text-sm text-content-faint">
         {t('mcp.install.loadingDetail')}
       </div>
     );
@@ -182,7 +182,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
           variant="tertiary"
           size="sm"
           onClick={onCancel}
-          className="text-stone-500 dark:text-neutral-400 hover:underline">
+          className="text-content-muted hover:underline">
           {t('mcp.install.back')}
         </Button>
       </div>
@@ -203,7 +203,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
           variant="tertiary"
           size="xs"
           onClick={onCancel}
-          className="text-stone-500 dark:text-neutral-400 hover:underline">
+          className="text-content-muted hover:underline">
           ← {t('mcp.install.back')}
         </Button>
 
@@ -213,7 +213,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
             <img
               src={detail.icon_url}
               alt=""
-              className="w-14 h-14 rounded-lg shrink-0 object-contain bg-white dark:bg-neutral-900 border border-stone-100 dark:border-neutral-800"
+              className="w-14 h-14 rounded-lg shrink-0 object-contain bg-surface border border-line-subtle"
             />
           ) : (
             <div className="w-14 h-14 rounded-lg shrink-0 bg-primary-100 dark:bg-primary-500/20 flex items-center justify-center text-2xl">
@@ -221,11 +221,9 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
-              {detail.display_name}
-            </h3>
+            <h3 className="text-lg font-semibold text-content">{detail.display_name}</h3>
             {author && (
-              <p className="text-sm text-stone-500 dark:text-neutral-400 mt-0.5">
+              <p className="text-sm text-content-muted mt-0.5">
                 {t('mcp.install.by')} {author}
               </p>
             )}
@@ -235,14 +233,14 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
         {/* Stats badges */}
         <div className="flex flex-wrap gap-2">
           {transport && (
-            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-surface-subtle text-content-secondary">
               {transport === 'stdio'
                 ? t('mcp.install.transportLocal')
                 : t('mcp.install.transportRemote')}
             </span>
           )}
           {detail.use_count != null && detail.use_count > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-surface-subtle text-content-secondary">
               {t('mcp.install.useCount').replace('{count}', formatUseCount(detail.use_count))}
             </span>
           )}
@@ -260,35 +258,29 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
 
         {/* Description */}
         {detail.description && (
-          <div className="text-sm text-stone-600 dark:text-neutral-300 leading-relaxed whitespace-pre-line">
+          <div className="text-sm text-content-secondary leading-relaxed whitespace-pre-line">
             {detail.description}
           </div>
         )}
 
         {/* Connections info */}
         {detail.connections.length > 0 && (
-          <div className="rounded-lg border border-stone-150 dark:border-neutral-700/60 bg-stone-50 dark:bg-neutral-800/40 p-3">
-            <p className="text-xs font-medium text-stone-500 dark:text-neutral-400 mb-2">
+          <div className="rounded-lg border border-stone-150 dark:border-line-strong/60 bg-surface-muted p-3">
+            <p className="text-xs font-medium text-content-muted mb-2">
               {t('mcp.install.connections')}
             </p>
             <div className="space-y-1.5">
               {detail.connections.map((conn, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 text-xs text-stone-600 dark:text-neutral-300">
+                <div key={i} className="flex items-center gap-2 text-xs text-content-secondary">
                   <span
-                    className={`w-2 h-2 rounded-full shrink-0 ${conn.published ? 'bg-sage-500' : 'bg-stone-300 dark:bg-neutral-600'}`}
+                    className={`w-2 h-2 rounded-full shrink-0 ${conn.published ? 'bg-sage-500' : 'bg-surface-strong'}`}
                   />
                   <span className="font-mono">{conn.type}</span>
                   {conn.published && (
-                    <span className="text-stone-400 dark:text-neutral-500">
-                      ({t('mcp.install.published')})
-                    </span>
+                    <span className="text-content-faint">({t('mcp.install.published')})</span>
                   )}
                   {conn.deployment_url && (
-                    <span className="text-stone-400 dark:text-neutral-500 truncate">
-                      {conn.deployment_url}
-                    </span>
+                    <span className="text-content-faint truncate">{conn.deployment_url}</span>
                   )}
                 </div>
               ))}
@@ -353,7 +345,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
           setStep('detail');
           setInstallError(null);
         }}
-        className="text-stone-500 dark:text-neutral-400 hover:underline">
+        className="text-content-muted hover:underline">
         ← {detail.display_name}
       </Button>
 
@@ -363,14 +355,14 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
           <img
             src={detail.icon_url}
             alt=""
-            className="w-8 h-8 rounded shrink-0 object-contain bg-white dark:bg-neutral-900"
+            className="w-8 h-8 rounded shrink-0 object-contain bg-surface"
           />
         ) : (
           <div className="w-8 h-8 rounded shrink-0 bg-primary-100 dark:bg-primary-500/20 flex items-center justify-center text-sm">
             🔌
           </div>
         )}
-        <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+        <h3 className="text-base font-semibold text-content">
           {t('mcp.install.configureTitle').replace('{name}', detail.display_name)}
         </h3>
       </div>
@@ -378,14 +370,14 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
       {/* Env var inputs */}
       {hasEnvKeys && (
         <div className="space-y-3">
-          <p className="text-xs font-medium text-stone-700 dark:text-neutral-300">
+          <p className="text-xs font-medium text-content-secondary">
             {t('mcp.install.requiredEnv')}
           </p>
           {detail.required_env_keys!.map(key => (
             <div key={key} className="space-y-1">
               <label
                 htmlFor={`env-${key}`}
-                className="block text-xs font-medium text-stone-600 dark:text-neutral-400 font-mono">
+                className="block text-xs font-medium text-content-secondary font-mono">
                 {key}
               </label>
               <div className="flex gap-2">
@@ -396,7 +388,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
                   onChange={e => handleEnvChange(key, e.target.value)}
                   placeholder={t('mcp.install.enterValue').replace('{key}', key)}
                   disabled={installing}
-                  className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
+                  className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
                 />
                 <Button
                   variant="secondary"
@@ -417,14 +409,14 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors">
+          className="text-xs text-content-muted hover:text-content-secondary transition-colors">
           {showAdvanced ? '▾' : '▸'} {t('mcp.install.advancedConfig')}
         </button>
         {showAdvanced && (
           <div className="mt-2 space-y-1">
             <label
               htmlFor="mcp-config-json"
-              className="block text-xs font-medium text-stone-600 dark:text-neutral-400">
+              className="block text-xs font-medium text-content-secondary">
               {t('mcp.install.configLabel')}
             </label>
             <textarea
@@ -434,7 +426,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
               disabled={installing}
               rows={4}
               placeholder={t('mcp.install.configPlaceholder')}
-              className="w-full rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-mono text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50 resize-y"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm font-mono text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50 resize-y"
             />
           </div>
         )}

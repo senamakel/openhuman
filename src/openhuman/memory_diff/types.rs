@@ -30,23 +30,6 @@ pub struct Snapshot {
     pub taken_at_ms: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct SnapshotItem {
-    pub item_id: String,
-    pub title: String,
-    pub content_hash: String,
-    /// Bounded copy of the item's concatenated content at snapshot time.
-    /// Persisted so text diffs can be computed against a later snapshot
-    /// even after the live chunk store has been overwritten by a new sync.
-    /// `None` for snapshots taken before content capture, or when the item
-    /// exceeded the storage bound.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timestamp_ms: Option<i64>,
-    pub chunk_count: u32,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ChangeKind {

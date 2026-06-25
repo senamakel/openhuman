@@ -114,7 +114,7 @@ export default function Activity() {
               <span className="inline-flex items-center gap-1.5">
                 <span>{tab.label}</span>
                 {tab.comingSoon && (
-                  <span className="rounded-full border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-1.5 py-0.5 text-[10px] text-stone-500 dark:text-neutral-400">
+                  <span className="rounded-full border border-line bg-surface-muted px-1.5 py-0.5 text-[10px] text-content-muted">
                     {t('misc.beta')}
                   </span>
                 )}
@@ -131,21 +131,19 @@ export default function Activity() {
         {activeTab === 'alerts' ? (
           <Notifications />
         ) : (
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 p-6">
+          <div className="bg-surface rounded-2xl shadow-soft border border-line p-6">
             <div>
               {/* Header — reflects the active tab so the panel title matches
                   what's shown below it, rather than a static "Activity". */}
               <div className="flex items-center justify-between mb-6">
                 <div className="min-w-0">
                   <h1
-                    className="text-xl font-bold text-stone-900 dark:text-neutral-100"
+                    className="text-xl font-bold text-content"
                     data-walkthrough="intelligence-header">
                     {activeTabDef?.label ?? t('nav.activity')}
                   </h1>
                   {activeTabDef?.description && (
-                    <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">
-                      {activeTabDef.description}
-                    </p>
+                    <p className="mt-1 text-sm text-content-muted">{activeTabDef.description}</p>
                   )}
                 </div>
               </div>

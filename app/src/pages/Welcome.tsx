@@ -84,7 +84,7 @@ const Welcome = () => {
   return (
     <div className="min-h-full flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full">
-        <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 p-8 animate-fade-up">
+        <div className="bg-surface rounded-2xl shadow-soft border border-line p-8 animate-fade-up">
           <div className="flex items-center justify-between mb-4">
             <div className="w-9" aria-hidden="true" />
             <div className="w-9" aria-hidden="true" />
@@ -134,11 +134,9 @@ const Welcome = () => {
             />
           </div>
 
-          <h1 className="text-2xl font-bold text-stone-900 dark:text-neutral-100 text-center mb-2">
-            {t('welcome.title')}
-          </h1>
+          <h1 className="text-2xl font-bold text-content text-center mb-2">{t('welcome.title')}</h1>
 
-          <p className="text-sm text-stone-500 dark:text-neutral-400 text-center mb-6 leading-relaxed">
+          <p className="text-sm text-content-muted text-center mb-6 leading-relaxed">
             {t('welcome.subtitle')}
           </p>
 
@@ -182,10 +180,8 @@ const Welcome = () => {
               aria-live="polite"
               aria-atomic="true"
               className="mb-5 flex flex-col items-center justify-center gap-3 py-2">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-stone-300 dark:border-neutral-700 border-t-primary-500" />
-              <p className="text-sm font-medium text-stone-700 dark:text-neutral-200">
-                {t('welcome.signingIn')}
-              </p>
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-line-strong border-t-primary-500" />
+              <p className="text-sm font-medium text-content-secondary">{t('welcome.signingIn')}</p>
             </div>
           ) : (
             <>
@@ -201,7 +197,7 @@ const Welcome = () => {
                     />
                   ))}
               </div>
-              <p className="mt-5 text-center text-[11px] leading-5 text-stone-500 dark:text-neutral-500">
+              <p className="mt-5 text-center text-[11px] leading-5 text-content-muted dark:text-content-faint">
                 {t('welcome.termsIntro')}{' '}
                 <a
                   href={TERMS_OF_USE_URL}
@@ -211,7 +207,7 @@ const Welcome = () => {
                     event.preventDefault();
                     void openUrl(TERMS_OF_USE_URL);
                   }}
-                  className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-neutral-300 dark:hover:text-neutral-100">
+                  className="font-medium text-content-secondary underline underline-offset-2 hover:text-content">
                   {t('welcome.termsOfUse')}
                 </a>{' '}
                 {t('welcome.termsJoiner')}{' '}
@@ -223,7 +219,7 @@ const Welcome = () => {
                     event.preventDefault();
                     void openUrl(PRIVACY_POLICY_URL);
                   }}
-                  className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-neutral-300 dark:hover:text-neutral-100">
+                  className="font-medium text-content-secondary underline underline-offset-2 hover:text-content">
                   {t('welcome.privacyPolicy')}
                 </a>
                 {t('welcome.termsOutro')}

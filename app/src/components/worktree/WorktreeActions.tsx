@@ -32,8 +32,7 @@ export interface WorktreeActionsProps {
 
 const btnBase =
   'rounded-md border px-2 py-0.5 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50';
-const btnNeutral =
-  'border-stone-200 text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800';
+const btnNeutral = 'border-line text-content-secondary hover:bg-surface-hover';
 const btnDanger =
   'border-coral-200 text-coral-600 hover:bg-coral-50 dark:border-coral-500/40 dark:text-coral-300 dark:hover:bg-coral-500/10';
 
@@ -176,7 +175,7 @@ export default function WorktreeActions({
 
       {diffOpen ? (
         <pre
-          className="max-h-48 overflow-auto rounded-md border border-stone-200 bg-stone-50 p-2 font-mono text-[10px] leading-snug text-stone-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+          className="max-h-48 overflow-auto rounded-md border border-line bg-surface-muted p-2 font-mono text-[10px] leading-snug text-content-secondary"
           data-testid="worktree-diff-output">
           {diffLoading
             ? t('worktree.diffLoading')

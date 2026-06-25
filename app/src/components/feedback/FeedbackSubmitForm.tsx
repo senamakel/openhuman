@@ -20,9 +20,9 @@ interface FeedbackSubmitFormProps {
 }
 
 const INPUT_CLASS =
-  'w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-900 ' +
+  'w-full rounded-xl border border-line bg-surface-muted px-4 py-2.5 text-sm text-content ' +
   'placeholder:text-neutral-400 transition-all focus:border-primary-500/50 focus:bg-white focus:outline-none ' +
-  'focus:ring-2 focus:ring-primary-500/30 dark:border-neutral-700 dark:bg-white/[0.03] dark:text-neutral-100 ' +
+  'focus:ring-2 focus:ring-primary-500/30 dark:border-line-strong dark:bg-white/[0.03] dark:text-content ' +
   'dark:placeholder:text-neutral-500 dark:focus:bg-white/[0.06]';
 
 export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormProps) {
@@ -76,13 +76,11 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
         : 'text-coral-600 dark:text-coral-400';
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-none">
-      <h2 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-100">
+    <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft dark:shadow-none">
+      <h2 className="font-title text-base font-semibold text-content">
         {t('feedback.submit.heading')}
       </h2>
-      <p className="mb-4 mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-        {t('feedback.submit.subheading')}
-      </p>
+      <p className="mb-4 mt-0.5 text-xs text-content-muted">{t('feedback.submit.subheading')}</p>
 
       <div className="mb-4 grid grid-cols-2 gap-2.5">
         <button
@@ -92,7 +90,7 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
           className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
             type === 'feature'
               ? 'border-primary-500 bg-primary-500/10 text-primary-600 ring-1 ring-primary-500/30 dark:text-primary-400'
-              : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-white/[0.03]'
+              : 'border-line text-content-muted hover:border-line-strong hover:bg-surface-muted dark:border-line-strong dark:hover:bg-white/[0.03]'
           }`}>
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -111,7 +109,7 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
           className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
             type === 'bug'
               ? 'border-coral-500 bg-coral-500/10 text-coral-600 ring-1 ring-coral-500/30 dark:text-coral-400'
-              : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-white/[0.03]'
+              : 'border-line text-content-muted hover:border-line-strong hover:bg-surface-muted dark:border-line-strong dark:hover:bg-white/[0.03]'
           }`}>
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -160,7 +158,7 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
         <div className="flex items-center gap-3">
           {message && <p className={`text-xs ${messageClass}`}>{message}</p>}
           {body.length > 0 && (
-            <span className="text-[11px] tabular-nums text-neutral-400 dark:text-neutral-600">
+            <span className="text-[11px] tabular-nums text-content-faint dark:text-neutral-600">
               {body.length}/{BODY_MAX}
             </span>
           )}

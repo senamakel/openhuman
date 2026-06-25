@@ -147,9 +147,9 @@ export default function ChatNewWindowHero() {
           the app background. */}
       <div
         data-walkthrough="home-card"
-        className="animate-fade-up rounded-2xl border border-stone-200/80 bg-white/80 p-6 shadow-soft backdrop-blur-sm dark:border-neutral-800/80 dark:bg-neutral-900/80">
+        className="animate-fade-up rounded-2xl border border-line/80 bg-surface/80 p-6 shadow-soft backdrop-blur-sm dark:border-line/80">
         {/* Animated greeting */}
-        <h1 className="min-h-[3.5rem] text-2xl text-center font-bold text-stone-900 dark:text-neutral-100">
+        <h1 className="min-h-[3.5rem] text-2xl text-center font-bold text-content">
           {typedWelcome}
           <span aria-hidden="true" className="ml-0.5 inline-block animate-pulse text-primary-500">
             |
@@ -158,9 +158,7 @@ export default function ChatNewWindowHero() {
 
         {/* Description — copy mirrors the active blocking state (incl. the
             "device connected" get-started line in the normal case). */}
-        <p className="text-center text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
-          {statusCopy}
-        </p>
+        <p className="text-center text-sm leading-relaxed text-content-muted">{statusCopy}</p>
 
         {/* Recovery: only when the local core is the broken link. */}
         {blocking === 'core-unreachable' && (
@@ -169,7 +167,7 @@ export default function ChatNewWindowHero() {
               type="button"
               onClick={handleRestartCore}
               disabled={isRestartingCore}
-              className="w-full rounded-xl bg-amber-500 py-3 font-medium text-white transition-colors duration-200 hover:bg-amber-600 disabled:opacity-50">
+              className="w-full rounded-xl bg-amber-500 py-3 font-medium text-content-inverted transition-colors duration-200 hover:bg-amber-600 disabled:opacity-50">
               {isRestartingCore ? t('home.restartingCore') : t('home.restartCore')}
             </button>
             {restartError && (

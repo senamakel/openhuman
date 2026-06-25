@@ -284,6 +284,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::learning::all_learning_registered_controllers());
     // Conversation thread and message management
     controllers.extend(crate::openhuman::threads::all_threads_registered_controllers());
+    // TokenJuice content-router debug controllers (detect / compress / cache_stats / retrieve)
+    controllers.extend(crate::openhuman::tokenjuice::all_tokenjuice_registered_controllers());
     // Per-thread todo list (agent task board CRUD over RPC)
     controllers.extend(crate::openhuman::todos::all_todos_registered_controllers());
     // Embedded webview native notifications
@@ -443,6 +445,8 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::learning::all_learning_controller_schemas());
     // Conversation thread and message management
     schemas.extend(crate::openhuman::threads::all_threads_controller_schemas());
+    // TokenJuice content-router debug controllers
+    schemas.extend(crate::openhuman::tokenjuice::all_tokenjuice_controller_schemas());
     // Per-thread todo list (agent task board CRUD over RPC)
     schemas.extend(crate::openhuman::todos::all_todos_controller_schemas());
     // Embedded webview native notifications

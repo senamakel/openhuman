@@ -25,14 +25,14 @@ const SkillCategoryFilter = ({ categories, selected, onChange }: SkillCategoryFi
                 className={`inline-flex h-4 w-4 items-center justify-center rounded-full ${
                   active
                     ? skillCategoryChipClassName(category)
-                    : 'bg-stone-100 dark:bg-neutral-800 text-stone-500 dark:text-neutral-400'
+                    : 'bg-surface-subtle text-content-muted'
                 }`}>
                 <SkillCategoryIcon
                   category={category}
                   className={
                     active
                       ? skillCategoryIconClassName(category)
-                      : 'text-stone-500 dark:text-neutral-400'
+                      : 'text-content-muted'
                   }
                 />
               </span>

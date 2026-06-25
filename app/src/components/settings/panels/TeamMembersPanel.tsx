@@ -137,7 +137,7 @@ const TeamMembersPanel = () => {
       )}
 
       {/* Member count */}
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 px-1">
+      <p className="text-xs text-content-muted px-1">
         {t(members.length === 1 ? 'team.memberCount' : 'team.memberCountPlural').replace(
           '{count}',
           String(members.length)
@@ -156,7 +156,7 @@ const TeamMembersPanel = () => {
               {members.map(member => (
                 <li
                   key={member._id}
-                  className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0">
+                  className="flex items-center justify-between px-4 py-3 border-b border-line-subtle last:border-b-0">
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Avatar */}
                     <div className="w-8 h-8 rounded-full bg-neutral-700/60 flex items-center justify-center flex-shrink-0">
@@ -166,17 +166,15 @@ const TeamMembersPanel = () => {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">
+                        <span className="text-sm font-medium text-content truncate">
                           {displayName(member)}
                         </span>
                         {isCurrentUser(member) && (
-                          <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
-                            {t('team.you')}
-                          </span>
+                          <span className="text-[10px] text-content-muted">{t('team.you')}</span>
                         )}
                       </div>
                       {member.user.username && (
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                        <p className="text-xs text-content-muted truncate">
                           @{member.user.username}
                         </p>
                       )}
@@ -215,7 +213,7 @@ const TeamMembersPanel = () => {
                         onClick={() => handleRemoveMember(member)}
                         disabled={removingId === member._id}
                         aria-label={t('team.removeAria').replace('{name}', displayName(member))}
-                        className="text-neutral-500 dark:text-neutral-400 hover:text-coral-400 hover:bg-coral-500/10">
+                        className="text-content-muted hover:text-coral-400 hover:bg-coral-500/10">
                         <svg
                           className="w-4 h-4"
                           fill="none"
@@ -241,10 +239,8 @@ const TeamMembersPanel = () => {
       {/* Remove Member Confirmation Modal */}
       {memberToRemove && (
         <div className="fixed inset-0 bg-neutral-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-md border border-neutral-200 dark:border-neutral-800">
-            <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 mb-4">
-              {t('team.removeTitle')}
-            </h3>
+          <div className="bg-surface rounded-2xl p-6 w-full max-w-md border border-line">
+            <h3 className="text-sm font-semibold text-content mb-4">{t('team.removeTitle')}</h3>
 
             {error && (
               <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">
@@ -253,12 +249,10 @@ const TeamMembersPanel = () => {
             )}
 
             <div className="space-y-4">
-              <div className="text-sm text-neutral-500 dark:text-neutral-400">
+              <div className="text-sm text-content-muted">
                 <p>
                   {t('team.removePromptPrefix')}{' '}
-                  <strong className="text-neutral-800 dark:text-neutral-100">
-                    {displayName(memberToRemove)}
-                  </strong>{' '}
+                  <strong className="text-content">{displayName(memberToRemove)}</strong>{' '}
                   {t('team.removePromptSuffix')}
                 </p>
                 <p className="mt-2 text-coral-400">{t('team.removeWarning')}</p>
@@ -293,10 +287,8 @@ const TeamMembersPanel = () => {
       {/* Change Role Confirmation Modal */}
       {roleChangeConfirmation && (
         <div className="fixed inset-0 bg-neutral-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-md border border-neutral-200 dark:border-neutral-800">
-            <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 mb-4">
-              {t('team.changeRoleTitle')}
-            </h3>
+          <div className="bg-surface rounded-2xl p-6 w-full max-w-md border border-line">
+            <h3 className="text-sm font-semibold text-content mb-4">{t('team.changeRoleTitle')}</h3>
 
             {error && (
               <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">
@@ -305,7 +297,7 @@ const TeamMembersPanel = () => {
             )}
 
             <div className="space-y-4">
-              <div className="text-sm text-neutral-500 dark:text-neutral-400">
+              <div className="text-sm text-content-muted">
                 <p>
                   {t('team.changeRolePrompt')
                     .replace('{name}', displayName(roleChangeConfirmation.member))

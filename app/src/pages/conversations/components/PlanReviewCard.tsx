@@ -84,7 +84,7 @@ export const PlanReviewCard: React.FC<Props> = ({ threadId, review }) => {
           </p>
 
           {review.steps.length > 0 && (
-            <ol className="mt-2 max-h-56 list-decimal overflow-y-auto pl-6 text-stone-700 dark:text-neutral-200">
+            <ol className="mt-2 max-h-56 list-decimal overflow-y-auto pl-6 text-content-secondary">
               {review.steps.map((step, i) => (
                 <li key={i} className="break-words">
                   {step}
@@ -138,7 +138,7 @@ export const PlanReviewCard: React.FC<Props> = ({ threadId, review }) => {
               rows={2}
               disabled={deciding !== null}
               placeholder={t('conversations.planReview.feedbackPlaceholder')}
-              className="w-full resize-y rounded-lg border border-ocean-200 bg-white px-2.5 py-1.5 text-sm text-ink shadow-inner outline-none focus:border-ocean-400 disabled:opacity-50 dark:border-ocean-800 dark:bg-neutral-950 dark:text-neutral-100"
+              className="w-full resize-y rounded-lg border border-ocean-200 bg-surface px-2.5 py-1.5 text-sm text-ink shadow-inner outline-none focus:border-ocean-400 disabled:opacity-50 dark:border-ocean-800 dark:bg-surface-canvas dark:text-content"
             />
             <div className="mt-1.5 flex justify-end">
               <Button

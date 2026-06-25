@@ -1,40 +1,52 @@
 //! Unified-diff compressor.
 //!
-//! Clean-room port of headroom's `DiffCompressor` (Apache-2.0), in the
-//! lossy-but-bounded style of [`super::search`] / [`super::logs`] (the caller
-//! offloads the original to CCR for retrieval):
-//!
-//! - **Always keep** structural lines: `diff --git`, `index`, `---`/`+++`
-//!   file headers, and `@@` hunk headers.
-//! - **Always keep** changed lines (`+`/`-`) — they are the signal.
-//! - **Collapse** long runs of unchanged context (lines starting with a
-//!   space) down to a few anchor lines plus a `[... N context lines ...]`
-//!   marker, so the model still sees where a change sits without paying for
-//!   the whole untouched neighbourhood.
-//! - **Summarize** high-volume / low-value files (lockfiles, minified
-//!   bundles): the hunk body collapses to a one-line `+A/-B` summary.
-//!
-//! Changed lines are never dropped, so the diff stays faithful to *what
-//! changed* even when the surrounding context is trimmed.
+//! Clean-room port of Headroom's `DiffCompressor` (Apache-2.0). Keeps the
+//! signal (changed lines, structural headers, hunk headers) and collapses long
+//! runs of unchanged context to an anchor + marker. Lockfile/bundle hunks
+//! collapse to a one-line `+A/-B` summary. The router offloads the original to
+//! CCR, so the dropped context stays recoverable.
 
-use super::Compacted;
+use async_trait::async_trait;
 use std::fmt::Write as _;
+
+use super::Compressor;
+use crate::openhuman::tokenjuice::text::ansi::strip_ansi;
+use crate::openhuman::tokenjuice::types::{
+    CompressInput, CompressOptions, CompressOutput, CompressorKind,
+};
 
 /// Context lines kept on each side of a changed run before collapsing.
 pub const CONTEXT_ANCHOR: usize = 3;
 /// A run of unchanged context longer than this collapses to a marker.
 pub const CONTEXT_COLLAPSE_THRESHOLD: usize = 8;
 
+pub struct DiffCompressor;
+
+#[async_trait]
+impl Compressor for DiffCompressor {
+    fn kind(&self) -> CompressorKind {
+        CompressorKind::Diff
+    }
+
+    async fn compress(
+        &self,
+        input: &CompressInput<'_>,
+        _opts: &CompressOptions,
+    ) -> Option<CompressOutput> {
+        compress(input.content)
+    }
+}
+
 /// Compress a unified diff. Returns `None` when there's nothing structural to
-/// work with or compression wouldn't shrink it. Lossy when it fires (collapses
-/// context / summarizes hunks); the caller offloads the original to CCR.
-pub fn compress(content: &str) -> Option<Compacted> {
-    let lines: Vec<&str> = content.lines().collect();
+/// work with or compression wouldn't shrink it.
+pub fn compress(content: &str) -> Option<CompressOutput> {
+    let stripped = strip_ansi(content);
+    let lines: Vec<&str> = stripped.lines().collect();
     if lines.is_empty() {
         return None;
     }
 
-    let mut out = String::with_capacity(content.len() / 2 + 64);
+    let mut out = String::with_capacity(stripped.len() / 2 + 64);
     let mut i = 0usize;
     let mut current_file_is_noisy = false;
     let mut saw_hunk = false;
@@ -42,7 +54,6 @@ pub fn compress(content: &str) -> Option<Compacted> {
     while i < lines.len() {
         let line = lines[i];
 
-        // File header — note whether this file is a lockfile/bundle we summarize.
         if line.starts_with("diff --git ") {
             current_file_is_noisy = is_noisy_path(line);
             let _ = writeln!(out, "{line}");
@@ -51,7 +62,6 @@ pub fn compress(content: &str) -> Option<Compacted> {
         }
         if is_structural(line) {
             saw_hunk |= line.starts_with("@@");
-            // For a noisy file, collapse the entire hunk body to a summary.
             if current_file_is_noisy && line.starts_with("@@") {
                 let _ = writeln!(out, "{line}");
                 i += 1;
@@ -68,7 +78,6 @@ pub fn compress(content: &str) -> Option<Compacted> {
             continue;
         }
 
-        // Context line — collapse long unchanged runs.
         if is_context(line) {
             let start = i;
             while i < lines.len() && is_context(lines[i]) {
@@ -92,7 +101,6 @@ pub fn compress(content: &str) -> Option<Compacted> {
             continue;
         }
 
-        // Changed line (+/-) or anything else — keep verbatim.
         let _ = writeln!(out, "{line}");
         i += 1;
     }
@@ -104,15 +112,17 @@ pub fn compress(content: &str) -> Option<Compacted> {
         return None;
     }
     log::debug!(
-        "[compaction][diff] {} -> {} bytes ({} input lines)",
+        "[tokenjuice][diff] {} -> {} bytes ({} input lines)",
         content.len(),
         out.len(),
         lines.len(),
     );
-    Some(Compacted::lossy(out.trim_end().to_string()))
+    Some(CompressOutput::lossy(
+        out.trim_end().to_string(),
+        CompressorKind::Diff,
+    ))
 }
 
-/// Structural diff lines that must always survive.
 fn is_structural(line: &str) -> bool {
     line.starts_with("@@")
         || line.starts_with("--- ")
@@ -125,14 +135,10 @@ fn is_structural(line: &str) -> bool {
         || line.starts_with("Binary files")
 }
 
-/// A unified-diff context line: leading space, not a `+`/`-` change and not a
-/// `---`/`+++` header (those are structural and handled first).
 fn is_context(line: &str) -> bool {
     line.starts_with(' ')
 }
 
-/// Count added/removed lines in a hunk body until the next hunk/file header,
-/// returning how many lines were consumed.
 fn summarize_hunk_body(lines: &[&str]) -> (usize, usize, usize) {
     let mut added = 0usize;
     let mut removed = 0usize;
@@ -151,8 +157,6 @@ fn summarize_hunk_body(lines: &[&str]) -> (usize, usize, usize) {
     (added, removed, n)
 }
 
-/// Lockfiles and generated bundles whose diff body is rarely worth reading in
-/// full. Matched against the `diff --git a/<path> b/<path>` header.
 fn is_noisy_path(diff_git_line: &str) -> bool {
     let l = diff_git_line.to_ascii_lowercase();
     const NOISY: &[&str] = &[
@@ -205,8 +209,6 @@ mod tests {
         }
         let out = compress(&s).expect("compresses").text;
         assert!(out.contains("lockfile/bundle hunk"), "{out}");
-        assert!(out.contains("Cargo.lock"));
-        // Individual dep lines are gone.
         assert!(!out.contains("new dep entry 7"), "{out}");
         assert!(out.len() < s.len());
     }

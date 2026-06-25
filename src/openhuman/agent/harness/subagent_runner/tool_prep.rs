@@ -158,7 +158,7 @@ pub(crate) fn filter_tool_indices(
             // explicit `disallow` above still wins). A deliberately tool-less
             // agent (`Named([])`, e.g. the payload summarizer) runs no tools,
             // produces no compacted output, and so stays tool-less.
-            if name == crate::openhuman::agent::harness::compaction::RECOVERY_TOOL_NAME {
+            if crate::openhuman::tokenjuice::is_recovery_tool(name) {
                 return !matches!(scope, ToolScope::Named(allowed) if allowed.is_empty());
             }
             if let Some(prefix) = skill_prefix.as_deref() {
@@ -205,7 +205,7 @@ mod tests {
 #[cfg(test)]
 mod recovery_visibility_tests {
     use super::*;
-    use crate::openhuman::agent::harness::compaction::RECOVERY_TOOL_NAME;
+    use crate::openhuman::tokenjuice::LEGACY_RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
     use crate::openhuman::tools::{CurrentTimeTool, RetrieveToolOutputTool};
 
     fn tools() -> Vec<Box<dyn crate::openhuman::tools::Tool>> {

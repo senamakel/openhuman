@@ -45,12 +45,10 @@ export default function WorkflowsRun() {
               aria-label={t('common.back')}>
               <span aria-hidden="true">←</span> {t('common.back')}
             </Button>
-            <h1 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
-              {t('skills.run.title')}
-            </h1>
+            <h1 className="text-base font-semibold text-content">{t('skills.run.title')}</h1>
           </div>
 
-          <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft animate-fade-up">
+          <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft animate-fade-up">
             <WorkflowRunnerBody />
           </div>
         </div>

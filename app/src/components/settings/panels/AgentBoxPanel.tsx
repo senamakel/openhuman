@@ -30,7 +30,7 @@ type PanelState =
   | { kind: 'error'; message: string };
 
 const ROW =
-  'px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20';
+  'px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20';
 
 const AgentBoxPanel = () => {
   const { t } = useT();
@@ -64,16 +64,12 @@ const AgentBoxPanel = () => {
 
   const body = useMemo(() => {
     if (state.kind === 'loading') {
-      return (
-        <div className="px-4 py-3 text-sm text-neutral-500 dark:text-neutral-400">
-          {t('common.loading')}
-        </div>
-      );
+      return <div className="px-4 py-3 text-sm text-content-muted">{t('common.loading')}</div>;
     }
     if (state.kind === 'error') {
       return (
         <div className="px-4 py-3">
-          <div className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 mb-1">
+          <div className="text-sm font-semibold text-content mb-1">
             {t('settings.agentbox.unavailable')}
           </div>
           <SettingsStatusLine saving={false} error={state.message} savingLabel="" />
@@ -99,7 +95,7 @@ const AgentBoxPanel = () => {
               className={`text-xs font-mono px-2 py-0.5 rounded-full ${
                 s.mode_enabled
                   ? 'bg-sage-100 text-sage-800 dark:bg-sage-500/20 dark:text-sage-200'
-                  : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700/40 dark:text-neutral-300'
+                  : 'bg-surface-subtle text-content-secondary dark:bg-neutral-700/40'
               }`}>
               {modeLabel}
             </span>

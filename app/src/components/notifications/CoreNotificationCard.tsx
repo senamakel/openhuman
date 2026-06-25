@@ -86,8 +86,8 @@ const CoreNotificationCard = ({ notification: n }: Props) => {
 
   return (
     <div
-      className={`w-full p-3 border-b border-stone-100 dark:border-neutral-800 transition-colors duration-150 ${
-        n.read ? 'bg-white dark:bg-neutral-900' : 'bg-primary-50/30'
+      className={`w-full p-3 border-b border-line-subtle transition-colors duration-150 ${
+        n.read ? 'bg-surface' : 'bg-primary-50/30'
       }`}
       data-testid="core-notification-card">
       <div className="flex items-start gap-3">
@@ -101,22 +101,20 @@ const CoreNotificationCard = ({ notification: n }: Props) => {
         <div className="flex-1 min-w-0 text-left">
           {/* Header row: category badge + timestamp */}
           <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200 border-stone-200 dark:border-neutral-800">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-surface-subtle text-content-secondary border-line">
               {t(`notifications.category.${n.category}`)}
             </span>
-            <span className="ml-auto text-[11px] text-stone-400 dark:text-neutral-500 flex-shrink-0">
+            <span className="ml-auto text-[11px] text-content-faint flex-shrink-0">
               {relativeTime(n.timestamp)}
             </span>
           </div>
 
           {/* Title */}
-          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">{n.title}</p>
+          <p className="text-sm font-medium text-content">{n.title}</p>
 
           {/* Body */}
           {n.body && (
-            <p
-              data-testid="core-notification-body"
-              className="text-xs text-stone-500 dark:text-neutral-400 mt-0.5">
+            <p data-testid="core-notification-body" className="text-xs text-content-muted mt-0.5">
               <NotificationBody body={n.body} />
             </p>
           )}

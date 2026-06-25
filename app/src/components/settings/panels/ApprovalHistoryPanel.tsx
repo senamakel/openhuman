@@ -89,9 +89,7 @@ const ApprovalHistoryPanel = () => {
     <SettingsPanel testId="approval-history-panel">
       <SettingsSection>
         <div className="px-4 py-3 flex items-center justify-between gap-2">
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            {t('settings.approvalHistory.subtitle')}
-          </p>
+          <p className="text-xs text-content-muted">{t('settings.approvalHistory.subtitle')}</p>
           <Button
             type="button"
             variant="primary"
@@ -105,7 +103,7 @@ const ApprovalHistoryPanel = () => {
 
         {isLoading ? (
           <div
-            className="px-4 py-4 text-sm text-neutral-500 dark:text-neutral-400"
+            className="px-4 py-4 text-sm text-content-muted"
             data-testid="approval-history-loading">
             {t('settings.approvalHistory.loading')}
           </div>
@@ -127,7 +125,7 @@ const ApprovalHistoryPanel = () => {
           </div>
         ) : (
           <ul
-            className="divide-y divide-neutral-100 dark:divide-neutral-800"
+            className="divide-y divide-line-subtle dark:divide-neutral-800"
             data-testid="approval-history-list">
             {entries.map(entry => (
               <li
@@ -135,9 +133,7 @@ const ApprovalHistoryPanel = () => {
                 className="px-4 py-3 space-y-1"
                 data-testid="approval-history-row">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs text-neutral-800 dark:text-neutral-100 truncate">
-                    {entry.tool_name}
-                  </span>
+                  <span className="font-mono text-xs text-content truncate">{entry.tool_name}</span>
                   <span
                     data-testid={`approval-history-decision-${entry.decision}`}
                     className="flex-shrink-0">
@@ -146,10 +142,8 @@ const ApprovalHistoryPanel = () => {
                     </SettingsBadge>
                   </span>
                 </div>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                  {entry.action_summary}
-                </p>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                <p className="text-xs text-content-muted">{entry.action_summary}</p>
+                <p className="text-[11px] text-content-muted">
                   {t('settings.approvalHistory.decidedAt').replace(
                     '{date}',
                     formatDateTime(entry.decided_at)

@@ -61,16 +61,16 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
   };
 
   return (
-    <aside className="rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+    <aside className="rounded-lg border border-line bg-surface p-3">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
           {t('intelligence.teams.activity.title')}
         </h3>
-        <span className="text-[10px] text-stone-400 dark:text-neutral-500">{messages.length}</span>
+        <span className="text-[10px] text-content-faint">{messages.length}</span>
       </div>
 
       {messages.length === 0 ? (
-        <p className="py-6 text-center text-[11px] text-stone-400 dark:text-neutral-500">
+        <p className="py-6 text-center text-[11px] text-content-faint">
           {t('intelligence.teams.activity.empty')}
         </p>
       ) : (
@@ -87,12 +87,12 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
                   {fromName.charAt(0).toUpperCase()}
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[10px] text-stone-400 dark:text-neutral-500">
-                    <b className="text-stone-600 dark:text-neutral-300">{fromName}</b>
+                  <div className="text-[10px] text-content-faint">
+                    <b className="text-content-secondary">{fromName}</b>
                     {' → '}
                     {nameFor(message.payload.to)}
                   </div>
-                  <p className="break-words text-[11px] leading-snug text-stone-700 dark:text-neutral-200">
+                  <p className="break-words text-[11px] leading-snug text-content-secondary">
                     {message.payload.content}
                   </p>
                 </div>
@@ -103,13 +103,13 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
       )}
 
       {onSend && (
-        <div className="mt-3 border-t border-stone-100 pt-2 dark:border-neutral-800">
+        <div className="mt-3 border-t border-line-subtle pt-2">
           <div className="flex items-center gap-1.5">
             <select
               value={recipient}
               onChange={e => setRecipient(e.target.value)}
               aria-label={t('intelligence.teams.composer.recipient')}
-              className="max-w-[40%] flex-none rounded-md border border-stone-200 bg-white px-1.5 py-1 text-[11px] text-stone-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+              className="max-w-[40%] flex-none rounded-md border border-line bg-surface px-1.5 py-1 text-[11px] text-content-secondary">
               <option value="">{t('intelligence.teams.composer.toTeam')}</option>
               {members.map(m => (
                 <option key={m.id} value={m.id}>
@@ -129,7 +129,7 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
                 }
               }}
               placeholder={t('intelligence.teams.composer.placeholder')}
-              className="min-w-0 flex-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] text-stone-700 placeholder:text-stone-400 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+              className="min-w-0 flex-1 rounded-md border border-line px-2 py-1 text-[11px] text-content-secondary placeholder:text-stone-400 disabled:opacity-50 dark:bg-surface"
             />
             <button
               type="button"

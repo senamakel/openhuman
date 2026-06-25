@@ -170,6 +170,29 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navOrder: 1,
   },
   {
+    // Theme Studio — full colour + font customization on top of the simple
+    // light/dark toggle in Appearance.
+    id: 'theme',
+    titleKey: 'settings.theme.title',
+    descriptionKey: 'settings.theme.menuDesc',
+    section: 'home',
+    searchKeywords: [
+      'theme',
+      'color',
+      'colour',
+      'font',
+      'palette',
+      'customize',
+      'customise',
+      'appearance',
+      'surface',
+      'background',
+      'accent',
+    ],
+    navGroup: 'general',
+    navOrder: 2,
+  },
+  {
     // devices: real pairing panel (the old "Coming Soon" stub was removed).
     id: 'devices',
     titleKey: 'settings.account.devices',
@@ -254,6 +277,15 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // to /settings/notifications and /settings/wallet-balances.
 
   // --- About ---
+  {
+    id: 'keyboard-shortcuts',
+    titleKey: 'shortcuts.title',
+    descriptionKey: 'shortcuts.menuDesc',
+    section: 'home',
+    searchKeywords: ['keyboard', 'shortcuts', 'keys', 'hotkeys', 'bindings', 'cheatsheet'],
+    navGroup: 'general',
+    navOrder: 98,
+  },
   {
     id: 'about',
     titleKey: 'settings.about',
@@ -726,6 +758,27 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     section: 'developer',
     devOnly: true,
     navGroup: 'diagnosticsLogs',
+  },
+
+  // Token & Cost — TokenJuice compression settings + savings statistics.
+  {
+    id: 'token-usage',
+    titleKey: 'settings.tokenUsage.title',
+    descriptionKey: 'settings.tokenUsage.menuDesc',
+    section: 'ai',
+    navGroup: 'modelsInference',
+    navOrder: 5,
+    searchKeywords: [
+      'token',
+      'tokens',
+      'cost',
+      'compression',
+      'compaction',
+      'tokenjuice',
+      'cache',
+      'ccr',
+      'savings',
+    ],
   },
 
   // =========================================================================

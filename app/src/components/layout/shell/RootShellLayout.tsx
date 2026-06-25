@@ -13,8 +13,10 @@ import { Tooltip } from '../../ui';
 import CollapsedNavRail from './CollapsedNavRail';
 
 // `app-shell` (not the older `root-shell`) so the persisted geometry seeds
-// fresh with the sidebar visible by default.
-const LAYOUT_ID = 'app-shell';
+// fresh with the sidebar visible by default. Exported so the global command
+// layer (mod+B "Toggle sidebar") can target this exact panel.
+export const APP_SHELL_LAYOUT_ID = 'app-shell';
+const LAYOUT_ID = APP_SHELL_LAYOUT_ID;
 const DEFAULT_WIDTH = 224;
 const MIN_WIDTH = 188;
 const MAX_WIDTH = 420;

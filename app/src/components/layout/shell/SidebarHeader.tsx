@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { registry } from '../../../lib/commands/registry';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { settingsNavState } from '../../settings/modal/settingsOverlay';
 import { Tooltip } from '../../ui';
@@ -10,8 +11,8 @@ const ICON_BTN =
   'flex h-7 w-7 flex-none items-center justify-center rounded-md text-content-muted transition-colors hover:bg-surface-hover hover:text-content-secondary';
 
 /**
- * Thin utility header at the top of the root sidebar: jump Home, open the
- * wallet, open Settings, and collapse the sidebar. Language is chosen from
+ * Thin utility header at the top of the root sidebar: jump Home, open keyboard
+ * shortcuts, open Settings, and collapse the sidebar. Language is chosen from
  * Settings, not here.
  */
 export default function SidebarHeader() {
@@ -41,6 +42,31 @@ export default function SidebarHeader() {
                 strokeLinejoin="round"
                 strokeWidth={1.8}
                 d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a2 2 0 01-2-2v-4a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2z"
+              />
+            </svg>
+          </button>
+        </Tooltip>
+
+        {/* Keyboard shortcuts — one-click open of the help directory (also ? / ⌘/). */}
+        <Tooltip label={t('shortcuts.title')}>
+          <button
+            type="button"
+            onClick={() => registry.runAction('meta.keyboard-shortcuts')}
+            className={ICON_BTN}
+            data-analytics-id="sidebar-header-shortcuts"
+            aria-label={t('shortcuts.title')}>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M7 10h.01M11 10h.01M15 10h.01M17 10h.01M7 13h.01M9 16h6"
               />
             </svg>
           </button>

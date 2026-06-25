@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { NAV_TABS, type NavTab } from '../../../config/navConfig';
+import { registry } from '../../../lib/commands/registry';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
@@ -67,6 +68,19 @@ export default function CollapsedNavRail() {
               : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
           }`}>
           <NavIcon id="home" className="h-5 w-5" />
+        </button>
+      </Tooltip>
+
+      {/* Keyboard shortcuts — mirrors SidebarHeader's shortcuts button for the
+          collapsed state. Opens the help directory (also reachable via ? / ⌘/). */}
+      <Tooltip label={t('shortcuts.title')}>
+        <button
+          type="button"
+          onClick={() => registry.runAction('meta.keyboard-shortcuts')}
+          aria-label={t('shortcuts.title')}
+          data-analytics-id="collapsed-rail-shortcuts"
+          className={`${RAIL_BTN} text-content-muted hover:bg-surface-hover hover:text-content-secondary`}>
+          <NavIcon id="keyboard" className="h-5 w-5" />
         </button>
       </Tooltip>
 

@@ -555,6 +555,14 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 13.5.3 | Full State Reset                            | WD    | `app/test/e2e/specs/settings-data-management.spec.ts`                                                               | ✅     | Restart-and-verify fresh-install state                                                                                                         |
 | 13.5.4 | Migration from another assistant (OpenClaw) | VU+RU | `app/src/components/settings/panels/__tests__/MigrationPanel.test.tsx`, `src/openhuman/migration/ops.rs` (existing) | ✅     | Was ❌ — UI now wraps the existing `openhuman.migrate_openclaw` RPC with preview-then-apply + confirm. Hermes tracked as follow-up under #1440 |
 
+### 13.6 Keyboard Shortcuts & Command Surface
+
+| ID     | Feature                                  | Layer | Test path(s)                                                                                                                   | Status | Notes                                                                                                                                                          |
+| ------ | ---------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 13.6.1 | Command Palette (⌘K / ⌘P)                | VU+WD | `app/src/lib/commands/__tests__/globalActions.test.tsx`, `app/src/components/commands/__tests__/CommandProvider.test.tsx`, `app/test/e2e/specs/command-palette.spec.ts` | ✅     | Opens via ⌘K, runs an action, lists seed nav actions, Esc closes                                                                                              |
+| 13.6.2 | Keyboard Shortcuts help directory (? / ⌘/) | VU+WD | `app/src/components/shortcuts/__tests__/shortcutsView.test.tsx`, `app/src/components/commands/__tests__/CommandProvider.test.tsx`, `app/test/e2e/specs/command-palette.spec.ts` | ✅     | Registry-driven grouped list; opens via `?` and ⌘/ (mutually exclusive with palette); also reachable from the sidebar shortcut icon + Settings → Keyboard Shortcuts |
+| 13.6.3 | Global shortcut map (nav / chat / view / profiles) | VU    | `app/src/lib/commands/__tests__/globalActions.test.tsx`                                                                        | ✅     | Control-based nav (`ctrl`/`mod` per-OS), New Chat / Toggle Sidebar handlers, alias keys, and wired-but-hidden profile switches                                 |
+
 ---
 
 ## Summary

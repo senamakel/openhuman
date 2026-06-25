@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { registry } from '../../../lib/commands/registry';
 import { renderWithProviders } from '../../../test/test-utils';
 import CollapsedNavRail from './CollapsedNavRail';
 
@@ -19,10 +20,11 @@ vi.mock('../../../services/analytics', () => ({ trackEvent: vi.fn() }));
 describe('CollapsedNavRail', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders Home and every primary nav destination as icon buttons', () => {
+  it('renders Home, Keyboard Shortcuts, and every primary nav destination as icon buttons', () => {
     renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
     for (const key of [
       'nav.home',
+      'shortcuts.title',
       'nav.chat',
       'nav.human',
       'nav.brain',
@@ -33,6 +35,22 @@ describe('CollapsedNavRail', () => {
     }
     // The wallet shortcut was removed from the rail.
     expect(screen.queryByRole('button', { name: 'nav.wallet' })).not.toBeInTheDocument();
+  });
+
+  it('shortcuts button opens the keyboard-shortcuts help directory', () => {
+    const runAction = vi.spyOn(registry, 'runAction').mockReturnValue(true);
+    renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
+    fireEvent.click(screen.getByRole('button', { name: 'shortcuts.title' }));
+    expect(runAction).toHaveBeenCalledWith('meta.keyboard-shortcuts');
+    runAction.mockRestore();
+  });
+
+  it('shortcuts button has correct data-analytics-id', () => {
+    renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
+    expect(screen.getByRole('button', { name: 'shortcuts.title' })).toHaveAttribute(
+      'data-analytics-id',
+      'collapsed-rail-shortcuts'
+    );
   });
 
   it('navigates to a destination path when its icon is clicked', () => {

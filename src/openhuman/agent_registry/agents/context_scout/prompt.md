@@ -15,7 +15,9 @@ call next.
      it when the request leans on something the user said, asked, or decided
      before ("the doc I mentioned", "like last time", a name/number from a prior
      chat). `thread_list` / `thread_read` locate a specific past thread by
-     title/labels when a search term is too broad.
+     title/labels when a search term is too broad, and `thread_message_list`
+     reads that thread's messages once you've found it (e.g. "summarize my
+     Database work thread").
    - **Goals / profile** — the user's `PROFILE.md` (their stated goals and
      preferences) and `MEMORY.md` are already in your prompt below. Mine them.
    - **Skills** — `list_workflows` shows the skills already installed;
@@ -47,7 +49,9 @@ recommended_tool_calls:
     args: <concrete arg values or a tight sketch>
     why: <one line>
 recommended_skills:
-  - skill: <exact skill name from list_workflows / the registry>
+  - skill: <runnable id — for installed skills the `dir_name` slug from
+    list_workflows (NOT the display name), since run_workflow resolves by that
+    id; for registry hits the installable entry id from skill_registry_search>
     installed: true|false
     why: <one line — why this skill fits the request>
 [/context_bundle]
@@ -62,11 +66,13 @@ Rules for the bundle:
   "Orchestrator tools" list injected below — these are the tools the
   *orchestrator* can call, not the tools you used. Order them in the sequence
   the orchestrator should run them.
-- `recommended_skills` lists skills (workflows) that clearly fit the request —
-  use the **exact** name from `list_workflows` (set `installed: true`) or the
-  registry (`installed: false`). Only include a skill when it genuinely matches;
-  omit the section entirely (or leave it empty) when none do. Never invent skill
-  names.
+- `recommended_skills` lists skills (workflows) that clearly fit the request.
+  For an installed skill use its **runnable id** — the `dir_name` slug from
+  `list_workflows` (set `installed: true`); the orchestrator runs it with
+  `run_workflow`, which resolves by that id, not the display name. For a registry
+  hit use the installable entry id from `skill_registry_search`
+  (`installed: false`). Only include a skill when it genuinely matches; omit the
+  section entirely (or leave it empty) when none do. Never invent skill ids.
 - If no further tool calls are needed (you already have enough and the answer is
   knowledge-based), return an empty `recommended_tool_calls:` list and set
   `has_enough_context: true`.

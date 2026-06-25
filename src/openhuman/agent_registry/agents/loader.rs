@@ -971,10 +971,11 @@ mod tests {
             ToolScope::Named(tools) => {
                 for required in [
                     "memory_recall",
-                    // Transcripts + thread metadata (read-only).
+                    // Transcripts + thread metadata + message reader (read-only).
                     "transcript_search",
                     "thread_list",
                     "thread_read",
+                    "thread_message_list",
                     // Skill discovery (read-only).
                     "list_workflows",
                     "skill_registry_browse",

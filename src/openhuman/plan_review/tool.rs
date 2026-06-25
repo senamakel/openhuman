@@ -13,7 +13,7 @@ use serde_json::json;
 
 use crate::openhuman::agent::turn_origin::{self, AgentTurnOrigin};
 use crate::openhuman::approval::APPROVAL_CHAT_CONTEXT;
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 
 use super::gate;
 use super::types::PlanReviewResolution;
@@ -79,6 +79,15 @@ impl Tool for RequestPlanReviewTool {
 
     fn external_effect(&self) -> bool {
         false
+    }
+
+    fn timeout_policy(&self, _args: &serde_json::Value) -> ToolTimeout {
+        // This tool BLOCKS while the user reviews the plan — the global tool
+        // timeout (default ~120s) would otherwise drop the parked future before
+        // the gate's own 10-minute TTL, so approving the visible card could not
+        // resume the turn. The gate is the real deadline (fail-closed reject on
+        // TTL), so the harness must not impose its own.
+        ToolTimeout::Unbounded
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {

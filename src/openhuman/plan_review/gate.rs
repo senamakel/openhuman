@@ -72,6 +72,17 @@ impl PlanReviewGate {
                 .insert(tid, request_id.clone());
         }
 
+        // RAII cleanup: remove the waiter + thread mapping on ANY exit path,
+        // including when the parked future is cancelled/dropped before
+        // `rx.await` completes (turn cancel, supervisor shutdown). Without this,
+        // a cancelled review would leak a `waiters` / `thread_to_request` entry
+        // that could be re-decided against a dead turn.
+        let _guard = ParkGuard {
+            gate: self,
+            request_id: request_id.clone(),
+            thread_id: thread_id.clone(),
+        };
+
         tracing::info!(
             request_id = %request_id,
             thread_id = ?thread_id,
@@ -100,15 +111,8 @@ impl PlanReviewGate {
             }
         };
 
-        // Clean up the maps so a stale request_id can't be re-decided.
-        self.waiters.lock().remove(&request_id);
-        if let Some(tid) = thread_id {
-            let mut map = self.thread_to_request.lock();
-            if map.get(&tid) == Some(&request_id) {
-                map.remove(&tid);
-            }
-        }
-
+        // `_guard` drops here on the normal path too (cleanup is idempotent with
+        // `decide`, which already removed the waiter).
         publish_global(DomainEvent::PlanReviewDecided {
             request_id: request_id.clone(),
             decision: resolution.as_str().to_string(),
@@ -144,6 +148,26 @@ impl PlanReviewGate {
         match request_id {
             Some(id) => self.decide(&id, resolution),
             None => false,
+        }
+    }
+}
+
+/// Removes a parked review's registry entries on drop — covers both the normal
+/// return and cancellation of the parked future.
+struct ParkGuard<'a> {
+    gate: &'a PlanReviewGate,
+    request_id: String,
+    thread_id: Option<String>,
+}
+
+impl Drop for ParkGuard<'_> {
+    fn drop(&mut self) {
+        self.gate.waiters.lock().remove(&self.request_id);
+        if let Some(tid) = &self.thread_id {
+            let mut map = self.gate.thread_to_request.lock();
+            if map.get(tid) == Some(&self.request_id) {
+                map.remove(tid);
+            }
         }
     }
 }
@@ -216,5 +240,22 @@ mod tests {
     async fn decide_unknown_request_is_false() {
         let gate = PlanReviewGate::new(Duration::from_secs(5));
         assert!(!gate.decide("nope", PlanReviewResolution::Approve));
+    }
+
+    #[tokio::test]
+    async fn cancelled_park_cleans_up_waiter() {
+        // A parked review whose future is dropped (turn cancel) before it
+        // resolves must not leak its waiter / thread mapping.
+        let gate = std::sync::Arc::new(PlanReviewGate::new(Duration::from_secs(30)));
+        let g2 = gate.clone();
+        let handle = tokio::spawn(async move {
+            g2.request_review(Some("t-drop".into()), None, "Plan".into(), vec![])
+                .await
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        handle.abort();
+        let _ = handle.await;
+        // The drop guard removed the entry, so there is nothing left to decide.
+        assert!(!gate.decide_by_thread("t-drop", PlanReviewResolution::Approve));
     }
 }

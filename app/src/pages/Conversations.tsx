@@ -2621,7 +2621,14 @@ const Conversations = ({
             user to Approve / Reject / send feedback on before anything executes;
             the card resolves the parked turn via plan_review_decide. */}
         {selectedThreadId && pendingPlanReview && (
-          <PlanReviewCard threadId={selectedThreadId} review={pendingPlanReview} />
+          // Key by request id so a re-parked (revised) plan — or a thread switch —
+          // remounts the card and resets its local decision/feedback state,
+          // matching the ApprovalRequestCard pattern above.
+          <PlanReviewCard
+            key={pendingPlanReview.requestId}
+            threadId={selectedThreadId}
+            review={pendingPlanReview}
+          />
         )}
 
         {selectedThreadId && (

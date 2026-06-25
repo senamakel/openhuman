@@ -8,8 +8,15 @@ import {
   selectCustomPrimaryColor,
   selectCustomSecondaryColor,
   selectMascotColor,
+  selectSelectedMascotId,
 } from '../../store/mascotSlice';
-import { CustomGifMascot, getMascotPalette, hexToArgbInt, RiveMascot } from './Mascot';
+import {
+  BackendRiveMascot,
+  CustomGifMascot,
+  getMascotPalette,
+  hexToArgbInt,
+  RiveMascot,
+} from './Mascot';
 import { useHumanMascot } from './useHumanMascot';
 
 const SPEAK_REPLIES_KEY = 'human.speakReplies';
@@ -30,6 +37,7 @@ const HumanPage = () => {
   const customPrimary = useAppSelector(selectCustomPrimaryColor);
   const customSecondary = useAppSelector(selectCustomSecondaryColor);
   const customMascotGifUrl = useAppSelector(selectCustomMascotGifUrl);
+  const selectedMascotId = useAppSelector(selectSelectedMascotId);
   const palette = getMascotPalette(mascotColor);
   const primaryColor = useMemo(
     () => hexToArgbInt(mascotColor === 'custom' ? customPrimary : palette.bodyFill),
@@ -54,6 +62,16 @@ const HumanPage = () => {
         <div className="relative w-[min(80vh,90%)] aspect-square">
           {customMascotGifUrl ? (
             <CustomGifMascot src={customMascotGifUrl} face={face} />
+          ) : selectedMascotId ? (
+            <BackendRiveMascot
+              key={selectedMascotId}
+              mascotId={selectedMascotId}
+              face={face}
+              primaryColor={primaryColor}
+              secondaryColor={secondaryColor}
+              visemeCode={visemeCode}
+              idlePoseRotation
+            />
           ) : (
             <RiveMascot
               face={face}

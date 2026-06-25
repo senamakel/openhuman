@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { CustomGifMascot, RiveMascot } from '../../../features/human/Mascot';
 import { BackendMascot } from '../../../features/human/Mascot/backend/BackendMascot';
-import type { MascotDetail, MascotSummary } from '../../../features/human/Mascot/backend/types';
+import { BackendRiveMascot } from '../../../features/human/Mascot/backend/BackendRiveMascot';
+import {
+  isRiveMascotDetail,
+  type MascotDetailUnion,
+  type MascotSummary,
+} from '../../../features/human/Mascot/backend/types';
 import {
   getMascotPalette,
   hexToArgbInt,
@@ -83,7 +88,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
   // animated preview only pays for the active selection.
   const [backendList, setBackendList] = useState<MascotSummary[] | null>(null);
   const [backendListError, setBackendListError] = useState<string | null>(null);
-  const [activeDetail, setActiveDetail] = useState<MascotDetail | null>(null);
+  const [activeDetail, setActiveDetail] = useState<MascotDetailUnion | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [customGifDraft, setCustomGifDraft] = useState<string>(customMascotGifUrl ?? '');
   const [customGifError, setCustomGifError] = useState<string | null>(null);
@@ -682,9 +687,14 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                       <span className="flex flex-col">
                         <span>{summary.name}</span>
                         <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
-                          v{summary.version} · {summary.states.length}{' '}
-                          {t('settings.mascot.characterStates')}
-                          {summary.hasVisemes ? ` · ${t('settings.mascot.characterVisemes')}` : ''}
+                          v{summary.version}
+                          {summary.format === 'rive'
+                            ? ` · ${Object.keys(summary.stateToPose ?? {}).length} ${t('settings.mascot.characterStates')}`
+                            : ` · ${summary.states?.length ?? 0} ${t('settings.mascot.characterStates')}${
+                                summary.hasVisemes
+                                  ? ` · ${t('settings.mascot.characterVisemes')}`
+                                  : ''
+                              }`}
                         </span>
                       </span>
                       {active && (
@@ -707,7 +717,15 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             </p>
             <div className="flex justify-center">
               <div style={{ width: 160, height: 160 }}>
-                <BackendMascot mascot={visibleActiveDetail} />
+                {isRiveMascotDetail(visibleActiveDetail) ? (
+                  <BackendRiveMascot
+                    key={visibleActiveDetail.id}
+                    mascotId={visibleActiveDetail.id}
+                    size={160}
+                  />
+                ) : (
+                  <BackendMascot mascot={visibleActiveDetail} />
+                )}
               </div>
             </div>
           </div>

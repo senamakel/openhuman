@@ -12,6 +12,7 @@ import AgentChatPanel from './panels/AgentChatPanel';
 import AgentEditorPage from './panels/AgentEditorPage';
 import AgentsPanel from './panels/AgentsPanel';
 import AppearancePanel from './panels/AppearancePanel';
+import ThemeStudioPanel from './panels/ThemeStudioPanel';
 import ApprovalHistoryPanel from './panels/ApprovalHistoryPanel';
 import AutocompleteDebugPanel from './panels/AutocompleteDebugPanel';
 import AutocompletePanel from './panels/AutocompletePanel';
@@ -112,6 +113,7 @@ export function settingsRouteElements(): ReactNode {
       <Route path="security" element={wrapSettingsPage(<SecurityPanel />)} />
       <Route path="migration" element={wrapSettingsPage(<MigrationPanel />)} />
       <Route path="appearance" element={wrapSettingsPage(<AppearancePanel />)} />
+      <Route path="theme" element={wrapSettingsPage(<ThemeStudioPanel />)} />
       <Route path="notifications" element={wrapSettingsPage(<NotificationsTabbedPanel />)} />
       {/* Real device-pairing panel (replaces the old "Coming Soon" stub). */}
       <Route path="devices" element={wrapSettingsPage(<DevicesPanel />)} />

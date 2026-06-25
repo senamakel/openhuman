@@ -1,5 +1,6 @@
 import { useMemo, useSyncExternalStore } from 'react';
 
+import { GROUP_LABEL_KEYS } from '../../lib/commands/globalActions';
 import { hotkeyManager } from '../../lib/commands/hotkeyManager';
 import { registry } from '../../lib/commands/registry';
 import type { RegisteredAction } from '../../lib/commands/types';
@@ -86,7 +87,7 @@ export function ShortcutsList({ variant = 'modal' }: ShortcutsListProps) {
       {groups.map(({ group, items }) => (
         <section key={group}>
           <h3 className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
-            {group}
+            {GROUP_LABEL_KEYS[group] ? t(GROUP_LABEL_KEYS[group]) : group}
           </h3>
           <div
             className={
@@ -100,7 +101,9 @@ export function ShortcutsList({ variant = 'modal' }: ShortcutsListProps) {
                   {action.icon ? (
                     <action.icon className="w-4 h-4 flex-shrink-0 text-stone-400 dark:text-neutral-500" />
                   ) : null}
-                  <span className="truncate">{action.label}</span>
+                  <span className="truncate">
+                    {action.labelKey ? t(action.labelKey) : action.label}
+                  </span>
                 </span>
                 {action.shortcut ? <Kbd shortcut={action.shortcut} size="md" /> : null}
               </div>

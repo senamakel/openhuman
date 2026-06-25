@@ -8,6 +8,20 @@ import { isMac } from './shortcut';
 export const GROUP_ORDER = ['Navigation', 'Profiles', 'Chat', 'View', 'General'] as const;
 
 /**
+ * i18n keys for the group headings surfaced in the command palette / shortcuts
+ * directory. Grouping/ordering keys off the stable English `group` string; the
+ * heading text is resolved through `useT()` at display time via this map.
+ */
+export const GROUP_LABEL_KEYS: Record<string, string> = {
+  Navigation: 'shortcuts.group.navigation',
+  Profiles: 'shortcuts.group.profiles',
+  Chat: 'shortcuts.group.chat',
+  View: 'shortcuts.group.view',
+  General: 'shortcuts.group.general',
+  Help: 'shortcuts.group.help',
+};
+
+/**
  * Navigation tabs are bound to the **Control** key.
  *
  * On macOS `ctrl+N` is the physical Control key (distinct from ⌘), which is
@@ -48,6 +62,8 @@ interface BindCombo {
 interface GlobalActionDef {
   id: string;
   label: string;
+  /** i18n key for the label, resolved at display time (falls back to `label`). */
+  labelKey?: string;
   group: (typeof GROUP_ORDER)[number] | 'Help';
   /** Primary shortcut — shown in the palette / help list and bound. */
   shortcut: string;
@@ -101,6 +117,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'nav.home',
       label: 'Go Home',
+      labelKey: 'shortcuts.action.home',
       group: 'Navigation',
       shortcut: `${NAV_MOD}+1`,
       handler: nav('/home'),
@@ -109,6 +126,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'nav.chat',
       label: 'Go to Chat',
+      labelKey: 'shortcuts.action.chat',
       group: 'Navigation',
       shortcut: `${NAV_MOD}+2`,
       handler: nav('/chat'),
@@ -117,6 +135,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'nav.intelligence',
       label: 'Go to Knowledge & Memory',
+      labelKey: 'shortcuts.action.knowledge',
       group: 'Navigation',
       shortcut: `${NAV_MOD}+3`,
       handler: nav('/settings/intelligence'),
@@ -125,6 +144,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'nav.skills',
       label: 'Go to Connections',
+      labelKey: 'shortcuts.action.connections',
       group: 'Navigation',
       shortcut: `${NAV_MOD}+4`,
       handler: nav('/connections'),
@@ -133,6 +153,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'nav.activity',
       label: 'Go to Activity',
+      labelKey: 'shortcuts.action.activity',
       group: 'Navigation',
       shortcut: `${NAV_MOD}+5`,
       handler: nav('/activity'),
@@ -141,6 +162,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'nav.settings',
       label: 'Open Settings',
+      labelKey: 'shortcuts.action.settings',
       group: 'Navigation',
       // Settings keeps the conventional ⌘, (mod) — it isn't a numbered tab.
       shortcut: 'mod+,',
@@ -155,6 +177,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'chat.new',
       label: 'New Chat',
+      labelKey: 'shortcuts.action.newChat',
       group: 'Chat',
       shortcut: 'mod+n',
       handler: h.newChat,
@@ -165,6 +188,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'view.toggle-sidebar',
       label: 'Toggle Sidebar',
+      labelKey: 'shortcuts.action.toggleSidebar',
       group: 'View',
       shortcut: 'mod+b',
       handler: h.toggleSidebar,
@@ -175,6 +199,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'meta.command-palette',
       label: 'Command Palette',
+      labelKey: 'shortcuts.action.commandPalette',
       group: 'General',
       shortcut: 'mod+k',
       allowInInput: true,
@@ -185,6 +210,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     {
       id: 'meta.keyboard-shortcuts',
       label: 'Keyboard Shortcuts',
+      labelKey: 'shortcuts.title',
       group: 'General',
       // `mod+/` is allowed in inputs so it can replace the command palette
       // while its search box is focused; the bare `?` alias is not, so it
@@ -219,6 +245,7 @@ export function registerGlobalActions(
             {
               id: a.id,
               label: a.label,
+              labelKey: a.labelKey,
               group: a.group,
               shortcut: a.shortcut,
               handler: a.handler,

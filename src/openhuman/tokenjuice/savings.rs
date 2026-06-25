@@ -21,6 +21,7 @@ use crate::openhuman::tokenjuice::types::{CompressorKind, ContentKind};
 
 /// Per-key (model / compressor) rolled-up savings.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SavingsBucket {
     pub events: u64,
     pub original_tokens: u64,

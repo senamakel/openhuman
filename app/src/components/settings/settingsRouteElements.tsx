@@ -47,6 +47,7 @@ import TeamInvitesPanel from './panels/TeamInvitesPanel';
 import TeamManagementPanel from './panels/TeamManagementPanel';
 import TeamMembersPanel from './panels/TeamMembersPanel';
 import TeamPanel from './panels/TeamPanel';
+import TokenUsagePanel from './panels/TokenUsagePanel';
 import ToolPolicyDiagnosticsPanel from './panels/ToolPolicyDiagnosticsPanel';
 import ToolsPanel from './panels/ToolsPanel';
 import UsagePanel from './panels/UsagePanel';
@@ -151,6 +152,7 @@ export function settingsRouteElements(): ReactNode {
 
       {/* ── System ──────────────────────────────────────────────── */}
       <Route path="developer-options" element={wrapSettingsPage(<DeveloperOptionsPanel />)} />
+      <Route path="token-usage" element={wrapSettingsPage(<TokenUsagePanel />)} />
       <Route path="about" element={wrapSettingsPage(<AboutPanel />)} />
 
       {/* ── Developer & Diagnostics leaf panels ─────────────────── */}

@@ -6,8 +6,10 @@ use serde::Deserialize;
 
 use crate::openhuman::config::TokenjuiceConfig;
 
+// Field names are snake_case to match the `[tokenjuice]` config keys that
+// `tokenjuice.settings_get` returns, so the UI reads and writes the same shape.
 #[derive(Debug, Default, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default)]
 pub struct TokenjuiceSettingsPatch {
     pub router_enabled: Option<bool>,
     pub ccr_enabled: Option<bool>,
@@ -100,7 +102,7 @@ mod tests {
     fn applies_only_present_fields() {
         let mut cfg = TokenjuiceConfig::default();
         let patch: TokenjuiceSettingsPatch =
-            serde_json::from_str(r#"{ "ccrMinTokens": 1200, "searchEnabled": false }"#).unwrap();
+            serde_json::from_str(r#"{ "ccr_min_tokens": 1200, "search_enabled": false }"#).unwrap();
         patch.apply(&mut cfg);
         assert_eq!(cfg.ccr_min_tokens, 1200);
         assert!(!cfg.search_enabled);
@@ -113,12 +115,12 @@ mod tests {
     fn ttl_can_be_set_and_cleared() {
         let mut cfg = TokenjuiceConfig::default();
         let set: TokenjuiceSettingsPatch =
-            serde_json::from_str(r#"{ "ccrTtlSecs": 300 }"#).unwrap();
+            serde_json::from_str(r#"{ "ccr_ttl_secs": 300 }"#).unwrap();
         set.apply(&mut cfg);
         assert_eq!(cfg.ccr_ttl_secs, Some(300));
         // 0 clears the TTL.
         let clear: TokenjuiceSettingsPatch =
-            serde_json::from_str(r#"{ "ccrTtlSecs": 0 }"#).unwrap();
+            serde_json::from_str(r#"{ "ccr_ttl_secs": 0 }"#).unwrap();
         clear.apply(&mut cfg);
         assert_eq!(cfg.ccr_ttl_secs, None);
     }

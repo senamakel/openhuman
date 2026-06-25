@@ -24,6 +24,24 @@ use anyhow::Result;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+/// Decide whether the harness-driven "super context" collection pass should
+/// run this turn.
+///
+/// It runs only on the first turn of a **genuinely new** thread:
+/// - `first_turn` — the agent's `history` is empty at turn start; AND
+/// - `!has_cached_transcript` — no resumed/loaded transcript prefix is seeded
+///   into `cached_transcript_messages`. A thread resumed cold (web-chat task
+///   rebuilt for an existing conversation, or a transcript loaded from disk)
+///   also has an empty `history`, so this cache check is what distinguishes a
+///   *new* thread from a *resumed* one; AND
+/// - `enabled` — the `context.super_context_enabled` config flag is on.
+///
+/// Pulled out as a pure function so the gate (in particular the resume guard)
+/// is unit-testable without a full agent turn harness.
+fn should_run_super_context(first_turn: bool, has_cached_transcript: bool, enabled: bool) -> bool {
+    first_turn && !has_cached_transcript && enabled
+}
+
 impl Agent {
     /// Executes a single interaction "turn" with the agent.
     ///
@@ -438,18 +456,31 @@ impl Agent {
         // orchestrator LLM gets the turn, and fold its bounded
         // `[context_bundle]` into the user message. This is the harness driving
         // the collection deterministically — unlike the `agent_prepare_context`
-        // tool, which the model chooses to call. First turn only (the value is
-        // baked into the frozen turn-1 prefix; later turns reuse it). The tool
-        // stays exposed so the model can still scout again mid-turn.
+        // tool, which the model chooses to call. The tool stays exposed so the
+        // model can still scout again mid-turn.
+        //
+        // Gate on the **first turn of a genuinely new thread**: `first_turn`
+        // (empty `history`) is necessary but NOT sufficient, because a thread
+        // resumed cold (e.g. a web-chat task rebuilt for an existing
+        // conversation after an app restart) seeds prior messages into
+        // `cached_transcript_messages` via `seed_resume_from_messages` /
+        // `try_load_session_transcript` WITHOUT populating `history`. Without
+        // the `cached_transcript_messages.is_none()` guard, super context would
+        // re-fire on every cold-started existing conversation, surprising the
+        // user with extra scout/tool calls and a stray prepared-context block.
         //
         // Runs inside the parent-context scope because `run_context_scout`
         // reads the parent's visible tool catalogue and runs the scout against
         // the parent's provider via the PARENT_CONTEXT task-local. Best-effort:
         // any failure (scout error, no bundle) leaves the turn to proceed with
         // the un-augmented message rather than blocking the user.
-        let enriched = if first_turn && self.context.super_context_enabled() {
+        let enriched = if should_run_super_context(
+            first_turn,
+            self.cached_transcript_messages.is_some(),
+            self.context.super_context_enabled(),
+        ) {
             log::info!(
-                "[agent_loop] super_context enabled — running harness-driven context collection (first turn)"
+                "[agent_loop] super_context enabled — running harness-driven context collection (new thread, first turn)"
             );
             let scout = harness::with_parent_context(parent_context.clone(), {
                 let user_message = user_message.to_string();
@@ -933,5 +964,36 @@ impl Agent {
                 enriched
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod super_context_gate_tests {
+    use super::should_run_super_context;
+
+    #[test]
+    fn runs_only_on_first_turn_of_a_new_thread_when_enabled() {
+        // New thread, first turn, flag on → run.
+        assert!(should_run_super_context(true, false, true));
+    }
+
+    #[test]
+    fn skips_when_flag_disabled() {
+        assert!(!should_run_super_context(true, false, false));
+    }
+
+    #[test]
+    fn skips_on_later_turns() {
+        // history non-empty → not the first turn.
+        assert!(!should_run_super_context(false, false, true));
+    }
+
+    #[test]
+    fn skips_on_cold_resumed_thread_even_on_first_turn() {
+        // Regression: a thread resumed cold has an empty `history` (so
+        // `first_turn` is true) but a seeded `cached_transcript_messages`
+        // prefix. Super context must NOT re-fire on these existing
+        // conversations.
+        assert!(!should_run_super_context(true, true, true));
     }
 }

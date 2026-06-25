@@ -658,6 +658,7 @@ async fn apply_model_settings_replaces_model_registry_when_some_and_keeps_when_n
             provider: "openai".into(),
             cost_per_1m_output: 0.0,
             vision: true,
+            ..Default::default()
         }]),
         ..Default::default()
     };
@@ -707,6 +708,7 @@ async fn apply_model_settings_trims_model_registry_ids() {
             provider: "openai".into(),
             cost_per_1m_output: 0.0,
             vision: true,
+            ..Default::default()
         }]),
         ..Default::default()
     };

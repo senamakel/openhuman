@@ -1,3 +1,4 @@
+import { REHYDRATE } from 'redux-persist';
 import { describe, expect, it } from 'vitest';
 
 import type { Theme } from '../lib/theme/types';
@@ -111,6 +112,25 @@ describe('themeSlice', () => {
       expect(state.themeVariant).toBe('light');
       expect(state.activeThemeId).toBe('ocean'); // family preserved
       state = themeReducer(state, setThemeMode('system'));
+      expect(state.themeVariant).toBe('system');
+    });
+
+    it('migrates legacy persisted mode into themeVariant on rehydrate', () => {
+      const state = themeReducer(undefined, {
+        type: REHYDRATE,
+        key: 'theme',
+        payload: { mode: 'dark' },
+      } as never);
+      expect(state.themeVariant).toBe('dark');
+      expect(selectEffectiveTheme({ theme: state }).id).toBe('dark');
+    });
+
+    it('leaves explicit persisted themeVariant for redux-persist reconciliation', () => {
+      const state = themeReducer(undefined, {
+        type: REHYDRATE,
+        key: 'theme',
+        payload: { mode: 'dark', themeVariant: 'light' },
+      } as never);
       expect(state.themeVariant).toBe('system');
     });
 

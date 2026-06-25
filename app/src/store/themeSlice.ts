@@ -1,4 +1,5 @@
 import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { REHYDRATE } from 'redux-persist';
 
 import {
   familyForThemeId,
@@ -184,6 +185,25 @@ const themeSlice = createSlice({
       state.hideAgentInsights = action.payload;
     },
   },
+  extraReducers: builder => {
+    builder.addCase(REHYDRATE, (state, action) => {
+      const rehydrateAction = action as {
+        type: typeof REHYDRATE;
+        key?: string;
+        payload?: Partial<ThemeState>;
+      };
+      if (rehydrateAction.key !== 'theme') return;
+      const inbound = rehydrateAction.payload;
+      if (!inbound || typeof inbound !== 'object') return;
+      if (
+        !Object.prototype.hasOwnProperty.call(inbound, 'themeVariant') &&
+        isThemeMode(inbound.mode)
+      ) {
+        state.themeVariant = inbound.mode;
+        console.debug('[theme] migrated persisted mode to themeVariant', { mode: inbound.mode });
+      }
+    });
+  },
 });
 
 export const {
@@ -221,7 +241,7 @@ export const selectActiveThemeId = (state: { theme?: ThemeState }): string =>
   state.theme?.activeThemeId ?? DEFAULT_FAMILY_ID;
 
 export const selectThemeVariant = (state: { theme?: ThemeState }): ThemeVariant =>
-  state.theme?.themeVariant ?? 'system';
+  state.theme?.themeVariant ?? state.theme?.mode ?? 'system';
 
 export const selectCustomThemes = (state: { theme?: ThemeState }): Theme[] =>
   state.theme?.customThemes ?? [];
@@ -237,7 +257,7 @@ function resolveSelection(ts: ThemeState): {
   custom?: Theme;
 } {
   const sel = ts.activeThemeId ?? DEFAULT_FAMILY_ID;
-  const variantPref = ts.themeVariant ?? 'system';
+  const variantPref = ts.themeVariant ?? ts.mode ?? 'system';
 
   const custom = ts.customThemes?.find(t => t.id === sel);
   if (custom) return { custom, variant: variantPref };
@@ -252,6 +272,10 @@ function resolveSelection(ts: ThemeState): {
   const owner = familyForThemeId(sel);
   if (owner) return { family: owner, variant: owner.dark?.id === sel ? 'dark' : 'light' };
   return { family: findFamily('classic'), variant: variantPref };
+}
+
+function isThemeMode(value: unknown): value is ThemeMode {
+  return value === 'light' || value === 'dark' || value === 'system';
 }
 
 /** The active family id (`''` when a custom theme is selected). */

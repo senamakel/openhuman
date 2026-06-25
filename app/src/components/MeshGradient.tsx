@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Gradient } from '../lib/meshGradient';
 import { channelsToHex } from '../lib/theme/color';
 import { useAppSelector } from '../store/hooks';
-import { selectActiveThemeId, selectThemeVariant } from '../store/themeSlice';
+import { selectEffectiveTheme, selectThemeVariant } from '../store/themeSlice';
 
 /**
  * Animated WebGL mesh gradient background (Stripe-style), tinted by the active
@@ -17,18 +17,42 @@ import { selectActiveThemeId, selectThemeVariant } from '../store/themeSlice';
  */
 export default function MeshGradient() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Re-init the gradient when the effective theme changes.
-  const themeId = useAppSelector(selectActiveThemeId);
+  // Re-init the gradient when the effective theme's mesh-driving tokens change.
+  const effectiveTheme = useAppSelector(selectEffectiveTheme);
   const variant = useAppSelector(selectThemeVariant);
+  const tokenSignature = [
+    effectiveTheme.id,
+    effectiveTheme.isDark ? 'dark' : 'light',
+    effectiveTheme.colors['primary-700'] ?? '',
+    effectiveTheme.colors['primary-300'] ?? '',
+    effectiveTheme.colors.surface ?? '',
+    effectiveTheme.colors['primary-500'] ?? '',
+  ].join('|');
 
   useEffect(() => {
     let gradient: InstanceType<typeof Gradient> | null = null;
     let raf = 0;
+    let disposed = false;
+
+    const disconnectGradient = () => {
+      try {
+        if (gradient) {
+          gradient.disconnect();
+          gradient.pause();
+        }
+      } catch {
+        // Cleanup is best-effort.
+      } finally {
+        gradient = null;
+      }
+    };
 
     const start = () => {
+      if (disposed) return;
       const root = document.documentElement;
       const canvas = canvasRef.current;
       if (!canvas) return;
+      disconnectGradient();
       const hex = (token: string, fallback: string) => {
         const v = window.getComputedStyle(root).getPropertyValue(`--${token}`).trim();
         return v ? channelsToHex(v) : fallback;
@@ -38,6 +62,7 @@ export default function MeshGradient() {
       canvas.style.setProperty('--gradient-color-2', hex('primary-300', '#b5d5ff'));
       canvas.style.setProperty('--gradient-color-3', hex('surface', '#ffffff'));
       canvas.style.setProperty('--gradient-color-4', hex('primary-500', '#4fa4ff'));
+      console.debug('[theme] mesh gradient stops applied', { themeId: effectiveTheme.id, variant });
 
       try {
         gradient = new Gradient();
@@ -48,22 +73,35 @@ export default function MeshGradient() {
       }
     };
 
-    // Defer one frame so ThemeProvider (an ancestor) has applied the theme's
-    // CSS variables before we read them — child effects run before parents.
-    raf = window.requestAnimationFrame(start);
+    const scheduleStart = () => {
+      window.cancelAnimationFrame(raf);
+      // Defer one frame so ThemeProvider (an ancestor) has applied the theme's
+      // CSS variables before we read them — child effects run before parents.
+      raf = window.requestAnimationFrame(start);
+    };
+
+    scheduleStart();
+
+    let removeSystemListener: (() => void) | undefined;
+    if (variant === 'system' && typeof window !== 'undefined' && window.matchMedia) {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const listener = () => scheduleStart();
+      if (mq.addEventListener) {
+        mq.addEventListener('change', listener);
+        removeSystemListener = () => mq.removeEventListener('change', listener);
+      } else {
+        mq.addListener(listener);
+        removeSystemListener = () => mq.removeListener(listener);
+      }
+    }
 
     return () => {
+      disposed = true;
+      removeSystemListener?.();
       window.cancelAnimationFrame(raf);
-      try {
-        if (gradient) {
-          gradient.disconnect();
-          gradient.pause();
-        }
-      } catch {
-        // Cleanup is best-effort.
-      }
+      disconnectGradient();
     };
-  }, [themeId, variant]);
+  }, [effectiveTheme.id, tokenSignature, variant]);
 
   return (
     <canvas

@@ -114,7 +114,7 @@ describe('OAuthProviderButton (Twitter) — rendering', () => {
   it('has dark text', () => {
     const { container } = renderTwitterButton();
     const label = container.querySelector('span');
-    expect(label).toHaveClass('text-gray-900');
+    expect(label).toHaveClass('text-content');
   });
 });
 

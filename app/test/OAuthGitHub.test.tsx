@@ -114,7 +114,7 @@ describe('OAuthProviderButton (GitHub) — rendering', () => {
   it('has dark text', () => {
     const { container } = renderGitHubButton();
     const label = container.querySelector('span');
-    expect(label).toHaveClass('text-gray-900');
+    expect(label).toHaveClass('text-content');
   });
 });
 

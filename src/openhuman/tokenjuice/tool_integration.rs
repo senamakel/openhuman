@@ -66,8 +66,12 @@ pub fn install_config(
 ) {
     configure(options);
     super::cache::configure(max_cache_entries, max_cache_bytes, ccr_ttl_secs);
-    if let Some(root) = disk_tier_root {
-        super::cache::enable_disk_tier(root);
+    // Enable or disable the disk tier to match the setting — a `None` here means
+    // the user turned it off, so clear any previously-installed disk root rather
+    // than leaving the process writing originals to disk until restart.
+    match disk_tier_root {
+        Some(root) => super::cache::enable_disk_tier(root),
+        None => super::cache::disable_disk_tier(),
     }
     log::debug!("[tokenjuice] runtime config installed");
 }

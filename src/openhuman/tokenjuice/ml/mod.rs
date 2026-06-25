@@ -12,22 +12,25 @@
 //! the flag is off, the runtime python server is unavailable, or the input is
 //! too large — the agent loop never fails because ML compression is missing.
 
-use std::sync::OnceLock;
+use std::sync::{OnceLock, RwLock};
 
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::tokenjuice::types::CompressOptions;
 
-/// Global config snapshot, installed once at startup. The runtime python server
-/// provisions/launches against the full [`Config`], so the deep compressor call
-/// site (which has no `Config`) reads it from here.
-static CONFIG: OnceLock<Config> = OnceLock::new();
+/// Global config snapshot the Kompress backend runs against. Held behind a
+/// `RwLock` (not a `OnceLock`) so a live settings update — e.g. toggling
+/// `ml_compression_enabled` on from Settings — is picked up without a restart.
+fn config_cell() -> &'static RwLock<Option<Config>> {
+    static CONFIG: OnceLock<RwLock<Option<Config>>> = OnceLock::new();
+    CONFIG.get_or_init(|| RwLock::new(None))
+}
 
-/// Install the config snapshot the Kompress backend runs against. Called from
-/// the core startup.
+/// Install (or replace) the config snapshot. Called at startup and on every
+/// `tokenjuice.settings_update` so the runtime sees current values.
 pub fn configure(config: Config) {
-    let _ = CONFIG.set(config);
+    *config_cell().write().unwrap_or_else(|p| p.into_inner()) = Some(config);
 }
 
 /// Compress `text` via the Kompress backend of the runtime python server.
@@ -36,8 +39,14 @@ pub fn configure(config: Config) {
 /// is off / input too large / output wouldn't help, and `Err` when the backend
 /// is unavailable (caller degrades to a native compressor).
 pub async fn compress(text: &str, _opts: &CompressOptions) -> Result<Option<String>> {
-    let Some(config) = CONFIG.get() else {
-        anyhow::bail!("tokenjuice ml not configured");
+    // Snapshot the current config under the read lock (live-updated by
+    // `configure` on settings changes), then release it before the await.
+    let config = {
+        let guard = config_cell().read().unwrap_or_else(|p| p.into_inner());
+        match guard.as_ref() {
+            Some(c) => c.clone(),
+            None => anyhow::bail!("tokenjuice ml not configured"),
+        }
     };
     let tj = &config.tokenjuice;
     if !tj.ml_compression_enabled {
@@ -48,7 +57,7 @@ pub async fn compress(text: &str, _opts: &CompressOptions) -> Result<Option<Stri
         return Ok(None);
     }
 
-    let resp = crate::openhuman::runtime_python_server::request_kompress(config, text).await?;
+    let resp = crate::openhuman::runtime_python_server::request_kompress(&config, text).await?;
     if resp.compressed_text.is_empty() || resp.compressed_text.len() >= text.len() {
         return Ok(None);
     }

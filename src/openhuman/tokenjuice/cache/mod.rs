@@ -8,5 +8,6 @@ pub use marker::{
     NEVER_COMPACT_TOOLS, RECOVERY_TOOL_NAMES, RETRIEVE_TOOL_NAME,
 };
 pub use store::{
-    configure, enable_disk_tier, offload, retrieve, retrieve_range, short_hash, stats, RangeUnit,
+    configure, disable_disk_tier, enable_disk_tier, offload, offload_checked, retrieve,
+    retrieve_range, short_hash, stats, RangeUnit,
 };

@@ -75,6 +75,12 @@ pub fn enable_disk_tier(root: PathBuf) {
     }
 }
 
+/// Turn the on-disk tier off (e.g. when the setting is toggled off at runtime).
+/// New offloads stop writing to disk; already-written files are left in place.
+pub fn disable_disk_tier() {
+    *disk_root().write().unwrap_or_else(|p| p.into_inner()) = None;
+}
+
 struct Entry {
     content: String,
     created: Instant,
@@ -90,9 +96,21 @@ struct Inner {
 impl Inner {
     /// Insert `content` under `hash` (idempotent) and evict (FIFO) until both
     /// the entry-count and total-byte caps hold.
-    fn insert(&mut self, hash: String, content: String, max_entries: usize, max_bytes: usize) {
+    ///
+    /// Returns whether `hash` is still resident after eviction. A single
+    /// original larger than `max_bytes` cannot be retained in memory under the
+    /// byte cap — eviction would immediately drop the just-inserted entry — so
+    /// `false` is returned and the caller must not advertise it as recoverable
+    /// (the router declines lossy compaction or relies on the disk tier).
+    fn insert(
+        &mut self,
+        hash: String,
+        content: String,
+        max_entries: usize,
+        max_bytes: usize,
+    ) -> bool {
         if self.map.contains_key(&hash) {
-            return;
+            return true;
         }
         let bytes = content.len();
         self.total_bytes += bytes;
@@ -103,19 +121,33 @@ impl Inner {
                 created: Instant::now(),
             },
         );
-        self.order.push_back(hash);
+        self.order.push_back(hash.clone());
         while self.order.len() > max_entries || self.total_bytes > max_bytes {
+            // Never evict the entry we just inserted to satisfy the cap when it
+            // is the only thing keeping us over: that would make the original
+            // unrecoverable the instant its footer is emitted. Stop and report
+            // non-retention instead (one oversized item is rejected, not the
+            // whole store wiped).
+            if self.order.len() == 1 {
+                break;
+            }
             let Some(evicted) = self.order.pop_front() else {
                 break;
             };
             if let Some(e) = self.map.remove(&evicted) {
                 self.total_bytes = self.total_bytes.saturating_sub(e.content.len());
             }
-            // Stop if we've drained everything (single oversized entry).
-            if self.order.is_empty() {
-                break;
-            }
         }
+        // Retained iff still present (an oversized single entry over the byte
+        // cap is dropped below) AND within the byte cap.
+        if self.total_bytes > max_bytes {
+            if let Some(e) = self.map.remove(&hash) {
+                self.total_bytes = self.total_bytes.saturating_sub(e.content.len());
+            }
+            self.order.retain(|h| h != &hash);
+            return false;
+        }
+        self.map.contains_key(&hash)
     }
 }
 
@@ -126,32 +158,45 @@ fn global() -> &'static Mutex<Inner> {
 
 /// Stash `content` and return its short hash. Idempotent for identical content.
 pub fn offload(content: &str) -> String {
+    offload_checked(content).0
+}
+
+/// Stash `content`, returning `(hash, retained)`. `retained` is `false` only
+/// when the original could be kept neither in memory (it exceeds the byte cap)
+/// nor on the disk tier — in which case the caller must NOT advertise it as
+/// recoverable. Idempotent for identical content.
+pub fn offload_checked(content: &str) -> (String, bool) {
     let hash = short_hash(content);
     let (max_entries, max_bytes) = {
         let l = limits().read().unwrap_or_else(|p| p.into_inner());
         (l.max_entries, l.max_bytes)
     };
-    global().lock().unwrap_or_else(|p| p.into_inner()).insert(
+    let mem_retained = global().lock().unwrap_or_else(|p| p.into_inner()).insert(
         hash.clone(),
         content.to_string(),
         max_entries,
         max_bytes,
     );
 
-    // Mirror to the disk tier when enabled (best-effort).
+    // Mirror to the disk tier when enabled (best-effort). A successful disk
+    // write keeps the original recoverable even when it was too big for memory.
+    let mut disk_retained = false;
     if let Some(root) = disk_root()
         .read()
         .unwrap_or_else(|p| p.into_inner())
         .clone()
     {
         let path = root.join(&hash);
-        if !path.exists() {
-            if let Err(e) = std::fs::write(&path, content) {
-                log::debug!("[tokenjuice][ccr] disk write failed for {hash}: {e}");
+        if path.exists() {
+            disk_retained = true;
+        } else {
+            match std::fs::write(&path, content) {
+                Ok(()) => disk_retained = true,
+                Err(e) => log::debug!("[tokenjuice][ccr] disk write failed for {hash}: {e}"),
             }
         }
     }
-    hash
+    (hash, mem_retained || disk_retained)
 }
 
 /// Retrieve a previously-offloaded original by hash, if still available
@@ -275,6 +320,24 @@ mod tests {
         );
         assert!(!inner.map.contains_key("h0"), "oldest evicted");
         assert!(inner.map.contains_key("h9"), "newest retained");
+    }
+
+    #[test]
+    fn oversized_single_entry_is_not_retained() {
+        // One entry larger than the byte cap can't be kept; insert reports
+        // non-retention so the router won't advertise it as recoverable.
+        let mut inner = Inner::default();
+        let retained = inner.insert("big".into(), "x".repeat(200), 100, 100);
+        assert!(!retained, "oversized single entry must report not-retained");
+        assert!(!inner.map.contains_key("big"));
+        assert_eq!(inner.total_bytes, 0);
+    }
+
+    #[test]
+    fn within_cap_entry_is_retained() {
+        let mut inner = Inner::default();
+        assert!(inner.insert("ok".into(), "x".repeat(50), 100, 100));
+        assert!(inner.map.contains_key("ok"));
     }
 
     #[test]

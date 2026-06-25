@@ -100,15 +100,26 @@ pub async fn route(mut input: CompressInput<'_>, opts: &CompressOptions) -> Comp
 
     // Offload the original and append a recovery footer when CCR is in play.
     let (text, ccr_token) = if ccr_for_call {
-        let token = cache::offload(content);
-        let footer = cache::recovery_footer(&token, original_bytes, out.lossy);
-        let mut text = out.text;
-        text.push_str(&footer);
-        // The footer adds bytes — if it tipped us over the original size, bail.
-        if text.len() >= original_bytes {
-            return CompressedOutput::passthrough(content.to_string(), kind);
+        let (token, retained) = cache::offload_checked(content);
+        if !retained {
+            // The original is too large to keep in memory (over the byte cap)
+            // and the disk tier isn't on, so it can't be recovered. A lossy view
+            // would be irreversible — decline it. A lossless reformat is still
+            // safe to return, just without a (dangling) recovery footer.
+            if out.lossy {
+                return CompressedOutput::passthrough(content.to_string(), kind);
+            }
+            (out.text, None)
+        } else {
+            let footer = cache::recovery_footer(&token, original_bytes, out.lossy);
+            let mut text = out.text;
+            text.push_str(&footer);
+            // The footer adds bytes — if it tipped us over the original size, bail.
+            if text.len() >= original_bytes {
+                return CompressedOutput::passthrough(content.to_string(), kind);
+            }
+            (text, Some(token))
         }
-        (text, Some(token))
     } else {
         (out.text, None)
     };

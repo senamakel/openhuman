@@ -150,6 +150,19 @@ describe('themeSlice', () => {
       expect(state.customThemes[0].colors).toEqual({});
     });
 
+    it('reset restores the source preset base for a preset fork (not empty)', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      // Fork Ocean (light) by editing it, then reset.
+      state = themeReducer(state, setActiveTheme('ocean'));
+      state = themeReducer(state, setThemeToken({ key: 'surface', value: '0 0 0' }));
+      const fork = state.customThemes[0];
+      expect(fork.basedOn).toBe('ocean');
+      state = themeReducer(state, resetActiveTheme());
+      // Ocean's base palette is restored (it defines surface-canvas), not wiped.
+      expect(state.customThemes[0].colors['surface-canvas']).toBe('233 242 252');
+      expect(state.customThemes[0].colors.surface).not.toBe('0 0 0');
+    });
+
     it('deletes a custom theme and falls back to the default family when active', () => {
       let state = themeReducer(undefined, { type: '@@INIT' });
       state = themeReducer(state, upsertCustomTheme(customTheme()));

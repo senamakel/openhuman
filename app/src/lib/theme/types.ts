@@ -16,6 +16,12 @@ export interface Theme {
   isDark: boolean;
   /** Built-in presets cannot be edited in place — editing duplicates them. */
   builtIn: boolean;
+  /**
+   * For custom themes forked from a preset: the source preset variant id (e.g.
+   * `ocean`, `matrix`). Lets "Reset overrides" restore the preset's base palette
+   * rather than the generic Light/Dark defaults.
+   */
+  basedOn?: string;
   /** Colour token overrides, keyed by var name (no `--`) → `"R G B"` channels. */
   colors: Record<string, string>;
   /** Font role overrides → CSS font-family stack. */

@@ -1,13 +1,13 @@
 import { ReactNode, useCallback, useEffect, useRef } from 'react';
 
-import { DARK_THEME_ID, findPreset, LIGHT_THEME_ID } from '../lib/theme/presets';
+import { findFamily, resolveFamilyVariant } from '../lib/theme/presets';
 import type { Theme } from '../lib/theme/types';
 import { useAppSelector } from '../store/hooks';
 import {
   FONT_SIZE_PX,
-  selectActiveThemeId,
+  selectActiveFamilyId,
   selectEffectiveTheme,
-  SYSTEM_THEME_ID,
+  selectThemeVariant,
 } from '../store/themeSlice';
 
 /**
@@ -27,7 +27,8 @@ import {
  */
 const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const fontSize = useAppSelector(state => state.theme.fontSize);
-  const activeThemeId = useAppSelector(selectActiveThemeId);
+  const themeVariant = useAppSelector(selectThemeVariant);
+  const activeFamilyId = useAppSelector(selectActiveFamilyId);
   const effectiveTheme = useAppSelector(selectEffectiveTheme);
 
   // Track which inline vars we set last time so we can clear stale ones.
@@ -87,14 +88,17 @@ const ThemeProvider = ({ children }: { children: ReactNode }) => {
     applyTheme(effectiveTheme);
   }, [effectiveTheme, applyTheme]);
 
-  // When following the OS preference, re-apply on system light/dark flips.
+  // When the active family follows the OS preference (Auto variant), re-apply on
+  // system light/dark flips. Resolves the *active family's* variant (not just
+  // the classic preset), and stays inert for explicit light/dark or a custom
+  // theme (selectActiveFamilyId is '' for custom selections).
   useEffect(() => {
-    if (activeThemeId !== SYSTEM_THEME_ID) return;
+    if (themeVariant !== 'system' || !activeFamilyId) return;
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const listener = () => {
-      const preset = findPreset(mq.matches ? DARK_THEME_ID : LIGHT_THEME_ID);
-      if (preset) applyTheme(preset);
+      const family = findFamily(activeFamilyId) ?? findFamily('classic');
+      if (family) applyTheme(resolveFamilyVariant(family, mq.matches ? 'dark' : 'light'));
     };
     if (mq.addEventListener) {
       mq.addEventListener('change', listener);
@@ -103,7 +107,7 @@ const ThemeProvider = ({ children }: { children: ReactNode }) => {
     // Safari < 14 fallback.
     mq.addListener(listener);
     return () => mq.removeListener(listener);
-  }, [activeThemeId, applyTheme]);
+  }, [themeVariant, activeFamilyId, applyTheme]);
 
   return <>{children}</>;
 };

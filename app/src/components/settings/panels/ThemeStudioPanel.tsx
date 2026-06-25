@@ -294,7 +294,7 @@ const ThemeStudioPanel = () => {
                 key={key}
                 tokenKey={key}
                 label={humanize(key)}
-                value={readToken(key)}
+                value={effectiveTheme.colors[key] ?? readToken(key)}
                 disabled={false}
                 onChange={channels => dispatch(setThemeToken({ key, value: channels }))}
               />
@@ -324,7 +324,7 @@ const ThemeStudioPanel = () => {
                       key={key}
                       tokenKey={key}
                       label={`${humanize(fam)} ${shade}`}
-                      value={readToken(key)}
+                      value={effectiveTheme.colors[key] ?? readToken(key)}
                       disabled={false}
                       onChange={channels => dispatch(setThemeToken({ key, value: channels }))}
                     />
@@ -339,7 +339,7 @@ const ThemeStudioPanel = () => {
       <SettingsSection title={t('settings.theme.fontsHeading', 'Fonts')}>
         <div className="space-y-2 px-1">
           {FONT_ROLES.map(role => {
-            const current = fontChoiceForStack(readFontRole(role));
+            const current = fontChoiceForStack(effectiveTheme.fonts[role] ?? readFontRole(role));
             return (
               <div key={role} className="flex items-center justify-between gap-3">
                 <span className="text-sm text-content">

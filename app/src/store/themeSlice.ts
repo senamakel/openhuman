@@ -3,6 +3,7 @@ import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolki
 import {
   familyForThemeId,
   findFamily,
+  findPreset,
   PRESET_THEMES,
   resolveFamilyVariant,
   THEME_FAMILIES,
@@ -153,12 +154,19 @@ const themeSlice = createSlice({
       const prev = theme.backdrop ?? { kind: 'mesh' as const };
       theme.backdrop = { ...prev, ...action.payload, kind: action.payload.kind ?? prev.kind };
     },
-    /** Clear all overrides on the active custom theme (back to its base). */
+    /**
+     * Clear the user's edits on the active custom theme. For a theme forked
+     * from a preset, restore that preset's base palette/fonts (via `basedOn`)
+     * rather than the generic Light/Dark defaults; otherwise clear to empty.
+     */
     resetActiveTheme(state) {
       const theme = state.customThemes.find(t => t.id === state.activeThemeId);
       if (!theme) return;
-      theme.colors = {};
-      theme.fonts = {};
+      const base = theme.basedOn ? findPreset(theme.basedOn) : undefined;
+      theme.colors = base ? { ...base.colors } : {};
+      theme.fonts = base ? { ...base.fonts } : {};
+      theme.gradient = base?.gradient ? { ...base.gradient } : undefined;
+      theme.backdrop = base?.backdrop ? { ...base.backdrop } : undefined;
     },
     setTabBarLabels(state, action: PayloadAction<TabBarLabels>) {
       state.tabBarLabels = action.payload;
@@ -274,6 +282,7 @@ function ensureEditableCustom(ts: ThemeState): Theme {
       name: `${base.name} (custom)`,
       isDark: base.isDark,
       builtIn: false,
+      basedOn: base.id,
       colors: { ...base.colors },
       fonts: { ...base.fonts },
       gradient: base.gradient ? { ...base.gradient } : undefined,

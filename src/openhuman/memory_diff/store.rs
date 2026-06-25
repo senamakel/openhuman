@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS mem_diff_snapshot_items (
     item_id         TEXT NOT NULL,
     title           TEXT NOT NULL DEFAULT '',
     content_hash    TEXT NOT NULL,
+    content         TEXT,
     timestamp_ms    INTEGER,
     chunk_count     INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (snapshot_id, item_id)
@@ -49,6 +50,12 @@ CREATE TABLE IF NOT EXISTS mem_diff_checkpoint_snapshots (
     checkpoint_id   TEXT NOT NULL REFERENCES mem_diff_checkpoints(id) ON DELETE CASCADE,
     snapshot_id     TEXT NOT NULL REFERENCES mem_diff_snapshots(id) ON DELETE CASCADE,
     PRIMARY KEY (checkpoint_id, snapshot_id)
+);
+
+CREATE TABLE IF NOT EXISTS mem_diff_read_markers (
+    source_id       TEXT PRIMARY KEY,
+    snapshot_id     TEXT NOT NULL,
+    marked_at_ms    INTEGER NOT NULL
 );
 ";
 
@@ -164,13 +171,14 @@ pub fn insert_snapshot(
     )?;
     for item in items {
         tx.execute(
-            "INSERT INTO mem_diff_snapshot_items (snapshot_id, item_id, title, content_hash, timestamp_ms, chunk_count)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO mem_diff_snapshot_items (snapshot_id, item_id, title, content_hash, content, timestamp_ms, chunk_count)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 snapshot.id,
                 item.item_id,
                 item.title,
                 item.content_hash,
+                item.content,
                 item.timestamp_ms,
                 item.chunk_count,
             ],
@@ -241,7 +249,7 @@ pub fn get_snapshot(conn: &Connection, snapshot_id: &str) -> Result<Option<Snaps
 
 pub fn get_snapshot_items(conn: &Connection, snapshot_id: &str) -> Result<Vec<SnapshotItem>> {
     let mut stmt = conn.prepare(
-        "SELECT item_id, title, content_hash, timestamp_ms, chunk_count \
+        "SELECT item_id, title, content_hash, content, timestamp_ms, chunk_count \
          FROM mem_diff_snapshot_items WHERE snapshot_id = ?1 ORDER BY item_id",
     )?;
     let rows = stmt.query_map([snapshot_id], |r| {
@@ -249,8 +257,9 @@ pub fn get_snapshot_items(conn: &Connection, snapshot_id: &str) -> Result<Vec<Sn
             item_id: r.get(0)?,
             title: r.get(1)?,
             content_hash: r.get(2)?,
-            timestamp_ms: r.get(3)?,
-            chunk_count: r.get::<_, i64>(4)? as u32,
+            content: r.get(3)?,
+            timestamp_ms: r.get(4)?,
+            chunk_count: r.get::<_, i64>(5)? as u32,
         })
     })?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
@@ -337,6 +346,40 @@ fn checkpoint_snapshot_ids(conn: &Connection, checkpoint_id: &str) -> Result<Vec
     rows.collect::<Result<Vec<String>, _>>().map_err(Into::into)
 }
 
+// ── Read markers ──────────────────────────────────────────────────────
+
+/// Return the snapshot id a source's read marker currently points at, if any.
+///
+/// The marker records the latest snapshot whose diff has been consumed by the
+/// agent, so the next `diff_since_read` only surfaces newer changes.
+pub fn get_read_marker(conn: &Connection, source_id: &str) -> Result<Option<String>> {
+    conn.query_row(
+        "SELECT snapshot_id FROM mem_diff_read_markers WHERE source_id = ?1",
+        [source_id],
+        |r| r.get::<_, String>(0),
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
+/// Set (or advance) a source's read marker to a snapshot id.
+pub fn upsert_read_marker(
+    conn: &Connection,
+    source_id: &str,
+    snapshot_id: &str,
+    marked_at_ms: i64,
+) -> Result<()> {
+    conn.execute(
+        "INSERT INTO mem_diff_read_markers (source_id, snapshot_id, marked_at_ms)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(source_id) DO UPDATE SET
+            snapshot_id = excluded.snapshot_id,
+            marked_at_ms = excluded.marked_at_ms",
+        params![source_id, snapshot_id, marked_at_ms],
+    )?;
+    Ok(())
+}
+
 // ── Cleanup ───────────────────────────────────────────────────────────
 
 pub fn cleanup_old_snapshots(
@@ -399,6 +442,7 @@ mod tests {
                 item_id: "file_a".to_string(),
                 title: "File A".to_string(),
                 content_hash: "aaa".to_string(),
+                content: Some("alpha".to_string()),
                 timestamp_ms: Some(900),
                 chunk_count: 1,
             },
@@ -406,6 +450,7 @@ mod tests {
                 item_id: "file_b".to_string(),
                 title: "File B".to_string(),
                 content_hash: "bbb".to_string(),
+                content: Some("beta".to_string()),
                 timestamp_ms: Some(950),
                 chunk_count: 2,
             },
@@ -426,6 +471,30 @@ mod tests {
         let loaded_items = get_snapshot_items(&conn, "snap_1").unwrap();
         assert_eq!(loaded_items.len(), 2);
         assert_eq!(loaded_items[0].item_id, "file_a");
+        assert_eq!(loaded_items[0].content.as_deref(), Some("alpha"));
+    }
+
+    #[test]
+    fn read_marker_upsert_and_get() {
+        let conn = test_conn();
+        // No marker initially.
+        assert_eq!(get_read_marker(&conn, "src_a").unwrap(), None);
+
+        upsert_read_marker(&conn, "src_a", "snap_1", 1000).unwrap();
+        assert_eq!(
+            get_read_marker(&conn, "src_a").unwrap().as_deref(),
+            Some("snap_1")
+        );
+
+        // Upsert advances the marker for the same source.
+        upsert_read_marker(&conn, "src_a", "snap_2", 2000).unwrap();
+        assert_eq!(
+            get_read_marker(&conn, "src_a").unwrap().as_deref(),
+            Some("snap_2")
+        );
+
+        // Markers are per-source.
+        assert_eq!(get_read_marker(&conn, "src_b").unwrap(), None);
     }
 
     #[test]

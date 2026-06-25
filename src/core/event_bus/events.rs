@@ -285,6 +285,12 @@ pub enum DomainEvent {
         removed: usize,
         modified: usize,
     },
+    /// Read markers were committed for one or more sources, acknowledging
+    /// their current diffs as consumed.
+    MemoryDiffMarkedRead {
+        source_ids: Vec<String>,
+        snapshot_ids: Vec<String>,
+    },
 
     // ── Channels ────────────────────────────────────────────────────────
     /// An inbound channel message from the transport layer, ready for processing.
@@ -1161,7 +1167,8 @@ impl DomainEvent {
             | Self::MemoryIngestionCompleted { .. }
             | Self::DocumentCanonicalized { .. }
             | Self::MemoryDiffSnapshotTaken { .. }
-            | Self::MemoryDiffComputed { .. } => "memory",
+            | Self::MemoryDiffComputed { .. }
+            | Self::MemoryDiffMarkedRead { .. } => "memory",
 
             Self::CacheRebuilt { .. } => "learning",
 
@@ -1312,6 +1319,7 @@ impl DomainEvent {
             Self::DocumentCanonicalized { .. } => "DocumentCanonicalized",
             Self::MemoryDiffSnapshotTaken { .. } => "MemoryDiffSnapshotTaken",
             Self::MemoryDiffComputed { .. } => "MemoryDiffComputed",
+            Self::MemoryDiffMarkedRead { .. } => "MemoryDiffMarkedRead",
             Self::CacheRebuilt { .. } => "CacheRebuilt",
             Self::ChannelInboundMessage { .. } => "ChannelInboundMessage",
             Self::ChannelMessageReceived { .. } => "ChannelMessageReceived",

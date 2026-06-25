@@ -22,8 +22,10 @@ impl Tool for MemoryDiffTool {
     }
 
     fn description(&self) -> &str {
-        "Check what changed in memory sources since the last sync or a named checkpoint. \
-         Returns a structured summary of added, removed, and modified items across one or all sources."
+        "Check what changed in memory sources since you last looked, the last sync, or a named \
+         checkpoint. Returns a structured summary of added, removed, and modified items. By \
+         default, reading a single source's diff commits a read marker so the next call only \
+         surfaces newer changes (set commit=false to preview without acknowledging)."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -44,6 +46,18 @@ impl Tool for MemoryDiffTool {
                     "type": "boolean",
                     "description": "If true, include line-level text diffs for modified items (truncated).",
                     "default": false
+                },
+                "since_read": {
+                    "type": "boolean",
+                    "description": "When diffing a single source, show changes since you last read \
+                                    this source's diff (vs. since the previous sync). Default true.",
+                    "default": true
+                },
+                "commit": {
+                    "type": "boolean",
+                    "description": "When using since_read, advance the read marker so the next call \
+                                    only surfaces newer changes. Default true; set false to preview.",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -51,6 +65,9 @@ impl Tool for MemoryDiffTool {
     }
 
     fn permission_level(&self) -> PermissionLevel {
+        // Read-only with respect to the user's data: the only write this tool
+        // performs is advancing the read marker in the module's own diff.db
+        // (internal bookkeeping under workspace state, never `action_dir`).
         PermissionLevel::ReadOnly
     }
 
@@ -61,10 +78,13 @@ impl Tool for MemoryDiffTool {
             .get("include_text_diff")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
+        let since_read = args.get("since_read").and_then(|v| v.as_bool()).unwrap_or(true);
+        let commit = args.get("commit").and_then(|v| v.as_bool()).unwrap_or(true);
 
         debug!(
-            "[memory_diff][tool] execute source_id={:?} checkpoint_id={:?} include_text_diff={}",
-            source_id, checkpoint_id, include_text_diff
+            "[memory_diff][tool] execute source_id={:?} checkpoint_id={:?} include_text_diff={} \
+             since_read={} commit={}",
+            source_id, checkpoint_id, include_text_diff, since_read, commit
         );
 
         let config = config_rpc::load_config_with_timeout()
@@ -87,9 +107,15 @@ impl Tool for MemoryDiffTool {
                 .map_err(|e| anyhow::anyhow!(e))?
                 .ok_or_else(|| anyhow::anyhow!("source not found: {sid}"))?;
 
-            let diff = ops::diff_since_last(&source, &config, include_text_diff)
-                .await
-                .map_err(|e| anyhow::anyhow!(e))?;
+            let diff = if since_read {
+                ops::diff_since_read(&source, &config, include_text_diff, commit)
+                    .await
+                    .map_err(|e| anyhow::anyhow!(e))?
+            } else {
+                ops::diff_since_last(&source, &config, include_text_diff)
+                    .await
+                    .map_err(|e| anyhow::anyhow!(e))?
+            };
             let md = format_diff_result(&diff);
             return Ok(ToolResult::success(md));
         }

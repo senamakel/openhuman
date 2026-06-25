@@ -15,6 +15,11 @@ use super::types::*;
 const DEFAULT_RETENTION_DAYS: u32 = 30;
 const MAX_SNAPSHOTS_PER_SOURCE: u32 = 100;
 const MAX_TEXT_DIFF_CHARS: usize = 2000;
+/// Upper bound on per-item content persisted into a snapshot, so the "from"
+/// side of a text diff survives the next sync overwriting the live chunk
+/// store. Items larger than this skip content capture (`content = None`);
+/// hash-based add/remove/modify detection still works for them.
+const MAX_SNAPSHOT_CONTENT_BYTES: usize = 64 * 1024;
 
 /// Take a snapshot of the current chunk-store state for a source.
 ///
@@ -61,10 +66,18 @@ pub async fn take_snapshot(
                 .map(|(item_id, acc)| {
                     let concat = acc.content_parts.join("");
                     let hash = sha256_hex(concat.as_bytes());
+                    let title = derive_title(&item_id, &concat);
+                    // Persist bounded content so a future diff has both sides.
+                    let content = if concat.len() <= MAX_SNAPSHOT_CONTENT_BYTES {
+                        Some(concat)
+                    } else {
+                        None
+                    };
                     SnapshotItem {
                         item_id,
-                        title: String::new(),
+                        title,
                         content_hash: hash,
+                        content,
                         timestamp_ms: acc.max_timestamp_ms,
                         chunk_count: acc.chunk_count,
                     }
@@ -239,9 +252,8 @@ pub async fn compute_diff(
             .collect();
 
         if !modified_ids.is_empty() {
-            let source_id = to_snap.source_id.clone();
             let text_diffs =
-                compute_text_diffs_from_chunks(config, &source_id, &modified_ids).await;
+                compute_text_diffs_from_snapshots(&from_map, &to_map, &modified_ids);
 
             for change in &mut changes {
                 if change.kind == ChangeKind::Modified {
@@ -295,6 +307,137 @@ pub async fn diff_since_last(
             .await
         }
     }
+}
+
+/// Diff a source's latest snapshot against its read marker — i.e. everything
+/// that changed since the agent last *read* this source's diff.
+///
+/// When `commit` is true, the read marker is advanced to the head snapshot
+/// after the diff is computed, so a subsequent call returns only newer
+/// changes. This is the turn-to-turn primitive: read the world delta, then
+/// acknowledge it as consumed.
+pub async fn diff_since_read(
+    source: &MemorySourceEntry,
+    config: &Config,
+    include_text_diff: bool,
+    commit: bool,
+) -> Result<DiffResult, String> {
+    let workspace_dir = config.workspace_dir.clone();
+    let source_id = source.id.clone();
+
+    // Resolve head (latest snapshot) and the marker's base snapshot. If the
+    // marker points at a snapshot that has since been cleaned up, treat it as
+    // unread (base = None) rather than erroring.
+    let (head, base_id) = tokio::task::spawn_blocking(move || {
+        store::with_connection(&workspace_dir, |conn| {
+            let head = store::latest_snapshots_for_source(conn, &source_id, 1)?
+                .into_iter()
+                .next();
+            let marker = store::get_read_marker(conn, &source_id)?;
+            let base_id = match marker {
+                Some(snap_id) if store::get_snapshot(conn, &snap_id)?.is_some() => Some(snap_id),
+                _ => None,
+            };
+            Ok((head, base_id))
+        })
+    })
+    .await
+    .map_err(|e| format!("diff_since_read join: {e}"))?
+    .map_err(|e: anyhow::Error| format!("diff_since_read: {e:#}"))?;
+
+    let head = head.ok_or_else(|| "no snapshots found for this source".to_string())?;
+
+    // Marker already at head → nothing new since last read.
+    let from_id = match &base_id {
+        Some(id) if *id == head.id => Some(head.id.as_str()),
+        Some(id) => Some(id.as_str()),
+        None => None,
+    };
+
+    let diff = compute_diff(config, from_id, &head.id, include_text_diff).await?;
+
+    if commit {
+        let workspace_dir = config.workspace_dir.clone();
+        let source_id = source.id.clone();
+        let head_id = head.id.clone();
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        tokio::task::spawn_blocking(move || {
+            store::with_connection(&workspace_dir, |conn| {
+                store::upsert_read_marker(conn, &source_id, &head_id, now_ms)
+            })
+        })
+        .await
+        .map_err(|e| format!("diff_since_read commit join: {e}"))?
+        .map_err(|e: anyhow::Error| format!("diff_since_read commit: {e:#}"))?;
+
+        tracing::debug!(
+            source_id = %source.id,
+            snapshot_id = %head.id,
+            added = diff.summary.added,
+            modified = diff.summary.modified,
+            removed = diff.summary.removed,
+            "[memory_diff] read marker committed"
+        );
+    }
+
+    Ok(diff)
+}
+
+/// Commit a read marker for one or more sources, advancing each to its
+/// current head snapshot. When `source_ids` is `None`, marks all enabled
+/// sources that have at least one snapshot. Returns the number of markers set.
+pub async fn mark_read(
+    config: &Config,
+    source_ids: Option<Vec<String>>,
+) -> Result<u64, String> {
+    let target_ids: Vec<String> = match source_ids {
+        Some(ids) => ids,
+        None => crate::openhuman::memory_sources::registry::list_sources()
+            .await
+            .map_err(|e| format!("list sources: {e}"))?
+            .into_iter()
+            .filter(|s| s.enabled)
+            .map(|s| s.id)
+            .collect(),
+    };
+
+    let workspace_dir = config.workspace_dir.clone();
+    let ids_for_blocking = target_ids.clone();
+    let (marked, snapshot_ids) = tokio::task::spawn_blocking(move || {
+        store::with_connection(&workspace_dir, |conn| {
+            let now_ms = chrono::Utc::now().timestamp_millis();
+            let mut count = 0u64;
+            let mut snapshot_ids = Vec::new();
+            for sid in &ids_for_blocking {
+                if let Some(head) = store::latest_snapshots_for_source(conn, sid, 1)?
+                    .into_iter()
+                    .next()
+                {
+                    store::upsert_read_marker(conn, sid, &head.id, now_ms)?;
+                    snapshot_ids.push(head.id);
+                    count += 1;
+                }
+            }
+            Ok((count, snapshot_ids))
+        })
+    })
+    .await
+    .map_err(|e| format!("mark_read join: {e}"))?
+    .map_err(|e: anyhow::Error| format!("mark_read: {e:#}"))?;
+
+    tracing::debug!(
+        sources = marked,
+        "[memory_diff] mark_read committed read markers"
+    );
+
+    crate::core::event_bus::publish_global(
+        crate::core::event_bus::DomainEvent::MemoryDiffMarkedRead {
+            source_ids: target_ids,
+            snapshot_ids,
+        },
+    );
+
+    Ok(marked)
 }
 
 /// Create a checkpoint that groups the latest snapshot per enabled source.
@@ -511,19 +654,56 @@ fn truncate(s: &str, max_chars: usize) -> String {
     }
 }
 
-/// For modified items, read chunk content from the store and compute unified diffs.
-async fn compute_text_diffs_from_chunks(
-    config: &Config,
-    source_id: &str,
+/// Derive a human-readable title for an item from its content.
+///
+/// Uses the first non-empty line (a Markdown heading marker is stripped),
+/// trimmed and bounded. Falls back to the item id when no usable line exists
+/// (e.g. binary or empty content) so the diff output is never blank.
+fn derive_title(item_id: &str, content: &str) -> String {
+    let first_line = content
+        .lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .map(|l| l.trim_start_matches('#').trim());
+
+    match first_line {
+        Some(l) if !l.is_empty() => truncate(l, 120),
+        _ => item_id.to_string(),
+    }
+}
+
+/// Compute unified text diffs for modified items from the content stored in
+/// the two snapshots being compared. Both sides are read from the diff DB
+/// (bounded content captured at snapshot time), so this works even after the
+/// live chunk store has been overwritten by a later sync. Items whose content
+/// was too large to capture (`content = None` on either side) are skipped.
+fn compute_text_diffs_from_snapshots(
+    from_items: &HashMap<&str, &SnapshotItem>,
+    to_items: &HashMap<&str, &SnapshotItem>,
     item_ids: &[String],
 ) -> HashMap<String, String> {
-    // Text diffs require reading the current chunk content — this is already
-    // in the DB, not an API call. However, we only have the *current* content
-    // (the "to" side). The "from" side was overwritten by the new sync.
-    // For now, we note this limitation and return empty diffs.
-    // A future enhancement could store content snapshots or use the raw files.
-    let _ = (config, source_id, item_ids);
-    HashMap::new()
+    let mut out = HashMap::new();
+    for item_id in item_ids {
+        let (Some(from), Some(to)) = (
+            from_items.get(item_id.as_str()),
+            to_items.get(item_id.as_str()),
+        ) else {
+            continue;
+        };
+        let (Some(old), Some(new)) = (from.content.as_deref(), to.content.as_deref()) else {
+            continue;
+        };
+        let diff = similar::TextDiff::from_lines(old, new);
+        let unified = diff
+            .unified_diff()
+            .context_radius(3)
+            .header("before", "after")
+            .to_string();
+        if !unified.trim().is_empty() {
+            out.insert(item_id.clone(), unified);
+        }
+    }
+    out
 }
 
 #[derive(Default)]

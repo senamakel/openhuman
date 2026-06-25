@@ -118,9 +118,9 @@ export function AgentProcessSourcePanel({
         className="absolute inset-0 bg-stone-900/30 dark:bg-black/50"
         onClick={onClose}
       />
-      <aside className="relative flex h-full w-full max-w-[600px] flex-col bg-white shadow-xl dark:bg-neutral-900">
+      <aside className="relative flex h-full w-full max-w-[600px] flex-col bg-surface shadow-xl">
         {/* Header */}
-        <header className="flex items-center gap-2.5 border-b border-stone-200 px-4 py-3 dark:border-neutral-800">
+        <header className="flex items-center gap-2.5 border-b border-line px-4 py-3">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-500 dark:bg-primary-500/15">
             <AgentSparkIcon />
           </span>
@@ -143,7 +143,7 @@ export function AgentProcessSourcePanel({
         {/* Body — the full agent timeline, then the visited sources. */}
         <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
           <section>
-            <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
+            <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-content-faint uppercase">
               {t('conversations.agentTaskInsights.stepsHeading')}
             </h3>
             {scopedEntry ? (
@@ -151,11 +151,11 @@ export function AgentProcessSourcePanel({
               scopedEntry.subagent ? (
                 <SubagentActivityBlock subagent={scopedEntry.subagent} />
               ) : scopedDetail ? (
-                <pre className="max-h-[60vh] overflow-y-auto rounded-lg bg-stone-50 px-3 py-2 text-[12px] whitespace-pre-wrap break-words text-stone-600 dark:bg-neutral-800/60 dark:text-neutral-300">
+                <pre className="max-h-[60vh] overflow-y-auto rounded-lg bg-surface-muted px-3 py-2 text-[12px] whitespace-pre-wrap break-words text-content-secondary">
                   {scopedDetail}
                 </pre>
               ) : (
-                <p className="text-xs text-stone-400 italic dark:text-neutral-500">
+                <p className="text-xs text-content-faint italic">
                   {t('conversations.agentTaskInsights.noSteps')}
                 </p>
               )
@@ -167,7 +167,7 @@ export function AgentProcessSourcePanel({
               // which already nests each sub-agent's full activity inline.
               <ToolTimelineBlock entries={entries} expandAllRows />
             ) : (
-              <p className="text-xs text-stone-400 italic dark:text-neutral-500">
+              <p className="text-xs text-content-faint italic">
                 {t('conversations.agentTaskInsights.noSteps')}
               </p>
             )}
@@ -179,7 +179,7 @@ export function AgentProcessSourcePanel({
               fallback above already expands it. */}
           {!scopedEntry && transcript.length > 0 && subagentEntries.length > 0 ? (
             <section>
-              <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
+              <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-content-faint uppercase">
                 {t('conversations.agentTaskInsights.subagentsHeading')}
               </h3>
               <div className="space-y-3">
@@ -197,7 +197,7 @@ export function AgentProcessSourcePanel({
 
           {sources.length > 0 ? (
             <section>
-              <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
+              <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-content-faint uppercase">
                 {t('conversations.agentTaskInsights.sourcesHeading')}
               </h3>
               <ul className="space-y-0.5">

@@ -7,7 +7,7 @@ import { useRootSidebar } from './RootShellLayout';
 import { useHomeNav } from './useHomeNav';
 
 const ICON_BTN =
-  'flex h-7 w-7 flex-none items-center justify-center rounded-md text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200';
+  'flex h-7 w-7 flex-none items-center justify-center rounded-md text-content-muted transition-colors hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200';
 
 /**
  * Thin utility header at the top of the root sidebar: jump Home, open the

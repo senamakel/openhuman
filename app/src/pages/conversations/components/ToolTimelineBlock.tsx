@@ -61,7 +61,7 @@ function StatusTag({ status }: { status: ToolTimelineEntryStatus }) {
         : status === 'cancelled'
           ? {
               label: t('conversations.agentTaskInsights.cancelled'),
-              classes: 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400',
+              classes: 'bg-surface-subtle text-content-muted',
             }
           : status === 'awaiting_user'
             ? {
@@ -105,7 +105,7 @@ function ToolCallRow({
         {call.displayName ?? formatToolName(call.toolName)}
       </span>
       {call.detail ? (
-        <span className="rounded bg-stone-100 px-1 font-mono text-[11px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+        <span className="rounded bg-surface-subtle px-1 font-mono text-[11px] text-content-muted">
           {call.detail}
         </span>
       ) : null}
@@ -138,7 +138,7 @@ function ThoughtBlock({ text }: { text: string }) {
   return (
     <div
       data-testid="subagent-thought"
-      className="my-0.5 border-l-2 border-stone-200 pl-2 text-[12px] break-words text-stone-500 italic dark:border-neutral-700 dark:text-neutral-400">
+      className="my-0.5 border-l-2 border-line pl-2 text-[12px] break-words text-content-muted italic">
       “{clean}”
     </div>
   );
@@ -277,7 +277,7 @@ export function SubagentActivityBlock({
       ) : null}
       {subagent.worktreePath ? (
         <div
-          className="mt-1 space-y-1 rounded-md border border-stone-200 bg-stone-50/70 p-1.5 dark:border-neutral-800 dark:bg-neutral-900/50"
+          className="mt-1 space-y-1 rounded-md border border-line bg-stone-50/70 p-1.5 dark:bg-neutral-900/50"
           data-testid="subagent-worktree">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="font-medium text-content-secondary">
@@ -527,7 +527,7 @@ export function ToolTimelineBlock({
               onClick={onViewWholeRun}
               data-testid="view-process-source"
               className="group/insights-link flex items-center gap-1.5 text-left">
-              <span className="text-[13px] font-medium text-stone-500 group-hover/insights-link:underline dark:text-neutral-400">
+              <span className="text-[13px] font-medium text-content-muted group-hover/insights-link:underline">
                 {t('conversations.agentTaskInsights.title')}
               </span>
               <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
@@ -547,7 +547,7 @@ export function ToolTimelineBlock({
     <details open className="group/insights mb-2 px-1 py-0" data-testid="agent-task-insights">
       <summary className="mb-1.5 flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
         {titleLabel}
-        <span className="text-[11px] text-stone-400 transition-transform group-open/insights:rotate-90 dark:text-neutral-500">
+        <span className="text-[11px] text-content-faint transition-transform group-open/insights:rotate-90">
           ▶
         </span>
         {wholeRunLink}

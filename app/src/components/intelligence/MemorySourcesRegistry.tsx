@@ -493,7 +493,7 @@ export function MemorySourcesRegistry({
 
   return (
     <section
-      className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+      className="rounded-lg border border-line bg-surface p-4"
       data-testid="memory-sources">
       <header className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-content-secondary">
@@ -646,7 +646,7 @@ function MemorySyncSchedule({ lastSyncMs, onToast }: MemorySyncScheduleProps) {
 
   return (
     <div
-      className="mb-3 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-800/40"
+      className="mb-3 rounded-md border border-line bg-surface-muted p-3"
       data-testid="memory-sync-schedule">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
@@ -681,7 +681,7 @@ function MemorySyncSchedule({ lastSyncMs, onToast }: MemorySyncScheduleProps) {
                   disabled:cursor-not-allowed disabled:opacity-50 ${
                     isSelected
                       ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-500/50 dark:bg-primary-500/10 dark:text-primary-300'
-                      : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                      : 'border-line bg-surface text-content-secondary hover:bg-surface-hover'
                   }`}>
                 {intervalChipLabel(secs, t)}
               </button>
@@ -742,11 +742,11 @@ function SourceRow({
               className={`truncate text-sm font-medium ${
                 source.enabled
                   ? 'text-content'
-                  : 'text-stone-400 line-through dark:text-neutral-500'
+                  : 'text-content-faint line-through'
               }`}>
               {source.label}
             </span>
-            <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+            <span className="rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
               {kindLabel}
             </span>
             {status && status.chunks_synced > 0 && <FreshnessPill freshness={status.freshness} />}
@@ -834,7 +834,7 @@ function SourceRow({
             className={`rounded p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 ${
               settingsExpanded
                 ? 'bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400'
-                : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300'
+                : 'text-content-faint hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-300'
             }`}>
             <GearIcon />
           </button>

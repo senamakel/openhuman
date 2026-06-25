@@ -131,8 +131,8 @@ export function JobStatusBadge({ status }: { status: string }) {
           : status === 'DISPUTED'
             ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
             : status === 'CANCELLED'
-              ? 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400'
-              : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400';
+              ? 'bg-surface-subtle text-content-secondary'
+              : 'bg-surface-subtle text-content-secondary';
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
       {status}
@@ -265,7 +265,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             required
             value={title}
             onChange={e => setTitle(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="e.g. Build a Solana integration"
           />
         </div>
@@ -277,7 +277,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             rows={3}
             value={description}
             onChange={e => setDescription(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="Describe the work, requirements, and deliverables"
           />
         </div>
@@ -289,7 +289,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             type="text"
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="e.g. development, design, research"
           />
         </div>
@@ -301,7 +301,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             type="text"
             value={skillsCsv}
             onChange={e => setSkillsCsv(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="e.g. React, TypeScript"
           />
         </div>
@@ -315,7 +315,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               required
               value={budgetAmount}
               onChange={e => setBudgetAmount(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder="500"
             />
           </div>
@@ -327,7 +327,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               type="text"
               value={budgetAsset}
               onChange={e => setBudgetAsset(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder="USDC"
             />
           </div>
@@ -340,7 +340,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             type="date"
             value={proposalDeadline}
             onChange={e => setProposalDeadline(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
           />
         </div>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
@@ -442,7 +442,7 @@ function ApplyModal({
               rows={4}
               value={coverLetter}
               onChange={e => setCoverLetter(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder={t('agentworld.jobs.applyModal.coverLetterPlaceholder')}
             />
           </div>
@@ -454,7 +454,7 @@ function ApplyModal({
               type="text"
               value={bidAmount}
               onChange={e => setBidAmount(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder={t('agentworld.jobs.applyModal.bidAmountPlaceholder')}
             />
           </div>
@@ -466,7 +466,7 @@ function ApplyModal({
               type="text"
               value={estimatedDelivery}
               onChange={e => setEstimatedDelivery(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder={t('agentworld.jobs.applyModal.deliveryPlaceholder')}
             />
           </div>
@@ -542,7 +542,7 @@ function DisputeModal({
             required
             value={reason}
             onChange={e => setReason(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="Describe the issue that requires dispute resolution"
           />
         </div>
@@ -607,7 +607,7 @@ function JobRow({
   const proposalLabel = `${job.proposalCount} proposal${job.proposalCount !== 1 ? 's' : ''}`;
 
   return (
-    <div className="border-b border-stone-100 last:border-0 dark:border-neutral-800">
+    <div className="border-b border-line-subtle last:border-0">
       {/* Summary row — avatar · stacked content · fixed meta column */}
       <button
         type="button"
@@ -661,7 +661,7 @@ function JobRow({
             {relativeTime(job.createdAt)}
           </span>
           <svg
-            className={`h-4 w-4 shrink-0 text-stone-400 transition-transform dark:text-neutral-500 ${expanded ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 shrink-0 text-content-faint transition-transform ${expanded ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24">
@@ -672,7 +672,7 @@ function JobRow({
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="border-t border-stone-100 bg-stone-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+        <div className="border-t border-line-subtle bg-surface-muted px-4 py-3">
           {/* Description */}
           <p className="mb-3 whitespace-pre-wrap text-sm text-content-secondary">
             {job.description}
@@ -865,7 +865,7 @@ function JobRow({
                         {job.dispute.jury.map((vote, i) => (
                           <tr
                             key={i}
-                            className="border-b border-stone-100 last:border-0 dark:border-neutral-800">
+                            className="border-b border-line-subtle last:border-0">
                             <td className="py-0.5 font-mono text-content">
                               {vote.model}
                             </td>
@@ -1001,7 +1001,7 @@ function JobRow({
                   {proposals.map(p => (
                     <div
                       key={p.proposalId}
-                      className="rounded border border-stone-200 bg-white p-2 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+                      className="rounded border border-line bg-surface p-2 text-xs">
                       <div className="mb-1 flex items-center gap-2">
                         <span className="font-mono text-content-secondary">
                           {p.candidate.slice(0, 8)}…
@@ -1223,7 +1223,7 @@ export default function JobsSection() {
     );
   } else {
     body = (
-      <div className="rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="rounded-lg border border-line bg-surface">
         {jobsState.jobs.map(job => (
           <JobRow
             key={job.jobId}

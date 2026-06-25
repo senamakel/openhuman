@@ -198,7 +198,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="w-full max-w-lg rounded-xl border border-line bg-surface p-6 shadow-xl">
         <h2 className="text-lg font-semibold text-content">
           {t('memorySources.addSource')}
         </h2>

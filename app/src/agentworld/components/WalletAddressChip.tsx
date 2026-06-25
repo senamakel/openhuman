@@ -192,7 +192,7 @@ export default function WalletAddressChip() {
         }}
         aria-label={t('agentWorld.walletRetry')}
         title={t('agentWorld.walletRetry')}
-        className="flex items-center gap-1.5 text-stone-400 transition-colors hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-500">
+        className="flex items-center gap-1.5 text-content-faint transition-colors hover:text-content-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-500">
         <WalletIcon />
         <span className="text-[11px] leading-none">{t('agentWorld.walletUnavailable')}</span>
       </button>
@@ -228,7 +228,7 @@ export default function WalletAddressChip() {
         aria-label={copied ? t('agentWorld.addressCopied') : t('agentWorld.copyAddress')}
         title={copied ? t('agentWorld.addressCopied') : t('agentWorld.copyAddress')}
         onClick={() => void handleCopy(address)}
-        className="shrink-0 rounded p-0.5 text-stone-400 transition-colors hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-500">
+        className="shrink-0 rounded p-0.5 text-content-faint transition-colors hover:text-content-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-500">
         {copied ? <CheckIcon /> : <CopyIcon />}
       </button>
     </div>

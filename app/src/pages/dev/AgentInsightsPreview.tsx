@@ -105,7 +105,7 @@ export default function AgentInsightsPreview() {
   const [panelOpen, setPanelOpen] = useState(false);
 
   return (
-    <div className="h-full overflow-y-auto bg-white p-8 dark:bg-neutral-900">
+    <div className="h-full overflow-y-auto bg-surface p-8">
       <div className="mx-auto max-w-2xl space-y-6">
         <header>
           <h1 className="text-lg font-bold text-content">

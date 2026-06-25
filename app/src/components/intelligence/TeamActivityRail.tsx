@@ -61,7 +61,7 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
   };
 
   return (
-    <aside className="rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+    <aside className="rounded-lg border border-line bg-surface p-3">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
           {t('intelligence.teams.activity.title')}
@@ -103,13 +103,13 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
       )}
 
       {onSend && (
-        <div className="mt-3 border-t border-stone-100 pt-2 dark:border-neutral-800">
+        <div className="mt-3 border-t border-line-subtle pt-2">
           <div className="flex items-center gap-1.5">
             <select
               value={recipient}
               onChange={e => setRecipient(e.target.value)}
               aria-label={t('intelligence.teams.composer.recipient')}
-              className="max-w-[40%] flex-none rounded-md border border-stone-200 bg-white px-1.5 py-1 text-[11px] text-stone-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+              className="max-w-[40%] flex-none rounded-md border border-line bg-surface px-1.5 py-1 text-[11px] text-content-secondary">
               <option value="">{t('intelligence.teams.composer.toTeam')}</option>
               {members.map(m => (
                 <option key={m.id} value={m.id}>
@@ -129,7 +129,7 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
                 }
               }}
               placeholder={t('intelligence.teams.composer.placeholder')}
-              className="min-w-0 flex-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] text-stone-700 placeholder:text-stone-400 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+              className="min-w-0 flex-1 rounded-md border border-line px-2 py-1 text-[11px] text-content-secondary placeholder:text-stone-400 disabled:opacity-50 dark:bg-neutral-900"
             />
             <button
               type="button"

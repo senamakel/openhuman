@@ -120,7 +120,7 @@ const AgentsPanel = () => {
       ) : agents.length === 0 ? (
         <SettingsEmptyState label={t('settings.agents.empty')} />
       ) : (
-        <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+        <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl border border-line dark:divide-neutral-800">
           {agents.map(agent => (
             <AgentRow
               key={agent.id}
@@ -159,7 +159,7 @@ function AgentRow({
     : t('settings.agents.toolsCount').replace('{count}', String(tools.length));
 
   return (
-    <li className={`bg-white px-4 py-3 dark:bg-neutral-900 ${agent.enabled ? '' : 'opacity-70'}`}>
+    <li className={`bg-surface px-4 py-3 ${agent.enabled ? '' : 'opacity-70'}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h3 className="truncate text-sm font-semibold text-content">

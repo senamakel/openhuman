@@ -65,18 +65,64 @@ function buildRules() {
   return rules;
 }
 
-/** Apply all rules to `text`; returns { out, counts }. */
+// A "class run": 2+ adjacent class-like tokens on one line. Used by the grouped
+// pass so we can pair a light class with its `dark:` partner even when they
+// aren't adjacent (e.g. `border-stone-200 bg-white dark:border-neutral-800
+// dark:bg-neutral-900` — all light classes first, then all dark ones).
+const CLASS_RUN_RE = /[\w:/.@[\]-]+(?:[ \t]+[\w:/.@[\]-]+)+/g;
+
+/**
+ * Grouped-pairing pass: within each class run, if BOTH a mapping's light class
+ * and its `dark:` partner are present (in any order, any distance), replace the
+ * light class with the semantic class and drop the dark one. Only the prefix-
+ * free pairs apply (hover:/focus: states are handled by the adjacent pass).
+ */
+function transformGrouped(text, pairs, counts) {
+  return text.replace(CLASS_RUN_RE, (run) => {
+    const toks = run.split(/[ \t]+/);
+    const set = new Set(toks);
+    let changed = false;
+    for (const [light, dark, to] of pairs) {
+      if (light.includes(':')) continue; // skip prefixed (hover:/focus:) pairs
+      if (!set.has(light) || !set.has(dark)) continue;
+      for (let i = 0; i < toks.length; i++) {
+        if (toks[i] === dark) toks[i] = null;
+        else if (toks[i] === light) toks[i] = to;
+      }
+      set.delete(light);
+      set.delete(dark);
+      set.add(to);
+      changed = true;
+      const name = `${light} + ${dark} → ${to}`;
+      counts[name] = (counts[name] || 0) + 1;
+    }
+    // Only rewrite runs we actually changed; rebuild with single spaces.
+    return changed ? toks.filter((t) => t !== null).join(' ') : run;
+  });
+}
+
+/**
+ * Apply all rules to `text`; returns { out, counts }.
+ *
+ * Adjacent rules and the grouped pass are looped until the text stabilises: the
+ * grouped pass can leave a `hover:` pair adjacent that only the adjacent rules
+ * handle, so a single round isn't a fixed point. Looping makes one invocation
+ * fully idempotent (a re-run finds nothing).
+ */
 function transform(text, rules) {
   let out = text;
   const counts = {};
-  for (const rule of rules) {
-    let n = 0;
-    out = out.replace(rule.re, (_m, l, r) => {
-      n++;
-      return `${l}${rule.to}${r}`;
-    });
-    if (n) counts[rule.name] = (counts[rule.name] || 0) + n;
-  }
+  let prev;
+  do {
+    prev = out;
+    for (const rule of rules) {
+      out = out.replace(rule.re, (_m, l, r) => {
+        counts[rule.name] = (counts[rule.name] || 0) + 1;
+        return `${l}${rule.to}${r}`;
+      });
+    }
+    out = transformGrouped(out, PAIRS, counts);
+  } while (out !== prev);
   return { out, counts };
 }
 
@@ -114,6 +160,19 @@ function runSelfTest() {
     [
       'className="border-stone-200 dark:border-neutral-800 rounded"',
       'className="border-line rounded"',
+    ],
+    // Grouped pattern: light classes first, dark classes after (non-adjacent).
+    [
+      'className="border p-3 transition-colors border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"',
+      'className="border p-3 transition-colors border-line bg-surface"',
+    ],
+    [
+      'className="bg-stone-100 font-medium text-stone-900 dark:bg-neutral-800 dark:text-neutral-100"',
+      'className="bg-surface-subtle font-medium text-content"',
+    ],
+    [
+      'className="relative flex w-full bg-white shadow-xl dark:bg-neutral-900"',
+      'className="relative flex w-full bg-surface shadow-xl"',
     ],
     [
       'className="hover:bg-stone-50 dark:hover:bg-neutral-800"',

@@ -241,7 +241,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
   }, [agentId]);
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="rounded-lg border border-line bg-surface p-4">
       <div className="flex items-start gap-4">
         {avatarUrl ? (
           <img
@@ -289,13 +289,13 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
       </div>
 
       {skills.length > 0 && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+        <div className="mt-4 border-t border-line pt-4">
           <h4 className="mb-2 text-xs font-medium text-content">Skills</h4>
           <div className="flex flex-wrap gap-1.5">
             {skills.map(skill => (
               <span
                 key={skill}
-                className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600 dark:bg-neutral-800 dark:text-neutral-300">
+                className="rounded-full bg-surface-subtle px-2 py-0.5 text-xs text-content-secondary">
                 {skill}
               </span>
             ))}
@@ -304,7 +304,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
       )}
 
       {attestations.length > 0 && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+        <div className="mt-4 border-t border-line pt-4">
           <h4 className="mb-2 text-xs font-medium text-content">
             Verified Accounts
           </h4>
@@ -321,7 +321,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
       )}
 
       {ownedIdentities.length > 0 && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+        <div className="mt-4 border-t border-line pt-4">
           <h4 className="mb-2 text-xs font-medium text-content">
             Handles owned{ownedIdentities.length > 1 ? ` (${ownedIdentities.length})` : ''}
           </h4>
@@ -329,7 +329,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
             {ownedIdentities.map(id => (
               <div
                 key={id.username}
-                className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-1.5 text-sm dark:border-neutral-800">
+                className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-1.5 text-sm">
                 <span className="truncate font-medium text-content">
                   @{id.username.replace(/^@+/, '')}
                 </span>
@@ -350,7 +350,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
       )}
 
       {followStats && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+        <div className="mt-4 border-t border-line pt-4">
           <div className="flex gap-6">
             <div>
               <span className="text-sm font-semibold text-content">
@@ -371,7 +371,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
       )}
 
       {createdAt && (
-        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+        <div className="mt-4 border-t border-line pt-4">
           <span className="text-xs text-content-muted">
             Joined {formatDate(createdAt)}
           </span>
@@ -379,7 +379,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
       )}
 
       {/* Export identity */}
-      <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+      <div className="mt-4 border-t border-line pt-4">
         <Button variant="secondary" size="sm" disabled={exportLoading} onClick={handleExport}>
           {exportLoading ? 'Exporting...' : exportData ? 'Hide Export' : 'Export Identity'}
         </Button>
@@ -387,7 +387,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
           <p className="mt-2 text-xs text-red-600 dark:text-red-400">{exportError}</p>
         )}
         {exportData && (
-          <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-stone-50 p-3 text-xs text-stone-700 dark:bg-neutral-950 dark:text-neutral-300">
+          <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-surface-muted p-3 text-xs text-content-secondary">
             {JSON.stringify(exportData, null, 2)}
           </pre>
         )}

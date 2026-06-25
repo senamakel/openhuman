@@ -226,7 +226,7 @@ export default function SidebarAppRail() {
       <div
         data-testid="sidebar-app-rail"
         data-analytics-id="sidebar-app-rail"
-        className="scrollbar-hide flex flex-none items-center gap-1.5 overflow-x-auto overflow-y-hidden border-b border-stone-100 px-2 py-2 dark:border-neutral-800">
+        className="scrollbar-hide flex flex-none items-center gap-1.5 overflow-x-auto overflow-y-hidden border-b border-line-subtle px-2 py-2">
         <RailButton
           active={isAgentSelected}
           onClick={selectAgent}
@@ -260,7 +260,7 @@ export default function SidebarAppRail() {
           }}
           data-analytics-id="sidebar-app-rail-add-account"
           data-testid="accounts-add-button"
-          className={`group relative flex h-9 flex-none items-center justify-center gap-1.5 rounded-xl border border-dashed border-stone-300 text-stone-400 transition-colors hover:bg-stone-50 hover:text-stone-600 dark:border-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-300 ${
+          className={`group relative flex h-9 flex-none items-center justify-center gap-1.5 rounded-xl border border-dashed border-line-strong text-content-faint transition-colors hover:bg-stone-50 hover:text-stone-600 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-300 ${
             showAddLabel ? 'w-auto px-2.5' : 'w-9'
           }`}
           aria-label={t('accounts.addApps')}

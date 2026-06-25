@@ -303,7 +303,7 @@ const CronJobFormModal = ({
             aria-label={t('settings.cron.jobs.formCancel')}
             data-testid="cron-form-cancel"
             onClick={onClose}
-            className="text-xl leading-none text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+            className="text-xl leading-none text-content-faint hover:text-content-secondary">
             &times;
           </Button>
         </div>

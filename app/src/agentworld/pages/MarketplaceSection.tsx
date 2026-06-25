@@ -535,9 +535,9 @@ function StatusBadge({ status }: { status: string }) {
     funded: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
     accepted: 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300',
     delivered: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-    settled: 'bg-stone-200 text-stone-600 dark:bg-neutral-700 dark:text-neutral-300',
+    settled: 'bg-surface-strong text-content-secondary',
     cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-    expired: 'bg-stone-100 text-stone-400 dark:bg-neutral-800 dark:text-neutral-500',
+    expired: 'bg-surface-subtle text-content-faint',
   };
   const cls =
     colorMap[status] ?? 'bg-surface-subtle text-content-muted';

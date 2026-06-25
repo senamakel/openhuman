@@ -86,7 +86,7 @@ function SourceBadge({ source }: { source: string }) {
   };
   const colors =
     SOURCE_COLORS[source] ??
-    'bg-stone-50 text-stone-600 border-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700';
+    'bg-surface-muted text-content-secondary border-line';
   return (
     <span
       className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${colors}`}>
@@ -127,7 +127,7 @@ function SkillFormatBadge({ format }: { format: string }) {
   const entry = FORMAT_MAP[lower] ?? {
     label: format || 'Skill',
     colors:
-      'bg-stone-50 text-stone-600 border-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700',
+      'bg-surface-muted text-content-secondary border-line',
   };
   return (
     <span

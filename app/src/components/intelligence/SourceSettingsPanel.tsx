@@ -138,7 +138,7 @@ export function SourceSettingsPanel({
 
   return (
     <div
-      className="mt-2 ml-7 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-neutral-700 dark:bg-neutral-800/60"
+      className="mt-2 ml-7 rounded-lg border border-line bg-surface-muted p-3"
       data-testid={`source-settings-panel-${source.id}`}>
       <p className="mb-2 text-xs font-semibold text-content-secondary">
         {t('memorySources.settings.title')}

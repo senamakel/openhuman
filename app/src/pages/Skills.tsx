@@ -211,7 +211,7 @@ function ComposioConnectorTile({
               ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-500/10 dark:hover:bg-amber-500/15'
               : isExpired || isError
                 ? 'border-coral-200 bg-coral-50/30 hover:bg-coral-50/50 dark:border-coral-500/30 dark:bg-coral-500/10 dark:hover:bg-coral-500/15'
-                : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800/60'
+                : 'border-line bg-surface hover:bg-surface-hover'
       }`}>
       {isPreview && (
         <span
@@ -302,7 +302,7 @@ function ChannelTile({
             ? 'border-amber-200 bg-amber-50/40 dark:border-amber-500/30 dark:bg-amber-500/10'
             : isError
               ? 'border-coral-200 bg-coral-50/30 dark:border-coral-500/30 dark:bg-coral-500/10'
-              : 'border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900'
+              : 'border-line bg-surface'
       } ${
         // The default channel keeps its connection-status colour but gains a
         // primary ring so "which one is the default" reads at a glance without
@@ -352,7 +352,7 @@ function ChannelTile({
               data-testid={setDefaultTestId}
               onClick={onSetDefault}
               disabled={setDefaultBusy}
-              className="inline-flex items-center justify-center rounded-lg border border-stone-200 bg-white/70 px-2.5 py-1 text-[11px] font-medium text-stone-500 transition-colors hover:border-primary-300 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-400 dark:hover:border-primary-500/40 dark:hover:text-primary-300">
+              className="inline-flex items-center justify-center rounded-lg border border-line bg-white/70 px-2.5 py-1 text-[11px] font-medium text-content-muted transition-colors hover:border-primary-300 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-neutral-900/60 dark:hover:border-primary-500/40 dark:hover:text-primary-300">
               {t('channels.setAsDefault')}
             </button>
           )}
@@ -1018,7 +1018,7 @@ export default function Skills() {
           // them a card surface (the integrations/skills grids below already
           // have their own card layouts, so they stay flush).
           <div className="h-full p-4">
-            <div className="h-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="h-full overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
               <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
                 {activeTab === 'llm' && <AIPanel />}
                 {activeTab === 'voice' && <VoicePanel />}

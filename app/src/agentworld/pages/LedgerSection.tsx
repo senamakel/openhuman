@@ -96,7 +96,7 @@ export function StatusBadge({ status }: { status: string }) {
         ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
         : status === 'FAILED'
           ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-          : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400';
+          : 'bg-surface-subtle text-content-secondary';
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
       {status}
@@ -113,8 +113,8 @@ function TypeBadge({ type }: { type: string }) {
       : type === 'SALE'
         ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
         : type === 'FEE'
-          ? 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400'
-          : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400';
+          ? 'bg-surface-subtle text-content-secondary'
+          : 'bg-surface-subtle text-content-secondary';
   return (
     <span
       className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${color}`}>
@@ -131,7 +131,7 @@ function TypeIcon({ type }: { type: string }) {
       ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400'
       : type === 'SALE'
         ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
-        : 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400';
+        : 'bg-surface-subtle text-content-muted';
   return (
     <div
       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${color}`}
@@ -160,7 +160,7 @@ function TransactionRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="border-b border-stone-100 last:border-0 dark:border-neutral-800">
+    <div className="border-b border-line-subtle last:border-0">
       {/* Summary row — leading icon · stacked content · fixed meta column */}
       <button
         type="button"
@@ -218,7 +218,7 @@ function TransactionRow({
               </a>
             )}
             <svg
-              className={`h-4 w-4 shrink-0 text-stone-400 transition-transform dark:text-neutral-500 ${expanded ? 'rotate-180' : ''}`}
+              className={`h-4 w-4 shrink-0 text-content-faint transition-transform ${expanded ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24">
@@ -235,7 +235,7 @@ function TransactionRow({
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="border-t border-stone-100 bg-stone-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+        <div className="border-t border-line-subtle bg-surface-muted px-4 py-3">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
             {/* Ledger TX ID */}
             <dt className="font-medium text-content-muted">Tx ID</dt>
@@ -374,7 +374,7 @@ export default function LedgerSection() {
     );
   } else {
     body = (
-      <div className="rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="rounded-lg border border-line bg-surface">
         {ledgerState.transactions.map(tx => (
           <TransactionRow
             key={tx.txId}

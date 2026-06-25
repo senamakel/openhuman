@@ -293,7 +293,7 @@ function CallTranscript({ lines }: { lines: MeetCallTranscriptLine[] }) {
   return (
     <div className="space-y-1">
       <SectionLabel>{t('skills.meetingBots.callTranscriptHeading')}</SectionLabel>
-      <div className="max-h-48 space-y-0.5 overflow-y-auto rounded-md bg-stone-50 p-2 dark:bg-neutral-800/40">
+      <div className="max-h-48 space-y-0.5 overflow-y-auto rounded-md bg-surface-muted p-2">
         {lines.map((line, i) => (
           <p
             key={i}
@@ -323,7 +323,7 @@ function Chevron({ expanded }: { expanded: boolean }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 16 16"
-      className={`h-3 w-3 shrink-0 text-stone-400 transition-transform dark:text-neutral-500 ${
+      className={`h-3 w-3 shrink-0 text-content-faint transition-transform ${
         expanded ? 'rotate-90' : ''
       }`}
       fill="none"

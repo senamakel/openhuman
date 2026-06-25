@@ -330,7 +330,7 @@ const UsageLogTable = ({ records, currency }: { records: CostUsageRecord[]; curr
     <div className="overflow-x-auto -mx-1">
       <table className="w-full min-w-[760px] text-xs">
         <thead>
-          <tr className="border-b border-neutral-200 text-left text-[10px] uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+          <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-content-muted">
             <Th>{t('settings.costDashboard.when')}</Th>
             <Th>{t('settings.costDashboard.category')}</Th>
             <Th>{t('settings.costDashboard.model')}</Th>
@@ -351,7 +351,7 @@ const UsageLogTable = ({ records, currency }: { records: CostUsageRecord[]; curr
                 </div>
               </Td>
               <Td>
-                <span className="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-700 ring-1 ring-inset ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:ring-neutral-700">
+                <span className="inline-flex rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-medium text-content-secondary ring-1 ring-inset ring-neutral-200 dark:ring-neutral-700">
                   {record.category}
                 </span>
               </Td>

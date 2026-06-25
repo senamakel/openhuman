@@ -82,7 +82,7 @@ export default function IntelligenceWorktreesTab() {
         <p className="text-xs text-content-faint">
           {t('worktree.panel.subtitle')}
         </p>
-        <div className="rounded-xl border border-dashed border-stone-200 py-10 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+        <div className="rounded-xl border border-dashed border-line py-10 text-center text-sm text-content-faint">
           {t('worktree.panel.empty')}
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function IntelligenceWorktreesTab() {
         </div>
       ) : null}
 
-      <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+      <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
         {data.worktrees.map(wt => (
           <li key={wt.path} className="space-y-2 p-3" data-testid="worktree-row">
             <div className="flex flex-wrap items-center gap-2">
@@ -122,7 +122,7 @@ export default function IntelligenceWorktreesTab() {
                 {basename(wt.path)}
               </span>
               {wt.branch ? (
-                <span className="rounded-md border border-stone-200 px-1.5 py-0.5 font-mono text-[10px] text-stone-500 dark:border-neutral-700 dark:text-neutral-400">
+                <span className="rounded-md border border-line px-1.5 py-0.5 font-mono text-[10px] text-content-muted">
                   {wt.branch}
                 </span>
               ) : null}

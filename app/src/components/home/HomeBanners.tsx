@@ -136,7 +136,7 @@ export function EarlyBirdyBanner({ onDismiss }: { onDismiss?: () => void }) {
           </p>
           <p className="mt-1 text-sm leading-relaxed text-orange-600 dark:text-orange-300/80">
             {t('home.banners.earlyBirdUseCode')}{' '}
-            <span className="rounded-md border border-orange-300 bg-white px-1.5 py-0.5 font-mono text-[12px] font-bold text-orange-700 dark:border-orange-500/40 dark:bg-neutral-900 dark:text-orange-300">
+            <span className="rounded-md border border-orange-300 bg-surface px-1.5 py-0.5 font-mono text-[12px] font-bold text-orange-700 dark:border-orange-500/40 dark:text-orange-300">
               EARLYBIRDY
             </span>{' '}
             {t('home.banners.earlyBirdOn')}{' '}

@@ -1763,7 +1763,7 @@ const Conversations = ({
           placeholder={t('chat.searchThreads')}
           aria-label={t('chat.searchThreads')}
           data-testid="chat-thread-search-input"
-          className="w-full border-0 bg-transparent py-2.5 pl-10 pr-10 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-0 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          className="w-full border-0 bg-transparent py-2.5 pl-10 pr-10 text-sm text-content placeholder:text-stone-400 focus:outline-none focus:ring-0 dark:placeholder:text-neutral-500"
         />
         {threadSearch && (
           <button
@@ -1771,7 +1771,7 @@ const Conversations = ({
             onClick={() => setThreadSearch('')}
             aria-label={t('settings.settingsSearch.clear')}
             data-testid="chat-thread-search-clear"
-            className="absolute inset-y-0 right-2 flex items-center px-1 text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+            className="absolute inset-y-0 right-2 flex items-center px-1 text-content-faint hover:text-content-secondary">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -1872,7 +1872,7 @@ const Conversations = ({
                     }}
                     aria-label={t('chat.editThreadTitle')}
                     data-testid={`thread-title-input-${thread.id}`}
-                    className="h-5 min-w-0 flex-1 border-b border-primary-400 bg-transparent py-0 text-xs font-medium leading-none text-stone-700 outline-none dark:text-neutral-200"
+                    className="h-5 min-w-0 flex-1 border-b border-primary-400 bg-transparent py-0 text-xs font-medium leading-none text-content-secondary outline-none"
                     autoFocus
                   />
                 ) : (
@@ -2100,7 +2100,7 @@ const Conversations = ({
                                         </button>
                                       ))}
                                       {pickerOpen ? (
-                                        <div className="flex items-center gap-0.5 rounded-full bg-white px-1 py-0.5 shadow-sm ring-1 ring-stone-200 dark:bg-neutral-900 dark:ring-neutral-700">
+                                        <div className="flex items-center gap-0.5 rounded-full bg-surface px-1 py-0.5 shadow-sm ring-1 ring-stone-200 dark:ring-neutral-700">
                                           {['👍', '❤️', '😂', '🔥', '👀', '🎯'].map(emoji => (
                                             <button
                                               key={emoji}
@@ -2127,7 +2127,7 @@ const Conversations = ({
                                             type="button"
                                             data-analytics-id="chat-message-reaction-close"
                                             onClick={() => setReactionPickerMsgId(null)}
-                                            className="ml-0.5 px-0.5 text-xs text-stone-600 hover:text-stone-400 dark:text-neutral-300 dark:hover:text-neutral-500">
+                                            className="ml-0.5 px-0.5 text-xs text-content-secondary hover:text-stone-400 dark:hover:text-neutral-500">
                                             ✕
                                           </button>
                                         </div>
@@ -2136,7 +2136,7 @@ const Conversations = ({
                                           type="button"
                                           data-analytics-id="chat-message-reaction-open"
                                           onClick={() => setReactionPickerMsgId(msg.id)}
-                                          className="flex h-[18px] items-center rounded-full bg-white px-1.5 text-xs leading-none text-stone-500 opacity-0 shadow-sm ring-1 ring-stone-200 transition-opacity hover:bg-stone-100 hover:text-stone-700 group-hover/msg:opacity-100 dark:bg-neutral-900 dark:text-neutral-400 dark:ring-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                                          className="flex h-[18px] items-center rounded-full bg-surface px-1.5 text-xs leading-none text-content-muted opacity-0 shadow-sm ring-1 ring-stone-200 transition-opacity hover:bg-stone-100 hover:text-stone-700 group-hover/msg:opacity-100 dark:ring-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
                                           title={t('chat.addReaction')}
                                           aria-label={t('chat.addReaction')}>
                                           +
@@ -2725,7 +2725,7 @@ const Conversations = ({
               type="button"
               data-analytics-id="chat-cancel-generation"
               onClick={handleStopGeneration}
-              className="text-xs text-stone-500 transition-colors hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200">
+              className="text-xs text-content-muted transition-colors hover:text-content-secondary">
               {t('common.cancel')}
             </button>
           </div>
@@ -2865,7 +2865,7 @@ const Conversations = ({
           {!isSidebar && (
             <div className="flex flex-shrink-0 items-center gap-2">
               <div
-                className="flex h-7 items-center rounded-full border border-stone-200 bg-stone-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-800"
+                className="flex h-7 items-center rounded-full border border-line bg-surface-subtle p-0.5"
                 role="radiogroup"
                 aria-label={t('chat.agentProfile.label')}>
                 <button
@@ -2876,8 +2876,8 @@ const Conversations = ({
                   onClick={() => void handleSelectAgentProfile('default')}
                   className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
                     selectedAgentProfileId === 'default'
-                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
-                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                      ? 'bg-white text-content shadow-sm dark:bg-neutral-600'
+                      : 'text-content-muted hover:text-content-secondary'
                   }`}>
                   {t('chat.agentProfile.quick')}
                 </button>
@@ -2889,8 +2889,8 @@ const Conversations = ({
                   onClick={() => void handleSelectAgentProfile('reasoning')}
                   className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
                     selectedAgentProfileId === 'reasoning'
-                      ? 'bg-white text-stone-800 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
-                      : 'text-stone-500 hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                      ? 'bg-white text-content shadow-sm dark:bg-neutral-600'
+                      : 'text-content-muted hover:text-content-secondary'
                   }`}>
                   {t('chat.agentProfile.reasoning')}
                 </button>
@@ -2916,7 +2916,7 @@ const Conversations = ({
                         )
                       : t('conversations.backgroundTasks.title')
                   }
-                  className="relative flex h-7 w-7 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
+                  className="relative flex h-7 w-7 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"

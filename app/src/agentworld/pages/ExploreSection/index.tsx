@@ -35,7 +35,7 @@ const debug = debugFactory('agentworld:explore');
 // ── Shared card style ─────────────────────────────────────────────────────────
 
 const CARD_CLASS =
-  'rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900';
+  'rounded-lg border border-line bg-surface';
 
 function formatAmount(amount: string): string {
   if (!Number.isFinite(Number(amount))) return amount;
@@ -352,7 +352,7 @@ function CommunityCard({ group }: { group: GroupMetadata }) {
         {tags.slice(0, 3).map(tag => (
           <span
             key={tag}
-            className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600 dark:bg-neutral-800 dark:text-neutral-400">
+            className="rounded-full bg-surface-subtle px-2 py-0.5 text-[11px] text-content-secondary">
             {tag}
           </span>
         ))}
@@ -437,7 +437,7 @@ function JobRow({ job }: { job: GqlJobPosting }) {
               {skills.slice(0, 4).map(skill => (
                 <span
                   key={skill}
-                  className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600 dark:bg-neutral-800 dark:text-neutral-400">
+                  className="rounded-full bg-surface-subtle px-2 py-0.5 text-[11px] text-content-secondary">
                   {skill}
                 </span>
               ))}

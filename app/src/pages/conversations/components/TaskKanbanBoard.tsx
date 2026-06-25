@@ -208,7 +208,7 @@ export function TaskKanbanBoard({
                 type="button"
                 aria-expanded={sourceControlsOpen}
                 onClick={() => setSourceControlsOpen(open => !open)}
-                className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[10px] font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[10px] font-medium text-content-secondary hover:bg-surface-hover">
                 <LuDatabase className="h-3 w-3" />
                 {t('conversations.taskKanban.sourcesButton')}
               </button>
@@ -361,7 +361,7 @@ function TaskBoardArticle({
               title={t('chat.approval.deny')}
               disabled={disabled}
               onClick={() => onDecidePlan(card, false)}
-              className="rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 transition-colors hover:bg-stone-100 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+              className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary transition-colors hover:bg-stone-100 disabled:opacity-40 dark:hover:bg-neutral-800">
               {t('chat.approval.deny')}
             </button>
           </div>
@@ -408,7 +408,7 @@ function TaskBoardArticle({
           </span>
         )}
         {card.allowedTools && card.allowedTools.length > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600 dark:bg-neutral-800 dark:text-neutral-300">
+          <span className="inline-flex items-center gap-1 rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] text-content-secondary">
             <LuWrench className="h-3 w-3" />
             {card.allowedTools.length}
           </span>
@@ -425,7 +425,7 @@ function TaskBoardArticle({
             target="_blank"
             rel="noreferrer"
             title={t('conversations.taskKanban.source.openExternal')}
-            className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600 hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700">
+            className="inline-flex items-center gap-1 rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] text-content-secondary hover:bg-stone-200 dark:hover:bg-neutral-700">
             <LuExternalLink className="h-3 w-3" />
             {t('conversations.taskKanban.source.openExternalShort')}
           </a>
@@ -690,7 +690,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
   };
 
   return (
-    <section className="mb-3 rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+    <section className="mb-3 rounded-lg border border-line bg-surface p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h5 className="text-xs font-semibold text-content">
@@ -715,7 +715,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
             type="button"
             disabled={disabled || loading || busyKey !== null || sources.length === 0}
             onClick={() => void syncSources()}
-            className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary hover:bg-stone-50 disabled:opacity-40 dark:hover:bg-neutral-800">
             <LuRefreshCw className="h-3 w-3" />
             {busyKey === 'sync'
               ? t('settings.taskSources.syncing')
@@ -726,7 +726,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
             aria-label={t('settings.taskSources.refresh')}
             disabled={loading}
             onClick={() => void load()}
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-line text-stone-500 hover:bg-stone-50 disabled:opacity-40 dark:text-neutral-300 dark:hover:bg-neutral-800">
             <LuRefreshCw className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -754,7 +754,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
           {sources.map(source => (
             <li
               key={source.id}
-              className="min-w-0 rounded-lg border border-stone-200 px-2.5 py-2 dark:border-neutral-800">
+              className="min-w-0 rounded-lg border border-line px-2.5 py-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-xs font-medium text-content">
@@ -771,7 +771,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
                   className={`flex-none rounded-md px-1.5 py-0.5 text-[10px] ${
                     source.enabled
                       ? 'bg-sage-50 text-sage-700 dark:bg-sage-500/10 dark:text-sage-200'
-                      : 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400'
+                      : 'bg-surface-subtle text-content-muted'
                   }`}>
                   {source.enabled
                     ? t('settings.taskSources.statusEnabled')
@@ -783,7 +783,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
                   type="button"
                   disabled={disabled || busyKey !== null}
                   onClick={() => void fetchSource(source)}
-                  className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                  className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary hover:bg-stone-50 disabled:opacity-40 dark:hover:bg-neutral-800">
                   <LuRefreshCw className="h-3 w-3" />
                   {busyKey === `fetch:${source.id}`
                     ? t('settings.taskSources.fetching')
@@ -793,7 +793,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
                   type="button"
                   disabled={disabled || busyKey !== null}
                   onClick={() => void toggleSource(source)}
-                  className="rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                  className="rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary hover:bg-stone-50 disabled:opacity-40 dark:hover:bg-neutral-800">
                   {source.enabled
                     ? t('settings.taskSources.disable')
                     : t('settings.taskSources.enable')}
@@ -866,7 +866,7 @@ function TaskBriefDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
-      <section className="max-h-full w-full max-w-xl overflow-y-auto rounded-lg border border-stone-200 bg-white p-4 shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
+      <section className="max-h-full w-full max-w-xl overflow-y-auto rounded-lg border border-line bg-surface p-4 shadow-xl">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase text-content-faint">
@@ -898,7 +898,7 @@ function TaskBriefDialog({
               <input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50"
+                className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950"
               />
             </label>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -909,7 +909,7 @@ function TaskBriefDialog({
                 <select
                   value={status}
                   onChange={e => setStatus(e.target.value as TaskBoardCardStatus)}
-                  className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50">
+                  className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950">
                   {(COLUMN_STATUSES.includes(status)
                     ? COLUMN_STATUSES
                     : [status, ...COLUMN_STATUSES]
@@ -932,7 +932,7 @@ function TaskBriefDialog({
                 <select
                   value={approvalMode}
                   onChange={e => setApprovalMode(e.target.value)}
-                  className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50">
+                  className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950">
                   <option value="">{t('conversations.taskKanban.approval.default')}</option>
                   <option value="required">
                     {t('conversations.taskKanban.approval.required')}
@@ -1138,7 +1138,7 @@ function BriefInput({
       <input
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50"
+        className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950"
       />
     </label>
   );
@@ -1162,7 +1162,7 @@ function BriefTextarea({
         value={value}
         onChange={e => onChange(e.target.value)}
         rows={3}
-        className="w-full resize-y rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50"
+        className="w-full resize-y rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950"
       />
     </label>
   );

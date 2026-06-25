@@ -68,8 +68,8 @@ export default function CollapsedNavRail() {
           aria-current={homeActive ? 'page' : undefined}
           className={`${RAIL_BTN} ${
             homeActive
-              ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-              : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+              ? 'bg-surface text-content shadow-sm'
+              : 'text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
           }`}>
           <NavIcon id="home" className="h-5 w-5" />
         </button>
@@ -87,8 +87,8 @@ export default function CollapsedNavRail() {
           data-analytics-id="collapsed-rail-wallet"
           className={`${RAIL_BTN} ${
             matchActive('/settings/wallet-balances', location.pathname)
-              ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-              : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+              ? 'bg-surface text-content shadow-sm'
+              : 'text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
           }`}>
           <NavIcon id="wallet" className="h-5 w-5" />
         </button>
@@ -108,8 +108,8 @@ export default function CollapsedNavRail() {
               aria-current={active ? 'page' : undefined}
               className={`${RAIL_BTN} ${
                 active
-                  ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-                  : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+                  ? 'bg-surface text-content shadow-sm'
+                  : 'text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
               }`}>
               <NavIcon id={tab.id} className="h-5 w-5" />
               {showBadge && (
@@ -133,8 +133,8 @@ export default function CollapsedNavRail() {
         data-analytics-id="collapsed-rail-settings"
         className={`${RAIL_BTN} ${
           settingsActive
-            ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-            : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+            ? 'bg-surface text-content shadow-sm'
+            : 'text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
         }`}>
         <NavIcon id="settings" className="h-5 w-5" />
       </button>

@@ -68,7 +68,7 @@ export function UserErrorCenter() {
           role="dialog"
           aria-label={t('userErrors.title')}
           data-testid="user-error-panel"
-          className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-amber-300 bg-white shadow-lg dark:border-amber-700 dark:bg-neutral-900">
+          className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-amber-300 bg-surface shadow-lg dark:border-amber-700">
           <div className="flex items-center justify-between border-b border-amber-200 px-3 py-2 dark:border-amber-800">
             <span className="text-sm font-semibold text-ink dark:text-neutral-100">
               {t('userErrors.title')}
@@ -122,7 +122,7 @@ export function UserErrorCenter() {
         data-testid="user-error-trigger"
         aria-label={t('userErrors.title')}
         onClick={() => setOpen(o => !o)}
-        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-amber-300 bg-white text-lg shadow-md hover:bg-amber-50 dark:border-amber-700 dark:bg-neutral-900 dark:hover:bg-neutral-800">
+        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-amber-300 bg-surface text-lg shadow-md hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-neutral-800">
         <span aria-hidden>⚠️</span>
         <span
           data-testid="user-error-badge"

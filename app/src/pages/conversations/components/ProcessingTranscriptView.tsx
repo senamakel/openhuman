@@ -63,12 +63,12 @@ function ThinkingBlock({ text }: { text: string }) {
   return (
     <details
       data-testid="processing-thinking"
-      className="group/think rounded-lg bg-stone-50 px-3 py-2 dark:bg-neutral-800/60">
+      className="group/think rounded-lg bg-surface-muted px-3 py-2">
       <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
         <span aria-hidden className="text-[10px] leading-none">
           💭
         </span>
-        <span className="text-[11px] font-semibold tracking-wide text-stone-500 uppercase dark:text-neutral-400">
+        <span className="text-[11px] font-semibold tracking-wide text-content-muted uppercase">
           {t('conversations.subagent.thinking')}
         </span>
         <span className="text-[9px] text-stone-300 transition-transform group-open/think:rotate-90 dark:text-neutral-600">
@@ -97,7 +97,7 @@ function ToolGroupBlock({ summary, entries }: { summary: string; entries: ToolTi
           ▶
         </span>
       </summary>
-      <ul className="mt-1 ml-1 space-y-1 border-l border-stone-200 pl-3 dark:border-neutral-700">
+      <ul className="mt-1 ml-1 space-y-1 border-l border-line pl-3">
         {entries.map(entry => (
           <ToolRow key={entry.id} entry={entry} />
         ))}
@@ -125,7 +125,7 @@ function ToolRow({ entry }: { entry: ToolTimelineEntry }) {
       <span className="min-w-0 text-[12px] text-content-secondary">
         {title}
         {detail ? (
-          <span className="ml-1 rounded bg-stone-100 px-1 py-px font-mono text-[10px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+          <span className="ml-1 rounded bg-surface-subtle px-1 py-px font-mono text-[10px] text-content-muted">
             {detail}
           </span>
         ) : null}

@@ -36,7 +36,7 @@ const CHAIN_BADGE_CLASS: Record<string, string> = {
 
 const badgeClassFor = (chain: WalletChain): string =>
   CHAIN_BADGE_CLASS[chain] ??
-  'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300';
+  'bg-surface-subtle text-content-secondary';
 
 // The rows rendered as placeholders before the wallet is set up, mirroring the
 // configured layout (one EVM row per displayed network + BTC/Solana/Tron) so
@@ -136,7 +136,7 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
               size="sm"
               onClick={() => void handleCopyAddress()}
               aria-label={t('walletBalances.copyAddress')}
-              className="shrink-0 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+              className="shrink-0 text-content-faint hover:text-neutral-600 dark:hover:text-neutral-300">
               {copied ? (
                 <svg
                   className="w-3.5 h-3.5 text-sage-500"

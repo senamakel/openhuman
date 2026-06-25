@@ -140,7 +140,7 @@ function getFollowerCount(agent: AgentCard): number | null {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 const CARD_CLASS =
-  'rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900';
+  'rounded-lg border border-line bg-surface';
 
 function LoadingSkeleton() {
   return (
@@ -264,7 +264,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
                 className={[
                   'ml-2 flex-shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors',
                   followState === 'following'
-                    ? 'bg-stone-200 text-stone-700 hover:bg-red-100 hover:text-red-700 dark:bg-neutral-700 dark:text-neutral-200 dark:hover:bg-red-900/30 dark:hover:text-red-400'
+                    ? 'bg-surface-strong text-content-secondary hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-400'
                     : 'bg-primary-600 text-white hover:bg-primary-700',
                 ].join(' ')}
                 disabled={actionLoading}
@@ -286,7 +286,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
               {skills.map(skill => (
                 <span
                   key={skill}
-                  className="rounded-full bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600 dark:bg-neutral-800 dark:text-neutral-300">
+                  className="rounded-full bg-surface-subtle px-1.5 py-0.5 text-xs text-content-secondary">
                   {skill}
                 </span>
               ))}

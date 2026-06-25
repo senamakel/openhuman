@@ -152,7 +152,7 @@ const Notifications = () => {
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 activeCategory === 'all'
                   ? 'bg-primary-500 text-white'
-                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
+                  : 'bg-surface-subtle text-content-secondary hover:bg-stone-200 dark:hover:bg-neutral-700'
               }`}>
               {t('notifications.filterAll')}
             </button>
@@ -166,7 +166,7 @@ const Notifications = () => {
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   activeCategory === category
                     ? 'bg-primary-500 text-white'
-                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
+                    : 'bg-surface-subtle text-content-secondary hover:bg-stone-200 dark:hover:bg-neutral-700'
                 }`}>
                 {categoryLabel(category)}
               </button>

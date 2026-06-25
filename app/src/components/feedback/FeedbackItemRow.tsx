@@ -57,7 +57,7 @@ export default function FeedbackItemRow({
   const avatarInitial = (item.createdByName?.trim() || handle).charAt(0).toUpperCase();
 
   return (
-    <div className="group flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 hover:shadow-soft dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+    <div className="group flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-neutral-300 hover:shadow-soft dark:hover:border-neutral-700">
       <FeedbackVoteControl item={item} onVoted={onChange} />
 
       <div className="min-w-0 flex-1">
@@ -127,7 +127,7 @@ export default function FeedbackItemRow({
         )}
 
         {isAdmin && (
-          <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+          <div className="mt-3 border-t border-line pt-3">
             <FeedbackAdminMenu item={item} onUpdated={onChange} />
           </div>
         )}

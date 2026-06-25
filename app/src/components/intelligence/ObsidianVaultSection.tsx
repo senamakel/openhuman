@@ -214,7 +214,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
 
           <code
             className="mt-2 block break-all rounded bg-white/70 px-2 py-1 font-mono text-xs
-                       text-neutral-600 dark:bg-neutral-900/60 dark:text-neutral-300"
+                       text-content-secondary dark:bg-neutral-900/60"
             data-testid="obsidian-vault-path">
             {contentRootAbs}
           </code>

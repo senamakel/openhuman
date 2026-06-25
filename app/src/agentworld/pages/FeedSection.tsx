@@ -276,7 +276,7 @@ function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
   };
 
   return (
-    <div className="mb-3 rounded-xl border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="mb-3 rounded-xl border border-line bg-surface p-3">
       <div className="flex gap-2.5">
         <InitialAvatar name={myAgentId} />
         <textarea
@@ -298,16 +298,16 @@ function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
           maxLength={MAX_FEED_BODY_LENGTH}
           disabled={submitting}
           aria-label="Write a post"
-          className="min-h-[2.25rem] w-full resize-none border-0 bg-transparent p-0 pt-1.5 text-sm leading-relaxed text-stone-900 shadow-none outline-none ring-0 placeholder:text-stone-400 focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none disabled:opacity-50 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          className="min-h-[2.25rem] w-full resize-none border-0 bg-transparent p-0 pt-1.5 text-sm leading-relaxed text-content shadow-none outline-none ring-0 placeholder:text-stone-400 focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none disabled:opacity-50 dark:placeholder:text-neutral-500"
         />
       </div>
       {error && <p className="mt-1 pl-[2.625rem] text-xs text-coral-500">{error}</p>}
-      <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-100 pl-[2.625rem] pt-2 dark:border-neutral-800">
+      <div className="mt-2 flex items-center justify-between gap-3 border-t border-line-subtle pl-[2.625rem] pt-2">
         <span className="hidden text-[11px] text-content-faint sm:inline">
-          <kbd className="rounded border border-stone-200 px-1 font-sans dark:border-neutral-700">
+          <kbd className="rounded border border-line px-1 font-sans">
             ⌘
           </kbd>
-          <kbd className="ml-0.5 rounded border border-stone-200 px-1 font-sans dark:border-neutral-700">
+          <kbd className="ml-0.5 rounded border border-line px-1 font-sans">
             ↵
           </kbd>{' '}
           to post
@@ -371,7 +371,7 @@ function InlineComments({ post, myAgentId }: { post: GqlPost; myAgentId: string 
   }, [load]);
 
   return (
-    <div className="mt-3 border-t border-stone-100 pt-2 dark:border-neutral-800">
+    <div className="mt-3 border-t border-line-subtle pt-2">
       {loading && (
         <p className="animate-pulse py-2 text-xs text-content-faint">
           Loading comments…
@@ -421,7 +421,7 @@ function PostCard({
   const [showComments, setShowComments] = useState(false);
 
   return (
-    <article className="rounded-lg border border-stone-200 bg-white p-4 transition-colors hover:border-stone-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+    <article className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-stone-300 dark:hover:border-neutral-700">
       {/* Author row */}
       <div className="mb-2 flex items-center gap-2">
         {post.author.avatarUrl ? (
@@ -462,7 +462,7 @@ function PostCard({
             onClick={() => onToggleFollow(post.author.cryptoId)}
             className={`ml-auto shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
               followState[post.author.cryptoId]
-                ? 'border-stone-300 text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                ? 'border-line-strong text-content-secondary hover:bg-surface-hover'
                 : 'border-primary-600 bg-primary-600 text-white hover:bg-primary-700 dark:border-primary-500 dark:bg-primary-500'
             }`}>
             {followState[post.author.cryptoId] ? 'Following' : 'Follow'}
@@ -472,7 +472,7 @@ function PostCard({
           <button
             type="button"
             onClick={() => onDeletePost(post)}
-            className="ml-auto text-xs text-stone-400 hover:text-red-500 dark:text-neutral-500
+            className="ml-auto text-xs text-content-faint hover:text-red-500
                        dark:hover:text-red-400">
             Delete
           </button>
@@ -573,7 +573,7 @@ function CommentRow({
                     .catch(err => console.error('[FeedSection] delete comment failed:', err));
                 }
               }}
-              className="text-xs text-stone-400 hover:text-red-500 dark:text-neutral-500
+              className="text-xs text-content-faint hover:text-red-500
                          dark:hover:text-red-400">
               Delete
             </button>

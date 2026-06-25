@@ -19,7 +19,7 @@ const PROVIDER_PALETTE: Record<string, string> = {
 };
 
 const PROVIDER_FALLBACK =
-  'bg-stone-200 text-stone-700 dark:bg-neutral-800 dark:text-neutral-300 ring-stone-300 dark:ring-neutral-700';
+  'bg-surface-strong text-content-secondary ring-stone-300 dark:ring-neutral-700';
 
 function providerChipClass(provider: string | null): string {
   if (!provider) return PROVIDER_FALLBACK;

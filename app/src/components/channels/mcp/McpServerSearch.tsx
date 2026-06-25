@@ -35,7 +35,7 @@ const McpServerSearch = ({ value, onChange }: McpServerSearchProps) => {
           type="button"
           onClick={() => onChange('')}
           aria-label={t('mcp.installed.search.clearAria')}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-stone-400 hover:text-stone-700 dark:text-neutral-500 dark:hover:text-neutral-200 transition-colors">
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-content-faint hover:text-content-secondary transition-colors">
           <svg
             className="w-3 h-3"
             fill="none"

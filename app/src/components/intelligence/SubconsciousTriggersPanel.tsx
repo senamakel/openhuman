@@ -9,7 +9,7 @@ import {
 import Button from '../ui/Button';
 
 const cardClass =
-  'rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900';
+  'rounded-lg border border-line bg-surface p-4';
 
 /**
  * Debug / manage panel for the event-driven subconscious trigger pipeline.

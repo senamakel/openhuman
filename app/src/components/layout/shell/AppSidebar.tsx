@@ -77,15 +77,15 @@ export default function AppSidebar() {
         aria-current={feedbackActive ? 'page' : undefined}
         className={`group flex flex-shrink-0 items-center justify-center gap-2 border-t border-stone-200/70 px-3 py-1 text-[11px] transition-colors cursor-pointer dark:border-neutral-800/70 ${
           feedbackActive
-            ? 'bg-white text-stone-900 font-medium dark:bg-neutral-800 dark:text-neutral-100'
-            : 'text-stone-500 hover:bg-stone-200/70 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+            ? 'bg-surface text-content font-medium'
+            : 'text-content-muted hover:bg-stone-200/70 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
         }`}>
         <NavIcon id="feedback" className="h-3.5 w-3.5 flex-shrink-0" />
         <span className="min-w-0 truncate">{t('nav.feedback')}</span>
       </button>
       {/* App-wide footer: connectivity status + build/version, pinned to the
           bottom of the sidebar. */}
-      <div className="flex flex-shrink-0 items-center justify-center gap-2 border-t border-stone-200 px-2 py-0.5 dark:border-neutral-800">
+      <div className="flex flex-shrink-0 items-center justify-center gap-2 border-t border-line px-2 py-0.5">
         <ConnectionIndicator />
         &middot;
         <span className="text-[10px] text-content-faint">

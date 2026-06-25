@@ -807,11 +807,11 @@ function TaskSourceTaskList({
       </div>
 
       {sortedCards.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-stone-200 py-7 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+        <div className="rounded-xl border border-dashed border-line py-7 text-center text-sm text-content-faint">
           {t('intelligence.tasks.sourceList.empty')}
         </div>
       ) : (
-        <ul className="divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+        <ul className="divide-y divide-stone-100 rounded-xl border border-line bg-surface dark:divide-neutral-800">
           {sortedCards.map(card => {
             const source = readSourceMetadata(card.sourceMetadata);
             const done = card.status === 'done';
@@ -846,7 +846,7 @@ function TaskSourceTaskList({
                         target="_blank"
                         rel="noreferrer"
                         title={t('conversations.taskKanban.source.openExternal')}
-                        className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-stone-500 hover:bg-stone-50 dark:text-neutral-300 dark:hover:bg-neutral-800">
                         <LuExternalLink className="h-4 w-4" />
                       </a>
                     )}
@@ -908,8 +908,8 @@ function TaskSourceRefinementDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl dark:border-neutral-800 dark:bg-neutral-950">
-        <div className="flex items-start justify-between gap-3 border-b border-stone-100 px-4 py-3 dark:border-neutral-800">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl border border-line bg-white shadow-xl dark:bg-neutral-950">
+        <div className="flex items-start justify-between gap-3 border-b border-line-subtle px-4 py-3">
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-content">
               {t('intelligence.tasks.sourcePlan.title')}
@@ -944,7 +944,7 @@ function TaskSourceRefinementDialog({
             <input
               value={title}
               onChange={event => setTitle(event.target.value)}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content outline-none focus:border-ocean-400"
             />
           </label>
 
@@ -956,7 +956,7 @@ function TaskSourceRefinementDialog({
               value={objective}
               onChange={event => setObjective(event.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content outline-none focus:border-ocean-400"
             />
           </label>
 
@@ -968,7 +968,7 @@ function TaskSourceRefinementDialog({
               value={planText}
               onChange={event => setPlanText(event.target.value)}
               rows={5}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content outline-none focus:border-ocean-400"
             />
           </label>
 
@@ -980,7 +980,7 @@ function TaskSourceRefinementDialog({
               value={criteriaText}
               onChange={event => setCriteriaText(event.target.value)}
               rows={4}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content outline-none focus:border-ocean-400"
             />
           </label>
 
@@ -992,12 +992,12 @@ function TaskSourceRefinementDialog({
               value={notes}
               onChange={event => setNotes(event.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-ocean-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content outline-none focus:border-ocean-400"
             />
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-stone-100 px-4 py-3 dark:border-neutral-800">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line-subtle px-4 py-3">
           <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
             {t('common.cancel')}
           </Button>

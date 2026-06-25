@@ -228,7 +228,7 @@ function SignalKeyStatusCard() {
   const discoverable = status?.encryptionKeyPublished === true;
 
   return (
-    <div className="mx-4 mb-3 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+    <div className="mx-4 mb-3 rounded-lg border border-line bg-surface-muted p-3">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-content">
@@ -839,7 +839,7 @@ function RowAction({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="rounded border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+      className="rounded border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary hover:bg-stone-100 disabled:opacity-40 dark:hover:bg-neutral-800">
       {label}
     </button>
   );

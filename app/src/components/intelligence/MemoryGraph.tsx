@@ -761,12 +761,12 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
       )}
       {preview && (
         <div
-          className="border-t border-stone-100 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950"
+          className="border-t border-line-subtle bg-white px-4 py-3 dark:bg-neutral-950"
           data-testid="memory-graph-preview">
           <div className="mb-2 break-all font-mono text-[11px] text-content-faint">
             workspace:{preview.path}
           </div>
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-stone-50 p-3 text-xs text-stone-700 dark:bg-neutral-900 dark:text-neutral-200">
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-surface-muted p-3 text-xs text-content-secondary">
             {preview.error || preview.contents}
             {preview.truncated ? '\n…' : ''}
           </pre>

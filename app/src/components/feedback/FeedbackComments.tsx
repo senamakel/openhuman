@@ -82,7 +82,7 @@ export default function FeedbackComments({ feedbackId, onCommentAdded }: Feedbac
   };
 
   return (
-    <div className="mt-3 space-y-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+    <div className="mt-3 space-y-3 border-t border-line pt-3">
       {isLoading ? (
         <p className="text-xs text-content-muted">{t('common.loading')}</p>
       ) : loadError ? (
@@ -125,7 +125,7 @@ export default function FeedbackComments({ feedbackId, onCommentAdded }: Feedbac
           placeholder={t('feedback.comments.placeholder')}
           disabled={posting}
           rows={2}
-          className="flex-1 resize-y rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 transition-all focus:border-primary-500/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-neutral-700 dark:bg-white/[0.03] dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          className="flex-1 resize-y rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-content placeholder:text-neutral-400 transition-all focus:border-primary-500/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-neutral-700 dark:bg-white/[0.03] dark:placeholder:text-neutral-500"
         />
         <Button
           variant="primary"

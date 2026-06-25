@@ -32,7 +32,7 @@ const log = debug('intelligence:workflow-detail');
 /** Accent classes per run status (semantic palette from tailwind.config.js). */
 const RUN_STATUS_ACCENT: Record<WorkflowRunStatus, string> = {
   pending:
-    'border-stone-200 bg-stone-50 text-stone-600 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300',
+    'border-line bg-surface-muted text-content-secondary',
   running:
     'border-ocean-200 bg-ocean-50 text-ocean-700 dark:border-ocean-500/30 dark:bg-ocean-500/10 dark:text-ocean-300',
   completed:
@@ -40,7 +40,7 @@ const RUN_STATUS_ACCENT: Record<WorkflowRunStatus, string> = {
   failed:
     'border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300',
   cancelled:
-    'border-stone-200 bg-stone-50 text-stone-600 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300',
+    'border-line bg-surface-muted text-content-secondary',
   interrupted:
     'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
 };
@@ -145,7 +145,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
                 log('resume id=%s', run.id);
                 onResume(run.id);
               }}
-              className="rounded-lg border border-ocean-300 bg-white px-3 py-1.5 text-xs font-medium text-ocean-700 hover:bg-ocean-50 disabled:opacity-50 dark:border-ocean-700 dark:bg-neutral-900 dark:text-ocean-300 dark:hover:bg-ocean-900/40">
+              className="rounded-lg border border-ocean-300 bg-surface px-3 py-1.5 text-xs font-medium text-ocean-700 hover:bg-ocean-50 disabled:opacity-50 dark:border-ocean-700 dark:text-ocean-300 dark:hover:bg-ocean-900/40">
               {t('orchestration.detail.resume')}
             </button>
           )}
@@ -166,7 +166,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
             <li
               key={name}
               data-testid={`workflow-phase-${name}`}
-              className="rounded-xl border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+              className="rounded-xl border border-line bg-surface">
               <button
                 type="button"
                 onClick={() => toggle(name)}
@@ -180,7 +180,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
                   </span>
                   <span
                     data-testid={`workflow-phase-status-${name}`}
-                    className="rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:border-neutral-700 dark:text-neutral-400">
+                    className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
                     {t(PHASE_STATUS_KEY[state.status])}
                   </span>
                 </span>
@@ -212,7 +212,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
                   {state.outputs.map((out, idx) => (
                     <li
                       key={`${out.orchestrationId}-${idx}`}
-                      className="rounded-lg border border-stone-100 bg-stone-50 p-2 dark:border-neutral-800 dark:bg-neutral-800/40">
+                      className="rounded-lg border border-line-subtle bg-surface-muted p-2">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs font-medium text-content-secondary">
                           {out.agentId}

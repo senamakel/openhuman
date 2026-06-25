@@ -456,13 +456,13 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
 
   const detailPre =
     'max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-white px-2 py-1.5 ' +
-    'font-mono text-[11px] leading-relaxed text-stone-600 dark:bg-neutral-900 dark:text-neutral-300';
+    'font-mono text-[11px] leading-relaxed text-content-secondary dark:bg-neutral-900';
   const detailLabel =
     'mb-1 text-[10px] font-semibold uppercase tracking-wide text-content-faint';
 
   return (
     <div
-      className="rounded-md border border-stone-200 bg-stone-50 text-xs dark:border-neutral-800 dark:bg-neutral-800/60"
+      className="rounded-md border border-line bg-surface-muted text-xs"
       data-testid="subagent-drawer-tool-call">
       <button
         type="button"
@@ -488,7 +488,7 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
         ) : null}
       </button>
       {expandable && expanded ? (
-        <div className="space-y-2 border-t border-stone-200 px-2.5 py-2 dark:border-neutral-800">
+        <div className="space-y-2 border-t border-line px-2.5 py-2">
           {argsText != null ? (
             <div data-testid="subagent-tool-call-input">
               <div className={detailLabel}>{t('conversations.subagent.input')}</div>

@@ -261,7 +261,7 @@ export default function IntelligenceOrchestrationTab() {
           {t('orchestration.definitions')}
         </h3>
         {definitions.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-stone-200 py-8 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+          <div className="rounded-xl border border-dashed border-line py-8 text-center text-sm text-content-faint">
             {t('orchestration.noDefinitions')}
           </div>
         ) : (
@@ -273,14 +273,14 @@ export default function IntelligenceOrchestrationTab() {
                 <li
                   key={def.id}
                   data-testid={`orchestration-definition-${def.id}`}
-                  className="rounded-xl border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                  className="rounded-xl border border-line bg-surface p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-sm font-medium text-content">
                           {def.name}
                         </span>
-                        <span className="rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:border-neutral-700 dark:text-neutral-400">
+                        <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
                           {t(SAFETY_TIER_KEY[def.safetyTier])}
                         </span>
                         {assessment.requiresApproval && (
@@ -309,7 +309,7 @@ export default function IntelligenceOrchestrationTab() {
 
                   {/* Inline start panel */}
                   {isStarting && (
-                    <div className="mt-3 space-y-3 border-t border-stone-100 pt-3 dark:border-neutral-800">
+                    <div className="mt-3 space-y-3 border-t border-line-subtle pt-3">
                       <label className="block text-xs font-medium text-content-secondary">
                         {t('orchestration.questionLabel')}
                         <textarea
@@ -318,7 +318,7 @@ export default function IntelligenceOrchestrationTab() {
                           onChange={e => setQuestion(e.target.value)}
                           rows={2}
                           placeholder={t('orchestration.questionPlaceholder')}
-                          className="mt-1 w-full rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-800 focus:border-primary-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                          className="mt-1 w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-content focus:border-primary-500 focus:outline-none"
                         />
                       </label>
 
@@ -379,7 +379,7 @@ export default function IntelligenceOrchestrationTab() {
                 setSelectedRunId(null);
                 setSelectedRun(null);
               }}
-              className="text-[11px] text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+              className="text-[11px] text-content-faint hover:text-content-secondary">
               {t('orchestration.close')}
             </button>
           </div>
@@ -399,12 +399,12 @@ export default function IntelligenceOrchestrationTab() {
           {t('orchestration.recentRuns')}
         </h3>
         {runs.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-stone-200 py-8 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+          <div className="rounded-xl border border-dashed border-line py-8 text-center text-sm text-content-faint">
             {t('orchestration.noRuns')}
           </div>
         ) : (
           <ul
-            className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900"
+            className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800"
             data-testid="orchestration-runs">
             {runs.map(run => {
               const def = definitions.find(d => d.id === run.definitionId);

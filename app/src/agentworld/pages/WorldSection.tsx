@@ -22,7 +22,7 @@ const toggleClass = (active: boolean): string =>
   `rounded-lg border px-3 py-2 text-sm transition ${
     active
       ? 'border-primary-500 bg-primary-500 text-white dark:border-primary-500 dark:bg-primary-600'
-      : 'border-stone-200 bg-white/85 text-stone-800 hover:border-primary-400 dark:border-neutral-700 dark:bg-neutral-950/70 dark:text-neutral-100 dark:hover:border-primary-500'
+      : 'border-line bg-white/85 text-content hover:border-primary-400 dark:bg-neutral-950/70 dark:hover:border-primary-500'
   }`;
 
 export default function WorldSection() {

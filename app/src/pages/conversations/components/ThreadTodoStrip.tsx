@@ -109,13 +109,13 @@ export const ThreadTodoStrip: React.FC<Props> = ({
 
   return (
     <div
-      className="mb-2 rounded-xl border border-stone-200 bg-stone-50 text-xs shadow-sm dark:border-neutral-700 dark:bg-neutral-900"
+      className="mb-2 rounded-xl border border-line bg-surface-muted text-xs shadow-sm"
       data-testid="thread-todo-strip">
       <button
         type="button"
         onClick={() => setCollapsed(prev => !prev)}
         aria-expanded={!collapsed}
-        className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-stone-500 transition-colors hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200">
+        className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-content-muted transition-colors hover:text-content-secondary">
         <span aria-hidden className="text-primary-500">
           {collapsed ? '▸' : '▾'}
         </span>
@@ -151,7 +151,7 @@ export const ThreadTodoStrip: React.FC<Props> = ({
                   type="button"
                   title={t('conversations.taskKanban.viewWork')}
                   onClick={() => onViewSession(card)}
-                  className="flex-shrink-0 rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 transition-colors hover:bg-stone-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                  className="flex-shrink-0 rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary transition-colors hover:bg-surface-hover">
                   {t('conversations.taskKanban.viewWork')}
                 </button>
               )}
@@ -170,7 +170,7 @@ export const ThreadTodoStrip: React.FC<Props> = ({
                     title={t('chat.approval.deny')}
                     disabled={disabled}
                     onClick={() => onDecidePlan(card, false)}
-                    className="rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 transition-colors hover:bg-stone-100 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                    className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary transition-colors hover:bg-stone-100 disabled:opacity-40 dark:hover:bg-neutral-800">
                     {t('chat.approval.deny')}
                   </button>
                 </span>

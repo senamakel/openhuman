@@ -60,8 +60,8 @@ export default function TwoPaneNav({
                       onClick={() => onSelect(item.value)}
                       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
                         active
-                          ? 'bg-stone-100 font-medium text-stone-900 dark:bg-neutral-800 dark:text-neutral-100'
-                          : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-neutral-300 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100'
+                          ? 'bg-surface-subtle font-medium text-content'
+                          : 'text-content-secondary hover:bg-stone-50 hover:text-stone-900 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100'
                       }`}>
                       <span
                         className={`shrink-0 ${

@@ -149,7 +149,7 @@ export default function AgentWorld() {
           className={
             isWorld
               ? 'h-full overflow-hidden bg-black'
-              : 'h-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900'
+              : 'h-full overflow-hidden rounded-2xl border border-line bg-surface shadow-soft'
           }>
           <Routes>
             <Route index element={<Navigate to="/agent-world/world" replace />} />

@@ -290,7 +290,7 @@ const ModelPickerDialog = ({
       aria-modal="true"
       aria-labelledby="model-council-model-picker-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-md rounded-lg border border-stone-200 bg-white p-4 shadow-xl dark:border-neutral-800 dark:bg-neutral-950">
+      <div className="w-full max-w-md rounded-lg border border-line bg-white p-4 shadow-xl dark:bg-neutral-950">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3
@@ -324,7 +324,7 @@ const ModelPickerDialog = ({
                 className={`rounded-lg border px-3 py-2 text-left text-sm ${
                   picker.value === hint.value
                     ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-200'
-                    : 'border-stone-200 text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900'
+                    : 'border-line text-content-secondary hover:bg-stone-50 dark:hover:bg-neutral-900'
                 }`}>
                 {t(hint.labelKey)}
                 <span className="block font-mono text-[11px] text-content-muted">
@@ -335,7 +335,7 @@ const ModelPickerDialog = ({
           </div>
         </div>
 
-        <div className="mt-4 space-y-3 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mt-4 space-y-3 rounded-lg border border-line bg-surface-muted p-3">
           <button
             type="button"
             onClick={() => setSelectionMode('custom')}
@@ -343,7 +343,7 @@ const ModelPickerDialog = ({
             className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
               selectionMode === 'custom'
                 ? 'border-primary-500 bg-white text-primary-700 dark:bg-neutral-950 dark:text-primary-200'
-                : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-800'
+                : 'border-line bg-white text-content-secondary hover:bg-stone-50 dark:bg-neutral-950 dark:hover:bg-neutral-800'
             }`}>
             {t('modelCouncil.modelPickerProviderModel')}
             <span className="block text-[11px] font-normal text-content-muted">
@@ -357,7 +357,7 @@ const ModelPickerDialog = ({
               onChange={e => setProvider(e.target.value)}
               aria-label={t('modelCouncil.modelProviderLabel')}
               disabled={selectionMode !== 'custom' || providersLoading || providers.length === 0}
-              className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
+              className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-neutral-950">
               {providers.map(item => (
                 <option key={item.slug} value={item.slug}>
                   {`${item.slug === 'openhuman' ? t('settings.ai.routing.managed') : item.label} (${item.slug})`}
@@ -369,7 +369,7 @@ const ModelPickerDialog = ({
               onChange={e => setModel(e.target.value)}
               aria-label={t('modelCouncil.modelIdLabel')}
               disabled={selectionMode !== 'custom' || modelsLoading || models.length === 0}
-              className="rounded-lg border border-stone-200 bg-white px-3 py-2 font-mono text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
+              className="rounded-lg border border-line bg-white px-3 py-2 font-mono text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-neutral-950">
               {models.map(item => (
                 <option key={item.id} value={item.id}>
                   {item.id}
@@ -1057,11 +1057,11 @@ const ModelCouncilTab = () => {
         )}
 
         {registryLoading ? (
-          <div className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-500 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+          <div className="rounded-lg border border-line bg-surface p-4 text-sm text-content-muted shadow-sm">
             {t('modelCouncil.loadingCouncils')}
           </div>
         ) : councils.length === 0 ? (
-          <div className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-500 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+          <div className="rounded-lg border border-line bg-surface p-4 text-sm text-content-muted shadow-sm">
             {t('modelCouncil.noCouncils')}
           </div>
         ) : (
@@ -1069,7 +1069,7 @@ const ModelCouncilTab = () => {
             {councils.map(council => (
               <article
                 key={council.id}
-                className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-primary-500/50">
+                className="rounded-lg border border-line bg-surface p-4 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:hover:border-primary-500/50">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="truncate text-sm font-semibold text-content">
@@ -1109,7 +1109,7 @@ const ModelCouncilTab = () => {
                   </div>
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                  <div className="rounded-md bg-surface-muted px-2 py-1.5">
                     <dt className="text-content-muted">
                       {t('modelCouncil.juryCountLabel')}
                     </dt>
@@ -1117,7 +1117,7 @@ const ModelCouncilTab = () => {
                       {council.jury_count}
                     </dd>
                   </div>
-                  <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                  <div className="rounded-md bg-surface-muted px-2 py-1.5">
                     <dt className="text-content-muted">
                       {t('modelCouncil.debateRoundsLabel')}
                     </dt>
@@ -1200,7 +1200,7 @@ const ModelCouncilTab = () => {
       )}
 
       {view === 'edit' && (
-        <section className="grid gap-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 md:grid-cols-2">
+        <section className="grid gap-3 rounded-lg border border-line bg-surface p-3 shadow-sm md:grid-cols-2">
           <div className="space-y-1.5">
             <label
               htmlFor="model-council-name"
@@ -1211,7 +1211,7 @@ const ModelCouncilTab = () => {
               id="model-council-name"
               value={councilName}
               onChange={e => setCouncilName(e.target.value)}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-content shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950"
             />
           </div>
           <div className="space-y-1.5">
@@ -1226,7 +1226,7 @@ const ModelCouncilTab = () => {
               onChange={e => setCouncilDescription(e.target.value)}
               placeholder={t('modelCouncil.councilDescriptionPlaceholder')}
               rows={3}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-content shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950"
             />
           </div>
         </section>
@@ -1246,13 +1246,13 @@ const ModelCouncilTab = () => {
             rows={4}
             placeholder={t('modelCouncil.questionPlaceholder')}
             aria-label={t('modelCouncil.questionLabel')}
-            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary-400"
           />
         </section>
       )}
 
       {view === 'edit' && (
-        <aside className="space-y-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <aside className="space-y-3 rounded-lg border border-line bg-surface p-3 shadow-sm">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-content-muted">
               {t('modelCouncil.settingsTitle')}
@@ -1271,7 +1271,7 @@ const ModelCouncilTab = () => {
                 className="text-xs font-medium text-content-secondary">
                 {t('modelCouncil.juryCountLabel')}
               </label>
-              <output className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-700 dark:bg-neutral-800 dark:text-neutral-200">
+              <output className="rounded-md bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-content-secondary">
                 {juryCount}
               </output>
             </div>
@@ -1295,7 +1295,7 @@ const ModelCouncilTab = () => {
                   className={`rounded-md border px-2 py-1 text-xs font-medium ${
                     juryCount === count
                       ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-200'
-                      : 'border-stone-200 text-stone-500 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800'
+                      : 'border-line text-content-muted hover:bg-surface-hover'
                   }`}>
                   {count}
                 </button>
@@ -1310,7 +1310,7 @@ const ModelCouncilTab = () => {
                 className="text-xs font-medium text-content-secondary">
                 {t('modelCouncil.debateRoundsLabel')}
               </label>
-              <output className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-700 dark:bg-neutral-800 dark:text-neutral-200">
+              <output className="rounded-md bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-content-secondary">
                 {debateRounds}
               </output>
             </div>
@@ -1337,7 +1337,7 @@ const ModelCouncilTab = () => {
                   className={`rounded-md border px-2 py-1 text-xs font-medium ${
                     debateRounds === rounds
                       ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-200'
-                      : 'border-stone-200 text-stone-500 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800'
+                      : 'border-line text-content-muted hover:bg-surface-hover'
                   }`}>
                   {rounds}
                 </button>
@@ -1362,7 +1362,7 @@ const ModelCouncilTab = () => {
                 setJudgeMode(mode);
                 setJudgeModel(mode === 'default' ? DEFAULT_JUDGE_MODEL : '');
               }}
-              className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
+              className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950">
               <option value="default">{t('modelCouncil.defaultJudge')}</option>
               <option value="profile">{t('modelCouncil.savedProfile')}</option>
               <option value="custom">{t('modelCouncil.customAgent')}</option>
@@ -1376,7 +1376,7 @@ const ModelCouncilTab = () => {
                   setJudgeProfileId(e.target.value);
                   setJudgeModel('');
                 }}
-                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
+                className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950">
                 <option value="">{t('modelCouncil.chooseProfile')}</option>
                 {profiles.map(profile => (
                   <option key={profile.id} value={profile.id}>
@@ -1393,7 +1393,7 @@ const ModelCouncilTab = () => {
                 onChange={e => setJudgeName(e.target.value)}
                 aria-label={t('modelCouncil.judgeNameLabel')}
                 placeholder={t('modelCouncil.judgeNamePlaceholder')}
-                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950"
               />
             )}
 
@@ -1407,7 +1407,7 @@ const ModelCouncilTab = () => {
                 })
               }
               aria-label={t('modelCouncil.chairLabel')}
-              className="flex w-full items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-left font-mono text-sm text-stone-800 hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-900">
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-1.5 text-left font-mono text-sm text-content hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950 dark:hover:bg-neutral-900">
               <span className="truncate">{judgeModel || DEFAULT_JUDGE_MODEL}</span>
               <span className="shrink-0 text-[11px] font-semibold text-primary-600 dark:text-primary-300">
                 {t('modelCouncil.selectModel')}
@@ -1447,7 +1447,7 @@ const ModelCouncilTab = () => {
               return (
                 <article
                   key={seat.id}
-                  className={`rounded-lg border bg-white p-3 shadow-sm transition-colors dark:bg-neutral-900 ${
+                  className={`rounded-lg border bg-surface p-3 shadow-sm transition-colors ${
                     running
                       ? 'border-primary-300 ring-2 ring-primary-100 dark:border-primary-500/50 dark:ring-primary-500/10'
                       : 'border-line'
@@ -1469,7 +1469,7 @@ const ModelCouncilTab = () => {
                         <p className="truncate text-sm font-semibold text-content">
                           {resolved.label}
                         </p>
-                        <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+                        <span className="rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase text-content-muted">
                           {t('modelCouncil.jurorLabel').replace('{n}', String(index + 1))}
                         </span>
                       </div>
@@ -1488,7 +1488,7 @@ const ModelCouncilTab = () => {
                             className={`rounded-md px-2 py-1 text-[11px] font-medium ${
                               seat.mode === mode
                                 ? 'bg-primary-500 text-white'
-                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
+                                : 'bg-surface-subtle text-content-secondary hover:bg-stone-200 dark:hover:bg-neutral-700'
                             }`}>
                             {t(`modelCouncil.mode.${mode}`)}
                           </button>
@@ -1508,7 +1508,7 @@ const ModelCouncilTab = () => {
                         onChange={e =>
                           updateSeat(seat.id, { profileId: e.target.value, model: '' })
                         }
-                        className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
+                        className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950">
                         <option value="">{t('modelCouncil.chooseProfile')}</option>
                         {profiles.map(profile => (
                           <option key={profile.id} value={profile.id}>
@@ -1526,7 +1526,7 @@ const ModelCouncilTab = () => {
                           String(index + 1)
                         )}
                         placeholder={t('modelCouncil.memberNamePlaceholder')}
-                        className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                        className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950"
                       />
                     )}
 
@@ -1540,7 +1540,7 @@ const ModelCouncilTab = () => {
                         })
                       }
                       aria-label={t('modelCouncil.memberAria').replace('{n}', String(index + 1))}
-                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-left font-mono text-sm text-stone-800 hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-900">
+                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-1.5 text-left font-mono text-sm text-content hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950 dark:hover:bg-neutral-900">
                       <span className="truncate">{seat.model || DEFAULT_MODEL}</span>
                       <span className="shrink-0 text-[11px] font-semibold text-primary-600 dark:text-primary-300">
                         {t('modelCouncil.selectModel')}
@@ -1556,7 +1556,7 @@ const ModelCouncilTab = () => {
                         String(index + 1)
                       )}
                       placeholder={t('modelCouncil.memberBriefPlaceholder')}
-                      className="w-full rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-700 resize-none focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200"
+                      className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-xs text-content-secondary resize-none focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-neutral-950"
                     />
                   </div>
                 </article>
@@ -1654,7 +1654,7 @@ const ModelCouncilTab = () => {
                               className={`rounded-md border px-2 py-1.5 ${
                                 turn.error
                                   ? 'border-coral-100 bg-coral-50/70 dark:border-coral-500/20 dark:bg-coral-500/10'
-                                  : 'border-stone-200 bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900'
+                                  : 'border-line bg-surface-muted'
                               }`}>
                               <p className="text-[10px] font-semibold uppercase text-content-muted">
                                 {t('modelCouncil.roundLabel').replace(
@@ -1716,7 +1716,7 @@ const ModelCouncilTab = () => {
             </div>
           </div>
 
-          <div className="rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
+          <div className="rounded-lg border border-line bg-white p-3 shadow-sm dark:bg-neutral-950">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 className="font-mono text-sm font-semibold text-content">
@@ -1730,7 +1730,7 @@ const ModelCouncilTab = () => {
                 {t('modelCouncil.liveScratchpadBadge')}
               </span>
             </div>
-            <div className="mt-3 max-h-72 overflow-y-auto rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-stone-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 [&_.prose]:text-xs [&_.prose]:leading-5">
+            <div className="mt-3 max-h-72 overflow-y-auto rounded-md border border-line bg-surface-muted px-3 py-2 text-content-secondary [&_.prose]:text-xs [&_.prose]:leading-5">
               <BubbleMarkdown content={liveScratchpad || sharedReasoning} />
             </div>
           </div>
@@ -1771,7 +1771,7 @@ const ModelCouncilTab = () => {
             {result.members.map((member, index) => (
               <div
                 key={`${member.model}-${index}`}
-                className="rounded-lg border border-stone-200 p-3 space-y-1.5 dark:border-neutral-800">
+                className="rounded-lg border border-line p-3 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-mono text-xs font-medium text-content-secondary">
                     {member.model}
@@ -1813,7 +1813,7 @@ const ModelCouncilTab = () => {
           </div>
 
           {usageEstimate && (
-            <div className="rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="rounded-lg border border-line bg-surface p-3 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-semibold text-content">
@@ -1823,12 +1823,12 @@ const ModelCouncilTab = () => {
                     {t('modelCouncil.usageEstimated')}
                   </p>
                 </div>
-                <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-semibold text-stone-700 dark:bg-neutral-800 dark:text-neutral-200">
+                <span className="rounded-md bg-surface-subtle px-2 py-1 text-xs font-semibold text-content-secondary">
                   {t('modelCouncil.usageEstimatedBadge')}
                 </span>
               </div>
               <dl className="mt-3 grid gap-2 sm:grid-cols-3">
-                <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                <div className="rounded-md bg-surface-muted px-2 py-1.5">
                   <dt className="text-[10px] uppercase text-content-muted">
                     {t('modelCouncil.usageInputTokens')}
                   </dt>
@@ -1836,7 +1836,7 @@ const ModelCouncilTab = () => {
                     {formatTokenCount(usageEstimate.inputTokens)}
                   </dd>
                 </div>
-                <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                <div className="rounded-md bg-surface-muted px-2 py-1.5">
                   <dt className="text-[10px] uppercase text-content-muted">
                     {t('modelCouncil.usageOutputTokens')}
                   </dt>
@@ -1844,7 +1844,7 @@ const ModelCouncilTab = () => {
                     {formatTokenCount(usageEstimate.outputTokens)}
                   </dd>
                 </div>
-                <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
+                <div className="rounded-md bg-surface-muted px-2 py-1.5">
                   <dt className="text-[10px] uppercase text-content-muted">
                     {t('modelCouncil.usageTotalTokens')}
                   </dt>

@@ -99,7 +99,7 @@ const AgentBoxPanel = () => {
               className={`text-xs font-mono px-2 py-0.5 rounded-full ${
                 s.mode_enabled
                   ? 'bg-sage-100 text-sage-800 dark:bg-sage-500/20 dark:text-sage-200'
-                  : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700/40 dark:text-neutral-300'
+                  : 'bg-neutral-100 text-content-secondary dark:bg-neutral-700/40'
               }`}>
               {modeLabel}
             </span>

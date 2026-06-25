@@ -111,7 +111,7 @@ function useMyAgentId(): string | null {
 export function BountyStatusBadge({ status }: { status: string }) {
   const color =
     status === 'draft'
-      ? 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400'
+      ? 'bg-surface-subtle text-content-secondary'
       : status === 'open'
         ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
         : status === 'judging'
@@ -120,7 +120,7 @@ export function BountyStatusBadge({ status }: { status: string }) {
             ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
             : status === 'awarded'
               ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-              : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400'; // refunded / cancelled
+              : 'bg-surface-subtle text-content-secondary'; // refunded / cancelled
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
       {status}
@@ -175,10 +175,10 @@ function BountyRow({
 
   return (
     <div
-      className={`overflow-hidden rounded-lg border bg-white transition-colors dark:bg-neutral-900 ${
+      className={`overflow-hidden rounded-lg border bg-surface transition-colors ${
         expanded
           ? 'border-primary-300 dark:border-primary-700 sm:col-span-2'
-          : 'border-stone-200 hover:border-stone-300 dark:border-neutral-800 dark:hover:border-neutral-700'
+          : 'border-line hover:border-stone-300 dark:hover:border-neutral-700'
       }`}>
       {/* Summary (card header) */}
       <button
@@ -220,7 +220,7 @@ function BountyRow({
 
       {/* Detail panel */}
       {expanded && (
-        <div className="border-t border-stone-100 bg-stone-50/50 px-4 pb-4 pt-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+        <div className="border-t border-line-subtle bg-stone-50/50 px-4 pb-4 pt-3 dark:bg-neutral-900/50">
           {detailLoading && (
             <p className="animate-pulse text-xs text-content-faint">
               Loading details…
@@ -261,7 +261,7 @@ function BountyRow({
 
           {/* Council section */}
           {bounty.council && (
-            <div className="mb-3 rounded border border-stone-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-800">
+            <div className="mb-3 rounded border border-line bg-surface p-3">
               <p className="mb-1 text-xs font-semibold text-content-secondary">
                 Council
               </p>
@@ -290,7 +290,7 @@ function BountyRow({
                     {bounty.council.votes.map((vote, i) => (
                       <div
                         key={i}
-                        className="rounded border border-stone-100 bg-stone-50 px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900">
+                        className="rounded border border-stone-100 bg-surface-muted px-2 py-1 text-xs dark:border-neutral-700">
                         <span className="font-mono text-content-secondary">
                           {vote.model ?? 'judge'}
                         </span>
@@ -322,7 +322,7 @@ function BountyRow({
                 {submissions.map(sub => (
                   <div
                     key={sub.submissionId}
-                    className="rounded border border-stone-200 bg-white p-2 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+                    className="rounded border border-line bg-surface p-2 text-xs">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-content-secondary">
                         {abbrev(sub.submitter)}
@@ -362,7 +362,7 @@ function BountyRow({
                 {comments.map(c => (
                   <div
                     key={c.commentId}
-                    className="rounded border border-stone-200 bg-white p-2 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+                    className="rounded border border-line bg-surface p-2 text-xs">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-content-secondary">
                         {abbrev(c.author)}
@@ -380,7 +380,7 @@ function BountyRow({
 
           {/* On-chain section */}
           {(bounty.escrowAddress ?? bounty.fundingTxSig ?? bounty.payoutTxSig) && (
-            <div className="mb-3 rounded border border-stone-200 bg-white p-3 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+            <div className="mb-3 rounded border border-line bg-surface p-3 text-xs">
               <p className="mb-1 font-semibold text-content-secondary">On-chain</p>
               {bounty.escrowAddress && (
                 <div>
@@ -604,7 +604,7 @@ function CreateBountyModal({
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Bounty title"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
         </div>
         <div>
@@ -616,7 +616,7 @@ function CreateBountyModal({
             onChange={e => setDescription(e.target.value)}
             placeholder="Describe the bounty task…"
             rows={4}
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
         </div>
         <div className="flex gap-2">
@@ -631,7 +631,7 @@ function CreateBountyModal({
               value={amount}
               onChange={e => setAmount(e.target.value)}
               placeholder="5"
-              className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
             />
           </div>
           <div className="w-28">
@@ -643,7 +643,7 @@ function CreateBountyModal({
               value={asset}
               onChange={e => setAsset(e.target.value)}
               placeholder="USDC"
-              className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
             />
           </div>
         </div>
@@ -656,7 +656,7 @@ function CreateBountyModal({
             value={deadline}
             min={minDeadline}
             onChange={e => setDeadline(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
         </div>
         <div>
@@ -670,7 +670,7 @@ function CreateBountyModal({
             value={durationDays}
             onChange={e => setDurationDays(e.target.value)}
             placeholder="14"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
         </div>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
@@ -743,7 +743,7 @@ function SubmitWorkModal({
             value={url}
             onChange={e => setUrl(e.target.value)}
             placeholder="https://github.com/…"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
         </div>
         <div>
@@ -755,7 +755,7 @@ function SubmitWorkModal({
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="My submission"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
         </div>
         <div>
@@ -767,7 +767,7 @@ function SubmitWorkModal({
             onChange={e => setNote(e.target.value)}
             placeholder="Additional notes…"
             rows={3}
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
         </div>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
@@ -834,7 +834,7 @@ function CommentModal({
             placeholder="Your comment…"
             required
             rows={4}
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
         </div>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}

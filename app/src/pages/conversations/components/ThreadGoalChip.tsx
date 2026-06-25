@@ -54,7 +54,7 @@ function statusClasses(status: ThreadGoalStatus): string {
     case 'active':
       return 'bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-200';
     case 'paused':
-      return 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-300';
+      return 'bg-surface-subtle text-content-secondary';
     case 'budget_limited':
       return 'bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200';
     case 'complete':
@@ -192,7 +192,7 @@ export function ThreadGoalFooterTrigger({
         type="button"
         onClick={ctl.toggle}
         aria-expanded={ctl.expanded}
-        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
+        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
         <span aria-hidden>◎</span>
         {t('conversations.threadGoal.setCta')}
       </button>
@@ -237,7 +237,7 @@ export function ThreadGoalEditorPanel({
       : null;
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-800">
+    <div className="flex flex-col gap-1.5 rounded-xl border border-line bg-surface-muted px-3 py-2">
       {/* Controls row — lifecycle (left) + budget and Cancel/Save (right) —
           sits above the input so the input gets the full width below. */}
       <div className="flex items-center gap-1">
@@ -278,7 +278,7 @@ export function ThreadGoalEditorPanel({
           <button
             type="button"
             onClick={ctl.close}
-            className="shrink-0 rounded px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-100 dark:text-neutral-400 dark:hover:bg-neutral-800">
+            className="shrink-0 rounded px-2 py-0.5 text-xs text-content-muted hover:bg-surface-hover">
             {t('conversations.threadGoal.cancel')}
           </button>
           <button
@@ -302,7 +302,7 @@ export function ThreadGoalEditorPanel({
         }}
         placeholder={t('conversations.threadGoal.placeholder')}
         aria-label={t('conversations.threadGoal.placeholder')}
-        className="w-full border-0 bg-transparent text-sm text-stone-800 outline-none focus:outline-none focus:ring-0 placeholder:text-stone-400 dark:text-neutral-100"
+        className="w-full border-0 bg-transparent text-sm text-content outline-none focus:outline-none focus:ring-0 placeholder:text-stone-400"
       />
     </div>
   );
@@ -362,7 +362,7 @@ function PanelButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="rounded px-1.5 py-0.5 text-[11px] text-stone-500 hover:bg-stone-100 disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-neutral-800">
+      className="rounded px-1.5 py-0.5 text-[11px] text-content-muted hover:bg-stone-100 disabled:opacity-40 dark:hover:bg-neutral-800">
       {label}
     </button>
   );

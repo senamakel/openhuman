@@ -41,7 +41,7 @@ const LogsFolderRow = () => {
   if (!isTauri()) return null;
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-800/60">
+    <div className="rounded-xl border border-line bg-surface-muted px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-content">
@@ -143,7 +143,7 @@ const RestartTourRow = () => {
   };
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-800/60">
+    <div className="rounded-xl border border-line bg-surface-muted px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-content">

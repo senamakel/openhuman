@@ -2512,7 +2512,7 @@ const CustomRoutingDialog = ({
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-current/80">
                       {t('settings.ai.response')}
                     </div>
-                    <div className="rounded-md border border-current/15 bg-white/70 px-3 py-3 text-[13px] leading-relaxed text-neutral-900 whitespace-pre-wrap break-words dark:bg-black/10 dark:text-neutral-100">
+                    <div className="rounded-md border border-current/15 bg-white/70 px-3 py-3 text-[13px] leading-relaxed text-content whitespace-pre-wrap break-words dark:bg-black/10">
                       {testReply}
                     </div>
                   </div>
@@ -3435,7 +3435,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 className={`flex h-full min-h-[152px] flex-col rounded-2xl border p-4 text-left transition-colors ${
                   effectiveRoutingMode === 'managed'
                     ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10'
-                    : 'border-neutral-200 bg-white hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                    : 'border-line bg-surface hover:bg-surface-hover'
                 }`}>
                 <div className="text-sm font-semibold text-content">
                   {t('settings.ai.routing.managed')}
@@ -3451,7 +3451,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 className={`flex h-full min-h-[152px] flex-col rounded-2xl border p-4 text-left transition-colors ${
                   effectiveRoutingMode === 'own'
                     ? 'border-sky-300 bg-sky-50 dark:border-sky-500/40 dark:bg-sky-500/10'
-                    : 'border-neutral-200 bg-white hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                    : 'border-line bg-surface hover:bg-surface-hover'
                 }`}>
                 <div className="text-sm font-semibold text-content">
                   {t('settings.ai.routing.useYourOwn')}
@@ -3467,7 +3467,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 className={`flex h-full min-h-[152px] flex-col rounded-2xl border p-4 text-left transition-colors ${
                   effectiveRoutingMode === 'custom'
                     ? 'border-sky-300 bg-sky-50 dark:border-sky-500/40 dark:bg-sky-500/10'
-                    : 'border-neutral-200 bg-white hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                    : 'border-line bg-surface hover:bg-surface-hover'
                 }`}>
                 <div className="text-sm font-semibold text-content">
                   {t('settings.ai.routing.advanced')}

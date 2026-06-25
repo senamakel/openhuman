@@ -116,7 +116,7 @@ const ProfilesPanel = () => {
                             {t('settings.profiles.active')}
                           </span>
                         )}
-                        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                        <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-medium text-content-muted">
                           {profile.builtIn
                             ? t('settings.profiles.sourceBuiltIn')
                             : t('settings.profiles.sourceCustom')}

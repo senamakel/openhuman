@@ -109,7 +109,7 @@ const SuperContextToggle = () => {
           aria-describedby="super-context-tooltip"
           aria-label={t('chat.superContext.label')}
           data-testid="super-context-info"
-          className="flex h-4 w-4 items-center justify-center rounded-full text-stone-400 transition-colors hover:text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-neutral-500 dark:hover:text-neutral-300">
+          className="flex h-4 w-4 items-center justify-center rounded-full text-content-faint transition-colors hover:text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:hover:text-neutral-300">
           <svg
             className="h-3.5 w-3.5"
             fill="none"

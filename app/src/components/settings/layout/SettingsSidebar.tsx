@@ -103,7 +103,7 @@ const SettingsSidebar = () => {
                   : highlight
                     ? // Highlighted-but-inactive rows accent the text only (no bg).
                       'font-medium text-primary-700 hover:bg-stone-50 dark:text-primary-300 dark:hover:bg-neutral-800/60'
-                    : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-neutral-300 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100';
+                    : 'text-content-secondary hover:bg-stone-50 hover:text-stone-900 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100';
                 return (
                   <li key={row.id}>
                     <button

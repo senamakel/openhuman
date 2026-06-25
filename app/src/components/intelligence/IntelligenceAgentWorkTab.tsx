@@ -52,7 +52,7 @@ const BUCKET_ACCENT: Record<AgentWorkBucket, string> = {
   failed:
     'border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300',
   stopped:
-    'border-stone-200 bg-stone-50 text-stone-600 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300',
+    'border-line bg-surface-muted text-content-secondary',
 };
 
 /** i18n key for each bucket's localized label. */
@@ -187,7 +187,7 @@ export default function IntelligenceAgentWorkTab() {
         <p className="text-xs text-content-faint">
           {t('intelligence.agentWork.subtitle')}
         </p>
-        <div className="rounded-xl border border-dashed border-stone-200 py-10 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+        <div className="rounded-xl border border-dashed border-line py-10 text-center text-sm text-content-faint">
           {t('intelligence.agentWork.empty')}
         </div>
       </div>
@@ -221,7 +221,7 @@ export default function IntelligenceAgentWorkTab() {
               </span>
             </div>
 
-            <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+            <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
               {rows.map(row => (
                 <AgentWorkRowItem
                   key={row.runId}
@@ -245,7 +245,7 @@ const RETRYABLE_STATUSES = new Set(['failed', 'cancelled', 'interrupted']);
 
 /** Shared button styling for the row's secondary actions. */
 const ACTION_BTN =
-  'rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-800 dark:hover:bg-neutral-800';
+  'rounded-md border border-line px-2 py-1 text-[11px] font-medium hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800';
 
 interface AgentWorkRowItemProps {
   row: AgentWorkRow;
@@ -312,7 +312,7 @@ function AgentWorkRowItem({ row, onOpenThread, onControlled }: AgentWorkRowItemP
             </span>
             <span
               title={t('intelligence.agentWork.column.status')}
-              className="rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:border-neutral-700 dark:text-neutral-400">
+              className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
               {statusLabel}
             </span>
             <span className="text-[10px] uppercase tracking-wide text-content-faint">
@@ -413,7 +413,7 @@ function AgentWorkRowItem({ row, onOpenThread, onControlled }: AgentWorkRowItemP
                 ? 'intelligence.agentWork.action.continuePlaceholder'
                 : 'intelligence.agentWork.action.followUpPlaceholder'
             )}
-            className="w-full resize-y rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-800 focus:border-ocean-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+            className="w-full resize-y rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-content focus:border-ocean-400 focus:outline-none"
           />
           <div className="flex items-center gap-2">
             <button

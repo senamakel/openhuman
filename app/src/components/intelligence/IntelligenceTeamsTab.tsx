@@ -264,7 +264,7 @@ export default function IntelligenceTeamsTab() {
         <p className="text-xs text-content-faint">
           {t('intelligence.teams.subtitle')}
         </p>
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-stone-200 py-12 text-center dark:border-neutral-800">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line py-12 text-center">
           <LuUsers className="h-6 w-6 text-stone-300 dark:text-neutral-600" />
           <p className="text-sm text-content-muted">
             {t('intelligence.teams.empty')}
@@ -335,7 +335,7 @@ export default function IntelligenceTeamsTab() {
         </p>
         <RefreshButton refreshing={refreshing} onClick={() => void refresh()} t={t} />
       </div>
-      <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+      <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
         {teams.map(team => (
           <li key={team.id}>
             <button
@@ -355,7 +355,7 @@ export default function IntelligenceTeamsTab() {
                 className={`flex-none rounded-md px-1.5 py-0.5 text-[10px] ${
                   team.status === 'active'
                     ? 'bg-sage-50 text-sage-700 dark:bg-sage-500/10 dark:text-sage-300'
-                    : 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400'
+                    : 'bg-surface-subtle text-content-muted'
                 }`}>
                 {team.status === 'active'
                   ? t('intelligence.teams.status.active')

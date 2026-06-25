@@ -211,7 +211,7 @@ const Welcome = () => {
                     event.preventDefault();
                     void openUrl(TERMS_OF_USE_URL);
                   }}
-                  className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-neutral-300 dark:hover:text-neutral-100">
+                  className="font-medium text-content-secondary underline underline-offset-2 hover:text-content">
                   {t('welcome.termsOfUse')}
                 </a>{' '}
                 {t('welcome.termsJoiner')}{' '}
@@ -223,7 +223,7 @@ const Welcome = () => {
                     event.preventDefault();
                     void openUrl(PRIVACY_POLICY_URL);
                   }}
-                  className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-neutral-300 dark:hover:text-neutral-100">
+                  className="font-medium text-content-secondary underline underline-offset-2 hover:text-content">
                   {t('welcome.privacyPolicy')}
                 </a>
                 {t('welcome.termsOutro')}

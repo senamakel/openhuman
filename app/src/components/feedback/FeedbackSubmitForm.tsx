@@ -76,7 +76,7 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
         : 'text-coral-600 dark:text-coral-400';
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-none">
+    <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft dark:shadow-none">
       <h2 className="font-title text-base font-semibold text-content">
         {t('feedback.submit.heading')}
       </h2>

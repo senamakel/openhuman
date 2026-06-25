@@ -43,10 +43,10 @@ interface MemoryControlsProps {
 const BTN_BASE =
   'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2';
 const BTN_PRIMARY = `${BTN_BASE} bg-primary-500 text-white shadow-sm hover:bg-primary-600 focus:ring-primary-200`;
-const BTN_GHOST = `${BTN_BASE} border border-stone-200 bg-white text-stone-700 shadow-sm hover:bg-stone-50 focus:ring-stone-200 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 dark:focus:ring-neutral-700`;
+const BTN_GHOST = `${BTN_BASE} border border-line bg-surface text-content-secondary shadow-sm hover:bg-stone-50 focus:ring-stone-200 dark:hover:bg-neutral-800 dark:focus:ring-neutral-700`;
 // Destructive actions read as proper (bordered) buttons but stay muted until
 // hover, when they reveal their warning tint.
-const BTN_MUTED = `${BTN_BASE} border border-stone-200 bg-white text-stone-500 shadow-sm focus:ring-stone-200 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:focus:ring-neutral-700`;
+const BTN_MUTED = `${BTN_BASE} border border-line bg-surface text-content-muted shadow-sm focus:ring-stone-200 dark:focus:ring-neutral-700`;
 
 export function MemoryControls({
   mode,

@@ -178,7 +178,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
           native CEF webview glued to the content's bounds, which composites
           above the HTML layer — starts to its right and never covers it. */}
       {!isOpen && (
-        <div className="flex w-14 flex-none flex-col items-center gap-0.5 border-r border-stone-200 bg-white pt-2 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex w-14 flex-none flex-col items-center gap-0.5 border-r border-line bg-surface pt-2">
           <Tooltip label={t('layout.showSidebar')}>
             <button
               type="button"
@@ -186,7 +186,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
               data-testid="root-shell-reopen"
               data-analytics-id="root-shell-reopen-sidebar"
               aria-label={t('layout.showSidebar')}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200">
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"

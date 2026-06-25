@@ -144,7 +144,7 @@ const Feedback = () => {
             <h2 className="flex items-center gap-2 font-title text-base font-semibold text-content">
               {t('feedback.board')}
               {total > 0 && (
-                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium tabular-nums text-neutral-500 dark:bg-white/10 dark:text-neutral-400">
+                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium tabular-nums text-content-muted dark:bg-white/10">
                   {total}
                 </span>
               )}
@@ -159,7 +159,7 @@ const Feedback = () => {
                   aria-pressed={sort === option}
                   className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
                     sort === option
-                      ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100'
+                      ? 'bg-white text-content shadow-sm dark:bg-neutral-700'
                       : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
                   }`}>
                   {t(SORT_LABEL_KEYS[option])}
@@ -203,7 +203,7 @@ const Feedback = () => {
               {Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-28 animate-pulse rounded-2xl border border-neutral-200 bg-neutral-100 dark:border-neutral-800 dark:bg-white/5"
+                  className="h-28 animate-pulse rounded-2xl border border-line bg-neutral-100 dark:bg-white/5"
                 />
               ))}
             </div>
@@ -220,7 +220,7 @@ const Feedback = () => {
               ))}
             </div>
           ) : loadError ? null : (
-            <div className="rounded-2xl border border-dashed border-neutral-200 py-12 text-center dark:border-neutral-800">
+            <div className="rounded-2xl border border-dashed border-line py-12 text-center">
               <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/5">
                 <svg
                   className="h-5 w-5 text-neutral-400"

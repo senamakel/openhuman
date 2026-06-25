@@ -112,7 +112,7 @@ export default function DiagramViewerTab() {
       </div>
 
       {showEmptyState && (
-        <div className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-stone-300 bg-stone-50 px-6 py-10 text-center dark:border-neutral-700 dark:bg-neutral-950/60">
+        <div className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-line-strong bg-stone-50 px-6 py-10 text-center dark:bg-neutral-950/60">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300">
             <LuImage aria-hidden="true" className="h-6 w-6" />
           </div>
@@ -125,10 +125,10 @@ export default function DiagramViewerTab() {
             </p>
           </div>
           <div className="flex max-w-full flex-col gap-2">
-            <code className="max-w-full overflow-x-auto rounded-md bg-white px-3 py-2 text-xs text-stone-600 dark:bg-neutral-900 dark:text-neutral-300">
+            <code className="max-w-full overflow-x-auto rounded-md bg-surface px-3 py-2 text-xs text-content-secondary">
               {t('intelligence.diagram.skillInstallCommand')}
             </code>
-            <code className="max-w-full overflow-x-auto rounded-md bg-white px-3 py-2 text-xs text-stone-600 dark:bg-neutral-900 dark:text-neutral-300">
+            <code className="max-w-full overflow-x-auto rounded-md bg-surface px-3 py-2 text-xs text-content-secondary">
               {t('intelligence.diagram.promptExample')}
             </code>
           </div>
@@ -141,7 +141,7 @@ export default function DiagramViewerTab() {
             key={imageUrl}
             src={imageUrl}
             alt={t('intelligence.diagram.imageAlt')}
-            className="block w-full rounded-lg border border-stone-200 bg-white object-contain dark:border-neutral-800 dark:bg-neutral-950"
+            className="block w-full rounded-lg border border-line bg-white object-contain dark:bg-neutral-950"
             onLoad={() => setImageState('loaded')}
             onError={() => setImageState('error')}
           />

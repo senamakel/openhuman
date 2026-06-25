@@ -178,13 +178,13 @@ function BountyRow({
       className={`overflow-hidden rounded-lg border bg-surface transition-colors ${
         expanded
           ? 'border-primary-300 dark:border-primary-700 sm:col-span-2'
-          : 'border-line hover:border-stone-300 dark:hover:border-neutral-700'
+          : 'border-line hover:border-stone-300 dark:hover:border-line-strong'
       }`}>
       {/* Summary (card header) */}
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/50">
+        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-surface-muted/50">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="truncate text-sm font-medium text-content">
@@ -220,7 +220,7 @@ function BountyRow({
 
       {/* Detail panel */}
       {expanded && (
-        <div className="border-t border-line-subtle bg-stone-50/50 px-4 pb-4 pt-3 dark:bg-neutral-900/50">
+        <div className="border-t border-line-subtle bg-stone-50/50 px-4 pb-4 pt-3 dark:bg-surface/50">
           {detailLoading && (
             <p className="animate-pulse text-xs text-content-faint">
               Loading details…
@@ -290,7 +290,7 @@ function BountyRow({
                     {bounty.council.votes.map((vote, i) => (
                       <div
                         key={i}
-                        className="rounded border border-stone-100 bg-surface-muted px-2 py-1 text-xs dark:border-neutral-700">
+                        className="rounded border border-stone-100 bg-surface-muted px-2 py-1 text-xs dark:border-line-strong">
                         <span className="font-mono text-content-secondary">
                           {vote.model ?? 'judge'}
                         </span>
@@ -300,7 +300,7 @@ function BountyRow({
                           </span>
                         )}
                         {vote.reasoning && (
-                          <p className="mt-0.5 text-stone-500 dark:text-neutral-500 line-clamp-1">
+                          <p className="mt-0.5 text-stone-500 dark:text-content-faint line-clamp-1">
                             {vote.reasoning}
                           </p>
                         )}
@@ -327,7 +327,7 @@ function BountyRow({
                       <span className="font-mono text-content-secondary">
                         {abbrev(sub.submitter)}
                       </span>
-                      <span className="text-stone-500 dark:text-neutral-500">{sub.status}</span>
+                      <span className="text-stone-500 dark:text-content-faint">{sub.status}</span>
                     </div>
                     {sub.title && (
                       <p className="mt-0.5 font-medium text-content">
@@ -342,7 +342,7 @@ function BountyRow({
                       {sub.url}
                     </a>
                     {sub.note && (
-                      <p className="mt-0.5 text-stone-500 dark:text-neutral-500 line-clamp-2">
+                      <p className="mt-0.5 text-stone-500 dark:text-content-faint line-clamp-2">
                         {sub.note}
                       </p>
                     )}

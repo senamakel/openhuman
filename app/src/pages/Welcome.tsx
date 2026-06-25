@@ -201,7 +201,7 @@ const Welcome = () => {
                     />
                   ))}
               </div>
-              <p className="mt-5 text-center text-[11px] leading-5 text-stone-500 dark:text-neutral-500">
+              <p className="mt-5 text-center text-[11px] leading-5 text-stone-500 dark:text-content-faint">
                 {t('welcome.termsIntro')}{' '}
                 <a
                   href={TERMS_OF_USE_URL}

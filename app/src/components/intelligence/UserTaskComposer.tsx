@@ -104,7 +104,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
             type="button"
             aria-label={t('common.cancel')}
             onClick={onClose}
-            className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-content-muted hover:bg-stone-100 hover:text-stone-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
+            className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-content-muted hover:bg-surface-hover hover:text-content">
             <LuX className="h-4 w-4" />
           </button>
         </div>
@@ -122,7 +122,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit();
               }}
               placeholder={t('intelligence.tasks.composer.titlePlaceholder')}
-              className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950"
+              className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
             />
           </label>
 
@@ -134,7 +134,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value as TaskBoardCardStatus)}
-                className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950">
+                className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
                 {STATUS_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
                     {t(option.labelKey)}
@@ -150,7 +150,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
               <select
                 value={attachThreadId}
                 onChange={e => setAttachThreadId(e.target.value)}
-                className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950">
+                className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
                 <option value="">{t('intelligence.tasks.composer.attachNone')}</option>
                 {attachableThreads.map(thread => (
                   <option key={thread.id} value={thread.id}>
@@ -169,7 +169,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
               value={objective}
               onChange={e => setObjective(e.target.value)}
               placeholder={t('intelligence.tasks.composer.objectivePlaceholder')}
-              className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950"
+              className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
             />
           </label>
 
@@ -182,7 +182,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
               onChange={e => setNotes(e.target.value)}
               rows={3}
               placeholder={t('intelligence.tasks.composer.notesPlaceholder')}
-              className="w-full resize-y rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950"
+              className="w-full resize-y rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
             />
           </label>
 
@@ -192,7 +192,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
               checked={assignToAgent && !attachThreadId}
               disabled={attachThreadId !== ''}
               onChange={e => setAssignToAgent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 flex-none rounded border-stone-300 text-ocean-600 focus:ring-ocean-500 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-950"
+              className="mt-0.5 h-4 w-4 flex-none rounded border-stone-300 text-ocean-600 focus:ring-ocean-500 disabled:opacity-50 dark:border-neutral-600 dark:bg-surface-canvas"
             />
             <span className="text-xs text-content-secondary">
               <span className="font-semibold text-content-secondary">

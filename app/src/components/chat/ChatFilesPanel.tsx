@@ -319,7 +319,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                       onClick={() => void handleDeleteConfirm(artifact)}
                       data-analytics-id={`chat-files-delete-confirm-${artifact.kind}`}
                       data-testid={`chat-files-confirm-${artifact.artifactId}`}
-                      className="rounded-md bg-coral-500 hover:bg-coral-600 text-white text-[11px] font-medium px-2 py-1 transition-colors">
+                      className="rounded-md bg-coral-500 hover:bg-coral-600 text-content-inverted text-[11px] font-medium px-2 py-1 transition-colors">
                       {t('chat.files.delete.action')}
                     </button>
                   </div>

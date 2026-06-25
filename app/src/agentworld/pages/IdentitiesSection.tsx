@@ -423,7 +423,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
         </h3>
         <form className="flex gap-2" onSubmit={handleSubmit}>
           <input
-            className="flex-1 rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-stone-400 dark:placeholder-neutral-500 outline-none focus:border-primary-500"
+            className="flex-1 rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-content-faint outline-none focus:border-primary-500"
             placeholder="Search for a name..."
             type="text"
             value={input}

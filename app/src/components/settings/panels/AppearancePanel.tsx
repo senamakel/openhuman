@@ -170,7 +170,7 @@ const AppearancePanel = () => {
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg ${
                     selected
-                      ? 'bg-primary-500 text-white'
+                      ? 'bg-primary-500 text-content-inverted'
                       : 'bg-surface-subtle text-content-secondary'
                   }`}>
                   {opt.icon}
@@ -235,7 +235,7 @@ const AppearancePanel = () => {
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg ${
                     selected
-                      ? 'bg-primary-500 text-white'
+                      ? 'bg-primary-500 text-content-inverted'
                       : 'bg-surface-subtle text-content-secondary'
                   }`}>
                   <span className={`font-semibold leading-none ${opt.glyphClass}`} aria-hidden>

@@ -874,7 +874,7 @@ const ProviderKeyDialog = ({
         </div>
 
         {oauthAction ? (
-          <div className="mt-4 rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/50 p-3">
+          <div className="mt-4 rounded-xl border border-line bg-neutral-50 dark:bg-surface-muted/50 p-3">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
               {t('settings.ai.or')}
             </div>

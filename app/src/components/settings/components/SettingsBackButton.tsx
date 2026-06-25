@@ -51,8 +51,8 @@ const SettingsBackButtonView = ({
   const isTopLevel = pathname.split('/').filter(Boolean).length <= 2;
   const className =
     inTwoPaneShell && isTopLevel
-      ? 'md:hidden w-6 h-6 flex items-center justify-center rounded-full hover:bg-stone-100 dark:bg-neutral-800 dark:hover:bg-neutral-800 transition-colors mr-2'
-      : 'w-6 h-6 flex items-center justify-center rounded-full hover:bg-stone-100 dark:bg-neutral-800 dark:hover:bg-neutral-800 transition-colors mr-2';
+      ? 'md:hidden w-6 h-6 flex items-center justify-center rounded-full hover:bg-surface-hover dark:bg-surface-muted transition-colors mr-2'
+      : 'w-6 h-6 flex items-center justify-center rounded-full hover:bg-surface-hover dark:bg-surface-muted transition-colors mr-2';
 
   return (
     <button onClick={onBack} className={className} aria-label={t('common.back')}>

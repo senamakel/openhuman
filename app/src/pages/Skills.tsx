@@ -352,7 +352,7 @@ function ChannelTile({
               data-testid={setDefaultTestId}
               onClick={onSetDefault}
               disabled={setDefaultBusy}
-              className="inline-flex items-center justify-center rounded-lg border border-line bg-white/70 px-2.5 py-1 text-[11px] font-medium text-content-muted transition-colors hover:border-primary-300 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-neutral-900/60 dark:hover:border-primary-500/40 dark:hover:text-primary-300">
+              className="inline-flex items-center justify-center rounded-lg border border-line bg-white/70 px-2.5 py-1 text-[11px] font-medium text-content-muted transition-colors hover:border-primary-300 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface/60 dark:hover:border-primary-500/40 dark:hover:text-primary-300">
               {t('channels.setAsDefault')}
             </button>
           )}
@@ -1051,7 +1051,7 @@ export default function Skills() {
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(true)}
-                  className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
+                  className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-content-inverted shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
                   New skill
                 </button>
               </div>

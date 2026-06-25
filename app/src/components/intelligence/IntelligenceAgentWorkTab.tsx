@@ -245,7 +245,7 @@ const RETRYABLE_STATUSES = new Set(['failed', 'cancelled', 'interrupted']);
 
 /** Shared button styling for the row's secondary actions. */
 const ACTION_BTN =
-  'rounded-md border border-line px-2 py-1 text-[11px] font-medium hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800';
+  'rounded-md border border-line px-2 py-1 text-[11px] font-medium hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50';
 
 interface AgentWorkRowItemProps {
   row: AgentWorkRow;

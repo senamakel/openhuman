@@ -74,7 +74,7 @@ const FaceModePanel = () => {
 
   return (
     <aside
-      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-4 bg-stone-50 dark:bg-neutral-900/60 rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0 py-4 px-3 overflow-hidden"
+      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-4 bg-stone-50 dark:bg-surface/60 rounded-2xl border border-stone-200/70 dark:border-line/70 my-3 mr-0 py-4 px-3 overflow-hidden"
       data-testid="face-mode-panel">
       {/* Mascot stage — the dominant element of the "Talk to Tiny" surface */}
       <div className="relative w-full max-w-[460px] aspect-square">
@@ -162,7 +162,7 @@ const Accounts = () => {
       {isAgentSelected && faceMode ? (
         <main className="flex min-w-0 flex-1 flex-row gap-3">
           <div className="flex min-h-0 w-[360px] flex-none flex-col">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-stone-200/70 dark:border-line/70 my-3 mr-0">
               <Conversations variant="sidebar" />
             </div>
           </div>

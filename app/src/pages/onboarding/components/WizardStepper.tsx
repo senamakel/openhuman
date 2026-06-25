@@ -27,9 +27,9 @@ const WizardStepper = ({ labels, activeIndex }: WizardStepperProps) => {
         const isLast = idx === labels.length - 1;
 
         const dotClasses = completed
-          ? 'bg-sage-500 border-sage-500 text-white'
+          ? 'bg-sage-500 border-sage-500 text-content-inverted'
           : active
-            ? 'bg-primary-500 border-primary-500 text-white'
+            ? 'bg-primary-500 border-primary-500 text-content-inverted'
             : 'bg-surface border-line-strong text-content-faint';
 
         const labelClasses = completed

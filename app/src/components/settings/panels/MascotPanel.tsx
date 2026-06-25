@@ -388,7 +388,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                 type="color"
                 value={customPrimary}
                 onChange={e => dispatch(setCustomPrimaryColor(e.target.value))}
-                className="w-8 h-8 rounded-md border border-neutral-200 dark:border-neutral-700 cursor-pointer p-0"
+                className="w-8 h-8 rounded-md border border-neutral-200 dark:border-line-strong cursor-pointer p-0"
               />
               <span className="text-sm text-content-secondary">
                 {t('settings.mascot.primaryColor')}
@@ -402,7 +402,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                 type="color"
                 value={customSecondary}
                 onChange={e => dispatch(setCustomSecondaryColor(e.target.value))}
-                className="w-8 h-8 rounded-md border border-neutral-200 dark:border-neutral-700 cursor-pointer p-0"
+                className="w-8 h-8 rounded-md border border-neutral-200 dark:border-line-strong cursor-pointer p-0"
               />
               <span className="text-sm text-content-secondary">
                 {t('settings.mascot.secondaryColor')}
@@ -429,7 +429,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             role="radiogroup"
             aria-label={t('settings.mascot.voice.genderHeading')}
             className="space-y-1">
-            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-300">
+            <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
               {t('settings.mascot.voice.genderHeading')}
             </span>
             <div className="flex gap-2 pt-1">
@@ -444,7 +444,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                   className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
                     voiceGender === g
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/20 text-primary-700 dark:text-primary-200'
-                      : 'border-line text-content-secondary hover:border-neutral-300 dark:hover:border-neutral-700'
+                      : 'border-line text-content-secondary hover:border-neutral-300 dark:hover:border-line-strong'
                   }`}>
                   {t(
                     g === 'female'
@@ -477,7 +477,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
 
           {/* Preset dropdown — bespoke label + select combo */}
           <label className={`block space-y-1 ${presetPickerDisabled ? 'opacity-50' : ''}`}>
-            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-300">
+            <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
               {t('settings.mascot.voice.presetHeading')}
             </span>
             <select
@@ -498,7 +498,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
 
           {isCustomVoice && (
             <label className="block space-y-1">
-              <span className="text-xs font-medium text-neutral-500 dark:text-neutral-300">
+              <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
                 {t('settings.mascot.voice.customHeading')}
               </span>
               <div className="flex gap-2">
@@ -579,7 +579,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
         {/* Custom GIF input */}
         <div className="mb-3 bg-surface rounded-xl border border-line p-4 space-y-3">
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-300">
+            <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
               {t('settings.mascot.customGifHeading')}
             </span>
             <div className="flex gap-2">

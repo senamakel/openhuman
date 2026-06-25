@@ -133,7 +133,7 @@ export default function FeedbackFilterSelect({
         className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
           open
             ? 'border-primary-500/50 bg-surface text-content ring-2 ring-primary-500/20'
-            : 'border-neutral-200 bg-neutral-50 text-content-secondary hover:border-neutral-300 hover:text-neutral-800 dark:border-neutral-700 dark:bg-white/[0.03] dark:hover:text-neutral-100'
+            : 'border-neutral-200 bg-neutral-50 text-content-secondary hover:border-neutral-300 hover:text-neutral-800 dark:border-line-strong dark:bg-white/[0.03] dark:hover:text-content'
         }`}>
         {current?.label}
         <svg
@@ -153,7 +153,7 @@ export default function FeedbackFilterSelect({
           aria-label={ariaLabel}
           aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
           onKeyDown={onListKeyDown}
-          className="absolute z-20 mt-1.5 min-w-[10rem] animate-scale-in overflow-hidden rounded-xl border border-neutral-200 bg-surface p-1 shadow-medium focus:outline-none dark:border-neutral-700">
+          className="absolute z-20 mt-1.5 min-w-[10rem] animate-scale-in overflow-hidden rounded-xl border border-neutral-200 bg-surface p-1 shadow-medium focus:outline-none dark:border-line-strong">
           {options.map((option, index) => {
             const selected = option.value === value;
             const active = index === activeIndex;

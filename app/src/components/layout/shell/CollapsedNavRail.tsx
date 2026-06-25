@@ -69,7 +69,7 @@ export default function CollapsedNavRail() {
           className={`${RAIL_BTN} ${
             homeActive
               ? 'bg-surface text-content shadow-sm'
-              : 'text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+              : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
           }`}>
           <NavIcon id="home" className="h-5 w-5" />
         </button>
@@ -88,7 +88,7 @@ export default function CollapsedNavRail() {
           className={`${RAIL_BTN} ${
             matchActive('/settings/wallet-balances', location.pathname)
               ? 'bg-surface text-content shadow-sm'
-              : 'text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+              : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
           }`}>
           <NavIcon id="wallet" className="h-5 w-5" />
         </button>
@@ -109,11 +109,11 @@ export default function CollapsedNavRail() {
               className={`${RAIL_BTN} ${
                 active
                   ? 'bg-surface text-content shadow-sm'
-                  : 'text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+                  : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
               }`}>
               <NavIcon id={tab.id} className="h-5 w-5" />
               {showBadge && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-[13px] min-w-[13px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-bold leading-none text-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-[13px] min-w-[13px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-bold leading-none text-content-inverted">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -134,7 +134,7 @@ export default function CollapsedNavRail() {
         className={`${RAIL_BTN} ${
           settingsActive
             ? 'bg-surface text-content shadow-sm'
-            : 'text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+            : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
         }`}>
         <NavIcon id="settings" className="h-5 w-5" />
       </button>

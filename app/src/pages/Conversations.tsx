@@ -1791,7 +1791,7 @@ const Conversations = ({
         data-analytics-id="chat-sidebar-new-thread"
         onClick={() => void handleCreateNewThread()}
         title={t('chat.newThreadShortcut')}
-        className="group w-full cursor-pointer border-b border-stone-100/60 opacity-50 px-3 py-2 transition-colors hover:bg-stone-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/60">
+        className="group w-full cursor-pointer border-b border-stone-100/60 opacity-50 px-3 py-2 transition-colors hover:bg-surface-hover dark:border-line/60">
         <div className="flex items-center justify-center gap-1.5">
           <svg
             className="h-3.5 w-3.5 flex-shrink-0 text-content-muted"
@@ -1836,7 +1836,7 @@ const Conversations = ({
                   }
                 }
               }}
-              className={`w-full text-left px-3 py-1.5 border-b border-stone-100/60 dark:border-neutral-800/60 transition-colors group cursor-pointer ${
+              className={`w-full text-left px-3 py-1.5 border-b border-stone-100/60 dark:border-line/60 transition-colors group cursor-pointer ${
                 selectedThreadId === thread.id
                   ? 'bg-primary-50 dark:bg-primary-900/30 border-l-2 border-l-primary-500'
                   : 'hover:bg-surface-hover'
@@ -1894,7 +1894,7 @@ const Conversations = ({
                   }}
                   aria-label={t('chat.editThreadTitle')}
                   title={t('chat.editThreadTitle')}
-                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-content-faint hover:text-primary-500 transition-all flex-shrink-0">
+                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-surface-muted dark:hover:bg-surface-muted text-content-faint hover:text-primary-500 transition-all flex-shrink-0">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -1928,7 +1928,7 @@ const Conversations = ({
                       onCancel: () => {},
                     });
                   }}
-                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-content-faint hover:text-coral-500 transition-all flex-shrink-0"
+                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-surface-muted dark:hover:bg-surface-muted text-content-faint hover:text-coral-500 transition-all flex-shrink-0"
                   title={t('chat.deleteThread')}>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -2127,7 +2127,7 @@ const Conversations = ({
                                             type="button"
                                             data-analytics-id="chat-message-reaction-close"
                                             onClick={() => setReactionPickerMsgId(null)}
-                                            className="ml-0.5 px-0.5 text-xs text-content-secondary hover:text-stone-400 dark:hover:text-neutral-500">
+                                            className="ml-0.5 px-0.5 text-xs text-content-secondary hover:text-stone-400 dark:hover:text-content-faint">
                                             ✕
                                           </button>
                                         </div>
@@ -2136,7 +2136,7 @@ const Conversations = ({
                                           type="button"
                                           data-analytics-id="chat-message-reaction-open"
                                           onClick={() => setReactionPickerMsgId(msg.id)}
-                                          className="flex h-[18px] items-center rounded-full bg-surface px-1.5 text-xs leading-none text-content-muted opacity-0 shadow-sm ring-1 ring-stone-200 transition-opacity hover:bg-stone-100 hover:text-stone-700 group-hover/msg:opacity-100 dark:ring-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                                          className="flex h-[18px] items-center rounded-full bg-surface px-1.5 text-xs leading-none text-content-muted opacity-0 shadow-sm ring-1 ring-stone-200 transition-opacity hover:bg-surface-hover hover:text-content-secondary group-hover/msg:opacity-100 dark:ring-neutral-700"
                                           title={t('chat.addReaction')}
                                           aria-label={t('chat.addReaction')}>
                                           +
@@ -2232,7 +2232,7 @@ const Conversations = ({
                                     </div>
                                   )}
                                   {(displayText || showTime) && (
-                                    <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-white rounded-br-md break-words overflow-hidden">
+                                    <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-content-inverted rounded-br-md break-words overflow-hidden">
                                       {displayText && (
                                         <BubbleMarkdown content={displayText} tone="user" />
                                       )}
@@ -2259,7 +2259,7 @@ const Conversations = ({
                               : msg.sender === 'user'
                                 ? '-left-8'
                                 : '-right-8'
-                          } p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-surface-hover dark:bg-neutral-800 dark:hover:bg-neutral-800 text-content-faint hover:text-content-secondary transition-all`}
+                          } p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-surface-hover dark:bg-surface-muted dark:hover:bg-surface-muted text-content-faint hover:text-content-secondary transition-all`}
                           title={t('chat.copyResponse')}>
                           {copiedMessageId === msg.id ? (
                             <svg
@@ -2306,11 +2306,11 @@ const Conversations = ({
                 (selectedStreamingAssistant?.thinking.length ?? 0) > 0
               ) && (
                 <div className="flex justify-start">
-                  <div className="bg-stone-200/80 dark:bg-neutral-800 rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="bg-stone-200/80 dark:bg-surface-muted rounded-2xl rounded-bl-md px-4 py-3">
                     <div className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-neutral-800/600 animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-neutral-800/600 animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-neutral-800/600 animate-bounce [animation-delay:300ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-surface-muted/600 animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-surface-muted/600 animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-surface-muted/600 animate-bounce [animation-delay:300ms]" />
                     </div>
                   </div>
                 </div>
@@ -2326,7 +2326,7 @@ const Conversations = ({
                 <div className="flex justify-start">
                   <div className="relative w-fit max-w-[75%]">
                     {selectedStreamingAssistant.thinking.length > 0 && (
-                      <details className="mb-1.5 bg-surface-subtle rounded-lg px-3 py-1.5 text-xs text-content-secondary open:bg-stone-100 dark:bg-neutral-800 dark:open:bg-neutral-800">
+                      <details className="mb-1.5 bg-surface-subtle rounded-lg px-3 py-1.5 text-xs text-content-secondary open:bg-stone-100 dark:bg-surface-muted dark:open:bg-neutral-800">
                         <summary className="cursor-pointer select-none flex items-center gap-1.5">
                           <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
                           <span>{t('chat.thinking')}</span>
@@ -2338,7 +2338,7 @@ const Conversations = ({
                     )}
                     {selectedStreamingAssistant.content.length > 0 &&
                       (selectedThreadToolTimeline.length === 0 || hideAgentInsights) && (
-                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-content">
+                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-surface-muted text-content">
                           <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
                             {selectedStreamingAssistant.content.length >
                               STREAMING_PREVIEW_CHARS && (
@@ -2365,7 +2365,7 @@ const Conversations = ({
                         <span>{t('chat.parallelBranchLabel')}</span>
                       </div>
                       {branch.content.length > 0 && (
-                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-content border-l-2 border-primary-400/60">
+                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-surface-muted text-content border-l-2 border-primary-400/60">
                           <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
                             {branch.content.length > STREAMING_PREVIEW_CHARS && (
                               <span className="text-content-faint">…</span>
@@ -2536,7 +2536,7 @@ const Conversations = ({
                   onClick={() => {
                     void openUrl(BILLING_DASHBOARD_URL);
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-white text-xs font-medium transition-colors">
+                  className="px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-content-inverted text-xs font-medium transition-colors">
                   {t('chat.topUp')}
                 </button>
               </div>
@@ -2792,7 +2792,7 @@ const Conversations = ({
               data-analytics-id="chat-voice-switch-to-text"
               onClick={() => setInputMode('text')}
               disabled={isRecording || isTranscribing}
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
+              className="w-10 h-10 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-line-strong transition-colors disabled:opacity-40"
               title={t('chat.switchToText')}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -2812,8 +2812,8 @@ const Conversations = ({
               disabled={!rustChat || isSending || isTranscribing || !canUseMicrophoneApi}
               className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                 isRecording
-                  ? 'bg-coral-500 hover:bg-coral-400 text-white'
-                  : 'bg-primary-600 hover:bg-primary-500 text-white'
+                  ? 'bg-coral-500 hover:bg-coral-400 text-content-inverted'
+                  : 'bg-primary-600 hover:bg-primary-500 text-content-inverted'
               } disabled:opacity-40 disabled:cursor-not-allowed`}>
               {isTranscribing
                 ? t('chat.transcribing')
@@ -2876,7 +2876,7 @@ const Conversations = ({
                   onClick={() => void handleSelectAgentProfile('default')}
                   className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
                     selectedAgentProfileId === 'default'
-                      ? 'bg-white text-content shadow-sm dark:bg-neutral-600'
+                      ? 'bg-surface text-content shadow-sm'
                       : 'text-content-muted hover:text-content-secondary'
                   }`}>
                   {t('chat.agentProfile.quick')}
@@ -2889,7 +2889,7 @@ const Conversations = ({
                   onClick={() => void handleSelectAgentProfile('reasoning')}
                   className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
                     selectedAgentProfileId === 'reasoning'
-                      ? 'bg-white text-content shadow-sm dark:bg-neutral-600'
+                      ? 'bg-surface text-content shadow-sm'
                       : 'text-content-muted hover:text-content-secondary'
                   }`}>
                   {t('chat.agentProfile.reasoning')}
@@ -2916,7 +2916,7 @@ const Conversations = ({
                         )
                       : t('conversations.backgroundTasks.title')
                   }
-                  className="relative flex h-7 w-7 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
+                  className="relative flex h-7 w-7 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-surface-hover hover:text-content-secondary">
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -2926,7 +2926,7 @@ const Conversations = ({
                     />
                   </svg>
                   {runningBackgroundCount > 0 ? (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-semibold leading-none text-white">
+                    <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-semibold leading-none text-content-inverted">
                       {runningBackgroundCount}
                     </span>
                   ) : memorySyncActive ? (

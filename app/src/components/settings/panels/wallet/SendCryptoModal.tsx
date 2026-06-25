@@ -116,7 +116,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
   }, [onSuccess, onClose]);
 
   const fieldClass =
-    'w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500';
+    'w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-content-faint focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500';
 
   return (
     <ModalShell

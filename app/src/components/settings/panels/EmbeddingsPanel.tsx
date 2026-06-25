@@ -586,7 +586,7 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
               setSetupProvider(null);
             }
           }}>
-          <div className="mx-4 max-w-md w-full rounded-2xl bg-surface border border-neutral-200 dark:border-neutral-700 p-6 shadow-xl space-y-4">
+          <div className="mx-4 max-w-md w-full rounded-2xl bg-surface border border-neutral-200 dark:border-line-strong p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-semibold text-content">
               {t('settings.embeddings.setupTitle').replace('{provider}', setupProvider.label)}
             </h3>
@@ -771,11 +771,11 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
       {/* ── Confirm wipe dialog ── */}
       {pendingWipe && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="mx-4 max-w-sm w-full rounded-2xl bg-surface border border-neutral-200 dark:border-neutral-700 p-6 shadow-xl space-y-4">
+          <div className="mx-4 max-w-sm w-full rounded-2xl bg-surface border border-neutral-200 dark:border-line-strong p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-semibold text-content">
               {t('settings.embeddings.wipeTitle')}
             </h3>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+            <p className="text-xs text-neutral-600 dark:text-content-muted leading-relaxed">
               {t('settings.embeddings.wipeBody')}
             </p>
             <div className="flex justify-end gap-2">

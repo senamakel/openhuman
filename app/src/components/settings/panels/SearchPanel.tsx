@@ -408,7 +408,7 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
                         idx !== 0 ? 'border-l border-line' : ''
                       } ${
                         selected
-                          ? 'bg-primary-500 text-white'
+                          ? 'bg-primary-500 text-content-inverted'
                           : 'bg-surface text-content-secondary hover:bg-surface-hover'
                       }`}>
                       {t(labelKey)}

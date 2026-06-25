@@ -108,7 +108,7 @@ export function SetupSuccess({
         <button
           type="button"
           onClick={onFinish}
-          className="w-full rounded-xl border border-line bg-surface-muted px-4 py-2.5 text-sm font-medium text-content-secondary hover:bg-surface-hover dark:bg-neutral-800 transition-colors">
+          className="w-full rounded-xl border border-line bg-surface-muted px-4 py-2.5 text-sm font-medium text-content-secondary hover:bg-surface-hover dark:bg-surface-muted transition-colors">
           {finishLabel}
         </button>
       </div>

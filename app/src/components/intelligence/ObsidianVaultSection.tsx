@@ -214,7 +214,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
 
           <code
             className="mt-2 block break-all rounded bg-white/70 px-2 py-1 font-mono text-xs
-                       text-content-secondary dark:bg-neutral-900/60"
+                       text-content-secondary dark:bg-surface/60"
             data-testid="obsidian-vault-path">
             {contentRootAbs}
           </code>
@@ -229,7 +229,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
               data-testid="obsidian-open-anyway"
               className="rounded-md border border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold
                          text-violet-700 hover:bg-violet-50 dark:border-violet-500/40
-                         dark:bg-neutral-800 dark:text-violet-300">
+                         dark:bg-surface-muted dark:text-violet-300">
               {t('workspace.openAnyway')}
             </button>
             <Button
@@ -267,7 +267,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
                   data-testid="obsidian-config-dir-input"
                   className="flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 font-mono text-xs
                              text-neutral-800 focus:outline-none focus:ring-1 focus:ring-violet-300
-                             dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
+                             dark:border-neutral-600 dark:bg-surface dark:text-content"
                 />
                 <button
                   type="button"

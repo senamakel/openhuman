@@ -475,7 +475,7 @@ export default function RewardsCommunityTab({
           )}
         </section>
 
-        <section className="rounded-[1.25rem] bg-[#f2f4f6] dark:bg-neutral-800/60 p-4 text-sm text-content-secondary">
+        <section className="rounded-[1.25rem] bg-[#f2f4f6] dark:bg-surface-muted/60 p-4 text-sm text-content-secondary">
           <div className="flex items-center justify-between gap-3">
             <span>{t('rewards.community.discordServer')}</span>
             <span className="font-semibold text-content">

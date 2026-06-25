@@ -61,7 +61,7 @@ export default function TwoPaneNav({
                       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
                         active
                           ? 'bg-surface-subtle font-medium text-content'
-                          : 'text-content-secondary hover:bg-stone-50 hover:text-stone-900 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100'
+                          : 'text-content-secondary hover:bg-surface-hover hover:text-content'
                       }`}>
                       <span
                         className={`shrink-0 ${

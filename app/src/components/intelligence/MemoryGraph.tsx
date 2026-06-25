@@ -700,7 +700,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
       )}
       {hovered && (
         <div
-          className="border-t border-line-subtle bg-stone-50/70 dark:bg-neutral-900/70 px-4 py-2 text-xs text-content-secondary"
+          className="border-t border-line-subtle bg-stone-50/70 dark:bg-surface/70 px-4 py-2 text-xs text-content-secondary"
           data-testid="memory-graph-tooltip">
           {hovered.kind === 'root' ? (
             <span className="font-medium text-violet-600 dark:text-violet-400">
@@ -761,7 +761,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
       )}
       {preview && (
         <div
-          className="border-t border-line-subtle bg-white px-4 py-3 dark:bg-neutral-950"
+          className="border-t border-line-subtle bg-white px-4 py-3 dark:bg-surface-canvas"
           data-testid="memory-graph-preview">
           <div className="mb-2 break-all font-mono text-[11px] text-content-faint">
             workspace:{preview.path}

@@ -17,7 +17,7 @@ export default function BillingHistoryTab({
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-2 rounded-2xl bg-surface p-4 border border-line">
-        <h3 className="font-headline text-2xl font-bold tracking-tight text-stone-950 dark:text-neutral-50">
+        <h3 className="font-headline text-2xl font-bold tracking-tight text-stone-950 dark:text-content">
           {t('settings.billing.history.title')}
         </h3>
         <p className="mt-1 text-sm text-content-muted">
@@ -45,7 +45,7 @@ export default function BillingHistoryTab({
                   key={transaction.id}
                   className="grid gap-3 px-5 py-4 text-sm sm:grid-cols-[1.3fr_0.8fr_0.7fr_0.8fr] sm:items-center">
                   <div>
-                    <p className="font-semibold text-stone-950 dark:text-neutral-50">
+                    <p className="font-semibold text-stone-950 dark:text-content">
                       {transaction.action}
                     </p>
                     <p className="mt-1 text-xs text-content-muted">
@@ -58,7 +58,7 @@ export default function BillingHistoryTab({
                   </div>
                   <div className="text-content-muted">{transaction.type}</div>
                   <div
-                    className={`font-semibold ${isEarn ? 'text-sage-600 dark:text-sage-300' : 'text-stone-950 dark:text-neutral-50'}`}>
+                    className={`font-semibold ${isEarn ? 'text-sage-600 dark:text-sage-300' : 'text-stone-950 dark:text-content'}`}>
                     {isEarn ? '+' : '-'}${Math.abs(transaction.amountUsd).toFixed(2)}
                   </div>
                   <div className="sm:text-right">

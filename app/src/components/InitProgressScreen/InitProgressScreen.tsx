@@ -131,7 +131,7 @@ export default function InitProgressScreen({
                 type="button"
                 onClick={onRetry}
                 disabled={retrying}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-500/90 disabled:opacity-60">
+                className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-content-inverted hover:bg-primary-500/90 disabled:opacity-60">
                 {retrying && <Spinner className="h-3 w-3" />}
                 {t('harnessInit.retry')}
               </button>

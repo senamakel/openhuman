@@ -155,7 +155,7 @@ const GraphCohesionPanel = ({ result, loading, error, onRetry }: GraphCohesionPa
             </thead>
             <tbody>
               {brokers.map((node, i) => (
-                <tr key={node.id} className="border-t border-stone-100 dark:border-neutral-800/60">
+                <tr key={node.id} className="border-t border-stone-100 dark:border-line/60">
                   <td className="py-1 pr-2 text-content-faint">{i + 1}</td>
                   <td className="py-1 pr-2 text-content break-words">
                     {node.id}

@@ -41,7 +41,7 @@ const ChartTooltip = ({ title, rows, footer }: ChartTooltipProps) => (
       ))}
     </ul>
     {footer && (
-      <div className="mt-1 pt-1 border-t border-stone-200/60 dark:border-neutral-800 text-[10px] text-content-muted">
+      <div className="mt-1 pt-1 border-t border-stone-200/60 dark:border-line text-[10px] text-content-muted">
         {footer}
       </div>
     )}

@@ -150,7 +150,7 @@ const Feedback = () => {
               )}
             </h2>
 
-            <div className="inline-flex rounded-xl border border-neutral-200 bg-neutral-50 p-0.5 dark:border-neutral-700 dark:bg-white/[0.03]">
+            <div className="inline-flex rounded-xl border border-neutral-200 bg-neutral-50 p-0.5 dark:border-line-strong dark:bg-white/[0.03]">
               {SORTS.map(option => (
                 <button
                   key={option}
@@ -159,8 +159,8 @@ const Feedback = () => {
                   aria-pressed={sort === option}
                   className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
                     sort === option
-                      ? 'bg-white text-content shadow-sm dark:bg-neutral-700'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                      ? 'bg-surface text-content shadow-sm'
+                      : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-content-secondary'
                   }`}>
                   {t(SORT_LABEL_KEYS[option])}
                 </button>

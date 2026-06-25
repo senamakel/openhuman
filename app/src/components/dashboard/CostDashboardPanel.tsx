@@ -344,7 +344,7 @@ const UsageLogTable = ({ records, currency }: { records: CostUsageRecord[]; curr
           {records.map(record => (
             <tr
               key={record.id}
-              className="border-b border-neutral-100 transition-colors last:border-0 hover:bg-neutral-50/60 dark:border-neutral-800/60 dark:hover:bg-neutral-800/40">
+              className="border-b border-neutral-100 transition-colors last:border-0 hover:bg-neutral-50/60 dark:border-line/60 dark:hover:bg-surface-muted/40">
               <Td>
                 <div className="tabular-nums text-content-secondary">
                   {formatDateTime(record.timestamp)}

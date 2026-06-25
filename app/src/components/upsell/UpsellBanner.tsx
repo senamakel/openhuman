@@ -24,14 +24,14 @@ const VARIANT_STYLES = {
     icon: 'text-amber-400',
     title: 'text-amber-700 dark:text-amber-300',
     text: 'text-amber-600 dark:text-amber-300',
-    cta: 'bg-amber-500 hover:bg-amber-400 text-white',
+    cta: 'bg-amber-500 hover:bg-amber-400 text-content-inverted',
   },
   upgrade: {
     container: 'bg-amber-50 dark:bg-amber-500/15 border-amber-200 dark:border-amber-800',
     icon: 'text-amber-400',
     title: 'text-amber-700 dark:text-amber-300',
     text: 'text-amber-600 dark:text-amber-300',
-    cta: 'bg-amber-500 hover:bg-amber-400 text-white',
+    cta: 'bg-amber-500 hover:bg-amber-400 text-content-inverted',
   },
 };
 

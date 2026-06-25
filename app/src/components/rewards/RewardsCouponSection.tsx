@@ -187,7 +187,7 @@ const RewardsCouponSection = () => {
               }}
               placeholder={t('rewards.coupon.placeholder')}
               disabled={submitLoading}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-line bg-surface font-mono text-content placeholder:text-stone-400 dark:text-neutral-500 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-line bg-surface font-mono text-content placeholder:text-stone-400 dark:text-content-faint dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
             />
             <Button
               variant="primary"

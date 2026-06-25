@@ -65,8 +65,8 @@ const SubscriptionPlans = ({
               disabled={paymentMethod === 'crypto'}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                 billingInterval === 'monthly'
-                  ? 'bg-primary-600 text-white'
-                  : 'text-content-muted hover:text-neutral-800 dark:hover:text-neutral-100 dark:text-neutral-100'
+                  ? 'bg-primary-600 text-content-inverted'
+                  : 'text-content-muted hover:text-neutral-800 dark:hover:text-content dark:text-content'
               } ${paymentMethod === 'crypto' ? 'cursor-not-allowed opacity-40' : ''}`}>
               {t('settings.billing.subscription.monthly')}
             </button>
@@ -74,8 +74,8 @@ const SubscriptionPlans = ({
               onClick={() => setBillingInterval('annual')}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                 billingInterval === 'annual'
-                  ? 'bg-primary-600 text-white'
-                  : 'text-content-muted hover:text-neutral-800 dark:hover:text-neutral-100 dark:text-neutral-100'
+                  ? 'bg-primary-600 text-content-inverted'
+                  : 'text-content-muted hover:text-neutral-800 dark:hover:text-content dark:text-content'
               }`}>
               {t('settings.billing.subscription.annual')}
             </button>
@@ -137,7 +137,7 @@ const SubscriptionPlans = ({
                   <div
                     className={`flex h-12 w-12 min-h-12 min-w-12 flex-shrink-0 items-center justify-center rounded-full ${
                       plan.recommended
-                        ? 'bg-primary-600 text-white'
+                        ? 'bg-primary-600 text-content-inverted'
                         : isCurrent
                           ? 'bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300'
                           : 'bg-surface-subtle text-content-secondary'
@@ -181,7 +181,7 @@ const SubscriptionPlans = ({
                         {plan.name}
                       </h4>
                       {isPopular && (
-                        <span className="rounded-full bg-primary-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-white">
+                        <span className="rounded-full bg-primary-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-content-inverted">
                           {t('settings.billing.subscription.popular')}
                         </span>
                       )}
@@ -229,7 +229,7 @@ const SubscriptionPlans = ({
                   </div>
 
                   {isCurrent ? (
-                    <div className="rounded-full bg-primary-600 px-4 py-2 text-xs font-semibold text-white">
+                    <div className="rounded-full bg-primary-600 px-4 py-2 text-xs font-semibold text-content-inverted">
                       {t('settings.billing.subscription.currentPlan')}
                     </div>
                   ) : isUpgrade ? (
@@ -239,7 +239,7 @@ const SubscriptionPlans = ({
                       className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
                         isPurchasing
                           ? 'cursor-not-allowed bg-surface-strong text-content-faint'
-                          : 'bg-neutral-900 dark:bg-neutral-50 text-white hover:bg-primary-600'
+                          : 'bg-neutral-900 dark:bg-neutral-50 text-content-inverted hover:bg-primary-600'
                       }`}>
                       {isThisPurchasing
                         ? t('settings.billing.subscription.waiting')

@@ -442,7 +442,7 @@ function AllowlistField({
       stacked
       control={
         <div className="space-y-2">
-          <div className="inline-flex overflow-hidden rounded-md border border-neutral-200 text-xs dark:border-neutral-700">
+          <div className="inline-flex overflow-hidden rounded-md border border-neutral-200 text-xs dark:border-line-strong">
             <button
               type="button"
               onClick={() => onChange(null)}
@@ -466,7 +466,7 @@ function AllowlistField({
           </div>
 
           {restricted && (
-            <div className="rounded-md border border-neutral-200 p-2 dark:border-neutral-700">
+            <div className="rounded-md border border-neutral-200 p-2 dark:border-line-strong">
               <div className="mb-1.5 flex flex-wrap gap-1.5">
                 {items.map(item => (
                   <span

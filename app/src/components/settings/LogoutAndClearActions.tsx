@@ -159,7 +159,7 @@ const LogoutAndClearActions = () => {
               <button
                 onClick={handleLogoutAndClearData}
                 disabled={isLoading}
-                className="flex-1 px-4 py-2 rounded-sm bg-amber-600 hover:bg-amber-500 text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                className="flex-1 px-4 py-2 rounded-sm bg-amber-600 hover:bg-amber-500 text-content-inverted transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                 {isLoading && (
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle

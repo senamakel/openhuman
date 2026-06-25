@@ -277,7 +277,7 @@ export function SubagentActivityBlock({
       ) : null}
       {subagent.worktreePath ? (
         <div
-          className="mt-1 space-y-1 rounded-md border border-line bg-stone-50/70 p-1.5 dark:bg-neutral-900/50"
+          className="mt-1 space-y-1 rounded-md border border-line bg-stone-50/70 p-1.5 dark:bg-surface/50"
           data-testid="subagent-worktree">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="font-medium text-content-secondary">

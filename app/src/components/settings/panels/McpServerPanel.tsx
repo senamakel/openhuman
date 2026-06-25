@@ -183,7 +183,7 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
               <span className="font-mono text-xs text-primary-700 dark:text-primary-400 mt-0.5 shrink-0">
                 {tool.name}
               </span>
-              <span className="text-xs text-neutral-600 dark:text-neutral-400">
+              <span className="text-xs text-neutral-600 dark:text-content-muted">
                 {tool.description}
               </span>
             </div>
@@ -228,7 +228,7 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
 
           {/* JSON snippet */}
           <div className="mx-4 mb-3 rounded-xl overflow-hidden border border-line">
-            <pre className="bg-neutral-50 dark:bg-neutral-900/60 px-4 py-3 text-xs font-mono text-content overflow-x-auto whitespace-pre leading-relaxed">
+            <pre className="bg-neutral-50 dark:bg-surface/60 px-4 py-3 text-xs font-mono text-content overflow-x-auto whitespace-pre leading-relaxed">
               {snippet}
             </pre>
           </div>

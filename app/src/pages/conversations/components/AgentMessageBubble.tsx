@@ -136,7 +136,7 @@ function AgentMarkdownTable({
     <div className={className}>
       <div className="overflow-x-auto">
         <table className="w-max min-w-full border-collapse text-left text-sm text-content">
-          <thead className="bg-stone-100 dark:bg-neutral-800/90">
+          <thead className="bg-stone-100 dark:bg-surface-muted/90">
             <tr>
               {table.headers.map(header => (
                 <th
@@ -201,7 +201,7 @@ export function AgentMessageBubble({
     <>
       {textContent && (
         <div
-          className={`bg-stone-200 dark:bg-neutral-800/80 px-4 py-2.5 text-content ${bubbleChrome}`}>
+          className={`bg-stone-200 dark:bg-surface-muted/80 px-4 py-2.5 text-content ${bubbleChrome}`}>
           <BubbleMarkdown content={textContent} />
         </div>
       )}

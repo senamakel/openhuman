@@ -509,7 +509,7 @@ export function MemorySourcesRegistry({
                        bg-white px-3 py-1.5 text-xs font-semibold text-primary-600
                        shadow-sm transition-colors hover:bg-primary-50
                        disabled:cursor-not-allowed disabled:opacity-50
-                       dark:border-primary-500/30 dark:bg-neutral-900 dark:text-primary-400
+                       dark:border-primary-500/30 dark:bg-surface dark:text-primary-400
                        dark:hover:bg-primary-500/10
                        focus:outline-none focus:ring-2 focus:ring-primary-200">
             <AllInIcon />
@@ -834,7 +834,7 @@ function SourceRow({
             className={`rounded p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 ${
               settingsExpanded
                 ? 'bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400'
-                : 'text-content-faint hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-300'
+                : 'text-content-faint hover:bg-surface-hover hover:text-content-secondary'
             }`}>
             <GearIcon />
           </button>
@@ -857,7 +857,7 @@ function SourceRow({
                      bg-white px-3 py-1.5 text-xs font-semibold text-primary-600
                      shadow-sm transition-colors hover:bg-primary-50
                      disabled:cursor-not-allowed disabled:opacity-50
-                     dark:border-primary-500/30 dark:bg-neutral-900 dark:text-primary-400
+                     dark:border-primary-500/30 dark:bg-surface dark:text-primary-400
                      dark:hover:bg-primary-500/10
                      focus:outline-none focus:ring-2 focus:ring-primary-200">
             {isBuilding ? <Spinner /> : <BuildIcon />}

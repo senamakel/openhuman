@@ -237,7 +237,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
         CARD_CLASS,
         selected
           ? 'border-primary-400 ring-1 ring-primary-400 dark:border-primary-500'
-          : 'hover:border-stone-300 dark:hover:border-neutral-700',
+          : 'hover:border-stone-300 dark:hover:border-line-strong',
       ].join(' ')}
       onClick={() => setSelected(s => !s)}
       onKeyDown={e => {
@@ -265,7 +265,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
                   'ml-2 flex-shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors',
                   followState === 'following'
                     ? 'bg-surface-strong text-content-secondary hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-400'
-                    : 'bg-primary-600 text-white hover:bg-primary-700',
+                    : 'bg-primary-600 text-content-inverted hover:bg-primary-700',
                 ].join(' ')}
                 disabled={actionLoading}
                 onClick={handleFollow}>

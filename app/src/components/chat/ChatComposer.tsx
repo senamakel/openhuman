@@ -186,7 +186,7 @@ export default function ChatComposer({
               aria-hidden
               className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-0.5 text-sm leading-5 font-sans">
               <span className="invisible">{inputValue}</span>
-              <span className="text-stone-500 dark:text-neutral-400/50">
+              <span className="text-stone-500 dark:text-content-muted/50">
                 {inlineCompletionSuffix}
               </span>
             </div>
@@ -246,7 +246,7 @@ export default function ChatComposer({
               aria-label={t('chat.stopGeneration')}
               title={t('chat.stopGeneration')}
               onClick={onStopGeneration}
-              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-white transition-colors">
+              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-content-inverted transition-colors">
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                 <rect x="6" y="6" width="12" height="12" rx="1.5" />
               </svg>
@@ -262,7 +262,7 @@ export default function ChatComposer({
                 void onSend();
               }}
               disabled={!hasContent || composerLocked}
-              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-content-inverted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               {showSendingSpinner ? (
                 <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle

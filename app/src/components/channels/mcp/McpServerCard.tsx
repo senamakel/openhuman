@@ -22,7 +22,7 @@ const McpServerCard = ({ server, onSelect }: McpServerCardProps) => {
     <button
       type="button"
       onClick={() => onSelect(server.qualified_name)}
-      className="w-full text-left rounded-lg border border-line bg-surface-muted p-3 flex items-start gap-3 hover:border-primary-300 dark:hover:border-primary-500/40 hover:bg-stone-100/50 dark:hover:bg-neutral-800 transition-colors cursor-pointer">
+      className="w-full text-left rounded-lg border border-line bg-surface-muted p-3 flex items-start gap-3 hover:border-primary-300 dark:hover:border-primary-500/40 hover:bg-stone-100/50 dark:hover:bg-surface-muted transition-colors cursor-pointer">
       {server.icon_url ? (
         <img
           src={server.icon_url}

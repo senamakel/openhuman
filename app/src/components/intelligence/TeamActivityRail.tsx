@@ -129,7 +129,7 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
                 }
               }}
               placeholder={t('intelligence.teams.composer.placeholder')}
-              className="min-w-0 flex-1 rounded-md border border-line px-2 py-1 text-[11px] text-content-secondary placeholder:text-stone-400 disabled:opacity-50 dark:bg-neutral-900"
+              className="min-w-0 flex-1 rounded-md border border-line px-2 py-1 text-[11px] text-content-secondary placeholder:text-stone-400 disabled:opacity-50 dark:bg-surface"
             />
             <button
               type="button"

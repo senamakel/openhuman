@@ -239,7 +239,7 @@ const ModelHealthPanel = () => {
                   return (
                     <tr
                       key={m.id}
-                      className={`border-b border-stone-100 dark:border-neutral-800/50 ${isReplace ? 'bg-red-500/5' : ''}`}>
+                      className={`border-b border-stone-100 dark:border-line/50 ${isReplace ? 'bg-red-500/5' : ''}`}>
                       <td className="py-2 px-2">
                         <div className="font-semibold text-content">
                           {m.id}

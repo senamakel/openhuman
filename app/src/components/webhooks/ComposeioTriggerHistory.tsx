@@ -53,7 +53,7 @@ export default function ComposeioTriggerHistory({ entries }: ComposeioTriggerHis
         {entries.map(entry => (
           <article
             key={`${entry.metadata_uuid}-${entry.received_at_ms}`}
-            className="rounded-2xl border border-line bg-stone-50/60 dark:bg-neutral-800/60 p-4">
+            className="rounded-2xl border border-line bg-stone-50/60 dark:bg-surface-muted/60 p-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700">
                 {entry.toolkit}

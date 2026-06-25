@@ -218,7 +218,7 @@ export default function AgentsLibraryPanel({
                       setDrafts(prev => ({ ...prev, [agent.id]: event.target.value }))
                     }
                     placeholder={t('intelligence.agents.taskPlaceholder')}
-                    className="min-w-0 flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm text-content placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100 dark:bg-neutral-950 dark:placeholder:text-neutral-600"
+                    className="min-w-0 flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm text-content placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100 dark:bg-surface-canvas dark:placeholder:text-neutral-600"
                   />
                   <button
                     type="button"

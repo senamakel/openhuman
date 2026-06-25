@@ -353,7 +353,7 @@ function QrBody({
                 onClick={() => {
                   void navigator.clipboard.writeText(qrUrl);
                 }}
-                className="absolute top-1 right-1 bg-surface border border-neutral-200 dark:border-neutral-700">
+                className="absolute top-1 right-1 bg-surface border border-neutral-200 dark:border-line-strong">
                 {t('devices.pairModal.copyUrl')}
               </Button>
             </div>

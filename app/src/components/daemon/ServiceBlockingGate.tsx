@@ -73,7 +73,7 @@ const ServiceBlockingGate = ({ children }: ServiceBlockingGateProps) => {
             <button
               type="button"
               onClick={handleDownloadLatest}
-              className="rounded-lg bg-coral-500 px-4 py-2 text-sm font-medium text-white hover:bg-coral-600">
+              className="rounded-lg bg-coral-500 px-4 py-2 text-sm font-medium text-content-inverted hover:bg-coral-600">
               {t('daemon.serviceBlockingGate.downloadLatest')}
             </button>
           </div>

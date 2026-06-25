@@ -303,7 +303,7 @@ export const IntegrationConnectCard: React.FC<Props> = ({ threadId, approval }) 
                       onChange={e =>
                         setFieldValues(prev => ({ ...prev, [field.key]: e.target.value }))
                       }
-                      className="min-w-0 flex-1 rounded-lg border border-line-strong bg-neutral-0 px-2.5 py-1.5 text-ink outline-none transition focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:bg-neutral-900 dark:text-neutral-100"
+                      className="min-w-0 flex-1 rounded-lg border border-line-strong bg-neutral-0 px-2.5 py-1.5 text-ink outline-none transition focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:bg-surface dark:text-content"
                     />
                     {field.suffix && (
                       <span className="shrink-0 text-content-faint">

@@ -839,7 +839,7 @@ function RowAction({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="rounded border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary hover:bg-stone-100 disabled:opacity-40 dark:hover:bg-neutral-800">
+      className="rounded border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-40">
       {label}
     </button>
   );

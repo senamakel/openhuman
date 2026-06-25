@@ -136,7 +136,7 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
               size="sm"
               onClick={() => void handleCopyAddress()}
               aria-label={t('walletBalances.copyAddress')}
-              className="shrink-0 text-content-faint hover:text-neutral-600 dark:hover:text-neutral-300">
+              className="shrink-0 text-content-faint hover:text-neutral-600 dark:hover:text-content-secondary">
               {copied ? (
                 <svg
                   className="w-3.5 h-3.5 text-sage-500"

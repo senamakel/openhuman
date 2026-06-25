@@ -77,6 +77,13 @@ export const PAIRS = [
   ['bg-neutral-300', 'dark:bg-neutral-600', 'bg-surface-strong'],
   ['bg-white', 'dark:bg-neutral-900/40', 'bg-surface'],
   ['bg-white', 'dark:bg-neutral-900/30', 'bg-surface'],
+  ['bg-white', 'dark:bg-neutral-600', 'bg-surface'],
+  ['bg-white', 'dark:bg-neutral-700', 'bg-surface'],
+
+  // ── Placeholder text ────────────────────────────────────────────────────
+  ['placeholder-stone-400', 'dark:placeholder-neutral-500', 'placeholder-content-faint'],
+  ['placeholder-neutral-400', 'dark:placeholder-neutral-500', 'placeholder-content-faint'],
+  ['placeholder-stone-500', 'dark:placeholder-neutral-500', 'placeholder-content-faint'],
 
   // Translucent panels — opacity intended in BOTH modes (sticky headers, glass).
   // Preserve the opacity on the themed surface so they stay translucent.

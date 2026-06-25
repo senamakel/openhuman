@@ -119,7 +119,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
 function InitialAvatar({ name }: { name: string }) {
   const initial = (name[0] ?? '?').toUpperCase();
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-semibold text-white">
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-semibold text-content-inverted">
       {initial}
     </div>
   );
@@ -211,7 +211,7 @@ function CommentComposer({
         disabled={submitting}
         className="flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm
                    placeholder:text-stone-400 focus:border-primary-400 focus:outline-none
-                   dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500
+                   dark:border-line-strong dark:bg-surface-muted dark:placeholder:text-neutral-500
                    dark:focus:border-primary-600 disabled:opacity-50"
       />
       <Button
@@ -421,7 +421,7 @@ function PostCard({
   const [showComments, setShowComments] = useState(false);
 
   return (
-    <article className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-stone-300 dark:hover:border-neutral-700">
+    <article className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-stone-300 dark:hover:border-line-strong">
       {/* Author row */}
       <div className="mb-2 flex items-center gap-2">
         {post.author.avatarUrl ? (
@@ -463,7 +463,7 @@ function PostCard({
             className={`ml-auto shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
               followState[post.author.cryptoId]
                 ? 'border-line-strong text-content-secondary hover:bg-surface-hover'
-                : 'border-primary-600 bg-primary-600 text-white hover:bg-primary-700 dark:border-primary-500 dark:bg-primary-500'
+                : 'border-primary-600 bg-primary-600 text-content-inverted hover:bg-primary-700 dark:border-primary-500 dark:bg-primary-500'
             }`}>
             {followState[post.author.cryptoId] ? 'Following' : 'Follow'}
           </button>

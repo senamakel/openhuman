@@ -21,8 +21,8 @@ const populationFor = (key: string): number =>
 const toggleClass = (active: boolean): string =>
   `rounded-lg border px-3 py-2 text-sm transition ${
     active
-      ? 'border-primary-500 bg-primary-500 text-white dark:border-primary-500 dark:bg-primary-600'
-      : 'border-line bg-white/85 text-content hover:border-primary-400 dark:bg-neutral-950/70 dark:hover:border-primary-500'
+      ? 'border-primary-500 bg-primary-500 text-content-inverted dark:border-primary-500 dark:bg-primary-600'
+      : 'border-line bg-white/85 text-content hover:border-primary-400 dark:bg-surface-canvas/70 dark:hover:border-primary-500'
   }`;
 
 export default function WorldSection() {
@@ -135,7 +135,7 @@ export default function WorldSection() {
           <p className="max-w-sm text-sm text-neutral-200">{error}</p>
           <button
             type="button"
-            className="rounded-lg border border-primary-500 bg-primary-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-600 dark:border-primary-500 dark:bg-primary-600"
+            className="rounded-lg border border-primary-500 bg-primary-500 px-4 py-2 text-sm font-medium text-content-inverted transition hover:bg-primary-600 dark:border-primary-500 dark:bg-primary-600"
             onClick={handleRetry}>
             {t('agentWorld.world.retry', 'Retry')}
           </button>

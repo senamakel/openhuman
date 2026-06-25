@@ -73,7 +73,7 @@ const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccou
                 data-analytics-id={`add-account-provider-${p.id}`}
                 data-testid={`add-account-provider-${p.id}`}
                 onClick={() => onPick(p)}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-surface-hover dark:bg-neutral-800 dark:hover:bg-neutral-800/60">
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-surface-hover dark:bg-surface-muted dark:hover:bg-surface-muted/60">
                 <ProviderIcon provider={p.id} className="h-5 w-5 flex-none" />
                 <span className="text-sm font-medium text-content">
                   {p.label}

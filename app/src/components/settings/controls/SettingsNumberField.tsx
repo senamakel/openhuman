@@ -66,7 +66,7 @@ const SettingsNumberField = ({
       {hasMeta && (
         <div className="flex flex-col leading-tight">
           {unit && (
-            <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <span className="text-xs font-medium text-neutral-600 dark:text-content-muted">
               {unit}
             </span>
           )}

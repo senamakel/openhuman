@@ -193,7 +193,7 @@ const MigrationPanel = ({ embedded = false }: MigrationPanelProps = {}) => {
               data-testid="migration-apply-button"
               onClick={() => void runApply()}
               disabled={!canApply}
-              className="bg-amber-600 hover:bg-amber-700 text-white disabled:bg-amber-600/50">
+              className="bg-amber-600 hover:bg-amber-700 text-content-inverted disabled:bg-amber-600/50">
               {isApplying ? t('migration.applyRunning') : t('migration.applyAction')}
             </Button>
           </div>

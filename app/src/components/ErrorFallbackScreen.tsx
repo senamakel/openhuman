@@ -160,7 +160,7 @@ export default function ErrorFallbackScreen({
                 window.location.hash = '#/home';
                 window.location.reload();
               }}
-              className="bg-coral-500 hover:bg-coral-600 text-white text-sm font-medium rounded-xl px-4 py-3 transition-colors">
+              className="bg-coral-500 hover:bg-coral-600 text-content-inverted text-sm font-medium rounded-xl px-4 py-3 transition-colors">
               {t('app.errorFallback.reloadApp')}
             </button>
             {/* Always rendered — `isTauri()` is false during the CEF IPC

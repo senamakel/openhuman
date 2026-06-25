@@ -192,7 +192,7 @@ export function ThreadGoalFooterTrigger({
         type="button"
         onClick={ctl.toggle}
         aria-expanded={ctl.expanded}
-        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-content-muted hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
+        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-content-muted hover:bg-surface-hover hover:text-content-secondary">
         <span aria-hidden>◎</span>
         {t('conversations.threadGoal.setCta')}
       </button>
@@ -362,7 +362,7 @@ function PanelButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="rounded px-1.5 py-0.5 text-[11px] text-content-muted hover:bg-stone-100 disabled:opacity-40 dark:hover:bg-neutral-800">
+      className="rounded px-1.5 py-0.5 text-[11px] text-content-muted hover:bg-surface-hover disabled:opacity-40">
       {label}
     </button>
   );

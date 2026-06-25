@@ -108,7 +108,7 @@ const SentryTestRow = () => {
         <button
           onClick={onClick}
           disabled={status.kind === 'sending'}
-          className="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-60">
+          className="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-content-inverted transition-colors hover:bg-amber-500 disabled:opacity-60">
           {status.kind === 'sending' ? t('devOptions.sending') : t('devOptions.sendTestEvent')}
         </button>
       </div>

@@ -165,7 +165,7 @@ function TransactionRow({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/50">
+        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-surface-muted/50">
         <TypeIcon type={tx.type} />
 
         {/* Content */}

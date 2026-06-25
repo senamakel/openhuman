@@ -48,7 +48,7 @@ export default function IntelligenceMemoryTab({
             placeholder={t('memory.search')}
             value={searchFilter}
             onChange={e => setSearchFilter(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-surface border border-line rounded-lg text-content placeholder-stone-400 focus:outline-none focus:border-primary-500/50 transition-colors"
+            className="w-full px-3 py-2 text-sm bg-surface border border-line rounded-lg text-content placeholder-content-faint focus:outline-none focus:border-primary-500/50 transition-colors"
           />
         </div>
         <label htmlFor="actionable-source" className="sr-only">

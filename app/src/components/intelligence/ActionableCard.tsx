@@ -94,7 +94,7 @@ function SnoozeDropdownPortal({ isOpen, buttonRef, onClose, onSnooze }: SnoozeDr
         <button
           key={option.label}
           onClick={() => onSnooze(option.duration)}
-          className="w-full text-left px-3 py-1.5 text-xs text-content hover:bg-surface-hover dark:bg-neutral-800 transition-colors cursor-pointer">
+          className="w-full text-left px-3 py-1.5 text-xs text-content hover:bg-surface-hover dark:bg-surface-muted transition-colors cursor-pointer">
           {option.label}
         </button>
       ))}
@@ -260,7 +260,7 @@ export function ActionableCard({
       <div
         className={`
           relative p-4 rounded-xl border backdrop-blur-sm transition-all duration-200
-          hover:bg-surface-hover hover:border-stone-200 dark:border-neutral-800
+          hover:bg-surface-hover hover:border-stone-200 dark:border-line
           ${priorityClasses[item.priority]}
         `}>
         {/* Main content row */}
@@ -361,7 +361,7 @@ export function ActionableCard({
               {isNew && (
                 <>
                   <span className="text-xs text-content-secondary">•</span>
-                  <span className="text-xs bg-sage-500 text-white px-1.5 py-0.5 rounded-sm font-medium">
+                  <span className="text-xs bg-sage-500 text-content-inverted px-1.5 py-0.5 rounded-sm font-medium">
                     {t('actionable.new')}
                   </span>
                 </>

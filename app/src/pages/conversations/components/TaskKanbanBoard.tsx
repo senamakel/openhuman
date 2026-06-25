@@ -361,7 +361,7 @@ function TaskBoardArticle({
               title={t('chat.approval.deny')}
               disabled={disabled}
               onClick={() => onDecidePlan(card, false)}
-              className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary transition-colors hover:bg-stone-100 disabled:opacity-40 dark:hover:bg-neutral-800">
+              className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary transition-colors hover:bg-surface-hover disabled:opacity-40">
               {t('chat.approval.deny')}
             </button>
           </div>
@@ -385,7 +385,7 @@ function TaskBoardArticle({
               aria-label={t('conversations.taskKanban.moveLeft')}
               disabled={disabled || columnStatus === 'todo'}
               onClick={() => onMove(card, -1)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-content-faint transition-colors hover:bg-surface-hover dark:bg-neutral-800 hover:text-content-secondary dark:text-neutral-200 disabled:opacity-25">
+              className="flex h-7 w-7 items-center justify-center rounded-md text-content-faint transition-colors hover:bg-surface-hover dark:bg-surface-muted hover:text-content-secondary dark:text-neutral-200 disabled:opacity-25">
               <LuArrowLeft className="h-4 w-4" />
             </button>
             <button
@@ -394,7 +394,7 @@ function TaskBoardArticle({
               aria-label={t('conversations.taskKanban.moveRight')}
               disabled={disabled || columnStatus === 'done'}
               onClick={() => onMove(card, 1)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-content-faint transition-colors hover:bg-surface-hover dark:bg-neutral-800 hover:text-content-secondary dark:text-neutral-200 disabled:opacity-25">
+              className="flex h-7 w-7 items-center justify-center rounded-md text-content-faint transition-colors hover:bg-surface-hover dark:bg-surface-muted hover:text-content-secondary dark:text-neutral-200 disabled:opacity-25">
               <LuArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -715,7 +715,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
             type="button"
             disabled={disabled || loading || busyKey !== null || sources.length === 0}
             onClick={() => void syncSources()}
-            className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary hover:bg-stone-50 disabled:opacity-40 dark:hover:bg-neutral-800">
+            className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-40">
             <LuRefreshCw className="h-3 w-3" />
             {busyKey === 'sync'
               ? t('settings.taskSources.syncing')
@@ -726,7 +726,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
             aria-label={t('settings.taskSources.refresh')}
             disabled={loading}
             onClick={() => void load()}
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-line text-stone-500 hover:bg-stone-50 disabled:opacity-40 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-line text-stone-500 hover:bg-surface-hover disabled:opacity-40 dark:text-content-secondary">
             <LuRefreshCw className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -783,7 +783,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
                   type="button"
                   disabled={disabled || busyKey !== null}
                   onClick={() => void fetchSource(source)}
-                  className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary hover:bg-stone-50 disabled:opacity-40 dark:hover:bg-neutral-800">
+                  className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-40">
                   <LuRefreshCw className="h-3 w-3" />
                   {busyKey === `fetch:${source.id}`
                     ? t('settings.taskSources.fetching')
@@ -793,7 +793,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
                   type="button"
                   disabled={disabled || busyKey !== null}
                   onClick={() => void toggleSource(source)}
-                  className="rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary hover:bg-stone-50 disabled:opacity-40 dark:hover:bg-neutral-800">
+                  className="rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-40">
                   {source.enabled
                     ? t('settings.taskSources.disable')
                     : t('settings.taskSources.enable')}
@@ -898,7 +898,7 @@ function TaskBriefDialog({
               <input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950"
+                className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
               />
             </label>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -909,7 +909,7 @@ function TaskBriefDialog({
                 <select
                   value={status}
                   onChange={e => setStatus(e.target.value as TaskBoardCardStatus)}
-                  className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950">
+                  className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
                   {(COLUMN_STATUSES.includes(status)
                     ? COLUMN_STATUSES
                     : [status, ...COLUMN_STATUSES]
@@ -932,7 +932,7 @@ function TaskBriefDialog({
                 <select
                   value={approvalMode}
                   onChange={e => setApprovalMode(e.target.value)}
-                  className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950">
+                  className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
                   <option value="">{t('conversations.taskKanban.approval.default')}</option>
                   <option value="required">
                     {t('conversations.taskKanban.approval.required')}
@@ -1138,7 +1138,7 @@ function BriefInput({
       <input
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950"
+        className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
       />
     </label>
   );
@@ -1162,7 +1162,7 @@ function BriefTextarea({
         value={value}
         onChange={e => onChange(e.target.value)}
         rows={3}
-        className="w-full resize-y rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-neutral-950"
+        className="w-full resize-y rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
       />
     </label>
   );

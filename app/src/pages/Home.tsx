@@ -236,7 +236,7 @@ const Home = () => {
               <button
                 onClick={handleRestartCore}
                 disabled={isRestartingCore}
-                className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-medium rounded-xl transition-colors duration-200">
+                className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-content-inverted font-medium rounded-xl transition-colors duration-200">
                 {isRestartingCore ? t('home.restartingCore') : t('home.restartCore')}
               </button>
               {restartError && (

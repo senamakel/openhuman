@@ -170,7 +170,7 @@ export const ThreadTodoStrip: React.FC<Props> = ({
                     title={t('chat.approval.deny')}
                     disabled={disabled}
                     onClick={() => onDecidePlan(card, false)}
-                    className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary transition-colors hover:bg-stone-100 disabled:opacity-40 dark:hover:bg-neutral-800">
+                    className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-secondary transition-colors hover:bg-surface-hover disabled:opacity-40">
                     {t('chat.approval.deny')}
                   </button>
                 </span>

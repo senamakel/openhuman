@@ -243,7 +243,7 @@ export default function IntelligenceSubconsciousTab({
             <button
               type="button"
               onClick={() => navigate('/settings/llm', settingsNavState(location))}
-              className="flex-shrink-0 rounded-md bg-amber-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-amber-700 transition-colors">
+              className="flex-shrink-0 rounded-md bg-amber-600 px-2.5 py-1.5 text-xs font-medium text-content-inverted hover:bg-amber-700 transition-colors">
               {t('subconscious.providerSettings')}
             </button>
           </div>

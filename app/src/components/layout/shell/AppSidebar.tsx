@@ -49,7 +49,7 @@ export default function AppSidebar() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
-      <div className="flex-shrink-0 border-b border-stone-200/70 dark:border-neutral-800/70">
+      <div className="flex-shrink-0 border-b border-stone-200/70 dark:border-line/70">
         <SidebarHeader />
       </div>
       <div className="flex-shrink-0">
@@ -58,10 +58,10 @@ export default function AppSidebar() {
       {/* Persistent app switcher — sticks across routes so the agent + connected
           apps are always one click away. Selecting one routes to /chat where the
           provider webview / agent chat actually render. */}
-      <div className="flex-shrink-0 border-t border-stone-200/70 dark:border-neutral-800/70">
+      <div className="flex-shrink-0 border-t border-stone-200/70 dark:border-line/70">
         <SidebarAppRail />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto border-t border-stone-200/70 dark:border-neutral-800/70">
+      <div className="min-h-0 flex-1 overflow-y-auto border-t border-stone-200/70 dark:border-line/70">
         {/* Flex column so routes that project more than one region (e.g. Chat's
             app rail above its thread list) can order them via Tailwind `order-*`. */}
         <SidebarSlotOutlet className="flex h-full flex-col" />
@@ -75,10 +75,10 @@ export default function AppSidebar() {
         onClick={handleFeedbackClick}
         title={t('nav.feedback')}
         aria-current={feedbackActive ? 'page' : undefined}
-        className={`group flex flex-shrink-0 items-center justify-center gap-2 border-t border-stone-200/70 px-3 py-1 text-[11px] transition-colors cursor-pointer dark:border-neutral-800/70 ${
+        className={`group flex flex-shrink-0 items-center justify-center gap-2 border-t border-stone-200/70 px-3 py-1 text-[11px] transition-colors cursor-pointer dark:border-line/70 ${
           feedbackActive
             ? 'bg-surface text-content font-medium'
-            : 'text-content-muted hover:bg-stone-200/70 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+            : 'text-content-muted hover:bg-stone-200/70 hover:text-content-secondary dark:hover:bg-surface-muted/60'
         }`}>
         <NavIcon id="feedback" className="h-3.5 w-3.5 flex-shrink-0" />
         <span className="min-w-0 truncate">{t('nav.feedback')}</span>

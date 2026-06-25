@@ -355,7 +355,7 @@ const McpServersTab = () => {
                 return (
                   <tr
                     key={`installed-${server.server_id}`}
-                    className="hover:bg-stone-50 dark:hover:bg-neutral-800/40 cursor-pointer transition-colors"
+                    className="hover:bg-stone-50 dark:hover:bg-surface-muted/40 cursor-pointer transition-colors"
                     tabIndex={0}
                     role="button"
                     aria-label={t('mcp.tab.aria.viewDetails').replace(
@@ -406,7 +406,7 @@ const McpServersTab = () => {
               filteredCatalog.map(server => (
                 <tr
                   key={`catalog-${server.qualified_name}`}
-                  className="hover:bg-stone-50 dark:hover:bg-neutral-800/40 cursor-pointer transition-colors"
+                  className="hover:bg-stone-50 dark:hover:bg-surface-muted/40 cursor-pointer transition-colors"
                   tabIndex={0}
                   role="button"
                   aria-label={t('mcp.tab.aria.installServer').replace(

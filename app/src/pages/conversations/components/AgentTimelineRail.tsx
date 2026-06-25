@@ -38,7 +38,7 @@ export function agentNameTone(status: ToolTimelineEntryStatus | undefined): stri
   switch (status) {
     case 'success':
       // Done — full-strength foreground ("full white" in the dark mockup).
-      return 'text-stone-700 dark:text-neutral-100';
+      return 'text-stone-700 dark:text-content';
     case 'error':
       return 'text-coral-600 dark:text-coral-300';
     case 'awaiting_user':
@@ -94,7 +94,7 @@ export function AgentTimelineRail({
             className="absolute top-[9px] bottom-0 left-1/2 w-px -translate-x-1/2 bg-surface-strong"
           />
         ) : null}
-        <span className="relative z-10 mt-0.5 flex h-3 w-3 items-center justify-center bg-[#f6f6f6] dark:bg-neutral-950">
+        <span className="relative z-10 mt-0.5 flex h-3 w-3 items-center justify-center bg-[#f6f6f6] dark:bg-surface-canvas">
           {icon ?? (
             <AgentSparkIcon className={iconClassName ?? 'text-content-faint'} />
           )}

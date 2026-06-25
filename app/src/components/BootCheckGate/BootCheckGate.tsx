@@ -316,7 +316,7 @@ function ModePicker({ onConfirm }: PickerProps) {
                   setUrlWarning(httpPublicHostWarning(next, t));
                   setTestStatus({ kind: 'idle' });
                 }}
-                className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-content-faint focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
               {urlError && <p className="text-xs text-red-600">{urlError}</p>}
               {!urlError && urlWarning && (
@@ -341,7 +341,7 @@ function ModePicker({ onConfirm }: PickerProps) {
                   setTokenError(null);
                   setTestStatus({ kind: 'idle' });
                 }}
-                className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-content-faint focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
               {tokenError && <p className="text-xs text-red-600">{tokenError}</p>}
               <p className="text-[11px] text-content-muted leading-snug">

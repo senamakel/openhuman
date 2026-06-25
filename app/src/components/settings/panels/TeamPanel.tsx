@@ -348,7 +348,7 @@ const TeamPanel = () => {
                   type="button"
                   variant="tertiary"
                   size="md"
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white border-0 dark:bg-amber-500 dark:hover:bg-amber-600"
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-content-inverted border-0 dark:bg-amber-500 dark:hover:bg-amber-600"
                   onClick={() => void confirmLeaveTeam()}
                   disabled={isLeaving === teamToLeave.team._id}>
                   {isLeaving === teamToLeave.team._id ? t('team.leaving') : t('team.leaveTeam')}

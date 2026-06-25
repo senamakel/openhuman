@@ -94,7 +94,7 @@ const SETTLED_ENTRIES: ToolTimelineEntry[] = RUNNING_ENTRIES.map(e => ({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-stone-200 bg-[#f6f6f6] p-4 dark:border-neutral-800 dark:bg-neutral-950">
+    <section className="rounded-2xl border border-stone-200 bg-[#f6f6f6] p-4 dark:border-line dark:bg-surface-canvas">
       <h2 className="mb-3 text-sm font-semibold text-content-secondary">{title}</h2>
       {children}
     </section>

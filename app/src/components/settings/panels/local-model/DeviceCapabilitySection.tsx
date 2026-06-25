@@ -228,7 +228,7 @@ const DeviceCapabilitySection = ({
             className={`w-full text-left rounded-lg border p-3 transition-colors ${
               isDisabledActive
                 ? 'border-primary-400 bg-primary-50 dark:bg-primary-500/10'
-                : 'border-line bg-surface-muted hover:bg-surface-hover dark:bg-neutral-800'
+                : 'border-line bg-surface-muted hover:bg-surface-hover dark:bg-surface-muted'
             } ${applying !== null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -269,10 +269,10 @@ const DeviceCapabilitySection = ({
                 className={`w-full text-left rounded-lg border p-3 transition-colors ${
                   isCurrent
                     ? 'border-primary-400 bg-primary-50 dark:bg-primary-500/10'
-                    : 'border-line bg-surface-muted hover:bg-surface-hover dark:bg-neutral-800'
+                    : 'border-line bg-surface-muted hover:bg-surface-hover dark:bg-surface-muted'
                 } ${
                   locked
-                    ? 'opacity-50 cursor-not-allowed hover:bg-surface-hover dark:bg-neutral-800/60'
+                    ? 'opacity-50 cursor-not-allowed hover:bg-surface-hover dark:bg-surface-muted/60'
                     : applying !== null && !isApplying
                       ? 'opacity-60 cursor-not-allowed'
                       : 'cursor-pointer'

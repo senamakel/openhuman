@@ -250,7 +250,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
             className="h-14 w-14 shrink-0 rounded-full object-cover"
           />
         ) : (
-          <div className="bg-primary-600 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white">
+          <div className="bg-primary-600 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-content-inverted">
             {initials}
           </div>
         )}

@@ -123,7 +123,7 @@ export default function SkillResourceTree({ resources, selectedPath, onSelect }:
                     className={`w-full truncate px-3 py-2 text-left text-[11px] font-mono transition-colors focus:outline-none focus:ring-1 focus:ring-inset focus:ring-primary-500 ${
                       isSelected
                         ? 'bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300'
-                        : 'text-content-secondary hover:bg-white dark:hover:bg-neutral-800/60'
+                        : 'text-content-secondary hover:bg-white dark:hover:bg-surface-muted/60'
                     }`}
                     title={path}>
                     {path}

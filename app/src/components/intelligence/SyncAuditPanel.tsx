@@ -125,7 +125,7 @@ export function SyncAuditPanel() {
             {entries.map((e, i) => (
               <tr
                 key={`${e.timestamp}-${i}`}
-                className="hover:bg-stone-50 dark:hover:bg-neutral-800/50">
+                className="hover:bg-stone-50 dark:hover:bg-surface-muted/50">
                 <td
                   className="px-3 py-1.5 text-content-secondary whitespace-nowrap"
                   title={e.timestamp}>

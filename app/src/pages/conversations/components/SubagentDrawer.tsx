@@ -306,7 +306,7 @@ export function SubagentDrawer({
           {/* Parent → sub-agent: the delegation prompt (the "input"). */}
           {promptText ? (
             <div className="flex justify-end" data-testid="subagent-parent-prompt">
-              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary-500 px-3 py-2 text-sm text-white">
+              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary-500 px-3 py-2 text-sm text-content-inverted">
                 <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/70">
                   {t('conversations.subagent.parent')}
                 </div>
@@ -456,7 +456,7 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
 
   const detailPre =
     'max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-white px-2 py-1.5 ' +
-    'font-mono text-[11px] leading-relaxed text-content-secondary dark:bg-neutral-900';
+    'font-mono text-[11px] leading-relaxed text-content-secondary dark:bg-surface';
   const detailLabel =
     'mb-1 text-[10px] font-semibold uppercase tracking-wide text-content-faint';
 

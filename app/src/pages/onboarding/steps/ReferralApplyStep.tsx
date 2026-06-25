@@ -111,7 +111,7 @@ const ReferralApplyStep = ({ onNext, onApplied }: ReferralApplyStepProps) => {
               onChange={e => setCode(e.target.value.toUpperCase())}
               onKeyDown={e => e.key === 'Enter' && void handleApply()}
               placeholder={t('rewards.referralCode')}
-              className="w-full px-4 py-3 bg-surface-muted border border-line rounded-xl text-center font-mono text-lg tracking-widest text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all"
+              className="w-full px-4 py-3 bg-surface-muted border border-line rounded-xl text-center font-mono text-lg tracking-widest text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-content-faint placeholder:tracking-normal placeholder:font-sans placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all"
               disabled={isLoading}
             />
             {error ? <p className="text-coral-500 text-xs mt-2 text-center">{error}</p> : null}

@@ -15,7 +15,7 @@ const SettingsTextArea = forwardRef<HTMLTextAreaElement, SettingsTextAreaProps>(
       'block w-full rounded-lg border',
       'bg-surface',
       'text-content',
-      'placeholder-neutral-400 dark:placeholder-neutral-500',
+      'placeholder-content-faint',
       'text-sm px-3 py-2',
       'focus:outline-none focus:ring-2',
       'transition-colors duration-150',

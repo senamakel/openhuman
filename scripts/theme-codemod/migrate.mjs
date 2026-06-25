@@ -83,7 +83,6 @@ function transformGrouped(text, pairs, counts) {
     const set = new Set(toks);
     let changed = false;
     for (const [light, dark, to] of pairs) {
-      if (light.includes(':')) continue; // skip prefixed (hover:/focus:) pairs
       if (!set.has(light) || !set.has(dark)) continue;
       for (let i = 0; i < toks.length; i++) {
         if (toks[i] === dark) toks[i] = null;
@@ -109,6 +108,59 @@ function transformGrouped(text, pairs, counts) {
  * handle, so a single round isn't a fixed point. Looping makes one invocation
  * fully idempotent (a re-run finds nothing).
  */
+// Shade→token maps for converting *standalone* dark: neutral utilities (no light
+// partner left after the pair passes). Only shades that equal the token's
+// built-in dark value are mapped, so the Light/Dark presets look identical and
+// only custom themes change.
+const DARK_BG = { 950: 'surface-canvas', 900: 'surface', 800: 'surface-muted' };
+const DARK_TEXT = { 50: 'content', 100: 'content', 300: 'content-secondary', 400: 'content-muted', 500: 'content-faint' };
+const DARK_BORDER = { 800: 'line', 700: 'line-strong' };
+const DARK_PLACEHOLDER = { 400: 'content-muted', 500: 'content-faint' };
+const DARK_MAPS = { bg: DARK_BG, text: DARK_TEXT, border: DARK_BORDER, placeholder: DARK_PLACEHOLDER };
+
+const DARK_NEUTRAL_RE =
+  /\bdark:((?:hover:|focus:|active:|group-hover:|disabled:)*)(bg|text|border|placeholder)-neutral-(\d{2,3})(\/\d+)?\b/g;
+
+/** Convert leftover standalone `dark:[state:]{util}-neutral-N[/op]` to tokens. */
+function transformDarkStandalone(text, counts) {
+  return text.replace(DARK_NEUTRAL_RE, (m, states, util, shade, opacity) => {
+    const token = DARK_MAPS[util]?.[Number(shade)];
+    if (!token) return m; // shade with no exact token equivalent — leave as-is
+    const name = `dark:${util}-neutral-${shade} → dark:${util}-${token}`;
+    counts[name] = (counts[name] || 0) + 1;
+    return `dark:${states}${util}-${token}${opacity ?? ''}`;
+  });
+}
+
+// Light placeholder colours with no dark partner → faint content token.
+const LIGHT_PLACEHOLDER_RE = /\b(placeholder)-(?:stone|neutral)-(400|500)\b/g;
+function transformLightPlaceholder(text, counts) {
+  return text.replace(LIGHT_PLACEHOLDER_RE, (m, util, shade) => {
+    const token = shade === '500' ? 'content-muted' : 'content-faint';
+    counts[`${m} → ${util}-${token}`] = (counts[`${m} → ${util}-${token}`] || 0) + 1;
+    return `${util}-${token}`;
+  });
+}
+
+const ACCENT_BG_RE = /(?:^|[\s"'`{(>])(?:hover:|focus:|active:|dark:)*bg-(?:primary|coral|sage|amber)-\d/;
+
+/** Invert `text-white` to `text-content-inverted` when on an accent fill. */
+function transformInvertedText(text, counts) {
+  return text.replace(CLASS_RUN_RE, (run) => {
+    if (!run.includes('text-white')) return run;
+    if (!ACCENT_BG_RE.test(' ' + run)) return run;
+    return run
+      .split(/[ \t]+/)
+      .map((tkn) => {
+        if (tkn !== 'text-white') return tkn;
+        counts['text-white → text-content-inverted'] =
+          (counts['text-white → text-content-inverted'] || 0) + 1;
+        return 'text-content-inverted';
+      })
+      .join(' ');
+  });
+}
+
 function transform(text, rules) {
   let out = text;
   const counts = {};
@@ -123,6 +175,10 @@ function transform(text, rules) {
     }
     out = transformGrouped(out, PAIRS, counts);
   } while (out !== prev);
+  // Post-passes (run once; each is idempotent on its own output).
+  out = transformDarkStandalone(out, counts);
+  out = transformLightPlaceholder(out, counts);
+  out = transformInvertedText(out, counts);
   return { out, counts };
 }
 
@@ -174,16 +230,33 @@ function runSelfTest() {
       'className="relative flex w-full bg-white shadow-xl dark:bg-neutral-900"',
       'className="relative flex w-full bg-surface shadow-xl"',
     ],
+    // Grouped hover pairs (all hover-light first, then hover-dark).
+    [
+      'className="transition-colors text-content-secondary hover:bg-stone-50 hover:text-stone-900 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100"',
+      'className="transition-colors text-content-secondary hover:bg-surface-hover hover:text-content"',
+    ],
+    // Standalone dark: neutral (no light partner) → themed dark token.
+    ['className="dark:bg-neutral-900"', 'className="dark:bg-surface"'],
+    ['className="dark:hover:bg-neutral-800/60"', 'className="dark:hover:bg-surface-muted/60"'],
+    ['className="dark:text-neutral-100"', 'className="dark:text-content"'],
+    // text-white on an accent fill → inverted (plain text-white untouched).
+    ['className="bg-primary-500 text-white"', 'className="bg-primary-500 text-content-inverted"'],
+    ['className="absolute inset-0 text-white"', 'className="absolute inset-0 text-white"'],
+    // Placeholder colours.
+    ['className="placeholder-stone-400"', 'className="placeholder-content-faint"'],
+    ['className="bg-white text-content dark:bg-neutral-600"', 'className="bg-surface text-content"'],
     [
       'className="hover:bg-stone-50 dark:hover:bg-neutral-800"',
       'className="hover:bg-surface-hover"',
     ],
     ['className="font-display text-xl"', 'className="font-title text-xl"'],
     // Opacity-suffixed must be LEFT ALONE:
+    // Bare (non-dark:) opacity colours are never matched.
     ['className="bg-neutral-900/50"', 'className="bg-neutral-900/50"'],
-    ['className="bg-white dark:bg-neutral-900/50"', 'className="bg-white dark:bg-neutral-900/50"'],
+    // Standalone dark: opacity colour is themed (light side stays since no pair).
+    ['className="bg-white dark:bg-neutral-900/50"', 'className="bg-white dark:bg-surface/50"'],
     // Unrelated classes untouched:
-    ['className="bg-primary-500 text-white"', 'className="bg-primary-500 text-white"'],
+    ['className="rounded-lg p-2 shadow"', 'className="rounded-lg p-2 shadow"'],
     // Idempotent (already migrated):
     ['className="bg-surface text-content"', 'className="bg-surface text-content"'],
   ];

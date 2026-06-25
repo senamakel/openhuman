@@ -22,7 +22,7 @@ interface FeedbackSubmitFormProps {
 const INPUT_CLASS =
   'w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-900 ' +
   'placeholder:text-neutral-400 transition-all focus:border-primary-500/50 focus:bg-white focus:outline-none ' +
-  'focus:ring-2 focus:ring-primary-500/30 dark:border-neutral-700 dark:bg-white/[0.03] dark:text-neutral-100 ' +
+  'focus:ring-2 focus:ring-primary-500/30 dark:border-line-strong dark:bg-white/[0.03] dark:text-content ' +
   'dark:placeholder:text-neutral-500 dark:focus:bg-white/[0.06]';
 
 export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormProps) {
@@ -92,7 +92,7 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
           className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
             type === 'feature'
               ? 'border-primary-500 bg-primary-500/10 text-primary-600 ring-1 ring-primary-500/30 dark:text-primary-400'
-              : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-white/[0.03]'
+              : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 dark:border-line-strong dark:hover:bg-white/[0.03]'
           }`}>
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -111,7 +111,7 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
           className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
             type === 'bug'
               ? 'border-coral-500 bg-coral-500/10 text-coral-600 ring-1 ring-coral-500/30 dark:text-coral-400'
-              : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-white/[0.03]'
+              : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 dark:border-line-strong dark:hover:bg-white/[0.03]'
           }`}>
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path

@@ -147,7 +147,7 @@ export default function ChatNewWindowHero() {
           the app background. */}
       <div
         data-walkthrough="home-card"
-        className="animate-fade-up rounded-2xl border border-stone-200/80 bg-surface/80 p-6 shadow-soft backdrop-blur-sm dark:border-neutral-800/80">
+        className="animate-fade-up rounded-2xl border border-stone-200/80 bg-surface/80 p-6 shadow-soft backdrop-blur-sm dark:border-line/80">
         {/* Animated greeting */}
         <h1 className="min-h-[3.5rem] text-2xl text-center font-bold text-content">
           {typedWelcome}
@@ -169,7 +169,7 @@ export default function ChatNewWindowHero() {
               type="button"
               onClick={handleRestartCore}
               disabled={isRestartingCore}
-              className="w-full rounded-xl bg-amber-500 py-3 font-medium text-white transition-colors duration-200 hover:bg-amber-600 disabled:opacity-50">
+              className="w-full rounded-xl bg-amber-500 py-3 font-medium text-content-inverted transition-colors duration-200 hover:bg-amber-600 disabled:opacity-50">
               {isRestartingCore ? t('home.restartingCore') : t('home.restartCore')}
             </button>
             {restartError && (

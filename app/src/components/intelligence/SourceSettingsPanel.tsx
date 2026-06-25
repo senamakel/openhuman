@@ -183,7 +183,7 @@ export function SourceSettingsPanel({
                 placeholder={t('memorySources.settings.unlimited')}
                 className="w-full rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-mono
                            text-stone-800 placeholder:text-stone-400
-                           dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200
+                           dark:border-neutral-600 dark:bg-surface dark:text-neutral-200
                            dark:placeholder:text-neutral-500
                            focus:outline-none focus:ring-2 focus:ring-primary-200"
               />

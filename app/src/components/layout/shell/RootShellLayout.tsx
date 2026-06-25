@@ -186,7 +186,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
               data-testid="root-shell-reopen"
               data-analytics-id="root-shell-reopen-sidebar"
               aria-label={t('layout.showSidebar')}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200">
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-surface-hover hover:text-content-secondary">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -198,7 +198,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
             </button>
           </Tooltip>
           {/* Keep the primary nav reachable while collapsed: an icon-only rail. */}
-          <div className="mt-1 w-full border-t border-stone-200/70 pt-1 dark:border-neutral-800/70">
+          <div className="mt-1 w-full border-t border-stone-200/70 pt-1 dark:border-line/70">
             <CollapsedNavRail />
           </div>
         </div>

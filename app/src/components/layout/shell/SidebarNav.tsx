@@ -85,7 +85,7 @@ export default function SidebarNav() {
             <span className="relative inline-flex flex-shrink-0">
               <NavIcon id={tab.id} className="w-4 h-4" />
               {showBadge && (
-                <span className="absolute -top-1 -right-1 min-w-[13px] h-[13px] px-1 rounded-full bg-coral-500 text-[9px] font-bold text-white flex items-center justify-center leading-none">
+                <span className="absolute -top-1 -right-1 min-w-[13px] h-[13px] px-1 rounded-full bg-coral-500 text-[9px] font-bold text-content-inverted flex items-center justify-center leading-none">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}

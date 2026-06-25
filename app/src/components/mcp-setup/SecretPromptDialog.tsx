@@ -139,7 +139,7 @@ export function SecretPromptDialog() {
                 {reveal ? t('mcp.setup.secretDialog.hide') : t('mcp.setup.secretDialog.show')}
               </button>
             </div>
-            <p className="text-[11px] text-stone-500 dark:text-neutral-500 mt-2">
+            <p className="text-[11px] text-stone-500 dark:text-content-faint mt-2">
               {t('mcp.setup.secretDialog.privacyNote')}
             </p>
             {error && (
@@ -160,7 +160,7 @@ export function SecretPromptDialog() {
             <button
               type="submit"
               disabled={submitting || value.length === 0}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary-500 hover:bg-primary-600 text-white disabled:opacity-50">
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary-500 hover:bg-primary-600 text-content-inverted disabled:opacity-50">
               {submitting
                 ? t('mcp.setup.secretDialog.submitting')
                 : t('mcp.setup.secretDialog.submit')}

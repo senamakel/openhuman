@@ -68,7 +68,7 @@ const RailButton = ({
     aria-label={tooltip}>
     {children}
     {badge && badge > 0 ? (
-      <span className="absolute -right-0.5 -top-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-semibold text-white">
+      <span className="absolute -right-0.5 -top-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-semibold text-content-inverted">
         {badge > 99 ? '99+' : badge}
       </span>
     ) : null}
@@ -260,7 +260,7 @@ export default function SidebarAppRail() {
           }}
           data-analytics-id="sidebar-app-rail-add-account"
           data-testid="accounts-add-button"
-          className={`group relative flex h-9 flex-none items-center justify-center gap-1.5 rounded-xl border border-dashed border-line-strong text-content-faint transition-colors hover:bg-stone-50 hover:text-stone-600 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-300 ${
+          className={`group relative flex h-9 flex-none items-center justify-center gap-1.5 rounded-xl border border-dashed border-line-strong text-content-faint transition-colors hover:bg-surface-hover hover:text-content-secondary ${
             showAddLabel ? 'w-auto px-2.5' : 'w-9'
           }`}
           aria-label={t('accounts.addApps')}

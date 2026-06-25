@@ -267,7 +267,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
 
         {/* Connections info */}
         {detail.connections.length > 0 && (
-          <div className="rounded-lg border border-stone-150 dark:border-neutral-700/60 bg-surface-muted p-3">
+          <div className="rounded-lg border border-stone-150 dark:border-line-strong/60 bg-surface-muted p-3">
             <p className="text-xs font-medium text-content-muted mb-2">
               {t('mcp.install.connections')}
             </p>

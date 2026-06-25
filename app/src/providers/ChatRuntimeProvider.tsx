@@ -27,6 +27,7 @@ import {
   clearInferenceStatusForThread,
   clearParallelRequest,
   clearPendingApprovalForThread,
+  clearPendingPlanReviewForThread,
   clearStreamingAssistantForThread,
   endInferenceTurn,
   markInferenceTurnStreaming,
@@ -1065,6 +1066,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
         dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
         dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+        dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
 
         const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
         if (existing.length > 0) {
@@ -1199,6 +1201,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
         dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
         dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+        dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
 
         const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
         if (existing.length > 0) {
@@ -1277,9 +1280,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     });
     for (const threadId of threadIds) {
       dispatch(clearInferenceStatusForThread({ threadId }));
-      // Clear any parked approval too: a disconnect before onDone/onError would
-      // otherwise leave the approval card stuck for a turn that can't complete.
+      // Clear any parked approval/plan-review too: a disconnect before
+      // onDone/onError would otherwise leave the card stuck for a turn that
+      // can't complete.
       dispatch(clearPendingApprovalForThread({ threadId }));
+      dispatch(clearPendingPlanReviewForThread({ threadId }));
       dispatch(endInferenceTurn({ threadId }));
     }
     // A disconnect kills every in-flight turn on the dead session, so clear all

@@ -27,10 +27,6 @@ function ok(n: number): boolean {
   return Number.isFinite(n) && n > 0;
 }
 
-function dot() {
-  return <span className="text-stone-300 dark:text-neutral-700">·</span>;
-}
-
 /**
  * One labelled row in the hover breakdown. The label carries a `title` tooltip
  * explaining the metric, hinted with a dotted underline + help cursor.
@@ -129,7 +125,6 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
   const contextUsed = usage.lastTurnContextUsed || 0;
   const contextPct = Math.min(100, Math.round((contextUsed / contextWindow) * 100));
 
-  const showIo = ok(inTok) || ok(outTok);
   const showCost = ok(costUsd);
 
   // Orchestrator (the parent/main agent) spend = session totals minus everything
@@ -146,9 +141,10 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
 
   const parts: React.ReactNode[] = [];
 
-  // Inline footer: context usage · in/out tokens · cost. The context counter is
-  // always shown once the footer is visible (it's the primary metric and the
-  // toggle hint); the segment is highlighted while the breakdown is open.
+  // Inline footer is intentionally minimal: just context usage · cost. The full
+  // token breakdown (in/out/cached, per-agent) lives in the click-open popover.
+  // The context counter is always shown (primary metric + toggle hint) and is
+  // highlighted while the breakdown is open.
   parts.push(
     <span
       key="ctx"
@@ -161,13 +157,6 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
       {t('token.ctxLabel')} {contextPct}% ({fmt(contextUsed)}/{fmt(contextWindow)})
     </span>
   );
-  if (showIo) {
-    parts.push(
-      <span key="io" title={`${t('token.inputTokens')} / ${t('token.outputTokens')}`}>
-        {t('token.inLabel')} {fmt(inTok)} {t('token.outLabel')} {fmt(outTok)}
-      </span>
-    );
-  }
   if (showCost) {
     parts.push(
       <span key="cost" title={t('token.costTitle')}>
@@ -188,10 +177,9 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
           aria-label={t('token.sessionUsageTitle')}
-          className="flex min-w-0 cursor-pointer flex-wrap items-center gap-2.5 border-0 bg-transparent p-0 text-[10px] font-mono text-stone-400 dark:text-neutral-500 select-none">
+          className="flex min-w-0 cursor-pointer flex-wrap items-center gap-1.5 border-0 bg-transparent p-0 text-[10px] font-mono text-stone-400 dark:text-neutral-500 select-none">
           {parts.map((part, i) => (
             <span key={i} className="contents">
-              {i > 0 && dot()}
               {part}
             </span>
           ))}

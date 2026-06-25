@@ -13190,7 +13190,9 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
     std::fs::write(raw.join("1700000000_main.jsonl"), jsonl).expect("write transcript");
 
     // A sub-agent transcript (stem contains `__`) for the SAME thread: a `coder`
-    // archetype run on coding-v1. Its spend must be grouped under `coder` and
+    // archetype. Its message carries NO model (mirroring how sub-agent
+    // transcripts were historically written), so pricing must fall back to the
+    // thread's model rather than $0. Its spend is grouped under `coder` and
     // folded into the thread totals — not collapsed into the orchestrator.
     let sub_jsonl = format!(
         "{}\n{}\n",
@@ -13200,9 +13202,7 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
             "turn_count": 1, "input_tokens": 1000, "output_tokens": 200,
             "cached_input_tokens": 0, "charged_amount_usd": 0.0, "thread_id": "thr-e2e"
         }}),
-        json!({"role": "assistant", "content": "done", "model": "coding-v1",
-            "usage": {"input": 1000, "output": 200, "cached_input": 0, "cost_usd": 0.0},
-            "ts": "2026-04-11T14:34:00Z"}),
+        json!({"role": "assistant", "content": "done"}),
     );
     std::fs::write(
         raw.join("1700000000_main__1700000050_coder.jsonl"),
@@ -13230,9 +13230,11 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
     assert_eq!(data["output_tokens"], 1100);
     assert_eq!(data["cached_input_tokens"], 600);
     // Cost is RE-AUDITED at current pricing, NOT the stale persisted charge.
-    // orchestrator reasoning-v1: (4200-600)*0.435 + 600*0.003625 + 900*0.87 = 0.002351175
-    // coder coding-v1:          1000*0.435 + 0 + 200*0.87                   = 0.000609
-    // total                                                                  = 0.002960175
+    // The coder sub-agent has no model, so it's priced at the thread's model
+    // (reasoning-v1 = "Pro"), NOT $0.
+    // orchestrator: (4200-600)*0.435 + 600*0.003625 + 900*0.87 = 0.002351175
+    // coder:        1000*0.435 + 0 + 200*0.87                  = 0.000609
+    // total                                                     = 0.002960175
     let cost = data["cost_usd"].as_f64().expect("cost_usd");
     assert!(
         (cost - 0.002_960_175).abs() < 1e-9,

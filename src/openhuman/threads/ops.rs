@@ -752,12 +752,16 @@ pub async fn token_usage(
                 s.cost_usd,
             );
 
-            // Sub-agent archetypes, each re-audited with its own model.
+            // Sub-agent archetypes, each re-audited with its own model. Older
+            // sub-agent transcripts didn't persist a model on their messages, so
+            // fall back to the thread's (root) model rather than pricing them at
+            // $0 — sub-agents usually run on the same managed tier as the parent.
             let mut subagents = Vec::with_capacity(s.subagents.len());
             let (mut sub_in, mut sub_out, mut sub_cached, mut sub_cost) = (0u64, 0u64, 0u64, 0.0);
             for g in &s.subagents {
+                let sub_model = g.model.as_deref().or(s.model.as_deref());
                 let cost = audit_cost(
-                    g.model.as_deref(),
+                    sub_model,
                     g.input_tokens,
                     g.output_tokens,
                     g.cached_input_tokens,

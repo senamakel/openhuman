@@ -43,21 +43,19 @@ describe('<ComposerTokenStats />', () => {
     expect(row).toHaveTextContent('token.ctxLabel');
   });
 
-  it('shows context usage, in/out tokens, and cost inline (no model inline)', () => {
+  it('keeps the inline row minimal: context window and cost only', () => {
     renderWithUsage(oneTurn, { model: 'reasoning-v1' });
     const row = screen.getByRole('button');
     // Context window uses the real reported window (200K), not just a default.
     expect(row).toHaveTextContent('token.ctxLabel');
     expect(row).toHaveTextContent('200K');
-    // In/out tokens are on the inline row.
-    expect(row).toHaveTextContent('token.inLabel 1.2K');
-    expect(row).toHaveTextContent('token.outLabel 300');
     // Cost inline.
     expect(row).toHaveTextContent('$0.012');
+    // Tokens (in/out) are NOT inline — they live in the popover.
+    expect(row).not.toHaveTextContent('token.inLabel');
+    expect(row).not.toHaveTextContent('token.outLabel');
     // The model id is NOT inline (it lives in the popover).
     expect(row).not.toHaveTextContent('reasoning-v1');
-    // No turn counter on the inline row.
-    expect(screen.queryByText(/token\.turns?$/)).not.toBeInTheDocument();
   });
 
   it('toggles the breakdown on click and shows explicit labelled rows + tooltips + model', () => {

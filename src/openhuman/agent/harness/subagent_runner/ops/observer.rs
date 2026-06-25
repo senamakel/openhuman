@@ -18,6 +18,10 @@ pub(super) struct SubagentObserver {
     pub(super) task_id: String,
     pub(super) force_text_mode: bool,
     pub(super) usage: AggregatedUsage,
+    /// Model that served the sub-agent's most recent provider call. Persisted
+    /// onto the transcript's last assistant message so per-thread usage reads
+    /// can price the sub-agent at its actual model (not fall back to $0).
+    pub(super) last_model: Option<String>,
 }
 
 impl SubagentObserver {
@@ -80,7 +84,20 @@ impl SubagentObserver {
             charged_amount_usd: self.usage.charged_amount_usd,
             thread_id: crate::openhuman::inference::provider::thread_context::current_thread_id(),
         };
-        if let Err(err) = transcript::write_transcript(&path, history, &meta, None) {
+        // Attach the sub-agent's model + cumulative usage to the last assistant
+        // message so per-thread usage reads can recover the model and price the
+        // sub-agent at its actual rate.
+        let turn_usage = self.last_model.as_ref().map(|model| transcript::TurnUsage {
+            model: model.clone(),
+            usage: transcript::MessageUsage {
+                input: self.usage.input_tokens,
+                output: self.usage.output_tokens,
+                cached_input: self.usage.cached_input_tokens,
+                cost_usd: self.usage.charged_amount_usd,
+            },
+            ts: chrono::Utc::now().to_rfc3339(),
+        });
+        if let Err(err) = transcript::write_transcript(&path, history, &meta, turn_usage.as_ref()) {
             tracing::debug!(
                 agent_id = %self.agent_id,
                 error = %err,
@@ -100,6 +117,7 @@ impl super::super::super::engine::TurnObserver for SubagentObserver {
         self.usage.input_tokens += usage.input_tokens;
         self.usage.output_tokens += usage.output_tokens;
         self.usage.cached_input_tokens += usage.cached_input_tokens;
+        self.last_model = Some(model.to_string());
         // Effective per-call cost: backend-charged when present, else the
         // per-model catalog estimate (#4124) — so a sub-agent on a BYO/local
         // provider that bills no charge still contributes a priced cost to the

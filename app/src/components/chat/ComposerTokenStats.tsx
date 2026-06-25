@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import { useAppSelector } from '../../store/hooks';
 import type { SubAgentUsage } from '../../store/chatRuntimeSlice';
+import { useAppSelector } from '../../store/hooks';
 
 /** Fallback context window when the core hasn't reported a real one yet. */
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -170,12 +170,14 @@ export default function ComposerTokenStats({ model }: ComposerTokenStatsProps = 
               <ul className="space-y-0.5 font-mono text-stone-500 dark:text-neutral-400">
                 {subAgents.map(sub => (
                   <li key={sub.agentId} className="flex items-center justify-between gap-3">
-                    <span className="truncate text-stone-600 dark:text-neutral-300" title={sub.agentId}>
+                    <span
+                      className="truncate text-stone-600 dark:text-neutral-300"
+                      title={sub.agentId}>
                       {sub.agentId}
                     </span>
                     <span className="whitespace-nowrap text-stone-700 dark:text-neutral-200">
-                      {fmt(sub.inputTokens + sub.outputTokens)} · {fmtUsd(sub.costUsd)} ·{' '}
-                      {sub.runs}×
+                      {fmt(sub.inputTokens + sub.outputTokens)} · {fmtUsd(sub.costUsd)} · {sub.runs}
+                      ×
                     </span>
                   </li>
                 ))}

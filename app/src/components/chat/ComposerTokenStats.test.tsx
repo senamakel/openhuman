@@ -3,8 +3,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
-import ComposerTokenStats from './ComposerTokenStats';
 import chatRuntimeReducer, { recordChatTurnUsage } from '../../store/chatRuntimeSlice';
+import ComposerTokenStats from './ComposerTokenStats';
 
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
 

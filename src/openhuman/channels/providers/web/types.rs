@@ -71,8 +71,7 @@ pub(super) struct WebChatTaskResult {
     /// Holistic token/cost/context totals for the turn (parent + sub-agents),
     /// forwarded to the frontend on `chat_done`. `None` for synthetic results
     /// (e.g. budget-exhausted placeholders) that never ran a real turn.
-    pub(super) usage:
-        Option<crate::openhuman::agent::harness::turn_subagent_usage::LastTurnUsage>,
+    pub(super) usage: Option<crate::openhuman::agent::harness::turn_subagent_usage::LastTurnUsage>,
 }
 
 /// Per-request metadata carried alongside a chat send. Currently used by the

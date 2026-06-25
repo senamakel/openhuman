@@ -115,7 +115,9 @@ describe('chatRuntimeSlice recordChatTurnUsage', () => {
 
   it('keeps the prior context window when a turn reports an unknown (0) window', () => {
     const store = makeStore();
-    store.dispatch(recordChatTurnUsage({ inputTokens: 10, outputTokens: 5, contextWindow: 128_000 }));
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: 10, outputTokens: 5, contextWindow: 128_000 })
+    );
     store.dispatch(recordChatTurnUsage({ inputTokens: 10, outputTokens: 5, contextWindow: 0 }));
     expect(store.getState().chatRuntime.sessionTokenUsage.contextWindow).toBe(128_000);
   });
@@ -123,11 +125,7 @@ describe('chatRuntimeSlice recordChatTurnUsage', () => {
   it('coerces non-finite / negative inputs to zero', () => {
     const store = makeStore();
     store.dispatch(
-      recordChatTurnUsage({
-        inputTokens: Number.NaN,
-        outputTokens: -50,
-        costUsd: -1,
-      })
+      recordChatTurnUsage({ inputTokens: Number.NaN, outputTokens: -50, costUsd: -1 })
     );
     const usage = store.getState().chatRuntime.sessionTokenUsage;
     expect(usage.inputTokens).toBe(0);

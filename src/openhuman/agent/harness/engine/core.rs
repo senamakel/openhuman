@@ -556,7 +556,7 @@ pub(crate) async fn run_turn_engine(
                 if let Some(ref usage) = resp.usage {
                     context_guard.update_usage(usage);
                     turn_cost.add_call(model, usage);
-                    observer.record_usage(model, usage);
+                    observer.record_usage(provider_name, model, usage);
                     tracing::debug!(
                         iteration,
                         input_tokens = usage.input_tokens,
@@ -990,7 +990,7 @@ pub(crate) async fn run_turn_engine(
     // accounting stays complete.
     if let Some(ref u) = co.usage {
         turn_cost.add_call(model, u);
-        observer.record_usage(model, u);
+        observer.record_usage(provider_name, model, u);
     }
     // Emit the terminal lifecycle event on this successful (checkpoint) exit
     // too, so consumers aren't left waiting — matching the final-response and

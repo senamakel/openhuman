@@ -1,4 +1,5 @@
 use super::*;
+use crate::openhuman::inference::provider::ToolCall;
 use tempfile::TempDir;
 
 fn sample_messages() -> Vec<ChatMessage> {
@@ -16,7 +17,11 @@ fn sample_messages() -> Vec<ChatMessage> {
 fn sample_meta() -> TranscriptMeta {
     TranscriptMeta {
         agent_name: "code_executor".into(),
+        agent_id: Some("code_executor".into()),
+        agent_type: Some("subagent".into()),
         dispatcher: "native".into(),
+        provider: Some("openhuman-backend".into()),
+        model: Some("claude-sonnet-4-6".into()),
         created: "2026-04-11T14:30:00Z".into(),
         updated: "2026-04-11T14:35:22Z".into(),
         turn_count: 3,
@@ -25,19 +30,30 @@ fn sample_meta() -> TranscriptMeta {
         cached_input_tokens: 3500,
         charged_amount_usd: 0.0045,
         thread_id: None,
+        task_id: Some("task-123".into()),
     }
 }
 
 fn sample_turn_usage() -> TurnUsage {
     TurnUsage {
+        provider: "openhuman-backend".into(),
         model: "claude-sonnet-4-6".into(),
         usage: MessageUsage {
             input: 1234,
             output: 567,
             cached_input: 1000,
+            context_window: 200_000,
             cost_usd: 0.0012,
         },
         ts: "2026-04-17T10:00:00Z".into(),
+        reasoning_content: Some("private reasoning trace".into()),
+        tool_calls: vec![ToolCall {
+            id: "call-1".into(),
+            name: "shell".into(),
+            arguments: "{\"cmd\":\"ls\"}".into(),
+            extra_content: None,
+        }],
+        iteration: 1,
     }
 }
 
@@ -426,6 +442,22 @@ fn usage_round_trips_on_last_assistant_message() {
         "model missing from last assistant line"
     );
     assert!(
+        last_assistant_line.contains("openhuman-backend"),
+        "provider missing from last assistant line"
+    );
+    assert!(
+        last_assistant_line.contains("\"context_window\":200000"),
+        "context window missing from usage"
+    );
+    assert!(
+        last_assistant_line.contains("private reasoning trace"),
+        "reasoning content missing from assistant metadata"
+    );
+    assert!(
+        last_assistant_line.contains("\"tool_calls\""),
+        "native tool calls missing from assistant metadata"
+    );
+    assert!(
         last_assistant_line.contains("\"cost_usd\""),
         "cost_usd missing"
     );
@@ -453,10 +485,15 @@ fn md_companion_file_is_written() {
     assert!(md_path.exists(), ".md companion should be written");
     let md = fs::read_to_string(&md_path).unwrap();
     assert!(md.contains("# Session transcript — code_executor"));
+    assert!(md.contains("Agent ID: `code_executor`"));
+    assert!(md.contains("Agent type: `subagent`"));
+    assert!(md.contains("Provider: `openhuman-backend`"));
+    assert!(md.contains("Task: `task-123`"));
     assert!(
         md.contains("claude-sonnet-4-6"),
         "model should appear in md"
     );
+    assert!(md.contains("private reasoning trace"));
     assert!(md.contains("## [system]"), "system section missing");
     assert!(md.contains("## [user]"), "user section missing");
 }

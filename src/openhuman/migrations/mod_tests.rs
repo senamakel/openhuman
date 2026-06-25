@@ -46,7 +46,11 @@ fn tainted_prompt() -> String {
 fn meta() -> TranscriptMeta {
     TranscriptMeta {
         agent_name: "main".into(),
+        agent_id: None,
+        agent_type: None,
         dispatcher: "native".into(),
+        provider: None,
+        model: None,
         created: "2026-05-01T00:00:00Z".into(),
         updated: "2026-05-01T00:00:00Z".into(),
         turn_count: 1,
@@ -55,6 +59,7 @@ fn meta() -> TranscriptMeta {
         cached_input_tokens: 0,
         charged_amount_usd: 0.0,
         thread_id: None,
+        task_id: None,
     }
 }
 

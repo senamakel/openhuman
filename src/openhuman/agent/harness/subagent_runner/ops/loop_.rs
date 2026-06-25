@@ -155,6 +155,7 @@ pub(super) async fn run_inner_loop(
         task_id: task_id.to_string(),
         force_text_mode,
         usage: AggregatedUsage::default(),
+        last_turn_usage: None,
     };
     let checkpoint = SubagentCheckpoint {
         provider,

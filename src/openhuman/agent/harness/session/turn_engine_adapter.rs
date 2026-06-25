@@ -306,7 +306,7 @@ impl TurnObserver for AgentObserver<'_> {
         false
     }
 
-    fn record_usage(&mut self, model: &str, usage: &UsageInfo) {
+    fn record_usage(&mut self, provider: &str, model: &str, usage: &UsageInfo) {
         self.agent.context.record_usage(usage);
         crate::openhuman::cost::record_provider_usage(model, usage);
         self.cumulative_input += usage.input_tokens;
@@ -314,14 +314,19 @@ impl TurnObserver for AgentObserver<'_> {
         self.cumulative_cached += usage.cached_input_tokens;
         self.cumulative_charged += usage.charged_amount_usd;
         self.last_turn_usage = Some(transcript::TurnUsage {
+            provider: provider.to_string(),
             model: model.to_string(),
             usage: transcript::MessageUsage {
                 input: usage.input_tokens,
                 output: usage.output_tokens,
                 cached_input: usage.cached_input_tokens,
+                context_window: usage.context_window,
                 cost_usd: usage.charged_amount_usd,
             },
             ts: chrono::Utc::now().to_rfc3339(),
+            reasoning_content: None,
+            tool_calls: Vec::new(),
+            iteration: 0,
         });
     }
 
@@ -339,6 +344,14 @@ impl TurnObserver for AgentObserver<'_> {
             let mut assistant_msg = ChatMessage::assistant(display_text.to_string());
             if let Some(rc) = reasoning_content {
                 assistant_msg.extra_metadata = Some(serde_json::json!({ "reasoning_content": rc }));
+            }
+            if let Some(ref mut usage) = self.last_turn_usage {
+                usage.reasoning_content = reasoning_content
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(ToString::to_string);
+                usage.tool_calls = native_tool_calls.to_vec();
+                usage.iteration = (iteration + 1) as u32;
             }
             self.agent
                 .history
@@ -365,6 +378,14 @@ impl TurnObserver for AgentObserver<'_> {
             &self.pending_results,
             iteration,
         );
+        if let Some(ref mut usage) = self.last_turn_usage {
+            usage.reasoning_content = reasoning_content
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(ToString::to_string);
+            usage.tool_calls = tool_calls.clone();
+            usage.iteration = (iteration + 1) as u32;
+        }
         self.agent
             .history
             .push(ConversationMessage::AssistantToolCalls {

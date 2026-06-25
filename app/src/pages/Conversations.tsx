@@ -893,12 +893,6 @@ const Conversations = ({
     // may proceed concurrently.
     if (selectedThreadId && pendingSendsRef.current.has(selectedThreadId)) return;
 
-    // If the user just flipped the Super Context toggle, make sure that config
-    // write has landed before the core builds this thread's session (which
-    // reads `context.super_context_enabled`). Resolves instantly when nothing
-    // is pending.
-    await whenSuperContextWriteSettled();
-
     const normalized = text ?? inputValue;
     const trimmedInput = normalized.trim();
 
@@ -1004,6 +998,14 @@ const Conversations = ({
     dispatch(setToolTimelineForThread({ threadId: sendingThreadId, entries: [] }));
     dispatch(beginInferenceTurn({ threadId: sendingThreadId }));
     dispatch(markThreadInferenceActive(sendingThreadId));
+
+    // If the user just flipped the Super Context toggle, make sure that config
+    // write has landed before the core builds this thread's session (which
+    // reads `context.super_context_enabled`). Resolves instantly when nothing
+    // is pending. Awaited HERE — after `pendingSendsRef` is marked and the
+    // composer cleared — so the in-flight write can't open a double-submit
+    // window before the send is locked.
+    await whenSuperContextWriteSettled();
 
     // ── Cloud socket path ─────────────────────────────────────────────────────
     // Always route primary chat through the cloud backend via socket.

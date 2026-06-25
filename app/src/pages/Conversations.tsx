@@ -96,7 +96,6 @@ import {
   BackgroundProcessesPanel,
   selectBackgroundProcesses,
 } from './conversations/components/BackgroundProcessesPanel';
-import { useMemorySyncActive } from './conversations/hooks/useBackgroundActivity';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
 import { SubagentDrawer } from './conversations/components/SubagentDrawer';
 import { ThreadTodoStrip } from './conversations/components/ThreadTodoStrip';
@@ -106,6 +105,7 @@ import {
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
 } from './conversations/composerSendDecision';
+import { useMemorySyncActive } from './conversations/hooks/useBackgroundActivity';
 import { runDecidePlan } from './conversations/taskPlanActions';
 import {
   type AgentBubblePosition,

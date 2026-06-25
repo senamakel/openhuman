@@ -1,6 +1,5 @@
 //! Core turn execution: the main `turn()` method and `inject_agent_experience_context()`.
 
-use super::super::transcript;
 use super::super::turn_engine_adapter::{AgentCheckpoint, AgentObserver, AgentToolSource};
 use super::super::types::Agent;
 use super::{
@@ -22,7 +21,6 @@ use crate::openhuman::util::truncate_with_ellipsis;
 
 use anyhow::Result;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 /// Decide whether the harness-driven "super context" collection pass should
 /// run this turn.
@@ -59,11 +57,31 @@ fn should_run_super_context(
     is_orchestrator && first_turn && !has_prior_conversation && enabled
 }
 
-fn render_agent_context_status_note(sources: &[String]) -> String {
+fn parse_context_bundle_has_enough_context(bundle: &str) -> Option<bool> {
+    const PREFIX: &str = "has_enough_context:";
+    let line = bundle.lines().map(str::trim).find(|line| {
+        line.get(..PREFIX.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(PREFIX))
+    })?;
+    let value = line[PREFIX.len()..].trim();
+    if value.eq_ignore_ascii_case("true") {
+        Some(true)
+    } else if value.eq_ignore_ascii_case("false") {
+        Some(false)
+    } else {
+        None
+    }
+}
+
+fn render_agent_context_status_note(sources: &[harness::AgentContextPreparedSource]) -> String {
     let sources = if sources.is_empty() {
         "the OpenHuman harness".to_string()
     } else {
-        sources.join(", ")
+        sources
+            .iter()
+            .map(|source| source.source.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
     };
     format!(
         "## Agent context status\n\nAgent context retrieval/preparation has already run once \
@@ -524,12 +542,16 @@ impl Agent {
         let mut parent_context = self.build_parent_execution_context();
         parent_context.model_name = effective_model.clone();
 
-        let mut agent_context_prepared_sources: Vec<String> = Vec::new();
+        let mut agent_context_prepared_sources: Vec<harness::AgentContextPreparedSource> =
+            Vec::new();
         let (enriched, memory_agent_context_injected) = self
             .inject_triggered_memory_agent_context(user_message, enriched, &parent_context)
             .await;
         if memory_agent_context_injected {
-            agent_context_prepared_sources.push("memory agent context retrieval".to_string());
+            agent_context_prepared_sources.push(harness::AgentContextPreparedSource {
+                source: "memory agent context retrieval".to_string(),
+                has_enough_context: None,
+            });
         }
 
         // ── "Super context": harness-driven first-turn context collection ──
@@ -587,7 +609,10 @@ impl Agent {
             match scout {
                 Ok(result) if !result.is_error => {
                     let bundle = result.output();
-                    agent_context_prepared_sources.push("super context preparation".to_string());
+                    agent_context_prepared_sources.push(harness::AgentContextPreparedSource {
+                        source: "super context preparation".to_string(),
+                        has_enough_context: parse_context_bundle_has_enough_context(&bundle),
+                    });
                     log::info!(
                         "[agent_loop] super_context bundle collected bundle_chars={}",
                         bundle.chars().count()
@@ -1126,7 +1151,11 @@ impl Agent {
 
 #[cfg(test)]
 mod super_context_gate_tests {
-    use super::{render_agent_context_status_note, should_run_super_context};
+    use super::{
+        parse_context_bundle_has_enough_context, render_agent_context_status_note,
+        should_run_super_context,
+    };
+    use crate::openhuman::agent::harness::AgentContextPreparedSource;
 
     #[test]
     fn runs_only_on_first_turn_of_a_new_orchestrator_thread_when_enabled() {
@@ -1175,8 +1204,14 @@ mod super_context_gate_tests {
     #[test]
     fn context_status_note_tells_model_not_to_prepare_context_again() {
         let note = render_agent_context_status_note(&[
-            "memory agent context retrieval".to_string(),
-            "super context preparation".to_string(),
+            AgentContextPreparedSource {
+                source: "memory agent context retrieval".to_string(),
+                has_enough_context: None,
+            },
+            AgentContextPreparedSource {
+                source: "super context preparation".to_string(),
+                has_enough_context: Some(true),
+            },
         ]);
 
         assert!(note.contains("## Agent context status"));
@@ -1184,5 +1219,27 @@ mod super_context_gate_tests {
         assert!(note.contains("memory agent context retrieval"));
         assert!(note.contains("super context preparation"));
         assert!(note.contains("Do not call `agent_prepare_context` again"));
+    }
+
+    #[test]
+    fn parses_context_bundle_sufficiency() {
+        assert_eq!(
+            parse_context_bundle_has_enough_context(
+                "[context_bundle]\nhas_enough_context: true\n[/context_bundle]"
+            ),
+            Some(true)
+        );
+        assert_eq!(
+            parse_context_bundle_has_enough_context(
+                "[context_bundle]\nHAS_ENOUGH_CONTEXT: false\n[/context_bundle]"
+            ),
+            Some(false)
+        );
+        assert_eq!(
+            parse_context_bundle_has_enough_context(
+                "[context_bundle]\nsummary: ok\n[/context_bundle]"
+            ),
+            None
+        );
     }
 }

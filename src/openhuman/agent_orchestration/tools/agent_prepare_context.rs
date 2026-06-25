@@ -14,7 +14,7 @@
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::{
-    current_agent_context_prepared_sources, current_parent,
+    current_agent_context_prepared_sources, current_parent, AgentContextPreparedSource,
 };
 use crate::openhuman::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunStatus,
@@ -54,16 +54,36 @@ fn is_well_formed_context_bundle(output: &str) -> bool {
         && trimmed.len() >= OPEN.len() + CLOSE.len()
 }
 
-fn already_prepared_context_bundle(sources: &[String]) -> String {
-    let sources = if sources.is_empty() {
+fn already_prepared_context_bundle(sources: &[AgentContextPreparedSource]) -> String {
+    let source_names = if sources.is_empty() {
         "the OpenHuman harness".to_string()
     } else {
-        sources.join(", ")
+        sources
+            .iter()
+            .map(|source| source.source.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let has_enough_context = if sources
+        .iter()
+        .any(|source| source.has_enough_context == Some(false))
+    {
+        false
+    } else {
+        sources
+            .iter()
+            .any(|source| source.has_enough_context == Some(true))
+    };
+    let sufficiency_note = if has_enough_context {
+        "The earlier prepared context reported enough context."
+    } else {
+        "This no-op result does not assert that enough context is available; \
+         inspect the earlier prepared-context blocks for sufficiency and recommended follow-up tools."
     };
     format!(
-        "[context_bundle]\nhas_enough_context: true\nproposed_goal: none\n\
-         summary: Agent context has already been prepared once for this turn by {sources}. \
-         Use the existing prepared-context blocks in the current user message; do not run \
+        "[context_bundle]\nhas_enough_context: {has_enough_context}\nproposed_goal: none\n\
+         summary: Agent context has already been prepared once for this turn by {source_names}. \
+         {sufficiency_note} Use the existing prepared-context blocks in the current user message; do not run \
          another context_scout pass.\nrecommended_tool_calls:\n[/context_bundle]"
     )
 }
@@ -660,7 +680,10 @@ mod tests {
     async fn execute_short_circuits_when_context_already_prepared() {
         let tool = AgentPrepareContextTool::new();
         let result = crate::openhuman::agent::harness::with_agent_context_prepared_sources(
-            vec!["super context preparation".to_string()],
+            vec![AgentContextPreparedSource {
+                source: "super context preparation".to_string(),
+                has_enough_context: Some(false),
+            }],
             tool.execute(json!({"question": "prepare context again"})),
         )
         .await
@@ -668,10 +691,31 @@ mod tests {
 
         assert!(!result.is_error, "{}", result.output());
         assert!(result.output().contains("[context_bundle]"));
-        assert!(result.output().contains("has_enough_context: true"));
+        assert!(result.output().contains("has_enough_context: false"));
         assert!(result.output().contains("already been prepared once"));
         assert!(result.output().contains("super context preparation"));
+        assert!(result
+            .output()
+            .contains("does not assert that enough context is available"));
         assert!(result.output().contains("[/context_bundle]"));
+    }
+
+    #[tokio::test]
+    async fn execute_preserves_prior_prepared_context_sufficiency_when_true() {
+        let tool = AgentPrepareContextTool::new();
+        let result = crate::openhuman::agent::harness::with_agent_context_prepared_sources(
+            vec![AgentContextPreparedSource {
+                source: "super context preparation".to_string(),
+                has_enough_context: Some(true),
+            }],
+            tool.execute(json!({"question": "prepare context again"})),
+        )
+        .await
+        .unwrap();
+
+        assert!(!result.is_error, "{}", result.output());
+        assert!(result.output().contains("has_enough_context: true"));
+        assert!(result.output().contains("reported enough context"));
     }
 
     #[test]

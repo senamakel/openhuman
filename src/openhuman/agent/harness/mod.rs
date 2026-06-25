@@ -55,7 +55,7 @@ pub use definition::{
 };
 pub use fork_context::{
     current_agent_context_prepared_sources, current_parent, with_agent_context_prepared_sources,
-    with_parent_context, ParentExecutionContext,
+    with_parent_context, AgentContextPreparedSource, ParentExecutionContext,
 };
 pub use interrupt::{check_interrupt, InterruptFence, InterruptedError};
 pub use model_vision_context::{current_model_vision, with_current_model_vision};

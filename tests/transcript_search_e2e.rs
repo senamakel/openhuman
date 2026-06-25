@@ -271,6 +271,56 @@ async fn transcript_search_tool_reports_no_match_cleanly() {
     );
 }
 
+/// Passing an explicit `exclude_thread_id` drops that thread from the tool's
+/// results. "migration" lives only in thread-pg, so excluding it yields the
+/// clean no-match line.
+#[tokio::test]
+async fn transcript_search_tool_excludes_named_thread() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    let _ws = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace);
+    seed_workspace(&workspace);
+
+    let result = ThreadTranscriptSearchTool
+        .execute(json!({ "query": "migration", "exclude_thread_id": "thread-pg" }))
+        .await
+        .expect("transcript_search tool");
+    assert!(!result.is_error, "tool should succeed: {}", result.output());
+    assert!(
+        result.output().contains("No past messages matched"),
+        "excluding the only matching thread should yield no matches — got: {}",
+        result.output()
+    );
+}
+
+/// An explicit empty `exclude_thread_id` is the opt-out: search every thread.
+/// (With no active-thread context set in this test, the default path also
+/// searches all — this pins the empty-string contract regardless.)
+#[tokio::test]
+async fn transcript_search_tool_empty_exclude_searches_all_threads() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    let _ws = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace);
+    seed_workspace(&workspace);
+
+    let result = ThreadTranscriptSearchTool
+        .execute(json!({ "query": "migration", "exclude_thread_id": "" }))
+        .await
+        .expect("transcript_search tool");
+    assert!(!result.is_error, "tool should succeed: {}", result.output());
+    assert!(
+        result.output().contains("thread-pg"),
+        "empty exclude must still surface the matching thread — got: {}",
+        result.output()
+    );
+}
+
 /// A missing `query` is a tool error, not a panic — guards the agent against
 /// malformed calls.
 #[tokio::test]

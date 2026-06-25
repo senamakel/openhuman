@@ -900,6 +900,26 @@ async function main() {
       });
     }
   } finally {
+    // Delete the seeded prior-chat thread BEFORE tearing down the core (RPC must
+    // still be reachable), so the audit leaves no fake "deploy passphrase" data
+    // in the user's live conversation index/memory surface. Best-effort — a
+    // failure here is logged, not fatal. --keep-workspace preserves it.
+    if (seed?.threadId && !opts.keepWorkspace) {
+      try {
+        await rpc(
+          opts.coreUrl,
+          opts.token,
+          "openhuman.threads_delete",
+          { thread_id: seed.threadId, deleted_at: new Date().toISOString() },
+          opts.rpcTimeoutMs,
+        );
+        console.log(`\n[apc-audit] cleaned up seeded thread ${seed.threadId}`);
+      } catch (err) {
+        console.log(
+          `\n[apc-audit] WARN: failed to delete seeded thread ${seed.threadId} (${err.message}); remove it manually.`,
+        );
+      }
+    }
     if (spawned?.child) await stopChild(spawned.child);
     if (overridePath && !opts.keepWorkspace) {
       await rm(overridePath, { force: true });

@@ -338,7 +338,7 @@ impl Tool for ThreadTranscriptSearchTool {
                 },
                 "exclude_thread_id": {
                     "type": "string",
-                    "description": "Optional thread id to omit from results (e.g. the active chat)."
+                    "description": "Thread id to omit from results. Defaults to the active thread when omitted, so the message the user just sent does not crowd out the prior chats you are trying to recall. Pass a specific id to override, or an empty string to search every thread."
                 }
             }
         })
@@ -355,15 +355,27 @@ impl Tool for ThreadTranscriptSearchTool {
             .and_then(serde_json::Value::as_u64)
             .map(|n| (n as usize).clamp(1, Self::MAX_LIMIT))
             .unwrap_or(Self::DEFAULT_LIMIT);
-        let exclude = args
+        // Resolve the effective thread to exclude:
+        //   - arg omitted     → default to the ACTIVE thread, so the message the
+        //                        user just sent (persisted before inference starts)
+        //                        doesn't become the top "past conversation" hit and
+        //                        crowd out the real prior chats we're recalling.
+        //   - arg = "" (empty) → explicit opt-out: search every thread.
+        //   - arg = "<id>"     → exclude that specific thread.
+        let exclude_owned: Option<String> = match args
             .get("exclude_thread_id")
             .and_then(serde_json::Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
+        {
+            None => crate::openhuman::inference::provider::thread_context::current_thread_id(),
+            Some(s) if s.trim().is_empty() => None,
+            Some(s) => Some(s.trim().to_string()),
+        };
+        let exclude = exclude_owned.as_deref();
         log::debug!(
-            "[tool][threads] transcript_search invoked query_chars={} limit={}",
+            "[tool][threads] transcript_search invoked query_chars={} limit={} exclude={:?}",
             query.chars().count(),
-            limit
+            limit,
+            exclude
         );
 
         let hits = ops::transcript_search(&query, limit, exclude)

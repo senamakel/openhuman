@@ -7,8 +7,8 @@ import {
 } from '../lib/theme/presets';
 import type { Theme } from '../lib/theme/types';
 import { useAppSelector } from '../store/hooks';
-import { FONT_SIZE_PX } from '../store/themeSlice';
 import {
+  FONT_SIZE_PX,
   SYSTEM_THEME_ID,
   selectActiveThemeId,
   selectEffectiveTheme,

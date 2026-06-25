@@ -3,13 +3,32 @@ import { describe, expect, it } from 'vitest';
 import themeReducer, {
   FONT_SIZE_PX,
   type FontSize,
+  SYSTEM_THEME_ID,
+  deleteCustomTheme,
+  resetActiveTheme,
+  selectEffectiveTheme,
   selectHideAgentInsights,
+  setActiveTheme,
   setAgentMessageViewMode,
+  setFontRole,
   setFontSize,
   setHideAgentInsights,
   setTabBarLabels,
   setThemeMode,
+  setThemeToken,
+  upsertCustomTheme,
 } from './themeSlice';
+import type { Theme } from '../lib/theme/types';
+
+const customTheme = (overrides: Partial<Theme> = {}): Theme => ({
+  id: 'custom-1',
+  name: 'My theme',
+  isDark: false,
+  builtIn: false,
+  colors: {},
+  fonts: {},
+  ...overrides,
+});
 
 describe('themeSlice', () => {
   it('defaults fontSize to medium', () => {
@@ -42,6 +61,9 @@ describe('themeSlice', () => {
       agentMessageViewMode: 'text',
       developerMode: false,
       hideAgentInsights: false,
+      // setThemeMode('dark') also syncs the runtime theme id.
+      activeThemeId: 'dark',
+      customThemes: [],
     });
   });
 
@@ -72,5 +94,72 @@ describe('themeSlice', () => {
 
   it('keeps medium aligned with the historical 16px root size', () => {
     expect(FONT_SIZE_PX.medium).toBe('16px');
+  });
+
+  describe('runtime themes', () => {
+    it('defaults to the system theme id with no custom themes', () => {
+      const state = themeReducer(undefined, { type: '@@INIT' });
+      expect(state.activeThemeId).toBe(SYSTEM_THEME_ID);
+      expect(state.customThemes).toEqual([]);
+    });
+
+    it('setThemeMode keeps mode and activeThemeId in sync', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(state, setThemeMode('light'));
+      expect(state.activeThemeId).toBe('light');
+      state = themeReducer(state, setThemeMode('system'));
+      expect(state.activeThemeId).toBe(SYSTEM_THEME_ID);
+    });
+
+    it('upserts a custom theme and makes it active', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(state, upsertCustomTheme(customTheme()));
+      expect(state.customThemes).toHaveLength(1);
+      expect(state.activeThemeId).toBe('custom-1');
+    });
+
+    it('edits colour tokens and font roles only on the active custom theme', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(state, upsertCustomTheme(customTheme()));
+      state = themeReducer(state, setThemeToken({ key: 'surface', value: '10 20 30' }));
+      state = themeReducer(state, setFontRole({ role: 'body', stack: 'Comic Sans' }));
+      expect(state.customThemes[0].colors.surface).toBe('10 20 30');
+      expect(state.customThemes[0].fonts.body).toBe('Comic Sans');
+    });
+
+    it('ignores token edits when a built-in preset is active', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(state, setActiveTheme('dark'));
+      state = themeReducer(state, setThemeToken({ key: 'surface', value: '0 0 0' }));
+      expect(state.customThemes).toEqual([]);
+    });
+
+    it('resets overrides on the active custom theme', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(state, upsertCustomTheme(customTheme({ colors: { surface: '1 2 3' } })));
+      state = themeReducer(state, resetActiveTheme());
+      expect(state.customThemes[0].colors).toEqual({});
+    });
+
+    it('deletes a custom theme and falls back to system when it was active', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(state, upsertCustomTheme(customTheme()));
+      state = themeReducer(state, deleteCustomTheme('custom-1'));
+      expect(state.customThemes).toEqual([]);
+      expect(state.activeThemeId).toBe(SYSTEM_THEME_ID);
+    });
+
+    it('selectEffectiveTheme resolves a custom theme by id', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(state, upsertCustomTheme(customTheme({ id: 'custom-x', name: 'X' })));
+      expect(selectEffectiveTheme({ theme: state }).id).toBe('custom-x');
+    });
+
+    it('selectEffectiveTheme falls back to a preset for an unknown id', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(state, setActiveTheme('does-not-exist'));
+      // Falls back to the Light preset rather than leaving the UI unthemed.
+      expect(selectEffectiveTheme({ theme: state }).id).toBe('light');
+    });
   });
 });

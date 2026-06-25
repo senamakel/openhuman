@@ -37,13 +37,13 @@ const BASE_SWATCH: Record<'light' | 'dark', Record<string, string>> = {
 /** Read the live effective value of a token (override or tokens.css default). */
 function readToken(key: string): string {
   if (typeof document === 'undefined') return '0 0 0';
-  const v = getComputedStyle(document.documentElement).getPropertyValue(`--${key}`).trim();
+  const v = window.getComputedStyle(document.documentElement).getPropertyValue(`--${key}`).trim();
   return v || '0 0 0';
 }
 
 function readFontRole(role: FontRole): string {
   if (typeof document === 'undefined') return '';
-  return getComputedStyle(document.documentElement).getPropertyValue(`--font-${role}`).trim();
+  return window.getComputedStyle(document.documentElement).getPropertyValue(`--font-${role}`).trim();
 }
 
 /** "surface-canvas" → "Surface canvas". */

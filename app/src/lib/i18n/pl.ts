@@ -2353,7 +2353,8 @@ const messages: TranslationMap = {
   'token.popContext': 'Okno kontekstu',
   'token.tipInput': 'Tokeny wysłane do modelu w tej sesji — Twoje prompty plus historia rozmowy.',
   'token.tipOutput': 'Tokeny wygenerowane przez model w tej sesji.',
-  'token.tipCacheHit': 'Tokeny wejściowe podane z buforowanego prefiksu promptu, rozliczane po niższej stawce.',
+  'token.tipCacheHit':
+    'Tokeny wejściowe podane z buforowanego prefiksu promptu, rozliczane po niższej stawce.',
   'token.clickForDetails': 'Kliknij, aby zobaczyć szczegóły użycia sesji',
   'catalog.noCapabilityBinding': 'Brak powiązanej możliwości',
   'catalog.downloadFailed': 'Pobieranie nie powiodło się',

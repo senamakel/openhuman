@@ -2384,9 +2384,11 @@ const messages: TranslationMap = {
   'token.popOutput': 'Jetons de sortie',
   'token.popCacheHit': 'Succès de cache',
   'token.popContext': 'Fenêtre de contexte',
-  'token.tipInput': 'Jetons envoyés au modèle durant cette session — vos invites plus l’historique de la conversation.',
+  'token.tipInput':
+    'Jetons envoyés au modèle durant cette session — vos invites plus l’historique de la conversation.',
   'token.tipOutput': 'Jetons générés par le modèle durant cette session.',
-  'token.tipCacheHit': 'Jetons d’entrée servis depuis un préfixe d’invite en cache, facturés à un tarif réduit.',
+  'token.tipCacheHit':
+    'Jetons d’entrée servis depuis un préfixe d’invite en cache, facturés à un tarif réduit.',
   'token.clickForDetails': 'Cliquez pour les détails d’utilisation de la session',
   'catalog.noCapabilityBinding': 'Aucune liaison de fonctionnalité',
   'catalog.downloadFailed': 'Échec du téléchargement',

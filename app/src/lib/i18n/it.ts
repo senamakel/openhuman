@@ -2365,9 +2365,11 @@ const messages: TranslationMap = {
   'token.popOutput': 'Token di output',
   'token.popCacheHit': 'Cache hit',
   'token.popContext': 'Finestra di contesto',
-  'token.tipInput': 'Token inviati al modello in questa sessione — i tuoi prompt più la cronologia della conversazione.',
+  'token.tipInput':
+    'Token inviati al modello in questa sessione — i tuoi prompt più la cronologia della conversazione.',
   'token.tipOutput': 'Token generati dal modello in questa sessione.',
-  'token.tipCacheHit': 'Token di input serviti da un prefisso di prompt in cache, fatturati a tariffa ridotta.',
+  'token.tipCacheHit':
+    'Token di input serviti da un prefisso di prompt in cache, fatturati a tariffa ridotta.',
   'token.clickForDetails': 'Fai clic per i dettagli di utilizzo della sessione',
   'catalog.noCapabilityBinding': 'Nessun binding di capacità',
   'catalog.downloadFailed': 'Download fallito',

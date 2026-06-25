@@ -2372,9 +2372,11 @@ const messages: TranslationMap = {
   'token.popOutput': 'Tokens de saída',
   'token.popCacheHit': 'Acerto de cache',
   'token.popContext': 'Janela de contexto',
-  'token.tipInput': 'Tokens enviados ao modelo nesta sessão — seus prompts mais o histórico da conversa.',
+  'token.tipInput':
+    'Tokens enviados ao modelo nesta sessão — seus prompts mais o histórico da conversa.',
   'token.tipOutput': 'Tokens gerados pelo modelo nesta sessão.',
-  'token.tipCacheHit': 'Tokens de entrada servidos de um prefixo de prompt em cache, cobrados a uma taxa reduzida.',
+  'token.tipCacheHit':
+    'Tokens de entrada servidos de um prefixo de prompt em cache, cobrados a uma taxa reduzida.',
   'token.clickForDetails': 'Clique para ver os detalhes de uso da sessão',
   'catalog.noCapabilityBinding': 'Sem vinculação de funcionalidade',
   'catalog.downloadFailed': 'Falha no download',

@@ -2385,9 +2385,11 @@ const messages: TranslationMap = {
   'token.popOutput': 'Ausgabe-Tokens',
   'token.popCacheHit': 'Cache-Treffer',
   'token.popContext': 'Kontextfenster',
-  'token.tipInput': 'In dieser Sitzung an das Modell gesendete Tokens — deine Prompts plus der Gesprächsverlauf.',
+  'token.tipInput':
+    'In dieser Sitzung an das Modell gesendete Tokens — deine Prompts plus der Gesprächsverlauf.',
   'token.tipOutput': 'In dieser Sitzung vom Modell erzeugte Tokens.',
-  'token.tipCacheHit': 'Eingabe-Tokens aus einem zwischengespeicherten Prompt-Präfix, zu einem reduzierten Tarif abgerechnet.',
+  'token.tipCacheHit':
+    'Eingabe-Tokens aus einem zwischengespeicherten Prompt-Präfix, zu einem reduzierten Tarif abgerechnet.',
   'token.clickForDetails': 'Für Details zur Sitzungsnutzung klicken',
   'catalog.noCapabilityBinding': 'Keine Fähigkeitsbindung',
   'catalog.downloadFailed': 'Der Download ist fehlgeschlagen',

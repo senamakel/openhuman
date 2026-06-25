@@ -2332,9 +2332,11 @@ const messages: TranslationMap = {
   'token.popOutput': 'Token keluaran',
   'token.popCacheHit': 'Cache hit',
   'token.popContext': 'Jendela konteks',
-  'token.tipInput': 'Token yang dikirim ke model pada sesi ini — prompt Anda ditambah riwayat percakapan.',
+  'token.tipInput':
+    'Token yang dikirim ke model pada sesi ini — prompt Anda ditambah riwayat percakapan.',
   'token.tipOutput': 'Token yang dihasilkan model pada sesi ini.',
-  'token.tipCacheHit': 'Token masukan yang dilayani dari prefiks prompt yang di-cache, ditagih dengan tarif lebih rendah.',
+  'token.tipCacheHit':
+    'Token masukan yang dilayani dari prefiks prompt yang di-cache, ditagih dengan tarif lebih rendah.',
   'token.clickForDetails': 'Klik untuk detail penggunaan sesi',
   'catalog.noCapabilityBinding': 'Tidak ada binding kemampuan',
   'catalog.downloadFailed': 'Unduhan gagal',

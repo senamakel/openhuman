@@ -309,17 +309,24 @@ impl TurnObserver for AgentObserver<'_> {
     fn record_usage(&mut self, model: &str, usage: &UsageInfo) {
         self.agent.context.record_usage(usage);
         crate::openhuman::cost::record_provider_usage(model, usage);
+        // Effective per-call cost: the backend-charged amount when the provider
+        // echoes one, else the per-model catalog estimate (#4124). Using this
+        // instead of raw `charged_amount_usd` means BYO/local providers that
+        // never bill a charge still contribute a priced cost to the session
+        // total. `cumulative_charged` is therefore the *net cost*, not strictly
+        // the backend charge.
+        let call_cost = crate::openhuman::agent::cost::call_cost_usd(model, usage);
         self.cumulative_input += usage.input_tokens;
         self.cumulative_output += usage.output_tokens;
         self.cumulative_cached += usage.cached_input_tokens;
-        self.cumulative_charged += usage.charged_amount_usd;
+        self.cumulative_charged += call_cost;
         self.last_turn_usage = Some(transcript::TurnUsage {
             model: model.to_string(),
             usage: transcript::MessageUsage {
                 input: usage.input_tokens,
                 output: usage.output_tokens,
                 cached_input: usage.cached_input_tokens,
-                cost_usd: usage.charged_amount_usd,
+                cost_usd: call_cost,
             },
             ts: chrono::Utc::now().to_rfc3339(),
         });

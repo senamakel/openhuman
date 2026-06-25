@@ -100,7 +100,12 @@ impl super::super::super::engine::TurnObserver for SubagentObserver {
         self.usage.input_tokens += usage.input_tokens;
         self.usage.output_tokens += usage.output_tokens;
         self.usage.cached_input_tokens += usage.cached_input_tokens;
-        self.usage.charged_amount_usd += usage.charged_amount_usd;
+        // Effective per-call cost: backend-charged when present, else the
+        // per-model catalog estimate (#4124) — so a sub-agent on a BYO/local
+        // provider that bills no charge still contributes a priced cost to the
+        // parent turn's net total. `charged_amount_usd` here is the *net cost*,
+        // matching the parent adapter's convention.
+        self.usage.charged_amount_usd += crate::openhuman::agent::cost::call_cost_usd(model, usage);
         // Mirror the parent adapter: feed every sub-agent provider call into the
         // global cost tracker so the cost dashboard/summary reflects delegated
         // spend (previously sub-agent tokens were invisible to it). The

@@ -46,8 +46,9 @@ pub struct TokenjuiceConfig {
     pub html_enabled: bool,
 
     // --- ML plain-text compressor (Kompress) — opt-in, default OFF ---------
-    /// Enable the Python/ML plain-text compressor. Requires `runtime_python` and
-    /// the `tokenjuice_ml` build feature; degrades gracefully when unavailable.
+    /// Enable the Python/ML plain-text compressor ("Kompress"). Runs as a
+    /// `kompress` backend of the runtime_python_server (requires
+    /// `runtime_python.enabled`); degrades gracefully when unavailable.
     #[serde(default)]
     pub ml_compression_enabled: bool,
     /// HuggingFace model id for the ML compressor.

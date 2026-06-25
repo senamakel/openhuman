@@ -16,7 +16,10 @@ use crate::openhuman::config::Config;
 use crate::openhuman::runtime_python::process::PythonLaunchSpec;
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// Ceiling for a single backend request. spaCy extraction is sub-100ms; the
+/// Kompress (torch) backend can take seconds on CPU, so this is sized for the
+/// heavier backend (it's a max, not added latency for fast methods).
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const START_FAILURE_BACKOFF: Duration = Duration::from_secs(300);
 
 static SERVER: OnceLock<Mutex<ServerCache>> = OnceLock::new();
@@ -40,6 +43,8 @@ struct ServerLaunch {
     python_bin: PathBuf,
     script_path: PathBuf,
     backends: Vec<RuntimePythonBackend>,
+    /// Extra environment for the worker (backend list + Kompress model/device/HF).
+    env: Vec<(String, String)>,
 }
 
 struct ServerInner {
@@ -318,27 +323,74 @@ async fn prepare_launch(config: &Config) -> Result<ServerLaunch> {
         bail!("no runtime python server backends enabled");
     }
 
-    let spacy_runtime = if backends.contains(&RuntimePythonBackend::Spacy) {
-        Some(super::spacy::ensure_spacy(config).await?)
-    } else {
-        None
-    };
+    let want_spacy = backends.contains(&RuntimePythonBackend::Spacy);
+    let want_kompress = backends.contains(&RuntimePythonBackend::Kompress);
 
-    let python_bin = if let Some(spacy_runtime) = spacy_runtime {
+    // The server runs ONE interpreter, so the chosen venv must satisfy every
+    // enabled backend. spaCy (if enabled) owns the venv; Kompress then installs
+    // torch+transformers into it. If only Kompress is enabled it owns its venv.
+    let mut env: Vec<(String, String)> = Vec::new();
+    let python_bin = if want_spacy {
+        let spacy_runtime = super::spacy::ensure_spacy(config).await?;
+        if want_kompress {
+            let hf = super::kompress::install_into(config, &spacy_runtime.python_bin).await?;
+            push_kompress_env(&mut env, config, &hf);
+        }
         spacy_runtime.python_bin
+    } else if want_kompress {
+        let rt = super::kompress::ensure_kompress(config).await?;
+        push_kompress_env(&mut env, config, &rt.hf_home);
+        rt.python_bin
     } else {
         crate::openhuman::runtime_python::PythonBootstrap::new(config.runtime_python.clone())
             .resolve()
             .await?
             .python_bin
     };
+
+    env.push((
+        "OPENHUMAN_RPS_BACKENDS".to_string(),
+        backends
+            .iter()
+            .map(|b| b.id())
+            .collect::<Vec<_>>()
+            .join(","),
+    ));
+
     let script_path = write_server_script(config).await?;
 
     Ok(ServerLaunch {
         python_bin,
         script_path,
         backends,
+        env,
     })
+}
+
+/// Environment the worker needs to load + run the Kompress model offline.
+fn push_kompress_env(env: &mut Vec<(String, String)>, config: &Config, hf_home: &std::path::Path) {
+    env.push((
+        "OPENHUMAN_RPS_KOMPRESS_MODEL".to_string(),
+        config.tokenjuice.ml_model_id.clone(),
+    ));
+    env.push((
+        "OPENHUMAN_RPS_KOMPRESS_DEVICE".to_string(),
+        config.tokenjuice.ml_device.clone(),
+    ));
+    env.push((
+        "OPENHUMAN_RPS_KOMPRESS_TARGET_RATIO".to_string(),
+        config.tokenjuice.ml_target_ratio.to_string(),
+    ));
+    env.push((
+        "OPENHUMAN_RPS_KOMPRESS_MAX_INPUT_CHARS".to_string(),
+        config.tokenjuice.ml_max_input_chars.to_string(),
+    ));
+    env.push(("HF_HOME".to_string(), hf_home.display().to_string()));
+    // Model was pre-downloaded during provisioning; load offline so startup
+    // never blocks on the network.
+    env.push(("HF_HUB_OFFLINE".to_string(), "1".to_string()));
+    env.push(("TRANSFORMERS_OFFLINE".to_string(), "1".to_string()));
+    env.push(("HF_HUB_DISABLE_TELEMETRY".to_string(), "1".to_string()));
 }
 
 async fn write_server_script(config: &Config) -> Result<PathBuf> {
@@ -375,7 +427,10 @@ async fn spawn_inner(launch: &ServerLaunch) -> Result<ServerInner> {
         version: "runtime-backend".to_string(),
         source: crate::openhuman::runtime_python::PythonSource::Managed,
     };
-    let spec = PythonLaunchSpec::new(launch.script_path.clone());
+    let mut spec = PythonLaunchSpec::new(launch.script_path.clone());
+    for (key, value) in &launch.env {
+        spec.env.insert(key.clone(), value.clone());
+    }
     let mut child =
         crate::openhuman::runtime_python::process::spawn_stdio_process(&resolved, &spec)
             .context("spawning runtime python server")?;
@@ -436,6 +491,23 @@ pub async fn request_spacy_extract(
     let server = ensure_started(config).await?;
     server
         .request("spacy.extract", json!({ "text": text }))
+        .await
+}
+
+pub async fn request_kompress_compress(
+    config: &Config,
+    text: &str,
+) -> Result<super::kompress::KompressResponse> {
+    let server = ensure_started(config).await?;
+    server
+        .request(
+            "kompress.compress",
+            json!({
+                "text": text,
+                "target_ratio": config.tokenjuice.ml_target_ratio,
+                "max_input_chars": config.tokenjuice.ml_max_input_chars,
+            }),
+        )
         .await
 }
 

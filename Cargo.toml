@@ -286,9 +286,6 @@ tokenjuice-treesitter = [
     "dep:tree-sitter-typescript",
     "dep:tree-sitter-python",
 ]
-# Python/ML plain-text compressor ("Kompress", ModernBERT via sidecar). Off by
-# default — also requires the `tokenjuice.ml_compression_enabled` config flag.
-tokenjuice_ml = []
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []
 channel-matrix = ["dep:matrix-sdk"]

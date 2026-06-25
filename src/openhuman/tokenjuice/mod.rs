@@ -46,7 +46,6 @@ pub mod classify;
 pub mod compress;
 pub mod compressors;
 pub mod detect;
-#[cfg(feature = "tokenjuice_ml")]
 pub mod ml;
 pub mod reduce;
 pub mod rules;

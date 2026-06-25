@@ -490,8 +490,8 @@ pub struct CompressOptions {
     pub search_enabled: bool,
     pub code_enabled: bool,
     pub html_enabled: bool,
-    /// Whether the ML plain-text compressor may be used (further gated by the
-    /// `tokenjuice_ml` cargo feature + Python availability at runtime).
+    /// Whether the ML plain-text compressor may be used (further gated at
+    /// runtime by Python/runtime_python_server availability).
     pub ml_text_enabled: bool,
     /// Outputs below this many bytes are never compressed.
     pub min_bytes_to_compress: usize,

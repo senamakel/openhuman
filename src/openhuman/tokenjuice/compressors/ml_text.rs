@@ -2,14 +2,14 @@
 //!
 //! Plain text has no structural skeleton to exploit, so high-quality
 //! compression needs a learned model (Headroom uses ModernBERT token
-//! classification to drop low-salience spans). That path runs a Python sidecar
-//! and is **opt-in** behind the `tokenjuice.ml_compression_enabled` config flag
-//! plus the `tokenjuice_ml` cargo feature.
+//! classification to drop low-salience spans). That path runs the `kompress`
+//! backend of the shared `runtime_python_server` and is **opt-in** behind the
+//! `tokenjuice.ml_compression_enabled` config flag.
 //!
-//! This module is the [`Compressor`] slot. The async sidecar bridge is wired in
-//! the `ml/` submodule in a later slice; until then (and whenever the feature/
-//! flag/runtime is unavailable) `compress` declines so the router falls back to
-//! the generic compressor — never an error in the agent loop.
+//! This module is the [`Compressor`] slot; it delegates to
+//! [`crate::openhuman::tokenjuice::ml`]. Whenever the flag is off or the Python
+//! runtime is unavailable, `compress` declines so the router falls back to the
+//! generic compressor — never an error in the agent loop.
 
 use async_trait::async_trait;
 
@@ -34,23 +34,15 @@ impl Compressor for MlTextCompressor {
         if !opts.ml_text_enabled {
             return None;
         }
-        #[cfg(feature = "tokenjuice_ml")]
-        {
-            match crate::openhuman::tokenjuice::ml::compress(input.content, opts).await {
-                Ok(Some(text)) if text.len() < input.content.len() => {
-                    return Some(CompressOutput::lossy(text, CompressorKind::MlText));
-                }
-                Ok(_) => return None,
-                Err(e) => {
-                    log::debug!("[tokenjuice][ml] unavailable, falling back: {e:#}");
-                    return None;
-                }
+        match crate::openhuman::tokenjuice::ml::compress(input.content, opts).await {
+            Ok(Some(text)) if text.len() < input.content.len() => {
+                Some(CompressOutput::lossy(text, CompressorKind::MlText))
             }
-        }
-        #[cfg(not(feature = "tokenjuice_ml"))]
-        {
-            let _ = input;
-            None
+            Ok(_) => None,
+            Err(e) => {
+                log::debug!("[tokenjuice][ml] unavailable, falling back: {e:#}");
+                None
+            }
         }
     }
 }

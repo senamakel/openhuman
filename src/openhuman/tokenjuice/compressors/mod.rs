@@ -54,7 +54,7 @@ static GENERIC_COMPRESSOR: generic::GenericCompressor = generic::GenericCompress
 /// Map a detected [`ContentKind`] to the compressor that handles it.
 ///
 /// `PlainText` routes to the ML compressor; whether it actually runs is gated
-/// by `opts.ml_text_enabled` (and the `tokenjuice_ml` cargo feature + Python
+/// by `opts.ml_text_enabled` (and runtime Python/runtime_python_server
 /// availability), and it falls back to [`generic::GenericCompressor`] otherwise
 /// — that gating lives in [`crate::openhuman::tokenjuice::compress`], so this
 /// function is a pure static mapping.

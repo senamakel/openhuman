@@ -2272,9 +2272,9 @@ fn register_domain_subscribers(
                 tj.ccr_ttl_secs,
                 disk_root,
             );
-            // The ML compressor sidecar provisions against the full Config; hand
-            // it a snapshot (no-op unless the `tokenjuice_ml` feature is built).
-            #[cfg(feature = "tokenjuice_ml")]
+            // The ML ("Kompress") compressor runs as a runtime_python_server
+            // backend that provisions against the full Config; hand it a
+            // snapshot (gated at runtime by tokenjuice.ml_compression_enabled).
             crate::openhuman::tokenjuice::ml::configure(config.clone());
         }
 

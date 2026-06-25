@@ -42,6 +42,7 @@ pub fn all_steps() -> Vec<HarnessInitStep> {
     vec![
         python_runtime_step(),
         spacy_step(),
+        kompress_step(),
         runtime_python_server_step(),
         node_runtime_step(),
     ]
@@ -153,6 +154,35 @@ async fn spacy_run(config: &Config) -> Result<(), String> {
 
 // ── node_runtime ────────────────────────────────────────────────────────────
 
+fn kompress_step() -> HarnessInitStep {
+    HarnessInitStep {
+        id: "kompress",
+        label: "TokenJuice ML compressor (torch)",
+        required: false,
+        is_done: |config| Box::pin(kompress_is_done(config)),
+        run: |config| Box::pin(kompress_run(config)),
+    }
+}
+
+async fn kompress_is_done(config: &Config) -> bool {
+    if !config.runtime_python.enabled || !config.tokenjuice.ml_compression_enabled {
+        return true;
+    }
+    crate::openhuman::runtime_python_server::kompress_provisioned(config)
+}
+
+async fn kompress_run(config: &Config) -> Result<(), String> {
+    if !config.runtime_python.enabled || !config.tokenjuice.ml_compression_enabled {
+        return Ok(());
+    }
+    crate::openhuman::runtime_python_server::ensure_kompress(config)
+        .await
+        .map(|_| {
+            log::info!("[harness_init] Kompress (torch) provisioned");
+        })
+        .map_err(|e| format!("{e:#}"))
+}
+
 fn node_runtime_step() -> HarnessInitStep {
     HarnessInitStep {
         id: "node_runtime",
@@ -208,6 +238,7 @@ mod tests {
             vec![
                 "python_runtime",
                 "spacy",
+                "kompress",
                 "runtime_python_server",
                 "node_runtime"
             ]

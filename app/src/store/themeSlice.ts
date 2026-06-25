@@ -1,6 +1,13 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
+import type { FontRole } from '../lib/theme/tokens';
+import type { Theme } from '../lib/theme/types';
+import { PRESET_THEMES, findPreset, LIGHT_THEME_ID, DARK_THEME_ID } from '../lib/theme/presets';
+
 export type ThemeMode = 'light' | 'dark' | 'system';
+
+/** Sentinel active-theme id meaning "follow OS light/dark preference". */
+export const SYSTEM_THEME_ID = 'system';
 export type TabBarLabels = 'hover' | 'always';
 export type AgentMessageViewMode = 'bubbles' | 'text';
 /**
@@ -45,6 +52,15 @@ interface ThemeState {
    * process Source" affordance, which open the existing side panel.
    */
   hideAgentInsights: boolean;
+  /**
+   * Active theme id. Drives the runtime CSS-variable theme applied by
+   * ThemeProvider. May be {@link SYSTEM_THEME_ID} (follow OS light/dark), a
+   * built-in preset id (`light`, `dark`, `ocean`, …), or a custom theme id.
+   * Kept in sync with {@link ThemeState.mode} for the simple Appearance toggle.
+   */
+  activeThemeId: string;
+  /** User-authored themes (full or partial token overrides). */
+  customThemes: Theme[];
 }
 
 const initialState: ThemeState = {
@@ -54,6 +70,8 @@ const initialState: ThemeState = {
   agentMessageViewMode: 'text',
   developerMode: false,
   hideAgentInsights: false,
+  activeThemeId: SYSTEM_THEME_ID,
+  customThemes: [],
 };
 
 const themeSlice = createSlice({
@@ -62,6 +80,57 @@ const themeSlice = createSlice({
   reducers: {
     setThemeMode(state, action: PayloadAction<ThemeMode>) {
       state.mode = action.payload;
+      // Keep the runtime theme in sync with the simple light/dark/system toggle.
+      state.activeThemeId =
+        action.payload === 'system'
+          ? SYSTEM_THEME_ID
+          : action.payload === 'dark'
+            ? DARK_THEME_ID
+            : LIGHT_THEME_ID;
+    },
+    /** Select any theme (preset, custom, or the `system` sentinel). */
+    setActiveTheme(state, action: PayloadAction<string>) {
+      state.activeThemeId = action.payload;
+      // Mirror into `mode` so the Appearance radios stay coherent for the
+      // three values they represent; custom/extra presets leave `mode` as-is.
+      if (action.payload === SYSTEM_THEME_ID) state.mode = 'system';
+      else if (action.payload === LIGHT_THEME_ID) state.mode = 'light';
+      else if (action.payload === DARK_THEME_ID) state.mode = 'dark';
+    },
+    /** Insert or replace a custom theme (by id) and make it active. */
+    upsertCustomTheme(state, action: PayloadAction<Theme>) {
+      const theme = action.payload;
+      const idx = state.customThemes.findIndex((t) => t.id === theme.id);
+      if (idx >= 0) state.customThemes[idx] = theme;
+      else state.customThemes.push(theme);
+      state.activeThemeId = theme.id;
+    },
+    /** Remove a custom theme; fall back to `system` if it was active. */
+    deleteCustomTheme(state, action: PayloadAction<string>) {
+      state.customThemes = state.customThemes.filter((t) => t.id !== action.payload);
+      if (state.activeThemeId === action.payload) {
+        state.activeThemeId = SYSTEM_THEME_ID;
+        state.mode = 'system';
+      }
+    },
+    /** Set a single colour token (`"R G B"`) on the active custom theme. */
+    setThemeToken(state, action: PayloadAction<{ key: string; value: string }>) {
+      const theme = state.customThemes.find((t) => t.id === state.activeThemeId);
+      if (!theme) return; // built-in/system active — panel duplicates first
+      theme.colors[action.payload.key] = action.payload.value;
+    },
+    /** Set a single font role (CSS stack) on the active custom theme. */
+    setFontRole(state, action: PayloadAction<{ role: FontRole; stack: string }>) {
+      const theme = state.customThemes.find((t) => t.id === state.activeThemeId);
+      if (!theme) return;
+      theme.fonts[action.payload.role] = action.payload.stack;
+    },
+    /** Clear all overrides on the active custom theme (back to its base). */
+    resetActiveTheme(state) {
+      const theme = state.customThemes.find((t) => t.id === state.activeThemeId);
+      if (!theme) return;
+      theme.colors = {};
+      theme.fonts = {};
     },
     setTabBarLabels(state, action: PayloadAction<TabBarLabels>) {
       state.tabBarLabels = action.payload;
@@ -88,8 +157,41 @@ export const {
   setAgentMessageViewMode,
   setDeveloperMode,
   setHideAgentInsights,
+  setActiveTheme,
+  upsertCustomTheme,
+  deleteCustomTheme,
+  setThemeToken,
+  setFontRole,
+  resetActiveTheme,
 } = themeSlice.actions;
 export default themeSlice.reducer;
+
+/** All selectable themes: built-in presets followed by user-authored ones. */
+export const selectAllThemes = (state: { theme: ThemeState }): Theme[] => [
+  ...PRESET_THEMES,
+  ...state.theme.customThemes,
+];
+
+export const selectActiveThemeId = (state: { theme: ThemeState }): string =>
+  state.theme.activeThemeId ?? SYSTEM_THEME_ID;
+
+export const selectCustomThemes = (state: { theme: ThemeState }): Theme[] =>
+  state.theme.customThemes ?? [];
+
+/**
+ * Resolve the effective {@link Theme} to apply right now. The `system` sentinel
+ * resolves to the Light or Dark preset via `prefers-color-scheme`; a missing /
+ * unknown id falls back to Light so the UI is never left unthemed.
+ */
+export function selectEffectiveTheme(state: { theme: ThemeState }): Theme {
+  const id = state.theme.activeThemeId ?? SYSTEM_THEME_ID;
+  if (id === SYSTEM_THEME_ID) {
+    return findPreset(resolveTheme('system') === 'dark' ? DARK_THEME_ID : LIGHT_THEME_ID)!;
+  }
+  const custom = state.theme.customThemes?.find((t) => t.id === id);
+  if (custom) return custom;
+  return findPreset(id) ?? findPreset(LIGHT_THEME_ID)!;
+}
 
 /**
  * Selector for the persisted `hideAgentInsights` preference. Falls back to

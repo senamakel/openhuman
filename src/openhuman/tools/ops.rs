@@ -531,8 +531,10 @@ pub fn all_tools_with_runtime(
          memory_hybrid_search, memory_store_raw_search, memory_store_raw_chunks, memory_store_kinds"
     );
 
-    // Subconscious scratchpad tools — persistent working memory across ticks.
-    tools.extend(crate::openhuman::subconscious::scratchpad::tools::all_scratchpad_tools());
+    // Memory diff — structured "what changed in the agent's world since a
+    // checkpoint/last sync". Drives the subconscious tick's first stage and is
+    // available to any agent that lists it. Unit struct, no runtime deps.
+    tools.push(Box::new(crate::openhuman::memory_diff::MemoryDiffTool));
 
     // Subconscious user-facing handoff — notify_user proactive delivery.
     tools.extend(crate::openhuman::subconscious::user_thread::all_user_thread_tools());

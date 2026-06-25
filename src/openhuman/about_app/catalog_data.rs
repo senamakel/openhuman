@@ -222,6 +222,16 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: None,
     },
     Capability {
+        id: "conversation.plan_review",
+        name: "Plan Review",
+        domain: "conversation",
+        category: CapabilityCategory::Conversation,
+        description: "Pause an interactive turn for review whenever the assistant proposes a thread-scoped plan (a multi-step to-do list with its objective). Review the whole plan once above the composer, then Approve to run it, Reject to discard it, or send feedback to have the assistant revise and re-propose — nothing executes until you approve. Background and scheduled runs are never gated.",
+        how_to: "Conversations > review the plan card above the composer when the assistant lays out a multi-step plan",
+        status: CapabilityStatus::Beta,
+        privacy: None,
+    },
+    Capability {
         id: "conversation.background_monitors",
         name: "Background Monitors",
         domain: "conversation",

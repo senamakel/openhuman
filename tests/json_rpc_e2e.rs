@@ -2520,6 +2520,78 @@ async fn json_rpc_todos_crud_on_personal_board() {
 }
 
 #[tokio::test]
+async fn json_rpc_todos_revise_plan_rejects_awaiting() {
+    // Plan-mode "Send feedback" path: a parked plan (card awaiting approval) is
+    // cleared by `todos_revise_plan` so the orchestrator can re-plan from the
+    // user's feedback. Awaiting cards become `rejected`; non-awaiting cards are
+    // left untouched.
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+    let board = "plan-review-thread";
+
+    // 1. Add a card and park it for review (awaiting_approval).
+    let add = post_json_rpc(
+        &rpc_base,
+        9201,
+        "openhuman.todos_add",
+        json!({ "thread_id": board, "content": "Refactor schema", "status": "awaiting_approval" }),
+    )
+    .await;
+    let add_result = assert_no_jsonrpc_error(&add, "todos_add awaiting");
+    let card_id = add_result
+        .get("cards")
+        .and_then(Value::as_array)
+        .and_then(|c| c.first())
+        .and_then(|c| c.get("id"))
+        .and_then(Value::as_str)
+        .expect("parked card id")
+        .to_string();
+
+    // 2. Send feedback → revise_plan rejects the parked card.
+    let revise = post_json_rpc(
+        &rpc_base,
+        9202,
+        "openhuman.todos_revise_plan",
+        json!({ "thread_id": board, "feedback": "split into smaller steps" }),
+    )
+    .await;
+    let revise_result = assert_no_jsonrpc_error(&revise, "todos_revise_plan");
+    let revised_cards = revise_result
+        .get("cards")
+        .and_then(Value::as_array)
+        .expect("cards in revise response");
+    assert_eq!(revised_cards.len(), 1, "card retained, status changed");
+    assert_eq!(
+        revised_cards[0].get("id").and_then(Value::as_str),
+        Some(card_id.as_str()),
+        "same card id"
+    );
+    assert_eq!(
+        revised_cards[0].get("status").and_then(Value::as_str),
+        Some("rejected"),
+        "parked card is rejected after revise_plan"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_thread_title_create_and_update() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");

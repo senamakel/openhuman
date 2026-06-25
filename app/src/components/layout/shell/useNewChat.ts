@@ -26,23 +26,30 @@ import { chatThreadPath } from '../../../utils/chatRoutes';
  *    navigation also prevents the Conversations page from racing to create a
  *    second blank thread on mount.
  *
- * A thread counts as empty only when it has neither a server message count nor
- * any locally-cached messages: right after the first message is sent,
- * `addMessageLocal` populates `messagesByThreadId` while the thread-list
- * `messageCount` can still read 0 until the async refresh lands, and we must not
- * reuse (and reopen) that now-occupied conversation.
+ * A thread counts as empty only when it is **not the currently-selected
+ * thread** and has neither a server message count nor any locally-cached
+ * messages. The two exclusions guard overlapping races right after a first
+ * send: `addMessageLocal` populates `messagesByThreadId` only once it fulfills,
+ * and the thread-list `messageCount` lags behind that, while an even earlier
+ * in-flight send is tracked only locally on the active conversation. Skipping
+ * the selected thread (the one any pending send targets) plus the cache check
+ * means New Chat never reuses/reopens a conversation that's actually in use.
  */
 export function useNewChat(): () => void {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const threads = useAppSelector(state => state.thread.threads);
   const messagesByThreadId = useAppSelector(state => state.thread.messagesByThreadId);
+  const selectedThreadId = useAppSelector(state => state.thread.selectedThreadId);
 
   return useCallback(() => {
     dispatch(setActiveAccount(AGENT_ACCOUNT_ID));
 
     const empty = threads.find(
-      thr => (thr.messageCount ?? 0) === 0 && (messagesByThreadId[thr.id]?.length ?? 0) === 0
+      thr =>
+        thr.id !== selectedThreadId &&
+        (thr.messageCount ?? 0) === 0 &&
+        (messagesByThreadId[thr.id]?.length ?? 0) === 0
     );
     if (empty) {
       dispatch(setSelectedThread(empty.id));
@@ -63,5 +70,5 @@ export function useNewChat(): () => void {
         // diagnosable. The user stays where they are (no broken navigation).
         console.error('[new-chat] createNewThread failed', err);
       });
-  }, [navigate, dispatch, threads, messagesByThreadId]);
+  }, [navigate, dispatch, threads, messagesByThreadId, selectedThreadId]);
 }

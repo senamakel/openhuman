@@ -31,10 +31,17 @@ interface WrapperProps {
 const mockDispatch = vi.fn();
 let mockThreads: MockThread[] = [];
 let mockMessagesByThreadId: Record<string, unknown[]> = {};
+let mockSelectedThreadId: string | null = null;
 vi.mock('../../../store/hooks', () => ({
   useAppDispatch: () => mockDispatch,
   useAppSelector: (sel: (s: unknown) => unknown) =>
-    sel({ thread: { threads: mockThreads, messagesByThreadId: mockMessagesByThreadId } }),
+    sel({
+      thread: {
+        threads: mockThreads,
+        messagesByThreadId: mockMessagesByThreadId,
+        selectedThreadId: mockSelectedThreadId,
+      },
+    }),
 }));
 
 vi.mock('../../../store/accountsSlice', () => ({
@@ -59,6 +66,7 @@ describe('useNewChat', () => {
     vi.clearAllMocks();
     mockThreads = [];
     mockMessagesByThreadId = {};
+    mockSelectedThreadId = null;
     mockDispatch.mockImplementation((action: MockAction) => {
       if (action?.type === 'thread/createNewThread') {
         return { unwrap: () => Promise.resolve({ id: 'fresh-thread' }) };
@@ -102,6 +110,22 @@ describe('useNewChat', () => {
     result.current();
 
     expect(mockNavigate).not.toHaveBeenCalledWith('/chat/just-sent');
+    expect(dispatchedTypes()).toContain('thread/createNewThread');
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/chat/fresh-thread');
+    });
+  });
+
+  it('does not reuse the currently-selected thread (may have an in-flight send)', async () => {
+    // The active conversation is count-empty and not yet in the message cache,
+    // but a first send could be in flight on it — never reopen it.
+    mockThreads = [{ id: 'active', messageCount: 0 }];
+    mockMessagesByThreadId = {};
+    mockSelectedThreadId = 'active';
+    const { result } = renderHook(() => useNewChat(), { wrapper });
+    result.current();
+
+    expect(mockNavigate).not.toHaveBeenCalledWith('/chat/active');
     expect(dispatchedTypes()).toContain('thread/createNewThread');
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/chat/fresh-thread');

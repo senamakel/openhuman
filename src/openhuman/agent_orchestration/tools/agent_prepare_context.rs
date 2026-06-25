@@ -26,6 +26,30 @@ use std::fmt::Write as _;
 /// The sub-agent archetype this tool drives.
 const SCOUT_AGENT_ID: &str = "context_scout";
 
+/// Whether `output` contains exactly one well-formed `[context_bundle] …
+/// [/context_bundle]` envelope (open tag before a matching close tag, and no
+/// second open tag).
+///
+/// The harness prepends every non-error `run_context_scout` result to turn 1
+/// as "Prepared context", so a prompt drift / model regression in
+/// `context_scout` that emits free-form prose (or a malformed/duplicated
+/// envelope) would otherwise silently inject arbitrary text. We reject those
+/// so the caller falls back to the un-augmented message instead.
+fn is_well_formed_context_bundle(output: &str) -> bool {
+    const OPEN: &str = "[context_bundle]";
+    const CLOSE: &str = "[/context_bundle]";
+    // Exactly one open tag, exactly one close tag, open before close.
+    let opens = output.matches(OPEN).count();
+    let closes = output.matches(CLOSE).count();
+    if opens != 1 || closes != 1 {
+        return false;
+    }
+    match (output.find(OPEN), output.find(CLOSE)) {
+        (Some(o), Some(c)) => o + OPEN.len() <= c,
+        _ => false,
+    }
+}
+
 /// Run the `context_scout` sub-agent inline (blocking) for `question` and
 /// return its bounded `[context_bundle]` envelope as a [`ToolResult`].
 ///
@@ -128,6 +152,45 @@ pub async fn run_context_scout(question: &str, focus: Option<&str>) -> anyhow::R
     match run_subagent(definition, &scout_prompt, options).await {
         Ok(outcome) => match &outcome.status {
             SubagentRunStatus::Completed => {
+                // Guard the contract: the scout MUST return exactly one
+                // `[context_bundle] … [/context_bundle]` envelope. Reject
+                // free-form / malformed output so the harness (which prepends
+                // any non-error result to turn 1 as "Prepared context") cannot
+                // inject arbitrary prose on a scout prompt drift.
+                if !is_well_formed_context_bundle(&outcome.output) {
+                    tracing::warn!(
+                        target: "agent_prepare_context",
+                        task_id = %outcome.task_id,
+                        output_chars = outcome.output.chars().count(),
+                        "[agent_prepare_context] scout returned a malformed/absent context_bundle — rejecting"
+                    );
+                    publish_global(DomainEvent::SubagentCompleted {
+                        parent_session: parent_session.clone(),
+                        task_id: outcome.task_id.clone(),
+                        agent_id: outcome.agent_id.clone(),
+                        elapsed_ms: outcome.elapsed.as_millis() as u64,
+                        output_chars: 0,
+                        iterations: outcome.iterations,
+                    });
+                    if let Some(ref tx) = progress_sink {
+                        let _ = tx
+                            .send(AgentProgress::SubagentCompleted {
+                                agent_id: outcome.agent_id.clone(),
+                                task_id: outcome.task_id.clone(),
+                                elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                iterations: outcome.iterations as u32,
+                                output_chars: 0,
+                                worktree_path: None,
+                                changed_files: Vec::new(),
+                                dirty_status: None,
+                            })
+                            .await;
+                    }
+                    return Ok(ToolResult::error(
+                        "agent_prepare_context: context_scout did not return a well-formed \
+                         [context_bundle] envelope",
+                    ));
+                }
                 tracing::info!(
                     target: "agent_prepare_context",
                     task_id = %outcome.task_id,
@@ -426,5 +489,35 @@ mod tests {
         let result = tool.execute(json!({})).await.unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("question"));
+    }
+
+    #[test]
+    fn accepts_a_single_well_formed_bundle() {
+        let out = "[context_bundle]\nhas_enough_context: true\nsummary: ok\n[/context_bundle]";
+        assert!(is_well_formed_context_bundle(out));
+    }
+
+    #[test]
+    fn rejects_free_form_prose_without_a_bundle() {
+        assert!(!is_well_formed_context_bundle(
+            "Sure! Here's what I found about your request..."
+        ));
+    }
+
+    #[test]
+    fn rejects_unterminated_or_reversed_envelope() {
+        assert!(!is_well_formed_context_bundle(
+            "[context_bundle]\nsummary: ..."
+        ));
+        assert!(!is_well_formed_context_bundle(
+            "[/context_bundle] stray [context_bundle]"
+        ));
+    }
+
+    #[test]
+    fn rejects_duplicated_envelope() {
+        assert!(!is_well_formed_context_bundle(
+            "[context_bundle]a[/context_bundle][context_bundle]b[/context_bundle]"
+        ));
     }
 }

@@ -2786,10 +2786,11 @@ const Conversations = ({
                 </button>
               </div>
               {/* Super context is read at thread construction, so it only
-                  affects NEW threads. Hide the toggle once the thread has any
-                  messages — changing it then would have no effect on this
-                  conversation. */}
-              {!hasVisibleMessages && <SuperContextToggle />}
+                  affects NEW threads. Hide the toggle once the thread has ANY
+                  activity — use the raw `messages` (not `hasVisibleMessages`,
+                  which ignores hidden transcript entries) so an already-started
+                  thread never looks "fresh" here. */}
+              {messages.length === 0 && <SuperContextToggle />}
               {selectedThreadId && (
                 <button
                   type="button"

@@ -27,7 +27,14 @@ use std::sync::Arc;
 /// Decide whether the harness-driven "super context" collection pass should
 /// run this turn.
 ///
-/// It runs only on the first turn of a **genuinely new** thread:
+/// It runs only on the first turn of a **genuinely new** thread driven by the
+/// **user-facing orchestrator**:
+/// - `is_orchestrator` — the turn belongs to the `orchestrator` agent (the
+///   interactive chat path surfaced by the composer toggle). `Agent::turn` is
+///   shared with `run_single()` background/automated flows (goals enrichment,
+///   cron/task agents, specialist sub-agents); without this gate those first
+///   turns would spawn `context_scout` and prepend a prepared-context block,
+///   adding unexpected LLM/tool work and changing automated outputs; AND
 /// - `first_turn` — the agent's `history` is empty at turn start; AND
 /// - `!has_cached_transcript` — no resumed/loaded transcript prefix is seeded
 ///   into `cached_transcript_messages`. A thread resumed cold (web-chat task
@@ -36,10 +43,15 @@ use std::sync::Arc;
 ///   *new* thread from a *resumed* one; AND
 /// - `enabled` — the `context.super_context_enabled` config flag is on.
 ///
-/// Pulled out as a pure function so the gate (in particular the resume guard)
-/// is unit-testable without a full agent turn harness.
-fn should_run_super_context(first_turn: bool, has_cached_transcript: bool, enabled: bool) -> bool {
-    first_turn && !has_cached_transcript && enabled
+/// Pulled out as a pure function so the gate (in particular the resume and
+/// orchestrator guards) is unit-testable without a full agent turn harness.
+fn should_run_super_context(
+    is_orchestrator: bool,
+    first_turn: bool,
+    has_cached_transcript: bool,
+    enabled: bool,
+) -> bool {
+    is_orchestrator && first_turn && !has_cached_transcript && enabled
 }
 
 impl Agent {
@@ -475,6 +487,7 @@ impl Agent {
         // any failure (scout error, no bundle) leaves the turn to proceed with
         // the un-augmented message rather than blocking the user.
         let enriched = if should_run_super_context(
+            self.agent_definition_id == "orchestrator",
             first_turn,
             self.cached_transcript_messages.is_some(),
             self.context.super_context_enabled(),
@@ -972,20 +985,20 @@ mod super_context_gate_tests {
     use super::should_run_super_context;
 
     #[test]
-    fn runs_only_on_first_turn_of_a_new_thread_when_enabled() {
-        // New thread, first turn, flag on → run.
-        assert!(should_run_super_context(true, false, true));
+    fn runs_only_on_first_turn_of_a_new_orchestrator_thread_when_enabled() {
+        // Orchestrator, new thread, first turn, flag on → run.
+        assert!(should_run_super_context(true, true, false, true));
     }
 
     #[test]
     fn skips_when_flag_disabled() {
-        assert!(!should_run_super_context(true, false, false));
+        assert!(!should_run_super_context(true, true, false, false));
     }
 
     #[test]
     fn skips_on_later_turns() {
         // history non-empty → not the first turn.
-        assert!(!should_run_super_context(false, false, true));
+        assert!(!should_run_super_context(true, false, false, true));
     }
 
     #[test]
@@ -994,6 +1007,15 @@ mod super_context_gate_tests {
         // `first_turn` is true) but a seeded `cached_transcript_messages`
         // prefix. Super context must NOT re-fire on these existing
         // conversations.
-        assert!(!should_run_super_context(true, true, true));
+        assert!(!should_run_super_context(true, true, true, true));
+    }
+
+    #[test]
+    fn skips_for_non_orchestrator_agents() {
+        // Regression: `Agent::turn` is shared with background/automated
+        // `run_single()` flows (goals enrichment, cron/task agents,
+        // specialist sub-agents). Even on a fresh first turn with the flag on,
+        // super context must only run for the user-facing orchestrator.
+        assert!(!should_run_super_context(false, true, false, true));
     }
 }

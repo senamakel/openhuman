@@ -40,6 +40,12 @@ mod dom_snapshot;
 /// or the page target disappears (e.g. Discord refresh, navigation).
 const RECONNECT_BACKOFF: Duration = Duration::from_secs(3);
 const MAX_CHANNEL_MESSAGES: usize = 400;
+/// Idle window after which the event pump assumes the attached page target is
+/// stale/destroyed (reload, renderer crash, hard navigation) and returns so
+/// the outer loop re-attaches. Chosen at >2x Discord's ~41s gateway heartbeat:
+/// a live session always emits gateway WS frames within this window, so a
+/// longer silence means the session is dead, not merely quiet.
+const PUMP_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct DiscordPersistMessage {
@@ -291,8 +297,20 @@ pub fn spawn_scanner<R: Runtime>(
         // tends to race with the renderer's own initialization and we miss
         // the first few frames anyway.
         sleep(Duration::from_secs(4)).await;
+        // Lock onto the page target once a strict fragment match succeeds, so
+        // re-attaches after a reload survive Discord stripping the URL hash
+        // (see `attach_account_target`). Persists across reconnects.
+        let mut pinned_target_id: Option<String> = None;
         loop {
-            match run_mitm_session(&app, &account_id, &url_prefix, &fragment).await {
+            match run_mitm_session(
+                &app,
+                &account_id,
+                &url_prefix,
+                &fragment,
+                &mut pinned_target_id,
+            )
+            .await
+            {
                 Ok(()) => {
                     log::info!(
                         "[discord][{}] session ended cleanly, reconnecting",
@@ -316,23 +334,23 @@ pub fn spawn_scanner<R: Runtime>(
 }
 
 /// Run one CDP attach → enable → stream-events lifecycle. Returns when the
-/// underlying WebSocket closes, the page target disappears, or any
-/// dispatch hits an unrecoverable error. Caller loops.
+/// in-process transport closes (webview torn down) or when the pump's idle
+/// watchdog trips after `PUMP_IDLE_TIMEOUT` of no frames — i.e. the attached
+/// page target went stale (Discord reload, renderer crash, hard navigation).
+/// The caller's outer loop then re-attaches. `pinned_target_id` carries the
+/// pin/strict/relaxed resolution state across reconnects (see
+/// [`attach_account_target`]).
 async fn run_mitm_session<R: Runtime>(
     app: &AppHandle<R>,
     account_id: &str,
     url_prefix: &str,
     url_fragment: &str,
+    pinned_target_id: &mut Option<String>,
 ) -> Result<(), String> {
-    let url_prefix_owned = url_prefix.to_string();
-    let url_fragment_owned = url_fragment.to_string();
-    let pred = move |t: &crate::cdp::target::CdpTarget| -> bool {
-        t.url.starts_with(&url_prefix_owned) && t.url.ends_with(&url_fragment_owned)
-    };
     let (mut cdp, session_id) =
-        crate::cdp::target::connect_and_attach_matching_in_process::<R, _>(app, account_id, pred)
+        attach_account_target(app, account_id, url_prefix, url_fragment, pinned_target_id)
             .await
-            .map_err(|e| format!("attach: {e} (prefix={url_prefix} fragment={url_fragment})"))?;
+            .map_err(|e| format!("attach: {e}"))?;
     log::info!(
         "[discord][{}] attached label={} session={}",
         account_id,
@@ -350,16 +368,127 @@ async fn run_mitm_session<R: Runtime>(
         session_id
     );
 
-    // Drop into the event read loop until the in-process channel signals
-    // closure. V1 doesn't issue any in-stream calls (responses table from
-    // the previous TCP impl is gone — re-introduce a request/response API
-    // here when V1.5 backfills `Network.getResponseBody`).
+    // Drop into the event read loop. It returns when the in-process transport
+    // closes (webview gone) OR when the idle watchdog fires after
+    // `PUMP_IDLE_TIMEOUT` of no frames (stale/destroyed page target) — either
+    // way the outer loop re-attaches. The resilient pump also buffers bursts
+    // into an unbounded queue so a flood that overflows the broadcast ring
+    // isn't silently dropped. V1 doesn't issue any in-stream calls (responses
+    // table from the previous TCP impl is gone — re-introduce a
+    // request/response API here when V1.5 backfills `Network.getResponseBody`).
     log::info!("[discord][{}] event pump started", account_id);
     let mut ingest_state = DiscordIngestState::default();
-    cdp.pump_events(&session_id, |method, params| {
-        dispatch_event(app, account_id, method, params, &mut ingest_state);
-    })
-    .await
+    let pump_result = cdp
+        .pump_events_resilient(&session_id, PUMP_IDLE_TIMEOUT, |method, params| {
+            dispatch_event(app, account_id, method, params, &mut ingest_state);
+        })
+        .await;
+    // Detach the now-stale session before the outer loop re-attaches, so idle /
+    // lag-forced reconnects don't accumulate orphaned CDP sessions on the
+    // transport (mirrors the DOM-scan cleanup).
+    crate::cdp::detach_session(&mut cdp, &session_id).await;
+    pump_result
+}
+
+/// Pure pin → strict → relaxed target-selection core of
+/// [`attach_account_target`]. Returns the chosen page target and whether it was
+/// a strict fragment match (the caller pins only on `true`). Split out so the
+/// resolution hierarchy is unit-testable without a live CDP transport.
+fn resolve_page_target<'a>(
+    targets: &'a [crate::cdp::target::CdpTarget],
+    url_prefix: &str,
+    url_fragment: &str,
+    pinned_target_id: Option<&str>,
+) -> Option<(&'a crate::cdp::target::CdpTarget, bool)> {
+    // 1. Pinned id (locked on a prior strict match) — survives the hash strip.
+    //    Still require the prefix: a pinned tab can navigate off Discord while
+    //    keeping its target id, and we must not keep scanning an off-prefix page.
+    if let Some(pid) = pinned_target_id {
+        if let Some(t) = targets
+            .iter()
+            .find(|t| t.id == pid && t.kind == "page" && t.url.starts_with(url_prefix))
+        {
+            return Some((t, false));
+        }
+    }
+    // 2. Strict fragment match — the only result that proves account ownership.
+    if let Some(t) = targets.iter().find(|t| {
+        t.kind == "page" && t.url.starts_with(url_prefix) && t.url.ends_with(url_fragment)
+    }) {
+        return Some((t, true));
+    }
+    // 3. Relaxed prefix-only — last resort; safe under per-account data-dir isolation.
+    targets
+        .iter()
+        .find(|t| t.kind == "page" && t.url.starts_with(url_prefix))
+        .map(|t| (t, false))
+}
+
+/// Resolve this account's page target, attach, and return the live
+/// [`CdpConn`](crate::cdp::CdpConn) plus session id.
+///
+/// Discord's web client `replaceState`s to its canonical `/channels/...` URL
+/// on boot, stripping the `#openhuman-account-<id>` fragment the webview was
+/// opened with — so a strict `ends_with(fragment)` match only holds for the
+/// first instant after navigation and fails forever after (the 4s settle delay
+/// alone guarantees we attach *after* the strip). Mirrors the Slack scanner's
+/// resolution hierarchy (`slack_scanner::scan_once`) via [`resolve_page_target`]:
+///
+///   1. **Pinned target id** — once a strict match locked the id, prefer it
+///      (still constrained to `url_prefix`). Survives the fragment strip and
+///      keeps multi-account sessions from cross-wiring scanner A onto B's tab.
+///   2. **Strict fragment match** (`url_prefix` + `#openhuman-account-<id>`).
+///      On hit, (re)pin the id into `pinned_target_id`.
+///   3. **Relaxed prefix-only match** — last resort. Per-account
+///      `data_directory` isolation makes this safe for single-account setups;
+///      never persisted into the pin (only a strict match proves ownership).
+async fn attach_account_target<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+    url_prefix: &str,
+    url_fragment: &str,
+    pinned_target_id: &mut Option<String>,
+) -> Result<(crate::cdp::CdpConn, String), String> {
+    let mut cdp = crate::cdp::target::conn_for_account(app, account_id)?;
+    let targets_v = cdp.call("Target.getTargets", json!({}), None).await?;
+    let targets = crate::cdp::target::parse_targets(&targets_v);
+
+    let (page_target, is_strict) = resolve_page_target(
+        &targets,
+        url_prefix,
+        url_fragment,
+        pinned_target_id.as_deref(),
+    )
+    .ok_or_else(|| format!("no page target matching {url_prefix} fragment={url_fragment}"))?;
+
+    // (Re)pin on every live strict-fragment match — the one signal that proves
+    // this target is *this* account's. Refreshing (not just setting-once) lets a
+    // stale pin recover: after a renderer swap gives a new target id, the next
+    // strict match re-pins instead of being stuck on relaxed forever. Relaxed
+    // matches never feed the pin.
+    if is_strict && pinned_target_id.as_deref() != Some(page_target.id.as_str()) {
+        log::info!(
+            "[discord][{}] pinned to target_id={} (strict fragment match)",
+            account_id,
+            page_target.id
+        );
+        *pinned_target_id = Some(page_target.id.clone());
+    }
+
+    let target_id = page_target.id.clone();
+    let attach = cdp
+        .call(
+            "Target.attachToTarget",
+            json!({ "targetId": target_id, "flatten": true }),
+            None,
+        )
+        .await?;
+    let session = attach
+        .get("sessionId")
+        .and_then(|x| x.as_str())
+        .ok_or_else(|| "page attach missing sessionId".to_string())?
+        .to_string();
+    Ok((cdp, session))
 }
 
 // ---------- Event filter & emit ----------------------------------------------
@@ -990,8 +1119,17 @@ fn spawn_dom_poll<R: Runtime>(
         let fragment = crate::cdp::target_url_fragment(&account_id);
         sleep(Duration::from_secs(6)).await;
         let mut last_hash: Option<u64> = None;
+        let mut pinned_target_id: Option<String> = None;
         loop {
-            match dom_scan_once(&app, &account_id, &url_prefix, &fragment).await {
+            match dom_scan_once(
+                &app,
+                &account_id,
+                &url_prefix,
+                &fragment,
+                &mut pinned_target_id,
+            )
+            .await
+            {
                 Ok(scan) => {
                     if Some(scan.hash) != last_hash {
                         log::info!(
@@ -1027,15 +1165,10 @@ async fn dom_scan_once<R: Runtime>(
     account_id: &str,
     url_prefix: &str,
     url_fragment: &str,
+    pinned_target_id: &mut Option<String>,
 ) -> Result<dom_snapshot::DomScan, String> {
-    let prefix = url_prefix.to_string();
-    let fragment = url_fragment.to_string();
-    let pred = move |t: &crate::cdp::target::CdpTarget| -> bool {
-        t.url.starts_with(&prefix) && t.url.ends_with(&fragment)
-    };
     let (mut cdp, session) =
-        crate::cdp::target::connect_and_attach_matching_in_process::<R, _>(app, account_id, pred)
-            .await?;
+        attach_account_target(app, account_id, url_prefix, url_fragment, pinned_target_id).await?;
     let scan = dom_snapshot::scan(&mut cdp, &session).await;
     crate::cdp::detach_session(&mut cdp, &session).await;
     scan

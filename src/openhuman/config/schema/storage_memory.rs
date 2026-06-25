@@ -331,11 +331,18 @@ pub struct MemoryTreeConfig {
     #[serde(default = "default_llm_backend")]
     pub llm_backend: LlmBackend,
 
-    /// Model identifier used when `llm_backend = "cloud"`. Routed through the
-    /// OpenHuman backend's chat-completions surface.
+    /// **Deprecated / inert.** Formerly the model identifier for managed
+    /// (`llm_backend = "cloud"`) summarization. The managed summarization tier is
+    /// now fixed at `summarization-v1`
+    /// ([`crate::openhuman::inference::provider::factory::summarization_tier_model`])
+    /// and this field is no longer consumed — the hosted backend serves exactly
+    /// one tier for this workload. Kept for config back-compat (existing
+    /// `config.toml` / `OPENHUMAN_MEMORY_TREE_CLOUD_LLM_MODEL` still parse without
+    /// error). To run summarization on a different model, point `memory_provider`
+    /// at a BYOK/local provider instead, where the model rides in the provider
+    /// string.
     ///
     /// Defaults to [`DEFAULT_CLOUD_LLM_MODEL`] (`summarization-v1`).
-    /// Env override: `OPENHUMAN_MEMORY_TREE_CLOUD_LLM_MODEL`.
     #[serde(default = "default_cloud_llm_model")]
     pub cloud_llm_model: Option<String>,
 

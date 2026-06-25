@@ -1542,3 +1542,99 @@ fn prefix_tier_refuses_ambiguous_and_short_slugs() {
     // Short slug below the length gate never engages the prefix tier.
     assert!(resolver.resolve("NOTION").is_none());
 }
+
+// ── Runtime spawn-hierarchy (tier) gate (issue #4098) ───────────────────────
+// `tier_gate_decision` is the pure decision the runtime gate in `run_subagent`
+// applies to each delegation hop. Tested directly so the deny/allow/skip
+// table is covered without standing up a global registry or a live spawn.
+
+// Thin wrapper to call the gate with throwaway log-context ids.
+fn gate(parent: Option<&AgentDefinition>, child: &AgentDefinition) -> Result<(), SubagentRunError> {
+    super::runner::tier_gate_decision(parent, child, "parent-agent", "task-1")
+}
+
+#[test]
+fn tier_gate_skips_when_parent_unresolved() {
+    use crate::openhuman::agent::harness::definition::AgentTier;
+    // No resolvable parent definition (e.g. registry uninitialised, or a
+    // dynamically-named model-council juror / custom agent absent from it) →
+    // skip rather than mask. Even a would-be-illegal child tier passes, because
+    // we have no parent tier to judge against.
+    let mut child = make_def_named_tools(&[]);
+    child.agent_tier = AgentTier::Chat;
+    assert!(gate(None, &child).is_ok());
+}
+
+#[test]
+fn tier_gate_allows_legal_descending_hops() {
+    use crate::openhuman::agent::harness::definition::AgentTier;
+    let mut parent = make_def_named_tools(&[]);
+    let mut child = make_def_named_tools(&[]);
+
+    // chat → worker
+    parent.agent_tier = AgentTier::Chat;
+    child.agent_tier = AgentTier::Worker;
+    assert!(gate(Some(&parent), &child).is_ok());
+
+    // chat → reasoning
+    child.agent_tier = AgentTier::Reasoning;
+    assert!(gate(Some(&parent), &child).is_ok());
+
+    // reasoning → worker
+    parent.agent_tier = AgentTier::Reasoning;
+    child.agent_tier = AgentTier::Worker;
+    assert!(gate(Some(&parent), &child).is_ok());
+}
+
+#[test]
+fn tier_gate_allows_worker_parent_for_collapsed_integration() {
+    use crate::openhuman::agent::harness::definition::AgentTier;
+    // A worker only reaches the runtime spawn chokepoint via the documented
+    // collapsed `delegate_to_integrations_agent` path (→ `integrations_agent`,
+    // itself a worker). The gate must NOT re-deny that — the worker-leaf rule
+    // is a static boot-time authoring constraint, not a runtime one. Regression
+    // for the wildcard-integration case (CodeRabbit P2 on PR #4102).
+    let mut parent = make_def_named_tools(&[]);
+    let child = make_def_named_tools(&[]); // worker by default
+    parent.agent_tier = AgentTier::Worker;
+    assert!(gate(Some(&parent), &child).is_ok());
+}
+
+#[test]
+fn tier_gate_denies_chat_to_chat() {
+    use crate::openhuman::agent::harness::definition::AgentTier;
+    let mut parent = make_def_named_tools(&[]);
+    let mut child = make_def_named_tools(&[]);
+    parent.agent_tier = AgentTier::Chat;
+    child.agent_tier = AgentTier::Chat;
+
+    let err =
+        gate(Some(&parent), &child).expect_err("chat→chat must be denied at the runtime gate");
+    match err {
+        SubagentRunError::TierViolation {
+            parent_tier,
+            child_tier,
+            reason,
+        } => {
+            assert_eq!(parent_tier, AgentTier::Chat);
+            assert_eq!(child_tier, AgentTier::Chat);
+            assert!(
+                reason.contains("chat") && reason.contains("leaf"),
+                "got: {reason}"
+            );
+        }
+        other => panic!("expected TierViolation, got: {other:?}"),
+    }
+}
+
+#[test]
+fn tier_gate_allows_upward_reasoning_to_chat() {
+    use crate::openhuman::agent::harness::definition::AgentTier;
+    // Upward delegation is intentionally legal (subconscious reasoner →
+    // orchestrator chat). The gate must not deny it.
+    let mut parent = make_def_named_tools(&[]);
+    let mut child = make_def_named_tools(&[]);
+    parent.agent_tier = AgentTier::Reasoning;
+    child.agent_tier = AgentTier::Chat;
+    assert!(gate(Some(&parent), &child).is_ok());
+}

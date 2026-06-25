@@ -136,10 +136,51 @@ export interface MeetCallRecord {
   participants?: string[];
 }
 
+/** One transcript line of a recorded call. Mirrors `MeetCallTranscriptLine`. */
+export interface MeetCallTranscriptLine {
+  /** Lowercased speaker role: `'participant'` or `'assistant'`. */
+  role: string;
+  /** The line as the backend delivered it (may carry a `[MM:SS] [Name]` prefix). */
+  content: string;
+}
+
+/** One action item mined from a call. Mirrors `MeetCallActionItem`. */
+export interface MeetCallActionItem {
+  description: string;
+  /** `'executable'` or `'advisory'`. */
+  kind: string;
+  tool_name?: string | null;
+  assignee?: string | null;
+}
+
+/** Structured post-call summary. Mirrors `MeetCallSummary`. */
+export interface MeetCallSummary {
+  headline: string;
+  key_points: string[];
+  action_items: MeetCallActionItem[];
+}
+
+/**
+ * Transcript + summary for one completed call. Mirrors `MeetCallDetail` in
+ * `src/openhuman/meet_agent/store.rs`. Lazy-loaded by the recent-calls panel
+ * when a row is expanded, so the list payload stays lean. `summary` is null
+ * when summarisation failed or timed out at call-end.
+ */
+export interface MeetCallDetail {
+  request_id: string;
+  summary?: MeetCallSummary | null;
+  transcript: MeetCallTranscriptLine[];
+}
+
 interface CoreListCallsResponse {
   ok: boolean;
   calls: MeetCallRecord[];
   count: number;
+}
+
+interface CoreGetCallDetailResponse {
+  ok: boolean;
+  detail: MeetCallDetail | null;
 }
 
 /**
@@ -158,6 +199,23 @@ export async function listMeetCalls(limit = 20): Promise<MeetCallRecord[]> {
     throw new Error('Core rejected the meet_agent_list_calls request.');
   }
   return result.calls ?? [];
+}
+
+/**
+ * Fetch the transcript + summary for one completed call. Lazy-loaded when the
+ * user expands a recent-call row. Returns `null` when the core has no detail
+ * for this call (older calls recorded before the feature, or a failed write) —
+ * the panel renders a "no transcript yet" state in that case.
+ */
+export async function getMeetCallDetail(requestId: string): Promise<MeetCallDetail | null> {
+  const result = await callCoreRpc<CoreGetCallDetailResponse>({
+    method: 'openhuman.meet_agent_get_call_detail',
+    params: { request_id: requestId },
+  });
+  if (!result?.ok) {
+    throw new Error('Core rejected the meet_agent_get_call_detail request.');
+  }
+  return result.detail ?? null;
 }
 
 // ---------------------------------------------------------------------------

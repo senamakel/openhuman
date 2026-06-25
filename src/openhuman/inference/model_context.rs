@@ -314,12 +314,14 @@ mod tests {
                 provider: "openai".into(),
                 cost_per_1m_output: 0.0,
                 vision: true,
+                ..Default::default()
             },
             ModelRegistryEntry {
                 id: "text-only".into(),
                 provider: "openai".into(),
                 cost_per_1m_output: 0.0,
                 vision: false,
+                ..Default::default()
             },
         ];
         assert!(model_vision_enabled("my-llava", &config));
@@ -337,6 +339,7 @@ mod tests {
             provider: "openai".into(),
             cost_per_1m_output: 0.0,
             vision: true,
+            ..Default::default()
         }];
         // `reasoning-v1` is the one vision-capable managed tier; the rest are not.
         assert!(model_supports_vision("reasoning-v1", &config));

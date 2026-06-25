@@ -61,23 +61,54 @@ impl EventHandler for MeetingEventSubscriber {
                     "{LOG_PREFIX} transcript received — creating meeting thread"
                 );
 
-                // Record a recent-calls entry (meet id, duration, owner,
-                // participants) so the meeting-bots panel shows call history.
-                // Done first (before the heavier thread-creation path) so the
-                // record is on disk by the time the panel refetches at call-end.
-                // Best-effort: never blocks; logs on failure internally.
-                super::recent_calls::record_backend_call(
+                // 1. Record a lean recent-calls entry (meet id, duration, owner,
+                //    participants) first — before any LLM work — so the row is on
+                //    disk by the time the panel refetches at call-end. Returns the
+                //    request_id so the detail below is keyed to the same call.
+                //    Best-effort: never blocks; logs on failure internally.
+                let request_id = super::recent_calls::record_backend_call(
                     turns,
                     *duration_ms,
                     correlation_id.as_deref(),
                 )
                 .await;
 
-                // Create the meeting thread with transcript.
+                // 2. Persist the transcript immediately — decoupled from the
+                //    (bounded, up to 30s) summary LLM call below. Without this the
+                //    detail file wouldn't exist until summarisation returned, so a
+                //    row expanded right after call-end showed "nothing captured"
+                //    even though the transcript was already in hand. The summary is
+                //    patched in by step 4 once it's ready.
+                super::recent_calls::record_backend_call_detail(&request_id, turns, None).await;
+
+                // 3. Generate the post-call summary once. Shared by the call-detail
+                //    store (step 4) and the meeting thread (step 5) so the
+                //    summarisation LLM call isn't paid for twice.
+                let generated = super::summary::generate_meeting_summary_bounded(
+                    turns,
+                    correlation_id.as_deref(),
+                )
+                .await;
+
+                // 4. Upgrade the stored detail with the summary once it's ready.
+                //    Skipped when summarisation failed/timed out — the transcript
+                //    written in step 2 stands on its own.
+                if generated.is_some() {
+                    super::recent_calls::record_backend_call_detail(
+                        &request_id,
+                        turns,
+                        generated.as_ref(),
+                    )
+                    .await;
+                }
+
+                // 5. Create the meeting thread with transcript, reusing the
+                //    summary generated in step 3.
                 if let Err(e) = create_meeting_thread_with_transcript(
                     turns,
                     *duration_ms,
                     correlation_id.clone(),
+                    generated.as_ref(),
                 )
                 .await
                 {

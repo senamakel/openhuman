@@ -25,13 +25,6 @@ const ALLOWED_HOSTS: &[(&str, &str)] = &[
     ("webex.com", "webex"),
 ];
 
-/// Upper bound on the best-effort post-call summarisation call. The provider
-/// has a 120s per-request timeout and the reliable wrapper retries transient
-/// failures with backoff, so without a bound a slow/flaky `summarization`
-/// provider could stall the post-call persistence pipeline for minutes. On
-/// timeout we fall back to the plain-transcript thread.
-const SUMMARY_GENERATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
-
 fn transcript_turns_to_chat_batch(
     turns: &[BackendMeetTurn],
     duration_ms: u64,
@@ -110,8 +103,10 @@ pub async fn ingest_backend_meeting_transcript(
         "[agent_meetings] transcript ingested into memory tree"
     );
 
-    // Create a meeting thread with the transcript for the thread system.
-    if let Err(e) = create_meeting_thread_with_transcript(&turns, duration_ms, correlation_id).await
+    // Create a meeting thread with the transcript for the thread system. This
+    // path has no pre-generated summary, so the thread generates its own.
+    if let Err(e) =
+        create_meeting_thread_with_transcript(&turns, duration_ms, correlation_id, None).await
     {
         tracing::warn!("[agent_meetings] meeting thread creation failed: {e}");
     }
@@ -124,10 +119,15 @@ pub async fn ingest_backend_meeting_transcript(
 /// The correlation_id (when present) is embedded in the transcript body as an
 /// external reference for tracing — it does not deduplicate; each call creates
 /// a new thread.
+/// `generated` lets the caller pass a summary it already produced so the
+/// call-end pipeline can share one generation across the recent-call detail
+/// store and this thread. When `None`, the summary is generated here (bounded)
+/// — preserving the behaviour of callers that don't pre-generate.
 pub async fn create_meeting_thread_with_transcript(
     turns: &[BackendMeetTurn],
     duration_ms: u64,
     correlation_id: Option<String>,
+    generated: Option<&super::summary::GeneratedSummary>,
 ) -> Result<(), String> {
     use crate::openhuman::memory::{
         AppendConversationMessageRequest, ConversationMessageRecord,
@@ -203,36 +203,21 @@ pub async fn create_meeting_thread_with_transcript(
         );
     }
 
-    // 3. Best-effort enrichment: generate a structured post-call summary + short
-    //    context label. Bounded by `SUMMARY_GENERATION_TIMEOUT` so a slow/flaky
-    //    provider can never dominate the path. Any failure or timeout logs a
-    //    warning and leaves the plain-transcript thread untouched.
-    let generated = match tokio::time::timeout(
-        SUMMARY_GENERATION_TIMEOUT,
-        super::summary::generate_meeting_summary(turns, correlation_id.as_deref()),
-    )
-    .await
-    {
-        Ok(Ok(g)) => Some(g),
-        Ok(Err(e)) => {
-            tracing::warn!("[agent_meetings] summary generation failed: {e}");
-            None
-        }
-        Err(_) => {
-            tracing::warn!(
-                timeout_secs = SUMMARY_GENERATION_TIMEOUT.as_secs(),
-                "[agent_meetings] summary generation timed out"
-            );
-            None
-        }
+    // 3. Best-effort enrichment: reuse a summary the caller already generated
+    //    (the call-end pipeline shares one across the recent-call detail store
+    //    and this thread); otherwise generate one here, bounded so a slow/flaky
+    //    provider can never dominate the path. Any failure or timeout leaves the
+    //    plain-transcript thread untouched.
+    let owned_generated = if generated.is_none() {
+        super::summary::generate_meeting_summary_bounded(turns, correlation_id.as_deref()).await
+    } else {
+        None
     };
+    let generated = generated.or(owned_generated.as_ref());
 
     // 3a. Title the thread with the context label (e.g. "Q3 Roadmap") so the
     //     meeting is identifiable in the list (default title is "Chat <date>").
-    let context_label = generated
-        .as_ref()
-        .map(|g| g.label.trim())
-        .filter(|l| !l.is_empty());
+    let context_label = generated.map(|g| g.label.trim()).filter(|l| !l.is_empty());
     if let Some(title) = context_label {
         if let Err(e) = ops::thread_update_title(UpdateConversationThreadTitleRequest {
             thread_id: thread_id.clone(),
@@ -249,7 +234,7 @@ pub async fn create_meeting_thread_with_transcript(
 
     // 3b. Append the structured summary as a closing message, so the thread ends
     //     with the headline / key points / action items.
-    if let Some(g) = &generated {
+    if let Some(g) = generated {
         let summary_body = super::summary::format_summary_markdown(&g.summary, &g.label);
         let summary_msg = ConversationMessageRecord {
             id: uuid::Uuid::new_v4().to_string(),

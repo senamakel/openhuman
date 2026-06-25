@@ -1,10 +1,23 @@
+import { useCallback, useState } from 'react';
+
 import { useT } from '../../lib/i18n/I18nContext';
-import { type MeetCallRecord } from '../../services/meetCallService';
+import {
+  getMeetCallDetail,
+  type MeetCallDetail,
+  type MeetCallRecord,
+  type MeetCallSummary,
+  type MeetCallTranscriptLine,
+} from '../../services/meetCallService';
 
 /**
  * Recent-calls history shown under the meeting-bot join form. Renders the
  * loading / empty / populated states and one row per completed call (meeting
  * code, relative time, turn count, duration, owner, and participants).
+ *
+ * Each row is expandable: on first expand it lazily fetches the call's
+ * transcript + summary via `meet_agent_get_call_detail` so the list payload
+ * stays lean. Older calls recorded before the feature have no detail and show
+ * a "nothing captured" state.
  *
  * Extracted from `MeetingBotsCard` to keep that component within the repo's
  * ~500-line file-size guideline.
@@ -43,7 +56,7 @@ export function RecentCallsSection({
           {t('skills.meetingBots.recentCallsEmpty')}
         </p>
       ) : (
-        <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto pr-1">
+        <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto pr-1">
           {rows.map(call => (
             <RecentCallRow key={call.request_id} call={call} />
           ))}
@@ -53,8 +66,29 @@ export function RecentCallsSection({
   );
 }
 
+type DetailStatus = 'idle' | 'loading' | 'loaded' | 'error';
+
+/**
+ * True when `detail` carries a non-empty generated summary. The summary lands
+ * asynchronously after the transcript at call-end, so this gates whether a
+ * re-expand should refetch (still pending) or reuse the cache (already present).
+ */
+function hasSummaryDetail(detail: MeetCallDetail | null): boolean {
+  const summary = detail?.summary;
+  return (
+    !!summary &&
+    (summary.headline.trim().length > 0 ||
+      summary.key_points.length > 0 ||
+      summary.action_items.length > 0)
+  );
+}
+
 function RecentCallRow({ call }: { call: MeetCallRecord }) {
   const { t } = useT();
+  const [expanded, setExpanded] = useState(false);
+  const [status, setStatus] = useState<DetailStatus>('idle');
+  const [detail, setDetail] = useState<MeetCallDetail | null>(null);
+
   const meetingCode = (() => {
     try {
       const parsed = new URL(call.meet_url);
@@ -67,36 +101,236 @@ function RecentCallRow({ call }: { call: MeetCallRecord }) {
   const duration = Math.max(0, Math.round(call.spoken_seconds + call.listened_seconds));
   const owner = call.owner_display_name?.trim();
   const participants = (call.participants ?? []).map(p => p.trim()).filter(Boolean);
+
+  const loadDetail = useCallback(async () => {
+    setStatus('loading');
+    try {
+      const result = await getMeetCallDetail(call.request_id);
+      setDetail(result);
+      setStatus('loaded');
+    } catch (err) {
+      console.error('[recent-calls] failed to load call detail', call.request_id, err);
+      setStatus('error');
+    }
+  }, [call.request_id]);
+
+  const toggle = useCallback(() => {
+    setExpanded(prev => {
+      const next = !prev;
+      // Lazy-load on first expand. The transcript is persisted at call-end but
+      // the summary is generated asynchronously and patched in moments later, so
+      // re-expanding a row whose cached detail still lacks a summary refetches to
+      // pick it up. A complete (summary-present) detail is reused as-is.
+      if (next && (status === 'idle' || (status === 'loaded' && !hasSummaryDetail(detail)))) {
+        void loadDetail();
+      }
+      return next;
+    });
+  }, [status, detail, loadDetail]);
+
   return (
-    <li className="rounded-lg px-2 py-1.5 text-[11px] text-stone-700 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/40">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-mono text-stone-800 dark:text-neutral-200">
-          {meetingCode}
-        </span>
-        <span className="shrink-0 text-stone-400 dark:text-neutral-500">
-          {formatRelativeTime(call.started_at_ms)}
-        </span>
-      </div>
-      <div className="mt-0.5 flex items-center gap-3 text-[10px] text-stone-500 dark:text-neutral-400">
-        <span>
-          {call.turn_count} turn{call.turn_count === 1 ? '' : 's'}
-        </span>
-        <span>{duration}s on call</span>
-        {owner && (
-          <span className="truncate">
-            {t('skills.meetingBots.recentCallAddedBy').replace('{name}', owner)}
+    <li className="rounded-lg text-[11px] text-stone-700 dark:text-neutral-300">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={expanded}
+        className="w-full rounded-lg px-2 py-1.5 text-left hover:bg-stone-50 dark:hover:bg-neutral-800/40">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-1">
+            <Chevron expanded={expanded} />
+            <span className="truncate font-mono text-stone-800 dark:text-neutral-200">
+              {meetingCode}
+            </span>
           </span>
-        )}
-      </div>
-      {participants.length > 0 && (
-        <div className="mt-0.5 truncate text-[10px] text-stone-500 dark:text-neutral-400">
-          {t('skills.meetingBots.recentCallParticipants').replace(
-            '{names}',
-            participants.join(', ')
+          <span className="shrink-0 text-stone-400 dark:text-neutral-500">
+            {formatRelativeTime(call.started_at_ms)}
+          </span>
+        </div>
+        <div className="mt-0.5 flex items-center gap-3 pl-4 text-[10px] text-stone-500 dark:text-neutral-400">
+          <span>
+            {t(
+              call.turn_count === 1
+                ? 'skills.meetingBots.recentCallTurnSingular'
+                : 'skills.meetingBots.recentCallTurnPlural'
+            ).replace('{count}', String(call.turn_count))}
+          </span>
+          <span>
+            {t('skills.meetingBots.recentCallDuration').replace('{seconds}', String(duration))}
+          </span>
+          {owner && (
+            <span className="truncate">
+              {t('skills.meetingBots.recentCallAddedBy').replace('{name}', owner)}
+            </span>
           )}
+        </div>
+        {participants.length > 0 && (
+          <div className="mt-0.5 truncate pl-4 text-[10px] text-stone-500 dark:text-neutral-400">
+            {t('skills.meetingBots.recentCallParticipants').replace(
+              '{names}',
+              participants.join(', ')
+            )}
+          </div>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="px-2 pb-2 pl-6">
+          <RecentCallDetailBody status={status} detail={detail} onRetry={loadDetail} />
         </div>
       )}
     </li>
+  );
+}
+
+function RecentCallDetailBody({
+  status,
+  detail,
+  onRetry,
+}: {
+  status: DetailStatus;
+  detail: MeetCallDetail | null;
+  onRetry: () => void;
+}) {
+  const { t } = useT();
+
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <p className="text-[10px] text-stone-400 dark:text-neutral-500">
+        {t('skills.meetingBots.callDetailLoading')}
+      </p>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <p className="text-[10px] text-coral-600 dark:text-coral-400">
+        {t('skills.meetingBots.callDetailError')}{' '}
+        <button
+          type="button"
+          onClick={onRetry}
+          className="underline underline-offset-2 hover:text-coral-700 dark:hover:text-coral-300">
+          {t('skills.meetingBots.callDetailRetry')}
+        </button>
+      </p>
+    );
+  }
+
+  const summary = detail?.summary ?? null;
+  const transcript = detail?.transcript ?? [];
+  const hasSummary = hasSummaryDetail(detail);
+
+  if (!hasSummary && transcript.length === 0) {
+    return (
+      <p className="text-[10px] text-stone-400 dark:text-neutral-500">
+        {t('skills.meetingBots.callDetailEmpty')}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {hasSummary && summary && <CallSummary summary={summary} />}
+      {transcript.length > 0 && <CallTranscript lines={transcript} />}
+    </div>
+  );
+}
+
+function CallSummary({ summary }: { summary: MeetCallSummary }) {
+  const { t } = useT();
+  return (
+    <div className="space-y-1.5">
+      <SectionLabel>{t('skills.meetingBots.callSummaryHeading')}</SectionLabel>
+      {summary.headline.trim() && (
+        <p className="text-[11px] text-stone-700 dark:text-neutral-300">{summary.headline}</p>
+      )}
+      {summary.key_points.length > 0 && (
+        <div>
+          <p className="text-[10px] font-medium text-stone-500 dark:text-neutral-400">
+            {t('skills.meetingBots.callKeyPointsHeading')}
+          </p>
+          <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[10px] text-stone-600 dark:text-neutral-400">
+            {summary.key_points.map((point, i) => (
+              <li key={i}>{point}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {summary.action_items.length > 0 && (
+        <div>
+          <p className="text-[10px] font-medium text-stone-500 dark:text-neutral-400">
+            {t('skills.meetingBots.callActionItemsHeading')}
+          </p>
+          <ul className="mt-0.5 space-y-0.5 text-[10px] text-stone-600 dark:text-neutral-400">
+            {summary.action_items.map((item, i) => {
+              const meta = [
+                item.assignee?.trim() || undefined,
+                item.kind === 'executable' ? item.tool_name?.trim() || undefined : undefined,
+              ].filter(Boolean);
+              return (
+                <li key={i} className="flex gap-1">
+                  <span aria-hidden="true">•</span>
+                  <span>
+                    {item.description}
+                    {meta.length > 0 && (
+                      <span className="text-stone-400 dark:text-neutral-500">
+                        {' '}
+                        ({meta.join(' · ')})
+                      </span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CallTranscript({ lines }: { lines: MeetCallTranscriptLine[] }) {
+  const { t } = useT();
+  return (
+    <div className="space-y-1">
+      <SectionLabel>{t('skills.meetingBots.callTranscriptHeading')}</SectionLabel>
+      <div className="max-h-48 space-y-0.5 overflow-y-auto rounded-md bg-stone-50 p-2 dark:bg-neutral-800/40">
+        {lines.map((line, i) => (
+          <p
+            key={i}
+            className={
+              line.role === 'assistant'
+                ? 'text-[10px] text-ocean-700 dark:text-ocean-300'
+                : 'text-[10px] text-stone-600 dark:text-neutral-400'
+            }>
+            {line.content}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+      {children}
+    </p>
+  );
+}
+
+function Chevron({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      className={`h-3 w-3 shrink-0 text-stone-400 transition-transform dark:text-neutral-500 ${
+        expanded ? 'rotate-90' : ''
+      }`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2">
+      <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

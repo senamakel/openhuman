@@ -22,7 +22,13 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 use crate::core::event_bus::BackendMeetTurn;
-use crate::openhuman::meet_agent::store::{self, MeetCallRecord};
+use crate::openhuman::meet_agent::store::{
+    self, MeetCallActionItem, MeetCallDetail, MeetCallRecord, MeetCallSummary,
+    MeetCallTranscriptLine,
+};
+
+use super::summary::GeneratedSummary;
+use super::types::ActionItemKind;
 
 const LOG_PREFIX: &str = "[agent_meetings::recent_calls]";
 
@@ -93,16 +99,21 @@ fn take_join(correlation_id: Option<&str>) -> Option<JoinMeta> {
 }
 
 /// Build and persist a [`MeetCallRecord`] for a finished backend-meet call.
+/// Returns the `request_id` the record was keyed by so the caller can persist
+/// the matching call detail under the same id.
 ///
 /// Best-effort: any failure is logged and swallowed — the call is already
-/// over and the UI degrades to "no record" rather than erroring.
+/// over and the UI degrades to "no record" rather than erroring. The id is
+/// returned even when the append fails, since it is deterministic and the
+/// detail write should still use it.
 pub async fn record_backend_call(
     turns: &[BackendMeetTurn],
     duration_ms: u64,
     correlation_id: Option<&str>,
-) {
+) -> String {
     let meta = take_join(correlation_id);
     let record = build_record(meta.as_ref(), turns, duration_ms, correlation_id, now_ms());
+    let request_id = record.request_id.clone();
     match store::append_record(&record).await {
         Ok(()) => log::info!(
             "{LOG_PREFIX} recorded call request_id={} participants={} duration_s={:.0}",
@@ -111,6 +122,73 @@ pub async fn record_backend_call(
             record.listened_seconds
         ),
         Err(e) => log::warn!("{LOG_PREFIX} append_record failed: {e}"),
+    }
+    request_id
+}
+
+/// Persist the per-call detail (transcript + optional summary) under the same
+/// `request_id` the lean record used, so the recent-calls panel can lazy-load
+/// it when a row is expanded. Best-effort: logs and swallows failures.
+pub async fn record_backend_call_detail(
+    request_id: &str,
+    turns: &[BackendMeetTurn],
+    generated: Option<&GeneratedSummary>,
+) {
+    let detail = build_detail(request_id, turns, generated);
+    match store::write_detail(&detail).await {
+        Ok(()) => log::info!(
+            "{LOG_PREFIX} recorded call detail request_id={} transcript_lines={} has_summary={}",
+            request_id,
+            detail.transcript.len(),
+            detail.summary.is_some()
+        ),
+        Err(e) => log::warn!("{LOG_PREFIX} write_detail failed request_id={request_id}: {e}"),
+    }
+}
+
+/// Map a finished call's turns + optional summary into a persisted
+/// [`MeetCallDetail`]. Pure (no I/O) so the field-mapping is unit-testable.
+/// Blank turns are dropped so the stored transcript matches what the summary
+/// was generated from.
+fn build_detail(
+    request_id: &str,
+    turns: &[BackendMeetTurn],
+    generated: Option<&GeneratedSummary>,
+) -> MeetCallDetail {
+    let transcript = turns
+        .iter()
+        .filter(|t| !t.content.trim().is_empty())
+        .map(|t| MeetCallTranscriptLine {
+            role: if t.role.eq_ignore_ascii_case("assistant") {
+                "assistant".to_string()
+            } else {
+                "participant".to_string()
+            },
+            content: t.content.trim().to_string(),
+        })
+        .collect();
+    let summary = generated.map(|g| MeetCallSummary {
+        headline: g.summary.headline.clone(),
+        key_points: g.summary.key_points.clone(),
+        action_items: g
+            .summary
+            .action_items
+            .iter()
+            .map(|a| MeetCallActionItem {
+                description: a.description.clone(),
+                kind: match a.kind {
+                    ActionItemKind::Executable => "executable".to_string(),
+                    ActionItemKind::Advisory => "advisory".to_string(),
+                },
+                tool_name: a.tool_name.clone(),
+                assignee: a.assignee.clone(),
+            })
+            .collect(),
+    });
+    MeetCallDetail {
+        request_id: request_id.to_string(),
+        summary,
+        transcript,
     }
 }
 
@@ -354,5 +432,53 @@ mod tests {
         );
         assert!(take_join(None).is_none());
         assert!(take_join(Some("   ")).is_none());
+    }
+
+    #[test]
+    fn build_detail_maps_transcript_and_summary() {
+        use super::super::types::{ActionItem, MeetingSummary};
+
+        let turns = vec![
+            turn("user", "[00:51] [Shanu] your time"),
+            turn("user", "   "), // blank → dropped
+            turn("assistant", "[00:55] [Tiny] On it."),
+        ];
+        let generated = GeneratedSummary {
+            label: "Q3 Roadmap".into(),
+            summary: MeetingSummary {
+                meeting_id: "corr-9".into(),
+                headline: "Agreed to ship Friday.".into(),
+                key_points: vec!["Ship Friday".into()],
+                action_items: vec![ActionItem {
+                    description: "Send release notes".into(),
+                    kind: ActionItemKind::Executable,
+                    tool_name: Some("gmail".into()),
+                    assignee: Some("Sam".into()),
+                }],
+                generated_at_ms: 0,
+            },
+        };
+
+        let detail = build_detail("corr-9", &turns, Some(&generated));
+        assert_eq!(detail.request_id, "corr-9");
+        // Blank turn dropped; roles normalised to participant/assistant.
+        assert_eq!(detail.transcript.len(), 2);
+        assert_eq!(detail.transcript[0].role, "participant");
+        assert_eq!(detail.transcript[0].content, "[00:51] [Shanu] your time");
+        assert_eq!(detail.transcript[1].role, "assistant");
+        let summary = detail.summary.expect("summary present");
+        assert_eq!(summary.headline, "Agreed to ship Friday.");
+        assert_eq!(summary.key_points, vec!["Ship Friday".to_string()]);
+        assert_eq!(summary.action_items.len(), 1);
+        assert_eq!(summary.action_items[0].kind, "executable");
+        assert_eq!(summary.action_items[0].tool_name.as_deref(), Some("gmail"));
+    }
+
+    #[test]
+    fn build_detail_without_summary_keeps_transcript() {
+        let turns = vec![turn("user", "[00:10] [Shanu] hi")];
+        let detail = build_detail("corr-x", &turns, None);
+        assert!(detail.summary.is_none());
+        assert_eq!(detail.transcript.len(), 1);
     }
 }

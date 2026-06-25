@@ -188,6 +188,22 @@ pub fn event_to_notification(event: &DomainEvent) -> Option<CoreNotificationEven
                 actions: None,
             })
         }
+        DomainEvent::ProviderApiKeyRejected { provider, message } => Some(CoreNotificationEvent {
+            id: format!("provider-key-rejected:{}:{}", provider, ts),
+            category: CoreNotificationCategory::System,
+            title: "API key rejected".into(),
+            // `message` is already a pre-formatted, actionable string from
+            // `auth_error_registry::auth_error_message`.
+            body: message.clone(),
+            // Land the user on the AI-settings LLM tab, where the inline
+            // provider-error notice + key editor live. Must be the canonical
+            // `/connections?tab=llm` route: `/skills` is a back-compat
+            // redirect that drops the query and defaults to the Apps tab, so
+            // it would not surface the key editor.
+            deep_link: Some("/connections?tab=llm".into()),
+            timestamp_ms: ts,
+            actions: None,
+        }),
         _ => None,
     }
 }
@@ -268,6 +284,23 @@ mod tests {
         assert_eq!(n.category, CoreNotificationCategory::Agents);
         assert_eq!(n.title, "Cron job completed");
         assert!(n.body.contains("job-1"));
+    }
+
+    #[test]
+    fn provider_api_key_rejected_produces_system_notification() {
+        let ev = DomainEvent::ProviderApiKeyRejected {
+            provider: "openrouter".into(),
+            message: "openrouter rejected the API key (HTTP 401). Update your openrouter \
+                      API key in Settings → AI to restore it."
+                .into(),
+        };
+        let n = event_to_notification(&ev).expect("should produce notification");
+        assert_eq!(n.category, CoreNotificationCategory::System);
+        assert_eq!(n.title, "API key rejected");
+        assert!(n.body.contains("openrouter"));
+        assert!(n.body.contains("Settings"));
+        assert_eq!(n.deep_link.as_deref(), Some("/connections?tab=llm"));
+        assert!(n.id.starts_with("provider-key-rejected:openrouter:"));
     }
 
     #[test]

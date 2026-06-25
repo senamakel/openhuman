@@ -24,12 +24,14 @@ import {
   listProviderModels,
   loadAISettings,
   loadLocalProviderSnapshot,
+  loadProviderAuthErrors,
   type LocalProviderSnapshot,
   type ModelInfo,
   type ModelRegistryEntry,
   modelRegistryVision,
   OPENAI_CODEX_OAUTH_MISSING_AUTH_URL,
   OPENAI_CODEX_OAUTH_MISSING_CALLBACK_URL,
+  type ProviderAuthError,
   saveAISettings,
   setCloudProviderKey,
   testProviderModel,
@@ -2925,6 +2927,34 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   // chip can find it again. Cleared when the dialog closes.
   const [pendingLocalLabel, setPendingLocalLabel] = useState<string | null>(null);
   const openRouterOauthAbortRef = useRef<AbortController | null>(null);
+  // BYO provider keys that the provider rejected at runtime (401/403). The
+  // raw error is demoted from Sentry as unactionable user-state, so this
+  // inline notice is how the user learns a key broke — most often in a silent
+  // background loop (memory summarization, TAURI-RUST-4RC) that never surfaces
+  // an error on its own. Re-fetched whenever settings reload (a key
+  // save/remove clears the matching entry core-side).
+  const [providerAuthErrors, setProviderAuthErrors] = useState<ProviderAuthError[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void loadProviderAuthErrors()
+      .then(errs => {
+        if (!cancelled) {
+          setProviderAuthErrors(errs);
+        }
+      })
+      .catch(() => {
+        // Best-effort surface — a fetch failure must not break the panel.
+        // Drop any prior notice too: a key save/remove already cleared the
+        // entry core-side, so keeping a stale banner would misreport a
+        // rejection the user has resolved.
+        if (!cancelled) {
+          setProviderAuthErrors([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [saved]);
 
   const connectProvider = useCallback(
     async ({
@@ -3157,6 +3187,18 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               {t('settings.ai.llmProvidersDesc')}
             </p>
           </div>
+
+          {/* ─── Rejected-key notices ─────────────────────────────────────────
+              A BYO key the provider rejected at runtime (401/403). Surfaced
+              here, next to the key editor, because the failing path is often a
+              silent background loop and the raw error is demoted from Sentry. */}
+          {providerAuthErrors.length > 0 && (
+            <div className="space-y-2">
+              {providerAuthErrors.map(err => (
+                <ProviderSetupErrorNotice key={err.provider} error={err.message} />
+              ))}
+            </div>
+          )}
 
           {/* ─── Provider chip-toggle list ────────────────────────────────── */}
           <section className="space-y-3">

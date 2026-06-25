@@ -12,12 +12,27 @@ const log = debug('openhuman:model-health');
 interface ModelEntry {
   id: string;
   provider: string;
+  /** USD per 1M input tokens (0/absent ⇒ unknown). */
+  cost_per_1m_input?: number;
   cost_per_1m_output: number;
+  /** Max context window in tokens (0/absent ⇒ unknown). */
+  context_window?: number;
   vision: boolean;
   quality_score: number | null;
   hallucination_rate: number | null;
   agents_using: number;
   tasks_evaluated: number;
+}
+
+/** Compact token-count label, e.g. 1_000_000 → "1M", 128_000 → "128K". */
+function formatContextWindow(tokens: number | undefined): string {
+  if (!tokens) return '—';
+  if (tokens >= 1_000_000) {
+    const m = tokens / 1_000_000;
+    return `${Number.isInteger(m) ? m : m.toFixed(1)}M`;
+  }
+  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}K`;
+  return String(tokens);
 }
 
 interface HealthConfig {
@@ -244,7 +259,14 @@ const ModelHealthPanel = () => {
                         <div className="font-semibold text-stone-900 dark:text-neutral-100">
                           {m.id}
                         </div>
-                        <div className="text-[10px] text-stone-400">{m.provider}</div>
+                        <div className="text-[10px] text-stone-400">
+                          {m.provider}
+                          {m.context_window ? (
+                            <span className="ml-1 font-mono text-stone-400/80">
+                              · {formatContextWindow(m.context_window)} ctx
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="py-2 px-2 text-amber-400">{qualityStars(m.quality_score)}</td>
                       <td className="py-2 px-2 font-mono">
@@ -261,7 +283,11 @@ const ModelHealthPanel = () => {
                           '—'
                         )}
                       </td>
-                      <td className="py-2 px-2 font-mono">${m.cost_per_1m_output.toFixed(2)}</td>
+                      <td className="py-2 px-2 font-mono whitespace-nowrap">
+                        {m.cost_per_1m_input
+                          ? `$${m.cost_per_1m_input.toFixed(2)} / $${m.cost_per_1m_output.toFixed(2)}`
+                          : `$${m.cost_per_1m_output.toFixed(2)}`}
+                      </td>
                       <td className="py-2 px-2">{m.agents_using}</td>
                       <td className="py-2 px-2">
                         <span

@@ -148,6 +148,43 @@ pub async fn generate_meeting_summary(
     })
 }
 
+/// Upper bound on the best-effort post-call summarisation call. The provider
+/// has a 120s per-request timeout and the reliable wrapper retries transient
+/// failures with backoff, so without a bound a slow/flaky `summarization`
+/// provider could stall the call-end pipeline for minutes. 30s sits well above
+/// a healthy summarisation latency while capping the worst case.
+pub const SUMMARY_GENERATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Generate a summary bounded by [`SUMMARY_GENERATION_TIMEOUT`], returning
+/// `None` on failure or timeout. Centralises the best-effort policy so the
+/// call-end pipeline can generate a single summary and share it across the
+/// recent-call detail store and the meeting thread instead of paying for the
+/// LLM call twice.
+pub async fn generate_meeting_summary_bounded(
+    turns: &[BackendMeetTurn],
+    correlation_id: Option<&str>,
+) -> Option<GeneratedSummary> {
+    match tokio::time::timeout(
+        SUMMARY_GENERATION_TIMEOUT,
+        generate_meeting_summary(turns, correlation_id),
+    )
+    .await
+    {
+        Ok(Ok(g)) => Some(g),
+        Ok(Err(e)) => {
+            tracing::warn!("{LOG_PREFIX} summary generation failed: {e}");
+            None
+        }
+        Err(_) => {
+            tracing::warn!(
+                timeout_secs = SUMMARY_GENERATION_TIMEOUT.as_secs(),
+                "{LOG_PREFIX} summary generation timed out"
+            );
+            None
+        }
+    }
+}
+
 /// Render a [`MeetingSummary`] as a markdown body for the thread message.
 pub fn format_summary_markdown(summary: &MeetingSummary, label: &str) -> String {
     let mut md = String::from("## Meeting summary\n\n");

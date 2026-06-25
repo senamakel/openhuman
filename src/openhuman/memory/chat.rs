@@ -166,20 +166,6 @@ impl ChatProvider for InferenceChatProvider {
     }
 }
 
-fn routed_memory_config(config: &Config) -> Config {
-    let mut routed = config.clone();
-    if !config.workload_uses_local("memory") {
-        routed.default_model = Some(
-            config
-                .memory_tree
-                .cloud_llm_model
-                .clone()
-                .unwrap_or_else(|| DEFAULT_CLOUD_LLM_MODEL.to_string()),
-        );
-    }
-    routed
-}
-
 #[cfg(test)]
 fn test_override_runtime() -> Option<(Arc<dyn ChatProvider>, String)> {
     test_override::current().map(|provider| (provider, "test:override".to_string()))
@@ -196,9 +182,12 @@ pub fn build_chat_runtime(config: &Config) -> Result<(Arc<dyn ChatProvider>, Str
         return Ok(runtime);
     }
 
-    let routed = routed_memory_config(config);
-    let resolved_provider = provider_for_role("summarization", &routed);
-    let (provider, model) = create_chat_provider("summarization", &routed)?;
+    // The managed summarization tier is fixed at `summarization-v1`, resolved
+    // inside `make_openhuman_backend` for the `summarization` role — so no
+    // per-caller `default_model` pre-routing is needed here. BYOK/local routes
+    // carry their own model in the provider string.
+    let resolved_provider = provider_for_role("summarization", config);
+    let (provider, model) = create_chat_provider("summarization", config)?;
 
     log::debug!(
         "[memory::chat] built provider route={} model={}",
@@ -282,23 +271,26 @@ mod tests {
     fn build_chat_runtime_defaults_to_openhuman_resolved_model() {
         let cfg = Config::default();
         let (_provider, model) = build_chat_runtime(&cfg).unwrap();
-        assert_eq!(model, DEFAULT_CLOUD_LLM_MODEL);
-        // build_chat_runtime resolves the "summarization" workload role,
-        // which routes to the dedicated DEFAULT_CLOUD_LLM_MODEL
-        // (`summarization-v1`, PR #2690) rather than the generic
-        // `reasoning-v1` fallback.
+        // The managed "summarization" tier is fixed at `summarization-v1`
+        // inside `make_openhuman_backend`. DEFAULT_CLOUD_LLM_MODEL is that same
+        // constant — asserted here only as the expected value, not because
+        // `cloud_llm_model` is consumed (it isn't; see the test below).
         assert_eq!(model, DEFAULT_CLOUD_LLM_MODEL);
     }
 
     #[test]
-    fn build_chat_runtime_still_builds_when_cloud_memory_model_is_overridden() {
+    fn build_chat_runtime_ignores_cloud_llm_model_on_managed() {
+        // The managed summarization tier is locked to `summarization-v1`;
+        // `memory_tree.cloud_llm_model` is inert and must not change it (neither a
+        // known tier nor a custom string leaks through).
         let mut cfg = Config::default();
+        cfg.memory_tree.cloud_llm_model = Some("chat-v1".into());
+        let (_provider, model) = build_chat_runtime(&cfg).unwrap();
+        assert_eq!(model, DEFAULT_CLOUD_LLM_MODEL);
+
         cfg.memory_tree.cloud_llm_model = Some("custom-summary-model".into());
         let (_provider, model) = build_chat_runtime(&cfg).unwrap();
-        // Setting memory_tree.cloud_llm_model overrides the cloud-memory
-        // model path; the routing falls back to the platform default
-        // (`reasoning-v1`) rather than the `summarization-v1` tier.
-        assert_eq!(model, "reasoning-v1");
+        assert_eq!(model, DEFAULT_CLOUD_LLM_MODEL);
     }
 
     #[test]

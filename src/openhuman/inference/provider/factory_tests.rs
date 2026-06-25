@@ -396,8 +396,9 @@ fn create_chat_provider_uses_role() {
 // `make_openhuman_backend` only special-cased `vision`, so `hint = "coding"`
 // sub-agents (code_executor, skill_creator, tool_maker) silently ran on
 // `chat-v1` instead of `coding-v1`, and likewise for `agentic`/`reasoning`.
-// (`summarization` is intentionally excluded — see
-// `managed_backend_summarization_role_inherits_default_model`.) This drives
+// (`summarization`/`memory` resolve their tier separately from
+// `memory_tree.cloud_llm_model` — see
+// `managed_backend_summarization_role_resolves_summarization_tier`.) This drives
 // `make_openhuman_backend` directly via the explicit `"openhuman"` provider
 // string.
 #[test]
@@ -424,24 +425,53 @@ fn managed_backend_pins_specialised_role_to_tier() {
     }
 }
 
-// `summarization` is deliberately NOT pinned: the memory subsystem
-// (`memory::chat::build_chat_runtime`) routes the summarization model through
-// `default_model` (sourced from the user-configurable
-// `memory_tree.cloud_llm_model`), so it must keep inheriting `default_model`.
+// The managed `summarization`/`memory` role is fixed at `summarization-v1` (via
+// `summarization_tier_model`), independent of both `config.default_model` and
+// `memory_tree.cloud_llm_model`. This is what makes EVERY managed summarization
+// caller — memory tree, chat-turn payload summarizer, meeting summaries, and
+// `hint = "summarization"` sub-agents — reach the dedicated `summarization-v1`
+// tier without each caller pre-routing `default_model`.
 #[test]
-fn managed_backend_summarization_role_inherits_default_model() {
-    let mut config = Config::default();
-    config.default_model = Some("summarization-v1".to_string());
+fn managed_backend_summarization_role_resolves_summarization_tier() {
+    // Default config: cloud_llm_model defaults to summarization-v1.
+    let config = Config::default();
     let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "summarization-v1");
 
-    // A non-tier custom override is not pinned away — it follows the existing
-    // known-tier validation (unknown → platform default reasoning-v1).
-    config.default_model = Some("custom-summary-model".to_string());
+    // `memory` is an alias of `summarization` (both → memory_provider).
+    let (_, model) = create_chat_provider_from_string("memory", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, "summarization-v1");
+}
+
+// `default_model` does NOT drive the summarization tier any more — only
+// `memory_tree.cloud_llm_model` does. A stray `default_model` must not leak in.
+#[test]
+fn managed_backend_summarization_ignores_default_model() {
+    let mut config = Config::default();
+    config.default_model = Some("reasoning-v1".to_string());
     let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
         .expect("managed backend must build");
-    assert_eq!(model, "reasoning-v1");
+    assert_eq!(model, "summarization-v1");
+}
+
+// The managed summarization tier is LOCKED to `summarization-v1` — the
+// (deprecated, inert) `memory_tree.cloud_llm_model` must not change it, whether
+// set to another known tier or a custom string. Users who want a different model
+// run summarization on a BYOK/local `memory_provider` instead.
+#[test]
+fn managed_backend_summarization_ignores_cloud_llm_model_override() {
+    let mut config = Config::default();
+    config.memory_tree.cloud_llm_model = Some("chat-v1".to_string());
+    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, "summarization-v1");
+
+    config.memory_tree.cloud_llm_model = Some("custom-summary-model".to_string());
+    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, "summarization-v1");
 }
 
 // End-to-end of the sub-agent path: the subagent runner resolves a

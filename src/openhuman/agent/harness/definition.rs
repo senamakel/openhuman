@@ -312,6 +312,57 @@ impl AgentTier {
     }
 }
 
+impl std::fmt::Display for AgentTier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Single source of truth for the spawn-hierarchy rule: is a `parent`-tier
+/// agent allowed to delegate to a `child`-tier agent?
+///
+/// Returns `Ok(())` for the legal handoffs and `Err(reason)` for the three
+/// forbidden shapes, where `reason` is a tier-only human-readable explanation
+/// (no agent ids — callers prepend their own context):
+///
+/// - `Worker → *` — workers are leaf executors and must not spawn anything.
+/// - `Chat → Chat` — the chat tier is a leaf in its own dimension; cloning it
+///   defeats the fast-path and risks unbounded `chat → chat → …` chains.
+/// - `Reasoning → Reasoning` — reasoning agents compose downward into workers,
+///   not into each other (a depth-blowing recursion of slow models).
+///
+/// Note this forbids same-tier and worker-as-parent hops, **not** upward hops:
+/// `reasoning → chat` is a real, intentional builtin edge (the `subconscious`
+/// reasoner can hand a follow-up back to the `orchestrator` chat agent), so it
+/// must stay legal. The harness'es `MAX_SPAWN_DEPTH` cap bounds chain length
+/// independently of tier direction.
+///
+/// This is the static authoring rule the loader walks over declared `subagents`
+/// pairs at boot (see
+/// [`crate::openhuman::agent_registry::agents::validate_tier_hierarchy`]). The
+/// runtime spawn gate (`run_subagent`) reuses it as defense-in-depth, but
+/// deliberately exempts worker *parents* — at runtime a worker only reaches the
+/// spawn chokepoint via the documented collapsed `delegate_to_integrations_agent`
+/// path (→ `integrations_agent`, itself a worker), which the loader intentionally
+/// leaves untouched.
+pub fn validate_tier_transition(parent: AgentTier, child: AgentTier) -> Result<(), String> {
+    match (parent, child) {
+        (AgentTier::Worker, _) => Err(format!(
+            "a `worker` tier agent must not spawn `{}` — workers are leaf executors",
+            child.as_str()
+        )),
+        (AgentTier::Chat, AgentTier::Chat) => Err(
+            "the chat tier is a leaf in its own dimension — hand off to a `reasoning` or \
+             `worker` agent instead"
+                .to_string(),
+        ),
+        (AgentTier::Reasoning, AgentTier::Reasoning) => {
+            Err("reasoning agents compose downward into workers, not into each other".to_string())
+        }
+        _ => Ok(()),
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Subagent delegation entries
 // ─────────────────────────────────────────────────────────────────────────────

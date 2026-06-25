@@ -81,12 +81,52 @@ pub async fn reload_config_snapshot_with_timeout(snapshot: &Config) -> Result<Co
     }
 }
 
-async fn normalize_loaded_config(_config: &mut Config) {
-    // No-op: welcome-agent routing normalization removed. The welcome agent
-    // has been deleted; all chat turns route directly to the orchestrator.
-    // The `chat_onboarding_completed` field in Config is retained for
-    // backward-compatible deserialization of existing config.toml files
-    // but is no longer read by routing logic.
+async fn normalize_loaded_config(config: &mut Config) {
+    // Welcome-agent routing normalization removed (the welcome agent has been
+    // deleted; all chat turns route directly to the orchestrator). The
+    // `chat_onboarding_completed` field is retained only for backward-compatible
+    // deserialization.
+
+    seed_and_enrich_model_registry(config);
+}
+
+/// Populate per-token pricing on the model registry from the static catalog.
+///
+/// Runs on every load and is **in-memory only** — it does not rewrite
+/// `config.toml`. This keeps the user's persisted config clean (the catalog
+/// stays the single source of truth, so price refreshes apply automatically)
+/// while ensuring the Model Health dashboard, cost estimates, and the client
+/// config snapshot see real numbers out of the box.
+///
+/// - Empty registry → seed it with one entry per catalogued model
+///   ([`catalog::default_registry_entries`]).
+/// - Otherwise → backfill any missing (zero) price on each existing entry,
+///   preserving user-supplied prices and the `vision` flag
+///   ([`catalog::enrich_entry`]).
+///
+/// Idempotent: re-running over an already-priced registry is a no-op.
+fn seed_and_enrich_model_registry(config: &mut Config) {
+    use crate::openhuman::cost::catalog;
+
+    if config.model_registry.is_empty() {
+        config.model_registry = catalog::default_registry_entries();
+        log::debug!(
+            "[config] seeded empty model_registry with {} catalogued models (as_of {})",
+            config.model_registry.len(),
+            catalog::PRICING_AS_OF
+        );
+        return;
+    }
+
+    let mut filled = 0usize;
+    for entry in &mut config.model_registry {
+        if catalog::enrich_entry(entry) {
+            filled += 1;
+        }
+    }
+    if filled > 0 {
+        log::debug!("[config] backfilled pricing on {filled} model_registry entries from catalog");
+    }
 }
 
 /// Returns the default workspace directory fallback (~/.openhuman/workspace).
@@ -294,7 +334,10 @@ pub fn client_config_json(config: &Config) -> serde_json::Value {
             serde_json::json!({
                 "id": m.id,
                 "provider": m.provider,
+                "cost_per_1m_input": m.cost_per_1m_input,
+                "cost_per_1m_cached_input": m.cost_per_1m_cached_input,
                 "cost_per_1m_output": m.cost_per_1m_output,
+                "context_window": m.context_window,
                 "vision": m.vision,
             })
         })
@@ -589,6 +632,67 @@ pub async fn get_data_paths() -> Result<RpcOutcome<serde_json::Value>, String> {
             default_openhuman_dir.display()
         )],
     ))
+}
+
+#[cfg(test)]
+mod model_registry_seed_tests {
+    use super::*;
+
+    #[test]
+    fn seeds_empty_registry_from_catalog() {
+        let mut config = Config {
+            model_registry: Vec::new(),
+            ..Default::default()
+        };
+        seed_and_enrich_model_registry(&mut config);
+        assert!(
+            !config.model_registry.is_empty(),
+            "empty registry should be seeded from the catalog"
+        );
+        // Every seeded entry carries pricing + a context window.
+        for entry in &config.model_registry {
+            assert!(entry.cost_per_1m_input > 0.0, "{}", entry.id);
+            assert!(entry.cost_per_1m_output > 0.0, "{}", entry.id);
+            assert!(entry.context_window > 0, "{}", entry.id);
+        }
+    }
+
+    #[test]
+    fn backfills_existing_entries_but_preserves_user_values_and_count() {
+        let mut config = Config {
+            model_registry: vec![
+                // Known model, missing prices → backfilled.
+                crate::openhuman::config::schema::ModelRegistryEntry {
+                    id: "claude-opus-4-8".to_string(),
+                    provider: "anthropic".to_string(),
+                    cost_per_1m_output: 99.0, // user override — must survive
+                    vision: true,
+                    ..Default::default()
+                },
+                // Unknown model → left untouched.
+                crate::openhuman::config::schema::ModelRegistryEntry {
+                    id: "my-byok-model".to_string(),
+                    provider: "custom".to_string(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        seed_and_enrich_model_registry(&mut config);
+
+        assert_eq!(
+            config.model_registry.len(),
+            2,
+            "must not seed when non-empty"
+        );
+        let opus = &config.model_registry[0];
+        assert_eq!(opus.cost_per_1m_input, 5.00, "backfilled");
+        assert_eq!(opus.context_window, 1_000_000, "backfilled");
+        assert_eq!(opus.cost_per_1m_output, 99.0, "user value preserved");
+        let byok = &config.model_registry[1];
+        assert_eq!(byok.cost_per_1m_input, 0.0, "unknown model untouched");
+        assert_eq!(byok.context_window, 0);
+    }
 }
 
 #[cfg(test)]

@@ -9,7 +9,6 @@
 //
 // IndexedDB is best-effort: if it is unavailable (e.g. jsdom under Vitest, or a
 // hardened webview) every helper degrades to a direct fetch with no caching.
-
 import debug from 'debug';
 
 const cacheLog = debug('human:mascot:riv-cache');

@@ -3,7 +3,6 @@
 //
 // Backend: tinyhumansai/backend PR #770. Both endpoints are public
 // (manifests only, no compute) so we skip auth.
-import { loadRivBuffer } from '../features/human/Mascot/rivCache';
 import type {
   GetMascotResponse,
   ListMascotsResponse,
@@ -11,6 +10,7 @@ import type {
   MascotSummary,
   RiveMascotDetail,
 } from '../features/human/Mascot/backend/types';
+import { loadRivBuffer } from '../features/human/Mascot/rivCache';
 import { apiClient } from './apiClient';
 import { getBackendUrl } from './backendUrl';
 

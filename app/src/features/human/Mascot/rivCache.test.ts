@@ -15,10 +15,12 @@ describe('rivCache.loadRivBuffer (version-keyed)', () => {
   });
 
   function mockFetch(buffer: ArrayBuffer) {
-    const fn = vi.fn().mockResolvedValue({
-      ok: true,
-      arrayBuffer: () => Promise.resolve(buffer),
-    } as unknown as Response);
+    const fn = vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(buffer),
+      } as unknown as Response);
     vi.stubGlobal('fetch', fn);
     return fn;
   }

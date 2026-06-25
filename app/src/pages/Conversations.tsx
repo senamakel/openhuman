@@ -98,6 +98,7 @@ import {
 } from './conversations/components/BackgroundProcessesPanel';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
 import { SubagentDrawer } from './conversations/components/SubagentDrawer';
+import { ThreadGoalChip } from './conversations/components/ThreadGoalChip';
 import { ThreadTodoStrip } from './conversations/components/ThreadTodoStrip';
 import { ToolTimelineBlock } from './conversations/components/ToolTimelineBlock';
 import {
@@ -2581,6 +2582,15 @@ const Conversations = ({
             </div>
           );
         })()}
+
+        {/* Thread-scoped goal (Codex-style completion contract) the agent
+            pursues across turns. Pinned above the todo strip; lets the user
+            see status + token budget and set/edit/pause/resume/complete/clear
+            it. Distinct from the todo strip (this thread's task board) and the
+            Intelligence-tab long-term goals list. */}
+        {selectedThreadId && (
+          <ThreadGoalChip key={selectedThreadId} threadId={selectedThreadId} />
+        )}
 
         {/* Thread-scoped todo list the agent maintains as it works — read-only,
             pinned above the composer. Distinct from the Intelligence-tab kanban

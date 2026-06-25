@@ -251,28 +251,27 @@ impl SubconsciousEngine {
         }
 
         // ── Stage 1: memory_diff — how did the agent's world change? ──────────
-        let baseline = store::with_connection(&self.workspace_dir, store::get_baseline_checkpoint_id)
-            .unwrap_or_else(|e| {
-                warn!("[subconscious] baseline load failed: {e}");
-                None
-            });
+        let baseline =
+            store::with_connection(&self.workspace_dir, store::get_baseline_checkpoint_id)
+                .unwrap_or_else(|e| {
+                    warn!("[subconscious] baseline load failed: {e}");
+                    None
+                });
 
         let diff: Option<CrossSourceDiff> = match &baseline {
-            Some(checkpoint_id) => {
-                match crate::openhuman::memory_diff::ops::diff_since_checkpoint(
-                    checkpoint_id,
-                    &config,
-                    false,
-                )
-                .await
-                {
-                    Ok(d) => Some(d),
-                    Err(e) => {
-                        warn!("[subconscious] memory_diff failed (baseline={checkpoint_id}): {e}");
-                        None
-                    }
+            Some(checkpoint_id) => match crate::openhuman::memory_diff::ops::diff_since_checkpoint(
+                checkpoint_id,
+                &config,
+                false,
+            )
+            .await
+            {
+                Ok(d) => Some(d),
+                Err(e) => {
+                    warn!("[subconscious] memory_diff failed (baseline={checkpoint_id}): {e}");
+                    None
                 }
-            }
+            },
             None => {
                 debug!("[subconscious] no world baseline yet — first tick establishes one");
                 None
@@ -313,7 +312,8 @@ impl SubconsciousEngine {
         let prepared_context = self.prepare_context(&world_diff).await;
 
         // ── Stage 3: decide — slim agent acts on diff + prepared context ─────
-        let mut agent_prompt = String::with_capacity(world_diff.len() + prepared_context.len() + 256);
+        let mut agent_prompt =
+            String::with_capacity(world_diff.len() + prepared_context.len() + 256);
         agent_prompt.push_str("## What changed in your world since the last check\n\n");
         agent_prompt.push_str(&world_diff);
         agent_prompt.push_str("\n\n");
@@ -401,7 +401,10 @@ impl SubconsciousEngine {
                 result.output().to_string()
             }
             Ok(result) => {
-                warn!("[subconscious] prepare_context returned an error result: {}", result.output());
+                warn!(
+                    "[subconscious] prepare_context returned an error result: {}",
+                    result.output()
+                );
                 String::new()
             }
             Err(e) => {

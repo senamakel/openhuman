@@ -2596,7 +2596,7 @@ const messages: TranslationMap = {
   'subconscious.providerUnavailableTitle': 'Unterbewusstsein ist pausiert',
   'subconscious.providerSettings': 'KI-Einstellungen',
   'subconscious.scratchpadInfo':
-    'Das Unterbewusstsein führt ein dauerhaftes Notizbuch mit Beobachtungen über Ticks hinweg. Überprüfen Sie Einstellungen → Agentenzugriff, um Modus und Häufigkeit zu konfigurieren.',
+    'Bei jedem Tick prüft das Unterbewusstsein, was sich über Ihre verbundenen Quellen hinweg geändert hat, und erfasst dann Folgeaufgaben auf Ihrer To-do-Liste, aktualisiert Ihre Ziele oder benachrichtigt Sie, wenn etwas Aufmerksamkeit erfordert. Unter Einstellungen → Agentenzugriff können Sie Modus und Häufigkeit konfigurieren.',
   'subconscious.approvalNeeded': 'Genehmigung erforderlich',
   'subconscious.requiresApproval': 'Erfordert eine Genehmigung',
   'subconscious.fixInConnections': 'Fix in Verbindungen',

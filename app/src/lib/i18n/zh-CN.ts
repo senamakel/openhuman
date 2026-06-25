@@ -2416,7 +2416,7 @@ const messages: TranslationMap = {
   'subconscious.providerUnavailableTitle': '潜意识已暂停',
   'subconscious.providerSettings': 'AI 设置',
   'subconscious.scratchpadInfo':
-    '潜意识在每次循环中维护一个持久的观察记事本。请查看设置 → 代理访问来配置模式和频率。',
+    '潜意识在每次循环时检查你已连接来源中发生的变化，然后在待办事项列表中记录后续事项、更新你的目标，或在有需要关注的事情时通知你。请前往设置 → 代理访问来配置模式和频率。',
   'subconscious.approvalNeeded': '需要审批',
   'subconscious.requiresApproval': '需要审批',
   'subconscious.fixInConnections': '在连接中修复',

@@ -2538,7 +2538,7 @@ const messages: TranslationMap = {
   'subconscious.providerUnavailableTitle': 'Subconscious dijeda',
   'subconscious.providerSettings': 'Pengaturan AI',
   'subconscious.scratchpadInfo':
-    'Alam bawah sadar memelihara catatan pengamatan yang persisten di seluruh siklus. Periksa Pengaturan → Akses agen untuk mengonfigurasi mode dan frekuensi.',
+    'Pada setiap siklus, alam bawah sadar memeriksa apa yang berubah di seluruh sumber yang terhubung, lalu mencatat tindak lanjut di daftar tugas Anda, memperbarui sasaran Anda, atau memberi tahu Anda saat ada sesuatu yang perlu diperhatikan. Periksa Pengaturan → Akses agen untuk mengonfigurasi mode dan frekuensi.',
   'subconscious.approvalNeeded': 'Persetujuan Diperlukan',
   'subconscious.requiresApproval': 'Memerlukan persetujuan',
   'subconscious.fixInConnections': 'Perbaiki di Koneksi',

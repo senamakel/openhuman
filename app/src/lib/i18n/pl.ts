@@ -2561,7 +2561,7 @@ const messages: TranslationMap = {
   'subconscious.providerUnavailableTitle': 'Podświadomość wstrzymana',
   'subconscious.providerSettings': 'Ustawienia AI',
   'subconscious.scratchpadInfo':
-    'Podświadomość utrzymuje trwały notatnik obserwacji między cyklami. Sprawdź Ustawienia → Dostęp agenta, aby skonfigurować tryb i częstotliwość.',
+    'Przy każdym cyklu podświadomość sprawdza, co się zmieniło w połączonych źródłach, a następnie zapisuje zadania na Twojej liście rzeczy do zrobienia, aktualizuje Twoje cele lub powiadamia Cię, gdy coś wymaga uwagi. Sprawdź Ustawienia → Dostęp agenta, aby skonfigurować tryb i częstotliwość.',
   'subconscious.approvalNeeded': 'Wymagana zgoda',
   'subconscious.requiresApproval': 'Wymaga zgody',
   'subconscious.fixInConnections': 'Napraw w Połączeniach',

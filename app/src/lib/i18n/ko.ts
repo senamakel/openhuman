@@ -2511,7 +2511,7 @@ const messages: TranslationMap = {
   'subconscious.providerUnavailableTitle': 'Subconscious 일시 중지됨',
   'subconscious.providerSettings': 'AI 설정',
   'subconscious.scratchpadInfo':
-    '잠재의식은 틱 전반에 걸쳐 관찰 사항의 영구 메모장을 유지합니다. 모드와 빈도를 구성하려면 설정 → 에이전트 접근을 확인하세요.',
+    '잠재의식은 매 틱마다 연결된 소스에서 무엇이 바뀌었는지 확인한 뒤, 할 일 목록에 후속 작업을 기록하거나 목표를 업데이트하거나 주의가 필요한 일이 생기면 알려줍니다. 모드와 빈도를 구성하려면 설정 → 에이전트 접근을 확인하세요.',
   'subconscious.approvalNeeded': '승인 필요',
   'subconscious.requiresApproval': '승인이 필요함',
   'subconscious.fixInConnections': '연결에서 수정',

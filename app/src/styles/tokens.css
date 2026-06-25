@@ -14,7 +14,7 @@
  * as inline `--token` vars on <html>, overriding both blocks at runtime — so
  * presets and fully-custom user themes are the same mechanism.
  *
- * Values here are byte-identical to the previous --cmd-*/--color-* blocks and
+ * Values here are byte-identical to the previous --cmd and --color blocks and
  * the tailwind.config.js palette hexes, so adopting tokens is colour-neutral
  * until a user actually changes a theme.
  */

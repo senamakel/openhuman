@@ -161,7 +161,7 @@
   /* Button variants for consistent interaction design */
   .btn-primary {
     @apply bg-primary-500 hover:bg-primary-600 active:bg-primary-700;
-    @apply text-white font-medium;
+    @apply text-content-inverted font-medium;
     @apply px-4 py-2 rounded-lg;
     @apply transition-all duration-200 ease-in-out;
     @apply shadow-soft hover:shadow-medium;
@@ -170,16 +170,16 @@
   }
 
   .btn-secondary {
-    @apply bg-stone-900 hover:bg-stone-800 active:bg-stone-700;
-    @apply text-white font-medium;
-    @apply px-4 py-2 rounded-lg border border-stone-300;
+    @apply bg-surface hover:bg-surface-hover active:bg-surface-strong;
+    @apply text-content font-medium;
+    @apply px-4 py-2 rounded-lg border border-line-strong;
     @apply transition-all duration-200 ease-in-out;
     @apply focus:outline-none;
   }
 
   .btn-success {
     @apply bg-sage-500 hover:bg-sage-600 active:bg-sage-700;
-    @apply text-white font-medium;
+    @apply text-content-inverted font-medium;
     @apply px-4 py-2 rounded-lg;
     @apply transition-all duration-200 ease-in-out;
     @apply shadow-soft hover:shadow-medium;
@@ -188,7 +188,7 @@
 
   .btn-danger {
     @apply bg-coral-500 hover:bg-coral-600 active:bg-coral-700;
-    @apply text-white font-medium;
+    @apply text-content-inverted font-medium;
     @apply px-4 py-2 rounded-lg;
     @apply transition-all duration-200 ease-in-out;
     @apply shadow-soft hover:shadow-medium;
@@ -197,8 +197,8 @@
 
   /* Card components for content organization */
   .card {
-    @apply bg-white rounded-xl shadow-soft border border-stone-200;
-    @apply p-6 text-stone-900;
+    @apply bg-surface rounded-xl shadow-soft border border-line;
+    @apply p-6 text-content;
     @apply transition-shadow duration-200;
   }
 
@@ -224,8 +224,8 @@
   /* Input components with consistent styling */
   .input-primary {
     @apply w-full px-4 py-3 rounded-lg;
-    @apply border border-stone-200 focus:border-primary-500;
-    @apply bg-white text-stone-900 placeholder-stone-400;
+    @apply border border-line focus:border-primary-500;
+    @apply bg-surface text-content placeholder-content-faint;
     @apply transition-colors duration-200;
     @apply focus:outline-none;
   }
@@ -238,7 +238,7 @@
 
   .status-offline {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-    @apply bg-stone-100 text-stone-600;
+    @apply bg-surface-subtle text-content-secondary;
   }
 
   .status-warning {
@@ -249,12 +249,12 @@
   /* Navigation styles */
   .nav-item {
     @apply flex items-center px-4 py-2 text-sm font-medium rounded-lg;
-    @apply text-stone-600 hover:text-stone-900 hover:bg-stone-100;
+    @apply text-content-secondary hover:text-content hover:bg-surface-hover;
     @apply transition-colors duration-150;
   }
 
   .nav-item-active {
-    @apply nav-item bg-stone-100 text-stone-900;
+    @apply nav-item bg-surface-subtle text-content;
   }
 
   /* Message/chat specific styles */
@@ -268,12 +268,12 @@
   }
 
   .message-received {
-    @apply message-bubble bg-stone-200/80 text-stone-900;
+    @apply message-bubble bg-surface-strong text-content;
   }
 
   /* Loading states */
   .loading-pulse {
-    @apply animate-pulse bg-stone-100 rounded;
+    @apply animate-pulse bg-surface-subtle rounded;
   }
 
   /* Crypto price styling */
@@ -290,61 +290,19 @@
   }
 
   /* ============================================
-     Dark-mode overrides for @apply'd component classes
+     Dark-mode overrides for @apply'd component classes.
+     Most classes are now token-driven (semantic surface/content/line) and flip
+     automatically, so only the tinted status badges — which keep a light accent
+     tint in light mode — still need an explicit dark override.
      ============================================ */
-  :root.dark .card,
-  :root.dark .card-hover {
-    background-color: theme('colors.neutral.900');
-    border-color: theme('colors.neutral.800');
-    color: theme('colors.neutral.100');
-  }
-
-  :root.dark .input-primary {
-    background-color: theme('colors.neutral.900');
-    border-color: theme('colors.neutral.700');
-    color: theme('colors.neutral.100');
-  }
-
-  :root.dark .input-primary::placeholder {
-    color: theme('colors.neutral.500');
-  }
-
   :root.dark .status-online {
     background-color: rgba(52, 199, 89, 0.15);
     color: theme('colors.sage.300');
   }
 
-  :root.dark .status-offline {
-    background-color: theme('colors.neutral.800');
-    color: theme('colors.neutral.300');
-  }
-
   :root.dark .status-warning {
     background-color: rgba(232, 167, 40, 0.15);
     color: theme('colors.amber.300');
-  }
-
-  :root.dark .nav-item {
-    color: theme('colors.neutral.400');
-  }
-
-  :root.dark .nav-item:hover {
-    color: theme('colors.neutral.100');
-    background-color: theme('colors.neutral.800');
-  }
-
-  :root.dark .nav-item-active {
-    background-color: theme('colors.neutral.800');
-    color: theme('colors.neutral.100');
-  }
-
-  :root.dark .message-received {
-    background-color: theme('colors.neutral.800');
-    color: theme('colors.neutral.100');
-  }
-
-  :root.dark .loading-pulse {
-    background-color: theme('colors.neutral.800');
   }
 }
 
@@ -390,14 +348,14 @@
   /* Glass effect for light theme */
   .glass {
     backdrop-filter: blur(12px);
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    /* Themeable: surface tint + line border follow the active theme. */
+    background: rgb(var(--surface) / 0.8);
+    border: 1px solid rgb(var(--line) / 0.6);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   :root.dark .glass {
-    background: rgba(23, 23, 23, 0.7);
-    border-color: rgba(255, 255, 255, 0.08);
+    /* Only the shadow needs a darker variant; colours come from the tokens. */
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 

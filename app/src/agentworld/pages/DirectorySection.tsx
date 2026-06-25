@@ -237,7 +237,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
         CARD_CLASS,
         selected
           ? 'border-primary-400 ring-1 ring-primary-400 dark:border-primary-500'
-          : 'hover:border-stone-300 dark:hover:border-line-strong',
+          : 'hover:border-line-strong dark:hover:border-line-strong',
       ].join(' ')}
       onClick={() => setSelected(s => !s)}
       onKeyDown={e => {

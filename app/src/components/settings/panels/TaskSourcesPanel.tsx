@@ -505,7 +505,7 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
         ) : sources.length === 0 ? (
           <SettingsEmptyState label={t('settings.taskSources.empty')} />
         ) : (
-          <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+          <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
             {sources.map(source => (
               <li
                 key={source.id}

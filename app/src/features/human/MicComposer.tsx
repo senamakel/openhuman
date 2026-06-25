@@ -731,7 +731,7 @@ export function MicComposer({
                 setDeviceMenuOpen(open => !open);
               }}
               disabled={state !== 'idle'}
-              className="w-8 h-8 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary hover:border-stone-300 dark:hover:border-neutral-600 transition-colors shadow-soft disabled:opacity-40 disabled:cursor-not-allowed">
+              className="w-8 h-8 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary hover:border-line-strong dark:hover:border-neutral-600 transition-colors shadow-soft disabled:opacity-40 disabled:cursor-not-allowed">
               <svg
                 className="w-4 h-4"
                 fill="none"
@@ -821,7 +821,7 @@ export function MicComposer({
             title={t('chat.switchToText')}
             onClick={onSwitchToText}
             disabled={state !== 'idle'}
-            className="w-8 h-8 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary hover:border-stone-300 dark:hover:border-neutral-600 transition-colors shadow-soft disabled:opacity-40 disabled:cursor-not-allowed">
+            className="w-8 h-8 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary hover:border-line-strong dark:hover:border-neutral-600 transition-colors shadow-soft disabled:opacity-40 disabled:cursor-not-allowed">
             <svg
               className="w-4 h-4"
               fill="none"

@@ -21,7 +21,7 @@ const EmptyStateCard = ({
 }: EmptyStateCardProps) => {
   return (
     <div
-      className={`flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-stone-50/80 dark:bg-surface/80 px-6 py-16 text-center ${className}`.trim()}>
+      className={`flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface-muted/80 dark:bg-surface/80 px-6 py-16 text-center ${className}`.trim()}>
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 dark:bg-primary-500/10">
         {icon}
       </div>

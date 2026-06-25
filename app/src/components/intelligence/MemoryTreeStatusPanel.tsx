@@ -279,7 +279,7 @@ function IntegrationHealthStrip({
         </div>
       ) : (
         <ul
-          className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-line bg-stone-50/40 dark:bg-surface-muted/30 p-2"
+          className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-line bg-surface-muted/40 dark:bg-surface-muted/30 p-2"
           aria-label={t('memoryTree.status.integrationsTitle')}>
           {integrations.map(row => {
             const health = classifyIntegration(row.freshness);
@@ -292,7 +292,7 @@ function IntegrationHealthStrip({
               <li
                 key={row.provider}
                 data-testid={`memory-tree-integration-row-${row.provider}`}
-                className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-stone-100/60 dark:hover:bg-surface-muted/60">
+                className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-surface-subtle/60 dark:hover:bg-surface-muted/60">
                 <div className="flex min-w-0 items-center gap-2">
                   <span aria-hidden className="text-base leading-none">
                     {providerIconChar(row.provider)}

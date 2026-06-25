@@ -99,7 +99,7 @@ const ProfilesPanel = () => {
           )
         ) : (
           <SettingsSection>
-            <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
               {profiles.map(profile => {
                 const isActive = profile.id === activeId;
                 return (

@@ -109,7 +109,7 @@ export default function SkillResourceTree({ resources, selectedPath, onSelect }:
               {group.items.length}
             </span>
           </div>
-          <ul className="divide-y divide-stone-100 dark:divide-neutral-800">
+          <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
             {group.items.map(path => {
               const isSelected = selectedPath === path;
               return (

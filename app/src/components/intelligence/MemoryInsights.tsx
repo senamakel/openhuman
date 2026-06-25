@@ -140,7 +140,7 @@ function useInsightCategoryLabels() {
 /** Small inline badge that displays an entity type (e.g. "person", "project"). */
 function EntityTypeBadge({ type }: { type: string }) {
   return (
-    <span className="inline-block ml-1 px-1 py-px rounded text-[9px] leading-tight font-medium bg-white/8 text-content-faint border border-white/6 uppercase tracking-wide">
+    <span className="inline-block ml-1 px-1 py-px rounded text-[9px] leading-tight font-medium bg-surface/8 text-content-faint border border-white/6 uppercase tracking-wide">
       {type}
     </span>
   );

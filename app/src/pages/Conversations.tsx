@@ -1791,7 +1791,7 @@ const Conversations = ({
         data-analytics-id="chat-sidebar-new-thread"
         onClick={() => void handleCreateNewThread()}
         title={t('chat.newThreadShortcut')}
-        className="group w-full cursor-pointer border-b border-stone-100/60 opacity-50 px-3 py-2 transition-colors hover:bg-surface-hover dark:border-line/60">
+        className="group w-full cursor-pointer border-b border-line-subtle/60 opacity-50 px-3 py-2 transition-colors hover:bg-surface-hover dark:border-line/60">
         <div className="flex items-center justify-center gap-1.5">
           <svg
             className="h-3.5 w-3.5 flex-shrink-0 text-content-muted"
@@ -1836,7 +1836,7 @@ const Conversations = ({
                   }
                 }
               }}
-              className={`w-full text-left px-3 py-1.5 border-b border-stone-100/60 dark:border-line/60 transition-colors group cursor-pointer ${
+              className={`w-full text-left px-3 py-1.5 border-b border-line-subtle/60 dark:border-line/60 transition-colors group cursor-pointer ${
                 selectedThreadId === thread.id
                   ? 'bg-primary-50 dark:bg-primary-900/30 border-l-2 border-l-primary-500'
                   : 'hover:bg-surface-hover'
@@ -1894,7 +1894,7 @@ const Conversations = ({
                   }}
                   aria-label={t('chat.editThreadTitle')}
                   title={t('chat.editThreadTitle')}
-                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-surface-muted dark:hover:bg-surface-muted text-content-faint hover:text-primary-500 transition-all flex-shrink-0">
+                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-surface-strong dark:bg-surface-muted dark:hover:bg-surface-muted text-content-faint hover:text-primary-500 transition-all flex-shrink-0">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -1928,7 +1928,7 @@ const Conversations = ({
                       onCancel: () => {},
                     });
                   }}
-                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-surface-muted dark:hover:bg-surface-muted text-content-faint hover:text-coral-500 transition-all flex-shrink-0"
+                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-surface-strong dark:bg-surface-muted dark:hover:bg-surface-muted text-content-faint hover:text-coral-500 transition-all flex-shrink-0"
                   title={t('chat.deleteThread')}>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -2127,7 +2127,7 @@ const Conversations = ({
                                             type="button"
                                             data-analytics-id="chat-message-reaction-close"
                                             onClick={() => setReactionPickerMsgId(null)}
-                                            className="ml-0.5 px-0.5 text-xs text-content-secondary hover:text-stone-400 dark:hover:text-content-faint">
+                                            className="ml-0.5 px-0.5 text-xs text-content-secondary hover:text-content-faint dark:hover:text-content-faint">
                                             ✕
                                           </button>
                                         </div>
@@ -2306,11 +2306,11 @@ const Conversations = ({
                 (selectedStreamingAssistant?.thinking.length ?? 0) > 0
               ) && (
                 <div className="flex justify-start">
-                  <div className="bg-stone-200/80 dark:bg-surface-muted rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="bg-surface-strong/80 dark:bg-surface-muted rounded-2xl rounded-bl-md px-4 py-3">
                     <div className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-surface-muted/600 animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-surface-muted/600 animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-surface-muted/600 animate-bounce [animation-delay:300ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-surface-muted dark:bg-surface-muted/600 animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-surface-muted dark:bg-surface-muted/600 animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-surface-muted dark:bg-surface-muted/600 animate-bounce [animation-delay:300ms]" />
                     </div>
                   </div>
                 </div>
@@ -2338,7 +2338,7 @@ const Conversations = ({
                     )}
                     {selectedStreamingAssistant.content.length > 0 &&
                       (selectedThreadToolTimeline.length === 0 || hideAgentInsights) && (
-                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-surface-muted text-content">
+                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-surface-strong/80 dark:bg-surface-muted text-content">
                           <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
                             {selectedStreamingAssistant.content.length >
                               STREAMING_PREVIEW_CHARS && (
@@ -2365,7 +2365,7 @@ const Conversations = ({
                         <span>{t('chat.parallelBranchLabel')}</span>
                       </div>
                       {branch.content.length > 0 && (
-                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-surface-muted text-content border-l-2 border-primary-400/60">
+                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-surface-strong/80 dark:bg-surface-muted text-content border-l-2 border-primary-400/60">
                           <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
                             {branch.content.length > STREAMING_PREVIEW_CHARS && (
                               <span className="text-content-faint">…</span>
@@ -2525,7 +2525,7 @@ const Conversations = ({
                   onClick={() => {
                     void handleUseOpenRouterFree();
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-coral-300 bg-white text-coral-700 hover:bg-coral-100 disabled:cursor-wait disabled:opacity-70 text-xs font-medium transition-colors">
+                  className="px-3 py-1.5 rounded-lg border border-coral-300 bg-surface text-coral-700 hover:bg-coral-100 disabled:cursor-wait disabled:opacity-70 text-xs font-medium transition-colors">
                   {openRouterStatus === 'saving'
                     ? t('openrouterFree.saving')
                     : t('openrouterFree.cta')}
@@ -2792,7 +2792,7 @@ const Conversations = ({
               data-analytics-id="chat-voice-switch-to-text"
               onClick={() => setInputMode('text')}
               disabled={isRecording || isTranscribing}
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-line-strong transition-colors disabled:opacity-40"
+              className="w-10 h-10 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-line-strong dark:hover:border-line-strong transition-colors disabled:opacity-40"
               title={t('chat.switchToText')}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -2952,7 +2952,7 @@ const Conversations = ({
       className={
         isSidebar
           ? 'h-full relative z-10 flex overflow-hidden'
-          : 'h-full relative z-10 flex justify-center overflow-hidden bg-white/70 dark:bg-black/40'
+          : 'h-full relative z-10 flex justify-center overflow-hidden bg-surface/70 dark:bg-black/40'
       }>
       {isSidebar ? (
         <>

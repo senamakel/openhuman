@@ -612,7 +612,7 @@ function JobRow({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-surface-muted/50">
+        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50">
         <ClientAvatar
           avatarUrl={job.clientProfile.avatarUrl ?? undefined}
           displayName={job.clientProfile.displayName}
@@ -634,7 +634,7 @@ function JobRow({
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-content-muted">
             <span className="truncate">{displayClientName(job.clientProfile.displayName)}</span>
             {job.clientProfile.verified && <VerifiedBadge />}
-            <span className="text-stone-300 dark:text-neutral-600">·</span>
+            <span className="text-content-faint dark:text-neutral-600">·</span>
             <span className="whitespace-nowrap font-medium text-content-secondary">
               {budgetLabel}
             </span>
@@ -1006,7 +1006,7 @@ function JobRow({
                         <span className="font-mono text-content-secondary">
                           {p.candidate.slice(0, 8)}…
                         </span>
-                        <span className="text-stone-500 dark:text-content-faint">{p.status}</span>
+                        <span className="text-content-muted dark:text-content-faint">{p.status}</span>
                         {p.bidAmount && (
                           <span className="font-medium text-content">
                             {p.bidAmount}

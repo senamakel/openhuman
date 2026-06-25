@@ -98,7 +98,7 @@ export default function FeedbackComments({ feedbackId, onCommentAdded }: Feedbac
             return (
               <li
                 key={comment.id}
-                className="rounded-xl bg-neutral-50 px-3 py-2 dark:bg-white/[0.03]">
+                className="rounded-xl bg-surface-muted px-3 py-2 dark:bg-white/[0.03]">
                 <div className="flex items-center gap-2 text-xs text-content-faint">
                   <span className="font-medium text-content-secondary">
                     {isMine
@@ -125,7 +125,7 @@ export default function FeedbackComments({ feedbackId, onCommentAdded }: Feedbac
           placeholder={t('feedback.comments.placeholder')}
           disabled={posting}
           rows={2}
-          className="flex-1 resize-y rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-content placeholder:text-neutral-400 transition-all focus:border-primary-500/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-line-strong dark:bg-white/[0.03] dark:placeholder:text-neutral-500"
+          className="flex-1 resize-y rounded-xl border border-line bg-surface-muted px-3 py-2 text-sm text-content placeholder:text-neutral-400 transition-all focus:border-primary-500/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-line-strong dark:bg-white/[0.03] dark:placeholder:text-neutral-500"
         />
         <Button
           variant="primary"

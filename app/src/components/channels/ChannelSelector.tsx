@@ -77,7 +77,7 @@ const ChannelSelector = ({
               className={`flex-1 flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm transition-colors ${
                 isSelected
                   ? 'border-primary-500/60 bg-primary-50 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300'
-                  : 'border-line bg-surface-muted text-content-secondary hover:border-stone-300 dark:hover:border-line-strong'
+                  : 'border-line bg-surface-muted text-content-secondary hover:border-line-strong dark:hover:border-line-strong'
               }`}>
               <span className="flex items-center gap-2">
                 {renderChannelIcon(def.icon)}
@@ -99,7 +99,7 @@ const ChannelSelector = ({
               className={`flex-1 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm transition-colors ${
                 isSelected
                   ? 'border-primary-500/60 bg-primary-50 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300'
-                  : 'border-line bg-surface-muted text-content-secondary hover:border-stone-300 dark:hover:border-line-strong'
+                  : 'border-line bg-surface-muted text-content-secondary hover:border-line-strong dark:hover:border-line-strong'
               }`}>
               {renderChannelIcon(tab.id)}
               <span className="font-medium">{tab.display_name}</span>

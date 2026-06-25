@@ -504,7 +504,7 @@ const DevWorkflowPanel = () => {
       description={t('settings.developerMenu.devWorkflow.desc')}>
       <div className="flex flex-col gap-5">
         {/* Description */}
-        <p className="text-sm text-neutral-600 dark:text-content-muted">
+        <p className="text-sm text-content-secondary dark:text-content-muted">
           {t('settings.developerMenu.devWorkflow.panelDesc')}
         </p>
 
@@ -611,7 +611,7 @@ const DevWorkflowPanel = () => {
                 <div className="text-xs font-medium text-content-muted mb-1">
                   {t('settings.devWorkflow.lastOutput')}
                 </div>
-                <pre className="px-3 py-2 rounded-md bg-surface-subtle border border-neutral-200 dark:border-line-strong text-[11px] text-content-secondary font-mono whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
+                <pre className="px-3 py-2 rounded-md bg-surface-subtle border border-line dark:border-line-strong text-[11px] text-content-secondary font-mono whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
                   {existingJob.last_output}
                 </pre>
               </div>
@@ -622,7 +622,7 @@ const DevWorkflowPanel = () => {
                 <button
                   type="button"
                   onClick={() => setHistoryExpanded(!historyExpanded)}
-                  className="text-xs text-content-muted hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors">
+                  className="text-xs text-content-muted hover:text-content-secondary dark:hover:text-neutral-200 transition-colors">
                   {historyExpanded ? '▾' : '▸'} {t('settings.devWorkflow.recentRuns')} (
                   {runHistory.length})
                 </button>
@@ -633,18 +633,18 @@ const DevWorkflowPanel = () => {
                         <button
                           type="button"
                           onClick={() => setExpandedRunId(expandedRunId === run.id ? null : run.id)}
-                          className="w-full flex items-center justify-between px-2 py-1.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-750 rounded transition-colors">
+                          className="w-full flex items-center justify-between px-2 py-1.5 text-xs hover:bg-surface-muted dark:hover:bg-neutral-750 rounded transition-colors">
                           <div className="flex items-center gap-2">
-                            <span className="text-neutral-400">
+                            <span className="text-content-faint">
                               {expandedRunId === run.id ? '▾' : '▸'}
                             </span>
-                            <span className="text-neutral-600 dark:text-content-muted">
+                            <span className="text-content-secondary dark:text-content-muted">
                               {new Date(run.started_at).toLocaleString()}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
                             {run.duration_ms != null && (
-                              <span className="text-neutral-500 dark:text-content-faint">
+                              <span className="text-content-muted dark:text-content-faint">
                                 {(run.duration_ms / 1000).toFixed(1)}s
                               </span>
                             )}
@@ -659,7 +659,7 @@ const DevWorkflowPanel = () => {
                           </div>
                         </button>
                         {expandedRunId === run.id && run.output && (
-                          <pre className="mx-2 mb-2 px-3 py-2 rounded-md bg-neutral-100 dark:bg-surface border border-neutral-200 dark:border-line-strong text-[11px] text-content-secondary font-mono whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
+                          <pre className="mx-2 mb-2 px-3 py-2 rounded-md bg-surface-subtle dark:bg-surface border border-line dark:border-line-strong text-[11px] text-content-secondary font-mono whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
                             {run.output}
                           </pre>
                         )}
@@ -730,8 +730,8 @@ const DevWorkflowPanel = () => {
               </div>
             )}
             {selectedRepo && !forkLoading && !forkInfo && (
-              <div className="px-3 py-2 rounded-md bg-surface-muted border border-neutral-200 dark:border-line-strong">
-                <div className="text-xs text-neutral-600 dark:text-content-muted">
+              <div className="px-3 py-2 rounded-md bg-surface-muted border border-line dark:border-line-strong">
+                <div className="text-xs text-content-secondary dark:text-content-muted">
                   {t('settings.devWorkflow.notForkNote')}
                 </div>
               </div>

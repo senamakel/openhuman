@@ -218,7 +218,7 @@ const AgentEditorPage = () => {
         // Built-in agents can't be edited; they may only be enabled/disabled
         // or reset from the agents list.
         <div className="space-y-3">
-          <div className="rounded-lg border border-line bg-neutral-50 px-4 py-3 text-sm text-content-secondary dark:bg-surface">
+          <div className="rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-content-secondary dark:bg-surface">
             {t('settings.agents.editor.builtInReadonly')}
           </div>
           <Button type="button" variant="secondary" size="sm" onClick={backToList}>
@@ -380,7 +380,7 @@ const AgentEditorPage = () => {
               description={t('settings.agents.editor.toolsHint')}
               stacked
               control={
-                <div className="rounded-md border border-neutral-200 p-2 dark:border-line-strong">
+                <div className="rounded-md border border-line p-2 dark:border-line-strong">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {allToolsSelected ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-ocean-50 px-2.5 py-1 text-xs font-medium text-ocean-700 dark:bg-ocean-500/10 dark:text-ocean-200">
@@ -564,7 +564,7 @@ function ToolsPickerModal({
             className={`mt-2 flex w-full items-start justify-between gap-2 rounded-md border px-3 py-2 text-left transition-colors ${
               allToolsSelected
                 ? 'border-ocean-400 bg-ocean-50 dark:border-ocean-500/40 dark:bg-ocean-500/10'
-                : 'border-neutral-200 hover:bg-surface-hover dark:border-line-strong'
+                : 'border-line hover:bg-surface-hover dark:border-line-strong'
             }`}>
             <span>
               <span className="block text-xs font-semibold text-content">
@@ -636,7 +636,7 @@ function Checkbox({ checked, className = '' }: { checked: boolean; className?: s
       className={`flex h-4 w-4 flex-none items-center justify-center rounded border transition-colors ${
         checked
           ? 'border-ocean-600 bg-ocean-600 text-white'
-          : 'border-neutral-300 bg-white dark:border-neutral-600 dark:bg-surface-canvas'
+          : 'border-line-strong bg-surface dark:border-neutral-600 dark:bg-surface-canvas'
       } ${className}`}>
       {checked && (
         <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">

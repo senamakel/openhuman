@@ -75,10 +75,10 @@ export default function AppSidebar() {
         onClick={handleFeedbackClick}
         title={t('nav.feedback')}
         aria-current={feedbackActive ? 'page' : undefined}
-        className={`group flex flex-shrink-0 items-center justify-center gap-2 border-t border-stone-200/70 px-3 py-1 text-[11px] transition-colors cursor-pointer dark:border-line/70 ${
+        className={`group flex flex-shrink-0 items-center justify-center gap-2 border-t border-line/70 px-3 py-1 text-[11px] transition-colors cursor-pointer dark:border-line/70 ${
           feedbackActive
             ? 'bg-surface text-content font-medium'
-            : 'text-content-muted hover:bg-stone-200/70 hover:text-content-secondary dark:hover:bg-surface-muted/60'
+            : 'text-content-muted hover:bg-surface-strong/70 hover:text-content-secondary dark:hover:bg-surface-muted/60'
         }`}>
         <NavIcon id="feedback" className="h-3.5 w-3.5 flex-shrink-0" />
         <span className="min-w-0 truncate">{t('nav.feedback')}</span>

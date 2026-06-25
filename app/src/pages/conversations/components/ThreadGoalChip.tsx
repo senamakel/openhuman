@@ -60,7 +60,7 @@ function statusClasses(status: ThreadGoalStatus): string {
     case 'complete':
       return 'bg-sage-50 text-sage-700 dark:bg-sage-900/40 dark:text-sage-200';
     default:
-      return 'bg-stone-100 text-stone-600';
+      return 'bg-surface-subtle text-content-secondary';
   }
 }
 
@@ -206,7 +206,7 @@ export function ThreadGoalFooterTrigger({
       aria-expanded={ctl.expanded}
       title={ctl.goal.objective}
       className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs hover:bg-surface-hover">
-      <span aria-hidden className="shrink-0 text-stone-400">
+      <span aria-hidden className="shrink-0 text-content-faint">
         ◎
       </span>
       <span

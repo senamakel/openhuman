@@ -57,7 +57,7 @@ export default function FeedbackItemRow({
   const avatarInitial = (item.createdByName?.trim() || handle).charAt(0).toUpperCase();
 
   return (
-    <div className="group flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-neutral-300 hover:shadow-soft dark:hover:border-line-strong">
+    <div className="group flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-line-strong hover:shadow-soft dark:hover:border-line-strong">
       <FeedbackVoteControl item={item} onVoted={onChange} />
 
       <div className="min-w-0 flex-1">

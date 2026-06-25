@@ -352,7 +352,7 @@ function ChannelTile({
               data-testid={setDefaultTestId}
               onClick={onSetDefault}
               disabled={setDefaultBusy}
-              className="inline-flex items-center justify-center rounded-lg border border-line bg-white/70 px-2.5 py-1 text-[11px] font-medium text-content-muted transition-colors hover:border-primary-300 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface/60 dark:hover:border-primary-500/40 dark:hover:text-primary-300">
+              className="inline-flex items-center justify-center rounded-lg border border-line bg-surface/70 px-2.5 py-1 text-[11px] font-medium text-content-muted transition-colors hover:border-primary-300 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface/60 dark:hover:border-primary-500/40 dark:hover:text-primary-300">
               {t('channels.setAsDefault')}
             </button>
           )}

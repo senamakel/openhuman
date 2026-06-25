@@ -112,7 +112,7 @@ export default function IntelligenceWorktreesTab() {
         </div>
       ) : null}
 
-      <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
+      <ul className="divide-y divide-line-subtle overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
         {data.worktrees.map(wt => (
           <li key={wt.path} className="space-y-2 p-3" data-testid="worktree-row">
             <div className="flex flex-wrap items-center gap-2">

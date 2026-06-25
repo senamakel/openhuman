@@ -213,7 +213,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
           <p className="text-content-secondary">{helpText}</p>
 
           <code
-            className="mt-2 block break-all rounded bg-white/70 px-2 py-1 font-mono text-xs
+            className="mt-2 block break-all rounded bg-surface/70 px-2 py-1 font-mono text-xs
                        text-content-secondary dark:bg-surface/60"
             data-testid="obsidian-vault-path">
             {contentRootAbs}
@@ -227,7 +227,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
               type="button"
               onClick={openAnyway}
               data-testid="obsidian-open-anyway"
-              className="rounded-md border border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold
+              className="rounded-md border border-violet-300 bg-surface px-3 py-1.5 text-xs font-semibold
                          text-violet-700 hover:bg-violet-50 dark:border-violet-500/40
                          dark:bg-surface-muted dark:text-violet-300">
               {t('workspace.openAnyway')}
@@ -265,8 +265,8 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
                   placeholder={t('workspace.obsidianConfigDirPlaceholder')}
                   spellCheck={false}
                   data-testid="obsidian-config-dir-input"
-                  className="flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 font-mono text-xs
-                             text-neutral-800 focus:outline-none focus:ring-1 focus:ring-violet-300
+                  className="flex-1 rounded-md border border-line-strong bg-surface px-2 py-1 font-mono text-xs
+                             text-content focus:outline-none focus:ring-1 focus:ring-violet-300
                              dark:border-neutral-600 dark:bg-surface dark:text-content"
                 />
                 <button

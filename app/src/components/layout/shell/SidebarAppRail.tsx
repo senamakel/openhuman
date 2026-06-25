@@ -232,7 +232,7 @@ export default function SidebarAppRail() {
           onClick={selectAgent}
           tooltip={t('accounts.agent')}
           analyticsId="sidebar-app-rail-agent">
-          <AgentIcon className="h-5 w-5 rounded-md bg-white dark:bg-neutral-200" />
+          <AgentIcon className="h-5 w-5 rounded-md bg-surface dark:bg-neutral-200" />
         </RailButton>
 
         {accounts.map(acct => (

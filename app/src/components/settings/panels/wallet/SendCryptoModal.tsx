@@ -192,7 +192,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
           <p className="text-xs text-content-muted leading-relaxed">
             {t('walletSend.confirmHint')}
           </p>
-          <dl className="rounded-xl border border-line divide-y divide-stone-100 dark:divide-neutral-800 text-xs">
+          <dl className="rounded-xl border border-line divide-y divide-line-subtle dark:divide-neutral-800 text-xs">
             <div className="flex items-center justify-between px-3 py-2">
               <dt className="text-content-muted">{t('walletSend.amount')}</dt>
               <dd className="font-mono font-medium text-content">

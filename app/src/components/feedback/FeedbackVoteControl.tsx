@@ -63,7 +63,7 @@ export default function FeedbackVoteControl({ item, onVoted }: FeedbackVoteContr
     ? 'bg-orange-500/10'
     : downActive
       ? 'bg-indigo-500/10'
-      : 'bg-neutral-100 dark:bg-white/[0.04]';
+      : 'bg-surface-subtle dark:bg-white/[0.04]';
   const countColor = error
     ? 'text-coral-500'
     : upActive

@@ -172,7 +172,7 @@ const ConfigAssistantPanel = ({
                     <button
                       type="button"
                       onClick={() => onApplySuggestedEnv(msg.suggested_env!)}
-                      className="mt-1 rounded px-2 py-1 text-[11px] font-medium bg-white/20 hover:bg-white/30 transition-colors">
+                      className="mt-1 rounded px-2 py-1 text-[11px] font-medium bg-surface/20 hover:bg-white/30 transition-colors">
                       {t('mcp.configAssistant.applySuggested')}
                     </button>
                   )}

@@ -265,7 +265,7 @@ export default function IntelligenceTeamsTab() {
           {t('intelligence.teams.subtitle')}
         </p>
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line py-12 text-center">
-          <LuUsers className="h-6 w-6 text-stone-300 dark:text-neutral-600" />
+          <LuUsers className="h-6 w-6 text-content-faint dark:text-neutral-600" />
           <p className="text-sm text-content-muted">
             {t('intelligence.teams.empty')}
           </p>
@@ -335,7 +335,7 @@ export default function IntelligenceTeamsTab() {
         </p>
         <RefreshButton refreshing={refreshing} onClick={() => void refresh()} t={t} />
       </div>
-      <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
+      <ul className="divide-y divide-line-subtle overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
         {teams.map(team => (
           <li key={team.id}>
             <button

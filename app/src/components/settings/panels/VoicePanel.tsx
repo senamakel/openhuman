@@ -580,7 +580,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   className="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full bg-emerald-500 disabled:cursor-not-allowed">
                   <span
                     aria-hidden
-                    className="inline-block h-3 w-3 transform rounded-full bg-white shadow translate-x-3.5"
+                    className="inline-block h-3 w-3 transform rounded-full bg-surface shadow translate-x-3.5"
                   />
                 </button>
               </div>
@@ -624,7 +624,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                       className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-surface-strong'}`}>
                       <span
                         aria-hidden
-                        className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
+                        className={`inline-block h-3 w-3 transform rounded-full bg-surface shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
                       />
                     </button>
                   </div>
@@ -663,7 +663,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                       className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-surface-strong'}`}>
                       <span
                         aria-hidden
-                        className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
+                        className={`inline-block h-3 w-3 transform rounded-full bg-surface shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
                       />
                     </button>
                   </div>
@@ -722,7 +722,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                       className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-surface-strong'}`}>
                       <span
                         aria-hidden
-                        className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
+                        className={`inline-block h-3 w-3 transform rounded-full bg-surface shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
                       />
                     </button>
                   </div>
@@ -744,7 +744,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
               }
             }}
             data-testid="voice-provider-key-modal">
-            <div className="w-full max-w-md rounded-2xl border border-neutral-200 dark:border-line-strong bg-surface shadow-xl p-6 space-y-4">
+            <div className="w-full max-w-md rounded-2xl border border-line dark:border-line-strong bg-surface shadow-xl p-6 space-y-4">
               {pendingKeySlug === 'whisper' || pendingKeySlug === 'piper' ? (
                 /* ── Local provider modal (Whisper / Piper) ──────────── */
                 <>
@@ -764,7 +764,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
 
                   {pendingKeySlug === 'whisper' && (
                     <label className="block space-y-1">
-                      <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
+                      <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
                         {t('voice.providers.whisperModel')}
                       </span>
                       <SettingsSelect
@@ -784,7 +784,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
 
                   {pendingKeySlug === 'piper' && (
                     <label className="block space-y-1">
-                      <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
+                      <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
                         {t('voice.providers.piperVoice')}
                       </span>
                       <SettingsSelect
@@ -886,7 +886,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   </div>
 
                   <label className="block space-y-1">
-                    <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
+                    <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
                       {t('voice.providers.chip.apiKeyLabel')}
                     </span>
                     <SettingsTextField
@@ -993,7 +993,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                 {/* STT routing */}
                 <div className="space-y-2">
                   <label className="block space-y-1">
-                    <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
+                    <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
                       {t('voice.providers.sttProvider')}
                     </span>
                     <SettingsSelect
@@ -1057,7 +1057,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   {/* Whisper model picker — shown when Whisper is selected */}
                   {sttProvider === 'whisper' && (
                     <label className="block space-y-1">
-                      <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
+                      <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
                         {t('voice.providers.whisperModel')}
                       </span>
                       <SettingsSelect
@@ -1086,7 +1086,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                 {/* TTS routing */}
                 <div className="space-y-2">
                   <label className="block space-y-1">
-                    <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
+                    <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
                       {t('voice.providers.ttsProvider')}
                     </span>
                     <SettingsSelect
@@ -1156,7 +1156,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   {/* Piper voice picker — shown when Piper is selected */}
                   {ttsProvider === 'piper' && (
                     <label className="block space-y-1">
-                      <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
+                      <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
                         {t('voice.providers.piperVoice')}
                       </span>
                       <SettingsSelect
@@ -1217,7 +1217,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   {/* ElevenLabs voice picker — shown when ElevenLabs is selected for TTS */}
                   {ttsProvider === 'elevenlabs' && (
                     <label className="block space-y-1">
-                      <span className="text-xs font-medium text-neutral-500 dark:text-content-secondary">
+                      <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
                         {t('voice.routing.elevenlabsVoice')}
                       </span>
                       <SettingsSelect

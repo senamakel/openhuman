@@ -258,7 +258,7 @@ const RewardsCouponSection = () => {
                     <th className="px-3 py-2 font-medium">{t('rewards.coupon.colRedeemed')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100 dark:divide-neutral-800">
+                <tbody className="divide-y divide-line-subtle dark:divide-neutral-800">
                   {redeemedCoupons.map(coupon => (
                     <tr
                       key={`${coupon.code}-${coupon.redeemedAt ?? coupon.activationType}`}

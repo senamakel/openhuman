@@ -260,20 +260,20 @@ const Home = () => {
         <DiscordBanner />
 
         {/* Next steps — compact directory of where to go next */}
-        {/* <div className="mt-3 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
-          <div className="text-[11px] uppercase tracking-wide text-stone-400 mb-2">Next steps</div>
-          <div className="divide-y divide-stone-100">
+        {/* <div className="mt-3 bg-surface rounded-2xl shadow-soft border border-line p-4">
+          <div className="text-[11px] uppercase tracking-wide text-content-faint mb-2">Next steps</div>
+          <div className="divide-y divide-line-subtle">
             <button
               onClick={() => navigate('/connections')}
-              className="w-full flex items-center justify-between py-2.5 text-left hover:bg-stone-50 rounded-md px-2 -mx-2 transition-colors">
+              className="w-full flex items-center justify-between py-2.5 text-left hover:bg-surface-muted rounded-md px-2 -mx-2 transition-colors">
               <div>
-                <div className="text-sm font-medium text-stone-900">Connect your services</div>
-                <div className="text-xs text-stone-500">
+                <div className="text-sm font-medium text-content">Connect your services</div>
+                <div className="text-xs text-content-muted">
                   Give your assistant access to Gmail, Calendar, and more.
                 </div>
               </div>
               <svg
-                className="w-4 h-4 text-stone-400"
+                className="w-4 h-4 text-content-faint"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24">
@@ -287,15 +287,15 @@ const Home = () => {
             </button>
             <button
               onClick={() => navigate('/rewards')}
-              className="w-full flex items-center justify-between py-2.5 text-left hover:bg-stone-50 rounded-md px-2 -mx-2 transition-colors">
+              className="w-full flex items-center justify-between py-2.5 text-left hover:bg-surface-muted rounded-md px-2 -mx-2 transition-colors">
               <div>
-                <div className="text-sm font-medium text-stone-900">Earn rewards</div>
-                <div className="text-xs text-stone-500">
+                <div className="text-sm font-medium text-content">Earn rewards</div>
+                <div className="text-xs text-content-muted">
                   Unlock credits by using OpenHuman and completing milestones.
                 </div>
               </div>
               <svg
-                className="w-4 h-4 text-stone-400"
+                className="w-4 h-4 text-content-faint"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24">
@@ -309,15 +309,15 @@ const Home = () => {
             </button>
             <button
               onClick={() => navigate('/invites')}
-              className="w-full flex items-center justify-between py-2.5 text-left hover:bg-stone-50 rounded-md px-2 -mx-2 transition-colors">
+              className="w-full flex items-center justify-between py-2.5 text-left hover:bg-surface-muted rounded-md px-2 -mx-2 transition-colors">
               <div>
-                <div className="text-sm font-medium text-stone-900">Invite a friend</div>
-                <div className="text-xs text-stone-500">
+                <div className="text-sm font-medium text-content">Invite a friend</div>
+                <div className="text-xs text-content-muted">
                   Share an invite — both of you get credits.
                 </div>
               </div>
               <svg
-                className="w-4 h-4 text-stone-400"
+                className="w-4 h-4 text-content-faint"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24">

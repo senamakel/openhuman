@@ -54,7 +54,7 @@ const ContextEligibilityBadge = ({
   }
   return (
     <span
-      className="shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 px-2 py-0.5 text-[10px] font-medium text-content-secondary"
+      className="shrink-0 rounded-full bg-surface-strong dark:bg-neutral-700 px-2 py-0.5 text-[10px] font-medium text-content-secondary"
       title={t('settings.localModel.status.contextUnknownTitle').replace(
         '{required}',
         fmt(eligibility.required)

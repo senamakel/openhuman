@@ -136,7 +136,7 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
               size="sm"
               onClick={() => void handleCopyAddress()}
               aria-label={t('walletBalances.copyAddress')}
-              className="shrink-0 text-content-faint hover:text-neutral-600 dark:hover:text-content-secondary">
+              className="shrink-0 text-content-faint hover:text-content-secondary dark:hover:text-content-secondary">
               {copied ? (
                 <svg
                   className="w-3.5 h-3.5 text-sage-500"
@@ -401,7 +401,7 @@ const WalletBalancesPanel = () => {
               </div>
             </div>
           </div>
-          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+          <div className="divide-y divide-line-subtle dark:divide-neutral-800">
             {PLACEHOLDER_ROWS.map(row => (
               <ChainPlaceholderRow
                 key={`${row.chain}-${row.evmNetwork ?? 'native'}`}
@@ -439,7 +439,7 @@ const WalletBalancesPanel = () => {
 
     if (balances && balances.length > 0) {
       return (
-        <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+        <div className="divide-y divide-line-subtle dark:divide-neutral-800">
           {balances.map(balance => (
             <BalanceRow
               key={balanceKey(balance)}

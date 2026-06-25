@@ -147,7 +147,7 @@ export default function ChatNewWindowHero() {
           the app background. */}
       <div
         data-walkthrough="home-card"
-        className="animate-fade-up rounded-2xl border border-stone-200/80 bg-surface/80 p-6 shadow-soft backdrop-blur-sm dark:border-line/80">
+        className="animate-fade-up rounded-2xl border border-line/80 bg-surface/80 p-6 shadow-soft backdrop-blur-sm dark:border-line/80">
         {/* Animated greeting */}
         <h1 className="min-h-[3.5rem] text-2xl text-center font-bold text-content">
           {typedWelcome}

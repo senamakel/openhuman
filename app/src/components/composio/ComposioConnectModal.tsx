@@ -832,7 +832,7 @@ export default function ComposioConnectModal({
                   type="checkbox"
                   checked={clearMemoryOnDisconnect}
                   onChange={event => setClearMemoryOnDisconnect(event.currentTarget.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-stone-300 text-primary-600 focus:ring-primary-500"
+                  className="mt-0.5 h-4 w-4 rounded border-line-strong text-primary-600 focus:ring-primary-500"
                 />
                 <span className="min-w-0">
                   <span className="block text-sm font-medium text-content">

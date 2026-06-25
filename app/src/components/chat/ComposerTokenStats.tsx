@@ -15,7 +15,7 @@ function ok(n: number): boolean {
 }
 
 function dot() {
-  return <span className="text-stone-300 dark:text-neutral-700">·</span>;
+  return <span className="text-content-faint dark:text-neutral-700">·</span>;
 }
 
 interface ComposerTokenStatsProps {

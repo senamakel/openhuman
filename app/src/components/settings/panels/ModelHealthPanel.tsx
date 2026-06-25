@@ -239,12 +239,12 @@ const ModelHealthPanel = () => {
                   return (
                     <tr
                       key={m.id}
-                      className={`border-b border-stone-100 dark:border-line/50 ${isReplace ? 'bg-red-500/5' : ''}`}>
+                      className={`border-b border-line-subtle dark:border-line/50 ${isReplace ? 'bg-red-500/5' : ''}`}>
                       <td className="py-2 px-2">
                         <div className="font-semibold text-content">
                           {m.id}
                         </div>
-                        <div className="text-[10px] text-stone-400">{m.provider}</div>
+                        <div className="text-[10px] text-content-faint">{m.provider}</div>
                       </td>
                       <td className="py-2 px-2 text-amber-400">{qualityStars(m.quality_score)}</td>
                       <td className="py-2 px-2 font-mono">
@@ -316,7 +316,7 @@ const ModelHealthPanel = () => {
                       className={`w-full text-left rounded-lg border p-2 flex items-center justify-between cursor-pointer ${isSelected ? 'border-green-500 bg-green-500/15' : 'border-green-500/30 bg-green-500/5'}`}>
                       <span>
                         <span className="block text-xs font-semibold">{c.id}</span>
-                        <span className="block text-[10px] text-stone-400">
+                        <span className="block text-[10px] text-content-faint">
                           {c.hallucination_rate !== null
                             ? (c.hallucination_rate * 100).toFixed(1)
                             : '?'}

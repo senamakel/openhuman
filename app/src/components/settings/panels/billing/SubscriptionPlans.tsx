@@ -66,7 +66,7 @@ const SubscriptionPlans = ({
               className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                 billingInterval === 'monthly'
                   ? 'bg-primary-600 text-content-inverted'
-                  : 'text-content-muted hover:text-neutral-800 dark:hover:text-content dark:text-content'
+                  : 'text-content-muted hover:text-content dark:hover:text-content dark:text-content'
               } ${paymentMethod === 'crypto' ? 'cursor-not-allowed opacity-40' : ''}`}>
               {t('settings.billing.subscription.monthly')}
             </button>
@@ -75,7 +75,7 @@ const SubscriptionPlans = ({
               className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                 billingInterval === 'annual'
                   ? 'bg-primary-600 text-content-inverted'
-                  : 'text-content-muted hover:text-neutral-800 dark:hover:text-content dark:text-content'
+                  : 'text-content-muted hover:text-content dark:hover:text-content dark:text-content'
               }`}>
               {t('settings.billing.subscription.annual')}
             </button>
@@ -195,7 +195,7 @@ const SubscriptionPlans = ({
                       {plan.features.slice(0, 4).map(feature => (
                         <span
                           key={feature.text}
-                          className="rounded-full bg-neutral-100/50 border border-primary-200 dark:border-primary-500/30 px-3 py-1 text-xs font-medium text-content-secondary">
+                          className="rounded-full bg-surface-subtle/50 border border-primary-200 dark:border-primary-500/30 px-3 py-1 text-xs font-medium text-content-secondary">
                           {feature.text}
                         </span>
                       ))}

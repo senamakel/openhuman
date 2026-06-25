@@ -71,7 +71,7 @@ function ThinkingBlock({ text }: { text: string }) {
         <span className="text-[11px] font-semibold tracking-wide text-content-muted uppercase">
           {t('conversations.subagent.thinking')}
         </span>
-        <span className="text-[9px] text-stone-300 transition-transform group-open/think:rotate-90 dark:text-neutral-600">
+        <span className="text-[9px] text-content-faint transition-transform group-open/think:rotate-90 dark:text-neutral-600">
           ▶
         </span>
       </summary>
@@ -93,7 +93,7 @@ function ToolGroupBlock({ summary, entries }: { summary: string; entries: ToolTi
         <span className="text-[12px] font-medium text-content-secondary">
           {summary}
         </span>
-        <span className="text-[9px] text-stone-300 transition-transform group-open/group:rotate-90 dark:text-neutral-600">
+        <span className="text-[9px] text-content-faint transition-transform group-open/group:rotate-90 dark:text-neutral-600">
           ▶
         </span>
       </summary>

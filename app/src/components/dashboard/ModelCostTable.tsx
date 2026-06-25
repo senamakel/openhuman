@@ -61,7 +61,7 @@ const ModelCostTable = ({ models, currency }: ModelCostTableProps) => {
               <tr
                 key={row.model}
                 data-testid={`model-row-${row.model}`}
-                className="group border-b border-stone-100 dark:border-line/60 last:border-0 hover:bg-stone-50/60 dark:hover:bg-surface-muted/40 transition-colors">
+                className="group border-b border-line-subtle dark:border-line/60 last:border-0 hover:bg-surface-muted/60 dark:hover:bg-surface-muted/40 transition-colors">
                 <Td>
                   <div
                     className="font-medium text-content truncate max-w-[16rem]"

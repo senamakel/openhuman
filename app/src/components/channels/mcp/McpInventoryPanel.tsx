@@ -112,7 +112,7 @@ const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPa
             className={`-mb-px px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
               tab === 'export'
                 ? 'border-primary-500 text-primary-600 dark:text-primary-300'
-                : 'border-transparent text-content-muted hover:text-stone-800 dark:hover:text-neutral-200'
+                : 'border-transparent text-content-muted hover:text-content dark:hover:text-neutral-200'
             }`}>
             {t('mcp.inventory.tab.export')}
           </button>
@@ -127,7 +127,7 @@ const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPa
             className={`-mb-px px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
               tab === 'import'
                 ? 'border-primary-500 text-primary-600 dark:text-primary-300'
-                : 'border-transparent text-content-muted hover:text-stone-800 dark:hover:text-neutral-200'
+                : 'border-transparent text-content-muted hover:text-content dark:hover:text-neutral-200'
             }`}>
             {t('mcp.inventory.tab.import')}
           </button>

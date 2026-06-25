@@ -160,7 +160,7 @@ const NotificationCenter = () => {
             className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
               selectedProvider === undefined
                 ? 'bg-primary-500 text-content-inverted'
-                : 'bg-surface-subtle text-content-secondary hover:bg-stone-200 dark:hover:bg-surface-muted/60'
+                : 'bg-surface-subtle text-content-secondary hover:bg-surface-strong dark:hover:bg-surface-muted/60'
             }`}>
             {t('notifications.center.filterAll')}
           </button>
@@ -171,7 +171,7 @@ const NotificationCenter = () => {
               className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                 selectedProvider === p
                   ? 'bg-primary-500 text-content-inverted'
-                  : 'bg-surface-subtle text-content-secondary hover:bg-stone-200 dark:hover:bg-surface-muted/60'
+                  : 'bg-surface-subtle text-content-secondary hover:bg-surface-strong dark:hover:bg-surface-muted/60'
               }`}>
               {p}
             </button>

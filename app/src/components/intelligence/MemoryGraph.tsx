@@ -532,7 +532,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
   if (nodes.length === 0) {
     return (
       <div
-        className="flex h-[640px] items-center justify-center rounded-lg border border-line-subtle bg-stone-50/40 text-sm text-content-muted"
+        className="flex h-[640px] items-center justify-center rounded-lg border border-line-subtle bg-surface-muted/40 text-sm text-content-muted"
         data-testid="memory-graph-empty">
         {emptyHint ?? (mode === 'contacts' ? t('graph.noContactMentions') : t('graph.noMemory'))}
       </div>
@@ -572,7 +572,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
           <span>
             {nodes.length} {t('graph.nodes')}
           </span>
-          <span className="text-stone-300 dark:text-neutral-600">·</span>
+          <span className="text-content-faint dark:text-neutral-600">·</span>
           <span>
             {sim.edges.length}{' '}
             {mode === 'tree' ? t('graph.parentChild') : t('graph.documentContact')}{' '}
@@ -700,7 +700,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
       )}
       {hovered && (
         <div
-          className="border-t border-line-subtle bg-stone-50/70 dark:bg-surface/70 px-4 py-2 text-xs text-content-secondary"
+          className="border-t border-line-subtle bg-surface-muted/70 dark:bg-surface/70 px-4 py-2 text-xs text-content-secondary"
           data-testid="memory-graph-tooltip">
           {hovered.kind === 'root' ? (
             <span className="font-medium text-violet-600 dark:text-violet-400">
@@ -761,7 +761,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
       )}
       {preview && (
         <div
-          className="border-t border-line-subtle bg-white px-4 py-3 dark:bg-surface-canvas"
+          className="border-t border-line-subtle bg-surface px-4 py-3 dark:bg-surface-canvas"
           data-testid="memory-graph-preview">
           <div className="mb-2 break-all font-mono text-[11px] text-content-faint">
             workspace:{preview.path}

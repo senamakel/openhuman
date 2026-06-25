@@ -391,7 +391,7 @@ function ClaudeCodeModal({
                   : 'bg-surface-strong'
               }`}>
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform ${
                   fullAccess ? 'translate-x-4' : 'translate-x-0.5'
                 }`}
               />

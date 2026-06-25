@@ -112,7 +112,7 @@ export default function DiagramViewerTab() {
       </div>
 
       {showEmptyState && (
-        <div className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-line-strong bg-stone-50 px-6 py-10 text-center dark:bg-surface-canvas/60">
+        <div className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-line-strong bg-surface-muted px-6 py-10 text-center dark:bg-surface-canvas/60">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300">
             <LuImage aria-hidden="true" className="h-6 w-6" />
           </div>
@@ -141,7 +141,7 @@ export default function DiagramViewerTab() {
             key={imageUrl}
             src={imageUrl}
             alt={t('intelligence.diagram.imageAlt')}
-            className="block w-full rounded-lg border border-line bg-white object-contain dark:bg-surface-canvas"
+            className="block w-full rounded-lg border border-line bg-surface object-contain dark:bg-surface-canvas"
             onLoad={() => setImageState('loaded')}
             onError={() => setImageState('error')}
           />

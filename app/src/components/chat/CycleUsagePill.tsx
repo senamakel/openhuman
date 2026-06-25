@@ -27,14 +27,14 @@ export default function CycleUsagePill() {
         <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">
           <div className="bg-stone-900 text-white text-[10px] rounded-lg px-3 py-2 shadow-lg whitespace-nowrap space-y-1.5">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-stone-400">{t('chat.cycleSpent')}</span>
+              <span className="text-content-faint">{t('chat.cycleSpent')}</span>
               <span>
                 ${(teamUsage.cycleSpentUsd ?? 0).toFixed(2)} / $
                 {(teamUsage.cycleBudgetUsd ?? 0).toFixed(2)}
               </span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span className="text-stone-400">{t('chat.cycleRemaining')}</span>
+              <span className="text-content-faint">{t('chat.cycleRemaining')}</span>
               <span>
                 ${(teamUsage.remainingUsd ?? 0).toFixed(2)} {t('chat.left')}
                 {teamUsage.cycleEndsAt && (

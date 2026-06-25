@@ -139,7 +139,7 @@ export function SecretPromptDialog() {
                 {reveal ? t('mcp.setup.secretDialog.hide') : t('mcp.setup.secretDialog.show')}
               </button>
             </div>
-            <p className="text-[11px] text-stone-500 dark:text-content-faint mt-2">
+            <p className="text-[11px] text-content-muted dark:text-content-faint mt-2">
               {t('mcp.setup.secretDialog.privacyNote')}
             </p>
             {error && (

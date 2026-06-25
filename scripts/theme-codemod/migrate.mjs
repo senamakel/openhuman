@@ -161,6 +161,43 @@ function transformInvertedText(text, counts) {
   });
 }
 
+// Bare (non-dark:) singles with no dark partner. CRITICAL: only convert where
+// the token's built-in LIGHT value matches the source shade — otherwise a dark
+// bare surface (e.g. bg-stone-900 tooltip, bg-stone-800 active dot) would invert
+// to a near-white token in light mode. So:
+//   - text: all shades (content* flips correctly for readability in dark themes)
+//   - bg/border/divide: ONLY light shades (50–300); dark shades (700–950) are
+//     intentionally-dark, ambiguous, and left alone.
+const BARE_TEXT = { 300: 'content-faint', 400: 'content-faint', 500: 'content-muted', 600: 'content-secondary', 700: 'content-secondary', 800: 'content', 900: 'content' };
+const BARE_BG = { 50: 'surface-muted', 100: 'surface-subtle', 200: 'surface-strong' };
+const BARE_BORDER = { 100: 'line-subtle', 200: 'line', 300: 'line-strong' };
+const BARE_DIVIDE = { 100: 'line-subtle', 200: 'line', 300: 'line-strong' };
+const BARE_MAPS = { text: BARE_TEXT, bg: BARE_BG, border: BARE_BORDER, divide: BARE_DIVIDE };
+
+const BARE_NEUTRAL_RE =
+  /(^|[\s"'`{(>])((?:hover:|focus:|active:|group-hover:|disabled:)*)(text|bg|border|divide)-(?:stone|neutral|gray)-(\d{2,3})(\/\d+)?(?=$|[\s"'`})<])/g;
+
+/** Convert bare `{util}-{stone|neutral|gray}-N[/op]` (no dark: partner) to tokens. */
+function transformBareNeutral(text, counts) {
+  return text.replace(BARE_NEUTRAL_RE, (m, lead, states, util, shade, opacity) => {
+    const token = BARE_MAPS[util]?.[Number(shade)];
+    if (!token) return m;
+    counts[`${util}-*-${shade} → ${util}-${token}`] =
+      (counts[`${util}-*-${shade} → ${util}-${token}`] || 0) + 1;
+    return `${lead}${states}${util}-${token}${opacity ?? ''}`;
+  });
+}
+
+// Bare bg-white (incl. opacity) → surface token. bg-black is left alone (it's
+// almost always an intentional fixed scrim/media background).
+const BARE_WHITE_RE = /(^|[\s"'`{(>])bg-white(\/\d+)?(?=$|[\s"'`})<])/g;
+function transformBareWhite(text, counts) {
+  return text.replace(BARE_WHITE_RE, (m, lead, opacity) => {
+    counts['bg-white → bg-surface'] = (counts['bg-white → bg-surface'] || 0) + 1;
+    return `${lead}bg-surface${opacity ?? ''}`;
+  });
+}
+
 function transform(text, rules) {
   let out = text;
   const counts = {};
@@ -179,6 +216,8 @@ function transform(text, rules) {
   out = transformDarkStandalone(out, counts);
   out = transformLightPlaceholder(out, counts);
   out = transformInvertedText(out, counts);
+  out = transformBareNeutral(out, counts);
+  out = transformBareWhite(out, counts);
   return { out, counts };
 }
 
@@ -254,7 +293,21 @@ function runSelfTest() {
     // Bare (non-dark:) opacity colours are never matched.
     ['className="bg-neutral-900/50"', 'className="bg-neutral-900/50"'],
     // Standalone dark: opacity colour is themed (light side stays since no pair).
-    ['className="bg-white dark:bg-neutral-900/50"', 'className="bg-white dark:bg-surface/50"'],
+    ['className="bg-white dark:bg-neutral-900/50"', 'className="bg-surface dark:bg-surface/50"'],
+    // Bare singles: text (all shades) + light bg/border/divide + bg-white.
+    ['className="text-stone-500 px-2"', 'className="text-content-muted px-2"'],
+    ['className="text-neutral-900"', 'className="text-content"'],
+    ['className="bg-stone-50 p-4"', 'className="bg-surface-muted p-4"'],
+    ['className="bg-white p-4"', 'className="bg-surface p-4"'],
+    ['className="border-stone-200 rounded"', 'className="border-line rounded"'],
+    ['className="divide-y divide-stone-200"', 'className="divide-y divide-line"'],
+    ['className="hover:bg-stone-100 rounded"', 'className="hover:bg-surface-subtle rounded"'],
+    // Dark bare surfaces are LEFT ALONE (ambiguous; would invert in light mode).
+    ['className="bg-stone-900 p-6"', 'className="bg-stone-900 p-6"'],
+    ['className="bg-stone-800"', 'className="bg-stone-800"'],
+    ['className="bg-black/50"', 'className="bg-black/50"'],
+    // Accent untouched.
+    ['className="text-primary-600 bg-sage-50"', 'className="text-primary-600 bg-sage-50"'],
     // Unrelated classes untouched:
     ['className="rounded-lg p-2 shadow"', 'className="rounded-lg p-2 shadow"'],
     // Idempotent (already migrated):

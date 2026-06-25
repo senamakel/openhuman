@@ -101,8 +101,8 @@ function DeviceRow({
   const statusBadge = (
     <div className="flex items-center gap-1.5">
       <PeerDot online={device.peer_online} />
-      <span className="font-mono text-xs text-neutral-400">{truncateId(device.channel_id)}</span>
-      <span className="text-xs text-neutral-400">
+      <span className="font-mono text-xs text-content-faint">{truncateId(device.channel_id)}</span>
+      <span className="text-xs text-content-faint">
         {formatRelativeTime(relativeTime(device.last_seen_at), t)}
       </span>
     </div>
@@ -296,7 +296,7 @@ const DevicesPanel = () => {
       <div className="pb-5 space-y-3">
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <svg className="w-5 h-5 animate-spin text-neutral-400" fill="none" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 animate-spin text-content-faint" fill="none" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"

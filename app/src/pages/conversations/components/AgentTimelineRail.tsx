@@ -38,7 +38,7 @@ export function agentNameTone(status: ToolTimelineEntryStatus | undefined): stri
   switch (status) {
     case 'success':
       // Done — full-strength foreground ("full white" in the dark mockup).
-      return 'text-stone-700 dark:text-content';
+      return 'text-content-secondary dark:text-content';
     case 'error':
       return 'text-coral-600 dark:text-coral-300';
     case 'awaiting_user':

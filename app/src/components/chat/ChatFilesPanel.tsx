@@ -284,7 +284,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
           {t('chat.files.panel.empty')}
         </div>
       ) : (
-        <ul className="divide-y divide-stone-100 dark:divide-neutral-800">
+        <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
           {artifacts.map(artifact => {
             const row = downloadState[artifact.artifactId] ?? { state: 'idle' as const };
             const isConfirming = confirmDeleteId === artifact.artifactId;
@@ -311,7 +311,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                       type="button"
                       onClick={() => setConfirmDeleteId(null)}
                       data-analytics-id="chat-files-delete-cancel"
-                      className="rounded-md bg-surface-subtle hover:bg-stone-200 dark:hover:bg-neutral-700 text-content-secondary text-[11px] font-medium px-2 py-1 transition-colors">
+                      className="rounded-md bg-surface-subtle hover:bg-surface-strong dark:hover:bg-neutral-700 text-content-secondary text-[11px] font-medium px-2 py-1 transition-colors">
                       {t('chat.files.delete.cancel')}
                     </button>
                     <button

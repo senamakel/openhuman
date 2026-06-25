@@ -37,7 +37,7 @@ export default function BillingHistoryTab({
       </div>
       <div className="overflow-hidden rounded-[28px] bg-surface shadow-[0_24px_70px_rgba(15,23,42,0.06)] ring-1 ring-stone-950/5">
         {transactionRows.length > 0 ? (
-          <div className="divide-y divide-stone-100 dark:divide-neutral-800">
+          <div className="divide-y divide-line-subtle dark:divide-neutral-800">
             {transactionRows.map(transaction => {
               const isEarn = transaction.type === 'EARN';
               return (

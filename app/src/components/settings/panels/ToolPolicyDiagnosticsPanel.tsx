@@ -133,7 +133,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           </dl>
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.inventory.title')}
           </div>
@@ -165,7 +165,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           </dl>
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.mcpAllowlists.title')}
           </div>
@@ -195,7 +195,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           )}
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.mcpWriteAudit.title')}
           </div>
@@ -211,7 +211,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           )}
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.recentBlocked.title')}
           </div>
@@ -242,7 +242,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           )}
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.redactedSurfaces.title')}
           </div>

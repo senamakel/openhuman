@@ -197,7 +197,7 @@ const AutoRechargeSection = ({
                   className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${
                     arThreshold === v
                       ? 'bg-primary-500/20 text-primary-400 border-primary-500/40'
-                      : 'bg-surface-subtle text-content-muted border-line hover:text-neutral-700 dark:hover:text-neutral-200'
+                      : 'bg-surface-subtle text-content-muted border-line hover:text-content-secondary dark:hover:text-neutral-200'
                   }`}>
                   ${v}
                 </button>
@@ -219,7 +219,7 @@ const AutoRechargeSection = ({
                   className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${
                     arAmount === v
                       ? 'bg-primary-500/20 text-primary-400 border-primary-500/40'
-                      : 'bg-surface-subtle text-content-muted border-line hover:text-neutral-700 dark:hover:text-neutral-200'
+                      : 'bg-surface-subtle text-content-muted border-line hover:text-content-secondary dark:hover:text-neutral-200'
                   }`}>
                   ${v}
                 </button>
@@ -241,7 +241,7 @@ const AutoRechargeSection = ({
                   className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${
                     arWeeklyLimit === v
                       ? 'bg-primary-500/20 text-primary-400 border-primary-500/40'
-                      : 'bg-surface-subtle text-content-muted border-line hover:text-neutral-700 dark:hover:text-neutral-200'
+                      : 'bg-surface-subtle text-content-muted border-line hover:text-content-secondary dark:hover:text-neutral-200'
                   }`}>
                   ${v}
                 </button>
@@ -294,7 +294,7 @@ const AutoRechargeSection = ({
             {[0, 1].map(i => (
               <div
                 key={i}
-                className="h-9 rounded-lg bg-neutral-200/60 dark:bg-neutral-700/30 animate-pulse"
+                className="h-9 rounded-lg bg-surface-strong/60 dark:bg-neutral-700/30 animate-pulse"
               />
             ))}
           </div>

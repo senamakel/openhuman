@@ -154,7 +154,7 @@ export default function AgentsLibraryPanel({
       )}
 
       {!loading && !error && visibleAgents.length > 0 && (
-        <ul className="divide-y divide-stone-100 rounded-xl border border-line bg-surface dark:divide-neutral-800">
+        <ul className="divide-y divide-line-subtle rounded-xl border border-line bg-surface dark:divide-neutral-800">
           {visibleAgents.map(agent => {
             const draft = drafts[agent.id] ?? '';
             const running = runningAgentId === agent.id;
@@ -218,7 +218,7 @@ export default function AgentsLibraryPanel({
                       setDrafts(prev => ({ ...prev, [agent.id]: event.target.value }))
                     }
                     placeholder={t('intelligence.agents.taskPlaceholder')}
-                    className="min-w-0 flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm text-content placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100 dark:bg-surface-canvas dark:placeholder:text-neutral-600"
+                    className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100 dark:bg-surface-canvas dark:placeholder:text-neutral-600"
                   />
                   <button
                     type="button"

@@ -140,7 +140,7 @@ export default function ScheduledCronCard({
         className="mt-0.5 text-xs text-content-secondary">
         {formatSchedule(job)}
       </div>
-      <div className="mt-1 text-[11px] text-stone-500 dark:text-content-faint">
+      <div className="mt-1 text-[11px] text-content-muted dark:text-content-faint">
         {job.last_run && (
           <span>
             {t('skills.dashboard.lastRun')}: {new Date(job.last_run).toLocaleString()}
@@ -184,7 +184,7 @@ export default function ScheduledCronCard({
           job.enabled ? 'bg-sage-500' : 'bg-surface-strong'
         }`}>
         <span
-          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-surface shadow-sm transition-transform mt-0.5 ${
             job.enabled ? 'translate-x-4' : 'translate-x-0.5'
           }`}
         />
@@ -228,7 +228,7 @@ export default function ScheduledCronCard({
           onClick();
         }
       }}
-      className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 cursor-pointer rounded-2xl transition-colors hover:bg-stone-100/80 dark:hover:bg-surface-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
+      className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 cursor-pointer rounded-2xl transition-colors hover:bg-surface-subtle/80 dark:hover:bg-surface-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
       {headingRow}
       {rightCluster}
     </div>

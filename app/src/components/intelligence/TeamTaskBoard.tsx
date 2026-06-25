@@ -120,7 +120,7 @@ export function TeamTaskBoard({ tasks, members }: TeamTaskBoardProps) {
             </div>
             <div className="space-y-2">
               {cards.length === 0 ? (
-                <p className="py-2 text-center text-[10px] text-stone-400 dark:text-neutral-600">
+                <p className="py-2 text-center text-[10px] text-content-faint dark:text-neutral-600">
                   {t('intelligence.teams.emptyColumn')}
                 </p>
               ) : (

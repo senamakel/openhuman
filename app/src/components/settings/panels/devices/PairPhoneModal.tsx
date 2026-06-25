@@ -198,7 +198,7 @@ const PairPhoneModal = ({ onClose, onPaired }: PairPhoneModalProps) => {
             aria-label={t('common.close')}
             className="w-6 h-6 rounded-full p-0">
             <svg
-              className="w-4 h-4 text-neutral-500"
+              className="w-4 h-4 text-content-muted"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24">
@@ -353,7 +353,7 @@ function QrBody({
                 onClick={() => {
                   void navigator.clipboard.writeText(qrUrl);
                 }}
-                className="absolute top-1 right-1 bg-surface border border-neutral-200 dark:border-line-strong">
+                className="absolute top-1 right-1 bg-surface border border-line dark:border-line-strong">
                 {t('devices.pairModal.copyUrl')}
               </Button>
             </div>

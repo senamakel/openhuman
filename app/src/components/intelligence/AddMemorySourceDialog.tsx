@@ -214,7 +214,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
                   key={k}
                   type="button"
                   onClick={() => setKind(k)}
-                  className="flex items-center gap-3 rounded-lg border border-stone-200 p-3
+                  className="flex items-center gap-3 rounded-lg border border-line p-3
                              text-left transition-colors hover:border-primary-400 hover:bg-primary-50
                              dark:border-line-strong dark:hover:border-primary-500 dark:hover:bg-primary-500/10">
                   <span className="text-xl">{SOURCE_KIND_ICONS[k]}</span>
@@ -352,15 +352,15 @@ function FolderField({ label, value, onChange }: FolderFieldProps) {
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={t('memorySources.folderPathPlaceholder')}
-          className="block w-full rounded-md border border-stone-300 bg-white px-3 py-2
-                     text-sm text-stone-900 placeholder-content-faint
+          className="block w-full rounded-md border border-line-strong bg-surface px-3 py-2
+                     text-sm text-content placeholder-content-faint
                      focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400
                      dark:border-neutral-600 dark:bg-surface-muted dark:text-content
                      dark:placeholder-content-faint dark:focus:border-primary-500"
         />
         <label
-          className="shrink-0 cursor-pointer rounded-md border border-stone-300 bg-white px-3 py-2
-                     text-xs font-medium text-stone-700 transition-colors
+          className="shrink-0 cursor-pointer rounded-md border border-line-strong bg-surface px-3 py-2
+                     text-xs font-medium text-content-secondary transition-colors
                      hover:border-primary-400 hover:text-primary-600
                      dark:border-neutral-600 dark:bg-surface-muted dark:text-content-secondary
                      dark:hover:border-primary-500 dark:hover:text-primary-400">
@@ -405,8 +405,8 @@ function Field({ label, value, onChange, placeholder, type = 'text' }: FieldProp
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="mt-1 block w-full rounded-md border border-stone-300 bg-white px-3 py-2
-                   text-sm text-stone-900 placeholder-content-faint
+        className="mt-1 block w-full rounded-md border border-line-strong bg-surface px-3 py-2
+                   text-sm text-content placeholder-content-faint
                    focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400
                    dark:border-neutral-600 dark:bg-surface-muted dark:text-content
                    dark:placeholder-content-faint dark:focus:border-primary-500"
@@ -770,8 +770,8 @@ function ComposioPicker({
           aria-controls={open ? LISTBOX_ID : undefined}
           onClick={() => (open ? close(false) : openListbox())}
           onKeyDown={onButtonKeyDown}
-          className="flex w-full items-center justify-between rounded-md border border-stone-300
-                     bg-white px-3 py-2 text-left text-sm text-stone-900
+          className="flex w-full items-center justify-between rounded-md border border-line-strong
+                     bg-surface px-3 py-2 text-left text-sm text-content
                      focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400
                      dark:border-neutral-600 dark:bg-surface-muted dark:text-content
                      dark:focus:border-primary-500">
@@ -794,7 +794,7 @@ function ComposioPicker({
             onKeyDown={onListKeyDown}
             data-testid="composio-connection-listbox"
             className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border
-                       border-stone-200 bg-white py-1 shadow-lg focus:outline-none
+                       border-line bg-surface py-1 shadow-lg focus:outline-none
                        dark:border-line-strong dark:bg-surface-muted">
             {entries.map((entry, index) => {
               const isSelected = entry.conn.id === connectionId;
@@ -829,8 +829,8 @@ function ComposioPicker({
                   {!entry.supported && (
                     <span
                       data-testid={`composio-option-coming-soon-${entry.conn.id}`}
-                      className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px]
-                                 font-medium uppercase tracking-wide text-stone-500
+                      className="shrink-0 rounded-full bg-surface-subtle px-2 py-0.5 text-[10px]
+                                 font-medium uppercase tracking-wide text-content-muted
                                  dark:bg-neutral-700 dark:text-content-muted">
                       {t('memorySources.comingSoon')}
                     </span>

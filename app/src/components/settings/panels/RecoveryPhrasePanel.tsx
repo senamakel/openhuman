@@ -515,7 +515,7 @@ const RecoveryPhrasePanel = () => {
                     aria-label={t('mnemonic.revealPhrase')}
                     className="absolute inset-0 flex items-center justify-center cursor-pointer bg-transparent">
                     <svg
-                      className="w-7 h-7 text-neutral-800 dark:text-white transition-opacity duration-200 hover:opacity-70"
+                      className="w-7 h-7 text-content dark:text-white transition-opacity duration-200 hover:opacity-70"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -742,7 +742,7 @@ const RecoveryPhrasePanel = () => {
             aria-label={t('mnemonic.revealPhrase')}
             className="absolute inset-0 flex items-center justify-center cursor-pointer bg-transparent">
             <svg
-              className="w-7 h-7 text-neutral-800 dark:text-white transition-opacity duration-200 hover:opacity-70"
+              className="w-7 h-7 text-content dark:text-white transition-opacity duration-200 hover:opacity-70"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -837,7 +837,7 @@ const RecoveryPhrasePanel = () => {
             className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
               selectedWordCount === len
                 ? 'bg-primary-500/20 border-primary-500/40 text-primary-600 dark:text-primary-300 border'
-                : 'border border-line text-content-muted hover:border-neutral-300 dark:border-line-strong'
+                : 'border border-line text-content-muted hover:border-line-strong dark:border-line-strong'
             }`}>
             {len}
           </button>

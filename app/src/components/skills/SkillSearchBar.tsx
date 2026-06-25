@@ -36,7 +36,7 @@ export default function SkillSearchBar({ value, onChange, placeholder }: SkillSe
         <button
           type="button"
           onClick={() => onChange('')}
-          className="absolute inset-y-0 right-3 flex items-center text-content-faint hover:text-stone-600 dark:text-content-secondary">
+          className="absolute inset-y-0 right-3 flex items-center text-content-faint hover:text-content-secondary dark:text-content-secondary">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"

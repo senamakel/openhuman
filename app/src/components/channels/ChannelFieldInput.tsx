@@ -17,7 +17,7 @@ const ChannelFieldInput = ({ field, value, onChange, disabled }: ChannelFieldInp
           checked={checked}
           disabled={disabled}
           onChange={e => onChange(e.target.checked ? 'true' : 'false')}
-          className="mt-0.5 h-4 w-4 rounded border-stone-300 text-primary-600 focus:ring-primary-500 disabled:opacity-50"
+          className="mt-0.5 h-4 w-4 rounded border-line-strong text-primary-600 focus:ring-primary-500 disabled:opacity-50"
         />
         <span className="min-w-0">
           <span className="block text-xs font-medium text-content-secondary">

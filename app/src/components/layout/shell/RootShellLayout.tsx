@@ -198,7 +198,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
             </button>
           </Tooltip>
           {/* Keep the primary nav reachable while collapsed: an icon-only rail. */}
-          <div className="mt-1 w-full border-t border-stone-200/70 pt-1 dark:border-line/70">
+          <div className="mt-1 w-full border-t border-line/70 pt-1 dark:border-line/70">
             <CollapsedNavRail />
           </div>
         </div>

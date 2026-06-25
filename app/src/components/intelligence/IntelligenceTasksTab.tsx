@@ -811,7 +811,7 @@ function TaskSourceTaskList({
           {t('intelligence.tasks.sourceList.empty')}
         </div>
       ) : (
-        <ul className="divide-y divide-stone-100 rounded-xl border border-line bg-surface dark:divide-neutral-800">
+        <ul className="divide-y divide-line-subtle rounded-xl border border-line bg-surface dark:divide-neutral-800">
           {sortedCards.map(card => {
             const source = readSourceMetadata(card.sourceMetadata);
             const done = card.status === 'done';
@@ -846,7 +846,7 @@ function TaskSourceTaskList({
                         target="_blank"
                         rel="noreferrer"
                         title={t('conversations.taskKanban.source.openExternal')}
-                        className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-stone-500 hover:bg-surface-hover dark:text-content-secondary">
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-content-muted hover:bg-surface-hover dark:text-content-secondary">
                         <LuExternalLink className="h-4 w-4" />
                       </a>
                     )}
@@ -908,7 +908,7 @@ function TaskSourceRefinementDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl border border-line bg-white shadow-xl dark:bg-surface-canvas">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl border border-line bg-surface shadow-xl dark:bg-surface-canvas">
         <div className="flex items-start justify-between gap-3 border-b border-line-subtle px-4 py-3">
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-content">

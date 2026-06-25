@@ -253,7 +253,7 @@ export function TaskKanbanBoard({
               )}
               <div className="space-y-2">
                 {cards.length === 0 ? (
-                  <p className="py-2 text-center text-[10px] text-stone-400 dark:text-neutral-600">
+                  <p className="py-2 text-center text-[10px] text-content-faint dark:text-neutral-600">
                     {t('conversations.taskKanban.emptyColumn')}
                   </p>
                 ) : (
@@ -425,7 +425,7 @@ function TaskBoardArticle({
             target="_blank"
             rel="noreferrer"
             title={t('conversations.taskKanban.source.openExternal')}
-            className="inline-flex items-center gap-1 rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] text-content-secondary hover:bg-stone-200 dark:hover:bg-neutral-700">
+            className="inline-flex items-center gap-1 rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] text-content-secondary hover:bg-surface-strong dark:hover:bg-neutral-700">
             <LuExternalLink className="h-3 w-3" />
             {t('conversations.taskKanban.source.openExternalShort')}
           </a>
@@ -726,7 +726,7 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
             aria-label={t('settings.taskSources.refresh')}
             disabled={loading}
             onClick={() => void load()}
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-line text-stone-500 hover:bg-surface-hover disabled:opacity-40 dark:text-content-secondary">
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-line text-content-muted hover:bg-surface-hover disabled:opacity-40 dark:text-content-secondary">
             <LuRefreshCw className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -898,7 +898,7 @@ function TaskBriefDialog({
               <input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
+                className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
               />
             </label>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -909,7 +909,7 @@ function TaskBriefDialog({
                 <select
                   value={status}
                   onChange={e => setStatus(e.target.value as TaskBoardCardStatus)}
-                  className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
+                  className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
                   {(COLUMN_STATUSES.includes(status)
                     ? COLUMN_STATUSES
                     : [status, ...COLUMN_STATUSES]
@@ -932,7 +932,7 @@ function TaskBriefDialog({
                 <select
                   value={approvalMode}
                   onChange={e => setApprovalMode(e.target.value)}
-                  className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
+                  className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas">
                   <option value="">{t('conversations.taskKanban.approval.default')}</option>
                   <option value="required">
                     {t('conversations.taskKanban.approval.required')}
@@ -1138,7 +1138,7 @@ function BriefInput({
       <input
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
+        className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
       />
     </label>
   );
@@ -1162,7 +1162,7 @@ function BriefTextarea({
         value={value}
         onChange={e => onChange(e.target.value)}
         rows={3}
-        className="w-full resize-y rounded-md border border-line bg-white px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
+        className="w-full resize-y rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-content dark:bg-surface-canvas"
       />
     </label>
   );

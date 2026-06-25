@@ -186,7 +186,7 @@ export default function ChatComposer({
               aria-hidden
               className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-0.5 text-sm leading-5 font-sans">
               <span className="invisible">{inputValue}</span>
-              <span className="text-stone-500 dark:text-content-muted/50">
+              <span className="text-content-muted dark:text-content-muted/50">
                 {inlineCompletionSuffix}
               </span>
             </div>

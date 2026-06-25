@@ -165,7 +165,7 @@ function TransactionRow({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-surface-muted/50">
+        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50">
         <TypeIcon type={tx.type} />
 
         {/* Content */}
@@ -184,7 +184,7 @@ function TransactionRow({
           <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-content-muted">
             <span className="font-mono">{abbreviateAddress(tx.from)}</span>
             <svg
-              className="h-3 w-3 shrink-0 text-stone-400"
+              className="h-3 w-3 shrink-0 text-content-faint"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24">
@@ -196,7 +196,7 @@ function TransactionRow({
               />
             </svg>
             <span className="font-mono">{abbreviateAddress(tx.to)}</span>
-            <span className="text-stone-300 dark:text-neutral-600">·</span>
+            <span className="text-content-faint dark:text-neutral-600">·</span>
             <span className="truncate">{friendlyNetwork(tx.network)}</span>
           </div>
         </div>

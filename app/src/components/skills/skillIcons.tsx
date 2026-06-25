@@ -89,7 +89,7 @@ export function getChannelIcons(
       <span
         role="img"
         aria-label={t('skills.channelIcon.yuanbao')}
-        className="flex h-8 w-8 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5 bg-white">
+        className="flex h-8 w-8 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5 bg-surface">
         <YuanbaoIcon className="h-[18px] w-[18px]" />
       </span>
     ),

@@ -111,7 +111,7 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
     <>
       {stats && (
         <SettingsSection title={t('notifications.routing.pipelineStats')}>
-          <div className="grid grid-cols-3 divide-x divide-neutral-100 dark:divide-neutral-800">
+          <div className="grid grid-cols-3 divide-x divide-line-subtle dark:divide-neutral-800">
             {[
               { label: t('notifications.routing.total'), value: stats.total },
               { label: t('notifications.routing.unread'), value: stats.unread },

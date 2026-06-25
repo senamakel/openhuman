@@ -963,7 +963,7 @@ function InboxPanel() {
           Your inbox is empty
         </div>
       ) : (
-        <div className="divide-y divide-stone-200 dark:divide-neutral-800/50">
+        <div className="divide-y divide-line dark:divide-neutral-800/50">
           {items.map(item => {
             const busy = busyKey === item.itemId;
             const archived = item.status === 'archived';
@@ -1195,7 +1195,7 @@ function ActiveDmView({
       {/* Messages */}
       <div className="flex-1 overflow-auto p-3 space-y-2">
         {loading && messages.length === 0 ? (
-          <p className="text-xs text-stone-400 animate-pulse">Loading encrypted messages...</p>
+          <p className="text-xs text-content-faint animate-pulse">Loading encrypted messages...</p>
         ) : null}
         {error ? <p className="text-xs text-red-500">{error}</p> : null}
         {!loading && !error && messages.length === 0 ? (

@@ -140,7 +140,7 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
           {t('workspace.graphLoadFailed')}: {error}
         </div>
       ) : !graph ? (
-        <div className="flex h-[640px] items-center justify-center rounded-lg border border-line-subtle bg-stone-50/40 text-sm text-content-muted">
+        <div className="flex h-[640px] items-center justify-center rounded-lg border border-line-subtle bg-surface-muted/40 text-sm text-content-muted">
           {t('workspace.loadingGraph')}
         </div>
       ) : (

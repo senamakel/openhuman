@@ -41,7 +41,7 @@ const HumanPage = () => {
   );
 
   return (
-    <div className="absolute inset-0 bg-stone-100 dark:bg-surface-canvas overflow-hidden">
+    <div className="absolute inset-0 bg-surface-subtle dark:bg-surface-canvas overflow-hidden">
       <div
         className="pointer-events-none absolute inset-0"
         style={{

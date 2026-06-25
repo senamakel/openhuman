@@ -121,19 +121,19 @@ const AppUpdatePrompt = (props: AppUpdatePromptProps) => {
         <div className="px-4 pt-1 pb-3">
           {phase === 'ready_to_install' && (
             <>
-              <p className="text-xs text-stone-300 leading-relaxed">
+              <p className="text-xs text-content-faint leading-relaxed">
                 {newVersion
                   ? t('app.update.versionReady').replace('{version}', newVersion)
                   : t('app.update.newVersionReady')}
                 {currentVersion && (
-                  <span className="text-stone-500">
+                  <span className="text-content-muted">
                     {' '}
                     {t('app.update.currentlyOn').replace('{version}', currentVersion)}
                   </span>
                 )}
               </p>
               {info?.body && <ReleaseNotes body={info.body} />}
-              <p className="mt-2 text-[11px] text-stone-500 leading-relaxed">
+              <p className="mt-2 text-[11px] text-content-muted leading-relaxed">
                 {t('app.update.restartNote')}
               </p>
               <div className="mt-3 flex gap-2">
@@ -150,9 +150,9 @@ const AppUpdatePrompt = (props: AppUpdatePromptProps) => {
           {(phase === 'installing' || phase === 'restarting') && (
             <>
               <ProgressBar indeterminate />
-              <div className="mt-2 flex items-center justify-between text-[11px] text-stone-400">
+              <div className="mt-2 flex items-center justify-between text-[11px] text-content-faint">
                 <span>{progressDetail(phase, bytesDownloaded, totalBytes, percent, t)}</span>
-                {newVersion && <span className="text-stone-500">v{newVersion}</span>}
+                {newVersion && <span className="text-content-muted">v{newVersion}</span>}
               </div>
             </>
           )}
@@ -242,7 +242,7 @@ const ReleaseNotes = ({ body }: { body: string }) => {
   const display = expanded || !isLong ? trimmed : `${trimmed.slice(0, 160).trimEnd()}…`;
   return (
     <div className="mt-2 rounded-lg bg-stone-800/60 border border-stone-700/40 px-3 py-2">
-      <p className="text-[11px] text-stone-400 whitespace-pre-line break-words">{display}</p>
+      <p className="text-[11px] text-content-faint whitespace-pre-line break-words">{display}</p>
       {isLong && (
         <ReleaseNotesToggle expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
       )}

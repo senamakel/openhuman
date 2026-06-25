@@ -290,7 +290,7 @@ const ModelPickerDialog = ({
       aria-modal="true"
       aria-labelledby="model-council-model-picker-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-md rounded-lg border border-line bg-white p-4 shadow-xl dark:bg-surface-canvas">
+      <div className="w-full max-w-md rounded-lg border border-line bg-surface p-4 shadow-xl dark:bg-surface-canvas">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3
@@ -324,7 +324,7 @@ const ModelPickerDialog = ({
                 className={`rounded-lg border px-3 py-2 text-left text-sm ${
                   picker.value === hint.value
                     ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-200'
-                    : 'border-line text-content-secondary hover:bg-stone-50 dark:hover:bg-surface'
+                    : 'border-line text-content-secondary hover:bg-surface-muted dark:hover:bg-surface'
                 }`}>
                 {t(hint.labelKey)}
                 <span className="block font-mono text-[11px] text-content-muted">
@@ -342,8 +342,8 @@ const ModelPickerDialog = ({
             aria-pressed={selectionMode === 'custom'}
             className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
               selectionMode === 'custom'
-                ? 'border-primary-500 bg-white text-primary-700 dark:bg-surface-canvas dark:text-primary-200'
-                : 'border-line bg-white text-content-secondary hover:bg-surface-hover dark:bg-surface-canvas'
+                ? 'border-primary-500 bg-surface text-primary-700 dark:bg-surface-canvas dark:text-primary-200'
+                : 'border-line bg-surface text-content-secondary hover:bg-surface-hover dark:bg-surface-canvas'
             }`}>
             {t('modelCouncil.modelPickerProviderModel')}
             <span className="block text-[11px] font-normal text-content-muted">
@@ -357,7 +357,7 @@ const ModelPickerDialog = ({
               onChange={e => setProvider(e.target.value)}
               aria-label={t('modelCouncil.modelProviderLabel')}
               disabled={selectionMode !== 'custom' || providersLoading || providers.length === 0}
-              className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-canvas">
+              className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-canvas">
               {providers.map(item => (
                 <option key={item.slug} value={item.slug}>
                   {`${item.slug === 'openhuman' ? t('settings.ai.routing.managed') : item.label} (${item.slug})`}
@@ -369,7 +369,7 @@ const ModelPickerDialog = ({
               onChange={e => setModel(e.target.value)}
               aria-label={t('modelCouncil.modelIdLabel')}
               disabled={selectionMode !== 'custom' || modelsLoading || models.length === 0}
-              className="rounded-lg border border-line bg-white px-3 py-2 font-mono text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-canvas">
+              className="rounded-lg border border-line bg-surface px-3 py-2 font-mono text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-canvas">
               {models.map(item => (
                 <option key={item.id} value={item.id}>
                   {item.id}
@@ -1211,7 +1211,7 @@ const ModelCouncilTab = () => {
               id="model-council-name"
               value={councilName}
               onChange={e => setCouncilName(e.target.value)}
-              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-content shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
             />
           </div>
           <div className="space-y-1.5">
@@ -1226,7 +1226,7 @@ const ModelCouncilTab = () => {
               onChange={e => setCouncilDescription(e.target.value)}
               placeholder={t('modelCouncil.councilDescriptionPlaceholder')}
               rows={3}
-              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-content shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
             />
           </div>
         </section>
@@ -1362,7 +1362,7 @@ const ModelCouncilTab = () => {
                 setJudgeMode(mode);
                 setJudgeModel(mode === 'default' ? DEFAULT_JUDGE_MODEL : '');
               }}
-              className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas">
+              className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas">
               <option value="default">{t('modelCouncil.defaultJudge')}</option>
               <option value="profile">{t('modelCouncil.savedProfile')}</option>
               <option value="custom">{t('modelCouncil.customAgent')}</option>
@@ -1376,7 +1376,7 @@ const ModelCouncilTab = () => {
                   setJudgeProfileId(e.target.value);
                   setJudgeModel('');
                 }}
-                className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas">
+                className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas">
                 <option value="">{t('modelCouncil.chooseProfile')}</option>
                 {profiles.map(profile => (
                   <option key={profile.id} value={profile.id}>
@@ -1393,7 +1393,7 @@ const ModelCouncilTab = () => {
                 onChange={e => setJudgeName(e.target.value)}
                 aria-label={t('modelCouncil.judgeNameLabel')}
                 placeholder={t('modelCouncil.judgeNamePlaceholder')}
-                className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
+                className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
               />
             )}
 
@@ -1407,7 +1407,7 @@ const ModelCouncilTab = () => {
                 })
               }
               aria-label={t('modelCouncil.chairLabel')}
-              className="flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-1.5 text-left font-mono text-sm text-content hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas dark:hover:bg-surface">
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-left font-mono text-sm text-content hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas dark:hover:bg-surface">
               <span className="truncate">{judgeModel || DEFAULT_JUDGE_MODEL}</span>
               <span className="shrink-0 text-[11px] font-semibold text-primary-600 dark:text-primary-300">
                 {t('modelCouncil.selectModel')}
@@ -1488,7 +1488,7 @@ const ModelCouncilTab = () => {
                             className={`rounded-md px-2 py-1 text-[11px] font-medium ${
                               seat.mode === mode
                                 ? 'bg-primary-500 text-content-inverted'
-                                : 'bg-surface-subtle text-content-secondary hover:bg-stone-200 dark:hover:bg-neutral-700'
+                                : 'bg-surface-subtle text-content-secondary hover:bg-surface-strong dark:hover:bg-neutral-700'
                             }`}>
                             {t(`modelCouncil.mode.${mode}`)}
                           </button>
@@ -1508,7 +1508,7 @@ const ModelCouncilTab = () => {
                         onChange={e =>
                           updateSeat(seat.id, { profileId: e.target.value, model: '' })
                         }
-                        className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas">
+                        className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas">
                         <option value="">{t('modelCouncil.chooseProfile')}</option>
                         {profiles.map(profile => (
                           <option key={profile.id} value={profile.id}>
@@ -1526,7 +1526,7 @@ const ModelCouncilTab = () => {
                           String(index + 1)
                         )}
                         placeholder={t('modelCouncil.memberNamePlaceholder')}
-                        className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
+                        className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
                       />
                     )}
 
@@ -1540,7 +1540,7 @@ const ModelCouncilTab = () => {
                         })
                       }
                       aria-label={t('modelCouncil.memberAria').replace('{n}', String(index + 1))}
-                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-1.5 text-left font-mono text-sm text-content hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas dark:hover:bg-surface">
+                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-left font-mono text-sm text-content hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas dark:hover:bg-surface">
                       <span className="truncate">{seat.model || DEFAULT_MODEL}</span>
                       <span className="shrink-0 text-[11px] font-semibold text-primary-600 dark:text-primary-300">
                         {t('modelCouncil.selectModel')}
@@ -1556,7 +1556,7 @@ const ModelCouncilTab = () => {
                         String(index + 1)
                       )}
                       placeholder={t('modelCouncil.memberBriefPlaceholder')}
-                      className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-xs text-content-secondary resize-none focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-xs text-content-secondary resize-none focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-surface-canvas"
                     />
                   </div>
                 </article>
@@ -1584,7 +1584,7 @@ const ModelCouncilTab = () => {
             <span
               role="status"
               aria-live="polite"
-              className="rounded-md bg-white px-2 py-1 text-xs font-medium text-primary-700 shadow-sm dark:bg-surface-canvas dark:text-primary-200">
+              className="rounded-md bg-surface px-2 py-1 text-xs font-medium text-primary-700 shadow-sm dark:bg-surface-canvas dark:text-primary-200">
               {t('modelCouncil.runningHint')}
             </span>
           </div>
@@ -1601,7 +1601,7 @@ const ModelCouncilTab = () => {
               return (
                 <div
                   key={`${seat.label}-${index}`}
-                  className={`rounded-lg border bg-white/90 p-3 shadow-sm dark:bg-surface-canvas/80 ${
+                  className={`rounded-lg border bg-surface/90 p-3 shadow-sm dark:bg-surface-canvas/80 ${
                     failed
                       ? 'border-coral-200 dark:border-coral-500/30'
                       : answered
@@ -1690,7 +1690,7 @@ const ModelCouncilTab = () => {
               );
             })}
 
-            <div className="rounded-lg border border-primary-200 bg-white p-3 shadow-sm dark:border-primary-500/30 dark:bg-surface-canvas">
+            <div className="rounded-lg border border-primary-200 bg-surface p-3 shadow-sm dark:border-primary-500/30 dark:bg-surface-canvas">
               <div className="flex items-start gap-3">
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-subtle">
                   <RiveMascot size="100%" face="reading" />
@@ -1716,7 +1716,7 @@ const ModelCouncilTab = () => {
             </div>
           </div>
 
-          <div className="rounded-lg border border-line bg-white p-3 shadow-sm dark:bg-surface-canvas">
+          <div className="rounded-lg border border-line bg-surface p-3 shadow-sm dark:bg-surface-canvas">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 className="font-mono text-sm font-semibold text-content">

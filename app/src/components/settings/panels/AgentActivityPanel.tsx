@@ -134,7 +134,7 @@ export default function AgentActivityPanel() {
                 className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                   isSelected
                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                    : 'border-line bg-surface hover:border-neutral-300 dark:hover:border-line-strong'
+                    : 'border-line bg-surface hover:border-line-strong dark:hover:border-line-strong'
                 } ${status === 'saving' ? 'opacity-50' : ''}`}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -143,7 +143,7 @@ export default function AgentActivityPanel() {
                         {t(`activityLevel.${key as LevelKey}`)}
                       </span>
                       {value === 2 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-content-muted">
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-surface-strong dark:bg-neutral-700 text-content-secondary dark:text-content-muted">
                           {t('activityLevel.default')}
                         </span>
                       )}

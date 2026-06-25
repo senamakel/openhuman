@@ -152,7 +152,7 @@ const Notifications = () => {
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 activeCategory === 'all'
                   ? 'bg-primary-500 text-content-inverted'
-                  : 'bg-surface-subtle text-content-secondary hover:bg-stone-200 dark:hover:bg-neutral-700'
+                  : 'bg-surface-subtle text-content-secondary hover:bg-surface-strong dark:hover:bg-neutral-700'
               }`}>
               {t('notifications.filterAll')}
             </button>
@@ -166,7 +166,7 @@ const Notifications = () => {
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   activeCategory === category
                     ? 'bg-primary-500 text-content-inverted'
-                    : 'bg-surface-subtle text-content-secondary hover:bg-stone-200 dark:hover:bg-neutral-700'
+                    : 'bg-surface-subtle text-content-secondary hover:bg-surface-strong dark:hover:bg-neutral-700'
                 }`}>
                 {categoryLabel(category)}
               </button>
@@ -179,7 +179,7 @@ const Notifications = () => {
             {activeCategory === 'all' ? t('alerts.empty') : t('notifications.filterEmpty')}
           </div>
         ) : (
-          <ul className="divide-y divide-stone-100 dark:divide-neutral-800">
+          <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
             {filteredItems.map(item => (
               <li key={item.id} data-testid="notification-item">
                 {/* `role="button"` instead of a real `<button>` — the row body

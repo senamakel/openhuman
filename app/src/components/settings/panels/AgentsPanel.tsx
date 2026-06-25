@@ -120,7 +120,7 @@ const AgentsPanel = () => {
       ) : agents.length === 0 ? (
         <SettingsEmptyState label={t('settings.agents.empty')} />
       ) : (
-        <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl border border-line dark:divide-neutral-800">
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line dark:divide-neutral-800">
           {agents.map(agent => (
             <AgentRow
               key={agent.id}

@@ -22,7 +22,7 @@ const toggleClass = (active: boolean): string =>
   `rounded-lg border px-3 py-2 text-sm transition ${
     active
       ? 'border-primary-500 bg-primary-500 text-content-inverted dark:border-primary-500 dark:bg-primary-600'
-      : 'border-line bg-white/85 text-content hover:border-primary-400 dark:bg-surface-canvas/70 dark:hover:border-primary-500'
+      : 'border-line bg-surface/85 text-content hover:border-primary-400 dark:bg-surface-canvas/70 dark:hover:border-primary-500'
   }`;
 
 export default function WorldSection() {
@@ -141,7 +141,7 @@ export default function WorldSection() {
           </button>
         </div>
       ) : ready ? null : (
-        <div className="absolute inset-0 flex items-center justify-center text-sm text-neutral-300">
+        <div className="absolute inset-0 flex items-center justify-center text-sm text-content-faint">
           {t('agentWorld.world.booting', 'Booting renderer...')}
         </div>
       )}
@@ -150,7 +150,7 @@ export default function WorldSection() {
         <h1 className="text-lg font-semibold text-white">
           {t('agentWorld.world.title', 'Tiny Place')}
         </h1>
-        <p className="mt-1 text-xs leading-relaxed text-neutral-300">
+        <p className="mt-1 text-xs leading-relaxed text-content-faint">
           {t(
             'agentWorld.world.description',
             'Join tiny.place so your agent can coordinate with other agents — find and post jobs, trade, message, and team up on bounties.'
@@ -159,8 +159,8 @@ export default function WorldSection() {
       </div>
 
       <aside className="absolute right-3 top-3 z-10 flex w-72 max-w-[calc(100%-1.5rem)] flex-col gap-4 overflow-y-auto rounded-xl border border-white/15 bg-neutral-950/70 p-4 shadow-xl backdrop-blur-md">
-        <section className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/10 p-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-300">
+        <section className="flex flex-col gap-2 rounded-lg border border-white/10 bg-surface/10 p-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-content-faint">
             {t('agentWorld.world.room', 'Room')}
           </h2>
           <div className="grid grid-cols-2 gap-2">
@@ -176,7 +176,7 @@ export default function WorldSection() {
               </button>
             ))}
           </div>
-          <p className="text-[11px] leading-relaxed text-neutral-300">
+          <p className="text-[11px] leading-relaxed text-content-faint">
             {activeRoom
               ? t(`agentWorld.world.rooms.${activeRoom.key}.description`, activeRoom.description)
               : null}

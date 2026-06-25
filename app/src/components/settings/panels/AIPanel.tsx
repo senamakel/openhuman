@@ -874,7 +874,7 @@ const ProviderKeyDialog = ({
         </div>
 
         {oauthAction ? (
-          <div className="mt-4 rounded-xl border border-line bg-neutral-50 dark:bg-surface-muted/50 p-3">
+          <div className="mt-4 rounded-xl border border-line bg-surface-muted dark:bg-surface-muted/50 p-3">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
               {t('settings.ai.or')}
             </div>
@@ -1538,7 +1538,7 @@ export const BackgroundLoopControls = ({
               <div className="border-b border-line px-3 py-2 text-xs font-semibold uppercase tracking-wide text-content-faint">
                 {t('settings.ai.loopMap')}
               </div>
-              <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+              <div className="divide-y divide-line dark:divide-neutral-800">
                 {loops.map(loop => (
                   <div key={loop.name} className="grid gap-2 px-3 py-3 md:grid-cols-[150px_1fr]">
                     <div className="min-w-0">
@@ -2500,11 +2500,11 @@ const CustomRoutingDialog = ({
                   )}
                 </div>
                 {testBusy ? (
-                  <div className="mt-2 rounded-md border border-current/15 bg-white/50 px-3 py-2 text-[12px] dark:bg-black/10">
+                  <div className="mt-2 rounded-md border border-current/15 bg-surface/50 px-3 py-2 text-[12px] dark:bg-black/10">
                     {t('settings.ai.waitingForModelResponse')}
                   </div>
                 ) : testError ? (
-                  <div className="mt-2 rounded-md border border-current/15 bg-white/50 px-3 py-2 font-mono text-[11px] whitespace-pre-wrap break-words dark:bg-black/10">
+                  <div className="mt-2 rounded-md border border-current/15 bg-surface/50 px-3 py-2 font-mono text-[11px] whitespace-pre-wrap break-words dark:bg-black/10">
                     {testError}
                   </div>
                 ) : (
@@ -2512,7 +2512,7 @@ const CustomRoutingDialog = ({
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-current/80">
                       {t('settings.ai.response')}
                     </div>
-                    <div className="rounded-md border border-current/15 bg-white/70 px-3 py-3 text-[13px] leading-relaxed text-content whitespace-pre-wrap break-words dark:bg-black/10">
+                    <div className="rounded-md border border-current/15 bg-surface/70 px-3 py-3 text-[13px] leading-relaxed text-content whitespace-pre-wrap break-words dark:bg-black/10">
                       {testReply}
                     </div>
                   </div>
@@ -3528,7 +3528,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                         {t('settings.ai.routing.chatDesc')}
                       </div>
                     </div>
-                    <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                    <div className="divide-y divide-line dark:divide-neutral-800">
                       {chatRows.map(w => (
                         <WorkloadRow
                           key={w.id}
@@ -3550,7 +3550,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                         {t('settings.ai.routing.bgTasksDesc')}
                       </div>
                     </div>
-                    <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                    <div className="divide-y divide-line dark:divide-neutral-800">
                       {bgRows.map(w => (
                         <WorkloadRow
                           key={w.id}

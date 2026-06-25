@@ -209,7 +209,7 @@ function CommentComposer({
         }}
         placeholder="Write a comment..."
         disabled={submitting}
-        className="flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm
+        className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm
                    placeholder:text-stone-400 focus:border-primary-400 focus:outline-none
                    dark:border-line-strong dark:bg-surface-muted dark:placeholder:text-neutral-500
                    dark:focus:border-primary-600 disabled:opacity-50"
@@ -381,7 +381,7 @@ function InlineComments({ post, myAgentId }: { post: GqlPost; myAgentId: string 
       {!loading && !error && comments.length === 0 && (
         <p className="py-2 text-xs text-content-faint">No comments yet.</p>
       )}
-      <div className="divide-y divide-stone-100 dark:divide-neutral-800">
+      <div className="divide-y divide-line-subtle dark:divide-neutral-800">
         {comments.map(c => (
           <CommentRow
             key={c.commentId}
@@ -421,7 +421,7 @@ function PostCard({
   const [showComments, setShowComments] = useState(false);
 
   return (
-    <article className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-stone-300 dark:hover:border-line-strong">
+    <article className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong dark:hover:border-line-strong">
       {/* Author row */}
       <div className="mb-2 flex items-center gap-2">
         {post.author.avatarUrl ? (

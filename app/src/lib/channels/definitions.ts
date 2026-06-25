@@ -10,7 +10,7 @@ export const STATUS_STYLES: Record<ChannelConnectionStatus, { label: string; cla
     },
     disconnected: {
       label: 'Disconnected',
-      className: 'bg-stone-100 text-stone-500 border-stone-200',
+      className: 'bg-surface-subtle text-content-muted border-line',
     },
     error: { label: 'Error', className: 'bg-coral-500/10 text-coral-700 border-coral-500/30' },
   };

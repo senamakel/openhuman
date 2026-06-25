@@ -404,7 +404,7 @@ export default function IntelligenceOrchestrationTab() {
           </div>
         ) : (
           <ul
-            className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800"
+            className="divide-y divide-line-subtle overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800"
             data-testid="orchestration-runs">
             {runs.map(run => {
               const def = definitions.find(d => d.id === run.definitionId);

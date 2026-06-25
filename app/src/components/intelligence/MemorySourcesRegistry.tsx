@@ -506,7 +506,7 @@ export function MemorySourcesRegistry({
             disabled={applyingAllIn}
             data-testid="all-in-button"
             className="inline-flex items-center gap-1 rounded-md border border-primary-300
-                       bg-white px-3 py-1.5 text-xs font-semibold text-primary-600
+                       bg-surface px-3 py-1.5 text-xs font-semibold text-primary-600
                        shadow-sm transition-colors hover:bg-primary-50
                        disabled:cursor-not-allowed disabled:opacity-50
                        dark:border-primary-500/30 dark:bg-surface dark:text-primary-400
@@ -532,7 +532,7 @@ export function MemorySourcesRegistry({
       ) : sources.length === 0 ? (
         <p className="text-xs text-content-muted">{t('memorySources.empty')}</p>
       ) : (
-        <ul className="divide-y divide-stone-100 dark:divide-neutral-800">
+        <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
           {sources.map(source => (
             <SourceRow
               key={source.id}
@@ -854,7 +854,7 @@ function SourceRow({
             disabled={!source.enabled || isBuilding || isSyncing}
             title={t('memorySources.build.title')}
             className="inline-flex items-center gap-1 rounded-md border border-primary-300
-                     bg-white px-3 py-1.5 text-xs font-semibold text-primary-600
+                     bg-surface px-3 py-1.5 text-xs font-semibold text-primary-600
                      shadow-sm transition-colors hover:bg-primary-50
                      disabled:cursor-not-allowed disabled:opacity-50
                      dark:border-primary-500/30 dark:bg-surface dark:text-primary-400
@@ -871,7 +871,7 @@ function SourceRow({
               source.enabled ? 'bg-primary-500' : 'bg-surface-strong'
             }`}>
             <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-surface shadow transition-transform ${
                 source.enabled ? 'left-[18px]' : 'left-0.5'
               }`}
             />

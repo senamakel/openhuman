@@ -127,7 +127,7 @@ const ApprovalHistoryPanel = () => {
           </div>
         ) : (
           <ul
-            className="divide-y divide-neutral-100 dark:divide-neutral-800"
+            className="divide-y divide-line-subtle dark:divide-neutral-800"
             data-testid="approval-history-list">
             {entries.map(entry => (
               <li

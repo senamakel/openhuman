@@ -128,7 +128,7 @@ export default function IntelligenceSubconsciousTab({
                 className={`inline-block w-3 h-3 rounded-full border-2 mb-1.5 ${
                   mode === opt.id
                     ? 'bg-primary-500 border-primary-500'
-                    : 'border-stone-300 dark:border-neutral-600'
+                    : 'border-line-strong dark:border-neutral-600'
                 }`}
               />
               <span className="text-sm font-medium text-content">
@@ -188,7 +188,7 @@ export default function IntelligenceSubconsciousTab({
                 </span>
                 {status.last_tick_at && (
                   <>
-                    <span className="text-stone-300 dark:text-neutral-600">|</span>
+                    <span className="text-content-faint dark:text-neutral-600">|</span>
                     <span>
                       {t('subconscious.last')}:{' '}
                       {new Date(status.last_tick_at * 1000).toLocaleTimeString()}
@@ -197,7 +197,7 @@ export default function IntelligenceSubconsciousTab({
                 )}
                 {status.consecutive_failures > 0 && (
                   <>
-                    <span className="text-stone-300 dark:text-neutral-600">|</span>
+                    <span className="text-content-faint dark:text-neutral-600">|</span>
                     <span className="text-coral-500">
                       {status.consecutive_failures} {t('subconscious.failed')}
                     </span>

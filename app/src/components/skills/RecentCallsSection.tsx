@@ -134,7 +134,7 @@ function RecentCallRow({ call }: { call: MeetCallRecord }) {
         type="button"
         onClick={toggle}
         aria-expanded={expanded}
-        className="w-full rounded-lg px-2 py-1.5 text-left hover:bg-stone-50 dark:hover:bg-surface-muted/40">
+        className="w-full rounded-lg px-2 py-1.5 text-left hover:bg-surface-muted dark:hover:bg-surface-muted/40">
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1">
             <Chevron expanded={expanded} />

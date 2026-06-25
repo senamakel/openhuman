@@ -52,7 +52,7 @@ const ReceiveModal = ({ balance, onClose }: ReceiveModalProps) => {
         <p className="text-xs text-content-muted text-center leading-relaxed">
           {t('walletReceive.scanHint')}
         </p>
-        <div className="rounded-xl bg-white p-3 border border-stone-200" data-testid="receive-qr">
+        <div className="rounded-xl bg-surface p-3 border border-line" data-testid="receive-qr">
           <QRCodeSVG
             value={balance.address}
             size={180}

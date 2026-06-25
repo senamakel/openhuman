@@ -27,7 +27,7 @@ const SettingsSection = ({ title, description, children, className }: SettingsSe
           )}
         </div>
       )}
-      <div className="divide-y divide-neutral-100 dark:divide-neutral-800">{children}</div>
+      <div className="divide-y divide-line-subtle dark:divide-neutral-800">{children}</div>
     </div>
   );
 };

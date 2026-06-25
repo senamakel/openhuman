@@ -221,7 +221,7 @@ export default function IntelligenceAgentWorkTab() {
               </span>
             </div>
 
-            <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
+            <ul className="divide-y divide-line-subtle overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
               {rows.map(row => (
                 <AgentWorkRowItem
                   key={row.runId}

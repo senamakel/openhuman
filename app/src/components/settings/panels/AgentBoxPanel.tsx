@@ -30,7 +30,7 @@ type PanelState =
   | { kind: 'error'; message: string };
 
 const ROW =
-  'px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20';
+  'px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20';
 
 const AgentBoxPanel = () => {
   const { t } = useT();
@@ -99,7 +99,7 @@ const AgentBoxPanel = () => {
               className={`text-xs font-mono px-2 py-0.5 rounded-full ${
                 s.mode_enabled
                   ? 'bg-sage-100 text-sage-800 dark:bg-sage-500/20 dark:text-sage-200'
-                  : 'bg-neutral-100 text-content-secondary dark:bg-neutral-700/40'
+                  : 'bg-surface-subtle text-content-secondary dark:bg-neutral-700/40'
               }`}>
               {modeLabel}
             </span>

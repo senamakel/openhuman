@@ -62,7 +62,7 @@ const ScreenIntelligenceDebugPanelContent = ({
         </h3>
         <button
           onClick={handleRefreshStatus}
-          className="rounded-lg border border-stone-700 bg-stone-800/60 px-3 py-1 text-xs text-stone-300 dark:text-neutral-600 transition-colors hover:bg-stone-700/60">
+          className="rounded-lg border border-stone-700 bg-stone-800/60 px-3 py-1 text-xs text-content-faint dark:text-neutral-600 transition-colors hover:bg-stone-700/60">
           {t('common.refresh')}
         </button>
       </div>
@@ -99,7 +99,7 @@ const ScreenIntelligenceDebugPanelContent = ({
         <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-content-faint">
           {t('intelligence.screenDebug.session')}
         </h4>
-        <div className="space-y-1 text-xs text-stone-300 dark:text-neutral-600">
+        <div className="space-y-1 text-xs text-content-faint dark:text-neutral-600">
           <div className="flex justify-between">
             <span>{t('intelligence.screenDebug.active')}</span>
             <span
@@ -146,7 +146,7 @@ const ScreenIntelligenceDebugPanelContent = ({
 
         {captureTestResult && (
           <div className="space-y-2">
-            <div className="space-y-1 text-xs text-stone-300 dark:text-neutral-600">
+            <div className="space-y-1 text-xs text-content-faint dark:text-neutral-600">
               <div className="flex justify-between">
                 <span>{t('intelligence.screenDebug.status')}</span>
                 <span className={captureTestResult.ok ? 'text-green-400' : 'text-red-400'}>
@@ -261,7 +261,7 @@ const PermissionDot = ({ label, value }: { label: string; value?: string }) => {
   return (
     <div className="flex items-center gap-1.5">
       <div className={`h-2 w-2 rounded-full ${color}`} />
-      <span className="text-stone-300 dark:text-neutral-600">{label}</span>
+      <span className="text-content-faint dark:text-neutral-600">{label}</span>
     </div>
   );
 };

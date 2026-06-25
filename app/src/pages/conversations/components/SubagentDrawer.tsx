@@ -76,7 +76,7 @@ function statusTone(status: ToolTimelineEntryStatus | undefined): {
   if (status === 'cancelled') {
     return {
       dot: 'bg-stone-400 dark:bg-neutral-500',
-      pill: 'bg-stone-100 dark:bg-neutral-700/40 text-content-secondary',
+      pill: 'bg-surface-subtle dark:bg-neutral-700/40 text-content-secondary',
       label: 'statusCancelled',
     };
   }
@@ -455,7 +455,7 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
   const expandable = argsText != null || hasOutput;
 
   const detailPre =
-    'max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-white px-2 py-1.5 ' +
+    'max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-surface px-2 py-1.5 ' +
     'font-mono text-[11px] leading-relaxed text-content-secondary dark:bg-surface';
   const detailLabel =
     'mb-1 text-[10px] font-semibold uppercase tracking-wide text-content-faint';

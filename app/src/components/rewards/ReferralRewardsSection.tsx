@@ -330,7 +330,7 @@ const ReferralRewardsSection = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100 dark:divide-neutral-800">
+                  <tbody className="divide-y divide-line-subtle dark:divide-neutral-800">
                     {stats.referrals.map((row, idx) => (
                       <tr
                         key={row.id ?? row.referredUserId ?? idx}

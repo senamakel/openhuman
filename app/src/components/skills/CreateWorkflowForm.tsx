@@ -424,7 +424,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                   <div
                     key={row.localId}
                     data-testid={`create-skill-input-row-${row.localId}`}
-                    className="rounded-lg border border-line bg-stone-50 dark:bg-surface-canvas/40 p-3">
+                    className="rounded-lg border border-line bg-surface-muted dark:bg-surface-canvas/40 p-3">
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
                       <div>
                         <input

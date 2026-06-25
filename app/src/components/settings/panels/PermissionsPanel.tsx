@@ -338,7 +338,7 @@ const PermissionsPanel = () => {
                 {actionDirSaved && !actionDirEditing && (
                   <p className="text-xs text-sage-600 dark:text-sage-400">{actionDirSaved}</p>
                 )}
-                <p className="text-xs text-neutral-500 dark:text-content-faint mt-0.5">
+                <p className="text-xs text-content-muted dark:text-content-faint mt-0.5">
                   {t('settings.agentAccess.actionSandboxDesc')}
                 </p>
               </div>

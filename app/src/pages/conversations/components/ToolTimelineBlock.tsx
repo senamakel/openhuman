@@ -174,7 +174,7 @@ function LiveResponseBlock({ text }: { text: string }) {
         <span className="text-[11px] font-semibold tracking-wide text-primary-500 uppercase dark:text-primary-300">
           {t('conversations.agentTaskInsights.response')}
         </span>
-        <span className="text-[10px] text-stone-300 transition-transform group-open/resp:rotate-90 dark:text-neutral-600">
+        <span className="text-[10px] text-content-faint transition-transform group-open/resp:rotate-90 dark:text-neutral-600">
           ▶
         </span>
       </summary>
@@ -277,7 +277,7 @@ export function SubagentActivityBlock({
       ) : null}
       {subagent.worktreePath ? (
         <div
-          className="mt-1 space-y-1 rounded-md border border-line bg-stone-50/70 p-1.5 dark:bg-surface/50"
+          className="mt-1 space-y-1 rounded-md border border-line bg-surface-muted/70 p-1.5 dark:bg-surface/50"
           data-testid="subagent-worktree">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="font-medium text-content-secondary">
@@ -464,7 +464,7 @@ export function ToolTimelineBlock({
                 <details open={shouldAutoExpand} className="group/row">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
                     <span className={`text-[13px] font-medium ${nameTone}`}>{formatted.title}</span>
-                    <span className="text-[11px] text-stone-300 transition-transform group-open/row:rotate-90 dark:text-neutral-600">
+                    <span className="text-[11px] text-content-faint transition-transform group-open/row:rotate-90 dark:text-neutral-600">
                       ▶
                     </span>
                   </summary>

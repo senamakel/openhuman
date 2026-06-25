@@ -64,7 +64,7 @@ const BudgetSummary = ({
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium text-white ${STATUS_BG[status]}`}>
             <span
               aria-hidden
-              className="inline-block h-1.5 w-1.5 rounded-full bg-white/80 animate-pulse"
+              className="inline-block h-1.5 w-1.5 rounded-full bg-surface/80 animate-pulse"
             />
             {t(STATUS_LABEL_KEY[status])}
           </span>

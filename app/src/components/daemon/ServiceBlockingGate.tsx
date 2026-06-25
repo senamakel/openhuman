@@ -55,8 +55,8 @@ const ServiceBlockingGate = ({ children }: ServiceBlockingGateProps) => {
           <h2 className="text-xl font-semibold text-white">
             {t('daemon.serviceBlockingGate.title')}
           </h2>
-          <p className="mt-2 text-sm text-stone-300">{t('daemon.serviceBlockingGate.body')}</p>
-          <p className="mt-2 text-sm text-stone-400">
+          <p className="mt-2 text-sm text-content-faint">{t('daemon.serviceBlockingGate.body')}</p>
+          <p className="mt-2 text-sm text-content-faint">
             {t('daemon.serviceBlockingGate.downloadHint')}
           </p>
           {restartError && <p className="mt-3 text-sm text-coral-300">{restartError}</p>}

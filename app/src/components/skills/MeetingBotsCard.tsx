@@ -321,7 +321,7 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
             onChange={e => setMeetUrl(e.target.value)}
             placeholder={t('skills.meetingBots.platformHints.gmeet')}
             disabled={submitting}
-            className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-surface-muted/60"
+            className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-surface-muted dark:disabled:bg-surface-muted/60"
             required
           />
         </label>
@@ -339,7 +339,7 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
             placeholder={t('skills.meetingBots.respondToParticipantHint')}
             disabled={submitting}
             required
-            className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-surface-muted/60"
+            className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-surface-muted dark:disabled:bg-surface-muted/60"
           />
           <p className="mt-1 text-[10px] text-content-faint">
             {t('skills.meetingBots.respondToParticipantDesc')}
@@ -352,7 +352,7 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
             checked={!listenOnly}
             onChange={e => setListenOnly(!e.target.checked)}
             disabled={submitting}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-stone-300 text-primary-500 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-line-strong text-primary-500 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed"
           />
           <span className="min-w-0">
             <span className="block text-sm font-medium text-content">

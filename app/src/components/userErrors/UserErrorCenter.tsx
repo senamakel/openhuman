@@ -78,7 +78,7 @@ export function UserErrorCenter() {
             </span>
           </div>
 
-          <ul className="max-h-96 divide-y divide-neutral-100 overflow-auto dark:divide-neutral-800">
+          <ul className="max-h-96 divide-y divide-line-subtle overflow-auto dark:divide-neutral-800">
             {active.map(entry => (
               <li key={entry.id} className="px-3 py-2.5" data-testid="user-error-item">
                 <p className="text-sm font-semibold text-ink dark:text-content">

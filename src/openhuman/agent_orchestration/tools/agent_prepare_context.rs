@@ -13,7 +13,9 @@
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
-use crate::openhuman::agent::harness::fork_context::current_parent;
+use crate::openhuman::agent::harness::fork_context::{
+    current_agent_context_prepared_sources, current_parent,
+};
 use crate::openhuman::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunStatus,
 };
@@ -50,6 +52,20 @@ fn is_well_formed_context_bundle(output: &str) -> bool {
         && trimmed.matches(CLOSE).count() == 1
         // Guard the degenerate case where OPEN/CLOSE overlap on too-short input.
         && trimmed.len() >= OPEN.len() + CLOSE.len()
+}
+
+fn already_prepared_context_bundle(sources: &[String]) -> String {
+    let sources = if sources.is_empty() {
+        "the OpenHuman harness".to_string()
+    } else {
+        sources.join(", ")
+    };
+    format!(
+        "[context_bundle]\nhas_enough_context: true\nproposed_goal: none\n\
+         summary: Agent context has already been prepared once for this turn by {sources}. \
+         Use the existing prepared-context blocks in the current user message; do not run \
+         another context_scout pass.\nrecommended_tool_calls:\n[/context_bundle]"
+    )
 }
 
 /// Run the `context_scout` sub-agent inline (blocking) for `question` and
@@ -493,7 +509,9 @@ impl Tool for AgentPrepareContextTool {
          integrations, and the web, then returns whether there's enough context \
          to answer, a compact context summary, an ordered list of recommended \
          next tool calls (your own tools, by exact name, with args), and any \
-         skills worth running. Use at the start of non-trivial turns."
+         skills worth running. Use at the start of non-trivial turns unless the \
+         current prompt says agent context has already been prepared; in that \
+         case, use the prepared context and do not call this tool again."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -524,6 +542,18 @@ impl Tool for AgentPrepareContextTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let prepared_sources = current_agent_context_prepared_sources();
+        if !prepared_sources.is_empty() {
+            tracing::info!(
+                target: "agent_prepare_context",
+                sources = ?prepared_sources,
+                "[agent_prepare_context] skipped because agent context is already prepared for this turn"
+            );
+            return Ok(ToolResult::success(already_prepared_context_bundle(
+                &prepared_sources,
+            )));
+        }
+
         let question = args.get("question").and_then(|v| v.as_str()).unwrap_or("");
         let focus = args.get("focus").and_then(|v| v.as_str());
         run_context_scout(question, focus).await
@@ -550,6 +580,15 @@ mod tests {
         let props = schema.get("properties").expect("schema has properties");
         assert!(props.get("question").is_some());
         assert!(props.get("focus").is_some());
+    }
+
+    #[test]
+    fn description_skips_when_context_is_already_prepared() {
+        let tool = AgentPrepareContextTool::new();
+        let description = tool.description();
+
+        assert!(description.contains("agent context has already been prepared"));
+        assert!(description.contains("do not call this tool again"));
     }
 
     #[test]
@@ -615,6 +654,24 @@ mod tests {
         let result = tool.execute(json!({})).await.unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("question"));
+    }
+
+    #[tokio::test]
+    async fn execute_short_circuits_when_context_already_prepared() {
+        let tool = AgentPrepareContextTool::new();
+        let result = crate::openhuman::agent::harness::with_agent_context_prepared_sources(
+            vec!["super context preparation".to_string()],
+            tool.execute(json!({"question": "prepare context again"})),
+        )
+        .await
+        .unwrap();
+
+        assert!(!result.is_error, "{}", result.output());
+        assert!(result.output().contains("[context_bundle]"));
+        assert!(result.output().contains("has_enough_context: true"));
+        assert!(result.output().contains("already been prepared once"));
+        assert!(result.output().contains("super context preparation"));
+        assert!(result.output().contains("[/context_bundle]"));
     }
 
     #[test]

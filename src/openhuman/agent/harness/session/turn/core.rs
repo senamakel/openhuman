@@ -59,6 +59,20 @@ fn should_run_super_context(
     is_orchestrator && first_turn && !has_prior_conversation && enabled
 }
 
+fn render_agent_context_status_note(sources: &[String]) -> String {
+    let sources = if sources.is_empty() {
+        "the OpenHuman harness".to_string()
+    } else {
+        sources.join(", ")
+    };
+    format!(
+        "## Agent context status\n\nAgent context retrieval/preparation has already run once \
+         for this turn in code via {sources}. Do not call `agent_prepare_context` again for \
+         general context preparation. Use the prepared context below, and call only specific \
+         follow-up tools if a concrete missing detail is required."
+    )
+}
+
 impl Agent {
     /// Executes a single interaction "turn" with the agent.
     ///
@@ -510,9 +524,13 @@ impl Agent {
         let mut parent_context = self.build_parent_execution_context();
         parent_context.model_name = effective_model.clone();
 
-        let enriched = self
+        let mut agent_context_prepared_sources: Vec<String> = Vec::new();
+        let (enriched, memory_agent_context_injected) = self
             .inject_triggered_memory_agent_context(user_message, enriched, &parent_context)
             .await;
+        if memory_agent_context_injected {
+            agent_context_prepared_sources.push("memory agent context retrieval".to_string());
+        }
 
         // ── "Super context": harness-driven first-turn context collection ──
         // When enabled (config `context.super_context_enabled`, surfaced as the
@@ -520,8 +538,9 @@ impl Agent {
         // orchestrator LLM gets the turn, and fold its bounded
         // `[context_bundle]` into the user message. This is the harness driving
         // the collection deterministically — unlike the `agent_prepare_context`
-        // tool, which the model chooses to call. The tool stays exposed so the
-        // model can still scout again mid-turn.
+        // tool, which the model chooses to call. If this path succeeds, the
+        // turn prompt and task-local marker tell `agent_prepare_context` not
+        // to run another generic scout pass in the same turn.
         //
         // Gate on the **first turn of a genuinely new thread**: `first_turn`
         // (empty `history`) is necessary but NOT sufficient, because a thread
@@ -568,6 +587,7 @@ impl Agent {
             match scout {
                 Ok(result) if !result.is_error => {
                     let bundle = result.output();
+                    agent_context_prepared_sources.push("super context preparation".to_string());
                     log::info!(
                         "[agent_loop] super_context bundle collected bundle_chars={}",
                         bundle.chars().count()
@@ -575,7 +595,8 @@ impl Agent {
                     format!(
                         "## Prepared context (super context)\n\nThe following context was \
                          collected up-front by a read-only context scout before this turn. \
-                         Use it to ground your response; you may still gather more if needed.\n\n\
+                         Use it to ground your response; do not call `agent_prepare_context` \
+                         again for general preparation.\n\n\
                          {bundle}\n\n---\n\n{enriched}"
                     )
                 }
@@ -595,6 +616,19 @@ impl Agent {
             }
         } else {
             enriched
+        };
+
+        let enriched = if agent_context_prepared_sources.is_empty() {
+            enriched
+        } else {
+            log::debug!(
+                "[agent_loop] agent context already prepared sources={:?}",
+                agent_context_prepared_sources
+            );
+            format!(
+                "{}\n\n{enriched}",
+                render_agent_context_status_note(&agent_context_prepared_sources)
+            )
         };
 
         // #3602: stamp every turn's user message with the live local time
@@ -874,11 +908,24 @@ impl Agent {
             }
         }
         let result = if turn_stop_hooks.is_empty() {
-            harness::with_parent_context(parent_context, turn_body).await
+            harness::with_parent_context(
+                parent_context,
+                harness::with_agent_context_prepared_sources(
+                    agent_context_prepared_sources.clone(),
+                    turn_body,
+                ),
+            )
+            .await
         } else {
             harness::with_parent_context(
                 parent_context,
-                crate::openhuman::agent::stop_hooks::with_stop_hooks(turn_stop_hooks, turn_body),
+                harness::with_agent_context_prepared_sources(
+                    agent_context_prepared_sources.clone(),
+                    crate::openhuman::agent::stop_hooks::with_stop_hooks(
+                        turn_stop_hooks,
+                        turn_body,
+                    ),
+                ),
             )
             .await
         };
@@ -975,7 +1022,7 @@ impl Agent {
         user_message: &str,
         enriched: String,
         parent_context: &ParentExecutionContext,
-    ) -> String {
+    ) -> (String, bool) {
         const MEMORY_AGENT_ID: &str = "agent_memory";
         const MAX_MEMORY_AGENT_BLOCK_CHARS: usize = 8000;
 
@@ -985,25 +1032,25 @@ impl Agent {
                 self.agent_definition_id,
                 self.trigger_memory_agent
             );
-            return enriched;
+            return (enriched, false);
         }
 
         if self.agent_definition_id == MEMORY_AGENT_ID {
             log::debug!("[agent_memory:trigger] skipped recursive memory agent invocation");
-            return enriched;
+            return (enriched, false);
         }
 
         let Some(registry) = harness::AgentDefinitionRegistry::global() else {
             log::warn!(
                 "[agent_memory:trigger] AgentDefinitionRegistry unavailable; continuing without memory agent context"
             );
-            return enriched;
+            return (enriched, false);
         };
         let Some(definition) = registry.get(MEMORY_AGENT_ID).cloned() else {
             log::warn!(
                 "[agent_memory:trigger] `{MEMORY_AGENT_ID}` definition unavailable; continuing without memory agent context"
             );
-            return enriched;
+            return (enriched, false);
         };
 
         let task_id = format!("mem-trigger-{}", uuid::Uuid::new_v4());
@@ -1054,12 +1101,15 @@ impl Agent {
                 }
                 output = truncate_with_ellipsis(&output, MAX_MEMORY_AGENT_BLOCK_CHARS);
                 if output.trim().is_empty() {
-                    return enriched;
+                    return (enriched, false);
                 }
-                format!(
-                    "## Memory agent context\n\n{}\n\n---\n\n{}",
-                    output.trim(),
-                    enriched
+                (
+                    format!(
+                        "## Memory agent context\n\n{}\n\n---\n\n{}",
+                        output.trim(),
+                        enriched
+                    ),
+                    true,
                 )
             }
             Err(err) => {
@@ -1068,7 +1118,7 @@ impl Agent {
                     self.agent_definition_id,
                     task_id
                 );
-                enriched
+                (enriched, false)
             }
         }
     }
@@ -1076,7 +1126,7 @@ impl Agent {
 
 #[cfg(test)]
 mod super_context_gate_tests {
-    use super::should_run_super_context;
+    use super::{render_agent_context_status_note, should_run_super_context};
 
     #[test]
     fn runs_only_on_first_turn_of_a_new_orchestrator_thread_when_enabled() {
@@ -1120,5 +1170,19 @@ mod super_context_gate_tests {
         // specialist sub-agents). Even on a fresh first turn with the flag on,
         // super context must only run for the user-facing orchestrator.
         assert!(!should_run_super_context(false, true, false, true));
+    }
+
+    #[test]
+    fn context_status_note_tells_model_not_to_prepare_context_again() {
+        let note = render_agent_context_status_note(&[
+            "memory agent context retrieval".to_string(),
+            "super context preparation".to_string(),
+        ]);
+
+        assert!(note.contains("## Agent context status"));
+        assert!(note.contains("already run once"));
+        assert!(note.contains("memory agent context retrieval"));
+        assert!(note.contains("super context preparation"));
+        assert!(note.contains("Do not call `agent_prepare_context` again"));
     }
 }

@@ -8,19 +8,45 @@ import {
 } from '../../../services/api/threadGoalApi';
 
 /**
- * Compact chip surfacing the *current thread's* goal — a Codex-style per-thread
- * completion contract the agent pursues across turns. Pinned above the composer
- * next to the {@link ThreadTodoStrip} (which is the thread's task board). This is
- * distinct from the global long-term goals list on the Intelligence tab.
+ * Per-thread goal UI — a Codex-style completion contract the agent pursues
+ * across turns. Split into two pieces sharing one {@link useThreadGoal}
+ * controller so the trigger can live in the composer footer while the editor
+ * opens above the composer:
  *
- * The agent sets/refines the goal itself (via `goal_set`); this chip lets the
- * user see status + token budget and set / edit / pause / resume / complete /
- * clear it directly. Liveness: it fetches on thread change and polls on a light
- * interval so agent- and continuation-driven changes surface without a manual
- * refresh. (A push channel can replace the poll later.)
+ * - {@link ThreadGoalFooterTrigger} — a compact affordance in the footer under
+ *   the composer ("Set goal" when empty; status + objective when set). Click to
+ *   open the editor.
+ * - {@link ThreadGoalEditorPanel} — the input field + status/budget + actions,
+ *   rendered above the composer, shown only while expanded.
+ *
+ * Distinct from the global long-term goals list (Intelligence tab) and the
+ * thread task board (todo strip). Liveness: fetch on thread change + light poll
+ * so agent/continuation-driven changes surface without a manual refresh.
  */
 
 const POLL_INTERVAL_MS = 10_000;
+
+/** Shared controller returned by {@link useThreadGoal}. */
+export interface ThreadGoalController {
+  threadId: string | null;
+  goal: ThreadGoal | null;
+  /** Whether the editor panel (above the composer) is open. */
+  expanded: boolean;
+  draft: string;
+  busy: boolean;
+  setDraft: (value: string) => void;
+  /** Open the editor, seeding the draft from the current objective. */
+  open: () => void;
+  close: () => void;
+  /** Toggle the editor open/closed (open seeds the draft). */
+  toggle: () => void;
+  /** Persist the draft as the objective (no-op on empty), then collapse. */
+  save: () => void;
+  complete: () => void;
+  pause: () => void;
+  resume: () => void;
+  clear: () => void;
+}
 
 /** Tailwind classes per status, using the app's ocean/sage/amber/coral palette. */
 function statusClasses(status: ThreadGoalStatus): string {
@@ -38,25 +64,26 @@ function statusClasses(status: ThreadGoalStatus): string {
   }
 }
 
-interface Props {
-  threadId: string;
-  /** Test seam: inject a stub client. Defaults to the real {@link threadGoalApi}. */
-  api?: typeof threadGoalApi;
-}
-
-export function ThreadGoalChip({
-  threadId,
-  api = threadGoalApi,
-}: Props): React.ReactElement | null {
-  const { t } = useT();
+/**
+ * Goal state + actions for `threadId`. Call once in the parent and hand the
+ * result to both the footer trigger and the editor panel so they stay in sync.
+ */
+export function useThreadGoal(
+  threadId: string | null,
+  api: typeof threadGoalApi = threadGoalApi
+): ThreadGoalController {
   const [goal, setGoal] = useState<ThreadGoal | null>(null);
-  const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
-  // Avoid setState after unmount / thread switch races.
+  // Guard against thread-switch races resolving onto the wrong thread.
   const activeThread = useRef(threadId);
 
   const refresh = useCallback(async () => {
+    if (!threadId) {
+      setGoal(null);
+      return;
+    }
     try {
       const g = await api.get(threadId);
       if (activeThread.current === threadId) setGoal(g);
@@ -65,25 +92,32 @@ export function ThreadGoalChip({
     }
   }, [api, threadId]);
 
-  // Fetch on mount and poll lightly. The parent remounts this component per
-  // thread (`key={threadId}`), so a thread switch resets state via a fresh
-  // mount rather than synchronous setState here.
-  useEffect(() => {
+  // Reset the editor + cached goal when the thread changes. Done during render
+  // (React's sanctioned "reset state on prop change" pattern) rather than in an
+  // effect, so it's synchronous and lint-clean.
+  if (activeThread.current !== threadId) {
     activeThread.current = threadId;
-    // Fire-and-forget fetch: setState lands in a later microtask, not
-    // synchronously. Matches the codebase's fetch-on-mount precedent.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setExpanded(false);
+    setGoal(null);
+  }
+
+  // Fetch on mount/thread-change and poll lightly. `refresh` is async, so its
+  // setState lands in a later microtask (not a synchronous effect write).
+  useEffect(() => {
+    if (!threadId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch; setState lands post-await
     void refresh();
     const id = window.setInterval(() => void refresh(), POLL_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, [threadId, refresh]);
 
   const runAction = useCallback(
-    async (fn: () => Promise<ThreadGoal | null | boolean>) => {
+    async (fn: () => Promise<ThreadGoal | null | boolean>, collapse: boolean) => {
       setBusy(true);
       try {
         await fn();
         await refresh();
+        if (collapse) setExpanded(false);
       } finally {
         setBusy(false);
       }
@@ -91,133 +125,228 @@ export function ThreadGoalChip({
     [refresh]
   );
 
-  const saveDraft = useCallback(() => {
-    const objective = draft.trim();
-    if (!objective) return;
-    setEditing(false);
-    void runAction(() => api.set(threadId, objective));
-  }, [api, draft, runAction, threadId]);
-
-  const beginEdit = useCallback(() => {
+  const open = useCallback(() => {
     setDraft(goal?.objective ?? '');
-    setEditing(true);
+    setExpanded(true);
   }, [goal]);
 
-  if (!threadId) return null;
+  const close = useCallback(() => setExpanded(false), []);
 
-  // Editing form (set or edit).
-  if (editing) {
+  const toggle = useCallback(() => {
+    setExpanded(prev => {
+      if (!prev) setDraft(goal?.objective ?? '');
+      return !prev;
+    });
+  }, [goal]);
+
+  const save = useCallback(() => {
+    if (!threadId) return;
+    const objective = draft.trim();
+    if (!objective) return;
+    void runAction(() => api.set(threadId, objective), true);
+  }, [api, draft, runAction, threadId]);
+
+  const complete = useCallback(() => {
+    if (threadId) void runAction(() => api.complete(threadId), true);
+  }, [api, runAction, threadId]);
+  const pause = useCallback(() => {
+    if (threadId) void runAction(() => api.pause(threadId), false);
+  }, [api, runAction, threadId]);
+  const resume = useCallback(() => {
+    if (threadId) void runAction(() => api.resume(threadId), false);
+  }, [api, runAction, threadId]);
+  const clear = useCallback(() => {
+    if (threadId) void runAction(() => api.clear(threadId), true);
+  }, [api, runAction, threadId]);
+
+  return {
+    threadId,
+    goal,
+    expanded,
+    draft,
+    busy,
+    setDraft,
+    open,
+    close,
+    toggle,
+    save,
+    complete,
+    pause,
+    resume,
+    clear,
+  };
+}
+
+/** Compact trigger for the composer footer: "Set goal" or the current goal. */
+export function ThreadGoalFooterTrigger({
+  ctl,
+}: {
+  ctl: ThreadGoalController;
+}): React.ReactElement | null {
+  const { t } = useT();
+  if (!ctl.threadId) return null;
+
+  if (!ctl.goal) {
     return (
-      <div className="mb-2 flex items-center gap-2 rounded-md border border-stone-200 bg-white/60 px-2 py-1.5 dark:border-neutral-700 dark:bg-neutral-900/60">
-        <span className="shrink-0 text-xs font-medium text-stone-500 dark:text-neutral-400">
-          {t('conversations.threadGoal.label')}
-        </span>
-        <input
-          autoFocus
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') saveDraft();
-            if (e.key === 'Escape') setEditing(false);
-          }}
-          placeholder={t('conversations.threadGoal.placeholder')}
-          aria-label={t('conversations.threadGoal.placeholder')}
-          className="min-w-0 flex-1 bg-transparent text-sm text-stone-800 outline-none placeholder:text-stone-400 dark:text-neutral-100"
-        />
-        <button
-          type="button"
-          onClick={saveDraft}
-          disabled={!draft.trim()}
-          className="shrink-0 rounded px-2 py-0.5 text-xs font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-40 dark:text-primary-300 dark:hover:bg-primary-900/40">
-          {t('conversations.threadGoal.save')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditing(false)}
-          className="shrink-0 rounded px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-100 dark:text-neutral-400 dark:hover:bg-neutral-800">
-          {t('conversations.threadGoal.cancel')}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={ctl.toggle}
+        aria-expanded={ctl.expanded}
+        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
+        <span aria-hidden>◎</span>
+        {t('conversations.threadGoal.setCta')}
+      </button>
     );
   }
-
-  // No goal yet → subtle "Set goal" affordance.
-  if (!goal) {
-    return (
-      <div className="mb-2">
-        <button
-          type="button"
-          onClick={beginEdit}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-stone-500 hover:bg-stone-100 dark:text-neutral-400 dark:hover:bg-neutral-800">
-          <span aria-hidden>◎</span>
-          {t('conversations.threadGoal.setCta')}
-        </button>
-      </div>
-    );
-  }
-
-  const budgetText =
-    typeof goal.tokenBudget === 'number' && goal.tokenBudget > 0
-      ? `${goal.tokensUsed.toLocaleString()} / ${goal.tokenBudget.toLocaleString()} ${t('conversations.threadGoal.tokensSuffix')}`
-      : null;
 
   return (
-    <div className="mb-2 flex items-center gap-2 rounded-md border border-stone-200 bg-white/60 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900/60">
+    <button
+      type="button"
+      onClick={ctl.toggle}
+      aria-expanded={ctl.expanded}
+      title={ctl.goal.objective}
+      className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs hover:bg-stone-100 dark:hover:bg-neutral-800">
       <span aria-hidden className="shrink-0 text-stone-400">
         ◎
       </span>
       <span
-        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusClasses(goal.status)}`}>
-        {t(`conversations.threadGoal.status.${goal.status}`)}
+        className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusClasses(ctl.goal.status)}`}>
+        {t(`conversations.threadGoal.status.${ctl.goal.status}`)}
       </span>
-      <span
-        className="min-w-0 flex-1 truncate text-stone-800 dark:text-neutral-100"
-        title={goal.objective}>
-        {goal.objective}
-      </span>
-      {budgetText && (
-        <span className="shrink-0 text-[11px] tabular-nums text-stone-400 dark:text-neutral-500">
-          {budgetText}
-        </span>
-      )}
-      <div className="flex shrink-0 items-center gap-0.5">
-        {goal.status === 'active' && (
-          <ChipButton
+      <MarqueeText
+        text={ctl.goal.objective}
+        className="max-w-[18rem] text-stone-600 dark:text-neutral-300"
+      />
+    </button>
+  );
+}
+
+/** Expanded editor above the composer: input + budget + lifecycle actions. */
+export function ThreadGoalEditorPanel({
+  ctl,
+}: {
+  ctl: ThreadGoalController;
+}): React.ReactElement | null {
+  const { t } = useT();
+  if (!ctl.threadId || !ctl.expanded) return null;
+
+  const goal = ctl.goal;
+  const budgetText =
+    goal && typeof goal.tokenBudget === 'number' && goal.tokenBudget > 0
+      ? `${goal.tokensUsed.toLocaleString()} / ${goal.tokenBudget.toLocaleString()} ${t('conversations.threadGoal.tokensSuffix')}`
+      : null;
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-800">
+      {/* Controls row — lifecycle (left) + budget and Cancel/Save (right) —
+          sits above the input so the input gets the full width below. */}
+      <div className="flex items-center gap-1">
+        {goal && goal.status === 'active' && (
+          <PanelButton
             label={t('conversations.threadGoal.pause')}
-            disabled={busy}
-            onClick={() => void runAction(() => api.pause(threadId))}
+            disabled={ctl.busy}
+            onClick={ctl.pause}
           />
         )}
-        {goal.status === 'paused' && (
-          <ChipButton
+        {goal && goal.status === 'paused' && (
+          <PanelButton
             label={t('conversations.threadGoal.resume')}
-            disabled={busy}
-            onClick={() => void runAction(() => api.resume(threadId))}
+            disabled={ctl.busy}
+            onClick={ctl.resume}
           />
         )}
-        {goal.status !== 'complete' && (
-          <ChipButton
+        {goal && goal.status !== 'complete' && (
+          <PanelButton
             label={t('conversations.threadGoal.complete')}
-            disabled={busy}
-            onClick={() => void runAction(() => api.complete(threadId))}
+            disabled={ctl.busy}
+            onClick={ctl.complete}
           />
         )}
-        <ChipButton
-          label={t('conversations.threadGoal.edit')}
-          disabled={busy}
-          onClick={beginEdit}
-        />
-        <ChipButton
-          label={t('conversations.threadGoal.clear')}
-          disabled={busy}
-          onClick={() => void runAction(() => api.clear(threadId))}
-        />
+        {goal && (
+          <PanelButton
+            label={t('conversations.threadGoal.clear')}
+            disabled={ctl.busy}
+            onClick={ctl.clear}
+          />
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          {budgetText && (
+            <span className="shrink-0 text-[11px] tabular-nums text-stone-400 dark:text-neutral-500">
+              {budgetText}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={ctl.close}
+            className="shrink-0 rounded px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-100 dark:text-neutral-400 dark:hover:bg-neutral-800">
+            {t('conversations.threadGoal.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={ctl.save}
+            disabled={!ctl.draft.trim() || ctl.busy}
+            className="shrink-0 rounded px-2 py-0.5 text-xs font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-40 dark:text-primary-300 dark:hover:bg-primary-900/40">
+            {t('conversations.threadGoal.save')}
+          </button>
+        </div>
       </div>
+
+      {/* Full-width objective input below the controls. */}
+      <input
+        autoFocus
+        value={ctl.draft}
+        onChange={e => ctl.setDraft(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') ctl.save();
+          if (e.key === 'Escape') ctl.close();
+        }}
+        placeholder={t('conversations.threadGoal.placeholder')}
+        aria-label={t('conversations.threadGoal.placeholder')}
+        className="w-full border-0 bg-transparent text-sm text-stone-800 outline-none focus:outline-none focus:ring-0 placeholder:text-stone-400 dark:text-neutral-100"
+      />
     </div>
   );
 }
 
-function ChipButton({
+/**
+ * Single-line label that gently marquees (ping-pong scroll) only when the text
+ * overflows its max width; otherwise it truncates. The scroll distance is
+ * measured and fed to the `goal-marquee` keyframe via a CSS variable.
+ */
+function MarqueeText({
+  text,
+  className = '',
+}: {
+  text: string;
+  className?: string;
+}): React.ReactElement {
+  const outerRef = useRef<HTMLSpanElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [shift, setShift] = useState(0);
+
+  useEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const overflow = inner.scrollWidth - outer.clientWidth;
+    setShift(overflow > 4 ? overflow + 8 : 0);
+  }, [text]);
+
+  return (
+    <span ref={outerRef} className={`relative block min-w-0 overflow-hidden ${className}`}>
+      <span
+        ref={innerRef}
+        className={`block whitespace-nowrap ${shift > 0 ? 'animate-goal-marquee' : 'truncate'}`}
+        style={
+          shift > 0 ? ({ '--goal-marquee-shift': `-${shift}px` } as React.CSSProperties) : undefined
+        }>
+        {text}
+      </span>
+    </span>
+  );
+}
+
+function PanelButton({
   label,
   onClick,
   disabled,
@@ -238,5 +367,3 @@ function ChipButton({
     </button>
   );
 }
-
-export default ThreadGoalChip;

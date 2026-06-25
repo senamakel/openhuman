@@ -98,7 +98,11 @@ import {
 } from './conversations/components/BackgroundProcessesPanel';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
 import { SubagentDrawer } from './conversations/components/SubagentDrawer';
-import { ThreadGoalChip } from './conversations/components/ThreadGoalChip';
+import {
+  ThreadGoalEditorPanel,
+  ThreadGoalFooterTrigger,
+  useThreadGoal,
+} from './conversations/components/ThreadGoalChip';
 import { ThreadTodoStrip } from './conversations/components/ThreadTodoStrip';
 import { ToolTimelineBlock } from './conversations/components/ToolTimelineBlock';
 import {
@@ -236,6 +240,10 @@ const Conversations = ({
     ? Boolean(activeThreadIds[selectedThreadId])
     : false;
   const firstActiveThreadId = Object.keys(activeThreadIds)[0] ?? null;
+
+  // Thread-goal controller shared by the footer trigger (under the composer)
+  // and the editor panel (above the composer).
+  const threadGoal = useThreadGoal(selectedThreadId ?? null);
 
   const [inputValue, setInputValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -2583,15 +2591,6 @@ const Conversations = ({
           );
         })()}
 
-        {/* Thread-scoped goal (Codex-style completion contract) the agent
-            pursues across turns. Pinned above the todo strip; lets the user
-            see status + token budget and set/edit/pause/resume/complete/clear
-            it. Distinct from the todo strip (this thread's task board) and the
-            Intelligence-tab long-term goals list. */}
-        {selectedThreadId && (
-          <ThreadGoalChip key={selectedThreadId} threadId={selectedThreadId} />
-        )}
-
         {/* Thread-scoped todo list the agent maintains as it works — read-only,
             pinned above the composer. Distinct from the Intelligence-tab kanban
             (global `user-tasks`). Renders nothing when the thread has no active
@@ -2657,12 +2656,6 @@ const Conversations = ({
           </div>
         ) : inputMode === 'text' ? (
           <>
-            {selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 && (
-              <QueuedFollowups
-                items={queuedFollowupsByThread[selectedThreadId] ?? []}
-                onClear={() => void handleClearQueuedFollowups()}
-              />
-            )}
             <ChatComposer
               inputValue={inputValue}
               setInputValue={setInputValue}
@@ -2686,6 +2679,19 @@ const Conversations = ({
               // validateAndReadFile, which honors modelSupportsVision.
               allowedMimeTypes={[]}
               attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
+              // Header stack above the input box (outside its blue focus ring):
+              // queued follow-ups + the thread-goal editor (opened via the
+              // footer "Set goal" trigger). Entries that render null are no-ops.
+              headerSlots={[
+                selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 ? (
+                  <QueuedFollowups
+                    key="queued-followups"
+                    items={queuedFollowupsByThread[selectedThreadId] ?? []}
+                    onClear={() => void handleClearQueuedFollowups()}
+                  />
+                ) : null,
+                <ThreadGoalEditorPanel key="thread-goal" ctl={threadGoal} />,
+              ]}
             />
           </>
         ) : (
@@ -2760,7 +2766,11 @@ const Conversations = ({
         <div
           className="mt-2 flex items-center justify-between gap-2"
           data-walkthrough="chat-agent-panel">
-          <ComposerTokenStats model={resolvedModel} />
+          <div className="flex min-w-0 items-center gap-2">
+            <ComposerTokenStats model={resolvedModel} />
+            {/* Set/show the thread goal; click opens the editor above the composer. */}
+            <ThreadGoalFooterTrigger ctl={threadGoal} />
+          </div>
           {!isSidebar && (
             <div className="flex flex-shrink-0 items-center gap-2">
               <div

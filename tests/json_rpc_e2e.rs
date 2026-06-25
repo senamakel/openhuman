@@ -982,6 +982,41 @@ fn ensure_test_rpc_auth() {
 }
 
 #[tokio::test]
+async fn json_rpc_tokenjuice_detect_and_cache_stats() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // detect: a JSON array of objects classifies as `json`.
+    let detect = post_json_rpc(
+        &rpc_base,
+        1860_1,
+        "openhuman.tokenjuice_detect",
+        json!({ "content": r#"[{"a":1,"b":2},{"a":3,"b":4}]"# }),
+    )
+    .await;
+    let detect_result = assert_no_jsonrpc_error(&detect, "tokenjuice_detect");
+    assert_eq!(
+        detect_result.get("kind").and_then(Value::as_str),
+        Some("json")
+    );
+
+    // cache_stats: returns numeric occupancy fields.
+    let stats = post_json_rpc(
+        &rpc_base,
+        1860_2,
+        "openhuman.tokenjuice_cache_stats",
+        json!({}),
+    )
+    .await;
+    let stats_result = assert_no_jsonrpc_error(&stats, "tokenjuice_cache_stats");
+    assert!(stats_result.get("entries").and_then(Value::as_u64).is_some());
+    assert!(stats_result.get("bytes").and_then(Value::as_u64).is_some());
+
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_tool_registry_lists_and_gets_entries() {
     let _env_lock = json_rpc_e2e_env_lock();
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;

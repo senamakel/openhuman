@@ -50,10 +50,22 @@ pub mod detect;
 pub mod ml;
 pub mod reduce;
 pub mod rules;
+pub mod schemas;
 pub mod text;
 pub mod tool_integration;
 pub mod tools;
 pub mod types;
+
+/// All read-only TokenJuice debug controllers (detect / compress / cache_stats
+/// / retrieve), for registration in `src/core/all.rs`.
+pub fn all_tokenjuice_registered_controllers() -> Vec<crate::core::all::RegisteredController> {
+    schemas::all_registered_controllers()
+}
+
+/// Declared schemas for the TokenJuice debug controllers.
+pub fn all_tokenjuice_controller_schemas() -> Vec<crate::core::ControllerSchema> {
+    schemas::all_controller_schemas()
+}
 
 #[cfg(test)]
 #[path = "text_tests.rs"]

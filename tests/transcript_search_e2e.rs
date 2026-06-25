@@ -92,7 +92,9 @@ fn seed_workspace(workspace: &Path) -> ConversationStore {
     let store = ConversationStore::new(workspace.to_path_buf());
 
     // Thread A — a past conversation about a Postgres migration.
-    store.ensure_thread(thread("thread-pg", "Database work")).expect("ensure pg thread");
+    store
+        .ensure_thread(thread("thread-pg", "Database work"))
+        .expect("ensure pg thread");
     store
         .append_message(
             "thread-pg",
@@ -117,7 +119,9 @@ fn seed_workspace(workspace: &Path) -> ConversationStore {
         .expect("append pg-2");
 
     // Thread B — an unrelated past conversation about a vacation.
-    store.ensure_thread(thread("thread-trip", "Vacation planning")).expect("ensure trip thread");
+    store
+        .ensure_thread(thread("thread-trip", "Vacation planning"))
+        .expect("ensure trip thread");
     store
         .append_message(
             "thread-trip",
@@ -151,10 +155,13 @@ async fn transcript_search_op_finds_message_in_prior_thread() {
         .await
         .expect("transcript_search op");
 
-    assert!(!hits.is_empty(), "expected at least one hit for the migration message");
     assert!(
-        hits.iter().any(|h| h.thread_id == "thread-pg"
-            && h.content.contains("db/migrate_2026.sql")),
+        !hits.is_empty(),
+        "expected at least one hit for the migration message"
+    );
+    assert!(
+        hits.iter()
+            .any(|h| h.thread_id == "thread-pg" && h.content.contains("db/migrate_2026.sql")),
         "the migration message from thread-pg should surface — got {hits:?}"
     );
     assert!(
@@ -222,8 +229,14 @@ async fn transcript_search_tool_formats_hits_for_the_agent() {
         .expect("transcript_search tool");
     assert!(!result.is_error, "tool should succeed: {}", result.output());
     let out = result.output();
-    assert!(out.contains("matched"), "output should announce matches — got: {out}");
-    assert!(out.contains("thread-pg"), "output should name the source thread — got: {out}");
+    assert!(
+        out.contains("matched"),
+        "output should announce matches — got: {out}"
+    );
+    assert!(
+        out.contains("thread-pg"),
+        "output should name the source thread — got: {out}"
+    );
     assert!(
         out.contains("db/migrate_2026.sql"),
         "output should quote the matched message snippet — got: {out}"
@@ -246,7 +259,11 @@ async fn transcript_search_tool_reports_no_match_cleanly() {
         .execute(json!({ "query": "nonexistent-term-xyzzy" }))
         .await
         .expect("transcript_search tool");
-    assert!(!result.is_error, "no-match is not an error: {}", result.output());
+    assert!(
+        !result.is_error,
+        "no-match is not an error: {}",
+        result.output()
+    );
     assert!(
         result.output().contains("No past messages matched"),
         "expected the clean no-match line — got: {}",
@@ -262,5 +279,8 @@ async fn transcript_search_tool_requires_query() {
         .execute(json!({}))
         .await
         .expect_err("missing query must error");
-    assert!(err.to_string().contains("query"), "error should mention `query`: {err}");
+    assert!(
+        err.to_string().contains("query"),
+        "error should mention `query`: {err}"
+    );
 }

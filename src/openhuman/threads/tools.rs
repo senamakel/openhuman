@@ -824,10 +824,7 @@ mod tests {
             PermissionLevel::Write
         );
         assert_eq!(ThreadListTool.scope(), ToolScope::All);
-        assert_eq!(
-            ThreadTranscriptSearchTool.name(),
-            "transcript_search"
-        );
+        assert_eq!(ThreadTranscriptSearchTool.name(), "transcript_search");
         assert_eq!(
             ThreadTranscriptSearchTool.permission_level(),
             PermissionLevel::ReadOnly

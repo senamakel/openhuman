@@ -2640,7 +2640,11 @@ const Conversations = ({
                   {t('chat.agentProfile.reasoning')}
                 </button>
               </div>
-              <SuperContextToggle />
+              {/* Super context is read at thread construction, so it only
+                  affects NEW threads. Hide the toggle once the thread has any
+                  messages — changing it then would have no effect on this
+                  conversation. */}
+              {!hasVisibleMessages && <SuperContextToggle />}
               {selectedThreadId && (
                 <button
                   type="button"

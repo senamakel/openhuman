@@ -108,9 +108,10 @@ export default function ComposerTokenStats({ model }: ComposerTokenStatsProps = 
   const costUsd = usage.costUsd || 0;
   const subAgents: SubAgentUsage[] = Object.values(usage.subAgents ?? {});
 
-  // The footer appears once a turn has run; the model id now lives in the
-  // popover, so there's nothing useful to show inline before the first turn.
-  if (turns === 0) return null;
+  // Render as soon as a model is resolved (even before the first turn) so the
+  // clickable usage row is always present in the footer; the context segment
+  // shows 0% until the first turn reports usage.
+  if (turns === 0 && !model) return null;
 
   const contextWindow = ok(usage.contextWindow) ? usage.contextWindow : DEFAULT_CONTEXT_WINDOW;
   const contextUsed = usage.lastTurnContextUsed || 0;

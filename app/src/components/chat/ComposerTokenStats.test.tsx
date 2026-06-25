@@ -32,9 +32,15 @@ const oneTurn = [
 ];
 
 describe('<ComposerTokenStats />', () => {
-  it('renders nothing before any turn (even when a model is provided)', () => {
-    const { container } = renderWithUsage([], { model: 'reasoning-v1' });
+  it('renders nothing before any turn when no model is known', () => {
+    const { container } = renderWithUsage([]);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders the clickable context row before the first turn when a model is known', () => {
+    renderWithUsage([], { model: 'reasoning-v1' });
+    const row = screen.getByRole('button');
+    expect(row).toHaveTextContent('token.ctxLabel');
   });
 
   it('shows context usage, in/out tokens, and cost inline (no model inline)', () => {

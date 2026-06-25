@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 import type { FontRole } from '../lib/theme/tokens';
 import type { Theme } from '../lib/theme/types';
@@ -166,11 +166,15 @@ export const {
 } = themeSlice.actions;
 export default themeSlice.reducer;
 
-/** All selectable themes: built-in presets followed by user-authored ones. */
-export const selectAllThemes = (state: { theme: ThemeState }): Theme[] => [
-  ...PRESET_THEMES,
-  ...state.theme.customThemes,
-];
+/**
+ * All selectable themes: built-in presets followed by user-authored ones.
+ * Memoized so it returns a stable array reference while `customThemes` is
+ * unchanged (a fresh array each call would defeat React-Redux render bailout).
+ */
+export const selectAllThemes = createSelector(
+  (state: { theme: ThemeState }) => state.theme.customThemes,
+  (customThemes): Theme[] => [...PRESET_THEMES, ...(customThemes ?? [])],
+);
 
 export const selectActiveThemeId = (state: { theme: ThemeState }): string =>
   state.theme.activeThemeId ?? SYSTEM_THEME_ID;

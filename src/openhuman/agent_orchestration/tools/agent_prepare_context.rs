@@ -84,7 +84,7 @@ pub async fn run_context_scout(question: &str, focus: Option<&str>) -> anyhow::R
 /// subagent-lifecycle events stay best-effort: with no parent context the
 /// `parent_session` falls back to `standalone` and the progress sink is absent,
 /// so those sends simply no-op.
-pub(crate) async fn run_context_scout_with_catalog(
+pub async fn run_context_scout_with_catalog(
     question: &str,
     focus: Option<&str>,
     tool_catalog: &str,

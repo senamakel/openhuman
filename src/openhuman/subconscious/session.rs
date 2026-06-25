@@ -178,7 +178,8 @@ impl LongLivedSession {
         let effective = effective_config(config, self.mode);
         // Build as the `subconscious` agent (not the default orchestrator) so
         // the session's promoted turns get the subconscious tool surface —
-        // scratchpad + spawn_subagent + the notify_user user-handoff tool.
+        // memory_diff + agent_prepare_context + global to-dos/goals + the
+        // notify_user user-handoff tool.
         let mut agent = Agent::from_config_for_agent(&effective, "subconscious").map_err(|e| {
             warn!("[subconscious::session] agent init failed: {e}");
             format!("agent init: {e}")

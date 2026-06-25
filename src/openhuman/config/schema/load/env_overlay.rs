@@ -468,6 +468,11 @@ impl Config {
                 self.tokenjuice.ccr_ttl_secs = Some(v);
             }
         }
+        if let Some(s) = env.get("OPENHUMAN_TOKENJUICE_CCR_MIN_TOKENS") {
+            if let Ok(v) = s.trim().parse::<usize>() {
+                self.tokenjuice.ccr_min_tokens = v;
+            }
+        }
         // ML plain-text compressor (Kompress).
         if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_ML_COMPRESSION_ENABLED") {
             if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_ML_COMPRESSION_ENABLED", &flag) {

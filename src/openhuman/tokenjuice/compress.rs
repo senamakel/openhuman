@@ -13,6 +13,8 @@
 use crate::openhuman::tokenjuice::cache;
 use crate::openhuman::tokenjuice::compressors::{compressor_for, generic_compressor};
 use crate::openhuman::tokenjuice::detect::detect_content_kind;
+use crate::openhuman::tokenjuice::savings;
+use crate::openhuman::tokenjuice::tokens::estimate_tokens;
 use crate::openhuman::tokenjuice::types::{
     CompressInput, CompressOptions, CompressOutput, CompressedOutput, ContentHint, ContentKind,
 };
@@ -86,8 +88,18 @@ pub async fn route(mut input: CompressInput<'_>, opts: &CompressOptions) -> Comp
         return CompressedOutput::passthrough(content.to_string(), kind);
     }
 
-    // Offload the original and append a recovery footer (unless CCR disabled).
-    let (text, ccr_token) = if opts.ccr_enabled {
+    // CCR threshold: only offload (and therefore only allow *lossy* compaction)
+    // when the input is large enough to be worth caching. Below the token
+    // threshold a lossy result can't be made recoverable, so pass it through;
+    // lossless reformats are still allowed without an offload.
+    let original_tokens = estimate_tokens(content);
+    let ccr_for_call = opts.ccr_enabled && original_tokens as usize >= opts.ccr_min_tokens;
+    if out.lossy && !ccr_for_call {
+        return CompressedOutput::passthrough(content.to_string(), kind);
+    }
+
+    // Offload the original and append a recovery footer when CCR is in play.
+    let (text, ccr_token) = if ccr_for_call {
         let token = cache::offload(content);
         let footer = cache::recovery_footer(&token, original_bytes, out.lossy);
         let mut text = out.text;
@@ -102,14 +114,21 @@ pub async fn route(mut input: CompressInput<'_>, opts: &CompressOptions) -> Comp
     };
 
     let compacted_bytes = text.len();
+    let compacted_tokens = estimate_tokens(&text);
     log::info!(
-        "[tokenjuice] compacted kind={} compressor={} lossy={} {}->{} bytes",
+        "[tokenjuice] compacted kind={} compressor={} lossy={} {}->{} bytes (~{}->{} tok)",
         kind.as_str(),
         out.kind.as_str(),
         out.lossy,
         original_bytes,
         compacted_bytes,
+        original_tokens,
+        compacted_tokens,
     );
+
+    // Record savings for the dashboard (tokens + cost saved for the LLM the
+    // result is being compressed for).
+    savings::record(kind, out.kind, original_tokens, compacted_tokens);
 
     CompressedOutput {
         text,

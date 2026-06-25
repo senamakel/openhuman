@@ -495,6 +495,11 @@ pub struct CompressOptions {
     pub ml_text_enabled: bool,
     /// Outputs below this many bytes are never compressed.
     pub min_bytes_to_compress: usize,
+    /// CCR only fires (offload original + lossy compression) when the input is
+    /// estimated to be at least this many tokens. Below it, the result passes
+    /// through (lossless reformats may still apply without offload). Lets small
+    /// tool results skip the cache entirely.
+    pub ccr_min_tokens: usize,
     /// Maximum inline character count for the generic/rule fallback path.
     pub max_inline_chars: Option<usize>,
 }
@@ -509,6 +514,7 @@ impl Default for CompressOptions {
             html_enabled: true,
             ml_text_enabled: false,
             min_bytes_to_compress: 2048,
+            ccr_min_tokens: 500,
             max_inline_chars: None,
         }
     }

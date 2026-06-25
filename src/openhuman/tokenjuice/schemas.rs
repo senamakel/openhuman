@@ -23,6 +23,10 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("compress"),
         schemas("cache_stats"),
         schemas("retrieve"),
+        schemas("settings_get"),
+        schemas("settings_update"),
+        schemas("savings_stats"),
+        schemas("savings_reset"),
     ]
 }
 
@@ -43,6 +47,22 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("retrieve"),
             handler: handle_retrieve,
+        },
+        RegisteredController {
+            schema: schemas("settings_get"),
+            handler: handle_settings_get,
+        },
+        RegisteredController {
+            schema: schemas("settings_update"),
+            handler: handle_settings_update,
+        },
+        RegisteredController {
+            schema: schemas("savings_stats"),
+            handler: handle_savings_stats,
+        },
+        RegisteredController {
+            schema: schemas("savings_reset"),
+            handler: handle_savings_reset,
         },
     ]
 }
@@ -135,6 +155,59 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "settings_get" => ControllerSchema {
+            namespace: "tokenjuice",
+            function: "settings_get",
+            description: "Get the current [tokenjuice] configuration block.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "settings",
+                ty: TypeSchema::Json,
+                comment: "The tokenjuice config (router/CCR/compressor toggles + ML fields).",
+                required: true,
+            }],
+        },
+        "settings_update" => ControllerSchema {
+            namespace: "tokenjuice",
+            function: "settings_update",
+            description: "Patch the [tokenjuice] config (any subset of fields), persist, and apply live.",
+            inputs: vec![FieldSchema {
+                name: "patch",
+                ty: TypeSchema::Json,
+                comment: "Partial tokenjuice settings; only present fields are changed.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "settings",
+                ty: TypeSchema::Json,
+                comment: "The full settings after applying the patch.",
+                required: true,
+            }],
+        },
+        "savings_stats" => ControllerSchema {
+            namespace: "tokenjuice",
+            function: "savings_stats",
+            description: "Token + cost savings the content router has accrued (total + by model + by compressor).",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "{ attributionModel, total, byModel, byCompressor, cache }.",
+                required: true,
+            }],
+        },
+        "savings_reset" => ControllerSchema {
+            namespace: "tokenjuice",
+            function: "savings_reset",
+            description: "Clear all recorded savings statistics.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "ok",
+                ty: TypeSchema::Bool,
+                comment: "True once reset.",
+                required: true,
+            }],
+        },
         _other => ControllerSchema {
             namespace: "tokenjuice",
             function: "unknown",
@@ -214,6 +287,66 @@ fn handle_retrieve(params: Map<String, Value>) -> ControllerFuture {
             Some(content) => Ok(serde_json::json!({ "found": true, "content": content })),
             None => Ok(serde_json::json!({ "found": false, "content": Value::Null })),
         }
+    })
+}
+
+fn handle_settings_get(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = crate::openhuman::config::Config::load_or_init()
+            .await
+            .map_err(|e| format!("load config: {e}"))?;
+        let settings = serde_json::to_value(&config.tokenjuice)
+            .map_err(|e| format!("serialize tokenjuice settings: {e}"))?;
+        Ok(serde_json::json!({ "settings": settings }))
+    })
+}
+
+fn handle_settings_update(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        // Accept either {"patch": {...}} or a bare object of fields.
+        let patch = params
+            .get("patch")
+            .cloned()
+            .unwrap_or_else(|| Value::Object(params.clone()));
+        let patch: super::config_patch::TokenjuiceSettingsPatch =
+            serde_json::from_value(patch).map_err(|e| format!("invalid patch: {e}"))?;
+
+        let mut config = crate::openhuman::config::Config::load_or_init()
+            .await
+            .map_err(|e| format!("load config: {e}"))?;
+        patch.apply(&mut config.tokenjuice);
+        config
+            .save()
+            .await
+            .map_err(|e| format!("save config: {e}"))?;
+
+        // Re-install so router flags / CCR limits / threshold take effect live.
+        crate::openhuman::tokenjuice::install_from_config(&config);
+
+        let settings = serde_json::to_value(&config.tokenjuice)
+            .map_err(|e| format!("serialize tokenjuice settings: {e}"))?;
+        Ok(serde_json::json!({ "settings": settings }))
+    })
+}
+
+fn handle_savings_stats(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let agg = super::savings::stats();
+        let (entries, bytes) = cache::stats();
+        Ok(serde_json::json!({
+            "attributionModel": super::savings::attribution_model(),
+            "total": agg.total,
+            "byModel": agg.by_model,
+            "byCompressor": agg.by_compressor,
+            "cache": { "entries": entries, "bytes": bytes },
+        }))
+    })
+}
+
+fn handle_savings_reset(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        super::savings::reset();
+        Ok(serde_json::json!({ "ok": true }))
     })
 }
 

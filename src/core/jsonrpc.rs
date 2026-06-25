@@ -2250,33 +2250,7 @@ fn register_domain_subscribers(
         // toggles + CCR cache limits + optional on-disk tier). Compaction runs
         // on every agent's tool output, so this must be set before any agent
         // loop executes a tool.
-        {
-            let tj = &config.tokenjuice;
-            let options = crate::openhuman::tokenjuice::CompressOptions {
-                router_enabled: tj.router_enabled,
-                ccr_enabled: tj.ccr_enabled,
-                search_enabled: tj.search_enabled,
-                code_enabled: tj.code_enabled,
-                html_enabled: tj.html_enabled,
-                ml_text_enabled: tj.ml_compression_enabled,
-                min_bytes_to_compress: tj.min_bytes_to_compress,
-                max_inline_chars: None,
-            };
-            let disk_root = tj
-                .ccr_disk_enabled
-                .then(|| config.workspace_dir.join(".tokenjuice").join("ccr"));
-            crate::openhuman::tokenjuice::install_config(
-                options,
-                tj.max_cache_entries,
-                tj.max_cache_bytes,
-                tj.ccr_ttl_secs,
-                disk_root,
-            );
-            // The ML ("Kompress") compressor runs as a runtime_python_server
-            // backend that provisions against the full Config; hand it a
-            // snapshot (gated at runtime by tokenjuice.ml_compression_enabled).
-            crate::openhuman::tokenjuice::ml::configure(config.clone());
-        }
+        crate::openhuman::tokenjuice::install_from_config(&config);
 
         // Seed the scheduler-gate signed-out override from the on-disk
         // session. Without this, a sidecar that boots with no stored JWT

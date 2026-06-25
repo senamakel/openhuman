@@ -35,6 +35,10 @@ pub struct TokenjuiceConfig {
     /// Minimum output size (bytes) before compaction is attempted.
     #[serde(default = "default_min_bytes")]
     pub min_bytes_to_compress: usize,
+    /// CCR only fires (original offloaded + lossy compaction) when the tool
+    /// result is estimated at ≥ this many tokens. Smaller results pass through.
+    #[serde(default = "default_ccr_min_tokens")]
+    pub ccr_min_tokens: usize,
     /// Enable the search-results (grep) relevance compressor.
     #[serde(default = "default_true")]
     pub search_enabled: bool,
@@ -81,6 +85,9 @@ fn default_max_cache_bytes() -> usize {
 fn default_min_bytes() -> usize {
     2048
 }
+fn default_ccr_min_tokens() -> usize {
+    500
+}
 fn default_ml_model_id() -> String {
     "answerdotai/ModernBERT-base".to_string()
 }
@@ -107,6 +114,7 @@ impl Default for TokenjuiceConfig {
             max_cache_bytes: default_max_cache_bytes(),
             ccr_ttl_secs: None,
             min_bytes_to_compress: default_min_bytes(),
+            ccr_min_tokens: default_ccr_min_tokens(),
             search_enabled: true,
             code_enabled: true,
             html_enabled: true,

@@ -96,6 +96,7 @@ import {
   BackgroundProcessesPanel,
   selectBackgroundProcesses,
 } from './conversations/components/BackgroundProcessesPanel';
+import { useMemorySyncActive } from './conversations/hooks/useBackgroundActivity';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
 import { SubagentDrawer } from './conversations/components/SubagentDrawer';
 import { ThreadTodoStrip } from './conversations/components/ThreadTodoStrip';
@@ -1458,6 +1459,9 @@ const Conversations = ({
     [selectedThreadToolTimeline]
   );
   const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
+  // Poll-free live signal: lights the badge when memories are syncing even if
+  // no sub-agent is running and the panel is closed.
+  const memorySyncActive = useMemorySyncActive();
   // Re-derive the open subagent's live activity (and its row status) from the
   // timeline on every render so the drawer streams token-by-token as
   // subagent_text_delta / subagent_thinking_delta events land in Redux.
@@ -2808,11 +2812,16 @@ const Conversations = ({
                       d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
                     />
                   </svg>
-                  {runningBackgroundCount > 0 && (
+                  {runningBackgroundCount > 0 ? (
                     <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-semibold leading-none text-white">
                       {runningBackgroundCount}
                     </span>
-                  )}
+                  ) : memorySyncActive ? (
+                    <span
+                      data-testid="background-activity-dot"
+                      className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-amber-500"
+                    />
+                  ) : null}
                 </button>
               )}
               {(selectedThreadId ?? firstActiveThreadId) && (

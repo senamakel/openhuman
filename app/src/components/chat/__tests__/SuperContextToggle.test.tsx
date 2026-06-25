@@ -6,9 +6,7 @@ import SuperContextToggle from '../SuperContextToggle';
 vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
 
 const isTauriMock = vi.fn(() => true);
-vi.mock('../../../utils/tauriCommands/common', () => ({
-  isTauri: () => isTauriMock(),
-}));
+vi.mock('../../../utils/tauriCommands/common', () => ({ isTauri: () => isTauriMock() }));
 
 const getMock = vi.fn();
 const setMock = vi.fn();

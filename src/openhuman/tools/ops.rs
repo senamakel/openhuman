@@ -209,6 +209,10 @@ pub fn all_tools_with_runtime(
         // large result is compacted with a `retrieve_tool_output("<hash>")`
         // marker, this hands the original back from the CCR store on demand.
         Box::new(RetrieveToolOutputTool::new()),
+        // TokenJuice 2.0 content-router retrieval: fetches the original (full or
+        // by byte/line range) for a `⟦tj:<hash>⟧` marker from the CCR cache.
+        // Supersedes `retrieve_tool_output`; both are kept live during migration.
+        Box::new(crate::openhuman::tokenjuice::TokenjuiceRetrieveTool::new()),
         // Deterministic time-expression → timestamp resolver. `current_time`
         // only returns *now*, leaving the model to do epoch arithmetic by hand
         // (a real incident had an agent compute "24h ago" ~10 months off, then

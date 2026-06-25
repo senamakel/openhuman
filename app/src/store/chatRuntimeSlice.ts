@@ -412,6 +412,13 @@ interface ChatRuntimeState {
   inferenceStatusByThread: Record<string, InferenceStatus>;
   streamingAssistantByThread: Record<string, StreamingAssistantState>;
   /**
+   * Threads with an optimistic user send in flight, set the instant the user
+   * sends (before `addMessageLocal` resolves and before any streaming state
+   * exists). Lets global surfaces — e.g. the New Chat shortcut — tell a
+   * mid-send conversation apart from a genuinely-blank one.
+   */
+  pendingSendThreadIds: Record<string, true>;
+  /**
    * Live streams for concurrent PARALLEL (forked) turns on a thread, nested
    * `threadId -> requestId -> stream`. A separate lane from
    * `streamingAssistantByThread` (the single primary stream) so two same-thread
@@ -496,6 +503,7 @@ export interface QueuedFollowup {
 const initialState: ChatRuntimeState = {
   inferenceStatusByThread: {},
   streamingAssistantByThread: {},
+  pendingSendThreadIds: {},
   parallelStreamsByThread: {},
   parallelRequestThreads: {},
   toolTimelineByThread: {},
@@ -757,6 +765,14 @@ const chatRuntimeSlice = createSlice({
     clearStreamingAssistantForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.streamingAssistantByThread[action.payload.threadId];
     },
+    /** Mark a thread as having an optimistic user send in flight. */
+    markThreadSendPending: (state, action: PayloadAction<{ threadId: string }>) => {
+      state.pendingSendThreadIds[action.payload.threadId] = true;
+    },
+    /** Clear the in-flight-send marker once the send settles (or fails). */
+    clearThreadSendPending: (state, action: PayloadAction<{ threadId: string }>) => {
+      delete state.pendingSendThreadIds[action.payload.threadId];
+    },
     /**
      * Register a parallel (forked) turn so its socket events route to the
      * parallel lane. Called when a `queueMode: 'parallel'` send is accepted.
@@ -1004,6 +1020,20 @@ const chatRuntimeSlice = createSlice({
       }>
     ) => {
       const { threadId, artifactId, kind, title } = action.payload;
+      // No-downgrade guard: a late `artifact_pending` (re-delivery, or a
+      // socket race) must never regress an artifact that already reached
+      // `ready` / `failed` back to a spinner. Only the regenerate flow
+      // (#3162) legitimately re-enters `in_progress`, and that reuses the
+      // id via a fresh pending event AFTER the failed state — which is
+      // allowed because the previous terminal state was `failed`, and a
+      // retry SHOULD show the spinner again. So: block downgrade only from
+      // `ready`; allow `failed -> in_progress` (an explicit retry).
+      const existing = (state.artifactsByThread[threadId] ?? []).find(
+        entry => entry.artifactId === artifactId
+      );
+      if (existing && existing.status === 'ready') {
+        return;
+      }
       const snapshot: ArtifactSnapshot = {
         artifactId,
         kind,
@@ -1168,6 +1198,7 @@ const chatRuntimeSlice = createSlice({
       delete state.pendingPlanReviewByThread[action.payload.threadId];
       delete state.queueStatusByThread[action.payload.threadId];
       delete state.queuedFollowupsByThread[action.payload.threadId];
+      delete state.pendingSendThreadIds[action.payload.threadId];
       // Note: artifactsByThread intentionally NOT cleared here. The
       // ArtifactCard renders inline in the message timeline, so the
       // snapshot needs to survive turn boundaries — historic artifacts
@@ -1188,6 +1219,7 @@ const chatRuntimeSlice = createSlice({
       state.artifactsByThread = {};
       state.queueStatusByThread = {};
       state.queuedFollowupsByThread = {};
+      state.pendingSendThreadIds = {};
     },
     recordChatTurnUsage: (state, action: PayloadAction<ChatTurnUsagePayload>) => {
       // Fold into the global aggregate and, when the turn names a thread, into
@@ -1368,6 +1400,8 @@ export const {
   clearInferenceStatusForThread,
   setStreamingAssistantForThread,
   clearStreamingAssistantForThread,
+  markThreadSendPending,
+  clearThreadSendPending,
   registerParallelRequest,
   setParallelStream,
   clearParallelRequest,

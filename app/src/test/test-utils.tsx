@@ -26,6 +26,7 @@ import personaReducer from '../store/personaSlice';
 import { pttReducer } from '../store/pttSlice';
 import socketReducer from '../store/socketSlice';
 import themeReducer from '../store/themeSlice';
+import threadReducer from '../store/threadSlice';
 
 /**
  * Creates a fresh Redux store for testing.
@@ -53,6 +54,7 @@ const testRootReducer = combineReducers({
   ptt: pttReducer,
   socket: socketReducer,
   theme: themeReducer,
+  thread: threadReducer,
 });
 
 export function createTestStore(preloadedState?: Record<string, unknown>) {

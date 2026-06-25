@@ -41,6 +41,7 @@ mod runtime_python;
 mod scheduler_gate;
 mod storage_memory;
 mod task_sources;
+mod tokenjuice;
 mod tools;
 mod update;
 
@@ -84,6 +85,7 @@ pub use storage_memory::{
     StorageProviderSection, DEFAULT_CLOUD_LLM_MODEL,
 };
 pub use task_sources::TaskSourcesConfig;
+pub use tokenjuice::TokenjuiceConfig;
 pub use tools::{
     BrowserComputerUseConfig, BrowserConfig, ComposioConfig, ComputerControlConfig, CurlConfig,
     GitbooksConfig, HttpHeader, HttpRequestConfig, IntegrationToggle, IntegrationsConfig,

@@ -1290,6 +1290,35 @@ fn repeat_failure_guard_halts_on_3_identical() {
     assert!(halt.unwrap().contains("externally-managed-environment"));
 }
 
+/// End-to-end intent for the code_executor manifestation (#4095): once the
+/// shell-family tools surface the exit code (the `command_output` formatter), a
+/// dependency wall (`exit code 127 — command not found …`) re-issued with
+/// IDENTICAL args trips the shared breaker within `REPEAT_FAILURE_THRESHOLD` and
+/// returns an actionable halt summary — so the turn ends with a surfaced result,
+/// not a silent ~10× retry loop. The string here mirrors what
+/// `system::command_output::render_command_failure(Some(127), …)` now produces.
+#[test]
+fn repeat_failure_guard_halts_on_surfaced_dependency_wall() {
+    let surfaced = "Error: Command failed (exit code 127 — command not found: a required \
+                    executable or dependency is missing or not on PATH. Install/declare it, \
+                    use an available alternative, or report the blocker — do NOT re-run the \
+                    same command)\n[stderr]\npytest: command not found";
+    let mut g = RepeatFailureGuard::new();
+    assert!(g.record("shell", "pytest -q", false, surfaced).is_none());
+    assert!(g.record("shell", "pytest -q", false, surfaced).is_none());
+    let halt = g.record("shell", "pytest -q", false, surfaced);
+    assert!(
+        halt.is_some(),
+        "an identical dependency-wall failure must trip the breaker within \
+         REPEAT_FAILURE_THRESHOLD instead of looping"
+    );
+    let summary = halt.unwrap();
+    assert!(
+        summary.contains("127") || summary.contains("command not found"),
+        "halt summary should carry the surfaced root cause: {summary}"
+    );
+}
+
 #[test]
 fn repeat_failure_guard_halts_on_6_consecutive_varied() {
     let mut g = RepeatFailureGuard::new();

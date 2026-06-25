@@ -247,6 +247,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::referral::all_referral_registered_controllers());
     // Billing and subscription management
     controllers.extend(crate::openhuman::billing::all_billing_registered_controllers());
+    // Announcements surfaced on harness init
+    controllers.extend(crate::openhuman::announcements::all_announcements_registered_controllers());
     // Team and role management
     controllers.extend(crate::openhuman::team::all_team_registered_controllers());
     // E2E test support — `openhuman.test_reset` wipes sidecar state in-place.
@@ -282,6 +284,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::learning::all_learning_registered_controllers());
     // Conversation thread and message management
     controllers.extend(crate::openhuman::threads::all_threads_registered_controllers());
+    // TokenJuice content-router debug controllers (detect / compress / cache_stats / retrieve)
+    controllers.extend(crate::openhuman::tokenjuice::all_tokenjuice_registered_controllers());
     // Per-thread todo list (agent task board CRUD over RPC)
     controllers.extend(crate::openhuman::todos::all_todos_registered_controllers());
     // Embedded webview native notifications
@@ -422,6 +426,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::redirect_links::all_redirect_links_controller_schemas());
     schemas.extend(crate::openhuman::referral::all_referral_controller_schemas());
     schemas.extend(crate::openhuman::billing::all_billing_controller_schemas());
+    schemas.extend(crate::openhuman::announcements::all_announcements_controller_schemas());
     schemas.extend(crate::openhuman::team::all_team_controller_schemas());
     #[cfg(feature = "e2e-test-support")]
     schemas.extend(crate::openhuman::test_support::all_test_support_controller_schemas());
@@ -440,6 +445,8 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::learning::all_learning_controller_schemas());
     // Conversation thread and message management
     schemas.extend(crate::openhuman::threads::all_threads_controller_schemas());
+    // TokenJuice content-router debug controllers
+    schemas.extend(crate::openhuman::tokenjuice::all_tokenjuice_controller_schemas());
     // Per-thread todo list (agent task board CRUD over RPC)
     schemas.extend(crate::openhuman::todos::all_todos_controller_schemas());
     // Embedded webview native notifications
@@ -573,6 +580,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
             "Durable agent-team coordination: teams, members, dependency-aware task claiming, and teammate messaging.",
         ),
         "billing" => Some("Subscription plan, payment links, and credit top-up via the backend."),
+        "announcements" => {
+            Some("Latest active product announcement surfaced on harness init, via the backend.")
+        }
         "team" => Some("Team member management, invites, and role changes via the backend."),
         "tool_registry" => Some(
             "Read-only discovery for MCP stdio tools and controller-backed tools, including routes, schemas, version, allowed agents, and health.",

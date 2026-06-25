@@ -255,6 +255,15 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
 
   // --- About ---
   {
+    id: 'keyboard-shortcuts',
+    titleKey: 'shortcuts.title',
+    descriptionKey: 'shortcuts.menuDesc',
+    section: 'home',
+    searchKeywords: ['keyboard', 'shortcuts', 'keys', 'hotkeys', 'bindings', 'cheatsheet'],
+    navGroup: 'general',
+    navOrder: 98,
+  },
+  {
     id: 'about',
     titleKey: 'settings.about',
     descriptionKey: 'settings.aboutDesc',
@@ -726,6 +735,27 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     section: 'developer',
     devOnly: true,
     navGroup: 'diagnosticsLogs',
+  },
+
+  // Token & Cost — TokenJuice compression settings + savings statistics.
+  {
+    id: 'token-usage',
+    titleKey: 'settings.tokenUsage.title',
+    descriptionKey: 'settings.tokenUsage.menuDesc',
+    section: 'ai',
+    navGroup: 'modelsInference',
+    navOrder: 5,
+    searchKeywords: [
+      'token',
+      'tokens',
+      'cost',
+      'compression',
+      'compaction',
+      'tokenjuice',
+      'cache',
+      'ccr',
+      'savings',
+    ],
   },
 
   // =========================================================================

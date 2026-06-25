@@ -2,11 +2,11 @@ import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { NAV_TABS, type NavTab } from '../../../config/navConfig';
+import { registry } from '../../../lib/commands/registry';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
 import { selectUnreadCount } from '../../../store/notificationSlice';
-import { settingsNavState } from '../../settings/modal/settingsOverlay';
 import { Tooltip } from '../../ui';
 import { NavIcon } from './navIcons';
 import { useHomeNav } from './useHomeNav';
@@ -51,11 +51,7 @@ export default function CollapsedNavRail() {
   };
 
   const homeActive = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
-  // Settings defers to the more-specific Wallet rail item so the wallet sub-page
-  // doesn't light up both icons at once.
-  const settingsActive =
-    matchActive('/settings', location.pathname) &&
-    !matchActive('/settings/wallet-balances', location.pathname);
+  const settingsActive = matchActive('/settings', location.pathname);
 
   return (
     <nav className="flex flex-col items-center gap-2" aria-label={t('nav.home')}>
@@ -75,22 +71,16 @@ export default function CollapsedNavRail() {
         </button>
       </Tooltip>
 
-      {/* Wallet shortcut — mirrors SidebarHeader wallet button for collapsed state. */}
-      <Tooltip label={t('nav.wallet')}>
+      {/* Keyboard shortcuts — mirrors SidebarHeader's shortcuts button for the
+          collapsed state. Opens the help directory (also reachable via ? / ⌘/). */}
+      <Tooltip label={t('shortcuts.title')}>
         <button
           type="button"
-          onClick={() => navigate('/settings/wallet-balances', settingsNavState(location))}
-          aria-label={t('nav.wallet')}
-          aria-current={
-            matchActive('/settings/wallet-balances', location.pathname) ? 'page' : undefined
-          }
-          data-analytics-id="collapsed-rail-wallet"
-          className={`${RAIL_BTN} ${
-            matchActive('/settings/wallet-balances', location.pathname)
-              ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-              : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
-          }`}>
-          <NavIcon id="wallet" className="h-5 w-5" />
+          onClick={() => registry.runAction('meta.keyboard-shortcuts')}
+          aria-label={t('shortcuts.title')}
+          data-analytics-id="collapsed-rail-shortcuts"
+          className={`${RAIL_BTN} text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200`}>
+          <NavIcon id="keyboard" className="h-5 w-5" />
         </button>
       </Tooltip>
 

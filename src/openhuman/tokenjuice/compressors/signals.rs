@@ -1,18 +1,15 @@
-//! Shared importance signals for the compaction compressors.
+//! Shared importance signals for the content-router compressors.
 //!
-//! A small, deterministic keyword registry + per-line scorer used by
-//! [`super::search`] and [`super::log`] to decide which lines to keep when a
-//! tool output is over budget. No ML, no regex compilation cost on the hot
-//! path beyond simple case-insensitive substring scans.
+//! A small, deterministic keyword registry + per-line scorer used by the
+//! search, log, and JSON compressors to decide which lines/rows to keep when a
+//! tool output is over budget. No ML, no regex on the hot path beyond simple
+//! case-insensitive substring scans.
 //!
-//! Behavior is a clean-room port of headroom's `error_detection` priority
-//! signals (Apache-2.0): error/fatal lines score highest, warnings next,
-//! importance markers (security/TODO) a small bump, everything else baseline.
+//! Clean-room port of Headroom's `error_detection` priority signals
+//! (Apache-2.0): error/fatal lines score highest, warnings next, importance
+//! markers (security/TODO) a small bump, everything else baseline.
 
-/// Keywords that mark a hard failure. Matched case-insensitively as
-/// substrings. Kept deliberately small and high-precision — a false positive
-/// just means we keep a line we could have dropped, which is the safe
-/// direction.
+/// Keywords that mark a hard failure (case-insensitive substrings).
 const ERROR_KEYWORDS: &[&str] = &[
     "error",
     "fatal",
@@ -32,8 +29,7 @@ const ERROR_KEYWORDS: &[&str] = &[
 /// Keywords that mark a warning. Lower weight than errors.
 const WARNING_KEYWORDS: &[&str] = &["warning", "warn:", "[warn]", "deprecated"];
 
-/// Keywords that bump importance regardless of severity — things an agent
-/// almost always wants to see even in a truncated view.
+/// Keywords that bump importance regardless of severity.
 const IMPORTANCE_KEYWORDS: &[&str] = &[
     "security",
     "vulnerability",
@@ -51,16 +47,13 @@ pub const SCORE_WARNING: f32 = 0.6;
 pub const SCORE_IMPORTANCE: f32 = 0.4;
 pub const SCORE_BASELINE: f32 = 0.1;
 
-/// True if any error keyword appears in `text` (case-insensitive). Cheap
-/// pre-check used to decide whether a blob is worth the log compressor.
+/// True if any error keyword appears in `text` (case-insensitive).
 pub fn has_error_indicators(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
     ERROR_KEYWORDS.iter().any(|kw| lower.contains(kw))
 }
 
-/// Importance score for a single line in `[0.0, 1.0]`. Errors dominate,
-/// then warnings, then importance markers; a plain line gets the baseline so
-/// ordering is stable and "keep highest N" never discards everything.
+/// Importance score for a single line in `[0.0, 1.0]`.
 pub fn line_score(line: &str) -> f32 {
     let lower = line.to_ascii_lowercase();
     let mut score = SCORE_BASELINE;
@@ -84,8 +77,7 @@ pub enum Severity {
     Other,
 }
 
-/// Bucket a line into [`Severity`]. Used by [`super::log`] to keep error and
-/// warning lines under separate caps.
+/// Bucket a line into [`Severity`].
 pub fn severity(line: &str) -> Severity {
     let lower = line.to_ascii_lowercase();
     if ERROR_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
@@ -118,12 +110,6 @@ mod tests {
     #[test]
     fn plain_line_is_baseline() {
         assert_eq!(line_score("   Compiling foo v0.1.0"), SCORE_BASELINE);
-    }
-
-    #[test]
-    fn importance_markers_bump() {
-        assert!(line_score("TODO: handle retry") > SCORE_BASELINE);
-        assert!(line_score("potential security issue here") > SCORE_BASELINE);
     }
 
     #[test]

@@ -421,6 +421,93 @@ impl Config {
         if let Some(command) = env.get("OPENHUMAN_RUNTIME_PYTHON_PREFERRED_COMMAND") {
             self.runtime_python.preferred_command = command.trim().to_string();
         }
+
+        // --- TokenJuice content router -------------------------------------
+        if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_ENABLED") {
+            if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_ENABLED", &flag) {
+                self.tokenjuice.router_enabled = v;
+            }
+        }
+        if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_CCR_ENABLED") {
+            if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_CCR_ENABLED", &flag) {
+                self.tokenjuice.ccr_enabled = v;
+            }
+        }
+        if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_CCR_DISK_ENABLED") {
+            if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_CCR_DISK_ENABLED", &flag) {
+                self.tokenjuice.ccr_disk_enabled = v;
+            }
+        }
+        if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_SEARCH_ENABLED") {
+            if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_SEARCH_ENABLED", &flag) {
+                self.tokenjuice.search_enabled = v;
+            }
+        }
+        if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_CODE_ENABLED") {
+            if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_CODE_ENABLED", &flag) {
+                self.tokenjuice.code_enabled = v;
+            }
+        }
+        if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_HTML_ENABLED") {
+            if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_HTML_ENABLED", &flag) {
+                self.tokenjuice.html_enabled = v;
+            }
+        }
+        if let Some(s) = env.get("OPENHUMAN_TOKENJUICE_MAX_CACHE_ENTRIES") {
+            if let Ok(v) = s.trim().parse::<usize>() {
+                self.tokenjuice.max_cache_entries = v;
+            }
+        }
+        if let Some(s) = env.get("OPENHUMAN_TOKENJUICE_MAX_CACHE_BYTES") {
+            if let Ok(v) = s.trim().parse::<usize>() {
+                self.tokenjuice.max_cache_bytes = v;
+            }
+        }
+        if let Some(s) = env.get("OPENHUMAN_TOKENJUICE_CCR_TTL_SECS") {
+            if let Ok(v) = s.trim().parse::<u64>() {
+                self.tokenjuice.ccr_ttl_secs = Some(v);
+            }
+        }
+        if let Some(s) = env.get("OPENHUMAN_TOKENJUICE_CCR_MIN_TOKENS") {
+            if let Ok(v) = s.trim().parse::<usize>() {
+                self.tokenjuice.ccr_min_tokens = v;
+            }
+        }
+        // ML plain-text compressor (Kompress).
+        if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_ML_COMPRESSION_ENABLED") {
+            if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_ML_COMPRESSION_ENABLED", &flag) {
+                self.tokenjuice.ml_compression_enabled = v;
+            }
+        }
+        if let Some(m) = env.get("OPENHUMAN_TOKENJUICE_ML_MODEL_ID") {
+            let t = m.trim();
+            if !t.is_empty() {
+                self.tokenjuice.ml_model_id = t.to_string();
+            }
+        }
+        if let Some(d) = env.get("OPENHUMAN_TOKENJUICE_ML_DEVICE") {
+            let t = d.trim();
+            if !t.is_empty() {
+                self.tokenjuice.ml_device = t.to_string();
+            }
+        }
+        if let Some(r) = env.get("OPENHUMAN_TOKENJUICE_ML_TARGET_RATIO") {
+            if let Ok(v) = r.trim().parse::<f64>() {
+                if (0.0..=1.0).contains(&v) {
+                    self.tokenjuice.ml_target_ratio = v;
+                }
+            }
+        }
+        if let Some(s) = env.get("OPENHUMAN_TOKENJUICE_ML_SIDECAR_IDLE_TIMEOUT_SECS") {
+            if let Ok(v) = s.trim().parse::<u64>() {
+                self.tokenjuice.ml_sidecar_idle_timeout_secs = v;
+            }
+        }
+        if let Some(s) = env.get("OPENHUMAN_TOKENJUICE_ML_MAX_INPUT_CHARS") {
+            if let Ok(v) = s.trim().parse::<usize>() {
+                self.tokenjuice.ml_max_input_chars = v;
+            }
+        }
     }
 
     fn apply_observability_env<E: super::env::EnvLookup + ?Sized>(&mut self, env: &E) {

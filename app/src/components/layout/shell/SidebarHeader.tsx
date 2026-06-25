@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { registry } from '../../../lib/commands/registry';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { settingsNavState } from '../../settings/modal/settingsOverlay';
 import { Tooltip } from '../../ui';
@@ -42,20 +43,26 @@ export default function SidebarHeader() {
       </Tooltip>
 
       <div className="flex items-center gap-0.5">
-        {/* Wallet shortcut — one-click access to wallet balances. */}
-        <Tooltip label={t('nav.wallet')}>
+        {/* Keyboard shortcuts — one-click open of the help directory (also ? / ⌘/). */}
+        <Tooltip label={t('shortcuts.title')}>
           <button
             type="button"
-            onClick={() => navigate('/settings/wallet-balances', settingsNavState(location))}
+            onClick={() => registry.runAction('meta.keyboard-shortcuts')}
             className={ICON_BTN}
-            data-analytics-id="sidebar-header-wallet"
-            aria-label={t('nav.wallet')}>
+            data-analytics-id="sidebar-header-shortcuts"
+            aria-label={t('shortcuts.title')}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={1.8}
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                d="M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M7 10h.01M11 10h.01M15 10h.01M17 10h.01M7 13h.01M9 16h6"
               />
             </svg>
           </button>

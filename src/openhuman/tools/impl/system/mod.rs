@@ -1,3 +1,4 @@
+mod command_output;
 mod current_time;
 mod detect_tools;
 mod insert_sql_record;

@@ -428,8 +428,10 @@ impl ShellTool {
                         ToolResult::success(format!("{stdout}\n[stderr]\n{stderr}"))
                     }
                 } else {
-                    let err_msg = if stderr.is_empty() { stdout } else { stderr };
-                    ToolResult::error(err_msg)
+                    // Surface the exit code AND both streams so the agent can
+                    // diagnose the failure (e.g. 127 missing dependency, 126
+                    // sandbox/permission wall) instead of looping on it (#4095).
+                    super::command_output::command_failure(output.status.code(), &stdout, &stderr)
                 }
             }
             Ok(Err(e)) => ToolResult::error(format!("Failed to execute command: {e}")),
@@ -517,12 +519,13 @@ impl ShellTool {
                         ))
                     }
                 } else {
-                    let err_msg = if result.stderr.is_empty() {
-                        result.stdout
-                    } else {
-                        result.stderr
-                    };
-                    ToolResult::error(err_msg)
+                    // Same exit-code + both-streams surfacing as the native path
+                    // (#4095); the sandbox `-1` sentinel renders as a signal.
+                    super::command_output::command_failure(
+                        super::command_output::sandbox_exit_code(result.exit_code),
+                        &result.stdout,
+                        &result.stderr,
+                    )
                 };
                 (true, tool_result)
             }
@@ -961,6 +964,61 @@ mod tests {
             .await
             .unwrap();
         assert!(result.is_error);
+    }
+
+    /// Regression for the code_executor no-progress loop (#4095): a FAILED
+    /// command must surface its exit code AND both streams — never drop stdout
+    /// when stderr is present — so the agent can read *why* it failed instead of
+    /// re-running it blindly.
+    #[cfg(not(windows))]
+    #[tokio::test]
+    async fn shell_failure_surfaces_exit_code_and_both_streams() {
+        let tool = ShellTool::new(
+            test_security(AutonomyLevel::Full),
+            test_runtime(),
+            test_audit(),
+        );
+        let result = tool
+            .execute(json!({
+                "command": "echo stdout-marker; echo stderr-marker 1>&2; exit 7"
+            }))
+            .await
+            .unwrap();
+        assert!(result.is_error, "non-zero exit must be an error result");
+        let out = result.output();
+        assert!(out.contains("exit code 7"), "exit code not surfaced: {out}");
+        assert!(
+            out.contains("stdout-marker"),
+            "stdout dropped on failure: {out}"
+        );
+        assert!(
+            out.contains("stderr-marker"),
+            "stderr dropped on failure: {out}"
+        );
+    }
+
+    /// A missing executable exits 127; the surfaced result must carry the code
+    /// and the actionable "command not found / missing dependency" hint so the
+    /// agent recognises the dependency wall and adapts instead of looping.
+    #[cfg(not(windows))]
+    #[tokio::test]
+    async fn shell_missing_command_surfaces_127_with_dependency_hint() {
+        let tool = ShellTool::new(
+            test_security(AutonomyLevel::Full),
+            test_runtime(),
+            test_audit(),
+        );
+        let result = tool
+            .execute(json!({"command": "this_binary_does_not_exist_xyz --version"}))
+            .await
+            .unwrap();
+        assert!(result.is_error);
+        let out = result.output().to_lowercase();
+        assert!(out.contains("127"), "exit code 127 not surfaced: {out}");
+        assert!(
+            out.contains("command not found"),
+            "missing-dependency hint absent: {out}"
+        );
     }
 
     fn test_security_with_env_cmd() -> Arc<SecurityPolicy> {

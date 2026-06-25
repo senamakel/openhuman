@@ -15,6 +15,7 @@ import {
 import { E2E_RESTART_APP_AS_RELOAD, IS_DEV } from '../utils/config';
 import accountsReducer from './accountsSlice';
 import agentProfileReducer from './agentProfileSlice';
+import announcementReducer from './announcementSlice';
 import {
   type ArtifactsByThread,
   filterArtifactsForPersist,
@@ -208,6 +209,11 @@ const chatRuntimePersistConfig = {
 };
 const persistedChatRuntimeReducer = persistReducer(chatRuntimePersistConfig, chatRuntimeReducer);
 
+// Persist the set of announcement ids this user has already seen so the
+// harness-init banner shows each announcement exactly once (user-scoped).
+const announcementPersistConfig = { key: 'announcement', storage, whitelist: ['shownIds'] };
+const persistedAnnouncementReducer = persistReducer(announcementPersistConfig, announcementReducer);
+
 export const store = configureStore({
   reducer: {
     backendMeet: backendMeetReducer,
@@ -228,6 +234,7 @@ export const store = configureStore({
     persona: persistedPersonaReducer,
     theme: persistedThemeReducer,
     ptt: persistedPttReducer,
+    announcement: persistedAnnouncementReducer,
     // In-memory only (not persisted): survives route changes / background-job
     // completion, resets on restart + user switch. Durable storage is a #3931
     // follow-up.

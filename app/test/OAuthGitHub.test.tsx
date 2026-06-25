@@ -107,7 +107,8 @@ describe('OAuthProviderButton (GitHub) — rendering', () => {
 
   it('has neutral light background styling', () => {
     renderGitHubButton();
-    expect(screen.getByRole('button', { name: /github/i })).toHaveClass('bg-white');
+    // Migrated to the themeable surface token (was bg-white dark:bg-neutral-900).
+    expect(screen.getByRole('button', { name: /github/i })).toHaveClass('bg-surface');
   });
 
   it('has dark text', () => {

@@ -17,15 +17,16 @@ describe('Button', () => {
   it('applies secondary variant classes', () => {
     render(<Button variant="secondary">Cancel</Button>);
     const btn = screen.getByRole('button', { name: 'Cancel' });
-    expect(btn.className).toMatch(/border-neutral-300/);
-    expect(btn.className).toMatch(/bg-neutral-0/);
+    // Migrated to semantic surface/line tokens (themeable).
+    expect(btn.className).toMatch(/border-line-strong/);
+    expect(btn.className).toMatch(/bg-surface/);
   });
 
   it('applies tertiary variant classes', () => {
     render(<Button variant="tertiary">Skip</Button>);
     const btn = screen.getByRole('button', { name: 'Skip' });
     expect(btn.className).toMatch(/bg-transparent/);
-    expect(btn.className).toMatch(/text-neutral-700/);
+    expect(btn.className).toMatch(/text-content-secondary/);
   });
 
   it('renders a filled coral button for primary + tone="danger"', () => {
@@ -36,7 +37,7 @@ describe('Button', () => {
     );
     const btn = screen.getByRole('button', { name: 'Delete' });
     expect(btn.className).toMatch(/bg-coral-500/);
-    expect(btn.className).toMatch(/text-white/);
+    expect(btn.className).toMatch(/text-content-inverted/);
   });
 
   it('renders a coral outline for secondary + tone="danger"', () => {

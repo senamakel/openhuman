@@ -61,7 +61,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.close': 'Close',
   'conversations.backgroundTasks.sectionThisChat': 'এই চ্যাটে',
   'conversations.backgroundTasks.sectionScheduled': 'নির্ধারিত কাজ',
-  'conversations.backgroundTasks.sectionSubconscious': 'ব্যাকগ্রাউন্ড চিন্তা',
+  'conversations.backgroundTasks.sectionSubconscious': 'অবচেতন চিন্তা',
   'conversations.backgroundTasks.sectionMemory': 'মেমরি সিঙ্ক হচ্ছে',
   'conversations.backgroundTasks.cronEmpty': 'কোনো নির্ধারিত কাজ নেই।',
   'conversations.backgroundTasks.cronUnnamed': 'শিরোনামহীন কাজ',

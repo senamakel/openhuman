@@ -60,7 +60,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.close': 'Close',
   'conversations.backgroundTasks.sectionThisChat': '在此对话中',
   'conversations.backgroundTasks.sectionScheduled': '计划任务',
-  'conversations.backgroundTasks.sectionSubconscious': '后台思考',
+  'conversations.backgroundTasks.sectionSubconscious': '潜意识思考',
   'conversations.backgroundTasks.sectionMemory': '正在同步记忆',
   'conversations.backgroundTasks.cronEmpty': '没有计划任务。',
   'conversations.backgroundTasks.cronUnnamed': '未命名任务',

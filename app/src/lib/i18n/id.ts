@@ -60,7 +60,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.close': 'Close',
   'conversations.backgroundTasks.sectionThisChat': 'Di obrolan ini',
   'conversations.backgroundTasks.sectionScheduled': 'Tugas terjadwal',
-  'conversations.backgroundTasks.sectionSubconscious': 'Pemikiran latar belakang',
+  'conversations.backgroundTasks.sectionSubconscious': 'Pemikiran bawah sadar',
   'conversations.backgroundTasks.sectionMemory': 'Menyinkronkan memori',
   'conversations.backgroundTasks.cronEmpty': 'Tidak ada tugas terjadwal.',
   'conversations.backgroundTasks.cronUnnamed': 'Tugas tanpa judul',

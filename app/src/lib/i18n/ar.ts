@@ -60,7 +60,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.close': 'Close',
   'conversations.backgroundTasks.sectionThisChat': 'في هذه المحادثة',
   'conversations.backgroundTasks.sectionScheduled': 'المهام المجدولة',
-  'conversations.backgroundTasks.sectionSubconscious': 'التفكير في الخلفية',
+  'conversations.backgroundTasks.sectionSubconscious': 'التفكير اللاواعي',
   'conversations.backgroundTasks.sectionMemory': 'مزامنة الذاكرة',
   'conversations.backgroundTasks.cronEmpty': 'لا توجد مهام مجدولة.',
   'conversations.backgroundTasks.cronUnnamed': 'مهمة بدون عنوان',

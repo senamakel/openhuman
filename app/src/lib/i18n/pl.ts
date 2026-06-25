@@ -61,7 +61,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.close': 'Close',
   'conversations.backgroundTasks.sectionThisChat': 'W tym czacie',
   'conversations.backgroundTasks.sectionScheduled': 'Zaplanowane zadania',
-  'conversations.backgroundTasks.sectionSubconscious': 'Myślenie w tle',
+  'conversations.backgroundTasks.sectionSubconscious': 'Myślenie podświadome',
   'conversations.backgroundTasks.sectionMemory': 'Synchronizacja pamięci',
   'conversations.backgroundTasks.cronEmpty': 'Brak zaplanowanych zadań.',
   'conversations.backgroundTasks.cronUnnamed': 'Zadanie bez nazwy',

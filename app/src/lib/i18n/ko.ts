@@ -61,7 +61,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.close': 'Close',
   'conversations.backgroundTasks.sectionThisChat': '이 채팅에서',
   'conversations.backgroundTasks.sectionScheduled': '예약된 작업',
-  'conversations.backgroundTasks.sectionSubconscious': '백그라운드 사고',
+  'conversations.backgroundTasks.sectionSubconscious': '잠재의식 사고',
   'conversations.backgroundTasks.sectionMemory': '메모리 동기화 중',
   'conversations.backgroundTasks.cronEmpty': '예약된 작업이 없습니다.',
   'conversations.backgroundTasks.cronUnnamed': '제목 없는 작업',

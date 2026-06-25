@@ -61,7 +61,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.close': 'Close',
   'conversations.backgroundTasks.sectionThisChat': 'इस चैट में',
   'conversations.backgroundTasks.sectionScheduled': 'शेड्यूल किए गए कार्य',
-  'conversations.backgroundTasks.sectionSubconscious': 'पृष्ठभूमि सोच',
+  'conversations.backgroundTasks.sectionSubconscious': 'अवचेतन सोच',
   'conversations.backgroundTasks.sectionMemory': 'मेमोरी सिंक हो रही है',
   'conversations.backgroundTasks.cronEmpty': 'कोई शेड्यूल किए गए कार्य नहीं।',
   'conversations.backgroundTasks.cronUnnamed': 'शीर्षकहीन कार्य',

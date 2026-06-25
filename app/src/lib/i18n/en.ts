@@ -3661,7 +3661,7 @@ const en: TranslationMap = {
   // Section headers for the broader background-activity panel.
   'conversations.backgroundTasks.sectionThisChat': 'In this chat',
   'conversations.backgroundTasks.sectionScheduled': 'Scheduled jobs',
-  'conversations.backgroundTasks.sectionSubconscious': 'Background thinking',
+  'conversations.backgroundTasks.sectionSubconscious': 'Subconscious thinking',
   'conversations.backgroundTasks.sectionMemory': 'Memory syncing',
   // Scheduled (cron) jobs.
   'conversations.backgroundTasks.cronEmpty': 'No scheduled jobs.',

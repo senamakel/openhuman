@@ -291,7 +291,8 @@ const messages: TranslationMap = {
   'settings.buildInfo.title': 'Infos de build/version',
   'settings.buildInfo.menuDesc': 'Build de l’application, version et détails de connexion du cœur',
   'settings.tokenUsage.title': 'Tokens et coût',
-  'settings.tokenUsage.menuDesc': 'Paramètres de compression et combien de tokens et de dollars ils ont économisés',
+  'settings.tokenUsage.menuDesc':
+    'Paramètres de compression et combien de tokens et de dollars ils ont économisés',
   'settings.tokenUsage.saving': 'Enregistrement…',
   'settings.tokenUsage.saved': 'Enregistré',
   'settings.tokenUsage.savingsTitle': 'Économies',
@@ -305,26 +306,33 @@ const messages: TranslationMap = {
   'settings.tokenUsage.refresh': 'Actualiser',
   'settings.tokenUsage.reset': 'Réinitialiser les statistiques',
   'settings.tokenUsage.compressionTitle': 'Compression',
-  'settings.tokenUsage.compressionDesc': 'Compactage adapté au contenu des grandes sorties d’outils avant leur entrée dans le contexte du modèle.',
+  'settings.tokenUsage.compressionDesc':
+    'Compactage adapté au contenu des grandes sorties d’outils avant leur entrée dans le contexte du modèle.',
   'settings.tokenUsage.routerEnabled': 'Activer la compression',
   'settings.tokenUsage.routerEnabledDesc': 'Interrupteur principal du routeur de contenu.',
   'settings.tokenUsage.search': 'Résultats de recherche',
-  'settings.tokenUsage.searchDesc': 'Classer la sortie grep/recherche par pertinence, en conservant les meilleures correspondances.',
+  'settings.tokenUsage.searchDesc':
+    'Classer la sortie grep/recherche par pertinence, en conservant les meilleures correspondances.',
   'settings.tokenUsage.code': 'Code source',
   'settings.tokenUsage.codeDesc': 'Conserver les signatures, replier le corps des fonctions.',
   'settings.tokenUsage.html': 'HTML',
   'settings.tokenUsage.htmlDesc': 'Supprimer le balisage pour obtenir un texte lisible.',
   'settings.tokenUsage.ml': 'Compresseur de texte ML',
-  'settings.tokenUsage.mlDesc': 'Modèle ModernBERT local pour le texte brut (nécessite l’environnement d’exécution Python).',
+  'settings.tokenUsage.mlDesc':
+    'Modèle ModernBERT local pour le texte brut (nécessite l’environnement d’exécution Python).',
   'settings.tokenUsage.ccrTitle': 'Cache et récupération (CCR)',
-  'settings.tokenUsage.ccrDesc': 'Les originaux compactés sont mis en cache afin que l’agent puisse récupérer le texte complet à la demande.',
+  'settings.tokenUsage.ccrDesc':
+    'Les originaux compactés sont mis en cache afin que l’agent puisse récupérer le texte complet à la demande.',
   'settings.tokenUsage.ccrEnabled': 'Conserver les originaux pour récupération',
-  'settings.tokenUsage.ccrEnabledDesc': 'Décharger l’original et ajouter un marqueur de récupération afin que rien ne soit perdu.',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'Décharger l’original et ajouter un marqueur de récupération afin que rien ne soit perdu.',
   'settings.tokenUsage.ccrMinTokens': 'Taille minimale à mettre en cache',
-  'settings.tokenUsage.ccrMinTokensDesc': 'Ne mettre en cache et compacter avec perte que les résultats estimés à ce nombre de tokens ou plus.',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'Ne mettre en cache et compacter avec perte que les résultats estimés à ce nombre de tokens ou plus.',
   'settings.tokenUsage.tokensUnit': 'tokens',
   'settings.tokenUsage.ccrDisk': 'Conserver le cache sur le disque',
-  'settings.tokenUsage.ccrDiskDesc': 'Conserver les originaux récupérables d’un redémarrage à l’autre.',
+  'settings.tokenUsage.ccrDiskDesc':
+    'Conserver les originaux récupérables d’un redémarrage à l’autre.',
   'settings.dataSync.title': 'Synchronisation des données',
   'settings.dataSync.menuDesc': 'Ce que votre assistant synchronise — sources, fraîcheur et état',
   'settings.dataSync.description':

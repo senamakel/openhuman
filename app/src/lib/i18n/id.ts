@@ -287,7 +287,8 @@ const messages: TranslationMap = {
   'settings.buildInfo.title': 'Info build / versi',
   'settings.buildInfo.menuDesc': 'Build aplikasi, versi, dan detail koneksi core',
   'settings.tokenUsage.title': 'Token & Biaya',
-  'settings.tokenUsage.menuDesc': 'Pengaturan kompresi dan berapa banyak token dan dolar yang telah dihemat',
+  'settings.tokenUsage.menuDesc':
+    'Pengaturan kompresi dan berapa banyak token dan dolar yang telah dihemat',
   'settings.tokenUsage.saving': 'Menyimpan…',
   'settings.tokenUsage.saved': 'Tersimpan',
   'settings.tokenUsage.savingsTitle': 'Penghematan',
@@ -301,26 +302,33 @@ const messages: TranslationMap = {
   'settings.tokenUsage.refresh': 'Segarkan',
   'settings.tokenUsage.reset': 'Setel ulang statistik',
   'settings.tokenUsage.compressionTitle': 'Kompresi',
-  'settings.tokenUsage.compressionDesc': 'Pemadatan yang sadar konten untuk keluaran alat besar sebelum masuk ke konteks model.',
+  'settings.tokenUsage.compressionDesc':
+    'Pemadatan yang sadar konten untuk keluaran alat besar sebelum masuk ke konteks model.',
   'settings.tokenUsage.routerEnabled': 'Aktifkan kompresi',
   'settings.tokenUsage.routerEnabledDesc': 'Sakelar utama untuk router konten.',
   'settings.tokenUsage.search': 'Hasil pencarian',
-  'settings.tokenUsage.searchDesc': 'Mengurutkan keluaran grep/pencarian menurut relevansi, mempertahankan kecocokan teratas.',
+  'settings.tokenUsage.searchDesc':
+    'Mengurutkan keluaran grep/pencarian menurut relevansi, mempertahankan kecocokan teratas.',
   'settings.tokenUsage.code': 'Kode sumber',
   'settings.tokenUsage.codeDesc': 'Pertahankan tanda tangan, lipat badan fungsi.',
   'settings.tokenUsage.html': 'HTML',
   'settings.tokenUsage.htmlDesc': 'Hapus markup menjadi teks yang dapat dibaca.',
   'settings.tokenUsage.ml': 'Kompresor teks ML',
-  'settings.tokenUsage.mlDesc': 'Model ModernBERT lokal untuk teks biasa (memerlukan runtime Python).',
+  'settings.tokenUsage.mlDesc':
+    'Model ModernBERT lokal untuk teks biasa (memerlukan runtime Python).',
   'settings.tokenUsage.ccrTitle': 'Cache & pemulihan (CCR)',
-  'settings.tokenUsage.ccrDesc': 'Naskah asli yang dipadatkan di-cache sehingga agen dapat mengambil teks lengkap sesuai permintaan.',
+  'settings.tokenUsage.ccrDesc':
+    'Naskah asli yang dipadatkan di-cache sehingga agen dapat mengambil teks lengkap sesuai permintaan.',
   'settings.tokenUsage.ccrEnabled': 'Simpan naskah asli untuk pemulihan',
-  'settings.tokenUsage.ccrEnabledDesc': 'Pindahkan naskah asli dan tambahkan penanda pengambilan sehingga tidak ada yang hilang.',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'Pindahkan naskah asli dan tambahkan penanda pengambilan sehingga tidak ada yang hilang.',
   'settings.tokenUsage.ccrMinTokens': 'Ukuran minimum untuk di-cache',
-  'settings.tokenUsage.ccrMinTokensDesc': 'Hanya cache dan padatkan secara lossy hasil yang diperkirakan sebanyak ini token atau lebih.',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'Hanya cache dan padatkan secara lossy hasil yang diperkirakan sebanyak ini token atau lebih.',
   'settings.tokenUsage.tokensUnit': 'token',
   'settings.tokenUsage.ccrDisk': 'Simpan cache ke disk',
-  'settings.tokenUsage.ccrDiskDesc': 'Pertahankan naskah asli yang dapat dipulihkan di seluruh mulai ulang.',
+  'settings.tokenUsage.ccrDiskDesc':
+    'Pertahankan naskah asli yang dapat dipulihkan di seluruh mulai ulang.',
   'settings.dataSync.title': 'Sinkronisasi Data',
   'settings.dataSync.menuDesc': 'Yang disinkronkan asisten Anda — sumber, kesegaran, dan status',
   'settings.dataSync.description':

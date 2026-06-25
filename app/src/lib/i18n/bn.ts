@@ -301,23 +301,29 @@ const messages: TranslationMap = {
   'settings.tokenUsage.refresh': 'রিফ্রেশ',
   'settings.tokenUsage.reset': 'পরিসংখ্যান রিসেট করুন',
   'settings.tokenUsage.compressionTitle': 'সংকোচন',
-  'settings.tokenUsage.compressionDesc': 'বড় টুল আউটপুট মডেল প্রসঙ্গে প্রবেশের আগে বিষয়বস্তু-সচেতন সংকোচন।',
+  'settings.tokenUsage.compressionDesc':
+    'বড় টুল আউটপুট মডেল প্রসঙ্গে প্রবেশের আগে বিষয়বস্তু-সচেতন সংকোচন।',
   'settings.tokenUsage.routerEnabled': 'সংকোচন সক্ষম করুন',
   'settings.tokenUsage.routerEnabledDesc': 'বিষয়বস্তু রাউটারের প্রধান সুইচ।',
   'settings.tokenUsage.search': 'অনুসন্ধানের ফলাফল',
-  'settings.tokenUsage.searchDesc': 'প্রাসঙ্গিকতা অনুযায়ী grep/অনুসন্ধান আউটপুট সাজান, সেরা মিলগুলি রেখে দিন।',
+  'settings.tokenUsage.searchDesc':
+    'প্রাসঙ্গিকতা অনুযায়ী grep/অনুসন্ধান আউটপুট সাজান, সেরা মিলগুলি রেখে দিন।',
   'settings.tokenUsage.code': 'সোর্স কোড',
   'settings.tokenUsage.codeDesc': 'স্বাক্ষর রাখুন, ফাংশন বডি সংকুচিত করুন।',
   'settings.tokenUsage.html': 'HTML',
   'settings.tokenUsage.htmlDesc': 'পঠনযোগ্য টেক্সটে মার্কআপ সরিয়ে ফেলুন।',
   'settings.tokenUsage.ml': 'ML টেক্সট সংকোচক',
-  'settings.tokenUsage.mlDesc': 'সাধারণ টেক্সটের জন্য স্থানীয় ModernBERT মডেল (Python রানটাইম প্রয়োজন)।',
+  'settings.tokenUsage.mlDesc':
+    'সাধারণ টেক্সটের জন্য স্থানীয় ModernBERT মডেল (Python রানটাইম প্রয়োজন)।',
   'settings.tokenUsage.ccrTitle': 'ক্যাশ ও পুনরুদ্ধার (CCR)',
-  'settings.tokenUsage.ccrDesc': 'সংকুচিত মূল কপিগুলি ক্যাশ করা হয় যাতে এজেন্ট চাহিদামতো সম্পূর্ণ টেক্সট আনতে পারে।',
+  'settings.tokenUsage.ccrDesc':
+    'সংকুচিত মূল কপিগুলি ক্যাশ করা হয় যাতে এজেন্ট চাহিদামতো সম্পূর্ণ টেক্সট আনতে পারে।',
   'settings.tokenUsage.ccrEnabled': 'পুনরুদ্ধারের জন্য মূল কপি রাখুন',
-  'settings.tokenUsage.ccrEnabledDesc': 'মূল কপি অফলোড করুন এবং একটি পুনরুদ্ধার চিহ্ন যোগ করুন যাতে কিছুই হারিয়ে না যায়।',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'মূল কপি অফলোড করুন এবং একটি পুনরুদ্ধার চিহ্ন যোগ করুন যাতে কিছুই হারিয়ে না যায়।',
   'settings.tokenUsage.ccrMinTokens': 'ক্যাশ করার ন্যূনতম আকার',
-  'settings.tokenUsage.ccrMinTokensDesc': 'কেবল এই সংখ্যক টোকেন বা তার বেশি অনুমানিত ফলাফলই ক্যাশ ও ক্ষতিসহ সংকুচিত করুন।',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'কেবল এই সংখ্যক টোকেন বা তার বেশি অনুমানিত ফলাফলই ক্যাশ ও ক্ষতিসহ সংকুচিত করুন।',
   'settings.tokenUsage.tokensUnit': 'টোকেন',
   'settings.tokenUsage.ccrDisk': 'ক্যাশ ডিস্কে সংরক্ষণ করুন',
   'settings.tokenUsage.ccrDiskDesc': 'রিস্টার্ট জুড়ে পুনরুদ্ধারযোগ্য মূল কপি রাখুন।',

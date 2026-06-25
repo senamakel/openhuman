@@ -296,11 +296,13 @@ const messages: TranslationMap = {
   'settings.tokenUsage.refresh': 'تحديث',
   'settings.tokenUsage.reset': 'إعادة تعيين الإحصائيات',
   'settings.tokenUsage.compressionTitle': 'الضغط',
-  'settings.tokenUsage.compressionDesc': 'ضغط واعٍ بالمحتوى لمخرجات الأدوات الكبيرة قبل دخولها سياق النموذج.',
+  'settings.tokenUsage.compressionDesc':
+    'ضغط واعٍ بالمحتوى لمخرجات الأدوات الكبيرة قبل دخولها سياق النموذج.',
   'settings.tokenUsage.routerEnabled': 'تمكين الضغط',
   'settings.tokenUsage.routerEnabledDesc': 'المفتاح الرئيسي لموجّه المحتوى.',
   'settings.tokenUsage.search': 'نتائج البحث',
-  'settings.tokenUsage.searchDesc': 'ترتيب مخرجات grep/البحث حسب الصلة، مع الاحتفاظ بأفضل التطابقات.',
+  'settings.tokenUsage.searchDesc':
+    'ترتيب مخرجات grep/البحث حسب الصلة، مع الاحتفاظ بأفضل التطابقات.',
   'settings.tokenUsage.code': 'الشيفرة المصدرية',
   'settings.tokenUsage.codeDesc': 'الاحتفاظ بالتواقيع وطيّ أجسام الدوال.',
   'settings.tokenUsage.html': 'HTML',
@@ -308,14 +310,18 @@ const messages: TranslationMap = {
   'settings.tokenUsage.ml': 'ضاغط النص بالتعلّم الآلي',
   'settings.tokenUsage.mlDesc': 'نموذج ModernBERT محلي للنص العادي (يتطلب بيئة تشغيل Python).',
   'settings.tokenUsage.ccrTitle': 'التخزين المؤقت والاسترجاع (CCR)',
-  'settings.tokenUsage.ccrDesc': 'يتم تخزين النسخ الأصلية المضغوطة مؤقتًا حتى يتمكّن الوكيل من جلب النص الكامل عند الطلب.',
+  'settings.tokenUsage.ccrDesc':
+    'يتم تخزين النسخ الأصلية المضغوطة مؤقتًا حتى يتمكّن الوكيل من جلب النص الكامل عند الطلب.',
   'settings.tokenUsage.ccrEnabled': 'الاحتفاظ بالنسخ الأصلية للاسترجاع',
-  'settings.tokenUsage.ccrEnabledDesc': 'تفريغ النسخة الأصلية وإضافة علامة استرجاع حتى لا يضيع أي شيء.',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'تفريغ النسخة الأصلية وإضافة علامة استرجاع حتى لا يضيع أي شيء.',
   'settings.tokenUsage.ccrMinTokens': 'الحد الأدنى للحجم المراد تخزينه',
-  'settings.tokenUsage.ccrMinTokensDesc': 'لا يتم التخزين والضغط مع الفقد إلا للنتائج المقدّرة بهذا العدد من الرموز أو أكثر.',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'لا يتم التخزين والضغط مع الفقد إلا للنتائج المقدّرة بهذا العدد من الرموز أو أكثر.',
   'settings.tokenUsage.tokensUnit': 'رمز',
   'settings.tokenUsage.ccrDisk': 'حفظ التخزين المؤقت على القرص',
-  'settings.tokenUsage.ccrDiskDesc': 'الاحتفاظ بالنسخ الأصلية القابلة للاسترجاع عبر عمليات إعادة التشغيل.',
+  'settings.tokenUsage.ccrDiskDesc':
+    'الاحتفاظ بالنسخ الأصلية القابلة للاسترجاع عبر عمليات إعادة التشغيل.',
   'settings.dataSync.title': 'مزامنة البيانات',
   'settings.dataSync.menuDesc': 'ما يقوم مساعدك بمزامنته — المصادر والحداثة والحالة',
   'settings.dataSync.description':

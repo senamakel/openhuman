@@ -1038,7 +1038,10 @@ async fn json_rpc_tokenjuice_settings_and_savings() {
     let settings = get_result
         .get("settings")
         .expect("settings_get returns a settings object");
-    assert!(settings.get("router_enabled").and_then(Value::as_bool).is_some());
+    assert!(settings
+        .get("router_enabled")
+        .and_then(Value::as_bool)
+        .is_some());
     assert!(settings
         .get("ccr_min_tokens")
         .and_then(Value::as_u64)

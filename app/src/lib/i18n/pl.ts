@@ -301,26 +301,33 @@ const messages: TranslationMap = {
   'settings.tokenUsage.refresh': 'Odśwież',
   'settings.tokenUsage.reset': 'Resetuj statystyki',
   'settings.tokenUsage.compressionTitle': 'Kompresja',
-  'settings.tokenUsage.compressionDesc': 'Kompaktowanie dużych wyników narzędzi z uwzględnieniem treści, zanim trafią do kontekstu modelu.',
+  'settings.tokenUsage.compressionDesc':
+    'Kompaktowanie dużych wyników narzędzi z uwzględnieniem treści, zanim trafią do kontekstu modelu.',
   'settings.tokenUsage.routerEnabled': 'Włącz kompresję',
   'settings.tokenUsage.routerEnabledDesc': 'Główny przełącznik routera treści.',
   'settings.tokenUsage.search': 'Wyniki wyszukiwania',
-  'settings.tokenUsage.searchDesc': 'Sortuj wynik grep/wyszukiwania według trafności, zachowując najlepsze dopasowania.',
+  'settings.tokenUsage.searchDesc':
+    'Sortuj wynik grep/wyszukiwania według trafności, zachowując najlepsze dopasowania.',
   'settings.tokenUsage.code': 'Kod źródłowy',
   'settings.tokenUsage.codeDesc': 'Zachowaj sygnatury, zwiń ciała funkcji.',
   'settings.tokenUsage.html': 'HTML',
   'settings.tokenUsage.htmlDesc': 'Usuń znaczniki, aby uzyskać czytelny tekst.',
   'settings.tokenUsage.ml': 'Kompresor tekstu ML',
-  'settings.tokenUsage.mlDesc': 'Lokalny model ModernBERT dla zwykłego tekstu (wymaga środowiska uruchomieniowego Python).',
+  'settings.tokenUsage.mlDesc':
+    'Lokalny model ModernBERT dla zwykłego tekstu (wymaga środowiska uruchomieniowego Python).',
   'settings.tokenUsage.ccrTitle': 'Pamięć podręczna i odzyskiwanie (CCR)',
-  'settings.tokenUsage.ccrDesc': 'Skompaktowane oryginały są przechowywane w pamięci podręcznej, aby agent mógł pobrać pełny tekst na żądanie.',
+  'settings.tokenUsage.ccrDesc':
+    'Skompaktowane oryginały są przechowywane w pamięci podręcznej, aby agent mógł pobrać pełny tekst na żądanie.',
   'settings.tokenUsage.ccrEnabled': 'Zachowaj oryginały do odzyskania',
-  'settings.tokenUsage.ccrEnabledDesc': 'Przenieś oryginał i dodaj znacznik pobierania, aby nic nie zostało utracone.',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'Przenieś oryginał i dodaj znacznik pobierania, aby nic nie zostało utracone.',
   'settings.tokenUsage.ccrMinTokens': 'Minimalny rozmiar do zapisania w pamięci podręcznej',
-  'settings.tokenUsage.ccrMinTokensDesc': 'Zapisuj w pamięci podręcznej i stratnie kompaktuj tylko wyniki szacowane na tę liczbę tokenów lub więcej.',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'Zapisuj w pamięci podręcznej i stratnie kompaktuj tylko wyniki szacowane na tę liczbę tokenów lub więcej.',
   'settings.tokenUsage.tokensUnit': 'tokeny',
   'settings.tokenUsage.ccrDisk': 'Zachowaj pamięć podręczną na dysku',
-  'settings.tokenUsage.ccrDiskDesc': 'Zachowuj możliwe do odzyskania oryginały między ponownymi uruchomieniami.',
+  'settings.tokenUsage.ccrDiskDesc':
+    'Zachowuj możliwe do odzyskania oryginały między ponownymi uruchomieniami.',
   'settings.dataSync.title': 'Synchronizacja danych',
   'settings.dataSync.menuDesc': 'Co synchronizuje Twój asystent — źródła, świeżość i status',
   'settings.dataSync.description':

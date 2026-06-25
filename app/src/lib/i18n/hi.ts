@@ -300,23 +300,29 @@ const messages: TranslationMap = {
   'settings.tokenUsage.refresh': 'रीफ़्रेश करें',
   'settings.tokenUsage.reset': 'आँकड़े रीसेट करें',
   'settings.tokenUsage.compressionTitle': 'संपीड़न',
-  'settings.tokenUsage.compressionDesc': 'बड़े टूल आउटपुट को मॉडल संदर्भ में प्रवेश करने से पहले सामग्री-जागरूक संपीड़न।',
+  'settings.tokenUsage.compressionDesc':
+    'बड़े टूल आउटपुट को मॉडल संदर्भ में प्रवेश करने से पहले सामग्री-जागरूक संपीड़न।',
   'settings.tokenUsage.routerEnabled': 'संपीड़न सक्षम करें',
   'settings.tokenUsage.routerEnabledDesc': 'सामग्री राउटर का मुख्य स्विच।',
   'settings.tokenUsage.search': 'खोज परिणाम',
-  'settings.tokenUsage.searchDesc': 'grep/खोज आउटपुट को प्रासंगिकता के अनुसार क्रमबद्ध करें, शीर्ष मिलानों को रखते हुए।',
+  'settings.tokenUsage.searchDesc':
+    'grep/खोज आउटपुट को प्रासंगिकता के अनुसार क्रमबद्ध करें, शीर्ष मिलानों को रखते हुए।',
   'settings.tokenUsage.code': 'स्रोत कोड',
   'settings.tokenUsage.codeDesc': 'हस्ताक्षर रखें, फ़ंक्शन बॉडी को संक्षिप्त करें।',
   'settings.tokenUsage.html': 'HTML',
   'settings.tokenUsage.htmlDesc': 'पठनीय टेक्स्ट के लिए मार्कअप हटाएँ।',
   'settings.tokenUsage.ml': 'ML टेक्स्ट कंप्रेसर',
-  'settings.tokenUsage.mlDesc': 'सादे टेक्स्ट के लिए स्थानीय ModernBERT मॉडल (Python रनटाइम आवश्यक)।',
+  'settings.tokenUsage.mlDesc':
+    'सादे टेक्स्ट के लिए स्थानीय ModernBERT मॉडल (Python रनटाइम आवश्यक)।',
   'settings.tokenUsage.ccrTitle': 'कैश और पुनर्प्राप्ति (CCR)',
-  'settings.tokenUsage.ccrDesc': 'संपीड़ित मूल प्रतियाँ कैश की जाती हैं ताकि एजेंट माँग पर पूरा टेक्स्ट प्राप्त कर सके।',
+  'settings.tokenUsage.ccrDesc':
+    'संपीड़ित मूल प्रतियाँ कैश की जाती हैं ताकि एजेंट माँग पर पूरा टेक्स्ट प्राप्त कर सके।',
   'settings.tokenUsage.ccrEnabled': 'पुनर्प्राप्ति के लिए मूल प्रतियाँ रखें',
-  'settings.tokenUsage.ccrEnabledDesc': 'मूल प्रति को ऑफ़लोड करें और एक पुनर्प्राप्ति चिह्न जोड़ें ताकि कुछ भी न खोए।',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'मूल प्रति को ऑफ़लोड करें और एक पुनर्प्राप्ति चिह्न जोड़ें ताकि कुछ भी न खोए।',
   'settings.tokenUsage.ccrMinTokens': 'कैश करने का न्यूनतम आकार',
-  'settings.tokenUsage.ccrMinTokensDesc': 'केवल इतने या इससे अधिक टोकन अनुमानित परिणामों को ही कैश और हानिपूर्ण रूप से संपीड़ित करें।',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'केवल इतने या इससे अधिक टोकन अनुमानित परिणामों को ही कैश और हानिपूर्ण रूप से संपीड़ित करें।',
   'settings.tokenUsage.tokensUnit': 'टोकन',
   'settings.tokenUsage.ccrDisk': 'कैश को डिस्क पर सहेजें',
   'settings.tokenUsage.ccrDiskDesc': 'पुनरारंभ के बीच पुनर्प्राप्त करने योग्य मूल प्रतियाँ रखें।',

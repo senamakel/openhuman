@@ -303,23 +303,29 @@ const messages: TranslationMap = {
   'settings.tokenUsage.refresh': 'Actualizar',
   'settings.tokenUsage.reset': 'Restablecer estadísticas',
   'settings.tokenUsage.compressionTitle': 'Compresión',
-  'settings.tokenUsage.compressionDesc': 'Compactación según el contenido de las salidas grandes de herramientas antes de que entren en el contexto del modelo.',
+  'settings.tokenUsage.compressionDesc':
+    'Compactación según el contenido de las salidas grandes de herramientas antes de que entren en el contexto del modelo.',
   'settings.tokenUsage.routerEnabled': 'Activar compresión',
   'settings.tokenUsage.routerEnabledDesc': 'Interruptor principal del enrutador de contenido.',
   'settings.tokenUsage.search': 'Resultados de búsqueda',
-  'settings.tokenUsage.searchDesc': 'Ordenar la salida de grep/búsqueda por relevancia, conservando las mejores coincidencias.',
+  'settings.tokenUsage.searchDesc':
+    'Ordenar la salida de grep/búsqueda por relevancia, conservando las mejores coincidencias.',
   'settings.tokenUsage.code': 'Código fuente',
   'settings.tokenUsage.codeDesc': 'Conservar las firmas, plegar los cuerpos de las funciones.',
   'settings.tokenUsage.html': 'HTML',
   'settings.tokenUsage.htmlDesc': 'Eliminar el marcado para obtener texto legible.',
   'settings.tokenUsage.ml': 'Compresor de texto con ML',
-  'settings.tokenUsage.mlDesc': 'Modelo ModernBERT local para texto sin formato (requiere entorno de ejecución de Python).',
+  'settings.tokenUsage.mlDesc':
+    'Modelo ModernBERT local para texto sin formato (requiere entorno de ejecución de Python).',
   'settings.tokenUsage.ccrTitle': 'Caché y recuperación (CCR)',
-  'settings.tokenUsage.ccrDesc': 'Los originales compactados se almacenan en caché para que el agente pueda recuperar el texto completo cuando lo necesite.',
+  'settings.tokenUsage.ccrDesc':
+    'Los originales compactados se almacenan en caché para que el agente pueda recuperar el texto completo cuando lo necesite.',
   'settings.tokenUsage.ccrEnabled': 'Conservar originales para recuperación',
-  'settings.tokenUsage.ccrEnabledDesc': 'Descargar el original y añadir un marcador de recuperación para que no se pierda nada.',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'Descargar el original y añadir un marcador de recuperación para que no se pierda nada.',
   'settings.tokenUsage.ccrMinTokens': 'Tamaño mínimo para almacenar en caché',
-  'settings.tokenUsage.ccrMinTokensDesc': 'Almacenar en caché y compactar con pérdida solo los resultados estimados en esta cantidad de tokens o más.',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'Almacenar en caché y compactar con pérdida solo los resultados estimados en esta cantidad de tokens o más.',
   'settings.tokenUsage.tokensUnit': 'tokens',
   'settings.tokenUsage.ccrDisk': 'Conservar la caché en disco',
   'settings.tokenUsage.ccrDiskDesc': 'Mantener los originales recuperables entre reinicios.',

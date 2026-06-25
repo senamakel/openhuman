@@ -310,7 +310,7 @@ impl ApprovalGate {
         // the `autonomy.auto_approve` allowlist. Skip the shortcut for that
         // origin and fall through to the parking flow below.
         let is_goal_continuation = matches!(
-            origin,
+            &origin,
             AgentTurnOrigin::TrustedAutomation {
                 source: TrustedAutomationSource::GoalContinuation,
                 ..

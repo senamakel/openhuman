@@ -383,7 +383,13 @@ pub async fn set_continuation_suppressed_if(
     let Some(mut goal) = store.get(&thread_id)? else {
         return Ok(None);
     };
-    if goal.goal_id != expected_goal_id || goal.continuation_suppressed == suppressed {
+    // Skip when the goal was replaced (goal_id mismatch), is no longer active
+    // (completed/paused/budget_limited during the turn — must not be re-touched),
+    // or is already in the requested state.
+    if goal.goal_id != expected_goal_id
+        || !goal.status.is_active()
+        || goal.continuation_suppressed == suppressed
+    {
         return Ok(Some(goal));
     }
     goal.continuation_suppressed = suppressed;

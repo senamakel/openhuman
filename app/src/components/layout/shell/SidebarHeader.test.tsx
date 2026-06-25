@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { registry } from '../../../lib/commands/registry';
 import { renderWithProviders } from '../../../test/test-utils';
 import SidebarHeader from './SidebarHeader';
 
@@ -20,39 +21,37 @@ vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) 
 describe('SidebarHeader', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders Home, Wallet, Settings, and Collapse buttons', () => {
+  it('renders Home, Keyboard Shortcuts, Settings, and Collapse buttons', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
     expect(screen.getByRole('button', { name: 'nav.home' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'nav.wallet' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'shortcuts.title' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'nav.settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'chat.hideSidebar' })).toBeInTheDocument();
   });
 
-  it('wallet button navigates to /settings/wallet-balances', () => {
+  it('shortcuts button opens the keyboard-shortcuts help directory', () => {
+    const runAction = vi.spyOn(registry, 'runAction').mockReturnValue(true);
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    fireEvent.click(screen.getByRole('button', { name: 'nav.wallet' }));
-    // Carries the backgroundLocation so the desktop Settings modal renders over
-    // the page it was opened from.
-    expect(mockNavigate).toHaveBeenCalledWith('/settings/wallet-balances', {
-      state: { backgroundLocation: expect.objectContaining({ pathname: '/home' }) },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'shortcuts.title' }));
+    expect(runAction).toHaveBeenCalledWith('meta.keyboard-shortcuts');
+    runAction.mockRestore();
   });
 
-  it('wallet button has correct data-analytics-id', () => {
+  it('shortcuts button has correct data-analytics-id', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    expect(screen.getByRole('button', { name: 'nav.wallet' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'shortcuts.title' })).toHaveAttribute(
       'data-analytics-id',
-      'sidebar-header-wallet'
+      'sidebar-header-shortcuts'
     );
   });
 
-  it('wallet button has matching aria-label and title', () => {
+  it('shortcuts button has matching aria-label and title', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    const btn = screen.getByRole('button', { name: 'nav.wallet' });
-    expect(btn).toHaveAttribute('aria-label', 'nav.wallet');
+    const btn = screen.getByRole('button', { name: 'shortcuts.title' });
+    expect(btn).toHaveAttribute('aria-label', 'shortcuts.title');
     // The styled <Tooltip> wrapper re-applies a native `title` fallback so the
     // label still surfaces if the portal pill is occluded by a CEF webview.
-    expect(btn).toHaveAttribute('title', 'nav.wallet');
+    expect(btn).toHaveAttribute('title', 'shortcuts.title');
   });
 
   it('settings button navigates to /settings', () => {

@@ -82,6 +82,12 @@ export const SETTINGS_NAV_ICONS: Record<string, ReactNode> = {
     )
   ),
   'developer-options': icon(stroke('M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4')),
+  'keyboard-shortcuts': icon(
+    <Fragment>
+      {stroke('M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z')}
+      {stroke('M7 10h.01M11 10h.01M15 10h.01M17 10h.01M7 13h.01M9 16h6')}
+    </Fragment>
+  ),
   about: icon(stroke('M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z')),
   usage: icon(
     stroke(

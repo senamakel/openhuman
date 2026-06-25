@@ -2549,7 +2549,7 @@ const en: TranslationMap = {
   'chat.setup': 'Set up',
   'chat.switchToText': 'Switch to text',
   'chat.superContext.label': 'Super context',
-  'chat.superContext.hint': 'Gathers context before replying — applies to new threads',
+  'chat.superContext.hint': 'Gathers extra context before replying',
   'chat.transcribing': 'Transcribing...',
   'chat.stopAndSend': 'Stop and send',
   'chat.startTalking': 'Start talking',

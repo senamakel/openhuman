@@ -1060,28 +1060,28 @@ fn env_overlay_compaction_default_on_and_kill_switch() {
 }
 
 #[test]
-fn env_overlay_super_context_default_off_and_toggle() {
-    // Default is off.
-    assert!(!Config::default().context.super_context_enabled);
+fn env_overlay_super_context_default_on_and_toggle() {
+    // Default is on.
+    assert!(Config::default().context.super_context_enabled);
 
-    // `OPENHUMAN_SUPER_CONTEXT=1` enables it.
+    // `OPENHUMAN_SUPER_CONTEXT=0` opts out.
     let mut cfg = Config::default();
-    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_SUPER_CONTEXT", "1"));
-    assert!(cfg.context.super_context_enabled);
-
-    // The namespaced alias works and `off` disables it again.
-    let mut cfg = Config::default();
-    cfg.context.super_context_enabled = true;
-    cfg.apply_env_overlay_with(
-        &HashMapEnv::new().with("OPENHUMAN_CONTEXT_SUPER_CONTEXT_ENABLED", "off"),
-    );
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_SUPER_CONTEXT", "0"));
     assert!(!cfg.context.super_context_enabled);
+
+    // The namespaced alias works and `on` re-enables it.
+    let mut cfg = Config::default();
+    cfg.context.super_context_enabled = false;
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_CONTEXT_SUPER_CONTEXT_ENABLED", "on"),
+    );
+    assert!(cfg.context.super_context_enabled);
 
     // Garbage is ignored (leaves the prior value untouched).
     let mut cfg = Config::default();
-    cfg.context.super_context_enabled = true;
+    cfg.context.super_context_enabled = false;
     cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_SUPER_CONTEXT", "maybe"));
-    assert!(cfg.context.super_context_enabled);
+    assert!(!cfg.context.super_context_enabled);
 }
 
 #[test]

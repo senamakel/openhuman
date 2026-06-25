@@ -2157,7 +2157,7 @@ const messages: TranslationMap = {
   'chat.setup': 'Atur',
   'chat.switchToText': 'Beralih ke teks',
   'chat.superContext.label': 'Super konteks',
-  'chat.superContext.hint': 'Mengumpulkan konteks sebelum membalas — berlaku untuk thread baru',
+  'chat.superContext.hint': 'Mengumpulkan konteks tambahan sebelum membalas',
   'chat.transcribing': 'Mentranskripsi...',
   'chat.stopAndSend': 'Berhenti dan kirim',
   'chat.startTalking': 'Mulai bicara',

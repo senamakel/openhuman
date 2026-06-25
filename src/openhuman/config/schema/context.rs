@@ -131,15 +131,12 @@ pub struct ContextConfig {
     ///
     /// Read once at session/thread construction, so toggling it only
     /// affects threads started afterwards (the value is baked into the
-    /// frozen turn-1 context). Default: `false`. Env override:
-    /// `OPENHUMAN_SUPER_CONTEXT`. Surfaced in the UI as the "super
-    /// context" toggle below the chat composer.
-    #[serde(default = "default_false")]
+    /// frozen turn-1 context). Default: `true`. Env override:
+    /// `OPENHUMAN_SUPER_CONTEXT` (set to `0` to opt out). Surfaced in the
+    /// UI as the "super context" toggle next to the chat composer's
+    /// Quick/Reasoning mode switch, shown only on a fresh thread.
+    #[serde(default = "default_true")]
     pub super_context_enabled: bool,
-}
-
-fn default_false() -> bool {
-    false
 }
 
 fn default_enabled() -> bool {
@@ -184,7 +181,7 @@ impl Default for ContextConfig {
             summarizer_model: None,
             prefer_markdown_tool_output: default_true(),
             compaction_enabled: default_true(),
-            super_context_enabled: default_false(),
+            super_context_enabled: default_true(),
         }
     }
 }

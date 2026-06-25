@@ -2135,7 +2135,7 @@ const messages: TranslationMap = {
   'chat.setup': '설정',
   'chat.switchToText': '텍스트로 전환',
   'chat.superContext.label': '슈퍼 컨텍스트',
-  'chat.superContext.hint': '답변 전에 컨텍스트를 수집합니다 — 새 스레드에 적용',
+  'chat.superContext.hint': '답변 전에 추가 컨텍스트를 수집합니다',
   'chat.transcribing': '전사 중...',
   'chat.stopAndSend': '중지하고 보내기',
   'chat.startTalking': '말하기 시작',

@@ -2108,7 +2108,7 @@ const messages: TranslationMap = {
   'chat.setup': 'إعداد',
   'chat.switchToText': 'التبديل إلى النص',
   'chat.superContext.label': 'سياق فائق',
-  'chat.superContext.hint': 'يجمع السياق قبل الرد — ينطبق على المحادثات الجديدة',
+  'chat.superContext.hint': 'يجمع سياقًا إضافيًا قبل الرد',
   'chat.transcribing': 'جارٍ النسخ...',
   'chat.stopAndSend': 'إيقاف وإرسال',
   'chat.startTalking': 'ابدأ الحديث',

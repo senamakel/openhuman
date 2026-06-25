@@ -95,7 +95,10 @@ const SuperContextToggle = () => {
       <span className="font-medium text-stone-600 dark:text-neutral-300">
         {t('chat.superContext.label')}
       </span>
-      <Tooltip label={t('chat.superContext.hint')} side="top">
+      {/* Float left (into the app interior): this row is right-aligned at the
+          bottom of the window, so a top/center-anchored pill with the long
+          hint overflows the right edge and gets clipped. */}
+      <Tooltip label={t('chat.superContext.hint')} side="left">
         <button
           type="button"
           aria-label={t('chat.superContext.hint')}

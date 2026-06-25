@@ -392,25 +392,25 @@ fn new_exposes_tool_budget_and_markdown_preference_from_config() {
 
 #[test]
 fn super_context_enabled_reflects_config() {
-    // Default config: off.
-    let off = ContextManager::new(
+    // Default config: on.
+    let on = ContextManager::new(
         &ContextConfig::default(),
         MockSummarizer::ok(),
         "m".into(),
         SystemPromptBuilder::with_defaults(),
     );
-    assert!(!off.super_context_enabled());
+    assert!(on.super_context_enabled());
 
-    // Explicitly enabled in config → getter reports on.
+    // Explicitly disabled in config → getter reports off.
     let mut config = ContextConfig::default();
-    config.super_context_enabled = true;
-    let on = ContextManager::new(
+    config.super_context_enabled = false;
+    let off = ContextManager::new(
         &config,
         MockSummarizer::ok(),
         "m".into(),
         SystemPromptBuilder::with_defaults(),
     );
-    assert!(on.super_context_enabled());
+    assert!(!off.super_context_enabled());
 }
 
 #[test]

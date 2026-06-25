@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
-import { useT } from '../../../lib/i18n/I18nContext';
 import Button from '../../../components/ui/Button';
+import { useT } from '../../../lib/i18n/I18nContext';
 import type { TaskBoardCard } from '../../../types/turnState';
 
 /**

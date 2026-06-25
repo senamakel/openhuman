@@ -3115,7 +3115,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.title': 'Tâches',
   'conversations.threadTodo.title': 'Plan',
   'conversations.planReview.title': 'Examiner le plan',
-  'conversations.planReview.subtitle': 'Approuvez pour l’exécuter, rejetez pour l’abandonner ou envoyez un retour pour le réviser.',
+  'conversations.planReview.subtitle':
+    'Approuvez pour l’exécuter, rejetez pour l’abandonner ou envoyez un retour pour le réviser.',
   'conversations.planReview.objective': 'Objectif',
   'conversations.planReview.approve': 'Approuver et exécuter',
   'conversations.planReview.reject': 'Rejeter',

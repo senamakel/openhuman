@@ -3094,7 +3094,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.title': 'Attività',
   'conversations.threadTodo.title': 'Piano',
   'conversations.planReview.title': 'Rivedi il piano',
-  'conversations.planReview.subtitle': 'Approva per eseguirlo, rifiuta per scartarlo o invia un feedback per rivederlo.',
+  'conversations.planReview.subtitle':
+    'Approva per eseguirlo, rifiuta per scartarlo o invia un feedback per rivederlo.',
   'conversations.planReview.objective': 'Obiettivo',
   'conversations.planReview.approve': 'Approva ed esegui',
   'conversations.planReview.reject': 'Rifiuta',

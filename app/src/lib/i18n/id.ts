@@ -3054,7 +3054,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.title': 'Tugas',
   'conversations.threadTodo.title': 'Rencana',
   'conversations.planReview.title': 'Tinjau rencana',
-  'conversations.planReview.subtitle': 'Setujui untuk menjalankannya, tolak untuk membuangnya, atau kirim masukan untuk merevisinya.',
+  'conversations.planReview.subtitle':
+    'Setujui untuk menjalankannya, tolak untuk membuangnya, atau kirim masukan untuk merevisinya.',
   'conversations.planReview.objective': 'Sasaran',
   'conversations.planReview.approve': 'Setujui & jalankan',
   'conversations.planReview.reject': 'Tolak',

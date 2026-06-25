@@ -239,10 +239,7 @@ export const threadApi = {
   revisePlan: async (threadId: string, feedback: string): Promise<TaskBoard | null> => {
     const response = await callCoreRpc<{
       data?: { threadId?: string | null; cards?: TaskBoardCard[] };
-    }>({
-      method: 'openhuman.todos_revise_plan',
-      params: { thread_id: threadId, feedback },
-    });
+    }>({ method: 'openhuman.todos_revise_plan', params: { thread_id: threadId, feedback } });
     const data = unwrapEnvelope(response);
     if (!data?.cards) return null;
     return {

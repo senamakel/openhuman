@@ -3081,7 +3081,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.title': 'Zadania',
   'conversations.threadTodo.title': 'Plan',
   'conversations.planReview.title': 'Przejrzyj plan',
-  'conversations.planReview.subtitle': 'Zatwierdź, aby go uruchomić, odrzuć, aby go odrzucić, lub wyślij opinię, aby go poprawić.',
+  'conversations.planReview.subtitle':
+    'Zatwierdź, aby go uruchomić, odrzuć, aby go odrzucić, lub wyślij opinię, aby go poprawić.',
   'conversations.planReview.objective': 'Cel',
   'conversations.planReview.approve': 'Zatwierdź i uruchom',
   'conversations.planReview.reject': 'Odrzuć',

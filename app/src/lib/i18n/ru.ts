@@ -3073,7 +3073,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.title': 'Задачи',
   'conversations.threadTodo.title': 'План',
   'conversations.planReview.title': 'Проверить план',
-  'conversations.planReview.subtitle': 'Одобрите для запуска, отклоните для отмены или отправьте отзыв для доработки.',
+  'conversations.planReview.subtitle':
+    'Одобрите для запуска, отклоните для отмены или отправьте отзыв для доработки.',
   'conversations.planReview.objective': 'Цель',
   'conversations.planReview.approve': 'Одобрить и запустить',
   'conversations.planReview.reject': 'Отклонить',

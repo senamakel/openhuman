@@ -188,7 +188,10 @@ async fn default_task_approval_mode() -> Option<TaskApprovalMode> {
     // subconscious, CLI, channels) keep the config-driven default so automation
     // is never blocked on a human who isn't watching.
     use crate::openhuman::agent::turn_origin::{self, AgentTurnOrigin};
-    if matches!(turn_origin::current(), Some(AgentTurnOrigin::WebChat { .. })) {
+    if matches!(
+        turn_origin::current(),
+        Some(AgentTurnOrigin::WebChat { .. })
+    ) {
         tracing::debug!("[todo] interactive plan card -> approval required");
         return Some(TaskApprovalMode::Required);
     }

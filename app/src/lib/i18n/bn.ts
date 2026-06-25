@@ -3051,7 +3051,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.title': 'টাস্ক',
   'conversations.threadTodo.title': 'পরিকল্পনা',
   'conversations.planReview.title': 'পরিকল্পনা পর্যালোচনা করুন',
-  'conversations.planReview.subtitle': 'চালানোর জন্য অনুমোদন করুন, বাতিল করতে প্রত্যাখ্যান করুন, অথবা সংশোধনের জন্য মতামত পাঠান।',
+  'conversations.planReview.subtitle':
+    'চালানোর জন্য অনুমোদন করুন, বাতিল করতে প্রত্যাখ্যান করুন, অথবা সংশোধনের জন্য মতামত পাঠান।',
   'conversations.planReview.objective': 'উদ্দেশ্য',
   'conversations.planReview.approve': 'অনুমোদন ও চালান',
   'conversations.planReview.reject': 'প্রত্যাখ্যান',

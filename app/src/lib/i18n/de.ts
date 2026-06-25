@@ -3122,7 +3122,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.title': 'Aufgaben',
   'conversations.threadTodo.title': 'Plan',
   'conversations.planReview.title': 'Plan prüfen',
-  'conversations.planReview.subtitle': 'Genehmigen zum Ausführen, ablehnen zum Verwerfen oder Feedback zum Überarbeiten senden.',
+  'conversations.planReview.subtitle':
+    'Genehmigen zum Ausführen, ablehnen zum Verwerfen oder Feedback zum Überarbeiten senden.',
   'conversations.planReview.objective': 'Ziel',
   'conversations.planReview.approve': 'Genehmigen & ausführen',
   'conversations.planReview.reject': 'Ablehnen',

@@ -2985,7 +2985,8 @@ const messages: TranslationMap = {
   'conversations.taskKanban.title': 'المهام',
   'conversations.threadTodo.title': 'الخطة',
   'conversations.planReview.title': 'مراجعة الخطة',
-  'conversations.planReview.subtitle': 'وافق لتشغيلها، أو ارفضها لتجاهلها، أو أرسل ملاحظات لتعديلها.',
+  'conversations.planReview.subtitle':
+    'وافق لتشغيلها، أو ارفضها لتجاهلها، أو أرسل ملاحظات لتعديلها.',
   'conversations.planReview.objective': 'الهدف',
   'conversations.planReview.approve': 'الموافقة والتشغيل',
   'conversations.planReview.reject': 'رفض',

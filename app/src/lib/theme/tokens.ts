@@ -37,7 +37,7 @@ export const LINE_KEYS = ['line', 'line-strong', 'line-subtle'] as const;
 export const ACCENT_FAMILIES = ['primary', 'sage', 'amber', 'coral'] as const;
 
 /** Tailwind accent shade steps. */
-export const ACCENT_SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 950] as const;
+export const ACCENT_SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
 
 /** All accent token keys, e.g. `primary-500`. */
 export const ACCENT_KEYS = ACCENT_FAMILIES.flatMap(fam =>

@@ -197,6 +197,26 @@ describe('themeSlice', () => {
       expect(selectEffectiveTheme({ theme: state }).id).toBe('custom-x');
     });
 
+    it('applies the selected light/dark variant to custom themes', () => {
+      let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(
+        state,
+        upsertCustomTheme(
+          customTheme({ id: 'custom-x', name: 'X', isDark: false, colors: { surface: '1 2 3' } })
+        )
+      );
+
+      state = themeReducer(state, setThemeMode('dark'));
+      expect(selectEffectiveTheme({ theme: state })).toMatchObject({
+        id: 'custom-x',
+        isDark: true,
+        colors: { surface: '1 2 3' },
+      });
+
+      state = themeReducer(state, setThemeMode('light'));
+      expect(selectEffectiveTheme({ theme: state }).isDark).toBe(false);
+    });
+
     it('selectEffectiveTheme falls back to a preset for an unknown id', () => {
       let state = themeReducer(undefined, { type: '@@INIT' });
       state = themeReducer(state, setActiveTheme('does-not-exist'));

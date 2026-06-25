@@ -321,9 +321,12 @@ function ensureEditableCustom(ts: ThemeState): Theme {
 /** Resolve a {@link ThemeState} to the concrete {@link Theme} to apply. */
 function effectiveThemeFromState(ts: ThemeState): Theme {
   const { family, variant, custom } = resolveSelection(ts);
-  if (custom) return custom;
-  const fam = family ?? findFamily('classic')!;
   const resolved = variant === 'system' ? resolveTheme('system') : variant;
+  if (custom) {
+    const isDark = resolved === 'dark';
+    return custom.isDark === isDark ? custom : { ...custom, isDark };
+  }
+  const fam = family ?? findFamily('classic')!;
   return resolveFamilyVariant(fam, resolved);
 }
 

@@ -87,6 +87,22 @@ function tileCanvas(theme: Theme): string {
   return theme.gradient?.canvas ?? channelsToCss(swatchChannels(theme, 'surface-canvas'));
 }
 
+function importedGradient(parsed: Partial<Theme>): Theme['gradient'] {
+  if (!parsed.gradient || typeof parsed.gradient !== 'object') return undefined;
+  return typeof parsed.gradient.canvas === 'string' ? { canvas: parsed.gradient.canvas } : {};
+}
+
+function importedBackdrop(parsed: Partial<Theme>): Theme['backdrop'] {
+  if (!parsed.backdrop || typeof parsed.backdrop !== 'object') return undefined;
+  const { kind } = parsed.backdrop;
+  if (kind !== 'mesh' && kind !== 'solid' && kind !== 'image') return undefined;
+  return {
+    kind,
+    imageUrl: typeof parsed.backdrop.imageUrl === 'string' ? parsed.backdrop.imageUrl : undefined,
+    dots: typeof parsed.backdrop.dots === 'boolean' ? parsed.backdrop.dots : undefined,
+  };
+}
+
 const ThemeStudioPanel = () => {
   const { t } = useT();
   const dispatch = useAppDispatch();
@@ -139,6 +155,8 @@ const ThemeStudioPanel = () => {
         builtIn: false,
         colors: { ...(parsed.colors as Record<string, string>) },
         fonts: { ...(parsed.fonts ?? {}) },
+        gradient: importedGradient(parsed),
+        backdrop: importedBackdrop(parsed),
       };
       dispatch(upsertCustomTheme(theme));
       setImportText('');

@@ -52,4 +52,31 @@ describe('<ThemeStudioPanel />', () => {
     expect(document.querySelector('input[type="color"]:not([disabled])')).not.toBeNull();
     expect(document.querySelector('input[type="color"][disabled]')).toBeNull();
   });
+
+  it('preserves gradient and backdrop settings from imported themes', () => {
+    const { store } = renderWithProviders(<ThemeStudioPanel />, {
+      preloadedState: { theme: themeState },
+      initialEntries: ['/settings/theme'],
+    });
+
+    const imported = {
+      name: 'Imported studio theme',
+      isDark: true,
+      colors: { surface: '1 2 3' },
+      fonts: {},
+      gradient: { canvas: 'linear-gradient(red, blue)' },
+      backdrop: { kind: 'image', imageUrl: 'https://example.com/bg.jpg', dots: false },
+    };
+
+    fireEvent.change(screen.getByLabelText('Import theme'), {
+      target: { value: JSON.stringify(imported) },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+
+    expect(store.getState().theme.customThemes[0]).toMatchObject({
+      name: 'Imported studio theme',
+      gradient: { canvas: 'linear-gradient(red, blue)' },
+      backdrop: { kind: 'image', imageUrl: 'https://example.com/bg.jpg', dots: false },
+    });
+  });
 });

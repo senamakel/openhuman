@@ -1218,10 +1218,30 @@ const chatRuntimeSlice = createSlice({
         contextWindow: number;
         lastTurnInputTokens: number;
         lastTurnOutputTokens: number;
+        subAgents?: Array<{
+          agentId: string;
+          inputTokens: number;
+          outputTokens: number;
+          costUsd: number;
+          runs: number;
+        }>;
       }>
     ) => {
       const p = action.payload;
       if (!p.threadId) return;
+      // Reconstruct the per-archetype sub-agent map from the persisted breakdown
+      // (read back from the thread's `__` sub-agent transcripts).
+      const subAgents: Record<string, SubAgentUsage> = {};
+      for (const s of p.subAgents ?? []) {
+        if (!s || typeof s.agentId !== 'string' || s.agentId.length === 0) continue;
+        subAgents[s.agentId] = {
+          agentId: s.agentId,
+          inputTokens: nonNeg(s.inputTokens),
+          outputTokens: nonNeg(s.outputTokens),
+          costUsd: nonNeg(s.costUsd),
+          runs: nonNeg(s.runs),
+        };
+      }
       state.usageByThread[p.threadId] = {
         inputTokens: nonNeg(p.inputTokens),
         outputTokens: nonNeg(p.outputTokens),
@@ -1233,8 +1253,7 @@ const chatRuntimeSlice = createSlice({
         lastTurnOutputTokens: nonNeg(p.lastTurnOutputTokens),
         contextWindow: nonNeg(p.contextWindow),
         lastTurnContextUsed: nonNeg(p.lastTurnInputTokens) + nonNeg(p.lastTurnOutputTokens),
-        // Sub-agent split isn't persisted; it repopulates from live turns.
-        subAgents: {},
+        subAgents,
       };
     },
     resetSessionTokenUsage: state => {

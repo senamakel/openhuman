@@ -558,6 +558,7 @@ const Conversations = ({
             contextWindow: u.contextWindow,
             lastTurnInputTokens: u.lastTurnInputTokens,
             lastTurnOutputTokens: u.lastTurnOutputTokens,
+            subAgents: u.subagents,
           })
         );
       })

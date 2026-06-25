@@ -182,6 +182,9 @@ describe('chatRuntimeSlice recordChatTurnUsage', () => {
         contextWindow: 1_000_000,
         lastTurnInputTokens: 400,
         lastTurnOutputTokens: 120,
+        subAgents: [
+          { agentId: 'coder', inputTokens: 300, outputTokens: 80, costUsd: 0.006, runs: 2 },
+        ],
       })
     );
     let bucket = store.getState().chatRuntime.usageByThread['thr-a'];
@@ -189,6 +192,14 @@ describe('chatRuntimeSlice recordChatTurnUsage', () => {
     expect(bucket.turns).toBe(3);
     expect(bucket.contextWindow).toBe(1_000_000);
     expect(bucket.lastTurnContextUsed).toBe(520);
+    // Sub-agent breakdown reconstructed from persisted transcripts.
+    expect(bucket.subAgents.coder).toEqual({
+      agentId: 'coder',
+      inputTokens: 300,
+      outputTokens: 80,
+      costUsd: 0.006,
+      runs: 2,
+    });
 
     // A live turn for the same thread adds on top of the seeded base.
     store.dispatch(

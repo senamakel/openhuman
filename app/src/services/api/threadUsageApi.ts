@@ -1,5 +1,14 @@
 import { callCoreRpc } from '../coreRpcClient';
 
+/** One sub-agent archetype's contribution within a thread. */
+export interface ThreadSubagentUsage {
+  agentId: string;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  runs: number;
+}
+
 /** Camel-cased per-thread usage totals consumed by the composer footer. */
 export interface ThreadTokenUsage {
   threadId: string;
@@ -14,9 +23,19 @@ export interface ThreadTokenUsage {
   model: string | null;
   updated: string | null;
   hasUsage: boolean;
+  /** Per-archetype sub-agent breakdown (already included in the totals above). */
+  subagents: ThreadSubagentUsage[];
 }
 
 /** Wire shape returned by `openhuman.threads_token_usage` (snake_case). */
+interface ThreadSubagentUsageWire {
+  agent_id: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+  runs: number;
+}
+
 interface ThreadTokenUsageWire {
   thread_id: string;
   input_tokens: number;
@@ -30,6 +49,7 @@ interface ThreadTokenUsageWire {
   model: string | null;
   updated: string | null;
   has_usage: boolean;
+  subagents?: ThreadSubagentUsageWire[];
 }
 
 interface Envelope<T> {
@@ -61,5 +81,12 @@ export async function fetchThreadTokenUsage(threadId: string): Promise<ThreadTok
     model: d.model,
     updated: d.updated,
     hasUsage: d.has_usage,
+    subagents: (d.subagents ?? []).map(s => ({
+      agentId: s.agent_id,
+      inputTokens: s.input_tokens,
+      outputTokens: s.output_tokens,
+      costUsd: s.cost_usd,
+      runs: s.runs,
+    })),
   };
 }

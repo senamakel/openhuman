@@ -815,3 +815,76 @@ fn read_thread_usage_summary_none_for_unknown_thread() {
     // Empty thread id is rejected too.
     assert!(read_thread_usage_summary(ws.path(), "   ").is_none());
 }
+
+#[test]
+fn read_thread_usage_summary_groups_subagents_by_archetype() {
+    let ws = TempDir::new().unwrap();
+    let raw = raw_session_dir(ws.path());
+    std::fs::create_dir_all(&raw).unwrap();
+
+    // Root (orchestrator) transcript — never includes sub-agent calls.
+    let mut root = sample_meta();
+    root.thread_id = Some("thr-sub".into());
+    root.agent_name = "main".into();
+    root.input_tokens = 1000;
+    root.output_tokens = 200;
+    root.cached_input_tokens = 0;
+    root.charged_amount_usd = 0.0;
+    root.turn_count = 2;
+    write_transcript(
+        &raw.join("1700000000_main.jsonl"),
+        &sample_messages(),
+        &root,
+        None,
+    )
+    .unwrap();
+
+    // Sub-agent transcripts (stems contain `__`): coder x2 + researcher x1.
+    let mut sub = |stem: &str, agent: &str, input: u64, output: u64| {
+        let mut m = sample_meta();
+        m.thread_id = Some("thr-sub".into());
+        m.agent_name = agent.into();
+        m.input_tokens = input;
+        m.output_tokens = output;
+        m.cached_input_tokens = 0;
+        m.charged_amount_usd = 0.0;
+        m.turn_count = 1;
+        write_transcript(
+            &raw.join(format!("{stem}.jsonl")),
+            &sample_messages(),
+            &m,
+            None,
+        )
+        .unwrap();
+    };
+    sub("1700000000_main__1700000001_coder", "coder", 300, 60);
+    sub("1700000000_main__1700000002_coder", "coder", 100, 20);
+    sub(
+        "1700000000_main__1700000003_researcher",
+        "researcher",
+        500,
+        90,
+    );
+
+    let s = read_thread_usage_summary(ws.path(), "thr-sub").expect("summary present");
+    // Root totals are orchestrator-only (sub-agents are separate).
+    assert_eq!(s.input_tokens, 1000);
+    assert_eq!(s.output_tokens, 200);
+    // Grouped by archetype.
+    assert_eq!(s.subagents.len(), 2);
+    let coder = s
+        .subagents
+        .iter()
+        .find(|g| g.agent_id == "coder")
+        .expect("coder group");
+    assert_eq!(coder.input_tokens, 400);
+    assert_eq!(coder.output_tokens, 80);
+    assert_eq!(coder.runs, 2);
+    let researcher = s
+        .subagents
+        .iter()
+        .find(|g| g.agent_id == "researcher")
+        .expect("researcher group");
+    assert_eq!(researcher.input_tokens, 500);
+    assert_eq!(researcher.runs, 1);
+}

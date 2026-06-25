@@ -57,7 +57,16 @@ export interface CloudProviderCreds {
 export interface ModelRegistryEntry {
   id: string;
   provider: string;
+  /** USD per 1M input tokens. `0`/absent ⇒ unknown. Pre-filled for known
+   *  vendor models from the Rust pricing catalog (`cost/catalog.rs`). */
+  cost_per_1m_input?: number;
+  /** USD per 1M cached-prefix input tokens. `0`/absent ⇒ unknown. */
+  cost_per_1m_cached_input?: number;
   cost_per_1m_output: number;
+  /** Max context window in tokens. `0`/absent ⇒ unknown. Pre-filled for known
+   *  vendor models from the Rust pricing catalog. Used to budget prompts and
+   *  trigger compaction — providers differ widely (128K–1M+). */
+  context_window?: number;
   vision: boolean;
 }
 

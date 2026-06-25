@@ -741,7 +741,15 @@ describe('saveAISettings', () => {
     await saveAISettings(prev, next);
     const patch = mockOpenhumanUpdateModelSettings.mock.calls[0][0];
     expect(patch.model_registry).toEqual([
-      { id: 'my-llava', provider: 'openai', cost_per_1m_output: 0, vision: true },
+      {
+        id: 'my-llava',
+        provider: 'openai',
+        cost_per_1m_input: 0,
+        cost_per_1m_cached_input: 0,
+        cost_per_1m_output: 0,
+        context_window: 0,
+        vision: true,
+      },
     ]);
   });
 
@@ -1049,7 +1057,15 @@ describe('model registry vision helpers', () => {
   it('upsertModelRegistryVision adds, flips, and removes entries', () => {
     const added = upsertModelRegistryVision([], 'openai', 'my-llava', true);
     expect(added).toEqual([
-      { id: 'my-llava', provider: 'openai', cost_per_1m_output: 0, vision: true },
+      {
+        id: 'my-llava',
+        provider: 'openai',
+        cost_per_1m_input: 0,
+        cost_per_1m_cached_input: 0,
+        cost_per_1m_output: 0,
+        context_window: 0,
+        vision: true,
+      },
     ]);
     // vision:false removes the entry (absence ⇒ no vision).
     const removed = upsertModelRegistryVision(reg, 'openai', 'gpt-4o', false);

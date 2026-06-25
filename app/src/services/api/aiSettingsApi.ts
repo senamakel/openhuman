@@ -196,7 +196,15 @@ export function upsertModelRegistryVision(
   const existing = base.find(e => e.provider === provider && e.id === id);
   return [
     ...without,
-    { id, provider, cost_per_1m_output: existing?.cost_per_1m_output ?? 0, vision: true },
+    {
+      id,
+      provider,
+      cost_per_1m_input: existing?.cost_per_1m_input ?? 0,
+      cost_per_1m_cached_input: existing?.cost_per_1m_cached_input ?? 0,
+      cost_per_1m_output: existing?.cost_per_1m_output ?? 0,
+      context_window: existing?.context_window ?? 0,
+      vision: true,
+    },
   ];
 }
 
@@ -391,10 +399,24 @@ export async function saveAISettings(prev: AISettings, next: AISettings): Promis
   // Per-model registry (vision flags): any change → send the full list.
   if (!modelRegistriesEqual(prev.modelRegistry, next.modelRegistry)) {
     patch.model_registry = next.modelRegistry.map(
-      ({ id, provider, cost_per_1m_output, vision }) => ({
+      ({
         id,
         provider,
+        cost_per_1m_input,
+        cost_per_1m_cached_input,
         cost_per_1m_output,
+        context_window,
+        vision,
+      }) => ({
+        id,
+        provider,
+        // Preserve catalog-prefilled prices + context window through the
+        // round-trip; omitting them would let the Rust serde defaults zero
+        // them out.
+        cost_per_1m_input: cost_per_1m_input ?? 0,
+        cost_per_1m_cached_input: cost_per_1m_cached_input ?? 0,
+        cost_per_1m_output,
+        context_window: context_window ?? 0,
         vision,
       })
     );
@@ -415,7 +437,14 @@ function modelRegistriesEqual(a: ModelRegistryEntry[], b: ModelRegistryEntry[]):
   const bByKey = new Map(b.map(e => [key(e), e]));
   return a.every(e => {
     const m = bByKey.get(key(e));
-    return !!m && m.vision === e.vision && m.cost_per_1m_output === e.cost_per_1m_output;
+    return (
+      !!m &&
+      m.vision === e.vision &&
+      m.cost_per_1m_output === e.cost_per_1m_output &&
+      (m.cost_per_1m_input ?? 0) === (e.cost_per_1m_input ?? 0) &&
+      (m.cost_per_1m_cached_input ?? 0) === (e.cost_per_1m_cached_input ?? 0) &&
+      (m.context_window ?? 0) === (e.context_window ?? 0)
+    );
   });
 }
 

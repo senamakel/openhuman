@@ -121,7 +121,7 @@ function useMyAgentId(): string | null {
 
 function LoadingPane() {
   return (
-    <div className="flex items-center justify-center py-12 text-stone-500 dark:text-neutral-400">
+    <div className="flex items-center justify-center py-12 text-content-muted">
       <span className="animate-pulse text-sm">Loading…</span>
     </div>
   );
@@ -134,7 +134,7 @@ function ErrorPane({ message }: { message: string }) {
 
   if (isWalletLocked) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-2 text-stone-500 dark:text-neutral-400">
+      <div className="flex flex-col items-center justify-center py-12 gap-2 text-content-muted">
         <p className="font-medium">Unlock your wallet to use Agent World</p>
         <p className="text-sm">Import your recovery phrase in Settings to continue.</p>
       </div>
@@ -144,7 +144,7 @@ function ErrorPane({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-2 text-red-400">
       <p className="font-medium text-sm">Failed to load</p>
-      <p className="text-xs text-stone-400 dark:text-neutral-500">{message}</p>
+      <p className="text-xs text-content-faint">{message}</p>
     </div>
   );
 }
@@ -153,7 +153,7 @@ function PaymentRequiredPane() {
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-2 text-amber-400">
       <p className="font-medium">Access requires payment</p>
-      <p className="text-sm text-stone-500 dark:text-neutral-400">
+      <p className="text-sm text-content-muted">
         Your wallet will be used to fulfill the x402 payment challenge.
       </p>
     </div>
@@ -231,10 +231,10 @@ function SignalKeyStatusCard() {
     <div className="mx-4 mb-3 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-stone-800 dark:text-neutral-200">
+          <p className="text-sm font-medium text-content">
             Encrypted messaging
           </p>
-          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+          <p className="mt-0.5 text-xs text-content-muted">
             {!keysReady
               ? 'Set up encryption keys to enable direct messages'
               : discoverable
@@ -287,7 +287,7 @@ function ChannelsPanel() {
 
   if (channels.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
+      <div className="flex items-center justify-center py-12 text-content-faint text-sm">
         No channels found
       </div>
     );
@@ -302,17 +302,17 @@ function ChannelsPanel() {
           return (
             <div
               key={ch.channelId}
-              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
+              className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
+                <span className="font-medium text-content truncate">
                   {ch.name}
                 </span>
-                <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">
+                <span className="shrink-0 text-xs text-content-faint">
                   {ch.memberCount} members
                 </span>
               </div>
               {ch.description ? (
-                <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
+                <p className="mt-1 text-xs text-content-muted truncate">
                   {ch.description}
                 </p>
               ) : null}
@@ -321,7 +321,7 @@ function ChannelsPanel() {
                   {ch.tags.map(tag => (
                     <span
                       key={tag}
-                      className="rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-[10px] text-stone-500 dark:text-neutral-400">
+                      className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] text-content-muted">
                       {tag}
                     </span>
                   ))}
@@ -412,7 +412,7 @@ function GroupsPanel() {
             Redeem Invite
           </Button>
         </div>
-        <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
+        <div className="flex items-center justify-center py-12 text-content-faint text-sm">
           No groups found
         </div>
       </div>
@@ -424,7 +424,7 @@ function GroupsPanel() {
       <div className="flex justify-end">
         <button
           type="button"
-          className="rounded bg-stone-200 dark:bg-neutral-700 px-2 py-1 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-300 dark:hover:bg-neutral-600"
+          className="rounded bg-surface-strong px-2 py-1 text-xs text-content-secondary hover:bg-stone-300 dark:hover:bg-neutral-600"
           onClick={() => setShowRedeem(true)}>
           Redeem Invite
         </button>
@@ -437,9 +437,9 @@ function GroupsPanel() {
           return (
             <div
               key={group.groupId}
-              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
+              className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
+                <span className="font-medium text-content truncate">
                   {group.name}
                 </span>
                 <span className="shrink-0 rounded-full bg-green-500/10 px-1.5 py-0.5 text-[8px] text-green-500">
@@ -447,11 +447,11 @@ function GroupsPanel() {
                 </span>
               </div>
               {group.description ? (
-                <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
+                <p className="mt-1 text-xs text-content-muted truncate">
                   {group.description}
                 </p>
               ) : null}
-              <div className="mt-2 flex items-center gap-3 text-[10px] text-stone-400 dark:text-neutral-500">
+              <div className="mt-2 flex items-center gap-3 text-[10px] text-content-faint">
                 <span>{group.memberCount} members</span>
                 <span>{group.membershipPolicy}</span>
               </div>
@@ -556,9 +556,9 @@ function GroupInvitesPanel({
   );
 
   return (
-    <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
+    <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+        <span className="text-sm font-medium text-content">
           Invites for {groupName}
         </span>
         <Button variant="tertiary" size="xs" onClick={onClose}>
@@ -567,22 +567,22 @@ function GroupInvitesPanel({
       </div>
       {error ? <p className="mb-2 text-xs text-red-500">{error}</p> : null}
       {loading ? (
-        <p className="text-xs text-stone-400 dark:text-neutral-500 animate-pulse">Loading...</p>
+        <p className="text-xs text-content-faint animate-pulse">Loading...</p>
       ) : (
         <>
           {invites.length === 0 ? (
-            <p className="text-xs text-stone-400 dark:text-neutral-500">No active invites</p>
+            <p className="text-xs text-content-faint">No active invites</p>
           ) : (
             <div className="space-y-1 mb-2">
               {invites.map(inv => (
                 <div
                   key={inv.token}
-                  className="flex items-center justify-between rounded bg-stone-100 dark:bg-neutral-800 px-2 py-1 text-xs">
+                  className="flex items-center justify-between rounded bg-surface-subtle px-2 py-1 text-xs">
                   <div className="min-w-0 flex-1">
-                    <span className="font-mono text-stone-600 dark:text-neutral-300 truncate block">
+                    <span className="font-mono text-content-secondary truncate block">
                       {inv.token}
                     </span>
-                    <span className="text-stone-400 dark:text-neutral-500">
+                    <span className="text-content-faint">
                       {inv.uses} uses
                       {inv.maxUses != null ? ` / ${inv.maxUses} max` : ''}
                       {inv.revoked ? ' (revoked)' : ''}
@@ -655,9 +655,9 @@ function RedeemInvitePanel({ onClose }: { onClose: () => void }) {
   }, [groupId, token]);
 
   return (
-    <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
+    <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+        <span className="text-sm font-medium text-content">
           Redeem Invite
         </span>
         <Button variant="tertiary" size="xs" onClick={onClose}>
@@ -677,14 +677,14 @@ function RedeemInvitePanel({ onClose }: { onClose: () => void }) {
               placeholder="Group ID"
               value={groupId}
               onChange={e => setGroupId(e.target.value)}
-              className="w-full rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
+              className="w-full rounded border border-line-strong bg-surface px-2 py-1 text-xs text-content placeholder:text-stone-400"
             />
             <input
               type="text"
               placeholder="Invite token"
               value={token}
               onChange={e => setToken(e.target.value)}
-              className="w-full rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
+              className="w-full rounded border border-line-strong bg-surface px-2 py-1 text-xs text-content placeholder:text-stone-400"
             />
           </div>
           <div className="flex gap-1 mb-2">
@@ -704,10 +704,10 @@ function RedeemInvitePanel({ onClose }: { onClose: () => void }) {
             </Button>
           </div>
           {preview ? (
-            <div className="rounded bg-stone-100 dark:bg-neutral-800 p-2 text-xs text-stone-600 dark:text-neutral-300">
+            <div className="rounded bg-surface-subtle p-2 text-xs text-content-secondary">
               <p className="font-medium">{preview.name}</p>
               {preview.description ? (
-                <p className="mt-0.5 text-stone-400 dark:text-neutral-500">{preview.description}</p>
+                <p className="mt-0.5 text-content-faint">{preview.description}</p>
               ) : null}
               <p className="mt-0.5">
                 {preview.memberCount} members / {preview.membershipPolicy} / invited by{' '}
@@ -739,7 +739,7 @@ function BroadcastsPanel() {
 
   if (broadcasts.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
+      <div className="flex items-center justify-center py-12 text-content-faint text-sm">
         No broadcasts found
       </div>
     );
@@ -754,21 +754,21 @@ function BroadcastsPanel() {
           return (
             <div
               key={bc.broadcastId}
-              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
+              className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
+                <span className="font-medium text-content truncate">
                   {bc.name}
                 </span>
-                <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">
+                <span className="shrink-0 text-xs text-content-faint">
                   {bc.subscriberCount} subs
                 </span>
               </div>
               {bc.description ? (
-                <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
+                <p className="mt-1 text-xs text-content-muted truncate">
                   {bc.description}
                 </p>
               ) : null}
-              <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500 truncate">
+              <p className="mt-1 text-[10px] text-content-faint truncate">
                 by {bc.owner}
               </p>
               <div className="mt-2 flex gap-1">
@@ -927,9 +927,9 @@ function InboxPanel() {
   const anyBusy = busyKey !== null;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800">
-      <div className="flex items-center justify-between border-b border-stone-200 dark:border-neutral-800 px-4 py-2">
-        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+    <div className="flex flex-col overflow-hidden rounded-lg border border-line">
+      <div className="flex items-center justify-between border-b border-line px-4 py-2">
+        <span className="text-sm font-medium text-content">
           Inbox
           {unread > 0 ? (
             <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
@@ -959,7 +959,7 @@ function InboxPanel() {
         </div>
       ) : null}
       {items.length === 0 ? (
-        <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
+        <div className="flex items-center justify-center py-12 text-content-faint text-sm">
           Your inbox is empty
         </div>
       ) : (
@@ -973,15 +973,15 @@ function InboxPanel() {
                   className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT_COLORS[item.type] ?? 'bg-stone-400 dark:bg-neutral-500'}`}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-stone-900 dark:text-neutral-100">
+                  <p className="text-xs font-medium text-content">
                     {item.subject}
                   </p>
                   {item.summary ? (
-                    <p className="text-[10px] text-stone-500 dark:text-neutral-400">
+                    <p className="text-[10px] text-content-muted">
                       {item.summary}
                     </p>
                   ) : null}
-                  <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+                  <p className="mt-1 text-[10px] text-content-faint">
                     {formatTs(item.timestamp)}
                   </p>
                 </div>
@@ -1168,11 +1168,11 @@ function ActiveDmView({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-stone-200 dark:border-neutral-800 px-3 py-2">
+      <div className="flex items-center gap-2 border-b border-line px-3 py-2">
         <Button variant="tertiary" size="xs" onClick={onBack}>
           Back
         </Button>
-        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 truncate">
+        <span className="text-sm font-medium text-content truncate">
           {peerId}
         </span>
         <span className="ml-auto flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
@@ -1202,10 +1202,10 @@ function ActiveDmView({
           <div
             data-testid="dm-empty-state"
             className="flex h-full flex-col items-center justify-center gap-1 text-center">
-            <p className="text-sm font-medium text-stone-500 dark:text-neutral-400">
+            <p className="text-sm font-medium text-content-muted">
               No messages yet
             </p>
-            <p className="text-xs text-stone-400 dark:text-neutral-500">
+            <p className="text-xs text-content-faint">
               Send the first end-to-end encrypted message below to start the conversation.
             </p>
           </div>
@@ -1216,10 +1216,10 @@ function ActiveDmView({
             className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
               msg.outgoing
                 ? 'ml-auto bg-primary-500/15 dark:bg-primary-500/20'
-                : 'mr-auto bg-stone-100 dark:bg-neutral-800'
+                : 'mr-auto bg-surface-subtle'
             }`}>
-            <p className="text-stone-900 dark:text-neutral-100">{msg.plaintext}</p>
-            <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+            <p className="text-content">{msg.plaintext}</p>
+            <p className="mt-1 text-[10px] text-content-faint">
               {msg.from} &middot; {msg.timestamp}
             </p>
           </div>
@@ -1227,7 +1227,7 @@ function ActiveDmView({
       </div>
 
       {/* Compose */}
-      <div className="border-t border-stone-200 dark:border-neutral-800 p-3 flex gap-2">
+      <div className="border-t border-line p-3 flex gap-2">
         <input
           type="text"
           value={composeText}
@@ -1236,7 +1236,7 @@ function ActiveDmView({
             if (e.key === 'Enter' && !e.shiftKey) void handleSend();
           }}
           placeholder="Type a message..."
-          className="flex-1 rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
+          className="flex-1 rounded border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400"
         />
         <Button
           variant="primary"
@@ -1267,11 +1267,11 @@ function DmsPanel() {
     return (
       <div
         data-testid="dms-coming-soon"
-        className="flex flex-col items-center justify-center gap-3 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/30 p-12 text-center">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 dark:bg-neutral-800">
+        className="flex flex-col items-center justify-center gap-3 rounded-lg border border-line bg-white dark:bg-neutral-900/30 p-12 text-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle">
           <svg
             aria-hidden="true"
-            className="h-5 w-5 text-stone-500 dark:text-neutral-400"
+            className="h-5 w-5 text-content-muted"
             fill="none"
             stroke="currentColor"
             strokeWidth={1.5}
@@ -1284,10 +1284,10 @@ function DmsPanel() {
           </svg>
         </div>
         <div>
-          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+          <p className="text-sm font-medium text-content">
             Secure direct messages — coming soon
           </p>
-          <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
+          <p className="mt-1 text-xs text-content-faint">
             End-to-end encrypted DMs use the Signal protocol. Full support is in progress.
           </p>
         </div>
@@ -1355,7 +1355,7 @@ function DmsPanel() {
             setResolveError(null);
           }}
           placeholder="Recipient @handle or wallet address"
-          className="flex-1 rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
+          className="flex-1 rounded border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400"
         />
         <Button
           variant="primary"
@@ -1402,7 +1402,7 @@ export default function MessagingSection({ tabs = VISIBLE_TABS }: MessagingSecti
         <ChipTabs<Tab>
           as="tab"
           ariaLabel="Messaging sections"
-          className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0"
+          className="flex gap-1 px-4 py-3 border-b border-line overflow-x-auto shrink-0"
           items={tabs.map(tab => ({ id: tab, label: TAB_LABELS[tab] }))}
           value={activeTab}
           onChange={setActiveTab}

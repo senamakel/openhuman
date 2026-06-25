@@ -78,7 +78,7 @@ const ProfilesPanel = () => {
         </Button>
       }>
       <>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-content-muted">
           {t('settings.profiles.subtitle')}
         </p>
 
@@ -90,7 +90,7 @@ const ProfilesPanel = () => {
 
         {profiles.length === 0 ? (
           status === 'loading' ? (
-            <div className="flex items-center justify-center py-12 text-neutral-400 dark:text-neutral-500">
+            <div className="flex items-center justify-center py-12 text-content-faint">
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
               <span className="text-sm">{t('common.loading')}</span>
             </div>
@@ -108,7 +108,7 @@ const ProfilesPanel = () => {
                     className="flex items-center justify-between gap-3 py-3 first:pt-1 last:pb-1">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+                        <span className="truncate text-sm font-semibold text-content">
                           {profile.name}
                         </span>
                         {isActive && (
@@ -123,7 +123,7 @@ const ProfilesPanel = () => {
                         </span>
                       </div>
                       {profile.description && (
-                        <p className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                        <p className="mt-0.5 truncate text-xs text-content-muted">
                           {profile.description}
                         </p>
                       )}

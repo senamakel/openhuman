@@ -291,10 +291,10 @@ const CronJobFormModal = ({
       />
 
       {/* Card */}
-      <div className="relative z-10 w-full max-w-lg bg-white dark:bg-neutral-900 rounded-2xl shadow-xl border border-stone-200 dark:border-neutral-800 flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="relative z-10 w-full max-w-lg bg-surface rounded-2xl shadow-xl border border-line flex flex-col max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-stone-200 dark:border-neutral-800 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{title}</h2>
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+          <h2 className="text-base font-semibold text-content">{title}</h2>
           <Button
             type="button"
             variant="tertiary"
@@ -312,7 +312,7 @@ const CronJobFormModal = ({
         <div className="overflow-y-auto px-6 py-4 flex flex-col gap-4">
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1">
+            <label className="block text-xs font-medium text-content-secondary mb-1">
               {t('settings.cron.jobs.formName')}
             </label>
             <input
@@ -322,17 +322,17 @@ const CronJobFormModal = ({
               onChange={e => setName(e.target.value)}
               placeholder={t('settings.cron.jobs.formNamePlaceholder')}
               disabled={saving}
-              className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
+              className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
             />
           </div>
 
           {/* Job type */}
           <div>
-            <div className="text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1.5">
+            <div className="text-xs font-medium text-content-secondary mb-1.5">
               {t('settings.cron.jobs.formJobType')}
             </div>
             <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-sm text-stone-700 dark:text-neutral-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
                 <input
                   data-testid="cron-form-job-type-agent"
                   type="radio"
@@ -345,7 +345,7 @@ const CronJobFormModal = ({
                 />
                 {t('settings.cron.jobs.formJobTypeAgent')}
               </label>
-              <label className="flex items-center gap-2 text-sm text-stone-700 dark:text-neutral-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
                 <input
                   data-testid="cron-form-job-type-shell"
                   type="radio"
@@ -363,11 +363,11 @@ const CronJobFormModal = ({
 
           {/* Schedule type */}
           <div>
-            <div className="text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1.5">
+            <div className="text-xs font-medium text-content-secondary mb-1.5">
               {t('settings.cron.jobs.formScheduleType')}
             </div>
             <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-sm text-stone-700 dark:text-neutral-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
                 <input
                   data-testid="cron-form-schedule-cron"
                   type="radio"
@@ -380,7 +380,7 @@ const CronJobFormModal = ({
                 />
                 {t('settings.cron.jobs.formScheduleCron')}
               </label>
-              <label className="flex items-center gap-2 text-sm text-stone-700 dark:text-neutral-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
                 <input
                   data-testid="cron-form-schedule-at"
                   type="radio"
@@ -393,7 +393,7 @@ const CronJobFormModal = ({
                 />
                 {t('settings.cron.jobs.formScheduleAt')}
               </label>
-              <label className="flex items-center gap-2 text-sm text-stone-700 dark:text-neutral-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
                 <input
                   data-testid="cron-form-schedule-every"
                   type="radio"
@@ -414,7 +414,7 @@ const CronJobFormModal = ({
             <div className="flex flex-col gap-2">
               {/* Preset dropdown */}
               <div>
-                <label className="block text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1">
+                <label className="block text-xs font-medium text-content-secondary mb-1">
                   {t('settings.cron.jobs.formCronPreset')}
                 </label>
                 <select
@@ -430,7 +430,7 @@ const CronJobFormModal = ({
                     }
                   }}
                   disabled={saving}
-                  className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50">
+                  className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50">
                   <option value="">{t('settings.cron.jobs.custom')}</option>
                   {SCHEDULE_PRESETS.map(p => (
                     <option key={p.value} value={p.value}>
@@ -443,7 +443,7 @@ const CronJobFormModal = ({
               {/* Custom expression — shown when no preset selected or user typed */}
               {(!SCHEDULE_PRESET_VALUES.has(cronPreset) || cronCustom) && (
                 <div>
-                  <label className="block text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1">
+                  <label className="block text-xs font-medium text-content-secondary mb-1">
                     {t('settings.cron.jobs.formCronCustom')}
                   </label>
                   <input
@@ -462,7 +462,7 @@ const CronJobFormModal = ({
                     }}
                     placeholder={t('settings.cron.jobs.formCronCustomPlaceholder')}
                     disabled={saving}
-                    className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
+                    className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm font-mono text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
                   />
                 </div>
               )}
@@ -471,7 +471,7 @@ const CronJobFormModal = ({
               {cronExpr && (
                 <p
                   data-testid="cron-form-cron-preview"
-                  className="text-xs text-stone-500 dark:text-neutral-400">
+                  className="text-xs text-content-muted">
                   {t('settings.cron.jobs.formCronPreview').replace(
                     '{preview}',
                     cronToHuman(cronExpr)
@@ -484,7 +484,7 @@ const CronJobFormModal = ({
           {/* At */}
           {scheduleKind === 'at' && (
             <div>
-              <label className="block text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1">
+              <label className="block text-xs font-medium text-content-secondary mb-1">
                 {t('settings.cron.jobs.formAtLabel')}
               </label>
               <input
@@ -493,7 +493,7 @@ const CronJobFormModal = ({
                 value={atValue}
                 onChange={e => setAtValue(e.target.value)}
                 disabled={saving}
-                className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
+                className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
               />
             </div>
           )}
@@ -501,7 +501,7 @@ const CronJobFormModal = ({
           {/* Every */}
           {scheduleKind === 'every' && (
             <div>
-              <label className="block text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1">
+              <label className="block text-xs font-medium text-content-secondary mb-1">
                 {t('settings.cron.jobs.formEveryLabel')}
               </label>
               <input
@@ -512,7 +512,7 @@ const CronJobFormModal = ({
                 onChange={e => setEveryMs(e.target.value)}
                 disabled={saving}
                 placeholder={t('settings.cron.jobs.formEveryPlaceholder')}
-                className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
+                className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
               />
             </div>
           )}
@@ -520,7 +520,7 @@ const CronJobFormModal = ({
           {/* Prompt (agent only) */}
           {jobType === 'agent' && (
             <div>
-              <label className="block text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1">
+              <label className="block text-xs font-medium text-content-secondary mb-1">
                 {t('settings.cron.jobs.formPrompt')}
                 <span className="text-coral-500 ml-0.5">*</span>
               </label>
@@ -531,7 +531,7 @@ const CronJobFormModal = ({
                 placeholder={t('settings.cron.jobs.formPromptPlaceholder')}
                 rows={4}
                 disabled={saving}
-                className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 resize-y"
+                className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 resize-y"
               />
             </div>
           )}
@@ -539,7 +539,7 @@ const CronJobFormModal = ({
           {/* Command (shell only) */}
           {jobType === 'shell' && (
             <div>
-              <label className="block text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1">
+              <label className="block text-xs font-medium text-content-secondary mb-1">
                 {t('settings.cron.jobs.formCommand')}
                 <span className="text-coral-500 ml-0.5">*</span>
               </label>
@@ -550,7 +550,7 @@ const CronJobFormModal = ({
                 onChange={e => setCommand(e.target.value)}
                 placeholder={t('settings.cron.jobs.formCommandPlaceholder')}
                 disabled={saving}
-                className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
+                className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm font-mono text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
               />
             </div>
           )}
@@ -558,7 +558,7 @@ const CronJobFormModal = ({
           {/* Session target (agent only) */}
           {jobType === 'agent' && (
             <div>
-              <label className="block text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1">
+              <label className="block text-xs font-medium text-content-secondary mb-1">
                 {t('settings.cron.jobs.formSessionTarget')}
               </label>
               <select
@@ -566,7 +566,7 @@ const CronJobFormModal = ({
                 value={sessionTarget}
                 onChange={e => setSessionTarget(e.target.value as SessionTarget)}
                 disabled={saving}
-                className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50">
+                className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50">
                 <option value="isolated">{t('settings.cron.jobs.formSessionIsolated')}</option>
                 <option value="main">{t('settings.cron.jobs.formSessionMain')}</option>
               </select>
@@ -576,7 +576,7 @@ const CronJobFormModal = ({
           {/* Delivery mode (agent only) */}
           {jobType === 'agent' && (
             <div>
-              <label className="block text-xs font-medium text-stone-700 dark:text-neutral-300 mb-1">
+              <label className="block text-xs font-medium text-content-secondary mb-1">
                 {t('settings.cron.jobs.formDelivery')}
               </label>
               <select
@@ -584,7 +584,7 @@ const CronJobFormModal = ({
                 value={delivery}
                 onChange={e => setDelivery(e.target.value as DeliveryMode)}
                 disabled={saving}
-                className="w-full rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50">
+                className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50">
                 <option value="proactive">{t('settings.cron.jobs.formDeliveryProactive')}</option>
                 <option value="none">{t('settings.cron.jobs.formDeliveryNone')}</option>
               </select>
@@ -592,7 +592,7 @@ const CronJobFormModal = ({
           )}
 
           {/* Delete after run */}
-          <label className="flex items-center gap-2 text-sm text-stone-700 dark:text-neutral-300 cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-sm text-content-secondary cursor-pointer select-none">
             <input
               data-testid="cron-form-delete-after-run"
               type="checkbox"
@@ -615,7 +615,7 @@ const CronJobFormModal = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-stone-200 dark:border-neutral-800 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-line flex items-center justify-end gap-3">
           <Button
             type="button"
             variant="secondary"

@@ -87,7 +87,7 @@ export function UserErrorCenter() {
                 <p className="mt-0.5 text-xs text-ink-soft dark:text-neutral-300">
                   {t(entry.bodyKey)}
                 </p>
-                <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                <p className="mt-1 text-[11px] text-content-muted">
                   {t(`userErrors.scope.${entry.scope}`, entry.scope)}
                   {' · '}
                   {new Date(entry.lastSeenAt).toLocaleTimeString()}

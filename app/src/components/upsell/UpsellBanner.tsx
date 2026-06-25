@@ -80,7 +80,7 @@ export default function UpsellBanner({
         {dismissible && onDismiss && (
           <button
             onClick={onDismiss}
-            className="p-1 rounded text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-colors"
+            className="p-1 rounded text-content-faint hover:text-content-secondary transition-colors"
             aria-label={t('common.dismiss')}>
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path

@@ -117,11 +117,11 @@ export default function AgentsLibraryPanel({
     <section className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="flex items-center gap-2 truncate text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          <h3 className="flex items-center gap-2 truncate text-sm font-semibold text-content-secondary">
             <LuBot className="h-4 w-4 text-ocean-500" />
             {t('intelligence.agents.title')}
           </h3>
-          <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
+          <p className="mt-1 text-xs text-content-faint">
             {t('intelligence.agents.subtitle')}
           </p>
         </div>
@@ -163,7 +163,7 @@ export default function AgentsLibraryPanel({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                      <span className="truncate text-sm font-semibold text-content">
                         {agent.display_name}
                       </span>
                       <span className="rounded-md bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
@@ -173,7 +173,7 @@ export default function AgentsLibraryPanel({
                         {modelLabel(agent, t)}
                       </span>
                     </div>
-                    <p className="text-xs leading-5 text-stone-500 dark:text-neutral-400">
+                    <p className="text-xs leading-5 text-content-muted">
                       {agent.when_to_use}
                     </p>
                     <div className="flex flex-wrap gap-1.5">

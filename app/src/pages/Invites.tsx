@@ -164,7 +164,7 @@ const Invites = () => {
           <div className="space-y-4">
             {/* Redeem Section — shown only if user hasn't redeemed yet */}
             {!hasBeenInvited && (
-              <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 p-6 animate-fade-up">
+              <div className="bg-surface rounded-2xl shadow-soft border border-line p-6 animate-fade-up">
                 <h2 className="text-lg font-bold mb-1">{t('rewards.referralCode')}</h2>
                 <p className="text-xs opacity-70 mb-4">{t('rewards.share')}</p>
                 <div className="flex gap-2">
@@ -195,7 +195,7 @@ const Invites = () => {
             )}
 
             {/* Your Invite Codes */}
-            <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 p-6 animate-fade-up">
+            <div className="bg-surface rounded-2xl shadow-soft border border-line p-6 animate-fade-up">
               <div className="mb-4">
                 <h2 className="text-lg font-bold mb-1">{t('rewards.referralCode')}</h2>
                 <p className="text-xs opacity-70">{t('rewards.share')}</p>
@@ -216,7 +216,7 @@ const Invites = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-stone-500 dark:text-neutral-400 text-center py-6">
+                <p className="text-sm text-content-muted text-center py-6">
                   {t('invites.noInvites')}
                 </p>
               )}

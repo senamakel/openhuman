@@ -101,7 +101,7 @@ function ToolCallRow({
   return (
     <div className="flex items-center gap-1.5" data-testid="subagent-tool-call">
       <span className={`text-[11px] ${tone}`}>•</span>
-      <span className="text-[12px] text-stone-700 dark:text-neutral-200">
+      <span className="text-[12px] text-content-secondary">
         {call.displayName ?? formatToolName(call.toolName)}
       </span>
       {call.detail ? (
@@ -112,7 +112,7 @@ function ToolCallRow({
       {/* Status reads as a tinted "Done" / "Failed" / "Running" tag. */}
       <StatusTag status={call.status} />
       {call.elapsedMs != null && call.status !== 'running' ? (
-        <span className="text-[11px] text-stone-400 dark:text-neutral-500">
+        <span className="text-[11px] text-content-faint">
           {call.elapsedMs >= 1000
             ? `${(call.elapsedMs / 1000).toFixed(1)}s`
             : `${call.elapsedMs}ms`}
@@ -178,9 +178,9 @@ function LiveResponseBlock({ text }: { text: string }) {
           ▶
         </span>
       </summary>
-      <p className="mt-0.5 text-[12px] leading-snug break-words whitespace-pre-wrap text-stone-600 dark:text-neutral-300">
+      <p className="mt-0.5 text-[12px] leading-snug break-words whitespace-pre-wrap text-content-secondary">
         {clean.length > RESPONSE_PREVIEW_CHARS ? (
-          <span className="text-stone-400 dark:text-neutral-500">…</span>
+          <span className="text-content-faint">…</span>
         ) : null}
         {shown}
         <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-primary-400 align-middle" />
@@ -245,14 +245,14 @@ export function SubagentActivityBlock({
 
   return (
     <div
-      className="mt-1 space-y-0.5 text-[12px] text-stone-500 dark:text-neutral-400"
+      className="mt-1 space-y-0.5 text-[12px] text-content-muted"
       data-testid="subagent-activity">
       {headerBits.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {headerBits.map(bit => (
             <span
               key={bit}
-              className="rounded-full bg-stone-100 dark:bg-neutral-800 px-1.5 py-0.5 font-medium text-stone-600 dark:text-neutral-300">
+              className="rounded-full bg-surface-subtle px-1.5 py-0.5 font-medium text-content-secondary">
               {bit}
             </span>
           ))}
@@ -280,11 +280,11 @@ export function SubagentActivityBlock({
           className="mt-1 space-y-1 rounded-md border border-stone-200 bg-stone-50/70 p-1.5 dark:border-neutral-800 dark:bg-neutral-900/50"
           data-testid="subagent-worktree">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-medium text-stone-600 dark:text-neutral-300">
+            <span className="font-medium text-content-secondary">
               {t('worktree.label')}
             </span>
             <span
-              className="truncate font-mono text-[12px] text-stone-500 dark:text-neutral-400"
+              className="truncate font-mono text-[12px] text-content-muted"
               title={subagent.worktreePath}>
               {basename(subagent.worktreePath)}
             </span>
@@ -298,7 +298,7 @@ export function SubagentActivityBlock({
               </span>
             )}
             {subagent.changedFiles && subagent.changedFiles.length > 0 ? (
-              <span className="text-[11px] text-stone-400 dark:text-neutral-500">
+              <span className="text-[11px] text-content-faint">
                 {subagent.changedFiles.length}{' '}
                 {subagent.changedFiles.length === 1
                   ? t('worktree.changedFile')
@@ -391,7 +391,7 @@ export function ToolTimelineBlock({
   const isRunning = latestRunningEntryId != null;
 
   const titleLabel = (
-    <span className="text-[13px] font-medium text-stone-500 dark:text-neutral-400">
+    <span className="text-[13px] font-medium text-content-muted">
       {t('conversations.agentTaskInsights.title')}
     </span>
   );
@@ -417,7 +417,7 @@ export function ToolTimelineBlock({
   // (in-flight) and static (settled) header layouts below.
   const body = (
     <>
-      <div className="text-sm text-stone-400 dark:text-neutral-500">
+      <div className="text-sm text-content-faint">
         {entries.map((entry, index) => {
           const formatted = formatTimelineEntry(entry);
           const detailContent =
@@ -470,7 +470,7 @@ export function ToolTimelineBlock({
                   </summary>
                   {workerRef ? (
                     <div
-                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
+                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-content-secondary ${BODY_SURFACE}`}>
                       {workerRef.before}
                       <WorkerThreadRefCard
                         ref={workerRef.ref}
@@ -480,12 +480,12 @@ export function ToolTimelineBlock({
                     </div>
                   ) : formatted.detail ? (
                     <div
-                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
+                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-content-secondary ${BODY_SURFACE}`}>
                       {formatted.detail}
                     </div>
                   ) : detailContent ? (
                     <pre
-                      className={`mt-1 max-h-24 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
+                      className={`mt-1 max-h-24 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-content-secondary ${BODY_SURFACE}`}>
                       {detailContent}
                     </pre>
                   ) : null}

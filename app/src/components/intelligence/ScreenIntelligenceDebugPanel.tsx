@@ -69,11 +69,11 @@ const ScreenIntelligenceDebugPanelContent = ({
 
       {/* Permissions */}
       <div className="rounded-xl border border-stone-700 bg-stone-900/50 p-3">
-        <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+        <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-content-faint">
           {t('intelligence.screenDebug.permissions')}
         </h4>
         {status?.platform_supported === false ? (
-          <p className="text-xs text-stone-500 dark:text-neutral-400">
+          <p className="text-xs text-content-muted">
             {t('intelligence.screenDebug.platformNotSupported')}
           </p>
         ) : (
@@ -96,7 +96,7 @@ const ScreenIntelligenceDebugPanelContent = ({
 
       {/* Session Status */}
       <div className="rounded-xl border border-stone-700 bg-stone-900/50 p-3">
-        <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+        <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-content-faint">
           {t('intelligence.screenDebug.session')}
         </h4>
         <div className="space-y-1 text-xs text-stone-300 dark:text-neutral-600">
@@ -104,7 +104,7 @@ const ScreenIntelligenceDebugPanelContent = ({
             <span>{t('intelligence.screenDebug.active')}</span>
             <span
               className={
-                session?.active ? 'text-green-400' : 'text-stone-500 dark:text-neutral-400'
+                session?.active ? 'text-green-400' : 'text-content-muted'
               }>
               {session?.active ? t('common.yes') : t('common.no')}
             </span>
@@ -132,7 +132,7 @@ const ScreenIntelligenceDebugPanelContent = ({
 
       {/* Capture Test */}
       <div className="rounded-xl border border-stone-700 bg-stone-900/50 p-3">
-        <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+        <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-content-faint">
           {t('intelligence.screenDebug.captureTest')}
         </h4>
         <button
@@ -211,7 +211,7 @@ const ScreenIntelligenceDebugPanelContent = ({
       {/* Recent Vision Summaries */}
       {recentVisionSummaries.length > 0 && (
         <div className="rounded-xl border border-stone-700 bg-stone-900/50 p-3">
-          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-content-faint">
             {t('intelligence.screenDebug.recentVisionSummaries')}
           </h4>
           <div className="space-y-2">
@@ -219,7 +219,7 @@ const ScreenIntelligenceDebugPanelContent = ({
               <div
                 key={summary.id}
                 className="rounded-lg border border-stone-700/50 bg-stone-800/30 p-2 text-xs">
-                <div className="flex justify-between text-stone-400 dark:text-neutral-500">
+                <div className="flex justify-between text-content-faint">
                   <span>{summary.app_name ?? t('intelligence.screenDebug.unknown')}</span>
                   <span>
                     {new Date(summary.captured_at_ms).toLocaleTimeString()} &middot;{' '}

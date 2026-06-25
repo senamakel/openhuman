@@ -59,7 +59,7 @@ function statusColorClass(status: TaskBoardCardStatus): string {
     case 'awaiting_approval':
       return 'text-amber-700 dark:text-amber-300';
     default:
-      return 'text-stone-600 dark:text-neutral-300';
+      return 'text-content-secondary';
   }
 }
 
@@ -119,10 +119,10 @@ export const ThreadTodoStrip: React.FC<Props> = ({
         <span aria-hidden className="text-primary-500">
           {collapsed ? '▸' : '▾'}
         </span>
-        <span className="font-semibold text-stone-700 dark:text-neutral-200">
+        <span className="font-semibold text-content-secondary">
           {t('conversations.threadTodo.title')}
         </span>
-        <span className="text-stone-400 dark:text-neutral-500">
+        <span className="text-content-faint">
           {doneCount}/{total}
         </span>
       </button>

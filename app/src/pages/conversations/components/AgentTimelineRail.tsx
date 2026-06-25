@@ -45,10 +45,10 @@ export function agentNameTone(status: ToolTimelineEntryStatus | undefined): stri
       return 'animate-pulse text-amber-600 dark:text-amber-300';
     case 'cancelled':
       // Cancelled — terminal, so muted but NOT pulsing (it isn't in progress).
-      return 'text-stone-400 dark:text-neutral-500';
+      return 'text-content-faint';
     default:
       // running / unknown — in progress: muted + blinking.
-      return 'animate-pulse text-stone-400 dark:text-neutral-500';
+      return 'animate-pulse text-content-faint';
   }
 }
 
@@ -85,18 +85,18 @@ export function AgentTimelineRail({
         {!isFirst ? (
           <span
             aria-hidden
-            className="absolute top-0 left-1/2 h-[9px] w-px -translate-x-1/2 bg-stone-200 dark:bg-neutral-800"
+            className="absolute top-0 left-1/2 h-[9px] w-px -translate-x-1/2 bg-surface-strong"
           />
         ) : null}
         {!isLast ? (
           <span
             aria-hidden
-            className="absolute top-[9px] bottom-0 left-1/2 w-px -translate-x-1/2 bg-stone-200 dark:bg-neutral-800"
+            className="absolute top-[9px] bottom-0 left-1/2 w-px -translate-x-1/2 bg-surface-strong"
           />
         ) : null}
         <span className="relative z-10 mt-0.5 flex h-3 w-3 items-center justify-center bg-[#f6f6f6] dark:bg-neutral-950">
           {icon ?? (
-            <AgentSparkIcon className={iconClassName ?? 'text-stone-400 dark:text-neutral-500'} />
+            <AgentSparkIcon className={iconClassName ?? 'text-content-faint'} />
           )}
         </span>
       </div>

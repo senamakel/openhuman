@@ -88,7 +88,7 @@ const SettingsSidebar = () => {
             }>
             {section.labelKey && (
               <div className="px-2 pb-0.5 pt-2.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">
                   {t(section.labelKey)}
                 </span>
               </div>
@@ -116,7 +116,7 @@ const SettingsSidebar = () => {
                         className={`shrink-0 ${
                           active || highlight
                             ? 'text-primary-600 dark:text-primary-400'
-                            : 'text-stone-400 dark:text-neutral-500'
+                            : 'text-content-faint'
                         }`}>
                         {SETTINGS_NAV_ICONS[row.id] ?? null}
                       </span>
@@ -132,7 +132,7 @@ const SettingsSidebar = () => {
         {isSearching && !hasRows && (
           <p
             data-testid="settings-search-empty"
-            className="px-2 pt-3 text-center text-xs text-stone-400 dark:text-neutral-500">
+            className="px-2 pt-3 text-center text-xs text-content-faint">
             {t('settings.settingsSearch.noResults').replace('{query}', searchQuery.trim())}
           </p>
         )}

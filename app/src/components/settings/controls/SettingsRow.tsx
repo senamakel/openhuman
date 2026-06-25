@@ -31,11 +31,11 @@ const SettingsRow = ({
     label && htmlFor ? (
       <label
         htmlFor={htmlFor}
-        className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
+        className="text-sm font-medium text-content">
         {label}
       </label>
     ) : label ? (
-      <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{label}</span>
+      <span className="text-sm font-medium text-content">{label}</span>
     ) : null;
 
   const labelBlock =
@@ -43,7 +43,7 @@ const SettingsRow = ({
       <div className={stacked ? undefined : 'flex-1 min-w-0'}>
         {labelEl}
         {description && (
-          <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+          <p className="mt-0.5 text-xs text-content-muted leading-relaxed">
             {description}
           </p>
         )}

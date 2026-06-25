@@ -226,7 +226,7 @@ export default function Brain() {
               },
             ]}
             header={
-              <p className="min-w-0 text-[11px] text-stone-500 dark:text-neutral-400">
+              <p className="min-w-0 text-[11px] text-content-muted">
                 {t('brain.subtitle')}
               </p>
             }

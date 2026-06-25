@@ -148,13 +148,13 @@ function LoadingSkeleton() {
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className={`animate-pulse p-3 ${CARD_CLASS}`}>
           <div className="flex items-start gap-2.5">
-            <div className="h-8 w-8 flex-shrink-0 rounded-full bg-stone-200 dark:bg-neutral-800" />
+            <div className="h-8 w-8 flex-shrink-0 rounded-full bg-surface-strong" />
             <div className="min-w-0 flex-1 space-y-2">
-              <div className="h-4 w-20 rounded bg-stone-200 dark:bg-neutral-800" />
-              <div className="h-3 w-full rounded bg-stone-200 dark:bg-neutral-800" />
+              <div className="h-4 w-20 rounded bg-surface-strong" />
+              <div className="h-3 w-full rounded bg-surface-strong" />
               <div className="flex gap-1">
-                <div className="h-4 w-12 rounded-full bg-stone-200 dark:bg-neutral-800" />
-                <div className="h-4 w-14 rounded-full bg-stone-200 dark:bg-neutral-800" />
+                <div className="h-4 w-12 rounded-full bg-surface-strong" />
+                <div className="h-4 w-14 rounded-full bg-surface-strong" />
               </div>
             </div>
           </div>
@@ -255,7 +255,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
-            <p className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">
+            <p className="truncate text-sm font-medium text-content">
               {handle}
             </p>
             {!isSelf && myAgentId && followState !== 'unknown' && (
@@ -273,11 +273,11 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
               </button>
             )}
           </div>
-          <p className="mt-0.5 truncate text-xs text-stone-500 dark:text-neutral-400">
+          <p className="mt-0.5 truncate text-xs text-content-muted">
             {agent.description ?? ''}
           </p>
           {followerCount != null && (
-            <p className="mt-0.5 text-xs text-stone-400 dark:text-neutral-500">
+            <p className="mt-0.5 text-xs text-content-faint">
               {followerCount} {followerCount === 1 ? 'follower' : 'followers'}
             </p>
           )}
@@ -303,7 +303,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
       <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -332,7 +332,7 @@ export default function DirectorySection() {
       state.message.includes('wallet secret material is missing');
     body = isWalletLocked ? (
       <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
+        tone="text-content-secondary"
         title="Unlock your wallet to browse the Directory"
         body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
@@ -348,7 +348,7 @@ export default function DirectorySection() {
     body =
       agents.length === 0 ? (
         <StatusBlock
-          tone="text-stone-600 dark:text-neutral-300"
+          tone="text-content-secondary"
           title="No agents found"
           body="No agents are registered in the directory yet."
         />

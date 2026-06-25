@@ -97,7 +97,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
       <section className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-stone-200 bg-white p-4 shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mb-3 flex items-start justify-between gap-3">
-          <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-50">
+          <h3 className="text-base font-semibold text-content">
             {t('intelligence.tasks.composer.title')}
           </h3>
           <button
@@ -111,7 +111,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
 
         <div className="space-y-3 text-sm">
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+            <span className="mb-1 block text-xs font-semibold text-content-muted">
               {t('intelligence.tasks.composer.titleLabel')}
             </span>
             <input
@@ -128,7 +128,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+              <span className="mb-1 block text-xs font-semibold text-content-muted">
                 {t('intelligence.tasks.composer.statusLabel')}
               </span>
               <select
@@ -144,7 +144,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+              <span className="mb-1 block text-xs font-semibold text-content-muted">
                 {t('intelligence.tasks.composer.attachLabel')}
               </span>
               <select
@@ -162,7 +162,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+            <span className="mb-1 block text-xs font-semibold text-content-muted">
               {t('intelligence.tasks.composer.objectiveLabel')}
             </span>
             <input
@@ -174,7 +174,7 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+            <span className="mb-1 block text-xs font-semibold text-content-muted">
               {t('intelligence.tasks.composer.notesLabel')}
             </span>
             <textarea
@@ -194,11 +194,11 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
               onChange={e => setAssignToAgent(e.target.checked)}
               className="mt-0.5 h-4 w-4 flex-none rounded border-stone-300 text-ocean-600 focus:ring-ocean-500 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-950"
             />
-            <span className="text-xs text-stone-600 dark:text-neutral-300">
-              <span className="font-semibold text-stone-700 dark:text-neutral-200">
+            <span className="text-xs text-content-secondary">
+              <span className="font-semibold text-content-secondary">
                 {t('intelligence.tasks.composer.assignAgentLabel')}
               </span>
-              <span className="mt-0.5 block text-stone-500 dark:text-neutral-400">
+              <span className="mt-0.5 block text-content-muted">
                 {t('intelligence.tasks.composer.assignAgentHint')}
               </span>
             </span>

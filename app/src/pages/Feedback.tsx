@@ -141,7 +141,7 @@ const Feedback = () => {
 
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-            <h2 className="flex items-center gap-2 font-display text-base font-semibold text-neutral-900 dark:text-neutral-100">
+            <h2 className="flex items-center gap-2 font-title text-base font-semibold text-content">
               {t('feedback.board')}
               {total > 0 && (
                 <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium tabular-nums text-neutral-500 dark:bg-white/10 dark:text-neutral-400">
@@ -235,7 +235,7 @@ const Feedback = () => {
                   />
                 </svg>
               </div>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="text-sm text-content-muted">
                 {t('feedback.empty')}
               </p>
             </div>

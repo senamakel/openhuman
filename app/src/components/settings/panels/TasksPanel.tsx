@@ -17,7 +17,7 @@ const TasksPanel = () => {
   return (
     <SettingsPanel testId="tasks-panel" description={t('settings.developerMenu.tasks.desc')}>
       <>
-        <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
+        <p className="mb-4 text-xs text-content-muted">
           {t('memory.tab.tasksDescription')}
         </p>
         <IntelligenceTasksTab />

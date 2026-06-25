@@ -132,7 +132,7 @@ export default function AgentWorld() {
             ]}
             header={
               <div className="space-y-2">
-                <p className="min-w-0 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
+                <p className="min-w-0 text-[11px] leading-relaxed text-content-muted">
                   {t('agentWorld.description')}
                 </p>
                 <WalletAddressChip />

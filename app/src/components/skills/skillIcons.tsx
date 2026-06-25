@@ -73,8 +73,8 @@ export function getChannelIcons(
       <SkillIconBadge
         icon={FaGlobe}
         label={t('skills.channelIcon.web')}
-        bgClassName="bg-stone-100 dark:bg-neutral-800"
-        iconClassName="text-stone-600 dark:text-neutral-300"
+        bgClassName="bg-surface-subtle"
+        iconClassName="text-content-secondary"
       />
     ),
     imessage: (
@@ -102,9 +102,9 @@ const CATEGORY_META: Record<
 > = {
   All: {
     icon: LuBlocks,
-    chipClassName: 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300',
-    iconClassName: 'text-stone-500 dark:text-neutral-400',
-    headingClassName: 'text-stone-500 dark:text-neutral-400',
+    chipClassName: 'bg-surface-subtle text-content-secondary',
+    iconClassName: 'text-content-muted',
+    headingClassName: 'text-content-muted',
   },
   'Built-in': {
     icon: LuSparkles,
@@ -150,9 +150,9 @@ const CATEGORY_META: Record<
   },
   Other: {
     icon: LuBlocks,
-    chipClassName: 'bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200',
-    iconClassName: 'text-stone-500 dark:text-neutral-400',
-    headingClassName: 'text-stone-500 dark:text-neutral-400',
+    chipClassName: 'bg-surface-subtle text-content-secondary',
+    iconClassName: 'text-content-muted',
+    headingClassName: 'text-content-muted',
   },
 };
 

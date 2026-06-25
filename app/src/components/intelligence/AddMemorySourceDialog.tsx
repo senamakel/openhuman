@@ -199,13 +199,13 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
-        <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
+        <h2 className="text-lg font-semibold text-content">
           {t('memorySources.addSource')}
         </h2>
 
         {!kind ? (
           <>
-            <p className="mt-2 text-sm text-stone-500 dark:text-neutral-400">
+            <p className="mt-2 text-sm text-content-muted">
               {t('memorySources.pickKind')}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3">
@@ -218,7 +218,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
                              text-left transition-colors hover:border-primary-400 hover:bg-primary-50
                              dark:border-neutral-700 dark:hover:border-primary-500 dark:hover:bg-primary-500/10">
                   <span className="text-xl">{SOURCE_KIND_ICONS[k]}</span>
-                  <span className="text-sm font-medium text-stone-800 dark:text-neutral-200">
+                  <span className="text-sm font-medium text-content">
                     {t(SOURCE_KIND_LABEL_KEYS[k])}
                   </span>
                 </button>
@@ -232,7 +232,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
           </>
         ) : (
           <>
-            <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">
+            <p className="mt-1 text-sm text-content-muted">
               {SOURCE_KIND_ICONS[kind]} {t(SOURCE_KIND_LABEL_KEYS[kind])}
             </p>
 
@@ -345,7 +345,7 @@ function FolderField({ label, value, onChange }: FolderFieldProps) {
   const { t } = useT();
   return (
     <label className="block">
-      <span className="text-xs font-medium text-stone-600 dark:text-neutral-400">{label}</span>
+      <span className="text-xs font-medium text-content-secondary">{label}</span>
       <div className="mt-1 flex gap-2">
         <input
           type="text"
@@ -399,7 +399,7 @@ function FolderField({ label, value, onChange }: FolderFieldProps) {
 function Field({ label, value, onChange, placeholder, type = 'text' }: FieldProps) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-stone-600 dark:text-neutral-400">{label}</span>
+      <span className="text-xs font-medium text-content-secondary">{label}</span>
       <input
         type={type}
         value={value}
@@ -656,7 +656,7 @@ function ComposioPicker({
 
   if (loadingConnections) {
     return (
-      <p className="text-xs text-stone-500 dark:text-neutral-400">
+      <p className="text-xs text-content-muted">
         {t('memorySources.loadingConnections')}
       </p>
     );
@@ -757,7 +757,7 @@ function ComposioPicker({
 
   return (
     <div className="block" ref={containerRef}>
-      <span className="text-xs font-medium text-stone-600 dark:text-neutral-400">
+      <span className="text-xs font-medium text-content-secondary">
         {t('memorySources.pickConnection')}
       </span>
       <div className="relative mt-1">
@@ -775,10 +775,10 @@ function ComposioPicker({
                      focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400
                      dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100
                      dark:focus:border-primary-500">
-          <span className={selected ? '' : 'text-stone-400 dark:text-neutral-500'}>
+          <span className={selected ? '' : 'text-content-faint'}>
             {selected ? selected.label : t('memorySources.selectConnection')}
           </span>
-          <span aria-hidden className="ml-2 text-stone-400 dark:text-neutral-500">
+          <span aria-hidden className="ml-2 text-content-faint">
             ▾
           </span>
         </button>
@@ -814,8 +814,8 @@ function ComposioPicker({
                   className={[
                     'flex items-center justify-between gap-2 px-3 py-2 text-sm',
                     entry.supported
-                      ? 'cursor-pointer text-stone-800 dark:text-neutral-200'
-                      : 'cursor-not-allowed text-stone-400 dark:text-neutral-500',
+                      ? 'cursor-pointer text-content'
+                      : 'cursor-not-allowed text-content-faint',
                     isActive && entry.supported ? 'bg-primary-50 dark:bg-primary-500/10' : '',
                   ].join(' ')}>
                   <span className="flex items-center gap-2 truncate">

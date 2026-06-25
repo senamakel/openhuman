@@ -84,11 +84,11 @@ export default function FeedbackComments({ feedbackId, onCommentAdded }: Feedbac
   return (
     <div className="mt-3 space-y-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
       {isLoading ? (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('common.loading')}</p>
+        <p className="text-xs text-content-muted">{t('common.loading')}</p>
       ) : loadError ? (
         <p className="text-xs text-coral-600 dark:text-coral-400">{loadError}</p>
       ) : comments.length === 0 ? (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+        <p className="text-xs text-content-muted">
           {t('feedback.comments.empty')}
         </p>
       ) : (
@@ -99,8 +99,8 @@ export default function FeedbackComments({ feedbackId, onCommentAdded }: Feedbac
               <li
                 key={comment.id}
                 className="rounded-xl bg-neutral-50 px-3 py-2 dark:bg-white/[0.03]">
-                <div className="flex items-center gap-2 text-xs text-neutral-400 dark:text-neutral-500">
-                  <span className="font-medium text-neutral-600 dark:text-neutral-300">
+                <div className="flex items-center gap-2 text-xs text-content-faint">
+                  <span className="font-medium text-content-secondary">
                     {isMine
                       ? t('feedback.comments.you')
                       : comment.userName?.trim() || authorLabel(comment.user)}
@@ -108,7 +108,7 @@ export default function FeedbackComments({ feedbackId, onCommentAdded }: Feedbac
                   <span>·</span>
                   <span>{formatDate(comment.createdAt)}</span>
                 </div>
-                <p className="mt-1 whitespace-pre-wrap break-words text-sm text-neutral-700 dark:text-neutral-300">
+                <p className="mt-1 whitespace-pre-wrap break-words text-sm text-content-secondary">
                   {comment.body}
                 </p>
               </li>

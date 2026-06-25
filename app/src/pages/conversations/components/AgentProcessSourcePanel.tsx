@@ -44,10 +44,10 @@ function AgentSourceRow({ source }: { source: AgentSource }) {
         className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1 text-[11px] hover:bg-stone-50 dark:hover:bg-neutral-800/60"
         data-testid="agent-source-row">
         <span className="flex min-w-0 items-center gap-1.5">
-          <GlobeIcon className="shrink-0 text-stone-400 dark:text-neutral-500" />
-          <span className="truncate text-stone-700 dark:text-neutral-200">{source.title}</span>
+          <GlobeIcon className="shrink-0 text-content-faint" />
+          <span className="truncate text-content-secondary">{source.title}</span>
         </span>
-        <span className="shrink-0 truncate text-stone-400 dark:text-neutral-500">{source.url}</span>
+        <span className="shrink-0 truncate text-content-faint">{source.url}</span>
       </a>
     </li>
   );
@@ -124,7 +124,7 @@ export function AgentProcessSourcePanel({
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-500 dark:bg-primary-500/15">
             <AgentSparkIcon />
           </span>
-          <span className="min-w-0 flex-1 truncate font-semibold text-stone-800 dark:text-neutral-100">
+          <span className="min-w-0 flex-1 truncate font-semibold text-content">
             {scopedEntry
               ? formatTimelineEntry(scopedEntry).title
               : t('conversations.agentTaskInsights.processSourceTitle')}
@@ -185,7 +185,7 @@ export function AgentProcessSourcePanel({
               <div className="space-y-3">
                 {subagentEntries.map(entry => (
                   <div key={entry.id} data-testid="agent-source-subagent">
-                    <p className="text-[12px] font-medium text-stone-700 dark:text-neutral-200">
+                    <p className="text-[12px] font-medium text-content-secondary">
                       {formatTimelineEntry(entry).title}
                     </p>
                     <SubagentActivityBlock subagent={entry.subagent!} />

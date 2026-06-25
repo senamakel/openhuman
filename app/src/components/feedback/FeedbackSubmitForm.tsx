@@ -77,10 +77,10 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-none">
-      <h2 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-100">
+      <h2 className="font-title text-base font-semibold text-content">
         {t('feedback.submit.heading')}
       </h2>
-      <p className="mb-4 mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+      <p className="mb-4 mt-0.5 text-xs text-content-muted">
         {t('feedback.submit.subheading')}
       </p>
 

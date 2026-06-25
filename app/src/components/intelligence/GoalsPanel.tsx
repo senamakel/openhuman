@@ -159,10 +159,10 @@ export default function GoalsPanel() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+            <h2 className="text-sm font-semibold text-content">
               {t('brain.goals.title')}
             </h2>
-            <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="mt-0.5 text-xs text-content-muted">
               {t('brain.goals.description')}
             </p>
           </div>
@@ -216,7 +216,7 @@ export default function GoalsPanel() {
         {/* List */}
         <div className="mt-4">
           {loading ? (
-            <div className="flex items-center justify-center py-8 text-neutral-400 dark:text-neutral-500">
+            <div className="flex items-center justify-center py-8 text-content-faint">
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
               <span className="text-sm">{t('common.loading')}</span>
             </div>
@@ -225,7 +225,7 @@ export default function GoalsPanel() {
               {error}
             </div>
           ) : goals.length === 0 ? (
-            <p className="py-6 text-center text-sm text-neutral-400 dark:text-neutral-500">
+            <p className="py-6 text-center text-sm text-content-faint">
               {t('brain.goals.empty')}
             </p>
           ) : (
@@ -264,7 +264,7 @@ export default function GoalsPanel() {
                     </div>
                   ) : (
                     <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 flex-1 text-sm text-neutral-700 dark:text-neutral-200">
+                      <span className="min-w-0 flex-1 text-sm text-content-secondary">
                         {goal.text}
                       </span>
                       <div className="flex shrink-0 items-center gap-1">

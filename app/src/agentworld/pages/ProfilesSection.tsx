@@ -255,7 +255,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
           </div>
         )}
         <div className="min-w-0">
-          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-content">
             {handle}
             {verified && (
               <span className="text-xs text-blue-500" title="Verified">
@@ -275,13 +275,13 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
           </h3>
           {cryptoId && (
             <p
-              className="mt-0.5 font-mono text-xs text-stone-500 dark:text-neutral-400"
+              className="mt-0.5 font-mono text-xs text-content-muted"
               title={cryptoId}>
               {truncateCryptoId(cryptoId)}
             </p>
           )}
           {bio && (
-            <p className="mt-1.5 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
+            <p className="mt-1.5 text-xs leading-relaxed text-content-secondary">
               {bio}
             </p>
           )}
@@ -290,7 +290,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
 
       {skills.length > 0 && (
         <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
-          <h4 className="mb-2 text-xs font-medium text-stone-900 dark:text-neutral-100">Skills</h4>
+          <h4 className="mb-2 text-xs font-medium text-content">Skills</h4>
           <div className="flex flex-wrap gap-1.5">
             {skills.map(skill => (
               <span
@@ -305,7 +305,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
 
       {attestations.length > 0 && (
         <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
-          <h4 className="mb-2 text-xs font-medium text-stone-900 dark:text-neutral-100">
+          <h4 className="mb-2 text-xs font-medium text-content">
             Verified Accounts
           </h4>
           <div className="flex flex-wrap gap-2">
@@ -322,7 +322,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
 
       {ownedIdentities.length > 0 && (
         <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
-          <h4 className="mb-2 text-xs font-medium text-stone-900 dark:text-neutral-100">
+          <h4 className="mb-2 text-xs font-medium text-content">
             Handles owned{ownedIdentities.length > 1 ? ` (${ownedIdentities.length})` : ''}
           </h4>
           <div className="space-y-1.5">
@@ -330,7 +330,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
               <div
                 key={id.username}
                 className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-1.5 text-sm dark:border-neutral-800">
-                <span className="truncate font-medium text-stone-800 dark:text-neutral-200">
+                <span className="truncate font-medium text-content">
                   @{id.username.replace(/^@+/, '')}
                 </span>
                 <span className="flex items-center gap-2">
@@ -339,7 +339,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
                       primary
                     </span>
                   )}
-                  <span className="text-[10px] uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+                  <span className="text-[10px] uppercase tracking-wide text-content-faint">
                     {id.status}
                   </span>
                 </span>
@@ -353,18 +353,18 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
         <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
           <div className="flex gap-6">
             <div>
-              <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+              <span className="text-sm font-semibold text-content">
                 {followStats.followerCount}
               </span>
-              <span className="ml-1 text-xs text-stone-500 dark:text-neutral-400">
+              <span className="ml-1 text-xs text-content-muted">
                 {followStats.followerCount === 1 ? 'follower' : 'followers'}
               </span>
             </div>
             <div>
-              <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+              <span className="text-sm font-semibold text-content">
                 {followStats.followingCount}
               </span>
-              <span className="ml-1 text-xs text-stone-500 dark:text-neutral-400">following</span>
+              <span className="ml-1 text-xs text-content-muted">following</span>
             </div>
           </div>
         </div>
@@ -372,7 +372,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
 
       {createdAt && (
         <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
-          <span className="text-xs text-stone-500 dark:text-neutral-400">
+          <span className="text-xs text-content-muted">
             Joined {formatDate(createdAt)}
           </span>
         </div>
@@ -401,7 +401,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
       <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -415,14 +415,14 @@ export default function ProfilesSection() {
 
   if (state.status === 'loading') {
     body = (
-      <div className="flex h-64 items-center justify-center text-stone-400 dark:text-neutral-500">
+      <div className="flex h-64 items-center justify-center text-content-faint">
         <span className="animate-pulse text-sm">Loading your profile…</span>
       </div>
     );
   } else if (state.status === 'wallet_locked') {
     body = (
       <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
+        tone="text-content-secondary"
         title="Unlock your wallet to use Agent World"
         body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
@@ -430,7 +430,7 @@ export default function ProfilesSection() {
   } else if (state.status === 'no_handle') {
     body = (
       <StatusBlock
-        tone="text-stone-600 dark:text-neutral-300"
+        tone="text-content-secondary"
         title="No handle registered yet"
         body={`Your wallet (${truncateCryptoId(state.cryptoId)}) doesn't own a @handle yet. Register one in the Identities tab to claim your profile.`}
       />

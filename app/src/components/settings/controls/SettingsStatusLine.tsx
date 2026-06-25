@@ -23,7 +23,7 @@ const SettingsStatusLine = ({
     content = <span className="text-coral-600 dark:text-coral-300">{error}</span>;
   } else if (saving) {
     content = (
-      <span className="text-neutral-500 dark:text-neutral-400 animate-pulse">{savingLabel}</span>
+      <span className="text-content-muted animate-pulse">{savingLabel}</span>
     );
   } else if (savedNote) {
     content = (

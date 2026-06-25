@@ -153,7 +153,7 @@ const AutonomyRateLimitSection = () => {
               </p>
             )}
             {isValid && parsed === UNLIMITED && (
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="text-xs text-content-muted">
                 {t('autonomy.unlimitedNote')}
               </p>
             )}

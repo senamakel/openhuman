@@ -84,7 +84,7 @@ export const PlanReviewCard: React.FC<Props> = ({ threadId, review }) => {
           </p>
 
           {review.steps.length > 0 && (
-            <ol className="mt-2 max-h-56 list-decimal overflow-y-auto pl-6 text-stone-700 dark:text-neutral-200">
+            <ol className="mt-2 max-h-56 list-decimal overflow-y-auto pl-6 text-content-secondary">
               {review.steps.map((step, i) => (
                 <li key={i} className="break-words">
                   {step}

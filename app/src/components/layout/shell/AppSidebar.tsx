@@ -48,7 +48,7 @@ export default function AppSidebar() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white dark:bg-neutral-900">
+    <div className="flex h-full min-h-0 flex-col bg-surface">
       <div className="flex-shrink-0 border-b border-stone-200/70 dark:border-neutral-800/70">
         <SidebarHeader />
       </div>
@@ -88,7 +88,7 @@ export default function AppSidebar() {
       <div className="flex flex-shrink-0 items-center justify-center gap-2 border-t border-stone-200 px-2 py-0.5 dark:border-neutral-800">
         <ConnectionIndicator />
         &middot;
-        <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+        <span className="text-[10px] text-content-faint">
           {t('settings.betaBuild').replace('{version}', APP_VERSION)}
         </span>
       </div>

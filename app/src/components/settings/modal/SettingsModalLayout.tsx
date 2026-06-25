@@ -24,7 +24,7 @@ export default function SettingsModalLayout() {
   return (
     <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
       <div className="flex h-full w-full min-h-0">
-        <div className="h-full w-64 flex-shrink-0 overflow-hidden border-r border-stone-200 dark:border-neutral-800">
+        <div className="h-full w-64 flex-shrink-0 overflow-hidden border-r border-line">
           <SettingsSidebar />
         </div>
         {/* Right column: the routed panel. The sibling sub-nav pill row now

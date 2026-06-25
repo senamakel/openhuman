@@ -166,7 +166,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
             onPointerDown={onPointerDown}
             onKeyDown={onDividerKeyDown}
             title={t('layout.resizeSidebar')}
-            className="group relative w-px flex-shrink-0 cursor-col-resize select-none self-stretch bg-stone-200 dark:bg-neutral-800 focus:outline-none">
+            className="group relative w-px flex-shrink-0 cursor-col-resize select-none self-stretch bg-surface-strong focus:outline-none">
             <span className="absolute inset-y-0 -left-1 -right-1 z-10" />
             <span className="absolute inset-0 transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500" />
           </div>

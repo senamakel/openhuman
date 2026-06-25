@@ -204,7 +204,7 @@ export default function WalletAddressChip() {
     return (
       <div
         data-testid="wallet-address-chip"
-        className="flex items-center gap-1.5 text-stone-400 dark:text-neutral-500">
+        className="flex items-center gap-1.5 text-content-faint">
         <WalletIcon />
         <span className="text-[11px] leading-none">{t('agentWorld.walletNotConfigured')}</span>
       </div>
@@ -218,7 +218,7 @@ export default function WalletAddressChip() {
   return (
     <div
       data-testid="wallet-address-chip"
-      className="flex items-center gap-1.5 text-stone-500 dark:text-neutral-400">
+      className="flex items-center gap-1.5 text-content-muted">
       <WalletIcon />
       <span className="font-mono text-[11px] leading-none tracking-tight" title={address}>
         {truncated}

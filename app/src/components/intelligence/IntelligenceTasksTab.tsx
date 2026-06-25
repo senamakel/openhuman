@@ -546,7 +546,7 @@ export default function IntelligenceTasksTab() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-stone-400 dark:text-neutral-500">
+        <p className="text-xs text-content-faint">
           {t('intelligence.tasks.subtitle')}
         </p>
         <button
@@ -567,7 +567,7 @@ export default function IntelligenceTasksTab() {
       {/* Personal board — always present so users can manage their own tasks. */}
       <section className="space-y-2">
         <div className="flex items-center gap-2">
-          <h3 className="truncate text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          <h3 className="truncate text-sm font-semibold text-content-secondary">
             {t('intelligence.tasks.personalBoardTitle')}
           </h3>
         </div>
@@ -609,7 +609,7 @@ export default function IntelligenceTasksTab() {
       )}
 
       {loading && (
-        <div className="flex items-center justify-center py-6 text-stone-400 dark:text-neutral-500">
+        <div className="flex items-center justify-center py-6 text-content-faint">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent mr-2" />
           <span className="text-sm">{t('intelligence.tasks.loadingBoards')}</span>
         </div>
@@ -626,7 +626,7 @@ export default function IntelligenceTasksTab() {
         <section key={entry.threadId} className="space-y-2">
           <div className="flex items-center gap-2">
             <h3
-              className="truncate text-sm font-semibold text-stone-700 dark:text-neutral-200"
+              className="truncate text-sm font-semibold text-content-secondary"
               title={entry.title}>
               {entry.title}
             </h3>
@@ -791,10 +791,10 @@ function TaskSourceTaskList({
     <section className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          <h3 className="truncate text-sm font-semibold text-content-secondary">
             {t('settings.taskSources.title')}
           </h3>
-          <p className="text-xs text-stone-400 dark:text-neutral-500">
+          <p className="text-xs text-content-faint">
             {t('intelligence.tasks.sourceList.subtitle')}
           </p>
         </div>
@@ -830,11 +830,11 @@ function TaskSourceTaskList({
                         </span>
                       )}
                     </div>
-                    <p className="break-words text-sm font-medium leading-snug text-stone-800 dark:text-neutral-100">
+                    <p className="break-words text-sm font-medium leading-snug text-content">
                       {card.title}
                     </p>
                     {(card.objective || card.notes) && (
-                      <p className="line-clamp-2 break-words text-xs leading-snug text-stone-500 dark:text-neutral-400">
+                      <p className="line-clamp-2 break-words text-xs leading-snug text-content-muted">
                         {card.objective || card.notes}
                       </p>
                     )}
@@ -911,10 +911,10 @@ function TaskSourceRefinementDialog({
       <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl dark:border-neutral-800 dark:bg-neutral-950">
         <div className="flex items-start justify-between gap-3 border-b border-stone-100 px-4 py-3 dark:border-neutral-800">
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
+            <h3 className="text-sm font-semibold text-content">
               {t('intelligence.tasks.sourcePlan.title')}
             </h3>
-            <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+            <p className="mt-0.5 text-xs text-content-muted">
               {t('intelligence.tasks.sourcePlan.subtitle')}
             </p>
           </div>
@@ -938,7 +938,7 @@ function TaskSourceRefinementDialog({
           </div>
 
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+            <span className="text-xs font-medium text-content-secondary">
               {t('conversations.taskKanban.field.title')}
             </span>
             <input
@@ -949,7 +949,7 @@ function TaskSourceRefinementDialog({
           </label>
 
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+            <span className="text-xs font-medium text-content-secondary">
               {t('conversations.taskKanban.field.objective')}
             </span>
             <textarea
@@ -961,7 +961,7 @@ function TaskSourceRefinementDialog({
           </label>
 
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+            <span className="text-xs font-medium text-content-secondary">
               {t('conversations.taskKanban.field.plan')}
             </span>
             <textarea
@@ -973,7 +973,7 @@ function TaskSourceRefinementDialog({
           </label>
 
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+            <span className="text-xs font-medium text-content-secondary">
               {t('conversations.taskKanban.field.acceptanceCriteria')}
             </span>
             <textarea
@@ -985,7 +985,7 @@ function TaskSourceRefinementDialog({
           </label>
 
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+            <span className="text-xs font-medium text-content-secondary">
               {t('conversations.taskKanban.field.notes')}
             </span>
             <textarea

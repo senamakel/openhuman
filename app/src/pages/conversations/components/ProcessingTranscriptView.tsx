@@ -41,7 +41,7 @@ export function ProcessingTranscriptView({
             <p
               key={block.key}
               data-testid="processing-narration"
-              className="text-[13px] leading-relaxed break-words whitespace-pre-wrap text-stone-700 dark:text-neutral-200">
+              className="text-[13px] leading-relaxed break-words whitespace-pre-wrap text-content-secondary">
               {block.text}
             </p>
           );
@@ -75,7 +75,7 @@ function ThinkingBlock({ text }: { text: string }) {
           ▶
         </span>
       </summary>
-      <p className="mt-1 text-[12px] leading-relaxed break-words whitespace-pre-wrap text-stone-600 dark:text-neutral-300">
+      <p className="mt-1 text-[12px] leading-relaxed break-words whitespace-pre-wrap text-content-secondary">
         {clean}
       </p>
     </details>
@@ -90,7 +90,7 @@ function ToolGroupBlock({ summary, entries }: { summary: string; entries: ToolTi
   return (
     <details open className="group/group" data-testid="processing-tool-group">
       <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
-        <span className="text-[12px] font-medium text-stone-600 dark:text-neutral-300">
+        <span className="text-[12px] font-medium text-content-secondary">
           {summary}
         </span>
         <span className="text-[9px] text-stone-300 transition-transform group-open/group:rotate-90 dark:text-neutral-600">
@@ -104,7 +104,7 @@ function ToolGroupBlock({ summary, entries }: { summary: string; entries: ToolTi
         {allSettled ? (
           <li className="flex items-center gap-1.5 pt-0.5">
             <StatusGlyph status={anyError ? 'error' : 'success'} />
-            <span className="text-[11px] text-stone-400 dark:text-neutral-500">
+            <span className="text-[11px] text-content-faint">
               {t('conversations.agentTaskInsights.done')}
             </span>
           </li>
@@ -119,10 +119,10 @@ function ToolRow({ entry }: { entry: ToolTimelineEntry }) {
   const { title, detail } = formatTimelineEntry(entry);
   return (
     <li className="flex items-start gap-1.5" data-testid="processing-tool-row">
-      <span className="mt-0.5 shrink-0 text-stone-400 dark:text-neutral-500">
+      <span className="mt-0.5 shrink-0 text-content-faint">
         <CategoryIcon category={categorizeTool(entry.name)} />
       </span>
-      <span className="min-w-0 text-[12px] text-stone-700 dark:text-neutral-200">
+      <span className="min-w-0 text-[12px] text-content-secondary">
         {title}
         {detail ? (
           <span className="ml-1 rounded bg-stone-100 px-1 py-px font-mono text-[10px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">

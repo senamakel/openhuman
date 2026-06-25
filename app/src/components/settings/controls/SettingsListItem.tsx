@@ -20,7 +20,7 @@ const SettingsListItem = ({
   'data-testid': testId,
 }: SettingsListItemProps) => {
   const labelClass = [
-    'text-xs text-neutral-800 dark:text-neutral-100 truncate',
+    'text-xs text-content truncate',
     mono ? 'font-mono' : '',
   ]
     .filter(Boolean)

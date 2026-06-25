@@ -118,10 +118,10 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
               { label: t('notifications.routing.unscored'), value: stats.unscored },
             ].map(({ label, value }) => (
               <div key={label} className="px-4 py-3 text-center">
-                <p className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">
+                <p className="text-lg font-semibold text-content">
                   {value}
                 </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">{label}</p>
+                <p className="text-xs text-content-muted">{label}</p>
               </div>
             ))}
           </div>
@@ -160,7 +160,7 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
           {
             label: t('notifications.routing.level.drop'),
             desc: t('notifications.routing.level.dropDesc'),
-            color: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300',
+            color: 'bg-surface-subtle text-content-secondary',
           },
           {
             label: t('notifications.routing.level.acknowledge'),
@@ -183,7 +183,7 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
               className={`flex-shrink-0 px-2 py-0.5 rounded text-[11px] font-semibold ${row.color}`}>
               {row.label}
             </span>
-            <span className="text-xs text-neutral-600 dark:text-neutral-300">{row.desc}</span>
+            <span className="text-xs text-content-secondary">{row.desc}</span>
           </div>
         ))}
       </SettingsSection>
@@ -202,13 +202,13 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
           return (
             <div key={provider} className="px-4 py-3 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 capitalize">
+                <p className="text-sm font-medium text-content capitalize">
                   {provider}
                 </p>
                 <div className="flex items-center gap-2">
                   <label
                     htmlFor={`notification-enabled-${provider}`}
-                    className="text-xs text-neutral-600 dark:text-neutral-300">
+                    className="text-xs text-content-secondary">
                     {t('common.enabled')}
                   </label>
                   <SettingsCheckbox
@@ -221,7 +221,7 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
                   />
                 </div>
               </div>
-              <label className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300">
+              <label className="flex items-center gap-2 text-xs text-content-secondary">
                 {t('notifications.routing.threshold')}
                 <input
                   className="flex-1"
@@ -237,7 +237,7 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
                 />
                 <span>{s.importance_threshold.toFixed(2)}</span>
               </label>
-              <label className="text-xs text-neutral-600 dark:text-neutral-300 flex items-center gap-2">
+              <label className="text-xs text-content-secondary flex items-center gap-2">
                 {t('notifications.routing.routeToOrchestrator')}
                 <input
                   type="checkbox"

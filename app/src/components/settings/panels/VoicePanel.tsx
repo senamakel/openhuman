@@ -493,7 +493,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
     }
     if (status?.state === 'installing') return 'text-amber-600 dark:text-amber-300';
     if (ready) return 'text-emerald-600 dark:text-emerald-300';
-    return 'text-neutral-500 dark:text-neutral-400';
+    return 'text-content-muted';
   };
 
   const handleInstallWhisper = async () => {
@@ -744,18 +744,18 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
               }
             }}
             data-testid="voice-provider-key-modal">
-            <div className="w-full max-w-md rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-xl p-6 space-y-4">
+            <div className="w-full max-w-md rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-surface shadow-xl p-6 space-y-4">
               {pendingKeySlug === 'whisper' || pendingKeySlug === 'piper' ? (
                 /* ── Local provider modal (Whisper / Piper) ──────────── */
                 <>
                   <div>
-                    <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
+                    <h3 className="text-base font-semibold text-content">
                       {t('voice.modal.title')}{' '}
                       {pendingKeySlug === 'whisper'
                         ? t('voice.providers.chip.whisper')
                         : t('voice.providers.chip.piper')}
                     </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                    <p className="text-xs text-content-muted mt-1">
                       {pendingKeySlug === 'whisper'
                         ? t('voice.modal.whisperDesc')
                         : t('voice.modal.piperDesc')}
@@ -876,11 +876,11 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                 /* ── External provider modal (API key) ───────────────── */
                 <>
                   <div>
-                    <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
+                    <h3 className="text-base font-semibold text-content">
                       {t('voice.modal.title')}{' '}
                       {BUILTIN_VOICE_PROVIDER_META[pendingKeySlug]?.label ?? pendingKeySlug}
                     </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                    <p className="text-xs text-content-muted mt-1">
                       {t('voice.modal.desc')}
                     </p>
                   </div>
@@ -1208,7 +1208,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                           className="mt-1 w-full"
                         />
                       )}
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      <p className="text-[11px] text-content-muted mt-0.5">
                         {t('voice.providers.piperVoicesDesc')}
                       </p>
                     </label>
@@ -1251,7 +1251,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                           className="mt-1 w-full"
                         />
                       )}
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      <p className="text-[11px] text-content-muted mt-0.5">
                         {t('voice.routing.elevenlabsVoiceDesc')}
                       </p>
                     </label>
@@ -1260,7 +1260,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
               </div>
             }
           />
-          <div className="flex justify-end px-4 py-3 border-t border-neutral-100 dark:border-neutral-800">
+          <div className="flex justify-end px-4 py-3 border-t border-line-subtle">
             <Button
               type="button"
               variant="primary"
@@ -1290,7 +1290,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                 stacked
                 label={t('voice.providers.mascotVoice')}
                 control={
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  <p className="text-xs text-content-muted">
                     {t('voice.providers.mascotVoiceDescPrefix')}{' '}
                     <button
                       type="button"

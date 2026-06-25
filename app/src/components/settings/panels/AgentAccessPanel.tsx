@@ -291,7 +291,7 @@ const AgentAccessPanel = () => {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-content-muted">
           {t('settings.agentAccess.loading')}
         </p>
       ) : (
@@ -414,7 +414,7 @@ const AgentAccessPanel = () => {
               </ul>
             )}
             {/* Add-folder row */}
-            <div className="flex items-center gap-2 px-4 py-3 border-t border-neutral-100 dark:border-neutral-800">
+            <div className="flex items-center gap-2 px-4 py-3 border-t border-line-subtle">
               <SettingsTextField
                 mono
                 className="flex-1"

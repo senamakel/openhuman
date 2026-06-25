@@ -115,7 +115,7 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-neutral-700 dark:text-neutral-200 truncate">
+            <span className="text-xs font-medium text-content-secondary truncate">
               {networkLabel}
             </span>
             {balance.providerStatus !== 'ready' && (
@@ -126,7 +126,7 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
           </div>
           {/* Address + copy button */}
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+            <span className="font-mono text-[11px] text-content-muted truncate">
               {truncateAddress(balance.address)}
             </span>
             <Button
@@ -168,10 +168,10 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
         <div className="text-right shrink-0">
           <span
             title={t('walletBalances.rawBalance').replace('{raw}', balance.raw)}
-            className="text-sm font-medium text-neutral-800 dark:text-neutral-100 font-mono">
+            className="text-sm font-medium text-content font-mono">
             {balance.formatted}
           </span>
-          <span className="ml-1 text-xs text-neutral-500 dark:text-neutral-400">
+          <span className="ml-1 text-xs text-content-muted">
             {balance.assetSymbol}
           </span>
         </div>
@@ -227,20 +227,20 @@ const ChainPlaceholderRow = ({
         {balanceBadge({ chain, evmNetwork })}
       </span>
       <div className="min-w-0">
-        <span className="block text-xs font-medium text-neutral-400 dark:text-neutral-500 truncate">
+        <span className="block text-xs font-medium text-content-faint truncate">
           {balanceNetworkLabel({ chain, evmNetwork })}
         </span>
-        <span className="font-mono text-[11px] text-neutral-400 dark:text-neutral-500 truncate">
+        <span className="font-mono text-[11px] text-content-faint truncate">
           {t('walletBalances.notSetUp')}
         </span>
       </div>
       <div className="flex-1" />
       <div className="text-right shrink-0">
         {/* Em dash placeholder — punctuation, not translatable copy. */}
-        <span className="text-sm font-medium text-neutral-400 dark:text-neutral-500 font-mono">
+        <span className="text-sm font-medium text-content-faint font-mono">
           —
         </span>
-        <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">{symbol}</span>
+        <span className="ml-1 text-xs text-content-faint">{symbol}</span>
       </div>
     </div>
   );
@@ -311,7 +311,7 @@ const WalletBalancesPanel = () => {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex items-center justify-center gap-2 py-10 text-neutral-500 dark:text-neutral-400">
+        <div className="flex items-center justify-center gap-2 py-10 text-content-muted">
           <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle
               className="opacity-25"
@@ -418,9 +418,9 @@ const WalletBalancesPanel = () => {
     if (balances !== null && balances.length === 0) {
       return (
         <div className="px-4 py-8 text-center">
-          <div className="w-12 h-12 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 rounded-full bg-surface-subtle flex items-center justify-center mx-auto mb-3">
             <svg
-              className="w-6 h-6 text-neutral-400 dark:text-neutral-500"
+              className="w-6 h-6 text-content-faint"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"

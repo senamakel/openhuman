@@ -1658,7 +1658,7 @@ const Conversations = ({
             onClick={openWholeRunSource}
             data-testid="view-process-source"
             className="flex items-center gap-1.5 px-1 py-1 text-left">
-            <span className="text-[13px] font-medium text-stone-500 dark:text-neutral-400">
+            <span className="text-[13px] font-medium text-content-muted">
               {t('conversations.agentTaskInsights.title')}
             </span>
             <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
@@ -1739,8 +1739,8 @@ const Conversations = ({
     // Card background / rounded corners come from TwoPanelLayout's pane styling.
     <div className="h-full flex flex-col">
       {/* Thread search — flush full-width input, mirrors the settings search. */}
-      <div className="relative border-b border-stone-100 dark:border-neutral-800">
-        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-400 dark:text-neutral-500">
+      <div className="relative border-b border-line-subtle">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-content-faint">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
@@ -1794,20 +1794,20 @@ const Conversations = ({
         className="group w-full cursor-pointer border-b border-stone-100/60 opacity-50 px-3 py-2 transition-colors hover:bg-stone-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/60">
         <div className="flex items-center justify-center gap-1.5">
           <svg
-            className="h-3.5 w-3.5 flex-shrink-0 text-stone-500 dark:text-neutral-400"
+            className="h-3.5 w-3.5 flex-shrink-0 text-content-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          <span className="truncate text-xs text-stone-700 dark:text-neutral-200">
+          <span className="truncate text-xs text-content-secondary">
             {t('chat.newConversation')}
           </span>
         </div>
       </button>
       <div className="flex-1 overflow-y-auto">
         {visibleThreads.length === 0 ? (
-          <p className="px-4 py-6 text-xs text-stone-400 dark:text-neutral-500 text-center">
+          <p className="px-4 py-6 text-xs text-content-faint text-center">
             {t('chat.noThreads')}
           </p>
         ) : (
@@ -1880,7 +1880,7 @@ const Conversations = ({
                     className={`text-xs truncate flex-1 ${
                       selectedThreadId === thread.id
                         ? 'font-medium text-primary-700 dark:text-primary-200'
-                        : 'text-stone-700 dark:text-neutral-200'
+                        : 'text-content-secondary'
                     }`}>
                     {resolveThreadDisplayTitle(thread.id)}
                   </p>
@@ -1894,7 +1894,7 @@ const Conversations = ({
                   }}
                   aria-label={t('chat.editThreadTitle')}
                   title={t('chat.editThreadTitle')}
-                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-primary-500 transition-all flex-shrink-0">
+                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-content-faint hover:text-primary-500 transition-all flex-shrink-0">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -1928,7 +1928,7 @@ const Conversations = ({
                       onCancel: () => {},
                     });
                   }}
-                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-coral-500 transition-all flex-shrink-0"
+                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-content-faint hover:text-coral-500 transition-all flex-shrink-0"
                   title={t('chat.deleteThread')}>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -1941,11 +1941,11 @@ const Conversations = ({
                 </button>
               </div>
               {/* <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+                    <span className="text-[10px] text-content-faint">
                       {formatRelativeTime(thread.lastMessageAt)}
                     </span>
                     {thread.messageCount > 0 && (
-                      <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+                      <span className="text-[10px] text-content-faint">
                         {thread.messageCount} msg{thread.messageCount !== 1 ? 's' : ''}
                       </span>
                     )}
@@ -1963,7 +1963,7 @@ const Conversations = ({
       className={
         isSidebar
           ? // Embedded variant keeps its own flush styling (no TwoPanelLayout).
-            'flex-1 flex flex-col min-w-0 bg-white dark:bg-neutral-900 border-l border-stone-200 dark:border-neutral-800 overflow-hidden'
+            'flex-1 flex flex-col min-w-0 bg-surface border-l border-line overflow-hidden'
           : // Page variant: flush over the shell background. `relative` anchors
             // the absolutely-positioned floating composer.
             'relative flex-1 flex flex-col min-w-0'
@@ -1980,7 +1980,7 @@ const Conversations = ({
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
                 <div
-                  className={`h-12 rounded-2xl animate-pulse bg-stone-100 dark:bg-neutral-800 ${
+                  className={`h-12 rounded-2xl animate-pulse bg-surface-subtle ${
                     i % 2 === 0 ? 'w-2/3' : 'w-1/2'
                   }`}
                 />
@@ -2001,10 +2001,10 @@ const Conversations = ({
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <p className="text-sm text-stone-400 dark:text-neutral-500 mb-1">
+            <p className="text-sm text-content-faint mb-1">
               {t('chat.failedToLoadMessages')}
             </p>
-            <p className="text-xs text-stone-600 dark:text-neutral-300 mb-3 text-center">
+            <p className="text-xs text-content-secondary mb-3 text-center">
               {messagesError}
             </p>
             <button
@@ -2162,7 +2162,7 @@ const Conversations = ({
                               return <CitationChips citations={citations} />;
                             })()}
                             {latestVisibleMessage?.id === msg.id && (
-                              <p className="px-1 text-[10px] text-stone-400 dark:text-neutral-500">
+                              <p className="px-1 text-[10px] text-content-faint">
                                 {formatRelativeTime(msg.createdAt)}
                               </p>
                             )}
@@ -2207,9 +2207,9 @@ const Conversations = ({
                                       {fileNames.map((name, i) => (
                                         <div
                                           key={i}
-                                          className="flex items-center gap-2 rounded-lg border border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 px-2.5 py-1.5 text-xs text-stone-700 dark:text-neutral-300 max-w-[220px]">
+                                          className="flex items-center gap-2 rounded-lg border border-line bg-surface-muted px-2.5 py-1.5 text-xs text-content-secondary max-w-[220px]">
                                           <svg
-                                            className="w-4 h-4 flex-shrink-0 text-stone-500 dark:text-neutral-400"
+                                            className="w-4 h-4 flex-shrink-0 text-content-muted"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24">
@@ -2259,7 +2259,7 @@ const Conversations = ({
                               : msg.sender === 'user'
                                 ? '-left-8'
                                 : '-right-8'
-                          } p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-all`}
+                          } p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-surface-hover dark:bg-neutral-800 dark:hover:bg-neutral-800 text-content-faint hover:text-content-secondary transition-all`}
                           title={t('chat.copyResponse')}>
                           {copiedMessageId === msg.id ? (
                             <svg
@@ -2326,23 +2326,23 @@ const Conversations = ({
                 <div className="flex justify-start">
                   <div className="relative w-fit max-w-[75%]">
                     {selectedStreamingAssistant.thinking.length > 0 && (
-                      <details className="mb-1.5 bg-stone-100 dark:bg-neutral-800 rounded-lg px-3 py-1.5 text-xs text-stone-600 dark:text-neutral-300 open:bg-stone-100 dark:bg-neutral-800 dark:open:bg-neutral-800">
+                      <details className="mb-1.5 bg-surface-subtle rounded-lg px-3 py-1.5 text-xs text-content-secondary open:bg-stone-100 dark:bg-neutral-800 dark:open:bg-neutral-800">
                         <summary className="cursor-pointer select-none flex items-center gap-1.5">
                           <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
                           <span>{t('chat.thinking')}</span>
                         </summary>
-                        <pre className="whitespace-pre-wrap break-words mt-1.5 font-sans text-[11px] text-stone-500 dark:text-neutral-400">
+                        <pre className="whitespace-pre-wrap break-words mt-1.5 font-sans text-[11px] text-content-muted">
                           {selectedStreamingAssistant.thinking.slice(-STREAMING_PREVIEW_CHARS)}
                         </pre>
                       </details>
                     )}
                     {selectedStreamingAssistant.content.length > 0 &&
                       (selectedThreadToolTimeline.length === 0 || hideAgentInsights) && (
-                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100">
-                          <p className="text-xs text-stone-700 dark:text-neutral-200 font-mono whitespace-pre-wrap break-words leading-snug">
+                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-content">
+                          <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
                             {selectedStreamingAssistant.content.length >
                               STREAMING_PREVIEW_CHARS && (
-                              <span className="text-stone-400 dark:text-neutral-500">…</span>
+                              <span className="text-content-faint">…</span>
                             )}
                             {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
                             <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
@@ -2365,10 +2365,10 @@ const Conversations = ({
                         <span>{t('chat.parallelBranchLabel')}</span>
                       </div>
                       {branch.content.length > 0 && (
-                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100 border-l-2 border-primary-400/60">
-                          <p className="text-xs text-stone-700 dark:text-neutral-200 font-mono whitespace-pre-wrap break-words leading-snug">
+                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-content border-l-2 border-primary-400/60">
+                          <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
                             {branch.content.length > STREAMING_PREVIEW_CHARS && (
-                              <span className="text-stone-400 dark:text-neutral-500">…</span>
+                              <span className="text-content-faint">…</span>
                             )}
                             {branch.content.slice(-STREAMING_PREVIEW_CHARS)}
                             <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
@@ -2388,7 +2388,7 @@ const Conversations = ({
             {selectedInferenceStatus &&
               (selectedInferenceStatus.phase === 'thinking' ||
                 selectedThreadToolTimeline.length === 0) && (
-                <div className="flex items-center gap-2 px-1 py-1.5 text-xs text-stone-500 dark:text-neutral-400">
+                <div className="flex items-center gap-2 px-1 py-1.5 text-xs text-content-muted">
                   <span className="inline-block w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
                   <span>
                     {selectedInferenceStatus.phase === 'thinking' &&
@@ -2438,7 +2438,7 @@ const Conversations = ({
           <ChatNewWindowHero />
         ) : (
           <div className="flex-1 flex items-center justify-center h-full">
-            <p className="text-sm text-stone-600 dark:text-neutral-300">{t('chat.noMessages')}</p>
+            <p className="text-sm text-content-secondary">{t('chat.noMessages')}</p>
           </div>
         )}
       </div>
@@ -2560,7 +2560,7 @@ const Conversations = ({
               type="button"
               data-analytics-id="chat-send-advisory-dismiss"
               onClick={() => setSendAdvisory(null)}
-              className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors ml-2">
+              className="text-xs text-content-muted hover:text-content-secondary dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors ml-2">
               {t('common.dismiss')}
             </button>
           </div>
@@ -2575,7 +2575,7 @@ const Conversations = ({
               type="button"
               data-analytics-id="chat-attach-error-dismiss"
               onClick={() => setAttachError(null)}
-              className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors ml-2">
+              className="text-xs text-content-muted hover:text-content-secondary transition-colors ml-2">
               {t('common.dismiss')}
             </button>
           </div>
@@ -2609,7 +2609,7 @@ const Conversations = ({
                 type="button"
                 data-analytics-id="chat-send-error-dismiss"
                 onClick={() => setSendError(null)}
-                className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors">
+                className="text-xs text-content-muted hover:text-content-secondary dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors">
                 {t('common.dismiss')}
               </button>
             </div>
@@ -2792,7 +2792,7 @@ const Conversations = ({
               data-analytics-id="chat-voice-switch-to-text"
               onClick={() => setInputMode('text')}
               disabled={isRecording || isTranscribing}
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
+              className="w-10 h-10 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
               title={t('chat.switchToText')}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -2821,7 +2821,7 @@ const Conversations = ({
                   ? t('chat.stopAndSend')
                   : t('chat.startTalking')}
             </button>
-            <p className="text-xs text-stone-400 dark:text-neutral-500 truncate">
+            <p className="text-xs text-content-faint truncate">
               {voiceStatus ??
                 (isPlayingReply && replyMode === 'voice'
                   ? t('chat.playingVoiceReply')

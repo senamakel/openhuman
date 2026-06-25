@@ -73,7 +73,7 @@ export function SyncAuditPanel() {
 
   if (loading) {
     return (
-      <div className="text-xs text-stone-400 dark:text-neutral-500 py-2">
+      <div className="text-xs text-content-faint py-2">
         {t('common.loading', 'Loading...')}
       </div>
     );
@@ -81,7 +81,7 @@ export function SyncAuditPanel() {
 
   if (entries.length === 0) {
     return (
-      <div className="text-xs text-stone-400 dark:text-neutral-500 py-2">
+      <div className="text-xs text-content-faint py-2">
         {t('sync.noAuditEntries', 'No sync runs recorded yet.')}
       </div>
     );
@@ -93,7 +93,7 @@ export function SyncAuditPanel() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-4 text-xs text-stone-500 dark:text-neutral-400">
+      <div className="flex items-center gap-4 text-xs text-content-muted">
         <span>
           {entries.length} {t('sync.runs', 'sync runs')}
         </span>
@@ -106,9 +106,9 @@ export function SyncAuditPanel() {
           ${totalCost.toFixed(4)} {t('sync.totalCost', 'total')}
         </span>
       </div>
-      <div className="max-h-48 overflow-y-auto rounded-md border border-stone-100 dark:border-neutral-800">
+      <div className="max-h-48 overflow-y-auto rounded-md border border-line-subtle">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-stone-50 dark:bg-neutral-900 text-stone-500 dark:text-neutral-400">
+          <thead className="sticky top-0 bg-surface-muted text-content-muted">
             <tr>
               <th className="px-3 py-1.5 text-left font-medium">{t('sync.when', 'When')}</th>
               <th className="px-3 py-1.5 text-left font-medium">{t('sync.source', 'Source')}</th>
@@ -127,27 +127,27 @@ export function SyncAuditPanel() {
                 key={`${e.timestamp}-${i}`}
                 className="hover:bg-stone-50 dark:hover:bg-neutral-800/50">
                 <td
-                  className="px-3 py-1.5 text-stone-600 dark:text-neutral-300 whitespace-nowrap"
+                  className="px-3 py-1.5 text-content-secondary whitespace-nowrap"
                   title={e.timestamp}>
                   {timeAgo(e.timestamp, t)}
                 </td>
                 <td
-                  className="px-3 py-1.5 text-stone-700 dark:text-neutral-200 truncate max-w-[180px]"
+                  className="px-3 py-1.5 text-content-secondary truncate max-w-[180px]"
                   title={e.scope}>
                   {scopeLabel(e.scope)}
                 </td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-stone-600 dark:text-neutral-300">
+                <td className="px-3 py-1.5 text-right tabular-nums text-content-secondary">
                   {e.items_fetched}
                 </td>
                 <td
-                  className="px-3 py-1.5 text-right tabular-nums text-stone-600 dark:text-neutral-300"
+                  className="px-3 py-1.5 text-right tabular-nums text-content-secondary"
                   title={`${e.input_tokens} in / ${e.output_tokens} out`}>
                   {formatTokens(e.input_tokens + e.output_tokens)}
                 </td>
-                <td className="px-3 py-1.5 text-right tabular-nums font-medium text-stone-700 dark:text-neutral-200">
+                <td className="px-3 py-1.5 text-right tabular-nums font-medium text-content-secondary">
                   ${e.estimated_cost_usd.toFixed(4)}
                 </td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-stone-500 dark:text-neutral-400">
+                <td className="px-3 py-1.5 text-right tabular-nums text-content-muted">
                   {formatDuration(e.duration_ms)}
                 </td>
                 <td className="px-3 py-1.5 text-center">

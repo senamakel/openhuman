@@ -56,7 +56,7 @@ export default function PanelHeader({
           <div className="flex min-w-0 items-center gap-2">
             {leading}
             {title != null && (
-              <h2 className="truncate text-base font-semibold text-stone-900 dark:text-neutral-100">
+              <h2 className="truncate text-base font-semibold text-content">
                 {title}
               </h2>
             )}
@@ -66,7 +66,7 @@ export default function PanelHeader({
       )}
 
       {description != null && (
-        <p className="mt-0.5 text-sm text-stone-500 dark:text-neutral-400">{description}</p>
+        <p className="mt-0.5 text-sm text-content-muted">{description}</p>
       )}
 
       {children}

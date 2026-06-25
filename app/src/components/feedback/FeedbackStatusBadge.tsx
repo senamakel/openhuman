@@ -7,7 +7,7 @@ const STATUS_STYLES: Record<FeedbackStatus, { pill: string; dot: string }> = {
   planned: { pill: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' },
   completed: { pill: 'bg-sage-500/10 text-sage-600 dark:text-sage-400', dot: 'bg-sage-500' },
   closed: {
-    pill: 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-400',
+    pill: 'bg-neutral-500/10 text-content-muted',
     dot: 'bg-neutral-400',
   },
 };

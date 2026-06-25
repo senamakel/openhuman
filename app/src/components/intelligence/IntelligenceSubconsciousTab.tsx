@@ -109,7 +109,7 @@ export default function IntelligenceSubconsciousTab({
     <div className="space-y-5 animate-fade-up">
       {/* Mode selector */}
       <div>
-        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-2">
+        <h3 className="text-sm font-semibold text-content mb-2">
           {t('subconscious.mode.label')}
         </h3>
         <div className="grid grid-cols-3 gap-2">
@@ -122,7 +122,7 @@ export default function IntelligenceSubconsciousTab({
               className={`flex flex-col items-center text-center rounded-lg border p-3 transition ${
                 mode === opt.id
                   ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10'
-                  : 'border-stone-200 dark:border-neutral-800 hover:border-primary-300 dark:hover:border-primary-500/40'
+                  : 'border-line hover:border-primary-300 dark:hover:border-primary-500/40'
               } ${settingMode ? 'opacity-60 cursor-wait' : ''}`}>
               <span
                 className={`inline-block w-3 h-3 rounded-full border-2 mb-1.5 ${
@@ -131,10 +131,10 @@ export default function IntelligenceSubconsciousTab({
                     : 'border-stone-300 dark:border-neutral-600'
                 }`}
               />
-              <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+              <span className="text-sm font-medium text-content">
                 {t(opt.titleKey)}
               </span>
-              <p className="mt-1 text-[11px] leading-tight text-stone-500 dark:text-neutral-400">
+              <p className="mt-1 text-[11px] leading-tight text-content-muted">
                 {t(opt.descKey)}
               </p>
             </button>
@@ -151,10 +151,10 @@ export default function IntelligenceSubconsciousTab({
       {isEnabled && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-medium text-stone-700 dark:text-neutral-300">
+            <label className="text-xs font-medium text-content-secondary">
               {t('subconscious.interval.label')}
             </label>
-            <span className="text-xs text-stone-500 dark:text-neutral-400">
+            <span className="text-xs text-content-muted">
               {formatMinutes(sliderToMinutes(localSlider), t)}
             </span>
           </div>
@@ -167,9 +167,9 @@ export default function IntelligenceSubconsciousTab({
             onChange={handleSliderChange}
             onMouseUp={handleSliderCommit}
             onTouchEnd={handleSliderCommit}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-stone-200 dark:bg-neutral-700 accent-primary-500"
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-surface-strong accent-primary-500"
           />
-          <div className="flex justify-between mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+          <div className="flex justify-between mt-1 text-[10px] text-content-faint">
             <span>5m</span>
             <span>1h</span>
             <span>24h</span>
@@ -180,7 +180,7 @@ export default function IntelligenceSubconsciousTab({
       {/* Status bar + Run Now */}
       {isEnabled && (
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-neutral-500">
+          <div className="flex items-center gap-2 text-xs text-content-faint">
             {status && (
               <>
                 <span>

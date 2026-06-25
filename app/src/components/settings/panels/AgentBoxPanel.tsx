@@ -65,7 +65,7 @@ const AgentBoxPanel = () => {
   const body = useMemo(() => {
     if (state.kind === 'loading') {
       return (
-        <div className="px-4 py-3 text-sm text-neutral-500 dark:text-neutral-400">
+        <div className="px-4 py-3 text-sm text-content-muted">
           {t('common.loading')}
         </div>
       );
@@ -73,7 +73,7 @@ const AgentBoxPanel = () => {
     if (state.kind === 'error') {
       return (
         <div className="px-4 py-3">
-          <div className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 mb-1">
+          <div className="text-sm font-semibold text-content mb-1">
             {t('settings.agentbox.unavailable')}
           </div>
           <SettingsStatusLine saving={false} error={state.message} savingLabel="" />

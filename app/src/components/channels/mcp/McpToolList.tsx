@@ -26,7 +26,7 @@ const McpToolList = ({ tools, onTryTool }: McpToolListProps) => {
 
   if (safeTools.length === 0) {
     return (
-      <p className="text-xs text-stone-400 dark:text-neutral-500">{t('mcp.toolList.noTools')}</p>
+      <p className="text-xs text-content-faint">{t('mcp.toolList.noTools')}</p>
     );
   }
 
@@ -35,7 +35,7 @@ const McpToolList = ({ tools, onTryTool }: McpToolListProps) => {
       <button
         type="button"
         onClick={() => setExpanded(prev => !prev)}
-        className="flex items-center gap-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:text-stone-900 dark:hover:text-neutral-100">
+        className="flex items-center gap-1.5 text-xs font-medium text-content-secondary hover:text-content">
         <span className={`transition-transform ${expanded ? 'rotate-90' : ''}`} aria-hidden="true">
           ▶
         </span>
@@ -45,11 +45,11 @@ const McpToolList = ({ tools, onTryTool }: McpToolListProps) => {
       </button>
 
       {expanded && (
-        <ul className="mt-2 space-y-1 pl-4 border-l-2 border-stone-100 dark:border-neutral-800">
+        <ul className="mt-2 space-y-1 pl-4 border-l-2 border-line-subtle">
           {safeTools.map(tool => (
             <li key={tool.name} className="space-y-0.5">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-mono font-medium text-stone-800 dark:text-neutral-100 break-words min-w-0">
+                <p className="text-xs font-mono font-medium text-content break-words min-w-0">
                   {tool.name}
                 </p>
                 {onTryTool && (
@@ -63,7 +63,7 @@ const McpToolList = ({ tools, onTryTool }: McpToolListProps) => {
                 )}
               </div>
               {tool.description && (
-                <p className="text-[11px] text-stone-500 dark:text-neutral-400">
+                <p className="text-[11px] text-content-muted">
                   {tool.description}
                 </p>
               )}

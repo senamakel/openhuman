@@ -75,7 +75,7 @@ const ToolPolicyDiagnosticsPanel = () => {
   const body = useMemo(() => {
     if (status.kind === 'loading') {
       return (
-        <div className="px-4 py-3 text-sm text-neutral-500 dark:text-neutral-400">
+        <div className="px-4 py-3 text-sm text-content-muted">
           {t('devOptions.toolPolicyDiagnostics.loading')}
         </div>
       );
@@ -83,7 +83,7 @@ const ToolPolicyDiagnosticsPanel = () => {
     if (status.kind === 'error') {
       return (
         <div className="px-4 py-3">
-          <div className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 mb-1">
+          <div className="text-sm font-semibold text-content mb-1">
             {t('devOptions.toolPolicyDiagnostics.unavailable')}
           </div>
           <SettingsStatusLine saving={false} error={status.message} savingLabel="" />

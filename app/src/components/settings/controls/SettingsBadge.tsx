@@ -10,7 +10,7 @@ export interface SettingsBadgeProps {
 
 const VARIANTS: Record<SettingsBadgeVariant, string> = {
   neutral:
-    'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700',
+    'bg-surface-subtle text-content-secondary border-neutral-200 dark:border-neutral-700',
   primary:
     'bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 border-primary-200 dark:border-primary-500/30',
   success:

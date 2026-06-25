@@ -105,19 +105,19 @@ const PrivacyPanel = () => {
         {/* What leaves my computer */}
         <SettingsSection title={t('privacy.whatLeavesComputer')}>
           {loadState === 'loading' && (
-            <p className="p-4 text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="p-4 text-xs text-content-muted">
               {t('privacy.loading')}
             </p>
           )}
           {loadState === 'error' && (
             <p
-              className="p-4 text-xs text-neutral-500 dark:text-neutral-400"
+              className="p-4 text-xs text-content-muted"
               data-testid="privacy-load-error">
               {t('privacy.loadError')}
             </p>
           )}
           {loadState === 'ready' && capabilities.length === 0 && (
-            <p className="p-4 text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="p-4 text-xs text-content-muted">
               {t('privacy.noCapabilities')}
             </p>
           )}
@@ -127,14 +127,14 @@ const PrivacyPanel = () => {
                 <li key={cap.id} className="p-4" data-testid={`privacy-row-${cap.id}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
+                      <p className="text-sm font-medium text-content">
                         {cap.name}
                       </p>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
+                      <p className="text-xs text-content-muted mt-1 leading-relaxed">
                         {cap.description}
                       </p>
                       {cap.privacy.destinations.length > 0 && (
-                        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+                        <p className="text-xs text-content-faint mt-1">
                           {t('privacy.sentTo')}: {cap.privacy.destinations.join(', ')}
                         </p>
                       )}
@@ -143,7 +143,7 @@ const PrivacyPanel = () => {
                       <SettingsBadge variant={KIND_BADGE_VARIANT[cap.privacy.data_kind]}>
                         {kindLabel(cap.privacy.data_kind, t)}
                       </SettingsBadge>
-                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                      <span className="text-[10px] text-content-muted">
                         {cap.privacy.leaves_device
                           ? t('privacy.leavesDevice')
                           : t('privacy.staysLocal')}
@@ -196,10 +196,10 @@ const PrivacyPanel = () => {
         </SettingsSection>
 
         {/* Info Box */}
-        <div className="p-4 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200 dark:border-neutral-800">
+        <div className="p-4 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-line">
           <div className="flex items-start space-x-3">
             <svg
-              className="w-5 h-5 text-neutral-400 dark:text-neutral-500 mt-0.5 flex-shrink-0"
+              className="w-5 h-5 text-content-faint mt-0.5 flex-shrink-0"
               fill="currentColor"
               viewBox="0 0 20 20">
               <path
@@ -209,7 +209,7 @@ const PrivacyPanel = () => {
               />
             </svg>
             <div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              <p className="text-xs text-content-muted leading-relaxed">
                 {t('privacy.analyticsDisclaimer')}
               </p>
             </div>

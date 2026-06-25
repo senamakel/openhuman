@@ -94,10 +94,10 @@ export default function DiagramViewerTab() {
         <div>
           <h2
             id="diagram-viewer-title"
-            className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
+            className="text-lg font-semibold text-content">
             {t('intelligence.diagram.title')}
           </h2>
-          <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">
+          <p className="mt-1 text-sm text-content-muted">
             {t('intelligence.diagram.description')}
           </p>
         </div>
@@ -117,10 +117,10 @@ export default function DiagramViewerTab() {
             <LuImage aria-hidden="true" className="h-6 w-6" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+            <h3 className="text-sm font-semibold text-content">
               {t('intelligence.diagram.emptyTitle')}
             </h3>
-            <p className="mt-1 max-w-md text-sm text-stone-500 dark:text-neutral-400">
+            <p className="mt-1 max-w-md text-sm text-content-muted">
               {t('intelligence.diagram.emptyDescription')}
             </p>
           </div>
@@ -145,7 +145,7 @@ export default function DiagramViewerTab() {
             onLoad={() => setImageState('loaded')}
             onError={() => setImageState('error')}
           />
-          <figcaption className="flex flex-wrap items-center justify-between gap-2 text-xs text-stone-500 dark:text-neutral-400">
+          <figcaption className="flex flex-wrap items-center justify-between gap-2 text-xs text-content-muted">
             <span>
               {t('intelligence.diagram.refreshesEvery').replace(
                 '{seconds}',

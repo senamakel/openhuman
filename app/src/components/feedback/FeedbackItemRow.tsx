@@ -68,18 +68,18 @@ export default function FeedbackItemRow({
           <FeedbackStatusBadge status={item.status} />
         </div>
 
-        <h3 className="mt-2 break-words font-display text-[15px] font-semibold leading-snug text-neutral-900 dark:text-neutral-100">
+        <h3 className="mt-2 break-words font-title text-[15px] font-semibold leading-snug text-content">
           {item.title}
         </h3>
 
         <p
-          className={`mt-1 whitespace-pre-wrap break-words text-sm text-neutral-500 dark:text-neutral-400 ${
+          className={`mt-1 whitespace-pre-wrap break-words text-sm text-content-muted ${
             expanded ? '' : 'line-clamp-2'
           }`}>
           {item.body}
         </p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-neutral-400 dark:text-neutral-500">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-content-faint">
           <span className="flex items-center gap-1.5">
             <span
               className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${avatarTint(
@@ -87,7 +87,7 @@ export default function FeedbackItemRow({
               )}`}>
               {avatarInitial}
             </span>
-            <span className="font-medium text-neutral-500 dark:text-neutral-400">{authorName}</span>
+            <span className="font-medium text-content-muted">{authorName}</span>
           </span>
           <span>·</span>
           <span>{formatDate(item.createdAt)}</span>

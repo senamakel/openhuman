@@ -284,7 +284,7 @@ export const IntegrationConnectCard: React.FC<Props> = ({ threadId, approval }) 
           🔗
         </span>
         <div className="min-w-0 flex-1">
-          <p className="break-words font-semibold text-neutral-900 dark:text-neutral-50">
+          <p className="break-words font-semibold text-content">
             {approval.message || t('chat.approval.fallback')}
           </p>
 
@@ -293,7 +293,7 @@ export const IntegrationConnectCard: React.FC<Props> = ({ threadId, approval }) 
               {requiredFields.map(field => (
                 <label
                   key={field.key}
-                  className="block text-xs text-neutral-700 dark:text-neutral-300">
+                  className="block text-xs text-content-secondary">
                   <span className="font-medium">{t(field.labelKey)}</span>
                   <span className="mt-1 flex items-center gap-1.5">
                     <input
@@ -306,13 +306,13 @@ export const IntegrationConnectCard: React.FC<Props> = ({ threadId, approval }) 
                       className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-neutral-0 px-2.5 py-1.5 text-ink outline-none transition focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                     />
                     {field.suffix && (
-                      <span className="shrink-0 text-neutral-400 dark:text-neutral-500">
+                      <span className="shrink-0 text-content-faint">
                         {field.suffix}
                       </span>
                     )}
                   </span>
                   {field.hintKey && (
-                    <span className="mt-1 block text-neutral-500 dark:text-neutral-400">
+                    <span className="mt-1 block text-content-muted">
                       {t(field.hintKey)}
                     </span>
                   )}
@@ -333,9 +333,9 @@ export const IntegrationConnectCard: React.FC<Props> = ({ threadId, approval }) 
             </p>
           )}
 
-          <p className="mt-1.5 text-xs text-neutral-400 dark:text-neutral-500">
+          <p className="mt-1.5 text-xs text-content-faint">
             {t('chat.approval.tool')}{' '}
-            <span className="font-mono text-neutral-500 dark:text-neutral-400">
+            <span className="font-mono text-content-muted">
               {approval.toolName}
             </span>
           </p>

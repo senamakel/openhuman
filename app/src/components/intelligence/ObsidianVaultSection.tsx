@@ -210,7 +210,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
           data-testid="obsidian-vault-guidance"
           className="w-full max-w-xl rounded-lg border border-violet-200 bg-violet-50 p-4
                      text-sm dark:border-violet-500/30 dark:bg-violet-500/10">
-          <p className="text-neutral-700 dark:text-neutral-200">{helpText}</p>
+          <p className="text-content-secondary">{helpText}</p>
 
           <code
             className="mt-2 block break-all rounded bg-white/70 px-2 py-1 font-mono text-xs
@@ -253,7 +253,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
             <div className="mt-2 space-y-1.5">
               <label
                 htmlFor="obsidian-config-dir"
-                className="block text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                className="block text-xs font-medium text-content-secondary">
                 {t('workspace.obsidianConfigDirLabel')}
               </label>
               <div className="flex flex-wrap items-center gap-2">
@@ -279,7 +279,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
                   {t('common.save')}
                 </button>
               </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="text-xs text-content-muted">
                 {t('workspace.obsidianConfigDirHint')}
               </p>
             </div>

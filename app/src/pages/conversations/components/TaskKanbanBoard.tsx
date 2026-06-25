@@ -199,7 +199,7 @@ export function TaskKanbanBoard({
     <div className="py-3">
       {!hideHeader && (
         <div className="mb-2 flex items-center justify-between gap-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-content-muted">
             {t(headerTitleKey)}
           </h4>
           <div className="flex items-center gap-2">
@@ -213,7 +213,7 @@ export function TaskKanbanBoard({
                 {t('conversations.taskKanban.sourcesButton')}
               </button>
             )}
-            <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+            <span className="text-[10px] text-content-faint">
               {board.cards.length}
             </span>
           </div>
@@ -238,10 +238,10 @@ export function TaskKanbanBoard({
               onDragLeave={canMoveCards ? handleDragLeave : undefined}
               onDrop={canMoveCards ? e => handleDrop(e, column.status) : undefined}>
               <div className="mb-2 flex items-center justify-between gap-2">
-                <h5 className="truncate text-[11px] font-medium text-stone-600 dark:text-neutral-300">
+                <h5 className="truncate text-[11px] font-medium text-content-secondary">
                   {t(column.labelKey)}
                 </h5>
-                <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+                <span className="text-[10px] text-content-faint">
                   {cards.length}
                 </span>
               </div>
@@ -330,11 +330,11 @@ function TaskBoardArticle({
     <article
       draggable={isDraggable}
       onDragStart={isDraggable ? handleDragStart : undefined}
-      className={`rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2.5 py-2 shadow-sm transition-opacity ${
+      className={`rounded-lg border border-line bg-surface px-2.5 py-2 shadow-sm transition-opacity ${
         mutating ? 'opacity-50' : 'opacity-100'
       } ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
       <div className="flex items-start gap-2">
-        <p className="min-w-0 flex-1 break-words text-xs font-medium leading-snug text-stone-800 dark:text-neutral-100">
+        <p className="min-w-0 flex-1 break-words text-xs font-medium leading-snug text-content">
           {card.title}
         </p>
         {card.sessionThreadId && onViewSession ? (
@@ -385,7 +385,7 @@ function TaskBoardArticle({
               aria-label={t('conversations.taskKanban.moveLeft')}
               disabled={disabled || columnStatus === 'todo'}
               onClick={() => onMove(card, -1)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-stone-400 dark:text-neutral-500 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 disabled:opacity-25">
+              className="flex h-7 w-7 items-center justify-center rounded-md text-content-faint transition-colors hover:bg-surface-hover dark:bg-neutral-800 hover:text-content-secondary dark:text-neutral-200 disabled:opacity-25">
               <LuArrowLeft className="h-4 w-4" />
             </button>
             <button
@@ -394,7 +394,7 @@ function TaskBoardArticle({
               aria-label={t('conversations.taskKanban.moveRight')}
               disabled={disabled || columnStatus === 'done'}
               onClick={() => onMove(card, 1)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-stone-400 dark:text-neutral-500 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 disabled:opacity-25">
+              className="flex h-7 w-7 items-center justify-center rounded-md text-content-faint transition-colors hover:bg-surface-hover dark:bg-neutral-800 hover:text-content-secondary dark:text-neutral-200 disabled:opacity-25">
               <LuArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -466,12 +466,12 @@ function TaskBoardArticle({
         )}
       </div>
       {card.objective && (
-        <p className="mt-1 break-words text-[11px] leading-snug text-stone-500 dark:text-neutral-400">
+        <p className="mt-1 break-words text-[11px] leading-snug text-content-muted">
           {card.objective}
         </p>
       )}
       {card.notes && (
-        <p className="mt-1 break-words text-[11px] leading-snug text-stone-500 dark:text-neutral-400">
+        <p className="mt-1 break-words text-[11px] leading-snug text-content-muted">
           {card.notes}
         </p>
       )}
@@ -693,11 +693,11 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
     <section className="mb-3 rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <h5 className="text-xs font-semibold text-stone-800 dark:text-neutral-100">
+          <h5 className="text-xs font-semibold text-content">
             {t('conversations.taskKanban.sources.title')}
           </h5>
           {!compact && status && (
-            <p className="text-[11px] text-stone-500 dark:text-neutral-400">
+            <p className="text-[11px] text-content-muted">
               {status.enabled
                 ? t('conversations.taskKanban.sources.statusEnabled')
                 : t('settings.taskSources.disabledBanner')}
@@ -742,11 +742,11 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
         </p>
       )}
       {loading ? (
-        <p className="mt-2 text-[11px] text-stone-400 dark:text-neutral-500">
+        <p className="mt-2 text-[11px] text-content-faint">
           {t('common.loading')}
         </p>
       ) : sources.length === 0 ? (
-        <p className="mt-2 text-[11px] text-stone-400 dark:text-neutral-500">
+        <p className="mt-2 text-[11px] text-content-faint">
           {t('settings.taskSources.empty')}
         </p>
       ) : (
@@ -757,10 +757,10 @@ function TaskSourceControls({ disabled, compact }: { disabled: boolean; compact:
               className="min-w-0 rounded-lg border border-stone-200 px-2.5 py-2 dark:border-neutral-800">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-stone-800 dark:text-neutral-100">
+                  <p className="truncate text-xs font-medium text-content">
                     {source.name || providerLabel(source.provider, t)}
                   </p>
-                  <p className="truncate text-[11px] text-stone-500 dark:text-neutral-400">
+                  <p className="truncate text-[11px] text-content-muted">
                     {providerLabel(source.provider, t)}
                     {source.target === 'agent_todo_proactive'
                       ? ` · ${t('settings.taskSources.proactive')}`
@@ -869,10 +869,10 @@ function TaskBriefDialog({
       <section className="max-h-full w-full max-w-xl overflow-y-auto rounded-lg border border-stone-200 bg-white p-4 shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase text-stone-400 dark:text-neutral-500">
+            <p className="text-[11px] font-semibold uppercase text-content-faint">
               {t('conversations.taskKanban.briefTitle')}
             </p>
-            <h3 className="break-words text-base font-semibold text-stone-900 dark:text-neutral-50">
+            <h3 className="break-words text-base font-semibold text-content">
               {card.title}
             </h3>
           </div>
@@ -892,7 +892,7 @@ function TaskBriefDialog({
         {editable ? (
           <div className="space-y-3 text-sm">
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+              <span className="mb-1 block text-xs font-semibold text-content-muted">
                 {t('conversations.taskKanban.field.title')}
               </span>
               <input
@@ -903,7 +903,7 @@ function TaskBriefDialog({
             </label>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+                <span className="mb-1 block text-xs font-semibold text-content-muted">
                   {t('conversations.taskKanban.field.status')}
                 </span>
                 <select
@@ -926,7 +926,7 @@ function TaskBriefDialog({
                 onChange={setAssignedAgent}
               />
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+                <span className="mb-1 block text-xs font-semibold text-content-muted">
                   {t('conversations.taskKanban.field.approval')}
                 </span>
                 <select
@@ -1112,7 +1112,7 @@ function SourceBriefField({
     <div className="min-w-0">
       <dt className="text-[11px] font-semibold text-sky-700 dark:text-sky-200">{label}</dt>
       <dd
-        className={`mt-0.5 break-words text-xs text-stone-800 dark:text-neutral-100 ${
+        className={`mt-0.5 break-words text-xs text-content ${
           mono ? 'font-mono' : ''
         }`}>
         {value}
@@ -1132,7 +1132,7 @@ function BriefInput({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+      <span className="mb-1 block text-xs font-semibold text-content-muted">
         {label}
       </span>
       <input
@@ -1155,7 +1155,7 @@ function BriefTextarea({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
+      <span className="mb-1 block text-xs font-semibold text-content-muted">
         {label}
       </span>
       <textarea
@@ -1182,11 +1182,11 @@ function BriefText({
   if (!value) return null;
   return (
     <div>
-      <h4 className="mb-1 text-xs font-semibold text-stone-500 dark:text-neutral-400">{label}</h4>
+      <h4 className="mb-1 text-xs font-semibold text-content-muted">{label}</h4>
       <p
         className={`break-words text-sm ${
           mono ? 'font-mono' : ''
-        } ${tone === 'danger' ? 'text-coral-600' : 'text-stone-800 dark:text-neutral-100'}`}>
+        } ${tone === 'danger' ? 'text-coral-600' : 'text-content'}`}>
         {value}
       </p>
     </div>
@@ -1208,11 +1208,11 @@ function BriefList({
   const List = ordered ? 'ol' : 'ul';
   return (
     <div>
-      <h4 className="mb-1 text-xs font-semibold text-stone-500 dark:text-neutral-400">{label}</h4>
+      <h4 className="mb-1 text-xs font-semibold text-content-muted">{label}</h4>
       <List
         className={`space-y-1 ${
           ordered ? 'list-decimal' : 'list-disc'
-        } list-inside text-sm text-stone-800 dark:text-neutral-100 ${mono ? 'font-mono' : ''}`}>
+        } list-inside text-sm text-content ${mono ? 'font-mono' : ''}`}>
         {values.map((value, index) => (
           <li key={index} className="break-words">
             {value}

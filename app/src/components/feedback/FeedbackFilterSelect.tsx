@@ -167,7 +167,7 @@ export default function FeedbackFilterSelect({
                   className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-1.5 text-left text-xs transition-colors ${
                     selected
                       ? 'font-medium text-primary-600 dark:text-primary-400'
-                      : 'text-neutral-600 dark:text-neutral-300'
+                      : 'text-content-secondary'
                   } ${
                     active
                       ? 'bg-neutral-100 dark:bg-white/[0.08]'

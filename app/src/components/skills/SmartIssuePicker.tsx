@@ -256,7 +256,7 @@ const SmartIssuePicker = ({ values, onPatchInputs }: SmartIssuePickerProps) => {
           value={values.repo ?? ''}
           onChange={e => void onRepoSelect(e.target.value)}
           disabled={reposLoading}
-          className="w-full rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-sm text-stone-900 dark:text-stone-100">
+          className="w-full rounded border border-stone-300 dark:border-stone-600 bg-surface px-3 py-2 text-sm text-stone-900 dark:text-stone-100">
           <option value="">
             {reposLoading
               ? t('settings.devWorkflow.loadingRepositories')
@@ -301,7 +301,7 @@ const SmartIssuePicker = ({ values, onPatchInputs }: SmartIssuePickerProps) => {
             value={values.target_branch ?? ''}
             onChange={e => onPatchInputs({ target_branch: e.target.value })}
             disabled={branchesLoading}
-            className="w-full rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-sm text-stone-900 dark:text-stone-100">
+            className="w-full rounded border border-stone-300 dark:border-stone-600 bg-surface px-3 py-2 text-sm text-stone-900 dark:text-stone-100">
             {branches.map(b => (
               <option key={b.name} value={b.name}>
                 {b.name}

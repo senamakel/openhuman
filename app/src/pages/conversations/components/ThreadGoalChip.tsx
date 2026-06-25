@@ -205,7 +205,7 @@ export function ThreadGoalFooterTrigger({
       onClick={ctl.toggle}
       aria-expanded={ctl.expanded}
       title={ctl.goal.objective}
-      className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs hover:bg-stone-100 dark:hover:bg-neutral-800">
+      className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs hover:bg-surface-hover">
       <span aria-hidden className="shrink-0 text-stone-400">
         ◎
       </span>
@@ -215,7 +215,7 @@ export function ThreadGoalFooterTrigger({
       </span>
       <MarqueeText
         text={ctl.goal.objective}
-        className="max-w-[18rem] text-stone-600 dark:text-neutral-300"
+        className="max-w-[18rem] text-content-secondary"
       />
     </button>
   );
@@ -271,7 +271,7 @@ export function ThreadGoalEditorPanel({
         )}
         <div className="ml-auto flex items-center gap-1">
           {budgetText && (
-            <span className="shrink-0 text-[11px] tabular-nums text-stone-400 dark:text-neutral-500">
+            <span className="shrink-0 text-[11px] tabular-nums text-content-faint">
               {budgetText}
             </span>
           )}

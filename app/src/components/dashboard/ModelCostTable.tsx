@@ -32,7 +32,7 @@ const ModelCostTable = ({ models, currency }: ModelCostTableProps) => {
     return (
       <div
         data-testid="model-cost-table-empty"
-        className="text-xs text-stone-500 dark:text-neutral-400 italic py-2">
+        className="text-xs text-content-muted italic py-2">
         {t('settings.costDashboard.noModels')}
       </div>
     );
@@ -42,7 +42,7 @@ const ModelCostTable = ({ models, currency }: ModelCostTableProps) => {
     <div className="overflow-x-auto -mx-1" data-testid="model-cost-table">
       <table className="w-full text-xs">
         <thead>
-          <tr className="text-left text-[10px] uppercase tracking-wide text-stone-500 dark:text-neutral-400 border-b border-stone-200 dark:border-neutral-800">
+          <tr className="text-left text-[10px] uppercase tracking-wide text-content-muted border-b border-line">
             <Th>{t('settings.costDashboard.model')}</Th>
             <Th>{t('settings.costDashboard.provider')}</Th>
             <Th align="right">{t('settings.costDashboard.tokens')}</Th>
@@ -64,7 +64,7 @@ const ModelCostTable = ({ models, currency }: ModelCostTableProps) => {
                 className="group border-b border-stone-100 dark:border-neutral-800/60 last:border-0 hover:bg-stone-50/60 dark:hover:bg-neutral-800/40 transition-colors">
                 <Td>
                   <div
-                    className="font-medium text-stone-800 dark:text-neutral-100 truncate max-w-[16rem]"
+                    className="font-medium text-content truncate max-w-[16rem]"
                     title={row.model}>
                     {modelName}
                   </div>
@@ -76,17 +76,17 @@ const ModelCostTable = ({ models, currency }: ModelCostTableProps) => {
                   </span>
                 </Td>
                 <Td align="right">
-                  <span className="tabular-nums text-stone-700 dark:text-neutral-200">
+                  <span className="tabular-nums text-content-secondary">
                     {formatTokens(row.total_tokens)}
                   </span>
                 </Td>
                 <Td align="right">
-                  <span className="tabular-nums text-stone-700 dark:text-neutral-200">
+                  <span className="tabular-nums text-content-secondary">
                     {row.request_count}
                   </span>
                 </Td>
                 <Td align="right">
-                  <span className="tabular-nums font-medium text-stone-900 dark:text-neutral-50">
+                  <span className="tabular-nums font-medium text-content">
                     {formatCurrency(row.cost_usd, currency)}
                   </span>
                 </Td>
@@ -94,13 +94,13 @@ const ModelCostTable = ({ models, currency }: ModelCostTableProps) => {
                   <div className="flex items-center justify-end gap-2">
                     <div
                       aria-hidden
-                      className="h-1 w-12 rounded-full bg-stone-200 dark:bg-neutral-800 overflow-hidden">
+                      className="h-1 w-12 rounded-full bg-surface-strong overflow-hidden">
                       <div
                         className="h-full rounded-full bg-ocean-500"
                         style={{ width: `${sharePct}%` }}
                       />
                     </div>
-                    <span className="tabular-nums w-10 text-right text-stone-600 dark:text-neutral-300">
+                    <span className="tabular-nums w-10 text-right text-content-secondary">
                       {`${sharePct.toFixed(1)}%`}
                     </span>
                   </div>

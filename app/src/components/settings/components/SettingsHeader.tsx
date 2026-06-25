@@ -53,7 +53,7 @@ const SettingsHeader = ({
           {showBackButton && <SettingsBackButton onBack={onBack} />}
 
           {/* Title */}
-          <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+          <h2 className="text-base font-semibold text-content">
             {title ?? t('nav.settings')}
           </h2>
         </div>

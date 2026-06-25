@@ -132,7 +132,7 @@ const Home = () => {
   return (
     <div className="min-h-full flex flex-col items-center justify-center p-4">
       {/* Welcome title */}
-      <h1 className="min-h-[3.5rem] text-32l font-bold text-stone-900 dark:text-neutral-100 text-center">
+      <h1 className="min-h-[3.5rem] text-32l font-bold text-content text-center">
         {typedWelcome}
         <span aria-hidden="true" className="ml-0.5 inline-block text-primary-500 animate-pulse">
           |
@@ -168,13 +168,13 @@ const Home = () => {
         {/* Main card — data-walkthrough target for step 1 */}
         <div
           data-walkthrough="home-card"
-          className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 p-6 animate-fade-up">
+          className="bg-surface rounded-2xl shadow-soft border border-line p-6 animate-fade-up">
           {/* Header row: version centered, theme toggle right-aligned.
               The empty left spacer matches the toggle's width so the version
               stays visually centered. */}
           <div className="flex items-center justify-between mb-4">
             <div className="w-9" aria-hidden="true" />
-            <span className="text-xs text-center text-stone-400 dark:text-neutral-500">
+            <span className="text-xs text-center text-content-faint">
               v{APP_VERSION}
             </span>
             <Button
@@ -224,7 +224,7 @@ const Home = () => {
           {/* Description — copy mirrors the active blocking state so the
               user never sees a "connected" message while the pill shows a
               failure. (#1527) */}
-          <p className="text-sm text-stone-500 dark:text-neutral-400 text-center mb-6 leading-relaxed">
+          <p className="text-sm text-content-muted text-center mb-6 leading-relaxed">
             {statusCopy}
           </p>
 

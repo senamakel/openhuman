@@ -47,7 +47,7 @@ const WhatLeavesMyComputerSheet = ({ open, onClose }: WhatLeavesMyComputerSheetP
           <div>
             <h2
               id="what-leaves-title"
-              className="font-display text-2xl text-neutral-900 leading-tight">
+              className="font-title text-2xl text-neutral-900 leading-tight">
               {WHAT_LEAVES_HEADLINE}
             </h2>
           </div>

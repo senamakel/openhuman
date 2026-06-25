@@ -149,7 +149,7 @@ export default function ChatNewWindowHero() {
         data-walkthrough="home-card"
         className="animate-fade-up rounded-2xl border border-stone-200/80 bg-white/80 p-6 shadow-soft backdrop-blur-sm dark:border-neutral-800/80 dark:bg-neutral-900/80">
         {/* Animated greeting */}
-        <h1 className="min-h-[3.5rem] text-2xl text-center font-bold text-stone-900 dark:text-neutral-100">
+        <h1 className="min-h-[3.5rem] text-2xl text-center font-bold text-content">
           {typedWelcome}
           <span aria-hidden="true" className="ml-0.5 inline-block animate-pulse text-primary-500">
             |
@@ -158,7 +158,7 @@ export default function ChatNewWindowHero() {
 
         {/* Description — copy mirrors the active blocking state (incl. the
             "device connected" get-started line in the normal case). */}
-        <p className="text-center text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
+        <p className="text-center text-sm leading-relaxed text-content-muted">
           {statusCopy}
         </p>
 

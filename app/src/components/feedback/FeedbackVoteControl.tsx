@@ -70,7 +70,7 @@ export default function FeedbackVoteControl({ item, onVoted }: FeedbackVoteContr
       ? 'text-orange-500'
       : downActive
         ? 'text-indigo-400'
-        : 'text-neutral-700 dark:text-neutral-200';
+        : 'text-content-secondary';
 
   return (
     <div

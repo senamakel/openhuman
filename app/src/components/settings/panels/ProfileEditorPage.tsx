@@ -226,7 +226,7 @@ const ProfileEditorPage = () => {
               <SettingsRow
                 label={t('settings.profiles.editor.id')}
                 control={
-                  <code className="font-mono text-xs text-neutral-500 dark:text-neutral-400">
+                  <code className="font-mono text-xs text-content-muted">
                     {profileId}
                   </code>
                 }

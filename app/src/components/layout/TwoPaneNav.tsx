@@ -43,7 +43,7 @@ export default function TwoPaneNav({
           <div key={group.label ?? `__group-${groupIndex}`}>
             {group.label && (
               <div className="px-2 pb-0.5 pt-2.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">
                   {group.label}
                 </span>
               </div>
@@ -67,7 +67,7 @@ export default function TwoPaneNav({
                         className={`shrink-0 ${
                           active
                             ? 'text-primary-600 dark:text-primary-400'
-                            : 'text-stone-400 dark:text-neutral-500'
+                            : 'text-content-faint'
                         }`}>
                         {item.icon ?? null}
                       </span>

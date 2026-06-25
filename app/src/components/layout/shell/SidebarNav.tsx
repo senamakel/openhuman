@@ -81,7 +81,7 @@ export default function SidebarNav() {
             className={`group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors cursor-pointer ${
               active
                 ? 'bg-primary-50 text-primary-700 ring-1 ring-primary-200 dark:bg-neutral-800 dark:text-neutral-100 dark:ring-0 font-semibold shadow-sm'
-                : 'text-stone-500 dark:text-neutral-400 hover:bg-stone-200/70 dark:hover:bg-neutral-800/60 hover:text-stone-700 dark:hover:text-neutral-200'
+                : 'text-content-muted hover:bg-stone-200/70 dark:hover:bg-neutral-800/60 hover:text-content-secondary'
             }`}>
             <span className="relative inline-flex flex-shrink-0">
               <NavIcon id={tab.id} className="w-4 h-4" />

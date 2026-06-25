@@ -76,7 +76,7 @@ function statusTone(status: ToolTimelineEntryStatus | undefined): {
   if (status === 'cancelled') {
     return {
       dot: 'bg-stone-400 dark:bg-neutral-500',
-      pill: 'bg-stone-100 dark:bg-neutral-700/40 text-stone-600 dark:text-neutral-300',
+      pill: 'bg-stone-100 dark:bg-neutral-700/40 text-content-secondary',
       label: 'statusCancelled',
     };
   }
@@ -233,20 +233,20 @@ export function SubagentDrawer({
         className="absolute inset-0 bg-stone-900/30 dark:bg-black/50"
         onClick={onClose}
       />
-      <aside className="relative flex h-full w-full max-w-md flex-col bg-white dark:bg-neutral-900 shadow-xl">
+      <aside className="relative flex h-full w-full max-w-md flex-col bg-surface shadow-xl">
         {/* Header */}
-        <header className="flex items-center gap-2.5 border-b border-stone-200 dark:border-neutral-800 px-4 py-3">
+        <header className="flex items-center gap-2.5 border-b border-line px-4 py-3">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-50 dark:bg-primary-500/15 text-base">
             🤖
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="truncate font-semibold text-stone-800 dark:text-neutral-100">
+              <span className="truncate font-semibold text-content">
                 {subagent.agentId}
               </span>
               <span className={`h-2 w-2 shrink-0 rounded-full ${tone.dot}`} />
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-stone-500 dark:text-neutral-400">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-content-muted">
               <span className={`rounded-full px-1.5 py-0.5 ${tone.pill}`}>
                 {t(`conversations.subagent.${tone.label}`)}
               </span>
@@ -316,13 +316,13 @@ export function SubagentDrawer({
           ) : null}
 
           {/* Sub-agent side: avatar label + its turns. */}
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-content-faint">
             <span>🤖</span>
             {subagent.agentId}
           </div>
 
           {transcript.length === 0 ? (
-            <p className="text-xs italic text-stone-400 dark:text-neutral-500">
+            <p className="text-xs italic text-content-faint">
               {isRunning
                 ? t('conversations.subagent.working')
                 : t('conversations.subagent.noOutputYet')}
@@ -336,11 +336,11 @@ export function SubagentDrawer({
                 const turnDivider = showTurn ? (
                   <li
                     aria-hidden
-                    className="flex items-center gap-2 pt-1 text-[10px] font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500"
+                    className="flex items-center gap-2 pt-1 text-[10px] font-medium uppercase tracking-wide text-content-faint"
                     data-testid="subagent-turn-divider">
-                    <span className="h-px flex-1 bg-stone-200 dark:bg-neutral-800" />
+                    <span className="h-px flex-1 bg-surface-strong" />
                     {t('conversations.toolTimeline.turn')} {item.iteration}
-                    <span className="h-px flex-1 bg-stone-200 dark:bg-neutral-800" />
+                    <span className="h-px flex-1 bg-surface-strong" />
                   </li>
                 ) : null;
 
@@ -350,11 +350,11 @@ export function SubagentDrawer({
                       <div
                         className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2"
                         data-testid="subagent-transcript-thinking">
-                        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-stone-500 dark:text-neutral-400">
+                        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-content-muted">
                           <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />
                           {t('conversations.subagent.thinking')}
                         </div>
-                        <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-stone-600 dark:text-neutral-300">
+                        <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-content-secondary">
                           {stripToolCallEnvelopes(item.text).trim()}
                         </pre>
                       </div>
@@ -435,7 +435,7 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
       : item.status === 'success'
         ? 'text-sage-700 dark:text-sage-300'
         : item.status === 'cancelled'
-          ? 'text-stone-600 dark:text-neutral-300'
+          ? 'text-content-secondary'
           : item.status === 'awaiting_user'
             ? 'text-amber-700 dark:text-amber-300'
             : 'text-coral-700 dark:text-coral-300';
@@ -458,7 +458,7 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
     'max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-white px-2 py-1.5 ' +
     'font-mono text-[11px] leading-relaxed text-stone-600 dark:bg-neutral-900 dark:text-neutral-300';
   const detailLabel =
-    'mb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500';
+    'mb-1 text-[10px] font-semibold uppercase tracking-wide text-content-faint';
 
   return (
     <div
@@ -472,17 +472,17 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
         data-testid="subagent-tool-call-toggle"
         className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left disabled:cursor-default">
         {expandable ? (
-          <span className="shrink-0 text-[9px] text-stone-400 dark:text-neutral-500">
+          <span className="shrink-0 text-[9px] text-content-faint">
             {expanded ? '▾' : '▸'}
           </span>
         ) : (
           <span className="w-[9px] shrink-0" aria-hidden />
         )}
         <span className={callTone}>🔧</span>
-        <span className="font-mono text-stone-700 dark:text-neutral-200">{item.toolName}</span>
+        <span className="font-mono text-content-secondary">{item.toolName}</span>
         <span className={`ml-auto ${callTone}`}>{statusLabel}</span>
         {item.elapsedMs != null && item.status !== 'running' ? (
-          <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+          <span className="text-[10px] text-content-faint">
             {formatElapsed(item.elapsedMs)}
           </span>
         ) : null}

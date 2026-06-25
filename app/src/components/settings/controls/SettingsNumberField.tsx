@@ -71,7 +71,7 @@ const SettingsNumberField = ({
             </span>
           )}
           {hasRange && (
-            <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
+            <span className="text-[11px] text-content-faint">
               {min}&#x2013;{max}
             </span>
           )}

@@ -110,7 +110,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
       <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -303,7 +303,7 @@ function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
       </div>
       {error && <p className="mt-1 pl-[2.625rem] text-xs text-coral-500">{error}</p>}
       <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-100 pl-[2.625rem] pt-2 dark:border-neutral-800">
-        <span className="hidden text-[11px] text-stone-400 dark:text-neutral-500 sm:inline">
+        <span className="hidden text-[11px] text-content-faint sm:inline">
           <kbd className="rounded border border-stone-200 px-1 font-sans dark:border-neutral-700">
             ⌘
           </kbd>
@@ -318,7 +318,7 @@ function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
               className={`text-[11px] tabular-nums ${
                 remaining <= 20
                   ? 'font-medium text-coral-500'
-                  : 'text-stone-400 dark:text-neutral-500'
+                  : 'text-content-faint'
               }`}>
               {remaining}
             </span>
@@ -373,13 +373,13 @@ function InlineComments({ post, myAgentId }: { post: GqlPost; myAgentId: string 
   return (
     <div className="mt-3 border-t border-stone-100 pt-2 dark:border-neutral-800">
       {loading && (
-        <p className="animate-pulse py-2 text-xs text-stone-400 dark:text-neutral-500">
+        <p className="animate-pulse py-2 text-xs text-content-faint">
           Loading comments…
         </p>
       )}
       {error && <p className="py-2 text-xs text-red-500">{error}</p>}
       {!loading && !error && comments.length === 0 && (
-        <p className="py-2 text-xs text-stone-400 dark:text-neutral-500">No comments yet.</p>
+        <p className="py-2 text-xs text-content-faint">No comments yet.</p>
       )}
       <div className="divide-y divide-stone-100 dark:divide-neutral-800">
         {comments.map(c => (
@@ -435,7 +435,7 @@ function PostCard({
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-1">
-            <span className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-100">
+            <span className="truncate text-sm font-semibold text-content">
               {post.author.displayName || post.author.handle}
             </span>
             {post.author.verified && (
@@ -451,7 +451,7 @@ function PostCard({
               </svg>
             )}
           </div>
-          <span className="text-xs text-stone-400 dark:text-neutral-500">
+          <span className="text-xs text-content-faint">
             @{post.author.handle}
           </span>
         </div>
@@ -480,12 +480,12 @@ function PostCard({
       </div>
 
       {/* Post body */}
-      <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-stone-800 dark:text-neutral-200">
+      <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-content">
         {post.body}
       </p>
 
       {/* Metadata row */}
-      <div className="flex items-center gap-4 text-xs text-stone-400 dark:text-neutral-500">
+      <div className="flex items-center gap-4 text-xs text-content-faint">
         <span>{relativeTime(post.createdAt)}</span>
         {item.reason === 'recommended' && (
           <span className="rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
@@ -495,7 +495,7 @@ function PostCard({
         <button
           type="button"
           onClick={() => setShowComments(open => !open)}
-          className="hover:text-stone-600 dark:hover:text-neutral-300">
+          className="hover:text-content-secondary">
           {post.commentCount} {post.commentCount === 1 ? 'comment' : 'comments'}
         </button>
         {myAgentId ? (
@@ -505,7 +505,7 @@ function PostCard({
             className={`flex items-center gap-1 ${
               (likeState[post.postId]?.liked ?? post.viewerHasLiked)
                 ? 'text-red-500'
-                : 'text-stone-400 dark:text-neutral-500 hover:text-red-400'
+                : 'text-content-faint hover:text-red-400'
             }`}>
             <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -556,10 +556,10 @@ function CommentRow({
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+          <span className="text-sm font-medium text-content">
             {comment.author.displayName || comment.author.handle}
           </span>
-          <span className="text-xs text-stone-400 dark:text-neutral-500">
+          <span className="text-xs text-content-faint">
             {relativeTime(comment.createdAt)}
           </span>
           {myAgentId && comment.author.cryptoId === myAgentId && (
@@ -579,7 +579,7 @@ function CommentRow({
             </button>
           )}
         </div>
-        <p className="mt-0.5 text-sm text-stone-700 dark:text-neutral-300">{comment.body}</p>
+        <p className="mt-0.5 text-sm text-content-secondary">{comment.body}</p>
       </div>
     </div>
   );
@@ -750,14 +750,14 @@ export default function FeedSection() {
 
   if (feedState.status === 'loading') {
     body = (
-      <div className="flex h-64 items-center justify-center text-stone-400 dark:text-neutral-500">
+      <div className="flex h-64 items-center justify-center text-content-faint">
         <span className="animate-pulse text-sm">Loading feed…</span>
       </div>
     );
   } else if (feedState.status === 'wallet_unconfigured') {
     body = (
       <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
+        tone="text-content-secondary"
         title="Set up your wallet to view your feed"
         body="Your personalized feed uses your wallet identity. Set up or import a wallet in Settings to continue."
       />
@@ -773,7 +773,7 @@ export default function FeedSection() {
   } else if (feedState.status === 'error') {
     body = isWalletLocked(feedState.message) ? (
       <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
+        tone="text-content-secondary"
         title="Unlock your wallet to view your feed"
         body="Your personalized feed uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
@@ -787,7 +787,7 @@ export default function FeedSection() {
   } else if (feedState.items.length === 0) {
     body = (
       <StatusBlock
-        tone="text-stone-500 dark:text-neutral-400"
+        tone="text-content-muted"
         title="No posts in your feed yet"
         body="Follow some agents to see their posts here."
       />

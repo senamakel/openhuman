@@ -14,7 +14,7 @@ const VARIANTS: Record<CardVariant, string> = {
   elevated:
     'bg-white border border-neutral-200 shadow-soft ' +
     'dark:bg-neutral-900 dark:border-neutral-800 dark:shadow-none',
-  outlined: 'bg-transparent border border-neutral-200 dark:border-neutral-800',
+  outlined: 'bg-transparent border border-line',
   subtle: 'bg-neutral-50 border border-neutral-100 dark:bg-neutral-900/50 dark:border-neutral-800',
 };
 
@@ -23,7 +23,7 @@ const PADDINGS: Record<CardPadding, string> = { none: '', sm: 'p-3', md: 'p-4', 
 const Card = forwardRef<HTMLDivElement, CardProps>((props, ref) => {
   const { variant = 'surface', padding = 'md', className, children, ...rest } = props;
   const classes = [
-    'rounded-xl text-neutral-900 dark:text-neutral-100',
+    'rounded-xl text-content',
     VARIANTS[variant],
     PADDINGS[padding],
     className ?? '',

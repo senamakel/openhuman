@@ -37,7 +37,7 @@ const SettingsSearchBar = ({ value, onValueChange }: SettingsSearchBarProps) => 
 
   return (
     <div data-testid="settings-search" className="relative shrink-0">
-      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-400 dark:text-neutral-500">
+      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-content-faint">
         <SearchIcon />
       </span>
       <input

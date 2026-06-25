@@ -111,10 +111,10 @@ export function TeamTaskBoard({ tasks, members }: TeamTaskBoardProps) {
             key={column.status}
             className={`min-w-0 rounded-lg bg-stone-50 p-2 dark:bg-neutral-800/60 ${accentClass}`}>
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h5 className="truncate text-[11px] font-medium text-stone-600 dark:text-neutral-300">
+              <h5 className="truncate text-[11px] font-medium text-content-secondary">
                 {t(column.labelKey)}
               </h5>
-              <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+              <span className="text-[10px] text-content-faint">
                 {cards.length}
               </span>
             </div>
@@ -164,12 +164,12 @@ function TeamTaskCard({
     <article
       style={borderStyle}
       className="rounded-lg border border-stone-200 bg-white px-2.5 py-2 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <p className="break-words text-xs font-medium leading-snug text-stone-800 dark:text-neutral-100">
+      <p className="break-words text-xs font-medium leading-snug text-content">
         {task.title}
       </p>
 
       {showClaimer && (
-        <p className="mt-0.5 text-[10px] text-stone-500 dark:text-neutral-400">
+        <p className="mt-0.5 text-[10px] text-content-muted">
           {t('intelligence.teams.pickedUpBy').replace('{name}', claimer.name)}
         </p>
       )}
@@ -212,7 +212,7 @@ function TeamTaskCard({
       </div>
 
       {task.objective && (
-        <p className="mt-1 break-words text-[11px] leading-snug text-stone-500 dark:text-neutral-400">
+        <p className="mt-1 break-words text-[11px] leading-snug text-content-muted">
           {task.objective}
         </p>
       )}

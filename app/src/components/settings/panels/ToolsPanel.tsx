@@ -97,7 +97,7 @@ const ToolsPanel = ({ embedded = false }: ToolsPanelProps = {}) => {
 
   const body = (
     <>
-      <p className="text-neutral-500 dark:text-neutral-400 text-sm">
+      <p className="text-content-muted text-sm">
         {t('settings.tools.chooseCapabilities')}
       </p>
 

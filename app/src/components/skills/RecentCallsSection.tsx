@@ -33,12 +33,12 @@ export function RecentCallsSection({
   return (
     <section
       aria-label={t('skills.meetingBots.recentCallsAriaLabel')}
-      className="mt-4 border-t border-stone-200 dark:border-neutral-800 pt-4">
+      className="mt-4 border-t border-line pt-4">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
           {t('skills.meetingBots.recentCallsHeading')}
           {rows && rows.length > 0 && (
-            <span className="ml-1 text-stone-400 dark:text-neutral-500 normal-case font-normal">
+            <span className="ml-1 text-content-faint normal-case font-normal">
               ({rows.length})
             </span>
           )}
@@ -48,11 +48,11 @@ export function RecentCallsSection({
       {error && <p className="mt-2 text-[11px] text-coral-600 dark:text-coral-400">{error}</p>}
 
       {rows === null ? (
-        <p className="mt-2 text-[11px] text-stone-400 dark:text-neutral-500">
+        <p className="mt-2 text-[11px] text-content-faint">
           {t('skills.meetingBots.recentCallsLoading')}
         </p>
       ) : rows.length === 0 ? (
-        <p className="mt-2 text-[11px] text-stone-400 dark:text-neutral-500">
+        <p className="mt-2 text-[11px] text-content-faint">
           {t('skills.meetingBots.recentCallsEmpty')}
         </p>
       ) : (
@@ -129,7 +129,7 @@ function RecentCallRow({ call }: { call: MeetCallRecord }) {
   }, [status, detail, loadDetail]);
 
   return (
-    <li className="rounded-lg text-[11px] text-stone-700 dark:text-neutral-300">
+    <li className="rounded-lg text-[11px] text-content-secondary">
       <button
         type="button"
         onClick={toggle}
@@ -138,15 +138,15 @@ function RecentCallRow({ call }: { call: MeetCallRecord }) {
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1">
             <Chevron expanded={expanded} />
-            <span className="truncate font-mono text-stone-800 dark:text-neutral-200">
+            <span className="truncate font-mono text-content">
               {meetingCode}
             </span>
           </span>
-          <span className="shrink-0 text-stone-400 dark:text-neutral-500">
+          <span className="shrink-0 text-content-faint">
             {formatRelativeTime(call.started_at_ms)}
           </span>
         </div>
-        <div className="mt-0.5 flex items-center gap-3 pl-4 text-[10px] text-stone-500 dark:text-neutral-400">
+        <div className="mt-0.5 flex items-center gap-3 pl-4 text-[10px] text-content-muted">
           <span>
             {t(
               call.turn_count === 1
@@ -164,7 +164,7 @@ function RecentCallRow({ call }: { call: MeetCallRecord }) {
           )}
         </div>
         {participants.length > 0 && (
-          <div className="mt-0.5 truncate pl-4 text-[10px] text-stone-500 dark:text-neutral-400">
+          <div className="mt-0.5 truncate pl-4 text-[10px] text-content-muted">
             {t('skills.meetingBots.recentCallParticipants').replace(
               '{names}',
               participants.join(', ')
@@ -195,7 +195,7 @@ function RecentCallDetailBody({
 
   if (status === 'idle' || status === 'loading') {
     return (
-      <p className="text-[10px] text-stone-400 dark:text-neutral-500">
+      <p className="text-[10px] text-content-faint">
         {t('skills.meetingBots.callDetailLoading')}
       </p>
     );
@@ -221,7 +221,7 @@ function RecentCallDetailBody({
 
   if (!hasSummary && transcript.length === 0) {
     return (
-      <p className="text-[10px] text-stone-400 dark:text-neutral-500">
+      <p className="text-[10px] text-content-faint">
         {t('skills.meetingBots.callDetailEmpty')}
       </p>
     );
@@ -241,14 +241,14 @@ function CallSummary({ summary }: { summary: MeetCallSummary }) {
     <div className="space-y-1.5">
       <SectionLabel>{t('skills.meetingBots.callSummaryHeading')}</SectionLabel>
       {summary.headline.trim() && (
-        <p className="text-[11px] text-stone-700 dark:text-neutral-300">{summary.headline}</p>
+        <p className="text-[11px] text-content-secondary">{summary.headline}</p>
       )}
       {summary.key_points.length > 0 && (
         <div>
-          <p className="text-[10px] font-medium text-stone-500 dark:text-neutral-400">
+          <p className="text-[10px] font-medium text-content-muted">
             {t('skills.meetingBots.callKeyPointsHeading')}
           </p>
-          <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[10px] text-stone-600 dark:text-neutral-400">
+          <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[10px] text-content-secondary">
             {summary.key_points.map((point, i) => (
               <li key={i}>{point}</li>
             ))}
@@ -257,10 +257,10 @@ function CallSummary({ summary }: { summary: MeetCallSummary }) {
       )}
       {summary.action_items.length > 0 && (
         <div>
-          <p className="text-[10px] font-medium text-stone-500 dark:text-neutral-400">
+          <p className="text-[10px] font-medium text-content-muted">
             {t('skills.meetingBots.callActionItemsHeading')}
           </p>
-          <ul className="mt-0.5 space-y-0.5 text-[10px] text-stone-600 dark:text-neutral-400">
+          <ul className="mt-0.5 space-y-0.5 text-[10px] text-content-secondary">
             {summary.action_items.map((item, i) => {
               const meta = [
                 item.assignee?.trim() || undefined,
@@ -272,7 +272,7 @@ function CallSummary({ summary }: { summary: MeetCallSummary }) {
                   <span>
                     {item.description}
                     {meta.length > 0 && (
-                      <span className="text-stone-400 dark:text-neutral-500">
+                      <span className="text-content-faint">
                         {' '}
                         ({meta.join(' · ')})
                       </span>
@@ -300,7 +300,7 @@ function CallTranscript({ lines }: { lines: MeetCallTranscriptLine[] }) {
             className={
               line.role === 'assistant'
                 ? 'text-[10px] text-ocean-700 dark:text-ocean-300'
-                : 'text-[10px] text-stone-600 dark:text-neutral-400'
+                : 'text-[10px] text-content-secondary'
             }>
             {line.content}
           </p>
@@ -312,7 +312,7 @@ function CallTranscript({ lines }: { lines: MeetCallTranscriptLine[] }) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+    <p className="text-[10px] font-semibold uppercase tracking-wide text-content-muted">
       {children}
     </p>
   );

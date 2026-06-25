@@ -610,17 +610,17 @@ const LogsFolderRow = () => {
   if (!isTauri()) return null;
 
   return (
-    <div className="px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60">
+    <div className="px-4 py-3 rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          <div className="text-sm font-semibold text-content">
             {t('devOptions.appLogs')}
           </div>
-          <div className="text-xs text-neutral-700 dark:text-neutral-300 mt-0.5">
+          <div className="text-xs text-content-secondary mt-0.5">
             {t('devOptions.appLogsDesc')}
           </div>
           {path && (
-            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 font-mono truncate">
+            <div className="text-[11px] text-content-muted mt-1 font-mono truncate">
               {path}
             </div>
           )}

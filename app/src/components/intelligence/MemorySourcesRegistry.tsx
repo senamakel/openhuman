@@ -496,7 +496,7 @@ export function MemorySourcesRegistry({
       className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
       data-testid="memory-sources">
       <header className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+        <h3 className="text-sm font-semibold text-content-secondary">
           {t('memorySources.title')}
         </h3>
         <div className="flex items-center gap-2">
@@ -528,9 +528,9 @@ export function MemorySourcesRegistry({
       <MemorySyncSchedule lastSyncMs={overallLastSyncMs} onToast={onToast} />
 
       {loading ? (
-        <p className="text-xs text-stone-500 dark:text-neutral-400">{t('common.loading')}</p>
+        <p className="text-xs text-content-muted">{t('common.loading')}</p>
       ) : sources.length === 0 ? (
-        <p className="text-xs text-stone-500 dark:text-neutral-400">{t('memorySources.empty')}</p>
+        <p className="text-xs text-content-muted">{t('memorySources.empty')}</p>
       ) : (
         <ul className="divide-y divide-stone-100 dark:divide-neutral-800">
           {sources.map(source => (
@@ -650,10 +650,10 @@ function MemorySyncSchedule({ lastSyncMs, onToast }: MemorySyncScheduleProps) {
       data-testid="memory-sync-schedule">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-stone-600 dark:text-neutral-300">
+          <p className="text-xs font-semibold text-content-secondary">
             {t('memorySyncInterval.title')}
           </p>
-          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+          <p className="mt-0.5 text-xs text-content-muted">
             <span>
               {t('memorySyncInterval.lastSynced')} {lastSync ?? t('memorySyncInterval.never')}
             </span>
@@ -741,7 +741,7 @@ function SourceRow({
             <span
               className={`truncate text-sm font-medium ${
                 source.enabled
-                  ? 'text-stone-900 dark:text-neutral-100'
+                  ? 'text-content'
                   : 'text-stone-400 line-through dark:text-neutral-500'
               }`}>
               {source.label}
@@ -752,13 +752,13 @@ function SourceRow({
             {status && status.chunks_synced > 0 && <FreshnessPill freshness={status.freshness} />}
           </div>
           {detail && (
-            <p className="mt-0.5 truncate pl-7 text-xs text-stone-400 dark:text-neutral-500">
+            <p className="mt-0.5 truncate pl-7 text-xs text-content-faint">
               {detail}
             </p>
           )}
           {progress && (
             <div className="mt-2 pl-7">
-              <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-neutral-400">
+              <div className="flex items-center gap-2 text-xs text-content-muted">
                 <span className="capitalize">{progress.stage}</span>
                 {progress.percent !== null && (
                   <span className="font-medium text-primary-600 dark:text-primary-400">
@@ -766,12 +766,12 @@ function SourceRow({
                   </span>
                 )}
                 {progress.detail && (
-                  <span className="truncate text-stone-400 dark:text-neutral-500">
+                  <span className="truncate text-content-faint">
                     {progress.detail}
                   </span>
                 )}
               </div>
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-neutral-700">
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-strong">
                 <div
                   className="h-full rounded-full bg-primary-500 transition-all duration-300"
                   style={{
@@ -807,7 +807,7 @@ function SourceRow({
             !result &&
             status &&
             (status.chunks_synced > 0 || status.chunks_pending > 0) && (
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-7 text-xs text-stone-500 dark:text-neutral-400">
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-7 text-xs text-content-muted">
                 <span>
                   {status.chunks_synced.toLocaleString()} {t('sync.chunks')}
                 </span>
@@ -913,7 +913,7 @@ function FreshnessPill({ freshness }: { freshness: FreshnessLabel }) {
       ? 'bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300'
       : freshness === 'recent'
         ? 'bg-sage-100 dark:bg-sage-500/20 text-sage-700 dark:text-sage-300'
-        : 'bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200';
+        : 'bg-surface-subtle text-content-secondary';
   return <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${cls}`}>{label}</span>;
 }
 

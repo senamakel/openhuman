@@ -116,7 +116,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
             )}
             {t(RUN_STATUS_KEY[run.status])}
           </span>
-          <span className="font-mono text-[11px] text-stone-400 dark:text-neutral-500">
+          <span className="font-mono text-[11px] text-content-faint">
             {run.id}
           </span>
         </div>
@@ -175,7 +175,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
                   <span
                     className={`h-2 w-2 flex-none rounded-full ${PHASE_STATUS_DOT[state.status]}`}
                   />
-                  <span className="truncate text-sm font-medium text-stone-800 dark:text-neutral-100">
+                  <span className="truncate text-sm font-medium text-content">
                     {phaseDef?.name ?? name}
                   </span>
                   <span
@@ -184,7 +184,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
                     {t(PHASE_STATUS_KEY[state.status])}
                   </span>
                 </span>
-                <span className="flex flex-none items-center gap-2 text-[11px] text-stone-400 dark:text-neutral-500">
+                <span className="flex flex-none items-center gap-2 text-[11px] text-content-faint">
                   {hasOutputs && (
                     <span data-testid={`workflow-phase-count-${name}`}>
                       {state.outputs.length} {t('orchestration.detail.agents')}
@@ -195,7 +195,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
               </button>
 
               {phaseDef?.description && (
-                <p className="px-3 pb-1 text-xs text-stone-500 dark:text-neutral-400">
+                <p className="px-3 pb-1 text-xs text-content-muted">
                   {phaseDef.description}
                 </p>
               )}
@@ -214,15 +214,15 @@ export const WorkflowRunDetail: React.FC<Props> = ({
                       key={`${out.orchestrationId}-${idx}`}
                       className="rounded-lg border border-stone-100 bg-stone-50 p-2 dark:border-neutral-800 dark:bg-neutral-800/40">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+                        <span className="text-xs font-medium text-content-secondary">
                           {out.agentId}
                         </span>
-                        <span className="font-mono text-[10px] text-stone-400 dark:text-neutral-500">
+                        <span className="font-mono text-[10px] text-content-faint">
                           {out.orchestrationId}
                         </span>
                       </div>
                       {out.output && (
-                        <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-stone-600 dark:text-neutral-300">
+                        <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-content-secondary">
                           {out.output}
                         </p>
                       )}
@@ -238,7 +238,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
       {/* Child agent refs summary (full run-level list) */}
       {run.childRunIds.length > 0 && (
         <div
-          className="text-[11px] text-stone-400 dark:text-neutral-500"
+          className="text-[11px] text-content-faint"
           data-testid="workflow-child-refs">
           {t('orchestration.detail.childRefs')}: {run.childRunIds.length}
         </div>
@@ -252,7 +252,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
           <p className="mb-1 text-xs font-semibold text-sage-800 dark:text-sage-200">
             {t('orchestration.detail.synthesis')}
           </p>
-          <p className="whitespace-pre-wrap break-words text-sm leading-snug text-stone-700 dark:text-neutral-200">
+          <p className="whitespace-pre-wrap break-words text-sm leading-snug text-content-secondary">
             {run.summary}
           </p>
         </div>

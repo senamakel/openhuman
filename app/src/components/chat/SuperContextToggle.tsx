@@ -87,7 +87,7 @@ const SuperContextToggle = () => {
   );
 
   return (
-    <div className="flex h-7 flex-shrink-0 items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400">
+    <div className="flex h-7 flex-shrink-0 items-center gap-1.5 text-xs text-content-muted">
       <SettingsSwitch
         id="super-context-toggle"
         checked={enabled}
@@ -96,7 +96,7 @@ const SuperContextToggle = () => {
         aria-label={t('chat.superContext.label')}
         data-testid="super-context-toggle"
       />
-      <span className="font-medium text-stone-600 dark:text-neutral-300">
+      <span className="font-medium text-content-secondary">
         {t('chat.superContext.label')}
       </span>
       {/* Self-contained wrapping tooltip (the shared <Tooltip> is single-line

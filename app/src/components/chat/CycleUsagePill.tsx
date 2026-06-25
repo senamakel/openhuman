@@ -19,7 +19,7 @@ export default function CycleUsagePill() {
       {teamUsage ? (
         <LimitPill label={t('chat.cycle')} usedPct={usagePct} />
       ) : (
-        <span className="text-[10px] text-stone-400 dark:text-neutral-500 animate-pulse">
+        <span className="text-[10px] text-content-faint animate-pulse">
           {t('common.loading')}
         </span>
       )}
@@ -38,7 +38,7 @@ export default function CycleUsagePill() {
               <span>
                 ${(teamUsage.remainingUsd ?? 0).toFixed(2)} {t('chat.left')}
                 {teamUsage.cycleEndsAt && (
-                  <span className="text-stone-400 dark:text-neutral-500 ml-1">
+                  <span className="text-content-faint ml-1">
                     — {t('chat.resets')} {formatResetTime(teamUsage.cycleEndsAt)}
                   </span>
                 )}

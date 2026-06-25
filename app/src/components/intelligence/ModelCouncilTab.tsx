@@ -295,10 +295,10 @@ const ModelPickerDialog = ({
           <div>
             <h3
               id="model-council-model-picker-title"
-              className="text-sm font-semibold text-stone-900 dark:text-neutral-50">
+              className="text-sm font-semibold text-content">
               {picker.title}
             </h3>
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+            <p className="mt-1 text-xs text-content-muted">
               {t('modelCouncil.modelPickerHelp')}
             </p>
           </div>
@@ -308,7 +308,7 @@ const ModelPickerDialog = ({
         </div>
 
         <div className="mt-4 space-y-2">
-          <p className="text-[11px] font-semibold uppercase text-stone-500 dark:text-neutral-400">
+          <p className="text-[11px] font-semibold uppercase text-content-muted">
             {t('modelCouncil.modelPickerHints')}
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -327,7 +327,7 @@ const ModelPickerDialog = ({
                     : 'border-stone-200 text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900'
                 }`}>
                 {t(hint.labelKey)}
-                <span className="block font-mono text-[11px] text-stone-500 dark:text-neutral-400">
+                <span className="block font-mono text-[11px] text-content-muted">
                   {hint.value}
                 </span>
               </button>
@@ -346,7 +346,7 @@ const ModelPickerDialog = ({
                 : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-800'
             }`}>
             {t('modelCouncil.modelPickerProviderModel')}
-            <span className="block text-[11px] font-normal text-stone-500 dark:text-neutral-400">
+            <span className="block text-[11px] font-normal text-content-muted">
               {t('modelCouncil.mode.custom')}
             </span>
           </button>
@@ -378,7 +378,7 @@ const ModelPickerDialog = ({
             </select>
           </div>
           {(providersLoading || modelsLoading) && (
-            <p className="text-[11px] text-stone-500 dark:text-neutral-400">
+            <p className="text-[11px] text-content-muted">
               {t('skills.resource.preview.loading')}
             </p>
           )}
@@ -1035,10 +1035,10 @@ const ModelCouncilTab = () => {
       <div className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-50">
+            <h2 className="text-lg font-semibold text-content">
               {t('modelCouncil.listTitle')}
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-stone-600 dark:text-neutral-300">
+            <p className="mt-1 max-w-3xl text-sm text-content-secondary">
               {t('modelCouncil.listIntro')}
             </p>
           </div>
@@ -1072,10 +1072,10 @@ const ModelCouncilTab = () => {
                 className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-primary-500/50">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-50">
+                    <h3 className="truncate text-sm font-semibold text-content">
                       {council.name}
                     </h3>
-                    <p className="mt-1 line-clamp-2 text-xs text-stone-500 dark:text-neutral-400">
+                    <p className="mt-1 line-clamp-2 text-xs text-content-muted">
                       {council.description || t('modelCouncil.noCouncilDescription')}
                     </p>
                   </div>
@@ -1110,18 +1110,18 @@ const ModelCouncilTab = () => {
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
-                    <dt className="text-stone-500 dark:text-neutral-400">
+                    <dt className="text-content-muted">
                       {t('modelCouncil.juryCountLabel')}
                     </dt>
-                    <dd className="font-mono font-semibold text-stone-800 dark:text-neutral-100">
+                    <dd className="font-mono font-semibold text-content">
                       {council.jury_count}
                     </dd>
                   </div>
                   <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
-                    <dt className="text-stone-500 dark:text-neutral-400">
+                    <dt className="text-content-muted">
                       {t('modelCouncil.debateRoundsLabel')}
                     </dt>
-                    <dd className="font-mono font-semibold text-stone-800 dark:text-neutral-100">
+                    <dd className="font-mono font-semibold text-content">
                       {council.debate_rounds}
                     </dd>
                   </div>
@@ -1153,11 +1153,11 @@ const ModelCouncilTab = () => {
             <Icon name="arrow-left" size={18} />
           </Button>
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold text-stone-900 dark:text-neutral-50">
+            <h2 className="truncate text-lg font-semibold text-content">
               {view === 'edit' ? t('modelCouncil.editCouncil') : councilName}
             </h2>
             {selectedCouncil && view === 'run' && (
-              <p className="truncate text-xs text-stone-500 dark:text-neutral-400">
+              <p className="truncate text-xs text-content-muted">
                 {councilDescription || t('modelCouncil.noCouncilDescription')}
               </p>
             )}
@@ -1204,7 +1204,7 @@ const ModelCouncilTab = () => {
           <div className="space-y-1.5">
             <label
               htmlFor="model-council-name"
-              className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              className="text-xs font-medium text-content-secondary">
               {t('modelCouncil.councilNameLabel')}
             </label>
             <input
@@ -1217,7 +1217,7 @@ const ModelCouncilTab = () => {
           <div className="space-y-1.5">
             <label
               htmlFor="model-council-description"
-              className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              className="text-xs font-medium text-content-secondary">
               {t('modelCouncil.councilDescriptionLabel')}
             </label>
             <textarea
@@ -1236,7 +1236,7 @@ const ModelCouncilTab = () => {
         <section className="space-y-3">
           <label
             htmlFor="model-council-question"
-            className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+            className="text-xs font-medium text-content-secondary">
             {t('modelCouncil.questionLabel')}
           </label>
           <textarea
@@ -1254,10 +1254,10 @@ const ModelCouncilTab = () => {
       {view === 'edit' && (
         <aside className="space-y-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-content-muted">
               {t('modelCouncil.settingsTitle')}
             </p>
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+            <p className="mt-1 text-xs text-content-muted">
               {t('modelCouncil.settingsSummary')
                 .replace('{count}', String(juryCount))
                 .replace('{judge}', resolvedJudgeName)}
@@ -1268,7 +1268,7 @@ const ModelCouncilTab = () => {
             <div className="flex items-center justify-between gap-3">
               <label
                 htmlFor="model-council-jury-count"
-                className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+                className="text-xs font-medium text-content-secondary">
                 {t('modelCouncil.juryCountLabel')}
               </label>
               <output className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-700 dark:bg-neutral-800 dark:text-neutral-200">
@@ -1307,7 +1307,7 @@ const ModelCouncilTab = () => {
             <div className="flex items-center justify-between gap-3">
               <label
                 htmlFor="model-council-debate-rounds"
-                className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+                className="text-xs font-medium text-content-secondary">
                 {t('modelCouncil.debateRoundsLabel')}
               </label>
               <output className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-700 dark:bg-neutral-800 dark:text-neutral-200">
@@ -1343,7 +1343,7 @@ const ModelCouncilTab = () => {
                 </button>
               ))}
             </div>
-            <p className="text-[11px] leading-4 text-stone-500 dark:text-neutral-400">
+            <p className="text-[11px] leading-4 text-content-muted">
               {t('modelCouncil.debateRoundsHelp')}
             </p>
           </div>
@@ -1351,7 +1351,7 @@ const ModelCouncilTab = () => {
           <div className="space-y-2">
             <label
               htmlFor="model-council-judge-mode"
-              className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+              className="text-xs font-medium text-content-secondary">
               {t('modelCouncil.judgeAgentLabel')}
             </label>
             <select
@@ -1423,15 +1423,15 @@ const ModelCouncilTab = () => {
             <div>
               <h3
                 id="model-council-roster-heading"
-                className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                className="text-sm font-semibold text-content">
                 {t('modelCouncil.rosterHeading')}
               </h3>
-              <p className="text-xs text-stone-500 dark:text-neutral-400">
+              <p className="text-xs text-content-muted">
                 {t('modelCouncil.rosterHelp')}
               </p>
             </div>
             {profileStatus === 'loading' && (
-              <span className="text-xs text-stone-500 dark:text-neutral-400">
+              <span className="text-xs text-content-muted">
                 {t('modelCouncil.loadingProfiles')}
               </span>
             )}
@@ -1450,11 +1450,11 @@ const ModelCouncilTab = () => {
                   className={`rounded-lg border bg-white p-3 shadow-sm transition-colors dark:bg-neutral-900 ${
                     running
                       ? 'border-primary-300 ring-2 ring-primary-100 dark:border-primary-500/50 dark:ring-primary-500/10'
-                      : 'border-stone-200 dark:border-neutral-800'
+                      : 'border-line'
                   }`}>
                   <div className="flex gap-3">
                     <div
-                      className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-stone-100 dark:bg-neutral-800 ${
+                      className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-surface-subtle ${
                         running ? 'animate-pulse' : ''
                       }`}>
                       <RiveMascot
@@ -1466,7 +1466,7 @@ const ModelCouncilTab = () => {
                     </div>
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-50">
+                        <p className="truncate text-sm font-semibold text-content">
                           {resolved.label}
                         </p>
                         <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
@@ -1574,10 +1574,10 @@ const ModelCouncilTab = () => {
             <div>
               <h3
                 id="model-council-deliberation-heading"
-                className="text-sm font-semibold text-stone-900 dark:text-neutral-50">
+                className="text-sm font-semibold text-content">
                 {t('modelCouncil.deliberationHeading')}
               </h3>
-              <p className="text-xs text-stone-600 dark:text-neutral-300">
+              <p className="text-xs text-content-secondary">
                 {t('modelCouncil.deliberationHelp')}
               </p>
             </div>
@@ -1610,7 +1610,7 @@ const ModelCouncilTab = () => {
                   }`}>
                   <div className="flex items-start gap-3">
                     <div
-                      className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-stone-100 dark:bg-neutral-800 ${
+                      className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-subtle ${
                         liveMember?.status === 'pending' || !liveMember ? 'animate-pulse' : ''
                       }`}>
                       <RiveMascot
@@ -1628,7 +1628,7 @@ const ModelCouncilTab = () => {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-50">
+                        <p className="truncate text-sm font-semibold text-content">
                           {seat.label}
                         </p>
                         <span
@@ -1656,7 +1656,7 @@ const ModelCouncilTab = () => {
                                   ? 'border-coral-100 bg-coral-50/70 dark:border-coral-500/20 dark:bg-coral-500/10'
                                   : 'border-stone-200 bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900'
                               }`}>
-                              <p className="text-[10px] font-semibold uppercase text-stone-500 dark:text-neutral-400">
+                              <p className="text-[10px] font-semibold uppercase text-content-muted">
                                 {t('modelCouncil.roundLabel').replace(
                                   '{round}',
                                   String(turn.round)
@@ -1667,14 +1667,14 @@ const ModelCouncilTab = () => {
                                   {turn.error}
                                 </p>
                               ) : (
-                                <div className="mt-0.5 text-stone-600 dark:text-neutral-300 [&_.prose]:text-xs [&_.prose]:leading-5 [&_.prose_p]:my-0">
+                                <div className="mt-0.5 text-content-secondary [&_.prose]:text-xs [&_.prose]:leading-5 [&_.prose_p]:my-0">
                                   <BubbleMarkdown content={turn.response || ''} />
                                 </div>
                               )}
                             </div>
                           ))
                         ) : (
-                          <p className="line-clamp-5 whitespace-pre-wrap text-xs text-stone-600 dark:text-neutral-300">
+                          <p className="line-clamp-5 whitespace-pre-wrap text-xs text-content-secondary">
                             {waitingText}
                           </p>
                         )}
@@ -1692,12 +1692,12 @@ const ModelCouncilTab = () => {
 
             <div className="rounded-lg border border-primary-200 bg-white p-3 shadow-sm dark:border-primary-500/30 dark:bg-neutral-950">
               <div className="flex items-start gap-3">
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-stone-100 dark:bg-neutral-800">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-subtle">
                   <RiveMascot size="100%" face="reading" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-50">
+                    <p className="truncate text-sm font-semibold text-content">
                       {resolvedJudgeName}
                     </p>
                     <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
@@ -1706,7 +1706,7 @@ const ModelCouncilTab = () => {
                         : t('modelCouncil.judgeWaitingBadge')}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-stone-600 dark:text-neutral-300">
+                  <p className="mt-1 text-xs text-content-secondary">
                     {judgeSynthesizing
                       ? t('modelCouncil.judgeSynthesizingThought')
                       : t('modelCouncil.judgeWaitingThought')}
@@ -1719,10 +1719,10 @@ const ModelCouncilTab = () => {
           <div className="rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h4 className="font-mono text-sm font-semibold text-stone-900 dark:text-neutral-50">
+                <h4 className="font-mono text-sm font-semibold text-content">
                   {SHARED_REASONING_FILE}
                 </h4>
-                <p className="text-xs text-stone-500 dark:text-neutral-400">
+                <p className="text-xs text-content-muted">
                   {t('modelCouncil.liveScratchpadHelp')}
                 </p>
               </div>
@@ -1746,7 +1746,7 @@ const ModelCouncilTab = () => {
             <span
               role="status"
               aria-live="polite"
-              className="text-xs text-stone-500 dark:text-neutral-400">
+              className="text-xs text-content-muted">
               {t('modelCouncil.runningHint')}
             </span>
           )}
@@ -1763,7 +1763,7 @@ const ModelCouncilTab = () => {
         <section aria-labelledby="model-council-results-heading" className="space-y-3 pt-1">
           <h3
             id="model-council-results-heading"
-            className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
+            className="text-sm font-semibold text-content">
             {t('modelCouncil.resultsHeading')}
           </h3>
 
@@ -1773,7 +1773,7 @@ const ModelCouncilTab = () => {
                 key={`${member.model}-${index}`}
                 className="rounded-lg border border-stone-200 p-3 space-y-1.5 dark:border-neutral-800">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate font-mono text-xs font-medium text-stone-700 dark:text-neutral-200">
+                  <span className="truncate font-mono text-xs font-medium text-content-secondary">
                     {member.model}
                   </span>
                   <span
@@ -1790,7 +1790,7 @@ const ModelCouncilTab = () => {
                 {member.error ? (
                   <p className="text-xs text-coral-600 dark:text-coral-400">{member.error}</p>
                 ) : (
-                  <div className="break-words text-stone-600 dark:text-neutral-300 [&_.prose]:text-xs [&_.prose]:leading-5 [&_.prose_p]:my-0">
+                  <div className="break-words text-content-secondary [&_.prose]:text-xs [&_.prose]:leading-5 [&_.prose_p]:my-0">
                     <BubbleMarkdown content={member.response || ''} />
                   </div>
                 )}
@@ -1800,14 +1800,14 @@ const ModelCouncilTab = () => {
 
           <div className="rounded-lg border border-primary-200 bg-primary-50 p-3 space-y-1 dark:border-primary-500/30 dark:bg-primary-500/10">
             <div className="flex items-center justify-between gap-2">
-              <h4 className="text-xs font-semibold text-stone-800 dark:text-neutral-100">
+              <h4 className="text-xs font-semibold text-content">
                 {t('modelCouncil.synthesisHeading')}
               </h4>
-              <span className="truncate font-mono text-[10px] text-stone-500 dark:text-neutral-400">
+              <span className="truncate font-mono text-[10px] text-content-muted">
                 {t('modelCouncil.synthesisBy').replace('{model}', result.chair_model)}
               </span>
             </div>
-            <div className="break-words text-stone-700 dark:text-neutral-200 [&_.prose]:text-sm [&_.prose]:leading-6">
+            <div className="break-words text-content-secondary [&_.prose]:text-sm [&_.prose]:leading-6">
               <BubbleMarkdown content={result.synthesis} />
             </div>
           </div>
@@ -1816,10 +1816,10 @@ const ModelCouncilTab = () => {
             <div className="rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h4 className="text-xs font-semibold text-stone-800 dark:text-neutral-100">
+                  <h4 className="text-xs font-semibold text-content">
                     {t('modelCouncil.usageHeading')}
                   </h4>
-                  <p className="text-[11px] text-stone-500 dark:text-neutral-400">
+                  <p className="text-[11px] text-content-muted">
                     {t('modelCouncil.usageEstimated')}
                   </p>
                 </div>
@@ -1829,26 +1829,26 @@ const ModelCouncilTab = () => {
               </div>
               <dl className="mt-3 grid gap-2 sm:grid-cols-3">
                 <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
-                  <dt className="text-[10px] uppercase text-stone-500 dark:text-neutral-400">
+                  <dt className="text-[10px] uppercase text-content-muted">
                     {t('modelCouncil.usageInputTokens')}
                   </dt>
-                  <dd className="font-mono text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                  <dd className="font-mono text-sm font-semibold text-content">
                     {formatTokenCount(usageEstimate.inputTokens)}
                   </dd>
                 </div>
                 <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
-                  <dt className="text-[10px] uppercase text-stone-500 dark:text-neutral-400">
+                  <dt className="text-[10px] uppercase text-content-muted">
                     {t('modelCouncil.usageOutputTokens')}
                   </dt>
-                  <dd className="font-mono text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                  <dd className="font-mono text-sm font-semibold text-content">
                     {formatTokenCount(usageEstimate.outputTokens)}
                   </dd>
                 </div>
                 <div className="rounded-md bg-stone-50 px-2 py-1.5 dark:bg-neutral-950">
-                  <dt className="text-[10px] uppercase text-stone-500 dark:text-neutral-400">
+                  <dt className="text-[10px] uppercase text-content-muted">
                     {t('modelCouncil.usageTotalTokens')}
                   </dt>
-                  <dd className="font-mono text-sm font-semibold text-stone-800 dark:text-neutral-100">
+                  <dd className="font-mono text-sm font-semibold text-content">
                     {formatTokenCount(usageEstimate.totalTokens)}
                   </dd>
                 </div>

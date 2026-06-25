@@ -1015,7 +1015,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
             value={typeof value === 'number' ? value : (value as string)}
             onChange={e => onChange(e.target.value)}
             placeholder={inp.required ? t('settings.skillsRunner.placeholder.required') : ''}
-            className="w-full rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-sm text-stone-900 dark:text-stone-100"
+            className="w-full rounded border border-stone-300 dark:border-stone-600 bg-surface px-3 py-2 text-sm text-stone-900 dark:text-stone-100"
           />
           {desc}
         </div>
@@ -1032,7 +1032,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
           value={value as string}
           onChange={e => onChange(e.target.value)}
           placeholder={inp.required ? t('settings.skillsRunner.placeholder.required') : ''}
-          className="w-full rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-sm text-stone-900 dark:text-stone-100"
+          className="w-full rounded border border-stone-300 dark:border-stone-600 bg-surface px-3 py-2 text-sm text-stone-900 dark:text-stone-100"
         />
         {desc}
       </div>
@@ -1070,7 +1070,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
               value={selectedSkillId}
               onChange={e => setSelectedSkillId(e.target.value)}
               disabled={skillsLoading || skillsError !== null}
-              className="w-full rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-sm text-stone-900 dark:text-stone-100">
+              className="w-full rounded border border-stone-300 dark:border-stone-600 bg-surface px-3 py-2 text-sm text-stone-900 dark:text-stone-100">
               <option value="">
                 {skillsLoading
                   ? t('settings.skillsRunner.loadingSkills')
@@ -1258,7 +1258,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
                         id="skills-runner-schedule"
                         value={schedule}
                         onChange={e => setSchedule(e.target.value)}
-                        className="w-full rounded-xl border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-sm text-stone-900 dark:text-stone-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500">
+                        className="w-full rounded-xl border border-stone-300 dark:border-stone-600 bg-surface px-3 py-2 text-sm text-stone-900 dark:text-stone-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500">
                         {SCHEDULE_PRESETS.map(p => (
                           <option key={p.value} value={p.value}>
                             {t(p.labelKey)}
@@ -1408,7 +1408,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
                                     return (
                                       <div
                                         key={r.id}
-                                        className="rounded bg-white dark:bg-stone-800">
+                                        className="rounded bg-surface">
                                         <button
                                           type="button"
                                           onClick={() => toggleHistoryRun(job.id, r.id)}

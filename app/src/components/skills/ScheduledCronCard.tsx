@@ -107,7 +107,7 @@ export default function ScheduledCronCard({
   const containerClass = `rounded-2xl border shadow-soft transition-colors ${
     isActive
       ? 'border-sage-200 dark:border-sage-500/30 bg-gradient-to-br from-sage-50 via-white to-sage-100 dark:from-sage-500/10 dark:via-neutral-900 dark:to-sage-500/5'
-      : 'border-stone-200 dark:border-neutral-800 bg-gradient-to-br from-white via-stone-50 to-stone-100/60 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-800/80'
+      : 'border-line bg-gradient-to-br from-white via-stone-50 to-stone-100/60 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-800/80'
   }`;
 
   const headingRow = (
@@ -123,21 +123,21 @@ export default function ScheduledCronCard({
         <span
           data-testid={`${rootId}-title`}
           className={`font-mono text-sm font-semibold truncate ${
-            isActive ? 'text-sage-900 dark:text-sage-100' : 'text-stone-700 dark:text-neutral-200'
+            isActive ? 'text-sage-900 dark:text-sage-100' : 'text-content-secondary'
           }`}>
           {heading}
         </span>
         {badgeCount && badgeCount > 1 ? (
           <span
             data-testid={`${rootId}-count-badge`}
-            className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-200 dark:bg-neutral-700 text-stone-700 dark:text-neutral-300 shrink-0">
+            className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface-strong text-content-secondary shrink-0">
             ×{badgeCount}
           </span>
         ) : null}
       </div>
       <div
         data-testid={`${rootId}-schedule`}
-        className="mt-0.5 text-xs text-stone-600 dark:text-neutral-400">
+        className="mt-0.5 text-xs text-content-secondary">
         {formatSchedule(job)}
       </div>
       <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-500">
@@ -189,7 +189,7 @@ export default function ScheduledCronCard({
           }`}
         />
       </button>
-      <span className="text-[10px] text-stone-500 dark:text-neutral-400 min-w-[44px]">
+      <span className="text-[10px] text-content-muted min-w-[44px]">
         {job.enabled ? t('common.enabled') : t('common.disabled')}
       </span>
     </span>

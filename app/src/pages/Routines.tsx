@@ -179,10 +179,10 @@ const Routines = () => {
             </svg>
           </Button>
           <div>
-            <h1 className="text-lg font-bold text-stone-900 dark:text-neutral-100">
+            <h1 className="text-lg font-bold text-content">
               {t('routines.title')}
             </h1>
-            <p className="text-xs text-stone-500 dark:text-neutral-400">{t('routines.subtitle')}</p>
+            <p className="text-xs text-content-muted">{t('routines.subtitle')}</p>
           </div>
         </div>
 
@@ -196,7 +196,7 @@ const Routines = () => {
         {/* Loading */}
         {loading && (
           <div className="flex justify-center py-12">
-            <div className="text-sm text-stone-400 dark:text-neutral-500">
+            <div className="text-sm text-content-faint">
               {t('routines.loading')}
             </div>
           </div>
@@ -204,7 +204,7 @@ const Routines = () => {
 
         {/* Empty state */}
         {!loading && jobs.length === 0 && !error && (
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-stone-200 dark:border-neutral-800 p-6 text-center space-y-3">
+          <div className="bg-surface rounded-2xl border border-line p-6 text-center space-y-3">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary-50 dark:bg-primary-500/10 flex items-center justify-center">
               <svg
                 className="w-6 h-6 text-primary-500"
@@ -220,10 +220,10 @@ const Routines = () => {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-stone-700 dark:text-neutral-200">
+              <p className="text-sm font-medium text-content-secondary">
                 {t('routines.empty')}
               </p>
-              <p className="text-xs text-stone-400 dark:text-neutral-500 mt-1">
+              <p className="text-xs text-content-faint mt-1">
                 {t('routines.emptyHint')}
               </p>
             </div>

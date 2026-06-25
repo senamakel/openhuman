@@ -283,7 +283,7 @@ export default function SidebarAppRail() {
 
       {ctxMenu && (
         <div
-          className="fixed z-50 min-w-[140px] rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 py-1 shadow-strong"
+          className="fixed z-50 min-w-[140px] rounded-lg border border-line bg-surface py-1 shadow-strong"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onMouseDown={e => e.stopPropagation()}>
           <button

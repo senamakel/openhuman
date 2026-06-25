@@ -339,7 +339,7 @@ const AutocompletePanel = () => {
 
       {/* ── Runtime ────────────────────────────────────────────────── */}
       <SettingsSection title={t('autocomplete.runtime')}>
-        <div className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300 space-y-1">
+        <div className="px-4 py-3 text-sm text-content-secondary space-y-1">
           <div>
             {t('autocomplete.running')}: {status?.running ? t('common.yes') : t('common.no')}
           </div>

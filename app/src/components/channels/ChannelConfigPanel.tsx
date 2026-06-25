@@ -19,12 +19,12 @@ const ChannelConfigPanel = ({ selectedChannel, definitions }: ChannelConfigPanel
   if (selectedChannel === 'mcp') {
     return (
       <div className="space-y-4">
-        <section className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
+        <section className="rounded-xl border border-line bg-surface p-4 space-y-3">
           <div>
-            <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+            <h3 className="text-base font-semibold text-content">
               {t('channels.mcp.title')}
             </h3>
-            <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">
+            <p className="text-xs text-content-muted mt-1">
               {t('channels.mcp.description')}
             </p>
           </div>
@@ -39,12 +39,12 @@ const ChannelConfigPanel = ({ selectedChannel, definitions }: ChannelConfigPanel
 
   return (
     <div className="space-y-4">
-      <section className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
+      <section className="rounded-xl border border-line bg-surface p-4 space-y-3">
         <div>
-          <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+          <h3 className="text-base font-semibold text-content">
             {t(`channels.${definition.id}.displayName`, definition.display_name)}
           </h3>
-          <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">
+          <p className="text-xs text-content-muted mt-1">
             {t(`channels.${definition.id}.description`, definition.description)}
           </p>
         </div>

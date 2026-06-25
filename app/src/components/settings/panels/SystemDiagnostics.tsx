@@ -44,14 +44,14 @@ const LogsFolderRow = () => {
     <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-800/60">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          <div className="text-sm font-semibold text-content">
             {t('devOptions.appLogs')}
           </div>
-          <div className="mt-0.5 text-xs text-neutral-700 dark:text-neutral-300">
+          <div className="mt-0.5 text-xs text-content-secondary">
             {t('devOptions.appLogsDesc')}
           </div>
           {path && (
-            <div className="mt-1 truncate font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+            <div className="mt-1 truncate font-mono text-[11px] text-content-muted">
               {path}
             </div>
           )}
@@ -146,10 +146,10 @@ const RestartTourRow = () => {
     <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-800/60">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          <div className="text-sm font-semibold text-content">
             {t('settings.restartTour')}
           </div>
-          <div className="mt-0.5 text-xs text-neutral-700 dark:text-neutral-300">
+          <div className="mt-0.5 text-xs text-content-secondary">
             {t('settings.restartTourDesc')}
           </div>
         </div>
@@ -170,7 +170,7 @@ const SystemDiagnostics = () => {
 
   return (
     <div>
-      <h3 className="px-1 pb-2 text-sm font-medium text-neutral-800 dark:text-neutral-100">
+      <h3 className="px-1 pb-2 text-sm font-medium text-content">
         {t('devOptions.titleDiagnostics')}
       </h3>
       <div className="flex flex-col gap-3">

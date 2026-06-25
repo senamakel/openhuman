@@ -109,7 +109,7 @@ const AgentsPanel = () => {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-neutral-400 dark:text-neutral-500">
+        <div className="flex items-center justify-center py-12 text-content-faint">
           <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
           <span className="text-sm">{t('common.loading')}</span>
         </div>
@@ -162,7 +162,7 @@ function AgentRow({
     <li className={`bg-white px-4 py-3 dark:bg-neutral-900 ${agent.enabled ? '' : 'opacity-70'}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+          <h3 className="truncate text-sm font-semibold text-content">
             {agent.name}
           </h3>
           <SettingsBadge variant={isCustom ? 'primary' : 'neutral'}>
@@ -179,10 +179,10 @@ function AgentRow({
         />
       </div>
 
-      <p className="mt-1 break-words text-xs leading-snug text-neutral-500 dark:text-neutral-400">
+      <p className="mt-1 break-words text-xs leading-snug text-content-muted">
         {agent.description}
       </p>
-      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-neutral-400 dark:text-neutral-500">
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-content-faint">
         <code className="font-mono">{agent.id}</code>
         {agent.model && (
           <span>

@@ -135,7 +135,7 @@ const SandboxSettingsPanel = () => {
   if (!isTauri()) {
     return (
       <SettingsPanel description={t('settings.sandbox.menuDesc')}>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-content-muted">
           {t('settings.sandbox.desktopOnly')}
         </p>
       </SettingsPanel>
@@ -145,7 +145,7 @@ const SandboxSettingsPanel = () => {
   if (isLoading) {
     return (
       <SettingsPanel description={t('settings.sandbox.menuDesc')}>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-content-muted">
           {t('settings.sandbox.loading')}
         </p>
       </SettingsPanel>
@@ -171,7 +171,7 @@ const SandboxSettingsPanel = () => {
             <SettingsRow
               label={t('settings.sandbox.detectedBackend')}
               control={
-                <span className="text-sm font-mono text-neutral-800 dark:text-neutral-100">
+                <span className="text-sm font-mono text-content">
                   {detectedBackend}
                 </span>
               }
@@ -257,7 +257,7 @@ const SandboxSettingsPanel = () => {
                   aria-label={t('settings.sandbox.memoryLimit')}
                   min={64}
                 />
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                <span className="text-xs text-content-muted">
                   {t('settings.sandbox.memoryUnit')}
                 </span>
               </div>
@@ -284,7 +284,7 @@ const SandboxSettingsPanel = () => {
                   min={0.1}
                   step={0.1}
                 />
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                <span className="text-xs text-content-muted">
                   {t('settings.sandbox.cpuUnit')}
                 </span>
               </div>

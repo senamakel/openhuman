@@ -57,7 +57,7 @@ const SettingsBackButtonView = ({
   return (
     <button onClick={onBack} className={className} aria-label={t('common.back')}>
       <svg
-        className="w-4 h-4 text-stone-500 dark:text-neutral-400"
+        className="w-4 h-4 text-content-muted"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24">

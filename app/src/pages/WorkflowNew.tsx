@@ -59,10 +59,10 @@ export default function WorkflowNew() {
               header rather than inside the form element. */}
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <h1 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+              <h1 className="text-base font-semibold text-content">
                 {t('skills.new.title')}
               </h1>
-              <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+              <p className="mt-0.5 text-xs text-content-muted">
                 {t('skills.create.subtitle')}
               </p>
             </div>
@@ -86,7 +86,7 @@ export default function WorkflowNew() {
           </div>
 
           {/* Form */}
-          <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft">
+          <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft">
             <CreateWorkflowForm
               formId={PAGE_FORM_ID}
               onCreated={handleCreated}

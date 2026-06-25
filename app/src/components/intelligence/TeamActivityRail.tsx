@@ -63,14 +63,14 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
   return (
     <aside className="rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
           {t('intelligence.teams.activity.title')}
         </h3>
-        <span className="text-[10px] text-stone-400 dark:text-neutral-500">{messages.length}</span>
+        <span className="text-[10px] text-content-faint">{messages.length}</span>
       </div>
 
       {messages.length === 0 ? (
-        <p className="py-6 text-center text-[11px] text-stone-400 dark:text-neutral-500">
+        <p className="py-6 text-center text-[11px] text-content-faint">
           {t('intelligence.teams.activity.empty')}
         </p>
       ) : (
@@ -87,12 +87,12 @@ export function TeamActivityRail({ messages, members, onSend, sending }: TeamAct
                   {fromName.charAt(0).toUpperCase()}
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[10px] text-stone-400 dark:text-neutral-500">
-                    <b className="text-stone-600 dark:text-neutral-300">{fromName}</b>
+                  <div className="text-[10px] text-content-faint">
+                    <b className="text-content-secondary">{fromName}</b>
                     {' → '}
                     {nameFor(message.payload.to)}
                   </div>
-                  <p className="break-words text-[11px] leading-snug text-stone-700 dark:text-neutral-200">
+                  <p className="break-words text-[11px] leading-snug text-content-secondary">
                     {message.payload.content}
                   </p>
                 </div>

@@ -180,6 +180,10 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
       labelKey: 'shortcuts.action.newChat',
       group: 'Chat',
       shortcut: 'mod+n',
+      // Must fire from the composer too — that's the normal focus state when a
+      // user decides to start fresh — and preventDefault keeps the OS "new
+      // window" accelerator from swallowing it.
+      allowInInput: true,
       handler: h.newChat,
       keywords: ['new', 'thread', 'compose', 'conversation', 'session'],
     },

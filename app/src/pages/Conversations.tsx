@@ -48,9 +48,11 @@ import {
   beginInferenceTurn,
   clearFollowupsForThread,
   clearRuntimeForThread,
+  clearThreadSendPending,
   enqueueFollowup,
   fetchAndHydrateTurnState,
   markSubagentCancelled,
+  markThreadSendPending,
   type QueuedFollowup,
   registerParallelRequest,
   setTaskBoardForThread,
@@ -287,22 +289,32 @@ const Conversations = ({
   const [pendingSendingThreadIds, setPendingSendingThreadIds] = useState<ReadonlySet<string>>(
     () => new Set()
   );
-  const addPendingSendingThread = useCallback((threadId: string) => {
-    setPendingSendingThreadIds(prev => {
-      if (prev.has(threadId)) return prev;
-      const next = new Set(prev);
-      next.add(threadId);
-      return next;
-    });
-  }, []);
-  const removePendingSendingThread = useCallback((threadId: string) => {
-    setPendingSendingThreadIds(prev => {
-      if (!prev.has(threadId)) return prev;
-      const next = new Set(prev);
-      next.delete(threadId);
-      return next;
-    });
-  }, []);
+  const addPendingSendingThread = useCallback(
+    (threadId: string) => {
+      // Mirror to Redux so global surfaces (e.g. the New Chat shortcut) can see
+      // an in-flight send before any message/streaming state exists.
+      dispatch(markThreadSendPending({ threadId }));
+      setPendingSendingThreadIds(prev => {
+        if (prev.has(threadId)) return prev;
+        const next = new Set(prev);
+        next.add(threadId);
+        return next;
+      });
+    },
+    [dispatch]
+  );
+  const removePendingSendingThread = useCallback(
+    (threadId: string) => {
+      dispatch(clearThreadSendPending({ threadId }));
+      setPendingSendingThreadIds(prev => {
+        if (!prev.has(threadId)) return prev;
+        const next = new Set(prev);
+        next.delete(threadId);
+        return next;
+      });
+    },
+    [dispatch]
+  );
   const socketStatus = useAppSelector(selectSocketStatus);
   const agentProfiles = useAppSelector(selectAgentProfiles);
   const selectedAgentProfileId = useAppSelector(selectActiveAgentProfileId);

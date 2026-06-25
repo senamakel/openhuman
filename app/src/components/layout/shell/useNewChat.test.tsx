@@ -32,12 +32,16 @@ const mockDispatch = vi.fn();
 let mockThreads: MockThread[] = [];
 let mockMessagesByThreadId: Record<string, unknown[]> = {};
 let mockStreamingByThread: Record<string, unknown> = {};
+let mockPendingSendThreadIds: Record<string, true> = {};
 vi.mock('../../../store/hooks', () => ({
   useAppDispatch: () => mockDispatch,
   useAppSelector: (sel: (s: unknown) => unknown) =>
     sel({
       thread: { threads: mockThreads, messagesByThreadId: mockMessagesByThreadId },
-      chatRuntime: { streamingAssistantByThread: mockStreamingByThread },
+      chatRuntime: {
+        streamingAssistantByThread: mockStreamingByThread,
+        pendingSendThreadIds: mockPendingSendThreadIds,
+      },
     }),
 }));
 
@@ -64,6 +68,7 @@ describe('useNewChat', () => {
     mockThreads = [];
     mockMessagesByThreadId = {};
     mockStreamingByThread = {};
+    mockPendingSendThreadIds = {};
     mockDispatch.mockImplementation((action: MockAction) => {
       if (action?.type === 'thread/createNewThread') {
         return { unwrap: () => Promise.resolve({ id: 'fresh-thread' }) };
@@ -123,6 +128,23 @@ describe('useNewChat', () => {
     result.current();
 
     expect(mockNavigate).not.toHaveBeenCalledWith('/chat/sending');
+    expect(dispatchedTypes()).toContain('thread/createNewThread');
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/chat/fresh-thread');
+    });
+  });
+
+  it('does not reuse a thread with an optimistic send pending (pre-fulfillment window)', async () => {
+    // Earliest window: send recorded in pendingSendThreadIds before
+    // addMessageLocal resolves and before any streaming state exists.
+    mockThreads = [{ id: 'optimistic', messageCount: 0 }];
+    mockMessagesByThreadId = {};
+    mockStreamingByThread = {};
+    mockPendingSendThreadIds = { optimistic: true };
+    const { result } = renderHook(() => useNewChat(), { wrapper });
+    result.current();
+
+    expect(mockNavigate).not.toHaveBeenCalledWith('/chat/optimistic');
     expect(dispatchedTypes()).toContain('thread/createNewThread');
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/chat/fresh-thread');

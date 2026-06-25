@@ -70,6 +70,12 @@ pub struct Agent {
     /// Citation metadata collected from memory recall for the most recent turn.
     /// Consumed by web-channel delivery to render source chips in the UI.
     pub(super) last_turn_citations: Vec<crate::openhuman::agent::memory_loader::MemoryCitation>,
+    /// Holistic token/cost/context accounting for the most recent turn (parent +
+    /// any sub-agents spawned during it). Consumed by web-channel delivery to
+    /// surface session token/cost/context meters in the UI footer. `None` until
+    /// the first turn completes.
+    pub(super) last_turn_usage_totals:
+        Option<crate::openhuman::agent::harness::turn_subagent_usage::LastTurnUsage>,
     pub(super) history: Vec<ConversationMessage>,
     pub(super) post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
     pub(super) learning_enabled: bool,

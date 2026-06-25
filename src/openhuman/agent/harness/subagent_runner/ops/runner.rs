@@ -794,7 +794,7 @@ async fn run_typed_mode(
         model_vision,
         "[subagent_runner] resolved sub-agent model vision capability"
     );
-    let (output, iterations, _agg_usage, early_exit_tool) = Box::pin(run_inner_loop(
+    let (output, iterations, agg_usage, early_exit_tool) = Box::pin(run_inner_loop(
         subagent_provider.as_ref(),
         &mut history,
         &parent.all_tools,
@@ -884,6 +884,22 @@ async fn run_typed_mode(
         crate::openhuman::agent::harness::subagent_runner::types::SubagentRunStatus::Completed
     };
 
+    // Surface this run's token/cost totals so the parent turn can roll them
+    // into the session-level meters and the global cost tracker. Also push the
+    // breakdown into any active turn-scoped collector (see
+    // `turn_subagent_usage`) so a delegating parent attributes per-child spend.
+    let usage = crate::openhuman::agent::harness::subagent_runner::types::SubagentUsage {
+        input_tokens: agg_usage.input_tokens,
+        output_tokens: agg_usage.output_tokens,
+        cached_input_tokens: agg_usage.cached_input_tokens,
+        charged_amount_usd: agg_usage.charged_amount_usd,
+    };
+    crate::openhuman::agent::harness::turn_subagent_usage::record_subagent_usage(
+        task_id,
+        &definition.id,
+        usage,
+    );
+
     Ok(SubagentRunOutcome {
         task_id: task_id.to_string(),
         agent_id: definition.id.clone(),
@@ -893,5 +909,6 @@ async fn run_typed_mode(
         mode: SubagentMode::Typed,
         status,
         final_history: history,
+        usage,
     })
 }

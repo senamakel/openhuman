@@ -94,13 +94,19 @@ impl SubagentObserver {
 impl super::super::super::engine::TurnObserver for SubagentObserver {
     fn record_usage(
         &mut self,
-        _model: &str,
+        model: &str,
         usage: &crate::openhuman::inference::provider::UsageInfo,
     ) {
         self.usage.input_tokens += usage.input_tokens;
         self.usage.output_tokens += usage.output_tokens;
         self.usage.cached_input_tokens += usage.cached_input_tokens;
         self.usage.charged_amount_usd += usage.charged_amount_usd;
+        // Mirror the parent adapter: feed every sub-agent provider call into the
+        // global cost tracker so the cost dashboard/summary reflects delegated
+        // spend (previously sub-agent tokens were invisible to it). The
+        // per-turn rollup into the UI footer happens separately via
+        // `turn_subagent_usage`.
+        crate::openhuman::cost::record_provider_usage(model, usage);
     }
 
     async fn on_assistant(

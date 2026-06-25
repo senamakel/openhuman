@@ -214,6 +214,20 @@ export interface StreamingAssistantState {
  */
 export type InferenceTurnLifecycle = 'started' | 'streaming' | 'interrupted';
 
+/**
+ * Per-sub-agent token/cost contribution, accumulated across the session and
+ * keyed by the sub-agent archetype id (e.g. `researcher`). Drives the hover
+ * breakdown under the composer footer's cost/context cluster.
+ */
+export interface SubAgentUsage {
+  agentId: string;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  /** How many times this archetype was spawned across the session. */
+  runs: number;
+}
+
 /** Running per-session totals accumulated from `chat:done` events (#703). */
 export interface SessionTokenUsage {
   inputTokens: number;
@@ -222,6 +236,19 @@ export interface SessionTokenUsage {
   lastUpdated: number;
   lastTurnInputTokens: number;
   lastTurnOutputTokens: number;
+  /** Cached-input tokens accumulated across the session. */
+  cachedTokens: number;
+  /** Total USD cost accumulated across the session (parent + sub-agents). */
+  costUsd: number;
+  /**
+   * Most recent known model context window (tokens). `0` until a turn reports a
+   * real value; the UI falls back to a default when unknown.
+   */
+  contextWindow: number;
+  /** Last turn's input+output tokens — the context-window gauge numerator. */
+  lastTurnContextUsed: number;
+  /** Per-sub-agent spend for the session, keyed by archetype id. */
+  subAgents: Record<string, SubAgentUsage>;
 }
 
 /**
@@ -406,6 +433,11 @@ const initialState: ChatRuntimeState = {
     lastUpdated: 0,
     lastTurnInputTokens: 0,
     lastTurnOutputTokens: 0,
+    cachedTokens: 0,
+    costUsd: 0,
+    contextWindow: 0,
+    lastTurnContextUsed: 0,
+    subAgents: {},
   },
   queueStatusByThread: {},
   queuedFollowupsByThread: {},
@@ -1091,20 +1123,56 @@ const chatRuntimeSlice = createSlice({
     },
     recordChatTurnUsage: (
       state,
-      action: PayloadAction<{ inputTokens: number; outputTokens: number }>
+      action: PayloadAction<{
+        inputTokens: number;
+        outputTokens: number;
+        cachedTokens?: number;
+        costUsd?: number;
+        contextWindow?: number;
+        subAgents?: Array<{
+          agentId: string;
+          inputTokens: number;
+          outputTokens: number;
+          costUsd: number;
+        }>;
+      }>
     ) => {
-      const inTok = Number.isFinite(action.payload.inputTokens)
-        ? Math.max(0, action.payload.inputTokens)
-        : 0;
-      const outTok = Number.isFinite(action.payload.outputTokens)
-        ? Math.max(0, action.payload.outputTokens)
-        : 0;
-      state.sessionTokenUsage.inputTokens += inTok;
-      state.sessionTokenUsage.outputTokens += outTok;
-      state.sessionTokenUsage.turns += 1;
-      state.sessionTokenUsage.lastUpdated = Date.now();
-      state.sessionTokenUsage.lastTurnInputTokens = inTok;
-      state.sessionTokenUsage.lastTurnOutputTokens = outTok;
+      const nonNeg = (n: number | undefined): number =>
+        typeof n === 'number' && Number.isFinite(n) ? Math.max(0, n) : 0;
+      const inTok = nonNeg(action.payload.inputTokens);
+      const outTok = nonNeg(action.payload.outputTokens);
+      const cachedTok = nonNeg(action.payload.cachedTokens);
+      const cost = nonNeg(action.payload.costUsd);
+      const usage = state.sessionTokenUsage;
+      usage.inputTokens += inTok;
+      usage.outputTokens += outTok;
+      usage.cachedTokens += cachedTok;
+      usage.costUsd += cost;
+      usage.turns += 1;
+      usage.lastUpdated = Date.now();
+      usage.lastTurnInputTokens = inTok;
+      usage.lastTurnOutputTokens = outTok;
+      usage.lastTurnContextUsed = inTok + outTok;
+      // Only overwrite the known context window when the turn reported a real
+      // value (>0); an unknown-window turn leaves the prior value intact.
+      const ctxWindow = nonNeg(action.payload.contextWindow);
+      if (ctxWindow > 0) usage.contextWindow = ctxWindow;
+      // Accumulate per-archetype sub-agent spend for the hover breakdown.
+      for (const sub of action.payload.subAgents ?? []) {
+        if (!sub || typeof sub.agentId !== 'string' || sub.agentId.length === 0) continue;
+        const existing = usage.subAgents[sub.agentId] ?? {
+          agentId: sub.agentId,
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsd: 0,
+          runs: 0,
+        };
+        existing.inputTokens += nonNeg(sub.inputTokens);
+        existing.outputTokens += nonNeg(sub.outputTokens);
+        existing.costUsd += nonNeg(sub.costUsd);
+        existing.runs += 1;
+        usage.subAgents[sub.agentId] = existing;
+      }
     },
     resetSessionTokenUsage: state => {
       state.sessionTokenUsage = {
@@ -1114,6 +1182,11 @@ const chatRuntimeSlice = createSlice({
         lastUpdated: 0,
         lastTurnInputTokens: 0,
         lastTurnOutputTokens: 0,
+        cachedTokens: 0,
+        costUsd: 0,
+        contextWindow: 0,
+        lastTurnContextUsed: 0,
+        subAgents: {},
       };
     },
     /**

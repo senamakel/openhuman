@@ -744,7 +744,8 @@ impl Agent {
                 crate::openhuman::agent::multimodal::extract_image_placeholders_in_text(
                     user_message,
                 );
-            let outcome =
+            let (outcome_result, subagent_usage_entries) =
+                super::super::super::turn_subagent_usage::with_turn_collector(
                 super::super::super::turn_attachments_context::with_current_turn_image_placeholders(
                     turn_image_placeholders,
                     super::super::super::model_vision_context::with_current_model_vision(
@@ -770,18 +771,64 @@ impl Agent {
                     None, // main agent compacts via its ContextManager in before_dispatch
                         )),
                     ),
+                ),
                 )
-                .await?;
+                .await;
+            let outcome = outcome_result?;
 
             // Pull the observer's accounting out, then drop it to release the
             // `&mut self` borrow so the epilogue can use `self`.
             let did_push_final = observer.did_push_final;
-            let cumulative_input = observer.cumulative_input;
-            let cumulative_output = observer.cumulative_output;
-            let cumulative_cached = observer.cumulative_cached;
-            let cumulative_charged = observer.cumulative_charged;
+            let mut cumulative_input = observer.cumulative_input;
+            let mut cumulative_output = observer.cumulative_output;
+            let mut cumulative_cached = observer.cumulative_cached;
+            let mut cumulative_charged = observer.cumulative_charged;
             let last_turn_usage = observer.last_turn_usage.take();
             drop(observer);
+
+            // Roll any sub-agent spend gathered during this turn into the
+            // session-level token/cost meters so the UI footer reflects the
+            // *holistic* cost (parent + delegated children). The global cost
+            // tracker is fed separately, per provider call, by each sub-agent's
+            // observer. `subagent_usage_entries` is also forwarded to the
+            // `chat_done` event for the per-child hover breakdown.
+            if !subagent_usage_entries.is_empty() {
+                let mut sub_input = 0u64;
+                let mut sub_output = 0u64;
+                let mut sub_cached = 0u64;
+                let mut sub_charged = 0.0f64;
+                for entry in &subagent_usage_entries {
+                    sub_input += entry.usage.input_tokens;
+                    sub_output += entry.usage.output_tokens;
+                    sub_cached += entry.usage.cached_input_tokens;
+                    sub_charged += entry.usage.charged_amount_usd;
+                }
+                tracing::debug!(
+                    subagents = subagent_usage_entries.len(),
+                    sub_input,
+                    sub_output,
+                    sub_charged,
+                    "[agent_loop] folding sub-agent spend into turn totals"
+                );
+                cumulative_input += sub_input;
+                cumulative_output += sub_output;
+                cumulative_cached += sub_cached;
+                cumulative_charged += sub_charged;
+            }
+
+            // Capture the turn's holistic totals (parent + sub-agents) so the
+            // web-channel delivery layer can forward them on `chat_done` for the
+            // UI footer's session token / cost / context meters.
+            self.last_turn_usage_totals = Some(
+                crate::openhuman::agent::harness::turn_subagent_usage::LastTurnUsage {
+                    input_tokens: cumulative_input,
+                    output_tokens: cumulative_output,
+                    cached_input_tokens: cumulative_cached,
+                    cost_usd: cumulative_charged,
+                    context_window: turn_context_window.unwrap_or(0),
+                    subagents: subagent_usage_entries,
+                },
+            );
             let records = std::mem::take(&mut tool_source.records);
 
             self.context.record_tool_calls(records.len());

@@ -112,6 +112,24 @@ pub struct SubagentRunOutcome {
     /// sessions persist this so an idle worker can resume without rebuilding
     /// its context from only the parent transcript.
     pub final_history: Vec<ChatMessage>,
+    /// Token + cost accounting accumulated across every provider call this
+    /// sub-agent made. Surfaced so the parent turn can roll child spend into
+    /// the session totals (tokens + USD) and the global cost tracker. See
+    /// [`SubagentUsage`].
+    pub usage: SubagentUsage,
+}
+
+/// Token + cost totals for a single sub-agent run.
+///
+/// Mirrors the inner-loop `AggregatedUsage`, lifted into the public outcome so
+/// the parent turn can fold sub-agent spend into the session-level token/cost
+/// meters surfaced in the UI footer.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct SubagentUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub charged_amount_usd: f64,
 }
 
 /// Which prompt-construction path the runner took for a sub-agent.

@@ -210,6 +210,44 @@ pub struct WebChannelEvent {
     /// shown after [`Self::tool_display_label`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_display_detail: Option<String>,
+    /// Holistic token/cost/context usage for a completed turn (parent +
+    /// sub-agents), carried on `chat_done`. Lets the UI footer show session
+    /// tokens, USD cost, and real context-window utilisation, with a
+    /// per-sub-agent hover breakdown. `None` for every non-`chat_done` event and
+    /// for synthetic done events that never ran a real turn.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<TurnUsagePayload>,
+}
+
+/// Token/cost/context totals for one completed turn, attached to `chat_done`.
+///
+/// Every numeric is a turn total (parent agent **plus** any sub-agents spawned
+/// during the turn); the `subagents` list breaks the same spend down per child
+/// for the UI hover. `context_window` is `0` when the core couldn't resolve the
+/// model's window (e.g. an unknown cloud model) — the UI falls back to a
+/// default in that case.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct TurnUsagePayload {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub cost_usd: f64,
+    pub context_window: u64,
+    /// Per-sub-agent spend, omitted from the wire when no sub-agents ran.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subagents: Vec<SubagentUsagePayload>,
+}
+
+/// One sub-agent's token/cost contribution within a turn (hover breakdown).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct SubagentUsagePayload {
+    pub task_id: String,
+    pub agent_id: String,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cost_usd: f64,
 }
 
 /// Per-event subagent progress detail attached to `WebChannelEvent`.

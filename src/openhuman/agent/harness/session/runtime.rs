@@ -347,6 +347,15 @@ impl Agent {
         std::mem::take(&mut self.last_turn_citations)
     }
 
+    /// Drain and return the holistic token/cost/context totals for the latest
+    /// completed turn (parent + sub-agents). `None` until a turn has run.
+    /// Consumed by web-channel delivery to populate the `chat_done` usage fields.
+    pub fn take_last_turn_usage_totals(
+        &mut self,
+    ) -> Option<crate::openhuman::agent::harness::turn_subagent_usage::LastTurnUsage> {
+        self.last_turn_usage_totals.take()
+    }
+
     // ─────────────────────────────────────────────────────────────────
     // Static helpers for turn parsing + telemetry
     // ─────────────────────────────────────────────────────────────────

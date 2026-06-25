@@ -25,6 +25,7 @@ import {
   memoryTreeResetTree,
   memoryTreeWipeAll,
 } from '../../utils/tauriCommands';
+import ChipTabs from '../layout/ChipTabs';
 import { ObsidianVaultSection } from './ObsidianVaultSection';
 
 interface MemoryControlsProps {
@@ -212,36 +213,19 @@ interface ModeToggleProps {
 
 function ModeToggle({ mode, onChange }: ModeToggleProps) {
   const { t } = useT();
-  const baseBtn =
-    'px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200';
-  const active = 'bg-primary-500 text-white shadow-sm';
-  const idle =
-    'text-stone-600 hover:text-stone-900 dark:text-neutral-300 dark:hover:text-neutral-100';
   return (
-    <div
-      className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-50 p-1 dark:border-neutral-800 dark:bg-neutral-800/60"
-      role="tablist"
-      aria-label={t('workspace.graphViewMode')}
-      data-testid="memory-graph-mode-toggle">
-      <button
-        type="button"
-        onClick={() => onChange('tree')}
-        className={`${baseBtn} ${mode === 'tree' ? active : idle}`}
-        role="tab"
-        aria-selected={mode === 'tree'}
-        data-testid="memory-graph-mode-tree">
-        {t('workspace.trees')}
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('contacts')}
-        className={`${baseBtn} ${mode === 'contacts' ? active : idle}`}
-        role="tab"
-        aria-selected={mode === 'contacts'}
-        data-testid="memory-graph-mode-contacts">
-        {t('workspace.contacts')}
-      </button>
-    </div>
+    <ChipTabs<GraphMode>
+      items={[
+        { id: 'tree', label: t('workspace.trees'), testId: 'memory-graph-mode-tree' },
+        { id: 'contacts', label: t('workspace.contacts'), testId: 'memory-graph-mode-contacts' },
+      ]}
+      value={mode}
+      onChange={onChange}
+      as="tab"
+      ariaLabel={t('workspace.graphViewMode')}
+      testId="memory-graph-mode-toggle"
+      className="inline-flex items-center gap-1.5"
+    />
   );
 }
 

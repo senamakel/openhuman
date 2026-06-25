@@ -30,6 +30,7 @@ import {
   type MemoryTreePipelineStatus,
   memoryTreeSetEnabled,
 } from '../../utils/tauriCommands';
+import Button from '../ui/Button';
 
 /** Translator function shape exposed by `useT()`. */
 type TFn = (key: string, fallback?: string) => string;
@@ -401,14 +402,15 @@ export function MemoryTreeStatusPanel({ onToast }: MemoryTreeStatusPanelProps) {
           className="flex items-center justify-between gap-3 rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-sm text-coral-700 dark:text-coral-300"
           data-testid="memory-tree-status-error">
           <span>{t('memoryTree.status.fetchError')}</span>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            tone="danger"
+            size="xs"
             onClick={() => {
               void refresh();
-            }}
-            className="rounded-md border border-coral-300 dark:border-coral-500/40 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-medium text-coral-700 dark:text-coral-300 hover:bg-coral-50 dark:hover:bg-coral-500/20">
+            }}>
             {t('memoryTree.status.retry')}
-          </button>
+          </Button>
         </div>
       ) : null}
 

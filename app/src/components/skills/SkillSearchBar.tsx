@@ -6,11 +6,7 @@ interface SkillSearchBarProps {
   placeholder?: string;
 }
 
-export default function SkillSearchBar({
-  value,
-  onChange,
-  placeholder,
-}: SkillSearchBarProps) {
+export default function SkillSearchBar({ value, onChange, placeholder }: SkillSearchBarProps) {
   const { t } = useT();
   const effectivePlaceholder = placeholder ?? t('skills.search.placeholder');
   return (

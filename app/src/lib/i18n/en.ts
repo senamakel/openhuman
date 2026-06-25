@@ -523,6 +523,7 @@ const en: TranslationMap = {
   'chat.newWindowWelcome3': 'Time to Zone In 🧘🏻',
   'chat.typeMessage': 'How can I help you today?',
   'chat.send': 'Send message',
+  'chat.stopGeneration': 'Stop generating',
   'chat.parallelBranchHint': 'Type a parallel branch — ⌘/Ctrl+Enter to send',
   'chat.followupHint':
     'Queue a follow-up — sent after this reply · ⌘/Ctrl+Enter for a parallel branch',
@@ -1258,6 +1259,8 @@ const en: TranslationMap = {
   'channels.status.error': 'Error',
   'channels.status.configuring': 'Configuring',
   'channels.defaultMessaging': 'Default Messaging Channel',
+  'channels.setAsDefault': 'Set as default',
+  'channels.defaultBadge': 'Default',
 
   // Webhooks
   'webhooks.title': 'Webhooks',
@@ -3026,7 +3029,7 @@ const en: TranslationMap = {
   'subconscious.providerUnavailableTitle': 'Subconscious is paused',
   'subconscious.providerSettings': 'AI settings',
   'subconscious.scratchpadInfo':
-    'The subconscious maintains a persistent scratchpad of observations across ticks. Check Settings → Agent access to configure mode and frequency.',
+    'On each tick the subconscious checks what changed across your connected sources, then records follow-ups on your to-do list, updates your goals, or notifies you when something needs attention. Check Settings → Agent access to configure mode and frequency.',
   'subconscious.approvalNeeded': 'Approval Needed',
   'subconscious.requiresApproval': 'Requires approval',
   'subconscious.fixInConnections': 'Fix in Connections',
@@ -3164,6 +3167,8 @@ const en: TranslationMap = {
   'notifications.category.meetings': 'Meetings',
   'notifications.category.reminders': 'Reminders',
   'notifications.category.important': 'Important',
+  'notifications.filterAll': 'All',
+  'notifications.filterEmpty': 'No alerts in this category',
 
   // About / Updates: status summary phrases
   'about.update.status.checking': 'Checking...',
@@ -3585,6 +3590,14 @@ const en: TranslationMap = {
   'conversations.taskKanban.moveRight': 'Move right',
   'conversations.taskKanban.title': 'Tasks',
   'conversations.threadTodo.title': 'Plan',
+  'conversations.planReview.title': 'Review plan',
+  'conversations.planReview.subtitle':
+    'Approve to run it, reject to discard, or send feedback to revise.',
+  'conversations.planReview.approve': 'Approve & run',
+  'conversations.planReview.reject': 'Reject',
+  'conversations.planReview.feedbackLabel': 'Request changes',
+  'conversations.planReview.feedbackPlaceholder': 'Describe what to change…',
+  'conversations.planReview.sendFeedback': 'Send feedback',
   // Thread-level goal chip (Codex-style per-thread completion contract).
   'conversations.threadGoal.label': 'Goal',
   'conversations.threadGoal.setCta': 'Set goal',
@@ -3721,6 +3734,13 @@ const en: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'No steps recorded',
   'conversations.agentTaskInsights.viewProcessSource': 'View full agent process Source',
   'conversations.agentTaskInsights.processing': 'Processing',
+  'conversations.agentTaskInsights.done': 'Done',
+  'conversations.agentTaskInsights.failed': 'Failed',
+  'conversations.agentTaskInsights.running': 'Running',
+  'conversations.agentTaskInsights.cancelled': 'Cancelled',
+  'conversations.agentTaskInsights.awaitingUser': 'Awaiting input',
+  'conversations.agentTaskInsights.viewDetails': 'View details',
+  'conversations.agentTaskInsights.subagentsHeading': 'Sub-agents',
   'daemon.serviceBlockingGate.body':
     'Retrying in the background. This usually resolves in a few seconds.',
   'daemon.serviceBlockingGate.downloadHint':

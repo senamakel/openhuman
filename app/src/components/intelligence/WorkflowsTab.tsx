@@ -28,6 +28,7 @@ import CreateSkillModal from '../skills/CreateSkillModal';
 import UnifiedSkillCard from '../skills/SkillCard';
 import { BUILT_IN_SKILL_ICONS } from '../skills/skillIcons';
 import UninstallSkillConfirmDialog from '../skills/UninstallSkillConfirmDialog';
+import Button from '../ui/Button';
 import { ToastContainer } from './Toast';
 
 const log = debug('intelligence:workflows');
@@ -94,13 +95,13 @@ export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabPr
   const isEmpty = workflows.length === 0 && !loading && !loadError;
 
   const newWorkflowButton = (
-    <button
-      type="button"
+    <Button
+      variant="primary"
+      size="sm"
       data-testid="workflows-create-btn"
-      onClick={() => setCreateModalOpen(true)}
-      className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
+      onClick={() => setCreateModalOpen(true)}>
       {t('workflows.createNew')}
-    </button>
+    </Button>
   );
 
   const body = (
@@ -117,15 +118,17 @@ export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabPr
           <p className="mt-1 break-words font-mono text-[11px] text-coral-700/90 dark:text-coral-300/90">
             {loadError}
           </p>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            tone="danger"
+            size="sm"
+            className="mt-3"
             onClick={() => {
               setLoading(true);
               void refresh();
-            }}
-            className="mt-3 rounded-lg border border-coral-300 dark:border-coral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs font-medium text-coral-700 dark:text-coral-300 hover:bg-coral-50 dark:hover:bg-coral-900/40">
+            }}>
             {t('common.retry')}
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -147,12 +150,13 @@ export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabPr
           <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
             {t('workflows.empty.body')}
           </p>
-          <button
-            type="button"
-            onClick={() => setCreateModalOpen(true)}
-            className="mt-4 rounded-lg bg-primary-500 px-4 py-2 text-xs font-semibold text-white shadow-soft hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500">
+          <Button
+            variant="primary"
+            size="md"
+            className="mt-4"
+            onClick={() => setCreateModalOpen(true)}>
             {t('workflows.createNew')}
-          </button>
+          </Button>
         </div>
       ) : null}
 

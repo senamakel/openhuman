@@ -32,6 +32,7 @@ import {
   type TeamMessage,
   type TeamView,
 } from '../../services/api/agentTeamApi';
+import Button from '../ui/Button';
 import { TeamActivityRail } from './TeamActivityRail';
 import { TeamHeader } from './TeamHeader';
 import { TeamTaskBoard } from './TeamTaskBoard';
@@ -282,13 +283,14 @@ export default function IntelligenceTeamsTab() {
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           {teams.length > 1 ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="xs"
               onClick={deselect}
-              className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
-              <LuArrowLeft className="h-3 w-3" />
+              leadingIcon={<LuArrowLeft className="h-3 w-3" />}
+              className="gap-1 text-[11px]">
               {t('intelligence.teams.backToList')}
-            </button>
+            </Button>
           ) : (
             <span />
           )}
@@ -377,13 +379,14 @@ function RefreshButton({
   t: (key: string) => string;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
+      size="xs"
       disabled={refreshing}
       onClick={onClick}
-      className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
-      <LuRefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+      leadingIcon={<LuRefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />}
+      className="gap-1 text-[11px]">
       {t('intelligence.teams.refresh')}
-    </button>
+    </Button>
   );
 }

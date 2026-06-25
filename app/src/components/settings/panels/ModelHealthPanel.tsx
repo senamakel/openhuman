@@ -271,7 +271,7 @@ const ModelHealthPanel = () => {
                         {isReplace && candidates.length > 0 && (
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="tertiary"
                             size="xs"
                             className="ml-1 text-amber-400 hover:text-amber-300"
                             onClick={() => setSwapTarget(m)}>

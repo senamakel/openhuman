@@ -756,9 +756,11 @@ async fn subagent_delegation_happy_path_inner() {
     //   request[1] = researcher subagent inner LLM call: canary text returned
     //   request[2] = orchestrator synthesis: canary forwarded in final reply
     //
-    // NOTE: threads_turn_state_get returns None after a successful turn completion —
-    // TurnStateMirror deletes the snapshot on TurnCompleted (mirror.rs:338-341).
-    // Therefore we verify delegation via captured upstream requests, not turn state.
+    // NOTE: a completed turn's snapshot is now RETAINED (lifecycle `Completed`)
+    // so "View processing" can replay a finished turn; the snapshot is overwritten
+    // by the next turn, not deleted on completion. We verify delegation via the
+    // captured upstream requests rather than turn state, which keeps this test
+    // independent of the snapshot's retention/lifecycle details.
     let requests = with_captured(|c| c.clone());
     assert!(
         requests.len() >= 3,

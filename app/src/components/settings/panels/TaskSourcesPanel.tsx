@@ -559,7 +559,8 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
                   </Button>
                   <Button
                     type="button"
-                    variant="danger"
+                    variant="secondary"
+                    tone="danger"
                     size="xs"
                     disabled={busyKey !== null}
                     onClick={() => void removeSource(source)}>
@@ -574,7 +575,7 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
         <div className="px-4 py-3 border-t border-neutral-100 dark:border-neutral-800">
           <Button
             type="button"
-            variant="ghost"
+            variant="tertiary"
             size="xs"
             disabled={loading || busyKey !== null}
             onClick={() => void load()}>

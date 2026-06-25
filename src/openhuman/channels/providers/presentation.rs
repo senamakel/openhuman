@@ -71,6 +71,8 @@ pub async fn deliver_response(
             tool_call_id: None,
             subagent: None,
             task_board: None,
+            tool_display_label: None,
+            tool_display_detail: None,
             citations: if citations.is_empty() {
                 None
             } else {
@@ -117,6 +119,8 @@ pub async fn deliver_response(
             tool_call_id: None,
             subagent: None,
             task_board: None,
+            tool_display_label: None,
+            tool_display_detail: None,
             citations: if i == 0 && !citations.is_empty() {
                 Some(serde_json::json!(citations))
             } else {
@@ -153,6 +157,8 @@ pub async fn deliver_response(
         tool_call_id: None,
         subagent: None,
         task_board: None,
+        tool_display_label: None,
+        tool_display_detail: None,
         citations: if citations.is_empty() {
             None
         } else {

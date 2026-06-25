@@ -24,6 +24,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import { openUrl } from '../../../utils/openUrl';
+import Button from '../../ui/Button';
 import ConfigHelpModal from './ConfigHelpModal';
 import type { InstalledServer, McpTool } from './types';
 
@@ -268,13 +269,9 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
             <p className="text-xs text-stone-600 dark:text-neutral-300">
               {t('mcp.connectAuth.oauthHint')}
             </p>
-            <button
-              type="button"
-              onClick={handleOAuth}
-              disabled={busy}
-              className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors">
+            <Button variant="primary" size="sm" onClick={handleOAuth} disabled={busy}>
               {oauthWaiting ? t('mcp.connectAuth.oauthWaiting') : t('mcp.connectAuth.signIn')}
-            </button>
+            </Button>
             <p className="text-[11px] text-stone-400 dark:text-neutral-500">
               {t('mcp.connectAuth.oauthOrToken')}
             </p>
@@ -324,13 +321,14 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                     data-form-type="other"
                     className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="xs"
                     onClick={() => setReveal(prev => ({ ...prev, [key]: !prev[key] }))}
                     disabled={busy}
-                    className="shrink-0 rounded-lg border border-stone-200 dark:border-neutral-700 px-2 py-1 text-[11px] text-stone-500 dark:text-neutral-400 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50">
+                    className="shrink-0">
                     {reveal[key] ? t('mcp.install.hide') : t('mcp.install.show')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -392,14 +390,15 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                   <option value="bearer">{t('mcp.connectAuth.schemeBearer')}</option>
                   <option value="raw">{t('mcp.connectAuth.schemeRaw')}</option>
                 </select>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="xs"
                   onClick={() => removeCustomHeader(h.id)}
                   disabled={busy}
                   aria-label={t('mcp.connectAuth.removeHeader')}
-                  className="shrink-0 rounded-lg border border-stone-200 dark:border-neutral-700 px-2 py-1 text-[11px] text-stone-500 dark:text-neutral-400 hover:border-coral-300 hover:text-coral-600 disabled:opacity-50">
+                  className="shrink-0">
                   ✕
-                </button>
+                </Button>
               </div>
               {/* Row 2: full-width value (tokens are long) */}
               <input
@@ -426,20 +425,12 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            className="rounded-lg border border-stone-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50">
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={busy}>
             {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={handleConnect}
-            disabled={busy}
-            className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors">
+          </Button>
+          <Button variant="primary" size="sm" onClick={handleConnect} disabled={busy}>
             {busy ? t('mcp.detail.connecting') : t('mcp.detail.connect')}
-          </button>
+          </Button>
         </div>
       </div>
 

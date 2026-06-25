@@ -7,7 +7,8 @@
 //! Current steps (all non-required — failure degrades to a fallback):
 //!   1. `python_runtime` — managed CPython (prerequisite for spaCy).
 //!   2. `spacy`          — spaCy venv + `en_core_web_sm` model.
-//!   3. `node_runtime`   — managed Node.js (skills / MCP).
+//!   3. `runtime_python_server` — long-running Python backend host.
+//!   4. `node_runtime`   — managed Node.js (skills / MCP).
 //!
 //! Voice models (Whisper, Piper) and Ollama stay lazy/opt-in and are
 //! intentionally NOT registered here; they can be added later as steps.
@@ -38,7 +39,12 @@ pub struct HarnessInitStep {
 
 /// The ordered list of mandatory eager steps.
 pub fn all_steps() -> Vec<HarnessInitStep> {
-    vec![python_runtime_step(), spacy_step(), node_runtime_step()]
+    vec![
+        python_runtime_step(),
+        spacy_step(),
+        runtime_python_server_step(),
+        node_runtime_step(),
+    ]
 }
 
 // ── python_runtime ──────────────────────────────────────────────────────────
@@ -86,6 +92,36 @@ async fn python_run(config: &Config) -> Result<(), String> {
 
 // ── spacy ─────────────────────────────────────────────────────────────────
 
+fn runtime_python_server_step() -> HarnessInitStep {
+    HarnessInitStep {
+        id: "runtime_python_server",
+        label: "Runtime Python server",
+        required: false,
+        is_done: |config| Box::pin(runtime_python_server_is_done(config)),
+        run: |config| Box::pin(runtime_python_server_run(config)),
+    }
+}
+
+async fn runtime_python_server_is_done(config: &Config) -> bool {
+    if crate::openhuman::runtime_python_server::enabled_backends(config).is_empty() {
+        return true;
+    }
+    let status = crate::openhuman::runtime_python_server::status().await;
+    status.running
+}
+
+async fn runtime_python_server_run(config: &Config) -> Result<(), String> {
+    if crate::openhuman::runtime_python_server::enabled_backends(config).is_empty() {
+        return Ok(());
+    }
+    crate::openhuman::runtime_python_server::ensure_started(config)
+        .await
+        .map(|_| {
+            log::info!("[harness_init] runtime Python server ready");
+        })
+        .map_err(|e| format!("{e:#}"))
+}
+
 fn spacy_step() -> HarnessInitStep {
     HarnessInitStep {
         id: "spacy",
@@ -100,14 +136,14 @@ async fn spacy_is_done(config: &Config) -> bool {
     if !config.runtime_python.enabled || !config.memory_tree.spacy_enabled {
         return true;
     }
-    crate::openhuman::memory_tree::nlp::spacy_provisioned(config)
+    crate::openhuman::runtime_python_server::spacy_provisioned(config)
 }
 
 async fn spacy_run(config: &Config) -> Result<(), String> {
     if !config.runtime_python.enabled || !config.memory_tree.spacy_enabled {
         return Ok(());
     }
-    crate::openhuman::memory_tree::nlp::ensure_spacy(config)
+    crate::openhuman::runtime_python_server::ensure_spacy(config)
         .await
         .map(|_| {
             log::info!("[harness_init] spaCy provisioned");
@@ -167,7 +203,15 @@ mod tests {
     fn all_steps_have_stable_ids_and_are_non_required() {
         let steps = all_steps();
         let ids: Vec<_> = steps.iter().map(|s| s.id).collect();
-        assert_eq!(ids, vec!["python_runtime", "spacy", "node_runtime"]);
+        assert_eq!(
+            ids,
+            vec![
+                "python_runtime",
+                "spacy",
+                "runtime_python_server",
+                "node_runtime"
+            ]
+        );
         assert!(steps.iter().all(|s| !s.required));
         assert!(steps.iter().all(|s| !s.label.is_empty()));
     }

@@ -11,6 +11,7 @@ import {
 } from '../../services/webviewAccountService';
 import { useAppSelector } from '../../store/hooks';
 import type { AccountProvider, AccountStatus } from '../../types/accounts';
+import Button from '../ui/Button';
 import { ProviderIcon } from './providerIcons';
 
 const log = debug('webview-accounts:host');
@@ -260,8 +261,9 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
               {t('accounts.webviewHost.timeoutHint')}
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             data-analytics-id={`webview-host-retry-${provider}`}
             onClick={() => {
               log('retry clicked account=%s provider=%s', accountId, provider);
@@ -276,10 +278,9 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
                 // service-layer dispatched error status + breadcrumb; absorbing
                 // the rejection keeps onunhandledrejection clean.
               });
-            }}
-            className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700">
+            }}>
             {t('accounts.webviewHost.retryLoading')}
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

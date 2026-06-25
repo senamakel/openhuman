@@ -7,13 +7,22 @@ import type {
   AgentRun,
   PersistedSubagentActivity,
   PersistedSubagentToolCall,
+  PersistedSubagentTranscriptItem,
   PersistedToolTimelineEntry,
+  PersistedTranscriptItem,
   PersistedTurnState,
   TaskBoard,
 } from '../types/turnState';
 import { resetUserScopedState } from './resetActions';
 
 const turnStateLog = debug('chatRuntime.turnState');
+
+/**
+ * Ordered item in the parent turn's processing transcript (narration /
+ * thinking / tool-call pointer). Same shape as the persisted wire type; the
+ * "View processing" panel renders these interleaved.
+ */
+export type ProcessingTranscriptItem = PersistedTranscriptItem;
 
 export type ToolTimelineEntryStatus =
   | 'running'
@@ -138,6 +147,10 @@ export type SubagentTranscriptItem =
       args?: unknown;
       /** The tool's actual output text (set on completion). */
       result?: string;
+      /** Server-computed human label (from `Tool::display_label`), if any. */
+      displayName?: string;
+      /** Server-computed contextual detail (path / recipient / query). */
+      detail?: string;
     };
 
 /** One child tool call performed by a running sub-agent. */
@@ -157,6 +170,10 @@ export interface SubagentToolCallEntry {
   args?: unknown;
   /** The tool's actual output text (set on completion). */
   result?: string;
+  /** Server-computed human label (from `Tool::display_label`), if any. */
+  displayName?: string;
+  /** Server-computed contextual detail (path / recipient / query). */
+  detail?: string;
 }
 
 export interface ToolTimelineEntry {
@@ -231,6 +248,20 @@ export interface PendingApproval {
 }
 
 /**
+ * A thread-scoped plan the orchestrator parked for interactive review (Codex/
+ * Claude plan mode). Surfaced from the `plan_review_request` socket event and
+ * resolved via the `openhuman.plan_review_decide` RPC. The parked agent turn
+ * blocks until the user approves / rejects / sends feedback.
+ */
+export interface PendingPlanReview {
+  requestId: string;
+  /** One-line summary of the plan. */
+  summary: string;
+  /** Ordered plan steps to display for review. */
+  steps: string[];
+}
+
+/**
  * Lifecycle status of a single agent-generated artifact, as projected
  * onto the chat runtime per thread.
  *
@@ -298,9 +329,19 @@ interface ChatRuntimeState {
    */
   parallelRequestThreads: Record<string, string>;
   toolTimelineByThread: Record<string, ToolTimelineEntry[]>;
+  /**
+   * Ordered narration/thinking/tool transcript per thread for the
+   * "View processing" panel — the interleaved Hermes-style record. Hydrated
+   * from the persisted turn-state snapshot (which is now KEPT on completion),
+   * so a settled / reloaded turn replays its full reasoning. Tool items point
+   * into `toolTimelineByThread` by `callId`. Empty/absent → panel falls back
+   * to the tool-only view.
+   */
+  processingByThread: Record<string, ProcessingTranscriptItem[]>;
   taskBoardByThread: Record<string, TaskBoard>;
   inferenceTurnLifecycleByThread: Record<string, InferenceTurnLifecycle>;
   pendingApprovalByThread: Record<string, PendingApproval>;
+  pendingPlanReviewByThread: Record<string, PendingPlanReview>;
   /**
    * Per-thread artifact ledger. Snapshots are upserted on
    * `artifact_ready` / `artifact_failed` socket events keyed on
@@ -352,9 +393,11 @@ const initialState: ChatRuntimeState = {
   parallelStreamsByThread: {},
   parallelRequestThreads: {},
   toolTimelineByThread: {},
+  processingByThread: {},
   taskBoardByThread: {},
   inferenceTurnLifecycleByThread: {},
   pendingApprovalByThread: {},
+  pendingPlanReviewByThread: {},
   artifactsByThread: {},
   sessionTokenUsage: {
     inputTokens: 0,
@@ -396,7 +439,59 @@ function subagentToolCallFromPersisted(call: PersistedSubagentToolCall): Subagen
     iteration: call.iteration,
     elapsedMs: call.elapsedMs,
     outputChars: call.outputChars,
+    displayName: call.displayName,
+    detail: call.detail,
   };
+}
+
+/**
+ * Carry the live sub-agent prose (reasoning/narration) across a snapshot
+ * rehydration. Sub-agent streamed text/thinking is live-only — the persisted
+ * snapshot rebuilds a sub-agent transcript from its tool calls *without* the
+ * prose. So when a thread re-hydrates mid-turn (e.g. the user switches tabs
+ * and comes back), the snapshot rows would otherwise lose the inline thoughts.
+ * Match by sub-agent `taskId` (live and persisted rows use different entry
+ * ids) and graft the richer in-memory prose transcript onto the new rows.
+ */
+function preserveLiveSubagentProse(
+  existing: ToolTimelineEntry[] | undefined,
+  next: ToolTimelineEntry[]
+): ToolTimelineEntry[] {
+  if (!existing || existing.length === 0) return next;
+  const liveProse = new Map<string, SubagentTranscriptItem[]>();
+  for (const entry of existing) {
+    const tx = entry.subagent?.transcript;
+    if (entry.subagent && tx && tx.some(i => i.kind === 'text' || i.kind === 'thinking')) {
+      liveProse.set(entry.subagent.taskId, tx);
+    }
+  }
+  if (liveProse.size === 0) return next;
+  return next.map(entry => {
+    if (!entry.subagent) return entry;
+    const saved = liveProse.get(entry.subagent.taskId);
+    if (!saved) return entry;
+    // Clone the items so we don't reuse Immer drafts from the prior state.
+    return { ...entry, subagent: { ...entry.subagent, transcript: saved.map(i => ({ ...i })) } };
+  });
+}
+
+function subagentTranscriptItemFromPersisted(
+  item: PersistedSubagentTranscriptItem
+): SubagentTranscriptItem {
+  if (item.kind === 'tool') {
+    return {
+      kind: 'tool',
+      iteration: item.iteration,
+      callId: item.callId,
+      toolName: item.toolName,
+      status: item.status,
+      elapsedMs: item.elapsedMs,
+      outputChars: item.outputChars,
+      displayName: item.displayName,
+      detail: item.detail,
+    };
+  }
+  return { kind: item.kind, iteration: item.iteration, text: item.text };
 }
 
 function subagentActivityFromPersisted(activity: PersistedSubagentActivity): SubagentActivity {
@@ -413,19 +508,22 @@ function subagentActivityFromPersisted(activity: PersistedSubagentActivity): Sub
     elapsedMs: activity.elapsedMs,
     outputChars: activity.outputChars,
     toolCalls: activity.toolCalls.map(subagentToolCallFromPersisted),
-    // Streamed text/thinking is live-only and never persisted, so a
-    // rehydrated run can't replay the prose. Rebuild the transcript from
-    // the persisted tool calls (tool items only) so an interrupted run
-    // still shows its tool sequence in chronological order.
-    transcript: activity.toolCalls.map(call => ({
-      kind: 'tool' as const,
-      iteration: call.iteration,
-      callId: call.callId,
-      toolName: call.toolName,
-      status: call.status,
-      elapsedMs: call.elapsedMs,
-      outputChars: call.outputChars,
-    })),
+    // Prefer the persisted prose transcript (reasoning/narration interleaved
+    // with tools) so a settled / reloaded run replays its thoughts. Fall back
+    // to a tool-only rebuild for snapshots written before sub-agent prose was
+    // persisted (the `transcript` field is absent there).
+    transcript:
+      activity.transcript && activity.transcript.length > 0
+        ? activity.transcript.map(subagentTranscriptItemFromPersisted)
+        : activity.toolCalls.map(call => ({
+            kind: 'tool' as const,
+            iteration: call.iteration,
+            callId: call.callId,
+            toolName: call.toolName,
+            status: call.status,
+            elapsedMs: call.elapsedMs,
+            outputChars: call.outputChars,
+          })),
   };
 }
 
@@ -601,6 +699,47 @@ const chatRuntimeSlice = createSlice({
     },
     clearToolTimelineForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.toolTimelineByThread[action.payload.threadId];
+      delete state.processingByThread[action.payload.threadId];
+    },
+    /** Reset the live processing transcript at the start of a fresh turn so a
+     *  new turn's narration/steps don't append onto the previous turn's. */
+    clearProcessingForThread: (state, action: PayloadAction<{ threadId: string }>) => {
+      delete state.processingByThread[action.payload.threadId];
+    },
+    /**
+     * Append a streamed narration/thinking delta to the live processing
+     * transcript, coalescing into the trailing same-kind, same-round block so
+     * a paragraph stays one item. Mirrors the Rust mirror's accumulation so
+     * the live "View processing" panel matches the persisted one.
+     */
+    appendProcessingProse: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        kind: 'narration' | 'thinking';
+        round: number;
+        delta: string;
+      }>
+    ) => {
+      const { threadId, kind, round, delta } = action.payload;
+      if (!delta) return;
+      const list = (state.processingByThread[threadId] ??= []);
+      const last = list[list.length - 1];
+      if (last && last.kind === kind && last.round === round) {
+        last.text += delta;
+        return;
+      }
+      list.push({ kind, round, seq: list.length, text: delta });
+    },
+    /** Record a tool call in the live processing transcript at its position. */
+    recordProcessingTool: (
+      state,
+      action: PayloadAction<{ threadId: string; round: number; callId: string }>
+    ) => {
+      const { threadId, round, callId } = action.payload;
+      const list = (state.processingByThread[threadId] ??= []);
+      if (list.some(i => i.kind === 'toolCall' && i.callId === callId)) return;
+      list.push({ kind: 'toolCall', round, seq: list.length, callId });
     },
     /**
      * Optimistically mark a detached background sub-agent as cancelled after the
@@ -673,14 +812,26 @@ const chatRuntimeSlice = createSlice({
         toolName: string;
         iteration?: number;
         args?: unknown;
+        displayName?: string;
+        detail?: string;
       }>
     ) => {
-      const { threadId, rowId, callId, toolName, iteration, args } = action.payload;
+      const { threadId, rowId, callId, toolName, iteration, args, displayName, detail } =
+        action.payload;
       const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
       if (!entry?.subagent) return;
       const transcript = (entry.subagent.transcript ??= []);
       if (transcript.some(i => i.kind === 'tool' && i.callId === callId)) return;
-      transcript.push({ kind: 'tool', iteration, callId, toolName, status: 'running', args });
+      transcript.push({
+        kind: 'tool',
+        iteration,
+        callId,
+        toolName,
+        status: 'running',
+        args,
+        displayName,
+        detail,
+      });
     },
     /**
      * Flip a transcript `tool` item to its terminal status when the child
@@ -725,6 +876,15 @@ const chatRuntimeSlice = createSlice({
     },
     clearPendingApprovalForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.pendingApprovalByThread[action.payload.threadId];
+    },
+    setPendingPlanReviewForThread: (
+      state,
+      action: PayloadAction<{ threadId: string; review: PendingPlanReview }>
+    ) => {
+      state.pendingPlanReviewByThread[action.payload.threadId] = action.payload.review;
+    },
+    clearPendingPlanReviewForThread: (state, action: PayloadAction<{ threadId: string }>) => {
+      delete state.pendingPlanReviewByThread[action.payload.threadId];
     },
     /**
      * Mark a producer-tool call as in-flight so the `ArtifactCard` can
@@ -901,9 +1061,11 @@ const chatRuntimeSlice = createSlice({
         delete state.parallelStreamsByThread[action.payload.threadId];
       }
       delete state.toolTimelineByThread[action.payload.threadId];
+      delete state.processingByThread[action.payload.threadId];
       delete state.taskBoardByThread[action.payload.threadId];
       delete state.inferenceTurnLifecycleByThread[action.payload.threadId];
       delete state.pendingApprovalByThread[action.payload.threadId];
+      delete state.pendingPlanReviewByThread[action.payload.threadId];
       delete state.queueStatusByThread[action.payload.threadId];
       delete state.queuedFollowupsByThread[action.payload.threadId];
       // Note: artifactsByThread intentionally NOT cleared here. The
@@ -918,9 +1080,11 @@ const chatRuntimeSlice = createSlice({
       state.parallelStreamsByThread = {};
       state.parallelRequestThreads = {};
       state.toolTimelineByThread = {};
+      state.processingByThread = {};
       state.taskBoardByThread = {};
       state.inferenceTurnLifecycleByThread = {};
       state.pendingApprovalByThread = {};
+      state.pendingPlanReviewByThread = {};
       state.artifactsByThread = {};
       state.queueStatusByThread = {};
       state.queuedFollowupsByThread = {};
@@ -965,26 +1129,39 @@ const chatRuntimeSlice = createSlice({
       const { snapshot } = action.payload;
       const threadId = snapshot.threadId;
 
-      state.inferenceTurnLifecycleByThread[threadId] = snapshot.lifecycle;
+      // `completed` is a settled turn, not an in-flight lifecycle — drop any
+      // stale in-flight marker rather than store it (the in-flight enum only
+      // covers started/streaming/interrupted).
+      if (snapshot.lifecycle === 'completed') {
+        delete state.inferenceTurnLifecycleByThread[threadId];
+      } else {
+        state.inferenceTurnLifecycleByThread[threadId] = snapshot.lifecycle;
+      }
       // Snapshots don't carry pending-approval payloads; drop any stale in-memory
       // approval so the card reflects the rehydrated core truth, not pre-drift state.
       delete state.pendingApprovalByThread[threadId];
+      // Likewise drop any stale parked plan review — its gate future cannot
+      // survive a rehydrate, so the card must not linger.
+      delete state.pendingPlanReviewByThread[threadId];
       if (snapshot.taskBoard) {
         state.taskBoardByThread[threadId] = snapshot.taskBoard;
       }
 
-      // Interrupted turns have no live driver — surface only the
-      // lifecycle so the UI renders a retry affordance instead of
-      // resurrecting a fake "live" inference status / streaming buffer
-      // from snapshot fields that may be stale.
-      if (snapshot.lifecycle === 'interrupted') {
+      // Terminal turns (interrupted = crashed mid-flight; completed = finished
+      // normally, snapshot kept for replay) have no live driver — surface only
+      // the lifecycle so the UI renders settled, not a fake "live" status /
+      // streaming buffer from stale snapshot fields. The processing transcript
+      // is still carried so "View processing" replays the full reasoning.
+      if (snapshot.lifecycle === 'interrupted' || snapshot.lifecycle === 'completed') {
         delete state.inferenceStatusByThread[threadId];
         delete state.streamingAssistantByThread[threadId];
-        // No live driver remains for this turn — settle any in-flight rows so
-        // their agent names stop pulsing instead of blinking forever.
-        state.toolTimelineByThread[threadId] = snapshot.toolTimeline
-          .map(toolTimelineFromPersisted)
-          .map(settleOrphanedTimelineEntry);
+        // Settle any in-flight rows so their agent names stop pulsing
+        // (no-op for an already-completed snapshot whose rows are terminal).
+        state.toolTimelineByThread[threadId] = preserveLiveSubagentProse(
+          state.toolTimelineByThread[threadId],
+          snapshot.toolTimeline.map(toolTimelineFromPersisted).map(settleOrphanedTimelineEntry)
+        );
+        state.processingByThread[threadId] = snapshot.transcript ?? [];
         return;
       }
 
@@ -1010,7 +1187,11 @@ const chatRuntimeSlice = createSlice({
         delete state.streamingAssistantByThread[threadId];
       }
 
-      state.toolTimelineByThread[threadId] = snapshot.toolTimeline.map(toolTimelineFromPersisted);
+      state.toolTimelineByThread[threadId] = preserveLiveSubagentProse(
+        state.toolTimelineByThread[threadId],
+        snapshot.toolTimeline.map(toolTimelineFromPersisted)
+      );
+      state.processingByThread[threadId] = snapshot.transcript ?? [];
     },
     /**
      * Rebuild durable historical subagent rows from the run ledger. This is
@@ -1048,6 +1229,9 @@ export const {
   clearParallelRequest,
   setToolTimelineForThread,
   clearToolTimelineForThread,
+  clearProcessingForThread,
+  appendProcessingProse,
+  recordProcessingTool,
   markSubagentCancelled,
   appendSubagentStreamDelta,
   recordSubagentTranscriptTool,
@@ -1056,6 +1240,8 @@ export const {
   clearTaskBoardForThread,
   setPendingApprovalForThread,
   clearPendingApprovalForThread,
+  setPendingPlanReviewForThread,
+  clearPendingPlanReviewForThread,
   upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
   upsertArtifactFailedForThread,

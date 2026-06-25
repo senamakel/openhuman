@@ -285,6 +285,12 @@ pub enum DomainEvent {
         removed: usize,
         modified: usize,
     },
+    /// Read markers were committed for one or more sources, acknowledging
+    /// their current diffs as consumed.
+    MemoryDiffMarkedRead {
+        source_ids: Vec<String>,
+        snapshot_ids: Vec<String>,
+    },
 
     // ── Channels ────────────────────────────────────────────────────────
     /// An inbound channel message from the transport layer, ready for processing.
@@ -458,6 +464,32 @@ pub enum DomainEvent {
         request_id: String,
         tool_name: String,
         /// `"approve_once"`, `"approve_always_for_tool"`, or `"deny"`.
+        decision: String,
+    },
+
+    // ── Plan review (interactive plan-mode gate) ────────────────────────
+    /// An interactive turn parked on a thread-scoped plan the user must
+    /// review before execution. Published by
+    /// [`crate::openhuman::plan_review::gate::PlanReviewGate::request_review`]
+    /// and bridged to the web channel as a `plan_review_request` socket event.
+    PlanReviewRequested {
+        /// Unique id correlating the decision back to the parked turn.
+        request_id: String,
+        /// Chat thread the parked turn belongs to (routing). `None` for
+        /// non-chat callers (which auto-approve and never park here).
+        thread_id: Option<String>,
+        /// Socket.IO client id (room) to surface the review to, when known.
+        client_id: Option<String>,
+        /// One-line description of the plan.
+        summary: String,
+        /// Ordered plan steps shown in the review card.
+        steps: Vec<String>,
+    },
+    /// User resolved a parked plan review. Published after the gate's parked
+    /// future wakes. `decision` is `"approve"` / `"reject"` / `"revise"`
+    /// (revise feedback is user content and is intentionally omitted).
+    PlanReviewDecided {
+        request_id: String,
         decision: String,
     },
 
@@ -1172,7 +1204,8 @@ impl DomainEvent {
             | Self::MemoryIngestionCompleted { .. }
             | Self::DocumentCanonicalized { .. }
             | Self::MemoryDiffSnapshotTaken { .. }
-            | Self::MemoryDiffComputed { .. } => "memory",
+            | Self::MemoryDiffComputed { .. }
+            | Self::MemoryDiffMarkedRead { .. } => "memory",
 
             Self::CacheRebuilt { .. } => "learning",
 
@@ -1264,6 +1297,8 @@ impl DomainEvent {
             | Self::ApprovalGateOverrideIgnored { .. }
             | Self::ApprovalGateDisabled { .. } => "approval",
 
+            Self::PlanReviewRequested { .. } | Self::PlanReviewDecided { .. } => "plan_review",
+
             Self::ArtifactReady { .. }
             | Self::ArtifactFailed { .. }
             | Self::ArtifactPending { .. } => "artifact",
@@ -1325,6 +1360,7 @@ impl DomainEvent {
             Self::DocumentCanonicalized { .. } => "DocumentCanonicalized",
             Self::MemoryDiffSnapshotTaken { .. } => "MemoryDiffSnapshotTaken",
             Self::MemoryDiffComputed { .. } => "MemoryDiffComputed",
+            Self::MemoryDiffMarkedRead { .. } => "MemoryDiffMarkedRead",
             Self::CacheRebuilt { .. } => "CacheRebuilt",
             Self::ChannelInboundMessage { .. } => "ChannelInboundMessage",
             Self::ChannelMessageReceived { .. } => "ChannelMessageReceived",
@@ -1388,6 +1424,8 @@ impl DomainEvent {
             Self::SessionExpired { .. } => "SessionExpired",
             Self::ApprovalRequested { .. } => "ApprovalRequested",
             Self::ApprovalDecided { .. } => "ApprovalDecided",
+            Self::PlanReviewRequested { .. } => "PlanReviewRequested",
+            Self::PlanReviewDecided { .. } => "PlanReviewDecided",
             Self::ApprovalGateOverrideIgnored { .. } => "ApprovalGateOverrideIgnored",
             Self::ApprovalGateDisabled { .. } => "ApprovalGateDisabled",
             Self::ArtifactReady { .. } => "ArtifactReady",

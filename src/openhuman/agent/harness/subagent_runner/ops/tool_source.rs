@@ -70,8 +70,18 @@ impl super::super::super::engine::ToolSource for SubagentToolSource<'_> {
                 "[subagent_runner] tool not in allowlist for this sub-agent"
             );
             let iteration_u32 = (iteration + 1) as u32;
+            // Not-in-allowlist reject path: no resolved tool to label, so defer
+            // to the client formatter. (Allowed sub-agent calls run through the
+            // shared `run_one_tool`, which computes the label there.)
             progress
-                .tool_started(progress_call_id, &call.name, &call.arguments, iteration_u32)
+                .tool_started(
+                    progress_call_id,
+                    &call.name,
+                    &call.arguments,
+                    iteration_u32,
+                    None,
+                    None,
+                )
                 .await;
             let mut available: Vec<&str> = self.allowed_names.iter().map(|s| s.as_str()).collect();
             if let Some(resolver) = self.lazy_resolver.as_ref() {

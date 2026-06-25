@@ -7,8 +7,8 @@
  * anything unexpected still renders. Items are rendered as clickable rows in
  * JetBrains Mono for path clarity. Selected item uses primary-50 background.
  */
-import { useMemo } from 'react';
 import debug from 'debug';
+import { useMemo } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 
@@ -88,7 +88,11 @@ export default function SkillResourceTree({ resources, selectedPath, onSelect }:
   const groups = useMemo(() => groupResources(resources), [resources]);
 
   if (groups.length === 0) {
-    return <p className="text-xs text-stone-400 dark:text-neutral-500 italic">{t('skills.resource.tree.empty')}</p>;
+    return (
+      <p className="text-xs text-stone-400 dark:text-neutral-500 italic">
+        {t('skills.resource.tree.empty')}
+      </p>
+    );
   }
 
   return (
@@ -101,7 +105,9 @@ export default function SkillResourceTree({ resources, selectedPath, onSelect }:
             <h4 className="text-[11px] font-semibold uppercase tracking-wide text-stone-600 dark:text-neutral-300">
               {t(GROUP_LABEL_KEYS[group.key] ?? group.key)}
             </h4>
-            <span className="text-[10px] text-stone-400 dark:text-neutral-500 font-mono">{group.items.length}</span>
+            <span className="text-[10px] text-stone-400 dark:text-neutral-500 font-mono">
+              {group.items.length}
+            </span>
           </div>
           <ul className="divide-y divide-stone-100 dark:divide-neutral-800">
             {group.items.map(path => {

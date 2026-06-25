@@ -1,5 +1,6 @@
 import { useT } from '../../lib/i18n/I18nContext';
 import type { IntegrationNotification } from '../../types/notifications';
+import Button from '../ui/Button';
 import NotificationBody from './NotificationBody';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,9 +145,12 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
           )}
         </div>
         {onDismiss && (
-          <button
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="xs"
             onClick={() => onDismiss(n.id)}
-            className="mt-0.5 ml-1 flex-shrink-0 p-0.5 rounded hover:bg-stone-200 dark:hover:bg-neutral-800/60 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-colors"
+            className="mt-0.5 ml-1 flex-shrink-0 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300"
             aria-label={t('notifications.card.dismiss')}>
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -156,7 +160,7 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-          </button>
+          </Button>
         )}
       </div>
     </div>

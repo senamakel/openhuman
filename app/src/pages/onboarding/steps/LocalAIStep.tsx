@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import Button from '../../../components/ui/Button';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { bootstrapLocalAiWithRecommendedPreset } from '../../../utils/localAiBootstrap';
 import { openhumanLocalAiPresets } from '../../../utils/tauriCommands';
@@ -120,12 +121,9 @@ const LocalAIStep = ({ onNext, onBack: _onBack, onDownloadError }: LocalAIStepPr
           onClick={handleSkip}
         />
 
-        <button
-          type="button"
-          onClick={handleConsent}
-          className="mt-3 w-full text-center text-xs text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:text-neutral-300 transition-colors">
+        <Button variant="tertiary" size="xs" onClick={handleConsent} className="mt-3 w-full">
           {t('onboarding.localAI.useLocalAnyway')}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -189,12 +187,9 @@ const LocalAIStep = ({ onNext, onBack: _onBack, onDownloadError }: LocalAIStepPr
         onClick={handleSkip}
       />
 
-      <button
-        type="button"
-        onClick={handleConsent}
-        className="mt-3 w-full text-center text-xs text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:text-neutral-300 transition-colors">
+      <Button variant="tertiary" size="xs" onClick={handleConsent} className="mt-3 w-full">
         {t('onboarding.localAI.useLocalInstead')}
-      </button>
+      </Button>
     </div>
   );
 };

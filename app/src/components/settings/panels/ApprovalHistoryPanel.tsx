@@ -114,7 +114,7 @@ const ApprovalHistoryPanel = () => {
             <SettingsStatusLine saving={false} error={error} savingLabel="" />
             <Button
               type="button"
-              variant="ghost"
+              variant="tertiary"
               size="xs"
               onClick={handleRefresh}
               className="text-primary-600 dark:text-primary-400">

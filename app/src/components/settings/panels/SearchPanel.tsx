@@ -534,7 +534,7 @@ const KeyEditor = ({
           {t('settings.search.save')}
         </Button>
         {configured && (
-          <Button type="button" variant="danger" size="xs" onClick={onClear}>
+          <Button type="button" variant="secondary" tone="danger" size="xs" onClick={onClear}>
             {t('settings.search.clear')}
           </Button>
         )}

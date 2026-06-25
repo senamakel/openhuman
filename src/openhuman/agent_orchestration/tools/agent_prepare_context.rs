@@ -70,6 +70,26 @@ fn is_well_formed_context_bundle(output: &str) -> bool {
 /// and runs the scout against the parent's provider. Outside a turn the
 /// `run_subagent` call surfaces a no-parent error as a [`ToolResult::error`].
 pub async fn run_context_scout(question: &str, focus: Option<&str>) -> anyhow::Result<ToolResult> {
+    let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog();
+    run_context_scout_with_catalog(question, focus, &tool_catalog).await
+}
+
+/// Same as [`run_context_scout`] but with an **explicitly-supplied** tool
+/// catalogue, so it can run *outside* an agent turn — e.g. from the
+/// subconscious engine's structured tick, where `current_parent()` is unset
+/// and the parent's visible tool set can't be auto-derived.
+///
+/// The caller passes the catalogue of tools the eventual decision agent can
+/// actually call (one `- name: description` per line), so the bundle's
+/// `recommended_tool_calls` stay grounded in callable tools. Progress /
+/// subagent-lifecycle events stay best-effort: with no parent context the
+/// `parent_session` falls back to `standalone` and the progress sink is absent,
+/// so those sends simply no-op.
+pub async fn run_context_scout_with_catalog(
+    question: &str,
+    focus: Option<&str>,
+    tool_catalog: &str,
+) -> anyhow::Result<ToolResult> {
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
 
@@ -103,10 +123,9 @@ pub async fn run_context_scout(question: &str, focus: Option<&str>) -> anyhow::R
         }
     };
 
-    let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog();
     let catalog_tool_count = tool_catalog.lines().filter(|l| !l.is_empty()).count();
     let scout_prompt =
-        AgentPrepareContextTool::build_scout_prompt(&question, focus.as_deref(), &tool_catalog);
+        AgentPrepareContextTool::build_scout_prompt(&question, focus.as_deref(), tool_catalog);
 
     tracing::debug!(
         target: "agent_prepare_context",

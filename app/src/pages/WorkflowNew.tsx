@@ -21,6 +21,7 @@ import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import CreateWorkflowForm from '../components/skills/CreateWorkflowForm';
+import Button from '../components/ui/Button';
 import { useT } from '../lib/i18n/I18nContext';
 import { type WorkflowSummary } from '../services/api/workflowsApi';
 
@@ -66,22 +67,21 @@ export default function WorkflowNew() {
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
+              <Button
+                variant="tertiary"
                 data-testid="skill-new-cancel"
                 onClick={() => navigate('/connections')}
-                disabled={submitting}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 dark:text-neutral-300 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:opacity-40">
+                disabled={submitting}>
                 {t('common.cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 type="submit"
                 form={PAGE_FORM_ID}
                 data-testid="skill-new-submit"
-                disabled={!formValid || submitting}
-                className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50">
+                disabled={!formValid || submitting}>
                 {submitting ? t('skills.create.creating') : t('skills.create.createBtn')}
-              </button>
+              </Button>
             </div>
           </div>
 

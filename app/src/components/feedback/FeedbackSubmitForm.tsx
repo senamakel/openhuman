@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import { feedbackApi } from '../../services/api/feedbackApi';
 import type { CreateFeedbackResult, FeedbackType } from '../../types/feedback';
+import Button from '../ui/Button';
 
 const log = debugFactory('feedback:submit');
 
@@ -153,12 +154,9 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
       />
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-600 active:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50">
+        <Button variant="primary" size="lg" onClick={handleSubmit} disabled={!canSubmit}>
           {status === 'loading' ? '...' : t('feedback.submit.action')}
-        </button>
+        </Button>
         <div className="flex items-center gap-3">
           {message && <p className={`text-xs ${messageClass}`}>{message}</p>}
           {body.length > 0 && (

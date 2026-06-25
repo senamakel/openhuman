@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import EmptyStateCard from '../components/EmptyStateCard';
-import PillTabBar from '../components/PillTabBar';
+import ChipTabs from '../components/layout/ChipTabs';
 import RewardsCommunityTab from '../components/rewards/RewardsCommunityTab';
 import RewardsRedeemTab from '../components/rewards/RewardsRedeemTab';
 import RewardsReferralsTab from '../components/rewards/RewardsReferralsTab';
@@ -136,15 +136,15 @@ const Rewards = () => {
   return (
     <div className="min-h-full px-4 pt-6 pb-10">
       <div className="mx-auto max-w-2xl space-y-4">
-        <PillTabBar
+        <ChipTabs<RewardsTab>
           items={[
-            { label: t('rewards.referrals'), value: 'referrals' },
-            { label: t('rewards.title'), value: 'rewards' },
-            { label: t('rewards.coupons'), value: 'redeem' },
+            { id: 'referrals', label: t('rewards.referrals') },
+            { id: 'rewards', label: t('rewards.title') },
+            { id: 'redeem', label: t('rewards.coupons') },
           ]}
-          selected={selectedTab}
+          value={selectedTab}
           onChange={handleTabChange}
-          activeClassName="border-primary-600 bg-primary-600 text-white"
+          className="flex flex-wrap gap-2 pb-1"
         />
 
         {selectedTab === 'referrals' ? (

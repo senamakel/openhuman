@@ -34,6 +34,7 @@ import {
   stopListening,
 } from 'tauri-plugin-ptt-api';
 
+import Button from '../../components/ui/Button';
 import { RiveMascot } from '../../features/human/Mascot';
 import { useHumanMascot } from '../../features/human/useHumanMascot';
 import { useT } from '../../lib/i18n/I18nContext';
@@ -419,13 +420,9 @@ export const MascotScreen: FC = () => {
             {pairedLabel}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={handleDisconnect}
-          className="px-3 py-1.5 rounded-lg text-xs text-red-400 border border-red-400/30
-                     active:opacity-70 transition-opacity">
+        <Button variant="secondary" tone="danger" size="sm" onClick={handleDisconnect}>
           {t('iosMascot.disconnect')}
-        </button>
+        </Button>
       </div>
 
       {/* Mascot canvas */}

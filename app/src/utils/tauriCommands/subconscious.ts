@@ -1,8 +1,9 @@
 /**
- * Subconscious engine commands — engine control and scratchpad.
+ * Subconscious engine commands — engine control (status / trigger).
  *
- * Reflection/thoughts RPCs have been removed — the subconscious now
- * maintains only a scratchpad (via agent tools) and run logs.
+ * The subconscious now runs a structured tick (memory_diff → prepare_context
+ * → decide); continuity lives in the user's global to-dos and goals rather
+ * than a scratchpad, so only the status/trigger RPCs are exposed here.
  */
 import { callCoreRpc } from '../../services/coreRpcClient';
 import { type CommandResponse, isTauri } from './common';

@@ -5,6 +5,7 @@ import { useUser } from '../../hooks/useUser';
 import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { type CreditBalance, creditsApi, type RedeemedCoupon } from '../../services/api/creditsApi';
+import Button from '../ui/Button';
 
 const log = createDebug('openhuman:rewards-coupons');
 
@@ -188,13 +189,13 @@ const RewardsCouponSection = () => {
               disabled={submitLoading}
               className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 font-mono text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:text-neutral-500 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
             />
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="md"
               onClick={() => void handleRedeem()}
-              disabled={submitLoading || !couponCode.trim()}
-              className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50">
+              disabled={submitLoading || !couponCode.trim()}>
               {submitLoading ? t('rewards.coupon.redeeming') : t('rewards.coupon.redeemButton')}
-            </button>
+            </Button>
           </div>
           {submitSuccess ? (
             <div className="rounded-xl border border-sage-200 dark:border-sage-500/30 bg-sage-50 dark:bg-sage-500/10 px-3 py-2 text-sm text-sage-800 dark:text-sage-200">
@@ -209,12 +210,13 @@ const RewardsCouponSection = () => {
           {loadError ? (
             <div className="rounded-xl border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-sm text-coral-800 dark:text-coral-200">
               {loadError}
-              <button
-                type="button"
+              <Button
+                variant="tertiary"
+                size="xs"
                 onClick={() => void loadCouponState()}
-                className="ml-2 font-medium underline">
+                className="ml-2 underline">
                 {t('common.retry')}
-              </button>
+              </Button>
             </div>
           ) : null}
         </div>
@@ -225,13 +227,14 @@ const RewardsCouponSection = () => {
             <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
               {t('rewards.coupon.recentRedemptions')}
             </h3>
-            <button
-              type="button"
+            <Button
+              variant="tertiary"
+              size="xs"
               onClick={() => void loadCouponState()}
               disabled={loading}
-              className="text-xs font-medium text-stone-500 dark:text-neutral-400 transition-colors hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 dark:text-neutral-200 disabled:opacity-50">
+              className="text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200">
               {t('common.refresh')}
-            </button>
+            </Button>
           </div>
 
           {loading && redeemedCoupons.length === 0 ? (

@@ -28,6 +28,7 @@ import {
   type WorkflowRun,
   workflowRunsApi,
 } from '../../services/api/workflowRunsApi';
+import Button from '../ui/Button';
 import { SAFETY_TIER_KEY, WorkflowRunApprovalCard } from './WorkflowRunApprovalCard';
 import WorkflowRunDetail from './WorkflowRunDetail';
 
@@ -237,15 +238,15 @@ export default function IntelligenceOrchestrationTab() {
         <div className="rounded-xl border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
           {t('orchestration.failedToLoad')}: {error}
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => {
             setLoading(true);
             void load();
-          }}
-          className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+          }}>
           {t('common.retry')}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -295,13 +296,14 @@ export default function IntelligenceOrchestrationTab() {
                       </p>
                     </div>
                     {!isStarting && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="primary"
+                        size="sm"
                         data-testid={`orchestration-start-${def.id}`}
                         onClick={() => beginStart(def)}
-                        className="flex-none rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white shadow-soft hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        className="flex-none shadow-soft">
                         {t('orchestration.start')}
-                      </button>
+                      </Button>
                     )}
                   </div>
 
@@ -334,23 +336,24 @@ export default function IntelligenceOrchestrationTab() {
                         />
                       ) : (
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
+                          <Button
+                            variant="primary"
+                            size="sm"
                             data-testid="orchestration-confirm-start"
                             disabled={starting}
                             onClick={() => void doStart()}
-                            className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white shadow-soft hover:bg-primary-600 disabled:opacity-50">
+                            className="shadow-soft">
                             {starting
                               ? t('orchestration.starting')
                               : t('orchestration.confirmStart')}
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={cancelStart}
-                            disabled={starting}
-                            className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+                            disabled={starting}>
                             {t('orchestration.approval.cancel')}
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>

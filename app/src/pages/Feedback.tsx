@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import FeedbackFilterSelect from '../components/feedback/FeedbackFilterSelect';
 import FeedbackItemRow from '../components/feedback/FeedbackItemRow';
 import FeedbackSubmitForm from '../components/feedback/FeedbackSubmitForm';
+import Button from '../components/ui/Button';
 import { useUser } from '../hooks/useUser';
 import { useT } from '../lib/i18n/I18nContext';
 import { feedbackApi } from '../services/api/feedbackApi';
@@ -242,13 +243,12 @@ const Feedback = () => {
 
           {hasMore && (
             <div className="flex justify-center pt-1">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => void load(pageRef.current + 1, true)}
-                disabled={isLoading}
-                className="rounded-xl border border-neutral-200 bg-white px-5 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                disabled={isLoading}>
                 {isLoading ? '...' : t('feedback.loadMore')}
-              </button>
+              </Button>
             </div>
           )}
         </section>

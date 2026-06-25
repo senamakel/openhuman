@@ -16,6 +16,7 @@ import {
   openhumanLocalAiDownloadsProgress,
   openhumanLocalAiStatus,
 } from '../utils/tauriCommands';
+import Button from './ui/Button';
 
 const POLL_INTERVAL = 2000;
 
@@ -153,22 +154,26 @@ const LocalAIDownloadSnackbar = () => {
             <span className="text-sm font-medium text-white">{label}</span>
           </div>
           <div className="flex items-center gap-1">
-            <button
+            <Button
+              iconOnly
+              variant="tertiary"
+              size="xs"
               onClick={handleToggleCollapse}
-              className="p-1 text-stone-500 hover:text-stone-300 transition-colors"
               aria-label={t('app.localAiDownload.collapseAria')}>
               <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M3.75 7.25a.75.75 0 000 1.5h8.5a.75.75 0 000-1.5h-8.5z" />
               </svg>
-            </button>
-            <button
+            </Button>
+            <Button
+              iconOnly
+              variant="tertiary"
+              size="xs"
               onClick={handleDismiss}
-              className="p-1 text-stone-500 hover:text-stone-300 transition-colors"
               aria-label={t('app.localAiDownload.dismissAria')}>
               <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M4.28 3.22a.75.75 0 00-1.06 1.06L6.94 8l-3.72 3.72a.75.75 0 101.06 1.06L8 9.06l3.72 3.72a.75.75 0 101.06-1.06L9.06 8l3.72-3.72a.75.75 0 00-1.06-1.06L8 6.94 4.28 3.22z" />
               </svg>
-            </button>
+            </Button>
           </div>
         </div>
 

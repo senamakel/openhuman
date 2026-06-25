@@ -129,11 +129,14 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
             <span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
               {truncateAddress(balance.address)}
             </span>
-            <button
+            <Button
               type="button"
+              iconOnly
+              variant="tertiary"
+              size="sm"
               onClick={() => void handleCopyAddress()}
               aria-label={t('walletBalances.copyAddress')}
-              className="shrink-0 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors">
+              className="shrink-0 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300">
               {copied ? (
                 <svg
                   className="w-3.5 h-3.5 text-sage-500"
@@ -157,7 +160,7 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
                   />
                 </svg>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -388,12 +391,13 @@ const WalletBalancesPanel = () => {
                 <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
                   {t('walletBalances.setupHint')}
                 </p>
-                <button
+                <Button
                   type="button"
+                  variant="tertiary"
                   onClick={() => navigateToSettings('recovery-phrase')}
-                  className="mt-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                  className="mt-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
                   {t('walletBalances.setupCta')}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -457,7 +461,7 @@ const WalletBalancesPanel = () => {
       action={
         <Button
           type="button"
-          variant="ghost"
+          variant="tertiary"
           size="sm"
           onClick={() => void loadBalances()}
           disabled={loading}

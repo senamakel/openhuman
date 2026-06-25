@@ -16,7 +16,13 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual,
     useNavigate: vi.fn(() => vi.fn()),
-    useLocation: () => ({ pathname: '/connections', search: '', hash: '', state: null, key: 'test' }),
+    useLocation: () => ({
+      pathname: '/connections',
+      search: '',
+      hash: '',
+      state: null,
+      key: 'test',
+    }),
   };
 });
 

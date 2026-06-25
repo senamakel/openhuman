@@ -197,7 +197,7 @@ const TeamInvitesPanel = () => {
                         {/* Copy */}
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="tertiary"
                           size="xs"
                           onClick={() => void handleCopy(invite.code, invite._id)}
                           disabled={status !== 'active'}
@@ -234,7 +234,7 @@ const TeamInvitesPanel = () => {
                         {isAdmin && status === 'active' && (
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="tertiary"
                             size="xs"
                             onClick={() => handleRevoke(invite._id, invite.code)}
                             disabled={revokingId === invite._id}
@@ -320,9 +320,10 @@ const TeamInvitesPanel = () => {
                   </Button>
                   <Button
                     type="button"
-                    variant="danger"
+                    variant="primary"
+                    tone="danger"
                     size="md"
-                    className="flex-1 bg-coral-500 hover:bg-coral-600 text-white border-0 dark:bg-coral-500 dark:hover:bg-coral-600"
+                    className="flex-1"
                     onClick={() => void confirmRevokeInvite()}
                     disabled={revokingId === inviteToRevoke.id}>
                     {revokingId === inviteToRevoke.id

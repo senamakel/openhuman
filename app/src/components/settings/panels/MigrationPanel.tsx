@@ -188,7 +188,7 @@ const MigrationPanel = ({ embedded = false }: MigrationPanelProps = {}) => {
             </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="tertiary"
               size="sm"
               data-testid="migration-apply-button"
               onClick={() => void runApply()}

@@ -20,6 +20,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
+import Button from '../../ui/Button';
 import type { ConnStatus } from './types';
 
 interface McpConnectionHealthToolbarProps {
@@ -232,18 +233,16 @@ const McpConnectionHealthToolbar = ({
               )}
             </p>
             <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmDisconnect(false)}
-                className="px-3 py-1.5 text-xs rounded-lg border border-stone-200 dark:border-neutral-700 text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800">
+              <Button variant="secondary" size="sm" onClick={() => setConfirmDisconnect(false)}>
                 {t('mcp.health.disconnectConfirm.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => void runDisconnectAll()}
-                className="px-3 py-1.5 text-xs rounded-lg bg-coral-500 text-white hover:bg-coral-600">
+              </Button>
+              <Button
+                variant="primary"
+                tone="danger"
+                size="sm"
+                onClick={() => void runDisconnectAll()}>
                 {t('mcp.health.disconnectConfirm.confirm')}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -19,6 +19,7 @@ import { createPortal } from 'react-dom';
 import { useAppUpdate } from '../hooks/useAppUpdate';
 import { useT } from '../lib/i18n/I18nContext';
 import { formatBytes } from '../utils/localAiHelpers';
+import Button from './ui/Button';
 
 interface AppUpdatePromptProps {
   /** Override auto-check defaults (mostly for tests). */
@@ -105,12 +106,14 @@ const AppUpdatePrompt = (props: AppUpdatePromptProps) => {
             <span className="text-sm font-medium text-white">{headerLabel(phase, t)}</span>
           </div>
           {(phase === 'ready_to_install' || phase === 'error') && (
-            <button
+            <Button
+              iconOnly
+              variant="tertiary"
+              size="xs"
               onClick={phase === 'error' ? handleDismissError : handleLater}
-              className="p-1 text-stone-500 hover:text-stone-300 transition-colors"
               aria-label={t('app.update.dismissNotification')}>
               <CloseIcon className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           )}
         </div>
 
@@ -134,16 +137,12 @@ const AppUpdatePrompt = (props: AppUpdatePromptProps) => {
                 {t('app.update.restartNote')}
               </p>
               <div className="mt-3 flex gap-2">
-                <button
-                  onClick={handleInstall}
-                  className="flex-1 px-3 py-1.5 rounded-lg bg-primary-500 hover:bg-primary-400 text-white text-xs font-medium transition-colors">
+                <Button size="sm" onClick={handleInstall} className="flex-1">
                   {t('app.update.restartNow')}
-                </button>
-                <button
-                  onClick={handleLater}
-                  className="px-3 py-1.5 rounded-lg border border-stone-700 text-stone-300 hover:bg-stone-800 text-xs transition-colors">
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleLater}>
                   {t('app.update.later')}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -164,16 +163,12 @@ const AppUpdatePrompt = (props: AppUpdatePromptProps) => {
                 {error ?? t('app.update.errorFallback')}
               </p>
               <div className="mt-3 flex gap-2">
-                <button
-                  onClick={handleRetryDownload}
-                  className="flex-1 px-3 py-1.5 rounded-lg bg-primary-500 hover:bg-primary-400 text-white text-xs font-medium transition-colors">
+                <Button size="sm" onClick={handleRetryDownload} className="flex-1">
                   {t('common.retry')}
-                </button>
-                <button
-                  onClick={handleDismissError}
-                  className="px-3 py-1.5 rounded-lg border border-stone-700 text-stone-300 hover:bg-stone-800 text-xs transition-colors">
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleDismissError}>
                   {t('common.dismiss')}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -264,12 +259,13 @@ const ReleaseNotesToggle = ({
 }) => {
   const { t } = useT();
   return (
-    <button
-      type="button"
+    <Button
+      variant="tertiary"
+      size="xs"
       onClick={onToggle}
-      className="mt-1 text-[11px] text-primary-300 hover:text-primary-200 transition-colors">
+      className="mt-1 px-0 text-[11px] text-primary-300 hover:bg-transparent hover:text-primary-200">
       {expanded ? t('common.showLess') : t('common.showMore')}
-    </button>
+    </Button>
   );
 };
 

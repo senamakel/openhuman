@@ -113,7 +113,8 @@ const CompanionPanel = () => {
             sessionActive ? (
               <Button
                 type="button"
-                variant="danger"
+                variant="secondary"
+                tone="danger"
                 size="sm"
                 onClick={handleStop}
                 disabled={isStopping}>

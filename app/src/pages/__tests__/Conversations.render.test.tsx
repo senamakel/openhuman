@@ -15,12 +15,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
 import { threadApi } from '../../services/api/threadApi';
-import { chatClearQueue, chatSend } from '../../services/chatService';
+import { chatCancel, chatClearQueue, chatSend } from '../../services/chatService';
 import { CoreRpcError } from '../../services/coreRpcClient';
 import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer, {
+  appendProcessingProse,
   beginInferenceTurn,
   setInferenceStatusForThread,
+  setPendingPlanReviewForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
 } from '../../store/chatRuntimeSlice';
@@ -155,6 +157,14 @@ vi.mock('../../features/autocomplete/useAutocompleteSkillStatus', () => ({
 
 // openUrl uses Tauri; stub it.
 vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
+
+// coreRpcClient: the PlanReviewCard resolves a parked plan via callCoreRpc.
+// Preserve the real exports (e.g. CoreRpcError) and only stub the call.
+const mockCallCoreRpc = vi.fn().mockResolvedValue({});
+vi.mock('../../services/coreRpcClient', async orig => {
+  const actual = await orig<typeof import('../../services/coreRpcClient')>();
+  return { ...actual, callCoreRpc: (...args: unknown[]) => mockCallCoreRpc(...args) };
+});
 
 // coreState/store: getCoreStateSnapshot used by selectSocketStatus.
 vi.mock('../../lib/coreState/store', () => ({
@@ -1058,8 +1068,79 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       profileId: 'default',
       locale: 'en',
     });
-    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    // The send cleared the composer; with an empty composer mid-send the Send
+    // button morphs into the Stop button, so there is no Send affordance left
+    // to fire a duplicate send.
+    expect(screen.getByTestId('stop-generation-button')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send message' })).not.toBeInTheDocument();
     resolveSend?.();
+  });
+
+  it('cancels the in-flight generation when the in-composer Stop button is clicked', async () => {
+    let resolveSend: (() => void) | undefined;
+    vi.mocked(chatSend).mockImplementationOnce(
+      () =>
+        new Promise<string | undefined>(resolve => {
+          resolveSend = () => resolve(undefined);
+        })
+    );
+    const { textarea, thread } = await renderSelectedConversation();
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'cancel me' } });
+    });
+    const sendButton = screen.getByRole('button', { name: 'Send message' });
+    await act(async () => {
+      fireEvent.click(sendButton);
+    });
+
+    // Empty composer + in-flight turn -> the Send button became the Stop button.
+    const stopButton = await screen.findByTestId('stop-generation-button');
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
+
+    expect(chatCancel).toHaveBeenCalledWith(thread.id);
+    resolveSend?.();
+  });
+
+  it('keeps a footer Cancel control in the mic-cloud composer while generating', async () => {
+    const thread = makeThread({ id: 'mic-cancel-thread', title: 'Mic' });
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
+    const { default: Conversations } = await import('../Conversations');
+    const store = buildStore({
+      thread: selectedThreadState(thread),
+      socket: socketState('connected'),
+    });
+    await act(async () => {
+      render(
+        <Provider store={store}>
+          <MemoryRouter initialEntries={['/conversations']}>
+            <SidebarSlotProvider>
+              <SidebarSlotOutlet />
+              <Conversations composer="mic-cloud" />
+            </SidebarSlotProvider>
+          </MemoryRouter>
+        </Provider>
+      );
+    });
+
+    // Drive an in-flight turn so `isSending` is true. The mic-cloud composer has
+    // no in-box Stop button, so the footer Cancel control is the cancel path.
+    await act(async () => {
+      store.dispatch(beginInferenceTurn({ threadId: thread.id }));
+    });
+
+    const cancelButtons = await screen.findAllByRole('button', { name: 'Cancel' });
+    const footerCancel = cancelButtons.find(
+      b => b.getAttribute('data-analytics-id') === 'chat-cancel-generation'
+    );
+    expect(footerCancel).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(footerCancel as HTMLElement);
+    });
+    expect(chatCancel).toHaveBeenCalledWith(thread.id);
   });
 
   it('releases the pending-send lock when appendMessage rejects with a generic error', async () => {
@@ -1556,12 +1637,12 @@ describe('Conversations — worker thread back-to-parent navigation (#1624)', ()
 
 // #3717 (Bug 2) — A single logical assistant turn can be persisted as multiple
 // agent ThreadMessages. The "Agentic task insights" panel used to be anchored
-// inside the per-message map, immediately before the LAST agent message, which
-// dropped it BETWEEN the earlier agent content and the final message — splitting
-// one response into two disconnected chunks. The panel (and the "View full agent
-// process" button) are now hoisted out of the map so they render exactly once,
-// AFTER the complete response, regardless of how many agent messages the turn
-// produced.
+// immediately before the LAST agent message, which dropped it BETWEEN the
+// earlier agent content and the final message — splitting one response into two
+// disconnected chunks. The panel (and the "View full agent process" button) now
+// render exactly once, anchored after the latest turn's USER message so they
+// sit ABOVE the whole answer (processing before result) — never split between
+// agent bubbles, regardless of how many agent messages the turn produced.
 describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1582,7 +1663,7 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
     });
   });
 
-  it('renders the insights panel exactly once, after the last agent message of a multi-message turn', async () => {
+  it('renders the insights panel exactly once, above the answer of a multi-message turn (not split between bubbles)', async () => {
     const thread = makeThread({ id: 'multi-agent-thread', title: 'Multi-message turn' });
     // One logical assistant turn persisted as TWO agent ThreadMessages.
     const messages: ThreadMessage[] = [
@@ -1657,27 +1738,33 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
     // The "View full agent process" button is hoisted alongside it — also once.
     expect(screen.getAllByTestId('view-process-source')).toHaveLength(1);
 
-    // DOM order: the panel must follow the LAST agent message's content, never
-    // sit between the two agent bubbles.
-    const lastAgentText = screen.getByText('Second part of the answer.');
+    // DOM order: processing happens before the result, so the panel sits ABOVE
+    // the answer — after the latest turn's user message and before BOTH agent
+    // bubbles (never split between them, preserving the #3717 invariant).
+    const userText = screen.getByText('Plan and then summarize.');
     const firstAgentText = screen.getByText('First part of the answer.');
-    expect(lastAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
+    const lastAgentText = screen.getByText('Second part of the answer.');
+    // The panel precedes the first agent bubble (and therefore both).
+    expect(firstAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_PRECEDING).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING
     );
-    expect(firstAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+    expect(lastAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_PRECEDING).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING
+    );
+    // …and follows the user message.
+    expect(userText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
 
-    // Exercise the hoisted button: opens the "Agent Process Source" panel.
+    // Inline rows are compact — each shows a "View details →" link instead of
+    // an inline expand. Clicking one opens the full-run Agent Process Source
+    // side panel (every row opens the same panel).
+    const viewDetails = screen.getAllByTestId('view-details');
+    expect(viewDetails.length).toBeGreaterThan(0);
     await act(async () => {
-      fireEvent.click(screen.getByTestId('view-process-source'));
+      fireEvent.click(viewDetails[0]);
     });
-
-    // Exercise onViewSubagent: clicking the subagent row's "view full
-    // processing" affordance opens the subagent drawer for that task.
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('subagent-view-processing'));
-    });
+    expect(await screen.findByTestId('agent-process-source-panel')).toBeInTheDocument();
   });
 
   it('hides the verbose timeline when "hide agent thinking" is on, but still opens the source panel', async () => {
@@ -1796,6 +1883,68 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
       fireEvent.click(link);
     });
     expect(await screen.findByTestId('agent-task-insights')).toBeInTheDocument();
+  });
+
+  it('surfaces a process-source opener for a tool-less (transcript-only) turn', async () => {
+    // The agent only streamed reasoning/narration — no tool calls — so the
+    // inline step timeline is empty, but the persisted thoughts must stay
+    // reachable through a standalone opener into the full-run panel.
+    const thread = makeThread({ id: 'transcript-only-thread', title: 'Thinking only' });
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-user',
+        sender: 'user',
+        type: 'text',
+        content: 'Just think out loud.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'm-agent',
+        sender: 'agent',
+        type: 'text',
+        content: 'Here is my reasoning result.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:01:00.000Z',
+      },
+    ];
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
+
+    let store: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      store = await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
+        socket: socketState('connected'),
+      });
+    });
+
+    await screen.findByText('Here is my reasoning result.');
+    // Seed a narration-only transcript (no tool timeline at all).
+    await act(async () => {
+      store!.dispatch(
+        appendProcessingProse({
+          threadId: thread.id,
+          kind: 'narration',
+          round: 1,
+          delta: 'Let me reason about this carefully.',
+        })
+      );
+    });
+
+    // The verbose step timeline never renders (there are no tool steps)…
+    expect(screen.queryByTestId('agent-task-insights')).toBeNull();
+    // …but the standalone opener appears and opens the full-run panel, which
+    // shows the persisted thoughts.
+    const opener = screen.getByTestId('view-process-source');
+    await act(async () => {
+      fireEvent.click(opener);
+    });
+    expect(await screen.findByTestId('agent-process-source-panel')).toBeInTheDocument();
   });
 
   it('keeps a settled source opener when hidden and no agent message exists (cancelled first turn)', async () => {
@@ -1987,7 +2136,8 @@ describe('Conversations — open-session resume (View work)', () => {
     expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
   });
 
-  it('approves a parked plan card from the thread todo strip', async () => {
+  it('approves a parked plan from the plan-review card', async () => {
+    mockCallCoreRpc.mockClear().mockResolvedValue({});
     const thread = makeThread({ id: 'approve-thread', title: 'Approve thread' });
     mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
 
@@ -1995,33 +2145,26 @@ describe('Conversations — open-session resume (View work)', () => {
     const selectedId = store.getState().thread.selectedThreadId ?? 'approve-thread';
     await act(async () => {
       store.dispatch(
-        setTaskBoardForThread({
+        setPendingPlanReviewForThread({
           threadId: selectedId,
-          board: {
-            threadId: selectedId,
-            updatedAt: '',
-            cards: [
-              {
-                id: 'pc1',
-                title: 'Needs sign-off',
-                status: 'awaiting_approval',
-                order: 0,
-                updatedAt: '',
-              },
-            ],
-          },
+          review: { requestId: 'pr-1', summary: 'Needs sign-off', steps: ['do the thing'] },
         })
       );
     });
 
-    // The strip surfaces Approve/Reject only for parked cards; approving routes
-    // through onDecidePlan → runDecidePlan → threadApi.decidePlan.
-    const approveBtn = await screen.findByTitle('Approve');
+    // A parked plan surfaces the PlanReviewCard above the composer; "Approve &
+    // run" resolves the parked turn via the plan_review_decide RPC.
+    const approveBtn = await screen.findByText('Approve & run');
     await act(async () => {
       fireEvent.click(approveBtn);
     });
 
-    await waitFor(() => expect(threadApi.decidePlan).toHaveBeenCalledWith(selectedId, 'pc1', true));
+    await waitFor(() =>
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.plan_review_decide',
+        params: { request_id: 'pr-1', decision: 'approve', feedback: undefined },
+      })
+    );
   });
 });
 

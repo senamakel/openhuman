@@ -18,6 +18,7 @@
 import { useEffect, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
+import Button from '../../ui/Button';
 import McpInventoryExportTab from './McpInventoryExportTab';
 import McpInventoryImportTab from './McpInventoryImportTab';
 import type { InstalledServer } from './types';
@@ -76,11 +77,13 @@ const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPa
               {t('mcp.inventory.subtitle')}
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
             onClick={onClose}
             aria-label={t('mcp.inventory.close')}
-            className="shrink-0 rounded-lg p-1.5 text-stone-400 hover:text-stone-700 dark:text-neutral-500 dark:hover:text-neutral-200 transition-colors">
+            className="shrink-0">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -90,7 +93,7 @@ const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPa
               aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {/* Tab bar */}

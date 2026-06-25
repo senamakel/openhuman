@@ -214,15 +214,24 @@ named = [
     # arithmetic to the leaf (which once computed "24h ago" ~10 months off and
     # missed the latest data). Never hand-compute Unix seconds.
     "resolve_time",
-    # Coding-harness coordination primitives from #1208. `todowrite`
-    # gives the orchestrator a shared todo store to track multi-step
-    # work across delegations; `plan_exit` is the stable marker that
-    # the (forthcoming) plan→build mode runner consumes when a planner
-    # subagent hands a plan back up. Editing/navigation primitives
-    # (grep/glob/edit/apply_patch/lsp) intentionally stay with
-    # downstream agents — the orchestrator coordinates, it doesn't
-    # touch files itself.
-    "todowrite",
+    # Coding-harness coordination primitives from #1208. `todo` is the
+    # registered unified thread task-board tool (`TodoTool::name() == "todo"`);
+    # it gives the orchestrator a shared todo store to track multi-step work
+    # across delegations and is what the interactive plan-review gate hooks
+    # (WebChat turns stamp new cards `approval_mode = Required` → parked for
+    # user review). The named scope matches tool names exactly, so the
+    # orchestrator must list `todo` (not the legacy `todowrite` alias, which
+    # resolves to no registered tool) to be able to call it. `plan_exit` is the
+    # stable marker that the (forthcoming) plan→build mode runner consumes when
+    # a planner subagent hands a plan back up. Editing/navigation primitives
+    # (grep/glob/edit/apply_patch/lsp) intentionally stay with downstream
+    # agents — the orchestrator coordinates, it doesn't touch files itself.
+    "todo",
+    # Interactive plan-review gate (Codex/Claude plan mode). After laying out a
+    # multi-step plan on an interactive turn, call `request_plan_review` to PAUSE
+    # the turn until the user approves / rejects / sends feedback — nothing
+    # executes until they approve. Auto-approves on non-interactive turns.
+    "request_plan_review",
     # Thread-level goal (Codex-style per-thread completion contract). `goal_set`
     # records the durable objective for THIS thread when a non-trivial request
     # lands (the orchestrator is authoritative — it always creates or replaces);

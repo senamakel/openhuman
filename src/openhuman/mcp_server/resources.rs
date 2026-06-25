@@ -244,7 +244,7 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
     PromptResource {
         uri: "openhuman://prompts/agents/subconscious",
         name: "subconscious",
-        description: "Background reasoning agent that maintains subconscious scratchpad context.",
+        description: "Background awareness agent: diffs the user's world, prepares context, and decides what to do.",
         content: include_str!("../subconscious/agent/prompt.md"),
     },
     PromptResource {

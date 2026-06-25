@@ -12,6 +12,7 @@
 import { type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
+import Button from '../../ui/Button';
 import type { ConnStatus, InstalledServer, ServerStatus } from './types';
 
 interface InstalledServerListProps {
@@ -93,23 +94,21 @@ const InstalledServerList = ({
         <h3 className="text-xs font-semibold text-stone-500 dark:text-neutral-400 uppercase tracking-wide">
           {t('mcp.installed.title')}
         </h3>
-        <button
-          type="button"
+        <Button
+          variant="tertiary"
+          size="xs"
           onClick={onBrowseCatalog}
-          className="text-xs text-primary-600 dark:text-primary-300 hover:underline font-medium">
+          className="text-primary-600 dark:text-primary-300 hover:underline">
           {t('mcp.installed.browseCatalog')}
-        </button>
+        </Button>
       </div>
 
       {servers.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-8">
           <p className="text-sm text-stone-400 dark:text-neutral-500">{t('mcp.installed.empty')}</p>
-          <button
-            type="button"
-            onClick={onBrowseCatalog}
-            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
+          <Button variant="primary" size="md" onClick={onBrowseCatalog}>
             {t('mcp.installed.browseCatalog')}
-          </button>
+          </Button>
         </div>
       ) : (
         <>

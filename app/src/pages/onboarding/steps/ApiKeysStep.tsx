@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import Button from '../../../components/ui/Button';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { setCloudProviderKey } from '../../../services/api/aiSettingsApi';
 import { callCoreRpc } from '../../../services/coreRpcClient';
@@ -258,13 +259,14 @@ const ApiKeysStep = ({ onNext, onSkip }: ApiKeysStepProps) => {
       </div>
 
       <div className="mt-4 flex justify-center">
-        <button
-          type="button"
+        <Button
+          variant="tertiary"
+          size="xs"
           onClick={onSkip}
           disabled={saving}
-          className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 underline disabled:opacity-50">
+          className="underline">
           {t('onboarding.apiKeys.skipForNow')}
-        </button>
+        </Button>
       </div>
     </div>
   );

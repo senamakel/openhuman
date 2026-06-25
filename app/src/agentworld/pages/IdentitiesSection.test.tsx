@@ -88,7 +88,7 @@ afterEach(() => {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function gotoTab(name: 'Register' | 'Registry' | 'Trading') {
-  return userEvent.click(screen.getByRole('button', { name }));
+  return userEvent.click(screen.getByRole('tab', { name }));
 }
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ function gotoTab(name: 'Register' | 'Registry' | 'Trading') {
 describe('tab navigation', () => {
   test('defaults to Register tab', () => {
     render(<IdentitiesSection />);
-    expect(screen.getByRole('button', { name: 'Register' })).toHaveAttribute('data-active', 'true');
+    expect(screen.getByRole('tab', { name: 'Register' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Check handle availability')).toBeInTheDocument();
   });
 
@@ -110,21 +110,21 @@ describe('tab navigation', () => {
   test('can switch to Registry tab', async () => {
     render(<IdentitiesSection />);
     await gotoTab('Registry');
-    expect(screen.getByRole('button', { name: 'Registry' })).toHaveAttribute('data-active', 'true');
+    expect(screen.getByRole('tab', { name: 'Registry' })).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByText('Directory identities')).toBeInTheDocument();
   });
 
   test('can switch to Trading tab', async () => {
     render(<IdentitiesSection />);
     await gotoTab('Trading');
-    expect(screen.getByRole('button', { name: 'Trading' })).toHaveAttribute('data-active', 'true');
+    expect(screen.getByRole('tab', { name: 'Trading' })).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByText('Floor Prices')).toBeInTheDocument();
   });
 
   test('clicking the active tab again is a no-op (reducer short-circuit)', async () => {
     render(<IdentitiesSection />);
     await gotoTab('Register');
-    expect(screen.getByRole('button', { name: 'Register' })).toHaveAttribute('data-active', 'true');
+    expect(screen.getByRole('tab', { name: 'Register' })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('switching tabs remounts the body (key change clears local state)', async () => {

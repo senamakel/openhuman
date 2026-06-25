@@ -10,7 +10,6 @@
 // Refetches whenever `repo` changes. Like RepoPicker, this is a
 // parallel component to the inline impl in DevWorkflowPanel — the
 // original panel stays untouched.
-
 import createDebug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -121,10 +120,9 @@ const BranchPicker = ({ value, onChange, repo, id, placeholder, disabled }: Bran
       <select
         id={id}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={e => onChange(e.target.value)}
         disabled={disabled || loading || !repo}
-        className={selectClass}
-      >
+        className={selectClass}>
         <option value="">
           {!repo
             ? t('settings.skillsRunner.branchPicker.needRepo')
@@ -132,15 +130,13 @@ const BranchPicker = ({ value, onChange, repo, id, placeholder, disabled }: Bran
               ? t('settings.skillsRunner.branchPicker.loading')
               : (placeholder ?? t('settings.skillsRunner.branchPicker.select'))}
         </option>
-        {branches.map((b) => (
+        {branches.map(b => (
           <option key={b.name} value={b.name}>
             {b.name}
           </option>
         ))}
       </select>
-      {error && (
-        <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>}
     </div>
   );
 };

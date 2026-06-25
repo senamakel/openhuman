@@ -534,13 +534,15 @@ function ToolsPickerModal({
               )}
             </p>
           </div>
-          <button
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="xs"
             type="button"
             aria-label={t('common.close')}
-            onClick={onClose}
-            className="rounded-full p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300">
+            onClick={onClose}>
             <LuX className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">

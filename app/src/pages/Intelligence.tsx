@@ -14,7 +14,7 @@ import MemorySection from '../components/intelligence/MemorySection';
 import ModelCouncilTab from '../components/intelligence/ModelCouncilTab';
 import { ToastContainer } from '../components/intelligence/Toast';
 import WorkflowsTab from '../components/intelligence/WorkflowsTab';
-import PillTabBar from '../components/PillTabBar';
+import ChipTabs from '../components/layout/ChipTabs';
 import SettingsHeader from '../components/settings/components/SettingsHeader';
 import { useSettingsNavigation } from '../components/settings/hooks/useSettingsNavigation';
 import { useDeveloperMode } from '../hooks/useDeveloperMode';
@@ -210,29 +210,23 @@ export default function Intelligence({ tabParamKey = 'tab' }: IntelligenceProps 
       />
 
       <div className="p-4 space-y-4">
-        <PillTabBar
-          items={tabs.map(tab => ({ label: tab.label, value: tab.id }))}
-          selected={activeTab}
-          onChange={setActiveTab}
-          activeClassName="border-primary-600 bg-primary-600 text-white"
-          renderItem={(item, active) => {
-            const tab = tabs.find(entry => entry.id === item.value);
-            return (
+        <ChipTabs<IntelligenceTab>
+          items={tabs.map(tab => ({
+            id: tab.id,
+            label: (
               <span className="inline-flex items-center gap-1.5">
-                <span>{item.label}</span>
-                {tab?.comingSoon && (
-                  <span
-                    className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
-                      active
-                        ? 'border-white/30 bg-white/15 text-white'
-                        : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-500 dark:text-neutral-400'
-                    }`}>
+                <span>{tab.label}</span>
+                {tab.comingSoon && (
+                  <span className="rounded-full border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-1.5 py-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
                     {t('misc.beta')}
                   </span>
                 )}
               </span>
-            );
-          }}
+            ),
+          }))}
+          value={activeTab}
+          onChange={setActiveTab}
+          className="flex flex-wrap gap-2 pb-1"
         />
 
         <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-neutral-200 dark:border-neutral-800 p-6">

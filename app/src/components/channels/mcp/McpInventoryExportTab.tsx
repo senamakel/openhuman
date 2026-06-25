@@ -9,6 +9,7 @@
 import { useMemo, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
+import Button from '../../ui/Button';
 import {
   buildManifest,
   type McpInventoryManifest,
@@ -76,22 +77,22 @@ const McpInventoryExportTab = ({ servers }: McpInventoryExportTabProps) => {
           {t('mcp.inventory.export.serverCount').replace('{count}', String(servers.length))}
         </p>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => void handleCopy()}
-            aria-label={t('mcp.inventory.export.copyAria')}
-            className="rounded-lg border border-stone-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800">
+            aria-label={t('mcp.inventory.export.copyAria')}>
             {copyStatus === 'copied'
               ? t('mcp.inventory.export.copied')
               : t('mcp.inventory.export.copy')}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={handleDownload}
-            aria-label={t('mcp.inventory.export.downloadAria')}
-            className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600">
+            aria-label={t('mcp.inventory.export.downloadAria')}>
             {t('mcp.inventory.export.download')}
-          </button>
+          </Button>
         </div>
       </div>
       <pre

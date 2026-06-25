@@ -38,6 +38,7 @@ import {
 import { isTauri } from '../../utils/tauriCommands/common';
 import AppBackground from '../AppBackground';
 import LanguageSelect from '../LanguageSelect';
+import Button from '../ui/Button';
 
 const log = debug('boot-check');
 const logError = debug('boot-check:error');
@@ -350,15 +351,15 @@ function ModePicker({ onConfirm }: PickerProps) {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={handleTestConnection}
-                disabled={testStatus.kind === 'testing'}
-                className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+                disabled={testStatus.kind === 'testing'}>
                 {testStatus.kind === 'testing'
                   ? t('bootCheck.testing')
                   : t('bootCheck.testConnection')}
-              </button>
+              </Button>
               {testStatus.kind === 'ok' && (
                 <span className="text-xs text-emerald-600" data-testid="test-status-ok">
                   {t('bootCheck.connectedOk')}
@@ -380,12 +381,7 @@ function ModePicker({ onConfirm }: PickerProps) {
       </div>
 
       <div className="mt-6 flex justify-end">
-        <button
-          type="button"
-          onClick={handleContinue}
-          className="rounded-lg bg-primary-500 px-5 py-2 text-sm font-medium text-white hover:bg-primary-600">
-          {t('common.continue')}
-        </button>
+        <Button onClick={handleContinue}>{t('common.continue')}</Button>
       </div>
     </Panel>
   );
@@ -463,54 +459,36 @@ function ResultScreen({
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3 flex-wrap">
           {isPortConflict && foreignOwner ? (
-            <button
-              type="button"
+            <Button
+              tone="danger"
               onClick={() => onForceQuit(foreignOwner.pid)}
               disabled={actionBusy}
-              data-testid="force-quit-owner-btn"
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
+              data-testid="force-quit-owner-btn">
               {(actionBusy
                 ? t('bootCheck.portConflictForceQuitting')
                 : t('bootCheck.portConflictForceQuit')
               )
                 .replace('{name}', foreignOwner.name)
                 .trim()}
-            </button>
+            </Button>
           ) : (
             isPortConflict && (
-              <button
-                type="button"
-                onClick={onAction}
-                disabled={actionBusy}
-                data-testid="fix-automatically-btn"
-                className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+              <Button onClick={onAction} disabled={actionBusy} data-testid="fix-automatically-btn">
                 {actionBusy
                   ? t('bootCheck.portConflictFixing')
                   : t('bootCheck.portConflictFixButton')}
-              </button>
+              </Button>
             )
           )}
-          <button
-            type="button"
-            onClick={onRetry}
-            disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+          <Button variant="secondary" onClick={onRetry} disabled={actionBusy}>
             {t('common.retry')}
-          </button>
-          <button
-            type="button"
-            onClick={onSwitchMode}
-            disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+          </Button>
+          <Button variant="secondary" onClick={onSwitchMode} disabled={actionBusy}>
             {t('bootCheck.switchMode')}
-          </button>
-          <button
-            type="button"
-            onClick={onQuit}
-            disabled={actionBusy}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
+          </Button>
+          <Button tone="danger" onClick={onQuit} disabled={actionBusy}>
             {t('bootCheck.quit')}
-          </button>
+          </Button>
         </div>
       </Panel>
     );
@@ -527,20 +505,12 @@ function ResultScreen({
         </p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
-          <button
-            type="button"
-            onClick={onAction}
-            disabled={actionBusy}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
+          <Button tone="danger" onClick={onAction} disabled={actionBusy}>
             {actionBusy ? t('bootCheck.removing') : t('bootCheck.removeContinue')}
-          </button>
-          <button
-            type="button"
-            onClick={onSwitchMode}
-            disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+          </Button>
+          <Button variant="secondary" onClick={onSwitchMode} disabled={actionBusy}>
             {t('bootCheck.switchMode')}
-          </button>
+          </Button>
         </div>
       </Panel>
     );
@@ -557,20 +527,12 @@ function ResultScreen({
         </p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
-          <button
-            type="button"
-            onClick={onAction}
-            disabled={actionBusy}
-            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+          <Button onClick={onAction} disabled={actionBusy}>
             {actionBusy ? t('bootCheck.restarting') : t('bootCheck.restartCore')}
-          </button>
-          <button
-            type="button"
-            onClick={onSwitchMode}
-            disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+          </Button>
+          <Button variant="secondary" onClick={onSwitchMode} disabled={actionBusy}>
             {t('bootCheck.switchMode')}
-          </button>
+          </Button>
         </div>
       </Panel>
     );
@@ -587,20 +549,12 @@ function ResultScreen({
         </p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
-          <button
-            type="button"
-            onClick={onAction}
-            disabled={actionBusy}
-            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+          <Button onClick={onAction} disabled={actionBusy}>
             {actionBusy ? t('bootCheck.updating') : t('bootCheck.updateCloudCore')}
-          </button>
-          <button
-            type="button"
-            onClick={onSwitchMode}
-            disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+          </Button>
+          <Button variant="secondary" onClick={onSwitchMode} disabled={actionBusy}>
             {t('bootCheck.switchMode')}
-          </button>
+          </Button>
         </div>
       </Panel>
     );
@@ -617,20 +571,12 @@ function ResultScreen({
       </p>
       {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
       <div className="mt-5 flex gap-3">
-        <button
-          type="button"
-          onClick={onAction}
-          disabled={actionBusy}
-          className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+        <Button onClick={onAction} disabled={actionBusy}>
           {actionBusy ? t('bootCheck.working') : t('bootCheck.restartUpdateCore')}
-        </button>
-        <button
-          type="button"
-          onClick={onSwitchMode}
-          disabled={actionBusy}
-          className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+        </Button>
+        <Button variant="secondary" onClick={onSwitchMode} disabled={actionBusy}>
           {t('bootCheck.switchMode')}
-        </button>
+        </Button>
       </div>
     </Panel>
   );

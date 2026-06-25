@@ -2,7 +2,8 @@
 //!
 //! [`extract_query_entities`] turns a natural-language query into a set of
 //! canonical entity ids that key into `mem_tree_entity_index` and the
-//! co-occurrence graph. It prefers a spaCy NER sidecar (named entities +
+//! co-occurrence graph. It prefers the runtime Python server's spaCy backend
+//! (named entities +
 //! salient nouns) and falls back to the in-Rust regex extractor whenever
 //! spaCy is disabled or unavailable — so retrieval always works offline, just
 //! with lower person/org recall.
@@ -12,11 +13,9 @@
 //! same `<kind>:<value>` namespace as the indexed chunk entities. No id
 //! mismatch, no bespoke join.
 
-mod client;
-mod provision;
-
-pub use client::{shared_ner, SpacyNer};
-pub use provision::{ensure_spacy, spacy_provisioned, SpacyRuntime, SPACY_MODEL};
+pub use crate::openhuman::runtime_python_server::{
+    ensure_spacy, spacy_provisioned, SpacyResponse, SPACY_MODEL,
+};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::score::extract::{
@@ -51,22 +50,20 @@ pub async fn extract_query_entities(config: &Config, query: &str) -> Vec<Canonic
     }
 
     if config.memory_tree.spacy_enabled {
-        if let Some(ner) = shared_ner(config).await {
-            match ner.extract(trimmed).await {
-                Ok(resp) => {
-                    let extracted = spacy_to_extracted(&resp);
-                    let canon = canonicalise(&extracted);
-                    log::debug!(
-                        "[memory_tree::nlp] spaCy query extraction: entities={} nouns={} canonical={}",
-                        resp.entities.len(),
-                        resp.nouns.len(),
-                        canon.len()
-                    );
-                    return canon;
-                }
-                Err(e) => {
-                    log::warn!("[memory_tree::nlp] spaCy extraction failed, falling back: {e:#}");
-                }
+        match crate::openhuman::runtime_python_server::extract_spacy(config, trimmed).await {
+            Ok(resp) => {
+                let extracted = spacy_to_extracted(&resp);
+                let canon = canonicalise(&extracted);
+                log::debug!(
+                    "[memory_tree::nlp] spaCy query extraction: entities={} nouns={} canonical={}",
+                    resp.entities.len(),
+                    resp.nouns.len(),
+                    canon.len()
+                );
+                return canon;
+            }
+            Err(e) => {
+                log::warn!("[memory_tree::nlp] spaCy extraction failed, falling back: {e:#}");
             }
         }
     } else {
@@ -79,7 +76,7 @@ pub async fn extract_query_entities(config: &Config, query: &str) -> Vec<Canonic
 /// Build [`ExtractedEntities`] from a spaCy response: named entities become
 /// entity spans, salient nouns become topics. Topics are promoted to
 /// `topic:<noun>` canonical ids by [`canonicalise`].
-fn spacy_to_extracted(resp: &client::SpacyResponse) -> ExtractedEntities {
+fn spacy_to_extracted(resp: &SpacyResponse) -> ExtractedEntities {
     let entities = resp
         .entities
         .iter()
@@ -170,16 +167,16 @@ mod tests {
 
     #[test]
     fn spacy_response_maps_nouns_to_topics() {
-        let resp = client::SpacyResponse {
-            entities: vec![client::SpacyEntity {
-                text: "Alice".into(),
-                label: "PERSON".into(),
-                start: 0,
-                end: 5,
-            }],
+        let resp = SpacyResponse {
+            entities: vec![
+                crate::openhuman::runtime_python_server::spacy::SpacyEntity {
+                    text: "Alice".into(),
+                    label: "PERSON".into(),
+                    start: 0,
+                    end: 5,
+                },
+            ],
             nouns: vec!["migration".into()],
-            id: Some("0".into()),
-            error: None,
         };
         let extracted = spacy_to_extracted(&resp);
         let canon = canonicalise(&extracted);

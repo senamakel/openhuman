@@ -4,6 +4,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import type { ToastNotification } from '../../types/intelligence';
 import { openUrl, revealPath } from '../../utils/openUrl';
 import { memoryTreeVaultHealthCheck, type VaultHealthCheck } from '../../utils/tauriCommands';
+import Button from '../ui/Button';
 
 const OBSIDIAN_DOWNLOAD_URL = 'https://obsidian.md/download';
 
@@ -145,16 +146,16 @@ export function VaultHealthChecklist({ onToast, title }: VaultHealthChecklistPro
             {t('vaultHealth.workspaceVault')} <code className="font-mono">memory_tree/content</code>
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           onClick={() => {
             void runCheck();
           }}
           disabled={refreshing}
-          className="rounded-md border border-stone-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2.5 py-1 text-xs font-medium text-stone-700 dark:text-neutral-200 disabled:opacity-60"
           data-testid="vault-health-refresh">
           {refreshing ? t('vaultHealth.refreshing') : t('vaultHealth.refresh')}
-        </button>
+        </Button>
       </div>
 
       {health?.content_root_abs ? (
@@ -166,14 +167,14 @@ export function VaultHealthChecklist({ onToast, title }: VaultHealthChecklistPro
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={revealVault}
           disabled={!health?.content_root_abs}
-          className="rounded-md border border-stone-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-semibold text-stone-700 dark:text-neutral-200 disabled:opacity-50"
           data-testid="vault-health-reveal">
           {t('vaultHealth.revealFolder')}
-        </button>
+        </Button>
         <button
           type="button"
           onClick={openObsidian}
@@ -182,13 +183,13 @@ export function VaultHealthChecklist({ onToast, title }: VaultHealthChecklistPro
           data-testid="vault-health-open-obsidian">
           {t('vaultHealth.openInObsidian')}
         </button>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={installObsidian}
-          className="rounded-md border border-stone-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-semibold text-stone-700 dark:text-neutral-200"
           data-testid="vault-health-install-obsidian">
           {t('vaultHealth.installObsidian')}
-        </button>
+        </Button>
       </div>
 
       {loading ? (

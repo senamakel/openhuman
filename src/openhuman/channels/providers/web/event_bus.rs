@@ -29,7 +29,7 @@ pub fn register_approval_surface_subscriber() {
         Some(handle) => {
             let _ = APPROVAL_SURFACE_HANDLE.set(handle);
             log::info!(
-                "[web-channel] approval-surface subscriber registered (domain=approval) — will bridge ApprovalRequested → approval_request socket event"
+                "[web-channel] approval-surface subscriber registered (domains=approval,plan_review) — bridges ApprovalRequested → approval_request and PlanReviewRequested → plan_review_request socket events"
             );
         }
         None => {
@@ -218,7 +218,7 @@ impl EventHandler for ApprovalSurfaceSubscriber {
     }
 
     fn domains(&self) -> Option<&[&str]> {
-        Some(&["approval"])
+        Some(&["approval", "plan_review"])
     }
 
     async fn handle(&self, event: &DomainEvent) {
@@ -252,6 +252,39 @@ impl EventHandler for ApprovalSurfaceSubscriber {
                 _ => {
                     log::warn!(
                         "[web-channel] approval-surface received ApprovalRequested request_id={request_id} tool={tool_name} but thread_id/client_id absent (thread={}, client={}) — NOT surfacing",
+                        thread_id.is_some(),
+                        client_id.is_some()
+                    );
+                }
+            }
+        } else if let DomainEvent::PlanReviewRequested {
+            request_id,
+            thread_id,
+            client_id,
+            summary,
+            steps,
+        } = event
+        {
+            match (thread_id, client_id) {
+                (Some(thread_id), Some(client_id)) => {
+                    log::info!(
+                        "[web-channel] plan-review-surface emitting plan_review_request request_id={request_id} thread_id={thread_id} client_id={client_id} steps={}",
+                        steps.len()
+                    );
+                    publish_web_channel_event(WebChannelEvent {
+                        event: "plan_review_request".to_string(),
+                        client_id: client_id.clone(),
+                        thread_id: thread_id.clone(),
+                        request_id: request_id.clone(),
+                        tool_name: Some("request_plan_review".to_string()),
+                        message: Some(summary.clone()),
+                        args: Some(serde_json::json!({ "steps": steps })),
+                        ..Default::default()
+                    });
+                }
+                _ => {
+                    log::warn!(
+                        "[web-channel] plan-review-surface received PlanReviewRequested request_id={request_id} but thread_id/client_id absent (thread={}, client={}) — NOT surfacing",
                         thread_id.is_some(),
                         client_id.is_some()
                     );

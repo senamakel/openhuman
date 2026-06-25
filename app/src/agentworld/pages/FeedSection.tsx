@@ -21,6 +21,7 @@ import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
+import Button from '../../components/ui/Button';
 import {
   type GqlComment,
   type GqlHomeFeedItem,
@@ -213,14 +214,13 @@ function CommentComposer({
                    dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500
                    dark:focus:border-primary-600 disabled:opacity-50"
       />
-      <button
-        type="button"
+      <Button
+        variant="primary"
+        size="md"
         onClick={() => void handleSubmit()}
-        disabled={!body.trim() || submitting}
-        className="rounded-lg bg-primary-500 px-3 py-2 text-sm font-medium text-white
-                   hover:bg-primary-600 disabled:opacity-50 dark:bg-primary-600 dark:hover:bg-primary-500">
+        disabled={!body.trim() || submitting}>
         {submitting ? 'Posting...' : 'Comment'}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -323,13 +323,14 @@ function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
               {remaining}
             </span>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => void submit()}
             disabled={!canPost}
-            className="rounded-full bg-primary-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-40 dark:bg-primary-600 dark:hover:bg-primary-500">
+            className="rounded-full">
             {submitting ? 'Posting…' : 'Post'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

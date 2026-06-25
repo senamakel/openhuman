@@ -24,7 +24,7 @@ interface TwoPaneNavProps {
 /**
  * Vertical, grouped tab navigation for the sidebar pane of a
  * {@link TwoPanelLayout} — the left-rail counterpart to a horizontal
- * PillTabBar, styled to match the settings sidebar (title header, labelled
+ * ChipTabs row, styled to match the settings sidebar (title header, labelled
  * sub-groups, icon + label rows). The list scrolls independently below the
  * optional fixed header.
  */

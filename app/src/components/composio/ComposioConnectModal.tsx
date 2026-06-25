@@ -45,6 +45,7 @@ import {
 } from '../../lib/composio/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import { openUrl } from '../../utils/openUrl';
+import Button from '../ui/Button';
 import type { ComposioToolkitMeta } from './toolkitMeta';
 import {
   getRequiredFieldsForToolkit,
@@ -592,10 +593,12 @@ export default function ComposioConnectModal({
                 {toolkit.description}
               </p>
             </div>
-            <button
-              type="button"
+            <Button
+              iconOnly
+              variant="tertiary"
+              size="sm"
               onClick={onClose}
-              className="p-1 text-stone-400 dark:text-neutral-500 hover:text-stone-900 dark:hover:text-neutral-100 dark:text-neutral-100 dark:hover:text-neutral-100 transition-colors rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 flex-shrink-0"
+              className="text-stone-400 dark:text-neutral-500 hover:text-stone-900 dark:hover:text-neutral-100 flex-shrink-0"
               aria-label={t('common.close')}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -605,7 +608,7 @@ export default function ComposioConnectModal({
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -639,13 +642,14 @@ export default function ComposioConnectModal({
                 }}
               />
               {error && phase === 'idle' && <p className="text-[11px] text-coral-600">{error}</p>}
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="lg"
                 disabled={connectInFlight}
                 onClick={() => void handleConnect()}
-                className="w-full rounded-xl bg-primary-500 text-white text-sm font-medium py-2.5 hover:bg-primary-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                className="w-full">
                 {`${t('composio.connect.connect')} ${toolkit.name}`}
-              </button>
+              </Button>
             </>
           )}
 
@@ -670,23 +674,25 @@ export default function ComposioConnectModal({
                   }
                 }}
               />
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="lg"
                 disabled={connectInFlight}
                 onClick={() => void handleConnect()}
-                className="w-full rounded-xl bg-primary-500 text-white text-sm font-medium py-2.5 hover:bg-primary-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                className="w-full">
                 {t('composio.connect.retryConnection')}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => {
                   setPhase('idle');
                   setFieldErrors({});
                   setError(null);
                 }}
-                className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 text-xs font-medium py-2 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors">
+                className="w-full">
                 {t('common.cancel')}
-              </button>
+              </Button>
             </>
           )}
 
@@ -703,12 +709,13 @@ export default function ComposioConnectModal({
                 {`${t('composio.connect.waitingFor')} ${toolkit.name} ${t('composio.connect.oauthComplete')}`}
               </div>
               {connectUrl && (
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="md"
                   onClick={() => void openUrl(connectUrl)}
-                  className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 text-stone-700 dark:text-neutral-200 text-xs font-medium py-2 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 transition-colors">
+                  className="w-full">
                   {t('composio.connect.reopenBrowser')}
-                </button>
+                </Button>
               )}
               <p className="text-xs text-stone-400 dark:text-neutral-500">
                 {t('composio.connect.waitingHint')}
@@ -727,13 +734,14 @@ export default function ComposioConnectModal({
                   {t('composio.expiredDescription').replace('{name}', toolkit.name)}
                 </p>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="lg"
                 disabled={connectInFlight}
                 onClick={() => void handleConnect()}
-                className="w-full rounded-xl bg-primary-500 text-white text-sm font-medium py-2.5 hover:bg-primary-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                className="w-full">
                 {`${t('composio.reconnect')} ${toolkit.name}`}
-              </button>
+              </Button>
             </>
           )}
 
@@ -775,12 +783,14 @@ export default function ComposioConnectModal({
                           </span>
                         )}
                       </div>
-                      <button
-                        type="button"
+                      <Button
+                        variant="tertiary"
+                        tone="danger"
+                        size="xs"
                         onClick={() => void handleDisconnect(conn)}
-                        className="text-[11px] text-coral-600 hover:text-coral-700 font-medium shrink-0">
+                        className="shrink-0">
                         {t('composio.connect.disconnectAccount')}
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -809,13 +819,14 @@ export default function ComposioConnectModal({
                   connectionId={activeConnection.id}
                 />
               )}
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="lg"
                 disabled={connectInFlight}
                 onClick={() => void handleConnect()}
-                className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 text-sm font-medium py-2.5 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                className="w-full">
                 {t('composio.connect.addAnotherAccount')}
-              </button>
+              </Button>
               <label className="flex items-start gap-2 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
                 <input
                   type="checkbox"
@@ -833,18 +844,17 @@ export default function ComposioConnectModal({
                 </span>
               </label>
               <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  tone="danger"
+                  size="lg"
                   onClick={() => void handleDisconnect()}
-                  className="w-full rounded-xl border border-coral-200 bg-coral-50 text-coral-700 text-sm font-medium py-2.5 hover:bg-coral-100 transition-colors">
+                  className="w-full">
                   {t('skills.disconnect')}
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full rounded-xl bg-primary-500 text-white text-sm font-medium py-2.5 hover:bg-primary-600 transition-colors">
+                </Button>
+                <Button variant="primary" size="lg" onClick={onClose} className="w-full">
                   {t('common.close')}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -860,8 +870,9 @@ export default function ComposioConnectModal({
               <div className="rounded-xl border border-coral-200 bg-coral-50 p-3">
                 <p className="text-sm text-coral-700">{error ?? t('misc.somethingWentWrong')}</p>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => {
                   setClearMemoryOnDisconnect(false);
                   setPhase(
@@ -869,9 +880,9 @@ export default function ComposioConnectModal({
                   );
                   setError(null);
                 }}
-                className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 text-sm font-medium py-2 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors">
+                className="w-full">
                 {t('common.dismiss')}
-              </button>
+              </Button>
             </>
           )}
         </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '../lib/i18n/I18nContext';
 import { persistor } from '../store';
 import RouteLoadingScreen from './RouteLoadingScreen';
+import Button from './ui/Button';
 
 const persistWarn = debug('persist:warn');
 
@@ -62,13 +63,9 @@ function PersistRehydrationScreen() {
         <p className="text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
           {t('app.persistRehydration.body')}
         </p>
-        <button
-          type="button"
-          onClick={handleReset}
-          disabled={resetting}
-          className="w-full rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60">
+        <Button onClick={handleReset} disabled={resetting} className="w-full">
           {resetting ? t('app.persistRehydration.resetting') : t('app.persistRehydration.resetCta')}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
+import Button from '../../ui/Button';
 import McpServerCard from './McpServerCard';
 import type { SmitheryServer } from './types';
 
@@ -126,13 +127,9 @@ const McpCatalogBrowser = ({ onSelectInstall }: McpCatalogBrowserProps) => {
 
           {page < totalPages && (
             <div className="flex justify-center pt-2">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={handleLoadMore}
-                className="rounded-lg border border-stone-200 dark:border-neutral-700 px-4 py-2 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50">
+              <Button variant="secondary" size="md" disabled={loading} onClick={handleLoadMore}>
                 {loading ? t('common.loading') : t('mcp.catalog.loadMore')}
-              </button>
+              </Button>
             </div>
           )}
         </>

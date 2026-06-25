@@ -93,11 +93,30 @@ pub(crate) async fn run_one_tool(
 ) -> ToolRunResult {
     let iteration_u32 = (iteration + 1) as u32;
 
+    // Compute the human label + contextual detail once, server-side, from the
+    // resolved tool (covers dynamic Composio/MCP/integration tools the client
+    // can't know). `None` for an unknown/filtered-out tool → the client
+    // formatter falls back to its own labels.
+    let (display_label, display_detail) = match tool_opt {
+        Some(tool) => (
+            tool.display_label(&call.arguments),
+            tool.display_detail(&call.arguments),
+        ),
+        None => (None, None),
+    };
+
     // Emit a "tool started" event for every parsed call, even ones that will be
     // rejected below (approval denied, CliRpcOnly, unknown) — the client-side
     // row was created from the streamed args and needs a terminal event.
     progress
-        .tool_started(progress_call_id, &call.name, &call.arguments, iteration_u32)
+        .tool_started(
+            progress_call_id,
+            &call.name,
+            &call.arguments,
+            iteration_u32,
+            display_label.as_deref(),
+            display_detail.as_deref(),
+        )
         .await;
 
     // Helper: emit a failed "tool completed" event for an early-exit path

@@ -235,7 +235,7 @@ const TeamPanel = () => {
           {canLeave && (
             <Button
               type="button"
-              variant="ghost"
+              variant="tertiary"
               size="xs"
               onClick={() => handleLeaveTeam(entry)}
               disabled={isLeaving === team._id}
@@ -346,7 +346,7 @@ const TeamPanel = () => {
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="tertiary"
                   size="md"
                   className="flex-1 bg-amber-500 hover:bg-amber-600 text-white border-0 dark:bg-amber-500 dark:hover:bg-amber-600"
                   onClick={() => void confirmLeaveTeam()}

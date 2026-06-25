@@ -5,7 +5,7 @@ import { ConfirmationModal } from '../components/intelligence/ConfirmationModal'
 import IntelligenceSubconsciousTab from '../components/intelligence/IntelligenceSubconsciousTab';
 import { ToastContainer } from '../components/intelligence/Toast';
 import WorkflowsTab from '../components/intelligence/WorkflowsTab';
-import PillTabBar from '../components/PillTabBar';
+import ChipTabs from '../components/layout/ChipTabs';
 import {
   useIntelligenceSocket,
   useIntelligenceSocketManager,
@@ -107,29 +107,23 @@ export default function Activity() {
   return (
     <div className="min-h-full p-4 pt-6">
       <div className="max-w-4xl mx-auto space-y-4">
-        <PillTabBar
-          items={tabs.map(tab => ({ label: tab.label, value: tab.id }))}
-          selected={activeTab}
-          onChange={setActiveTab}
-          activeClassName="border-primary-600 bg-primary-600 text-white"
-          renderItem={(item, active) => {
-            const tab = tabs.find(entry => entry.id === item.value);
-            return (
+        <ChipTabs<ActivityTab>
+          items={tabs.map(tab => ({
+            id: tab.id,
+            label: (
               <span className="inline-flex items-center gap-1.5">
-                <span>{item.label}</span>
-                {tab?.comingSoon && (
-                  <span
-                    className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
-                      active
-                        ? 'border-white/30 bg-white/15 text-white'
-                        : 'border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 text-stone-500 dark:text-neutral-400'
-                    }`}>
+                <span>{tab.label}</span>
+                {tab.comingSoon && (
+                  <span className="rounded-full border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-1.5 py-0.5 text-[10px] text-stone-500 dark:text-neutral-400">
                     {t('misc.beta')}
                   </span>
                 )}
               </span>
-            );
-          }}
+            ),
+          }))}
+          value={activeTab}
+          onChange={setActiveTab}
+          className="flex flex-wrap gap-2 pb-1"
         />
 
         {/* Alerts tab renders outside the card so Notifications can use its own

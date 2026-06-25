@@ -15,6 +15,7 @@ import {
 } from '../../utils/tauriCommands/voice';
 import { settingsNavState } from '../settings/modal/settingsOverlay';
 import { CheckIcon, WarningIcon } from '../ui';
+import Button from '../ui/Button';
 import {
   SetupNotice,
   SetupSettingRow,
@@ -104,18 +105,12 @@ export default function VoiceSetupModal({ onClose, skillStatus }: Props) {
           </p>
 
           <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={handleGoToLocalModel}
-              className="w-full rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
+            <Button variant="primary" size="lg" onClick={handleGoToLocalModel} className="w-full">
               {t('skills.setup.voice.downloadSttBtn')}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-4 py-2.5 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 transition-colors">
+            </Button>
+            <Button variant="secondary" size="lg" onClick={onClose} className="w-full">
               {t('common.cancel')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -149,13 +144,14 @@ export default function VoiceSetupModal({ onClose, skillStatus }: Props) {
 
           {enableError && <SetupNotice tone="coral">{enableError}</SetupNotice>}
 
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="lg"
             onClick={() => void handleEnable()}
             disabled={isEnabling}
-            className="w-full rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors">
+            className="w-full">
             {isEnabling ? t('skills.setup.voice.starting') : t('skills.setup.voice.startBtn')}
-          </button>
+          </Button>
         </div>
       )}
 

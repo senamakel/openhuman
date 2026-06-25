@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { callCoreRpc } from '../../services/coreRpcClient';
+import Button from '../ui/Button';
 
 interface SyncEstimate {
   item_count: number;
@@ -91,17 +92,12 @@ export default function SyncConfirmDialog({
         )}
 
         <div className="flex justify-end gap-2 mt-5">
-          <button
-            onClick={onCancel}
-            className="px-3 py-1.5 rounded-md text-xs font-medium text-stone-600 dark:text-neutral-400 hover:bg-stone-100 dark:hover:bg-neutral-800">
+          <Button variant="tertiary" size="sm" onClick={onCancel}>
             {t('syncConfirm.cancel')}
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={!estimate}
-            className="px-3 py-1.5 rounded-md bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-xs font-medium">
+          </Button>
+          <Button variant="primary" size="sm" onClick={onConfirm} disabled={!estimate}>
             {t('syncConfirm.proceed')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

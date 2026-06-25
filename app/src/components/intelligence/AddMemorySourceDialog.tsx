@@ -29,6 +29,7 @@ import {
   SOURCE_KIND_LABEL_KEYS,
   type SourceKind,
 } from '../../services/memorySourcesService';
+import Button from '../ui/Button';
 
 const log = debug('intelligence:add-memory-source-dialog');
 
@@ -224,13 +225,9 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
               ))}
             </div>
             <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="rounded-md px-4 py-2 text-sm text-stone-600 hover:text-stone-900
-                           dark:text-neutral-400 dark:hover:text-neutral-100">
+              <Button variant="tertiary" size="md" onClick={handleClose}>
                 {t('common.cancel')}
-              </button>
+              </Button>
             </div>
           </>
         ) : (
@@ -279,32 +276,26 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
             )}
 
             <div className="mt-5 flex items-center justify-between">
-              <button
-                type="button"
+              <Button
+                variant="tertiary"
+                size="sm"
                 onClick={() => {
                   setKind(null);
                   setError(null);
-                }}
-                className="text-sm text-stone-500 hover:text-stone-800 dark:text-neutral-400 dark:hover:text-neutral-200">
+                }}>
                 ← {t('memorySources.backToKinds')}
-              </button>
+              </Button>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="rounded-md px-4 py-2 text-sm text-stone-600 hover:text-stone-900
-                             dark:text-neutral-400 dark:hover:text-neutral-100">
+                <Button variant="tertiary" size="md" onClick={handleClose}>
                   {t('common.cancel')}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
                   onClick={handleSubmit}
-                  disabled={!isValid || submitting}
-                  className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-white
-                             shadow-sm transition-colors hover:bg-primary-600
-                             disabled:cursor-not-allowed disabled:opacity-50">
+                  disabled={!isValid || submitting}>
                   {submitting ? t('memorySources.adding') : t('memorySources.add')}
-                </button>
+                </Button>
               </div>
             </div>
           </>

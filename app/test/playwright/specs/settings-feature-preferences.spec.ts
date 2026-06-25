@@ -101,8 +101,16 @@ test.describe('Settings - Feature Preferences', () => {
   });
 
   test('persists the default messaging channel through redux state', async ({ page }) => {
-    // Phase 2: default messaging channel moved to /connections (Messaging tab)
+    // Phase 2: default messaging channel moved to /connections (Messaging tab).
     await openAuthenticatedRoute(page, 'pw-settings-default-channel', '/connections?tab=messaging');
+
+    // "Set as default" now appears only on *connected* channels. In a fresh
+    // workspace the only always-connected channel is Web (built-in chat), so
+    // make Telegram the default first (turning Web into a connected,
+    // non-default tile with the control), reload so the panel re-seeds, then
+    // switch the default to Web.
+    await callCoreRpc('openhuman.channels_set_default', { channel: 'telegram' });
+    await reloadAndWait(page);
 
     const messagingTab = page.getByTestId('two-pane-nav-channels');
     if (await messagingTab.isVisible().catch(() => false)) {
@@ -110,13 +118,10 @@ test.describe('Settings - Feature Preferences', () => {
     }
 
     await expect(page.getByText('Default Messaging Channel').last()).toBeVisible();
-    await page
-      .locator('button')
-      .filter({ hasText: /^Discord$/ })
-      .last()
-      .click();
+    await expect.poll(() => getDefaultMessagingChannel(page)).toBe('telegram');
 
-    await expect.poll(() => getDefaultMessagingChannel(page)).toBe('discord');
+    await page.getByTestId('channel-select-web').click();
+    await expect.poll(() => getDefaultMessagingChannel(page)).toBe('web');
   });
 
   test('persists tools preferences to the core app-state snapshot', async ({ page }) => {

@@ -6,6 +6,7 @@ import { useCoreState } from '../../providers/CoreStateProvider';
 import { referralApi } from '../../services/api/referralApi';
 import type { ReferralRelationshipStatus, ReferralStats } from '../../types/referral';
 import { LATEST_APP_DOWNLOAD_URL } from '../../utils/config';
+import Button from '../ui/Button';
 
 function formatUsd(n: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
@@ -183,12 +184,13 @@ const ReferralRewardsSection = () => {
         {loadError ? (
           <div className="rounded-xl border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-sm text-coral-800 dark:text-coral-200">
             {loadError}
-            <button
-              type="button"
+            <Button
+              variant="tertiary"
+              size="xs"
               onClick={() => void loadStats()}
-              className="ml-2 underline font-medium">
+              className="ml-2 underline">
               {t('rewards.referralSection.retry')}
-            </button>
+            </Button>
           </div>
         ) : null}
 
@@ -272,15 +274,15 @@ const ReferralRewardsSection = () => {
               disabled={applyLoading}
               className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 font-mono text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:text-neutral-500 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
             />
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="md"
               onClick={() => void handleApply()}
-              disabled={applyLoading || !applyCode.trim()}
-              className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+              disabled={applyLoading || !applyCode.trim()}>
               {applyLoading
                 ? t('rewards.referralSection.applying')
                 : t('rewards.referralSection.apply')}
-            </button>
+            </Button>
           </div>
           {applyError ? (
             <p className="text-xs text-coral-600 dark:text-coral-300">{applyError}</p>

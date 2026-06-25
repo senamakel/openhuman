@@ -36,6 +36,7 @@ import {
   openhumanUpdateMemorySyncSettings,
 } from '../../utils/tauriCommands/config';
 import { memoryTreeFlushSource } from '../../utils/tauriCommands/memoryTree';
+import Button from '../ui/Button';
 import { AddMemorySourceDialog } from './AddMemorySourceDialog';
 import { ConfirmationModal } from './ConfirmationModal';
 import { SourceSettingsPanel } from './SourceSettingsPanel';
@@ -514,15 +515,13 @@ export function MemorySourcesRegistry({
             <AllInIcon />
             {t('memorySources.allIn.button')}
           </button>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => setDialogOpen(true)}
-            className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-3 py-1.5
-                       text-xs font-semibold text-white shadow-sm transition-colors
-                       hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-200">
-            <PlusIcon />
+            leadingIcon={<PlusIcon />}>
             {t('memorySources.addSource')}
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -839,19 +838,16 @@ function SourceRow({
             }`}>
             <GearIcon />
           </button>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => onSync(source)}
             disabled={!source.enabled || isSyncing}
             title={t('sync.sync')}
             data-testid={`memory-source-sync-${source.toolkit ?? source.kind}`}
-            className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-3 py-1.5
-                     text-xs font-semibold text-white shadow-sm transition-colors
-                     hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50
-                     focus:outline-none focus:ring-2 focus:ring-primary-200">
-            {isSyncing ? <Spinner /> : <SyncIcon />}
+            leadingIcon={isSyncing ? <Spinner /> : <SyncIcon />}>
             {isSyncing ? t('sync.syncing') : t('sync.sync')}
-          </button>
+          </Button>
           <button
             type="button"
             onClick={() => onBuild(source)}
@@ -880,15 +876,16 @@ function SourceRow({
               }`}
             />
           </button>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            tone="danger"
+            size="xs"
             onClick={() => onRemove(source)}
             title={t('memorySources.remove')}
-            className="rounded p-1 text-stone-400 transition-colors hover:bg-coral-50
-                     hover:text-coral-600 dark:text-neutral-500 dark:hover:bg-coral-500/10
-                     dark:hover:text-coral-400">
+            aria-label={t('memorySources.remove')}>
             <TrashIcon />
-          </button>
+          </Button>
         </div>
       </div>
       {settingsExpanded && (

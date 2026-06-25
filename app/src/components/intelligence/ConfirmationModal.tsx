@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import type { ConfirmationModal as ConfirmationModalType } from '../../types/intelligence';
+import Button from '../ui/Button';
 
 interface ConfirmationModalProps {
   modal: ConfirmationModalType;
@@ -84,23 +85,16 @@ export function ConfirmationModal({ modal, onClose }: ConfirmationModalProps) {
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 p-6 pt-4 border-t border-stone-200 dark:border-neutral-800">
-          <button
-            onClick={handleCancel}
-            className="px-4 py-2 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:text-stone-900 dark:hover:text-neutral-100 dark:text-neutral-100 rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 transition-colors">
+          <Button variant="tertiary" size="md" onClick={handleCancel}>
             {modal.cancelText || t('common.cancel')}
-          </button>
-          <button
-            onClick={handleConfirm}
-            className={`
-              px-4 py-2 text-sm font-medium rounded-lg transition-colors
-              ${
-                modal.destructive
-                  ? 'bg-coral-500 hover:bg-coral-600 text-white'
-                  : 'bg-primary-500 hover:bg-primary-600 text-white'
-              }
-            `}>
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            tone={modal.destructive ? 'danger' : 'default'}
+            onClick={handleConfirm}>
             {modal.confirmText || t('common.confirm')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

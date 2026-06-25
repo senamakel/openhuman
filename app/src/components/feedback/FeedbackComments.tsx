@@ -5,6 +5,7 @@ import { useUser } from '../../hooks/useUser';
 import { useT } from '../../lib/i18n/I18nContext';
 import { feedbackApi } from '../../services/api/feedbackApi';
 import type { FeedbackComment } from '../../types/feedback';
+import Button from '../ui/Button';
 
 const log = debugFactory('feedback:comments');
 
@@ -126,13 +127,14 @@ export default function FeedbackComments({ feedbackId, onCommentAdded }: Feedbac
           rows={2}
           className="flex-1 resize-y rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 transition-all focus:border-primary-500/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-neutral-700 dark:bg-white/[0.03] dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
           onClick={handlePost}
           disabled={posting || !input.trim()}
-          className="whitespace-nowrap rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-600 active:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50">
+          className="whitespace-nowrap">
           {posting ? '...' : t('feedback.comments.post')}
-        </button>
+        </Button>
       </div>
       {postError && <p className="text-xs text-coral-600 dark:text-coral-400">{postError}</p>}
     </div>

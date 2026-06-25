@@ -307,6 +307,8 @@ pub(crate) fn spawn_progress_bridge(
                     tool_name,
                     arguments,
                     iteration,
+                    display_label,
+                    display_detail,
                 } => {
                     parent_tool_count += 1;
                     ledger_append_event(
@@ -339,6 +341,8 @@ pub(crate) fn spawn_progress_bridge(
                         args: Some(arguments),
                         round: Some(iteration),
                         tool_call_id: Some(call_id),
+                        tool_display_label: display_label,
+                        tool_display_detail: display_detail,
                         ..Default::default()
                     });
                 }
@@ -725,6 +729,8 @@ pub(crate) fn spawn_progress_bridge(
                     tool_name,
                     arguments,
                     iteration,
+                    display_label,
+                    display_detail,
                 } => {
                     let count = child_tool_counts.entry(task_id.clone()).or_insert(0);
                     *count += 1;
@@ -766,6 +772,8 @@ pub(crate) fn spawn_progress_bridge(
                         },
                         round: Some(round),
                         tool_call_id: Some(call_id),
+                        tool_display_label: display_label,
+                        tool_display_detail: display_detail,
                         subagent: Some(SubagentProgressDetail {
                             child_iteration: Some(iteration),
                             agent_id: Some(agent_id),

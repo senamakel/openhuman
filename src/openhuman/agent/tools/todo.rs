@@ -182,6 +182,12 @@ impl Tool for TodoTool {
 }
 
 async fn default_task_approval_mode() -> Option<TaskApprovalMode> {
+    // Interactive plan review is handled by the `request_plan_review` gate
+    // (it parks the live turn), NOT by stamping conversation-thread cards: the
+    // background dispatcher never sweeps conversation boards, so a card status
+    // can't gate a chat turn. This default therefore just carries the
+    // config-driven behaviour for the dispatched boards (`user-tasks` /
+    // `task-sources`).
     match crate::openhuman::config::ops::load_config_with_timeout().await {
         Ok(config) => Some(if config.autonomy.require_task_plan_approval {
             TaskApprovalMode::Required

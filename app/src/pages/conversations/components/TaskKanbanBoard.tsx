@@ -16,6 +16,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { settingsNavState } from '../../../components/settings/modal/settingsOverlay';
+import Button from '../../../components/ui/Button';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../../types/turnState';
 import {
@@ -875,13 +876,15 @@ function TaskBriefDialog({
               {card.title}
             </h3>
           </div>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
             aria-label={t('conversations.taskKanban.closeBrief')}
             onClick={onClose}
-            className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
+            className="flex-none">
             <LuX className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         {source && <SourceBrief source={source} />}
@@ -977,29 +980,19 @@ function TaskBriefDialog({
             />
             <div className="flex items-center justify-between gap-2 pt-1">
               {deletable ? (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="rounded-md border border-coral-200 px-3 py-1.5 text-xs font-medium text-coral-600 hover:bg-coral-50 dark:border-coral-500/30 dark:text-coral-300 dark:hover:bg-coral-500/10">
+                <Button variant="secondary" tone="danger" size="sm" onClick={handleDelete}>
                   {t('conversations.taskKanban.deleteCard')}
-                </button>
+                </Button>
               ) : (
                 <span />
               )}
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                <Button variant="secondary" size="sm" onClick={onClose}>
                   {t('common.cancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={save}
-                  disabled={!title.trim()}
-                  className="rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700 disabled:opacity-50">
+                </Button>
+                <Button variant="primary" size="sm" onClick={save} disabled={!title.trim()}>
                   {t('conversations.taskKanban.saveChanges')}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1050,12 +1043,9 @@ function TaskBriefDialog({
             />
             {deletable && (
               <div className="flex justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="rounded-md border border-coral-200 px-3 py-1.5 text-xs font-medium text-coral-600 hover:bg-coral-50 dark:border-coral-500/30 dark:text-coral-300 dark:hover:bg-coral-500/10">
+                <Button variant="secondary" tone="danger" size="sm" onClick={handleDelete}>
                   {t('conversations.taskKanban.deleteCard')}
-                </button>
+                </Button>
               </div>
             )}
           </div>

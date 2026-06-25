@@ -6,6 +6,7 @@ import {
   type DiagramViewerSettings,
   openhumanGetDashboardSettings,
 } from '../../utils/tauriCommands/config';
+import Button from '../ui/Button';
 
 const DEFAULT_SETTINGS: DiagramViewerSettings = {
   enabled: true,
@@ -100,14 +101,14 @@ export default function DiagramViewerTab() {
             {t('intelligence.diagram.description')}
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="md"
           onClick={refreshDiagram}
-          className="inline-flex items-center gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          leadingIcon={<LuRefreshCw aria-hidden="true" className="h-4 w-4" />}
           aria-label={t('intelligence.diagram.refreshAria')}>
-          <LuRefreshCw aria-hidden="true" className="h-4 w-4" />
           {t('intelligence.diagram.refresh')}
-        </button>
+        </Button>
       </div>
 
       {showEmptyState && (

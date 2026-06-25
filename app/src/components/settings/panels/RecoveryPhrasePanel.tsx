@@ -567,15 +567,16 @@ const RecoveryPhrasePanel = () => {
                   </>
                 )}
               </Button>
-              <button
+              <Button
                 type="button"
+                variant="tertiary"
                 onClick={() => {
                   setViewMnemonic(null);
                   setViewRevealed(false);
                 }}
-                className="w-full text-center text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors">
+                className="w-full">
                 {t('mnemonic.hidePhrase')}
-              </button>
+              </Button>
             </div>
           ) : (
             <>
@@ -679,20 +680,14 @@ const RecoveryPhrasePanel = () => {
       </Button>
 
       {/* Import instead */}
-      <button
-        type="button"
-        onClick={handleImportReplace}
-        className="w-full text-center text-sm text-primary-400 hover:text-primary-600 dark:text-primary-300 transition-colors">
+      <Button type="button" variant="tertiary" onClick={handleImportReplace} className="w-full">
         {t('mnemonic.alreadyHavePhrase')}
-      </button>
+      </Button>
 
       {/* Cancel */}
-      <button
-        type="button"
-        onClick={() => setMode('view')}
-        className="w-full text-center text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors">
+      <Button type="button" variant="tertiary" onClick={() => setMode('view')} className="w-full">
         {t('common.cancel')}
-      </button>
+      </Button>
     </div>
   );
 
@@ -801,12 +796,13 @@ const RecoveryPhrasePanel = () => {
         )}
       </Button>
 
-      <button
+      <Button
         type="button"
+        variant="tertiary"
         onClick={() => switchMode('import')}
-        className="w-full text-center text-sm text-primary-400 hover:text-primary-600 dark:text-primary-300 transition-colors mb-3">
+        className="w-full mb-3">
         {t('mnemonic.alreadyHavePhrase')}
-      </button>
+      </Button>
 
       <label className="flex items-start gap-3 cursor-pointer mb-4">
         <SettingsCheckbox
@@ -893,12 +889,13 @@ const RecoveryPhrasePanel = () => {
         </div>
       )}
 
-      <button
+      <Button
         type="button"
+        variant="tertiary"
         onClick={() => switchMode('generate')}
-        className="w-full text-center text-sm text-primary-400 hover:text-primary-600 dark:text-primary-300 transition-colors mb-3">
+        className="w-full mb-3">
         {t('mnemonic.generateNewPhrase')}
-      </button>
+      </Button>
     </>
   );
 

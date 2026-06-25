@@ -35,7 +35,7 @@ vi.mock('../../components/intelligence/IntelligenceSubconsciousTab', async () =>
   const React = await import('react');
   return { default: () => React.createElement('div', { 'data-testid': 'brain-subconscious' }) };
 });
-vi.mock('../../components/PillTabBar', async () => {
+vi.mock('../../components/layout/ChipTabs', async () => {
   const React = await import('react');
   return {
     default: ({ children }: { children?: React.ReactNode }) =>

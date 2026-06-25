@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { BubbleMarkdown } from '../../../pages/conversations/components/AgentMessageBubble';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
+import Button from '../../ui/Button';
 
 const log = debug('mcp-clients:config-assist');
 
@@ -213,13 +214,14 @@ const ConfigAssistantPanel = ({
           placeholder={t('mcp.configAssistant.inputPlaceholder')}
           className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50 resize-none"
         />
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
           disabled={sending || !input.trim()}
           onClick={() => void handleSend()}
-          className="self-end rounded-lg bg-primary-500 px-3 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors shrink-0">
+          className="self-end shrink-0">
           {t('mcp.configAssistant.send')}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -9,6 +9,8 @@ import {
   type WorkflowSummary,
 } from '../../services/api/workflowsApi';
 import EmptyStateCard from '../EmptyStateCard';
+import ChipTabs from '../layout/ChipTabs';
+import Button from '../ui/Button';
 import InstallSkillDialog from './InstallSkillDialog';
 import UninstallSkillConfirmDialog from './UninstallSkillConfirmDialog';
 
@@ -45,7 +47,7 @@ function parentPathSegment(value: string | null | undefined): string | null {
   const raw = value?.trim();
   if (!raw) return null;
   const parts = raw.split(/[\\/]+/).filter(Boolean);
-  return parts.length >= 2 ? parts.at(-2) ?? null : null;
+  return parts.length >= 2 ? (parts.at(-2) ?? null) : null;
 }
 
 function catalogInstallKeys(entry: CatalogEntry): string[] {
@@ -58,10 +60,9 @@ function catalogInstallKeys(entry: CatalogEntry): string[] {
 }
 
 function workflowInstallKeys(skill: WorkflowSummary): string[] {
-  return [
-    slugifyInstallKey(skill.id),
-    slugifyInstallKey(parentPathSegment(skill.location)),
-  ].filter((key): key is string => Boolean(key));
+  return [slugifyInstallKey(skill.id), slugifyInstallKey(parentPathSegment(skill.location))].filter(
+    (key): key is string => Boolean(key)
+  );
 }
 
 function isCatalogEntryInstalled(entry: CatalogEntry, installedKeys: Set<string>): boolean {
@@ -230,16 +231,18 @@ function SkillTile({ skill, onUninstall, onClick }: SkillTileProps) {
         )}
         {!skill.version && <span />}
         {canUninstall && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            tone="danger"
+            size="xs"
             data-testid={`skill-uninstall-${skill.id}`}
             onClick={e => {
               e.stopPropagation();
               onUninstall();
             }}
-            className="rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-2 py-1 text-[10px] font-medium text-coral-700 dark:text-coral-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-coral-100 dark:hover:bg-coral-500/20">
+            className="opacity-0 group-hover:opacity-100">
             {t('skills.disconnect')}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -339,17 +342,17 @@ function CatalogTile({ entry, installed, installing, onInstall, onClick }: Catal
             {t('skills.explorer.installed')}
           </span>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
             data-testid={`registry-install-${entry.id}`}
             disabled={installing}
             onClick={e => {
               e.stopPropagation();
               onInstall();
-            }}
-            className="rounded-lg border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 px-2 py-1 text-[10px] font-medium text-primary-700 dark:text-primary-300 transition-colors hover:bg-primary-100 dark:hover:bg-primary-500/20 disabled:opacity-50">
+            }}>
             {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -412,10 +415,13 @@ function SkillDetailDialog({
               )}
             </div>
           </div>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
+            aria-label={t('common.close')}
             onClick={onClose}
-            className="flex-shrink-0 rounded-lg p-1 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 transition-colors">
+            className="flex-shrink-0 text-stone-400 dark:text-neutral-500">
             <svg
               className="h-5 w-5"
               fill="none"
@@ -424,7 +430,7 @@ function SkillDetailDialog({
               strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -497,13 +503,9 @@ function SkillDetailDialog({
 
         {!installed && onInstall && (
           <div className="border-t border-stone-100 dark:border-neutral-800 p-4 flex justify-end">
-            <button
-              type="button"
-              disabled={installing}
-              onClick={onInstall}
-              className="rounded-lg border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 px-4 py-2 text-xs font-medium text-primary-700 dark:text-primary-300 transition-colors hover:bg-primary-100 dark:hover:bg-primary-500/20 disabled:opacity-50">
+            <Button variant="secondary" size="sm" disabled={installing} onClick={onInstall}>
               {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -735,45 +737,50 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
               {t('skills.explorer.subtitle')}
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             data-testid="skill-install-from-url-btn"
             onClick={() => setInstallDialogOpen(true)}
-            className="flex-shrink-0 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 shadow-sm transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
+            className="flex-shrink-0">
             {t('skills.explorer.installFromUrl')}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* View toggle */}
-      <div className="flex gap-2 px-1 pb-3">
-        <button
-          type="button"
-          onClick={() => setView('registry')}
-          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-            view === 'registry'
-              ? 'border-primary-200 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300'
-              : 'border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
-          }`}>
-          {t('skills.explorer.registryTab')}
-          {catalogTotal > 0 && (
-            <span className="ml-1.5 text-[10px] opacity-70">{catalogTotal.toLocaleString()}</span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setView('installed')}
-          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-            view === 'installed'
-              ? 'border-primary-200 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300'
-              : 'border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
-          }`}>
-          {t('skills.explorer.installedTab')}
-          {skills.length > 0 && (
-            <span className="ml-1.5 text-[10px] opacity-70">{skills.length}</span>
-          )}
-        </button>
-      </div>
+      <ChipTabs<ExplorerView>
+        className="flex gap-2 px-1 pb-3"
+        ariaLabel={t('skills.explorer.title')}
+        value={view}
+        onChange={setView}
+        items={[
+          {
+            id: 'registry',
+            label: (
+              <>
+                {t('skills.explorer.registryTab')}
+                {catalogTotal > 0 && (
+                  <span className="ml-1.5 text-[10px] opacity-70">
+                    {catalogTotal.toLocaleString()}
+                  </span>
+                )}
+              </>
+            ),
+          },
+          {
+            id: 'installed',
+            label: (
+              <>
+                {t('skills.explorer.installedTab')}
+                {skills.length > 0 && (
+                  <span className="ml-1.5 text-[10px] opacity-70">{skills.length}</span>
+                )}
+              </>
+            ),
+          },
+        ]}
+      />
 
       {/* Source toggles */}
       {view === 'registry' && sources.length > 0 && (
@@ -829,12 +836,15 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           />
         </div>
         {view === 'registry' && (
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="secondary"
+            size="md"
             onClick={() => void fetchCatalog(debouncedQuery, activeSourceFilter, true)}
             disabled={catalogLoading}
             title={t('skills.explorer.refreshRegistry')}
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 shadow-sm transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800 disabled:opacity-50">
+            aria-label={t('skills.explorer.refreshRegistry')}
+            className="flex-shrink-0 text-stone-500 dark:text-neutral-400 shadow-sm">
             <svg
               className={`h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`}
               fill="none"
@@ -847,7 +857,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
                 d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"
               />
             </svg>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -862,16 +872,18 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
       {!loading && error && (
         <div className="mx-1 mb-3 rounded-xl border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 p-3">
           <p className="text-xs font-medium text-coral-700 dark:text-coral-300">{error}</p>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            tone="danger"
+            size="xs"
             onClick={() =>
               void (view === 'installed'
                 ? fetchSkills()
                 : fetchCatalog(debouncedQuery, activeSourceFilter, true))
             }
-            className="mt-2 rounded-lg border border-coral-200 dark:border-coral-500/30 px-3 py-1 text-[11px] font-medium text-coral-700 dark:text-coral-300 hover:bg-coral-100 dark:hover:bg-coral-500/20">
+            className="mt-2">
             {t('common.retry')}
-          </button>
+          </Button>
         </div>
       )}
 

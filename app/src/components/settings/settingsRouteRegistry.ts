@@ -255,6 +255,15 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
 
   // --- About ---
   {
+    id: 'keyboard-shortcuts',
+    titleKey: 'shortcuts.title',
+    descriptionKey: 'shortcuts.menuDesc',
+    section: 'home',
+    searchKeywords: ['keyboard', 'shortcuts', 'keys', 'hotkeys', 'bindings', 'cheatsheet'],
+    navGroup: 'general',
+    navOrder: 98,
+  },
+  {
     id: 'about',
     titleKey: 'settings.about',
     descriptionKey: 'settings.aboutDesc',

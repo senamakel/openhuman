@@ -25,6 +25,7 @@ import DevicesPanel from './panels/DevicesPanel';
 import DevWorkflowPanel from './panels/DevWorkflowPanel';
 import EventLogPanel from './panels/EventLogPanel';
 import IntegrationsPanel from './panels/IntegrationsPanel';
+import KeyboardShortcutsPanel from './panels/KeyboardShortcutsPanel';
 import LocalModelDebugPanel from './panels/LocalModelDebugPanel';
 import McpServerPanel from './panels/McpServerPanel';
 import MeetingSettingsPanel from './panels/MeetingSettingsPanel';
@@ -150,6 +151,7 @@ export function settingsRouteElements(): ReactNode {
       <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
 
       {/* ── System ──────────────────────────────────────────────── */}
+      <Route path="keyboard-shortcuts" element={wrapSettingsPage(<KeyboardShortcutsPanel />)} />
       <Route path="developer-options" element={wrapSettingsPage(<DeveloperOptionsPanel />)} />
       <Route path="about" element={wrapSettingsPage(<AboutPanel />)} />
 

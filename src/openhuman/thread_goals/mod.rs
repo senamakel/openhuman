@@ -21,13 +21,12 @@
 //! [`store::set_if_absent`]).
 
 pub mod ops;
+pub mod runtime;
 mod schemas;
 pub mod store;
 pub mod tools;
 pub mod types;
 
-pub use schemas::{
-    all_thread_goals_controller_schemas, all_thread_goals_registered_controllers,
-};
+pub use schemas::{all_thread_goals_controller_schemas, all_thread_goals_registered_controllers};
 pub use tools::{GoalCompleteTool, GoalGetTool, GoalSetTool};
 pub use types::{ThreadGoal, ThreadGoalStatus};

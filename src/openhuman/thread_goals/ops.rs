@@ -38,7 +38,10 @@ fn emit_updated(goal: &ThreadGoal) {
 }
 
 /// Get the goal for a thread (or `null`).
-pub async fn get(workspace_dir: &Path, thread_id: &str) -> Result<RpcOutcome<GoalEnvelope>, String> {
+pub async fn get(
+    workspace_dir: &Path,
+    thread_id: &str,
+) -> Result<RpcOutcome<GoalEnvelope>, String> {
     log::debug!("[thread_goals] rpc=get thread_id={thread_id}");
     let goal = store::get(workspace_dir, thread_id).await?;
     Ok(RpcOutcome::new(GoalEnvelope { goal }, vec![]))
@@ -58,7 +61,11 @@ pub async fn set(
         GoalEnvelope {
             goal: Some(goal.clone()),
         },
-        format!("set thread goal {} ({})", goal.goal_id, goal.status.as_str()),
+        format!(
+            "set thread goal {} ({})",
+            goal.goal_id,
+            goal.status.as_str()
+        ),
     ))
 }
 

@@ -145,9 +145,7 @@ impl Tool for GoalSetTool {
             return Ok(ToolResult::error("Missing 'objective' parameter"));
         };
         let token_budget = args.get("token_budget").and_then(|v| v.as_u64());
-        log::debug!(
-            "[thread_goals] tool=goal_set thread_id={thread_id} budget={token_budget:?}"
-        );
+        log::debug!("[thread_goals] tool=goal_set thread_id={thread_id} budget={token_budget:?}");
         match store::set(&self.workspace_dir, &thread_id, objective, token_budget).await {
             Ok(goal) => {
                 // Emit the live-update event so the UI chip refreshes immediately.
@@ -258,10 +256,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().to_path_buf();
         let set = GoalSetTool::new(dir.clone());
-        let res = set
-            .execute(json!({ "objective": "x" }))
-            .await
-            .unwrap();
+        let res = set.execute(json!({ "objective": "x" })).await.unwrap();
         assert!(res.is_error);
         assert!(res.text().contains("active chat thread"));
     }

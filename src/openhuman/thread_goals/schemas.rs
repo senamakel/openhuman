@@ -95,7 +95,8 @@ fn schemas(function: &str) -> ControllerSchema {
                 FieldSchema {
                     name: "token_budget",
                     ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Optional token ceiling; exceeding it flips the goal to budget_limited.",
+                    comment:
+                        "Optional token ceiling; exceeding it flips the goal to budget_limited.",
                     required: false,
                 },
             ],
@@ -152,7 +153,15 @@ fn handle_set(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let req = parse_value::<SetParams>(Value::Object(params))?;
-        to_json(ops::set(&config.workspace_dir, &req.thread_id, &req.objective, req.token_budget).await?)
+        to_json(
+            ops::set(
+                &config.workspace_dir,
+                &req.thread_id,
+                &req.objective,
+                req.token_budget,
+            )
+            .await?,
+        )
     })
 }
 

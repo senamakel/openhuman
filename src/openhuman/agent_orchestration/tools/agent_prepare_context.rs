@@ -18,6 +18,7 @@ use crate::openhuman::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunStatus,
 };
 use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::inference::provider::thread_context::current_thread_id;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -114,6 +115,23 @@ impl AgentPrepareContextTool {
              [/context_bundle] block as specified. Do not answer the request yourself.",
         );
         prompt
+    }
+
+    /// Extract the scout's `proposed_goal:` line from a `[context_bundle]`, if
+    /// present and meaningful. Returns `None` for a missing line or an explicit
+    /// `none`. The prefix is matched case-insensitively; its byte length is
+    /// fixed (no multibyte), so slicing past it is safe.
+    fn parse_proposed_goal(bundle: &str) -> Option<String> {
+        const PREFIX: &str = "proposed_goal:";
+        let line = bundle
+            .lines()
+            .map(str::trim)
+            .find(|l| l.len() >= PREFIX.len() && l[..PREFIX.len()].eq_ignore_ascii_case(PREFIX))?;
+        let value = line[PREFIX.len()..].trim();
+        if value.is_empty() || value.eq_ignore_ascii_case("none") {
+            return None;
+        }
+        Some(value.to_string())
     }
 }
 
@@ -281,6 +299,55 @@ impl Tool for AgentPrepareContextTool {
                             })
                             .await;
                     }
+
+                    // Bootstrap this thread's goal from the scout's proposal —
+                    // but ONLY when the thread has none yet. The orchestrator
+                    // stays authoritative (it sets/replaces via `goal_set`); the
+                    // context-gathering path just seeds a goal on the first turn
+                    // of a fresh chat so the harness has something to steer
+                    // toward. Best-effort — a failure never fails the tool.
+                    if let (Some(parent), Some(thread_id)) = (current_parent(), current_thread_id())
+                    {
+                        if let Some(objective) = Self::parse_proposed_goal(&outcome.output) {
+                            match crate::openhuman::thread_goals::store::set_if_absent(
+                                &parent.workspace_dir,
+                                &thread_id,
+                                &objective,
+                                None,
+                            )
+                            .await
+                            {
+                                Ok(Some(goal)) => {
+                                    tracing::info!(
+                                        target: "agent_prepare_context",
+                                        thread_id = %thread_id,
+                                        goal_id = %goal.goal_id,
+                                        "[agent_prepare_context] bootstrapped thread goal from scout proposal"
+                                    );
+                                    publish_global(DomainEvent::ThreadGoalUpdated {
+                                        thread_id: goal.thread_id.clone(),
+                                        goal_id: goal.goal_id.clone(),
+                                        status: goal.status.as_str().to_string(),
+                                    });
+                                }
+                                Ok(None) => {
+                                    tracing::debug!(
+                                        target: "agent_prepare_context",
+                                        thread_id = %thread_id,
+                                        "[agent_prepare_context] thread already has a goal — scout proposal not applied"
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::debug!(
+                                        target: "agent_prepare_context",
+                                        error = %e,
+                                        "[agent_prepare_context] failed to persist scout-proposed goal"
+                                    );
+                                }
+                            }
+                        }
+                    }
+
                     Ok(ToolResult::success(outcome.output))
                 }
                 // The scout has no `ask_user_clarification` tool, so this
@@ -402,6 +469,32 @@ mod tests {
         let prompt = AgentPrepareContextTool::build_scout_prompt("do a thing", None, "");
         assert!(prompt.contains("(none available"));
         assert!(!prompt.contains("[Focus]"));
+    }
+
+    #[test]
+    fn parse_proposed_goal_extracts_objective_or_none() {
+        let bundle = "[context_bundle]\nhas_enough_context: true\n\
+                      proposed_goal: Ship the desktop release to all platforms\n\
+                      summary: ...\n[/context_bundle]";
+        assert_eq!(
+            AgentPrepareContextTool::parse_proposed_goal(bundle).as_deref(),
+            Some("Ship the desktop release to all platforms")
+        );
+
+        // Explicit `none` → no goal.
+        let none_bundle = "[context_bundle]\nproposed_goal: none\nsummary: x\n[/context_bundle]";
+        assert!(AgentPrepareContextTool::parse_proposed_goal(none_bundle).is_none());
+
+        // Missing line → no goal.
+        let no_line = "[context_bundle]\nhas_enough_context: true\n[/context_bundle]";
+        assert!(AgentPrepareContextTool::parse_proposed_goal(no_line).is_none());
+
+        // Case-insensitive prefix.
+        let cased = "Proposed_Goal:  Land the migration  ";
+        assert_eq!(
+            AgentPrepareContextTool::parse_proposed_goal(cased).as_deref(),
+            Some("Land the migration")
+        );
     }
 
     #[tokio::test]

@@ -133,7 +133,8 @@ impl ThreadGoalStore {
         if !path.exists() {
             return Ok(false);
         }
-        fs::remove_file(&path).map_err(|e| format!("delete thread goal {}: {e}", path.display()))?;
+        fs::remove_file(&path)
+            .map_err(|e| format!("delete thread goal {}: {e}", path.display()))?;
         Ok(true)
     }
 }
@@ -424,7 +425,10 @@ mod tests {
             .await
             .unwrap();
         assert!(again.is_none());
-        assert_eq!(get(dir, "t").await.unwrap().unwrap().objective, "scout goal");
+        assert_eq!(
+            get(dir, "t").await.unwrap().unwrap().objective,
+            "scout goal"
+        );
     }
 
     #[tokio::test]

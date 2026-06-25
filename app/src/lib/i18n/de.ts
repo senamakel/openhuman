@@ -5943,6 +5943,8 @@ const messages: TranslationMap = {
   'memory.tab.cohesion': 'Cohesion',
 
   'harnessInit.title': 'Einrichtung läuft',
+
+  'announcement.gotIt': 'Verstanden',
   'harnessInit.subtitle': 'OpenHuman bereitet beim ersten Start benötigte Komponenten vor.',
   'harnessInit.stepPython': 'Python-Laufzeitumgebung',
   'harnessInit.stepSpacy': 'Sprachmodell',

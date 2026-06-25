@@ -36,12 +36,30 @@ pub const DEFAULT_MEMORY_SYNC_INTERVAL_SECS: u64 = 86_400;
 /// "Manual only" is represented separately by `Some(0)`. See issue #3302.
 pub const MEMORY_SYNC_INTERVAL_PRESETS_SECS: [u64; 3] = [14_400, 43_200, 86_400];
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 pub struct ModelRegistryEntry {
     pub id: String,
     pub provider: String,
+    /// Standard prompt rate, USD per **million input tokens**. Used (together
+    /// with [`Self::cost_per_1m_output`]) to estimate request cost when the
+    /// provider doesn't echo an authoritative `charged_amount_usd`. `0.0` means
+    /// "unknown" — callers fall back to the tier/catalog estimate. Pre-filled
+    /// for known vendor models from [`crate::openhuman::cost::catalog`].
+    #[serde(default)]
+    pub cost_per_1m_input: f64,
+    /// Cached-prefix prompt rate, USD per million cached input tokens (KV-cache
+    /// read hits on supporting backends). `0.0` means "unknown".
+    #[serde(default)]
+    pub cost_per_1m_cached_input: f64,
+    /// Completion rate, USD per **million output tokens**.
     #[serde(default)]
     pub cost_per_1m_output: f64,
+    /// Maximum context window in tokens (published max input). `0` means
+    /// "unknown". Providers differ widely (128K–1M+); callers use this to
+    /// budget prompts, trigger compaction, and route work. Pre-filled for known
+    /// vendor models from [`crate::openhuman::cost::catalog`].
+    #[serde(default)]
+    pub context_window: u32,
     #[serde(default)]
     pub vision: bool,
 }

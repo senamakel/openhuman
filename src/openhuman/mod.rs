@@ -24,6 +24,7 @@ pub mod agent_orchestration;
 pub mod agent_registry;
 pub mod agent_tool_policy;
 pub mod agentbox;
+pub mod announcements;
 pub mod app_state;
 pub mod approval;
 pub mod artifacts;

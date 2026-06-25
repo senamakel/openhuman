@@ -6319,6 +6319,7 @@ const en: TranslationMap = {
 
   // First-run initialization (harness_init)
   'harnessInit.title': 'Setting things up',
+  'announcement.gotIt': 'Got it',
   'harnessInit.subtitle': 'OpenHuman is preparing components it needs on first launch.',
   'harnessInit.stepPython': 'Python runtime',
   'harnessInit.stepSpacy': 'Language model',

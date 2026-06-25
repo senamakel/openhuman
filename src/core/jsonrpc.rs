@@ -2272,6 +2272,10 @@ fn register_domain_subscribers(
                 tj.ccr_ttl_secs,
                 disk_root,
             );
+            // The ML compressor sidecar provisions against the full Config; hand
+            // it a snapshot (no-op unless the `tokenjuice_ml` feature is built).
+            #[cfg(feature = "tokenjuice_ml")]
+            crate::openhuman::tokenjuice::ml::configure(config.clone());
         }
 
         // Seed the scheduler-gate signed-out override from the on-disk

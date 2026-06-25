@@ -17,8 +17,27 @@ use crate::openhuman::tokenjuice::types::{
 /// Block-level tags after which we emit a newline so the extracted text keeps
 /// document structure (paragraphs, list items, headings, rows).
 const BLOCK_TAGS: &[&str] = &[
-    "p", "div", "br", "li", "ul", "ol", "tr", "table", "h1", "h2", "h3", "h4", "h5", "h6",
-    "section", "article", "header", "footer", "blockquote", "pre", "hr",
+    "p",
+    "div",
+    "br",
+    "li",
+    "ul",
+    "ol",
+    "tr",
+    "table",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "section",
+    "article",
+    "header",
+    "footer",
+    "blockquote",
+    "pre",
+    "hr",
 ];
 
 /// Tags whose entire body is dropped (non-content).
@@ -206,7 +225,10 @@ mod tests {
         assert!(text.contains("Title"));
         assert!(text.contains("Hello"));
         assert!(text.contains("world"));
-        assert!(!text.contains("alert"), "script body must be dropped: {text}");
+        assert!(
+            !text.contains("alert"),
+            "script body must be dropped: {text}"
+        );
         assert!(!text.contains("color:red"), "style body must be dropped");
     }
 
@@ -227,7 +249,9 @@ mod tests {
     fn compress_shrinks_real_doc() {
         let mut html = String::from("<html><body>");
         for i in 0..50 {
-            html.push_str(&format!("<div class=\"row item-{i}\"><span>cell {i}</span></div>"));
+            html.push_str(&format!(
+                "<div class=\"row item-{i}\"><span>cell {i}</span></div>"
+            ));
         }
         html.push_str("</body></html>");
         let out = compress(&html).expect("compresses");

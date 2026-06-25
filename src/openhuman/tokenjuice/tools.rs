@@ -155,7 +155,10 @@ mod tests {
     #[tokio::test]
     async fn missing_token_is_error() {
         let tool = TokenjuiceRetrieveTool::new();
-        let res = tool.execute(json!({ "token": "deadbeefcafe" })).await.unwrap();
+        let res = tool
+            .execute(json!({ "token": "deadbeefcafe" }))
+            .await
+            .unwrap();
         assert!(res.is_error);
         let res2 = tool.execute(json!({})).await.unwrap();
         assert!(res2.is_error);

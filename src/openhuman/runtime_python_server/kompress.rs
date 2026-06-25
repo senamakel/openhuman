@@ -134,7 +134,10 @@ pub async fn ensure_kompress(config: &Config) -> Result<KompressRuntime> {
     )
     .await?;
     if !venv_python.exists() {
-        bail!("venv created but interpreter missing at {}", venv_python.display());
+        bail!(
+            "venv created but interpreter missing at {}",
+            venv_python.display()
+        );
     }
 
     install_deps_and_model(&venv_python, &hf, &config.tokenjuice.ml_model_id).await?;

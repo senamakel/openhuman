@@ -52,7 +52,8 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "detect" => ControllerSchema {
             namespace: "tokenjuice",
             function: "detect",
-            description: "Detect the content kind of a blob (json/code/log/search/diff/html/plain_text).",
+            description:
+                "Detect the content kind of a blob (json/code/log/search/diff/html/plain_text).",
             inputs: vec![
                 FieldSchema {
                     name: "content",

@@ -96,7 +96,13 @@ impl Inner {
         }
         let bytes = content.len();
         self.total_bytes += bytes;
-        self.map.insert(hash.clone(), Entry { content, created: Instant::now() });
+        self.map.insert(
+            hash.clone(),
+            Entry {
+                content,
+                created: Instant::now(),
+            },
+        );
         self.order.push_back(hash);
         while self.order.len() > max_entries || self.total_bytes > max_bytes {
             let Some(evicted) = self.order.pop_front() else {
@@ -125,13 +131,19 @@ pub fn offload(content: &str) -> String {
         let l = limits().read().unwrap_or_else(|p| p.into_inner());
         (l.max_entries, l.max_bytes)
     };
-    global()
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
-        .insert(hash.clone(), content.to_string(), max_entries, max_bytes);
+    global().lock().unwrap_or_else(|p| p.into_inner()).insert(
+        hash.clone(),
+        content.to_string(),
+        max_entries,
+        max_bytes,
+    );
 
     // Mirror to the disk tier when enabled (best-effort).
-    if let Some(root) = disk_root().read().unwrap_or_else(|p| p.into_inner()).clone() {
+    if let Some(root) = disk_root()
+        .read()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone()
+    {
         let path = root.join(&hash);
         if !path.exists() {
             if let Err(e) = std::fs::write(&path, content) {
@@ -159,7 +171,10 @@ pub fn retrieve(hash: &str) -> Option<String> {
         }
     }
     // Disk fallback.
-    let root = disk_root().read().unwrap_or_else(|p| p.into_inner()).clone()?;
+    let root = disk_root()
+        .read()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone()?;
     std::fs::read_to_string(root.join(hash)).ok()
 }
 
@@ -253,7 +268,11 @@ mod tests {
         for i in 0..10 {
             inner.insert(format!("h{i}"), "x".repeat(100), 1000, 500);
         }
-        assert!(inner.total_bytes <= 500, "byte cap held: {}", inner.total_bytes);
+        assert!(
+            inner.total_bytes <= 500,
+            "byte cap held: {}",
+            inner.total_bytes
+        );
         assert!(!inner.map.contains_key("h0"), "oldest evicted");
         assert!(inner.map.contains_key("h9"), "newest retained");
     }
@@ -299,7 +318,11 @@ mod tests {
             let mut inner = global().lock().unwrap_or_else(|p| p.into_inner());
             inner.map.remove(&hash);
         }
-        assert_eq!(retrieve(&hash).as_deref(), Some(original.as_str()), "disk fallback");
+        assert_eq!(
+            retrieve(&hash).as_deref(),
+            Some(original.as_str()),
+            "disk fallback"
+        );
         // Disable the tier for other tests and clean up.
         *disk_root().write().unwrap() = None;
         let _ = std::fs::remove_dir_all(&dir);

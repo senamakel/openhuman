@@ -157,7 +157,11 @@ mod tests {
         assert!(res.text.len() < original.len());
         let token = res.ccr_token.expect("offloaded");
         assert_eq!(cache::retrieve(&token).as_deref(), Some(original.as_str()));
-        assert!(res.text.contains("⟦tj:"), "footer marker present: {}", res.text);
+        assert!(
+            res.text.contains("⟦tj:"),
+            "footer marker present: {}",
+            res.text
+        );
     }
 
     #[tokio::test]

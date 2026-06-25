@@ -1010,7 +1010,10 @@ async fn json_rpc_tokenjuice_detect_and_cache_stats() {
     )
     .await;
     let stats_result = assert_no_jsonrpc_error(&stats, "tokenjuice_cache_stats");
-    assert!(stats_result.get("entries").and_then(Value::as_u64).is_some());
+    assert!(stats_result
+        .get("entries")
+        .and_then(Value::as_u64)
+        .is_some());
     assert!(stats_result.get("bytes").and_then(Value::as_u64).is_some());
 
     rpc_join.abort();

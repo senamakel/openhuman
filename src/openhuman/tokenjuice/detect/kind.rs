@@ -188,9 +188,27 @@ fn count_html_tags(line: &str) -> usize {
 /// content with no extension/MIME hint, so false positives are rare.
 pub fn looks_like_code(content: &str) -> bool {
     const KEYWORDS: &[&str] = &[
-        "fn ", "function ", "class ", "def ", "impl ", "struct ", "enum ", "trait ", "interface ",
-        "import ", "export ", "package ", "public ", "private ", "const ", "let ", "var ",
-        "return ", "#include", "using ", "namespace ",
+        "fn ",
+        "function ",
+        "class ",
+        "def ",
+        "impl ",
+        "struct ",
+        "enum ",
+        "trait ",
+        "interface ",
+        "import ",
+        "export ",
+        "package ",
+        "public ",
+        "private ",
+        "const ",
+        "let ",
+        "var ",
+        "return ",
+        "#include",
+        "using ",
+        "namespace ",
     ];
     let mut total = 0usize;
     let mut code_like = 0usize;
@@ -312,7 +330,10 @@ mod tests {
             ..Default::default()
         };
         // Body is JSON but the explicit hint forces Html.
-        assert_eq!(detect_content_kind(r#"[{"a":1},{"b":2}]"#, &h), ContentKind::Html);
+        assert_eq!(
+            detect_content_kind(r#"[{"a":1},{"b":2}]"#, &h),
+            ContentKind::Html
+        );
     }
 
     #[test]
@@ -321,7 +342,10 @@ mod tests {
             mime: Some("application/json".into()),
             ..Default::default()
         };
-        assert_eq!(detect_content_kind("{not even json}", &h), ContentKind::Json);
+        assert_eq!(
+            detect_content_kind("{not even json}", &h),
+            ContentKind::Json
+        );
         let h = ContentHint {
             extension: Some("RS".into()),
             ..Default::default()
@@ -346,7 +370,8 @@ mod tests {
 
     #[test]
     fn detect_search_results() {
-        let c = "src/main.rs:42:fn process() {\nsrc/lib.rs:7:pub use foo;\nsrc/x.rs:99:    let y = 1;";
+        let c =
+            "src/main.rs:42:fn process() {\nsrc/lib.rs:7:pub use foo;\nsrc/x.rs:99:    let y = 1;";
         assert_eq!(detect_content_kind(c, &hint()), ContentKind::Search);
     }
 

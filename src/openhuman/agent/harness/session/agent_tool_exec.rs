@@ -247,9 +247,12 @@ pub(super) async fn run_agent_tool_call(
     // content kind, routes to the matching compressor, and offloads the
     // original to CCR (recoverable via `tokenjuice_retrieve`); only ever
     // shrinks, otherwise passes the original through.
-    let raw_result =
-        crate::openhuman::tokenjuice::compact_output(raw_result, &call.name, ctx.compaction_enabled)
-            .await;
+    let raw_result = crate::openhuman::tokenjuice::compact_output(
+        raw_result,
+        &call.name,
+        ctx.compaction_enabled,
+    )
+    .await;
 
     // Per-result byte budget — the only cache-safe reduction stage (the full
     // body has never been sent to the backend). Oversized outputs are persisted

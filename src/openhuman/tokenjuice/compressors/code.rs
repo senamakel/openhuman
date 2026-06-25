@@ -269,16 +269,29 @@ mod tests {
         let mut src = String::from("use std::collections::HashMap;\n\n");
         src.push_str("pub fn process(items: &[i32]) -> i32 {\n");
         for i in 0..30 {
-            src.push_str(&format!("        let tmp_{i} = items.iter().sum::<i32>() + {i};\n"));
+            src.push_str(&format!(
+                "        let tmp_{i} = items.iter().sum::<i32>() + {i};\n"
+            ));
         }
         src.push_str("        tmp_0\n}\n\n");
         src.push_str("struct Config {\n    name: String,\n    size: usize,\n}\n");
         let out = compress_heuristic(&src).expect("compresses");
         assert!(out.lossy);
-        assert!(out.text.contains("pub fn process"), "signature kept:\n{}", out.text);
+        assert!(
+            out.text.contains("pub fn process"),
+            "signature kept:\n{}",
+            out.text
+        );
         assert!(out.text.contains("struct Config"));
-        assert!(out.text.contains("line(s) …"), "body collapsed:\n{}", out.text);
-        assert!(!out.text.contains("tmp_15"), "deep body should be collapsed");
+        assert!(
+            out.text.contains("line(s) …"),
+            "body collapsed:\n{}",
+            out.text
+        );
+        assert!(
+            !out.text.contains("tmp_15"),
+            "deep body should be collapsed"
+        );
         assert!(out.text.len() < src.len());
     }
 
@@ -294,12 +307,18 @@ mod tests {
         let mut src = String::from("use std::collections::HashMap;\n\n");
         src.push_str("pub fn process(items: &[i32]) -> i32 {\n");
         for i in 0..30 {
-            src.push_str(&format!("    let tmp_{i} = items.iter().sum::<i32>() + {i};\n"));
+            src.push_str(&format!(
+                "    let tmp_{i} = items.iter().sum::<i32>() + {i};\n"
+            ));
         }
         src.push_str("    tmp_0\n}\n\n");
         src.push_str("pub struct Config {\n    pub name: String,\n    pub size: usize,\n}\n");
         let out = treesitter::compress(&src, "rs").expect("compresses");
-        assert!(out.text.contains("pub fn process(items: &[i32]) -> i32"), "{}", out.text);
+        assert!(
+            out.text.contains("pub fn process(items: &[i32]) -> i32"),
+            "{}",
+            out.text
+        );
         // Struct fields preserved exactly (not a function body).
         assert!(out.text.contains("pub name: String"), "{}", out.text);
         assert!(out.text.contains("pub size: usize"));

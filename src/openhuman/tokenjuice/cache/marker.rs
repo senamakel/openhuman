@@ -105,7 +105,10 @@ mod tests {
     fn formats_and_parses_canonical() {
         let m = format_marker("ab12cd34");
         assert_eq!(m, "⟦tj:ab12cd34⟧");
-        assert_eq!(parse_markers(&format!("see {m} for more")), vec!["ab12cd34"]);
+        assert_eq!(
+            parse_markers(&format!("see {m} for more")),
+            vec!["ab12cd34"]
+        );
     }
 
     #[test]

@@ -124,13 +124,21 @@ pub fn compress(content: &str, query: Option<&str>) -> Option<CompressOutput> {
         }
         // Rank by score (desc), keep top-K, then re-sort kept by line number so
         // the output reads top-to-bottom within the file.
-        matches.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        matches.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         let mut kept: Vec<&Match<'_>> = matches.iter().take(TOP_K_PER_FILE).collect();
         kept.sort_by_key(|m| m.line_no);
         for m in &kept {
             let _ = writeln!(out, "{}:{}:{}", path, m.line_no, m.body);
         }
-        let _ = writeln!(out, "[+{} more match(es) in {path}]", total - TOP_K_PER_FILE);
+        let _ = writeln!(
+            out,
+            "[+{} more match(es) in {path}]",
+            total - TOP_K_PER_FILE
+        );
     }
 
     let out = out.trim_end().to_string();
@@ -199,7 +207,10 @@ mod tests {
             let _ = writeln!(s, "src/x.rs:{i}:{body}");
         }
         let out = compress(&s, Some("needle token")).expect("compresses").text;
-        assert!(out.contains("special needle token"), "ranked-in match missing:\n{out}");
+        assert!(
+            out.contains("special needle token"),
+            "ranked-in match missing:\n{out}"
+        );
     }
 
     #[test]

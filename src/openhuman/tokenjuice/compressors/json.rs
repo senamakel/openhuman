@@ -148,7 +148,10 @@ pub fn compress(content: &str) -> Option<CompressOutput> {
         Some(CompressOutput::lossy(out, CompressorKind::SmartCrusher))
     } else {
         // All values preserved, but the array→table reformat changes layout.
-        Some(CompressOutput::reformatted(out, CompressorKind::SmartCrusher))
+        Some(CompressOutput::reformatted(
+            out,
+            CompressorKind::SmartCrusher,
+        ))
     }
 }
 
@@ -271,7 +274,11 @@ mod tests {
         let input = format!("[{}]", rows.join(","));
         let c = compress(&input).expect("compresses");
         assert!(c.lossy);
-        assert!(c.text.contains("job 75"), "error row must survive:\n{}", c.text);
+        assert!(
+            c.text.contains("job 75"),
+            "error row must survive:\n{}",
+            c.text
+        );
         assert!(c.text.contains("error: timeout"));
     }
 
@@ -287,7 +294,11 @@ mod tests {
         }
         let input = format!("[{}]", rows.join(","));
         let c = compress(&input).expect("compresses");
-        assert!(c.text.contains("9999"), "outlier row must survive:\n{}", c.text);
+        assert!(
+            c.text.contains("9999"),
+            "outlier row must survive:\n{}",
+            c.text
+        );
     }
 
     #[test]

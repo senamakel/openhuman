@@ -1987,7 +1987,7 @@ describe('Conversations — open-session resume (View work)', () => {
     expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
   });
 
-  it('approves a parked plan card from the thread todo strip', async () => {
+  it('approves a parked plan from the plan-review card', async () => {
     const thread = makeThread({ id: 'approve-thread', title: 'Approve thread' });
     mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
 
@@ -2014,9 +2014,10 @@ describe('Conversations — open-session resume (View work)', () => {
       );
     });
 
-    // The strip surfaces Approve/Reject only for parked cards; approving routes
-    // through onDecidePlan → runDecidePlan → threadApi.decidePlan.
-    const approveBtn = await screen.findByTitle('Approve');
+    // A parked plan surfaces the PlanReviewCard above the composer; "Approve &
+    // run" routes through onApprove → runDecidePlanAll → threadApi.decidePlan
+    // (one call per awaiting card).
+    const approveBtn = await screen.findByText('Approve & run');
     await act(async () => {
       fireEvent.click(approveBtn);
     });

@@ -95,7 +95,6 @@ describe('Ledger list', () => {
   });
 
   test('tolerates response missing transactions field and shows empty', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(apiClient.graphql.ledgerTransactions).mockResolvedValue({} as any);
     render(<LedgerSection />);
     await waitFor(() => {

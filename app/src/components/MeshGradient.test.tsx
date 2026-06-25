@@ -8,6 +8,7 @@ import MeshGradient from './MeshGradient';
 
 const gradientMock = vi.hoisted(() => ({
   disconnect: vi.fn(),
+  // eslint-disable-next-line prefer-arrow-callback -- constructor mock must be new-able; arrows are not constructible.
   Gradient: vi.fn(function MockGradient() {
     return {
       disconnect: gradientMock.disconnect,

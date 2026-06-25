@@ -25,16 +25,25 @@ import { chatThreadPath } from '../../../utils/chatRoutes';
  *  - select + load it and navigate straight to it. Selecting the thread before
  *    navigation also prevents the Conversations page from racing to create a
  *    second blank thread on mount.
+ *
+ * A thread counts as empty only when it has neither a server message count nor
+ * any locally-cached messages: right after the first message is sent,
+ * `addMessageLocal` populates `messagesByThreadId` while the thread-list
+ * `messageCount` can still read 0 until the async refresh lands, and we must not
+ * reuse (and reopen) that now-occupied conversation.
  */
 export function useNewChat(): () => void {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const threads = useAppSelector(state => state.thread.threads);
+  const messagesByThreadId = useAppSelector(state => state.thread.messagesByThreadId);
 
   return useCallback(() => {
     dispatch(setActiveAccount(AGENT_ACCOUNT_ID));
 
-    const empty = threads.find(thr => (thr.messageCount ?? 0) === 0);
+    const empty = threads.find(
+      thr => (thr.messageCount ?? 0) === 0 && (messagesByThreadId[thr.id]?.length ?? 0) === 0
+    );
     if (empty) {
       dispatch(setSelectedThread(empty.id));
       void dispatch(loadThreadMessages(empty.id));
@@ -50,5 +59,5 @@ export function useNewChat(): () => void {
         navigate(chatThreadPath(thr.id));
       })
       .catch(() => {});
-  }, [navigate, dispatch, threads]);
+  }, [navigate, dispatch, threads, messagesByThreadId]);
 }

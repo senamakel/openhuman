@@ -30,9 +30,11 @@ interface WrapperProps {
 
 const mockDispatch = vi.fn();
 let mockThreads: MockThread[] = [];
+let mockMessagesByThreadId: Record<string, unknown[]> = {};
 vi.mock('../../../store/hooks', () => ({
   useAppDispatch: () => mockDispatch,
-  useAppSelector: (sel: (s: unknown) => unknown) => sel({ thread: { threads: mockThreads } }),
+  useAppSelector: (sel: (s: unknown) => unknown) =>
+    sel({ thread: { threads: mockThreads, messagesByThreadId: mockMessagesByThreadId } }),
 }));
 
 vi.mock('../../../store/accountsSlice', () => ({
@@ -56,6 +58,7 @@ describe('useNewChat', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockThreads = [];
+    mockMessagesByThreadId = {};
     mockDispatch.mockImplementation((action: MockAction) => {
       if (action?.type === 'thread/createNewThread') {
         return { unwrap: () => Promise.resolve({ id: 'fresh-thread' }) };
@@ -88,6 +91,21 @@ describe('useNewChat', () => {
       payload: 'empty-1',
     });
     expect(dispatchedTypes()).not.toContain('thread/createNewThread');
+  });
+
+  it('does not reuse a count-empty thread that already has cached messages', async () => {
+    // First message was just sent: messageCount is still a stale 0 but the
+    // message cache is populated. Must NOT reuse/reopen it — create instead.
+    mockThreads = [{ id: 'just-sent', messageCount: 0 }];
+    mockMessagesByThreadId = { 'just-sent': [{ id: 'm1' }] };
+    const { result } = renderHook(() => useNewChat(), { wrapper });
+    result.current();
+
+    expect(mockNavigate).not.toHaveBeenCalledWith('/chat/just-sent');
+    expect(dispatchedTypes()).toContain('thread/createNewThread');
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/chat/fresh-thread');
+    });
   });
 
   it('creates a new thread when there is no empty thread', async () => {

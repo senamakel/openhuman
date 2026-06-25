@@ -107,8 +107,11 @@ export default function CommandPalette({ open, onOpenChange }: Props) {
                 </Command.Group>
               ))}
             </Command.List>
-            <div className="px-4 py-2 border-t border-cmd-border text-xs text-cmd-foreground-muted">
-              {t('commandPalette.shortcutHint')}
+            <div className="flex items-center gap-1.5 px-4 py-2 border-t border-cmd-border text-xs text-cmd-foreground-muted">
+              {/* Advertise ⌘/ (allowed while this search box is focused) rather
+                  than ?, which the hotkey manager skips inside inputs. */}
+              <Kbd shortcut="mod+/" />
+              <span>{t('shortcuts.title')}</span>
             </div>
           </Command>
         </Dialog.Content>

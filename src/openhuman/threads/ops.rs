@@ -709,12 +709,30 @@ pub async fn token_usage(
                 .as_deref()
                 .and_then(crate::openhuman::inference::model_context::context_window_for_model)
                 .unwrap_or(0);
+            // Re-audit cost at CURRENT pricing rather than trusting the
+            // `charged_amount_usd` persisted in the transcript: those values
+            // were stamped at turn time and don't reflect later tier-pricing
+            // corrections. Recompute from the persisted token counts using the
+            // last-known model's rates. Falls back to the stored charge only
+            // when the model is unknown (can't price it).
+            let cost_usd = match s.model.as_deref() {
+                Some(model) => crate::openhuman::agent::cost::estimate_call_cost_usd(
+                    model,
+                    &crate::openhuman::inference::provider::UsageInfo {
+                        input_tokens: s.input_tokens,
+                        output_tokens: s.output_tokens,
+                        cached_input_tokens: s.cached_input_tokens,
+                        ..Default::default()
+                    },
+                ),
+                None => s.cost_usd,
+            };
             ThreadTokenUsageResponse {
                 thread_id: request.thread_id.clone(),
                 input_tokens: s.input_tokens,
                 output_tokens: s.output_tokens,
                 cached_input_tokens: s.cached_input_tokens,
-                cost_usd: s.cost_usd,
+                cost_usd,
                 turn_count: s.turn_count,
                 last_turn_input_tokens: s.last_turn_input_tokens,
                 last_turn_output_tokens: s.last_turn_output_tokens,

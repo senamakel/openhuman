@@ -13207,7 +13207,15 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
     assert_eq!(data["input_tokens"], 4200);
     assert_eq!(data["output_tokens"], 900);
     assert_eq!(data["cached_input_tokens"], 600);
-    assert!((data["cost_usd"].as_f64().expect("cost_usd") - 0.0123).abs() < 1e-9);
+    // Cost is RE-AUDITED at current pricing from the token counts, NOT read from
+    // the stale charged_amount_usd persisted in the transcript (0.0123). For
+    // reasoning-v1 ("Pro"), per Mtok: (4200-600)*0.435 + 600*0.003625 + 900*0.87
+    // = 0.001566 + 0.000002175 + 0.000783 = 0.002351175.
+    let cost = data["cost_usd"].as_f64().expect("cost_usd");
+    assert!(
+        (cost - 0.002_351_175).abs() < 1e-9,
+        "re-audited cost should be ~0.00235 (not the persisted 0.0123), got {cost}"
+    );
     assert_eq!(data["turn_count"], 2);
     assert_eq!(data["last_turn_input_tokens"], 350);
     assert_eq!(data["last_turn_output_tokens"], 80);

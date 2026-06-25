@@ -109,7 +109,33 @@ fn open_and_init(db_path: &Path) -> Result<Connection> {
         .context("enable foreign keys")?;
     conn.execute_batch(SCHEMA_DDL)
         .context("failed to run memory_diff schema DDL")?;
+    apply_column_migrations(&conn)?;
     Ok(conn)
+}
+
+/// Idempotently add columns introduced after the initial schema. `CREATE TABLE
+/// IF NOT EXISTS` is a no-op on a pre-existing `diff.db`, so newly-added
+/// columns (e.g. `content` on `mem_diff_snapshot_items`) must be backfilled via
+/// `ALTER TABLE ... ADD COLUMN` for workspaces created before that column existed.
+fn apply_column_migrations(conn: &Connection) -> Result<()> {
+    if !column_exists(conn, "mem_diff_snapshot_items", "content")? {
+        conn.execute_batch("ALTER TABLE mem_diff_snapshot_items ADD COLUMN content TEXT;")
+            .context("add mem_diff_snapshot_items.content column")?;
+    }
+    Ok(())
+}
+
+fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        // PRAGMA table_info columns: cid, name, type, notnull, dflt_value, pk.
+        let name: String = row.get(1)?;
+        if name == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn apply_journal_mode(conn: &Connection) {
@@ -472,6 +498,36 @@ mod tests {
         assert_eq!(loaded_items.len(), 2);
         assert_eq!(loaded_items[0].item_id, "file_a");
         assert_eq!(loaded_items[0].content.as_deref(), Some("alpha"));
+    }
+
+    #[test]
+    fn migration_adds_content_column_to_legacy_db() {
+        // Simulate a pre-existing diff.db whose snapshot-items table predates
+        // the `content` column (the original schema shape).
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        conn.execute_batch(
+            "CREATE TABLE mem_diff_snapshot_items (
+                snapshot_id     TEXT NOT NULL,
+                item_id         TEXT NOT NULL,
+                title           TEXT NOT NULL DEFAULT '',
+                content_hash    TEXT NOT NULL,
+                timestamp_ms    INTEGER,
+                chunk_count     INTEGER NOT NULL DEFAULT 1,
+                PRIMARY KEY (snapshot_id, item_id)
+            );",
+        )
+        .unwrap();
+        assert!(!column_exists(&conn, "mem_diff_snapshot_items", "content").unwrap());
+
+        // Re-running DDL + migrations must backfill the column.
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        apply_column_migrations(&conn).unwrap();
+        assert!(column_exists(&conn, "mem_diff_snapshot_items", "content").unwrap());
+
+        // Migration is idempotent on a second pass.
+        apply_column_migrations(&conn).unwrap();
+        assert!(column_exists(&conn, "mem_diff_snapshot_items", "content").unwrap());
     }
 
     #[test]

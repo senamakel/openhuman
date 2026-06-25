@@ -205,14 +205,14 @@ export const selectAllThemes = createSelector(
   (customThemes): Theme[] => [...PRESET_THEMES, ...(customThemes ?? [])],
 );
 
-export const selectActiveThemeId = (state: { theme: ThemeState }): string =>
-  state.theme.activeThemeId ?? DEFAULT_FAMILY_ID;
+export const selectActiveThemeId = (state: { theme?: ThemeState }): string =>
+  state.theme?.activeThemeId ?? DEFAULT_FAMILY_ID;
 
-export const selectThemeVariant = (state: { theme: ThemeState }): ThemeVariant =>
-  state.theme.themeVariant ?? 'system';
+export const selectThemeVariant = (state: { theme?: ThemeState }): ThemeVariant =>
+  state.theme?.themeVariant ?? 'system';
 
-export const selectCustomThemes = (state: { theme: ThemeState }): Theme[] =>
-  state.theme.customThemes ?? [];
+export const selectCustomThemes = (state: { theme?: ThemeState }): Theme[] =>
+  state.theme?.customThemes ?? [];
 
 /**
  * Normalize the active selection to a `{ family, variant, custom }` shape,
@@ -243,7 +243,8 @@ function resolveSelection(ts: ThemeState): {
 }
 
 /** The active family id (`''` when a custom theme is selected). */
-export function selectActiveFamilyId(state: { theme: ThemeState }): string {
+export function selectActiveFamilyId(state: { theme?: ThemeState }): string {
+  if (!state.theme) return DEFAULT_FAMILY_ID;
   const { family, custom } = resolveSelection(state.theme);
   if (custom) return '';
   return family?.id ?? DEFAULT_FAMILY_ID;
@@ -294,7 +295,8 @@ function effectiveThemeFromState(ts: ThemeState): Theme {
  * returned directly; otherwise the active family's variant is resolved, with
  * `system` consulting `prefers-color-scheme`.
  */
-export function selectEffectiveTheme(state: { theme: ThemeState }): Theme {
+export function selectEffectiveTheme(state: { theme?: ThemeState }): Theme {
+  if (!state.theme) return findFamily('classic')!.light!;
   return effectiveThemeFromState(state.theme);
 }
 

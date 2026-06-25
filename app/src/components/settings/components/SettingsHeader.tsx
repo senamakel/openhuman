@@ -8,6 +8,14 @@ interface BreadcrumbItem {
   onClick?: () => void;
 }
 
+/**
+ * @deprecated For settings panels use {@link SettingsPanel}
+ * (`components/settings/layout/SettingsPanel`), which bakes in a consistent
+ * title, back button, sub-nav and spacing. This component now only backs the
+ * couple of standalone non-settings page shells (e.g. Webhooks, Intelligence)
+ * that live outside the `/settings` route tree and therefore can't derive a
+ * title from the settings route registry. Do not add new settings call sites.
+ */
 interface SettingsHeaderProps {
   className?: string;
   title?: string;

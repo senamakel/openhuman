@@ -390,6 +390,119 @@ fn create_chat_provider_uses_role() {
     assert_eq!(model, "gpt-4o-mini");
 }
 
+// Regression (#hint-routing): on the managed OpenHuman backend, a specialised
+// workload role must resolve to its dedicated tier — NOT collapse to
+// `default_model` (which defaults to `chat-v1`). Before the fix,
+// `make_openhuman_backend` only special-cased `vision`, so `hint = "coding"`
+// sub-agents (code_executor, skill_creator, tool_maker) silently ran on
+// `chat-v1` instead of `coding-v1`, and likewise for `agentic`/`reasoning`.
+// (`summarization` is intentionally excluded — see
+// `managed_backend_summarization_role_inherits_default_model`.) This drives
+// `make_openhuman_backend` directly via the explicit `"openhuman"` provider
+// string.
+#[test]
+fn managed_backend_pins_specialised_role_to_tier() {
+    use crate::openhuman::config::{
+        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
+    };
+    // default_model is chat-v1 — the value the buggy path would have leaked.
+    let config = Config::default();
+    assert_eq!(config.default_model.as_deref(), Some("chat-v1"));
+
+    for (role, expected_tier) in &[
+        ("reasoning", MODEL_REASONING_V1),
+        ("agentic", MODEL_AGENTIC_V1),
+        ("coding", MODEL_CODING_V1),
+        ("vision", MODEL_VISION_V1),
+    ] {
+        let (_, model) = create_chat_provider_from_string(role, "openhuman", &config)
+            .expect("managed backend must build");
+        assert_eq!(
+            model, *expected_tier,
+            "role={role} must pin to {expected_tier} on the managed backend, got {model}"
+        );
+    }
+}
+
+// `summarization` is deliberately NOT pinned: the memory subsystem
+// (`memory::chat::build_chat_runtime`) routes the summarization model through
+// `default_model` (sourced from the user-configurable
+// `memory_tree.cloud_llm_model`), so it must keep inheriting `default_model`.
+#[test]
+fn managed_backend_summarization_role_inherits_default_model() {
+    let mut config = Config::default();
+    config.default_model = Some("summarization-v1".to_string());
+    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, "summarization-v1");
+
+    // A non-tier custom override is not pinned away — it follows the existing
+    // known-tier validation (unknown → platform default reasoning-v1).
+    config.default_model = Some("custom-summary-model".to_string());
+    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, "reasoning-v1");
+}
+
+// End-to-end of the sub-agent path: the subagent runner resolves a
+// `ModelSpec::Hint(workload)` by calling `create_chat_provider(workload, cfg)`.
+// With a default config (every per-workload provider unset → managed backend),
+// each shipped hint must still reach its tier. This is the exact call the
+// `code_executor` agent (`hint = "coding"`) makes when it spawns.
+#[test]
+fn subagent_hint_resolves_to_tier_on_managed_backend() {
+    use crate::openhuman::config::{MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1};
+    let config = Config::default();
+    for (hint, expected_tier) in &[
+        ("coding", MODEL_CODING_V1),
+        ("agentic", MODEL_AGENTIC_V1),
+        ("reasoning", MODEL_REASONING_V1),
+    ] {
+        let (_, model) =
+            create_chat_provider(hint, &config).expect("create_chat_provider must succeed");
+        assert_eq!(
+            model, *expected_tier,
+            "hint={hint} sub-agent must run on {expected_tier}, got {model}"
+        );
+    }
+}
+
+// The generic `chat` role must keep inheriting `default_model` — the front-line
+// chat turn and legacy `default_model = "reasoning-v1"` installs deliberately
+// fall through to the `chat` role (see the session builder), so pinning `chat`
+// would regress them.
+#[test]
+fn managed_backend_chat_role_inherits_default_model() {
+    // Default (chat-v1).
+    let config = Config::default();
+    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, "chat-v1");
+
+    // Legacy literal: a user pinned `default_model = "reasoning-v1"` must still
+    // get reasoning-v1 for the chat-role front-line turn.
+    let mut config = Config::default();
+    config.default_model = Some("reasoning-v1".to_string());
+    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, "reasoning-v1");
+}
+
+// The tier pin only governs the *managed* backend. A user who routes the coding
+// workload to their own BYOK provider must still get that provider's model —
+// `provider_for_role` resolves the per-workload route before the managed path.
+#[test]
+fn coding_workload_byok_route_wins_over_managed_pin() {
+    let mut config = Config::default();
+    config
+        .cloud_providers
+        .push(anthropic_entry("p_ant", "anthropic"));
+    config.coding_provider = Some("anthropic:claude-sonnet-4-6".to_string());
+    let (_, model) =
+        create_chat_provider("coding", &config).expect("create_chat_provider must succeed");
+    assert_eq!(model, "claude-sonnet-4-6");
+}
+
 #[test]
 fn unknown_slug_rejected() {
     let config = Config::default();

@@ -4,10 +4,8 @@ import ScreenIntelligenceDebugPanel from '../../../components/intelligence/Scree
 import { useScreenIntelligenceState } from '../../../features/screen-intelligence/useScreenIntelligenceState';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { isTauri, openhumanUpdateScreenIntelligenceSettings } from '../../../utils/tauriCommands';
-import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
 import Input from '../../ui/Input';
-import SettingsBackButton from '../components/SettingsBackButton';
 import {
   SettingsCheckbox,
   SettingsEmptyState,
@@ -16,7 +14,7 @@ import {
   SettingsStatusLine,
   SettingsTextArea,
 } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 const DebugSection = ({
   state,
@@ -47,7 +45,6 @@ const DebugSection = ({
 
 const ScreenAwarenessDebugPanel = () => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
   const {
     status,
     lastError,
@@ -118,12 +115,8 @@ const ScreenAwarenessDebugPanel = () => {
   };
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={t('settings.developerMenu.screenAwareness.desc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="max-w-2xl mx-auto w-full p-4 space-y-4">
+    <SettingsPanel description={t('settings.developerMenu.screenAwareness.desc')}>
+      <>
         {/* Advanced policy settings */}
         <SettingsSection title={t('screenAwareness.debug.policyTitle')}>
           <div className="px-4 py-3 space-y-3">
@@ -293,8 +286,8 @@ const ScreenAwarenessDebugPanel = () => {
 
         {/* Error notice */}
         {lastError && <SettingsStatusLine saving={false} error={lastError} savingLabel="" />}
-      </div>
-    </PanelPage>
+      </>
+    </SettingsPanel>
   );
 };
 

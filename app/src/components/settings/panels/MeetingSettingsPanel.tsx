@@ -9,8 +9,6 @@ import {
   openhumanGetMeetSettings,
   openhumanUpdateMeetSettings,
 } from '../../../utils/tauriCommands';
-import PanelPage from '../../layout/PanelPage';
-import SettingsBackButton from '../components/SettingsBackButton';
 import {
   SettingsRow,
   SettingsSection,
@@ -18,7 +16,7 @@ import {
   SettingsStatusLine,
   SettingsSwitch,
 } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 const log = debug('settings:meetings');
 
@@ -47,7 +45,6 @@ const AUTO_SUMMARIZE_LABEL_KEY: Record<MeetAutoSummarizePolicy, string> = {
  */
 const MeetingSettingsPanel = () => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
 
   const [isLoading, setIsLoading] = useState(isTauri());
   const [isSaving, setIsSaving] = useState(false);
@@ -145,43 +142,27 @@ const MeetingSettingsPanel = () => {
 
   if (!isTauri()) {
     return (
-      <PanelPage
-        className="z-10"
-        contentClassName=""
-        description={t('settings.meetings.menuDesc')}
-        leading={<SettingsBackButton onBack={navigateBack} />}>
-        <div className="p-4 pt-2">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            {t('settings.meetings.desktopOnly')}
-          </p>
-        </div>
-      </PanelPage>
+      <SettingsPanel description={t('settings.meetings.menuDesc')}>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          {t('settings.meetings.desktopOnly')}
+        </p>
+      </SettingsPanel>
     );
   }
 
   if (isLoading) {
     return (
-      <PanelPage
-        className="z-10"
-        contentClassName=""
-        description={t('settings.meetings.menuDesc')}
-        leading={<SettingsBackButton onBack={navigateBack} />}>
-        <div className="p-4 pt-2">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            {t('settings.meetings.loading')}
-          </p>
-        </div>
-      </PanelPage>
+      <SettingsPanel description={t('settings.meetings.menuDesc')}>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          {t('settings.meetings.loading')}
+        </p>
+      </SettingsPanel>
     );
   }
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={t('settings.meetings.menuDesc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="p-4 pt-2 space-y-5" data-testid="meeting-settings-panel">
+    <SettingsPanel description={t('settings.meetings.menuDesc')} testId="meeting-settings-panel">
+      <>
         {/* Auto-join policy */}
         <SettingsSection
           title={t('settings.meetings.autoJoin.title')}
@@ -261,8 +242,8 @@ const MeetingSettingsPanel = () => {
           error={error}
           savingLabel={t('settings.meetings.saving')}
         />
-      </div>
-    </PanelPage>
+      </>
+    </SettingsPanel>
   );
 };
 

@@ -84,6 +84,8 @@ const messages: TranslationMap = {
     'Tiny.Place는 AI 에이전트를 위한 소셜 네트워크입니다. OpenHuman을 사용해 소통하고, 일자리를 찾고 올리며, 거래하고 함께 성장하세요.',
   'agentWorld.world': '월드',
   'agentWorld.world.booting': '렌더러를 시작하는 중...',
+  'agentWorld.world.initError': '월드 렌더러를 시작할 수 없습니다.',
+  'agentWorld.world.retry': '다시 시도',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
     'tiny.place에 참여하면 에이전트가 다른 에이전트와 협업할 수 있습니다: 작업을 찾고 게시하고, 거래하고, 메시지를 주고받고, 바운티에 함께 참여하세요.',
@@ -466,6 +468,10 @@ const messages: TranslationMap = {
   'chat.typeMessage': '오늘 무엇을 도와드릴까요?',
   'chat.send': '메시지 보내기',
   'chat.parallelBranchHint': '병렬 분기 입력 — 보내려면 ⌘/Ctrl+Enter',
+  'chat.followupHint': '후속 메시지를 대기열에 추가 — 이 응답 후 전송 · 병렬 분기는 ⌘/Ctrl+Enter',
+  'chat.queuedFollowups.label': '대기 중인 후속 메시지',
+  'chat.queuedFollowups.clear': '지우기',
+  'chat.queuedFollowups.clearFailed': '대기열을 지우지 못했습니다 — 다시 시도하세요.',
   'chat.parallelBranchLabel': '병렬 분기',
   'chat.thinking': '생각 중...',
   'chat.noMessages': '아직 메시지가 없습니다',
@@ -480,6 +486,7 @@ const messages: TranslationMap = {
   'skills.title': '연결',
   'skills.search': '연결 검색...',
   'skills.noResults': '연결을 찾을 수 없습니다',
+  'skills.loadingIntegrations': '통합을 불러오는 중…',
   'skills.connect': '연결',
   'skills.disconnect': '연결 해제',
   'skills.configure': '관리',
@@ -864,6 +871,7 @@ const messages: TranslationMap = {
   'onboarding.custom.memory.configureDesc':
     '메모리를 직접 검사, 내보내기 또는 삭제할 수 있습니다. 설정 › 메모리에서 구성할 수 있습니다.',
   'accounts.addAccount': '계정 추가',
+  'accounts.addApps': '앱 추가',
   'accounts.manageAccounts': '계정 관리',
   'accounts.noAccounts': '연결된 계정이 없습니다',
   'accounts.connectAccount': '시작하려면 계정을 연결하세요',
@@ -2972,6 +2980,9 @@ const messages: TranslationMap = {
   'composio.connect.wabaIdHint':
     'GET /me/businesses를 통해 찾은 다음 Meta 액세스 토큰을 사용하여 /{business_id}/owned_whatsapp_business_accounts를 GET하세요.',
   'composio.connect.wabaIdLabel': 'WABA ID 라벨',
+  'composio.connect.atlassianSubdomainPlaceholder': 'your-subdomain',
+  'composio.connect.dynamicsOrgNamePlaceholder': 'myorg',
+  'composio.connect.wabaIdPlaceholder': 'e.g. 123456789012345',
   'composio.connect.wabaIdRequired':
     '계속하려면 WhatsApp Business Account ID (WABA ID)를 입력하세요.',
   'composio.connect.waitingFor': '대기 중:',
@@ -5963,6 +5974,37 @@ const messages: TranslationMap = {
   'userErrors.insufficientCredits.title': '제공업체 크레딧 필요',
   'userErrors.insufficientCredits.body': 'AI 제공업체 크레딧이 소진되었습니다.',
   'userErrors.scope.chat': '채팅',
+  // Agent World — Identity trading (confirm-before-spend + balance gate)
+  'agentWorld.trading.amountLabel': '금액',
+  'agentWorld.trading.networkLabel': '네트워크',
+  'agentWorld.trading.balanceLabel': '내 잔액',
+  'agentWorld.trading.walletLabel': '지갑',
+  'agentWorld.trading.balanceUnknown': '알 수 없음',
+  'agentWorld.trading.cancel': '취소',
+  'agentWorld.trading.addFunds': '자금 추가',
+  'agentWorld.trading.confirmPay': '확인 및 결제',
+  'agentWorld.trading.confirmCommit': '확인',
+  'agentWorld.trading.continue': '계속',
+  'agentWorld.trading.submitting': '제출 중…',
+  'agentWorld.trading.placeBid': '입찰하기',
+  'agentWorld.trading.submitOffer': '제안 보내기',
+  'agentWorld.trading.bidTitlePrefix': '입찰:',
+  'agentWorld.trading.offerTitlePrefix': '제안:',
+  'agentWorld.trading.bidReviewTitlePrefix': '입찰 확인:',
+  'agentWorld.trading.offerReviewTitlePrefix': '제안 확인:',
+  'agentWorld.trading.spendInsufficient':
+    '이 결제를 완료하기에 잔액이 부족합니다. 계속하려면 지갑에 자금을 추가하세요.',
+  'agentWorld.trading.spendBroadcastNote': '지갑이 이 결제에 서명하여 다음 네트워크에 전파합니다',
+  'agentWorld.trading.commitInsufficientWarning':
+    '약정이 수락되면 잔액이 이를 충당하지 못할 수 있습니다. 그래도 제출할 수 있습니다 — 자금은 수락 시에만 이동합니다.',
+  'agentWorld.trading.commitSettleNote':
+    '이것은 서명된 약정입니다 — 수락된 경우에만 자금이 이동합니다.',
+  'agentWorld.trading.commitReviewSubtitle': '제출하기 전에 약정을 검토하세요.',
+  'agentWorld.trading.balanceUnverified':
+    '지갑 잔액을 확인할 수 없습니다. 그래도 계속할 수 있습니다 — 결제는 제출 시 확인됩니다.',
+  'agentWorld.trading.amountTooManyDecimals': '이 금액의 소수점 자릿수가 너무 많습니다.',
+  'agentWorld.trading.amountMustBePositive': '0보다 큰 금액을 입력하세요.',
+  'agentWorld.trading.amountInvalid': '유효한 금액을 입력하세요.',
 };
 
 export default messages;

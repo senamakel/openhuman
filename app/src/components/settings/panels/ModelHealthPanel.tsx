@@ -3,11 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { callCoreRpc } from '../../../services/coreRpcClient';
-import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsEmptyState, SettingsSelect } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 const log = debug('openhuman:model-health');
 
@@ -90,7 +88,6 @@ const BADGE_STYLES: Record<StatusBadge, { bg: string; text: string; label: strin
 
 const ModelHealthPanel = () => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
   const [models, setModels] = useState<ModelEntry[]>([]);
   const [config, setConfig] = useState<HealthConfig>({
     hallucination_threshold: 0.1,
@@ -168,13 +165,8 @@ const ModelHealthPanel = () => {
   const sortIcon = (col: SortCol) => (sortCol === col ? (sortAsc ? ' ↑' : ' ↓') : '');
 
   return (
-    <PanelPage
-      testId="model-health-panel"
-      className="z-10"
-      contentClassName=""
-      description={t('settings.modelHealth.desc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="p-4 space-y-4">
+    <SettingsPanel testId="model-health-panel" description={t('settings.modelHealth.desc')}>
+      <>
         <div className="flex items-center gap-2 text-xs">
           <SettingsSelect
             value={filterStatus}
@@ -294,92 +286,92 @@ const ModelHealthPanel = () => {
             </table>
           </div>
         )}
-      </div>
 
-      {/* Swap Modal */}
-      {swapTarget && (
-        <div
-          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-          onClick={() => {
-            setSwapTarget(null);
-            setSelectedCandidate(null);
-          }}>
+        {/* Swap Modal */}
+        {swapTarget && (
           <div
-            className="bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-700 rounded-xl p-5 max-w-sm w-full mx-4"
-            onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-bold mb-2">{t('settings.modelHealth.modal.title')}</h3>
-            <p className="text-xs text-stone-500 dark:text-neutral-400 mb-3">
-              {swapTarget.id} — {t('settings.modelHealth.modal.hallucRate')}:{' '}
-              {((swapTarget.hallucination_rate ?? 0) * 100).toFixed(1)}%
-            </p>
-            <div className="space-y-2 mb-4" role="radiogroup">
-              {[...replaceCandidates(swapTarget), ...betterCandidates(swapTarget)].map(c => {
-                const isSelected = selectedCandidate?.id === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    onClick={() => setSelectedCandidate(c)}
-                    className={`w-full text-left rounded-lg border p-2 flex items-center justify-between cursor-pointer ${isSelected ? 'border-green-500 bg-green-500/15' : 'border-green-500/30 bg-green-500/5'}`}>
-                    <span>
-                      <span className="block text-xs font-semibold">{c.id}</span>
-                      <span className="block text-[10px] text-stone-400">
-                        {c.hallucination_rate !== null
-                          ? (c.hallucination_rate * 100).toFixed(1)
-                          : '?'}
-                        % · ${c.cost_per_1m_output.toFixed(2)}/1M
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+            onClick={() => {
+              setSwapTarget(null);
+              setSelectedCandidate(null);
+            }}>
+            <div
+              className="bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-700 rounded-xl p-5 max-w-sm w-full mx-4"
+              onClick={e => e.stopPropagation()}>
+              <h3 className="text-sm font-bold mb-2">{t('settings.modelHealth.modal.title')}</h3>
+              <p className="text-xs text-stone-500 dark:text-neutral-400 mb-3">
+                {swapTarget.id} — {t('settings.modelHealth.modal.hallucRate')}:{' '}
+                {((swapTarget.hallucination_rate ?? 0) * 100).toFixed(1)}%
+              </p>
+              <div className="space-y-2 mb-4" role="radiogroup">
+                {[...replaceCandidates(swapTarget), ...betterCandidates(swapTarget)].map(c => {
+                  const isSelected = selectedCandidate?.id === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => setSelectedCandidate(c)}
+                      className={`w-full text-left rounded-lg border p-2 flex items-center justify-between cursor-pointer ${isSelected ? 'border-green-500 bg-green-500/15' : 'border-green-500/30 bg-green-500/5'}`}>
+                      <span>
+                        <span className="block text-xs font-semibold">{c.id}</span>
+                        <span className="block text-[10px] text-stone-400">
+                          {c.hallucination_rate !== null
+                            ? (c.hallucination_rate * 100).toFixed(1)
+                            : '?'}
+                          % · ${c.cost_per_1m_output.toFixed(2)}/1M
+                        </span>
                       </span>
-                    </span>
-                    <span className="text-[9px] font-bold text-green-400">
-                      {c.cost_per_1m_output <= swapTarget.cost_per_1m_output
-                        ? t('settings.modelHealth.tag.cheaper')
-                        : t('settings.modelHealth.tag.better')}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="flex-1"
-                onClick={() => {
-                  setSwapTarget(null);
-                  setSelectedCandidate(null);
-                }}>
-                {t('settings.modelHealth.modal.cancel')}
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                className="flex-1"
-                disabled={!selectedCandidate}
-                onClick={() => {
-                  if (selectedCandidate && swapTarget) {
-                    // Apply is currently UI-only: the backend swap RPC is a
-                    // follow-up (no agent → model rewire wiring yet). Log the
-                    // operator's intent so it shows up in support logs.
-                    log(
-                      '[model-health] swap intent recorded from=%s to=%s (no-op backend follow-up pending)',
-                      swapTarget.id,
-                      selectedCandidate.id
-                    );
-                  }
-                  setSwapTarget(null);
-                  setSelectedCandidate(null);
-                }}>
-                {t('settings.modelHealth.modal.apply')}
-              </Button>
+                      <span className="text-[9px] font-bold text-green-400">
+                        {c.cost_per_1m_output <= swapTarget.cost_per_1m_output
+                          ? t('settings.modelHealth.tag.cheaper')
+                          : t('settings.modelHealth.tag.better')}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    setSwapTarget(null);
+                    setSelectedCandidate(null);
+                  }}>
+                  {t('settings.modelHealth.modal.cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="flex-1"
+                  disabled={!selectedCandidate}
+                  onClick={() => {
+                    if (selectedCandidate && swapTarget) {
+                      // Apply is currently UI-only: the backend swap RPC is a
+                      // follow-up (no agent → model rewire wiring yet). Log the
+                      // operator's intent so it shows up in support logs.
+                      log(
+                        '[model-health] swap intent recorded from=%s to=%s (no-op backend follow-up pending)',
+                        swapTarget.id,
+                        selectedCandidate.id
+                      );
+                    }
+                    setSwapTarget(null);
+                    setSelectedCandidate(null);
+                  }}>
+                  {t('settings.modelHealth.modal.apply')}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </PanelPage>
+        )}
+      </>
+    </SettingsPanel>
   );
 };
 

@@ -3,11 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useScreenIntelligenceState } from '../../../features/screen-intelligence/useScreenIntelligenceState';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { isTauri, openhumanUpdateScreenIntelligenceSettings } from '../../../utils/tauriCommands';
-import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsRow, SettingsSection, SettingsSelect, SettingsStatusLine } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 import PermissionsSection from './screen-intelligence/PermissionsSection';
 
 const formatRemaining = (remainingMs: number | null): string => {
@@ -25,7 +23,6 @@ const formatRemaining = (remainingMs: number | null): string => {
 
 const ScreenIntelligencePanel = () => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
   const {
     status,
     lastRestartSummary,
@@ -112,12 +109,8 @@ const ScreenIntelligencePanel = () => {
   };
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={t('pages.settings.features.screenAwarenessDesc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="max-w-2xl mx-auto w-full p-4 space-y-4">
+    <SettingsPanel description={t('pages.settings.features.screenAwarenessDesc')}>
+      <>
         {(status?.platform_supported ?? true) && (
           <PermissionsSection
             screenRecording={status?.permissions.screen_recording ?? 'unknown'}
@@ -272,8 +265,8 @@ const ScreenIntelligencePanel = () => {
             {lastError}
           </div>
         )}
-      </div>
-    </PanelPage>
+      </>
+    </SettingsPanel>
   );
 };
 

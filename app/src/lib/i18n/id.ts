@@ -83,6 +83,8 @@ const messages: TranslationMap = {
     'Tiny.Place adalah jejaring sosial untuk agen AI. Gunakan OpenHuman untuk berinteraksi, menemukan dan memasang pekerjaan, berdagang, serta tumbuh bersama.',
   'agentWorld.world': 'Dunia',
   'agentWorld.world.booting': 'Memulai perender...',
+  'agentWorld.world.initError': 'Tidak dapat memulai perender dunia.',
+  'agentWorld.world.retry': 'Coba lagi',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
     'Bergabunglah dengan tiny.place agar agen Anda dapat berkoordinasi dengan agen lain: menemukan dan memposting pekerjaan, berdagang, berkirim pesan, dan bekerja sama dalam bounty.',
@@ -468,6 +470,11 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'Apa yang bisa saya bantu hari ini?',
   'chat.send': 'Kirim pesan',
   'chat.parallelBranchHint': 'Ketik cabang paralel — ⌘/Ctrl+Enter untuk mengirim',
+  'chat.followupHint':
+    'Antrekan tindak lanjut — dikirim setelah balasan ini · ⌘/Ctrl+Enter untuk cabang paralel',
+  'chat.queuedFollowups.label': 'Tindak lanjut dalam antrean',
+  'chat.queuedFollowups.clear': 'Hapus',
+  'chat.queuedFollowups.clearFailed': 'Gagal mengosongkan antrean — coba lagi.',
   'chat.parallelBranchLabel': 'Cabang paralel',
   'chat.thinking': 'Berpikir...',
   'chat.noMessages': 'Belum ada pesan',
@@ -482,6 +489,7 @@ const messages: TranslationMap = {
   'skills.title': 'Koneksi',
   'skills.search': 'Cari koneksi...',
   'skills.noResults': 'Koneksi tidak ditemukan',
+  'skills.loadingIntegrations': 'Memuat integrasi…',
   'skills.connect': 'Hubungkan',
   'skills.disconnect': 'Putuskan',
   'skills.configure': 'Kelola',
@@ -870,6 +878,7 @@ const messages: TranslationMap = {
   'onboarding.custom.memory.configureDesc':
     'Periksa, ekspor, atau hapus memori sendiri. Konfigurasi di Pengaturan › Memori.',
   'accounts.addAccount': 'Tambah Akun',
+  'accounts.addApps': 'Tambah aplikasi',
   'accounts.manageAccounts': 'Kelola Akun',
   'accounts.noAccounts': 'Belum ada akun terhubung',
   'accounts.connectAccount': 'Hubungkan akun untuk memulai',
@@ -3001,6 +3010,9 @@ const messages: TranslationMap = {
   'composio.connect.wabaIdHint':
     'Temukan melalui GET /me/businesses lalu GET /{business_id}/owned_whatsapp_business_accounts menggunakan token akses Meta Anda.',
   'composio.connect.wabaIdLabel': 'Label ID WABA',
+  'composio.connect.atlassianSubdomainPlaceholder': 'your-subdomain',
+  'composio.connect.dynamicsOrgNamePlaceholder': 'myorg',
+  'composio.connect.wabaIdPlaceholder': 'e.g. 123456789012345',
   'composio.connect.wabaIdRequired':
     'Masukkan ID Akun Bisnis WhatsApp (WABA ID) Anda untuk melanjutkan.',
   'composio.connect.waitingFor': 'Menunggu',
@@ -6040,6 +6052,38 @@ const messages: TranslationMap = {
   'userErrors.insufficientCredits.body':
     'Penyedia AI Anda kehabisan kredit. Isi ulang atau perbarui kunci API-nya.',
   'userErrors.scope.chat': 'Obrolan',
+  // Agent World — Identity trading (confirm-before-spend + balance gate)
+  'agentWorld.trading.amountLabel': 'Jumlah',
+  'agentWorld.trading.networkLabel': 'Jaringan',
+  'agentWorld.trading.balanceLabel': 'Saldo Anda',
+  'agentWorld.trading.walletLabel': 'Dompet',
+  'agentWorld.trading.balanceUnknown': 'Tidak diketahui',
+  'agentWorld.trading.cancel': 'Batal',
+  'agentWorld.trading.addFunds': 'Tambah dana',
+  'agentWorld.trading.confirmPay': 'Konfirmasi & bayar',
+  'agentWorld.trading.confirmCommit': 'Konfirmasi',
+  'agentWorld.trading.continue': 'Lanjutkan',
+  'agentWorld.trading.submitting': 'Mengirim…',
+  'agentWorld.trading.placeBid': 'Ajukan tawaran',
+  'agentWorld.trading.submitOffer': 'Kirim penawaran',
+  'agentWorld.trading.bidTitlePrefix': 'Tawar untuk',
+  'agentWorld.trading.offerTitlePrefix': 'Penawaran untuk',
+  'agentWorld.trading.bidReviewTitlePrefix': 'Konfirmasi tawaran untuk',
+  'agentWorld.trading.offerReviewTitlePrefix': 'Konfirmasi penawaran untuk',
+  'agentWorld.trading.spendInsufficient':
+    'Saldo tidak cukup untuk menyelesaikan pembayaran ini. Tambahkan dana ke dompet Anda untuk melanjutkan.',
+  'agentWorld.trading.spendBroadcastNote':
+    'Dompet Anda akan menandatangani dan menyiarkan pembayaran ini di',
+  'agentWorld.trading.commitInsufficientWarning':
+    'Saldo Anda mungkin tidak menutupi ini jika komitmen diterima. Anda tetap dapat mengirimkannya — dana hanya berpindah saat diterima.',
+  'agentWorld.trading.commitSettleNote':
+    'Ini adalah komitmen bertanda tangan — dana hanya berpindah jika diterima.',
+  'agentWorld.trading.commitReviewSubtitle': 'Tinjau komitmen Anda sebelum mengirim.',
+  'agentWorld.trading.balanceUnverified':
+    'Kami tidak dapat memverifikasi saldo dompet Anda. Anda tetap dapat melanjutkan — pembayaran diperiksa saat dikirim.',
+  'agentWorld.trading.amountTooManyDecimals': 'Jumlah ini memiliki terlalu banyak angka desimal.',
+  'agentWorld.trading.amountMustBePositive': 'Masukkan jumlah lebih besar dari nol.',
+  'agentWorld.trading.amountInvalid': 'Masukkan jumlah yang valid.',
 };
 
 export default messages;

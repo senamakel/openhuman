@@ -84,6 +84,8 @@ const messages: TranslationMap = {
     'Tiny.Place est un réseau social pour les agents IA. Utilisez OpenHuman pour interagir, trouver et publier des missions, échanger et grandir ensemble.',
   'agentWorld.world': 'Monde',
   'agentWorld.world.booting': 'Démarrage du moteur de rendu...',
+  'agentWorld.world.initError': 'Impossible de démarrer le moteur de rendu du monde.',
+  'agentWorld.world.retry': 'Réessayer',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
     'Rejoignez tiny.place pour que votre agent collabore avec d’autres agents : trouver et publier des missions, échanger, discuter et coopérer sur des primes.',
@@ -480,6 +482,11 @@ const messages: TranslationMap = {
   'chat.typeMessage': "Comment puis-je t'aider aujourd'hui ?",
   'chat.send': 'Envoyer le message',
   'chat.parallelBranchHint': 'Saisir une branche parallèle — ⌘/Ctrl+Entrée pour envoyer',
+  'chat.followupHint':
+    'Mettre un suivi en file — envoyé après cette réponse · ⌘/Ctrl+Entrée pour une branche parallèle',
+  'chat.queuedFollowups.label': 'Suivis en file',
+  'chat.queuedFollowups.clear': 'Effacer',
+  'chat.queuedFollowups.clearFailed': 'Impossible de vider la file — réessayez.',
   'chat.parallelBranchLabel': 'Branche parallèle',
   'chat.thinking': 'En train de réfléchir…',
   'chat.noMessages': "Aucun message pour l'instant",
@@ -494,6 +501,7 @@ const messages: TranslationMap = {
   'skills.title': 'Connexions',
   'skills.search': 'Rechercher des connexions…',
   'skills.noResults': 'Aucune connexion trouvée',
+  'skills.loadingIntegrations': 'Chargement des intégrations…',
   'skills.connect': 'Connecter',
   'skills.disconnect': 'Déconnecter',
   'skills.configure': 'Gérer',
@@ -887,6 +895,7 @@ const messages: TranslationMap = {
   'onboarding.custom.memory.configureDesc':
     'Inspecte, exporte ou efface la mémoire toi-même. À configurer dans Paramètres › Mémoire.',
   'accounts.addAccount': 'Ajouter un compte',
+  'accounts.addApps': 'Ajouter des apps',
   'accounts.manageAccounts': 'Gérer les comptes',
   'accounts.noAccounts': 'Aucun compte connecté',
   'accounts.connectAccount': 'Connecte un compte pour démarrer',
@@ -3062,6 +3071,9 @@ const messages: TranslationMap = {
   'composio.connect.wabaIdHint':
     "Trouve-le via GET /me/businesses puis GET /{business_id}/owned_whatsapp_business_accounts en utilisant ton jeton d'accès Meta.",
   'composio.connect.wabaIdLabel': "Libellé de l'identifiant WABA",
+  'composio.connect.atlassianSubdomainPlaceholder': 'your-subdomain',
+  'composio.connect.dynamicsOrgNamePlaceholder': 'myorg',
+  'composio.connect.wabaIdPlaceholder': 'e.g. 123456789012345',
   'composio.connect.wabaIdRequired':
     'Saisis ton identifiant WhatsApp Business Account (WABA ID) pour continuer.',
   'composio.connect.waitingFor': 'En attente de',
@@ -6164,6 +6176,38 @@ const messages: TranslationMap = {
   'userErrors.insufficientCredits.body':
     "Votre fournisseur IA n'a plus de crédits. Rechargez-le ou mettez à jour sa clé API.",
   'userErrors.scope.chat': 'Chat',
+  // Agent World — Identity trading (confirm-before-spend + balance gate)
+  'agentWorld.trading.amountLabel': 'Montant',
+  'agentWorld.trading.networkLabel': 'Réseau',
+  'agentWorld.trading.balanceLabel': 'Votre solde',
+  'agentWorld.trading.walletLabel': 'Portefeuille',
+  'agentWorld.trading.balanceUnknown': 'Inconnu',
+  'agentWorld.trading.cancel': 'Annuler',
+  'agentWorld.trading.addFunds': 'Ajouter des fonds',
+  'agentWorld.trading.confirmPay': 'Confirmer et payer',
+  'agentWorld.trading.confirmCommit': 'Confirmer',
+  'agentWorld.trading.continue': 'Continuer',
+  'agentWorld.trading.submitting': 'Envoi…',
+  'agentWorld.trading.placeBid': 'Enchérir',
+  'agentWorld.trading.submitOffer': 'Envoyer l’offre',
+  'agentWorld.trading.bidTitlePrefix': 'Enchérir sur',
+  'agentWorld.trading.offerTitlePrefix': 'Offre pour',
+  'agentWorld.trading.bidReviewTitlePrefix': 'Confirmer l’enchère sur',
+  'agentWorld.trading.offerReviewTitlePrefix': 'Confirmer l’offre pour',
+  'agentWorld.trading.spendInsufficient':
+    'Solde insuffisant pour effectuer ce paiement. Approvisionnez votre portefeuille pour continuer.',
+  'agentWorld.trading.spendBroadcastNote':
+    'Votre portefeuille signera et diffusera ce paiement sur',
+  'agentWorld.trading.commitInsufficientWarning':
+    'Votre solde pourrait ne pas couvrir cela si l’engagement est accepté. Vous pouvez quand même l’envoyer : les fonds ne bougent qu’à l’acceptation.',
+  'agentWorld.trading.commitSettleNote':
+    'Il s’agit d’un engagement signé : les fonds ne bougent qu’en cas d’acceptation.',
+  'agentWorld.trading.commitReviewSubtitle': 'Vérifiez votre engagement avant de l’envoyer.',
+  'agentWorld.trading.balanceUnverified':
+    'Nous n’avons pas pu vérifier le solde de votre portefeuille. Vous pouvez quand même continuer : le paiement est vérifié lors de l’envoi.',
+  'agentWorld.trading.amountTooManyDecimals': 'Ce montant comporte trop de décimales.',
+  'agentWorld.trading.amountMustBePositive': 'Saisissez un montant supérieur à zéro.',
+  'agentWorld.trading.amountInvalid': 'Saisissez un montant valide.',
 };
 
 export default messages;

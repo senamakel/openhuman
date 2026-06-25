@@ -10,9 +10,8 @@ import { safeInvoke as invoke, isTauri } from '../../../utils/tauriCommands/comm
 import ChipTabs from '../../layout/ChipTabs';
 import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsSection } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 const log = debug('mcp-server-panel');
 
@@ -103,7 +102,6 @@ interface McpServerPanelProps {
 
 const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
 
   const [binaryInfo, setBinaryInfo] = useState<McpBinaryInfo | null>(null);
   const [binaryError, setBinaryError] = useState<string | null>(null);
@@ -169,12 +167,8 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
     { id: 'zed', label: t('settings.mcpServer.clientZed') },
   ];
 
-  return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={embedded ? undefined : t('settings.developerMenu.mcpServer.desc')}
-      leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
+  const body = (
+    <>
       {/* ----------------------------------------------------------------- */}
       {/* Section 1 — Available Tools                                        */}
       {/* ----------------------------------------------------------------- */}
@@ -267,7 +261,19 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
           )}
         </SettingsSection>
       </div>
-    </PanelPage>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <PanelPage className="z-10" contentClassName="">
+        {body}
+      </PanelPage>
+    );
+  }
+
+  return (
+    <SettingsPanel description={t('settings.developerMenu.mcpServer.desc')}>{body}</SettingsPanel>
   );
 };
 

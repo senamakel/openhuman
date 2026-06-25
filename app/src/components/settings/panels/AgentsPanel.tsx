@@ -12,17 +12,16 @@ import { LuPencil, LuPlus, LuRotateCcw, LuTrash2 } from 'react-icons/lu';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { agentRegistryApi, type AgentRegistryEntry } from '../../../services/api/agentRegistryApi';
-import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsBadge, SettingsEmptyState, SettingsSwitch } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 const ORCHESTRATOR_ID = 'orchestrator';
 
 const AgentsPanel = () => {
   const { t } = useT();
-  const { navigateBack, navigateToSettings } = useSettingsNavigation();
+  const { navigateToSettings } = useSettingsNavigation();
 
   const [agents, setAgents] = useState<AgentRegistryEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,59 +90,50 @@ const AgentsPanel = () => {
   );
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
+    <SettingsPanel
       description={t('settings.agents.subtitle')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="p-4">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            {t('settings.agents.subtitle')}
-          </p>
-          <Button
-            type="button"
-            variant="primary"
-            size="xs"
-            onClick={() => navigateToSettings('agents/new')}>
-            <LuPlus className="h-3.5 w-3.5 mr-1" />
-            {t('settings.agents.newAgent')}
-          </Button>
+      action={
+        <Button
+          type="button"
+          variant="primary"
+          size="xs"
+          onClick={() => navigateToSettings('agents/new')}>
+          <LuPlus className="h-3.5 w-3.5 mr-1" />
+          {t('settings.agents.newAgent')}
+        </Button>
+      }>
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-coral-200 bg-coral-50 px-3 py-2 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+          {actionError}
         </div>
+      )}
 
-        {actionError && (
-          <div className="mb-3 rounded-lg border border-coral-200 bg-coral-50 px-3 py-2 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-            {actionError}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-neutral-400 dark:text-neutral-500">
-            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
-            <span className="text-sm">{t('common.loading')}</span>
-          </div>
-        ) : error ? (
-          <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-            {t('settings.agents.loadError')}: {error}
-          </div>
-        ) : agents.length === 0 ? (
-          <SettingsEmptyState label={t('settings.agents.empty')} />
-        ) : (
-          <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
-            {agents.map(agent => (
-              <AgentRow
-                key={agent.id}
-                agent={agent}
-                busy={busyId === agent.id}
-                onToggle={() => handleToggle(agent)}
-                onEdit={() => navigateToSettings(`agents/edit/${agent.id}`)}
-                onRemove={() => handleRemove(agent)}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
-    </PanelPage>
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-neutral-400 dark:text-neutral-500">
+          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
+          <span className="text-sm">{t('common.loading')}</span>
+        </div>
+      ) : error ? (
+        <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+          {t('settings.agents.loadError')}: {error}
+        </div>
+      ) : agents.length === 0 ? (
+        <SettingsEmptyState label={t('settings.agents.empty')} />
+      ) : (
+        <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+          {agents.map(agent => (
+            <AgentRow
+              key={agent.id}
+              agent={agent}
+              busy={busyId === agent.id}
+              onToggle={() => handleToggle(agent)}
+              onEdit={() => navigateToSettings(`agents/edit/${agent.id}`)}
+              onRemove={() => handleRemove(agent)}
+            />
+          ))}
+        </ul>
+      )}
+    </SettingsPanel>
   );
 };
 

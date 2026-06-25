@@ -83,6 +83,8 @@ const messages: TranslationMap = {
     'Tiny.Place شبكة اجتماعية لوكلاء الذكاء الاصطناعي. استخدم OpenHuman للتفاعل والعثور على الوظائف ونشرها والتداول والنمو معًا.',
   'agentWorld.world': 'العالم',
   'agentWorld.world.booting': 'جارٍ تشغيل العارض...',
+  'agentWorld.world.initError': 'تعذّر تشغيل عارض العالم.',
+  'agentWorld.world.retry': 'إعادة المحاولة',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
     'انضم إلى tiny.place ليتمكن وكيلك من التنسيق مع الوكلاء الآخرين: العثور على الوظائف ونشرها، والتداول، وتبادل الرسائل، والتعاون في المكافآت.',
@@ -459,6 +461,10 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'كيف يمكنني مساعدتك اليوم؟',
   'chat.send': 'إرسال الرسالة',
   'chat.parallelBranchHint': 'فرع متوازٍ — ⌘/Ctrl+Enter للإرسال',
+  'chat.followupHint': 'أضِف متابعة إلى القائمة — تُرسَل بعد هذا الرد · ⌘/Ctrl+Enter لفرع متوازٍ',
+  'chat.queuedFollowups.label': 'متابعات في قائمة الانتظار',
+  'chat.queuedFollowups.clear': 'مسح',
+  'chat.queuedFollowups.clearFailed': 'تعذّر مسح القائمة — حاول مرة أخرى.',
   'chat.parallelBranchLabel': 'فرع متوازٍ',
   'chat.thinking': 'جارٍ التفكير...',
   'chat.noMessages': 'لا توجد رسائل بعد',
@@ -473,6 +479,7 @@ const messages: TranslationMap = {
   'skills.title': 'الاتصالات',
   'skills.search': 'البحث في الاتصالات...',
   'skills.noResults': 'لم يتم العثور على اتصالات',
+  'skills.loadingIntegrations': 'جارٍ تحميل التكاملات…',
   'skills.connect': 'توصيل',
   'skills.disconnect': 'قطع الاتصال',
   'skills.configure': 'إدارة',
@@ -845,6 +852,7 @@ const messages: TranslationMap = {
   'onboarding.custom.memory.configureDesc':
     'افحص الذاكرة أو صدّرها أو امسحها بنفسك. اضبطها من الإعدادات › الذاكرة.',
   'accounts.addAccount': 'إضافة حساب',
+  'accounts.addApps': 'إضافة تطبيقات',
   'accounts.manageAccounts': 'إدارة الحسابات',
   'accounts.noAccounts': 'لا توجد حسابات متصلة',
   'accounts.connectAccount': 'اربط حسابًا للبدء',
@@ -2934,6 +2942,9 @@ const messages: TranslationMap = {
   'composio.connect.wabaIdHint':
     'احصل عليه عبر GET /me/businesses ثم GET /{business_id}/owned_whatsapp_business_accounts باستخدام رمز وصول Meta الخاص بك.',
   'composio.connect.wabaIdLabel': 'تسمية معرف WABA',
+  'composio.connect.atlassianSubdomainPlaceholder': 'your-subdomain',
+  'composio.connect.dynamicsOrgNamePlaceholder': 'myorg',
+  'composio.connect.wabaIdPlaceholder': 'e.g. 123456789012345',
   'composio.connect.wabaIdRequired': 'يرجى إدخال معرف حساب WhatsApp Business (WABA ID) للمتابعة.',
   'composio.connect.waitingFor': 'بانتظار',
   'composio.connect.waitingHint': 'تلميح الانتظار',
@@ -5896,6 +5907,37 @@ const messages: TranslationMap = {
   'userErrors.insufficientCredits.title': 'مطلوب رصيد المزود',
   'userErrors.insufficientCredits.body': 'نفد رصيد المزود. أعد الشحن أو حدّث مفتاح API.',
   'userErrors.scope.chat': 'الدردشة',
+  // Agent World — Identity trading (confirm-before-spend + balance gate)
+  'agentWorld.trading.amountLabel': 'المبلغ',
+  'agentWorld.trading.networkLabel': 'الشبكة',
+  'agentWorld.trading.balanceLabel': 'رصيدك',
+  'agentWorld.trading.walletLabel': 'المحفظة',
+  'agentWorld.trading.balanceUnknown': 'غير معروف',
+  'agentWorld.trading.cancel': 'إلغاء',
+  'agentWorld.trading.addFunds': 'إضافة أموال',
+  'agentWorld.trading.confirmPay': 'تأكيد والدفع',
+  'agentWorld.trading.confirmCommit': 'تأكيد',
+  'agentWorld.trading.continue': 'متابعة',
+  'agentWorld.trading.submitting': 'جارٍ الإرسال…',
+  'agentWorld.trading.placeBid': 'تقديم عرض السعر',
+  'agentWorld.trading.submitOffer': 'تقديم العرض',
+  'agentWorld.trading.bidTitlePrefix': 'عرض سعر على',
+  'agentWorld.trading.offerTitlePrefix': 'عرض لـ',
+  'agentWorld.trading.bidReviewTitlePrefix': 'تأكيد عرض السعر على',
+  'agentWorld.trading.offerReviewTitlePrefix': 'تأكيد العرض لـ',
+  'agentWorld.trading.spendInsufficient':
+    'الرصيد غير كافٍ لإتمام هذه الدفعة. أضف أموالاً إلى محفظتك للمتابعة.',
+  'agentWorld.trading.spendBroadcastNote': 'ستوقّع محفظتك هذه الدفعة وتبثّها على',
+  'agentWorld.trading.commitInsufficientWarning':
+    'قد لا يغطي رصيدك هذا الالتزام في حال قبوله. لا يزال بإمكانك تقديمه — لن تُحوّل الأموال إلا عند القبول.',
+  'agentWorld.trading.commitSettleNote': 'هذا التزام موقّع — لن تُحوّل الأموال إلا إذا تم قبوله.',
+  'agentWorld.trading.commitReviewSubtitle': 'راجع التزامك قبل تقديمه.',
+  'agentWorld.trading.balanceUnverified':
+    'تعذّر علينا التحقق من رصيد محفظتك. لا يزال بإمكانك المتابعة — يتم التحقق من الدفعة عند تقديمها.',
+  'agentWorld.trading.amountTooManyDecimals':
+    'يحتوي هذا المبلغ على عدد كبير جدًا من المنازل العشرية.',
+  'agentWorld.trading.amountMustBePositive': 'أدخل مبلغًا أكبر من صفر.',
+  'agentWorld.trading.amountInvalid': 'أدخل مبلغًا صالحًا.',
 };
 
 export default messages;

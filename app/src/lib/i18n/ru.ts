@@ -84,6 +84,8 @@ const messages: TranslationMap = {
     'Tiny.Place — это социальная сеть для ИИ-агентов. Используйте OpenHuman, чтобы взаимодействовать, находить и публиковать задания, торговать и расти вместе.',
   'agentWorld.world': 'Мир',
   'agentWorld.world.booting': 'Запуск рендерера...',
+  'agentWorld.world.initError': 'Не удалось запустить рендерер мира.',
+  'agentWorld.world.retry': 'Повторить',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
     'Присоединяйтесь к tiny.place, чтобы ваш агент взаимодействовал с другими агентами: находил и публиковал задания, торговал, обменивался сообщениями и работал над наградами.',
@@ -472,6 +474,11 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'Чем я могу помочь тебе сегодня?',
   'chat.send': 'Отправить сообщение',
   'chat.parallelBranchHint': 'Введите параллельную ветку — ⌘/Ctrl+Enter для отправки',
+  'chat.followupHint':
+    'Поставить продолжение в очередь — отправится после этого ответа · ⌘/Ctrl+Enter для параллельной ветки',
+  'chat.queuedFollowups.label': 'Сообщения в очереди',
+  'chat.queuedFollowups.clear': 'Очистить',
+  'chat.queuedFollowups.clearFailed': 'Не удалось очистить очередь — попробуйте ещё раз.',
   'chat.parallelBranchLabel': 'Параллельная ветка',
   'chat.thinking': 'Думаю...',
   'chat.noMessages': 'Сообщений пока нет',
@@ -486,6 +493,7 @@ const messages: TranslationMap = {
   'skills.title': 'Подключения',
   'skills.search': 'Поиск подключений...',
   'skills.noResults': 'Подключения не найдены',
+  'skills.loadingIntegrations': 'Загрузка интеграций…',
   'skills.connect': 'Подключить',
   'skills.disconnect': 'Отключить',
   'skills.configure': 'Управление',
@@ -874,6 +882,7 @@ const messages: TranslationMap = {
   'onboarding.custom.memory.configureDesc':
     'Просматривай, экспортируй или очищай память самостоятельно. Настрой в Настройки › Память.',
   'accounts.addAccount': 'Добавить аккаунт',
+  'accounts.addApps': 'Добавить приложения',
   'accounts.manageAccounts': 'Управление аккаунтами',
   'accounts.noAccounts': 'Аккаунты не подключены',
   'accounts.connectAccount': 'Подключи аккаунт для начала работы',
@@ -3020,6 +3029,9 @@ const messages: TranslationMap = {
   'composio.connect.wabaIdHint':
     'Найдите его через GET /me/businesses, затем GET /{business_id}/owned_whatsapp_business_accounts, используя ваш токен доступа Meta.',
   'composio.connect.wabaIdLabel': 'ID аккаунта WhatsApp Business',
+  'composio.connect.atlassianSubdomainPlaceholder': 'your-subdomain',
+  'composio.connect.dynamicsOrgNamePlaceholder': 'myorg',
+  'composio.connect.wabaIdPlaceholder': 'e.g. 123456789012345',
   'composio.connect.wabaIdRequired':
     'Введи ID аккаунта WhatsApp Business (WABA ID) для продолжения.',
   'composio.connect.waitingFor': 'Ожидание',
@@ -6084,6 +6096,37 @@ const messages: TranslationMap = {
   'userErrors.insufficientCredits.title': 'Требуются кредиты провайдера',
   'userErrors.insufficientCredits.body': 'У провайдера закончились кредиты. Пополните их.',
   'userErrors.scope.chat': 'Чат',
+  // Agent World — Identity trading (confirm-before-spend + balance gate)
+  'agentWorld.trading.amountLabel': 'Сумма',
+  'agentWorld.trading.networkLabel': 'Сеть',
+  'agentWorld.trading.balanceLabel': 'Ваш баланс',
+  'agentWorld.trading.walletLabel': 'Кошелёк',
+  'agentWorld.trading.balanceUnknown': 'Неизвестно',
+  'agentWorld.trading.cancel': 'Отмена',
+  'agentWorld.trading.addFunds': 'Пополнить',
+  'agentWorld.trading.confirmPay': 'Подтвердить и оплатить',
+  'agentWorld.trading.confirmCommit': 'Подтвердить',
+  'agentWorld.trading.continue': 'Продолжить',
+  'agentWorld.trading.submitting': 'Отправка…',
+  'agentWorld.trading.placeBid': 'Сделать ставку',
+  'agentWorld.trading.submitOffer': 'Отправить предложение',
+  'agentWorld.trading.bidTitlePrefix': 'Ставка на',
+  'agentWorld.trading.offerTitlePrefix': 'Предложение для',
+  'agentWorld.trading.bidReviewTitlePrefix': 'Подтвердите ставку на',
+  'agentWorld.trading.offerReviewTitlePrefix': 'Подтвердите предложение для',
+  'agentWorld.trading.spendInsufficient':
+    'Недостаточно средств для совершения этого платежа. Пополните кошелёк, чтобы продолжить.',
+  'agentWorld.trading.spendBroadcastNote': 'Ваш кошелёк подпишет и отправит этот платёж в сети',
+  'agentWorld.trading.commitInsufficientWarning':
+    'Вашего баланса может не хватить, если обязательство будет принято. Вы всё равно можете его отправить — средства списываются только при принятии.',
+  'agentWorld.trading.commitSettleNote':
+    'Это подписанное обязательство — средства списываются только при его принятии.',
+  'agentWorld.trading.commitReviewSubtitle': 'Проверьте обязательство перед отправкой.',
+  'agentWorld.trading.balanceUnverified':
+    'Нам не удалось проверить баланс вашего кошелька. Вы всё равно можете продолжить — платёж проверяется при отправке.',
+  'agentWorld.trading.amountTooManyDecimals': 'В этой сумме слишком много знаков после запятой.',
+  'agentWorld.trading.amountMustBePositive': 'Введите сумму больше нуля.',
+  'agentWorld.trading.amountInvalid': 'Введите корректную сумму.',
 };
 
 export default messages;

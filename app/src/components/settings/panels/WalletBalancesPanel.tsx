@@ -13,11 +13,10 @@ import {
   fetchWalletStatus,
   type WalletChain,
 } from '../../../services/walletApi';
-import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsEmptyState, SettingsSection } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 import ReceiveModal from './wallet/ReceiveModal';
 import SendCryptoModal from './wallet/SendCryptoModal';
 
@@ -250,7 +249,7 @@ const ChainPlaceholderRow = ({
 
 const WalletBalancesPanel = () => {
   const { t } = useT();
-  const { navigateBack, navigateToSettings } = useSettingsNavigation();
+  const { navigateToSettings } = useSettingsNavigation();
 
   const [balances, setBalances] = useState<BalanceInfo[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -453,11 +452,8 @@ const WalletBalancesPanel = () => {
   };
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
+    <SettingsPanel
       description={t('pages.settings.account.walletBalancesDesc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}
       action={
         <Button
           type="button"
@@ -482,9 +478,7 @@ const WalletBalancesPanel = () => {
           {t('walletBalances.refresh')}
         </Button>
       }>
-      <div className="mx-4 mb-4">
-        <SettingsSection>{renderContent()}</SettingsSection>
-      </div>
+      <SettingsSection>{renderContent()}</SettingsSection>
 
       {sendTarget && (
         <SendCryptoModal
@@ -496,7 +490,7 @@ const WalletBalancesPanel = () => {
       {receiveTarget && (
         <ReceiveModal balance={receiveTarget} onClose={() => setReceiveTarget(null)} />
       )}
-    </PanelPage>
+    </SettingsPanel>
   );
 };
 

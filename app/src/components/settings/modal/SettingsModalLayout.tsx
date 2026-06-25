@@ -2,7 +2,6 @@ import { Outlet, Route, Routes } from 'react-router-dom';
 
 import { SettingsLayoutProvider } from '../layout/SettingsLayoutContext';
 import SettingsSidebar from '../layout/SettingsSidebar';
-import SettingsSubNav from '../layout/SettingsSubNav';
 import { settingsRouteElements } from '../settingsRouteElements';
 
 /**
@@ -28,12 +27,10 @@ export default function SettingsModalLayout() {
         <div className="h-full w-64 flex-shrink-0 overflow-hidden border-r border-stone-200 dark:border-neutral-800">
           <SettingsSidebar />
         </div>
-        {/* Right column: the sub-nav pill row (Account → Team/Privacy/… ) pinned
-            above the routed panel, mirroring the iOS full-page SettingsLayout. */}
+        {/* Right column: the routed panel. The sibling sub-nav pill row now
+            lives inside each panel's header (via SettingsPanel), so the title
+            always sits above the pills and the content top never shifts. */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex-shrink-0">
-            <SettingsSubNav />
-          </div>
           <div className="min-h-0 flex-1 overflow-hidden">
             <Routes>
               <Route path="/settings" element={<Outlet />}>

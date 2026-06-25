@@ -11,6 +11,8 @@ import ChatComposer from '../components/chat/ChatComposer';
 import ChatFilesChip from '../components/chat/ChatFilesChip';
 import ChatNewWindowHero from '../components/chat/ChatNewWindowHero';
 import ComposerTokenStats from '../components/chat/ComposerTokenStats';
+import IntegrationConnectCard from '../components/chat/IntegrationConnectCard';
+import QueuedFollowups from '../components/chat/QueuedFollowups';
 import SuperContextToggle from '../components/chat/SuperContextToggle';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
@@ -33,7 +35,7 @@ import { trackEvent } from '../services/analytics';
 import { applyOpenRouterFreeModels } from '../services/api/openrouterFreeModels';
 import { subagentApi } from '../services/api/subagentApi';
 import { threadApi } from '../services/api/threadApi';
-import { chatCancel, chatSend, useRustChat } from '../services/chatService';
+import { chatCancel, chatClearQueue, chatSend, useRustChat } from '../services/chatService';
 import { callCoreRpc } from '../services/coreRpcClient';
 import {
   loadAgentProfiles,
@@ -43,9 +45,12 @@ import {
 } from '../store/agentProfileSlice';
 import {
   beginInferenceTurn,
+  clearFollowupsForThread,
   clearRuntimeForThread,
+  enqueueFollowup,
   fetchAndHydrateTurnState,
   markSubagentCancelled,
+  type QueuedFollowup,
   registerParallelRequest,
   setTaskBoardForThread,
   setToolTimelineForThread,
@@ -154,6 +159,10 @@ interface ConversationsProps {
 // object identity when the slice field is absent (narrow test stores),
 // avoiding spurious re-renders.
 const EMPTY_ACTIVE_THREADS: Record<string, true> = {};
+
+// Stable empty reference for the queued-follow-ups map, so the selector keeps
+// the same identity when the slice field is absent (narrow test stores).
+const EMPTY_QUEUED_FOLLOWUPS: Record<string, QueuedFollowup[]> = {};
 
 export function isComposerInteractionBlocked(args: {
   /** Whether the *currently selected* thread has an in-flight inference turn. */
@@ -311,6 +320,9 @@ const Conversations = ({
   const hideAgentInsights = useAppSelector(state => state.theme?.hideAgentInsights ?? false);
   const inferenceTurnLifecycleByThread = useAppSelector(
     state => state.chatRuntime.inferenceTurnLifecycleByThread
+  );
+  const queuedFollowupsByThread = useAppSelector(
+    state => state.chatRuntime.queuedFollowupsByThread ?? EMPTY_QUEUED_FOLLOWUPS
   );
   const rustChat = useRustChat();
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
@@ -1100,6 +1112,100 @@ const Conversations = ({
     }
   };
 
+  // Queue a FOLLOW-UP on the selected thread while a turn is streaming
+  // (queue_mode 'followup'): the backend sends it as a fresh turn once the
+  // current turn finishes. We do NOT insert it into the transcript now —
+  // appending it mid-stream would persist it BEFORE the in-flight assistant
+  // reply (the conversation store is an append log), so the prompt would show
+  // out of order on reload. Instead we record a queued-follow-up pill; the pill
+  // is flushed into the transcript (persisted, in order, after the assistant
+  // reply) when the turn ends — see `ChatRuntimeProvider`'s done/error paths.
+  const handleSendFollowup = async (text?: string) => {
+    if (!rustChat || !selectedThreadId) return;
+    const threadId = selectedThreadId;
+    const normalized = (text ?? inputValue).trim();
+    const pendingAttachments = attachments.slice();
+    if (!normalized && pendingAttachments.length === 0) return;
+
+    const modelOverride =
+      agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ?? CHAT_MODEL_HINT;
+    const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
+    // Build the full user message exactly like a normal send (content +
+    // attachment metadata) so the follow-up persists identically when it is
+    // flushed into the transcript on turn end. Guard `crypto.randomUUID` like
+    // the rest of the codebase (threadSlice) for runtimes that lack it.
+    const messageId = `msg_${
+      globalThis.crypto?.randomUUID
+        ? globalThis.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    }`;
+    const followupMessage: ThreadMessage = {
+      id: messageId,
+      content: normalized,
+      type: 'text',
+      extraMetadata:
+        pendingAttachments.length > 0
+          ? {
+              attachmentCount: pendingAttachments.length,
+              attachmentNames: pendingAttachments.map(a => a.file.name),
+              attachmentKinds: pendingAttachments.map(a => a.kind),
+              attachmentDataUris: pendingAttachments
+                .filter(a => a.kind === 'image')
+                .map(a => a.previewUri ?? a.dataUri),
+              attachmentCompressed: pendingAttachments.map(a => a.compressed),
+            }
+          : {},
+      sender: 'user',
+      createdAt: new Date().toISOString(),
+    };
+    // Never render a blank pill for an attachments-only follow-up: fall back to
+    // the attachment file names as the label.
+    const label = normalized || pendingAttachments.map(a => a.file.name).join(', ');
+
+    setSendError(null);
+    setAttachError(null);
+
+    try {
+      await chatSend({
+        threadId,
+        message: messageText,
+        model: modelOverride,
+        profileId: selectedAgentProfileId,
+        locale: uiLocale,
+        queueMode: 'followup',
+      });
+      // Only clear the composer once the backend has accepted the queue, so a
+      // failed send leaves the user's draft + attachments intact to retry.
+      setInputValue('');
+      setAttachments([]);
+      dispatch(enqueueFollowup({ threadId, message: followupMessage, label }));
+      trackEvent('chat_followup_queued');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSendError(chatSendError('cloud_send_failed', msg));
+    }
+  };
+
+  // Dismiss every queued follow-up for the selected thread. Clear the backend
+  // run-queue FIRST and only drop the local pills if it succeeded — on failure
+  // the backend still holds (and will dispatch) the follow-ups, so keep the
+  // pills and surface the error rather than falsely showing them removed.
+  const handleClearQueuedFollowups = async () => {
+    if (!selectedThreadId) return;
+    const threadId = selectedThreadId;
+    const dropped = await chatClearQueue(threadId);
+    if (dropped === null) {
+      setSendError(chatSendError('cloud_send_failed', t('chat.queuedFollowups.clearFailed')));
+      return;
+    }
+    dispatch(clearFollowupsForThread({ threadId }));
+  };
+
+  // The composer's Send button (and plain Enter) route to a queued follow-up
+  // while the selected thread is streaming, otherwise to a normal send.
+  const handleComposerSend = (text?: string): Promise<void> =>
+    selectedThreadActive ? handleSendFollowup(text) : handleSendMessage(text);
+
   const transcribeAndSendAudio = async (mimeType: string) => {
     setIsRecording(false);
     mediaRecorderRef.current = null;
@@ -1324,7 +1430,13 @@ const Conversations = ({
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      void handleSendMessage();
+      // While the selected thread is streaming, a plain Enter queues a
+      // follow-up (sent after the current turn) instead of being blocked.
+      if (selectedThreadActive) {
+        void handleSendFollowup();
+      } else {
+        void handleSendMessage();
+      }
     }
   };
 
@@ -2226,19 +2338,6 @@ const Conversations = ({
                 {t('conversations.agentTaskInsights.viewProcessSource')} →
               </button>
             )}
-            {isSending && rustChat && (
-              <div className="flex justify-start px-1">
-                <button
-                  type="button"
-                  data-analytics-id="chat-cancel-generation"
-                  onClick={() => {
-                    if (selectedThreadId) void chatCancel(selectedThreadId);
-                  }}
-                  className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 transition-colors">
-                  {t('common.cancel')}
-                </button>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         ) : isNewWindow ? (
@@ -2430,11 +2529,31 @@ const Conversations = ({
           const pendingApproval = approvalThreadId
             ? pendingApprovalByThread[approvalThreadId]
             : undefined;
-          return pendingApproval && approvalThreadId ? (
+          if (!pendingApproval || !approvalThreadId) return null;
+          // `composio_connect` parks on the same gate but needs a Connect
+          // button + OAuth poll rather than approve/deny (#3993).
+          const isConnect = pendingApproval.toolName === 'composio_connect';
+          return (
             <div className="mb-2">
-              <ApprovalRequestCard threadId={approvalThreadId} approval={pendingApproval} />
+              {isConnect ? (
+                // Key by requestId so switching from one parked approval to
+                // another remounts the card with fresh local state (phase,
+                // field values, cancellation refs, poll timers) instead of
+                // bleeding the previous request's state in (#4062, coderabbit).
+                <IntegrationConnectCard
+                  key={pendingApproval.requestId}
+                  threadId={approvalThreadId}
+                  approval={pendingApproval}
+                />
+              ) : (
+                <ApprovalRequestCard
+                  key={pendingApproval.requestId}
+                  threadId={approvalThreadId}
+                  approval={pendingApproval}
+                />
+              )}
             </div>
-          ) : null;
+          );
         })()}
 
         {(() => {
@@ -2496,6 +2615,24 @@ const Conversations = ({
           />
         )}
 
+        {/* Cancel the in-flight turn. Lives in the floating footer (above the
+            queued-follow-ups strip + composer) so it stays reachable now that
+            the composer is interactive mid-stream — otherwise the taller footer
+            would paint over a cancel control left in the message flow. */}
+        {isSending && rustChat && (
+          <div className="mb-2 flex justify-start px-1">
+            <button
+              type="button"
+              data-analytics-id="chat-cancel-generation"
+              onClick={() => {
+                if (selectedThreadId) void chatCancel(selectedThreadId);
+              }}
+              className="text-xs text-stone-500 transition-colors hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200">
+              {t('common.cancel')}
+            </button>
+          </div>
+        )}
+
         {composer === 'mic-cloud' ? (
           <div className="flex flex-col items-center gap-3 py-1">
             <MicComposer
@@ -2510,30 +2647,38 @@ const Conversations = ({
             />
           </div>
         ) : inputMode === 'text' ? (
-          <ChatComposer
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            onSend={handleSendMessage}
-            textInputRef={textInputRef}
-            fileInputRef={fileInputRef}
-            composerInteractionBlocked={composerInteractionBlocked}
-            isSending={isSending}
-            allowParallelSend={selectedThreadActive}
-            attachments={attachments}
-            onAttachFiles={handleAttachFiles}
-            onRemoveAttachment={id => setAttachments(prev => prev.filter(a => a.id !== id))}
-            attachError={attachError}
-            onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
-            handleInputKeyDown={handleInputKeyDown}
-            inlineCompletionSuffix={inlineCompletionSuffix}
-            isComposingTextRef={isComposingTextRef}
-            maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
-            // Empty → no native `accept` filter (it greys valid files on
-            // macOS/CEF). Type enforcement happens in handleAttachFiles via
-            // validateAndReadFile, which honors modelSupportsVision.
-            allowedMimeTypes={[]}
-            attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
-          />
+          <>
+            {selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 && (
+              <QueuedFollowups
+                items={queuedFollowupsByThread[selectedThreadId] ?? []}
+                onClear={() => void handleClearQueuedFollowups()}
+              />
+            )}
+            <ChatComposer
+              inputValue={inputValue}
+              setInputValue={setInputValue}
+              onSend={handleComposerSend}
+              textInputRef={textInputRef}
+              fileInputRef={fileInputRef}
+              composerInteractionBlocked={composerInteractionBlocked}
+              isSending={isSending}
+              allowParallelSend={selectedThreadActive}
+              attachments={attachments}
+              onAttachFiles={handleAttachFiles}
+              onRemoveAttachment={id => setAttachments(prev => prev.filter(a => a.id !== id))}
+              attachError={attachError}
+              onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
+              handleInputKeyDown={handleInputKeyDown}
+              inlineCompletionSuffix={inlineCompletionSuffix}
+              isComposingTextRef={isComposingTextRef}
+              maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
+              // Empty → no native `accept` filter (it greys valid files on
+              // macOS/CEF). Type enforcement happens in handleAttachFiles via
+              // validateAndReadFile, which honors modelSupportsVision.
+              allowedMimeTypes={[]}
+              attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
+            />
+          </>
         ) : (
           <div className="flex items-center gap-2">
             <button

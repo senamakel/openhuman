@@ -165,7 +165,7 @@ export function settingsRouteElements(): ReactNode {
       <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
       <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
       <Route path="tasks" element={wrapSettingsPage(<TasksPanel />)} />
-      <Route path="automations" element={wrapSettingsPage(<WorkflowsTab />)} />
+      <Route path="automations" element={wrapSettingsPage(<WorkflowsTab asSettingsPanel />)} />
       <Route path="dev-workflow" element={wrapSettingsPage(<DevWorkflowPanel />)} />
       <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />
       <Route

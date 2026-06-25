@@ -19,9 +19,7 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { selectAgentProfiles, upsertAgentProfile } from '../../../store/agentProfileSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import type { AgentProfile } from '../../../types/agentProfile';
-import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import {
   SettingsRow,
   SettingsSection,
@@ -29,6 +27,7 @@ import {
   SettingsTextArea,
   SettingsTextField,
 } from '../controls';
+import SettingsPanel from '../layout/SettingsPanel';
 import { settingsNavState } from '../modal/settingsOverlay';
 
 const MODEL_HINTS = ['hint:reasoning', 'hint:chat', 'hint:agentic', 'hint:coding'];
@@ -173,237 +172,234 @@ const ProfileEditorPage = () => {
   };
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={t('settings.profiles.menuDesc')}
-      leading={<SettingsBackButton onBack={backToList} />}>
-      <div className="p-4">
-        {notFound ? (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-              {t('settings.profiles.editor.notFound')}
-            </div>
+    <SettingsPanel
+      title={
+        isCreate
+          ? t('settings.profiles.editor.createTitle')
+          : t('settings.profiles.editor.editTitle')
+      }
+      description={t('settings.profiles.menuDesc')}>
+      {notFound ? (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+            {t('settings.profiles.editor.notFound')}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Identity */}
+          <SettingsSection>
+            <SettingsRow
+              htmlFor="profile-name"
+              label={t('settings.profiles.editor.name')}
+              stacked
+              control={
+                <SettingsTextField
+                  id="profile-name"
+                  autoFocus={isCreate}
+                  value={name}
+                  onChange={e => handleName(e.target.value)}
+                  aria-label={t('settings.profiles.editor.name')}
+                />
+              }
+            />
+            {isCreate ? (
+              <SettingsRow
+                htmlFor="profile-id"
+                label={t('settings.profiles.editor.id')}
+                description={t('settings.profiles.editor.idHint')}
+                stacked
+                control={
+                  <SettingsTextField
+                    id="profile-id"
+                    mono
+                    value={profileId}
+                    onChange={e => {
+                      setIdTouched(true);
+                      setProfileId(e.target.value);
+                    }}
+                    aria-label={t('settings.profiles.editor.id')}
+                  />
+                }
+              />
+            ) : (
+              <SettingsRow
+                label={t('settings.profiles.editor.id')}
+                control={
+                  <code className="font-mono text-xs text-neutral-500 dark:text-neutral-400">
+                    {profileId}
+                  </code>
+                }
+              />
+            )}
+            <SettingsRow
+              htmlFor="profile-description"
+              label={t('settings.profiles.editor.description')}
+              stacked
+              control={
+                <SettingsTextArea
+                  id="profile-description"
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  rows={2}
+                  aria-label={t('settings.profiles.editor.description')}
+                />
+              }
+            />
+          </SettingsSection>
+
+          {/* Soul */}
+          <SettingsSection>
+            <SettingsRow
+              htmlFor="profile-soul"
+              label={t('settings.profiles.editor.soul')}
+              description={t('settings.profiles.editor.soulHint')}
+              stacked
+              control={
+                <SettingsTextArea
+                  id="profile-soul"
+                  value={soulMd}
+                  onChange={e => setSoulMd(e.target.value)}
+                  rows={6}
+                  aria-label={t('settings.profiles.editor.soul')}
+                />
+              }
+            />
+          </SettingsSection>
+
+          {/* Runtime defaults */}
+          <SettingsSection>
+            <SettingsRow
+              htmlFor="profile-base-agent"
+              label={t('settings.profiles.editor.baseAgent')}
+              description={t('settings.profiles.editor.baseAgentHint')}
+              stacked
+              control={
+                <SettingsTextField
+                  id="profile-base-agent"
+                  mono
+                  value={agentId}
+                  onChange={e => setAgentId(e.target.value)}
+                  aria-label={t('settings.profiles.editor.baseAgent')}
+                />
+              }
+            />
+            <SettingsRow
+              htmlFor="profile-model"
+              label={t('settings.profiles.editor.model')}
+              description={t('settings.profiles.editor.modelHint')}
+              stacked
+              control={
+                <SettingsTextField
+                  id="profile-model"
+                  mono
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  placeholder={MODEL_HINTS.join(', ')}
+                  aria-label={t('settings.profiles.editor.model')}
+                />
+              }
+            />
+            <SettingsRow
+              htmlFor="profile-temperature"
+              label={t('settings.profiles.editor.temperature')}
+              stacked
+              control={
+                <SettingsTextField
+                  id="profile-temperature"
+                  value={temperature}
+                  onChange={e => setTemperature(e.target.value)}
+                  placeholder="0.0 – 1.0"
+                  aria-label={t('settings.profiles.editor.temperature')}
+                />
+              }
+            />
+            <SettingsRow
+              htmlFor="profile-suffix"
+              label={t('settings.profiles.editor.systemPromptSuffix')}
+              stacked
+              control={
+                <SettingsTextArea
+                  id="profile-suffix"
+                  value={systemPromptSuffix}
+                  onChange={e => setSystemPromptSuffix(e.target.value)}
+                  rows={2}
+                  aria-label={t('settings.profiles.editor.systemPromptSuffix')}
+                />
+              }
+            />
+          </SettingsSection>
+
+          {/* Memory */}
+          <SettingsSection>
+            <SettingsRow
+              label={t('settings.profiles.editor.agentConversations')}
+              description={t('settings.profiles.editor.agentConversationsHint')}
+              control={
+                <SettingsSwitch
+                  id="profile-agent-conversations"
+                  checked={includeAgentConversations}
+                  onCheckedChange={setIncludeAgentConversations}
+                  aria-label={t('settings.profiles.editor.agentConversations')}
+                />
+              }
+            />
+            <AllowlistField
+              label={t('settings.profiles.editor.memorySources')}
+              hint={t('settings.profiles.editor.memorySourcesHint')}
+              value={memorySources}
+              onChange={setMemorySources}
+            />
+          </SettingsSection>
+
+          {/* Capabilities */}
+          <SettingsSection>
+            <AllowlistField
+              label={t('settings.profiles.editor.connectors')}
+              hint={t('settings.profiles.editor.connectorsHint')}
+              value={composioIntegrations}
+              onChange={setComposioIntegrations}
+            />
+            <AllowlistField
+              label={t('settings.profiles.editor.skills')}
+              hint={t('settings.profiles.editor.skillsHint')}
+              value={allowedSkills}
+              onChange={setAllowedSkills}
+            />
+            <AllowlistField
+              label={t('settings.profiles.editor.mcpServers')}
+              hint={t('settings.profiles.editor.mcpServersHint')}
+              value={allowedMcpServers}
+              onChange={setAllowedMcpServers}
+            />
+          </SettingsSection>
+
+          {error && (
+            <p className="rounded-md border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+              {error}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="secondary" size="sm" onClick={backToList}>
-              {t('common.back')}
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => void handleSubmit()}
+              disabled={!canSubmit}>
+              {submitting
+                ? t('settings.profiles.editor.saving')
+                : isCreate
+                  ? t('common.create')
+                  : t('common.save')}
             </Button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Identity */}
-            <SettingsSection>
-              <SettingsRow
-                htmlFor="profile-name"
-                label={t('settings.profiles.editor.name')}
-                stacked
-                control={
-                  <SettingsTextField
-                    id="profile-name"
-                    autoFocus={isCreate}
-                    value={name}
-                    onChange={e => handleName(e.target.value)}
-                    aria-label={t('settings.profiles.editor.name')}
-                  />
-                }
-              />
-              {isCreate ? (
-                <SettingsRow
-                  htmlFor="profile-id"
-                  label={t('settings.profiles.editor.id')}
-                  description={t('settings.profiles.editor.idHint')}
-                  stacked
-                  control={
-                    <SettingsTextField
-                      id="profile-id"
-                      mono
-                      value={profileId}
-                      onChange={e => {
-                        setIdTouched(true);
-                        setProfileId(e.target.value);
-                      }}
-                      aria-label={t('settings.profiles.editor.id')}
-                    />
-                  }
-                />
-              ) : (
-                <SettingsRow
-                  label={t('settings.profiles.editor.id')}
-                  control={
-                    <code className="font-mono text-xs text-neutral-500 dark:text-neutral-400">
-                      {profileId}
-                    </code>
-                  }
-                />
-              )}
-              <SettingsRow
-                htmlFor="profile-description"
-                label={t('settings.profiles.editor.description')}
-                stacked
-                control={
-                  <SettingsTextArea
-                    id="profile-description"
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    rows={2}
-                    aria-label={t('settings.profiles.editor.description')}
-                  />
-                }
-              />
-            </SettingsSection>
-
-            {/* Soul */}
-            <SettingsSection>
-              <SettingsRow
-                htmlFor="profile-soul"
-                label={t('settings.profiles.editor.soul')}
-                description={t('settings.profiles.editor.soulHint')}
-                stacked
-                control={
-                  <SettingsTextArea
-                    id="profile-soul"
-                    value={soulMd}
-                    onChange={e => setSoulMd(e.target.value)}
-                    rows={6}
-                    aria-label={t('settings.profiles.editor.soul')}
-                  />
-                }
-              />
-            </SettingsSection>
-
-            {/* Runtime defaults */}
-            <SettingsSection>
-              <SettingsRow
-                htmlFor="profile-base-agent"
-                label={t('settings.profiles.editor.baseAgent')}
-                description={t('settings.profiles.editor.baseAgentHint')}
-                stacked
-                control={
-                  <SettingsTextField
-                    id="profile-base-agent"
-                    mono
-                    value={agentId}
-                    onChange={e => setAgentId(e.target.value)}
-                    aria-label={t('settings.profiles.editor.baseAgent')}
-                  />
-                }
-              />
-              <SettingsRow
-                htmlFor="profile-model"
-                label={t('settings.profiles.editor.model')}
-                description={t('settings.profiles.editor.modelHint')}
-                stacked
-                control={
-                  <SettingsTextField
-                    id="profile-model"
-                    mono
-                    value={model}
-                    onChange={e => setModel(e.target.value)}
-                    placeholder={MODEL_HINTS.join(', ')}
-                    aria-label={t('settings.profiles.editor.model')}
-                  />
-                }
-              />
-              <SettingsRow
-                htmlFor="profile-temperature"
-                label={t('settings.profiles.editor.temperature')}
-                stacked
-                control={
-                  <SettingsTextField
-                    id="profile-temperature"
-                    value={temperature}
-                    onChange={e => setTemperature(e.target.value)}
-                    placeholder="0.0 – 1.0"
-                    aria-label={t('settings.profiles.editor.temperature')}
-                  />
-                }
-              />
-              <SettingsRow
-                htmlFor="profile-suffix"
-                label={t('settings.profiles.editor.systemPromptSuffix')}
-                stacked
-                control={
-                  <SettingsTextArea
-                    id="profile-suffix"
-                    value={systemPromptSuffix}
-                    onChange={e => setSystemPromptSuffix(e.target.value)}
-                    rows={2}
-                    aria-label={t('settings.profiles.editor.systemPromptSuffix')}
-                  />
-                }
-              />
-            </SettingsSection>
-
-            {/* Memory */}
-            <SettingsSection>
-              <SettingsRow
-                label={t('settings.profiles.editor.agentConversations')}
-                description={t('settings.profiles.editor.agentConversationsHint')}
-                control={
-                  <SettingsSwitch
-                    id="profile-agent-conversations"
-                    checked={includeAgentConversations}
-                    onCheckedChange={setIncludeAgentConversations}
-                    aria-label={t('settings.profiles.editor.agentConversations')}
-                  />
-                }
-              />
-              <AllowlistField
-                label={t('settings.profiles.editor.memorySources')}
-                hint={t('settings.profiles.editor.memorySourcesHint')}
-                value={memorySources}
-                onChange={setMemorySources}
-              />
-            </SettingsSection>
-
-            {/* Capabilities */}
-            <SettingsSection>
-              <AllowlistField
-                label={t('settings.profiles.editor.connectors')}
-                hint={t('settings.profiles.editor.connectorsHint')}
-                value={composioIntegrations}
-                onChange={setComposioIntegrations}
-              />
-              <AllowlistField
-                label={t('settings.profiles.editor.skills')}
-                hint={t('settings.profiles.editor.skillsHint')}
-                value={allowedSkills}
-                onChange={setAllowedSkills}
-              />
-              <AllowlistField
-                label={t('settings.profiles.editor.mcpServers')}
-                hint={t('settings.profiles.editor.mcpServersHint')}
-                value={allowedMcpServers}
-                onChange={setAllowedMcpServers}
-              />
-            </SettingsSection>
-
-            {error && (
-              <p className="rounded-md border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-                {error}
-              </p>
-            )}
-
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="secondary" size="sm" onClick={backToList}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => void handleSubmit()}
-                disabled={!canSubmit}>
-                {submitting
-                  ? t('settings.profiles.editor.saving')
-                  : isCreate
-                    ? t('common.create')
-                    : t('common.save')}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </PanelPage>
+        </div>
+      )}
+    </SettingsPanel>
   );
 };
 

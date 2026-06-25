@@ -9,10 +9,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { callCoreRpc } from '../../../services/coreRpcClient';
-import PanelPage from '../../layout/PanelPage';
-import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsStatusLine } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 interface AgentBoxProviderInfo {
   slug: string;
@@ -36,7 +34,6 @@ const ROW =
 
 const AgentBoxPanel = () => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
 
   const [state, setState] = useState<PanelState>({ kind: 'loading' });
 
@@ -145,15 +142,7 @@ const AgentBoxPanel = () => {
     );
   }, [state, t, load]);
 
-  return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={t('settings.agentbox.desc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      {body}
-    </PanelPage>
-  );
+  return <SettingsPanel description={t('settings.agentbox.desc')}>{body}</SettingsPanel>;
 };
 
 export default AgentBoxPanel;

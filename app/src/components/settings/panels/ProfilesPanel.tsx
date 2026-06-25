@@ -19,10 +19,9 @@ import {
   selectAgentProfiles,
 } from '../../../store/agentProfileSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsEmptyState, SettingsSection } from '../controls';
+import SettingsPanel from '../layout/SettingsPanel';
 import { settingsNavState } from '../modal/settingsOverlay';
 
 const ProfilesPanel = () => {
@@ -66,11 +65,8 @@ const ProfilesPanel = () => {
   );
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
+    <SettingsPanel
       description={t('settings.profiles.menuDesc')}
-      leading={<SettingsBackButton onBack={() => navigate('/settings')} />}
       action={
         <Button
           type="button"
@@ -81,7 +77,7 @@ const ProfilesPanel = () => {
           {t('settings.profiles.new')}
         </Button>
       }>
-      <div className="space-y-4 p-4">
+      <>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
           {t('settings.profiles.subtitle')}
         </p>
@@ -170,8 +166,8 @@ const ProfilesPanel = () => {
             </ul>
           </SettingsSection>
         )}
-      </div>
-    </PanelPage>
+      </>
+    </SettingsPanel>
   );
 };
 

@@ -85,6 +85,8 @@ const messages: TranslationMap = {
     'Tiny.Place ist ein soziales Netzwerk für KI-Agenten. Nutze OpenHuman, um zu interagieren, Jobs zu finden und zu veröffentlichen, zu handeln und gemeinsam zu wachsen.',
   'agentWorld.world': 'Welt',
   'agentWorld.world.booting': 'Renderer wird gestartet...',
+  'agentWorld.world.initError': 'Der Welt-Renderer konnte nicht gestartet werden.',
+  'agentWorld.world.retry': 'Wiederholen',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
     'Tritt tiny.place bei, damit dein Agent sich mit anderen Agenten abstimmen kann: Jobs finden und ausschreiben, handeln, Nachrichten senden und bei Bounties zusammenarbeiten.',
@@ -480,6 +482,12 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'Wie kann ich dir heute helfen?',
   'chat.send': 'Nachricht senden',
   'chat.parallelBranchHint': 'Parallelen Zweig eingeben — ⌘/Strg+Enter zum Senden',
+  'chat.followupHint':
+    'Folgenachricht einreihen — wird nach dieser Antwort gesendet · ⌘/Strg+Enter für parallelen Zweig',
+  'chat.queuedFollowups.label': 'Eingereihte Folgenachrichten',
+  'chat.queuedFollowups.clear': 'Löschen',
+  'chat.queuedFollowups.clearFailed':
+    'Warteschlange konnte nicht geleert werden – bitte erneut versuchen.',
   'chat.parallelBranchLabel': 'Paralleler Zweig',
   'chat.thinking': 'Denken...',
   'chat.noMessages': 'Noch keine Nachrichten',
@@ -494,6 +502,7 @@ const messages: TranslationMap = {
   'skills.title': 'Verbindungen',
   'skills.search': 'Verbindungen suchen...',
   'skills.noResults': 'Keine Verbindungen gefunden',
+  'skills.loadingIntegrations': 'Integrationen werden geladen…',
   'skills.connect': 'Verbinden',
   'skills.disconnect': 'Trennen',
   'skills.configure': 'Verwalten',
@@ -889,6 +898,7 @@ const messages: TranslationMap = {
   'onboarding.custom.memory.configureDesc':
     'Überprüfe, exportiere oder lösche den Speicher selbst. Konfiguriere in den Einstellungen › Speicher.',
   'accounts.addAccount': 'Konto hinzufügen',
+  'accounts.addApps': 'Apps hinzufügen',
   'accounts.manageAccounts': 'Konten verwalten',
   'accounts.noAccounts': 'Keine Konten verbunden',
   'accounts.connectAccount': 'Verbinde ein Konto, um loszulegen',
@@ -3068,6 +3078,9 @@ const messages: TranslationMap = {
   'composio.connect.wabaIdHint':
     'Finde es über GET /me/businesses und dann GET /{business_id}/owned_whatsapp_business_accounts mit deinem Meta-Zugriffstoken.',
   'composio.connect.wabaIdLabel': 'Waba-ID-Etikett',
+  'composio.connect.atlassianSubdomainPlaceholder': 'your-subdomain',
+  'composio.connect.dynamicsOrgNamePlaceholder': 'myorg',
+  'composio.connect.wabaIdPlaceholder': 'e.g. 123456789012345',
   'composio.connect.wabaIdRequired':
     'Bitte gib deine WhatsApp Geschäftskonto-ID (WABA ID) ein, um fortzufahren.',
   'composio.connect.waitingFor': 'Warten auf',
@@ -6185,6 +6198,38 @@ const messages: TranslationMap = {
   'userErrors.insufficientCredits.body':
     'Deinem KI-Anbieter ist das Guthaben ausgegangen. Lade es auf oder aktualisiere den Schlüssel.',
   'userErrors.scope.chat': 'Chat',
+  // Agent World — Identity trading (confirm-before-spend + balance gate)
+  'agentWorld.trading.amountLabel': 'Betrag',
+  'agentWorld.trading.networkLabel': 'Netzwerk',
+  'agentWorld.trading.balanceLabel': 'Dein Guthaben',
+  'agentWorld.trading.walletLabel': 'Wallet',
+  'agentWorld.trading.balanceUnknown': 'Unbekannt',
+  'agentWorld.trading.cancel': 'Abbrechen',
+  'agentWorld.trading.addFunds': 'Guthaben aufladen',
+  'agentWorld.trading.confirmPay': 'Bestätigen & zahlen',
+  'agentWorld.trading.confirmCommit': 'Bestätigen',
+  'agentWorld.trading.continue': 'Weiter',
+  'agentWorld.trading.submitting': 'Wird gesendet…',
+  'agentWorld.trading.placeBid': 'Gebot abgeben',
+  'agentWorld.trading.submitOffer': 'Angebot senden',
+  'agentWorld.trading.bidTitlePrefix': 'Gebot für',
+  'agentWorld.trading.offerTitlePrefix': 'Angebot für',
+  'agentWorld.trading.bidReviewTitlePrefix': 'Gebot bestätigen für',
+  'agentWorld.trading.offerReviewTitlePrefix': 'Angebot bestätigen für',
+  'agentWorld.trading.spendInsufficient':
+    'Nicht genügend Guthaben, um diese Zahlung abzuschließen. Lade dein Wallet auf, um fortzufahren.',
+  'agentWorld.trading.spendBroadcastNote':
+    'Dein Wallet signiert diese Zahlung und überträgt sie auf',
+  'agentWorld.trading.commitInsufficientWarning':
+    'Dein Guthaben deckt dies möglicherweise nicht ab, falls die Zusage angenommen wird. Du kannst sie trotzdem absenden – Geld bewegt sich nur bei Annahme.',
+  'agentWorld.trading.commitSettleNote':
+    'Dies ist eine signierte Zusage – Geld bewegt sich nur bei Annahme.',
+  'agentWorld.trading.commitReviewSubtitle': 'Überprüfe deine Zusage vor dem Absenden.',
+  'agentWorld.trading.balanceUnverified':
+    'Wir konnten dein Wallet-Guthaben nicht überprüfen. Du kannst trotzdem fortfahren – die Zahlung wird beim Absenden geprüft.',
+  'agentWorld.trading.amountTooManyDecimals': 'Dieser Betrag hat zu viele Nachkommastellen.',
+  'agentWorld.trading.amountMustBePositive': 'Gib einen Betrag größer als null ein.',
+  'agentWorld.trading.amountInvalid': 'Gib einen gültigen Betrag ein.',
 };
 
 export default messages;

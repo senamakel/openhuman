@@ -9,8 +9,6 @@ import {
   listCapabilities,
   type PrivacyDataKind,
 } from '../../../utils/tauriCommands/aboutApp';
-import PanelPage from '../../layout/PanelPage';
-import SettingsBackButton from '../components/SettingsBackButton';
 import {
   SettingsBadge,
   type SettingsBadgeVariant,
@@ -18,7 +16,7 @@ import {
   SettingsSection,
   SettingsSwitch,
 } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 const log = debug('privacy-panel');
 
@@ -50,7 +48,6 @@ function kindLabel(kind: PrivacyDataKind, t: (key: string) => string): string {
 }
 
 const PrivacyPanel = () => {
-  const { navigateBack } = useSettingsNavigation();
   const { snapshot, setAnalyticsEnabled, setMeetAutoOrchestratorHandoff } = useCoreState();
   const analyticsEnabled = snapshot.analyticsEnabled;
   const meetAutoHandoff = snapshot.meetAutoOrchestratorHandoff;
@@ -101,13 +98,10 @@ const PrivacyPanel = () => {
   };
 
   return (
-    <PanelPage
+    <SettingsPanel
       testId="settings-privacy-panel"
-      className="z-10"
-      contentClassName=""
-      description={t('pages.settings.account.privacyDesc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="p-4 space-y-4">
+      description={t('pages.settings.account.privacyDesc')}>
+      <>
         {/* What leaves my computer */}
         <SettingsSection title={t('privacy.whatLeavesComputer')}>
           {loadState === 'loading' && (
@@ -221,8 +215,8 @@ const PrivacyPanel = () => {
             </div>
           </div>
         </div>
-      </div>
-    </PanelPage>
+      </>
+    </SettingsPanel>
   );
 };
 

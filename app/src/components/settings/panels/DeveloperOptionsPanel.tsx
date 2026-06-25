@@ -16,12 +16,11 @@ import { APP_ENVIRONMENT } from '../../../utils/config';
 // TAURI-REACT-6 — into a rejected Promise so the existing `.catch(...)` /
 // try/catch handlers see it as a normal IPC failure.
 import { safeInvoke as invoke, isTauri } from '../../../utils/tauriCommands/common';
-import PanelPage from '../../layout/PanelPage';
 import { resetWalkthrough } from '../../walkthrough/AppWalkthrough';
-import SettingsBackButton from '../components/SettingsBackButton';
 import SettingsMenuItem from '../components/SettingsMenuItem';
 import { SettingsSection } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -651,7 +650,7 @@ const LogsFolderRow = () => {
 const DeveloperOptionsPanel = () => {
   const { t } = useT();
   const navigate = useNavigate();
-  const { navigateToSettings, navigateBack } = useSettingsNavigation();
+  const { navigateToSettings } = useSettingsNavigation();
   const showSentryTest = APP_ENVIRONMENT === 'staging';
 
   // Trailing actions (restart tour) that don't fit cleanly in any group
@@ -676,13 +675,9 @@ const DeveloperOptionsPanel = () => {
   };
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={t('settings.developerDiagnosticsDesc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
+    <SettingsPanel description={t('settings.developerDiagnosticsDesc')}>
       {/* Debug-only sub-sections */}
-      <div className="p-4 pt-2 space-y-3">
+      <div className="space-y-3">
         {DEV_GROUPS.map(group => (
           <div key={group.labelKey} data-testid={`dev-group-${group.labelKey.split('.').pop()}`}>
             <SettingsSection title={t(group.labelKey)}>
@@ -719,12 +714,12 @@ const DeveloperOptionsPanel = () => {
 
       {/* Diagnostics callouts live outside the menu card so the spacing
           and alignment don't clash with the SettingsMenuItem rows. */}
-      <div className="px-4 pt-2 pb-5 flex flex-col gap-3">
+      <div className="pt-2 pb-5 flex flex-col gap-3">
         <CoreModeBadge />
         <LogsFolderRow />
         {showSentryTest && <SentryTestRow />}
       </div>
-    </PanelPage>
+    </SettingsPanel>
   );
 };
 

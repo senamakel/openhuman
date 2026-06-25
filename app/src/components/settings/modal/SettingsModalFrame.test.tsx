@@ -59,4 +59,34 @@ describe('SettingsModalFrame', () => {
     fireEvent.click(screen.getByTestId('child'));
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  // The card is sized by fixed CSS (80vh tall, capped at max-w-5xl), never by its
+  // content — this is what keeps the modal from resizing when switching tabs.
+  // Render with deliberately different-sized children and assert the size classes
+  // are identical and content-independent.
+  it('sizes the card with fixed, content-independent dimensions', () => {
+    const tiny = render(
+      <SettingsModalFrame onClose={vi.fn()}>
+        <div>x</div>
+      </SettingsModalFrame>
+    );
+    const tinyCard = tiny.getByTestId('settings-modal-card');
+    expect(tinyCard.className).toContain('h-full');
+    expect(tinyCard.className).toContain('w-full');
+    // The card's positioning wrapper carries the fixed height + max width.
+    const tinyWrapper = tinyCard.parentElement as HTMLElement;
+    expect(tinyWrapper.className).toContain('h-[80vh]');
+    expect(tinyWrapper.className).toContain('max-w-5xl');
+    expect(tinyWrapper.className).toContain('w-full');
+    tiny.unmount();
+
+    const big = render(
+      <SettingsModalFrame onClose={vi.fn()}>
+        <div style={{ height: 4000, width: 4000 }}>huge</div>
+      </SettingsModalFrame>
+    );
+    const bigWrapper = big.getByTestId('settings-modal-card').parentElement as HTMLElement;
+    // Same size classes regardless of how large the panel content is.
+    expect(bigWrapper.className).toBe(tinyWrapper.className);
+  });
 });

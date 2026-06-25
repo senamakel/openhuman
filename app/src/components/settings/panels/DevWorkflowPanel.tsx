@@ -15,9 +15,7 @@ import {
   openhumanCronRuns,
   openhumanCronUpdate,
 } from '../../../utils/tauriCommands/cron';
-import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import {
   SettingsRow,
   SettingsSection,
@@ -25,7 +23,7 @@ import {
   SettingsStatusLine,
   SettingsSwitch,
 } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 const log = createDebug('app:settings:DevWorkflowPanel');
 
@@ -56,7 +54,6 @@ interface GhBranch {
 
 const DevWorkflowPanel = () => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
 
   // Repo list
   const [repos, setRepos] = useState<ComposioGhRepo[]>([]);
@@ -502,13 +499,10 @@ const DevWorkflowPanel = () => {
   const canSave = selectedRepo && targetBranch && schedule;
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
+    <SettingsPanel
       testId="dev-workflow-panel"
-      description={t('settings.developerMenu.devWorkflow.desc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="px-4 pt-4 flex flex-col gap-5">
+      description={t('settings.developerMenu.devWorkflow.desc')}>
+      <div className="flex flex-col gap-5">
         {/* Description */}
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           {t('settings.developerMenu.devWorkflow.panelDesc')}
@@ -816,7 +810,7 @@ const DevWorkflowPanel = () => {
           </>
         )}
       </div>
-    </PanelPage>
+    </SettingsPanel>
   );
 };
 

@@ -13,11 +13,10 @@ import {
   MNEMONIC_GENERATE_WORD_COUNT,
   validateMnemonicPhrase,
 } from '../../../utils/cryptoKeys';
-import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsCheckbox } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 const BIP39_IMPORT_LENGTHS = [12, 15, 18, 21, 24] as const;
 
@@ -904,98 +903,90 @@ const RecoveryPhrasePanel = () => {
   );
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={t('pages.settings.account.recoveryPhraseDesc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div>
-        <div className="p-4">
-          {success ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-12">
-              <div className="w-12 h-12 rounded-full bg-sage-500/20 flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-sage-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <p className="text-sm font-medium text-sage-500">{t('mnemonic.phraseSaved')}</p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {t('mnemonic.walletReady')}
-              </p>
-            </div>
-          ) : (
+    <SettingsPanel description={t('pages.settings.account.recoveryPhraseDesc')}>
+      {success ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-12">
+          <div className="w-12 h-12 rounded-full bg-sage-500/20 flex items-center justify-center">
+            <svg
+              className="w-6 h-6 text-sage-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <p className="text-sm font-medium text-sage-500">{t('mnemonic.phraseSaved')}</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            {t('mnemonic.walletReady')}
+          </p>
+        </div>
+      ) : (
+        <>
+          {mode === 'loading' && renderLoading()}
+          {mode === 'view' && renderViewMode()}
+          {mode === 'replace-confirm' && renderReplaceConfirm()}
+          {(mode === 'generate' || mode === 'import') && (
             <>
-              {mode === 'loading' && renderLoading()}
-              {mode === 'view' && renderViewMode()}
-              {mode === 'replace-confirm' && renderReplaceConfirm()}
-              {(mode === 'generate' || mode === 'import') && (
-                <>
-                  {mode === 'generate' ? renderGenerateMode() : renderImportMode()}
+              {mode === 'generate' ? renderGenerateMode() : renderImportMode()}
 
-                  {error && (
-                    <div
-                      role="alert"
-                      className="flex items-start gap-2.5 p-3 mb-3 rounded-xl bg-coral-50 dark:bg-coral-500/10 border border-coral-200 dark:border-coral-500/30">
-                      <svg
-                        className="w-4 h-4 text-coral-500 flex-shrink-0 mt-0.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}>
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                        />
-                      </svg>
-                      <p className="text-xs text-coral-700 dark:text-coral-300 leading-relaxed">
-                        {error}
-                      </p>
-                    </div>
-                  )}
-
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="lg"
-                    onClick={() => void handleSave()}
-                    disabled={!canSave || loading}
-                    className="w-full">
-                    {loading ? (
-                      <>
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                          />
-                        </svg>
-                        <span>{t('mnemonic.securingData')}</span>
-                      </>
-                    ) : (
-                      t('mnemonic.saveRecoveryPhrase')
-                    )}
-                  </Button>
-                </>
+              {error && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 p-3 mb-3 rounded-xl bg-coral-50 dark:bg-coral-500/10 border border-coral-200 dark:border-coral-500/30">
+                  <svg
+                    className="w-4 h-4 text-coral-500 flex-shrink-0 mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                    />
+                  </svg>
+                  <p className="text-xs text-coral-700 dark:text-coral-300 leading-relaxed">
+                    {error}
+                  </p>
+                </div>
               )}
+
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                onClick={() => void handleSave()}
+                disabled={!canSave || loading}
+                className="w-full">
+                {loading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    <span>{t('mnemonic.securingData')}</span>
+                  </>
+                ) : (
+                  t('mnemonic.saveRecoveryPhrase')
+                )}
+              </Button>
             </>
           )}
-        </div>
-      </div>
-    </PanelPage>
+        </>
+      )}
+    </SettingsPanel>
   );
 };
 

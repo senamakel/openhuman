@@ -23,6 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { useT } from '../../lib/i18n/I18nContext';
 import { workflowsApi, type WorkflowSummary } from '../../services/api/workflowsApi';
 import type { ToastNotification } from '../../types/intelligence';
+import SettingsPanel from '../settings/layout/SettingsPanel';
 import CreateSkillModal from '../skills/CreateSkillModal';
 import UnifiedSkillCard from '../skills/SkillCard';
 import { BUILT_IN_SKILL_ICONS } from '../skills/skillIcons';
@@ -31,7 +32,17 @@ import { ToastContainer } from './Toast';
 
 const log = debug('intelligence:workflows');
 
-export default function WorkflowsTab() {
+interface WorkflowsTabProps {
+  /**
+   * When true, render with the standard Settings chrome ({@link SettingsPanel}):
+   * a "Workflows" title, the subtitle as the description, and "New workflow" in
+   * the header action slot. The page tab hosts (Activity, Intelligence) leave
+   * this off and keep the inline subtitle + button row above the list.
+   */
+  asSettingsPanel?: boolean;
+}
+
+export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabProps = {}) {
   const { t } = useT();
   const navigate = useNavigate();
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
@@ -82,24 +93,18 @@ export default function WorkflowsTab() {
 
   const isEmpty = workflows.length === 0 && !loading && !loadError;
 
-  return (
-    <div className="space-y-4">
-      {/* Header + actions */}
-      <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 text-xs text-stone-500 dark:text-neutral-400">
-          {t('workflows.subtitle')}
-        </p>
-        <div className="flex flex-shrink-0 items-center gap-2">
-          <button
-            type="button"
-            data-testid="workflows-create-btn"
-            onClick={() => setCreateModalOpen(true)}
-            className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
-            {t('workflows.createNew')}
-          </button>
-        </div>
-      </div>
+  const newWorkflowButton = (
+    <button
+      type="button"
+      data-testid="workflows-create-btn"
+      onClick={() => setCreateModalOpen(true)}
+      className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
+      {t('workflows.createNew')}
+    </button>
+  );
 
+  const body = (
+    <>
       {/* Load error — shown instead of the empty state when listWorkflows fails,
           so an outage doesn't read as "you have no workflows". */}
       {loadError && !loading ? (
@@ -260,6 +265,30 @@ export default function WorkflowsTab() {
       )}
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />
+    </>
+  );
+
+  // Settings route: full panel chrome (title from the route registry, subtitle
+  // as description, "New workflow" in the header action slot).
+  if (asSettingsPanel) {
+    return (
+      <SettingsPanel description={t('workflows.subtitle')} action={newWorkflowButton}>
+        {body}
+      </SettingsPanel>
+    );
+  }
+
+  // Page tab hosts (Activity / Intelligence): inline subtitle + button row above
+  // the list, since those pages own the surrounding chrome.
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0 text-xs text-stone-500 dark:text-neutral-400">
+          {t('workflows.subtitle')}
+        </p>
+        <div className="flex flex-shrink-0 items-center gap-2">{newWorkflowButton}</div>
+      </div>
+      {body}
     </div>
   );
 }

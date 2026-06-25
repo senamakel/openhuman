@@ -13,6 +13,8 @@ import ChatNewWindowHero from '../components/chat/ChatNewWindowHero';
 import ComposerTokenStats from '../components/chat/ComposerTokenStats';
 import IntegrationConnectCard from '../components/chat/IntegrationConnectCard';
 import QueuedFollowups from '../components/chat/QueuedFollowups';
+import SuperContextToggle from '../components/chat/SuperContextToggle';
+import { whenSuperContextWriteSettled } from '../components/chat/superContextWrite';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import { settingsNavState } from '../components/settings/modal/settingsOverlay';
@@ -110,6 +112,7 @@ import {
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
 } from './conversations/composerSendDecision';
+import { useMemorySyncActive } from './conversations/hooks/useBackgroundActivity';
 import { runDecidePlan } from './conversations/taskPlanActions';
 import {
   type AgentBubblePosition,
@@ -900,6 +903,12 @@ const Conversations = ({
     // may proceed concurrently.
     if (selectedThreadId && pendingSendsRef.current.has(selectedThreadId)) return;
 
+    // If the user just flipped the Super Context toggle, make sure that config
+    // write has landed before the core builds this thread's session (which
+    // reads `context.super_context_enabled`). Resolves instantly when nothing
+    // is pending.
+    await whenSuperContextWriteSettled();
+
     const normalized = text ?? inputValue;
     const trimmedInput = normalized.trim();
 
@@ -1467,6 +1476,9 @@ const Conversations = ({
     [selectedThreadToolTimeline]
   );
   const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
+  // Poll-free live signal: lights the badge when memories are syncing even if
+  // no sub-agent is running and the panel is closed.
+  const memorySyncActive = useMemorySyncActive();
   // Re-derive the open subagent's live activity (and its row status) from the
   // timeline on every render so the drawer streams token-by-token as
   // subagent_text_delta / subagent_thinking_delta events land in Redux.
@@ -2804,6 +2816,12 @@ const Conversations = ({
                   {t('chat.agentProfile.reasoning')}
                 </button>
               </div>
+              {/* Super context is read at thread construction, so it only
+                  affects NEW threads. Hide the toggle once the thread has ANY
+                  activity — use the raw `messages` (not `hasVisibleMessages`,
+                  which ignores hidden transcript entries) so an already-started
+                  thread never looks "fresh" here. */}
+              {messages.length === 0 && <SuperContextToggle />}
               {selectedThreadId && (
                 <button
                   type="button"
@@ -2828,11 +2846,16 @@ const Conversations = ({
                       d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
                     />
                   </svg>
-                  {runningBackgroundCount > 0 && (
+                  {runningBackgroundCount > 0 ? (
                     <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-semibold leading-none text-white">
                       {runningBackgroundCount}
                     </span>
-                  )}
+                  ) : memorySyncActive ? (
+                    <span
+                      data-testid="background-activity-dot"
+                      className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-amber-500"
+                    />
+                  ) : null}
                 </button>
               )}
               {(selectedThreadId ?? firstActiveThreadId) && (

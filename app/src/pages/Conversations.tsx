@@ -899,7 +899,7 @@ const Conversations = ({
     }
   };
 
-  const handleSendMessage = async (text?: string) => {
+  const handleSendMessage = async (text?: string, opts?: { isolateComposer?: boolean }) => {
     // Guard double-submit to the SAME thread only; a send to another thread
     // may proceed concurrently.
     if (selectedThreadId && pendingSendsRef.current.has(selectedThreadId)) return;
@@ -954,7 +954,9 @@ const Conversations = ({
     // guard above is set so this await can't open a check→add race for rapid
     // repeat clicks. Resolves instantly when nothing is pending.
     await whenSuperContextWriteSettled();
-    const pendingAttachments = attachments.slice();
+    // Plan-review feedback (`isolateComposer`) sends its own text as a fresh
+    // turn; it must NOT pull in the user's pending composer attachments.
+    const pendingAttachments = opts?.isolateComposer ? [] : attachments.slice();
     const modelOverride =
       agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ?? CHAT_MODEL_HINT;
     const messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
@@ -997,8 +999,12 @@ const Conversations = ({
       removePendingSendingThread(sendingThreadId);
       return;
     }
-    setInputValue('');
-    setAttachments([]);
+    // Preserve the user's composer draft + attachments when this send is an
+    // isolated plan-review feedback turn (don't discard an unrelated draft).
+    if (!opts?.isolateComposer) {
+      setInputValue('');
+      setAttachments([]);
+    }
     setSendError(null);
     setAttachError(null);
     // Silence timer: fires only if 600s pass without ANY inference progress
@@ -1138,11 +1144,12 @@ const Conversations = ({
   // out of order on reload. Instead we record a queued-follow-up pill; the pill
   // is flushed into the transcript (persisted, in order, after the assistant
   // reply) when the turn ends — see `ChatRuntimeProvider`'s done/error paths.
-  const handleSendFollowup = async (text?: string) => {
+  const handleSendFollowup = async (text?: string, opts?: { isolateComposer?: boolean }) => {
     if (!rustChat || !selectedThreadId) return;
     const threadId = selectedThreadId;
     const normalized = (text ?? inputValue).trim();
-    const pendingAttachments = attachments.slice();
+    // Plan-review feedback isolates from composer state (no draft attachments).
+    const pendingAttachments = opts?.isolateComposer ? [] : attachments.slice();
     if (!normalized && pendingAttachments.length === 0) return;
 
     const modelOverride =
@@ -1194,8 +1201,11 @@ const Conversations = ({
       });
       // Only clear the composer once the backend has accepted the queue, so a
       // failed send leaves the user's draft + attachments intact to retry.
-      setInputValue('');
-      setAttachments([]);
+      // Skip entirely for isolated plan-review feedback (preserve the draft).
+      if (!opts?.isolateComposer) {
+        setInputValue('');
+        setAttachments([]);
+      }
       dispatch(enqueueFollowup({ threadId, message: followupMessage, label }));
       trackEvent('chat_followup_queued');
     } catch (err) {
@@ -2647,7 +2657,9 @@ const Conversations = ({
                 threadId: selectedThreadId,
                 feedback,
                 sendMessage: text =>
-                  selectedThreadActive ? handleSendFollowup(text) : handleSendMessage(text),
+                  selectedThreadActive
+                    ? handleSendFollowup(text, { isolateComposer: true })
+                    : handleSendMessage(text, { isolateComposer: true }),
                 dispatch,
                 notify: setSendAdvisory,
                 t,

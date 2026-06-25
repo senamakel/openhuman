@@ -117,11 +117,12 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Cache pnpm store
         id: pnpm-cache
         if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.i18n == 'true'
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -134,7 +135,7 @@ jobs:
 
       - name: Save pnpm store cache
         if: always() && (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.i18n == 'true') && steps.pnpm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
@@ -188,7 +189,7 @@ jobs:
 
       - name: Upload frontend lcov
         if: needs.changes.outputs.frontend == 'true'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: lcov-frontend
           path: app/coverage/lcov.info
@@ -251,7 +252,7 @@ jobs:
 
       - name: Cache pnpm store
         id: pnpm-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -270,7 +271,7 @@ jobs:
 
       - name: Restore cached Playwright E2E artifact
         id: playwright-artifact-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .ci/artifacts/e2e-playwright-linux.tar.gz
           key: e2e-playwright-linux-${{ hashFiles('src/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'app/src/**', 'app/public/**', 'app/index.html', 'app/vite.config.*', 'app/tailwind.config.*', 'app/postcss.config.*', 'app/package.json', 'pnpm-lock.yaml', 'app/scripts/e2e-web-build.sh') }}
@@ -281,7 +282,7 @@ jobs:
 
       - name: Save pnpm store cache
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
@@ -317,13 +318,13 @@ jobs:
 
       - name: Save Playwright E2E artifact cache
         if: always() && steps.playwright-artifact-cache.outputs.cache-hit != 'true' && hashFiles('.ci/artifacts/e2e-playwright-linux.tar.gz') != ''
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .ci/artifacts/e2e-playwright-linux.tar.gz
           key: ${{ steps.playwright-artifact-cache.outputs.cache-primary-key }}
 
       - name: Upload Playwright E2E artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: e2e-playwright-linux-${{ github.run_id }}
           path: .ci/artifacts/e2e-playwright-linux.tar.gz
@@ -384,7 +385,7 @@ jobs:
           CARGO_BUILD_JOBS: "1"
 
       - name: Upload core lcov
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: lcov-rust-core
           path: lcov-core.info
@@ -442,7 +443,7 @@ jobs:
 
       - name: Cache CEF binary distribution
         id: cef-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/Library/Caches/tauri-cef
@@ -464,7 +465,7 @@ jobs:
 
       - name: Save CEF binary distribution cache
         if: always() && steps.cef-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/Library/Caches/tauri-cef
@@ -472,7 +473,7 @@ jobs:
           key: ${{ steps.cef-cache.outputs.cache-primary-key }}
 
       - name: Upload tauri lcov
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: lcov-rust-tauri
           path: lcov-tauri.info
@@ -510,7 +511,7 @@ jobs:
 
       - name: Cache pnpm store
         id: pnpm-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -531,7 +532,7 @@ jobs:
 
       - name: Save pnpm store cache
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
@@ -579,7 +580,7 @@ jobs:
 
       - name: Cache pnpm store
         id: pnpm-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -591,13 +592,13 @@ jobs:
 
       - name: Save pnpm store cache
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Download Playwright E2E artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: e2e-playwright-linux-${{ github.run_id }}
           path: .
@@ -624,7 +625,7 @@ jobs:
 
       - name: Upload Playwright E2E failure artifacts
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: e2e-playwright-failure-logs-${{ github.run_id }}
           path: |
@@ -741,7 +742,7 @@ jobs:
 
       - name: Download all lcov artifacts
         if: needs.changes.outputs.coverage == 'true'
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           path: lcov-artifacts
           pattern: lcov-*
@@ -770,7 +771,7 @@ jobs:
 
       - name: Upload diff-cover report
         if: always() && needs.changes.outputs.coverage == 'true'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: diff-coverage-report
           path: |

@@ -62,21 +62,26 @@ const FALLBACK_PRICING: ModelPricing = ModelPricing {
 /// them as best-effort estimates for cases where the backend doesn't
 /// echo `charged_amount_usd`.
 pub const PRICING_TABLE: &[ModelPricing] = &[
-    // Reasoning tier — currently maps to Claude Opus 4.x family.
+    // Reasoning tier — currently maps to the Claude Opus 4.x family. Rates
+    // track the `cost::catalog` Opus 4.8 row (input $5 / cached $0.50 /
+    // output $25 per Mtok, as-of 2026-06). These were previously $15/$1.50/$75
+    // (Opus 3.x-era list prices) — ~3× the current rate — which over-estimated
+    // every reasoning turn that fell back to estimation. Keep in sync with the
+    // catalog when it refreshes.
     ModelPricing {
         model: "reasoning-v1",
-        input_per_mtok_usd: 15.00,
-        cached_input_per_mtok_usd: 1.50,
-        output_per_mtok_usd: 75.00,
+        input_per_mtok_usd: 5.00,
+        cached_input_per_mtok_usd: 0.50,
+        output_per_mtok_usd: 25.00,
     },
     // Chat tier — Kimi K2.6 Turbo on Fireworks (backend PR #760).
-    // Low TTFT, 128k context, `supportsThinking: false`. Rates track
-    // Fireworks' published Kimi turbo pricing at time of writing.
+    // Low TTFT, 128k context, `supportsThinking: false`. Rates track the
+    // `cost::catalog` kimi-k2.6 row ($0.95 / $0.16 / $4.00 per Mtok).
     ModelPricing {
         model: "chat-v1",
-        input_per_mtok_usd: 0.60,
-        cached_input_per_mtok_usd: 0.06,
-        output_per_mtok_usd: 2.50,
+        input_per_mtok_usd: 0.95,
+        cached_input_per_mtok_usd: 0.16,
+        output_per_mtok_usd: 4.00,
     },
     // Legacy chat tier slug retained for older transcripts/configs.
     ModelPricing {
@@ -236,7 +241,9 @@ mod tests {
 
     #[test]
     fn lookup_pricing_matches_canonical_tiers() {
-        assert_eq!(lookup_pricing("reasoning-v1").input_per_mtok_usd, 15.0);
+        // Reasoning tier tracks the catalogued Opus 4.8 rate ($5/Mtok input),
+        // not the stale $15 Opus 3.x list price.
+        assert_eq!(lookup_pricing("reasoning-v1").input_per_mtok_usd, 5.0);
         assert_eq!(lookup_pricing("agentic-v1").output_per_mtok_usd, 15.0);
     }
 
@@ -257,7 +264,9 @@ mod tests {
 
     #[test]
     fn lookup_pricing_handles_concrete_vendor_names() {
-        assert_eq!(lookup_pricing("claude-opus-4.7").input_per_mtok_usd, 15.0);
+        // `claude-opus-4.7` (dotted, not a catalog id) resolves via the `opus`
+        // vendor heuristic to the reasoning tier — now $5/Mtok input.
+        assert_eq!(lookup_pricing("claude-opus-4.7").input_per_mtok_usd, 5.0);
         assert_eq!(
             lookup_pricing("claude-sonnet-4-6").output_per_mtok_usd,
             15.0

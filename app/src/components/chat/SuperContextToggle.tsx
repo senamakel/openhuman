@@ -8,6 +8,7 @@ import {
   openhumanSetSuperContextEnabled,
 } from '../../utils/tauriCommands/config';
 import SettingsSwitch from '../settings/controls/SettingsSwitch';
+import { trackSuperContextWrite } from './superContextWrite';
 
 const log = debugFactory('chat:super-context-toggle');
 
@@ -66,9 +67,13 @@ const SuperContextToggle = () => {
       setEnabled(next);
       setBusy(true);
       log('set super_context_enabled -> %o', next);
+      const write = openhumanSetSuperContextEnabled(next);
+      // Register the write so a flip-then-immediately-Send awaits it before the
+      // new thread's session reads the persisted flag (avoids a stale first turn).
+      trackSuperContextWrite(write);
       void (async () => {
         try {
-          const res = await openhumanSetSuperContextEnabled(next);
+          const res = await write;
           setEnabled(Boolean(res.result));
         } catch (err) {
           log('failed to persist super_context_enabled, rolling back: %o', err);

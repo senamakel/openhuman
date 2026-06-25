@@ -6,7 +6,6 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
 import { selectUnreadCount } from '../../../store/notificationSlice';
-import { settingsNavState } from '../../settings/modal/settingsOverlay';
 import { Tooltip } from '../../ui';
 import { NavIcon } from './navIcons';
 import { useHomeNav } from './useHomeNav';
@@ -51,11 +50,7 @@ export default function CollapsedNavRail() {
   };
 
   const homeActive = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
-  // Settings defers to the more-specific Wallet rail item so the wallet sub-page
-  // doesn't light up both icons at once.
-  const settingsActive =
-    matchActive('/settings', location.pathname) &&
-    !matchActive('/settings/wallet-balances', location.pathname);
+  const settingsActive = matchActive('/settings', location.pathname);
 
   return (
     <nav className="flex flex-col items-center gap-2" aria-label={t('nav.home')}>
@@ -72,25 +67,6 @@ export default function CollapsedNavRail() {
               : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
           }`}>
           <NavIcon id="home" className="h-5 w-5" />
-        </button>
-      </Tooltip>
-
-      {/* Wallet shortcut — mirrors SidebarHeader wallet button for collapsed state. */}
-      <Tooltip label={t('nav.wallet')}>
-        <button
-          type="button"
-          onClick={() => navigate('/settings/wallet-balances', settingsNavState(location))}
-          aria-label={t('nav.wallet')}
-          aria-current={
-            matchActive('/settings/wallet-balances', location.pathname) ? 'page' : undefined
-          }
-          data-analytics-id="collapsed-rail-wallet"
-          className={`${RAIL_BTN} ${
-            matchActive('/settings/wallet-balances', location.pathname)
-              ? 'bg-surface text-content shadow-sm'
-              : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
-          }`}>
-          <NavIcon id="wallet" className="h-5 w-5" />
         </button>
       </Tooltip>
 

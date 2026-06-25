@@ -20,39 +20,22 @@ vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) 
 describe('SidebarHeader', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders Home, Wallet, Settings, and Collapse buttons', () => {
+  it('renders Home, Settings, and Collapse buttons', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
     expect(screen.getByRole('button', { name: 'nav.home' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'nav.wallet' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'nav.settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'chat.hideSidebar' })).toBeInTheDocument();
+    // The wallet shortcut was removed (replaced by Home, clear of the macOS
+    // window controls).
+    expect(screen.queryByRole('button', { name: 'nav.wallet' })).not.toBeInTheDocument();
   });
 
-  it('wallet button navigates to /settings/wallet-balances', () => {
+  it('Home button has correct data-analytics-id', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    fireEvent.click(screen.getByRole('button', { name: 'nav.wallet' }));
-    // Carries the backgroundLocation so the desktop Settings modal renders over
-    // the page it was opened from.
-    expect(mockNavigate).toHaveBeenCalledWith('/settings/wallet-balances', {
-      state: { backgroundLocation: expect.objectContaining({ pathname: '/home' }) },
-    });
-  });
-
-  it('wallet button has correct data-analytics-id', () => {
-    renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    expect(screen.getByRole('button', { name: 'nav.wallet' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'nav.home' })).toHaveAttribute(
       'data-analytics-id',
-      'sidebar-header-wallet'
+      'sidebar-header-home'
     );
-  });
-
-  it('wallet button has matching aria-label and title', () => {
-    renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    const btn = screen.getByRole('button', { name: 'nav.wallet' });
-    expect(btn).toHaveAttribute('aria-label', 'nav.wallet');
-    // The styled <Tooltip> wrapper re-applies a native `title` fallback so the
-    // label still surfaces if the portal pill is occluded by a CEF webview.
-    expect(btn).toHaveAttribute('title', 'nav.wallet');
   });
 
   it('settings button navigates to /settings', () => {

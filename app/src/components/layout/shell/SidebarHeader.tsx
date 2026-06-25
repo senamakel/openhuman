@@ -22,40 +22,25 @@ export default function SidebarHeader() {
   const handleHome = useHomeNav();
 
   return (
-    <div className="flex items-center justify-between gap-1 px-2 py-1.5">
-      <Tooltip label={t('nav.home')}>
-        <button
-          type="button"
-          onClick={handleHome}
-          className={ICON_BTN}
-          data-analytics-id="sidebar-header-home"
-          aria-label={t('nav.home')}>
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.8}
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a2 2 0 01-2-2v-4a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2z"
-            />
-          </svg>
-        </button>
-      </Tooltip>
-
+    // Right-aligned so the macOS traffic lights (top-left, overlay title bar)
+    // sit in the empty left space — the icons stay clear of the window controls
+    // and inline with them (no extra top padding).
+    <div className="flex items-center justify-end gap-1 px-2 py-1.5">
       <div className="flex items-center gap-0.5">
-        {/* Wallet shortcut — one-click access to wallet balances. */}
-        <Tooltip label={t('nav.wallet')}>
+        {/* Home shortcut (replaces the former wallet shortcut). */}
+        <Tooltip label={t('nav.home')}>
           <button
             type="button"
-            onClick={() => navigate('/settings/wallet-balances', settingsNavState(location))}
+            onClick={handleHome}
             className={ICON_BTN}
-            data-analytics-id="sidebar-header-wallet"
-            aria-label={t('nav.wallet')}>
+            data-analytics-id="sidebar-header-home"
+            aria-label={t('nav.home')}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={1.8}
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a2 2 0 01-2-2v-4a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2z"
               />
             </svg>
           </button>

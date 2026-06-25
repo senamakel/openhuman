@@ -47,17 +47,9 @@ export default function AppSidebar() {
     navigate('/feedback');
   };
 
-  // On macOS the window uses an overlay title bar (traffic lights float over the
-  // content), so reserve a short draggable strip at the very top of the sidebar
-  // for them — this shifts the header's home/collapse icons clear of the
-  // close/minimize/zoom controls.
-  const isMac =
-    typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent);
-
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
-      {isMac && <div data-tauri-drag-region className="h-7 flex-shrink-0" />}
-      <div className="flex-shrink-0 border-b border-line/70">
+      <div className="flex-shrink-0 border-b border-line/70" data-tauri-drag-region>
         <SidebarHeader />
       </div>
       <div className="flex-shrink-0">

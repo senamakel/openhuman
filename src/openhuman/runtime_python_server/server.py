@@ -25,6 +25,13 @@ def _error(req_id, code, message):
     return {"id": req_id, "ok": False, "error": {"code": code, "message": str(message)}}
 
 
+def _configure_stdio():
+    if hasattr(sys.stdin, "reconfigure"):
+        sys.stdin.reconfigure(encoding="utf-8")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
+
 def _load_spacy():
     global _spacy_nlp
     if _spacy_nlp is not None:
@@ -73,6 +80,7 @@ def _handle(req):
 
 
 def main():
+    _configure_stdio()
     try:
         _load_spacy()
     except Exception as exc:
@@ -88,6 +96,9 @@ def main():
             req = json.loads(line)
         except Exception as exc:
             _emit(_error(None, "bad_json", exc))
+            continue
+        if not isinstance(req, dict):
+            _emit(_error(None, "bad_request", "request must be a JSON object"))
             continue
         try:
             _emit(_handle(req))

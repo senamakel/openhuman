@@ -1,9 +1,11 @@
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
+use tokio::sync::Mutex;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::runtime_python::PythonBootstrap;
@@ -12,6 +14,12 @@ pub const SPACY_MODEL: &str = "en_core_web_sm";
 
 const VENV_TIMEOUT: Duration = Duration::from_secs(120);
 const PIP_TIMEOUT: Duration = Duration::from_secs(600);
+
+static SPACY_PROVISION_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn spacy_provision_lock() -> &'static Mutex<()> {
+    SPACY_PROVISION_LOCK.get_or_init(|| Mutex::new(()))
+}
 
 #[derive(Debug, Clone)]
 pub struct SpacyRuntime {
@@ -41,6 +49,7 @@ pub async fn extract(config: &Config, text: &str) -> Result<SpacyResponse> {
 }
 
 pub async fn ensure_spacy(config: &Config) -> Result<SpacyRuntime> {
+    let _guard = spacy_provision_lock().lock().await;
     if !config.runtime_python.enabled {
         bail!("runtime_python disabled — cannot provision spaCy");
     }

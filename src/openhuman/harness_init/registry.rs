@@ -6,8 +6,8 @@
 //!
 //! Current steps (all non-required — failure degrades to a fallback):
 //!   1. `python_runtime` — managed CPython (prerequisite for spaCy).
-//!   2. `runtime_python_server` — long-running Python backend host.
-//!   3. `spacy`          — spaCy venv + `en_core_web_sm` model.
+//!   2. `spacy`          — spaCy venv + `en_core_web_sm` model.
+//!   3. `runtime_python_server` — long-running Python backend host.
 //!   4. `node_runtime`   — managed Node.js (skills / MCP).
 //!
 //! Voice models (Whisper, Piper) and Ollama stay lazy/opt-in and are
@@ -41,8 +41,8 @@ pub struct HarnessInitStep {
 pub fn all_steps() -> Vec<HarnessInitStep> {
     vec![
         python_runtime_step(),
-        runtime_python_server_step(),
         spacy_step(),
+        runtime_python_server_step(),
         node_runtime_step(),
     ]
 }
@@ -207,8 +207,8 @@ mod tests {
             ids,
             vec![
                 "python_runtime",
-                "runtime_python_server",
                 "spacy",
+                "runtime_python_server",
                 "node_runtime"
             ]
         );

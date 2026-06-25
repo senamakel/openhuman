@@ -26,28 +26,29 @@ use std::fmt::Write as _;
 /// The sub-agent archetype this tool drives.
 const SCOUT_AGENT_ID: &str = "context_scout";
 
-/// Whether `output` contains exactly one well-formed `[context_bundle] …
-/// [/context_bundle]` envelope (open tag before a matching close tag, and no
-/// second open tag).
+/// Whether `output` is exactly one well-formed `[context_bundle] …
+/// [/context_bundle]` envelope and *nothing else*: the trimmed output must
+/// start with the open tag, end with the close tag, and contain exactly one of
+/// each.
 ///
 /// The harness prepends every non-error `run_context_scout` result to turn 1
 /// as "Prepared context", so a prompt drift / model regression in
-/// `context_scout` that emits free-form prose (or a malformed/duplicated
-/// envelope) would otherwise silently inject arbitrary text. We reject those
-/// so the caller falls back to the un-augmented message instead.
+/// `context_scout` that emits free-form prose (e.g. `Sure, here's what I
+/// found:\n[context_bundle]…[/context_bundle]`), or a malformed/duplicated
+/// envelope, would otherwise silently inject arbitrary text. We reject those so
+/// the caller falls back to the un-augmented message instead. The scout's own
+/// contract is "emit the single envelope and nothing outside it".
 fn is_well_formed_context_bundle(output: &str) -> bool {
     const OPEN: &str = "[context_bundle]";
     const CLOSE: &str = "[/context_bundle]";
-    // Exactly one open tag, exactly one close tag, open before close.
-    let opens = output.matches(OPEN).count();
-    let closes = output.matches(CLOSE).count();
-    if opens != 1 || closes != 1 {
-        return false;
-    }
-    match (output.find(OPEN), output.find(CLOSE)) {
-        (Some(o), Some(c)) => o + OPEN.len() <= c,
-        _ => false,
-    }
+    let trimmed = output.trim();
+    // Exactly one open + one close tag, with no text outside the envelope.
+    trimmed.starts_with(OPEN)
+        && trimmed.ends_with(CLOSE)
+        && trimmed.matches(OPEN).count() == 1
+        && trimmed.matches(CLOSE).count() == 1
+        // Guard the degenerate case where OPEN/CLOSE overlap on too-short input.
+        && trimmed.len() >= OPEN.len() + CLOSE.len()
 }
 
 /// Run the `context_scout` sub-agent inline (blocking) for `question` and
@@ -518,6 +519,26 @@ mod tests {
     fn rejects_duplicated_envelope() {
         assert!(!is_well_formed_context_bundle(
             "[context_bundle]a[/context_bundle][context_bundle]b[/context_bundle]"
+        ));
+    }
+
+    #[test]
+    fn rejects_prose_around_the_envelope() {
+        // Leading prose before the bundle.
+        assert!(!is_well_formed_context_bundle(
+            "Sure, here's what I found:\n[context_bundle]\nsummary: x\n[/context_bundle]"
+        ));
+        // Trailing prose after the bundle.
+        assert!(!is_well_formed_context_bundle(
+            "[context_bundle]\nsummary: x\n[/context_bundle]\nHope that helps!"
+        ));
+    }
+
+    #[test]
+    fn accepts_envelope_with_surrounding_whitespace() {
+        // Leading/trailing whitespace is trimmed, not treated as prose.
+        assert!(is_well_formed_context_bundle(
+            "\n  [context_bundle]\nsummary: x\n[/context_bundle]\n  "
         ));
     }
 }

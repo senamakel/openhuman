@@ -36,11 +36,16 @@ use std::sync::Arc;
 ///   turns would spawn `context_scout` and prepend a prepared-context block,
 ///   adding unexpected LLM/tool work and changing automated outputs; AND
 /// - `first_turn` — the agent's `history` is empty at turn start; AND
-/// - `!has_cached_transcript` — no resumed/loaded transcript prefix is seeded
-///   into `cached_transcript_messages`. A thread resumed cold (web-chat task
-///   rebuilt for an existing conversation, or a transcript loaded from disk)
-///   also has an empty `history`, so this cache check is what distinguishes a
-///   *new* thread from a *resumed* one; AND
+/// - `!has_prior_conversation` — the seeded `cached_transcript_messages`
+///   prefix contains no prior **assistant** reply. A thread resumed cold
+///   (web-chat task rebuilt for an existing conversation, or a transcript
+///   loaded from disk) also has an empty `history`, so the seeded prefix is
+///   what distinguishes a *new* thread from a *resumed* one. We key on a prior
+///   assistant message rather than "any cached prefix" because an
+///   attachment-first new thread can seed a single just-persisted *user* row
+///   (the expanded `[IMAGE:…]`/`[FILE:…]` send payload doesn't exact-match the
+///   persisted `content`, so `seed_resume_from_messages` can't drop it) — that
+///   is still a brand-new conversation and should get super context; AND
 /// - `enabled` — the `context.super_context_enabled` config flag is on.
 ///
 /// Pulled out as a pure function so the gate (in particular the resume and
@@ -48,10 +53,10 @@ use std::sync::Arc;
 fn should_run_super_context(
     is_orchestrator: bool,
     first_turn: bool,
-    has_cached_transcript: bool,
+    has_prior_conversation: bool,
     enabled: bool,
 ) -> bool {
-    is_orchestrator && first_turn && !has_cached_transcript && enabled
+    is_orchestrator && first_turn && !has_prior_conversation && enabled
 }
 
 impl Agent {
@@ -486,10 +491,17 @@ impl Agent {
         // the parent's provider via the PARENT_CONTEXT task-local. Best-effort:
         // any failure (scout error, no bundle) leaves the turn to proceed with
         // the un-augmented message rather than blocking the user.
+        // A genuinely new thread has no prior assistant reply in its seeded
+        // transcript prefix; a cold-resumed thread does. (An attachment-first
+        // new thread may seed a lone user row — see `should_run_super_context`.)
+        let has_prior_conversation = self
+            .cached_transcript_messages
+            .as_ref()
+            .is_some_and(|msgs| msgs.iter().any(|m| m.role == "assistant"));
         let enriched = if should_run_super_context(
             self.agent_definition_id == "orchestrator",
             first_turn,
-            self.cached_transcript_messages.is_some(),
+            has_prior_conversation,
             self.context.super_context_enabled(),
         ) {
             log::info!(
@@ -1004,10 +1016,19 @@ mod super_context_gate_tests {
     #[test]
     fn skips_on_cold_resumed_thread_even_on_first_turn() {
         // Regression: a thread resumed cold has an empty `history` (so
-        // `first_turn` is true) but a seeded `cached_transcript_messages`
-        // prefix. Super context must NOT re-fire on these existing
+        // `first_turn` is true) but a seeded prefix that includes a prior
+        // assistant reply. Super context must NOT re-fire on these existing
         // conversations.
         assert!(!should_run_super_context(true, true, true, true));
+    }
+
+    #[test]
+    fn runs_for_attachment_first_new_thread_with_lone_seeded_user_row() {
+        // Regression: an attachment-first new thread can seed a single just-
+        // persisted *user* row (no assistant reply), so `has_prior_conversation`
+        // is false. That is still a brand-new conversation — super context
+        // should run.
+        assert!(should_run_super_context(true, true, false, true));
     }
 
     #[test]

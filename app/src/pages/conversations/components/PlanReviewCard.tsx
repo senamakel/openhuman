@@ -70,7 +70,7 @@ export const PlanReviewCard: React.FC<Props> = ({ threadId, review }) => {
       role="alertdialog"
       aria-label={t('conversations.planReview.title')}
       data-testid="plan-review-card"
-      className="mb-2 rounded-xl border border-ocean-300 bg-white p-3 text-sm shadow-md dark:border-ocean-700 dark:bg-neutral-900">
+      className="mb-2 rounded-xl border border-ocean-300 bg-surface p-3 text-sm shadow-md dark:border-ocean-700">
       <div className="flex items-start gap-2">
         <span aria-hidden className="text-base leading-none text-ocean-700 dark:text-ocean-200">
           🗺️

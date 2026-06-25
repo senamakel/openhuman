@@ -81,9 +81,9 @@ describe('<ComposerTokenStats />', () => {
   it('highlights the context segment while the breakdown is open', () => {
     renderWithUsage(oneTurn);
     const ctx = screen.getByText(/token\.ctxLabel/);
-    expect(ctx.className).not.toMatch(/bg-ocean/);
+    expect(ctx.className).not.toMatch(/bg-primary/);
     fireEvent.click(screen.getByRole('button'));
-    expect(ctx.className).toMatch(/bg-ocean/);
+    expect(ctx.className).toMatch(/bg-primary/);
   });
 
   it('closes on Escape and on an outside click', () => {

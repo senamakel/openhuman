@@ -36,10 +36,10 @@ function UsageRow({ label, tip, value }: { label: string; tip: string; value: st
     <div className="flex justify-between gap-3">
       <dt
         title={tip}
-        className="cursor-help underline decoration-dotted decoration-stone-300 underline-offset-2 dark:decoration-neutral-600">
+        className="cursor-help underline decoration-dotted decoration-content-faint underline-offset-2">
         {label}
       </dt>
-      <dd className="font-mono text-stone-700 dark:text-neutral-200">{value}</dd>
+      <dd className="font-mono text-content">{value}</dd>
     </div>
   );
 }
@@ -58,10 +58,10 @@ function AgentLine({
 }) {
   return (
     <li className="flex items-center justify-between gap-3">
-      <span className="truncate text-stone-600 dark:text-neutral-300" title={name}>
+      <span className="truncate text-content-secondary" title={name}>
         {name}
       </span>
-      <span className="whitespace-nowrap font-mono text-stone-700 dark:text-neutral-200">
+      <span className="whitespace-nowrap font-mono text-content">
         {fmt(tokens)} · {fmtUsd(costUsd)} · {runs}×
       </span>
     </li>
@@ -150,9 +150,7 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
       key="ctx"
       title={t('token.contextWindow')}
       className={
-        open
-          ? 'rounded bg-ocean-100 px-1 text-ocean-700 dark:bg-ocean-500/20 dark:text-ocean-300'
-          : undefined
+        open ? 'rounded bg-primary-500/15 px-1 text-primary-700 dark:text-primary-300' : undefined
       }>
       {t('token.ctxLabel')} {contextPct}% ({fmt(contextUsed)}/{fmt(contextWindow)})
     </span>
@@ -177,7 +175,7 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
           aria-label={t('token.sessionUsageTitle')}
-          className="flex min-w-0 cursor-pointer flex-wrap items-center gap-1.5 border-0 bg-transparent p-0 text-[10px] font-mono text-stone-400 dark:text-neutral-500 select-none">
+          className="flex min-w-0 cursor-pointer flex-wrap items-center gap-1.5 border-0 bg-transparent p-0 text-[10px] font-mono text-content-faint select-none">
           {parts.map((part, i) => (
             <span key={i} className="contents">
               {part}
@@ -190,18 +188,14 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
           data-testid="composer-token-breakdown"
           role="dialog"
           aria-label={t('token.sessionUsageTitle')}
-          className="absolute bottom-full left-0 z-50 mb-1.5 w-64 rounded-md border border-stone-200 bg-white p-2.5 text-[11px] shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
-          <div className="mb-1.5 font-semibold text-stone-700 dark:text-neutral-200">
-            {t('token.sessionUsageTitle')}
-          </div>
+          className="absolute bottom-full left-0 z-50 mb-1.5 w-64 rounded-md border border-line-strong bg-surface p-2.5 text-[11px] shadow-lg">
+          <div className="mb-1.5 font-semibold text-content">{t('token.sessionUsageTitle')}</div>
           {model && (
-            <div
-              className="mb-1.5 truncate font-mono text-stone-400 dark:text-neutral-500"
-              title={model}>
+            <div className="mb-1.5 truncate font-mono text-content-faint" title={model}>
               {model}
             </div>
           )}
-          <dl className="space-y-0.5 text-stone-500 dark:text-neutral-400">
+          <dl className="space-y-0.5 text-content-secondary">
             <UsageRow label={t('token.popInput')} tip={t('token.tipInput')} value={fmt(inTok)} />
             <UsageRow label={t('token.popOutput')} tip={t('token.tipOutput')} value={fmt(outTok)} />
             {ok(cachedTok) && (
@@ -224,11 +218,9 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
               value={fmtUsd(costUsd)}
             />
           </dl>
-          <div className="mt-2 border-t border-stone-100 pt-1.5 dark:border-neutral-700">
-            <div className="mb-1 font-semibold text-stone-700 dark:text-neutral-200">
-              {t('token.byAgentHeading')}
-            </div>
-            <ul className="space-y-0.5 text-stone-500 dark:text-neutral-400">
+          <div className="mt-2 border-t border-line-subtle pt-1.5">
+            <div className="mb-1 font-semibold text-content">{t('token.byAgentHeading')}</div>
+            <ul className="space-y-0.5 text-content-secondary">
               {/* Orchestrator first, then each sub-agent archetype. */}
               <AgentLine
                 name={t('token.orchestrator')}
@@ -247,9 +239,7 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
               ))}
             </ul>
             {subAgents.length === 0 && (
-              <div className="mt-0.5 text-stone-400 dark:text-neutral-500">
-                {t('token.noSubAgents')}
-              </div>
+              <div className="mt-0.5 text-content-faint">{t('token.noSubAgents')}</div>
             )}
           </div>
         </div>

@@ -37,6 +37,13 @@ pub enum AgentProgress {
         arguments: serde_json::Value,
         /// 1-based iteration index.
         iteration: u32,
+        /// Server-computed human label for the chat processing timeline
+        /// (e.g. "Reading messages"), or `None` to defer to the client
+        /// formatter. Set from [`crate::openhuman::tools::traits::Tool::display_label`].
+        display_label: Option<String>,
+        /// Server-computed contextual detail shown after the label
+        /// (e.g. "steven@gmail.com"), from `Tool::display_detail`.
+        display_detail: Option<String>,
     },
 
     /// A tool execution completed (success or failure).
@@ -155,6 +162,12 @@ pub enum AgentProgress {
         arguments: serde_json::Value,
         /// 1-based child iteration index this call belongs to.
         iteration: u32,
+        /// Server-computed human label for the timeline (e.g. "Reading
+        /// messages"), or `None` to defer to the client formatter. Mirrors
+        /// the top-level `ToolCallStarted.display_label`.
+        display_label: Option<String>,
+        /// Server-computed contextual detail (e.g. "steven@gmail.com").
+        display_detail: Option<String>,
     },
 
     /// A sub-agent's tool execution finished.

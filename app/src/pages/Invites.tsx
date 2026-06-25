@@ -1,6 +1,7 @@
 import debugFactory from 'debug';
 import { useEffect, useRef, useState } from 'react';
 
+import Button from '../components/ui/Button';
 import { useUser } from '../hooks/useUser';
 import { useT } from '../lib/i18n/I18nContext';
 import { inviteApi } from '../services/api/inviteApi';
@@ -46,9 +47,12 @@ const CodeRow = ({ invite }: { invite: InviteCode }) => {
             {t('common.enabled')}
           </span>
         )}
-        <button
+        <Button
+          iconOnly
+          variant="tertiary"
+          size="sm"
           onClick={handleCopy}
-          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-stone-400 hover:text-stone-200"
+          aria-label={t('common.copy')}
           title={t('common.copy')}>
           {copied ? (
             <svg
@@ -73,7 +77,7 @@ const CodeRow = ({ invite }: { invite: InviteCode }) => {
               />
             </svg>
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -173,12 +177,13 @@ const Invites = () => {
                     className="flex-1 px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl font-mono text-sm tracking-wider placeholder:text-stone-500 placeholder:tracking-normal placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all"
                     disabled={redeemStatus === 'loading'}
                   />
-                  <button
+                  <Button
+                    variant="primary"
                     onClick={handleRedeem}
                     disabled={redeemStatus === 'loading' || !redeemInput.trim()}
-                    className="btn-primary px-5 py-2.5 text-sm font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                    className="whitespace-nowrap">
                     {redeemStatus === 'loading' ? '...' : t('rewards.referrals')}
-                  </button>
+                  </Button>
                 </div>
                 {redeemStatus === 'success' && (
                   <p className="text-sage-500 text-xs mt-2">{t('common.success')}</p>

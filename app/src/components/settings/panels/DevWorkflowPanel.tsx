@@ -596,7 +596,12 @@ const DevWorkflowPanel = () => {
                 disabled={running}>
                 {running ? t('settings.devWorkflow.running') : t('settings.devWorkflow.runNow')}
               </Button>
-              <Button type="button" variant="danger" size="xs" onClick={() => void handleRemove()}>
+              <Button
+                type="button"
+                variant="secondary"
+                tone="danger"
+                size="xs"
+                onClick={() => void handleRemove()}>
                 {t('settings.devWorkflow.remove')}
               </Button>
             </div>

@@ -58,7 +58,7 @@ export default function CollapsedNavRail() {
     !matchActive('/settings/wallet-balances', location.pathname);
 
   return (
-    <nav className="flex flex-col items-center gap-0.5" aria-label={t('nav.home')}>
+    <nav className="flex flex-col items-center gap-2" aria-label={t('nav.home')}>
       {/* Home */}
       <Tooltip label={t('nav.home')}>
         <button
@@ -71,7 +71,7 @@ export default function CollapsedNavRail() {
               ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
               : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
           }`}>
-          <NavIcon id="home" className="h-4 w-4" />
+          <NavIcon id="home" className="h-5 w-5" />
         </button>
       </Tooltip>
 
@@ -90,7 +90,7 @@ export default function CollapsedNavRail() {
               ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
               : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
           }`}>
-          <NavIcon id="wallet" className="h-4 w-4" />
+          <NavIcon id="wallet" className="h-5 w-5" />
         </button>
       </Tooltip>
 
@@ -111,7 +111,7 @@ export default function CollapsedNavRail() {
                   ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
                   : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
               }`}>
-              <NavIcon id={tab.id} className="h-4 w-4" />
+              <NavIcon id={tab.id} className="h-5 w-5" />
               {showBadge && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-[13px] min-w-[13px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-bold leading-none text-white">
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -136,7 +136,7 @@ export default function CollapsedNavRail() {
             ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
             : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
         }`}>
-        <NavIcon id="settings" className="h-4 w-4" />
+        <NavIcon id="settings" className="h-5 w-5" />
       </button>
     </nav>
   );

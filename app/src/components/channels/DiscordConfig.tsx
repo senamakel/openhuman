@@ -22,6 +22,7 @@ import type {
 import { isLocalSessionToken } from '../../utils/localSession';
 import { openUrl } from '../../utils/openUrl';
 import { restartCoreProcess } from '../../utils/tauriCommands/core';
+import Button from '../ui/Button';
 import {
   ChannelAuthFields,
   ChannelAuthModeCard,
@@ -333,12 +334,9 @@ const DiscordConfig = ({ definition }: DiscordConfigProps) => {
                   <code className="flex-1 rounded bg-white dark:bg-neutral-900 border border-primary-200 dark:border-primary-500/30 px-2 py-1 text-xs font-mono text-stone-800 dark:text-neutral-100 select-all break-all">
                     {linkToken}
                   </code>
-                  <button
-                    type="button"
-                    onClick={copyToken}
-                    className="shrink-0 rounded-lg border border-primary-300 dark:border-primary-500/40 px-2 py-1 text-xs font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-500/20">
+                  <Button variant="secondary" size="xs" onClick={copyToken} className="shrink-0">
                     {copied ? t('common.copied') : t('common.copy')}
-                  </button>
+                  </Button>
                 </div>
                 <p className="text-xs text-stone-500 dark:text-neutral-400">
                   {t('channels.discord.linkTokenInstruction').replace('{token}', linkToken)}

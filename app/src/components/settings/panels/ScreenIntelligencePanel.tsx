@@ -236,7 +236,8 @@ const ScreenIntelligencePanel = () => {
               </Button>
               <Button
                 type="button"
-                variant="danger"
+                variant="secondary"
+                tone="danger"
                 size="sm"
                 onClick={() => void stopSession('manual_stop')}
                 disabled={stopDisabled}>

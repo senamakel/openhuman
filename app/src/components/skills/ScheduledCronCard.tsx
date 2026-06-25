@@ -39,7 +39,6 @@
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { CoreCronJob } from '../../utils/tauriCommands/cron';
-
 import { formatSchedule } from './scheduledCronFormat';
 
 export interface ScheduledCronCardProps {
@@ -117,34 +116,28 @@ export default function ScheduledCronCard({
         {activeBadge && (
           <span
             data-testid={`${rootId}-active-badge`}
-            className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-sage-200 dark:bg-sage-500/30 text-sage-800 dark:text-sage-200 shrink-0"
-          >
+            className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-sage-200 dark:bg-sage-500/30 text-sage-800 dark:text-sage-200 shrink-0">
             {`★ ${t('settings.skillsRunner.schedule.active')}`}
           </span>
         )}
         <span
           data-testid={`${rootId}-title`}
           className={`font-mono text-sm font-semibold truncate ${
-            isActive
-              ? 'text-sage-900 dark:text-sage-100'
-              : 'text-stone-700 dark:text-neutral-200'
-          }`}
-        >
+            isActive ? 'text-sage-900 dark:text-sage-100' : 'text-stone-700 dark:text-neutral-200'
+          }`}>
           {heading}
         </span>
         {badgeCount && badgeCount > 1 ? (
           <span
             data-testid={`${rootId}-count-badge`}
-            className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-200 dark:bg-neutral-700 text-stone-700 dark:text-neutral-300 shrink-0"
-          >
+            className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-200 dark:bg-neutral-700 text-stone-700 dark:text-neutral-300 shrink-0">
             ×{badgeCount}
           </span>
         ) : null}
       </div>
       <div
         data-testid={`${rootId}-schedule`}
-        className="mt-0.5 text-xs text-stone-600 dark:text-neutral-400"
-      >
+        className="mt-0.5 text-xs text-stone-600 dark:text-neutral-400">
         {formatSchedule(job)}
       </div>
       <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-500">
@@ -158,8 +151,7 @@ export default function ScheduledCronCard({
                   job.last_status === 'ok'
                     ? 'bg-sage-100 dark:bg-sage-500/20 text-sage-700 dark:text-sage-300'
                     : 'bg-coral-100 dark:bg-coral-500/20 text-coral-700 dark:text-coral-300'
-                }`}
-              >
+                }`}>
                 {job.last_status}
               </span>
             )}
@@ -179,24 +171,18 @@ export default function ScheduledCronCard({
   // We wrap it in a stopPropagation span so toggling never bubbles up to
   // a parent card-click handler.
   const toggleBlock = (
-    <span
-      className="flex items-center gap-1.5 shrink-0"
-      onClick={(e) => e.stopPropagation()}
-    >
+    <span className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
       <button
         type="button"
         role="switch"
         aria-checked={job.enabled}
-        aria-label={
-          job.enabled ? t('skills.dashboard.disable') : t('skills.dashboard.enable')
-        }
+        aria-label={job.enabled ? t('skills.dashboard.disable') : t('skills.dashboard.enable')}
         data-testid={`${rootId}-toggle`}
         disabled={busy}
         onClick={() => onToggle(!job.enabled)}
         className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors disabled:opacity-50 ${
           job.enabled ? 'bg-sage-500' : 'bg-neutral-300 dark:bg-neutral-600'
-        }`}
-      >
+        }`}>
         <span
           className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
             job.enabled ? 'translate-x-4' : 'translate-x-0.5'
@@ -215,10 +201,7 @@ export default function ScheduledCronCard({
   const rightCluster = (
     <div className="flex items-center gap-1.5 shrink-0">
       {actions && (
-        <span
-          className="flex items-center gap-1.5"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <span className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
           {actions}
         </span>
       )}
@@ -239,22 +222,20 @@ export default function ScheduledCronCard({
       data-testid={`${rootId}-open`}
       aria-label={t('skills.dashboard.cardOpenRunner')}
       onClick={onClick}
-      onKeyDown={(e) => {
+      onKeyDown={e => {
         if (e.key === 'Enter' || e.key === ' ') {
           if (e.key === ' ') e.preventDefault();
           onClick();
         }
       }}
-      className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 cursor-pointer rounded-2xl transition-colors hover:bg-stone-100/80 dark:hover:bg-neutral-800/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-    >
+      className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 cursor-pointer rounded-2xl transition-colors hover:bg-stone-100/80 dark:hover:bg-neutral-800/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
       {headingRow}
       {rightCluster}
     </div>
   ) : (
     <div
       data-testid={`${rootId}-row`}
-      className="w-full px-4 py-3 flex items-center justify-between gap-3"
-    >
+      className="w-full px-4 py-3 flex items-center justify-between gap-3">
       {headingRow}
       {rightCluster}
     </div>
@@ -265,8 +246,7 @@ export default function ScheduledCronCard({
       key={job.id}
       data-testid={rootId}
       data-active={isActive ? 'true' : 'false'}
-      className={containerClass}
-    >
+      className={containerClass}>
       {upperRow}
       {children}
     </div>

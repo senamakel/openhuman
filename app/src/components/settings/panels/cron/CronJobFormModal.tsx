@@ -15,6 +15,7 @@ import type {
   CoreCronSchedule,
   CronAddParams,
 } from '../../../../utils/tauriCommands/cron';
+import Button from '../../../ui/Button';
 
 const log = createDebug('app:settings:CronJobFormModal');
 
@@ -294,13 +295,17 @@ const CronJobFormModal = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-stone-200 dark:border-neutral-800 flex items-center justify-between">
           <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{title}</h2>
-          <button
+          <Button
             type="button"
+            variant="tertiary"
+            iconOnly
+            size="sm"
+            aria-label={t('settings.cron.jobs.formCancel')}
             data-testid="cron-form-cancel"
             onClick={onClose}
-            className="text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors text-xl leading-none">
+            className="text-xl leading-none text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300">
             &times;
-          </button>
+          </Button>
         </div>
 
         {/* Scrollable body */}
@@ -611,22 +616,21 @@ const CronJobFormModal = ({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-stone-200 dark:border-neutral-800 flex items-center justify-end gap-3">
-          <button
+          <Button
             type="button"
+            variant="secondary"
             data-testid="cron-form-cancel"
             onClick={onClose}
-            disabled={saving}
-            className="px-4 py-2 rounded-md border border-stone-300 dark:border-neutral-700 text-sm text-stone-700 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50">
+            disabled={saving}>
             {t('settings.cron.jobs.formCancel')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             data-testid="cron-form-submit"
             onClick={() => void handleSubmit()}
-            disabled={!canSubmit}
-            className="px-4 py-2 rounded-md bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            disabled={!canSubmit}>
             {submitLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

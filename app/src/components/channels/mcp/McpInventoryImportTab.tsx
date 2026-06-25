@@ -21,6 +21,7 @@
 import { type ChangeEvent, useCallback, useMemo, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
+import Button from '../../ui/Button';
 import {
   type ClassifiedImportEntry,
   classifyImport,
@@ -181,20 +182,17 @@ const McpInventoryImportTab = ({
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={handleParse}
-            disabled={rawInput.trim().length === 0}
-            className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed">
+            disabled={rawInput.trim().length === 0}>
             {t('mcp.inventory.import.preview')}
-          </button>
+          </Button>
           {(manifest || parseError || rawInput.length > 0) && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="rounded-lg border border-stone-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800">
+            <Button variant="secondary" size="sm" onClick={handleClear}>
               {t('mcp.inventory.import.clear')}
-            </button>
+            </Button>
           )}
         </div>
         <label className="text-xs text-primary-600 dark:text-primary-300 cursor-pointer hover:underline">
@@ -276,16 +274,17 @@ const McpInventoryImportTab = ({
                     )}
                   </div>
                   {status === 'new' ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
+                      size="xs"
                       onClick={() => handleInstall(entry)}
                       aria-label={t('mcp.inventory.import.installAria').replace(
                         '{name}',
                         entry.display_name
                       )}
-                      className="shrink-0 rounded-lg bg-primary-500 px-3 py-1 text-xs font-medium text-white hover:bg-primary-600">
+                      className="shrink-0">
                       {t('mcp.inventory.import.install')}
-                    </button>
+                    </Button>
                   ) : (
                     <span className="shrink-0 text-[10px] text-stone-400 dark:text-neutral-500 italic">
                       {t('mcp.inventory.import.skipped')}

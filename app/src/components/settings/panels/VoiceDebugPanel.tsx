@@ -124,7 +124,7 @@ const VoiceDebugPanel = () => {
           control={
             <div className="space-y-3">
               <div className="flex items-center justify-end">
-                <Button type="button" variant="ghost" size="xs" onClick={() => void loadData()}>
+                <Button type="button" variant="tertiary" size="xs" onClick={() => void loadData()}>
                   {t('common.refresh')}
                 </Button>
               </div>

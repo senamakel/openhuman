@@ -205,14 +205,16 @@ const ModelStatusSection = ({
 
         {isInstallError && status?.error_detail && (
           <div className="space-y-1 pt-2 border-t border-amber-200 dark:border-amber-500/30">
-            <button
-              type="button"
+            <Button
+              variant="tertiary"
+              tone="danger"
+              size="xs"
               onClick={onToggleErrorDetail}
-              className="text-xs text-red-700 dark:text-red-300 hover:text-red-600 dark:text-red-300 underline">
+              className="underline">
               {showErrorDetail
                 ? t('settings.localModel.status.hideErrorDetails')
                 : t('settings.localModel.status.showInstallErrorDetails')}
-            </button>
+            </Button>
             {showErrorDetail && (
               <pre className="max-h-40 overflow-auto rounded bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 p-2 text-[10px] text-red-700 dark:text-red-300 leading-tight whitespace-pre-wrap break-words">
                 {status.error_detail}
@@ -281,12 +283,13 @@ const ModelStatusSection = ({
               disabled={!canSave}>
               {t('localModel.ollamaServer.saveButton')}
             </Button>
-            <button
-              type="button"
+            <Button
+              variant="tertiary"
+              size="xs"
               onClick={onResetOllamaBaseUrl}
-              className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 underline">
+              className="underline">
               {t('localModel.ollamaServer.resetButton')}
-            </button>
+            </Button>
           </div>
         </div>
       </SettingsSection>
@@ -294,7 +297,7 @@ const ModelStatusSection = ({
       <SettingsSection title={t('settings.localModel.status.runtimeStatus')}>
         <div className="px-4 py-3 space-y-3">
           <div className="flex justify-end">
-            <Button type="button" variant="ghost" size="xs" onClick={onRefreshStatus}>
+            <Button type="button" variant="tertiary" size="xs" onClick={onRefreshStatus}>
               {t('common.refresh')}
             </Button>
           </div>
@@ -406,13 +409,16 @@ const ModelStatusSection = ({
 
           {status?.error_detail && (
             <div className="space-y-1">
-              <button
+              <Button
+                variant="tertiary"
+                tone="danger"
+                size="xs"
                 onClick={onToggleErrorDetail}
-                className="text-xs text-red-600 dark:text-red-300 hover:text-red-500 underline">
+                className="underline">
                 {showErrorDetail
                   ? t('settings.localModel.status.hideErrorDetails')
                   : t('settings.localModel.status.showErrorDetails')}
-              </button>
+              </Button>
               {showErrorDetail && (
                 <pre className="max-h-40 overflow-auto rounded bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 p-2 text-[10px] text-red-600 dark:text-red-300 leading-tight whitespace-pre-wrap break-words">
                   {status.error_detail}

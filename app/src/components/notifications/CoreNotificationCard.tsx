@@ -9,6 +9,7 @@ import {
   markRead,
   type NotificationItem,
 } from '../../store/notificationSlice';
+import Button from '../ui/Button';
 import NotificationBody from './NotificationBody';
 
 // Namespaced debug per project logging rules (mirrors nativeNotifications).
@@ -128,20 +129,16 @@ const CoreNotificationCard = ({ notification: n }: Props) => {
                 const label = labelKey ? t(labelKey) : action.label;
                 const primary = isPrimaryAction(action.actionId);
                 return (
-                  <button
+                  <Button
                     key={action.actionId}
-                    type="button"
+                    variant={primary ? 'primary' : 'secondary'}
+                    size="xs"
                     disabled={pendingActionId !== null}
                     onClick={() => {
                       void handleAction(action.actionId, action.payload);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      primary
-                        ? 'bg-primary-500 text-white hover:bg-primary-600'
-                        : 'bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200 hover:bg-stone-200 dark:hover:bg-neutral-800/60'
-                    }`}>
+                    }}>
                     {label}
-                  </button>
+                  </Button>
                 );
               })}
             </div>

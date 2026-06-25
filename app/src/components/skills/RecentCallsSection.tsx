@@ -90,7 +90,10 @@ function RecentCallRow({ call }: { call: MeetCallRecord }) {
       </div>
       {participants.length > 0 && (
         <div className="mt-0.5 truncate text-[10px] text-stone-500 dark:text-neutral-400">
-          {t('skills.meetingBots.recentCallParticipants').replace('{names}', participants.join(', '))}
+          {t('skills.meetingBots.recentCallParticipants').replace(
+            '{names}',
+            participants.join(', ')
+          )}
         </div>
       )}
     </li>

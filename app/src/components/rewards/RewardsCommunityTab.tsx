@@ -8,6 +8,7 @@ import type { RewardsAchievement, RewardsSnapshot } from '../../types/rewards';
 import { DISCORD_INVITE_URL } from '../../utils/links';
 import { setOAuthReturnRoute } from '../../utils/oauthReturnRoute';
 import { openUrl } from '../../utils/openUrl';
+import Button from '../ui/Button';
 
 const log = createDebug('rewards:discord');
 
@@ -360,15 +361,16 @@ export default function RewardsCommunityTab({
                   {t('rewards.community.roleClaimDesc')}
                 </p>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="md"
                 data-testid="rewards-claim-roles-join"
                 onClick={() => {
                   void openUrl(inviteUrl);
                 }}
-                className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700">
+                className="flex-shrink-0">
                 {t('rewards.community.joinDiscord')}
-              </button>
+              </Button>
             </div>
           ) : null}
           {isLoading ? (

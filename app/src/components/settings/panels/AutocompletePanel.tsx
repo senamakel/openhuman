@@ -358,7 +358,8 @@ const AutocompletePanel = () => {
           </Button>
           <Button
             type="button"
-            variant="danger"
+            variant="secondary"
+            tone="danger"
             size="sm"
             onClick={() => void stop()}
             disabled={!status?.running}>
@@ -376,15 +377,18 @@ const AutocompletePanel = () => {
       />
 
       {/* ── Advanced link ────────────────────────────────────────────── */}
-      <button
+      <Button
         type="button"
+        variant="tertiary"
+        size="xs"
         onClick={() => navigateToSettings('autocomplete-debug')}
-        className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors">
+        trailingIcon={
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        }>
         {t('autocomplete.advancedSettings')}
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
+      </Button>
     </SettingsPanel>
   );
 };

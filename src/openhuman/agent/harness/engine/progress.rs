@@ -26,12 +26,18 @@ pub(crate) trait ProgressReporter: Send + Sync {
     async fn iteration_started(&self, _iteration: u32, _max_iterations: u32) {}
     async fn cost_updated(&self, _model: &str, _iteration: u32, _cost: &TurnCost) {}
     async fn turn_completed(&self, _iterations: u32) {}
+    /// `display_label` / `display_detail` carry the server-computed human
+    /// label (e.g. "Reading messages") and contextual detail (e.g.
+    /// "steven@gmail.com"); `None` lets the client formatter decide.
+    #[allow(clippy::too_many_arguments)]
     async fn tool_started(
         &self,
         _call_id: &str,
         _tool_name: &str,
         _arguments: &serde_json::Value,
         _iteration: u32,
+        _display_label: Option<&str>,
+        _display_detail: Option<&str>,
     ) {
     }
     #[allow(clippy::too_many_arguments)]
@@ -133,12 +139,15 @@ impl ProgressReporter for TurnProgress {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn tool_started(
         &self,
         call_id: &str,
         tool_name: &str,
         arguments: &serde_json::Value,
         iteration: u32,
+        display_label: Option<&str>,
+        display_detail: Option<&str>,
     ) {
         if let Some(ref sink) = self.sink {
             emit(
@@ -148,6 +157,8 @@ impl ProgressReporter for TurnProgress {
                     tool_name: tool_name.to_string(),
                     arguments: arguments.clone(),
                     iteration,
+                    display_label: display_label.map(str::to_string),
+                    display_detail: display_detail.map(str::to_string),
                 },
             );
         }
@@ -213,12 +224,15 @@ impl ProgressReporter for SubagentProgress {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn tool_started(
         &self,
         call_id: &str,
         tool_name: &str,
         arguments: &serde_json::Value,
         iteration: u32,
+        display_label: Option<&str>,
+        display_detail: Option<&str>,
     ) {
         if let Some(ref sink) = self.sink {
             emit(
@@ -230,6 +244,8 @@ impl ProgressReporter for SubagentProgress {
                     tool_name: tool_name.to_string(),
                     arguments: arguments.clone(),
                     iteration,
+                    display_label: display_label.map(str::to_string),
+                    display_detail: display_detail.map(str::to_string),
                 },
             );
         }

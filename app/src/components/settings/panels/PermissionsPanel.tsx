@@ -317,13 +317,14 @@ const PermissionsPanel = () => {
                       {agentPaths?.action_dir ?? '~/OpenHuman/projects'}
                     </p>
                     {!actionDirEnvLocked && (
-                      <button
-                        type="button"
-                        className="text-xs font-medium text-ocean hover:underline"
+                      <Button
+                        variant="tertiary"
+                        size="xs"
+                        className="text-ocean hover:underline"
                         onClick={startEditActionDir}
                         data-testid="permissions-action-dir-edit">
                         {t('settings.agentAccess.actionDir.edit')}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}

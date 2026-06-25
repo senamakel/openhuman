@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { updateMemorySource } from '../../services/memorySourcesService';
+import Button from '../ui/Button';
 
 interface SyncBudgetDialogProps {
   source: {
@@ -121,17 +122,12 @@ export default function SyncBudgetDialog({ source, onClose, onSaved }: SyncBudge
         {error && <p className="mt-3 text-xs text-coral-600">{error}</p>}
 
         <div className="flex justify-end gap-2 mt-5">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-md text-xs font-medium text-stone-600 dark:text-neutral-400 hover:bg-stone-100 dark:hover:bg-neutral-800">
+          <Button variant="tertiary" size="sm" onClick={onClose}>
             {t('syncConfirm.cancel')}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-3 py-1.5 rounded-md bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-xs font-medium">
+          </Button>
+          <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
             {saving ? t('autonomy.statusSaving') : t('common.save')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -144,7 +144,8 @@ function ConfirmRevokeDialog({
           </Button>
           <Button
             type="button"
-            variant="danger"
+            variant="primary"
+            tone="danger"
             size="md"
             onClick={onConfirm}
             className="flex-1"

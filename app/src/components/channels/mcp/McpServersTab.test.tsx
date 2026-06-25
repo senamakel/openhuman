@@ -145,9 +145,9 @@ describe('McpServersTab', () => {
       expect(screen.queryByText('Loading MCP servers...')).not.toBeInTheDocument();
     });
 
-    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Installed/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Registry' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Installed/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Registry' })).toBeInTheDocument();
   });
 
   it('shows empty-installed state when Installed chip is active and no servers', async () => {
@@ -161,7 +161,7 @@ describe('McpServersTab', () => {
       expect(screen.queryByText('Loading MCP servers...')).not.toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Installed/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /Installed/i }));
 
     await waitFor(() => {
       expect(screen.getByText('No MCP servers installed yet.')).toBeInTheDocument();
@@ -518,7 +518,7 @@ describe('McpServersTab', () => {
 
     await waitFor(() => screen.getByText('File Server'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Registry' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Registry' }));
 
     await waitFor(() => {
       expect(screen.queryByText('File Server')).not.toBeInTheDocument();

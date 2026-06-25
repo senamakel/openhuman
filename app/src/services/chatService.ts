@@ -28,6 +28,15 @@ export interface ChatToolCallEvent {
    * this id for end-to-end reconciliation.
    */
   tool_call_id?: string;
+  /**
+   * Server-computed human label for this call (e.g. "Reading messages"),
+   * set by the Rust `Tool::display_label`. Present for dynamic
+   * Composio/MCP/integration tools the client can't label itself; absent
+   * for built-ins the client formatter already handles.
+   */
+  tool_display_label?: string;
+  /** Server-computed contextual detail (e.g. "steven@gmail.com"). */
+  tool_display_detail?: string;
 }
 
 export interface ChatToolResultEvent {
@@ -323,6 +332,10 @@ export interface ChatSubagentToolCallEvent {
    * with no/`null` arguments.
    */
   args?: unknown;
+  /** Server-computed human label for this child call (from `Tool::display_label`). */
+  tool_display_label?: string;
+  /** Server-computed contextual detail (path / recipient / query). */
+  tool_display_detail?: string;
   subagent?: SubagentProgressDetail;
 }
 

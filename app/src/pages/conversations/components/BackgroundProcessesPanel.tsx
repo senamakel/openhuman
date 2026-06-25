@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import Button from '../../../components/ui/Button';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type {
   SubagentActivity,
@@ -163,11 +164,12 @@ export function BackgroundProcessesPanel({
               {runningLabel} · {totalLabel}
             </span>
           </div>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
             aria-label={t('conversations.backgroundTasks.close')}
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300">
+            onClick={onClose}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -176,7 +178,7 @@ export function BackgroundProcessesPanel({
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-          </button>
+          </Button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-2">

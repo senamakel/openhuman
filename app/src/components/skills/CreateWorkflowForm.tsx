@@ -43,10 +43,11 @@ import { useT } from '../../lib/i18n/I18nContext';
 import {
   type CreateWorkflowInput,
   type CreateWorkflowInputDef,
+  workflowsApi,
   type WorkflowScope,
   type WorkflowSummary,
-  workflowsApi,
 } from '../../services/api/workflowsApi';
+import Button from '../ui/Button';
 
 /** Mirrors `SkillCreateInputDef` shape used as wire payload, with one
  *  extra `localId` for stable React keys across re-renders (the wire
@@ -173,18 +174,18 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
     // undocumented [[inputs]] entry. The description is what the agent (and
     // the run form) shows to explain the input, so it's mandatory per row.
     const inputsValid = inputs.every(
-      (r) => NAME_RE.test(r.name.trim()) && r.description.trim().length > 0
+      r => NAME_RE.test(r.name.trim()) && r.description.trim().length > 0
     );
     const formValid = nameValid && descriptionValid && inputsValid && !submitting;
 
     const addRow = useCallback(() => {
-      setInputs((cur) => [...cur, newRow()]);
+      setInputs(cur => [...cur, newRow()]);
     }, []);
     const removeRow = useCallback((localId: string) => {
-      setInputs((cur) => cur.filter((r) => r.localId !== localId));
+      setInputs(cur => cur.filter(r => r.localId !== localId));
     }, []);
     const updateRow = useCallback((localId: string, patch: Partial<InputRow>) => {
-      setInputs((cur) => cur.map((r) => (r.localId === localId ? { ...r, ...patch } : r)));
+      setInputs(cur => cur.map(r => (r.localId === localId ? { ...r, ...patch } : r)));
     }, []);
 
     // Surface state to the wrapper for its submit button's disabled prop.
@@ -221,7 +222,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
           if (cancelled) return;
           if (desc.when_to_use) setWhenToUse(desc.when_to_use);
           setInputs(
-            desc.inputs.map((i) => {
+            desc.inputs.map(i => {
               nextLocalId += 1;
               return {
                 localId: `row-${nextLocalId}`,
@@ -264,11 +265,8 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
         }
       }
       if (inputs.length > 0) {
-        payload.inputs = inputs.map<CreateWorkflowInputDef>((r) => {
-          const def: CreateWorkflowInputDef = {
-            name: r.name.trim(),
-            required: r.required,
-          };
+        payload.inputs = inputs.map<CreateWorkflowInputDef>(r => {
+          const def: CreateWorkflowInputDef = { name: r.name.trim(), required: r.required };
           const desc = r.description.trim();
           if (desc) def.description = desc;
           // Default 'string' on the Rust side, omit to keep payload tidy.
@@ -297,11 +295,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
 
     useImperativeHandle(
       ref,
-      () => ({
-        isValid: () => formValid,
-        isSubmitting: () => submitting,
-        submit,
-      }),
+      () => ({ isValid: () => formValid, isSubmitting: () => submitting, submit }),
       [formValid, submitting, submit]
     );
 
@@ -316,8 +310,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
         <div>
           <label
             htmlFor="create-skill-name"
-            className="block text-xs font-medium text-stone-600 dark:text-neutral-300"
-          >
+            className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
             {t('skills.create.name')}
             <span className="text-coral-500"> *</span>
           </label>
@@ -326,7 +319,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
             ref={firstFieldRef}
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={e => setName(e.target.value)}
             required
             readOnly={isEdit}
             maxLength={128}
@@ -349,15 +342,14 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
         <div>
           <label
             htmlFor="create-skill-description"
-            className="block text-xs font-medium text-stone-600 dark:text-neutral-300"
-          >
+            className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
             {t('skills.create.description')}
             <span className="text-coral-500"> *</span>
           </label>
           <textarea
             id="create-skill-description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={e => setDescription(e.target.value)}
             required
             rows={3}
             maxLength={500}
@@ -372,8 +364,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
         <div>
           <label
             htmlFor="create-skill-when-to-use"
-            className="block text-xs font-medium text-stone-600 dark:text-neutral-300"
-          >
+            className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
             {t('skills.create.whenToUse')}
             <span className="ml-1 font-normal text-stone-400 dark:text-neutral-500">
               {t('skills.create.optional')}
@@ -382,7 +373,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
           <textarea
             id="create-skill-when-to-use"
             value={whenToUse}
-            onChange={(e) => setWhenToUse(e.target.value)}
+            onChange={e => setWhenToUse(e.target.value)}
             rows={2}
             maxLength={500}
             className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
@@ -408,21 +399,21 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                 {t('skills.create.optional')}
               </span>
             </label>
-            <button
-              type="button"
+            <Button
+              variant="tertiary"
+              size="xs"
               data-testid="create-skill-add-input"
               onClick={addRow}
-              className="text-xs font-medium text-primary-600 hover:text-primary-700"
-            >
+              className="px-0 text-primary-600 hover:bg-transparent hover:text-primary-700">
               + {t('skills.create.inputs.add')}
-            </button>
+            </Button>
           </div>
           <p className="mt-0.5 text-[11px] text-stone-500 dark:text-neutral-400">
             {t('skills.create.inputs.help')}
           </p>
           {inputs.length > 0 && (
             <div className="mt-2 space-y-2">
-              {inputs.map((row) => {
+              {inputs.map(row => {
                 const trimmed = row.name.trim();
                 const showNameErr = row.name.length > 0 && !NAME_RE.test(trimmed);
                 // A row is "in use" once it has a name; at that point its
@@ -433,14 +424,13 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                   <div
                     key={row.localId}
                     data-testid={`create-skill-input-row-${row.localId}`}
-                    className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-950/40 p-3"
-                  >
+                    className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-950/40 p-3">
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
                       <div>
                         <input
                           type="text"
                           value={row.name}
-                          onChange={(e) => updateRow(row.localId, { name: e.target.value })}
+                          onChange={e => updateRow(row.localId, { name: e.target.value })}
                           maxLength={64}
                           placeholder={t('skills.create.inputs.row.namePlaceholder')}
                           aria-label={t('skills.create.inputs.row.name')}
@@ -456,9 +446,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                         <input
                           type="text"
                           value={row.description}
-                          onChange={(e) =>
-                            updateRow(row.localId, { description: e.target.value })
-                          }
+                          onChange={e => updateRow(row.localId, { description: e.target.value })}
                           maxLength={256}
                           placeholder={t('skills.create.inputs.row.descriptionPlaceholder')}
                           aria-label={t('skills.create.inputs.row.description')}
@@ -470,15 +458,17 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                           </p>
                         )}
                       </div>
-                      <button
-                        type="button"
+                      <Button
+                        iconOnly
+                        variant="tertiary"
+                        tone="danger"
+                        size="sm"
                         data-testid={`create-skill-remove-input-${row.localId}`}
                         onClick={() => removeRow(row.localId)}
                         aria-label={t('skills.create.inputs.row.remove')}
-                        className="self-center rounded-md px-2 py-1.5 text-xs text-stone-500 hover:bg-coral-100 hover:text-coral-700"
-                      >
+                        className="self-center">
                         🗑
-                      </button>
+                      </Button>
                     </div>
                     <div className="mt-2 flex items-center gap-3 text-[11px]">
                       <label className="flex items-center gap-1">
@@ -487,30 +477,21 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                         </span>
                         <select
                           value={row.type}
-                          onChange={(e) =>
-                            updateRow(row.localId, {
-                              type: e.target.value as InputRow['type'],
-                            })
+                          onChange={e =>
+                            updateRow(row.localId, { type: e.target.value as InputRow['type'] })
                           }
                           aria-label={t('skills.create.inputs.row.type')}
-                          className="rounded border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-1 py-0.5 text-[11px] text-stone-900 dark:text-neutral-100"
-                        >
+                          className="rounded border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-1 py-0.5 text-[11px] text-stone-900 dark:text-neutral-100">
                           <option value="string">{t('skills.create.inputs.type.string')}</option>
-                          <option value="integer">
-                            {t('skills.create.inputs.type.integer')}
-                          </option>
-                          <option value="boolean">
-                            {t('skills.create.inputs.type.boolean')}
-                          </option>
+                          <option value="integer">{t('skills.create.inputs.type.integer')}</option>
+                          <option value="boolean">{t('skills.create.inputs.type.boolean')}</option>
                         </select>
                       </label>
                       <label className="flex items-center gap-1">
                         <input
                           type="checkbox"
                           checked={row.required}
-                          onChange={(e) =>
-                            updateRow(row.localId, { required: e.target.checked })
-                          }
+                          onChange={e => updateRow(row.localId, { required: e.target.checked })}
                           className="h-3 w-3 accent-primary-500"
                         />
                         <span className="text-stone-500 dark:text-neutral-400">
@@ -529,8 +510,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
         {error ? (
           <div
             role="alert"
-            className="rounded-xl border border-coral-200 bg-coral-50 p-3 text-xs text-coral-900"
-          >
+            className="rounded-xl border border-coral-200 bg-coral-50 p-3 text-xs text-coral-900">
             <p className="font-semibold">{t('workflows.create.createError')}</p>
             <p className="mt-1 whitespace-pre-wrap font-mono">{error}</p>
           </div>

@@ -192,7 +192,7 @@ const PairPhoneModal = ({ onClose, onPaired }: PairPhoneModalProps) => {
           </h3>
           <Button
             type="button"
-            variant="ghost"
+            variant="tertiary"
             size="xs"
             onClick={onClose}
             aria-label={t('common.close')}
@@ -246,7 +246,7 @@ const PairPhoneModal = ({ onClose, onPaired }: PairPhoneModalProps) => {
         {/* Footer */}
         {(state.kind === 'qr' || state.kind === 'error') && (
           <div className="px-5 pb-5">
-            <Button type="button" variant="ghost" size="md" onClick={onClose} className="w-full">
+            <Button type="button" variant="tertiary" size="md" onClick={onClose} className="w-full">
               {t('common.cancel')}
             </Button>
           </div>
@@ -321,7 +321,7 @@ function QrBody({
       {/* Details toggle */}
       <Button
         type="button"
-        variant="ghost"
+        variant="tertiary"
         size="xs"
         onClick={onToggleDetails}
         className="text-primary-500 hover:text-primary-600">
@@ -348,7 +348,7 @@ function QrBody({
               </p>
               <Button
                 type="button"
-                variant="ghost"
+                variant="tertiary"
                 size="xs"
                 onClick={() => {
                   void navigator.clipboard.writeText(qrUrl);

@@ -29,6 +29,7 @@ import {
   resolveWorkspaceAbsolutePath,
   revealWorkspacePath,
 } from '../../utils/tauriCommands/workspacePaths';
+import Button from '../ui/Button';
 import { MEMORY_CONTENT_WORKSPACE_PATH } from './memoryWorkspacePaths';
 
 /** localStorage key for the optional Obsidian config-dir override. */
@@ -193,22 +194,16 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
 
   return (
     <div className="flex flex-col items-end gap-2" data-testid="obsidian-vault-section">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={handleViewVault}
         disabled={checking}
         data-testid="memory-open-in-obsidian"
-        className="inline-flex items-center gap-1.5 rounded-lg
-                   border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold
-                   text-stone-700 shadow-sm transition-colors hover:bg-stone-50
-                   disabled:cursor-not-allowed disabled:opacity-50
-                   focus:outline-none focus:ring-2 focus:ring-stone-200
-                   dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200
-                   dark:hover:bg-neutral-800 dark:focus:ring-neutral-700"
-        title={`obsidian://open?path=${contentRootAbs}`}>
-        <ExternalLinkIcon />
+        title={`obsidian://open?path=${contentRootAbs}`}
+        leadingIcon={<ExternalLinkIcon />}>
         {checking ? t('workspace.checkingVault') : t('workspace.viewVault')}
-      </button>
+      </Button>
 
       {expanded && (
         <div
@@ -225,15 +220,9 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
           </code>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={reveal}
-              data-testid="obsidian-reveal"
-              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold
-                         text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600
-                         dark:bg-neutral-800 dark:text-neutral-200">
+            <Button variant="secondary" size="sm" onClick={reveal} data-testid="obsidian-reveal">
               {t('workspace.revealFolder')}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={openAnyway}
@@ -243,15 +232,13 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
                          dark:bg-neutral-800 dark:text-violet-300">
               {t('workspace.openAnyway')}
             </button>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={installObsidian}
-              data-testid="obsidian-install"
-              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold
-                         text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600
-                         dark:bg-neutral-800 dark:text-neutral-200">
+              data-testid="obsidian-install">
               {t('workspace.installObsidian')}
-            </button>
+            </Button>
           </div>
 
           <button

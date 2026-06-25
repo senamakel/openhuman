@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import RoutineCard from '../components/routines/RoutineCard';
+import Button from '../components/ui/Button';
 import { useT } from '../lib/i18n/I18nContext';
 import {
   type CoreCronJob,
@@ -162,10 +163,11 @@ const Routines = () => {
       <div className="max-w-lg w-full mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
             onClick={() => navigate('/home')}
-            className="p-1.5 rounded-lg text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 transition-colors"
             aria-label={t('common.back')}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -175,7 +177,7 @@ const Routines = () => {
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-          </button>
+          </Button>
           <div>
             <h1 className="text-lg font-bold text-stone-900 dark:text-neutral-100">
               {t('routines.title')}
@@ -245,12 +247,9 @@ const Routines = () => {
         {/* Refresh */}
         {!loading && jobs.length > 0 && (
           <div className="flex justify-center pt-2">
-            <button
-              type="button"
-              onClick={() => void loadJobs()}
-              className="text-xs text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-colors">
+            <Button variant="tertiary" size="xs" onClick={() => void loadJobs()}>
               {t('routines.refresh')}
-            </button>
+            </Button>
           </div>
         )}
       </div>

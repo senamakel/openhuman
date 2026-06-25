@@ -1,6 +1,7 @@
 import { useT } from '../../lib/i18n/I18nContext';
 import type { RespondQueueItem } from '../../types/providerSurfaces';
 import { openUrl } from '../../utils/openUrl';
+import Button from '../ui/Button';
 
 interface RespondQueuePanelProps {
   items: RespondQueueItem[];
@@ -46,13 +47,13 @@ export default function RespondQueuePanel({
             {count} {t('accounts.respondQueue.pending')}
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           onClick={onRefresh}
-          data-analytics-id="respond-queue-refresh"
-          className="rounded-lg border border-stone-200 dark:border-neutral-800 px-2 py-1 text-xs text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+          data-analytics-id="respond-queue-refresh">
           {t('common.refresh')}
-        </button>
+        </Button>
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {status === 'loading' && items.length === 0 ? (

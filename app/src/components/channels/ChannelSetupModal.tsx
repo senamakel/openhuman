@@ -9,6 +9,7 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { ChannelDefinition, ChannelType } from '../../types/channels';
 import { CloseIcon } from '../ui';
+import Button from '../ui/Button';
 import { renderChannelIcon } from './channelIcon';
 import DiscordConfig from './DiscordConfig';
 import TelegramConfig from './TelegramConfig';
@@ -92,11 +93,15 @@ export default function ChannelSetupModal({ definition, onClose }: ChannelSetupM
                 {definition.description}
               </p>
             </div>
-            <button
+            <Button
+              iconOnly
+              variant="tertiary"
+              size="xs"
+              aria-label={t('common.close')}
               onClick={onClose}
-              className="p-1 text-stone-400 dark:text-neutral-500 hover:text-stone-900 dark:hover:text-neutral-100 dark:text-neutral-100 dark:hover:text-neutral-100 transition-colors rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 flex-shrink-0">
+              className="flex-shrink-0">
               <CloseIcon className="w-5 h-5" />
-            </button>
+            </Button>
           </div>
         </div>
 

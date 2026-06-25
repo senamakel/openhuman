@@ -88,12 +88,13 @@ const Welcome = () => {
           <div className="flex items-center justify-between mb-4">
             <div className="w-9" aria-hidden="true" />
             <div className="w-9" aria-hidden="true" />
-            <button
-              type="button"
+            <Button
+              iconOnly
+              variant="tertiary"
               onClick={toggleTheme}
               aria-label={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
               title={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
-              className="p-2 rounded-full text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800/60 transition-colors">
+              className="rounded-full">
               {isDark ? (
                 <svg
                   className="w-5 h-5"
@@ -123,7 +124,7 @@ const Welcome = () => {
                   />
                 </svg>
               )}
-            </button>
+            </Button>
           </div>
           <div className="flex justify-center mb-6">
             <img
@@ -148,11 +149,13 @@ const Welcome = () => {
               <p>{errorMessage}</p>
               {requiresAppDataReset ? (
                 <div className="mt-3 space-y-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
+                    tone="danger"
+                    size="sm"
                     onClick={handleClearAppData}
                     disabled={isClearingAppData}
-                    className="w-full rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">
+                    className="w-full">
                     {isClearingAppData ? (
                       <span className="flex items-center justify-center gap-2">
                         <span className="h-3 w-3 animate-spin rounded-full border border-white border-t-transparent" />
@@ -161,7 +164,7 @@ const Welcome = () => {
                     ) : (
                       t('welcome.clearAppDataAndRestart')
                     )}
-                  </button>
+                  </Button>
                   <p className="text-[11px] leading-4 text-red-600/80">
                     {t('welcome.clearAppDataWarning')}
                   </p>

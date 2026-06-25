@@ -395,6 +395,7 @@ async fn drain_progress(
                 tool_name,
                 arguments,
                 iteration,
+                ..
             } => {
                 let argument_keys = argument_keys(&arguments);
                 eprintln!(
@@ -557,6 +558,7 @@ async fn drain_progress(
                 tool_name,
                 arguments: _,
                 iteration,
+                ..
             } => {
                 eprintln!(
                     "[harness_subagent_audit] progress turn={} subagent_tool_started agent_id={} task_id={} tool={} call_id={} iteration={}",

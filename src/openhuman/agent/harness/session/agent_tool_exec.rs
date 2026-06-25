@@ -67,12 +67,24 @@ pub(super) async fn run_agent_tool_call(
             uuid::Uuid::new_v4().simple()
         )
     });
+    // Resolve the tool (when visible) to compute the server-side human label
+    // + contextual detail once, so dynamic Composio/MCP tools never surface as
+    // raw snake_case. `None` when the tool isn't found → client formatter.
+    let (display_label, display_detail) = match ctx.tools.iter().find(|t| t.name() == call.name) {
+        Some(tool) => (
+            tool.display_label(&call.arguments),
+            tool.display_detail(&call.arguments),
+        ),
+        None => (None, None),
+    };
     progress
         .tool_started(
             &call_id,
             &call.name,
             &call.arguments,
             (iteration + 1) as u32,
+            display_label.as_deref(),
+            display_detail.as_deref(),
         )
         .await;
     log::info!("[agent] executing tool: {}", call.name);

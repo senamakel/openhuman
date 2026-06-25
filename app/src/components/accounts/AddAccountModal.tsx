@@ -4,6 +4,7 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useT } from '../../lib/i18n/I18nContext';
 import { type AccountProvider, type ProviderDescriptor, PROVIDERS } from '../../types/accounts';
 import { CloseIcon } from '../ui';
+import Button from '../ui/Button';
 import { ProviderIcon } from './providerIcons';
 
 interface AddAccountModalProps {
@@ -47,15 +48,16 @@ const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccou
             className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
             {t('accounts.addModal.title')}
           </h2>
-          <button
+          <Button
             ref={closeBtnRef}
-            type="button"
+            iconOnly
+            variant="tertiary"
+            size="sm"
             onClick={onClose}
             data-analytics-id="add-account-modal-close"
-            className="rounded p-1 text-stone-500 dark:text-neutral-400 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60"
             aria-label={t('common.close')}>
             <CloseIcon className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-1">

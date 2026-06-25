@@ -13,6 +13,7 @@ import {
   type PreparedTransaction,
   prepareTransfer,
 } from '../../../../services/walletApi';
+import Button from '../../../ui/Button';
 import { ModalShell } from '../../../ui/ModalShell';
 
 interface SendCryptoModalProps {
@@ -175,14 +176,14 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
               </span>
             </div>
           </label>
-          <button
+          <Button
             type="button"
             onClick={() => void handleReview()}
             disabled={busy}
-            className="btn-primary w-full py-2.5 text-sm font-medium rounded-xl disabled:opacity-60"
+            className="w-full"
             data-testid="send-review">
             {busy ? t('walletSend.preparing') : t('walletSend.review')}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -221,24 +222,25 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
             </ul>
           )}
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => {
                 setStep('form');
                 setPrepared(null);
               }}
               disabled={busy}
-              className="flex-1 py-2.5 text-sm font-medium rounded-xl border border-stone-300 dark:border-neutral-700 text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
+              className="flex-1">
               {t('common.back')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => void handleConfirm()}
               disabled={busy}
-              className="btn-primary flex-1 py-2.5 text-sm font-medium rounded-xl disabled:opacity-60"
+              className="flex-1"
               data-testid="send-confirm">
               {t('walletSend.confirmSend')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -298,12 +300,9 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
               {t('walletSend.viewExplorer')}
             </a>
           )}
-          <button
-            type="button"
-            onClick={handleDone}
-            className="btn-primary w-full py-2.5 text-sm font-medium rounded-xl mt-1">
+          <Button type="button" onClick={handleDone} className="mt-1 w-full">
             {t('walletSend.done')}
-          </button>
+          </Button>
         </div>
       )}
     </ModalShell>

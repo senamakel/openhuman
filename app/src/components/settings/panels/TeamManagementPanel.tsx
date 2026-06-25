@@ -320,9 +320,10 @@ const TeamManagementPanel = () => {
                   </Button>
                   <Button
                     type="button"
-                    variant="danger"
+                    variant="primary"
+                    tone="danger"
                     size="md"
-                    className="flex-1 bg-coral-500 hover:bg-coral-600 text-white border-0 dark:bg-coral-500 dark:hover:bg-coral-600"
+                    className="flex-1"
                     onClick={() => void handleDeleteTeam()}
                     disabled={isDeleting}>
                     {isDeleting ? t('team.deleting') : t('team.delete')}

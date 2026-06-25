@@ -5,6 +5,7 @@
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { NamespaceOverviewReport } from '../../lib/memory/namespaceOverview';
+import Button from '../ui/Button';
 
 const MAX_ROWS = 50;
 
@@ -69,12 +70,9 @@ const NamespaceOverviewPanel = ({
             {t('namespaceOverview.errorPrefix')} {error}
           </p>
           {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-2 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-600">
+            <Button variant="primary" size="sm" onClick={onRetry} className="mt-2">
               {t('namespaceOverview.retry')}
-            </button>
+            </Button>
           )}
         </div>
       </div>

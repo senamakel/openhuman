@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react';
 
+import Button from '../../../components/ui/Button';
 import { useT } from '../../../lib/i18n/I18nContext';
 import OnboardingNextButton from '../components/OnboardingNextButton';
 import WizardStepper from '../components/WizardStepper';
@@ -169,12 +170,9 @@ const CustomWizardStep = ({
       ) : null}
 
       <div className="mt-8 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 focus:outline-none">
+        <Button variant="secondary" onClick={onBack}>
           {t('onboarding.custom.back')}
-        </button>
+        </Button>
         <div className="flex-1">
           <OnboardingNextButton
             label={continueLabel ?? t('onboarding.custom.continue')}

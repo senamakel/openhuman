@@ -210,7 +210,7 @@ const TeamMembersPanel = () => {
                     {isAdmin && !isCurrentUser(member) && (
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="tertiary"
                         size="xs"
                         onClick={() => handleRemoveMember(member)}
                         disabled={removingId === member._id}
@@ -276,9 +276,10 @@ const TeamMembersPanel = () => {
                 </Button>
                 <Button
                   type="button"
-                  variant="danger"
+                  variant="primary"
+                  tone="danger"
                   size="md"
-                  className="flex-1 bg-coral-500 hover:bg-coral-600 text-white border-0 dark:bg-coral-500 dark:hover:bg-coral-600"
+                  className="flex-1"
                   onClick={() => void confirmRemoveMember()}
                   disabled={removingId === memberToRemove._id}>
                   {removingId === memberToRemove._id ? t('team.removing') : t('team.removeAction')}

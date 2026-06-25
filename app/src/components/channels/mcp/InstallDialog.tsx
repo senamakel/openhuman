@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
+import Button from '../../ui/Button';
 import { deriveAuthor } from './McpServerCard';
 import type { InstalledServer, SmitheryConnection, SmitheryServerDetail } from './types';
 
@@ -177,12 +178,13 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
         <div className="rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-4 py-3 text-sm text-coral-700 dark:text-coral-300">
           {detailError}
         </div>
-        <button
-          type="button"
+        <Button
+          variant="tertiary"
+          size="sm"
           onClick={onCancel}
-          className="text-sm text-stone-500 dark:text-neutral-400 hover:underline">
+          className="text-stone-500 dark:text-neutral-400 hover:underline">
           {t('mcp.install.back')}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -197,12 +199,13 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
   if (step === 'detail') {
     return (
       <div className="space-y-5">
-        <button
-          type="button"
+        <Button
+          variant="tertiary"
+          size="xs"
           onClick={onCancel}
-          className="text-xs text-stone-500 dark:text-neutral-400 hover:underline">
+          className="text-stone-500 dark:text-neutral-400 hover:underline">
           ← {t('mcp.install.back')}
-        </button>
+        </Button>
 
         {/* Header */}
         <div className="flex items-start gap-4">
@@ -320,24 +323,20 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
 
         {/* Actions */}
         <div className="flex gap-2 pt-1">
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="lg"
             disabled={installing}
-            onClick={() => void handleDirectInstall()}
-            className="rounded-lg bg-primary-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors">
+            onClick={() => void handleDirectInstall()}>
             {installing
               ? t('mcp.install.installing')
               : hasEnvKeys
                 ? t('mcp.install.configureAndInstall')
                 : t('mcp.install.button')}
-          </button>
-          <button
-            type="button"
-            disabled={installing}
-            onClick={onCancel}
-            className="rounded-lg border border-stone-200 dark:border-neutral-700 px-5 py-2.5 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50 transition-colors">
+          </Button>
+          <Button variant="secondary" size="lg" disabled={installing} onClick={onCancel}>
             {t('common.cancel')}
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -347,15 +346,16 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
 
   return (
     <div className="space-y-4">
-      <button
-        type="button"
+      <Button
+        variant="tertiary"
+        size="xs"
         onClick={() => {
           setStep('detail');
           setInstallError(null);
         }}
-        className="text-xs text-stone-500 dark:text-neutral-400 hover:underline">
+        className="text-stone-500 dark:text-neutral-400 hover:underline">
         ← {detail.display_name}
-      </button>
+      </Button>
 
       {/* Compact header */}
       <div className="flex items-center gap-3">
@@ -398,13 +398,14 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
                   disabled={installing}
                   className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
                 />
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => toggleShowEnv(key)}
                   disabled={installing}
-                  className="shrink-0 rounded-lg border border-stone-200 dark:border-neutral-700 px-2.5 py-1.5 text-xs text-stone-500 dark:text-neutral-400 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50">
+                  className="shrink-0">
                   {showEnv[key] ? t('mcp.install.hide') : t('mcp.install.show')}
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -448,20 +449,16 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
 
       {/* Actions */}
       <div className="flex gap-2 pt-1">
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="lg"
           disabled={installing}
-          onClick={() => void handleInstall()}
-          className="rounded-lg bg-primary-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors">
+          onClick={() => void handleInstall()}>
           {installing ? t('mcp.install.installing') : t('mcp.install.button')}
-        </button>
-        <button
-          type="button"
-          disabled={installing}
-          onClick={onCancel}
-          className="rounded-lg border border-stone-200 dark:border-neutral-700 px-4 py-2.5 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50 transition-colors">
+        </Button>
+        <Button variant="secondary" size="lg" disabled={installing} onClick={onCancel}>
           {t('common.cancel')}
-        </button>
+        </Button>
       </div>
     </div>
   );

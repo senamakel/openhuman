@@ -4,6 +4,7 @@
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { AssociationReport } from '../../lib/memory/entityAssociations';
+import Button from '../ui/Button';
 
 interface EntityAssociationsPanelProps {
   report: AssociationReport | null;
@@ -68,12 +69,9 @@ const EntityAssociationsPanel = ({
             {t('entityAssociations.errorPrefix')} {error}
           </p>
           {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-2 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-600">
+            <Button variant="primary" size="sm" onClick={onRetry} className="mt-2">
               {t('entityAssociations.retry')}
-            </button>
+            </Button>
           )}
         </div>
       </div>

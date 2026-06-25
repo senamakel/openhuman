@@ -1,5 +1,6 @@
 import { useT } from '../../lib/i18n/I18nContext';
 import type { ActionableItem, ActionableItemSource, TimeGroup } from '../../types/intelligence';
+import Button from '../ui/Button';
 import { ActionableCard } from './ActionableCard';
 
 interface IntelligenceMemoryTabProps {
@@ -133,12 +134,13 @@ export default function IntelligenceMemoryTab({
               <p className="text-stone-400 dark:text-neutral-500 text-sm mb-4">
                 {t('memory.noAnalysisHint')}
               </p>
-              <button
+              <Button
+                variant="primary"
+                size="md"
                 onClick={() => void handleAnalyzeNow()}
-                disabled={isRunning}
-                className="px-4 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-40 text-white text-sm rounded-lg transition-colors">
+                disabled={isRunning}>
                 {t('memory.analyzeNow')}
-              </button>
+              </Button>
             </>
           )}
         </div>

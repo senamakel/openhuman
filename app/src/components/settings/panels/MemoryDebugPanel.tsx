@@ -249,7 +249,7 @@ const MemoryDebugPanel = () => {
                     </div>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="tertiary"
                       size="xs"
                       disabled={Boolean(deleteLoadingId)}
                       onClick={() => void handleDelete(doc)}>
@@ -421,7 +421,8 @@ const MemoryDebugPanel = () => {
               )}
               <Button
                 type="button"
-                variant="danger"
+                variant="secondary"
+                tone="danger"
                 size="xs"
                 onClick={() => void handleClearNamespace()}
                 disabled={clearLoading || !clearNamespaceInput.trim()}>

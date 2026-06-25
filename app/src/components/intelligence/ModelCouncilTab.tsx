@@ -35,6 +35,7 @@ import {
 } from '../../store/agentProfileSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import type { AgentProfile } from '../../types/agentProfile';
+import Button from '../ui/Button';
 
 /** Matches the server-side MAX_COUNCIL_MEMBERS cap. */
 const MAX_MEMBERS = 5;
@@ -301,12 +302,9 @@ const ModelPickerDialog = ({
               {t('modelCouncil.modelPickerHelp')}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-2 py-1 text-xs font-semibold text-stone-500 hover:bg-stone-100 dark:text-neutral-400 dark:hover:bg-neutral-800">
+          <Button variant="tertiary" size="xs" onClick={onClose}>
             {t('modelCouncil.closeModelPicker')}
-          </button>
+          </Button>
         </div>
 
         <div className="mt-4 space-y-2">
@@ -389,13 +387,13 @@ const ModelPickerDialog = ({
               {providersError || modelsError}
             </p>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={saveProviderModel}
             disabled={selectionMode !== 'custom' || !provider.trim() || !model.trim()}
-            className="w-full rounded-lg bg-primary-500 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+            className="w-full">
             {t('modelCouncil.useProviderModel')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1044,13 +1042,12 @@ const ModelCouncilTab = () => {
               {t('modelCouncil.listIntro')}
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={handleCreateCouncil}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-600">
-            <Icon name="plus" size={16} />
+            leadingIcon={<Icon name="plus" size={16} />}>
             {t('modelCouncil.addCouncil')}
-          </button>
+          </Button>
         </div>
 
         {registryError && (
@@ -1083,26 +1080,32 @@ const ModelCouncilTab = () => {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
+                    <Button
+                      iconOnly
+                      variant="tertiary"
+                      size="sm"
                       onClick={() => {
                         applyCouncilDefinition(council);
                         setView('edit');
                       }}
-                      aria-label={t('modelCouncil.editCouncilAria').replace('{name}', council.name)}
-                      className="rounded-md p-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
+                      aria-label={t('modelCouncil.editCouncilAria').replace(
+                        '{name}',
+                        council.name
+                      )}>
                       <Icon name="settings" size={16} />
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      iconOnly
+                      variant="tertiary"
+                      tone="danger"
+                      size="sm"
                       onClick={() => void handleDeleteCouncil(council)}
                       aria-label={t('modelCouncil.deleteCouncilAria').replace(
                         '{name}',
                         council.name
-                      )}
-                      className="rounded-md p-1.5 text-stone-500 hover:bg-coral-50 hover:text-coral-700 dark:text-neutral-400 dark:hover:bg-coral-500/10 dark:hover:text-coral-300">
+                      )}>
                       <Icon name="trash" size={16} />
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
@@ -1141,13 +1144,14 @@ const ModelCouncilTab = () => {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
             onClick={() => setView('list')}
-            aria-label={t('modelCouncil.backToCouncils')}
-            className="rounded-md p-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
+            aria-label={t('modelCouncil.backToCouncils')}>
             <Icon name="arrow-left" size={18} />
-          </button>
+          </Button>
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold text-stone-900 dark:text-neutral-50">
               {view === 'edit' ? t('modelCouncil.editCouncil') : councilName}
@@ -1162,32 +1166,29 @@ const ModelCouncilTab = () => {
         <div className="flex items-center gap-2">
           {view === 'edit' ? (
             <>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => {
                   if (selectedCouncil) applyCouncilDefinition(selectedCouncil);
                   setView(selectedCouncil ? 'run' : 'list');
-                }}
-                className="rounded-lg border border-stone-200 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800">
+                }}>
                 {t('modelCouncil.cancelEdit')}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => void saveCouncil()}
-                disabled={registrySaving}
-                className="rounded-lg bg-primary-500 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+                disabled={registrySaving}>
                 {registrySaving ? t('modelCouncil.savingCouncil') : t('modelCouncil.saveCouncil')}
-              </button>
+              </Button>
             </>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => setView('edit')}
               aria-label={t('modelCouncil.editCurrentCouncil')}
-              className="inline-flex items-center gap-2 rounded-lg border border-stone-200 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800">
-              <Icon name="settings" size={16} />
+              leadingIcon={<Icon name="settings" size={16} />}>
               {t('modelCouncil.editCouncil')}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -1738,13 +1739,9 @@ const ModelCouncilTab = () => {
 
       {view === 'run' && (
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void handleRun()}
-            disabled={!canRun}
-            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+          <Button variant="primary" onClick={() => void handleRun()} disabled={!canRun}>
             {running ? t('modelCouncil.running') : t('modelCouncil.run')}
-          </button>
+          </Button>
           {running && (
             <span
               role="status"

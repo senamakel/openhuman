@@ -36,6 +36,7 @@ import {
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
+import Button from '../../ui/Button';
 import type { McpTool } from './types';
 
 interface McpToolPlaygroundProps {
@@ -261,11 +262,13 @@ const McpToolPlayground = ({ serverId, tool, onClose }: McpToolPlaygroundProps) 
               </p>
             )}
           </div>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
             onClick={onClose}
             aria-label={t('mcp.playground.close')}
-            className="shrink-0 rounded-lg p-1.5 text-stone-400 hover:text-stone-700 dark:text-neutral-500 dark:hover:text-neutral-200 transition-colors">
+            className="shrink-0">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -275,7 +278,7 @@ const McpToolPlayground = ({ serverId, tool, onClose }: McpToolPlaygroundProps) 
               aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {/* Input schema (collapsible) */}
@@ -348,13 +351,9 @@ const McpToolPlayground = ({ serverId, tool, onClose }: McpToolPlaygroundProps) 
 
         {/* Run button */}
         <div className="flex justify-end gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => void handleRun()}
-            disabled={isRunning}
-            className="rounded-lg bg-primary-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed">
+          <Button variant="primary" size="sm" onClick={() => void handleRun()} disabled={isRunning}>
             {isRunning ? t('mcp.playground.running') : t('mcp.playground.run')}
-          </button>
+          </Button>
         </div>
 
         {/* Result */}

@@ -246,7 +246,7 @@ export default function GoalsPanel() {
                       />
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="tertiary"
                         size="xs"
                         onClick={() => void saveEdit(goal.id)}
                         disabled={busyId === goal.id || !editText.trim()}
@@ -255,7 +255,7 @@ export default function GoalsPanel() {
                       </Button>
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="tertiary"
                         size="xs"
                         onClick={cancelEdit}
                         aria-label={t('common.cancel')}>
@@ -270,7 +270,7 @@ export default function GoalsPanel() {
                       <div className="flex shrink-0 items-center gap-1">
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="tertiary"
                           size="xs"
                           onClick={() => startEdit(goal)}
                           disabled={busyId === goal.id}
@@ -279,7 +279,8 @@ export default function GoalsPanel() {
                         </Button>
                         <Button
                           type="button"
-                          variant="danger"
+                          variant="secondary"
+                          tone="danger"
                           size="xs"
                           onClick={() => void handleDelete(goal.id)}
                           disabled={busyId === goal.id}

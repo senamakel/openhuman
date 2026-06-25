@@ -42,6 +42,7 @@ import { useAppSelector } from '../../store/hooks';
 import { resolveTheme, type ThemeMode } from '../../store/themeSlice';
 import { type GraphEdge, type GraphMode, type GraphNode } from '../../utils/tauriCommands';
 import { openWorkspacePath, previewWorkspaceText } from '../../utils/tauriCommands/workspacePaths';
+import Button from '../ui/Button';
 import {
   CONTACT_COLOR,
   LEAF_COLOR,
@@ -590,13 +591,14 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
               {item.label}
             </span>
           ))}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={resetView}
             data-testid="memory-graph-reset-view"
-            className="rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] font-medium text-stone-600 shadow-sm hover:bg-stone-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            className="text-[11px] shadow-sm">
             {t('graph.resetView')}
-          </button>
+          </Button>
         </div>
       </div>
       {useWebGL ? (
@@ -724,16 +726,17 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
                   <span className="ml-3 break-all font-mono text-stone-400 dark:text-neutral-500">
                     workspace:{hoveredSummaryPath}
                   </span>
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="xs"
                     data-testid={`memory-graph-preview-${hovered.id}`}
                     disabled={previewingPath === hoveredSummaryPath}
                     onClick={() => void previewSummary(hovered)}
-                    className="ml-3 rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] font-medium text-stone-700 shadow-sm hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800">
+                    className="ml-3 text-[11px] shadow-sm">
                     {previewingPath === hoveredSummaryPath
                       ? t('migration.previewRunning')
                       : t('migration.previewAction')}
-                  </button>
+                  </Button>
                 </>
               )}
             </>

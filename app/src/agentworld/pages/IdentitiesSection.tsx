@@ -15,7 +15,9 @@
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
+import ChipTabs from '../../components/layout/ChipTabs';
 import PanelScaffold from '../../components/layout/PanelScaffold';
+import Button from '../../components/ui/Button';
 import {
   type AvailabilityResponse,
   type DirectoryIdentityListingsResponse,
@@ -429,12 +431,9 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
               setInput(sanitize(e.target.value));
             }}
           />
-          <button
-            type="submit"
-            disabled={!input.trim()}
-            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          <Button type="submit" variant="primary" size="md" disabled={!input.trim()}>
             Check
-          </button>
+          </Button>
         </form>
 
         {availState.status === 'loading' && (
@@ -455,17 +454,17 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
                 <span className="text-xs font-medium text-green-500">
                   @{availableHandle} is available
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
                   disabled={busy}
                   onClick={() => {
                     reg.begin(availableHandle);
-                  }}
-                  className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                  }}>
                   {reg.state.phase === 'challenge_loading'
                     ? 'Loading…'
                     : `Register @${availableHandle}`}
-                </button>
+                </Button>
               </div>
             ) : (
               <div>
@@ -823,30 +822,33 @@ function TradingTab() {
                 )}
                 <div className="mt-2 flex gap-1">
                   {listing.listingType !== 'auction' && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      className="flex-1"
                       disabled={buying !== null}
-                      onClick={() => startBuy(listing)}
-                      className="flex-1 rounded-md bg-primary-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
+                      onClick={() => startBuy(listing)}>
                       Buy
-                    </button>
+                    </Button>
                   )}
                   {listing.listingType === 'auction' && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      className="flex-1"
                       disabled={commit !== null}
-                      onClick={() => setCommit({ kind: 'bid', listing })}
-                      className="flex-1 rounded-md bg-primary-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
+                      onClick={() => setCommit({ kind: 'bid', listing })}>
                       Bid
-                    </button>
+                    </Button>
                   )}
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    className="flex-1"
                     disabled={commit !== null}
-                    onClick={() => setCommit({ kind: 'offer', listing })}
-                    className="flex-1 rounded-md border border-stone-300 px-2 py-1 text-xs font-medium text-stone-700 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200">
+                    onClick={() => setCommit({ kind: 'offer', listing })}>
                     Offer
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -1026,25 +1028,17 @@ export default function IdentitiesSection() {
 
   return (
     <PanelScaffold description="Claim handles, manage your registry, and trade identities">
-      <div className="flex gap-1">
-        {(Object.keys(TAB_KEYS) as Tab[]).map(tabKey => (
-          <button
-            key={tabKey}
-            type="button"
-            onClick={() => {
-              dispatch({ type: 'set', tab: tabKey });
-            }}
-            data-active={tab === tabKey}
-            className={[
-              'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-              tab === tabKey
-                ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
-            ].join(' ')}>
-            {TAB_KEYS[tabKey]}
-          </button>
-        ))}
-      </div>
+      <ChipTabs<Tab>
+        as="tab"
+        ariaLabel="Identity sections"
+        className="flex gap-1"
+        items={(Object.keys(TAB_KEYS) as Tab[]).map(tabKey => ({
+          id: tabKey,
+          label: TAB_KEYS[tabKey],
+        }))}
+        value={tab}
+        onChange={tabKey => dispatch({ type: 'set', tab: tabKey })}
+      />
 
       <div key={key}>
         {tab === 'register' && <RegisterTab onRegistered={bumpRegistryKey} />}

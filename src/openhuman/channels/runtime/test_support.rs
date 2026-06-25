@@ -378,6 +378,8 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
                             tool_name: "harness_tool".to_string(),
                             arguments: serde_json::json!({}),
                             iteration: 1,
+                            display_label: None,
+                            display_detail: None,
                         })
                         .await;
                 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import Button from '../../../components/ui/Button';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCoreState } from '../../../providers/CoreStateProvider';
 import { referralApi } from '../../../services/api/referralApi';
@@ -117,20 +118,16 @@ const ReferralApplyStep = ({ onNext, onApplied }: ReferralApplyStepProps) => {
           </div>
 
           <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onNext}
-              disabled={isLoading}
-              className="flex-1 py-2.5 text-sm font-medium rounded-xl border border-stone-200 dark:border-neutral-800 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 hover:border-stone-300 dark:border-neutral-700 transition-colors">
+            <Button variant="secondary" onClick={onNext} disabled={isLoading} className="flex-1">
               {t('onboarding.skip')}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => void handleApply()}
               disabled={isLoading || !code.trim()}
-              className="btn-primary flex-1 py-2.5 text-sm font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed">
+              className="flex-1">
               {isLoading ? t('common.loading') : t('common.submit')}
-            </button>
+            </Button>
           </div>
         </>
       )}

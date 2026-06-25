@@ -178,7 +178,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
           native CEF webview glued to the content's bounds, which composites
           above the HTML layer — starts to its right and never covers it. */}
       {!isOpen && (
-        <div className="flex w-9 flex-none flex-col items-center gap-0.5 border-r border-stone-200 bg-white pt-2 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex w-14 flex-none flex-col items-center gap-0.5 border-r border-stone-200 bg-white pt-2 dark:border-neutral-800 dark:bg-neutral-900">
           <Tooltip label={t('layout.showSidebar')}>
             <button
               type="button"

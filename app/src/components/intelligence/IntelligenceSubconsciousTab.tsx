@@ -5,6 +5,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import type { SubconsciousMode } from '../../utils/tauriCommands/heartbeat';
 import type { SubconsciousStatus } from '../../utils/tauriCommands/subconscious';
 import { settingsNavState } from '../settings/modal/settingsOverlay';
+import Button from '../ui/Button';
 
 interface ModeOption {
   id: SubconsciousMode;
@@ -205,11 +206,12 @@ export default function IntelligenceSubconsciousTab({
               </>
             )}
           </div>
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => void handleRunTick()}
             disabled={triggering || providerUnavailable}
-            title={providerUnavailable ? t('subconscious.providerUnavailableTitle') : undefined}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-stone-50 dark:bg-neutral-800/60 hover:bg-stone-100 dark:hover:bg-neutral-800 disabled:opacity-40 border border-stone-200 dark:border-neutral-800 rounded-lg text-stone-600 dark:text-neutral-300 transition-colors">
+            title={providerUnavailable ? t('subconscious.providerUnavailableTitle') : undefined}>
             {triggering ? (
               <div className="w-3 h-3 border border-stone-400 border-t-transparent rounded-full animate-spin" />
             ) : (
@@ -223,7 +225,7 @@ export default function IntelligenceSubconsciousTab({
               </svg>
             )}
             {t('subconscious.runNow')}
-          </button>
+          </Button>
         </div>
       )}
 

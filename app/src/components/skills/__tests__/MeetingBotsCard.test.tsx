@@ -2,10 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MeetCallRecord } from '../../../services/meetCallService';
-import {
-  setBackendMeetError,
-  setBackendMeetJoined,
-} from '../../../store/backendMeetSlice';
+import { setBackendMeetError, setBackendMeetJoined } from '../../../store/backendMeetSlice';
 import { renderWithProviders } from '../../../test/test-utils';
 import MeetingBotsCard from '../MeetingBotsCard';
 
@@ -73,9 +70,7 @@ describe('MeetingBotsCard', () => {
     // MeetingBotsInline to ActiveMeetingView. The inline component is unmounted at
     // that point, so its useEffect success-toast branch does not fire. Verify the
     // active view is now shown instead.
-    store.dispatch(
-      setBackendMeetJoined({ meetUrl: 'https://meet.google.com/abc-defg-hij' })
-    );
+    store.dispatch(setBackendMeetJoined({ meetUrl: 'https://meet.google.com/abc-defg-hij' }));
     await vi.waitFor(() => {
       expect(screen.getAllByText(/live/i).length).toBeGreaterThan(0);
     });
@@ -154,20 +149,13 @@ describe('MeetingBotsCard', () => {
     fireEvent.submit(document.querySelector('form')!);
 
     await vi.waitFor(() => expect(joinMock).toHaveBeenCalled());
-    store.dispatch(
-      setBackendMeetError({ error: 'Meeting bot is a paid-plan feature.' })
-    );
+    store.dispatch(setBackendMeetError({ error: 'Meeting bot is a paid-plan feature.' }));
 
     await vi.waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'Meeting bot is a paid-plan feature.'
-      );
+      expect(screen.getByRole('alert')).toHaveTextContent('Meeting bot is a paid-plan feature.');
     });
     expect(onToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'error',
-        title: expect.stringMatching(/not start/i),
-      })
+      expect.objectContaining({ type: 'error', title: expect.stringMatching(/not start/i) })
     );
   });
 
@@ -363,9 +351,7 @@ describe('MeetingBotsCard — recent calls section', () => {
   });
 
   it('omits the participants line when the record has none', async () => {
-    listMock.mockResolvedValueOnce([
-      makeCallRecord({ owner_display_name: '', participants: [] }),
-    ]);
+    listMock.mockResolvedValueOnce([makeCallRecord({ owner_display_name: '', participants: [] })]);
     renderWithProviders(<MeetingBotsCard />);
     await waitFor(() => {
       expect(screen.getByText(/3 turns/i)).toBeInTheDocument();

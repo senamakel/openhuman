@@ -545,7 +545,8 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
                 {currentEntry?.requires_api_key && currentEntry.has_api_key && (
                   <Button
                     type="button"
-                    variant="danger"
+                    variant="secondary"
+                    tone="danger"
                     size="xs"
                     onClick={() => void handleClearKey()}>
                     {t('settings.embeddings.clearKey')}
@@ -734,7 +735,7 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="tertiary"
                   size="xs"
                   onClick={() => setSetupProvider(null)}>
                   {t('settings.embeddings.cancel')}
@@ -778,10 +779,19 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
               {t('settings.embeddings.wipeBody')}
             </p>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" size="xs" onClick={() => setPendingWipe(null)}>
+              <Button
+                type="button"
+                variant="tertiary"
+                size="xs"
+                onClick={() => setPendingWipe(null)}>
                 {t('settings.embeddings.cancel')}
               </Button>
-              <Button type="button" variant="danger" size="xs" onClick={() => void confirmWipe()}>
+              <Button
+                type="button"
+                variant="primary"
+                tone="danger"
+                size="xs"
+                onClick={() => void confirmWipe()}>
                 {t('settings.embeddings.confirmWipe')}
               </Button>
             </div>

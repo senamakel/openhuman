@@ -14,6 +14,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { todosApi, USER_TASKS_THREAD_ID } from '../../services/api/todosApi';
 import { useAppSelector } from '../../store/hooks';
 import type { TaskBoard, TaskBoardCardStatus } from '../../types/turnState';
+import Button from '../ui/Button';
 
 const log = debug('intelligence:task-composer');
 
@@ -210,21 +211,14 @@ export function UserTaskComposer({ onCreated, onClose }: UserTaskComposerProps) 
           )}
 
           <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            <Button variant="secondary" size="sm" onClick={onClose}>
               {t('common.cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className="rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700 disabled:opacity-50">
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleSubmit} disabled={!canSubmit}>
               {submitting
                 ? t('intelligence.tasks.composer.creating')
                 : t('intelligence.tasks.composer.create')}
-            </button>
+            </Button>
           </div>
         </div>
       </section>

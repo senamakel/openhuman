@@ -2,8 +2,6 @@ import type { ReactNode } from 'react';
 import type { IconType } from 'react-icons';
 import { FaDiscord, FaGlobe, FaTelegramPlane } from 'react-icons/fa';
 import { IoChatbubble } from 'react-icons/io5';
-
-import YuanbaoIcon from '../channels/YuanbaoIcon';
 import {
   LuBlocks,
   LuBot,
@@ -17,6 +15,7 @@ import {
   LuWrench,
 } from 'react-icons/lu';
 
+import YuanbaoIcon from '../channels/YuanbaoIcon';
 import type { SkillCategory } from './skillCategories';
 
 function iconClasses(...parts: Array<string | undefined>): string {
@@ -55,37 +54,37 @@ export function getChannelIcons(
 ): Record<string, ReactNode> {
   return {
     telegram: (
-    <SkillIconBadge
-      icon={FaTelegramPlane}
-      label={t('skills.channelIcon.telegram')}
-      bgClassName="bg-[#E7F4FB]"
-      iconClassName="text-[#249CD8]"
-    />
-  ),
+      <SkillIconBadge
+        icon={FaTelegramPlane}
+        label={t('skills.channelIcon.telegram')}
+        bgClassName="bg-[#E7F4FB]"
+        iconClassName="text-[#249CD8]"
+      />
+    ),
     discord: (
-    <SkillIconBadge
-      icon={FaDiscord}
-      label={t('skills.channelIcon.discord')}
-      bgClassName="bg-[#EEF2FF]"
-      iconClassName="text-[#5865F2]"
-    />
-  ),
+      <SkillIconBadge
+        icon={FaDiscord}
+        label={t('skills.channelIcon.discord')}
+        bgClassName="bg-[#EEF2FF]"
+        iconClassName="text-[#5865F2]"
+      />
+    ),
     web: (
-    <SkillIconBadge
-      icon={FaGlobe}
-      label={t('skills.channelIcon.web')}
-      bgClassName="bg-stone-100 dark:bg-neutral-800"
-      iconClassName="text-stone-600 dark:text-neutral-300"
-    />
-  ),
+      <SkillIconBadge
+        icon={FaGlobe}
+        label={t('skills.channelIcon.web')}
+        bgClassName="bg-stone-100 dark:bg-neutral-800"
+        iconClassName="text-stone-600 dark:text-neutral-300"
+      />
+    ),
     imessage: (
-    <SkillIconBadge
-      icon={IoChatbubble}
-      label={t('skills.channelIcon.imessage')}
-      bgClassName="bg-[#E8F8EE]"
-      iconClassName="text-[#34C759]"
-    />
-  ),
+      <SkillIconBadge
+        icon={IoChatbubble}
+        label={t('skills.channelIcon.imessage')}
+        bgClassName="bg-[#E8F8EE]"
+        iconClassName="text-[#34C759]"
+      />
+    ),
     yuanbao: (
       <span
         role="img"

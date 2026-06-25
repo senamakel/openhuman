@@ -6,6 +6,7 @@ import {
   openhumanLocalAiApplyPreset,
   type PresetsResponse,
 } from '../../../../utils/tauriCommands';
+import Button from '../../../ui/Button';
 
 interface DeviceCapabilitySectionProps {
   presetsData: PresetsResponse | null;
@@ -175,15 +176,16 @@ const DeviceCapabilitySection = ({
               )}
               <div className="flex items-center gap-2 pt-1">
                 {onTriggerOllamaInstall && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
+                    tone="danger"
+                    size="sm"
                     onClick={onTriggerOllamaInstall}
-                    disabled={isTriggeringInstall}
-                    className="px-3 py-1.5 text-xs rounded-md bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-medium">
+                    disabled={isTriggeringInstall}>
                     {isTriggeringInstall
                       ? t('settings.localModel.deviceCapability.retrying')
                       : t('settings.localModel.deviceCapability.retryInstall')}
-                  </button>
+                  </Button>
                 )}
                 <a
                   href="https://ollama.com"

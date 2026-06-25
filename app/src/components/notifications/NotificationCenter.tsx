@@ -18,6 +18,7 @@ import {
   setIntegrationLoading,
   setIntegrationNotifications,
 } from '../../store/notificationSlice';
+import Button from '../ui/Button';
 import CoreNotificationCard from './CoreNotificationCard';
 import NotificationCard from './NotificationCard';
 
@@ -139,13 +140,15 @@ const NotificationCenter = () => {
           )}
         </div>
         {filteredUnreadCount > 0 && (
-          <button
+          <Button
+            variant="tertiary"
+            size="xs"
             onClick={() => {
               void handleMarkAllRead();
             }}
-            className="text-xs text-primary-600 hover:text-primary-700 font-medium transition-colors">
+            className="text-primary-600 hover:text-primary-700">
             {t('notifications.center.markAllRead')}
-          </button>
+          </Button>
         )}
       </div>
 

@@ -17,6 +17,7 @@ import {
   type SourceKind,
   updateMemorySource,
 } from '../../services/memorySourcesService';
+import Button from '../ui/Button';
 
 // Which limit fields are relevant per kind. Order determines display order.
 // Only caps that are actually enforced at sync time are surfaced — the
@@ -191,16 +192,9 @@ export function SourceSettingsPanel({
         })}
       </div>
       <div className="mt-3 flex justify-end">
-        <button
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={saving}
-          className="inline-flex items-center gap-1 rounded-md bg-primary-600 px-3 py-1.5
-                     text-xs font-semibold text-white shadow-sm transition-colors
-                     hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50
-                     focus:outline-none focus:ring-2 focus:ring-primary-200">
+        <Button variant="primary" size="sm" onClick={() => void handleSave()} disabled={saving}>
           {saving ? t('memorySources.settings.saving') : t('memorySources.settings.save')}
-        </button>
+        </Button>
       </div>
     </div>
   );

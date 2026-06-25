@@ -153,7 +153,7 @@ const ProfilesPanel = () => {
                       {!profile.builtIn && (
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="tertiary"
                           size="sm"
                           onClick={() => void remove(profile.id)}>
                           {t('common.delete')}

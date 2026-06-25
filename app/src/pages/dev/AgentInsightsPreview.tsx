@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import Button from '../../components/ui/Button';
 import type { ToolTimelineEntry } from '../../store/chatRuntimeSlice';
 import { AgentProcessSourcePanel } from '../conversations/components/AgentProcessSourcePanel';
 import { ToolTimelineBlock } from '../conversations/components/ToolTimelineBlock';
@@ -124,12 +125,9 @@ export default function AgentInsightsPreview() {
         </Section>
 
         <Section title="Agent Process Source panel">
-          <button
-            type="button"
-            onClick={() => setPanelOpen(true)}
-            className="rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-600">
+          <Button variant="primary" size="sm" onClick={() => setPanelOpen(true)}>
             View full agent process Source →
-          </button>
+          </Button>
         </Section>
       </div>
 

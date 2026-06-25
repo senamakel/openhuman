@@ -29,6 +29,7 @@ import {
   selectSelectedMascotId,
 } from '../../store/mascotSlice';
 import { selectPersonaDescription, selectPersonaDisplayName } from '../../store/personaSlice';
+import Button from '../ui/Button';
 import { RecentCallsSection } from './RecentCallsSection';
 
 type Toast = { type: 'success' | 'error' | 'info'; title: string; message?: string };
@@ -157,21 +158,14 @@ function ActiveMeetingView({ onToast }: Props) {
           {t('skills.meetingBots.liveBadge')}
         </span>
         {canLeave && (
-          <button
-            type="button"
-            onClick={handleLeave}
-            disabled={leaving}
-            className="rounded-xl px-3 py-1.5 text-xs font-medium bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-300 hover:bg-stone-200 dark:hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          <Button variant="secondary" size="sm" onClick={handleLeave} disabled={leaving}>
             {t('skills.meetingBots.leaveButton')}
-          </button>
+          </Button>
         )}
         {isDone && (
-          <button
-            type="button"
-            onClick={() => dispatch(resetBackendMeet())}
-            className="rounded-xl px-3 py-1.5 text-xs font-medium bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-300 hover:bg-stone-200 dark:hover:bg-neutral-700">
+          <Button variant="secondary" size="sm" onClick={() => dispatch(resetBackendMeet())}>
             {t('common.close')}
-          </button>
+          </Button>
         )}
       </div>
       <div className="flex items-center gap-4">
@@ -245,9 +239,7 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
     // so the mount-time fetch can race ahead of that write and miss the just-
     // ended call. A couple of short delayed re-fetches reliably reflect it
     // without the user having to reopen the tab. Cheap (a ~2ms RPC each).
-    const retries = [1200, 3000].map(delay =>
-      setTimeout(() => void refreshRecentCalls(), delay)
-    );
+    const retries = [1200, 3000].map(delay => setTimeout(() => void refreshRecentCalls(), delay));
     return () => retries.forEach(clearTimeout);
   }, [refreshRecentCalls]);
 
@@ -381,14 +373,14 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
         )}
 
         <div className="flex items-center justify-end gap-2 pt-1">
-          <button
+          <Button
             type="submit"
-            disabled={submitting || !meetUrl.trim() || !respondTo.trim()}
-            className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-stone-200 dark:disabled:bg-neutral-700 disabled:text-stone-400 dark:disabled:text-neutral-500">
+            variant="primary"
+            disabled={submitting || !meetUrl.trim() || !respondTo.trim()}>
             {submitting
               ? t('skills.meetingBots.starting')
               : t('skills.meetingBots.sendTo').replace('{label}', selectedLabel)}
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -396,4 +388,3 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
     </div>
   );
 }
-

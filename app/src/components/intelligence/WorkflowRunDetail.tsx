@@ -25,6 +25,7 @@ import {
   type WorkflowRun,
   type WorkflowRunStatus,
 } from '../../services/api/workflowRunsApi';
+import Button from '../ui/Button';
 
 const log = debug('intelligence:workflow-detail');
 
@@ -122,17 +123,18 @@ export const WorkflowRunDetail: React.FC<Props> = ({
 
         <div className="flex items-center gap-2">
           {isRunning && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              tone="danger"
+              size="sm"
               data-testid="workflow-run-stop"
               disabled={busy}
               onClick={() => {
                 log('stop id=%s', run.id);
                 onStop(run.id);
-              }}
-              className="rounded-lg border border-coral-300 bg-white px-3 py-1.5 text-xs font-medium text-coral-700 hover:bg-coral-50 disabled:opacity-50 dark:border-coral-700 dark:bg-neutral-900 dark:text-coral-300 dark:hover:bg-coral-900/40">
+              }}>
               {t('orchestration.detail.stop')}
-            </button>
+            </Button>
           )}
           {canResume && (
             <button

@@ -16,6 +16,7 @@ import {
   openhumanUpdateVoiceServerSettings,
   syncNotchVisibility,
 } from '../../../utils/tauriCommands';
+import Button from '../../ui/Button';
 import {
   SettingsBadge,
   type SettingsBadgeVariant,
@@ -267,16 +268,16 @@ const DesktopAgentPanel = () => {
                       {t('settings.desktopAgent.notRequiredOnOs')}
                     </span>
                   ) : canGrant ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       data-testid={`desktop-agent-grant-${kind}`}
                       onClick={() => void grant(kind)}
-                      disabled={busy}
-                      className="rounded-lg border border-primary-400 bg-primary-50 dark:bg-primary-500/10 px-3 py-1.5 text-xs text-primary-700 dark:text-primary-300 disabled:opacity-50">
+                      disabled={busy}>
                       {requestingKind === kind
                         ? t('settings.screenIntel.permissions.requesting')
                         : t('settings.desktopAgent.grant')}
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               }
@@ -380,16 +381,16 @@ const DesktopAgentPanel = () => {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="md"
           data-testid="desktop-agent-recheck"
           onClick={() => void refresh()}
-          disabled={busy}
-          className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-sm text-stone-700 dark:text-neutral-200 disabled:opacity-50">
+          disabled={busy}>
           {isLoading
             ? t('settings.screenIntel.permissions.refreshing')
             : t('settings.desktopAgent.recheck')}
-        </button>
+        </Button>
         {actionable.length > 0 ? (
           <button
             type="button"

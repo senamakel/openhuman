@@ -281,7 +281,7 @@ const AutoRechargeSection = ({
           </p>
           <Button
             type="button"
-            variant="ghost"
+            variant="tertiary"
             size="xs"
             onClick={onAddCard}
             className="text-primary-500 dark:text-primary-400 hover:text-primary-600 dark:hover:text-primary-300">
@@ -366,7 +366,7 @@ const AutoRechargeSection = ({
                     {!card.isDefault && (
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="tertiary"
                         size="xs"
                         onClick={() => onSetDefault(card.id)}
                         disabled={!!settingDefaultId || !!deletingCardId}>
@@ -378,7 +378,8 @@ const AutoRechargeSection = ({
                       <div className="flex items-center gap-1">
                         <Button
                           type="button"
-                          variant="danger"
+                          variant="primary"
+                          tone="danger"
                           size="xs"
                           onClick={() => onDeleteCard(card.id)}
                           disabled={isDeleting}>
@@ -386,7 +387,7 @@ const AutoRechargeSection = ({
                         </Button>
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="tertiary"
                           size="xs"
                           onClick={() => setConfirmDeleteId(null)}>
                           {t('common.cancel')}
@@ -395,7 +396,7 @@ const AutoRechargeSection = ({
                     ) : (
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="tertiary"
                         size="xs"
                         onClick={() => setConfirmDeleteId(card.id)}
                         disabled={isDeleting || !!settingDefaultId}

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
+import Button from '../../ui/Button';
 import { clearConfigChat } from './ConfigAssistantPanel';
 import ConfigHelpModal from './ConfigHelpModal';
 import ConnectAuthModal from './ConnectAuthModal';
@@ -278,44 +279,40 @@ const InstalledServerDetail = ({
             core refuses connect calls on disabled servers. */}
         {server.enabled &&
           (status !== 'connected' ? (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               disabled={busy || status === 'connecting'}
-              onClick={handleConnect}
-              className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors">
+              onClick={handleConnect}>
               {status === 'connecting'
                 ? t('mcp.detail.connecting')
                 : status === 'unauthorized'
                   ? t('mcp.detail.authenticate')
                   : t('mcp.detail.connect')}
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={handleDisconnect}
-              className="rounded-lg border border-stone-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50">
+            <Button variant="secondary" size="sm" disabled={busy} onClick={handleDisconnect}>
               {t('mcp.detail.disconnect')}
-            </button>
+            </Button>
           ))}
 
         {/* Enable / Disable toggle */}
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           disabled={busy}
-          onClick={() => handleSetEnabled(!server.enabled)}
-          className="rounded-lg border border-stone-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50">
+          onClick={() => handleSetEnabled(!server.enabled)}>
           {server.enabled ? t('mcp.detail.disable') : t('mcp.detail.enable')}
-        </button>
+        </Button>
 
         {SHOW_CONFIG_ASSISTANT && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={busy}
-            onClick={() => setShowAssistant(prev => !prev)}
-            className="rounded-lg border border-stone-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50">
+            onClick={() => setShowAssistant(prev => !prev)}>
             {showAssistant ? t('mcp.connectAuth.hideHelp') : t('mcp.connectAuth.howToGetToken')}
-          </button>
+          </Button>
         )}
 
         {confirmUninstall ? (
@@ -323,29 +320,31 @@ const InstalledServerDetail = ({
             <span className="text-xs text-coral-600 dark:text-coral-400 font-medium">
               {t('mcp.detail.confirmUninstall')}
             </span>
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              tone="danger"
+              size="sm"
               disabled={busy}
-              onClick={handleUninstall}
-              className="rounded-lg bg-coral-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-coral-600 disabled:opacity-50">
+              onClick={handleUninstall}>
               {t('mcp.detail.confirmUninstallAction')}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={busy}
-              onClick={() => setConfirmUninstall(false)}
-              className="rounded-lg border border-stone-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 disabled:opacity-50">
+              onClick={() => setConfirmUninstall(false)}>
               {t('common.cancel')}
-            </button>
+            </Button>
           </div>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            tone="danger"
+            size="sm"
             disabled={busy}
-            onClick={() => setConfirmUninstall(true)}
-            className="rounded-lg border border-coral-200 dark:border-coral-500/30 px-3 py-1.5 text-xs font-medium text-coral-600 dark:text-coral-400 hover:bg-coral-50 dark:hover:bg-coral-500/10 disabled:opacity-50">
+            onClick={() => setConfirmUninstall(true)}>
             {t('mcp.detail.uninstall')}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -399,23 +398,20 @@ const InstalledServerDetail = ({
                       disabled={busy}
                       className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
                     />
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="xs"
                       onClick={() => setShowReconfig(prev => ({ ...prev, [key]: !prev[key] }))}
                       disabled={busy}
-                      className="shrink-0 rounded-lg border border-stone-200 dark:border-neutral-700 px-2 py-1 text-[11px] text-stone-500 dark:text-neutral-400 hover:border-stone-300 dark:hover:border-neutral-600 disabled:opacity-50">
+                      className="shrink-0">
                       {showReconfig[key] ? t('mcp.install.hide') : t('mcp.install.show')}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={handleSaveReconfigure}
-                className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors">
+              <Button variant="primary" size="sm" disabled={busy} onClick={handleSaveReconfigure}>
                 {busy ? t('mcp.detail.reconfigureSaving') : t('mcp.detail.saveReconnect')}
-              </button>
+              </Button>
             </div>
           )}
         </div>

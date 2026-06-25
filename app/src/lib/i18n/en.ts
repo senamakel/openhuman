@@ -523,6 +523,7 @@ const en: TranslationMap = {
   'chat.newWindowWelcome3': 'Time to Zone In 🧘🏻',
   'chat.typeMessage': 'How can I help you today?',
   'chat.send': 'Send message',
+  'chat.stopGeneration': 'Stop generating',
   'chat.parallelBranchHint': 'Type a parallel branch — ⌘/Ctrl+Enter to send',
   'chat.followupHint':
     'Queue a follow-up — sent after this reply · ⌘/Ctrl+Enter for a parallel branch',
@@ -1258,6 +1259,8 @@ const en: TranslationMap = {
   'channels.status.error': 'Error',
   'channels.status.configuring': 'Configuring',
   'channels.defaultMessaging': 'Default Messaging Channel',
+  'channels.setAsDefault': 'Set as default',
+  'channels.defaultBadge': 'Default',
 
   // Webhooks
   'webhooks.title': 'Webhooks',
@@ -3164,6 +3167,8 @@ const en: TranslationMap = {
   'notifications.category.meetings': 'Meetings',
   'notifications.category.reminders': 'Reminders',
   'notifications.category.important': 'Important',
+  'notifications.filterAll': 'All',
+  'notifications.filterEmpty': 'No alerts in this category',
 
   // About / Updates: status summary phrases
   'about.update.status.checking': 'Checking...',
@@ -3729,6 +3734,13 @@ const en: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'No steps recorded',
   'conversations.agentTaskInsights.viewProcessSource': 'View full agent process Source',
   'conversations.agentTaskInsights.processing': 'Processing',
+  'conversations.agentTaskInsights.done': 'Done',
+  'conversations.agentTaskInsights.failed': 'Failed',
+  'conversations.agentTaskInsights.running': 'Running',
+  'conversations.agentTaskInsights.cancelled': 'Cancelled',
+  'conversations.agentTaskInsights.awaitingUser': 'Awaiting input',
+  'conversations.agentTaskInsights.viewDetails': 'View details',
+  'conversations.agentTaskInsights.subagentsHeading': 'Sub-agents',
   'daemon.serviceBlockingGate.body':
     'Retrying in the background. This usually resolves in a few seconds.',
   'daemon.serviceBlockingGate.downloadHint':

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { balanceNetworkLabel } from '../../../../features/wallet/walletDisplay';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { BalanceInfo } from '../../../../services/walletApi';
+import Button from '../../../ui/Button';
 import { ModalShell } from '../../../ui/ModalShell';
 
 interface ReceiveModalProps {
@@ -70,12 +71,13 @@ const ReceiveModal = ({ balance, onClose }: ReceiveModalProps) => {
               data-testid="receive-address">
               {balance.address}
             </span>
-            <button
-              type="button"
+            <Button
+              variant="tertiary"
+              size="xs"
               onClick={() => void handleCopy()}
-              className="shrink-0 text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+              className="shrink-0 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
               {copied ? t('common.copied') : t('walletBalances.copyAddress')}
-            </button>
+            </Button>
           </div>
         </div>
         <div className="w-full rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 p-3">

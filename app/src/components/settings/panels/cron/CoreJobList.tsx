@@ -1,5 +1,6 @@
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { CoreCronJob, CoreCronRun } from '../../../../utils/tauriCommands';
+import Button from '../../../ui/Button';
 
 interface CoreJobListProps {
   loading: boolean;
@@ -26,10 +27,6 @@ const CoreJobList = ({
   onEditCoreJob,
 }: CoreJobListProps) => {
   const { t } = useT();
-  const neutralButtonClassName =
-    'inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 px-3 py-1.5 text-[13px] font-medium leading-5 text-stone-700 dark:text-stone-200 shadow-sm transition-colors hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:cursor-not-allowed disabled:opacity-70 disabled:text-stone-500 dark:disabled:text-stone-400';
-  const removeButtonClassName =
-    'inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-lg border border-red-700/40 bg-red-600 px-3 py-1.5 text-[13px] font-medium leading-5 text-white shadow-sm transition-colors hover:bg-red-700 hover:text-white active:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-70';
 
   const toggleButtonLabel = (job: CoreCronJob) => {
     if (coreBusyKey === `core-toggle:${job.id}`) {
@@ -127,47 +124,58 @@ const CoreJobList = ({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   data-testid={`cron-job-toggle-${job.id}`}
-                  className={neutralButtonClassName}
+                  className="whitespace-nowrap"
                   disabled={coreBusyKey === `core-toggle:${job.id}`}
                   onClick={() => onToggleCoreJob(job)}>
                   {toggleButtonLabel(job)}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   data-testid={`cron-job-run-${job.id}`}
-                  className={neutralButtonClassName}
+                  className="whitespace-nowrap"
                   disabled={coreBusyKey === `core-run:${job.id}`}
                   onClick={() => onRunCoreJob(job.id)}>
                   {runButtonLabel(job.id)}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   data-testid={`cron-job-view-runs-${job.id}`}
-                  className={neutralButtonClassName}
+                  className="whitespace-nowrap"
                   disabled={coreBusyKey === `core-runs:${job.id}`}
                   onClick={() => onLoadCoreRuns(job.id)}>
                   {viewRunsButtonLabel(job.id)}
-                </button>
+                </Button>
                 {onEditCoreJob && (
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     data-testid={`cron-job-edit-${job.id}`}
-                    className={neutralButtonClassName}
+                    className="whitespace-nowrap"
                     onClick={() => onEditCoreJob(job)}>
                     {t('settings.cron.jobs.edit')}
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button
                   type="button"
+                  variant="primary"
+                  tone="danger"
+                  size="sm"
                   data-testid={`cron-job-remove-${job.id}`}
-                  className={removeButtonClassName}
+                  className="whitespace-nowrap"
                   disabled={coreBusyKey === `core-remove:${job.id}`}
                   onClick={() => onRemoveCoreJob(job.id)}>
                   {removeButtonLabel(job.id)}
-                </button>
+                </Button>
               </div>
 
               {runs.length > 0 && (

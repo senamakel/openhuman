@@ -550,6 +550,8 @@ async fn thread_ops_welcome_migration_and_turn_state_cover_error_and_cleanup_pat
         tool_name: "memory.search".into(),
         arguments: json!({"q": "phoenix"}),
         iteration: 1,
+        display_label: None,
+        display_detail: None,
     }));
     assert!(mirror.observe(&AgentProgress::SubagentSpawned {
         agent_id: "researcher".into(),

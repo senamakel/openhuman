@@ -35,7 +35,7 @@ const SettingsListItem = ({
       {onRemove && (
         <Button
           type="button"
-          variant="ghost"
+          variant="tertiary"
           size="xs"
           onClick={onRemove}
           aria-label={removeLabel}

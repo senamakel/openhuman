@@ -4,6 +4,7 @@ import type { TunnelRegistration } from '../../features/webhooks/types';
 import { useBackendUrl } from '../../hooks/useBackendUrl';
 import { useT } from '../../lib/i18n/I18nContext';
 import { type Tunnel, tunnelsApi } from '../../services/api/tunnelsApi';
+import Button from '../ui/Button';
 
 interface TunnelListProps {
   tunnels: Tunnel[];
@@ -64,17 +65,12 @@ export default function TunnelList({
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-stone-900">{t('webhooks.tunnels.title')}</h3>
         <div className="flex gap-2">
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            className="px-3 py-1.5 text-sm text-stone-600 hover:text-stone-900 rounded-lg hover:bg-stone-100 transition-colors">
+          <Button variant="tertiary" size="sm" onClick={onRefresh} disabled={loading}>
             {loading ? t('common.loading') : t('common.refresh')}
-          </button>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-primary-500 rounded-lg hover:bg-primary-600 transition-colors">
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>
             {t('webhooks.tunnels.newTunnel')}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -97,17 +93,16 @@ export default function TunnelList({
             className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
           />
           <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => setShowCreate(false)}
-              className="px-3 py-1.5 text-sm text-stone-600 hover:text-stone-900 rounded-lg">
+            <Button variant="tertiary" size="sm" onClick={() => setShowCreate(false)}>
               {t('common.cancel')}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handleCreate}
-              disabled={!newName.trim() || creating}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-primary-500 rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors">
+              disabled={!newName.trim() || creating}>
               {creating ? t('webhooks.tunnels.creating') : t('common.create')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -116,11 +111,14 @@ export default function TunnelList({
       {actionError && (
         <div className="p-3 rounded-lg bg-coral-50 text-coral-700 text-sm flex items-center justify-between">
           <span>{actionError}</span>
-          <button
+          <Button
+            variant="tertiary"
+            tone="danger"
+            size="xs"
             onClick={() => setActionError(null)}
-            className="text-coral-500 hover:text-coral-700 text-xs ml-2">
+            className="ml-2">
             {t('common.dismiss')}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -245,12 +243,14 @@ function TunnelCard({
             <code className="text-xs text-stone-500 bg-stone-50 px-2 py-1 rounded font-mono truncate max-w-[400px]">
               {webhookUrl || 'Resolving backend URL…'}
             </code>
-            <button
+            <Button
+              variant="tertiary"
+              size="xs"
               onClick={handleCopy}
               disabled={!webhookUrl}
-              className="text-xs text-primary-500 hover:text-primary-700 whitespace-nowrap disabled:text-stone-400 disabled:cursor-not-allowed">
+              className="whitespace-nowrap">
               {copied ? t('common.copied') : t('common.copy')}
-            </button>
+            </Button>
           </div>
         </div>
         <div className="ml-3 flex flex-col gap-1 shrink-0">
@@ -271,12 +271,14 @@ function TunnelCard({
                   : t('webhooks.tunnels.enableEcho')}
             </button>
           )}
-          <button
+          <Button
+            variant="tertiary"
+            tone="danger"
+            size="xs"
             onClick={handleDelete}
-            disabled={deleting}
-            className="px-2 py-1 text-xs text-coral-600 hover:text-coral-700 hover:bg-coral-50 rounded-lg transition-colors">
+            disabled={deleting}>
             {deleting ? '...' : t('common.delete')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

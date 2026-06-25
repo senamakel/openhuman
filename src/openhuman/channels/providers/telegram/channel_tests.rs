@@ -1918,6 +1918,8 @@ async fn test_thinking_placeholder_logic() {
         tool_name: "shell".into(),
         arguments: serde_json::json!({}),
         iteration: 1,
+        display_label: None,
+        display_detail: None,
     })
     .await
     .unwrap();

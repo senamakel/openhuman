@@ -15,6 +15,7 @@ import {
   openhumanAutocompleteStart,
 } from '../../utils/tauriCommands/autocomplete';
 import { settingsNavState } from '../settings/modal/settingsOverlay';
+import Button from '../ui/Button';
 import {
   SetupNotice,
   SetupSettingRow,
@@ -109,15 +110,16 @@ export default function AutocompleteSetupModal({ onClose }: Props) {
 
           {enableError && <SetupNotice tone="coral">{enableError}</SetupNotice>}
 
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="lg"
             onClick={() => void handleEnable()}
             disabled={isEnabling || (status !== null && !status.platform_supported)}
-            className="w-full rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors">
+            className="w-full">
             {isEnabling
               ? t('skills.setup.autocomplete.enabling')
               : t('skills.setup.autocomplete.enableBtn')}
-          </button>
+          </Button>
         </div>
       )}
 

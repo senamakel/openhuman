@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
+import Button from '../../components/ui/Button';
 import {
   type FollowStats,
   type GqlAttestation,
@@ -379,13 +380,9 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
 
       {/* Export identity */}
       <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
-        <button
-          type="button"
-          className="rounded-md bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
-          disabled={exportLoading}
-          onClick={handleExport}>
+        <Button variant="secondary" size="sm" disabled={exportLoading} onClick={handleExport}>
           {exportLoading ? 'Exporting...' : exportData ? 'Hide Export' : 'Export Identity'}
-        </button>
+        </Button>
         {exportError && (
           <p className="mt-2 text-xs text-red-600 dark:text-red-400">{exportError}</p>
         )}

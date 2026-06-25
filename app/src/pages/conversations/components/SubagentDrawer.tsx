@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 
+import Button from '../../../components/ui/Button';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { threadApi } from '../../../services/api/threadApi';
 import type {
@@ -265,24 +266,28 @@ export function SubagentDrawer({
             </div>
           </div>
           {canCancel ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              tone="danger"
+              size="sm"
               onClick={handleCancel}
               disabled={cancelling}
               data-testid="subagent-cancel"
-              className="shrink-0 rounded-full border border-coral-200 px-2.5 py-1 text-xs font-medium text-coral-600 hover:bg-coral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-coral-500/40 dark:text-coral-300 dark:hover:bg-coral-500/10">
+              className="shrink-0 rounded-full">
               {cancelling
                 ? t('conversations.subagent.cancelling')
                 : t('conversations.subagent.cancel')}
-            </button>
+            </Button>
           ) : null}
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
             onClick={onClose}
             aria-label={t('conversations.subagent.close')}
-            className="shrink-0 rounded-full p-1.5 text-stone-400 hover:bg-stone-100 dark:hover:bg-neutral-800 hover:text-stone-600 dark:hover:text-neutral-200">
+            className="shrink-0 rounded-full">
             ✕
-          </button>
+          </Button>
         </header>
         {cancelError ? (
           <div

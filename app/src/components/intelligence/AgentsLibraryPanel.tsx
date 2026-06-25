@@ -4,6 +4,7 @@ import { LuBot, LuClipboard, LuPlay, LuRefreshCw, LuSend } from 'react-icons/lu'
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { type AgentDefinitionDisplay, agentLibraryApi } from '../../services/api/agentLibraryApi';
+import Button from '../ui/Button';
 
 const log = debug('intelligence:agents-library');
 
@@ -124,13 +125,13 @@ export default function AgentsLibraryPanel({
             {t('intelligence.agents.subtitle')}
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => void loadAgents()}
-          className="inline-flex items-center gap-1.5 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
-          <LuRefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          leadingIcon={<LuRefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />}>
           {t('intelligence.agents.refresh')}
-        </button>
+        </Button>
       </div>
 
       {loading && (
@@ -186,25 +187,25 @@ export default function AgentsLibraryPanel({
                     </div>
                   </div>
                   <div className="flex flex-none flex-wrap gap-1.5">
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() =>
                         void handleRun(agent, t('intelligence.agents.startChatPrompt'))
                       }
                       disabled={Boolean(runningAgentId)}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
-                      <LuSend className="h-3.5 w-3.5" />
+                      leadingIcon={<LuSend className="h-3.5 w-3.5" />}>
                       {t('intelligence.agents.startChat')}
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => void handleCopy(agent.id)}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
-                      <LuClipboard className="h-3.5 w-3.5" />
+                      leadingIcon={<LuClipboard className="h-3.5 w-3.5" />}>
                       {copiedId === agent.id
                         ? t('intelligence.agents.copied')
                         : t('intelligence.agents.copyId')}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 

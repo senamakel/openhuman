@@ -69,6 +69,8 @@ fn tool_started(call_id: &str, tool: &str, iter: u32) -> AgentProgress {
         tool_name: tool.to_string(),
         arguments: serde_json::json!({"secret": "do-not-export"}),
         iteration: iter,
+        display_label: None,
+        display_detail: None,
     }
 }
 
@@ -267,6 +269,8 @@ fn subagent_lifecycle_nests_under_the_turn() {
                 tool_name: "read_file".to_string(),
                 arguments: serde_json::Value::Null,
                 iteration: 1,
+                display_label: None,
+                display_detail: None,
             },
             30,
         ),

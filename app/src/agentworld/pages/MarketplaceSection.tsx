@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 
 import ChipTabs from '../../components/layout/ChipTabs';
 import PanelScaffold from '../../components/layout/PanelScaffold';
+import Button from '../../components/ui/Button';
 import {
   type ArtifactListResult,
   type EscrowListResponse,
@@ -171,13 +172,14 @@ function SearchTab() {
                   ))}
                 </div>
               )}
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
                 disabled={buying !== null}
                 onClick={() => startBuy(product)}
-                className="mt-3 w-full rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                className="mt-3 w-full">
                 Buy
-              </button>
+              </Button>
             </div>
           ))}
         </div>

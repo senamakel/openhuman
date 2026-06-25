@@ -13,6 +13,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { openhumanUpdateScreenIntelligenceSettings } from '../../utils/tauriCommands';
 import { settingsNavState } from '../settings/modal/settingsOverlay';
 import { CheckIcon } from '../ui';
+import Button from '../ui/Button';
 import {
   SetupNotice,
   SetupSettingRow,
@@ -73,15 +74,11 @@ const PermissionRow = ({
           {t('skills.setup.screenIntel.granted')}
         </span>
       ) : (
-        <button
-          type="button"
-          disabled={isRequesting}
-          onClick={onRequest}
-          className="rounded-lg border border-primary-300 bg-primary-50 px-2.5 py-1 text-[11px] font-medium text-primary-700 hover:bg-primary-100 disabled:opacity-50 transition-colors">
+        <Button variant="secondary" size="xs" disabled={isRequesting} onClick={onRequest}>
           {isRequesting
             ? t('skills.setup.screenIntel.opening')
             : t('skills.setup.screenIntel.grant')}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -176,12 +173,9 @@ export default function ScreenIntelligenceSetupModal({ onClose, initialStep }: P
           <p className="text-sm text-stone-600 dark:text-neutral-300 leading-relaxed">
             {t('skills.setup.screenIntel.macosOnly')}
           </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-4 py-2.5 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 transition-colors">
+          <Button variant="secondary" size="lg" onClick={onClose} className="w-full">
             {t('common.close')}
-          </button>
+          </Button>
         </div>
       </SkillSetupModalShell>
     );
@@ -267,13 +261,14 @@ export default function ScreenIntelligenceSetupModal({ onClose, initialStep }: P
                   : t('skills.setup.screenIntel.restartRefresh')}
               </button>
             ) : (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="lg"
                 onClick={() => void refreshStatus()}
                 disabled={isRestartingCore}
-                className="flex-1 rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2.5 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50 transition-colors">
+                className="flex-1">
                 {t('skills.setup.screenIntel.refreshStatus')}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -308,15 +303,16 @@ export default function ScreenIntelligenceSetupModal({ onClose, initialStep }: P
 
           {enableError && <SetupNotice tone="coral">{enableError}</SetupNotice>}
 
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="lg"
             onClick={() => void handleEnable()}
             disabled={isEnabling}
-            className="w-full rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50 transition-colors">
+            className="w-full">
             {isEnabling
               ? t('skills.setup.screenIntel.enabling')
               : t('skills.setup.screenIntel.enableBtn')}
-          </button>
+          </Button>
         </div>
       )}
 

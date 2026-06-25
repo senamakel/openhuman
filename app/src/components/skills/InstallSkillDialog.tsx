@@ -28,17 +28,18 @@
  *
  * Design mirrors `CreateSkillModal` — see `.claude/rules/15-settings-modal-system.md`.
  */
+import debug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import debug from 'debug';
 
 import { useT } from '../../lib/i18n/I18nContext';
+import { trackEvent } from '../../services/analytics';
 import {
-  workflowsApi,
   type InstallWorkflowFromUrlResult,
+  workflowsApi,
   type WorkflowSummary,
 } from '../../services/api/workflowsApi';
-import { trackEvent } from '../../services/analytics';
+import Button from '../ui/Button';
 
 const log = debug('skills:install-dialog');
 
@@ -259,14 +260,16 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
                 {t('skills.install.title')}
               </h2>
               <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
-                {t('skills.install.subtitlePrefix')}{' '}
-                <code className="font-mono">SKILL.md</code> {t('skills.install.subtitleMiddle')}{' '}
+                {t('skills.install.subtitlePrefix')} <code className="font-mono">SKILL.md</code>{' '}
+                {t('skills.install.subtitleMiddle')}{' '}
                 <code className="font-mono">.openhuman/skills/</code>.{' '}
                 {t('skills.install.subtitleSuffix')}
               </p>
             </div>
-            <button
-              type="button"
+            <Button
+              iconOnly
+              variant="tertiary"
+              size="md"
               onClick={() => {
                 if (!submitting) {
                   log('close-button');
@@ -275,7 +278,7 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
               }}
               disabled={submitting}
               aria-label={t('common.close')}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-stone-400 dark:text-neutral-500 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 hover:text-stone-600 dark:hover:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:opacity-40">
+              className="h-8 w-8 flex-shrink-0 text-stone-400 dark:text-neutral-500">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -284,7 +287,7 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-            </button>
+            </Button>
           </div>
 
           {/* Body */}
@@ -294,7 +297,8 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
               <label
                 htmlFor="install-skill-url"
                 className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
-                {t('skills.install.urlLabel')}<span className="text-coral-500"> *</span>
+                {t('skills.install.urlLabel')}
+                <span className="text-coral-500"> *</span>
               </label>
               <input
                 id="install-skill-url"
@@ -312,13 +316,13 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
               />
               {url.trim() && !urlValid ? (
                 <p className="mt-1 text-[11px] text-coral-600">
-                  {t('skills.install.urlInvalidPrefix')}{' '}
-                  <code className="font-mono">https://</code> {t('skills.install.urlInvalidSuffix')}
+                  {t('skills.install.urlInvalidPrefix')} <code className="font-mono">https://</code>{' '}
+                  {t('skills.install.urlInvalidSuffix')}
                 </p>
               ) : (
                 <p className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400">
-                  {t('skills.install.urlHelpPrefix')}{' '}
-                  <code className="font-mono">.md</code> {t('skills.install.urlHelpMiddle')}{' '}
+                  {t('skills.install.urlHelpPrefix')} <code className="font-mono">.md</code>{' '}
+                  {t('skills.install.urlHelpMiddle')}{' '}
                   <code className="font-mono">github.com/…/blob/…</code>{' '}
                   {t('skills.install.urlHelpSuffix')}
                   <code className="font-mono"> raw.githubusercontent.com</code>.
@@ -332,7 +336,9 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
                 htmlFor="install-skill-timeout"
                 className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
                 {t('skills.install.timeoutLabel')}
-                <span className="ml-1 font-normal text-stone-400 dark:text-neutral-500">{t('skills.install.timeoutHint')}</span>
+                <span className="ml-1 font-normal text-stone-400 dark:text-neutral-500">
+                  {t('skills.install.timeoutHint')}
+                </span>
               </label>
               <input
                 id="install-skill-timeout"
@@ -368,8 +374,8 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
                   className="h-3 w-3 flex-shrink-0 animate-spin rounded-full border-2 border-primary-300 border-t-primary-600"
                 />
                 <span>
-                  {t('skills.install.fetchingPrefix')}{' '}
-                  <code className="font-mono">SKILL.md</code>… {t('skills.install.fetchingSuffix')}
+                  {t('skills.install.fetchingPrefix')} <code className="font-mono">SKILL.md</code>…{' '}
+                  {t('skills.install.fetchingSuffix')}
                 </span>
               </div>
             ) : null}
@@ -400,7 +406,9 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
                 </div>
                 {result.stdout ? (
                   <details>
-                    <summary className="cursor-pointer font-semibold">{t('skills.install.fetchLog')}</summary>
+                    <summary className="cursor-pointer font-semibold">
+                      {t('skills.install.fetchLog')}
+                    </summary>
                     <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-sage-100 bg-white dark:bg-neutral-900 p-2 font-mono text-[11px] text-stone-800 dark:text-neutral-100">
                       {result.stdout}
                     </pre>
@@ -408,7 +416,9 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
                 ) : null}
                 {result.stderr ? (
                   <details>
-                    <summary className="cursor-pointer font-semibold">{t('skills.install.parseWarnings')}</summary>
+                    <summary className="cursor-pointer font-semibold">
+                      {t('skills.install.parseWarnings')}
+                    </summary>
                     <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-sage-100 bg-white dark:bg-neutral-900 p-2 font-mono text-[11px] text-stone-800 dark:text-neutral-100">
                       {result.stderr}
                     </pre>
@@ -429,7 +439,9 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
                       <p className="font-semibold">{cat.title}</p>
                       <p>{cat.hint}</p>
                       <details>
-                        <summary className="cursor-pointer font-semibold">{t('skills.install.rawError')}</summary>
+                        <summary className="cursor-pointer font-semibold">
+                          {t('skills.install.rawError')}
+                        </summary>
                         <pre className="mt-1 whitespace-pre-wrap rounded border border-coral-200 bg-white dark:bg-neutral-900 p-2 font-mono text-[11px] text-stone-800 dark:text-neutral-100">
                           {error}
                         </pre>
@@ -443,20 +455,13 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
 
           {/* Footer */}
           <div className="flex items-center justify-end gap-2 border-t border-stone-100 dark:border-neutral-800 px-5 py-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 dark:text-neutral-300 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:opacity-40">
+            <Button variant="tertiary" onClick={onClose} disabled={submitting}>
               {result ? t('common.finish') : t('common.cancel')}
-            </button>
+            </Button>
             {result ? null : (
-              <button
-                type="submit"
-                disabled={!formValid}
-                className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50">
+              <Button type="submit" variant="primary" disabled={!formValid}>
                 {submitting ? t('skills.install.installing') : t('skills.install.installBtn')}
-              </button>
+              </Button>
             )}
           </div>
         </form>

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useT } from '../../lib/i18n/I18nContext';
+import Button from './Button';
 import { CloseIcon } from './icons';
 
 interface ModalShellProps {
@@ -71,13 +72,14 @@ export function ModalShell({
               ) : null}
             </div>
           </div>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
             aria-label={t('common.close')}
-            onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 transition-colors">
+            onClick={onClose}>
             <CloseIcon className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
         <div className={contentClassName}>{children}</div>
       </div>

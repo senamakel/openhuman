@@ -1,5 +1,6 @@
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { CreditTransaction } from '../../../../services/api/creditsApi';
+import Button from '../../../ui/Button';
 
 interface BillingHistoryTabProps {
   hasActive: boolean;
@@ -24,11 +25,13 @@ export default function BillingHistoryTab({
         </p>
         <div className="flex items-center justify-between gap-3">
           {hasActive && (
-            <button
+            <Button
+              variant="tertiary"
+              size="sm"
               onClick={onManageSubscription}
-              className="text-sm font-semibold text-primary-600 dark:text-primary-300 transition-colors hover:text-primary-700 dark:text-primary-300">
+              className="px-0 font-semibold text-primary-600 hover:bg-transparent hover:text-primary-700 dark:text-primary-300">
               {t('settings.billing.history.openPortal')}
-            </button>
+            </Button>
           )}
         </div>
       </div>

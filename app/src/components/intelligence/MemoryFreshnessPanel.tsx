@@ -4,6 +4,7 @@
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { FactFreshness, FreshnessReport } from '../../lib/memory/memoryFreshness';
+import Button from '../ui/Button';
 
 const MAX_QUEUE_ROWS = 50;
 
@@ -77,12 +78,9 @@ const MemoryFreshnessPanel = ({ report, loading, error, onRetry }: MemoryFreshne
             {t('memoryFreshness.errorPrefix')} {error}
           </p>
           {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-2 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-600">
+            <Button variant="primary" size="sm" onClick={onRetry} className="mt-2">
               {t('memoryFreshness.retry')}
-            </button>
+            </Button>
           )}
         </div>
       </div>

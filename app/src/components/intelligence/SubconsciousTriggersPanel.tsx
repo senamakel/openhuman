@@ -6,6 +6,7 @@ import {
   subconsciousTriggersStatus,
   type SubconsciousTriggersStatus,
 } from '../../utils/tauriCommands/subconscious';
+import Button from '../ui/Button';
 
 const cardClass =
   'rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900';
@@ -79,28 +80,24 @@ export default function SubconsciousTriggersPanel() {
         </div>
         <div className="flex items-center gap-2">
           {status && (
-            <button
-              type="button"
+            <Button
+              variant={status.triggers_enabled ? 'secondary' : 'primary'}
+              size="xs"
               onClick={() => void toggle()}
               disabled={toggling}
-              data-testid="subconscious-triggers-toggle"
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition disabled:opacity-50 ${
-                status.triggers_enabled
-                  ? 'border border-stone-200 text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800'
-                  : 'bg-primary-500 text-white hover:bg-primary-600'
-              }`}>
+              data-testid="subconscious-triggers-toggle">
               {status.triggers_enabled
                 ? t('subconsciousTriggers.disable')
                 : t('subconsciousTriggers.enable')}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={() => void refresh()}
-            data-testid="subconscious-triggers-refresh"
-            className="rounded-md border border-stone-200 px-2.5 py-1 text-xs text-stone-600 transition hover:bg-stone-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            data-testid="subconscious-triggers-refresh">
             {t('common.refresh')}
-          </button>
+          </Button>
         </div>
       </div>
 

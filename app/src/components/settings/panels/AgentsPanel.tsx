@@ -198,12 +198,18 @@ function AgentRow({
         {/* Built-in agents can't be edited — only custom agents expose Edit.
             Built-ins keep the toggle (enable/disable) and Reset (clear override). */}
         {isCustom && (
-          <Button type="button" variant="ghost" size="xs" onClick={onEdit}>
+          <Button type="button" variant="tertiary" size="xs" onClick={onEdit}>
             <LuPencil className="h-3 w-3 mr-1" />
             {t('settings.agents.edit')}
           </Button>
         )}
-        <Button type="button" variant="danger" size="xs" disabled={busy} onClick={onRemove}>
+        <Button
+          type="button"
+          variant="secondary"
+          tone="danger"
+          size="xs"
+          disabled={busy}
+          onClick={onRemove}>
           {isCustom ? (
             <LuTrash2 className="h-3 w-3 mr-1" />
           ) : (

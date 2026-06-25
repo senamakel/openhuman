@@ -33,6 +33,7 @@ import { BILLING_DASHBOARD_URL, DISCORD_INVITE_URL } from '../utils/links';
 import { openUrl } from '../utils/openUrl';
 import { ProviderIcon } from './accounts/providerIcons';
 import ChannelSetupModal from './channels/ChannelSetupModal';
+import Button from './ui/Button';
 
 interface OpenhumanLinkEvent {
   path: string;
@@ -92,11 +93,12 @@ const OpenhumanLinkModal = () => {
           <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             {titleForPath(activePath, t)}
           </h2>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="xs"
             onClick={close}
-            aria-label={t('common.close')}
-            className="rounded p-1 text-stone-500 dark:text-neutral-400 hover:bg-stone-100 dark:hover:bg-neutral-800/60 hover:text-stone-800 dark:hover:text-neutral-100">
+            aria-label={t('common.close')}>
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path
                 strokeLinecap="round"
@@ -105,7 +107,7 @@ const OpenhumanLinkModal = () => {
                 d="M6 6l12 12M6 18L18 6"
               />
             </svg>
-          </button>
+          </Button>
         </div>
         <div className="p-5">{renderBody(activePath, close)}</div>
       </div>
@@ -144,12 +146,9 @@ const MessagingSetupBridge = ({ onClose }: { onClose: () => void }) => {
           onClick={e => e.stopPropagation()}>
           <p>{t('app.openhumanLink.telegramUnavailable')}</p>
           <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+            <Button variant="secondary" size="sm" onClick={onClose}>
               {t('common.close')}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -275,17 +274,13 @@ const NotificationsBody = ({ close }: { close: () => void }) => {
           {t('app.openhumanLink.notifications.promptHint')}
         </div>
       )}
-      <button
-        type="button"
-        onClick={() => void handleAllow()}
-        disabled={status === 'sending'}
-        className="w-full rounded-xl bg-primary-500 text-white text-sm font-medium py-2.5 hover:bg-primary-600 transition-colors disabled:opacity-60">
+      <Button onClick={() => void handleAllow()} disabled={status === 'sending'} className="w-full">
         {status === 'sending'
           ? t('app.openhumanLink.notifications.asking')
           : status === 'error'
             ? t('app.openhumanLink.notifications.retry')
             : t('app.openhumanLink.notifications.send')}
-      </button>
+      </Button>
       {status === 'sent' && (
         <p className="text-xs text-sage-700">{t('app.openhumanLink.notifications.sent')}</p>
       )}
@@ -316,14 +311,13 @@ const BillingBody = ({ close }: { close: () => void }) => {
           {t('app.openhumanLink.billing.trialDesc')}
         </p>
       </div>
-      <button
-        type="button"
+      <Button
         onClick={() => {
           void openUrl(BILLING_DASHBOARD_URL).catch(() => {});
         }}
-        className="w-full rounded-xl bg-primary-500 text-white text-sm font-medium py-2.5 hover:bg-primary-600 transition-colors">
+        className="w-full">
         {t('app.openhumanLink.billing.openDashboard')}
-      </button>
+      </Button>
       <DoneFooter close={close} skipLabel={t('app.openhumanLink.billing.stayOnTrial')} />
     </div>
   );
@@ -354,8 +348,7 @@ const DiscordBody = ({ close }: { close: () => void }) => {
           {t('app.openhumanLink.discord.perk4')}
         </li>
       </ul>
-      <button
-        type="button"
+      <Button
         onClick={async () => {
           try {
             await openUrl(DISCORD_INVITE_URL);
@@ -363,9 +356,9 @@ const DiscordBody = ({ close }: { close: () => void }) => {
             // Ignore launcher errors from OS URL handler failures.
           }
         }}
-        className="w-full rounded-xl bg-primary-500 text-white text-sm font-medium py-2.5 hover:bg-primary-600 transition-colors">
+        className="w-full">
         {t('app.openhumanLink.discord.openInvite')}
-      </button>
+      </Button>
       <DoneFooter close={close} skipLabel={t('app.openhumanLink.maybeLater')} />
     </div>
   );
@@ -385,8 +378,7 @@ const DiscordReportBody = ({ close }: { close: () => void }) => {
   return (
     <div className="space-y-4 text-sm text-stone-700 dark:text-neutral-200">
       <p>{t('app.openhumanLink.discordReport.intro')}</p>
-      <button
-        type="button"
+      <Button
         onClick={async () => {
           try {
             await openUrl(DISCORD_INVITE_URL);
@@ -394,9 +386,9 @@ const DiscordReportBody = ({ close }: { close: () => void }) => {
             close();
           }
         }}
-        className="w-full rounded-xl bg-primary-500 px-3 py-2.5 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
+        className="w-full">
         {t('app.openhumanLink.discordReport.openDiscord')}
-      </button>
+      </Button>
     </div>
   );
 };
@@ -597,18 +589,12 @@ const DoneFooter = ({
   const resolvedSkip = skipLabel ?? t('app.openhumanLink.skipForNow');
   return (
     <div className="flex items-center justify-between gap-3 pt-1">
-      <button
-        type="button"
-        onClick={close}
-        className="text-xs font-medium text-stone-500 dark:text-neutral-400 hover:text-stone-800 dark:hover:text-neutral-100">
+      <Button variant="tertiary" size="sm" onClick={close}>
         {resolvedSkip}
-      </button>
-      <button
-        type="button"
-        onClick={onDone ?? close}
-        className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+      </Button>
+      <Button variant="secondary" size="sm" onClick={onDone ?? close}>
         {resolvedDone}
-      </button>
+      </Button>
     </div>
   );
 };

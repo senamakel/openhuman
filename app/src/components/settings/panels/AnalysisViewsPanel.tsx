@@ -9,8 +9,8 @@ import GraphCohesionTab from '../../intelligence/GraphCohesionTab';
 import MemoryFreshnessTab from '../../intelligence/MemoryFreshnessTab';
 import MemoryTimelineTab from '../../intelligence/MemoryTimelineTab';
 import NamespaceOverviewTab from '../../intelligence/NamespaceOverviewTab';
+import ChipTabs from '../../layout/ChipTabs';
 import PanelPage from '../../layout/PanelPage';
-import PillTabBar from '../../PillTabBar';
 import SettingsBackButton from '../components/SettingsBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
@@ -55,11 +55,11 @@ const AnalysisViewsPanel = () => {
       description={t('settings.analysisViews.menuDesc')}
       leading={<SettingsBackButton onBack={navigateBack} />}>
       <div className="p-4 space-y-4">
-        <PillTabBar
-          items={views.map(view => ({ label: view.label, value: view.id }))}
-          selected={activeView}
+        <ChipTabs<AnalysisView>
+          items={views.map(view => ({ id: view.id, label: view.label }))}
+          value={activeView}
           onChange={setActiveView}
-          containerClassName="flex flex-wrap gap-2 pb-1"
+          className="flex flex-wrap gap-2 pb-1"
         />
 
         {activeView === 'diagram' && <DiagramViewerTab />}

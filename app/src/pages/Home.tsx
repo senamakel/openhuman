@@ -7,6 +7,7 @@ import {
   PromotionalCreditsBanner,
   UsageLimitBanner,
 } from '../components/home/HomeBanners';
+import Button from '../components/ui/Button';
 import { useUsageState } from '../hooks/useUsageState';
 import { useUser } from '../hooks/useUser';
 import { useT } from '../lib/i18n/I18nContext';
@@ -176,12 +177,13 @@ const Home = () => {
             <span className="text-xs text-center text-stone-400 dark:text-neutral-500">
               v{APP_VERSION}
             </span>
-            <button
-              type="button"
+            <Button
+              iconOnly
+              variant="tertiary"
               onClick={toggleTheme}
               aria-label={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
               title={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
-              className="p-2 rounded-full text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800/60 transition-colors">
+              className="rounded-full">
               {isDark ? (
                 <svg
                   className="w-5 h-5"
@@ -211,7 +213,7 @@ const Home = () => {
                   />
                 </svg>
               )}
-            </button>
+            </Button>
           </div>
 
           {/* Connection status */}
@@ -244,13 +246,15 @@ const Home = () => {
           )}
 
           {/* CTA button — data-walkthrough target for step 2 */}
-          <button
+          <Button
             data-walkthrough="home-cta"
+            variant="primary"
+            size="lg"
             onClick={handleStartCooking}
             disabled={blocking === 'core-unreachable' || blocking === 'internet-offline'}
-            className="w-full py-3 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors duration-200">
+            className="w-full">
             {t('home.askAssistant')}
-          </button>
+          </Button>
         </div>
 
         <DiscordBanner />

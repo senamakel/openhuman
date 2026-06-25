@@ -242,7 +242,7 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
             {isTauri() && (
               <Button
                 type="button"
-                variant="ghost"
+                variant="tertiary"
                 size="xs"
                 onClick={() => void handleOpenConfig()}>
                 {t('settings.mcpServer.openConfigFile')}

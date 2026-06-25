@@ -49,6 +49,7 @@ import type { ThreadMessage } from '../../types/thread';
 import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../types/turnState';
 import { chatThreadPath } from '../../utils/chatRoutes';
 import { settingsNavState } from '../settings/modal/settingsOverlay';
+import Button from '../ui/Button';
 import { UserTaskComposer } from './UserTaskComposer';
 
 const log = debug('intelligence:tasks');
@@ -917,13 +918,15 @@ function TaskSourceRefinementDialog({
               {t('intelligence.tasks.sourcePlan.subtitle')}
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="sm"
             aria-label={t('common.close')}
             onClick={onClose}
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            className="flex-none">
             <LuX className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         <div className="max-h-[calc(90vh-8rem)] space-y-4 overflow-y-auto px-4 py-4">
@@ -995,13 +998,9 @@ function TaskSourceRefinementDialog({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-stone-100 px-4 py-3 dark:border-neutral-800">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800">
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
             {t('common.cancel')}
-          </button>
+          </Button>
           <button
             type="button"
             onClick={() => void approve()}

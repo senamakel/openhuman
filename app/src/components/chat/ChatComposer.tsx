@@ -12,6 +12,13 @@ export interface ChatComposerProps {
   inputValue: string;
   setInputValue: (value: string | ((prev: string) => string)) => void;
   onSend: (text?: string) => Promise<void>;
+  /**
+   * Cancel the in-flight generation for the selected thread. When provided, the
+   * Send button morphs into a Stop button while `isSending` is true so the user
+   * can halt the response from inside the composer. When omitted, the Send
+   * button falls back to a disabled spinner during generation.
+   */
+  onStopGeneration?: () => void;
   textInputRef: React.RefObject<HTMLTextAreaElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   composerInteractionBlocked: boolean;
@@ -58,6 +65,7 @@ export default function ChatComposer({
   inputValue,
   setInputValue,
   onSend,
+  onStopGeneration,
   textInputRef,
   fileInputRef,
   composerInteractionBlocked,
@@ -91,6 +99,12 @@ export default function ChatComposer({
   // Show the working spinner only for a normal in-flight send, not while the
   // composer is intentionally open for follow-up/parallel queueing.
   const showSendingSpinner = isSending && !allowParallelSend;
+  // During an in-flight turn the primary button becomes a Stop button so the
+  // user can halt generation from the composer — but only while no follow-up is
+  // typed. Once they type (parallel/follow-up send), it reverts to Send so the
+  // follow-up can be queued instead of cancelling the current turn.
+  const hasTypedContent = inputValue.trim().length > 0 || attachments.length > 0;
+  const showStopButton = isSending && !!onStopGeneration && !hasTypedContent;
 
   // Auto-resize textarea: grow with content, cap at COMPOSER_MAX_HEIGHT, then scroll.
   useEffect(() => {
@@ -219,45 +233,64 @@ export default function ChatComposer({
             </svg>
           </button>
 
-          {/* Send button */}
-          <button
-            type="button"
-            data-analytics-id="chat-composer-send"
-            data-testid="send-message-button"
-            aria-label={t('chat.send')}
-            title={t('chat.send')}
-            onClick={() => {
-              void onSend();
-            }}
-            disabled={!hasContent || composerLocked}
-            className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-            {showSendingSpinner ? (
-              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
+          {/* Send / Stop button — while a turn is in flight and a cancel handler
+              is wired, the Send button becomes a Stop button so generation can
+              be halted from inside the composer. Once a follow-up is typed the
+              Send arrow returns so the follow-up can be queued (parallel send)
+              instead of cancelling the current turn. */}
+          {showStopButton ? (
+            <button
+              type="button"
+              data-analytics-id="chat-composer-stop"
+              data-testid="stop-generation-button"
+              aria-label={t('chat.stopGeneration')}
+              title={t('chat.stopGeneration')}
+              onClick={onStopGeneration}
+              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-white transition-colors">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="1.5" />
               </svg>
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            )}
-          </button>
+            </button>
+          ) : (
+            <button
+              type="button"
+              data-analytics-id="chat-composer-send"
+              data-testid="send-message-button"
+              aria-label={t('chat.send')}
+              title={t('chat.send')}
+              onClick={() => {
+                void onSend();
+              }}
+              disabled={!hasContent || composerLocked}
+              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              {showSendingSpinner ? (
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

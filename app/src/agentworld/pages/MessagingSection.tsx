@@ -12,6 +12,8 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import ChipTabs from '../../components/layout/ChipTabs';
+import Button from '../../components/ui/Button';
 import {
   type BroadcastChannel,
   type BroadcastQueryParams,
@@ -241,22 +243,24 @@ function SignalKeyStatusCard() {
           </p>
         </div>
         {!keysReady && (
-          <button
-            type="button"
-            className="ml-3 flex-shrink-0 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          <Button
+            variant="primary"
+            size="sm"
+            className="ml-3 flex-shrink-0"
             disabled={provisioning}
             onClick={() => void handleProvision()}>
             {provisioning ? 'Setting up...' : 'Set up keys'}
-          </button>
+          </Button>
         )}
         {keysReady && !discoverable && (
-          <button
-            type="button"
-            className="ml-3 flex-shrink-0 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          <Button
+            variant="primary"
+            size="sm"
+            className="ml-3 flex-shrink-0"
             disabled={publishing}
             onClick={() => void handlePublish()}>
             {publishing ? 'Publishing...' : 'Make discoverable'}
-          </button>
+          </Button>
         )}
       </div>
       {actionError && (
@@ -404,12 +408,9 @@ function GroupsPanel() {
     return (
       <div className="space-y-2">
         <div className="flex justify-end">
-          <button
-            type="button"
-            className="rounded bg-stone-200 dark:bg-neutral-700 px-2 py-1 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-300 dark:hover:bg-neutral-600"
-            onClick={() => setShowRedeem(true)}>
+          <Button variant="secondary" size="xs" onClick={() => setShowRedeem(true)}>
             Redeem Invite
-          </button>
+          </Button>
         </div>
         <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
           No groups found
@@ -560,12 +561,9 @@ function GroupInvitesPanel({
         <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
           Invites for {groupName}
         </span>
-        <button
-          type="button"
-          className="text-xs text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300"
-          onClick={onClose}>
+        <Button variant="tertiary" size="xs" onClick={onClose}>
           Close
-        </button>
+        </Button>
       </div>
       {error ? <p className="mb-2 text-xs text-red-500">{error}</p> : null}
       {loading ? (
@@ -603,13 +601,13 @@ function GroupInvitesPanel({
               ))}
             </div>
           )}
-          <button
-            type="button"
-            className="rounded bg-primary-600 px-2 py-1 text-xs text-white hover:bg-primary-700 disabled:opacity-50"
+          <Button
+            variant="primary"
+            size="xs"
             disabled={creating}
             onClick={() => void handleCreate()}>
             {creating ? 'Creating...' : 'Create Invite'}
-          </button>
+          </Button>
         </>
       )}
     </div>
@@ -662,12 +660,9 @@ function RedeemInvitePanel({ onClose }: { onClose: () => void }) {
         <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
           Redeem Invite
         </span>
-        <button
-          type="button"
-          className="text-xs text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300"
-          onClick={onClose}>
+        <Button variant="tertiary" size="xs" onClick={onClose}>
           Close
-        </button>
+        </Button>
       </div>
       {error ? <p className="mb-2 text-xs text-red-500">{error}</p> : null}
       {result ? (
@@ -693,20 +688,20 @@ function RedeemInvitePanel({ onClose }: { onClose: () => void }) {
             />
           </div>
           <div className="flex gap-1 mb-2">
-            <button
-              type="button"
-              className="rounded bg-stone-200 dark:bg-neutral-700 px-2 py-1 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-300 dark:hover:bg-neutral-600 disabled:opacity-50"
+            <Button
+              variant="secondary"
+              size="xs"
               disabled={previewLoading || !groupId.trim() || !token.trim()}
               onClick={() => void handlePreview()}>
               {previewLoading ? '...' : 'Preview'}
-            </button>
-            <button
-              type="button"
-              className="rounded bg-primary-600 px-2 py-1 text-xs text-white hover:bg-primary-700 disabled:opacity-50"
+            </Button>
+            <Button
+              variant="primary"
+              size="xs"
               disabled={redeeming || !groupId.trim() || !token.trim()}
               onClick={() => void handleRedeem()}>
               {redeeming ? '...' : 'Redeem'}
-            </button>
+            </Button>
           </div>
           {preview ? (
             <div className="rounded bg-stone-100 dark:bg-neutral-800 p-2 text-xs text-stone-600 dark:text-neutral-300">
@@ -1174,12 +1169,9 @@ function ActiveDmView({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-stone-200 dark:border-neutral-800 px-3 py-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+        <Button variant="tertiary" size="xs" onClick={onBack}>
           Back
-        </button>
+        </Button>
         <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 truncate">
           {peerId}
         </span>
@@ -1246,13 +1238,13 @@ function ActiveDmView({
           placeholder="Type a message..."
           className="flex-1 rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
         />
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
           disabled={sending || !composeText.trim()}
-          onClick={() => void handleSend()}
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+          onClick={() => void handleSend()}>
           {sending ? 'Sending...' : 'Send'}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -1365,13 +1357,13 @@ function DmsPanel() {
           placeholder="Recipient @handle or wallet address"
           className="flex-1 rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
         />
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
           disabled={!peerId.trim() || resolving}
-          onClick={() => void handleOpenDm()}
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+          onClick={() => void handleOpenDm()}>
           {resolving ? 'Resolving...' : 'Open DM'}
-        </button>
+        </Button>
       </div>
       {resolveError && (
         <p data-testid="dm-resolve-error" className="text-xs text-red-500 dark:text-red-400">
@@ -1407,23 +1399,14 @@ export default function MessagingSection({ tabs = VISIBLE_TABS }: MessagingSecti
     <div className="flex flex-col h-full">
       {/* Tab chips — only shown when more than one tab is enabled. */}
       {showTabBar && (
-        <div className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0">
-          {tabs.map(tab => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              data-active={activeTab === tab}
-              className={[
-                'whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                activeTab === tab
-                  ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                  : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
-              ].join(' ')}>
-              {TAB_LABELS[tab]}
-            </button>
-          ))}
-        </div>
+        <ChipTabs<Tab>
+          as="tab"
+          ariaLabel="Messaging sections"
+          className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0"
+          items={tabs.map(tab => ({ id: tab, label: TAB_LABELS[tab] }))}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       )}
 
       {/* Signal key status — always visible when wallet is connected */}

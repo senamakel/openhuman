@@ -9,6 +9,7 @@ import {
   openhumanClaudeCodeSetFullAccess,
   openhumanClaudeCodeSettings,
 } from '../../../../utils/tauriCommands/config';
+import Button from '../../../ui/Button';
 
 /**
  * Claude Code CLI connect control — the peer of the Codex connect button.
@@ -83,13 +84,13 @@ export function ClaudeCodeConnect({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-900 transition-colors hover:bg-stone-50 disabled:cursor-wait disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800">
-        <LuKeyRound className="h-3.5 w-3.5" />
+        leadingIcon={<LuKeyRound className="h-3.5 w-3.5" />}>
         {t('settings.ai.claudeCode.button')}
-      </button>
+      </Button>
       <span className="text-xs text-stone-500 dark:text-neutral-400">
         <InlineSummary connected={connected} auth={shownAuth} loading={authLoading} />
       </span>
@@ -275,13 +276,14 @@ function ClaudeCodeModal({
               {t('settings.ai.claudeCode.modalDescription')}
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            variant="tertiary"
+            size="xs"
             onClick={onClose}
-            aria-label={t('settings.ai.claudeCode.close')}
-            className="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
+            aria-label={t('settings.ai.claudeCode.close')}>
             <LuX className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Connection */}
@@ -302,15 +304,16 @@ function ClaudeCodeModal({
             </div>
           </div>
           {connected ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              tone="danger"
+              size="sm"
               onClick={() => void onDisconnect()}
-              disabled={busy}
-              className="rounded-md border border-rose-300 px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-500/40 dark:text-rose-400 dark:hover:bg-rose-500/10">
+              disabled={busy}>
               {busy
                 ? t('settings.ai.claudeCode.disconnecting')
                 : t('settings.ai.claudeCode.disconnect')}
-            </button>
+            </Button>
           ) : (
             <button
               type="button"
@@ -328,29 +331,29 @@ function ClaudeCodeModal({
             <span className="text-xs font-medium text-stone-900 dark:text-neutral-100">
               {t('settings.ai.claudeCode.authentication')}
             </span>
-            <button
-              type="button"
+            <Button
+              variant="tertiary"
+              size="xs"
               onClick={() => void onRecheck()}
-              disabled={authLoading}
-              className="text-xs text-neutral-500 hover:text-neutral-900 disabled:opacity-50 dark:text-neutral-400 dark:hover:text-neutral-100">
+              disabled={authLoading}>
               {authLoading
                 ? t('settings.ai.claudeCode.checking')
                 : t('settings.ai.claudeCode.recheck')}
-            </button>
+            </Button>
           </div>
           <AuthDetail auth={auth} loading={authLoading} />
           <div className="mt-2">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => void launchLogin()}
-              disabled={launching}
-              className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800">
+              disabled={launching}>
               {launching
                 ? t('settings.ai.claudeCode.openingTerminal')
                 : auth?.source === 'none'
                   ? t('settings.ai.claudeCode.signIn')
                   : t('settings.ai.claudeCode.reconnect')}
-            </button>
+            </Button>
             <p className="mt-1.5 text-[11px] text-stone-500 dark:text-neutral-400">
               {t('settings.ai.claudeCode.loginHint')}
             </p>

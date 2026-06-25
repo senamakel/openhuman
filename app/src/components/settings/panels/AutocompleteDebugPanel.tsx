@@ -540,7 +540,8 @@ const AutocompleteDebugPanel = () => {
             </Button>
             <Button
               type="button"
-              variant="danger"
+              variant="secondary"
+              tone="danger"
               size="sm"
               onClick={() => void stop()}
               disabled={!status?.running}>
@@ -700,7 +701,8 @@ const AutocompleteDebugPanel = () => {
           <div className="flex justify-end">
             <Button
               type="button"
-              variant="danger"
+              variant="secondary"
+              tone="danger"
               size="xs"
               onClick={() => void clearHistory()}
               disabled={isClearingHistory || historyEntries.length === 0}>

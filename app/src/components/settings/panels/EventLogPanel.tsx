@@ -257,7 +257,7 @@ const EventLogPanel = () => {
       {!autoScroll && (
         <Button
           type="button"
-          variant="ghost"
+          variant="tertiary"
           size="xs"
           onClick={() => {
             setAutoScroll(true);

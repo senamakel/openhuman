@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { useEscapeKey } from '../../../hooks/useEscapeKey';
 import { useT } from '../../../lib/i18n/I18nContext';
+import Button from '../../ui/Button';
 import { CloseIcon } from '../../ui/icons';
 
 interface SettingsModalFrameProps {
@@ -53,14 +54,16 @@ export function SettingsModalFrame({ onClose, children, labelledBy }: SettingsMo
       <div
         className="relative mx-4 flex h-[80vh] w-full max-w-5xl"
         onClick={event => event.stopPropagation()}>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          iconOnly
+          size="sm"
           aria-label={t('common.close')}
           data-testid="settings-modal-close"
           onClick={onClose}
-          className="absolute bottom-full right-0 mb-2 flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-500 shadow-md transition-colors hover:bg-stone-100 hover:text-stone-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200">
+          className="absolute bottom-full right-0 mb-2 h-8 w-8 rounded-full text-stone-500 shadow-md hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200">
           <CloseIcon className="h-4 w-4" />
-        </button>
+        </Button>
         <div
           ref={dialogRef}
           role="dialog"

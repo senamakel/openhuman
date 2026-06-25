@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { clearAllAppData } from '../../utils/clearAllAppData';
+import Button from '../ui/Button';
 import SettingsMenuItem from './components/SettingsMenuItem';
 
 const warnLog = debug('settings:account:warn');
@@ -145,15 +146,16 @@ const LogoutAndClearActions = () => {
             </div>
 
             <div className="flex gap-3">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setShowLogoutAndClearModal(false);
                   setError(null);
                 }}
                 disabled={isLoading}
-                className="flex-1 px-4 py-2 rounded-lg border border-stone-200 dark:border-neutral-800 text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50">
+                className="flex-1">
                 {t('common.cancel')}
-              </button>
+              </Button>
               <button
                 onClick={handleLogoutAndClearData}
                 disabled={isLoading}

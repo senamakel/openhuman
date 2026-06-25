@@ -14,6 +14,7 @@ import {
   upsertArtifactReadyForThread,
 } from '../../store/chatRuntimeSlice';
 import { useAppDispatch } from '../../store/hooks';
+import Button from '../ui/Button';
 
 /**
  * Popover panel listing every `ready` artifact for a thread (#3024).
@@ -260,12 +261,13 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
         <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
           {t('chat.files.panel.title').replace('{count}', String(artifacts.length))}
         </span>
-        <button
-          type="button"
+        <Button
+          iconOnly
+          variant="tertiary"
+          size="xs"
           onClick={onClose}
           data-analytics-id="chat-files-panel-close"
-          aria-label={t('chat.files.panel.close')}
-          className="w-6 h-6 flex items-center justify-center rounded hover:bg-stone-100 dark:hover:bg-neutral-800 text-stone-500 dark:text-neutral-400">
+          aria-label={t('chat.files.panel.close')}>
           <svg
             className="w-3.5 h-3.5"
             fill="none"
@@ -274,7 +276,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
             viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
-        </button>
+        </Button>
       </header>
 
       {artifacts.length === 0 ? (

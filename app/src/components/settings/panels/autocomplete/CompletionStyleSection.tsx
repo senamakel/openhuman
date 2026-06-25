@@ -1,5 +1,6 @@
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { AcceptedCompletion } from '../../../../utils/tauriCommands';
+import Button from '../../../ui/Button';
 
 interface CompletionStyleSectionProps {
   enabled: boolean;
@@ -171,13 +172,9 @@ const CompletionStyleSection = ({
             className="w-full rounded border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-neutral-800 dark:text-neutral-200"
           />
         </div>
-        <button
-          type="button"
-          onClick={onSaveConfig}
-          disabled={isSaving}
-          className="rounded-lg border border-primary-500/60 bg-primary-50 dark:bg-primary-500/10 px-3 py-2 text-sm text-primary-600 dark:text-primary-300 disabled:opacity-50">
+        <Button variant="primary" size="sm" onClick={onSaveConfig} disabled={isSaving}>
           {isSaving ? t('autocomplete.saving') : t('autocomplete.saveSettings')}
-        </button>
+        </Button>
       </section>
 
       <section className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
@@ -185,15 +182,16 @@ const CompletionStyleSection = ({
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
             {t('settings.autocomplete.completionStyle.personalizationHistory')}
           </h3>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            tone="danger"
+            size="sm"
             onClick={onClearHistory}
-            disabled={isClearingHistory || historyEntries.length === 0}
-            className="rounded-lg border border-red-500/60 bg-red-50 dark:bg-red-500/10 px-3 py-1.5 text-xs text-red-600 dark:text-red-300 disabled:opacity-40">
+            disabled={isClearingHistory || historyEntries.length === 0}>
             {isClearingHistory
               ? t('settings.autocomplete.completionStyle.clearing')
               : t('settings.autocomplete.completionStyle.clearHistory')}
-          </button>
+          </Button>
         </div>
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
           {isHistoryLoading

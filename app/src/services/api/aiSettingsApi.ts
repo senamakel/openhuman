@@ -202,6 +202,7 @@ export function upsertModelRegistryVision(
       cost_per_1m_input: existing?.cost_per_1m_input ?? 0,
       cost_per_1m_cached_input: existing?.cost_per_1m_cached_input ?? 0,
       cost_per_1m_output: existing?.cost_per_1m_output ?? 0,
+      context_window: existing?.context_window ?? 0,
       vision: true,
     },
   ];
@@ -404,15 +405,18 @@ export async function saveAISettings(prev: AISettings, next: AISettings): Promis
         cost_per_1m_input,
         cost_per_1m_cached_input,
         cost_per_1m_output,
+        context_window,
         vision,
       }) => ({
         id,
         provider,
-        // Preserve catalog-prefilled prices through the round-trip; omitting
-        // them would let the Rust serde defaults zero them out.
+        // Preserve catalog-prefilled prices + context window through the
+        // round-trip; omitting them would let the Rust serde defaults zero
+        // them out.
         cost_per_1m_input: cost_per_1m_input ?? 0,
         cost_per_1m_cached_input: cost_per_1m_cached_input ?? 0,
         cost_per_1m_output,
+        context_window: context_window ?? 0,
         vision,
       })
     );
@@ -438,7 +442,8 @@ function modelRegistriesEqual(a: ModelRegistryEntry[], b: ModelRegistryEntry[]):
       m.vision === e.vision &&
       m.cost_per_1m_output === e.cost_per_1m_output &&
       (m.cost_per_1m_input ?? 0) === (e.cost_per_1m_input ?? 0) &&
-      (m.cost_per_1m_cached_input ?? 0) === (e.cost_per_1m_cached_input ?? 0)
+      (m.cost_per_1m_cached_input ?? 0) === (e.cost_per_1m_cached_input ?? 0) &&
+      (m.context_window ?? 0) === (e.context_window ?? 0)
     );
   });
 }

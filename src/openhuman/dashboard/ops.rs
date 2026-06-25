@@ -28,7 +28,10 @@ pub fn model_health(config: &Config) -> Result<RpcOutcome<ModelHealthResponse>, 
         .map(|entry| ModelHealthEntry {
             id: entry.id.clone(),
             provider: entry.provider.clone(),
+            cost_per_1m_input: entry.cost_per_1m_input,
+            cost_per_1m_cached_input: entry.cost_per_1m_cached_input,
             cost_per_1m_output: entry.cost_per_1m_output,
+            context_window: entry.context_window,
             vision: entry.vision,
             // Placeholder metrics — see module-level docs.
             quality_score: None,

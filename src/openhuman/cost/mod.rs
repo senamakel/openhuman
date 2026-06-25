@@ -7,7 +7,8 @@ pub mod tracker;
 pub mod types;
 
 pub use catalog::{
-    default_registry_entries, enrich_entry, lookup as lookup_model_price, ModelPrice,
+    context_window as model_context_window, default_registry_entries, enrich_entry,
+    lookup as lookup_model_price, ModelPrice,
 };
 pub use global::{init_global, record_provider_usage, try_global};
 pub use schemas::{

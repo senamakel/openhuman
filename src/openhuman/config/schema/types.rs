@@ -54,6 +54,12 @@ pub struct ModelRegistryEntry {
     /// Completion rate, USD per **million output tokens**.
     #[serde(default)]
     pub cost_per_1m_output: f64,
+    /// Maximum context window in tokens (published max input). `0` means
+    /// "unknown". Providers differ widely (128K–1M+); callers use this to
+    /// budget prompts, trigger compaction, and route work. Pre-filled for known
+    /// vendor models from [`crate::openhuman::cost::catalog`].
+    #[serde(default)]
+    pub context_window: u32,
     #[serde(default)]
     pub vision: bool,
 }

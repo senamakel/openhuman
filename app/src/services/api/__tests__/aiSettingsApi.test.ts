@@ -746,6 +746,7 @@ describe('saveAISettings', () => {
         cost_per_1m_input: 0,
         cost_per_1m_cached_input: 0,
         cost_per_1m_output: 0,
+        context_window: 0,
         vision: true,
       },
     ]);
@@ -1012,6 +1013,7 @@ describe('model registry vision helpers', () => {
         cost_per_1m_input: 0,
         cost_per_1m_cached_input: 0,
         cost_per_1m_output: 0,
+        context_window: 0,
         vision: true,
       },
     ]);

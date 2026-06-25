@@ -43,6 +43,7 @@
 
 pub mod cache;
 pub mod classify;
+pub mod compress;
 pub mod compressors;
 pub mod detect;
 pub mod reduce;
@@ -56,13 +57,20 @@ pub mod types;
 #[path = "text_tests.rs"]
 mod text_tests;
 
-pub use cache::{RETRIEVE_TOOL_NAME, LEGACY_RETRIEVE_TOOL_NAME};
+pub use cache::{
+    is_recovery_tool, LEGACY_RETRIEVE_TOOL_NAME, NEVER_COMPACT_TOOLS, RECOVERY_TOOL_NAMES,
+    RETRIEVE_TOOL_NAME,
+};
+pub use compress::{compress_content, route};
 pub use compressors::{compressor_for, generic_compressor, Compressor};
 pub use detect::detect_content_kind;
-pub use tools::TokenjuiceRetrieveTool;
 pub use reduce::reduce_execution_with_rules;
 pub use rules::{load_builtin_rules, load_rules, LoadRuleOptions};
-pub use tool_integration::{compact_tool_output, CompactionStats};
+pub use tool_integration::{
+    compact_output, compact_tool_output, configure, current_options, install_config,
+    CompactionStats,
+};
+pub use tools::TokenjuiceRetrieveTool;
 pub use types::{
     CompactResult, CompressInput, CompressOptions, CompressOutput, CompressedOutput, CompressorKind,
     ContentHint, ContentKind, ReduceOptions, ToolExecutionInput,

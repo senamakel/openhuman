@@ -13,6 +13,19 @@ pub const RETRIEVE_TOOL_NAME: &str = "tokenjuice_retrieve";
 /// The legacy retrieve tool name (kept as an alias during migration).
 pub const LEGACY_RETRIEVE_TOOL_NAME: &str = "retrieve_tool_output";
 
+/// All CCR recovery tool names. Both must be (a) always advertised to every
+/// agent — any agent that sees a retrieval footer must be able to call the tool
+/// — and (b) never re-compacted (their job is to return an original in full).
+pub const RECOVERY_TOOL_NAMES: &[&str] = &[RETRIEVE_TOOL_NAME, LEGACY_RETRIEVE_TOOL_NAME];
+
+/// Tools whose output must never be re-compacted. See [`RECOVERY_TOOL_NAMES`].
+pub const NEVER_COMPACT_TOOLS: &[&str] = RECOVERY_TOOL_NAMES;
+
+/// True if `tool_name` is one of the CCR recovery tools.
+pub fn is_recovery_tool(tool_name: &str) -> bool {
+    RECOVERY_TOOL_NAMES.contains(&tool_name)
+}
+
 /// Format the canonical inline marker for a CCR `hash`.
 pub fn format_marker(hash: &str) -> String {
     format!("⟦tj:{hash}⟧")

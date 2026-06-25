@@ -275,7 +275,8 @@ pub(crate) async fn run_one_tool(
                     Some(&call.arguments),
                     &scrubbed,
                     Some(0),
-                );
+                )
+                .await;
                 if tj_stats.applied {
                     log::debug!(
                         "[agent_loop] tokenjuice applied tool={} rule={} {}->{} bytes",
@@ -364,7 +365,8 @@ pub(crate) async fn run_one_tool(
                     Some(&call.arguments),
                     &scrubbed,
                     Some(1),
-                );
+                )
+                .await;
                 (format!("Error: {compacted}"), false)
             }
         }

@@ -41,6 +41,7 @@ mod runtime_python;
 mod scheduler_gate;
 mod storage_memory;
 mod task_sources;
+mod tokenjuice;
 mod tools;
 mod update;
 
@@ -78,6 +79,7 @@ pub use runtime::{
     DockerRuntimeConfig, ReliabilityConfig, RuntimeConfig, SchedulerConfig, ShellConfig,
 };
 pub use runtime_python::RuntimePythonConfig;
+pub use tokenjuice::TokenjuiceConfig;
 pub use scheduler_gate::{SchedulerGateConfig, SchedulerGateMode};
 pub use storage_memory::{
     LlmBackend, MemoryConfig, MemoryTreeConfig, StorageConfig, StorageProviderConfig,

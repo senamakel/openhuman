@@ -8,7 +8,7 @@ import { ScopeContext } from '../../lib/commands/ScopeContext';
 import { useAppDispatch } from '../../store/hooks';
 import { toggleSidebar } from '../../store/layoutSlice';
 import { APP_SHELL_LAYOUT_ID } from '../layout/shell/RootShellLayout';
-import { useHomeNav } from '../layout/shell/useHomeNav';
+import { useNewChat } from '../layout/shell/useNewChat';
 import KeyboardShortcutsModal from '../shortcuts/KeyboardShortcutsModal';
 import CommandPalette from './CommandPalette';
 
@@ -21,7 +21,7 @@ interface Props {
 export default function CommandProvider({ children }: Props) {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const newChat = useHomeNav();
+  const newChat = useNewChat();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [globalFrame, setGlobalFrame] = useState<symbol | null>(null);

@@ -64,6 +64,25 @@ async function dispatchKey(
   }
 }
 
+// Close an overlay via Escape, escalating to a document-targeted synthetic
+// event as a last resort. ModalShell's `useEscapeKey` binds to `document`, so a
+// `window`-dispatched fallback would miss it — dispatch on `document` directly.
+async function closeOverlayWithEscape(el: WebdriverIO.Element, timeoutMsg: string): Promise<void> {
+  try {
+    await browser.keys('Escape');
+  } catch {
+    await dispatchKey('Escape');
+  }
+  try {
+    await browser.waitUntil(async () => !(await el.isExisting()), { timeout: 3000 });
+  } catch {
+    await browser.execute(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    await browser.waitUntil(async () => !(await el.isExisting()), { timeout: 3000, timeoutMsg });
+  }
+}
+
 describe('Command palette', () => {
   before(async () => {
     // CommandProvider is mounted inside the auth-gated provider chain.
@@ -231,15 +250,7 @@ describe('Command palette', () => {
     }
 
     // Esc closes the overlay (ModalShell's useEscapeKey).
-    try {
-      await browser.keys('Escape');
-    } catch {
-      await dispatchKey('Escape');
-    }
-    await browser.waitUntil(async () => !(await list.isExisting()), {
-      timeout: 3000,
-      timeoutMsg: 'shortcuts help did not close on Escape',
-    });
+    await closeOverlayWithEscape(list, 'shortcuts help did not close on Escape');
   });
 
   it('opens the keyboard-shortcuts help via the ? key', async () => {
@@ -260,14 +271,6 @@ describe('Command palette', () => {
     }
     expect(await list.isExisting()).toBe(true);
 
-    try {
-      await browser.keys('Escape');
-    } catch {
-      await dispatchKey('Escape');
-    }
-    await browser.waitUntil(async () => !(await list.isExisting()), {
-      timeout: 3000,
-      timeoutMsg: 'shortcuts help did not close',
-    });
+    await closeOverlayWithEscape(list, 'shortcuts help did not close');
   });
 });

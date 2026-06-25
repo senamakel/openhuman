@@ -58,6 +58,10 @@ export function useNewChat(): () => void {
         void dispatch(loadThreadMessages(thr.id));
         navigate(chatThreadPath(thr.id));
       })
-      .catch(() => {});
+      .catch(err => {
+        // Don't silently drop the primary New Chat path — log so the failure is
+        // diagnosable. The user stays where they are (no broken navigation).
+        console.error('[new-chat] createNewThread failed', err);
+      });
   }, [navigate, dispatch, threads, messagesByThreadId]);
 }

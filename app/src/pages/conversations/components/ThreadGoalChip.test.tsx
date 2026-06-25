@@ -2,11 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ThreadGoal } from '../../../services/api/threadGoalApi';
-import {
-  ThreadGoalEditorPanel,
-  ThreadGoalFooterTrigger,
-  useThreadGoal,
-} from './ThreadGoalChip';
+import { ThreadGoalEditorPanel, ThreadGoalFooterTrigger, useThreadGoal } from './ThreadGoalChip';
 
 // Echo i18n keys so assertions are on stable key strings.
 vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));

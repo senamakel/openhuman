@@ -78,7 +78,10 @@ impl Tool for MemoryDiffTool {
             .get("include_text_diff")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
-        let since_read = args.get("since_read").and_then(|v| v.as_bool()).unwrap_or(true);
+        let since_read = args
+            .get("since_read")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
         let commit = args.get("commit").and_then(|v| v.as_bool()).unwrap_or(true);
 
         debug!(
@@ -279,4 +282,114 @@ fn format_cross_source_diff(diff: &CrossSourceDiff) -> String {
     }
 
     md
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn change(item_id: &str, title: &str, kind: ChangeKind, text_diff: Option<&str>) -> ItemChange {
+        ItemChange {
+            item_id: item_id.to_string(),
+            title: title.to_string(),
+            kind,
+            old_content_hash: None,
+            new_content_hash: None,
+            text_diff: text_diff.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn format_diff_result_groups_changes_and_renders_text_diff() {
+        let diff = DiffResult {
+            source_id: "src_a".into(),
+            source_kind: "folder".into(),
+            source_label: "Docs".into(),
+            from_snapshot_id: Some("s1".into()),
+            to_snapshot_id: "s2".into(),
+            summary: DiffSummary {
+                added: 1,
+                removed: 1,
+                modified: 1,
+                unchanged: 2,
+            },
+            changes: vec![
+                change("new.md", "New Doc", ChangeKind::Added, None),
+                change(
+                    "edit.md",
+                    "Edited Doc",
+                    ChangeKind::Modified,
+                    Some("@@ -1 +1 @@\n-old\n+new"),
+                ),
+                // Empty title falls back to the item id.
+                change("gone.md", "", ChangeKind::Removed, None),
+            ],
+        };
+
+        let md = format_diff_result(&diff);
+        assert!(md.contains("1 added, 1 modified, 1 removed"));
+        assert!(md.contains("### Added\n- New Doc"));
+        assert!(md.contains("### Modified\n- Edited Doc"));
+        assert!(md.contains("```diff"), "text diff should be fenced: {md}");
+        assert!(md.contains("+new"));
+        assert!(
+            md.contains("### Removed\n- gone.md"),
+            "title falls back to id"
+        );
+    }
+
+    #[test]
+    fn format_diff_result_reports_no_changes() {
+        let diff = DiffResult {
+            source_id: "src_a".into(),
+            source_kind: "folder".into(),
+            source_label: "Docs".into(),
+            from_snapshot_id: Some("s1".into()),
+            to_snapshot_id: "s2".into(),
+            summary: DiffSummary::default(),
+            changes: vec![],
+        };
+        assert!(format_diff_result(&diff).contains("No changes detected."));
+    }
+
+    #[test]
+    fn format_cross_source_diff_breaks_down_per_source() {
+        let cross = CrossSourceDiff {
+            checkpoint_id: Some("ckpt_1".into()),
+            computed_at_ms: 0,
+            summary: DiffSummary {
+                added: 1,
+                modified: 0,
+                removed: 0,
+                unchanged: 0,
+            },
+            per_source: vec![DiffResult {
+                source_id: "src_a".into(),
+                source_kind: "folder".into(),
+                source_label: "Docs".into(),
+                from_snapshot_id: Some("s1".into()),
+                to_snapshot_id: "s2".into(),
+                summary: DiffSummary {
+                    added: 1,
+                    ..Default::default()
+                },
+                changes: vec![change("new.md", "New Doc", ChangeKind::Added, None)],
+            }],
+        };
+        let md = format_cross_source_diff(&cross);
+        assert!(md.contains("Total: 1 added"));
+        assert!(md.contains("### Docs (folder)"));
+        assert!(md.contains("+ New Doc"));
+    }
+
+    #[test]
+    fn format_cross_source_diff_empty_is_explicit() {
+        let cross = CrossSourceDiff {
+            checkpoint_id: Some("ckpt_1".into()),
+            computed_at_ms: 0,
+            summary: DiffSummary::default(),
+            per_source: vec![],
+        };
+        assert!(format_cross_source_diff(&cross).contains("No changes across any source"));
+    }
 }

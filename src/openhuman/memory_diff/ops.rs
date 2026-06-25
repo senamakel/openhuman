@@ -252,8 +252,7 @@ pub async fn compute_diff(
             .collect();
 
         if !modified_ids.is_empty() {
-            let text_diffs =
-                compute_text_diffs_from_snapshots(&from_map, &to_map, &modified_ids);
+            let text_diffs = compute_text_diffs_from_snapshots(&from_map, &to_map, &modified_ids);
 
             for change in &mut changes {
                 if change.kind == ChangeKind::Modified {
@@ -386,10 +385,7 @@ pub async fn diff_since_read(
 /// Commit a read marker for one or more sources, advancing each to its
 /// current head snapshot. When `source_ids` is `None`, marks all enabled
 /// sources that have at least one snapshot. Returns the number of markers set.
-pub async fn mark_read(
-    config: &Config,
-    source_ids: Option<Vec<String>>,
-) -> Result<u64, String> {
+pub async fn mark_read(config: &Config, source_ids: Option<Vec<String>>) -> Result<u64, String> {
     let target_ids: Vec<String> = match source_ids {
         Some(ids) => ids,
         None => crate::openhuman::memory_sources::registry::list_sources()
@@ -819,7 +815,10 @@ mod tests {
     #[test]
     fn derive_title_uses_first_nonempty_line() {
         assert_eq!(derive_title("file.md", "# Heading\nbody"), "Heading");
-        assert_eq!(derive_title("file.md", "\n\n  Plain title  \nmore"), "Plain title");
+        assert_eq!(
+            derive_title("file.md", "\n\n  Plain title  \nmore"),
+            "Plain title"
+        );
     }
 
     #[test]
@@ -964,14 +963,29 @@ mod tests {
     #[tokio::test]
     async fn compute_diff_text_diff_only_when_requested() {
         let config = test_config();
-        seed(&config, "f", "src_a", 1000, &[item("a", "h1", "line one\nline two\n")]);
-        seed(&config, "t", "src_a", 2000, &[item("a", "h2", "line one\nline TWO changed\n")]);
+        seed(
+            &config,
+            "f",
+            "src_a",
+            1000,
+            &[item("a", "h1", "line one\nline two\n")],
+        );
+        seed(
+            &config,
+            "t",
+            "src_a",
+            2000,
+            &[item("a", "h2", "line one\nline TWO changed\n")],
+        );
 
         let without = compute_diff(&config, Some("f"), "t", false).await.unwrap();
         assert!(without.changes[0].text_diff.is_none());
 
         let with = compute_diff(&config, Some("f"), "t", true).await.unwrap();
-        let td = with.changes[0].text_diff.as_ref().expect("text diff present");
+        let td = with.changes[0]
+            .text_diff
+            .as_ref()
+            .expect("text diff present");
         assert!(td.contains("line TWO changed"), "got: {td}");
     }
 
@@ -1009,11 +1023,15 @@ mod tests {
         seed(&config, "s1", "src_a", 1000, &[item("a", "h1", "x")]);
 
         // First read: no marker → full diff (a added), and commit advances marker.
-        let first = diff_since_read(&source, &config, false, true).await.unwrap();
+        let first = diff_since_read(&source, &config, false, true)
+            .await
+            .unwrap();
         assert_eq!(first.summary.added, 1);
 
         // Second read with no new snapshot: marker == head → nothing changed.
-        let second = diff_since_read(&source, &config, false, true).await.unwrap();
+        let second = diff_since_read(&source, &config, false, true)
+            .await
+            .unwrap();
         assert_eq!(second.summary.added, 0);
         assert_eq!(second.summary.modified, 0);
         assert_eq!(second.summary.removed, 0);
@@ -1027,7 +1045,9 @@ mod tests {
             2000,
             &[item("a", "h1", "x"), item("b", "h2", "y")],
         );
-        let third = diff_since_read(&source, &config, false, true).await.unwrap();
+        let third = diff_since_read(&source, &config, false, true)
+            .await
+            .unwrap();
         assert_eq!(third.summary.added, 1, "only b is new since last read");
         assert_eq!(third.summary.unchanged, 1);
     }
@@ -1039,8 +1059,12 @@ mod tests {
         seed(&config, "s1", "src_a", 1000, &[item("a", "h1", "x")]);
 
         // Preview (commit=false) twice → both show the full diff.
-        let a = diff_since_read(&source, &config, false, false).await.unwrap();
-        let b = diff_since_read(&source, &config, false, false).await.unwrap();
+        let a = diff_since_read(&source, &config, false, false)
+            .await
+            .unwrap();
+        let b = diff_since_read(&source, &config, false, false)
+            .await
+            .unwrap();
         assert_eq!(a.summary.added, 1);
         assert_eq!(b.summary.added, 1, "marker was not advanced");
     }
@@ -1057,7 +1081,9 @@ mod tests {
         assert_eq!(marked, 1);
 
         // After marking, a read shows no changes (marker already at head).
-        let diff = diff_since_read(&source, &config, false, false).await.unwrap();
+        let diff = diff_since_read(&source, &config, false, false)
+            .await
+            .unwrap();
         assert_eq!(diff.summary.added, 0);
         assert!(diff.changes.is_empty());
     }
@@ -1082,7 +1108,9 @@ mod tests {
         // src_a gets a new head with a modification; src_b unchanged (no new head).
         seed(&config, "a2", "src_a", 2000, &[item("a", "h2", "x v2")]);
 
-        let cross = diff_since_checkpoint("ckpt_1", &config, false).await.unwrap();
+        let cross = diff_since_checkpoint("ckpt_1", &config, false)
+            .await
+            .unwrap();
         assert_eq!(cross.summary.modified, 1, "src_a 'a' modified");
         assert_eq!(
             cross.per_source.len(),

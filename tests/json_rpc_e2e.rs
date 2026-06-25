@@ -4217,7 +4217,11 @@ async fn json_rpc_memory_diff_snapshot_diff_and_read_marker_lifecycle() {
     let read1 = assert_no_jsonrpc_error(&read1, "diff_since_read 1");
     let read1 = read1.get("result").unwrap_or(read1);
     // First read with no prior marker reports everything as added.
-    assert_eq!(read1.pointer("/diff/summary/added"), Some(&json!(2)), "{read1}");
+    assert_eq!(
+        read1.pointer("/diff/summary/added"),
+        Some(&json!(2)),
+        "{read1}"
+    );
 
     let read2 = post_json_rpc(
         &rpc_base,
@@ -4228,7 +4232,11 @@ async fn json_rpc_memory_diff_snapshot_diff_and_read_marker_lifecycle() {
     .await;
     let read2 = assert_no_jsonrpc_error(&read2, "diff_since_read 2");
     let read2 = read2.get("result").unwrap_or(read2);
-    assert_eq!(read2.pointer("/diff/summary/added"), Some(&json!(0)), "{read2}");
+    assert_eq!(
+        read2.pointer("/diff/summary/added"),
+        Some(&json!(0)),
+        "{read2}"
+    );
     assert_eq!(
         read2.pointer("/diff/summary/modified"),
         Some(&json!(0)),

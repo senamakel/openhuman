@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Result};
 use serde::de::DeserializeOwned;
@@ -17,11 +17,22 @@ use crate::openhuman::runtime_python::process::PythonLaunchSpec;
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const START_FAILURE_BACKOFF: Duration = Duration::from_secs(300);
 
-static SERVER: OnceLock<Mutex<Option<Arc<RuntimePythonServer>>>> = OnceLock::new();
+static SERVER: OnceLock<Mutex<ServerCache>> = OnceLock::new();
 
-fn server_slot() -> &'static Mutex<Option<Arc<RuntimePythonServer>>> {
-    SERVER.get_or_init(|| Mutex::new(None))
+fn server_slot() -> &'static Mutex<ServerCache> {
+    SERVER.get_or_init(|| Mutex::new(ServerCache::Empty))
+}
+
+#[derive(Clone)]
+enum ServerCache {
+    Empty,
+    Ready(Arc<RuntimePythonServer>),
+    Failed {
+        message: String,
+        retry_after: Instant,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -190,24 +201,73 @@ impl RuntimePythonServer {
 
 pub async fn ensure_started(config: &Config) -> Result<Arc<RuntimePythonServer>> {
     let mut guard = server_slot().lock().await;
-    if let Some(existing) = guard.as_ref() {
-        existing.start().await?;
-        return Ok(existing.clone());
+    match &*guard {
+        ServerCache::Ready(existing) => {
+            let existing = existing.clone();
+            if let Err(error) = existing.start().await {
+                let message = format!("{error:#}");
+                log::warn!(
+                    "[runtime_python_server] cached server failed to start; backing off: {message}"
+                );
+                *guard = ServerCache::Failed {
+                    message: message.clone(),
+                    retry_after: Instant::now() + START_FAILURE_BACKOFF,
+                };
+                bail!("runtime python server unavailable: {message}");
+            }
+            return Ok(existing);
+        }
+        ServerCache::Failed {
+            message,
+            retry_after,
+        } if Instant::now() < *retry_after => {
+            bail!("runtime python server unavailable after previous startup failure: {message}");
+        }
+        ServerCache::Failed { .. } | ServerCache::Empty => {}
     }
+
+    match start_new_server(config).await {
+        Ok(server) => {
+            *guard = ServerCache::Ready(server.clone());
+            Ok(server)
+        }
+        Err(error) => {
+            let message = format!("{error:#}");
+            log::warn!(
+                "[runtime_python_server] startup failed; caching fallback state for {:?}: {message}",
+                START_FAILURE_BACKOFF
+            );
+            *guard = ServerCache::Failed {
+                message: message.clone(),
+                retry_after: Instant::now() + START_FAILURE_BACKOFF,
+            };
+            bail!("runtime python server unavailable: {message}");
+        }
+    }
+}
+
+async fn start_new_server(config: &Config) -> Result<Arc<RuntimePythonServer>> {
     let server = Arc::new(RuntimePythonServer::new(config).await?);
     server.start().await?;
-    *guard = Some(server.clone());
     Ok(server)
 }
 
 pub async fn status() -> RuntimePythonServerStatus {
-    let server = {
+    let cached = {
         let guard = server_slot().lock().await;
         guard.clone()
     };
-    match server {
-        Some(server) => server.status().await,
-        None => RuntimePythonServerStatus::disabled("runtime python server has not started"),
+    match cached {
+        ServerCache::Ready(server) => server.status().await,
+        ServerCache::Failed { message, .. } => RuntimePythonServerStatus {
+            enabled: true,
+            running: false,
+            backends: Vec::new(),
+            message: Some(format!("runtime python server unavailable: {message}")),
+        },
+        ServerCache::Empty => {
+            RuntimePythonServerStatus::disabled("runtime python server has not started")
+        }
     }
 }
 

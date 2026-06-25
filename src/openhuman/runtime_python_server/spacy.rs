@@ -53,17 +53,22 @@ pub async fn ensure_spacy(config: &Config) -> Result<SpacyRuntime> {
         )
     })?;
 
-    let venv_dir = root.join("spacy-venv");
-    let marker = venv_dir.join(".openhuman-spacy-ready");
+    let venv_dir = runtime_spacy_venv_dir(config);
     let venv_python = venv_python_path(&venv_dir);
 
-    if marker.exists() && venv_python.exists() {
+    if spacy_venv_ready(&venv_dir) {
         log::debug!(
             "[runtime_python_server::spacy] spaCy already provisioned at {}",
             venv_dir.display()
         );
         return Ok(SpacyRuntime {
             python_bin: venv_python,
+        });
+    }
+
+    if let Some(existing_venv) = migrate_or_reuse_legacy_spacy_venv(config, &venv_dir).await? {
+        return Ok(SpacyRuntime {
+            python_bin: venv_python_path(&existing_venv),
         });
     }
 
@@ -115,6 +120,7 @@ pub async fn ensure_spacy(config: &Config) -> Result<SpacyRuntime> {
     )
     .await?;
 
+    let marker = venv_dir.join(".openhuman-spacy-ready");
     tokio::fs::write(&marker, base.version.as_bytes())
         .await
         .with_context(|| format!("writing spaCy ready marker {}", marker.display()))?;
@@ -157,9 +163,10 @@ async fn run_step(python_bin: &Path, args: &[&str], timeout: Duration, label: &s
 }
 
 pub fn spacy_provisioned(config: &Config) -> bool {
-    let venv_dir = python_server_cache_root(config).join("spacy-venv");
-    let marker = venv_dir.join(".openhuman-spacy-ready");
-    marker.exists() && venv_python_path(&venv_dir).exists()
+    spacy_venv_ready(&runtime_spacy_venv_dir(config))
+        || legacy_spacy_venv_dirs(config)
+            .into_iter()
+            .any(|venv_dir| spacy_venv_ready(&venv_dir))
 }
 
 pub(crate) fn python_server_cache_root(config: &Config) -> PathBuf {
@@ -171,6 +178,75 @@ pub(crate) fn python_server_cache_root(config: &Config) -> PathBuf {
         return user_cache.join("openhuman").join("runtime-python-server");
     }
     config.workspace_dir.join("runtime_python_server")
+}
+
+fn runtime_spacy_venv_dir(config: &Config) -> PathBuf {
+    python_server_cache_root(config).join("spacy-venv")
+}
+
+async fn migrate_or_reuse_legacy_spacy_venv(
+    config: &Config,
+    target_venv: &Path,
+) -> Result<Option<PathBuf>> {
+    for legacy_venv in legacy_spacy_venv_dirs(config) {
+        if legacy_venv == target_venv || !spacy_venv_ready(&legacy_venv) {
+            continue;
+        }
+
+        if !target_venv.exists() {
+            if let Some(parent) = target_venv.parent() {
+                tokio::fs::create_dir_all(parent)
+                    .await
+                    .with_context(|| format!("creating spaCy venv parent {}", parent.display()))?;
+            }
+            match tokio::fs::rename(&legacy_venv, target_venv).await {
+                Ok(()) => {
+                    log::info!(
+                        "[runtime_python_server::spacy] migrated legacy spaCy venv {} -> {}",
+                        legacy_venv.display(),
+                        target_venv.display()
+                    );
+                    return Ok(Some(target_venv.to_path_buf()));
+                }
+                Err(error) => {
+                    log::warn!(
+                        "[runtime_python_server::spacy] could not migrate legacy spaCy venv {} -> {}; reusing legacy path: {error}",
+                        legacy_venv.display(),
+                        target_venv.display()
+                    );
+                    return Ok(Some(legacy_venv));
+                }
+            }
+        }
+
+        log::info!(
+            "[runtime_python_server::spacy] reusing legacy spaCy venv {} because target {} is not ready",
+            legacy_venv.display(),
+            target_venv.display()
+        );
+        return Ok(Some(legacy_venv));
+    }
+
+    Ok(None)
+}
+
+fn legacy_spacy_venv_dirs(config: &Config) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    let configured = config.runtime_python.cache_dir.trim();
+    if !configured.is_empty() {
+        roots.push(PathBuf::from(configured).join("memory-nlp"));
+    } else if let Some(user_cache) = dirs::cache_dir() {
+        roots.push(user_cache.join("openhuman").join("memory-nlp"));
+    }
+    roots.push(config.workspace_dir.join("memory_tree").join("nlp"));
+    roots
+        .into_iter()
+        .map(|root| root.join("spacy-venv"))
+        .collect()
+}
+
+fn spacy_venv_ready(venv_dir: &Path) -> bool {
+    venv_dir.join(".openhuman-spacy-ready").exists() && venv_python_path(venv_dir).exists()
 }
 
 fn venv_python_path(venv_dir: &Path) -> PathBuf {
@@ -193,6 +269,20 @@ mod tests {
             python_server_cache_root(&config),
             PathBuf::from("/tmp/openhuman-python").join("runtime-python-server")
         );
+    }
+
+    #[test]
+    fn legacy_configured_cache_is_considered_provisioned() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.runtime_python.cache_dir = temp.path().to_string_lossy().to_string();
+        let legacy_venv = temp.path().join("memory-nlp").join("spacy-venv");
+        std::fs::create_dir_all(legacy_venv.join(if cfg!(windows) { "Scripts" } else { "bin" }))
+            .unwrap();
+        std::fs::write(legacy_venv.join(".openhuman-spacy-ready"), "test").unwrap();
+        std::fs::write(venv_python_path(&legacy_venv), "").unwrap();
+
+        assert!(spacy_provisioned(&config));
     }
 
     #[test]

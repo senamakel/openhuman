@@ -549,13 +549,11 @@ jobs:
 
   playwright-e2e:
     name: E2E (Playwright / web lane)
-    needs: [changes, frontend-checks, rust-quality, build-playwright-e2e-artifact]
+    needs: [changes, build-playwright-e2e-artifact]
     if: |
       always() &&
       needs.changes.outputs.playwright == 'true' &&
-      needs['build-playwright-e2e-artifact'].result == 'success' &&
-      contains(fromJSON('["success", "skipped"]'), needs['frontend-checks'].result) &&
-      contains(fromJSON('["success", "skipped"]'), needs['rust-quality'].result)
+      needs['build-playwright-e2e-artifact'].result == 'success'
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest

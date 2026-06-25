@@ -294,6 +294,8 @@ pub fn client_config_json(config: &Config) -> serde_json::Value {
             serde_json::json!({
                 "id": m.id,
                 "provider": m.provider,
+                "cost_per_1m_input": m.cost_per_1m_input,
+                "cost_per_1m_cached_input": m.cost_per_1m_cached_input,
                 "cost_per_1m_output": m.cost_per_1m_output,
                 "vision": m.vision,
             })

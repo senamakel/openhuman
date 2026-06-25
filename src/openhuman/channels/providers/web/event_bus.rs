@@ -29,7 +29,7 @@ pub fn register_approval_surface_subscriber() {
         Some(handle) => {
             let _ = APPROVAL_SURFACE_HANDLE.set(handle);
             log::info!(
-                "[web-channel] approval-surface subscriber registered (domain=approval) — will bridge ApprovalRequested → approval_request socket event"
+                "[web-channel] approval-surface subscriber registered (domains=approval,plan_review) — bridges ApprovalRequested → approval_request and PlanReviewRequested → plan_review_request socket events"
             );
         }
         None => {

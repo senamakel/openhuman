@@ -164,15 +164,26 @@ fn kompress_step() -> HarnessInitStep {
     }
 }
 
+/// Whether this step should provision a *dedicated* Kompress venv. When spaCy is
+/// also enabled, the single runtime-python server must share one interpreter, so
+/// `runtime_python_server_step` installs torch into the spaCy venv instead — a
+/// dedicated venv here would be unused and double the (heavy) provisioning work.
+fn kompress_needs_dedicated_venv(config: &Config) -> bool {
+    config.runtime_python.enabled
+        && config.tokenjuice.ml_compression_enabled
+        && !config.memory_tree.spacy_enabled
+}
+
 async fn kompress_is_done(config: &Config) -> bool {
-    if !config.runtime_python.enabled || !config.tokenjuice.ml_compression_enabled {
+    if !kompress_needs_dedicated_venv(config) {
         return true;
     }
     crate::openhuman::runtime_python_server::kompress_provisioned(config)
 }
 
 async fn kompress_run(config: &Config) -> Result<(), String> {
-    if !config.runtime_python.enabled || !config.tokenjuice.ml_compression_enabled {
+    if !kompress_needs_dedicated_venv(config) {
+        // Shared-venv case (spaCy on) is provisioned by the server launch step.
         return Ok(());
     }
     crate::openhuman::runtime_python_server::ensure_kompress(config)

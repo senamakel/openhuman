@@ -243,10 +243,29 @@ impl RuntimePythonServer {
         let guard = self.inner.lock().await;
         self.status_from_inner(guard.as_ref())
     }
+
+    /// The backend set this server was launched for.
+    pub fn backends(&self) -> &[RuntimePythonBackend] {
+        &self.launch.backends
+    }
 }
 
 pub async fn ensure_started(config: &Config) -> Result<Arc<RuntimePythonServer>> {
     let mut guard = server_slot().lock().await;
+    // If the enabled backend set changed since the server started (e.g. ML was
+    // toggled on after a spaCy-only launch), the cached process can't serve the
+    // new backend — it was never provisioned/launched for it. Rebuild instead of
+    // reusing a stale launch.
+    if let ServerCache::Ready(existing) = &*guard {
+        if existing.backends() != enabled_backends(config).as_slice() {
+            log::info!(
+                "[runtime_python_server] backend set changed ({:?} -> {:?}); rebuilding server",
+                existing.backends(),
+                enabled_backends(config)
+            );
+            *guard = ServerCache::Empty;
+        }
+    }
     match &*guard {
         ServerCache::Ready(existing) => {
             let existing = existing.clone();

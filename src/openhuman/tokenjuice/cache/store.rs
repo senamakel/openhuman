@@ -199,9 +199,23 @@ pub fn offload_checked(content: &str) -> (String, bool) {
     (hash, mem_retained || disk_retained)
 }
 
+/// True if `hash` is a well-formed CCR token (exactly the generated hex digest).
+/// Tokens come from agent-controlled tool args, and on a disk-tier miss they are
+/// joined onto the CCR root — so anything other than the fixed hex shape (e.g.
+/// `../../state/config.toml`) must be rejected before touching the filesystem to
+/// prevent path traversal / arbitrary file reads through the recovery tool.
+fn is_valid_token(hash: &str) -> bool {
+    hash.len() == HASH_BYTES * 2 && hash.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
 /// Retrieve a previously-offloaded original by hash, if still available
 /// (memory first, then the disk tier). Honours the TTL on the in-memory entry.
 pub fn retrieve(hash: &str) -> Option<String> {
+    // Reject anything that isn't the generated token shape up front — guards the
+    // disk-tier `root.join(hash)` below against path traversal.
+    if !is_valid_token(hash) {
+        return None;
+    }
     let ttl = limits().read().unwrap_or_else(|p| p.into_inner()).ttl;
     {
         let mut inner = global().lock().unwrap_or_else(|p| p.into_inner());
@@ -331,6 +345,18 @@ mod tests {
         assert!(!retained, "oversized single entry must report not-retained");
         assert!(!inner.map.contains_key("big"));
         assert_eq!(inner.total_bytes, 0);
+    }
+
+    #[test]
+    fn rejects_path_traversal_tokens() {
+        // Non-hex / wrong-length tokens are rejected before any disk join.
+        assert!(!is_valid_token("../../state/config.toml"));
+        assert!(!is_valid_token("..%2f..%2fetc"));
+        assert!(!is_valid_token("deadbeef")); // too short
+        assert!(!is_valid_token(&"g".repeat(32))); // non-hex
+        assert!(is_valid_token(&"a1b2c3d4".repeat(4))); // 32 hex chars
+                                                        // retrieve() returns None for an invalid token regardless of cache state.
+        assert!(retrieve("../../state/config.toml").is_none());
     }
 
     #[test]

@@ -2177,7 +2177,8 @@ const messages: TranslationMap = {
   'chat.setup': 'Skonfiguruj',
   'chat.switchToText': 'Przełącz na tekst',
   'chat.superContext.label': 'Superkontekst',
-  'chat.superContext.hint': 'Zbiera dodatkowy kontekst przed odpowiedzią',
+  'chat.superContext.hint':
+    'Superkontekst pozwala OpenHuman zebrać i przygotować kontekst ze wszystkich dostępnych danych, aby udzielić wysoce trafnej odpowiedzi. Superkontekst jest we wczesnej wersji beta.',
   'chat.transcribing': 'Transkrypcja...',
   'chat.stopAndSend': 'Zatrzymaj i wyślij',
   'chat.startTalking': 'Zacznij mówić',

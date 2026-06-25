@@ -2157,7 +2157,8 @@ const messages: TranslationMap = {
   'chat.setup': 'Atur',
   'chat.switchToText': 'Beralih ke teks',
   'chat.superContext.label': 'Super konteks',
-  'chat.superContext.hint': 'Mengumpulkan konteks tambahan sebelum membalas',
+  'chat.superContext.hint':
+    'Super konteks memungkinkan OpenHuman mengumpulkan dan menyiapkan konteks dari semua data yang dapat diaksesnya agar dapat memberikan jawaban yang sangat relevan. Super konteks masih dalam tahap beta awal.',
   'chat.transcribing': 'Mentranskripsi...',
   'chat.stopAndSend': 'Berhenti dan kirim',
   'chat.startTalking': 'Mulai bicara',

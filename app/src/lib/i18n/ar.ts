@@ -2108,7 +2108,8 @@ const messages: TranslationMap = {
   'chat.setup': 'إعداد',
   'chat.switchToText': 'التبديل إلى النص',
   'chat.superContext.label': 'سياق فائق',
-  'chat.superContext.hint': 'يجمع سياقًا إضافيًا قبل الرد',
+  'chat.superContext.hint':
+    'يتيح «سياق فائق» لـ OpenHuman جمع وتحضير السياق من جميع البيانات التي يمكنه الوصول إليها لتقديم إجابة وثيقة الصلة للغاية. «سياق فائق» في مرحلة تجريبية مبكرة.',
   'chat.transcribing': 'جارٍ النسخ...',
   'chat.stopAndSend': 'إيقاف وإرسال',
   'chat.startTalking': 'ابدأ الحديث',

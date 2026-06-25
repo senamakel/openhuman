@@ -2043,7 +2043,8 @@ const messages: TranslationMap = {
   'chat.setup': '设置',
   'chat.switchToText': '切换到文本',
   'chat.superContext.label': '超级上下文',
-  'chat.superContext.hint': '回复前收集额外的上下文',
+  'chat.superContext.hint':
+    '超级上下文让 OpenHuman 能够从其可访问的所有数据中收集并准备上下文，从而给出高度相关的回答。超级上下文目前处于早期测试阶段。',
   'chat.transcribing': '转录中...',
   'chat.stopAndSend': '停止并发送',
   'chat.startTalking': '开始说话',

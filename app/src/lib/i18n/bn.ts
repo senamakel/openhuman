@@ -2158,7 +2158,8 @@ const messages: TranslationMap = {
   'chat.setup': 'সেটআপ করুন',
   'chat.switchToText': 'টেক্সটে পরিবর্তন করুন',
   'chat.superContext.label': 'সুপার কনটেক্সট',
-  'chat.superContext.hint': 'উত্তর দেওয়ার আগে অতিরিক্ত প্রসঙ্গ সংগ্রহ করে',
+  'chat.superContext.hint':
+    'সুপার কনটেক্সট OpenHuman-কে তার অ্যাক্সেসযোগ্য সমস্ত ডেটা থেকে প্রসঙ্গ সংগ্রহ ও প্রস্তুত করতে দেয় যাতে এটি অত্যন্ত প্রাসঙ্গিক উত্তর দিতে পারে। সুপার কনটেক্সট প্রাথমিক বিটা পর্যায়ে রয়েছে।',
   'chat.transcribing': 'ট্রান্সক্রাইব হচ্ছে...',
   'chat.stopAndSend': 'থামুন ও পাঠান',
   'chat.startTalking': 'কথা বলা শুরু করুন',

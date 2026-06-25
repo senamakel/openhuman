@@ -2135,7 +2135,8 @@ const messages: TranslationMap = {
   'chat.setup': '설정',
   'chat.switchToText': '텍스트로 전환',
   'chat.superContext.label': '슈퍼 컨텍스트',
-  'chat.superContext.hint': '답변 전에 추가 컨텍스트를 수집합니다',
+  'chat.superContext.hint':
+    '슈퍼 컨텍스트를 사용하면 OpenHuman이 접근할 수 있는 모든 데이터에서 컨텍스트를 수집하고 준비하여 매우 관련성 높은 답변을 제공할 수 있습니다. 슈퍼 컨텍스트는 초기 베타 단계입니다.',
   'chat.transcribing': '전사 중...',
   'chat.stopAndSend': '중지하고 보내기',
   'chat.startTalking': '말하기 시작',

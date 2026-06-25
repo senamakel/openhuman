@@ -8,7 +8,6 @@ import {
   openhumanSetSuperContextEnabled,
 } from '../../utils/tauriCommands/config';
 import SettingsSwitch from '../settings/controls/SettingsSwitch';
-import Tooltip from '../ui/Tooltip';
 
 const log = debugFactory('chat:super-context-toggle');
 
@@ -95,13 +94,15 @@ const SuperContextToggle = () => {
       <span className="font-medium text-stone-600 dark:text-neutral-300">
         {t('chat.superContext.label')}
       </span>
-      {/* Float left (into the app interior): this row is right-aligned at the
-          bottom of the window, so a top/center-anchored pill with the long
-          hint overflows the right edge and gets clipped. */}
-      <Tooltip label={t('chat.superContext.hint')} side="left">
+      {/* Self-contained wrapping tooltip (the shared <Tooltip> is single-line
+          nowrap and can't fit this paragraph). Anchored bottom-full + right-0
+          so it grows up-and-left into the app interior — the toggle only shows
+          on a fresh thread, where that space is empty, so it never clips. */}
+      <span className="group relative inline-flex">
         <button
           type="button"
-          aria-label={t('chat.superContext.hint')}
+          aria-describedby="super-context-tooltip"
+          aria-label={t('chat.superContext.label')}
           data-testid="super-context-info"
           className="flex h-4 w-4 items-center justify-center rounded-full text-stone-400 transition-colors hover:text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-neutral-500 dark:hover:text-neutral-300">
           <svg
@@ -118,7 +119,13 @@ const SuperContextToggle = () => {
             />
           </svg>
         </button>
-      </Tooltip>
+        <span
+          id="super-context-tooltip"
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full right-0 z-[9999] mb-2 w-72 rounded-lg bg-stone-800 px-3 py-2 text-xs font-normal leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-neutral-700">
+          {t('chat.superContext.hint')}
+        </span>
+      </span>
     </div>
   );
 };

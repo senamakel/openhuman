@@ -2208,7 +2208,8 @@ const messages: TranslationMap = {
   'chat.setup': 'Einrichten',
   'chat.switchToText': 'Wechsle zu Text',
   'chat.superContext.label': 'Super-Kontext',
-  'chat.superContext.hint': 'Sammelt zusätzlichen Kontext vor der Antwort',
+  'chat.superContext.hint':
+    'Super-Kontext ermöglicht OpenHuman, Kontext aus allen verfügbaren Daten zu sammeln und aufzubereiten, um eine hochrelevante Antwort zu liefern. Super-Kontext befindet sich in einer frühen Beta-Phase.',
   'chat.transcribing': 'Transkribieren...',
   'chat.stopAndSend': 'Stoppen und senden',
   'chat.startTalking': 'Sprich los',

@@ -3056,7 +3056,6 @@ const messages: TranslationMap = {
   'conversations.planReview.title': 'Tinjau rencana',
   'conversations.planReview.subtitle':
     'Setujui untuk menjalankannya, tolak untuk membuangnya, atau kirim masukan untuk merevisinya.',
-  'conversations.planReview.objective': 'Sasaran',
   'conversations.planReview.approve': 'Setujui & jalankan',
   'conversations.planReview.reject': 'Tolak',
   'conversations.planReview.feedbackLabel': 'Minta perubahan',

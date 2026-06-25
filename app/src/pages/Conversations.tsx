@@ -114,7 +114,6 @@ import {
   handleComposerSlashCommand,
 } from './conversations/composerSendDecision';
 import { useMemorySyncActive } from './conversations/hooks/useBackgroundActivity';
-import { runDecidePlanAll, runRevisePlan } from './conversations/taskPlanActions';
 import {
   type AgentBubblePosition,
   buildAcceptedInlineCompletion,
@@ -315,6 +314,9 @@ const Conversations = ({
   const artifactsByThread = useAppSelector(state => state.chatRuntime.artifactsByThread);
   const pendingApprovalByThread = useAppSelector(
     state => state.chatRuntime.pendingApprovalByThread
+  );
+  const pendingPlanReviewByThread = useAppSelector(
+    state => state.chatRuntime.pendingPlanReviewByThread
   );
   const streamingAssistantByThread = useAppSelector(
     state => state.chatRuntime.streamingAssistantByThread
@@ -899,7 +901,7 @@ const Conversations = ({
     }
   };
 
-  const handleSendMessage = async (text?: string, opts?: { isolateComposer?: boolean }) => {
+  const handleSendMessage = async (text?: string) => {
     // Guard double-submit to the SAME thread only; a send to another thread
     // may proceed concurrently.
     if (selectedThreadId && pendingSendsRef.current.has(selectedThreadId)) return;
@@ -954,9 +956,7 @@ const Conversations = ({
     // guard above is set so this await can't open a check→add race for rapid
     // repeat clicks. Resolves instantly when nothing is pending.
     await whenSuperContextWriteSettled();
-    // Plan-review feedback (`isolateComposer`) sends its own text as a fresh
-    // turn; it must NOT pull in the user's pending composer attachments.
-    const pendingAttachments = opts?.isolateComposer ? [] : attachments.slice();
+    const pendingAttachments = attachments.slice();
     const modelOverride =
       agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ?? CHAT_MODEL_HINT;
     const messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
@@ -999,12 +999,8 @@ const Conversations = ({
       removePendingSendingThread(sendingThreadId);
       return;
     }
-    // Preserve the user's composer draft + attachments when this send is an
-    // isolated plan-review feedback turn (don't discard an unrelated draft).
-    if (!opts?.isolateComposer) {
-      setInputValue('');
-      setAttachments([]);
-    }
+    setInputValue('');
+    setAttachments([]);
     setSendError(null);
     setAttachError(null);
     // Silence timer: fires only if 600s pass without ANY inference progress
@@ -1144,12 +1140,11 @@ const Conversations = ({
   // out of order on reload. Instead we record a queued-follow-up pill; the pill
   // is flushed into the transcript (persisted, in order, after the assistant
   // reply) when the turn ends — see `ChatRuntimeProvider`'s done/error paths.
-  const handleSendFollowup = async (text?: string, opts?: { isolateComposer?: boolean }) => {
+  const handleSendFollowup = async (text?: string) => {
     if (!rustChat || !selectedThreadId) return;
     const threadId = selectedThreadId;
     const normalized = (text ?? inputValue).trim();
-    // Plan-review feedback isolates from composer state (no draft attachments).
-    const pendingAttachments = opts?.isolateComposer ? [] : attachments.slice();
+    const pendingAttachments = attachments.slice();
     if (!normalized && pendingAttachments.length === 0) return;
 
     const modelOverride =
@@ -1201,11 +1196,8 @@ const Conversations = ({
       });
       // Only clear the composer once the backend has accepted the queue, so a
       // failed send leaves the user's draft + attachments intact to retry.
-      // Skip entirely for isolated plan-review feedback (preserve the draft).
-      if (!opts?.isolateComposer) {
-        setInputValue('');
-        setAttachments([]);
-      }
+      setInputValue('');
+      setAttachments([]);
       dispatch(enqueueFollowup({ threadId, message: followupMessage, label }));
       trackEvent('chat_followup_queued');
     } catch (err) {
@@ -1498,12 +1490,12 @@ const Conversations = ({
     : undefined;
   const selectedTaskBoard = selectedThreadId ? (taskBoardByThread[selectedThreadId] ?? null) : null;
   const hasTaskBoard = Boolean(selectedTaskBoard?.cards.length);
-  // Cards the agent parked for plan-mode review (interactive turn). When any
-  // exist, the PlanReviewCard owns the Approve/Reject/feedback decision and the
-  // todo strip below stays read-only progress.
-  const awaitingPlanCards = (selectedTaskBoard?.cards ?? []).filter(
-    c => c.status === 'awaiting_approval'
-  );
+  // A plan the orchestrator parked for interactive review (request_plan_review
+  // gate). When present, the PlanReviewCard renders above the composer and
+  // resolves the parked turn; the todo strip stays read-only progress.
+  const pendingPlanReview = selectedThreadId
+    ? (pendingPlanReviewByThread[selectedThreadId] ?? null)
+    : null;
   const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
   const hasVisibleMessages = visibleMessages.length > 0;
   const latestVisibleMessage = visibleMessages[visibleMessages.length - 1] ?? null;
@@ -2624,48 +2616,12 @@ const Conversations = ({
             pinned above the composer. Distinct from the Intelligence-tab kanban
             (global `user-tasks`). Renders nothing when the thread has no active
             cards. */}
-        {/* Plan-mode review: when the agent parks a thread-scoped plan for an
-            interactive turn, surface the whole plan for the user to Approve /
-            Reject / send feedback on — once — before anything executes. Owns the
-            plan decisions, so the strip below stays read-only progress. */}
-        {selectedThreadId && awaitingPlanCards.length > 0 && (
-          <PlanReviewCard
-            cards={awaitingPlanCards}
-            disabled={!selectedThreadId}
-            onApprove={() =>
-              void runDecidePlanAll({
-                threadId: selectedThreadId,
-                cards: awaitingPlanCards,
-                approve: true,
-                dispatch,
-                notify: setSendAdvisory,
-                t,
-              })
-            }
-            onReject={() =>
-              void runDecidePlanAll({
-                threadId: selectedThreadId,
-                cards: awaitingPlanCards,
-                approve: false,
-                dispatch,
-                notify: setSendAdvisory,
-                t,
-              })
-            }
-            onSendFeedback={feedback =>
-              void runRevisePlan({
-                threadId: selectedThreadId,
-                feedback,
-                sendMessage: text =>
-                  selectedThreadActive
-                    ? handleSendFollowup(text, { isolateComposer: true })
-                    : handleSendMessage(text, { isolateComposer: true }),
-                dispatch,
-                notify: setSendAdvisory,
-                t,
-              })
-            }
-          />
+        {/* Plan-mode review: the orchestrator parked the live turn on a
+            thread-scoped plan (request_plan_review gate). Surface it for the
+            user to Approve / Reject / send feedback on before anything executes;
+            the card resolves the parked turn via plan_review_decide. */}
+        {selectedThreadId && pendingPlanReview && (
+          <PlanReviewCard threadId={selectedThreadId} review={pendingPlanReview} />
         )}
 
         {selectedThreadId && (

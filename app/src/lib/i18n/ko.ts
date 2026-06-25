@@ -3026,7 +3026,6 @@ const messages: TranslationMap = {
   'conversations.planReview.title': '계획 검토',
   'conversations.planReview.subtitle':
     '실행하려면 승인하고, 버리려면 거부하거나, 수정하려면 의견을 보내세요.',
-  'conversations.planReview.objective': '목표',
   'conversations.planReview.approve': '승인 후 실행',
   'conversations.planReview.reject': '거부',
   'conversations.planReview.feedbackLabel': '변경 요청',

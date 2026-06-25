@@ -21,6 +21,7 @@ import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer, {
   beginInferenceTurn,
   setInferenceStatusForThread,
+  setPendingPlanReviewForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
 } from '../../store/chatRuntimeSlice';
@@ -155,6 +156,14 @@ vi.mock('../../features/autocomplete/useAutocompleteSkillStatus', () => ({
 
 // openUrl uses Tauri; stub it.
 vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
+
+// coreRpcClient: the PlanReviewCard resolves a parked plan via callCoreRpc.
+// Preserve the real exports (e.g. CoreRpcError) and only stub the call.
+const mockCallCoreRpc = vi.fn().mockResolvedValue({});
+vi.mock('../../services/coreRpcClient', async orig => {
+  const actual = await orig<typeof import('../../services/coreRpcClient')>();
+  return { ...actual, callCoreRpc: (...args: unknown[]) => mockCallCoreRpc(...args) };
+});
 
 // coreState/store: getCoreStateSnapshot used by selectSocketStatus.
 vi.mock('../../lib/coreState/store', () => ({
@@ -1988,6 +1997,7 @@ describe('Conversations — open-session resume (View work)', () => {
   });
 
   it('approves a parked plan from the plan-review card', async () => {
+    mockCallCoreRpc.mockClear().mockResolvedValue({});
     const thread = makeThread({ id: 'approve-thread', title: 'Approve thread' });
     mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
 
@@ -1995,34 +2005,26 @@ describe('Conversations — open-session resume (View work)', () => {
     const selectedId = store.getState().thread.selectedThreadId ?? 'approve-thread';
     await act(async () => {
       store.dispatch(
-        setTaskBoardForThread({
+        setPendingPlanReviewForThread({
           threadId: selectedId,
-          board: {
-            threadId: selectedId,
-            updatedAt: '',
-            cards: [
-              {
-                id: 'pc1',
-                title: 'Needs sign-off',
-                status: 'awaiting_approval',
-                order: 0,
-                updatedAt: '',
-              },
-            ],
-          },
+          review: { requestId: 'pr-1', summary: 'Needs sign-off', steps: ['do the thing'] },
         })
       );
     });
 
     // A parked plan surfaces the PlanReviewCard above the composer; "Approve &
-    // run" routes through onApprove → runDecidePlanAll → threadApi.decidePlan
-    // (one call per awaiting card).
+    // run" resolves the parked turn via the plan_review_decide RPC.
     const approveBtn = await screen.findByText('Approve & run');
     await act(async () => {
       fireEvent.click(approveBtn);
     });
 
-    await waitFor(() => expect(threadApi.decidePlan).toHaveBeenCalledWith(selectedId, 'pc1', true));
+    await waitFor(() =>
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.plan_review_decide',
+        params: { request_id: 'pr-1', decision: 'approve', feedback: undefined },
+      })
+    );
   });
 });
 

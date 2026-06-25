@@ -2592,6 +2592,68 @@ async fn json_rpc_todos_revise_plan_rejects_awaiting() {
 }
 
 #[tokio::test]
+async fn json_rpc_plan_review_decide_unknown_and_invalid() {
+    // The plan-review gate is in-memory and parks a live turn; over RPC we can
+    // still exercise the decision surface: deciding an unknown/expired request
+    // resolves nothing (`resolved: false`), and an invalid decision errors.
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // Unknown request id → resolved:false (no parked turn to wake).
+    let unknown = post_json_rpc(
+        &rpc_base,
+        9301,
+        "openhuman.plan_review_decide",
+        json!({ "request_id": "plan-does-not-exist", "decision": "approve" }),
+    )
+    .await;
+    let unknown_result = assert_no_jsonrpc_error(&unknown, "plan_review_decide unknown");
+    assert_eq!(
+        unknown_result.get("resolved").and_then(Value::as_bool),
+        Some(false),
+        "deciding an unknown request resolves nothing"
+    );
+
+    // revise without feedback → error.
+    let bad_revise = post_json_rpc(
+        &rpc_base,
+        9302,
+        "openhuman.plan_review_decide",
+        json!({ "request_id": "plan-x", "decision": "revise" }),
+    )
+    .await;
+    assert_jsonrpc_error(&bad_revise, "plan_review_decide revise w/o feedback");
+
+    // Unknown decision verb → error.
+    let bad_decision = post_json_rpc(
+        &rpc_base,
+        9303,
+        "openhuman.plan_review_decide",
+        json!({ "request_id": "plan-x", "decision": "maybe" }),
+    )
+    .await;
+    assert_jsonrpc_error(&bad_decision, "plan_review_decide invalid decision");
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_thread_goal_lifecycle() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");

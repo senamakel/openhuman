@@ -3053,7 +3053,6 @@ const messages: TranslationMap = {
   'conversations.planReview.title': 'योजना की समीक्षा करें',
   'conversations.planReview.subtitle':
     'इसे चलाने के लिए स्वीकृत करें, हटाने के लिए अस्वीकार करें, या संशोधित करने के लिए प्रतिक्रिया भेजें।',
-  'conversations.planReview.objective': 'उद्देश्य',
   'conversations.planReview.approve': 'स्वीकृत करें और चलाएँ',
   'conversations.planReview.reject': 'अस्वीकार करें',
   'conversations.planReview.feedbackLabel': 'बदलाव का अनुरोध करें',

@@ -3124,7 +3124,6 @@ const messages: TranslationMap = {
   'conversations.planReview.title': 'Plan prüfen',
   'conversations.planReview.subtitle':
     'Genehmigen zum Ausführen, ablehnen zum Verwerfen oder Feedback zum Überarbeiten senden.',
-  'conversations.planReview.objective': 'Ziel',
   'conversations.planReview.approve': 'Genehmigen & ausführen',
   'conversations.planReview.reject': 'Ablehnen',
   'conversations.planReview.feedbackLabel': 'Änderungen anfordern',

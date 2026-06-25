@@ -187,6 +187,9 @@ pub fn all_tools_with_runtime(
         // build-mode pass. The plan→build mode switch itself is a
         // follow-up; the tool emits a stable marker today.
         Box::new(TodoTool::new()),
+        // Interactive plan-review gate: parks the live turn on a thread-scoped
+        // plan the user must approve before execution (Codex/Claude plan mode).
+        Box::new(crate::openhuman::plan_review::RequestPlanReviewTool::new()),
         // Move/update a specific task card by id on a target board (defaults to
         // the proactive `task-sources` board) — lets the agent advance the task
         // it's working (in_progress / done+evidence / blocked+reason) from any

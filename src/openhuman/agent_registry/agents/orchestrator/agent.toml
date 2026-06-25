@@ -227,6 +227,11 @@ named = [
     # (grep/glob/edit/apply_patch/lsp) intentionally stay with downstream
     # agents — the orchestrator coordinates, it doesn't touch files itself.
     "todo",
+    # Interactive plan-review gate (Codex/Claude plan mode). After laying out a
+    # multi-step plan on an interactive turn, call `request_plan_review` to PAUSE
+    # the turn until the user approves / rejects / sends feedback — nothing
+    # executes until they approve. Auto-approves on non-interactive turns.
+    "request_plan_review",
     # Thread-level goal (Codex-style per-thread completion contract). `goal_set`
     # records the durable objective for THIS thread when a non-trivial request
     # lands (the orchestrator is authoritative — it always creates or replaces);

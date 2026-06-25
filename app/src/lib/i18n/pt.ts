@@ -3101,7 +3101,6 @@ const messages: TranslationMap = {
   'conversations.planReview.title': 'Revisar plano',
   'conversations.planReview.subtitle':
     'Aprove para executá-lo, rejeite para descartá-lo ou envie comentários para revisá-lo.',
-  'conversations.planReview.objective': 'Objetivo',
   'conversations.planReview.approve': 'Aprovar e executar',
   'conversations.planReview.reject': 'Rejeitar',
   'conversations.planReview.feedbackLabel': 'Solicitar alterações',

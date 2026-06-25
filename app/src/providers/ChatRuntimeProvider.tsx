@@ -9,6 +9,7 @@ import {
   type ChatDoneEvent,
   type ChatInferenceStartEvent,
   type ChatIterationStartEvent,
+  type ChatPlanReviewRequestEvent,
   type ChatSegmentEvent,
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
@@ -35,6 +36,7 @@ import {
   setInferenceStatusForThread,
   setParallelStream,
   setPendingApprovalForThread,
+  setPendingPlanReviewForThread,
   setStreamingAssistantForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
@@ -974,6 +976,18 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               command,
               toolkit,
             },
+          })
+        );
+      },
+      onPlanReviewRequest: (event: ChatPlanReviewRequestEvent) => {
+        rtLog('plan_review_request', { thread: event.thread_id, request: event.request_id });
+        const steps = Array.isArray(event.args?.steps)
+          ? event.args.steps.filter((s): s is string => typeof s === 'string')
+          : [];
+        dispatch(
+          setPendingPlanReviewForThread({
+            threadId: event.thread_id,
+            review: { requestId: event.request_id, summary: event.message, steps },
           })
         );
       },

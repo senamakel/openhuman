@@ -182,19 +182,12 @@ impl Tool for TodoTool {
 }
 
 async fn default_task_approval_mode() -> Option<TaskApprovalMode> {
-    // Interactive (`WebChat`) turns always gate a freshly-created plan card for
-    // review — the user approves / rejects / sends feedback before anything
-    // executes (Codex/Claude-style plan mode). Background origins (cron,
-    // subconscious, CLI, channels) keep the config-driven default so automation
-    // is never blocked on a human who isn't watching.
-    use crate::openhuman::agent::turn_origin::{self, AgentTurnOrigin};
-    if matches!(
-        turn_origin::current(),
-        Some(AgentTurnOrigin::WebChat { .. })
-    ) {
-        tracing::debug!("[todo] interactive plan card -> approval required");
-        return Some(TaskApprovalMode::Required);
-    }
+    // Interactive plan review is handled by the `request_plan_review` gate
+    // (it parks the live turn), NOT by stamping conversation-thread cards: the
+    // background dispatcher never sweeps conversation boards, so a card status
+    // can't gate a chat turn. This default therefore just carries the
+    // config-driven behaviour for the dispatched boards (`user-tasks` /
+    // `task-sources`).
     match crate::openhuman::config::ops::load_config_with_timeout().await {
         Ok(config) => Some(if config.autonomy.require_task_plan_approval {
             TaskApprovalMode::Required
@@ -351,37 +344,6 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("[x] Write tests"));
-        reset_scratch();
-    }
-
-    #[tokio::test]
-    async fn interactive_origin_stamps_required_approval() {
-        // A plan card created during a live WebChat turn is parked for review by
-        // default (plan mode), regardless of the global config flag — so the
-        // dispatcher won't auto-run it before the user approves.
-        use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin};
-        let _guard = scratch_lock();
-        reset_scratch();
-        let tool = TodoTool::new();
-        let added = with_origin(
-            AgentTurnOrigin::WebChat {
-                thread_id: "t".into(),
-                client_id: "c".into(),
-            },
-            tool.execute(json!({ "op": "add", "content": "Plan step" })),
-        )
-        .await
-        .unwrap();
-        assert!(!added.is_error, "{}", added.output());
-        let payload: Value = serde_json::from_str(&added.output()).unwrap();
-        assert!(
-            payload["markdown"]
-                .as_str()
-                .unwrap()
-                .contains("approval: required"),
-            "interactive card should default to approval required: {}",
-            payload["markdown"]
-        );
         reset_scratch();
     }
 

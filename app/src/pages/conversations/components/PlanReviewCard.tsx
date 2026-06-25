@@ -1,59 +1,68 @@
+import debug from 'debug';
 import React, { useState } from 'react';
 
 import Button from '../../../components/ui/Button';
 import { useT } from '../../../lib/i18n/I18nContext';
-import type { TaskBoardCard } from '../../../types/turnState';
+import { callCoreRpc } from '../../../services/coreRpcClient';
+import {
+  clearPendingPlanReviewForThread,
+  type PendingPlanReview,
+} from '../../../store/chatRuntimeSlice';
+import { useAppDispatch } from '../../../store/hooks';
 
 /**
- * Plan-mode review surface (Codex/Claude-style). When an interactive turn lays
- * out a thread-scoped plan, the orchestrator parks the to-do cards at
- * `awaiting_approval` and stops before executing. This card aggregates the
- * whole parked plan (objective + ordered steps per card) into a single
- * "review once" panel above the composer and offers three actions:
+ * Plan-mode review surface (Codex/Claude-style). The orchestrator parked the
+ * live turn on a thread-scoped plan via the `request_plan_review` gate; this
+ * card surfaces the plan above the composer and resolves the parked turn via
+ * the `openhuman.plan_review_decide` RPC:
  *
- *  - **Approve & run** → every awaiting card becomes runnable (the dispatcher
- *    picks them up).
- *  - **Reject** → the plan is dropped; nothing executes.
- *  - **Send feedback** → the parked plan is cleared and the free-text request
- *    is sent back into the thread so the agent re-plans (and re-parks).
+ *  - **Approve & run** → the turn resumes and executes the plan.
+ *  - **Reject** → the turn resumes and stops without executing.
+ *  - **Send feedback** → the turn resumes, re-plans from the free-text request,
+ *    and re-parks for another review.
  *
- * Pure presentation: the page owns the RPCs (see `taskPlanActions`). Mirrors
- * {@link ApprovalRequestCard}'s placement/styling so the two parked-turn
- * surfaces read consistently.
+ * Mirrors {@link ApprovalRequestCard}: it owns the decision RPC and clears
+ * itself optimistically; {@link ChatRuntimeProvider}'s turn-end handlers also
+ * clear the pending review if the turn ends.
  */
+const log = debug('openhuman:chat:plan-review-card');
+
+type Decision = 'approve' | 'reject' | 'revise';
 
 interface Props {
-  /** The cards currently awaiting plan approval for the active thread. */
-  cards: TaskBoardCard[];
-  onApprove: () => void;
-  onReject: () => void;
-  onSendFeedback: (feedback: string) => void;
-  /** Disable all controls (e.g. no thread selected, or a decision in flight). */
-  disabled?: boolean;
+  threadId: string;
+  review: PendingPlanReview;
 }
 
-/** Prefer the card title; fall back to its objective, then its id. */
-function cardLabel(card: TaskBoardCard): string {
-  return card.title?.trim() || card.objective?.trim() || card.id;
-}
-
-export const PlanReviewCard: React.FC<Props> = ({
-  cards,
-  onApprove,
-  onReject,
-  onSendFeedback,
-  disabled = false,
-}) => {
+export const PlanReviewCard: React.FC<Props> = ({ threadId, review }) => {
   const { t } = useT();
+  const dispatch = useAppDispatch();
   const [feedback, setFeedback] = useState('');
+  const [deciding, setDeciding] = useState<Decision | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  if (cards.length === 0) return null;
+  const decide = async (decision: Decision, feedbackText?: string) => {
+    if (deciding) return;
+    setDeciding(decision);
+    setErrorMsg(null);
+    try {
+      await callCoreRpc({
+        method: 'openhuman.plan_review_decide',
+        params: { request_id: review.requestId, decision, feedback: feedbackText },
+      });
+      // Resolve optimistically; ChatRuntimeProvider also clears on turn end.
+      dispatch(clearPendingPlanReviewForThread({ threadId }));
+    } catch (e) {
+      log('plan_review_decide failed: %o', e);
+      setErrorMsg(t('chat.approval.error'));
+      setDeciding(null);
+    }
+  };
 
   const submitFeedback = () => {
     const trimmed = feedback.trim();
     if (!trimmed) return;
-    onSendFeedback(trimmed);
-    setFeedback('');
+    void decide('revise', trimmed);
   };
 
   return (
@@ -70,53 +79,42 @@ export const PlanReviewCard: React.FC<Props> = ({
           <p className="font-semibold text-ocean-900 dark:text-ocean-100">
             {t('conversations.planReview.title')}
           </p>
-          <p className="mt-1 text-ocean-800/90 dark:text-ocean-200/90">
-            {t('conversations.planReview.subtitle')}
+          <p className="mt-1 break-words text-ocean-800/90 dark:text-ocean-200/90">
+            {review.summary?.trim() || t('conversations.planReview.subtitle')}
           </p>
 
-          <ul className="mt-2 flex max-h-56 flex-col gap-2 overflow-y-auto">
-            {cards
-              .slice()
-              .sort((a, b) => a.order - b.order)
-              .map(card => (
-                <li
-                  key={card.id}
-                  className="rounded-lg border border-ocean-200/80 bg-white px-2.5 py-2 dark:border-ocean-800 dark:bg-neutral-950">
-                  <p className="font-medium text-ink dark:text-neutral-100">{cardLabel(card)}</p>
-                  {card.objective?.trim() && card.objective.trim() !== cardLabel(card) && (
-                    <p className="mt-0.5 text-xs text-stone-600 dark:text-neutral-300">
-                      {t('conversations.planReview.objective')}: {card.objective.trim()}
-                    </p>
-                  )}
-                  {(card.plan?.length ?? 0) > 0 && (
-                    <ol className="mt-1 list-decimal pl-5 text-xs text-stone-600 dark:text-neutral-300">
-                      {card.plan?.map((step, i) => (
-                        <li key={i} className="break-words">
-                          {step}
-                        </li>
-                      ))}
-                    </ol>
-                  )}
+          {review.steps.length > 0 && (
+            <ol className="mt-2 max-h-56 list-decimal overflow-y-auto pl-6 text-stone-700 dark:text-neutral-200">
+              {review.steps.map((step, i) => (
+                <li key={i} className="break-words">
+                  {step}
                 </li>
               ))}
-          </ul>
+            </ol>
+          )}
+
+          {errorMsg && <p className="mt-2 text-xs text-coral">⚠ {errorMsg}</p>}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button
               variant="primary"
               size="sm"
               data-analytics-id="plan-review-approve"
-              onClick={onApprove}
-              disabled={disabled}>
-              {t('conversations.planReview.approve')}
+              onClick={() => void decide('approve')}
+              disabled={deciding !== null}>
+              {deciding === 'approve'
+                ? t('chat.approval.deciding')
+                : t('conversations.planReview.approve')}
             </Button>
             <Button
               variant="secondary"
               size="sm"
               data-analytics-id="plan-review-reject"
-              onClick={onReject}
-              disabled={disabled}>
-              {t('conversations.planReview.reject')}
+              onClick={() => void decide('reject')}
+              disabled={deciding !== null}>
+              {deciding === 'reject'
+                ? t('chat.approval.deciding')
+                : t('conversations.planReview.reject')}
             </Button>
           </div>
 
@@ -132,14 +130,13 @@ export const PlanReviewCard: React.FC<Props> = ({
               value={feedback}
               onChange={e => setFeedback(e.target.value)}
               onKeyDown={e => {
-                // Cmd/Ctrl+Enter submits, matching the composer's quick-send.
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                   e.preventDefault();
                   submitFeedback();
                 }
               }}
               rows={2}
-              disabled={disabled}
+              disabled={deciding !== null}
               placeholder={t('conversations.planReview.feedbackPlaceholder')}
               className="w-full resize-y rounded-lg border border-ocean-200 bg-white px-2.5 py-1.5 text-sm text-ink shadow-inner outline-none focus:border-ocean-400 disabled:opacity-50 dark:border-ocean-800 dark:bg-neutral-950 dark:text-neutral-100"
             />
@@ -149,8 +146,10 @@ export const PlanReviewCard: React.FC<Props> = ({
                 size="sm"
                 data-analytics-id="plan-review-send-feedback"
                 onClick={submitFeedback}
-                disabled={disabled || feedback.trim().length === 0}>
-                {t('conversations.planReview.sendFeedback')}
+                disabled={deciding !== null || feedback.trim().length === 0}>
+                {deciding === 'revise'
+                  ? t('chat.approval.deciding')
+                  : t('conversations.planReview.sendFeedback')}
               </Button>
             </div>
           </div>

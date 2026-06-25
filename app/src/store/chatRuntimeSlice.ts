@@ -231,6 +231,20 @@ export interface PendingApproval {
 }
 
 /**
+ * A thread-scoped plan the orchestrator parked for interactive review (Codex/
+ * Claude plan mode). Surfaced from the `plan_review_request` socket event and
+ * resolved via the `openhuman.plan_review_decide` RPC. The parked agent turn
+ * blocks until the user approves / rejects / sends feedback.
+ */
+export interface PendingPlanReview {
+  requestId: string;
+  /** One-line summary of the plan. */
+  summary: string;
+  /** Ordered plan steps to display for review. */
+  steps: string[];
+}
+
+/**
  * Lifecycle status of a single agent-generated artifact, as projected
  * onto the chat runtime per thread.
  *
@@ -301,6 +315,7 @@ interface ChatRuntimeState {
   taskBoardByThread: Record<string, TaskBoard>;
   inferenceTurnLifecycleByThread: Record<string, InferenceTurnLifecycle>;
   pendingApprovalByThread: Record<string, PendingApproval>;
+  pendingPlanReviewByThread: Record<string, PendingPlanReview>;
   /**
    * Per-thread artifact ledger. Snapshots are upserted on
    * `artifact_ready` / `artifact_failed` socket events keyed on
@@ -355,6 +370,7 @@ const initialState: ChatRuntimeState = {
   taskBoardByThread: {},
   inferenceTurnLifecycleByThread: {},
   pendingApprovalByThread: {},
+  pendingPlanReviewByThread: {},
   artifactsByThread: {},
   sessionTokenUsage: {
     inputTokens: 0,
@@ -726,6 +742,15 @@ const chatRuntimeSlice = createSlice({
     clearPendingApprovalForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.pendingApprovalByThread[action.payload.threadId];
     },
+    setPendingPlanReviewForThread: (
+      state,
+      action: PayloadAction<{ threadId: string; review: PendingPlanReview }>
+    ) => {
+      state.pendingPlanReviewByThread[action.payload.threadId] = action.payload.review;
+    },
+    clearPendingPlanReviewForThread: (state, action: PayloadAction<{ threadId: string }>) => {
+      delete state.pendingPlanReviewByThread[action.payload.threadId];
+    },
     /**
      * Mark a producer-tool call as in-flight so the `ArtifactCard` can
      * render a spinner before any ready/failed event arrives. Caller
@@ -904,6 +929,7 @@ const chatRuntimeSlice = createSlice({
       delete state.taskBoardByThread[action.payload.threadId];
       delete state.inferenceTurnLifecycleByThread[action.payload.threadId];
       delete state.pendingApprovalByThread[action.payload.threadId];
+      delete state.pendingPlanReviewByThread[action.payload.threadId];
       delete state.queueStatusByThread[action.payload.threadId];
       delete state.queuedFollowupsByThread[action.payload.threadId];
       // Note: artifactsByThread intentionally NOT cleared here. The
@@ -921,6 +947,7 @@ const chatRuntimeSlice = createSlice({
       state.taskBoardByThread = {};
       state.inferenceTurnLifecycleByThread = {};
       state.pendingApprovalByThread = {};
+      state.pendingPlanReviewByThread = {};
       state.artifactsByThread = {};
       state.queueStatusByThread = {};
       state.queuedFollowupsByThread = {};
@@ -969,6 +996,9 @@ const chatRuntimeSlice = createSlice({
       // Snapshots don't carry pending-approval payloads; drop any stale in-memory
       // approval so the card reflects the rehydrated core truth, not pre-drift state.
       delete state.pendingApprovalByThread[threadId];
+      // Likewise drop any stale parked plan review — its gate future cannot
+      // survive a rehydrate, so the card must not linger.
+      delete state.pendingPlanReviewByThread[threadId];
       if (snapshot.taskBoard) {
         state.taskBoardByThread[threadId] = snapshot.taskBoard;
       }
@@ -1056,6 +1086,8 @@ export const {
   clearTaskBoardForThread,
   setPendingApprovalForThread,
   clearPendingApprovalForThread,
+  setPendingPlanReviewForThread,
+  clearPendingPlanReviewForThread,
   upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
   upsertArtifactFailedForThread,

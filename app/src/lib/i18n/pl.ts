@@ -3083,7 +3083,6 @@ const messages: TranslationMap = {
   'conversations.planReview.title': 'Przejrzyj plan',
   'conversations.planReview.subtitle':
     'Zatwierdź, aby go uruchomić, odrzuć, aby go odrzucić, lub wyślij opinię, aby go poprawić.',
-  'conversations.planReview.objective': 'Cel',
   'conversations.planReview.approve': 'Zatwierdź i uruchom',
   'conversations.planReview.reject': 'Odrzuć',
   'conversations.planReview.feedbackLabel': 'Poproś o zmiany',

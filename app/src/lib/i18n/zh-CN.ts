@@ -2904,7 +2904,6 @@ const messages: TranslationMap = {
   'conversations.threadTodo.title': '计划',
   'conversations.planReview.title': '审阅计划',
   'conversations.planReview.subtitle': '批准以执行，拒绝以放弃，或发送反馈以修改。',
-  'conversations.planReview.objective': '目标',
   'conversations.planReview.approve': '批准并执行',
   'conversations.planReview.reject': '拒绝',
   'conversations.planReview.feedbackLabel': '请求修改',

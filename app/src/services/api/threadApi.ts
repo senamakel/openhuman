@@ -229,26 +229,6 @@ export const threadApi = {
     };
   },
 
-  /**
-   * Clear a parked plan so the orchestrator can re-plan from the user's
-   * feedback (`openhuman.todos_revise_plan`). Rejects every card currently
-   * awaiting approval and returns the updated board (rebuilt from the returned
-   * todos snapshot) or null. The caller separately sends `feedback` back into
-   * the thread as a chat message so the agent re-plans and re-parks.
-   */
-  revisePlan: async (threadId: string, feedback: string): Promise<TaskBoard | null> => {
-    const response = await callCoreRpc<{
-      data?: { threadId?: string | null; cards?: TaskBoardCard[] };
-    }>({ method: 'openhuman.todos_revise_plan', params: { thread_id: threadId, feedback } });
-    const data = unwrapEnvelope(response);
-    if (!data?.cards) return null;
-    return {
-      threadId: data.threadId ?? threadId,
-      cards: data.cards,
-      updatedAt: new Date().toISOString(),
-    };
-  },
-
   updateLabels: async (threadId: string, labels: string[]): Promise<Thread> => {
     const response = await callCoreRpc<Envelope<Thread>>({
       method: 'openhuman.threads_update_labels',

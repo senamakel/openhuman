@@ -140,6 +140,22 @@ export interface ChatApprovalRequestEvent {
 }
 
 /**
+ * Interactive plan-review request: the orchestrator parked the live turn on a
+ * thread-scoped plan the user must review before execution (Codex/Claude plan
+ * mode). Resolved via the `openhuman.plan_review_decide` RPC. Bridged from the
+ * Rust `DomainEvent::PlanReviewRequested` by the web channel.
+ */
+export interface ChatPlanReviewRequestEvent {
+  thread_id: string;
+  client_id?: string;
+  request_id: string;
+  /** One-line summary of the plan. */
+  message: string;
+  /** `{ steps: string[] }` — the ordered plan items shown in the review card. */
+  args?: { steps?: string[] };
+}
+
+/**
  * Lowercase variant of the Rust `ArtifactKind` enum surfaced on
  * artifact lifecycle socket events. Mirrors the slugs produced by
  * `ArtifactKind::as_str()` in `src/openhuman/artifacts/types.rs`.
@@ -428,6 +444,7 @@ export interface ChatEventListeners {
   onTaskBoardUpdated?: (event: ChatTaskBoardUpdatedEvent) => void;
   onProactiveMessage?: (event: ProactiveMessageEvent) => void;
   onApprovalRequest?: (event: ChatApprovalRequestEvent) => void;
+  onPlanReviewRequest?: (event: ChatPlanReviewRequestEvent) => void;
   onArtifactReady?: (event: ArtifactReadyEvent) => void;
   onArtifactFailed?: (event: ArtifactFailedEvent) => void;
   onDone?: (event: ChatDoneEvent) => void;
@@ -463,6 +480,7 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     taskBoardUpdated: 'task_board_updated',
     proactiveMessage: 'proactive_message',
     approvalRequest: 'approval_request',
+    planReviewRequest: 'plan_review_request',
     artifactReady: 'artifact_ready',
     artifactFailed: 'artifact_failed',
     done: 'chat_done',
@@ -782,6 +800,16 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     };
     socket.on(EVENTS.approvalRequest, cb);
     handlers.push([EVENTS.approvalRequest, cb]);
+  }
+
+  if (listeners.onPlanReviewRequest) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatPlanReviewRequestEvent;
+      chatLog('%s thread_id=%s request_id=%s', EVENTS.planReviewRequest, e.thread_id, e.request_id);
+      listeners.onPlanReviewRequest?.(e);
+    };
+    socket.on(EVENTS.planReviewRequest, cb);
+    handlers.push([EVENTS.planReviewRequest, cb]);
   }
 
   // Artifact lifecycle events (#2779). The Rust subscriber in

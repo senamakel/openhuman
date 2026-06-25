@@ -3588,7 +3588,6 @@ const en: TranslationMap = {
   'conversations.planReview.title': 'Review plan',
   'conversations.planReview.subtitle':
     'Approve to run it, reject to discard, or send feedback to revise.',
-  'conversations.planReview.objective': 'Objective',
   'conversations.planReview.approve': 'Approve & run',
   'conversations.planReview.reject': 'Reject',
   'conversations.planReview.feedbackLabel': 'Request changes',

@@ -17,7 +17,7 @@ describe('agentNameTone', () => {
   it('renders a done agent solid (no pulse)', () => {
     const tone = agentNameTone('success');
     expect(tone).not.toContain('animate-pulse');
-    expect(tone).toContain('text-stone-700');
+    expect(tone).toContain('text-content-secondary');
   });
 
   it('tints a failed agent with the error token', () => {

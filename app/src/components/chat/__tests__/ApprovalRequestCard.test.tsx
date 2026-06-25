@@ -54,7 +54,7 @@ describe('ApprovalRequestCard', () => {
     expect(card).toHaveClass('dark:bg-amber-950');
     expect(card).not.toHaveClass('bg-amber/5');
     expect(card.className).not.toMatch(/\bdark:bg-[^\s/]+\/\d+/);
-    expect(command).toHaveClass('dark:bg-neutral-950');
+    expect(command).toHaveClass('dark:bg-surface-canvas');
     expect(command.className).not.toMatch(/\bdark:bg-[^\s/]+\/\d+/);
   });
 

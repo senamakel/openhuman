@@ -26,30 +26,34 @@ import { chatThreadPath } from '../../../utils/chatRoutes';
  *    navigation also prevents the Conversations page from racing to create a
  *    second blank thread on mount.
  *
- * A thread counts as empty only when it is **not the currently-selected
- * thread** and has neither a server message count nor any locally-cached
- * messages. The two exclusions guard overlapping races right after a first
- * send: `addMessageLocal` populates `messagesByThreadId` only once it fulfills,
- * and the thread-list `messageCount` lags behind that, while an even earlier
- * in-flight send is tracked only locally on the active conversation. Skipping
- * the selected thread (the one any pending send targets) plus the cache check
- * means New Chat never reuses/reopens a conversation that's actually in use.
+ * A thread counts as empty (reusable) only when it has no server message
+ * count, no locally-cached messages, and no in-flight assistant turn. The first
+ * two guard the post-send window where `addMessageLocal` has populated
+ * `messagesByThreadId` (or the thread-list `messageCount`) but the other lags;
+ * the streaming check (`chatRuntime.streamingAssistantByThread`, whose
+ * `started` lifecycle is set the moment the user sends) covers the
+ * pre-fulfillment window. We intentionally key off "is this thread actually
+ * occupied?" rather than "is it selected?" so a genuinely-blank current chat is
+ * still reused (no piling up of empties) while a chat with a send in flight is
+ * never reopened.
  */
 export function useNewChat(): () => void {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const threads = useAppSelector(state => state.thread.threads);
   const messagesByThreadId = useAppSelector(state => state.thread.messagesByThreadId);
-  const selectedThreadId = useAppSelector(state => state.thread.selectedThreadId);
+  // Optional-chained so minimal test stores without the chatRuntime reducer
+  // still resolve (mirrors `selectPanelLayout`'s defensive access).
+  const streamingByThread = useAppSelector(state => state.chatRuntime?.streamingAssistantByThread);
 
   return useCallback(() => {
     dispatch(setActiveAccount(AGENT_ACCOUNT_ID));
 
     const empty = threads.find(
       thr =>
-        thr.id !== selectedThreadId &&
         (thr.messageCount ?? 0) === 0 &&
-        (messagesByThreadId[thr.id]?.length ?? 0) === 0
+        (messagesByThreadId[thr.id]?.length ?? 0) === 0 &&
+        !streamingByThread?.[thr.id]
     );
     if (empty) {
       dispatch(setSelectedThread(empty.id));
@@ -70,5 +74,5 @@ export function useNewChat(): () => void {
         // diagnosable. The user stays where they are (no broken navigation).
         console.error('[new-chat] createNewThread failed', err);
       });
-  }, [navigate, dispatch, threads, messagesByThreadId, selectedThreadId]);
+  }, [navigate, dispatch, threads, messagesByThreadId, streamingByThread]);
 }

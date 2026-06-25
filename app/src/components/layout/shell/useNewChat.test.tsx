@@ -31,16 +31,13 @@ interface WrapperProps {
 const mockDispatch = vi.fn();
 let mockThreads: MockThread[] = [];
 let mockMessagesByThreadId: Record<string, unknown[]> = {};
-let mockSelectedThreadId: string | null = null;
+let mockStreamingByThread: Record<string, unknown> = {};
 vi.mock('../../../store/hooks', () => ({
   useAppDispatch: () => mockDispatch,
   useAppSelector: (sel: (s: unknown) => unknown) =>
     sel({
-      thread: {
-        threads: mockThreads,
-        messagesByThreadId: mockMessagesByThreadId,
-        selectedThreadId: mockSelectedThreadId,
-      },
+      thread: { threads: mockThreads, messagesByThreadId: mockMessagesByThreadId },
+      chatRuntime: { streamingAssistantByThread: mockStreamingByThread },
     }),
 }));
 
@@ -66,7 +63,7 @@ describe('useNewChat', () => {
     vi.clearAllMocks();
     mockThreads = [];
     mockMessagesByThreadId = {};
-    mockSelectedThreadId = null;
+    mockStreamingByThread = {};
     mockDispatch.mockImplementation((action: MockAction) => {
       if (action?.type === 'thread/createNewThread') {
         return { unwrap: () => Promise.resolve({ id: 'fresh-thread' }) };
@@ -116,20 +113,33 @@ describe('useNewChat', () => {
     });
   });
 
-  it('does not reuse the currently-selected thread (may have an in-flight send)', async () => {
-    // The active conversation is count-empty and not yet in the message cache,
-    // but a first send could be in flight on it — never reopen it.
-    mockThreads = [{ id: 'active', messageCount: 0 }];
+  it('does not reuse a count-empty thread that has an in-flight streaming turn', async () => {
+    // The thread looks empty (no count, no cache) but a send is in flight
+    // (streamingAssistantByThread populated) — never reopen it.
+    mockThreads = [{ id: 'sending', messageCount: 0 }];
     mockMessagesByThreadId = {};
-    mockSelectedThreadId = 'active';
+    mockStreamingByThread = { sending: { requestId: 'r1', lifecycle: 'started' } };
     const { result } = renderHook(() => useNewChat(), { wrapper });
     result.current();
 
-    expect(mockNavigate).not.toHaveBeenCalledWith('/chat/active');
+    expect(mockNavigate).not.toHaveBeenCalledWith('/chat/sending');
     expect(dispatchedTypes()).toContain('thread/createNewThread');
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/chat/fresh-thread');
     });
+  });
+
+  it('reuses a genuinely-blank thread (count-empty, no cache, no in-flight turn)', () => {
+    // Round-trip of the earlier review: a blank current chat must be reused
+    // rather than spawning yet another empty thread.
+    mockThreads = [{ id: 'blank', messageCount: 0 }];
+    mockMessagesByThreadId = {};
+    mockStreamingByThread = {};
+    const { result } = renderHook(() => useNewChat(), { wrapper });
+    result.current();
+
+    expect(mockNavigate).toHaveBeenCalledWith('/chat/blank');
+    expect(dispatchedTypes()).not.toContain('thread/createNewThread');
   });
 
   it('creates a new thread when there is no empty thread', async () => {

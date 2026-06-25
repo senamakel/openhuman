@@ -21,26 +21,79 @@ function renderWithUsage(
   );
 }
 
+const oneTurn = [
+  {
+    inputTokens: 1200,
+    outputTokens: 300,
+    cachedTokens: 50,
+    costUsd: 0.0123,
+    contextWindow: 200_000,
+  },
+];
+
 describe('<ComposerTokenStats />', () => {
-  it('renders nothing before any turn when no model is provided', () => {
-    const { container } = renderWithUsage([]);
+  it('renders nothing before any turn (even when a model is provided)', () => {
+    const { container } = renderWithUsage([], { model: 'reasoning-v1' });
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows token counts, context window, and USD cost after a turn', () => {
-    renderWithUsage([
-      { inputTokens: 1200, outputTokens: 300, costUsd: 0.0123, contextWindow: 200_000 },
-    ]);
-    // IN / OUT labels with formatted counts.
-    expect(screen.getByText(/token\.inLabel/)).toHaveTextContent('1.2K');
-    expect(screen.getByText(/token\.outLabel/)).toHaveTextContent('300');
+  it('shows context usage, in/out tokens, and cost inline (no model inline)', () => {
+    renderWithUsage(oneTurn, { model: 'reasoning-v1' });
+    const row = screen.getByRole('button');
     // Context window uses the real reported window (200K), not just a default.
-    expect(screen.getByText(/token\.ctxLabel/)).toHaveTextContent('200K');
-    // USD cost rendered.
-    expect(screen.getByText('$0.012')).toBeInTheDocument();
+    expect(row).toHaveTextContent('token.ctxLabel');
+    expect(row).toHaveTextContent('200K');
+    // In/out tokens are on the inline row.
+    expect(row).toHaveTextContent('token.inLabel 1.2K');
+    expect(row).toHaveTextContent('token.outLabel 300');
+    // Cost inline.
+    expect(row).toHaveTextContent('$0.012');
+    // The model id is NOT inline (it lives in the popover).
+    expect(row).not.toHaveTextContent('reasoning-v1');
+    // No turn counter on the inline row.
+    expect(screen.queryByText(/token\.turns?$/)).not.toBeInTheDocument();
   });
 
-  it('reveals the per-sub-agent breakdown on hover', () => {
+  it('toggles the breakdown on click and shows explicit labelled rows + tooltips + model', () => {
+    renderWithUsage(oneTurn, { model: 'reasoning-v1' });
+    expect(screen.queryByTestId('composer-token-breakdown')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button'));
+    const bd = screen.getByTestId('composer-token-breakdown');
+    // Explicit, spelled-out labels with explanatory tooltips.
+    expect(within(bd).getByText('token.popInput')).toHaveAttribute('title', 'token.tipInput');
+    expect(within(bd).getByText('token.popOutput')).toHaveAttribute('title', 'token.tipOutput');
+    expect(within(bd).getByText('token.popCacheHit')).toHaveAttribute('title', 'token.tipCacheHit');
+    // Model id surfaced inside the popover.
+    expect(within(bd).getByText('reasoning-v1')).toBeInTheDocument();
+
+    // Clicking again closes it.
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.queryByTestId('composer-token-breakdown')).not.toBeInTheDocument();
+  });
+
+  it('highlights the context segment while the breakdown is open', () => {
+    renderWithUsage(oneTurn);
+    const ctx = screen.getByText(/token\.ctxLabel/);
+    expect(ctx.className).not.toMatch(/bg-ocean/);
+    fireEvent.click(screen.getByRole('button'));
+    expect(ctx.className).toMatch(/bg-ocean/);
+  });
+
+  it('closes on Escape and on an outside click', () => {
+    renderWithUsage(oneTurn);
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.getByTestId('composer-token-breakdown')).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('composer-token-breakdown')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.getByTestId('composer-token-breakdown')).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByTestId('composer-token-breakdown')).not.toBeInTheDocument();
+  });
+
+  it('breaks down spend per sub-agent in the popover', () => {
     renderWithUsage([
       {
         inputTokens: 500,
@@ -49,27 +102,19 @@ describe('<ComposerTokenStats />', () => {
         subAgents: [{ agentId: 'researcher', inputTokens: 200, outputTokens: 40, costUsd: 0.004 }],
       },
     ]);
-    // Breakdown is hidden until hover.
-    expect(screen.queryByTestId('composer-token-breakdown')).not.toBeInTheDocument();
-
-    fireEvent.mouseEnter(screen.getByRole('group'));
-    const breakdown = screen.getByTestId('composer-token-breakdown');
-    expect(within(breakdown).getByText('researcher')).toBeInTheDocument();
-    // 200 + 40 = 240 combined tokens, cost, and a single run.
-    expect(within(breakdown).getByText(/240/)).toBeInTheDocument();
-    expect(within(breakdown).getByText(/\$0\.004/)).toBeInTheDocument();
-    expect(within(breakdown).getByText(/1×/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button'));
+    const bd = screen.getByTestId('composer-token-breakdown');
+    expect(within(bd).getByText('researcher')).toBeInTheDocument();
+    // 200 + 40 = 240 combined tokens · cost · single run.
+    expect(within(bd).getByText(/240/)).toBeInTheDocument();
+    expect(within(bd).getByText(/\$0\.004/)).toBeInTheDocument();
+    expect(within(bd).getByText(/1×/)).toBeInTheDocument();
   });
 
   it('shows a no-sub-agents note when none ran', () => {
     renderWithUsage([{ inputTokens: 100, outputTokens: 20, costUsd: 0.001 }]);
-    fireEvent.mouseEnter(screen.getByRole('group'));
-    const breakdown = screen.getByTestId('composer-token-breakdown');
-    expect(within(breakdown).getByText('token.noSubAgents')).toBeInTheDocument();
-  });
-
-  it('still renders the model when no turns have run yet', () => {
-    renderWithUsage([], { model: 'reasoning-v1' });
-    expect(screen.getByText('reasoning-v1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button'));
+    const bd = screen.getByTestId('composer-token-breakdown');
+    expect(within(bd).getByText('token.noSubAgents')).toBeInTheDocument();
   });
 });

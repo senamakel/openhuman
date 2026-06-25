@@ -18,6 +18,7 @@ interface AppBackgroundProps {
 export default function AppBackground({ className = '' }: AppBackgroundProps) {
   const theme = useAppSelector(selectEffectiveTheme);
   const backdrop = theme.backdrop?.kind ?? 'mesh';
+  const showDots = theme.backdrop?.dots !== false; // default on
 
   return (
     <div className={`absolute inset-0 overflow-hidden ${className}`} aria-hidden="true">
@@ -28,7 +29,7 @@ export default function AppBackground({ className = '' }: AppBackgroundProps) {
           style={{ backgroundImage: `url("${theme.backdrop.imageUrl}")` }}
         />
       )}
-      <div className="app-dotted-canvas absolute inset-0" />
+      {showDots && <div className="app-dotted-canvas absolute inset-0" />}
     </div>
   );
 }

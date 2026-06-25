@@ -1,5 +1,4 @@
-import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { renderWithProviders } from '../../../test/test-utils';
@@ -26,15 +25,17 @@ describe('<ThemeStudioPanel />', () => {
     expect(screen.getByText('HAL 9000')).toBeInTheDocument();
   });
 
-  it('duplicates the active preset into an editable custom theme', async () => {
-    const user = userEvent.setup();
+  it('auto-forks a custom theme when a preset colour is edited', () => {
     const { store } = renderWithProviders(<ThemeStudioPanel />, {
       preloadedState: { theme: themeState },
       initialEntries: ['/settings/theme'],
     });
 
     expect(store.getState().theme.customThemes).toHaveLength(0);
-    await user.click(screen.getByRole('button', { name: /duplicate/i }));
+    // Editing a colour on a preset transparently forks a custom theme.
+    const colorInput = document.querySelector('input[type="color"]') as HTMLInputElement;
+    expect(colorInput).not.toBeNull();
+    fireEvent.input(colorInput, { target: { value: '#ff0000' } });
 
     const { customThemes, activeThemeId } = store.getState().theme;
     expect(customThemes).toHaveLength(1);
@@ -42,28 +43,13 @@ describe('<ThemeStudioPanel />', () => {
     expect(activeThemeId).toBe(customThemes[0].id);
   });
 
-  it('enables colour editing only when a custom theme is active', () => {
-    // Built-in preset active → colour inputs are disabled.
-    const { unmount } = renderWithProviders(<ThemeStudioPanel />, {
+  it('keeps colour editing enabled even on a preset (edits auto-fork)', () => {
+    renderWithProviders(<ThemeStudioPanel />, {
       preloadedState: { theme: themeState },
       initialEntries: ['/settings/theme'],
     });
-    expect(document.querySelector('input[type="color"]:not([disabled])')).toBeNull();
-    unmount();
-
-    // Custom theme active → at least one colour input is editable.
-    renderWithProviders(<ThemeStudioPanel />, {
-      preloadedState: {
-        theme: {
-          ...themeState,
-          activeThemeId: 'custom-1',
-          customThemes: [
-            { id: 'custom-1', name: 'Mine', isDark: false, builtIn: false, colors: {}, fonts: {} },
-          ],
-        },
-      },
-      initialEntries: ['/settings/theme'],
-    });
+    // No disabled colour inputs — editing is always available.
     expect(document.querySelector('input[type="color"]:not([disabled])')).not.toBeNull();
+    expect(document.querySelector('input[type="color"][disabled]')).toBeNull();
   });
 });

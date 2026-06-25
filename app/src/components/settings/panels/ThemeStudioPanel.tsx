@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { channelLuminance } from '../../../lib/theme/color';
-import type { Theme } from '../../../lib/theme/types';
+import type { BackdropKind, Theme } from '../../../lib/theme/types';
 import {
   ACCENT_FAMILIES,
   ACCENT_SHADES,
@@ -33,7 +33,6 @@ import {
   type ThemeVariant,
   upsertCustomTheme,
 } from '../../../store/themeSlice';
-import type { BackdropKind } from '../../../lib/theme/types';
 import { SettingsSection, SettingsSelect } from '../controls';
 import SettingsPanel from '../layout/SettingsPanel';
 import ColorTokenField from './theme/ColorTokenField';
@@ -108,20 +107,6 @@ const ThemeStudioPanel = () => {
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState('');
   const [copied, setCopied] = useState(false);
-
-  const handleDuplicate = () => {
-    const base = effectiveTheme;
-    const id = `custom-${Date.now()}`;
-    const copy: Theme = {
-      id,
-      name: t('settings.theme.copyName', '{name} (custom)').replace('{name}', base.name),
-      isDark: base.isDark,
-      builtIn: false,
-      colors: { ...base.colors },
-      fonts: { ...base.fonts },
-    };
-    dispatch(upsertCustomTheme(copy));
-  };
 
   const handleExport = async () => {
     const active = customThemes.find((th) => th.id === activeThemeId) ?? effectiveTheme;
@@ -274,33 +259,24 @@ const ThemeStudioPanel = () => {
         </div>
       </div>
 
-      {/* ── Customize affordance / contrast guard ──────────────────── */}
-      {!isActiveCustom ? (
-        <div className="rounded-xl border border-line bg-surface-muted p-4">
-          <p className="text-sm text-content-secondary mb-3">
+      {/* ── Editing hint (presets auto-fork) / contrast guard ──────── */}
+      {!isActiveCustom && (
+        <p className="px-1 text-xs text-content-muted">
+          {t(
+            'settings.theme.autoForkHint',
+            'Editing a preset automatically saves your changes as a new custom theme.',
+          )}
+        </p>
+      )}
+      {isActiveCustom && contrastRisk && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <p className="text-xs text-amber-700 dark:text-amber-300">
             {t(
-              'settings.theme.customizeHint',
-              'Built-in presets are read-only. Duplicate this theme to edit its colours and fonts.',
+              'settings.theme.contrastWarn',
+              'Low contrast between text and background — this theme may be hard to read.',
             )}
           </p>
-          <button
-            type="button"
-            onClick={handleDuplicate}
-            className="rounded-lg bg-primary-500 px-3 py-2 text-sm font-medium text-content-inverted hover:bg-primary-600">
-            {t('settings.theme.duplicate', 'Duplicate & customize')}
-          </button>
         </div>
-      ) : (
-        contrastRisk && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              {t(
-                'settings.theme.contrastWarn',
-                'Low contrast between text and background — this theme may be hard to read.',
-              )}
-            </p>
-          </div>
-        )
       )}
 
       {/* ── Colour editor ──────────────────────────────────────────── */}
@@ -313,7 +289,7 @@ const ThemeStudioPanel = () => {
                 tokenKey={key}
                 label={humanize(key)}
                 value={readToken(key)}
-                disabled={!isActiveCustom}
+                disabled={false}
                 onChange={(channels) => dispatch(setThemeToken({ key, value: channels }))}
               />
             ))}
@@ -343,7 +319,7 @@ const ThemeStudioPanel = () => {
                       tokenKey={key}
                       label={`${humanize(fam)} ${shade}`}
                       value={readToken(key)}
-                      disabled={!isActiveCustom}
+                      disabled={false}
                       onChange={(channels) => dispatch(setThemeToken({ key, value: channels }))}
                     />
                   );
@@ -366,7 +342,7 @@ const ThemeStudioPanel = () => {
                 <SettingsSelect
                   inputSize="sm"
                   value={current?.id ?? '__current__'}
-                  disabled={!isActiveCustom}
+                  disabled={false}
                   aria-label={t(`settings.theme.fontRole.${role}`, humanize(role))}
                   onChange={(e) => {
                     const choice = FONT_CHOICES.find((c) => c.id === e.target.value);
@@ -405,7 +381,7 @@ const ThemeStudioPanel = () => {
                   type="button"
                   role="radio"
                   aria-checked={sel}
-                  disabled={!isActiveCustom}
+                  disabled={false}
                   onClick={() =>
                     dispatch(
                       setThemeBackdrop({ kind, imageUrl: effectiveTheme.backdrop?.imageUrl }),
@@ -424,7 +400,7 @@ const ThemeStudioPanel = () => {
           {effectiveTheme.backdrop?.kind === 'image' && (
             <input
               type="url"
-              disabled={!isActiveCustom}
+              disabled={false}
               value={effectiveTheme.backdrop?.imageUrl ?? ''}
               placeholder="https://…/background.jpg"
               aria-label={t('settings.theme.backdropImageUrl', 'Background image URL')}
@@ -434,6 +410,15 @@ const ThemeStudioPanel = () => {
               className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-content"
             />
           )}
+          <label className="flex items-center gap-2 text-xs text-content-secondary">
+            <input
+              type="checkbox"
+              checked={effectiveTheme.backdrop?.dots !== false}
+              onChange={(e) => dispatch(setThemeBackdrop({ dots: e.target.checked }))}
+              className="h-3.5 w-3.5 accent-primary-500"
+            />
+            {t('settings.theme.backdropDots', 'Show background dots')}
+          </label>
           <p className="text-[11px] text-content-faint">
             {t(
               'settings.theme.backdropHint',

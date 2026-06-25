@@ -130,26 +130,24 @@ const themeSlice = createSlice({
         state.activeThemeId = DEFAULT_FAMILY_ID;
       }
     },
-    /** Set a single colour token (`"R G B"`) on the active custom theme. */
+    /** Set a single colour token (`"R G B"`); auto-forks a preset to custom. */
     setThemeToken(state, action: PayloadAction<{ key: string; value: string }>) {
-      const theme = state.customThemes.find((t) => t.id === state.activeThemeId);
-      if (!theme) return; // built-in/system active — panel duplicates first
+      const theme = ensureEditableCustom(state);
       theme.colors[action.payload.key] = action.payload.value;
     },
-    /** Set a single font role (CSS stack) on the active custom theme. */
+    /** Set a single font role (CSS stack); auto-forks a preset to custom. */
     setFontRole(state, action: PayloadAction<{ role: FontRole; stack: string }>) {
-      const theme = state.customThemes.find((t) => t.id === state.activeThemeId);
-      if (!theme) return;
+      const theme = ensureEditableCustom(state);
       theme.fonts[action.payload.role] = action.payload.stack;
     },
-    /** Set the backdrop (mesh/solid/image) on the active custom theme. */
+    /** Patch the backdrop (mesh/solid/image, dots); auto-forks a preset. */
     setThemeBackdrop(
       state,
-      action: PayloadAction<{ kind: 'mesh' | 'solid' | 'image'; imageUrl?: string }>,
+      action: PayloadAction<{ kind?: 'mesh' | 'solid' | 'image'; imageUrl?: string; dots?: boolean }>,
     ) {
-      const theme = state.customThemes.find((t) => t.id === state.activeThemeId);
-      if (!theme) return;
-      theme.backdrop = { kind: action.payload.kind, imageUrl: action.payload.imageUrl };
+      const theme = ensureEditableCustom(state);
+      const prev = theme.backdrop ?? { kind: 'mesh' as const };
+      theme.backdrop = { ...prev, ...action.payload, kind: action.payload.kind ?? prev.kind };
     },
     /** Clear all overrides on the active custom theme (back to its base). */
     resetActiveTheme(state) {
@@ -221,15 +219,15 @@ export const selectCustomThemes = (state: { theme: ThemeState }): Theme[] =>
  * tolerating legacy persisted ids (`light`/`dark`/`system`/`ocean`/`midnight`).
  * Returns `custom` set when a user theme is selected.
  */
-function resolveSelection(state: { theme: ThemeState }): {
+function resolveSelection(ts: ThemeState): {
   family?: ThemeFamily;
   variant: ThemeVariant;
   custom?: Theme;
 } {
-  const sel = state.theme.activeThemeId ?? DEFAULT_FAMILY_ID;
-  const variantPref = state.theme.themeVariant ?? 'system';
+  const sel = ts.activeThemeId ?? DEFAULT_FAMILY_ID;
+  const variantPref = ts.themeVariant ?? 'system';
 
-  const custom = state.theme.customThemes?.find((t) => t.id === sel);
+  const custom = ts.customThemes?.find((t) => t.id === sel);
   if (custom) return { custom, variant: variantPref };
 
   // Current family-id selection.
@@ -246,9 +244,49 @@ function resolveSelection(state: { theme: ThemeState }): {
 
 /** The active family id (`''` when a custom theme is selected). */
 export function selectActiveFamilyId(state: { theme: ThemeState }): string {
-  const { family, custom } = resolveSelection(state);
+  const { family, custom } = resolveSelection(state.theme);
   if (custom) return '';
   return family?.id ?? DEFAULT_FAMILY_ID;
+}
+
+/**
+ * Return the active custom theme for editing. If a preset (or legacy id) is
+ * active, transparently fork the current effective theme into a custom theme,
+ * make it active, and return it — so editing a preset "just works" and the
+ * original preset stays pristine. Idempotent per source theme (reuses
+ * `custom-<sourceId>`), so rapid edits don't spawn duplicates.
+ */
+function ensureEditableCustom(ts: ThemeState): Theme {
+  const existingActive = ts.customThemes.find((t) => t.id === ts.activeThemeId);
+  if (existingActive) return existingActive;
+
+  const base = effectiveThemeFromState(ts);
+  const id = `custom-${base.id}`;
+  let theme = ts.customThemes.find((t) => t.id === id);
+  if (!theme) {
+    theme = {
+      id,
+      name: `${base.name} (custom)`,
+      isDark: base.isDark,
+      builtIn: false,
+      colors: { ...base.colors },
+      fonts: { ...base.fonts },
+      gradient: base.gradient ? { ...base.gradient } : undefined,
+      backdrop: base.backdrop ? { ...base.backdrop } : undefined,
+    };
+    ts.customThemes.push(theme);
+  }
+  ts.activeThemeId = id;
+  return theme;
+}
+
+/** Resolve a {@link ThemeState} to the concrete {@link Theme} to apply. */
+function effectiveThemeFromState(ts: ThemeState): Theme {
+  const { family, variant, custom } = resolveSelection(ts);
+  if (custom) return custom;
+  const fam = family ?? findFamily('classic')!;
+  const resolved = variant === 'system' ? resolveTheme('system') : variant;
+  return resolveFamilyVariant(fam, resolved);
 }
 
 /**
@@ -257,11 +295,7 @@ export function selectActiveFamilyId(state: { theme: ThemeState }): string {
  * `system` consulting `prefers-color-scheme`.
  */
 export function selectEffectiveTheme(state: { theme: ThemeState }): Theme {
-  const { family, variant, custom } = resolveSelection(state);
-  if (custom) return custom;
-  const fam = family ?? findFamily('classic')!;
-  const resolved = variant === 'system' ? resolveTheme('system') : variant;
-  return resolveFamilyVariant(fam, resolved);
+  return effectiveThemeFromState(state.theme);
 }
 
 /**

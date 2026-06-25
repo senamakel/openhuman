@@ -5319,12 +5319,15 @@ const en: TranslationMap = {
   'settings.theme.backdrop.solid': 'Solid',
   'settings.theme.backdrop.image': 'Image',
   'settings.theme.backdropImageUrl': 'Background image URL',
+  'settings.theme.backdropDots': 'Show background dots',
   'settings.theme.backdropHint':
     'Mesh shows the animated gradient; Solid uses a flat background; Image paints your own.',
   'settings.theme.builtInBadge': 'Preset',
   'settings.theme.customBadge': 'Custom',
   'settings.theme.customizeHint':
     'Built-in presets are read-only. Duplicate this theme to edit its colours and fonts.',
+  'settings.theme.autoForkHint':
+    'Editing a preset automatically saves your changes as a new custom theme.',
   'settings.theme.duplicate': 'Duplicate & customize',
   'settings.theme.copyName': '{name} (custom)',
   'settings.theme.importedName': 'Imported theme',

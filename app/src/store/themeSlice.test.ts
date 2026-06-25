@@ -130,11 +130,17 @@ describe('themeSlice', () => {
       expect(state.customThemes[0].fonts.body).toBe('Comic Sans');
     });
 
-    it('ignores token edits when a built-in preset is active', () => {
+    it('auto-forks a custom theme when editing a built-in preset', () => {
       let state = themeReducer(undefined, { type: '@@INIT' });
       state = themeReducer(state, setActiveTheme('dark'));
       state = themeReducer(state, setThemeToken({ key: 'surface', value: '0 0 0' }));
-      expect(state.customThemes).toEqual([]);
+      expect(state.customThemes).toHaveLength(1);
+      expect(state.customThemes[0].id).toBe('custom-dark');
+      expect(state.activeThemeId).toBe('custom-dark');
+      expect(state.customThemes[0].colors.surface).toBe('0 0 0');
+      // A second edit reuses the same fork (no duplicate).
+      state = themeReducer(state, setThemeToken({ key: 'content', value: '1 1 1' }));
+      expect(state.customThemes).toHaveLength(1);
     });
 
     it('resets overrides on the active custom theme', () => {

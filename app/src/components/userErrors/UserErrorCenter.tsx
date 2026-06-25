@@ -68,9 +68,9 @@ export function UserErrorCenter() {
           role="dialog"
           aria-label={t('userErrors.title')}
           data-testid="user-error-panel"
-          className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-amber-300 bg-white shadow-lg dark:border-amber-700 dark:bg-neutral-900">
+          className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-amber-300 bg-surface shadow-lg dark:border-amber-700">
           <div className="flex items-center justify-between border-b border-amber-200 px-3 py-2 dark:border-amber-800">
-            <span className="text-sm font-semibold text-ink dark:text-neutral-100">
+            <span className="text-sm font-semibold text-ink dark:text-content">
               {t('userErrors.title')}
             </span>
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100">
@@ -78,16 +78,16 @@ export function UserErrorCenter() {
             </span>
           </div>
 
-          <ul className="max-h-96 divide-y divide-neutral-100 overflow-auto dark:divide-neutral-800">
+          <ul className="max-h-96 divide-y divide-line-subtle overflow-auto dark:divide-neutral-800">
             {active.map(entry => (
               <li key={entry.id} className="px-3 py-2.5" data-testid="user-error-item">
-                <p className="text-sm font-semibold text-ink dark:text-neutral-100">
+                <p className="text-sm font-semibold text-ink dark:text-content">
                   {t(entry.titleKey)}
                 </p>
-                <p className="mt-0.5 text-xs text-ink-soft dark:text-neutral-300">
+                <p className="mt-0.5 text-xs text-ink-soft dark:text-content-secondary">
                   {t(entry.bodyKey)}
                 </p>
-                <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                <p className="mt-1 text-[11px] text-content-muted">
                   {t(`userErrors.scope.${entry.scope}`, entry.scope)}
                   {' · '}
                   {new Date(entry.lastSeenAt).toLocaleTimeString()}
@@ -107,7 +107,7 @@ export function UserErrorCenter() {
                     type="button"
                     data-testid="user-error-dismiss"
                     onClick={() => dispatch(dismissUserError({ id: entry.id }))}
-                    className="rounded-md px-2.5 py-1 text-xs font-medium text-ink-soft hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                    className="rounded-md px-2.5 py-1 text-xs font-medium text-ink-soft hover:bg-surface-hover dark:text-content-secondary">
                     {t('userErrors.dismiss')}
                   </button>
                 </div>
@@ -122,7 +122,7 @@ export function UserErrorCenter() {
         data-testid="user-error-trigger"
         aria-label={t('userErrors.title')}
         onClick={() => setOpen(o => !o)}
-        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-amber-300 bg-white text-lg shadow-md hover:bg-amber-50 dark:border-amber-700 dark:bg-neutral-900 dark:hover:bg-neutral-800">
+        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-amber-300 bg-surface text-lg shadow-md hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-surface-muted">
         <span aria-hidden>⚠️</span>
         <span
           data-testid="user-error-badge"

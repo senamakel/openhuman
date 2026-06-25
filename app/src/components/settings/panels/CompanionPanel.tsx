@@ -141,7 +141,7 @@ const CompanionPanel = () => {
       {/* Session details */}
       {sessionActive && status && (
         <SettingsSection>
-          <div className="px-4 py-3 text-xs text-neutral-600 dark:text-neutral-300 space-y-1">
+          <div className="px-4 py-3 text-xs text-content-secondary space-y-1">
             <p>
               {t('settings.companion.sessionId')}:{' '}
               <span className="font-mono">{status.session_id?.slice(0, 8)}…</span>
@@ -165,31 +165,23 @@ const CompanionPanel = () => {
           <SettingsRow
             label={t('settings.companion.hotkey')}
             control={
-              <span className="rounded bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 font-mono text-xs text-neutral-600 dark:text-neutral-300">
+              <span className="rounded bg-surface-subtle px-2 py-0.5 font-mono text-xs text-content-secondary">
                 {config.hotkey}
               </span>
             }
           />
           <SettingsRow
             label={t('settings.companion.activationMode')}
-            control={
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                {config.activation_mode}
-              </span>
-            }
+            control={<span className="text-xs text-content-muted">{config.activation_mode}</span>}
           />
           <SettingsRow
             label={t('settings.companion.sessionTtl')}
-            control={
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                {config.ttl_secs}s
-              </span>
-            }
+            control={<span className="text-xs text-content-muted">{config.ttl_secs}s</span>}
           />
           <SettingsRow
             label={t('settings.companion.screenCapture')}
             control={
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              <span className="text-xs text-content-muted">
                 {config.capture_screen ? t('common.enabled') : t('common.disabled')}
               </span>
             }
@@ -197,7 +189,7 @@ const CompanionPanel = () => {
           <SettingsRow
             label={t('settings.companion.appContext')}
             control={
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              <span className="text-xs text-content-muted">
                 {config.include_app_context ? t('common.enabled') : t('common.disabled')}
               </span>
             }

@@ -241,14 +241,12 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
         if (e.target === e.currentTarget && !busy) onClose();
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6 overflow-y-auto">
-      <div className="w-full max-w-md rounded-xl bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 shadow-xl p-5 space-y-4">
+      <div className="w-full max-w-md rounded-xl bg-surface border border-line shadow-xl p-5 space-y-4">
         <div>
-          <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+          <h3 className="text-base font-semibold text-content">
             {t('mcp.connectAuth.title').replace('{name}', server.display_name)}
           </h3>
-          <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">
-            {t('mcp.connectAuth.hint')}
-          </p>
+          <p className="text-xs text-content-muted mt-1">{t('mcp.connectAuth.hint')}</p>
           <button
             type="button"
             onClick={() => setShowConfigHelp(true)}
@@ -266,29 +264,25 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
         {/* Browser OAuth — shown when detection says this server needs a sign-in. */}
         {authKind === 'oauth' && (
           <div className="space-y-2 rounded-lg border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 p-3">
-            <p className="text-xs text-stone-600 dark:text-neutral-300">
-              {t('mcp.connectAuth.oauthHint')}
-            </p>
+            <p className="text-xs text-content-secondary">{t('mcp.connectAuth.oauthHint')}</p>
             <Button variant="primary" size="sm" onClick={handleOAuth} disabled={busy}>
               {oauthWaiting ? t('mcp.connectAuth.oauthWaiting') : t('mcp.connectAuth.signIn')}
             </Button>
-            <p className="text-[11px] text-stone-400 dark:text-neutral-500">
-              {t('mcp.connectAuth.oauthOrToken')}
-            </p>
+            <p className="text-[11px] text-content-faint">{t('mcp.connectAuth.oauthOrToken')}</p>
           </div>
         )}
 
         {/* Declared / known fields */}
         {knownKeys.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-content-faint">
               {t('mcp.connectAuth.requiredLabel')}
             </p>
             {knownKeys.map(key => (
               <div key={key} className="space-y-1">
                 <label
                   htmlFor={`auth-${key}`}
-                  className="block text-[11px] font-medium text-stone-600 dark:text-neutral-400 font-mono">
+                  className="block text-[11px] font-medium text-content-secondary font-mono">
                   {key}
                 </label>
                 <div className="flex gap-2">
@@ -302,7 +296,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                     }
                     disabled={busy}
                     title={t('mcp.connectAuth.schemeLabel')}
-                    className="shrink-0 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-1.5 py-1.5 text-[11px] text-stone-700 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50">
+                    className="shrink-0 rounded-lg border border-line bg-surface px-1.5 py-1.5 text-[11px] text-content-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50">
                     <option value="bearer">{t('mcp.connectAuth.schemeBearer')}</option>
                     <option value="raw">{t('mcp.connectAuth.schemeRaw')}</option>
                   </select>
@@ -319,7 +313,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                     data-1p-ignore
                     data-lpignore="true"
                     data-form-type="other"
-                    className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
+                    className="flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
                   />
                   <Button
                     variant="secondary"
@@ -338,7 +332,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
         {/* Custom headers */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-content-faint">
               {t('mcp.connectAuth.customHeadersLabel')}
             </p>
             <button
@@ -350,14 +344,12 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
             </button>
           </div>
           {customHeaders.length === 0 && (
-            <p className="text-[11px] text-stone-400 dark:text-neutral-500">
+            <p className="text-[11px] text-content-faint">
               {t('mcp.connectAuth.customHeadersEmpty')}
             </p>
           )}
           {customHeaders.map(h => (
-            <div
-              key={h.id}
-              className="space-y-1.5 rounded-lg border border-stone-200 dark:border-neutral-800 p-2">
+            <div key={h.id} className="space-y-1.5 rounded-lg border border-line p-2">
               {/* Row 1: header name + scheme + remove */}
               <div className="flex gap-2">
                 <input
@@ -373,7 +365,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                   data-1p-ignore
                   data-lpignore="true"
                   data-form-type="other"
-                  className="flex-1 min-w-0 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs font-mono text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
+                  className="flex-1 min-w-0 rounded-lg border border-line bg-surface px-2 py-1.5 text-xs font-mono text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
                 />
                 <select
                   value={h.scheme}
@@ -386,7 +378,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                   }
                   disabled={busy}
                   title={t('mcp.connectAuth.schemeLabel')}
-                  className="shrink-0 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-1.5 py-1.5 text-[11px] text-stone-700 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50">
+                  className="shrink-0 rounded-lg border border-line bg-surface px-1.5 py-1.5 text-[11px] text-content-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50">
                   <option value="bearer">{t('mcp.connectAuth.schemeBearer')}</option>
                   <option value="raw">{t('mcp.connectAuth.schemeRaw')}</option>
                 </select>
@@ -417,7 +409,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                 data-1p-ignore
                 data-lpignore="true"
                 data-form-type="other"
-                className="w-full rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
+                className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
               />
             </div>
           ))}

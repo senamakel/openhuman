@@ -87,7 +87,7 @@ const SuperContextToggle = () => {
   );
 
   return (
-    <div className="flex h-7 flex-shrink-0 items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400">
+    <div className="flex h-7 flex-shrink-0 items-center gap-1.5 text-xs text-content-muted">
       <SettingsSwitch
         id="super-context-toggle"
         checked={enabled}
@@ -96,9 +96,7 @@ const SuperContextToggle = () => {
         aria-label={t('chat.superContext.label')}
         data-testid="super-context-toggle"
       />
-      <span className="font-medium text-stone-600 dark:text-neutral-300">
-        {t('chat.superContext.label')}
-      </span>
+      <span className="font-medium text-content-secondary">{t('chat.superContext.label')}</span>
       {/* Self-contained wrapping tooltip (the shared <Tooltip> is single-line
           nowrap and can't fit this paragraph). Anchored bottom-full + right-0
           so it grows up-and-left into the app interior — the toggle only shows
@@ -109,7 +107,7 @@ const SuperContextToggle = () => {
           aria-describedby="super-context-tooltip"
           aria-label={t('chat.superContext.label')}
           data-testid="super-context-info"
-          className="flex h-4 w-4 items-center justify-center rounded-full text-stone-400 transition-colors hover:text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-neutral-500 dark:hover:text-neutral-300">
+          className="flex h-4 w-4 items-center justify-center rounded-full text-content-faint transition-colors hover:text-content-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
           <svg
             className="h-3.5 w-3.5"
             fill="none"

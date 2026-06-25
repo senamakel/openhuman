@@ -168,7 +168,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
             onPointerDown={onPointerDown}
             onKeyDown={onDividerKeyDown}
             title={t('layout.resizeSidebar')}
-            className="group relative w-px flex-shrink-0 cursor-col-resize select-none self-stretch bg-stone-200 dark:bg-neutral-800 focus:outline-none">
+            className="group relative w-px flex-shrink-0 cursor-col-resize select-none self-stretch bg-surface-strong focus:outline-none">
             <span className="absolute inset-y-0 -left-1 -right-1 z-10" />
             <span className="absolute inset-0 transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500" />
           </div>
@@ -180,7 +180,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
           native CEF webview glued to the content's bounds, which composites
           above the HTML layer — starts to its right and never covers it. */}
       {!isOpen && (
-        <div className="flex w-14 flex-none flex-col items-center gap-0.5 border-r border-stone-200 bg-white pt-2 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex w-14 flex-none flex-col items-center gap-0.5 border-r border-line bg-surface pt-2">
           <Tooltip label={t('layout.showSidebar')}>
             <button
               type="button"
@@ -188,7 +188,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
               data-testid="root-shell-reopen"
               data-analytics-id="root-shell-reopen-sidebar"
               aria-label={t('layout.showSidebar')}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200">
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-surface-hover hover:text-content-secondary">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -200,7 +200,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
             </button>
           </Tooltip>
           {/* Keep the primary nav reachable while collapsed: an icon-only rail. */}
-          <div className="mt-1 w-full border-t border-stone-200/70 pt-1 dark:border-neutral-800/70">
+          <div className="mt-1 w-full border-t border-line/70 pt-1 dark:border-line/70">
             <CollapsedNavRail />
           </div>
         </div>

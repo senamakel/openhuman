@@ -141,16 +141,16 @@ const Feedback = () => {
 
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-            <h2 className="flex items-center gap-2 font-display text-base font-semibold text-neutral-900 dark:text-neutral-100">
+            <h2 className="flex items-center gap-2 font-title text-base font-semibold text-content">
               {t('feedback.board')}
               {total > 0 && (
-                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium tabular-nums text-neutral-500 dark:bg-white/10 dark:text-neutral-400">
+                <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium tabular-nums text-content-muted dark:bg-white/10">
                   {total}
                 </span>
               )}
             </h2>
 
-            <div className="inline-flex rounded-xl border border-neutral-200 bg-neutral-50 p-0.5 dark:border-neutral-700 dark:bg-white/[0.03]">
+            <div className="inline-flex rounded-xl border border-line bg-surface-muted p-0.5 dark:border-line-strong dark:bg-white/[0.03]">
               {SORTS.map(option => (
                 <button
                   key={option}
@@ -159,8 +159,8 @@ const Feedback = () => {
                   aria-pressed={sort === option}
                   className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
                     sort === option
-                      ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                      ? 'bg-surface text-content shadow-sm'
+                      : 'text-content-muted hover:text-content-secondary dark:hover:text-content-secondary'
                   }`}>
                   {t(SORT_LABEL_KEYS[option])}
                 </button>
@@ -203,7 +203,7 @@ const Feedback = () => {
               {Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-28 animate-pulse rounded-2xl border border-neutral-200 bg-neutral-100 dark:border-neutral-800 dark:bg-white/5"
+                  className="h-28 animate-pulse rounded-2xl border border-line bg-surface-subtle dark:bg-white/5"
                 />
               ))}
             </div>
@@ -220,10 +220,10 @@ const Feedback = () => {
               ))}
             </div>
           ) : loadError ? null : (
-            <div className="rounded-2xl border border-dashed border-neutral-200 py-12 text-center dark:border-neutral-800">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/5">
+            <div className="rounded-2xl border border-dashed border-line py-12 text-center">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-surface-subtle dark:bg-white/5">
                 <svg
-                  className="h-5 w-5 text-neutral-400"
+                  className="h-5 w-5 text-content-faint"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24">
@@ -235,9 +235,7 @@ const Feedback = () => {
                   />
                 </svg>
               </div>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                {t('feedback.empty')}
-              </p>
+              <p className="text-sm text-content-muted">{t('feedback.empty')}</p>
             </div>
           )}
 

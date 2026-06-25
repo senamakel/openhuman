@@ -50,23 +50,23 @@ const PermissionRow = ({
     ? 'bg-sage-50 text-sage-700 border-sage-200'
     : value === 'denied'
       ? 'bg-coral-50 text-coral-700 border-coral-200'
-      : 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 border-stone-200 dark:border-neutral-800';
+      : 'bg-surface-subtle text-content-secondary border-line';
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2.5">
+    <div className="flex items-center justify-between rounded-xl border border-line bg-surface px-3 py-2.5">
       <div className="flex items-center gap-2">
         {granted ? (
           <CheckIcon className="w-4 h-4 text-sage-500" />
         ) : (
           <svg
-            className="w-4 h-4 text-stone-400 dark:text-neutral-500"
+            className="w-4 h-4 text-content-faint"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" strokeWidth={2} />
           </svg>
         )}
-        <span className="text-sm text-stone-700 dark:text-neutral-200">{label}</span>
+        <span className="text-sm text-content-secondary">{label}</span>
       </div>
       {granted ? (
         <span
@@ -170,7 +170,7 @@ export default function ScreenIntelligenceSetupModal({ onClose, initialStep }: P
           </svg>
         }>
         <div className="space-y-4 py-2">
-          <p className="text-sm text-stone-600 dark:text-neutral-300 leading-relaxed">
+          <p className="text-sm text-content-secondary leading-relaxed">
             {t('skills.setup.screenIntel.macosOnly')}
           </p>
           <Button variant="secondary" size="lg" onClick={onClose} className="w-full">
@@ -206,7 +206,7 @@ export default function ScreenIntelligenceSetupModal({ onClose, initialStep }: P
       {/* ─── Step 1: Permissions ─── */}
       {step === 'permissions' && (
         <div className="space-y-3">
-          <p className="text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
+          <p className="text-xs text-content-muted leading-relaxed">
             {t('skills.setup.screenIntel.permissionsDesc')}
           </p>
 
@@ -237,7 +237,7 @@ export default function ScreenIntelligenceSetupModal({ onClose, initialStep }: P
               {status?.permission_check_process_path && (
                 <p className="mt-1 opacity-75 text-[10px]">
                   {t('skills.setup.screenIntel.permissionPathLabel')}{' '}
-                  <span className="font-mono break-all text-stone-600 dark:text-neutral-300">
+                  <span className="font-mono break-all text-content-secondary">
                     {status.permission_check_process_path}
                   </span>
                 </p>
@@ -281,7 +281,7 @@ export default function ScreenIntelligenceSetupModal({ onClose, initialStep }: P
             {t('skills.setup.screenIntel.allGranted')}
           </SetupNotice>
 
-          <p className="text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
+          <p className="text-xs text-content-muted leading-relaxed">
             {t('skills.setup.screenIntel.enableDesc')}
           </p>
 

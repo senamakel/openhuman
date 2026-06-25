@@ -329,14 +329,12 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
 
       {/* ── Color picker — intentional bespoke swatch grid UI ────── */}
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2 px-1">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-content-faint mb-2 px-1">
           {t('settings.mascot.colorHeading')}
         </h3>
-        <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+        <div className="bg-surface rounded-xl border border-line overflow-hidden">
           {available.length === 0 ? (
-            <p className="p-4 text-sm text-neutral-500 dark:text-neutral-400">
-              {t('settings.mascot.noColorVariants')}
-            </p>
+            <p className="p-4 text-sm text-content-muted">{t('settings.mascot.noColorVariants')}</p>
           ) : (
             <div
               className="grid grid-cols-5 gap-3 p-4"
@@ -356,15 +354,11 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                     onClick={() => handleSelect(opt.id)}
                     data-testid={`mascot-color-${opt.id}`}
                     className={`flex flex-col items-center gap-2 rounded-lg p-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
-                      selected
-                        ? 'bg-neutral-100 dark:bg-neutral-800'
-                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                      selected ? 'bg-surface-subtle' : 'hover:bg-surface-hover'
                     }`}>
                     <span
                       className={`w-10 h-10 rounded-full border-2 transition-shadow ${
-                        selected
-                          ? 'border-primary-500 shadow-soft'
-                          : 'border-neutral-200 dark:border-neutral-800'
+                        selected ? 'border-primary-500 shadow-soft' : 'border-line'
                       }`}
                       style={
                         opt.id === 'custom'
@@ -374,7 +368,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                           : { backgroundColor: palette.bodyFill }
                       }
                     />
-                    <span className="text-xs text-neutral-700 dark:text-neutral-200">{label}</span>
+                    <span className="text-xs text-content-secondary">{label}</span>
                   </button>
                 );
               })}
@@ -382,18 +376,18 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
           )}
         </div>
         {activeColor === 'custom' && (
-          <div className="mt-3 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 space-y-3">
+          <div className="mt-3 bg-surface rounded-xl border border-line p-4 space-y-3">
             <label className="flex items-center gap-3">
               <input
                 type="color"
                 value={customPrimary}
                 onChange={e => dispatch(setCustomPrimaryColor(e.target.value))}
-                className="w-8 h-8 rounded-md border border-neutral-200 dark:border-neutral-700 cursor-pointer p-0"
+                className="w-8 h-8 rounded-md border border-line dark:border-line-strong cursor-pointer p-0"
               />
-              <span className="text-sm text-neutral-700 dark:text-neutral-200">
+              <span className="text-sm text-content-secondary">
                 {t('settings.mascot.primaryColor')}
               </span>
-              <code className="ml-auto text-[11px] font-mono text-neutral-400 dark:text-neutral-500">
+              <code className="ml-auto text-[11px] font-mono text-content-faint">
                 {customPrimary}
               </code>
             </label>
@@ -402,34 +396,34 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                 type="color"
                 value={customSecondary}
                 onChange={e => dispatch(setCustomSecondaryColor(e.target.value))}
-                className="w-8 h-8 rounded-md border border-neutral-200 dark:border-neutral-700 cursor-pointer p-0"
+                className="w-8 h-8 rounded-md border border-line dark:border-line-strong cursor-pointer p-0"
               />
-              <span className="text-sm text-neutral-700 dark:text-neutral-200">
+              <span className="text-sm text-content-secondary">
                 {t('settings.mascot.secondaryColor')}
               </span>
-              <code className="ml-auto text-[11px] font-mono text-neutral-400 dark:text-neutral-500">
+              <code className="ml-auto text-[11px] font-mono text-content-faint">
                 {customSecondary}
               </code>
             </label>
           </div>
         )}
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed px-1 mt-2">
+        <p className="text-xs text-content-muted leading-relaxed px-1 mt-2">
           {t('settings.mascot.colorDesc')}
         </p>
       </div>
 
       {/* ── Voice picker section ──────────────────────────────────── */}
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2 px-1">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-content-faint mb-2 px-1">
           {t('settings.mascot.voice.heading')}
         </h3>
-        <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 space-y-4">
+        <div className="bg-surface rounded-xl border border-line p-4 space-y-4">
           {/* Gender radio buttons — intentional bespoke pill UI */}
           <div
             role="radiogroup"
             aria-label={t('settings.mascot.voice.genderHeading')}
             className="space-y-1">
-            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-300">
+            <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
               {t('settings.mascot.voice.genderHeading')}
             </span>
             <div className="flex gap-2 pt-1">
@@ -444,7 +438,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                   className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
                     voiceGender === g
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/20 text-primary-700 dark:text-primary-200'
-                      : 'border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-700'
+                      : 'border-line text-content-secondary hover:border-line-strong dark:hover:border-line-strong'
                   }`}>
                   {t(
                     g === 'female'
@@ -457,17 +451,17 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
           </div>
 
           {/* Locale default checkbox — bespoke inline label layout */}
-          <label className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-200 cursor-pointer">
+          <label className="flex items-start gap-2 text-sm text-content-secondary cursor-pointer">
             <input
               type="checkbox"
               data-testid="mascot-voice-locale-default"
               checked={useLocaleDefault}
               onChange={e => onLocaleDefaultToggle(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-neutral-300 dark:border-neutral-700 text-primary-600 focus:ring-primary-500"
+              className="mt-0.5 h-4 w-4 rounded border-line-strong text-primary-600 focus:ring-primary-500"
             />
             <span className="flex flex-col">
               <span>{t('settings.mascot.voice.useLocaleDefault')}</span>
-              <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+              <span className="text-[11px] text-content-muted">
                 {t('settings.mascot.voice.useLocaleDefaultDesc')}{' '}
                 <code className="font-mono">{locale}</code> →{' '}
                 <code className="font-mono">{localeDefaultVoiceId}</code>
@@ -477,7 +471,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
 
           {/* Preset dropdown — bespoke label + select combo */}
           <label className={`block space-y-1 ${presetPickerDisabled ? 'opacity-50' : ''}`}>
-            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-300">
+            <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
               {t('settings.mascot.voice.presetHeading')}
             </span>
             <select
@@ -486,7 +480,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
               disabled={presetPickerDisabled}
               value={isCustomVoice ? '__custom__' : effectiveVoiceId}
               onChange={e => onPresetChange(e.target.value)}
-              className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-primary-400 disabled:cursor-not-allowed">
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-400 disabled:cursor-not-allowed">
               {visiblePresets.map(v => (
                 <option key={v.id} value={v.id}>
                   {v.label}
@@ -498,7 +492,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
 
           {isCustomVoice && (
             <label className="block space-y-1">
-              <span className="text-xs font-medium text-neutral-500 dark:text-neutral-300">
+              <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
                 {t('settings.mascot.voice.customHeading')}
               </span>
               <div className="flex gap-2">
@@ -520,7 +514,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                   {t('common.save')}
                 </Button>
               </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+              <p className="text-[11px] text-content-muted">
                 {t('settings.mascot.voice.customDesc')}
               </p>
             </label>
@@ -550,7 +544,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             </Button>
             <span
               data-testid="mascot-voice-current"
-              className="ml-1 text-[11px] text-neutral-500 dark:text-neutral-400 truncate max-w-[18rem]"
+              className="ml-1 text-[11px] text-content-muted truncate max-w-[18rem]"
               title={effectiveVoiceId}>
               {t('settings.mascot.voice.current')}:{' '}
               <code className="font-mono">{effectiveVoiceId}</code>
@@ -565,21 +559,21 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             </div>
           )}
         </div>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed px-1 mt-2">
+        <p className="text-xs text-content-muted leading-relaxed px-1 mt-2">
           {t('settings.mascot.voice.desc')}
         </p>
       </div>
 
       {/* ── Character picker — intentional bespoke list UI ────────── */}
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2 px-1">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-content-faint mb-2 px-1">
           {t('settings.mascot.characterHeading')}
         </h3>
 
         {/* Custom GIF input */}
-        <div className="mb-3 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 space-y-3">
+        <div className="mb-3 bg-surface rounded-xl border border-line p-4 space-y-3">
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-300">
+            <span className="text-xs font-medium text-content-muted dark:text-content-secondary">
               {t('settings.mascot.customGifHeading')}
             </span>
             <div className="flex gap-2">
@@ -622,7 +616,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             </p>
           )}
           {customMascotGifUrl && (
-            <div className="flex justify-center rounded-lg border border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-3">
+            <div className="flex justify-center rounded-lg border border-line-subtle bg-surface-muted p-3">
               <div style={{ width: 128, height: 128 }}>
                 <CustomGifMascot src={customMascotGifUrl} />
               </div>
@@ -631,32 +625,28 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
         </div>
 
         {/* Backend mascot library */}
-        <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+        <div className="bg-surface rounded-xl border border-line overflow-hidden">
           {backendListError && (
             <p className="p-4 text-sm text-coral-700 dark:text-coral-300">
               {t('settings.mascot.libraryUnavailable')}: {backendListError}
             </p>
           )}
           {!backendListError && backendList === null && (
-            <p className="p-4 text-sm text-neutral-500 dark:text-neutral-400">
-              {t('settings.mascot.loadingLibrary')}
-            </p>
+            <p className="p-4 text-sm text-content-muted">{t('settings.mascot.loadingLibrary')}</p>
           )}
           {backendList && backendList.length === 0 && !backendListError && (
-            <p className="p-4 text-sm text-neutral-500 dark:text-neutral-400">
-              {t('settings.mascot.noCharacters')}
-            </p>
+            <p className="p-4 text-sm text-content-muted">{t('settings.mascot.noCharacters')}</p>
           )}
           {backendList && backendList.length > 0 && (
-            <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
               <li>
                 <button
                   type="button"
                   onClick={() => handleSelectBackend(null)}
                   aria-pressed={selectedMascotId == null && customMascotGifUrl == null}
-                  className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/60 ${
+                  className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-surface-hover ${
                     selectedMascotId == null && customMascotGifUrl == null
-                      ? 'bg-neutral-50 dark:bg-neutral-800/60 font-medium'
+                      ? 'bg-surface-muted font-medium'
                       : ''
                   }`}>
                   <span>{t('settings.mascot.localDefault')}</span>
@@ -676,12 +666,12 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                       onClick={() => handleSelectBackend(summary.id)}
                       aria-pressed={active}
                       data-testid={`backend-mascot-${summary.id}`}
-                      className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/60 ${
-                        active ? 'bg-neutral-50 dark:bg-neutral-800/60 font-medium' : ''
+                      className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-surface-hover ${
+                        active ? 'bg-surface-muted font-medium' : ''
                       }`}>
                       <span className="flex flex-col">
                         <span>{summary.name}</span>
-                        <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                        <span className="text-[10px] text-content-muted">
                           v{summary.version} · {summary.states.length}{' '}
                           {t('settings.mascot.characterStates')}
                           {summary.hasVisemes ? ` · ${t('settings.mascot.characterVisemes')}` : ''}
@@ -701,8 +691,8 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
         </div>
 
         {visibleActiveDetail && (
-          <div className="mt-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-2">
+          <div className="mt-3 rounded-xl border border-line bg-surface-muted p-4">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-content-muted mb-2">
               {t('settings.mascot.characterPreview')} · {visibleActiveDetail.name}
             </p>
             <div className="flex justify-center">
@@ -717,7 +707,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             {visibleDetailError}
           </p>
         )}
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed px-1 mt-2">
+        <p className="text-xs text-content-muted leading-relaxed px-1 mt-2">
           {t('settings.mascot.characterDesc')}
         </p>
       </div>

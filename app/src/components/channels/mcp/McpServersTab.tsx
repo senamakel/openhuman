@@ -33,10 +33,10 @@ type FilterChip = 'all' | 'installed' | 'registry';
 const STATUS_DOT: Record<ServerStatus, string> = {
   connected: 'bg-sage-500',
   connecting: 'bg-amber-400',
-  disconnected: 'bg-stone-300 dark:bg-neutral-600',
+  disconnected: 'bg-surface-strong',
   unauthorized: 'bg-amber-500',
   error: 'bg-coral-500',
-  disabled: 'bg-stone-200 dark:bg-neutral-700',
+  disabled: 'bg-surface-strong',
 };
 
 const McpServersTab = () => {
@@ -217,9 +217,7 @@ const McpServersTab = () => {
 
   if (loading) {
     return (
-      <div className="py-10 text-center text-sm text-stone-400 dark:text-neutral-500">
-        {t('mcp.tab.loading')}
-      </div>
+      <div className="py-10 text-center text-sm text-content-faint">{t('mcp.tab.loading')}</div>
     );
   }
 
@@ -294,7 +292,7 @@ const McpServersTab = () => {
           onChange={e => setSearchQuery(e.target.value)}
           placeholder={t('mcp.catalog.searchPlaceholder')}
           aria-label={t('mcp.catalog.searchAria')}
-          className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+          className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
         />
         <Button
           variant="secondary"
@@ -331,22 +329,22 @@ const McpServersTab = () => {
       )}
 
       {/* Table */}
-      <div className="rounded-lg border border-stone-200 dark:border-neutral-800 overflow-hidden">
+      <div className="rounded-lg border border-line overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-stone-100 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400">
+            <tr className="border-b border-line-subtle bg-surface-muted">
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-content-muted">
                 {t('mcp.tab.column.name')}
               </th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400 hidden sm:table-cell w-36">
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-content-muted hidden sm:table-cell w-36">
                 {t('mcp.tab.column.author')}
               </th>
-              <th className="text-right px-4 py-2.5 text-xs font-medium text-stone-500 dark:text-neutral-400 w-28">
+              <th className="text-right px-4 py-2.5 text-xs font-medium text-content-muted w-28">
                 {t('mcp.tab.column.action')}
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-stone-100 dark:divide-neutral-800">
+          <tbody className="divide-y divide-line-subtle dark:divide-neutral-800">
             {/* Installed servers */}
             {(activeChip === 'all' || activeChip === 'installed') &&
               filteredInstalled.map(server => {
@@ -355,7 +353,7 @@ const McpServersTab = () => {
                 return (
                   <tr
                     key={`installed-${server.server_id}`}
-                    className="hover:bg-stone-50 dark:hover:bg-neutral-800/40 cursor-pointer transition-colors"
+                    className="hover:bg-surface-muted dark:hover:bg-surface-muted/40 cursor-pointer transition-colors"
                     tabIndex={0}
                     role="button"
                     aria-label={t('mcp.tab.aria.viewDetails').replace(
@@ -376,11 +374,11 @@ const McpServersTab = () => {
                           title={status}
                         />
                         <div className="min-w-0">
-                          <span className="font-medium text-stone-900 dark:text-neutral-100 truncate block">
+                          <span className="font-medium text-content truncate block">
                             {server.display_name}
                           </span>
                           {server.description && (
-                            <span className="text-xs text-stone-400 dark:text-neutral-500 line-clamp-4 block">
+                            <span className="text-xs text-content-faint line-clamp-4 block">
                               {server.description}
                             </span>
                           )}
@@ -388,7 +386,7 @@ const McpServersTab = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-xs text-stone-500 dark:text-neutral-400 truncate block">
+                      <span className="text-xs text-content-muted truncate block">
                         {deriveAuthor(server.qualified_name) ?? '—'}
                       </span>
                     </td>
@@ -406,7 +404,7 @@ const McpServersTab = () => {
               filteredCatalog.map(server => (
                 <tr
                   key={`catalog-${server.qualified_name}`}
-                  className="hover:bg-stone-50 dark:hover:bg-neutral-800/40 cursor-pointer transition-colors"
+                  className="hover:bg-surface-muted dark:hover:bg-surface-muted/40 cursor-pointer transition-colors"
                   tabIndex={0}
                   role="button"
                   aria-label={t('mcp.tab.aria.installServer').replace(
@@ -434,11 +432,11 @@ const McpServersTab = () => {
                         </span>
                       )}
                       <div className="min-w-0">
-                        <span className="font-medium text-stone-900 dark:text-neutral-100 truncate block">
+                        <span className="font-medium text-content truncate block">
                           {server.display_name}
                         </span>
                         {server.description && (
-                          <span className="text-xs text-stone-400 dark:text-neutral-500 line-clamp-4 block">
+                          <span className="text-xs text-content-faint line-clamp-4 block">
                             {server.description}
                           </span>
                         )}
@@ -446,7 +444,7 @@ const McpServersTab = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
-                    <span className="text-xs text-stone-500 dark:text-neutral-400 truncate block">
+                    <span className="text-xs text-content-muted truncate block">
                       {deriveAuthor(server.qualified_name) ?? '—'}
                     </span>
                   </td>
@@ -464,14 +462,14 @@ const McpServersTab = () => {
         {activeChip === 'installed' && filteredInstalled.length === 0 && (
           <div
             data-testid="mcp-installed-empty"
-            className="py-8 text-center text-sm text-stone-400 dark:text-neutral-500">
+            className="py-8 text-center text-sm text-content-faint">
             {t('mcp.installed.empty')}
           </div>
         )}
         {activeChip === 'registry' && filteredCatalog.length === 0 && !catalogLoading && (
           <div
             data-testid="mcp-catalog-empty"
-            className="py-8 text-center text-sm text-stone-400 dark:text-neutral-500">
+            className="py-8 text-center text-sm text-content-faint">
             {searchQuery
               ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery)
               : t('mcp.catalog.noResults')}
@@ -483,7 +481,7 @@ const McpServersTab = () => {
           !catalogLoading && (
             <div
               data-testid="mcp-catalog-empty"
-              className="py-8 text-center text-sm text-stone-400 dark:text-neutral-500">
+              className="py-8 text-center text-sm text-content-faint">
               {searchQuery
                 ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery)
                 : t('mcp.catalog.noResults')}
@@ -492,14 +490,12 @@ const McpServersTab = () => {
 
         {/* Loading / load more */}
         {catalogLoading && (
-          <div className="py-4 text-center text-xs text-stone-400 dark:text-neutral-500">
-            {t('common.loading')}
-          </div>
+          <div className="py-4 text-center text-xs text-content-faint">{t('common.loading')}</div>
         )}
         {!catalogLoading &&
           catalogPage < catalogTotalPages &&
           (activeChip === 'all' || activeChip === 'registry') && (
-            <div className="py-3 text-center border-t border-stone-100 dark:border-neutral-800">
+            <div className="py-3 text-center border-t border-line-subtle">
               <Button
                 variant="tertiary"
                 size="xs"

@@ -130,11 +130,11 @@ const VoiceDebugPanel = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-md border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                <div className="rounded-md border border-line bg-surface-muted p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-content-muted">
                     {t('voice.debug.server')}
                   </div>
-                  <div className="mt-1 font-medium text-neutral-800 dark:text-neutral-100">
+                  <div className="mt-1 font-medium text-content">
                     {serverStatus
                       ? serverStatus.state
                       : isLoading
@@ -142,11 +142,9 @@ const VoiceDebugPanel = () => {
                         : t('voice.debug.unavailable')}
                   </div>
                 </div>
-                <div className="rounded-md border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                    STT
-                  </div>
-                  <div className="mt-1 font-medium text-neutral-800 dark:text-neutral-100">
+                <div className="rounded-md border border-line bg-surface-muted p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-content-muted">STT</div>
+                  <div className="mt-1 font-medium text-content">
                     {voiceStatus?.stt_available
                       ? t('voice.debug.ready')
                       : t('voice.debug.notReady')}
@@ -155,7 +153,7 @@ const VoiceDebugPanel = () => {
               </div>
 
               {serverStatus && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-neutral-500 dark:text-neutral-400">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-content-muted">
                   <div>
                     {t('voice.debug.hotkey')}:{' '}
                     {serverStatus.hotkey || t('voice.debug.notAvailable')}

@@ -31,16 +31,14 @@ const log = debug('intelligence:workflow-detail');
 
 /** Accent classes per run status (semantic palette from tailwind.config.js). */
 const RUN_STATUS_ACCENT: Record<WorkflowRunStatus, string> = {
-  pending:
-    'border-stone-200 bg-stone-50 text-stone-600 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300',
+  pending: 'border-line bg-surface-muted text-content-secondary',
   running:
     'border-ocean-200 bg-ocean-50 text-ocean-700 dark:border-ocean-500/30 dark:bg-ocean-500/10 dark:text-ocean-300',
   completed:
     'border-sage-200 bg-sage-50 text-sage-700 dark:border-sage-500/30 dark:bg-sage-500/10 dark:text-sage-300',
   failed:
     'border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300',
-  cancelled:
-    'border-stone-200 bg-stone-50 text-stone-600 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300',
+  cancelled: 'border-line bg-surface-muted text-content-secondary',
   interrupted:
     'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
 };
@@ -63,7 +61,7 @@ const PHASE_STATUS_KEY: Record<WorkflowPhaseStatus, string> = {
 
 /** Glyph per phase status — color comes from the surrounding classes. */
 const PHASE_STATUS_DOT: Record<WorkflowPhaseStatus, string> = {
-  pending: 'bg-stone-300 dark:bg-neutral-600',
+  pending: 'bg-surface-strong',
   running: 'bg-ocean-500 animate-pulse',
   completed: 'bg-sage-500',
   failed: 'bg-coral-500',
@@ -116,9 +114,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
             )}
             {t(RUN_STATUS_KEY[run.status])}
           </span>
-          <span className="font-mono text-[11px] text-stone-400 dark:text-neutral-500">
-            {run.id}
-          </span>
+          <span className="font-mono text-[11px] text-content-faint">{run.id}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -145,7 +141,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
                 log('resume id=%s', run.id);
                 onResume(run.id);
               }}
-              className="rounded-lg border border-ocean-300 bg-white px-3 py-1.5 text-xs font-medium text-ocean-700 hover:bg-ocean-50 disabled:opacity-50 dark:border-ocean-700 dark:bg-neutral-900 dark:text-ocean-300 dark:hover:bg-ocean-900/40">
+              className="rounded-lg border border-ocean-300 bg-surface px-3 py-1.5 text-xs font-medium text-ocean-700 hover:bg-ocean-50 disabled:opacity-50 dark:border-ocean-700 dark:text-ocean-300 dark:hover:bg-ocean-900/40">
               {t('orchestration.detail.resume')}
             </button>
           )}
@@ -166,7 +162,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
             <li
               key={name}
               data-testid={`workflow-phase-${name}`}
-              className="rounded-xl border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+              className="rounded-xl border border-line bg-surface">
               <button
                 type="button"
                 onClick={() => toggle(name)}
@@ -175,16 +171,16 @@ export const WorkflowRunDetail: React.FC<Props> = ({
                   <span
                     className={`h-2 w-2 flex-none rounded-full ${PHASE_STATUS_DOT[state.status]}`}
                   />
-                  <span className="truncate text-sm font-medium text-stone-800 dark:text-neutral-100">
+                  <span className="truncate text-sm font-medium text-content">
                     {phaseDef?.name ?? name}
                   </span>
                   <span
                     data-testid={`workflow-phase-status-${name}`}
-                    className="rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:border-neutral-700 dark:text-neutral-400">
+                    className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
                     {t(PHASE_STATUS_KEY[state.status])}
                   </span>
                 </span>
-                <span className="flex flex-none items-center gap-2 text-[11px] text-stone-400 dark:text-neutral-500">
+                <span className="flex flex-none items-center gap-2 text-[11px] text-content-faint">
                   {hasOutputs && (
                     <span data-testid={`workflow-phase-count-${name}`}>
                       {state.outputs.length} {t('orchestration.detail.agents')}
@@ -195,9 +191,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
               </button>
 
               {phaseDef?.description && (
-                <p className="px-3 pb-1 text-xs text-stone-500 dark:text-neutral-400">
-                  {phaseDef.description}
-                </p>
+                <p className="px-3 pb-1 text-xs text-content-muted">{phaseDef.description}</p>
               )}
 
               {state.status === 'failed' && state.reason && (
@@ -212,17 +206,17 @@ export const WorkflowRunDetail: React.FC<Props> = ({
                   {state.outputs.map((out, idx) => (
                     <li
                       key={`${out.orchestrationId}-${idx}`}
-                      className="rounded-lg border border-stone-100 bg-stone-50 p-2 dark:border-neutral-800 dark:bg-neutral-800/40">
+                      className="rounded-lg border border-line-subtle bg-surface-muted p-2">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+                        <span className="text-xs font-medium text-content-secondary">
                           {out.agentId}
                         </span>
-                        <span className="font-mono text-[10px] text-stone-400 dark:text-neutral-500">
+                        <span className="font-mono text-[10px] text-content-faint">
                           {out.orchestrationId}
                         </span>
                       </div>
                       {out.output && (
-                        <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-stone-600 dark:text-neutral-300">
+                        <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-content-secondary">
                           {out.output}
                         </p>
                       )}
@@ -237,9 +231,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
 
       {/* Child agent refs summary (full run-level list) */}
       {run.childRunIds.length > 0 && (
-        <div
-          className="text-[11px] text-stone-400 dark:text-neutral-500"
-          data-testid="workflow-child-refs">
+        <div className="text-[11px] text-content-faint" data-testid="workflow-child-refs">
           {t('orchestration.detail.childRefs')}: {run.childRunIds.length}
         </div>
       )}
@@ -252,7 +244,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
           <p className="mb-1 text-xs font-semibold text-sage-800 dark:text-sage-200">
             {t('orchestration.detail.synthesis')}
           </p>
-          <p className="whitespace-pre-wrap break-words text-sm leading-snug text-stone-700 dark:text-neutral-200">
+          <p className="whitespace-pre-wrap break-words text-sm leading-snug text-content-secondary">
             {run.summary}
           </p>
         </div>

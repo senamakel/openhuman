@@ -237,7 +237,7 @@ function PaymentRequiredBanner() {
   return (
     <div className="flex flex-col items-center justify-center h-32 gap-2 text-amber-400">
       <p className="text-sm font-medium">Access requires payment</p>
-      <p className="text-xs text-stone-500 dark:text-neutral-400">
+      <p className="text-xs text-content-muted">
         Your wallet will be used to fulfill the x402 payment challenge.
       </p>
     </div>
@@ -251,7 +251,7 @@ function ErrorBanner({ message }: { message: string }) {
 
   if (isWalletLocked) {
     return (
-      <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-500 dark:text-neutral-400">
+      <div className="flex flex-col items-center justify-center h-32 gap-2 text-content-muted">
         <p className="text-sm font-medium">Unlock your wallet to use Agent World</p>
         <p className="text-xs">
           Agent World uses your wallet identity. Import your recovery phrase in Settings to
@@ -264,7 +264,7 @@ function ErrorBanner({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-32 gap-2 text-red-400">
       <p className="text-sm font-medium">Failed to load</p>
-      <p className="text-xs text-stone-400 dark:text-neutral-500">{message}</p>
+      <p className="text-xs text-content-faint">{message}</p>
     </div>
   );
 }
@@ -417,13 +417,11 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-4">
-        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-2">
-          Check handle availability
-        </h3>
+      <div className="rounded-lg border border-line bg-surface-muted p-4">
+        <h3 className="text-sm font-semibold text-content mb-2">Check handle availability</h3>
         <form className="flex gap-2" onSubmit={handleSubmit}>
           <input
-            className="flex-1 rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 outline-none focus:border-primary-500"
+            className="flex-1 rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-content-faint outline-none focus:border-primary-500"
             placeholder="Search for a name..."
             type="text"
             value={input}
@@ -437,9 +435,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
         </form>
 
         {availState.status === 'loading' && (
-          <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">
-            Checking…
-          </p>
+          <p className="mt-2 text-xs text-content-muted animate-pulse">Checking…</p>
         )}
         {availState.status === 'payment_required' && (
           <p className="mt-2 text-xs text-amber-400">Payment required to check availability.</p>
@@ -472,7 +468,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
                   @{availState.data.name.replace(/^@+/, '')} is taken
                 </span>
                 {availState.data.identity && (
-                  <span className="ml-2 text-xs text-stone-500 dark:text-neutral-400 font-mono">
+                  <span className="ml-2 text-xs text-content-muted font-mono">
                     {availState.data.identity.cryptoId.slice(0, 12)}...
                   </span>
                 )}
@@ -509,7 +505,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
                 ? 'Payment sent but registration did not complete.'
                 : 'Registration failed.'}
             </p>
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">{reg.state.message}</p>
+            <p className="mt-1 text-xs text-content-muted">{reg.state.message}</p>
             {reg.state.onChainTx && (
               <a
                 href={explorerTxUrl(reg.state.onChainTx)}
@@ -523,10 +519,8 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
         )}
       </div>
 
-      <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-4">
-        <h4 className="text-xs font-semibold text-stone-900 dark:text-neutral-100 mb-2">
-          Pricing tiers
-        </h4>
+      <div className="rounded-lg border border-line bg-surface-muted p-4">
+        <h4 className="text-xs font-semibold text-content mb-2">Pricing tiers</h4>
         <div className="space-y-1">
           {[
             { label: '3 chars', example: '@abc', fee: '$250/yr' },
@@ -535,7 +529,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
           ].map(tier => (
             <div
               key={tier.label}
-              className="flex items-center justify-between text-xs text-stone-500 dark:text-neutral-400">
+              className="flex items-center justify-between text-xs text-content-muted">
               <span>
                 {tier.label} <span className="font-mono opacity-60">({tier.example})</span>
               </span>
@@ -586,63 +580,43 @@ function RegistryTab() {
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800">
-        <div className="flex items-center justify-between border-b border-stone-200 dark:border-neutral-800 px-3 py-2">
-          <span className="text-xs font-medium text-stone-900 dark:text-neutral-100">
-            Directory identities
-          </span>
-          <span className="text-xs text-stone-400 dark:text-neutral-500">Live from staging</span>
+      <div className="overflow-hidden rounded-lg border border-line">
+        <div className="flex items-center justify-between border-b border-line px-3 py-2">
+          <span className="text-xs font-medium text-content">Directory identities</span>
+          <span className="text-xs text-content-faint">Live from staging</span>
         </div>
 
         {directoryState.status === 'loading' && (
-          <p className="px-3 py-4 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">
-            Loading identities…
-          </p>
+          <p className="px-3 py-4 text-xs text-content-muted animate-pulse">Loading identities…</p>
         )}
         {directoryState.status === 'payment_required' && <PaymentRequiredBanner />}
         {directoryState.status === 'error' && <ErrorBanner message={directoryState.message} />}
         {directoryState.status === 'ok' && listings.length === 0 && (
-          <p className="px-3 py-4 text-xs text-stone-500 dark:text-neutral-400">
+          <p className="px-3 py-4 text-xs text-content-muted">
             No directory identities are currently listed.
           </p>
         )}
         {listings.length > 0 && (
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-stone-200 dark:border-neutral-800">
-                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
-                  Handle
-                </th>
-                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
-                  Seller
-                </th>
-                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
-                  Updated
-                </th>
-                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
-                  Status
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-stone-400 dark:text-neutral-500">
-                  Price
-                </th>
+              <tr className="border-b border-line">
+                <th className="px-3 py-2 font-medium text-content-faint">Handle</th>
+                <th className="px-3 py-2 font-medium text-content-faint">Seller</th>
+                <th className="px-3 py-2 font-medium text-content-faint">Updated</th>
+                <th className="px-3 py-2 font-medium text-content-faint">Status</th>
+                <th className="px-3 py-2 text-right font-medium text-content-faint">Price</th>
               </tr>
             </thead>
             <tbody>
               {listings.map((entry, index) => (
                 <tr
                   key={entry.listingId}
-                  className={`border-b border-stone-200 dark:border-neutral-800 last:border-b-0 ${
-                    index % 2 === 1 ? 'bg-stone-50 dark:bg-neutral-900/50' : ''
+                  className={`border-b border-line last:border-b-0 ${
+                    index % 2 === 1 ? 'bg-surface-muted' : ''
                   }`}>
-                  <td className="px-3 py-2 font-medium text-stone-900 dark:text-neutral-100">
-                    {entry.name}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-stone-400 dark:text-neutral-500">
-                    {entry.seller ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-stone-400 dark:text-neutral-500">
-                    {formatDate(entry.updatedAt)}
-                  </td>
+                  <td className="px-3 py-2 font-medium text-content">{entry.name}</td>
+                  <td className="px-3 py-2 font-mono text-content-faint">{entry.seller ?? '—'}</td>
+                  <td className="px-3 py-2 text-content-faint">{formatDate(entry.updatedAt)}</td>
                   <td className="px-3 py-2">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -653,7 +627,7 @@ function RegistryTab() {
                       {entry.status ?? 'unknown'}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-right font-medium text-stone-900 dark:text-neutral-100">
+                  <td className="px-3 py-2 text-right font-medium text-content">
                     {entry.price ? formatPrice(entry.price.amount, entry.price.asset) : '—'}
                   </td>
                 </tr>
@@ -678,24 +652,22 @@ function FloorCard({ length }: { length: number }) {
   };
 
   return (
-    <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
-      <div className="text-xs text-stone-400 dark:text-neutral-500">
+    <div className="rounded-lg border border-line bg-surface-muted p-3">
+      <div className="text-xs text-content-faint">
         {labels[length] ?? `${String(length)} chars`}
       </div>
-      <div className="mt-1 text-sm font-semibold text-stone-900 dark:text-neutral-100">
+      <div className="mt-1 text-sm font-semibold text-content">
         {state.status === 'loading' && (
-          <span className="animate-pulse text-stone-400 dark:text-neutral-500">Loading…</span>
+          <span className="animate-pulse text-content-faint">Loading…</span>
         )}
         {state.status === 'ok' && state.data.price
           ? formatPrice(state.data.price.amount, state.data.price.asset)
           : state.status === 'ok'
             ? 'No floor'
             : null}
-        {state.status === 'error' && (
-          <span className="text-stone-400 dark:text-neutral-500">Unavailable</span>
-        )}
+        {state.status === 'error' && <span className="text-content-faint">Unavailable</span>}
       </div>
-      <div className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
+      <div className="mt-1 text-xs text-content-faint">
         {descriptions[length] ?? 'Handle identities'}
       </div>
     </div>
@@ -769,7 +741,7 @@ function TradingTab() {
     <div className="space-y-4">
       {/* Floor prices */}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-content-faint">
           Floor Prices
         </h3>
         <div className="grid grid-cols-3 gap-2">
@@ -781,44 +753,36 @@ function TradingTab() {
 
       {/* Listed for sale */}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-content-faint">
           Listed for Sale
         </h3>
         {marketState.status === 'loading' && (
-          <p className="text-xs text-stone-500 dark:text-neutral-400 animate-pulse">
-            Loading listings…
-          </p>
+          <p className="text-xs text-content-muted animate-pulse">Loading listings…</p>
         )}
         {marketState.status === 'payment_required' && <PaymentRequiredBanner />}
         {marketState.status === 'error' && <ErrorBanner message={marketState.message} />}
         {marketState.status === 'ok' && listings.length === 0 && (
-          <p className="text-xs text-stone-500 dark:text-neutral-400">
-            No identities listed for sale
-          </p>
+          <p className="text-xs text-content-muted">No identities listed for sale</p>
         )}
         {listings.length > 0 && (
           <div className="grid grid-cols-2 gap-2">
             {listings.map(listing => (
               <div
                 key={listing.listingId}
-                className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
+                className="rounded-lg border border-line bg-surface-muted p-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-                    {listing.name}
-                  </span>
+                  <span className="text-sm font-medium text-content">{listing.name}</span>
                   {listing.listingType === 'auction' && (
                     <span className="rounded-full bg-orange-600/20 px-2 py-0.5 text-xs font-medium text-orange-500">
                       Auction
                     </span>
                   )}
                 </div>
-                <div className="mt-1 text-xs font-semibold text-stone-900 dark:text-neutral-100">
+                <div className="mt-1 text-xs font-semibold text-content">
                   {formatPrice(listing.price.amount, listing.price.asset)}
                 </div>
                 {listing.seller && (
-                  <div className="mt-0.5 text-xs text-stone-400 dark:text-neutral-500">
-                    by {listing.seller}
-                  </div>
+                  <div className="mt-0.5 text-xs text-content-faint">by {listing.seller}</div>
                 )}
                 <div className="mt-2 flex gap-1">
                   {listing.listingType !== 'auction' && (
@@ -868,9 +832,7 @@ function TradingTab() {
             className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3"
             data-testid="commit-error">
             <p className="text-xs font-medium text-red-500">Commitment failed.</p>
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-              {commitState.message}
-            </p>
+            <p className="mt-1 text-xs text-content-muted">{commitState.message}</p>
           </div>
         )}
 
@@ -913,7 +875,7 @@ function TradingTab() {
             <p className="text-xs font-medium text-red-500">
               {bs.onChainTx ? 'Payment sent but purchase did not complete.' : 'Purchase failed.'}
             </p>
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">{bs.message}</p>
+            <p className="mt-1 text-xs text-content-muted">{bs.message}</p>
           </div>
         )}
 
@@ -939,56 +901,44 @@ function TradingTab() {
 
       {/* Recent sales */}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-content-faint">
           Recent Sales
         </h3>
-        <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800">
+        <div className="overflow-hidden rounded-lg border border-line">
           {salesState.status === 'loading' && (
-            <p className="p-3 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">
-              Loading sales…
-            </p>
+            <p className="p-3 text-xs text-content-muted animate-pulse">Loading sales…</p>
           )}
           {salesState.status === 'error' && (
             <p className="p-3 text-xs text-red-400">Failed to load sales</p>
           )}
           {salesState.status === 'ok' && sales.length === 0 && (
-            <p className="p-3 text-xs text-stone-500 dark:text-neutral-400">No recent sales</p>
+            <p className="p-3 text-xs text-content-muted">No recent sales</p>
           )}
           {sales.length > 0 && (
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-stone-200 dark:border-neutral-800">
-                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
-                    Handle
-                  </th>
-                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
-                    Price
-                  </th>
-                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
-                    Buyer
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-stone-400 dark:text-neutral-500">
-                    Date
-                  </th>
+                <tr className="border-b border-line">
+                  <th className="px-3 py-2 font-medium text-content-faint">Handle</th>
+                  <th className="px-3 py-2 font-medium text-content-faint">Price</th>
+                  <th className="px-3 py-2 font-medium text-content-faint">Buyer</th>
+                  <th className="px-3 py-2 text-right font-medium text-content-faint">Date</th>
                 </tr>
               </thead>
               <tbody>
                 {sales.map((sale, index) => (
                   <tr
                     key={sale.saleId}
-                    className={`border-b border-stone-200 dark:border-neutral-800 last:border-b-0 ${
-                      index % 2 === 1 ? 'bg-stone-50 dark:bg-neutral-900/50' : ''
+                    className={`border-b border-line last:border-b-0 ${
+                      index % 2 === 1 ? 'bg-surface-muted' : ''
                     }`}>
-                    <td className="px-3 py-2 font-medium text-stone-900 dark:text-neutral-100">
-                      {sale.name}
-                    </td>
-                    <td className="px-3 py-2 text-stone-900 dark:text-neutral-100">
+                    <td className="px-3 py-2 font-medium text-content">{sale.name}</td>
+                    <td className="px-3 py-2 text-content">
                       {formatPrice(sale.price.amount, sale.price.asset)}
                     </td>
-                    <td className="px-3 py-2 font-mono text-stone-400 dark:text-neutral-500">
+                    <td className="px-3 py-2 font-mono text-content-faint">
                       {sale.buyer.slice(0, 12)}...
                     </td>
-                    <td className="px-3 py-2 text-right text-stone-400 dark:text-neutral-500">
+                    <td className="px-3 py-2 text-right text-content-faint">
                       {sale.createdAt.slice(0, 10)}
                     </td>
                   </tr>

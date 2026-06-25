@@ -221,7 +221,7 @@ const InstalledServerDetail = ({
           <img
             src={server.icon_url}
             alt=""
-            className="w-10 h-10 rounded shrink-0 object-contain bg-white dark:bg-neutral-900 border border-stone-100 dark:border-neutral-800"
+            className="w-10 h-10 rounded shrink-0 object-contain bg-surface border border-line-subtle"
           />
         ) : (
           <div className="w-10 h-10 rounded shrink-0 bg-primary-100 dark:bg-primary-500/20 flex items-center justify-center text-lg">
@@ -230,19 +230,13 @@ const InstalledServerDetail = ({
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
-              {server.display_name}
-            </h3>
+            <h3 className="text-base font-semibold text-content">{server.display_name}</h3>
             <McpStatusBadge status={status} />
           </div>
           {server.description && (
-            <p className="text-xs text-stone-500 dark:text-neutral-400 mt-0.5">
-              {server.description}
-            </p>
+            <p className="text-xs text-content-muted mt-0.5">{server.description}</p>
           )}
-          <p className="text-[11px] text-stone-400 dark:text-neutral-500 mt-1 font-mono">
-            {server.qualified_name}
-          </p>
+          <p className="text-[11px] text-content-faint mt-1 font-mono">{server.qualified_name}</p>
         </div>
       </div>
 
@@ -352,9 +346,7 @@ const InstalledServerDetail = ({
       {visibleEnvKeys.length > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-stone-600 dark:text-neutral-400">
-              {t('mcp.detail.envVars')}
-            </p>
+            <p className="text-xs font-medium text-content-secondary">{t('mcp.detail.envVars')}</p>
             <button
               type="button"
               disabled={busy}
@@ -368,22 +360,20 @@ const InstalledServerDetail = ({
               {visibleEnvKeys.map(key => (
                 <span
                   key={key}
-                  className="px-2 py-0.5 text-[11px] font-mono rounded bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 border border-stone-200 dark:border-neutral-700">
+                  className="px-2 py-0.5 text-[11px] font-mono rounded bg-surface-subtle text-content-secondary border border-line">
                   {key}
                 </span>
               ))}
             </div>
           )}
           {reconfigOpen && (
-            <div className="space-y-2 rounded-lg border border-stone-200 dark:border-neutral-800 p-3">
-              <p className="text-[11px] text-stone-500 dark:text-neutral-400">
-                {t('mcp.detail.reconfigureHint')}
-              </p>
+            <div className="space-y-2 rounded-lg border border-line p-3">
+              <p className="text-[11px] text-content-muted">{t('mcp.detail.reconfigureHint')}</p>
               {visibleEnvKeys.map(key => (
                 <div key={key} className="space-y-1">
                   <label
                     htmlFor={`reconfig-${key}`}
-                    className="block text-[11px] font-medium text-stone-600 dark:text-neutral-400">
+                    className="block text-[11px] font-medium text-content-secondary">
                     {key}
                   </label>
                   <div className="flex gap-2">
@@ -396,7 +386,7 @@ const InstalledServerDetail = ({
                       }
                       placeholder={t('mcp.install.enterValue').replace('{key}', key)}
                       disabled={busy}
-                      className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
+                      className="flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50"
                     />
                     <Button
                       variant="secondary"
@@ -421,9 +411,7 @@ const InstalledServerDetail = ({
           When connected, each tool gets a "Try" button via `onTryTool`
           that opens the Tool Execution Playground modal below. */}
       <div className="space-y-1">
-        <p className="text-xs font-medium text-stone-600 dark:text-neutral-400">
-          {t('mcp.detail.tools')}
-        </p>
+        <p className="text-xs font-medium text-content-secondary">{t('mcp.detail.tools')}</p>
         <McpToolList
           tools={status === 'connected' ? tools : []}
           onTryTool={status === 'connected' ? setPlaygroundTool : undefined}

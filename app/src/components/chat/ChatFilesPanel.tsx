@@ -260,9 +260,9 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
       role="dialog"
       aria-label={t('chat.files.panel.aria')}
       data-testid="chat-files-panel"
-      className="absolute right-0 top-9 z-30 w-[360px] max-h-[420px] overflow-y-auto rounded-xl border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg">
-      <header className="sticky top-0 z-10 bg-white dark:bg-neutral-900 border-b border-stone-100 dark:border-neutral-800 px-3 py-2 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+      className="absolute right-0 top-9 z-30 w-[360px] max-h-[420px] overflow-y-auto rounded-xl border border-line bg-surface shadow-lg">
+      <header className="sticky top-0 z-10 bg-surface border-b border-line-subtle px-3 py-2 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-content-muted">
           {t('chat.files.panel.title').replace('{count}', String(artifacts.length))}
         </span>
         <Button
@@ -284,11 +284,11 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
       </header>
 
       {artifacts.length === 0 ? (
-        <div className="px-3 py-6 text-xs text-stone-500 dark:text-neutral-400 text-center">
+        <div className="px-3 py-6 text-xs text-content-muted text-center">
           {t('chat.files.panel.empty')}
         </div>
       ) : (
-        <ul className="divide-y divide-stone-100 dark:divide-neutral-800">
+        <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
           {artifacts.map(artifact => {
             const row = downloadState[artifact.artifactId] ?? { state: 'idle' as const };
             const isConfirming = confirmDeleteId === artifact.artifactId;
@@ -297,25 +297,25 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                 key={artifact.artifactId}
                 className="px-3 py-2.5 flex flex-col gap-1"
                 data-testid={`chat-files-row-${artifact.artifactId}`}>
-                <div className="flex items-center gap-2.5 text-sm text-stone-700 dark:text-neutral-200">
+                <div className="flex items-center gap-2.5 text-sm text-content-secondary">
                   <KindIcon kind={artifact.kind} />
                   <div className="flex flex-col min-w-0 flex-1">
                     <span className="truncate font-medium leading-tight">{artifact.title}</span>
-                    <span className="text-[11px] font-mono text-stone-500 dark:text-neutral-400 leading-tight">
+                    <span className="text-[11px] font-mono text-content-muted leading-tight">
                       {artifact.sizeBytes != null ? formatFileSize(artifact.sizeBytes) : ''}
                     </span>
                   </div>
                 </div>
                 {isConfirming ? (
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[11px] text-stone-600 dark:text-neutral-300 flex-1">
+                    <span className="text-[11px] text-content-secondary flex-1">
                       {t('chat.files.delete.confirm')}
                     </span>
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteId(null)}
                       data-analytics-id="chat-files-delete-cancel"
-                      className="rounded-md bg-stone-100 dark:bg-neutral-800 hover:bg-stone-200 dark:hover:bg-neutral-700 text-stone-700 dark:text-neutral-200 text-[11px] font-medium px-2 py-1 transition-colors">
+                      className="rounded-md bg-surface-subtle hover:bg-surface-strong dark:hover:bg-neutral-700 text-content-secondary text-[11px] font-medium px-2 py-1 transition-colors">
                       {t('chat.files.delete.cancel')}
                     </button>
                     <button
@@ -323,7 +323,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                       onClick={() => void handleDeleteConfirm(artifact)}
                       data-analytics-id={`chat-files-delete-confirm-${artifact.kind}`}
                       data-testid={`chat-files-confirm-${artifact.artifactId}`}
-                      className="rounded-md bg-coral-500 hover:bg-coral-600 text-white text-[11px] font-medium px-2 py-1 transition-colors">
+                      className="rounded-md bg-coral-500 hover:bg-coral-600 text-content-inverted text-[11px] font-medium px-2 py-1 transition-colors">
                       {t('chat.files.delete.action')}
                     </button>
                   </div>
@@ -356,7 +356,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                       data-analytics-id={`chat-files-delete-${artifact.kind}`}
                       data-testid={`chat-files-delete-${artifact.artifactId}`}
                       aria-label={t('chat.files.delete.aria').replace('{title}', artifact.title)}
-                      className="ml-auto rounded-md bg-transparent text-stone-500 dark:text-neutral-400 hover:bg-coral-50 dark:hover:bg-coral-900/20 hover:text-coral-700 dark:hover:text-coral-300 text-[11px] font-medium px-2 py-1 transition-colors">
+                      className="ml-auto rounded-md bg-transparent text-content-muted hover:bg-coral-50 dark:hover:bg-coral-900/20 hover:text-coral-700 dark:hover:text-coral-300 text-[11px] font-medium px-2 py-1 transition-colors">
                       <svg
                         className="w-3.5 h-3.5"
                         fill="none"
@@ -383,7 +383,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
         </ul>
       )}
       {deleteError && (
-        <div className="px-3 py-2 border-t border-stone-100 dark:border-neutral-800 text-[11px] text-coral-600 dark:text-coral-400 break-words">
+        <div className="px-3 py-2 border-t border-line-subtle text-[11px] text-coral-600 dark:text-coral-400 break-words">
           {deleteError}
         </div>
       )}

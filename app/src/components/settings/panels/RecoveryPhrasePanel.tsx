@@ -369,9 +369,7 @@ const RecoveryPhrasePanel = () => {
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
         />
       </svg>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        {t('mnemonic.loadingWalletStatus')}
-      </p>
+      <p className="text-sm text-content-muted">{t('mnemonic.loadingWalletStatus')}</p>
     </div>
   );
 
@@ -416,49 +414,47 @@ const RecoveryPhrasePanel = () => {
 
           {/* Wallet metadata */}
           {walletStatus && (
-            <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 border border-neutral-200 dark:border-neutral-800 space-y-3">
+            <div className="bg-surface-muted rounded-2xl p-4 border border-line space-y-3">
               {walletStatus.source && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                    {t('mnemonic.walletSource')}
-                  </span>
-                  <span className="text-xs font-medium text-neutral-700 dark:text-neutral-200 capitalize">
+                  <span className="text-xs text-content-muted">{t('mnemonic.walletSource')}</span>
+                  <span className="text-xs font-medium text-content-secondary capitalize">
                     {walletStatus.source}
                   </span>
                 </div>
               )}
               {walletStatus.mnemonicWordCount && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  <span className="text-xs text-content-muted">
                     {t('mnemonic.walletWordCount')}
                   </span>
-                  <span className="text-xs font-medium text-neutral-700 dark:text-neutral-200">
+                  <span className="text-xs font-medium text-content-secondary">
                     {walletStatus.mnemonicWordCount} words
                   </span>
                 </div>
               )}
               {walletStatus.updatedAtMs && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  <span className="text-xs text-content-muted">
                     {t('mnemonic.walletLastUpdated')}
                   </span>
-                  <span className="text-xs font-medium text-neutral-700 dark:text-neutral-200">
+                  <span className="text-xs font-medium text-content-secondary">
                     {new Date(walletStatus.updatedAtMs).toLocaleDateString()}
                   </span>
                 </div>
               )}
               {walletStatus.accounts.length > 0 && (
                 <div>
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400 block mb-2">
+                  <span className="text-xs text-content-muted block mb-2">
                     {t('mnemonic.viewAccounts')}
                   </span>
                   <div className="space-y-1.5">
                     {walletStatus.accounts.map(account => (
                       <div key={account.chain} className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-mono font-medium uppercase text-neutral-500 dark:text-neutral-400 w-14 shrink-0">
+                        <span className="text-xs font-mono font-medium uppercase text-content-muted w-14 shrink-0">
                           {account.chain}
                         </span>
-                        <span className="text-xs font-mono text-neutral-700 dark:text-neutral-300 truncate">
+                        <span className="text-xs font-mono text-content-secondary truncate">
                           {account.address}
                         </span>
                       </div>
@@ -489,7 +485,7 @@ const RecoveryPhrasePanel = () => {
                   {t('mnemonic.cannotRecover')}
                 </p>
               </div>
-              <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 border border-neutral-200 dark:border-neutral-800 relative">
+              <div className="bg-surface-muted rounded-2xl p-4 border border-line relative">
                 <div
                   className="grid grid-cols-3 gap-2 transition-all duration-300"
                   style={{
@@ -500,8 +496,8 @@ const RecoveryPhrasePanel = () => {
                   {viewMnemonic.split(' ').map((word, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-lg px-3 py-2 text-sm border border-neutral-200 dark:border-neutral-800">
-                      <span className="text-neutral-500 dark:text-neutral-400 font-mono text-xs w-5 text-right">
+                      className="flex items-center gap-2 bg-surface rounded-lg px-3 py-2 text-sm border border-line">
+                      <span className="text-content-muted font-mono text-xs w-5 text-right">
                         {index + 1}.
                       </span>
                       <span className="font-mono font-medium">{word}</span>
@@ -515,7 +511,7 @@ const RecoveryPhrasePanel = () => {
                     aria-label={t('mnemonic.revealPhrase')}
                     className="absolute inset-0 flex items-center justify-center cursor-pointer bg-transparent">
                     <svg
-                      className="w-7 h-7 text-neutral-800 dark:text-white transition-opacity duration-200 hover:opacity-70"
+                      className="w-7 h-7 text-content dark:text-white transition-opacity duration-200 hover:opacity-70"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -694,7 +690,7 @@ const RecoveryPhrasePanel = () => {
   const renderGenerateMode = () => (
     <>
       <div className="mb-4 space-y-3">
-        <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
+        <p className="text-sm text-content-secondary leading-relaxed">
           {t('mnemonic.writeDownWords')} {MNEMONIC_GENERATE_WORD_COUNT} {t('mnemonic.wordsInOrder')}
         </p>
         <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
@@ -716,7 +712,7 @@ const RecoveryPhrasePanel = () => {
         </div>
       </div>
 
-      <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 mb-4 border border-neutral-200 dark:border-neutral-800 relative">
+      <div className="bg-surface-muted rounded-2xl p-4 mb-4 border border-line relative">
         <div
           className="grid grid-cols-3 gap-2 transition-all duration-300"
           style={{
@@ -727,8 +723,8 @@ const RecoveryPhrasePanel = () => {
           {words.map((word, index) => (
             <div
               key={index}
-              className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-lg px-3 py-2 text-sm border border-neutral-200 dark:border-neutral-800">
-              <span className="text-neutral-500 dark:text-neutral-400 font-mono text-xs w-5 text-right">
+              className="flex items-center gap-2 bg-surface rounded-lg px-3 py-2 text-sm border border-line">
+              <span className="text-content-muted font-mono text-xs w-5 text-right">
                 {index + 1}.
               </span>
               <span className="font-mono font-medium">{word}</span>
@@ -742,7 +738,7 @@ const RecoveryPhrasePanel = () => {
             aria-label={t('mnemonic.revealPhrase')}
             className="absolute inset-0 flex items-center justify-center cursor-pointer bg-transparent">
             <svg
-              className="w-7 h-7 text-neutral-800 dark:text-white transition-opacity duration-200 hover:opacity-70"
+              className="w-7 h-7 text-content dark:text-white transition-opacity duration-200 hover:opacity-70"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -810,9 +806,7 @@ const RecoveryPhrasePanel = () => {
           checked={confirmed}
           onCheckedChange={setConfirmed}
         />
-        <span className="text-sm text-neutral-700 dark:text-neutral-200">
-          {t('mnemonic.consentSaved')}
-        </span>
+        <span className="text-sm text-content-secondary">{t('mnemonic.consentSaved')}</span>
       </label>
     </>
   );
@@ -820,15 +814,13 @@ const RecoveryPhrasePanel = () => {
   const renderImportMode = () => (
     <>
       <div className="mb-4">
-        <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
+        <p className="text-sm text-content-secondary leading-relaxed">
           {t('mnemonic.enterPhraseToRestore')}
         </p>
       </div>
 
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">
-          {t('mnemonic.words')}:
-        </span>
+        <span className="text-xs text-content-muted">{t('mnemonic.words')}:</span>
         {BIP39_IMPORT_LENGTHS.map(len => (
           <button
             key={len}
@@ -837,18 +829,18 @@ const RecoveryPhrasePanel = () => {
             className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
               selectedWordCount === len
                 ? 'bg-primary-500/20 border-primary-500/40 text-primary-600 dark:text-primary-300 border'
-                : 'border border-neutral-200 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400 hover:border-neutral-300 dark:border-neutral-700'
+                : 'border border-line text-content-muted hover:border-line-strong dark:border-line-strong'
             }`}>
             {len}
           </button>
         ))}
       </div>
 
-      <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 mb-4 border border-neutral-200 dark:border-neutral-800">
+      <div className="bg-surface-muted rounded-2xl p-4 mb-4 border border-line">
         <div className="grid grid-cols-3 gap-2">
           {importWords.map((word, index) => (
             <div key={index} className="flex items-center gap-1.5">
-              <span className="text-neutral-500 dark:text-neutral-400 font-mono text-xs w-5 text-right shrink-0">
+              <span className="text-content-muted font-mono text-xs w-5 text-right shrink-0">
                 {index + 1}.
               </span>
               <input
@@ -862,12 +854,12 @@ const RecoveryPhrasePanel = () => {
                 onKeyDown={e => handleImportKeyDown(index, e)}
                 autoComplete="off"
                 spellCheck={false}
-                className={`w-full font-mono text-sm font-medium px-2 py-1.5 rounded-lg border bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 outline-none transition-colors ${
+                className={`w-full font-mono text-sm font-medium px-2 py-1.5 rounded-lg border bg-surface text-content outline-none transition-colors ${
                   importValid === false && word.trim()
                     ? 'border-coral-400 focus:border-coral-300 dark:border-coral-500/40'
                     : importValid === true
                       ? 'border-sage-400 focus:border-sage-300 dark:border-sage-500/40'
-                      : 'border-neutral-200 dark:border-neutral-800 focus:border-primary-400'
+                      : 'border-line focus:border-primary-400'
                 }`}
               />
             </div>
@@ -914,9 +906,7 @@ const RecoveryPhrasePanel = () => {
             </svg>
           </div>
           <p className="text-sm font-medium text-sage-500">{t('mnemonic.phraseSaved')}</p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            {t('mnemonic.walletReady')}
-          </p>
+          <p className="text-xs text-content-muted">{t('mnemonic.walletReady')}</p>
         </div>
       ) : (
         <>

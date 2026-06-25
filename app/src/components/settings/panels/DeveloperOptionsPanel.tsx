@@ -481,7 +481,7 @@ const CoreModeBadge = () => {
     return (
       <div className="px-4 py-3 rounded-xl border border-primary-300 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/10">
         <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded-full bg-primary-600 text-white text-[11px] font-medium">
+          <span className="px-2 py-0.5 rounded-full bg-primary-600 text-content-inverted text-[11px] font-medium">
             {t('devOptions.local')}
           </span>
           <span className="text-sm font-semibold text-primary-900 dark:text-primary-200">
@@ -498,7 +498,7 @@ const CoreModeBadge = () => {
   return (
     <div className="px-4 py-3 rounded-xl border border-sage-300 dark:border-sage-500/40 bg-sage-50 dark:bg-sage-500/10">
       <div className="flex items-center gap-2">
-        <span className="px-2 py-0.5 rounded-full bg-sage-600 text-white text-[11px] font-medium">
+        <span className="px-2 py-0.5 rounded-full bg-sage-600 text-content-inverted text-[11px] font-medium">
           {t('devOptions.cloud')}
         </span>
         <span className="text-sm font-semibold text-sage-900 dark:text-sage-200">
@@ -559,7 +559,7 @@ const SentryTestRow = () => {
         <button
           onClick={onClick}
           disabled={status.kind === 'sending'}
-          className="shrink-0 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium transition-colors disabled:opacity-60">
+          className="shrink-0 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-content-inverted text-xs font-medium transition-colors disabled:opacity-60">
           {status.kind === 'sending' ? t('devOptions.sending') : t('devOptions.sendTestEvent')}
         </button>
       </div>
@@ -610,19 +610,13 @@ const LogsFolderRow = () => {
   if (!isTauri()) return null;
 
   return (
-    <div className="px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60">
+    <div className="px-4 py-3 rounded-xl border border-line bg-surface-muted">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-            {t('devOptions.appLogs')}
-          </div>
-          <div className="text-xs text-neutral-700 dark:text-neutral-300 mt-0.5">
-            {t('devOptions.appLogsDesc')}
-          </div>
+          <div className="text-sm font-semibold text-content">{t('devOptions.appLogs')}</div>
+          <div className="text-xs text-content-secondary mt-0.5">{t('devOptions.appLogsDesc')}</div>
           {path && (
-            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 font-mono truncate">
-              {path}
-            </div>
+            <div className="text-[11px] text-content-muted mt-1 font-mono truncate">{path}</div>
           )}
         </div>
         <button

@@ -62,7 +62,7 @@ const SecurityPanel = () => {
                     `keyring.settings.mode.${keyringStatus.activeMode}` as Parameters<typeof t>[0]
                   )}
                 </SettingsBadge>
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                <span className="text-xs text-content-muted">
                   {t('keyring.settings.backend')}: {keyringStatus.backendName}
                 </span>
               </div>
@@ -77,16 +77,14 @@ const SecurityPanel = () => {
               <div
                 className={`h-2 w-2 rounded-full ${keyringStatus.available ? 'bg-sage-500' : 'bg-amber-500'}`}
               />
-              <span className="text-sm text-neutral-700 dark:text-neutral-200">
+              <span className="text-sm text-content-secondary">
                 {keyringStatus.available
                   ? t('keyring.settings.available')
                   : t('keyring.settings.unavailable')}
               </span>
             </div>
             {keyringStatus.failureReason && (
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 ml-4">
-                {keyringStatus.failureReason}
-              </p>
+              <p className="text-xs text-content-muted ml-4">{keyringStatus.failureReason}</p>
             )}
             <Button
               type="button"
@@ -103,7 +101,7 @@ const SecurityPanel = () => {
         {!keyringStatus.available && (
           <SettingsSection title={t('keyring.settings.consentTitle')}>
             <div className="px-4 py-3 space-y-3">
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="text-xs text-content-muted">
                 {t('keyring.settings.consentDescription')}
               </p>
               <div className="flex flex-wrap gap-2">

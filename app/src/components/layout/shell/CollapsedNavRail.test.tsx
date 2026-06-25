@@ -33,6 +33,8 @@ describe('CollapsedNavRail', () => {
     ]) {
       expect(screen.getByRole('button', { name: key })).toBeInTheDocument();
     }
+    // The wallet shortcut was removed from the rail.
+    expect(screen.queryByRole('button', { name: 'nav.wallet' })).not.toBeInTheDocument();
   });
 
   it('shortcuts button opens the keyboard-shortcuts help directory', () => {
@@ -97,7 +99,7 @@ describe('CollapsedNavRail', () => {
     );
   });
 
-  it('marks Settings active on the wallet sub-page (no separate wallet rail item)', () => {
+  it('marks Settings active on the wallet sub-page (wallet rail removed)', () => {
     renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/settings/wallet-balances'] });
     expect(screen.getByRole('button', { name: 'nav.settings' })).toHaveAttribute(
       'aria-current',

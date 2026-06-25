@@ -206,7 +206,7 @@ const AgentEditorPage = () => {
       title={isCreate ? t('settings.agents.newAgent') : name || t('settings.agents.newAgent')}
       description={t('settings.agents.subtitle')}>
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-neutral-400 dark:text-neutral-500">
+        <div className="flex items-center justify-center py-12 text-content-faint">
           <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
           <span className="text-sm">{t('common.loading')}</span>
         </div>
@@ -218,7 +218,7 @@ const AgentEditorPage = () => {
         // Built-in agents can't be edited; they may only be enabled/disabled
         // or reset from the agents list.
         <div className="space-y-3">
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+          <div className="rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-content-secondary dark:bg-surface">
             {t('settings.agents.editor.builtInReadonly')}
           </div>
           <Button type="button" variant="secondary" size="sm" onClick={backToList}>
@@ -249,10 +249,8 @@ const AgentEditorPage = () => {
                 label={t('settings.agents.editor.name')}
                 control={
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
-                      {name}
-                    </span>
-                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                    <span className="text-sm font-semibold text-content">{name}</span>
+                    <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-medium text-content-muted">
                       {isCustom
                         ? t('settings.agents.sourceCustom')
                         : t('settings.agents.sourceDefault')}
@@ -285,11 +283,7 @@ const AgentEditorPage = () => {
             ) : (
               <SettingsRow
                 label={t('settings.agents.editor.id')}
-                control={
-                  <code className="font-mono text-xs text-neutral-500 dark:text-neutral-400">
-                    {agentId}
-                  </code>
-                }
+                control={<code className="font-mono text-xs text-content-muted">{agentId}</code>}
               />
             )}
           </SettingsSection>
@@ -380,21 +374,21 @@ const AgentEditorPage = () => {
               description={t('settings.agents.editor.toolsHint')}
               stacked
               control={
-                <div className="rounded-md border border-neutral-200 p-2 dark:border-neutral-700">
+                <div className="rounded-md border border-line p-2 dark:border-line-strong">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {allToolsSelected ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-ocean-50 px-2.5 py-1 text-xs font-medium text-ocean-700 dark:bg-ocean-500/10 dark:text-ocean-200">
                         {t('settings.agents.editor.toolsAllSelected')}
                       </span>
                     ) : toolAllowlist.length === 0 ? (
-                      <span className="px-1 py-1 text-xs text-neutral-400 dark:text-neutral-500">
+                      <span className="px-1 py-1 text-xs text-content-faint">
                         {t('settings.agents.editor.toolsNoneSelected')}
                       </span>
                     ) : (
                       toolAllowlist.map(tool => (
                         <span
                           key={tool}
-                          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 font-mono text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+                          className="inline-flex items-center gap-1 rounded-full bg-surface-subtle px-2.5 py-1 font-mono text-xs text-content-secondary">
                           {tool}
                           <button
                             type="button"
@@ -403,7 +397,7 @@ const AgentEditorPage = () => {
                               tool
                             )}
                             onClick={() => setToolAllowlist(prev => prev.filter(x => x !== tool))}
-                            className="rounded-full text-neutral-400 hover:text-coral-600 dark:text-neutral-500 dark:hover:text-coral-300">
+                            className="rounded-full text-content-faint hover:text-coral-600 dark:hover:text-coral-300">
                             <LuX className="h-3 w-3" />
                           </button>
                         </span>
@@ -413,7 +407,7 @@ const AgentEditorPage = () => {
                       type="button"
                       aria-label={t('settings.agents.editor.selectTools')}
                       onClick={() => setToolsOpen(true)}
-                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-600 hover:border-ocean-400 hover:text-ocean-600 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-ocean-500 dark:hover:text-ocean-300">
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-line-strong px-2.5 py-1 text-xs font-medium text-content-secondary hover:border-ocean-400 hover:text-ocean-600 dark:hover:border-ocean-500 dark:hover:text-ocean-300">
                       <LuPlus className="h-3 w-3" />
                       {t('settings.agents.editor.selectTools')}
                     </button>
@@ -424,7 +418,7 @@ const AgentEditorPage = () => {
           </SettingsSection>
 
           {!isCreate && !isCustom && (
-            <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+            <p className="text-[11px] text-content-faint">
               {t('settings.agents.editor.defaultsNote')}
             </p>
           )}
@@ -521,13 +515,13 @@ function ToolsPickerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
-      <section className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
+      <section className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-xl">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <div>
-            <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+            <h3 className="text-base font-semibold text-content">
               {t('settings.agents.editor.toolsModalTitle')}
             </h3>
-            <p className="text-xs text-neutral-400 dark:text-neutral-500">
+            <p className="text-xs text-content-faint">
               {t('settings.agents.editor.toolsSelectedCount').replace(
                 '{count}',
                 String(selectedCount)
@@ -545,9 +539,9 @@ function ToolsPickerModal({
           </Button>
         </div>
 
-        <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
+        <div className="border-b border-line px-4 py-3">
           <div className="relative">
-            <LuSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400 dark:text-neutral-500" />
+            <LuSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-content-faint" />
             <SettingsTextField
               autoFocus
               value={query}
@@ -564,13 +558,13 @@ function ToolsPickerModal({
             className={`mt-2 flex w-full items-start justify-between gap-2 rounded-md border px-3 py-2 text-left transition-colors ${
               allToolsSelected
                 ? 'border-ocean-400 bg-ocean-50 dark:border-ocean-500/40 dark:bg-ocean-500/10'
-                : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                : 'border-line hover:bg-surface-hover dark:border-line-strong'
             }`}>
             <span>
-              <span className="block text-xs font-semibold text-neutral-800 dark:text-neutral-100">
+              <span className="block text-xs font-semibold text-content">
                 {t('settings.agents.editor.toolsAllowAll')}
               </span>
-              <span className="block text-[11px] text-neutral-400 dark:text-neutral-500">
+              <span className="block text-[11px] text-content-faint">
                 {t('settings.agents.editor.toolsAllowAllHint')}
               </span>
             </span>
@@ -580,7 +574,7 @@ function ToolsPickerModal({
 
         <div className="min-h-[8rem] flex-1 overflow-y-auto px-2 py-2">
           {loading ? (
-            <div className="flex items-center justify-center py-10 text-neutral-400 dark:text-neutral-500">
+            <div className="flex items-center justify-center py-10 text-content-faint">
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
               <span className="text-sm">{t('settings.agents.editor.toolsLoading')}</span>
             </div>
@@ -589,7 +583,7 @@ function ToolsPickerModal({
               {t('settings.agents.editor.toolsLoadError')}: {error}
             </p>
           ) : filtered.length === 0 ? (
-            <p className="px-2 py-6 text-center text-sm text-neutral-400 dark:text-neutral-500">
+            <p className="px-2 py-6 text-center text-sm text-content-faint">
               {t('settings.agents.editor.toolsEmpty')}
             </p>
           ) : (
@@ -602,13 +596,13 @@ function ToolsPickerModal({
                       type="button"
                       disabled={allToolsSelected}
                       onClick={() => onToggleTool(tool.name)}
-                      className="flex w-full items-start gap-3 rounded-md px-2 py-2 text-left hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800">
+                      className="flex w-full items-start gap-3 rounded-md px-2 py-2 text-left hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50">
                       <Checkbox checked={checked} className="mt-0.5" />
                       <span className="min-w-0">
-                        <span className="block font-mono text-xs font-medium text-neutral-800 dark:text-neutral-100">
+                        <span className="block font-mono text-xs font-medium text-content">
                           {tool.name}
                         </span>
-                        <span className="block break-words text-[11px] leading-snug text-neutral-500 dark:text-neutral-400">
+                        <span className="block break-words text-[11px] leading-snug text-content-muted">
                           {tool.description}
                         </span>
                       </span>
@@ -620,7 +614,7 @@ function ToolsPickerModal({
           )}
         </div>
 
-        <div className="flex justify-end border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
+        <div className="flex justify-end border-t border-line px-4 py-3">
           <Button type="button" variant="primary" size="sm" onClick={onClose}>
             {t('settings.agents.editor.toolsDone')}
           </Button>
@@ -636,7 +630,7 @@ function Checkbox({ checked, className = '' }: { checked: boolean; className?: s
       className={`flex h-4 w-4 flex-none items-center justify-center rounded border transition-colors ${
         checked
           ? 'border-ocean-600 bg-ocean-600 text-white'
-          : 'border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-950'
+          : 'border-line-strong bg-surface dark:border-neutral-600 dark:bg-surface-canvas'
       } ${className}`}>
       {checked && (
         <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">

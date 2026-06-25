@@ -119,11 +119,11 @@ describe('RecoveryPhrasePanel — trust-surface polish', () => {
     expect(screen.getByText(/Enter your recovery phrase below/i)).toBeTruthy();
   });
 
-  it('uses palette token text-neutral-700 on the confirm-checkbox label (not opacity)', async () => {
+  it('uses the semantic text-content-secondary token on the confirm-checkbox label (not opacity)', async () => {
     const { container } = renderWithProviders(<RecoveryPhrasePanel />);
     await waitFor(() => screen.getByText(/consent to using it for local wallet setup/i));
     const label = screen.getByText(/consent to using it for local wallet setup/i);
-    expect(label.className).toContain('text-neutral-700');
+    expect(label.className).toContain('text-content-secondary');
     expect(label.className).not.toContain('opacity-80');
     expect(container).toBeTruthy();
   });

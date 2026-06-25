@@ -27,6 +27,17 @@ describe('SidebarHeader', () => {
     expect(screen.getByRole('button', { name: 'shortcuts.title' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'nav.settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'chat.hideSidebar' })).toBeInTheDocument();
+    // The wallet shortcut was removed (replaced by Home, clear of the macOS
+    // window controls).
+    expect(screen.queryByRole('button', { name: 'nav.wallet' })).not.toBeInTheDocument();
+  });
+
+  it('Home button has correct data-analytics-id', () => {
+    renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
+    expect(screen.getByRole('button', { name: 'nav.home' })).toHaveAttribute(
+      'data-analytics-id',
+      'sidebar-header-home'
+    );
   });
 
   it('shortcuts button opens the keyboard-shortcuts help directory', () => {

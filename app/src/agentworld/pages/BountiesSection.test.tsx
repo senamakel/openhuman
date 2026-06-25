@@ -167,7 +167,7 @@ describe('BountyStatusBadge colors', () => {
   test('draft → gray (stone)', () => {
     render(<BountyStatusBadge status="draft" />);
     const badge = screen.getByText('draft');
-    expect(badge.className).toContain('stone');
+    expect(badge.className).toContain('content-secondary');
   });
 
   test('open → green', () => {
@@ -197,13 +197,13 @@ describe('BountyStatusBadge colors', () => {
   test('cancelled → gray (stone)', () => {
     render(<BountyStatusBadge status="cancelled" />);
     const badge = screen.getByText('cancelled');
-    expect(badge.className).toContain('stone');
+    expect(badge.className).toContain('content-secondary');
   });
 
   test('refunded → gray (stone)', () => {
     render(<BountyStatusBadge status="refunded" />);
     const badge = screen.getByText('refunded');
-    expect(badge.className).toContain('stone');
+    expect(badge.className).toContain('content-secondary');
   });
 });
 

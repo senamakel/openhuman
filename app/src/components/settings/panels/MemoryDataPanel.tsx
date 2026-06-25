@@ -55,32 +55,30 @@ const MemoryDataPanel = ({ embedded = false }: MemoryDataPanelProps = {}) => {
       description={embedded ? undefined : t('devOptions.memoryInspectionDesc')}
       leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
       <div className={embedded ? 'space-y-4' : 'p-4 space-y-4'}>
-        <section className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
-            {t('memoryData.howItWorks')}
-          </h3>
+        <section className="rounded-xl border border-line bg-surface p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-content">{t('memoryData.howItWorks')}</h3>
           <dl className="space-y-2.5">
             <div>
-              <dt className="text-xs font-semibold text-neutral-800 dark:text-neutral-100">
+              <dt className="text-xs font-semibold text-content">
                 {t('memoryData.workspaceVault')}
               </dt>
-              <dd className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+              <dd className="text-xs leading-relaxed text-content-muted">
                 {t('memoryData.workspaceVaultDesc')}
               </dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold text-neutral-800 dark:text-neutral-100">
+              <dt className="text-xs font-semibold text-content">
                 {t('memoryData.connectedSources')}
               </dt>
-              <dd className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+              <dd className="text-xs leading-relaxed text-content-muted">
                 {t('memoryData.connectedSourcesDesc')}
               </dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold text-neutral-800 dark:text-neutral-100">
+              <dt className="text-xs font-semibold text-content">
                 {t('memoryData.internalFiles')}
               </dt>
-              <dd className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+              <dd className="text-xs leading-relaxed text-content-muted">
                 {t('memoryData.internalFilesDesc')}
               </dd>
             </div>

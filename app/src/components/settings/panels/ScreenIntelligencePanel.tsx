@@ -132,9 +132,7 @@ const ScreenIntelligencePanel = () => {
         <SettingsSection title={t('settings.features.screenAwareness')}>
           {/* Enabled toggle */}
           <label className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm text-neutral-700 dark:text-neutral-200">
-              {t('common.enabled')}
-            </span>
+            <span className="text-sm text-content-secondary">{t('common.enabled')}</span>
             <input
               type="checkbox"
               checked={enabled}
@@ -170,7 +168,7 @@ const ScreenIntelligencePanel = () => {
 
           {/* Screen monitoring toggle */}
           <label className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm text-neutral-700 dark:text-neutral-200">
+            <span className="text-sm text-content-secondary">
               {t('settings.screenAwareness.screenMonitoring')}
             </span>
             <input
@@ -207,7 +205,7 @@ const ScreenIntelligencePanel = () => {
         {/* Session controls */}
         <SettingsSection title={t('settings.screenAwareness.session')}>
           <div className="px-4 py-3 space-y-3">
-            <div className="text-sm text-neutral-600 dark:text-neutral-300 space-y-1">
+            <div className="text-sm text-content-secondary space-y-1">
               <div>
                 {t('settings.screenAwareness.status')}:{' '}
                 {status?.session.active

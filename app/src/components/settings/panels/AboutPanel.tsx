@@ -70,12 +70,8 @@ const AboutPanel = () => {
       {/* Version */}
       <SettingsSection>
         <div className="px-4 py-4">
-          <div className="text-xs text-neutral-500 dark:text-neutral-400">
-            {t('settings.about.version')}
-          </div>
-          <div className="mt-1 text-lg font-semibold text-neutral-800 dark:text-neutral-100">
-            v{APP_VERSION}
-          </div>
+          <div className="text-xs text-content-muted">{t('settings.about.version')}</div>
+          <div className="mt-1 text-lg font-semibold text-content">v{APP_VERSION}</div>
           {info?.available && info.available_version && (
             <div className="mt-1 text-xs text-primary-500">
               v{info.available_version} {t('settings.about.updateAvailable')}
@@ -101,7 +97,7 @@ const AboutPanel = () => {
           }
         />
         {lastCheckedAt && (
-          <div className="px-4 pb-3 text-[11px] text-neutral-400 dark:text-neutral-500">
+          <div className="px-4 pb-3 text-[11px] text-content-faint">
             {t('settings.about.lastChecked')} {formatRelative(lastCheckedAt, t)}
           </div>
         )}
@@ -112,7 +108,7 @@ const AboutPanel = () => {
         <SettingsRow
           label={t('settings.about.connectionMode')}
           control={
-            <span className="text-xs font-medium text-neutral-800 dark:text-neutral-100">
+            <span className="text-xs font-medium text-content">
               {coreMode.kind === 'local'
                 ? t('settings.about.connectionModeLocal')
                 : coreMode.kind === 'cloud'
@@ -125,14 +121,14 @@ const AboutPanel = () => {
           label={t('settings.about.serverUrl')}
           control={
             <span
-              className="text-xs font-mono text-neutral-800 dark:text-neutral-100 truncate max-w-[200px]"
+              className="text-xs font-mono text-content truncate max-w-[200px]"
               title={rpcUrl ?? undefined}>
               {rpcUrl ?? t('settings.about.serverUrlUnavailable')}
             </span>
           }
         />
         <div className="px-4 pb-3">
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+          <p className="text-[11px] text-content-muted leading-relaxed">
             {coreMode.kind === 'cloud'
               ? t('settings.about.connectionHelperCloud')
               : t('settings.about.connectionHelperLocal')}
@@ -143,10 +139,8 @@ const AboutPanel = () => {
       {/* Releases */}
       <SettingsSection>
         <div className="px-4 py-4 space-y-2">
-          <div className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
-            {t('settings.about.releases')}
-          </div>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+          <div className="text-sm font-medium text-content">{t('settings.about.releases')}</div>
+          <p className="text-xs text-content-muted leading-relaxed">
             {t('settings.about.releasesDesc')}
           </p>
           <Button

@@ -84,9 +84,7 @@ const AgentChatPanel = () => {
       <SettingsSection title={t('chat.overrides')} description={t('chat.agentChatDesc')}>
         <div className="px-4 py-3 grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
-            <label
-              htmlFor="agent-chat-model"
-              className="text-xs text-neutral-500 dark:text-neutral-400">
+            <label htmlFor="agent-chat-model" className="text-xs text-content-muted">
               {t('chat.model')}
             </label>
             <SettingsTextField
@@ -98,9 +96,7 @@ const AgentChatPanel = () => {
             />
           </div>
           <div className="space-y-1">
-            <label
-              htmlFor="agent-chat-temperature"
-              className="text-xs text-neutral-500 dark:text-neutral-400">
+            <label htmlFor="agent-chat-temperature" className="text-xs text-content-muted">
               {t('chat.temperature')}
             </label>
             <SettingsTextField
@@ -117,19 +113,19 @@ const AgentChatPanel = () => {
       <SettingsSection title={t('chat.conversation')}>
         <div className="px-4 py-3 space-y-3">
           <SettingsStatusLine saving={false} error={error || null} savingLabel="" />
-          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-4 space-y-3 min-h-[6rem]">
+          <div className="rounded-xl border border-line bg-surface-muted p-4 space-y-3 min-h-[6rem]">
             {messages.length === 0 ? (
               <SettingsEmptyState label={t('chat.startAgentConversation')} />
             ) : (
               messages.map((message, index) => (
                 <div key={`${message.role}-${index}`} className="space-y-1">
-                  <div className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <div className="text-[11px] uppercase tracking-wide text-content-muted">
                     {message.role === 'user' ? t('chat.you') : t('chat.agent')}
                   </div>
                   <div
                     className={`text-sm whitespace-pre-wrap ${
                       message.role === 'user'
-                        ? 'text-neutral-800 dark:text-neutral-100'
+                        ? 'text-content'
                         : 'text-emerald-700 dark:text-emerald-300'
                     }`}>
                     {message.text}

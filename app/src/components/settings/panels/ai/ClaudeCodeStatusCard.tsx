@@ -91,7 +91,7 @@ export function ClaudeCodeConnect({
         leadingIcon={<LuKeyRound className="h-3.5 w-3.5" />}>
         {t('settings.ai.claudeCode.button')}
       </Button>
-      <span className="text-xs text-stone-500 dark:text-neutral-400">
+      <span className="text-xs text-content-muted">
         <InlineSummary connected={connected} auth={shownAuth} loading={authLoading} />
       </span>
 
@@ -265,14 +265,14 @@ function ClaudeCodeModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
       onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900"
+        className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-soft"
         onClick={e => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+            <h3 className="text-base font-semibold text-content">
               {t('settings.ai.claudeCode.modalTitle')}
             </h3>
-            <p className="mt-1 max-w-sm text-xs leading-5 text-stone-500 dark:text-neutral-400">
+            <p className="mt-1 max-w-sm text-xs leading-5 text-content-muted">
               {t('settings.ai.claudeCode.modalDescription')}
             </p>
           </div>
@@ -287,16 +287,12 @@ function ClaudeCodeModal({
         </div>
 
         {/* Connection */}
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-2 dark:border-neutral-800">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2">
           <div className="text-xs">
-            <div className="font-medium text-stone-900 dark:text-neutral-100">
-              {t('settings.ai.claudeCode.connection')}
-            </div>
+            <div className="font-medium text-content">{t('settings.ai.claudeCode.connection')}</div>
             <div
               className={
-                connected
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-stone-500 dark:text-neutral-400'
+                connected ? 'text-emerald-600 dark:text-emerald-400' : 'text-content-muted'
               }>
               {connected
                 ? t('settings.ai.claudeCode.enabled')
@@ -326,9 +322,9 @@ function ClaudeCodeModal({
         </div>
 
         {/* Authentication */}
-        <div className="mt-3 rounded-lg border border-stone-200 px-3 py-2 dark:border-neutral-800">
+        <div className="mt-3 rounded-lg border border-line px-3 py-2">
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-xs font-medium text-stone-900 dark:text-neutral-100">
+            <span className="text-xs font-medium text-content">
               {t('settings.ai.claudeCode.authentication')}
             </span>
             <Button
@@ -354,7 +350,7 @@ function ClaudeCodeModal({
                   ? t('settings.ai.claudeCode.signIn')
                   : t('settings.ai.claudeCode.reconnect')}
             </Button>
-            <p className="mt-1.5 text-[11px] text-stone-500 dark:text-neutral-400">
+            <p className="mt-1.5 text-[11px] text-content-muted">
               {t('settings.ai.claudeCode.loginHint')}
             </p>
             {launchError && (
@@ -366,13 +362,13 @@ function ClaudeCodeModal({
         </div>
 
         {/* Permissions — full access vs. the default acceptEdits posture. */}
-        <div className="mt-3 rounded-lg border border-stone-200 px-3 py-2 dark:border-neutral-800">
+        <div className="mt-3 rounded-lg border border-line px-3 py-2">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-xs font-medium text-stone-900 dark:text-neutral-100">
+              <div className="text-xs font-medium text-content">
                 {t('settings.ai.claudeCode.fullAccess')}
               </div>
-              <p className="mt-0.5 text-[11px] leading-4 text-stone-500 dark:text-neutral-400">
+              <p className="mt-0.5 text-[11px] leading-4 text-content-muted">
                 {fullAccess
                   ? t('settings.ai.claudeCode.fullAccessOn')
                   : t('settings.ai.claudeCode.fullAccessOff')}
@@ -386,18 +382,16 @@ function ClaudeCodeModal({
               disabled={fullAccess === null || savingAccess}
               onClick={() => void toggleFullAccess(!fullAccess)}
               className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-50 ${
-                fullAccess
-                  ? 'bg-emerald-500 dark:bg-emerald-500'
-                  : 'bg-stone-300 dark:bg-neutral-700'
+                fullAccess ? 'bg-emerald-500 dark:bg-emerald-500' : 'bg-surface-strong'
               }`}>
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform ${
                   fullAccess ? 'translate-x-4' : 'translate-x-0.5'
                 }`}
               />
             </button>
           </div>
-          <p className="mt-1.5 text-[11px] leading-4 text-stone-400 dark:text-neutral-500">
+          <p className="mt-1.5 text-[11px] leading-4 text-content-faint">
             {isMac()
               ? t('settings.ai.claudeCode.sandboxNoteMac')
               : t('settings.ai.claudeCode.sandboxNoteOther')}
@@ -419,7 +413,7 @@ function AuthDetail({ auth, loading }: { auth: ClaudeCodeAuthStatus | null; load
   const { t } = useT();
   if (!auth) {
     return (
-      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+      <p className="text-xs text-content-muted">
         {loading
           ? t('settings.ai.claudeCode.checkingSignIn')
           : t('settings.ai.claudeCode.enableToCheck')}

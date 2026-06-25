@@ -225,11 +225,7 @@ const ProfileEditorPage = () => {
             ) : (
               <SettingsRow
                 label={t('settings.profiles.editor.id')}
-                control={
-                  <code className="font-mono text-xs text-neutral-500 dark:text-neutral-400">
-                    {profileId}
-                  </code>
-                }
+                control={<code className="font-mono text-xs text-content-muted">{profileId}</code>}
               />
             )}
             <SettingsRow
@@ -442,14 +438,12 @@ function AllowlistField({
       stacked
       control={
         <div className="space-y-2">
-          <div className="inline-flex overflow-hidden rounded-md border border-neutral-200 text-xs dark:border-neutral-700">
+          <div className="inline-flex overflow-hidden rounded-md border border-line text-xs dark:border-line-strong">
             <button
               type="button"
               onClick={() => onChange(null)}
               className={`px-3 py-1 font-medium transition-colors ${
-                !restricted
-                  ? 'bg-ocean-500 text-white'
-                  : 'bg-white text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300'
+                !restricted ? 'bg-ocean-500 text-white' : 'bg-surface text-content-secondary'
               }`}>
               {t('settings.profiles.editor.all')}
             </button>
@@ -457,27 +451,25 @@ function AllowlistField({
               type="button"
               onClick={() => onChange(value ?? [])}
               className={`px-3 py-1 font-medium transition-colors ${
-                restricted
-                  ? 'bg-ocean-500 text-white'
-                  : 'bg-white text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300'
+                restricted ? 'bg-ocean-500 text-white' : 'bg-surface text-content-secondary'
               }`}>
               {t('settings.profiles.editor.selected')}
             </button>
           </div>
 
           {restricted && (
-            <div className="rounded-md border border-neutral-200 p-2 dark:border-neutral-700">
+            <div className="rounded-md border border-line p-2 dark:border-line-strong">
               <div className="mb-1.5 flex flex-wrap gap-1.5">
                 {items.map(item => (
                   <span
                     key={item}
-                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 font-mono text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+                    className="inline-flex items-center gap-1 rounded-full bg-surface-subtle px-2.5 py-1 font-mono text-xs text-content-secondary">
                     {item}
                     <button
                       type="button"
                       aria-label={t('settings.profiles.editor.removeAria').replace('{item}', item)}
                       onClick={() => onChange(items.filter(x => x !== item))}
-                      className="rounded-full text-neutral-400 hover:text-coral-600 dark:text-neutral-500 dark:hover:text-coral-300">
+                      className="rounded-full text-content-faint hover:text-coral-600 dark:hover:text-coral-300">
                       <LuX className="h-3 w-3" />
                     </button>
                   </span>

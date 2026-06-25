@@ -74,7 +74,7 @@ export const ApprovalRequestCard: React.FC<Props> = ({ threadId, approval }) => 
             {approval.message || t('chat.approval.fallback')}
           </p>
           {approval.command && (
-            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded border border-amber-200/80 bg-white px-2 py-1.5 font-mono text-xs text-ink shadow-inner dark:border-amber-700 dark:bg-neutral-950 dark:text-neutral-100">
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded border border-amber-200/80 bg-surface px-2 py-1.5 font-mono text-xs text-ink shadow-inner dark:border-amber-700 dark:bg-surface-canvas dark:text-content">
               {approval.command}
             </pre>
           )}

@@ -291,7 +291,6 @@ describe('Feed list', () => {
   });
 
   test('tolerates response missing items field and shows empty state', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({} as any);
     render(<FeedSection />);
     await waitFor(() => {

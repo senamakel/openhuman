@@ -8,11 +8,11 @@ import { useRootSidebar } from './RootShellLayout';
 import { useHomeNav } from './useHomeNav';
 
 const ICON_BTN =
-  'flex h-7 w-7 flex-none items-center justify-center rounded-md text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200';
+  'flex h-7 w-7 flex-none items-center justify-center rounded-md text-content-muted transition-colors hover:bg-surface-hover hover:text-content-secondary';
 
 /**
- * Thin utility header at the top of the root sidebar: jump Home, open the
- * wallet, open Settings, and collapse the sidebar. Language is chosen from
+ * Thin utility header at the top of the root sidebar: jump Home, open keyboard
+ * shortcuts, open Settings, and collapse the sidebar. Language is chosen from
  * Settings, not here.
  */
 export default function SidebarHeader() {
@@ -23,26 +23,30 @@ export default function SidebarHeader() {
   const handleHome = useHomeNav();
 
   return (
-    <div className="flex items-center justify-between gap-1 px-2 py-1.5">
-      <Tooltip label={t('nav.home')}>
-        <button
-          type="button"
-          onClick={handleHome}
-          className={ICON_BTN}
-          data-analytics-id="sidebar-header-home"
-          aria-label={t('nav.home')}>
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.8}
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a2 2 0 01-2-2v-4a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2z"
-            />
-          </svg>
-        </button>
-      </Tooltip>
-
+    // Right-aligned so the macOS traffic lights (top-left, overlay title bar)
+    // sit in the empty left space — the icons stay clear of the window controls
+    // and inline with them (no extra top padding).
+    <div className="flex items-center justify-end gap-1 px-2 py-1.5">
       <div className="flex items-center gap-0.5">
+        {/* Home shortcut (replaces the former wallet shortcut). */}
+        <Tooltip label={t('nav.home')}>
+          <button
+            type="button"
+            onClick={handleHome}
+            className={ICON_BTN}
+            data-analytics-id="sidebar-header-home"
+            aria-label={t('nav.home')}>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a2 2 0 01-2-2v-4a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2z"
+              />
+            </svg>
+          </button>
+        </Tooltip>
+
         {/* Keyboard shortcuts — one-click open of the help directory (also ? / ⌘/). */}
         <Tooltip label={t('shortcuts.title')}>
           <button

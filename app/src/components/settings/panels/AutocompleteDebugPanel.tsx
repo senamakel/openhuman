@@ -481,7 +481,7 @@ const AutocompleteDebugPanel = () => {
       {/* ------------------------------------------------------------------ */}
       <SettingsSection title={t('settings.autocomplete.appFilter.runtime')}>
         <div className="px-4 py-3 space-y-3">
-          <div className="text-sm text-neutral-800 dark:text-neutral-200 space-y-1">
+          <div className="text-sm text-content space-y-1">
             <div>
               {t('settings.autocomplete.appFilter.platformSupported')}:{' '}
               {status?.platform_supported ? t('common.yes') : t('common.no')}
@@ -557,7 +557,7 @@ const AutocompleteDebugPanel = () => {
       <SettingsSection title={t('settings.autocomplete.appFilter.test')}>
         <div className="px-4 py-3 space-y-3">
           <div className="space-y-1">
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="text-xs text-content-muted">
               {t('settings.autocomplete.appFilter.contextOverride')}
             </div>
             <SettingsTextArea
@@ -583,7 +583,7 @@ const AutocompleteDebugPanel = () => {
             </Button>
           </div>
           {focusDebug && (
-            <pre className="max-h-48 overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-neutral-800 dark:text-neutral-200">
+            <pre className="max-h-48 overflow-auto rounded-xl border border-line bg-surface-muted p-2 text-xs text-content">
               {focusDebug}
             </pre>
           )}
@@ -601,7 +601,7 @@ const AutocompleteDebugPanel = () => {
             </Button>
           </div>
           {/* Bespoke log-stream display — kept intact */}
-          <pre className="max-h-56 overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-neutral-800 dark:text-neutral-200">
+          <pre className="max-h-56 overflow-auto rounded-xl border border-line bg-surface-muted p-2 text-xs text-content">
             {logs.length > 0 ? logs.join('\n') : t('settings.autocomplete.appFilter.noLogs')}
           </pre>
         </div>
@@ -612,8 +612,8 @@ const AutocompleteDebugPanel = () => {
       {/* ------------------------------------------------------------------ */}
       <SettingsSection title={t('autocomplete.advancedSettings')}>
         <div className="px-4 py-3 space-y-3">
-          <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-neutral-800 dark:text-neutral-200">
+          <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
+            <span className="text-sm text-content">
               {t('settings.autocomplete.completionStyle.debounce')}
             </span>
             <Input
@@ -628,8 +628,8 @@ const AutocompleteDebugPanel = () => {
               aria-label={t('settings.autocomplete.completionStyle.debounce')}
             />
           </label>
-          <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-neutral-800 dark:text-neutral-200">
+          <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
+            <span className="text-sm text-content">
               {t('settings.autocomplete.completionStyle.maxChars')}
             </span>
             <Input
@@ -644,8 +644,8 @@ const AutocompleteDebugPanel = () => {
               aria-label={t('settings.autocomplete.completionStyle.maxChars')}
             />
           </label>
-          <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-neutral-800 dark:text-neutral-200">
+          <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
+            <span className="text-sm text-content">
               {t('settings.autocomplete.completionStyle.overlayTtl')}
             </span>
             <Input
@@ -661,7 +661,7 @@ const AutocompleteDebugPanel = () => {
             />
           </label>
           <div className="space-y-1">
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="text-xs text-content-muted">
               {t('settings.autocomplete.completionStyle.styleInstructions')}
             </div>
             <SettingsTextArea
@@ -672,7 +672,7 @@ const AutocompleteDebugPanel = () => {
             />
           </div>
           <div className="space-y-1">
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="text-xs text-content-muted">
               {t('settings.autocomplete.completionStyle.styleExamples')}
             </div>
             <SettingsTextArea
@@ -711,7 +711,7 @@ const AutocompleteDebugPanel = () => {
                 : t('settings.autocomplete.completionStyle.clearHistory')}
             </Button>
           </div>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          <p className="text-xs text-content-muted">
             {isHistoryLoading
               ? t('common.loading')
               : historyEntries.length === 0
@@ -723,27 +723,25 @@ const AutocompleteDebugPanel = () => {
           </p>
           {/* Bespoke history list — kept intact */}
           {historyEntries.length > 0 && (
-            <div className="max-h-48 overflow-y-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-2 space-y-1">
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-line bg-surface-muted p-2 space-y-1">
               {historyEntries.map((entry, idx) => (
                 <div
                   key={`${String(entry.timestamp_ms)}-${String(idx)}`}
-                  className="flex flex-col gap-0.5 rounded-lg bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs border border-neutral-100 dark:border-neutral-800">
-                  <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
+                  className="flex flex-col gap-0.5 rounded-lg bg-surface px-2 py-1.5 text-xs border border-line-subtle">
+                  <div className="flex items-center gap-2 text-content-muted">
                     <span className="shrink-0">
                       {new Date(entry.timestamp_ms).toLocaleString()}
                     </span>
                     {entry.app_name && (
-                      <span className="rounded bg-neutral-100 dark:bg-neutral-800 px-1 text-neutral-500 dark:text-neutral-400">
+                      <span className="rounded bg-surface-subtle px-1 text-content-muted">
                         {entry.app_name}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-baseline gap-1 text-neutral-800 dark:text-neutral-200 truncate">
-                    <span className="shrink-0 text-neutral-500 dark:text-neutral-400">…</span>
-                    <span className="truncate text-neutral-500 dark:text-neutral-400">
-                      {entry.context.slice(-40)}
-                    </span>
-                    <span className="shrink-0 text-neutral-500 dark:text-neutral-400">→</span>
+                  <div className="flex items-baseline gap-1 text-content truncate">
+                    <span className="shrink-0 text-content-muted">…</span>
+                    <span className="truncate text-content-muted">{entry.context.slice(-40)}</span>
+                    <span className="shrink-0 text-content-muted">→</span>
                     <span className="font-medium text-primary-500 truncate">
                       {entry.suggestion}
                     </span>

@@ -154,7 +154,6 @@ describe('Jobs list', () => {
   });
 
   test('tolerates response missing jobs field and shows empty', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(apiClient.graphql.jobs).mockResolvedValue({} as any);
     render(<JobsSection />);
     await waitFor(() => {

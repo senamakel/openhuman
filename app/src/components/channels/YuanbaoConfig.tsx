@@ -217,13 +217,13 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
+      <div className="rounded-lg border border-line bg-surface-muted p-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+            <p className="text-sm font-medium text-content">
               {AUTH_MODE_LABELS[spec.mode] ?? spec.mode}
             </p>
-            <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">{spec.description}</p>
+            <p className="text-xs text-content-muted mt-1">{spec.description}</p>
             {connection?.lastError && (
               <p className="text-xs text-coral-600 mt-1">{connection.lastError}</p>
             )}

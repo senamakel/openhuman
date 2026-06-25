@@ -18,8 +18,7 @@ const STATUS_META: Record<ServerStatus, { i18nKey: string; className: string }> 
   },
   disconnected: {
     i18nKey: 'channels.status.disconnected',
-    className:
-      'bg-stone-100 dark:bg-neutral-800 text-stone-500 dark:text-neutral-400 border-stone-200 dark:border-neutral-700',
+    className: 'bg-surface-subtle text-content-muted border-line',
   },
   unauthorized: {
     i18nKey: 'mcp.status.unauthorized',
@@ -31,8 +30,7 @@ const STATUS_META: Record<ServerStatus, { i18nKey: string; className: string }> 
   },
   disabled: {
     i18nKey: 'mcp.status.disabled',
-    className:
-      'bg-stone-100 dark:bg-neutral-800 text-stone-400 dark:text-neutral-500 border-stone-200 dark:border-neutral-700 italic',
+    className: 'bg-surface-subtle text-content-faint border-line italic',
   },
 };
 

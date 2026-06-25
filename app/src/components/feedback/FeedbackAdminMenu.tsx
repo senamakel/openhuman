@@ -47,7 +47,7 @@ export default function FeedbackAdminMenu({ item, onUpdated }: FeedbackAdminMenu
 
   return (
     <div className="flex items-center gap-2">
-      <label htmlFor={`feedback-status-${item.id}`} className="text-xs text-stone-500">
+      <label htmlFor={`feedback-status-${item.id}`} className="text-xs text-content-muted">
         {t('feedback.admin.status')}
       </label>
       <select
@@ -55,7 +55,7 @@ export default function FeedbackAdminMenu({ item, onUpdated }: FeedbackAdminMenu
         value={item.status}
         disabled={pending}
         onChange={e => handleChange(e.target.value as FeedbackStatus)}
-        className="text-xs px-2 py-1 rounded-md bg-white/5 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-50">
+        className="text-xs px-2 py-1 rounded-md bg-surface/5 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-50">
         {ADMIN_STATUSES.map(status => (
           <option key={status} value={status}>
             {t(STATUS_LABEL_KEYS[status])}

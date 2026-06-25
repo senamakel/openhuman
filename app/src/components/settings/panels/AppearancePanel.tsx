@@ -144,11 +144,11 @@ const AppearancePanel = () => {
     <SettingsPanel description={t('settings.appearance.menuDesc')}>
       {/* ── Theme picker — intentional bespoke tile UI ─────────────── */}
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2 px-1">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-content-faint mb-2 px-1">
           {t('settings.appearance.themeHeading')}
         </h3>
         <div
-          className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden"
+          className="bg-surface rounded-xl border border-line overflow-hidden"
           role="radiogroup"
           aria-label={t('settings.appearance.themeAria')}>
           {OPTIONS.map((opt, idx) => {
@@ -161,27 +161,19 @@ const AppearancePanel = () => {
                 aria-checked={selected}
                 onClick={() => dispatch(setThemeMode(opt.id))}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
-                  idx !== 0 ? 'border-t border-neutral-100 dark:border-neutral-800' : ''
-                } ${
-                  selected
-                    ? 'bg-primary-50 dark:bg-primary-500/10'
-                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
-                }`}>
+                  idx !== 0 ? 'border-t border-line-subtle' : ''
+                } ${selected ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-surface-hover'}`}>
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg ${
                     selected
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+                      ? 'bg-primary-500 text-content-inverted'
+                      : 'bg-surface-subtle text-content-secondary'
                   }`}>
                   {opt.icon}
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                    {opt.label}
-                  </span>
-                  <span className="block text-xs text-neutral-500 dark:text-neutral-400">
-                    {opt.description}
-                  </span>
+                  <span className="block text-sm font-medium text-content">{opt.label}</span>
+                  <span className="block text-xs text-content-muted">{opt.description}</span>
                 </span>
                 {selected && (
                   <svg
@@ -202,18 +194,18 @@ const AppearancePanel = () => {
             );
           })}
         </div>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed px-1 mt-2">
+        <p className="text-xs text-content-muted leading-relaxed px-1 mt-2">
           {t('settings.appearance.helperText')}
         </p>
       </div>
 
       {/* ── Font size picker — intentional bespoke tile UI ─────────── */}
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2 px-1">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-content-faint mb-2 px-1">
           {t('settings.appearance.fontSizeHeading')}
         </h3>
         <div
-          className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden"
+          className="bg-surface rounded-xl border border-line overflow-hidden"
           role="radiogroup"
           aria-label={t('settings.appearance.fontSizeAria')}>
           {FONT_SIZE_OPTIONS.map((opt, idx) => {
@@ -226,29 +218,21 @@ const AppearancePanel = () => {
                 aria-checked={selected}
                 onClick={() => dispatch(setFontSize(opt.id))}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
-                  idx !== 0 ? 'border-t border-neutral-100 dark:border-neutral-800' : ''
-                } ${
-                  selected
-                    ? 'bg-primary-50 dark:bg-primary-500/10'
-                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
-                }`}>
+                  idx !== 0 ? 'border-t border-line-subtle' : ''
+                } ${selected ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-surface-hover'}`}>
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg ${
                     selected
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+                      ? 'bg-primary-500 text-content-inverted'
+                      : 'bg-surface-subtle text-content-secondary'
                   }`}>
                   <span className={`font-semibold leading-none ${opt.glyphClass}`} aria-hidden>
                     A
                   </span>
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                    {opt.label}
-                  </span>
-                  <span className="block text-xs text-neutral-500 dark:text-neutral-400">
-                    {opt.description}
-                  </span>
+                  <span className="block text-sm font-medium text-content">{opt.label}</span>
+                  <span className="block text-xs text-content-muted">{opt.description}</span>
                 </span>
                 {selected && (
                   <svg
@@ -269,7 +253,7 @@ const AppearancePanel = () => {
             );
           })}
         </div>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed px-1 mt-2">
+        <p className="text-xs text-content-muted leading-relaxed px-1 mt-2">
           {t('settings.appearance.fontSizeHelperText')}
         </p>
       </div>

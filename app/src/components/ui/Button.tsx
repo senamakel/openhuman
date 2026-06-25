@@ -37,24 +37,22 @@ const BASE =
 const VARIANTS: Record<ButtonVariant, Record<ButtonTone, string>> = {
   primary: {
     default:
-      'bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700 focus-visible:ring-primary-500/25 ' +
-      'dark:bg-primary-500 dark:hover:bg-primary-400 dark:active:bg-primary-600',
+      'bg-primary-500 text-content-inverted hover:bg-primary-600 active:bg-primary-700 focus-visible:ring-primary-500/25 ' +
+      'dark:hover:bg-primary-400 dark:active:bg-primary-600',
     danger:
-      'bg-coral-500 text-white hover:bg-coral-600 active:bg-coral-700 focus-visible:ring-coral-500/25 ' +
-      'dark:bg-coral-500 dark:hover:bg-coral-400 dark:active:bg-coral-600',
+      'bg-coral-500 text-content-inverted hover:bg-coral-600 active:bg-coral-700 focus-visible:ring-coral-500/25 ' +
+      'dark:hover:bg-coral-400 dark:active:bg-coral-600',
   },
   secondary: {
     default:
-      'bg-neutral-0 text-neutral-900 border border-neutral-300 hover:bg-neutral-50 focus-visible:ring-primary-500/25 ' +
-      'dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800',
+      'bg-surface text-content border border-line-strong hover:bg-surface-hover focus-visible:ring-primary-500/25',
     danger:
       'bg-transparent text-coral-600 border border-coral-300/50 hover:bg-coral-50 focus-visible:ring-coral-500/25 ' +
       'dark:text-coral-400 dark:border-coral-500/40 dark:hover:bg-coral-500/10',
   },
   tertiary: {
     default:
-      'bg-transparent text-neutral-700 hover:bg-neutral-100 focus-visible:ring-primary-500/25 ' +
-      'dark:text-neutral-200 dark:hover:bg-neutral-800',
+      'bg-transparent text-content-secondary hover:bg-surface-hover focus-visible:ring-primary-500/25',
     danger:
       'bg-transparent text-coral-600 hover:bg-coral-50 focus-visible:ring-coral-500/25 ' +
       'dark:text-coral-400 dark:hover:bg-coral-500/10',

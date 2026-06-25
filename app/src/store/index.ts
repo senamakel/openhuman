@@ -105,6 +105,9 @@ const themePersistConfig = {
     'agentMessageViewMode',
     'developerMode',
     'hideAgentInsights',
+    'activeThemeId',
+    'themeVariant',
+    'customThemes',
   ],
 };
 const persistedThemeReducer = persistReducer(themePersistConfig, themeReducer);

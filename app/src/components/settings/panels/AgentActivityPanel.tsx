@@ -98,19 +98,15 @@ export default function AgentActivityPanel() {
   }, []);
 
   if (status === 'loading' && !settings) {
-    return (
-      <div className="p-4 text-sm text-neutral-500 dark:text-neutral-400">
-        {t('common.loading')}
-      </div>
-    );
+    return <div className="p-4 text-sm text-content-muted">{t('common.loading')}</div>;
   }
 
   return (
     <SettingsPanel description={t('activityLevel.description')}>
       <div className="flex flex-col gap-4">
         {monthlyCost && monthlyCost.total_cost_usd > 0 && (
-          <div className="px-3 py-2 rounded-md bg-neutral-100 dark:bg-neutral-800 text-sm">
-            <span className="font-medium text-neutral-800 dark:text-neutral-200">
+          <div className="px-3 py-2 rounded-md bg-surface-subtle text-sm">
+            <span className="font-medium text-content">
               {t('activityLevel.currentMonth').replace(
                 '{amount}',
                 monthlyCost.total_cost_usd.toFixed(2)
@@ -134,25 +130,25 @@ export default function AgentActivityPanel() {
                 className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                   isSelected
                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                    : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700'
+                    : 'border-line bg-surface hover:border-line-strong dark:hover:border-line-strong'
                 } ${status === 'saving' ? 'opacity-50' : ''}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+                      <span className="text-sm font-semibold text-content">
                         {t(`activityLevel.${key as LevelKey}`)}
                       </span>
                       {value === 2 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-surface-strong dark:bg-neutral-700 text-content-secondary dark:text-content-muted">
                           {t('activityLevel.default')}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    <p className="text-xs text-content-muted mt-0.5">
                       {t(`activityLevel.${key as LevelKey}Desc`)}
                     </p>
                   </div>
-                  <div className="text-xs font-mono text-neutral-500 dark:text-neutral-400 shrink-0 ml-4">
+                  <div className="text-xs font-mono text-content-muted shrink-0 ml-4">
                     {costMin === 0 && costMax === 0
                       ? t('activityLevel.costFree')
                       : t('activityLevel.costRange')

@@ -106,19 +106,21 @@ export default function ErrorFallbackScreen({
           <h1 className="text-xl font-semibold text-white text-center mb-2">
             {t('app.errorFallback.heading')}
           </h1>
-          <p className="text-sm text-stone-400 text-center mb-6">
+          <p className="text-sm text-content-faint text-center mb-6">
             {t('app.errorFallback.subheading')}
           </p>
-          <p className="text-xs text-stone-500 text-center mb-6">{t('app.errorFallback.hint')}</p>
+          <p className="text-xs text-content-muted text-center mb-6">
+            {t('app.errorFallback.hint')}
+          </p>
 
           {/* Sentry Event ID — copyable; hidden when analytics produced no id */}
           {hasEventId && (
             <div className="flex items-center justify-between gap-3 bg-stone-800/50 border border-stone-700/50 rounded-xl px-3 py-2.5 mb-4">
               <div className="flex flex-col min-w-0">
-                <span className="text-[10px] uppercase tracking-wide text-stone-500">
+                <span className="text-[10px] uppercase tracking-wide text-content-muted">
                   {t('app.errorFallback.eventIdLabel')}
                 </span>
-                <span className="font-mono text-xs text-stone-300 truncate">{eventId}</span>
+                <span className="font-mono text-xs text-content-faint truncate">{eventId}</span>
               </div>
               <button
                 onClick={copyEventId}
@@ -135,13 +137,13 @@ export default function ErrorFallbackScreen({
           {/* Error details */}
           <div className="bg-stone-800/50 border border-stone-700/50 rounded-xl p-4 mb-6">
             <p className="text-sm font-medium text-coral-400 mb-1">{errorName}</p>
-            <p className="text-xs text-stone-300 break-words">{errorMessage}</p>
+            <p className="text-xs text-content-faint break-words">{errorMessage}</p>
             {componentStack && (
               <details className="mt-3">
-                <summary className="text-xs text-stone-500 cursor-pointer hover:text-stone-300 transition-colors">
+                <summary className="text-xs text-content-muted cursor-pointer hover:text-content-faint transition-colors">
                   {t('app.errorFallback.componentStack')}
                 </summary>
-                <pre className="mt-2 text-[11px] text-stone-500 whitespace-pre-wrap break-words max-h-[200px] overflow-auto">
+                <pre className="mt-2 text-[11px] text-content-muted whitespace-pre-wrap break-words max-h-[200px] overflow-auto">
                   {componentStack}
                 </pre>
               </details>
@@ -160,7 +162,7 @@ export default function ErrorFallbackScreen({
                 window.location.hash = '#/home';
                 window.location.reload();
               }}
-              className="bg-coral-500 hover:bg-coral-600 text-white text-sm font-medium rounded-xl px-4 py-3 transition-colors">
+              className="bg-coral-500 hover:bg-coral-600 text-content-inverted text-sm font-medium rounded-xl px-4 py-3 transition-colors">
               {t('app.errorFallback.reloadApp')}
             </button>
             {/* Always rendered — `isTauri()` is false during the CEF IPC
@@ -185,7 +187,7 @@ export default function ErrorFallbackScreen({
             )}
             <button
               onClick={() => openUrl(LATEST_APP_DOWNLOAD_URL)}
-              className="text-stone-500 hover:text-stone-300 hover:underline transition-colors">
+              className="text-content-muted hover:text-content-faint hover:underline transition-colors">
               {t('app.errorFallback.downloadLatest')}
             </button>
           </div>

@@ -64,8 +64,8 @@ export default function CollapsedNavRail() {
           aria-current={homeActive ? 'page' : undefined}
           className={`${RAIL_BTN} ${
             homeActive
-              ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-              : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+              ? 'bg-surface text-content shadow-sm'
+              : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
           }`}>
           <NavIcon id="home" className="h-5 w-5" />
         </button>
@@ -79,7 +79,7 @@ export default function CollapsedNavRail() {
           onClick={() => registry.runAction('meta.keyboard-shortcuts')}
           aria-label={t('shortcuts.title')}
           data-analytics-id="collapsed-rail-shortcuts"
-          className={`${RAIL_BTN} text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200`}>
+          className={`${RAIL_BTN} text-content-muted hover:bg-surface-hover hover:text-content-secondary`}>
           <NavIcon id="keyboard" className="h-5 w-5" />
         </button>
       </Tooltip>
@@ -98,12 +98,12 @@ export default function CollapsedNavRail() {
               aria-current={active ? 'page' : undefined}
               className={`${RAIL_BTN} ${
                 active
-                  ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-                  : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+                  ? 'bg-surface text-content shadow-sm'
+                  : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
               }`}>
               <NavIcon id={tab.id} className="h-5 w-5" />
               {showBadge && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-[13px] min-w-[13px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-bold leading-none text-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-[13px] min-w-[13px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-bold leading-none text-content-inverted">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -123,8 +123,8 @@ export default function CollapsedNavRail() {
         data-analytics-id="collapsed-rail-settings"
         className={`${RAIL_BTN} ${
           settingsActive
-            ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-            : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+            ? 'bg-surface text-content shadow-sm'
+            : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
         }`}>
         <NavIcon id="settings" className="h-5 w-5" />
       </button>

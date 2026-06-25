@@ -225,7 +225,7 @@ export default function IntelligenceOrchestrationTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-10 text-stone-400 dark:text-neutral-500">
+      <div className="flex items-center justify-center py-10 text-content-faint">
         <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
         <span className="text-sm">{t('orchestration.loading')}</span>
       </div>
@@ -253,15 +253,15 @@ export default function IntelligenceOrchestrationTab() {
 
   return (
     <div className="space-y-6" data-testid="orchestration-tab">
-      <p className="text-xs text-stone-400 dark:text-neutral-500">{t('orchestration.subtitle')}</p>
+      <p className="text-xs text-content-faint">{t('orchestration.subtitle')}</p>
 
       {/* Definitions catalog */}
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-content-muted">
           {t('orchestration.definitions')}
         </h3>
         {definitions.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-stone-200 py-8 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+          <div className="rounded-xl border border-dashed border-line py-8 text-center text-sm text-content-faint">
             {t('orchestration.noDefinitions')}
           </div>
         ) : (
@@ -273,14 +273,12 @@ export default function IntelligenceOrchestrationTab() {
                 <li
                   key={def.id}
                   data-testid={`orchestration-definition-${def.id}`}
-                  className="rounded-xl border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                  className="rounded-xl border border-line bg-surface p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-medium text-stone-800 dark:text-neutral-100">
-                          {def.name}
-                        </span>
-                        <span className="rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:border-neutral-700 dark:text-neutral-400">
+                        <span className="text-sm font-medium text-content">{def.name}</span>
+                        <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
                           {t(SAFETY_TIER_KEY[def.safetyTier])}
                         </span>
                         {assessment.requiresApproval && (
@@ -291,9 +289,7 @@ export default function IntelligenceOrchestrationTab() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-                        {def.description}
-                      </p>
+                      <p className="mt-1 text-xs text-content-muted">{def.description}</p>
                     </div>
                     {!isStarting && (
                       <Button
@@ -309,8 +305,8 @@ export default function IntelligenceOrchestrationTab() {
 
                   {/* Inline start panel */}
                   {isStarting && (
-                    <div className="mt-3 space-y-3 border-t border-stone-100 pt-3 dark:border-neutral-800">
-                      <label className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
+                    <div className="mt-3 space-y-3 border-t border-line-subtle pt-3">
+                      <label className="block text-xs font-medium text-content-secondary">
                         {t('orchestration.questionLabel')}
                         <textarea
                           data-testid="orchestration-question"
@@ -318,7 +314,7 @@ export default function IntelligenceOrchestrationTab() {
                           onChange={e => setQuestion(e.target.value)}
                           rows={2}
                           placeholder={t('orchestration.questionPlaceholder')}
-                          className="mt-1 w-full rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-800 focus:border-primary-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                          className="mt-1 w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-content focus:border-primary-500 focus:outline-none"
                         />
                       </label>
 
@@ -369,7 +365,7 @@ export default function IntelligenceOrchestrationTab() {
       {selectedRun && (
         <section className="space-y-2" data-testid="orchestration-selected-run">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-content-muted">
               {t('orchestration.runProgress')}
             </h3>
             <button
@@ -379,7 +375,7 @@ export default function IntelligenceOrchestrationTab() {
                 setSelectedRunId(null);
                 setSelectedRun(null);
               }}
-              className="text-[11px] text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+              className="text-[11px] text-content-faint hover:text-content-secondary">
               {t('orchestration.close')}
             </button>
           </div>
@@ -395,16 +391,16 @@ export default function IntelligenceOrchestrationTab() {
 
       {/* Recent runs */}
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-content-muted">
           {t('orchestration.recentRuns')}
         </h3>
         {runs.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-stone-200 py-8 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+          <div className="rounded-xl border border-dashed border-line py-8 text-center text-sm text-content-faint">
             {t('orchestration.noRuns')}
           </div>
         ) : (
           <ul
-            className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900"
+            className="divide-y divide-line-subtle overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800"
             data-testid="orchestration-runs">
             {runs.map(run => {
               const def = definitions.find(d => d.id === run.definitionId);
@@ -414,18 +410,16 @@ export default function IntelligenceOrchestrationTab() {
                     type="button"
                     data-testid={`orchestration-run-${run.id}`}
                     onClick={() => openRun(run)}
-                    className={`flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-stone-50 dark:hover:bg-neutral-800/60 ${
-                      run.id === selectedRunId ? 'bg-stone-50 dark:bg-neutral-800/60' : ''
+                    className={`flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-surface-hover ${
+                      run.id === selectedRunId ? 'bg-surface-muted' : ''
                     }`}>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-stone-800 dark:text-neutral-100">
+                      <span className="block truncate text-sm font-medium text-content">
                         {def?.name ?? run.definitionId}
                       </span>
-                      <span className="font-mono text-[10px] text-stone-400 dark:text-neutral-500">
-                        {run.id}
-                      </span>
+                      <span className="font-mono text-[10px] text-content-faint">{run.id}</span>
                     </span>
-                    <span className="flex-none text-[11px] text-stone-400 dark:text-neutral-500">
+                    <span className="flex-none text-[11px] text-content-faint">
                       {t(`orchestration.runStatus.${run.status}`)}
                     </span>
                   </button>

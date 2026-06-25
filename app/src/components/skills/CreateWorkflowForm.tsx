@@ -310,7 +310,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
         <div>
           <label
             htmlFor="create-skill-name"
-            className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
+            className="block text-xs font-medium text-content-secondary">
             {t('skills.create.name')}
             <span className="text-coral-500"> *</span>
           </label>
@@ -323,16 +323,16 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
             required
             readOnly={isEdit}
             maxLength={128}
-            className={`mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${
+            className={`mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-content shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${
               isEdit
-                ? 'cursor-not-allowed bg-stone-50 dark:bg-neutral-800'
-                : 'bg-white dark:bg-neutral-900'
+                ? 'cursor-not-allowed bg-surface-muted'
+                : 'bg-surface'
             }`}
             placeholder={t('skills.create.namePlaceholder')}
           />
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400">
+          <p className="mt-1 text-[11px] text-content-muted">
             {t('skills.create.slugLabel')}{' '}
-            <code className="rounded bg-stone-100 dark:bg-neutral-800 px-1 py-[1px] font-mono text-stone-700 dark:text-neutral-200">
+            <code className="rounded bg-surface-subtle px-1 py-[1px] font-mono text-content-secondary">
               {slug || '—'}
             </code>
           </p>
@@ -342,7 +342,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
         <div>
           <label
             htmlFor="create-skill-description"
-            className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
+            className="block text-xs font-medium text-content-secondary">
             {t('skills.create.description')}
             <span className="text-coral-500"> *</span>
           </label>
@@ -353,7 +353,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
             required
             rows={3}
             maxLength={500}
-            className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+            className="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
             placeholder={t('skills.create.descriptionPlaceholder')}
           />
         </div>
@@ -364,9 +364,9 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
         <div>
           <label
             htmlFor="create-skill-when-to-use"
-            className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
+            className="block text-xs font-medium text-content-secondary">
             {t('skills.create.whenToUse')}
-            <span className="ml-1 font-normal text-stone-400 dark:text-neutral-500">
+            <span className="ml-1 font-normal text-content-faint">
               {t('skills.create.optional')}
             </span>
           </label>
@@ -376,10 +376,10 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
             onChange={e => setWhenToUse(e.target.value)}
             rows={2}
             maxLength={500}
-            className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+            className="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
             placeholder={t('skills.create.whenToUsePlaceholder')}
           />
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400">
+          <p className="mt-1 text-[11px] text-content-muted">
             {t('skills.create.whenToUseHelp')}
           </p>
         </div>
@@ -393,9 +393,9 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
             never receives a malformed [[inputs]] entry. */}
         <div>
           <div className="flex items-baseline justify-between">
-            <label className="block text-xs font-medium text-stone-600 dark:text-neutral-300">
+            <label className="block text-xs font-medium text-content-secondary">
               {t('skills.create.inputs.heading')}
-              <span className="ml-1 font-normal text-stone-400 dark:text-neutral-500">
+              <span className="ml-1 font-normal text-content-faint">
                 {t('skills.create.optional')}
               </span>
             </label>
@@ -408,7 +408,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
               + {t('skills.create.inputs.add')}
             </Button>
           </div>
-          <p className="mt-0.5 text-[11px] text-stone-500 dark:text-neutral-400">
+          <p className="mt-0.5 text-[11px] text-content-muted">
             {t('skills.create.inputs.help')}
           </p>
           {inputs.length > 0 && (
@@ -424,7 +424,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                   <div
                     key={row.localId}
                     data-testid={`create-skill-input-row-${row.localId}`}
-                    className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-950/40 p-3">
+                    className="rounded-lg border border-line bg-surface-muted dark:bg-surface-canvas/40 p-3">
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
                       <div>
                         <input
@@ -434,7 +434,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                           maxLength={64}
                           placeholder={t('skills.create.inputs.row.namePlaceholder')}
                           aria-label={t('skills.create.inputs.row.name')}
-                          className={`w-full rounded-md border bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs text-stone-900 dark:text-neutral-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${showNameErr ? 'border-coral-400' : 'border-stone-200 dark:border-neutral-800 focus:border-primary-500'}`}
+                          className={`w-full rounded-md border bg-surface px-2 py-1.5 text-xs text-content shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${showNameErr ? 'border-coral-400' : 'border-line focus:border-primary-500'}`}
                         />
                         {showNameErr && (
                           <p className="mt-0.5 text-[10px] text-coral-600">
@@ -450,7 +450,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                           maxLength={256}
                           placeholder={t('skills.create.inputs.row.descriptionPlaceholder')}
                           aria-label={t('skills.create.inputs.row.description')}
-                          className={`w-full rounded-md border bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs text-stone-900 dark:text-neutral-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${showDescErr ? 'border-coral-400' : 'border-stone-200 dark:border-neutral-800 focus:border-primary-500'}`}
+                          className={`w-full rounded-md border bg-surface px-2 py-1.5 text-xs text-content shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${showDescErr ? 'border-coral-400' : 'border-line focus:border-primary-500'}`}
                         />
                         {showDescErr && (
                           <p className="mt-0.5 text-[10px] text-coral-600">
@@ -472,7 +472,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                     </div>
                     <div className="mt-2 flex items-center gap-3 text-[11px]">
                       <label className="flex items-center gap-1">
-                        <span className="text-stone-500 dark:text-neutral-400">
+                        <span className="text-content-muted">
                           {t('skills.create.inputs.row.type')}:
                         </span>
                         <select
@@ -481,7 +481,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                             updateRow(row.localId, { type: e.target.value as InputRow['type'] })
                           }
                           aria-label={t('skills.create.inputs.row.type')}
-                          className="rounded border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-1 py-0.5 text-[11px] text-stone-900 dark:text-neutral-100">
+                          className="rounded border border-line bg-surface px-1 py-0.5 text-[11px] text-content">
                           <option value="string">{t('skills.create.inputs.type.string')}</option>
                           <option value="integer">{t('skills.create.inputs.type.integer')}</option>
                           <option value="boolean">{t('skills.create.inputs.type.boolean')}</option>
@@ -494,7 +494,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
                           onChange={e => updateRow(row.localId, { required: e.target.checked })}
                           className="h-3 w-3 accent-primary-500"
                         />
-                        <span className="text-stone-500 dark:text-neutral-400">
+                        <span className="text-content-muted">
                           {t('skills.create.inputs.row.required')}
                         </span>
                       </label>

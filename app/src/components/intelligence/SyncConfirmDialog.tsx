@@ -58,30 +58,26 @@ export default function SyncConfirmDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onCancel}>
       <div
-        className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl border border-stone-200 dark:border-neutral-800 w-full max-w-sm mx-4 p-5"
+        className="bg-surface rounded-xl shadow-xl border border-line w-full max-w-sm mx-4 p-5"
         onClick={e => e.stopPropagation()}>
-        <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100 mb-3">
-          {t('syncConfirm.title')}
-        </h3>
+        <h3 className="text-base font-semibold text-content mb-3">{t('syncConfirm.title')}</h3>
 
         {!estimate && !error && (
-          <p className="text-sm text-stone-500 dark:text-neutral-400">
-            {t('syncConfirm.estimating')}
-          </p>
+          <p className="text-sm text-content-muted">{t('syncConfirm.estimating')}</p>
         )}
 
         {error && <p className="text-sm text-coral-600">{error}</p>}
 
         {estimate && (
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-stone-700 dark:text-neutral-300">
+            <p className="text-sm text-content-secondary">
               {t('syncConfirm.message')
                 .replace('{items}', String(estimate.item_count))
                 .replace('{tokens}', tokenStr)
                 .replace('{cost}', estimate.estimated_cost_usd.toFixed(4))}
             </p>
             {estimate.budget_max_cost_usd != null && (
-              <p className="text-xs text-stone-500 dark:text-neutral-400">
+              <p className="text-xs text-content-muted">
                 {t('syncConfirm.budgetNote').replace(
                   '{max}',
                   estimate.budget_max_cost_usd.toFixed(2)

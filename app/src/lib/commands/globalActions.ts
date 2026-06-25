@@ -8,7 +8,7 @@ import { isMac } from './shortcut';
 export const GROUP_ORDER = ['Navigation', 'Profiles', 'Chat', 'View', 'General'] as const;
 
 /**
- * Navigation tabs are bound to the **Control** key, Hermes-style.
+ * Navigation tabs are bound to the **Control** key.
  *
  * On macOS `ctrl+N` is the physical Control key (distinct from ⌘), which is
  * exactly what we want so ⌘+N can later mean "switch profile". On Windows/Linux
@@ -97,7 +97,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
   }));
 
   return [
-    // ── Navigation (Control-based, Hermes-style) ────────────────────────
+    // ── Navigation (Control-based) ──────────────────────────────────────
     {
       id: 'nav.home',
       label: 'Go Home',

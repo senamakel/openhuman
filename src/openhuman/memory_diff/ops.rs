@@ -815,4 +815,280 @@ mod tests {
         assert_eq!(h1, h2);
         assert_ne!(sha256_hex(b"hello"), sha256_hex(b"world"));
     }
+
+    #[test]
+    fn derive_title_uses_first_nonempty_line() {
+        assert_eq!(derive_title("file.md", "# Heading\nbody"), "Heading");
+        assert_eq!(derive_title("file.md", "\n\n  Plain title  \nmore"), "Plain title");
+    }
+
+    #[test]
+    fn derive_title_falls_back_to_item_id() {
+        assert_eq!(derive_title("doc_42", ""), "doc_42");
+        assert_eq!(derive_title("doc_42", "   \n  "), "doc_42");
+    }
+
+    // ── Integration-style ops tests over a temp diff.db ───────────────────
+
+    fn test_config() -> Config {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+        // Leak the tempdir so the path stays valid for the test's lifetime.
+        std::mem::forget(dir);
+        config
+    }
+
+    fn item(item_id: &str, hash: &str, content: &str) -> SnapshotItem {
+        SnapshotItem {
+            item_id: item_id.to_string(),
+            title: item_id.to_string(),
+            content_hash: hash.to_string(),
+            content: Some(content.to_string()),
+            timestamp_ms: Some(1000),
+            chunk_count: 1,
+        }
+    }
+
+    fn seed(config: &Config, id: &str, source_id: &str, taken_at_ms: i64, items: &[SnapshotItem]) {
+        let snap = Snapshot {
+            id: id.to_string(),
+            source_id: source_id.to_string(),
+            source_kind: "folder".to_string(),
+            label: "Docs".to_string(),
+            trigger: SnapshotTrigger::Auto,
+            item_count: items.len() as u32,
+            taken_at_ms,
+        };
+        store::with_connection(&config.workspace_dir, |conn| {
+            store::insert_snapshot(conn, &snap, items)
+        })
+        .unwrap();
+    }
+
+    fn folder_source(id: &str) -> MemorySourceEntry {
+        MemorySourceEntry {
+            id: id.into(),
+            kind: SourceKind::Folder,
+            label: "Docs".into(),
+            enabled: true,
+            toolkit: None,
+            connection_id: None,
+            path: Some("/tmp".into()),
+            glob: None,
+            url: None,
+            branch: None,
+            paths: Vec::new(),
+            query: None,
+            since_days: None,
+            max_items: None,
+            max_commits: None,
+            max_issues: None,
+            max_prs: None,
+            selector: None,
+            max_tokens_per_sync: None,
+            max_cost_per_sync_usd: None,
+            sync_depth_days: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn compute_diff_detects_added_modified_removed() {
+        let config = test_config();
+        // from: a(h1), b(h2), c(h3)
+        seed(
+            &config,
+            "snap_from",
+            "src_a",
+            1000,
+            &[
+                item("a", "h1", "alpha"),
+                item("b", "h2", "beta"),
+                item("c", "h3", "gamma"),
+            ],
+        );
+        // to: a(h1, unchanged), b(h2b, modified), c removed, d(h4, added)
+        seed(
+            &config,
+            "snap_to",
+            "src_a",
+            2000,
+            &[
+                item("a", "h1", "alpha"),
+                item("b", "h2b", "beta v2"),
+                item("d", "h4", "delta"),
+            ],
+        );
+
+        let diff = compute_diff(&config, Some("snap_from"), "snap_to", false)
+            .await
+            .unwrap();
+
+        assert_eq!(diff.summary.added, 1, "d added");
+        assert_eq!(diff.summary.modified, 1, "b modified");
+        assert_eq!(diff.summary.removed, 1, "c removed");
+        assert_eq!(diff.summary.unchanged, 1, "a unchanged");
+
+        let kind_of = |id: &str| {
+            diff.changes
+                .iter()
+                .find(|c| c.item_id == id)
+                .map(|c| c.kind.clone())
+        };
+        assert_eq!(kind_of("d"), Some(ChangeKind::Added));
+        assert_eq!(kind_of("b"), Some(ChangeKind::Modified));
+        assert_eq!(kind_of("c"), Some(ChangeKind::Removed));
+        assert_eq!(kind_of("a"), None, "unchanged items are not in changes");
+    }
+
+    #[tokio::test]
+    async fn compute_diff_against_none_marks_all_added() {
+        let config = test_config();
+        seed(&config, "snap_to", "src_a", 1000, &[item("a", "h1", "x")]);
+        let diff = compute_diff(&config, None, "snap_to", false).await.unwrap();
+        assert_eq!(diff.summary.added, 1);
+        assert_eq!(diff.from_snapshot_id, None);
+    }
+
+    #[tokio::test]
+    async fn compute_diff_rejects_cross_source() {
+        let config = test_config();
+        seed(&config, "from_a", "src_a", 1000, &[]);
+        seed(&config, "to_b", "src_b", 2000, &[]);
+        let err = compute_diff(&config, Some("from_a"), "to_b", false)
+            .await
+            .unwrap_err();
+        assert!(err.contains("cross-source"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn compute_diff_text_diff_only_when_requested() {
+        let config = test_config();
+        seed(&config, "f", "src_a", 1000, &[item("a", "h1", "line one\nline two\n")]);
+        seed(&config, "t", "src_a", 2000, &[item("a", "h2", "line one\nline TWO changed\n")]);
+
+        let without = compute_diff(&config, Some("f"), "t", false).await.unwrap();
+        assert!(without.changes[0].text_diff.is_none());
+
+        let with = compute_diff(&config, Some("f"), "t", true).await.unwrap();
+        let td = with.changes[0].text_diff.as_ref().expect("text diff present");
+        assert!(td.contains("line TWO changed"), "got: {td}");
+    }
+
+    #[tokio::test]
+    async fn diff_since_last_handles_zero_one_two_snapshots() {
+        let config = test_config();
+        let source = folder_source("src_a");
+
+        // 0 snapshots → error
+        assert!(diff_since_last(&source, &config, false).await.is_err());
+
+        // 1 snapshot → everything added (diff vs None)
+        seed(&config, "s1", "src_a", 1000, &[item("a", "h1", "x")]);
+        let one = diff_since_last(&source, &config, false).await.unwrap();
+        assert_eq!(one.summary.added, 1);
+
+        // 2 snapshots → diff latest vs previous
+        seed(
+            &config,
+            "s2",
+            "src_a",
+            2000,
+            &[item("a", "h1", "x"), item("b", "h2", "y")],
+        );
+        let two = diff_since_last(&source, &config, false).await.unwrap();
+        assert_eq!(two.summary.added, 1, "b is new in s2");
+        assert_eq!(two.summary.unchanged, 1, "a unchanged");
+    }
+
+    #[tokio::test]
+    async fn diff_since_read_commits_marker_and_returns_only_new_changes() {
+        let config = test_config();
+        let source = folder_source("src_a");
+
+        seed(&config, "s1", "src_a", 1000, &[item("a", "h1", "x")]);
+
+        // First read: no marker → full diff (a added), and commit advances marker.
+        let first = diff_since_read(&source, &config, false, true).await.unwrap();
+        assert_eq!(first.summary.added, 1);
+
+        // Second read with no new snapshot: marker == head → nothing changed.
+        let second = diff_since_read(&source, &config, false, true).await.unwrap();
+        assert_eq!(second.summary.added, 0);
+        assert_eq!(second.summary.modified, 0);
+        assert_eq!(second.summary.removed, 0);
+        assert!(second.changes.is_empty());
+
+        // New snapshot then read: only the delta since the marker shows.
+        seed(
+            &config,
+            "s2",
+            "src_a",
+            2000,
+            &[item("a", "h1", "x"), item("b", "h2", "y")],
+        );
+        let third = diff_since_read(&source, &config, false, true).await.unwrap();
+        assert_eq!(third.summary.added, 1, "only b is new since last read");
+        assert_eq!(third.summary.unchanged, 1);
+    }
+
+    #[tokio::test]
+    async fn diff_since_read_without_commit_does_not_advance_marker() {
+        let config = test_config();
+        let source = folder_source("src_a");
+        seed(&config, "s1", "src_a", 1000, &[item("a", "h1", "x")]);
+
+        // Preview (commit=false) twice → both show the full diff.
+        let a = diff_since_read(&source, &config, false, false).await.unwrap();
+        let b = diff_since_read(&source, &config, false, false).await.unwrap();
+        assert_eq!(a.summary.added, 1);
+        assert_eq!(b.summary.added, 1, "marker was not advanced");
+    }
+
+    #[tokio::test]
+    async fn mark_read_advances_marker_for_explicit_sources() {
+        let config = test_config();
+        let source = folder_source("src_a");
+        seed(&config, "s1", "src_a", 1000, &[item("a", "h1", "x")]);
+
+        let marked = mark_read(&config, Some(vec!["src_a".to_string()]))
+            .await
+            .unwrap();
+        assert_eq!(marked, 1);
+
+        // After marking, a read shows no changes (marker already at head).
+        let diff = diff_since_read(&source, &config, false, false).await.unwrap();
+        assert_eq!(diff.summary.added, 0);
+        assert!(diff.changes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn diff_since_checkpoint_aggregates_across_sources() {
+        let config = test_config();
+        // Baseline snapshots for two sources, grouped into a checkpoint.
+        seed(&config, "a1", "src_a", 1000, &[item("a", "h1", "x")]);
+        seed(&config, "b1", "src_b", 1000, &[item("b", "h1", "y")]);
+        let ckpt = Checkpoint {
+            id: "ckpt_1".to_string(),
+            label: "base".to_string(),
+            created_at_ms: 1500,
+            snapshot_ids: vec!["a1".to_string(), "b1".to_string()],
+        };
+        store::with_connection(&config.workspace_dir, |conn| {
+            store::insert_checkpoint(conn, &ckpt)
+        })
+        .unwrap();
+
+        // src_a gets a new head with a modification; src_b unchanged (no new head).
+        seed(&config, "a2", "src_a", 2000, &[item("a", "h2", "x v2")]);
+
+        let cross = diff_since_checkpoint("ckpt_1", &config, false).await.unwrap();
+        assert_eq!(cross.summary.modified, 1, "src_a 'a' modified");
+        assert_eq!(
+            cross.per_source.len(),
+            1,
+            "only src_a changed; unchanged src_b is skipped"
+        );
+        assert_eq!(cross.per_source[0].source_id, "src_a");
+    }
 }

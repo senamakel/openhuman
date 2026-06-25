@@ -168,11 +168,18 @@ export function SubconsciousRow({ summary }: { summary: SubconsciousSummary }) {
   );
 }
 
+/**
+ * Per-provider status pill, driven *only* by freshness (recency of the last
+ * ingested chunk). Deliberately NOT keyed off `batch_total > batch_processed`:
+ * an incomplete embedding wave can sit un-drained for days, and treating that
+ * as "Syncing now" falsely implies live activity. A stalled backlog is
+ * surfaced separately as a muted progress hint — see {@link MemorySection}.
+ */
 function providerFreshnessLabel(
   row: MemorySyncStatusRow,
   t: ReturnType<typeof useT>['t']
 ): { dot: string; label: string; pillClass: string } {
-  if (row.freshness === 'active' || row.batch_total > row.batch_processed) {
+  if (row.freshness === 'active') {
     return {
       dot: 'bg-amber-500 animate-pulse',
       label: t('conversations.backgroundTasks.memProviderActive'),
@@ -236,6 +243,13 @@ export function MemorySection({ memory }: { memory: MemorySyncSummary }) {
 
       {memory.providers.map(row => {
         const f = providerFreshnessLabel(row, t);
+        // An incomplete embedding wave that is NOT live (freshness !== active):
+        // a backlog the index worker hasn't drained, shown as muted progress —
+        // never as "Syncing now".
+        const backlog =
+          row.freshness !== 'active' && row.batch_total > row.batch_processed
+            ? `${row.batch_processed}/${row.batch_total} indexed`
+            : null;
         return (
           <div
             key={row.provider}
@@ -249,6 +263,11 @@ export function MemorySection({ memory }: { memory: MemorySyncSummary }) {
                 </span>
                 <span className={`shrink-0 text-[11px] font-medium ${f.pillClass}`}>{f.label}</span>
               </div>
+              {backlog ? (
+                <span className="mt-0.5 block text-[11px] text-stone-400 dark:text-neutral-500">
+                  {backlog}
+                </span>
+              ) : null}
             </div>
           </div>
         );

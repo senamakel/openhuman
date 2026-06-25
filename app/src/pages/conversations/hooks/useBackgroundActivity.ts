@@ -135,10 +135,14 @@ export function useBackgroundActivity(open: boolean): BackgroundActivity {
       providers,
     });
 
+    // Only consider work *genuinely live* for the fast-poll cadence: the
+    // ingestion worker actually running/queued, or a provider with a fresh
+    // chunk (<30s). A stale, un-drained embedding wave (batch_total >
+    // batch_processed but idle freshness) must NOT pin us to fast-poll.
     busyRef.current =
       Boolean(ingest?.running) ||
       (ingest?.queue_depth ?? 0) > 0 ||
-      providers.some(p => p.freshness === 'active' || p.batch_total > p.batch_processed);
+      providers.some(p => p.freshness === 'active');
 
     setLoading(false);
   }, []);

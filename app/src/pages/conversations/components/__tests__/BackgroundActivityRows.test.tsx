@@ -156,13 +156,28 @@ describe('MemorySection', () => {
     expect(screen.getByText('Idle')).toBeInTheDocument();
   });
 
-  it('treats an in-progress batch as active even when freshness is idle', () => {
+  it('does NOT call a stale, un-drained backlog "Syncing now" (idle freshness)', () => {
+    // Regression: a fetch wave from days ago whose chunks never finished
+    // embedding (batch_total > batch_processed) is a backlog, not live activity.
     const memory: MemorySyncSummary = {
       ingesting: false,
       queueDepth: 0,
       providers: [
-        provider({ provider: 'discord', freshness: 'idle', batch_total: 10, batch_processed: 3 }),
+        provider({ provider: 'gmail', freshness: 'idle', batch_total: 18, batch_processed: 0 }),
       ],
+    };
+    render(<MemorySection memory={memory} />);
+    expect(screen.queryByText('Syncing now')).not.toBeInTheDocument();
+    expect(screen.getByText('Idle')).toBeInTheDocument();
+    // The incomplete wave is surfaced as a muted, non-alarming progress hint.
+    expect(screen.getByText('0/18 indexed')).toBeInTheDocument();
+  });
+
+  it('still shows "Syncing now" for genuinely live (active) freshness', () => {
+    const memory: MemorySyncSummary = {
+      ingesting: false,
+      queueDepth: 0,
+      providers: [provider({ provider: 'slack', freshness: 'active' })],
     };
     render(<MemorySection memory={memory} />);
     expect(screen.getByText('Syncing now')).toBeInTheDocument();

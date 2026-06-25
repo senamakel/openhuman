@@ -6,7 +6,7 @@ use anyhow::{bail, Context, Result};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
-use tokio::process::{Child, ChildStdin, ChildStdout};
+use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout};
 use tokio::sync::Mutex;
 
 use super::protocol::{PythonServerRequest, PythonServerResponse, ReadyLine, PROTOCOL_VERSION};
@@ -48,6 +48,47 @@ struct ServerInner {
     stdout: Lines<BufReader<ChildStdout>>,
     next_id: u64,
     ready_backends: Vec<String>,
+}
+
+fn drain_server_stderr(stderr: ChildStderr) {
+    tokio::spawn(async move {
+        let mut reader = BufReader::new(stderr);
+        let mut buf = Vec::with_capacity(1024);
+        let mut line_count = 0u64;
+        let mut byte_count = 0u64;
+
+        loop {
+            buf.clear();
+            match reader.read_until(b'\n', &mut buf).await {
+                Ok(0) => {
+                    log::debug!(
+                        "[runtime_python_server] stderr drain closed lines={} bytes={}",
+                        line_count,
+                        byte_count
+                    );
+                    break;
+                }
+                Ok(n) => {
+                    line_count += 1;
+                    byte_count += n as u64;
+                    log::trace!(
+                        "[runtime_python_server] drained stderr line bytes={} total_lines={} total_bytes={}",
+                        n,
+                        line_count,
+                        byte_count
+                    );
+                }
+                Err(error) => {
+                    log::debug!(
+                        "[runtime_python_server] stderr drain failed after lines={} bytes={}: {error}",
+                        line_count,
+                        byte_count
+                    );
+                    break;
+                }
+            }
+        }
+    });
 }
 
 pub struct RuntimePythonServer {
@@ -346,6 +387,11 @@ async fn spawn_inner(launch: &ServerLaunch) -> Result<ServerInner> {
         .stdout
         .take()
         .context("runtime python server stdout missing")?;
+    if let Some(stderr) = child.stderr.take() {
+        drain_server_stderr(stderr);
+    } else {
+        log::debug!("[runtime_python_server] stderr pipe missing; continuing without drain");
+    }
     let mut lines = BufReader::new(stdout).lines();
 
     let ready_line = match tokio::time::timeout(HANDSHAKE_TIMEOUT, lines.next_line()).await {

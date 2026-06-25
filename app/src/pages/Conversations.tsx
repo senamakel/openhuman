@@ -2887,6 +2887,15 @@ const Conversations = ({
 
         {/* Thread title + inline rename moved to the sidebar thread list rows. */}
 
+        {/* When a thread goal is set, it gets its own line above the stats row —
+            the goal text + the stats + the quick/reasoning toggle don't all fit
+            on one line. Click opens the editor above the composer. */}
+        {threadGoal.goal && (
+          <div className="mt-2 flex min-w-0">
+            <ThreadGoalFooterTrigger ctl={threadGoal} />
+          </div>
+        )}
+
         {/* Model + token stats (left) and the quick/reasoning toggle + files
             chip (right) share one line. */}
         <div
@@ -2894,8 +2903,6 @@ const Conversations = ({
           data-walkthrough="chat-agent-panel">
           <div className="flex min-w-0 items-center gap-2">
             <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
-            {/* Set/show the thread goal; click opens the editor above the composer. */}
-            <ThreadGoalFooterTrigger ctl={threadGoal} />
           </div>
           {!isSidebar && (
             <div className="flex flex-shrink-0 items-center gap-2">

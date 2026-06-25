@@ -70,6 +70,8 @@ describe('<ComposerTokenStats />', () => {
     expect(within(bd).getByText('token.popInput')).toHaveAttribute('title', 'token.tipInput');
     expect(within(bd).getByText('token.popOutput')).toHaveAttribute('title', 'token.tipOutput');
     expect(within(bd).getByText('token.popCacheHit')).toHaveAttribute('title', 'token.tipCacheHit');
+    // Cache hit shows a hit-rate percentage: 50 cached / 1200 input ≈ 4%.
+    expect(within(bd).getByText(/50 \(4%\)/)).toBeInTheDocument();
     // Model id surfaced inside the popover.
     expect(within(bd).getByText('reasoning-v1')).toBeInTheDocument();
 

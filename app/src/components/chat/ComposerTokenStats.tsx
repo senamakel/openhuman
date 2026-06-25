@@ -220,7 +220,9 @@ export default function ComposerTokenStats({ model, threadId }: ComposerTokenSta
               <UsageRow
                 label={t('token.popCacheHit')}
                 tip={t('token.tipCacheHit')}
-                value={fmt(cachedTok)}
+                value={`${fmt(cachedTok)} (${
+                  inTok > 0 ? Math.min(100, Math.round((cachedTok / inTok) * 100)) : 0
+                }%)`}
               />
             )}
             <UsageRow

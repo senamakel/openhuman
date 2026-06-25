@@ -62,8 +62,8 @@ const RailButton = ({
     // tooltip isn't trapped under a later sibling's stacking context.
     className={`group relative flex h-9 w-9 flex-none items-center justify-center rounded-lg transition-all hover:z-50 ${
       active
-        ? 'bg-primary-50 ring-2 ring-primary-500'
-        : 'hover:bg-stone-100 dark:hover:bg-neutral-800/60 hover:scale-105'
+        ? 'bg-primary-500/15 ring-2 ring-primary-500'
+        : 'hover:bg-surface-hover hover:scale-105'
     }`}
     aria-label={tooltip}>
     {children}
@@ -290,7 +290,7 @@ export default function SidebarAppRail() {
             type="button"
             data-analytics-id="sidebar-app-rail-disconnect-account"
             onClick={() => void handleLogout(ctxMenu.accountId)}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-coral-600 hover:bg-stone-100 dark:hover:bg-neutral-800/60">
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-coral-600 hover:bg-surface-hover">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"

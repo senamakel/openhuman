@@ -214,8 +214,8 @@ pub async fn diff_since_read(
 
     // Resolve head (latest snapshot) and the marker's base snapshot. If the
     // marker points at a commit that no longer resolves, treat it as unread.
-    let (head, base_id) =
-        tokio::task::spawn_blocking(move || -> anyhow::Result<(Option<Snapshot>, Option<String>)> {
+    let (head, base_id) = tokio::task::spawn_blocking(
+        move || -> anyhow::Result<(Option<Snapshot>, Option<String>)> {
             let ledger = Ledger::open(&workspace_dir)?;
             let head = ledger
                 .latest_snapshots_for_source(&source_id, 1)?
@@ -227,10 +227,11 @@ pub async fn diff_since_read(
                 _ => None,
             };
             Ok((head, base_id))
-        })
-        .await
-        .map_err(|e| format!("diff_since_read join: {e}"))?
-        .map_err(|e: anyhow::Error| format!("diff_since_read: {e:#}"))?;
+        },
+    )
+    .await
+    .map_err(|e| format!("diff_since_read join: {e}"))?
+    .map_err(|e: anyhow::Error| format!("diff_since_read: {e:#}"))?;
 
     let head = head.ok_or_else(|| "no snapshots found for this source".to_string())?;
 
@@ -535,7 +536,10 @@ mod tests {
 
     #[test]
     fn source_id_prefix_folder() {
-        assert_eq!(source_id_prefix(&folder_source("src_abc")), "mem_src:src_abc:%");
+        assert_eq!(
+            source_id_prefix(&folder_source("src_abc")),
+            "mem_src:src_abc:%"
+        );
     }
 
     #[test]
@@ -670,7 +674,12 @@ mod tests {
     async fn compute_diff_text_diff_only_when_requested() {
         let config = test_config();
         let from = seed(&config, "src_a", 1000, &[("a", "line one\nline two\n")]);
-        let to = seed(&config, "src_a", 2000, &[("a", "line one\nline TWO changed\n")]);
+        let to = seed(
+            &config,
+            "src_a",
+            2000,
+            &[("a", "line one\nline TWO changed\n")],
+        );
 
         let without = compute_diff(&config, Some(&from.id), &to.id, false)
             .await

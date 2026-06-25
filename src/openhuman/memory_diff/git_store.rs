@@ -246,11 +246,9 @@ impl Ledger {
         let mut opts = DiffOptions::new();
         opts.pathspec(source_id);
         opts.context_lines(3);
-        let diff = self.repo.diff_tree_to_tree(
-            from_tree.as_ref(),
-            Some(&to_tree),
-            Some(&mut opts),
-        )?;
+        let diff =
+            self.repo
+                .diff_tree_to_tree(from_tree.as_ref(), Some(&to_tree), Some(&mut opts))?;
 
         let mut changes = Vec::new();
         let mut summary = DiffSummary::default();
@@ -762,7 +760,11 @@ mod tests {
     fn compute_changes_text_diff_only_when_requested() {
         let (ledger, _dir) = temp_ledger();
         let from = ledger
-            .commit_snapshot(&meta("src_a"), &items(&[("a", "line one\nline two\n")]), 1000)
+            .commit_snapshot(
+                &meta("src_a"),
+                &items(&[("a", "line one\nline two\n")]),
+                1000,
+            )
             .unwrap();
         let to = ledger
             .commit_snapshot(
@@ -831,12 +833,7 @@ mod tests {
             .commit_snapshot(&meta("src_b"), &items(&[("b", "y")]), 1000)
             .unwrap();
         ledger
-            .create_checkpoint(
-                "ckpt_1",
-                "baseline",
-                &[a.id.clone(), b.id.clone()],
-                1500,
-            )
+            .create_checkpoint("ckpt_1", "baseline", &[a.id.clone(), b.id.clone()], 1500)
             .unwrap();
 
         let loaded = ledger.get_checkpoint("ckpt_1").unwrap().unwrap();

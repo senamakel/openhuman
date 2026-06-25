@@ -1,6 +1,10 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import {
+  GENERAL_TAB_VALUE,
+  isThreadVisibleInTab,
+} from '../../../pages/conversations/utils/threadFilter';
 import { setActiveAccount } from '../../../store/accountsSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { createNewThread, loadThreadMessages, setSelectedThread } from '../../../store/threadSlice';
@@ -36,6 +40,11 @@ import { chatThreadPath } from '../../../utils/chatRoutes';
  * off "is this thread actually occupied?" rather than "is it selected?" so a
  * genuinely-blank current chat is still reused (no piling up of empties) while
  * a chat with a send in flight is never reopened.
+ *
+ * Only **General**-tab threads are reuse candidates (same
+ * `isThreadVisibleInTab(..., GENERAL_TAB_VALUE)` filter the `/chat` landing
+ * uses), so New Chat never lands on a hidden task/subconscious/parented
+ * session.
  */
 export function useNewChat(): () => void {
   const navigate = useNavigate();
@@ -52,6 +61,7 @@ export function useNewChat(): () => void {
 
     const empty = threads.find(
       thr =>
+        isThreadVisibleInTab(thr, GENERAL_TAB_VALUE) &&
         (thr.messageCount ?? 0) === 0 &&
         (messagesByThreadId[thr.id]?.length ?? 0) === 0 &&
         !streamingByThread?.[thr.id] &&

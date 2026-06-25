@@ -18,6 +18,8 @@ vi.mock('react-router-dom', async importOriginal => {
 interface MockThread {
   id: string;
   messageCount: number;
+  labels?: string[];
+  parentThreadId?: string;
 }
 
 interface MockAction {
@@ -145,6 +147,20 @@ describe('useNewChat', () => {
     result.current();
 
     expect(mockNavigate).not.toHaveBeenCalledWith('/chat/optimistic');
+    expect(dispatchedTypes()).toContain('thread/createNewThread');
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/chat/fresh-thread');
+    });
+  });
+
+  it('does not reuse a blank non-General thread (task / subconscious / parented)', async () => {
+    // A blank task thread (parentThreadId) is hidden from the General tab, so
+    // New Chat must not land on it — create a fresh general chat instead.
+    mockThreads = [{ id: 'task-1', messageCount: 0, parentThreadId: 'parent' }];
+    const { result } = renderHook(() => useNewChat(), { wrapper });
+    result.current();
+
+    expect(mockNavigate).not.toHaveBeenCalledWith('/chat/task-1');
     expect(dispatchedTypes()).toContain('thread/createNewThread');
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/chat/fresh-thread');

@@ -74,22 +74,69 @@ pub struct MessageUsage {
 
 /// Usage + provenance for one provider response, attached to the last
 /// assistant message in a turn.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TurnUsage {
+    #[serde(default)]
     pub provider: String,
+    #[serde(default)]
     pub model: String,
     pub usage: MessageUsage,
     /// RFC-3339 timestamp of the response.
+    #[serde(default)]
     pub ts: String,
     /// Raw reasoning/thinking content returned by thinking models. This is
     /// persisted as metadata so the later transcript view can show the model's
     /// thoughts without depending on the live stream still being open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reasoning_content: Option<String>,
     /// Native tool calls emitted in this provider response, if any. Text-mode
     /// calls remain present in `content` as the raw markup the model emitted.
+    #[serde(default)]
     pub tool_calls: Vec<ToolCall>,
     /// One-based engine iteration for this provider response.
+    #[serde(default)]
     pub iteration: u32,
+}
+
+const TURN_USAGE_METADATA_KEY: &str = "openhuman_turn_usage";
+
+pub(crate) fn attach_turn_usage_metadata(message: &mut ChatMessage, turn_usage: &TurnUsage) {
+    let Ok(payload) = serde_json::to_value(turn_usage) else {
+        log::warn!("[transcript] failed to serialize turn usage metadata");
+        return;
+    };
+
+    match message.extra_metadata.take() {
+        Some(serde_json::Value::Object(mut map)) => {
+            map.insert(TURN_USAGE_METADATA_KEY.to_string(), payload);
+            message.extra_metadata = Some(serde_json::Value::Object(map));
+        }
+        Some(existing) => {
+            let mut map = serde_json::Map::new();
+            map.insert("value".to_string(), existing);
+            map.insert(TURN_USAGE_METADATA_KEY.to_string(), payload);
+            message.extra_metadata = Some(serde_json::Value::Object(map));
+        }
+        None => {
+            let mut map = serde_json::Map::new();
+            map.insert(TURN_USAGE_METADATA_KEY.to_string(), payload);
+            message.extra_metadata = Some(serde_json::Value::Object(map));
+        }
+    }
+}
+
+pub(crate) fn turn_usage_extra_metadata(turn_usage: &TurnUsage) -> Option<serde_json::Value> {
+    let mut message = ChatMessage::assistant("");
+    attach_turn_usage_metadata(&mut message, turn_usage);
+    message.extra_metadata
+}
+
+fn turn_usage_from_metadata(message: &ChatMessage) -> Option<TurnUsage> {
+    let payload = message
+        .extra_metadata
+        .as_ref()?
+        .get(TURN_USAGE_METADATA_KEY)?;
+    serde_json::from_value(payload.clone()).ok()
 }
 
 /// Metadata header for a session transcript file.
@@ -252,34 +299,57 @@ pub fn write_transcript(
     jsonl_buf.push_str(&meta_json);
     jsonl_buf.push('\n');
 
-    // Identify the index of the last assistant message so we can attach
-    // per-turn usage to it.
+    // Identify the index of the last assistant message so older call sites can
+    // still attach per-turn usage without embedding it on the message.
     let last_assistant_idx = messages.iter().rposition(|m| m.role == "assistant");
 
     for (i, msg) in messages.iter().enumerate() {
-        // Only the last assistant message carries usage/model/ts; every
-        // other line has those fields omitted. Pattern-match both
-        // options together so there's no separate unwrap.
-        let line = match (last_assistant_idx, last_assistant_turn_usage) {
-            (Some(idx), Some(tu)) if idx == i => MessageLine {
-                id: msg.id.clone(),
-                role: msg.role.clone(),
-                content: msg.content.clone(),
-                extra_metadata: msg.extra_metadata.clone(),
-                provider: Some(tu.provider.clone()),
-                model: Some(tu.model.clone()),
-                usage: Some(tu.usage.clone()),
-                reasoning_content: tu.reasoning_content.clone(),
-                tool_calls: if tu.tool_calls.is_empty() {
-                    None
-                } else {
-                    Some(tu.tool_calls.clone())
-                },
-                iteration: Some(tu.iteration),
-                ts: Some(tu.ts.clone()),
-                _extra: HashMap::new(),
-            },
-            _ => MessageLine {
+        let turn_usage = if Some(i) == last_assistant_idx {
+            last_assistant_turn_usage
+                .cloned()
+                .or_else(|| turn_usage_from_metadata(msg))
+        } else {
+            turn_usage_from_metadata(msg)
+        };
+
+        let line = if msg.role == "assistant" {
+            if let Some(tu) = turn_usage.as_ref() {
+                MessageLine {
+                    id: msg.id.clone(),
+                    role: msg.role.clone(),
+                    content: msg.content.clone(),
+                    extra_metadata: msg.extra_metadata.clone(),
+                    provider: Some(tu.provider.clone()),
+                    model: Some(tu.model.clone()),
+                    usage: Some(tu.usage.clone()),
+                    reasoning_content: tu.reasoning_content.clone(),
+                    tool_calls: if tu.tool_calls.is_empty() {
+                        None
+                    } else {
+                        Some(tu.tool_calls.clone())
+                    },
+                    iteration: Some(tu.iteration),
+                    ts: Some(tu.ts.clone()),
+                    _extra: HashMap::new(),
+                }
+            } else {
+                MessageLine {
+                    id: msg.id.clone(),
+                    role: msg.role.clone(),
+                    content: msg.content.clone(),
+                    extra_metadata: msg.extra_metadata.clone(),
+                    provider: None,
+                    model: None,
+                    usage: None,
+                    reasoning_content: None,
+                    tool_calls: None,
+                    iteration: None,
+                    ts: None,
+                    _extra: HashMap::new(),
+                }
+            }
+        } else {
+            MessageLine {
                 id: msg.id.clone(),
                 role: msg.role.clone(),
                 content: msg.content.clone(),
@@ -292,7 +362,7 @@ pub fn write_transcript(
                 iteration: None,
                 ts: None,
                 _extra: HashMap::new(),
-            },
+            }
         };
 
         let line_json =
@@ -311,11 +381,25 @@ pub fn write_transcript(
     );
 
     // ── Companion .md ────────────────────────────────────────────────
-    // Build per-message usage index for the renderer (only last assistant).
-    let mut per_msg_usage: HashMap<usize, &TurnUsage> = HashMap::new();
-    if let (Some(idx), Some(tu)) = (last_assistant_idx, last_assistant_turn_usage) {
-        per_msg_usage.insert(idx, tu);
+    // Build per-message usage index for the renderer. Embedded metadata keeps
+    // older assistant iterations visible when the full JSONL is rewritten.
+    let mut owned_usage: Vec<(usize, TurnUsage)> = Vec::new();
+    for (idx, msg) in messages.iter().enumerate() {
+        let usage = if Some(idx) == last_assistant_idx {
+            last_assistant_turn_usage
+                .cloned()
+                .or_else(|| turn_usage_from_metadata(msg))
+        } else {
+            turn_usage_from_metadata(msg)
+        };
+        if let Some(usage) = usage {
+            owned_usage.push((idx, usage));
+        }
     }
+    let per_msg_usage: HashMap<usize, &TurnUsage> = owned_usage
+        .iter()
+        .map(|(idx, usage)| (*idx, usage))
+        .collect();
 
     // The .md companion is a *derived* view — the JSONL above is the
     // source of truth. Failures here must not propagate: a readable-log
@@ -436,12 +520,37 @@ fn read_transcript_jsonl(path: &Path) -> Result<SessionTranscript> {
         // Message line.
         match serde_json::from_str::<MessageLine>(line) {
             Ok(ml) => {
-                messages.push(ChatMessage {
+                let turn_usage = match (
+                    ml.provider.clone(),
+                    ml.model.clone(),
+                    ml.usage.clone(),
+                    ml.ts.clone(),
+                ) {
+                    (Some(provider), Some(model), Some(usage), Some(ts))
+                        if ml.role == "assistant" =>
+                    {
+                        Some(TurnUsage {
+                            provider,
+                            model,
+                            usage,
+                            ts,
+                            reasoning_content: ml.reasoning_content.clone(),
+                            tool_calls: ml.tool_calls.clone().unwrap_or_default(),
+                            iteration: ml.iteration.unwrap_or_default(),
+                        })
+                    }
+                    _ => None,
+                };
+                let mut message = ChatMessage {
                     id: ml.id,
                     role: ml.role,
                     content: ml.content,
                     extra_metadata: ml.extra_metadata,
-                });
+                };
+                if let Some(turn_usage) = turn_usage.as_ref() {
+                    attach_turn_usage_metadata(&mut message, turn_usage);
+                }
+                messages.push(message);
             }
             Err(err) => {
                 log::warn!(

@@ -3871,6 +3871,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
                 extra_content: None,
             }],
             reasoning_content: Some("thinking".into()),
+            extra_metadata: None,
         },
         ConversationMessage::ToolResults(vec![ToolResultMessage {
             tool_call_id: "call-1".into(),
@@ -3885,6 +3886,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
                 extra_content: None,
             }],
             reasoning_content: None,
+            extra_metadata: None,
         },
         ConversationMessage::ToolResults(vec![ToolResultMessage {
             tool_call_id: "orphan".into(),

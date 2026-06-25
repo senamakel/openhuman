@@ -345,6 +345,7 @@ impl TurnObserver for AgentObserver<'_> {
             if let Some(rc) = reasoning_content {
                 assistant_msg.extra_metadata = Some(serde_json::json!({ "reasoning_content": rc }));
             }
+            let mut turn_usage = None;
             if let Some(ref mut usage) = self.last_turn_usage {
                 usage.reasoning_content = reasoning_content
                     .map(str::trim)
@@ -352,6 +353,10 @@ impl TurnObserver for AgentObserver<'_> {
                     .map(ToString::to_string);
                 usage.tool_calls = native_tool_calls.to_vec();
                 usage.iteration = (iteration + 1) as u32;
+                turn_usage = Some(usage.clone());
+            }
+            if let Some(turn_usage) = turn_usage.as_ref() {
+                transcript::attach_turn_usage_metadata(&mut assistant_msg, turn_usage);
             }
             self.agent
                 .history
@@ -386,6 +391,10 @@ impl TurnObserver for AgentObserver<'_> {
             usage.tool_calls = tool_calls.clone();
             usage.iteration = (iteration + 1) as u32;
         }
+        let extra_metadata = self
+            .last_turn_usage
+            .as_ref()
+            .and_then(transcript::turn_usage_extra_metadata);
         self.agent
             .history
             .push(ConversationMessage::AssistantToolCalls {
@@ -399,6 +408,7 @@ impl TurnObserver for AgentObserver<'_> {
                     .map(str::trim)
                     .filter(|s| !s.is_empty())
                     .map(ToString::to_string),
+                extra_metadata,
             });
         let mut results = std::mem::take(&mut self.pending_results);
         spill_aggregate_tool_results(

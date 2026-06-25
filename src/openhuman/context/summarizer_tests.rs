@@ -21,6 +21,7 @@ fn call(id: &str) -> ConversationMessage {
             extra_content: None,
         }],
         reasoning_content: None,
+        extra_metadata: None,
     }
 }
 
@@ -222,6 +223,7 @@ fn transcript_renders_all_message_variants() {
                 extra_content: None,
             }],
             reasoning_content: None,
+            extra_metadata: None,
         },
         result("1", "file.txt"),
     ];

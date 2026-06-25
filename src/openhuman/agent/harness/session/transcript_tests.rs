@@ -472,6 +472,52 @@ fn usage_round_trips_on_last_assistant_message() {
 }
 
 #[test]
+fn embedded_usage_preserves_earlier_assistant_messages_on_rewrite() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("multi_usage.jsonl");
+    let mut messages = vec![
+        ChatMessage::user("start"),
+        ChatMessage::assistant("first"),
+        ChatMessage::user("continue"),
+        ChatMessage::assistant("second"),
+    ];
+    let first_usage = TurnUsage {
+        provider: "provider-a".into(),
+        model: "model-a".into(),
+        iteration: 1,
+        ..sample_turn_usage()
+    };
+    let second_usage = TurnUsage {
+        provider: "provider-b".into(),
+        model: "model-b".into(),
+        iteration: 2,
+        ..sample_turn_usage()
+    };
+    attach_turn_usage_metadata(&mut messages[1], &first_usage);
+
+    write_transcript(&path, &messages, &sample_meta(), Some(&second_usage)).unwrap();
+
+    let raw = fs::read_to_string(&path).unwrap();
+    let assistant_lines: Vec<&str> = raw
+        .lines()
+        .filter(|line| line.contains("\"role\":\"assistant\""))
+        .collect();
+    assert_eq!(assistant_lines.len(), 2);
+    assert!(assistant_lines[0].contains("provider-a"));
+    assert!(assistant_lines[0].contains("model-a"));
+    assert!(assistant_lines[1].contains("provider-b"));
+    assert!(assistant_lines[1].contains("model-b"));
+
+    let loaded = read_transcript(&path).unwrap();
+    write_transcript(&path, &loaded.messages, &loaded.meta, None).unwrap();
+    let rewritten = fs::read_to_string(&path).unwrap();
+    assert!(rewritten.contains("provider-a"));
+    assert!(rewritten.contains("model-a"));
+    assert!(rewritten.contains("provider-b"));
+    assert!(rewritten.contains("model-b"));
+}
+
+#[test]
 fn md_companion_file_is_written() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("companion.jsonl");

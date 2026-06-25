@@ -232,6 +232,41 @@ pub async fn get(workspace_dir: &Path, thread_id: &str) -> Result<Option<ThreadG
     store.get(thread_id)
 }
 
+/// Load every persisted thread goal (read-only). Skips files that fail to parse
+/// (logged) so one corrupt entry can't hide the rest. Used by the heartbeat
+/// continuation runtime to find idle candidates.
+pub async fn list_all(workspace_dir: &Path) -> Result<Vec<ThreadGoal>, String> {
+    let dir = workspace_dir.join(THREAD_GOALS_DIR);
+    let mut entries = match tokio::fs::read_dir(&dir).await {
+        Ok(rd) => rd,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("read thread goals dir {}: {e}", dir.display())),
+    };
+    let mut goals = Vec::new();
+    while let Some(entry) = entries
+        .next_entry()
+        .await
+        .map_err(|e| format!("iterate thread goals dir: {e}"))?
+    {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some(THREAD_GOALS_EXTENSION) {
+            continue;
+        }
+        match tokio::fs::read_to_string(&path).await {
+            Ok(body) => match serde_json::from_str::<ThreadGoal>(&body) {
+                Ok(goal) => goals.push(goal),
+                Err(e) => {
+                    tracing::debug!(path = %path.display(), error = %e, "[thread_goals] list_all skip parse error");
+                }
+            },
+            Err(e) => {
+                tracing::debug!(path = %path.display(), error = %e, "[thread_goals] list_all skip read error");
+            }
+        }
+    }
+    Ok(goals)
+}
+
 /// Delete the goal for `thread_id`. Returns whether one existed.
 pub async fn clear(workspace_dir: &Path, thread_id: &str) -> Result<bool, String> {
     let _guard = goal_mutation_lock().lock().await;

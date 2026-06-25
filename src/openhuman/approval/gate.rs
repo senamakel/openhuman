@@ -407,6 +407,21 @@ impl ApprovalGate {
                     None,
                 );
             }
+            AgentTurnOrigin::TrustedAutomation {
+                source: TrustedAutomationSource::GoalContinuation,
+                job_id,
+            } => {
+                tracing::debug!(
+                    tool = tool_name,
+                    job_id = %job_id,
+                    "[approval::gate] autonomous goal continuation — external_effect tool parks \
+                     (no present user to authorize); TTL-denies without a routable surface"
+                );
+                // Fall through to the parking flow: an autonomous continuation
+                // runs with no user present, so we must NOT auto-allow an
+                // irreversible external action. Read/compute tools (not gated
+                // here) still make progress on the goal.
+            }
             AgentTurnOrigin::Cli => {
                 tracing::debug!(
                     tool = tool_name,

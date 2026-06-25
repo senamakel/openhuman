@@ -87,6 +87,11 @@ impl HeartbeatEngine {
 
             self.run_event_planner_tick_for_config(&config).await;
 
+            // Codex-style autonomous continuation of idle thread goals (opt-in
+            // via `heartbeat.goal_continuation_enabled`). Best-effort — a slow
+            // continuation must not stall the rest of the heartbeat tick.
+            crate::openhuman::thread_goals::continuation::run_continuation_tick(&config).await;
+
             if current.inference_enabled {
                 // Get the shared global engine (same instance as RPC handlers)
                 let lock = match get_or_init_engine().await {

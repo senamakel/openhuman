@@ -124,6 +124,22 @@ fn turn_tokens(input: u64, output: u64) -> u64 {
     input.saturating_add(output)
 }
 
+/// Whether the current turn is an autonomous goal-continuation (vs. a
+/// user-initiated turn). Used so a continuation doesn't clear its own one-shot
+/// suppression flag.
+fn is_goal_continuation_turn() -> bool {
+    matches!(
+        crate::openhuman::agent::turn_origin::current(),
+        Some(
+            crate::openhuman::agent::turn_origin::AgentTurnOrigin::TrustedAutomation {
+                source:
+                    crate::openhuman::agent::turn_origin::TrustedAutomationSource::GoalContinuation,
+                ..
+            }
+        )
+    )
+}
+
 /// Account a finished turn's usage against the ambient thread's goal.
 ///
 /// Only **active** goals are charged (a paused/complete/budget-limited goal
@@ -145,6 +161,19 @@ pub async fn account_turn_against_goal(workspace_dir: &Path, input: u64, output:
     };
     if !goal.status.is_active() {
         return;
+    }
+    // Reset the one-shot continuation suppression on user-initiated activity: a
+    // real turn in this thread means the user re-engaged, so a future idle
+    // period may auto-continue again. The continuation turn itself runs under a
+    // GoalContinuation origin and must NOT clear its own suppression.
+    if goal.continuation_suppressed && !is_goal_continuation_turn() {
+        if let Err(e) = store::set_continuation_suppressed(workspace_dir, &thread_id, false).await {
+            tracing::debug!(
+                thread_id = %thread_id,
+                error = %e,
+                "[thread_goals] failed to clear continuation suppression"
+            );
+        }
     }
     let delta = turn_tokens(input, output);
     if delta == 0 && secs == 0 {

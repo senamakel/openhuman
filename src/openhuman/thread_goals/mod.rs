@@ -20,6 +20,7 @@
 //! `goal_set`) and the context-gathering path (proposes only if absent, via
 //! [`store::set_if_absent`]).
 
+pub mod continuation;
 pub mod ops;
 pub mod runtime;
 mod schemas;

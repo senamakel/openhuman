@@ -12,16 +12,24 @@ import {
   fontChoiceForStack,
   type FontRole,
 } from '../../../lib/theme/tokens';
+import { resolveFamilyVariant } from '../../../lib/theme/presets';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import {
   deleteCustomTheme,
   resetActiveTheme,
+  resolveTheme,
+  selectActiveFamilyId,
   selectActiveThemeId,
-  selectAllThemes,
+  selectCustomThemes,
   selectEffectiveTheme,
+  selectThemeFamilies,
+  selectThemeVariant,
+  setActiveFamily,
   setActiveTheme,
   setFontRole,
   setThemeToken,
+  setThemeVariant,
+  type ThemeVariant,
   upsertCustomTheme,
 } from '../../../store/themeSlice';
 import { SettingsSection, SettingsSelect } from '../controls';
@@ -30,8 +38,18 @@ import ColorTokenField from './theme/ColorTokenField';
 
 /** Minimal base swatch values used only for preview tiles of built-in themes. */
 const BASE_SWATCH: Record<'light' | 'dark', Record<string, string>> = {
-  light: { 'surface-canvas': '245 245 245', surface: '255 255 255', content: '23 23 23' },
-  dark: { 'surface-canvas': '0 0 0', surface: '23 23 23', content: '245 245 245' },
+  light: {
+    'surface-canvas': '245 245 245',
+    surface: '255 255 255',
+    content: '23 23 23',
+    'primary-500': '47 110 244',
+  },
+  dark: {
+    'surface-canvas': '0 0 0',
+    surface: '23 23 23',
+    content: '245 245 245',
+    'primary-500': '47 110 244',
+  },
 };
 
 /** Read the live effective value of a token (override or tokens.css default). */
@@ -60,20 +78,34 @@ function channelsToCss(channels: string): string {
   return `rgb(${channels.trim().split(/\s+/).join(' ')} / 1)`;
 }
 
+/** Tile background: the theme's canvas gradient if any, else its flat canvas. */
+function tileCanvas(theme: Theme): string {
+  return theme.gradient?.canvas ?? channelsToCss(swatchChannels(theme, 'surface-canvas'));
+}
+
 const ThemeStudioPanel = () => {
   const { t } = useT();
   const dispatch = useAppDispatch();
-  const allThemes = useAppSelector(selectAllThemes);
+  const families = selectThemeFamilies();
+  const customThemes = useAppSelector(selectCustomThemes);
   const activeThemeId = useAppSelector(selectActiveThemeId);
+  const activeFamilyId = useAppSelector(selectActiveFamilyId);
+  const variant = useAppSelector(selectThemeVariant);
   const effectiveTheme = useAppSelector(selectEffectiveTheme);
 
-  const isActiveCustom = allThemes.some((th) => th.id === activeThemeId && !th.builtIn);
+  const isActiveCustom = customThemes.some((th) => th.id === activeThemeId);
+  // Which variant to render in family preview tiles (Auto → resolved OS variant).
+  const previewVariant: 'light' | 'dark' = variant === 'system' ? resolveTheme('system') : variant;
+
+  const VARIANT_OPTIONS: { id: ThemeVariant; label: string }[] = [
+    { id: 'light', label: t('settings.theme.variantLight', 'Light') },
+    { id: 'dark', label: t('settings.theme.variantDark', 'Dark') },
+    { id: 'system', label: t('settings.theme.variantAuto', 'Auto') },
+  ];
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState('');
   const [copied, setCopied] = useState(false);
-
-  const handleSelect = (id: string) => dispatch(setActiveTheme(id));
 
   const handleDuplicate = () => {
     const base = effectiveTheme;
@@ -90,7 +122,7 @@ const ThemeStudioPanel = () => {
   };
 
   const handleExport = async () => {
-    const active = allThemes.find((th) => th.id === activeThemeId) ?? effectiveTheme;
+    const active = customThemes.find((th) => th.id === activeThemeId) ?? effectiveTheme;
     const json = JSON.stringify(active, null, 2);
     try {
       await navigator.clipboard?.writeText(json);
@@ -123,7 +155,7 @@ const ThemeStudioPanel = () => {
     }
   };
 
-  const activeMeta = allThemes.find((th) => th.id === activeThemeId);
+  const activeMeta = customThemes.find((th) => th.id === activeThemeId);
   const exportJson = JSON.stringify(activeMeta ?? effectiveTheme, null, 2);
 
   // Contrast guard: warn if the editable theme's primary text on its canvas is low-contrast.
@@ -134,20 +166,46 @@ const ThemeStudioPanel = () => {
 
   return (
     <SettingsPanel description={t('settings.theme.menuDesc', 'Customize colours and fonts.')}>
-      {/* ── Preset / theme gallery ─────────────────────────────────── */}
+      {/* ── Theme gallery: family tiles + one Light/Dark/Auto toggle ──── */}
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-content-faint mb-2 px-1">
-          {t('settings.theme.presetsHeading', 'Themes')}
-        </h3>
+        <div className="mb-2 flex items-center justify-between px-1">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-content-faint">
+            {t('settings.theme.presetsHeading', 'Themes')}
+          </h3>
+          <div
+            className="inline-flex overflow-hidden rounded-lg border border-line"
+            role="radiogroup"
+            aria-label={t('settings.theme.variantAria', 'Theme variant')}>
+            {VARIANT_OPTIONS.map((opt) => {
+              const sel = opt.id === variant;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={sel}
+                  onClick={() => dispatch(setThemeVariant(opt.id))}
+                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                    sel
+                      ? 'bg-primary-500 text-content-inverted'
+                      : 'text-content-secondary hover:bg-surface-hover'
+                  }`}>
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {allThemes.map((th) => {
-            const selected = th.id === activeThemeId;
+          {families.map((fam) => {
+            const preview = resolveFamilyVariant(fam, previewVariant);
+            const selected = !isActiveCustom && fam.id === activeFamilyId;
             return (
               <button
-                key={th.id}
+                key={fam.id}
                 type="button"
                 aria-pressed={selected}
-                onClick={() => handleSelect(th.id)}
+                onClick={() => dispatch(setActiveFamily(fam.id))}
                 className={`flex flex-col gap-2 rounded-xl border p-3 text-left transition-colors ${
                   selected
                     ? 'border-primary-500 ring-1 ring-primary-500'
@@ -155,7 +213,40 @@ const ThemeStudioPanel = () => {
                 }`}>
                 <span
                   className="flex h-10 items-center gap-1 rounded-lg px-2"
-                  style={{ background: channelsToCss(swatchChannels(th, 'surface-canvas')) }}>
+                  style={{ background: tileCanvas(preview) }}>
+                  <span
+                    className="h-5 w-5 rounded-full border border-black/10"
+                    style={{ background: channelsToCss(swatchChannels(preview, 'surface')) }}
+                  />
+                  <span
+                    className="h-3 w-8 rounded-full"
+                    style={{ background: channelsToCss(swatchChannels(preview, 'content')) }}
+                  />
+                  <span
+                    className="ml-auto h-4 w-4 rounded-full"
+                    style={{ background: channelsToCss(swatchChannels(preview, 'primary-500')) }}
+                  />
+                </span>
+                <span className="text-sm font-medium text-content truncate">{fam.name}</span>
+              </button>
+            );
+          })}
+          {customThemes.map((th) => {
+            const selected = th.id === activeThemeId;
+            return (
+              <button
+                key={th.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => dispatch(setActiveTheme(th.id))}
+                className={`flex flex-col gap-2 rounded-xl border p-3 text-left transition-colors ${
+                  selected
+                    ? 'border-primary-500 ring-1 ring-primary-500'
+                    : 'border-line hover:bg-surface-hover'
+                }`}>
+                <span
+                  className="flex h-10 items-center gap-1 rounded-lg px-2"
+                  style={{ background: tileCanvas(th) }}>
                   <span
                     className="h-5 w-5 rounded-full border border-black/10"
                     style={{ background: channelsToCss(swatchChannels(th, 'surface')) }}
@@ -172,9 +263,7 @@ const ThemeStudioPanel = () => {
                 <span className="flex items-center justify-between gap-1">
                   <span className="text-sm font-medium text-content truncate">{th.name}</span>
                   <span className="text-[10px] uppercase tracking-wide text-content-faint">
-                    {th.builtIn
-                      ? t('settings.theme.builtInBadge', 'Preset')
-                      : t('settings.theme.customBadge', 'Custom')}
+                    {t('settings.theme.customBadge', 'Custom')}
                   </span>
                 </span>
               </button>

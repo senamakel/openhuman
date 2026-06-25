@@ -26,7 +26,8 @@
   --surface-muted: 250 250 250; /* inputs / subtle fills (stone-50) */
   --surface-subtle: 245 245 245; /* recessed wells (stone-100) */
   --surface-strong: 229 229 229; /* sunken / pressed (stone-200) */
-  --surface-hover: 250 250 250; /* hover fills (stone-50) */
+  --surface-hover: 240 240 240; /* hover fills — distinct from white surface so
+                                   hover reads on elevated cards, not just canvas */
   --surface-overlay: 0 0 0; /* modal scrim (used with /40../70) */
 
   /* ---- Text ---- */

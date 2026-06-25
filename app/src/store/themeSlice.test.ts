@@ -61,8 +61,9 @@ describe('themeSlice', () => {
       agentMessageViewMode: 'text',
       developerMode: false,
       hideAgentInsights: false,
-      // setThemeMode('dark') also syncs the runtime theme id.
-      activeThemeId: 'dark',
+      // setThemeMode('dark') syncs the variant; the active family is unchanged.
+      activeThemeId: 'classic',
+      themeVariant: 'dark',
       customThemes: [],
     });
   });
@@ -97,18 +98,21 @@ describe('themeSlice', () => {
   });
 
   describe('runtime themes', () => {
-    it('defaults to the system theme id with no custom themes', () => {
+    it('defaults to the classic family with the system variant', () => {
       const state = themeReducer(undefined, { type: '@@INIT' });
-      expect(state.activeThemeId).toBe(SYSTEM_THEME_ID);
+      expect(state.activeThemeId).toBe('classic');
+      expect(state.themeVariant).toBe('system');
       expect(state.customThemes).toEqual([]);
     });
 
-    it('setThemeMode keeps mode and activeThemeId in sync', () => {
+    it('setThemeMode keeps mode and themeVariant in sync (family unchanged)', () => {
       let state = themeReducer(undefined, { type: '@@INIT' });
+      state = themeReducer(state, setActiveTheme('ocean'));
       state = themeReducer(state, setThemeMode('light'));
-      expect(state.activeThemeId).toBe('light');
+      expect(state.themeVariant).toBe('light');
+      expect(state.activeThemeId).toBe('ocean'); // family preserved
       state = themeReducer(state, setThemeMode('system'));
-      expect(state.activeThemeId).toBe(SYSTEM_THEME_ID);
+      expect(state.themeVariant).toBe('system');
     });
 
     it('upserts a custom theme and makes it active', () => {
@@ -141,12 +145,12 @@ describe('themeSlice', () => {
       expect(state.customThemes[0].colors).toEqual({});
     });
 
-    it('deletes a custom theme and falls back to system when it was active', () => {
+    it('deletes a custom theme and falls back to the default family when active', () => {
       let state = themeReducer(undefined, { type: '@@INIT' });
       state = themeReducer(state, upsertCustomTheme(customTheme()));
       state = themeReducer(state, deleteCustomTheme('custom-1'));
       expect(state.customThemes).toEqual([]);
-      expect(state.activeThemeId).toBe(SYSTEM_THEME_ID);
+      expect(state.activeThemeId).toBe('classic');
     });
 
     it('selectEffectiveTheme resolves a custom theme by id', () => {

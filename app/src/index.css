@@ -27,7 +27,9 @@
     @apply font-sans;
     line-height: 1.6;
 
-    background: var(--color-background);
+    /* Themes may supply a decorative `--app-gradient`; fall back to the flat
+       canvas colour when they don't. */
+    background: var(--app-gradient, var(--color-background));
     color: var(--color-text-primary);
     position: absolute;
     top: 0;

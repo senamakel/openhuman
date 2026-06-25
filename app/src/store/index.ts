@@ -105,6 +105,7 @@ const themePersistConfig = {
     'developerMode',
     'hideAgentInsights',
     'activeThemeId',
+    'themeVariant',
     'customThemes',
   ],
 };

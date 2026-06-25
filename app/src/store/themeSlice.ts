@@ -1,13 +1,23 @@
 import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 import type { FontRole } from '../lib/theme/tokens';
-import type { Theme } from '../lib/theme/types';
-import { PRESET_THEMES, findPreset, LIGHT_THEME_ID, DARK_THEME_ID } from '../lib/theme/presets';
+import type { Theme, ThemeFamily } from '../lib/theme/types';
+import {
+  PRESET_THEMES,
+  THEME_FAMILIES,
+  findFamily,
+  familyForThemeId,
+  resolveFamilyVariant,
+} from '../lib/theme/presets';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
+/** Theme variant preference: explicit light/dark, or follow the OS. */
+export type ThemeVariant = 'light' | 'dark' | 'system';
 
 /** Sentinel active-theme id meaning "follow OS light/dark preference". */
 export const SYSTEM_THEME_ID = 'system';
+/** Default theme family selected on first run. */
+export const DEFAULT_FAMILY_ID = 'classic';
 export type TabBarLabels = 'hover' | 'always';
 export type AgentMessageViewMode = 'bubbles' | 'text';
 /**
@@ -53,12 +63,19 @@ interface ThemeState {
    */
   hideAgentInsights: boolean;
   /**
-   * Active theme id. Drives the runtime CSS-variable theme applied by
-   * ThemeProvider. May be {@link SYSTEM_THEME_ID} (follow OS light/dark), a
-   * built-in preset id (`light`, `dark`, `ocean`, …), or a custom theme id.
-   * Kept in sync with {@link ThemeState.mode} for the simple Appearance toggle.
+   * Active selection: a theme **family** id (`classic`, `ocean`, `matrix`,
+   * `hal9000`, `sepia`) or a custom theme id. Combined with
+   * {@link ThemeState.themeVariant} to resolve the concrete theme. Legacy values
+   * (`light`/`dark`/`system`/`ocean`/`midnight`) from older persisted state are
+   * normalized by {@link selectEffectiveTheme}.
    */
   activeThemeId: string;
+  /**
+   * Which variant of the active family to apply: explicit `light`/`dark` or
+   * `system` (follow OS). Mirrors {@link ThemeState.mode} so the simple
+   * Appearance toggle and the Theme Studio variant control stay in sync.
+   */
+  themeVariant: ThemeVariant;
   /** User-authored themes (full or partial token overrides). */
   customThemes: Theme[];
 }
@@ -70,7 +87,8 @@ const initialState: ThemeState = {
   agentMessageViewMode: 'text',
   developerMode: false,
   hideAgentInsights: false,
-  activeThemeId: SYSTEM_THEME_ID,
+  activeThemeId: DEFAULT_FAMILY_ID,
+  themeVariant: 'system',
   customThemes: [],
 };
 
@@ -79,23 +97,23 @@ const themeSlice = createSlice({
   initialState,
   reducers: {
     setThemeMode(state, action: PayloadAction<ThemeMode>) {
+      // The simple Appearance light/dark/system toggle drives the variant of the
+      // currently-selected family (it no longer forces the Classic family).
       state.mode = action.payload;
-      // Keep the runtime theme in sync with the simple light/dark/system toggle.
-      state.activeThemeId =
-        action.payload === 'system'
-          ? SYSTEM_THEME_ID
-          : action.payload === 'dark'
-            ? DARK_THEME_ID
-            : LIGHT_THEME_ID;
+      state.themeVariant = action.payload;
     },
-    /** Select any theme (preset, custom, or the `system` sentinel). */
+    /** Set the light/dark/system variant of the active family. */
+    setThemeVariant(state, action: PayloadAction<ThemeVariant>) {
+      state.themeVariant = action.payload;
+      state.mode = action.payload;
+    },
+    /** Select a theme family (or a custom theme id). */
+    setActiveFamily(state, action: PayloadAction<string>) {
+      state.activeThemeId = action.payload;
+    },
+    /** Back-compat alias: select any family or custom theme by id. */
     setActiveTheme(state, action: PayloadAction<string>) {
       state.activeThemeId = action.payload;
-      // Mirror into `mode` so the Appearance radios stay coherent for the
-      // three values they represent; custom/extra presets leave `mode` as-is.
-      if (action.payload === SYSTEM_THEME_ID) state.mode = 'system';
-      else if (action.payload === LIGHT_THEME_ID) state.mode = 'light';
-      else if (action.payload === DARK_THEME_ID) state.mode = 'dark';
     },
     /** Insert or replace a custom theme (by id) and make it active. */
     upsertCustomTheme(state, action: PayloadAction<Theme>) {
@@ -105,12 +123,11 @@ const themeSlice = createSlice({
       else state.customThemes.push(theme);
       state.activeThemeId = theme.id;
     },
-    /** Remove a custom theme; fall back to `system` if it was active. */
+    /** Remove a custom theme; fall back to the default family if it was active. */
     deleteCustomTheme(state, action: PayloadAction<string>) {
       state.customThemes = state.customThemes.filter((t) => t.id !== action.payload);
       if (state.activeThemeId === action.payload) {
-        state.activeThemeId = SYSTEM_THEME_ID;
-        state.mode = 'system';
+        state.activeThemeId = DEFAULT_FAMILY_ID;
       }
     },
     /** Set a single colour token (`"R G B"`) on the active custom theme. */
@@ -152,6 +169,8 @@ const themeSlice = createSlice({
 
 export const {
   setThemeMode,
+  setThemeVariant,
+  setActiveFamily,
   setTabBarLabels,
   setFontSize,
   setAgentMessageViewMode,
@@ -166,10 +185,12 @@ export const {
 } = themeSlice.actions;
 export default themeSlice.reducer;
 
+/** Built-in theme families (static). */
+export const selectThemeFamilies = (): ThemeFamily[] => THEME_FAMILIES;
+
 /**
- * All selectable themes: built-in presets followed by user-authored ones.
- * Memoized so it returns a stable array reference while `customThemes` is
- * unchanged (a fresh array each call would defeat React-Redux render bailout).
+ * All selectable concrete themes: built-in variants followed by user themes.
+ * Memoized so the reference is stable while `customThemes` is unchanged.
  */
 export const selectAllThemes = createSelector(
   (state: { theme: ThemeState }) => state.theme.customThemes,
@@ -177,24 +198,60 @@ export const selectAllThemes = createSelector(
 );
 
 export const selectActiveThemeId = (state: { theme: ThemeState }): string =>
-  state.theme.activeThemeId ?? SYSTEM_THEME_ID;
+  state.theme.activeThemeId ?? DEFAULT_FAMILY_ID;
+
+export const selectThemeVariant = (state: { theme: ThemeState }): ThemeVariant =>
+  state.theme.themeVariant ?? 'system';
 
 export const selectCustomThemes = (state: { theme: ThemeState }): Theme[] =>
   state.theme.customThemes ?? [];
 
 /**
- * Resolve the effective {@link Theme} to apply right now. The `system` sentinel
- * resolves to the Light or Dark preset via `prefers-color-scheme`; a missing /
- * unknown id falls back to Light so the UI is never left unthemed.
+ * Normalize the active selection to a `{ family, variant, custom }` shape,
+ * tolerating legacy persisted ids (`light`/`dark`/`system`/`ocean`/`midnight`).
+ * Returns `custom` set when a user theme is selected.
+ */
+function resolveSelection(state: { theme: ThemeState }): {
+  family?: ThemeFamily;
+  variant: ThemeVariant;
+  custom?: Theme;
+} {
+  const sel = state.theme.activeThemeId ?? DEFAULT_FAMILY_ID;
+  const variantPref = state.theme.themeVariant ?? 'system';
+
+  const custom = state.theme.customThemes?.find((t) => t.id === sel);
+  if (custom) return { custom, variant: variantPref };
+
+  // Current family-id selection.
+  const direct = findFamily(sel);
+  if (direct) return { family: direct, variant: variantPref };
+
+  // Legacy concrete-variant / sentinel ids.
+  if (sel === SYSTEM_THEME_ID) return { family: findFamily('classic'), variant: 'system' };
+  if (sel === 'midnight') return { family: findFamily('ocean'), variant: 'dark' };
+  const owner = familyForThemeId(sel);
+  if (owner) return { family: owner, variant: owner.dark?.id === sel ? 'dark' : 'light' };
+  return { family: findFamily('classic'), variant: variantPref };
+}
+
+/** The active family id (`''` when a custom theme is selected). */
+export function selectActiveFamilyId(state: { theme: ThemeState }): string {
+  const { family, custom } = resolveSelection(state);
+  if (custom) return '';
+  return family?.id ?? DEFAULT_FAMILY_ID;
+}
+
+/**
+ * Resolve the effective {@link Theme} to apply right now. A custom theme is
+ * returned directly; otherwise the active family's variant is resolved, with
+ * `system` consulting `prefers-color-scheme`.
  */
 export function selectEffectiveTheme(state: { theme: ThemeState }): Theme {
-  const id = state.theme.activeThemeId ?? SYSTEM_THEME_ID;
-  if (id === SYSTEM_THEME_ID) {
-    return findPreset(resolveTheme('system') === 'dark' ? DARK_THEME_ID : LIGHT_THEME_ID)!;
-  }
-  const custom = state.theme.customThemes?.find((t) => t.id === id);
+  const { family, variant, custom } = resolveSelection(state);
   if (custom) return custom;
-  return findPreset(id) ?? findPreset(LIGHT_THEME_ID)!;
+  const fam = family ?? findFamily('classic')!;
+  const resolved = variant === 'system' ? resolveTheme('system') : variant;
+  return resolveFamilyVariant(fam, resolved);
 }
 
 /**

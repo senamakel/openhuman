@@ -62,6 +62,13 @@ const ThemeProvider = ({ children }: { children: ReactNode }) => {
       if (stack) root.style.setProperty(`--font-${role}`, stack);
     }
 
+    // Optional decorative canvas gradient (behind all surfaces).
+    if (theme.gradient?.canvas) {
+      root.style.setProperty('--app-gradient', theme.gradient.canvas);
+    } else {
+      root.style.removeProperty('--app-gradient');
+    }
+
     appliedRef.current = {
       colors: Object.keys(theme.colors),
       fonts: Object.keys(theme.fonts),

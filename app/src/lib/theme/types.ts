@@ -20,4 +20,26 @@ export interface Theme {
   colors: Record<string, string>;
   /** Font role overrides → CSS font-family stack. */
   fonts: Partial<Record<FontRole, string>>;
+  /**
+   * Optional decorative gradients. `canvas` is a full CSS `background` value
+   * applied to the app background (behind all surfaces); omit for a flat
+   * canvas. Applied via the `--app-gradient` variable by ThemeProvider.
+   */
+  gradient?: {
+    canvas?: string;
+  };
+}
+
+/**
+ * A theme family groups light and dark variants under one name so the picker can
+ * offer "Ocean" with a Light/Dark/Auto choice rather than two separate entries.
+ * At least one of `light`/`dark` must be present.
+ */
+export interface ThemeFamily {
+  id: string;
+  name: string;
+  /** Which variant to use when the user picks "Auto" and no OS hint applies. */
+  defaultVariant: 'light' | 'dark';
+  light?: Theme;
+  dark?: Theme;
 }

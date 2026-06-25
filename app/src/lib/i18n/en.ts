@@ -5310,6 +5310,10 @@ const en: TranslationMap = {
   'settings.theme.title': 'Theme Studio',
   'settings.theme.menuDesc': 'Fully customize colours and fonts, or pick a preset theme.',
   'settings.theme.presetsHeading': 'Themes',
+  'settings.theme.variantLight': 'Light',
+  'settings.theme.variantDark': 'Dark',
+  'settings.theme.variantAuto': 'Auto',
+  'settings.theme.variantAria': 'Theme variant',
   'settings.theme.builtInBadge': 'Preset',
   'settings.theme.customBadge': 'Custom',
   'settings.theme.customizeHint':

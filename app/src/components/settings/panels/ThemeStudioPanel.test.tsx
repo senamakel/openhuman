@@ -14,15 +14,16 @@ const themeState = {
 };
 
 describe('<ThemeStudioPanel />', () => {
-  it('renders the preset gallery', () => {
+  it('renders the family gallery', () => {
     renderWithProviders(<ThemeStudioPanel />, {
       preloadedState: { theme: themeState },
       initialEntries: ['/settings/theme'],
     });
-    // Built-in presets are always present.
-    expect(screen.getByText('Light')).toBeInTheDocument();
-    expect(screen.getByText('Dark')).toBeInTheDocument();
+    // Theme families (each with a Light/Dark/Auto variant toggle).
+    expect(screen.getByText('Classic')).toBeInTheDocument();
     expect(screen.getByText('Ocean')).toBeInTheDocument();
+    expect(screen.getByText('Matrix')).toBeInTheDocument();
+    expect(screen.getByText('HAL 9000')).toBeInTheDocument();
   });
 
   it('duplicates the active preset into an editable custom theme', async () => {

@@ -62,50 +62,47 @@ const FALLBACK_PRICING: ModelPricing = ModelPricing {
 /// them as best-effort estimates for cases where the backend doesn't
 /// echo `charged_amount_usd`.
 pub const PRICING_TABLE: &[ModelPricing] = &[
-    // Reasoning tier — currently maps to the Claude Opus 4.x family. Rates
-    // track the `cost::catalog` Opus 4.8 row (input $5 / cached $0.50 /
-    // output $25 per Mtok, as-of 2026-06). These were previously $15/$1.50/$75
-    // (Opus 3.x-era list prices) — ~3× the current rate — which over-estimated
-    // every reasoning turn that fell back to estimation. Keep in sync with the
-    // catalog when it refreshes.
+    // Reasoning tier — managed "Pro" model rates (estimate; the backend's
+    // echoed `charged_amount_usd` is authoritative when present). Shared with
+    // the coding/agentic tiers below. Update when backend pricing changes.
     ModelPricing {
         model: "reasoning-v1",
-        input_per_mtok_usd: 5.00,
-        cached_input_per_mtok_usd: 0.50,
-        output_per_mtok_usd: 25.00,
+        input_per_mtok_usd: 0.435,
+        cached_input_per_mtok_usd: 0.003625,
+        output_per_mtok_usd: 0.87,
     },
-    // Chat tier — Kimi K2.6 Turbo on Fireworks (backend PR #760).
-    // Low TTFT, 128k context, `supportsThinking: false`. Rates track the
-    // `cost::catalog` kimi-k2.6 row ($0.95 / $0.16 / $4.00 per Mtok).
+    // Chat tier — managed "Flash" model rates (estimate). Cheaper, lower-latency
+    // model used for direct conversational turns.
     ModelPricing {
         model: "chat-v1",
-        input_per_mtok_usd: 0.95,
-        cached_input_per_mtok_usd: 0.16,
-        output_per_mtok_usd: 4.00,
+        input_per_mtok_usd: 0.14,
+        cached_input_per_mtok_usd: 0.0028,
+        output_per_mtok_usd: 0.28,
     },
-    // Legacy chat tier slug retained for older transcripts/configs.
+    // Legacy chat tier slug retained for older transcripts/configs — "Flash"
+    // rates, same as `chat-v1`.
     ModelPricing {
         model: "reasoning-quick-v1",
-        input_per_mtok_usd: 0.60,
-        cached_input_per_mtok_usd: 0.06,
-        output_per_mtok_usd: 2.50,
+        input_per_mtok_usd: 0.14,
+        cached_input_per_mtok_usd: 0.0028,
+        output_per_mtok_usd: 0.28,
     },
-    // Agentic tier — maps to Sonnet-class models.
+    // Agentic tier — managed "Pro" model rates (same as reasoning).
     ModelPricing {
         model: "agentic-v1",
-        input_per_mtok_usd: 3.00,
-        cached_input_per_mtok_usd: 0.30,
-        output_per_mtok_usd: 15.00,
+        input_per_mtok_usd: 0.435,
+        cached_input_per_mtok_usd: 0.003625,
+        output_per_mtok_usd: 0.87,
     },
-    // Coding tier — Sonnet-class.
+    // Coding tier — managed "Pro" model rates (same as reasoning).
     ModelPricing {
         model: "coding-v1",
-        input_per_mtok_usd: 3.00,
-        cached_input_per_mtok_usd: 0.30,
-        output_per_mtok_usd: 15.00,
+        input_per_mtok_usd: 0.435,
+        cached_input_per_mtok_usd: 0.003625,
+        output_per_mtok_usd: 0.87,
     },
-    // Vision tier — multimodal Sonnet-class. Estimate only; the backend's
-    // echoed `charged_amount_usd` is authoritative when present.
+    // Vision tier — multimodal; estimate only. The backend's echoed
+    // `charged_amount_usd` is authoritative when present.
     ModelPricing {
         model: "vision-v1",
         input_per_mtok_usd: 3.00,
@@ -241,10 +238,9 @@ mod tests {
 
     #[test]
     fn lookup_pricing_matches_canonical_tiers() {
-        // Reasoning tier tracks the catalogued Opus 4.8 rate ($5/Mtok input),
-        // not the stale $15 Opus 3.x list price.
-        assert_eq!(lookup_pricing("reasoning-v1").input_per_mtok_usd, 5.0);
-        assert_eq!(lookup_pricing("agentic-v1").output_per_mtok_usd, 15.0);
+        // Reasoning/agentic share the managed "Pro" rates.
+        assert_eq!(lookup_pricing("reasoning-v1").input_per_mtok_usd, 0.435);
+        assert_eq!(lookup_pricing("agentic-v1").output_per_mtok_usd, 0.87);
     }
 
     #[test]
@@ -265,8 +261,8 @@ mod tests {
     #[test]
     fn lookup_pricing_handles_concrete_vendor_names() {
         // `claude-opus-4.7` (dotted, not a catalog id) resolves via the `opus`
-        // vendor heuristic to the reasoning tier — now $5/Mtok input.
-        assert_eq!(lookup_pricing("claude-opus-4.7").input_per_mtok_usd, 5.0);
+        // vendor heuristic to the reasoning tier ("Pro" rates).
+        assert_eq!(lookup_pricing("claude-opus-4.7").input_per_mtok_usd, 0.435);
         assert_eq!(
             lookup_pricing("claude-sonnet-4-6").output_per_mtok_usd,
             15.0
@@ -284,11 +280,11 @@ mod tests {
 
     #[test]
     fn estimate_call_cost_subtracts_cached_input() {
-        // 1M standard input + 1M cached input + 1M output on agentic-v1.
+        // 1M standard input + 1M cached input + 1M output on agentic-v1 ("Pro").
         let u = usage(2_000_000, 1_000_000, 1_000_000, 0.0);
         let est = estimate_call_cost_usd("agentic-v1", &u);
-        // 1M * 3 + 1M * 0.3 + 1M * 15 = 18.3
-        assert!((est - 18.3).abs() < 1e-6, "got {est}");
+        // 1M*0.435 + 1M*0.003625 + 1M*0.87 = 1.308625
+        assert!((est - 1.308625).abs() < 1e-6, "got {est}");
     }
 
     #[test]
@@ -300,19 +296,19 @@ mod tests {
     #[test]
     fn call_cost_falls_back_to_estimate_when_charged_zero() {
         let u = usage(1_000_000, 0, 0, 0.0);
-        // 1M input * 3 = 3
-        assert!((call_cost_usd("agentic-v1", &u) - 3.0).abs() < 1e-6);
+        // 1M input * 0.435 = 0.435
+        assert!((call_cost_usd("agentic-v1", &u) - 0.435).abs() < 1e-6);
     }
 
     #[test]
     fn turn_cost_accumulates_charged_and_estimated_separately() {
         let mut tc = TurnCost::new();
         tc.add_call("reasoning-v1", &usage(0, 0, 0, 0.10));
-        tc.add_call("agentic-v1", &usage(1_000_000, 0, 0, 0.0)); // est: 3.00
+        tc.add_call("agentic-v1", &usage(1_000_000, 0, 0, 0.0)); // est: 0.435
         assert_eq!(tc.call_count, 2);
         assert!((tc.charged_usd - 0.10).abs() < 1e-6);
-        assert!((tc.estimated_usd - 3.0).abs() < 1e-6);
-        assert!((tc.total_usd() - 3.10).abs() < 1e-6);
+        assert!((tc.estimated_usd - 0.435).abs() < 1e-6);
+        assert!((tc.total_usd() - 0.535).abs() < 1e-6);
     }
 
     #[test]

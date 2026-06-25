@@ -40,6 +40,15 @@ impl Compressor for CodeCompressor {
         input: &CompressInput<'_>,
         _opts: &CompressOptions,
     ) -> Option<CompressOutput> {
+        // Prefer the AST path when a grammar matches the file's language; fall
+        // back to the language-agnostic heuristic otherwise (or when the AST
+        // path doesn't shrink the content).
+        #[cfg(feature = "tokenjuice-treesitter")]
+        if let Some(ext) = input.hint.extension.as_deref() {
+            if let Some(out) = treesitter::compress(input.content, ext) {
+                return Some(out);
+            }
+        }
         compress_heuristic(input.content)
     }
 }
@@ -136,6 +145,121 @@ fn brace_delta(line: &str) -> (i32, i32) {
     (opens, closes)
 }
 
+/// AST-aware code compression via tree-sitter (Rust/TS/JS/Python). Keeps full
+/// source but replaces function/method bodies longer than a threshold with a
+/// `{ … N lines … }` (or `...` for Python) placeholder, preserving signatures,
+/// imports, type declarations and struct/enum fields exactly.
+#[cfg(feature = "tokenjuice-treesitter")]
+mod treesitter {
+    use super::{CompressOutput, CompressorKind, MIN_BODY_LINES_TO_COLLAPSE};
+    use tree_sitter::{Node, Parser};
+
+    /// Pick the grammar for a file extension. Returns the language plus whether
+    /// it is brace-delimited (vs. Python's indentation suite).
+    fn language_for(ext: &str) -> Option<(tree_sitter::Language, bool)> {
+        let ext = ext.to_ascii_lowercase();
+        match ext.as_str() {
+            "rs" => Some((tree_sitter_rust::LANGUAGE.into(), true)),
+            "ts" | "mts" | "cts" => {
+                Some((tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(), true))
+            }
+            "tsx" => Some((tree_sitter_typescript::LANGUAGE_TSX.into(), true)),
+            "js" | "jsx" | "mjs" | "cjs" => {
+                // The TypeScript grammar is a superset that parses JS too.
+                Some((tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(), true))
+            }
+            "py" | "pyi" => Some((tree_sitter_python::LANGUAGE.into(), false)),
+            _ => None,
+        }
+    }
+
+    /// Node kinds whose `body` field is a collapsible function/method body.
+    const BODY_PARENTS: &[&str] = &[
+        "function_item",
+        "function_declaration",
+        "function_definition",
+        "method_definition",
+        "function",
+        "arrow_function",
+        "generator_function_declaration",
+    ];
+
+    pub fn compress(content: &str, ext: &str) -> Option<CompressOutput> {
+        let (language, braced) = language_for(ext)?;
+        let mut parser = Parser::new();
+        parser.set_language(&language).ok()?;
+        let tree = parser.parse(content, None)?;
+        let src = content.as_bytes();
+
+        // Collect outermost collapsible body byte-ranges.
+        let mut ranges: Vec<(usize, usize)> = Vec::new();
+        collect_bodies(tree.root_node(), src, &mut ranges);
+        // Sort and drop nested ranges (keep outermost only).
+        ranges.sort_by_key(|r| r.0);
+        let mut merged: Vec<(usize, usize)> = Vec::new();
+        for r in ranges {
+            if let Some(last) = merged.last() {
+                if r.0 < last.1 {
+                    continue; // nested inside a body we're already collapsing
+                }
+            }
+            merged.push(r);
+        }
+        if merged.is_empty() {
+            return None;
+        }
+
+        let mut out = String::with_capacity(content.len());
+        let mut cursor = 0usize;
+        for (start, end) in merged {
+            if start < cursor {
+                continue;
+            }
+            out.push_str(&content[cursor..start]);
+            let body = &content[start..end];
+            let n_lines = body.lines().count();
+            if n_lines < MIN_BODY_LINES_TO_COLLAPSE {
+                out.push_str(body);
+            } else if braced {
+                out.push_str(&format!("{{ … {n_lines} line(s) … }}"));
+            } else {
+                // Python suite — keep an indented ellipsis so it still reads.
+                out.push_str(&format!("...  # {n_lines} line(s) collapsed"));
+            }
+            cursor = end;
+        }
+        out.push_str(&content[cursor..]);
+
+        let out = out.trim_end().to_string();
+        if out.len() >= content.len() {
+            return None;
+        }
+        log::debug!(
+            "[tokenjuice][code] tree-sitter ext={} {} -> {} bytes",
+            ext,
+            content.len(),
+            out.len()
+        );
+        Some(CompressOutput::lossy(out, CompressorKind::Code))
+    }
+
+    /// Recursively collect the byte-ranges of function/method bodies.
+    fn collect_bodies(node: Node, src: &[u8], out: &mut Vec<(usize, usize)>) {
+        if BODY_PARENTS.contains(&node.kind()) {
+            if let Some(body) = node.child_by_field_name("body") {
+                out.push((body.start_byte(), body.end_byte()));
+                // Don't descend into a collapsed body.
+                let _ = src;
+                return;
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            collect_bodies(child, src, out);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,6 +286,41 @@ mod tests {
     fn short_file_passes_through() {
         let src = "fn a() {}\nfn b() {}\n";
         assert!(compress_heuristic(src).is_none());
+    }
+
+    #[cfg(feature = "tokenjuice-treesitter")]
+    #[test]
+    fn treesitter_collapses_rust_body_keeps_struct() {
+        let mut src = String::from("use std::collections::HashMap;\n\n");
+        src.push_str("pub fn process(items: &[i32]) -> i32 {\n");
+        for i in 0..30 {
+            src.push_str(&format!("    let tmp_{i} = items.iter().sum::<i32>() + {i};\n"));
+        }
+        src.push_str("    tmp_0\n}\n\n");
+        src.push_str("pub struct Config {\n    pub name: String,\n    pub size: usize,\n}\n");
+        let out = treesitter::compress(&src, "rs").expect("compresses");
+        assert!(out.text.contains("pub fn process(items: &[i32]) -> i32"), "{}", out.text);
+        // Struct fields preserved exactly (not a function body).
+        assert!(out.text.contains("pub name: String"), "{}", out.text);
+        assert!(out.text.contains("pub size: usize"));
+        // Function body collapsed.
+        assert!(out.text.contains("line(s) …"), "{}", out.text);
+        assert!(!out.text.contains("tmp_15"));
+        assert!(out.text.len() < src.len());
+    }
+
+    #[cfg(feature = "tokenjuice-treesitter")]
+    #[test]
+    fn treesitter_collapses_python_body() {
+        let mut src = String::from("import os\n\ndef handler(event):\n");
+        for i in 0..30 {
+            src.push_str(&format!("    x_{i} = compute(event, {i})\n"));
+        }
+        src.push_str("    return x_0\n");
+        let out = treesitter::compress(&src, "py").expect("compresses");
+        assert!(out.text.contains("def handler(event):"), "{}", out.text);
+        assert!(out.text.contains("collapsed"), "{}", out.text);
+        assert!(!out.text.contains("x_15"));
     }
 
     #[test]

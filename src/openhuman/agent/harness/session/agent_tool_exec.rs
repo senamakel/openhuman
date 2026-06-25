@@ -241,15 +241,18 @@ pub(super) async fn run_agent_tool_call(
         (format!("Unknown tool: {}", call.name), false)
     };
 
-    // Stage 1a — content-aware compaction. Runs before the byte budget on the
-    // fresh tool output (never sent to the backend yet, so it's cache-safe like
-    // the budget below). Routes by tool name; only ever shrinks, otherwise
-    // passes the original through. See `agent::harness::compaction`.
-    let raw_result = crate::openhuman::agent::harness::compaction::compact_tool_output(
+    // Stage 1a — content-aware compaction via the TokenJuice content router.
+    // Runs before the byte budget on the fresh tool output (never sent to the
+    // backend yet, so it's cache-safe like the budget below). Detects the
+    // content kind, routes to the matching compressor, and offloads the
+    // original to CCR (recoverable via `tokenjuice_retrieve`); only ever
+    // shrinks, otherwise passes the original through.
+    let raw_result = crate::openhuman::tokenjuice::compact_output(
         raw_result,
         &call.name,
         ctx.compaction_enabled,
-    );
+    )
+    .await;
 
     // Per-result byte budget — the only cache-safe reduction stage (the full
     // body has never been sent to the backend). Oversized outputs are persisted

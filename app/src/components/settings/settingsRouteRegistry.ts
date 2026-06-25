@@ -760,6 +760,27 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'diagnosticsLogs',
   },
 
+  // Token & Cost — TokenJuice compression settings + savings statistics.
+  {
+    id: 'token-usage',
+    titleKey: 'settings.tokenUsage.title',
+    descriptionKey: 'settings.tokenUsage.menuDesc',
+    section: 'ai',
+    navGroup: 'modelsInference',
+    navOrder: 5,
+    searchKeywords: [
+      'token',
+      'tokens',
+      'cost',
+      'compression',
+      'compaction',
+      'tokenjuice',
+      'cache',
+      'ccr',
+      'savings',
+    ],
+  },
+
   // =========================================================================
   // INTENTIONALLY HIDDEN / DEEP-LINK ONLY (not surfaced in any menu)
   // =========================================================================

@@ -2246,6 +2246,12 @@ fn register_domain_subscribers(
         // initial throttle decision on battery-powered hosts).
         crate::openhuman::scheduler_gate::init_global(&config);
 
+        // Install the TokenJuice content-router runtime config (compressor
+        // toggles + CCR cache limits + optional on-disk tier). Compaction runs
+        // on every agent's tool output, so this must be set before any agent
+        // loop executes a tool.
+        crate::openhuman::tokenjuice::install_from_config(&config);
+
         // Seed the scheduler-gate signed-out override from the on-disk
         // session. Without this, a sidecar that boots with no stored JWT
         // would happily spin up cron / channel loops and fire LLM requests

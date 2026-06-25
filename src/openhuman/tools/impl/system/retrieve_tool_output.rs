@@ -69,7 +69,7 @@ impl Tool for RetrieveToolOutputTool {
             ));
         };
 
-        match crate::openhuman::agent::harness::compaction::store::retrieve(hash) {
+        match crate::openhuman::tokenjuice::cache::retrieve(hash) {
             Some(original) => {
                 log::debug!(
                     "[compaction][ccr] retrieved hash={} bytes={}",
@@ -89,7 +89,7 @@ impl Tool for RetrieveToolOutputTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::agent::harness::compaction::store;
+    use crate::openhuman::tokenjuice::cache::store;
 
     #[tokio::test]
     async fn retrieves_offloaded_original() {

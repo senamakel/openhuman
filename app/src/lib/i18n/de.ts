@@ -289,6 +289,48 @@ const messages: TranslationMap = {
     'Speichergraph-Analyse — Diagramm, Zentralität, Kohäsion, Verknüpfungen, Aktualität, Zeitachse, Pfade und Namensräume',
   'settings.buildInfo.title': 'Build-/Versionsinfo',
   'settings.buildInfo.menuDesc': 'App-Build, Version und Details zur Core-Verbindung',
+  'settings.tokenUsage.title': 'Tokens & Kosten',
+  'settings.tokenUsage.menuDesc':
+    'Komprimierungseinstellungen und wie viele Tokens und Dollar sie eingespart haben',
+  'settings.tokenUsage.saving': 'Wird gespeichert…',
+  'settings.tokenUsage.saved': 'Gespeichert',
+  'settings.tokenUsage.savingsTitle': 'Einsparungen',
+  'settings.tokenUsage.attributedTo': 'Kosten kalkuliert für {model}',
+  'settings.tokenUsage.tokensSaved': 'Eingesparte Tokens',
+  'settings.tokenUsage.costSaved': 'Eingesparte Kosten',
+  'settings.tokenUsage.cacheOccupancy': 'Zwischengespeicherte Originale',
+  'settings.tokenUsage.compactions': 'Komprimierungen',
+  'settings.tokenUsage.overEvents': 'über {count} Komprimierungen',
+  'settings.tokenUsage.byCompressor': 'Nach Kompressor',
+  'settings.tokenUsage.refresh': 'Aktualisieren',
+  'settings.tokenUsage.reset': 'Statistiken zurücksetzen',
+  'settings.tokenUsage.compressionTitle': 'Komprimierung',
+  'settings.tokenUsage.compressionDesc':
+    'Inhaltsbewusste Komprimierung großer Tool-Ausgaben, bevor sie in den Modellkontext gelangen.',
+  'settings.tokenUsage.routerEnabled': 'Komprimierung aktivieren',
+  'settings.tokenUsage.routerEnabledDesc': 'Hauptschalter für den Inhalts-Router.',
+  'settings.tokenUsage.search': 'Suchergebnisse',
+  'settings.tokenUsage.searchDesc':
+    'grep-/Suchausgabe nach Relevanz sortieren und die besten Treffer behalten.',
+  'settings.tokenUsage.code': 'Quellcode',
+  'settings.tokenUsage.codeDesc': 'Signaturen behalten, Funktionskörper einklappen.',
+  'settings.tokenUsage.html': 'HTML',
+  'settings.tokenUsage.htmlDesc': 'Markup zu lesbarem Text entfernen.',
+  'settings.tokenUsage.ml': 'ML-Textkompressor',
+  'settings.tokenUsage.mlDesc':
+    'Lokales ModernBERT-Modell für Klartext (erfordert Python-Laufzeitumgebung).',
+  'settings.tokenUsage.ccrTitle': 'Cache & Wiederherstellung (CCR)',
+  'settings.tokenUsage.ccrDesc':
+    'Komprimierte Originale werden zwischengespeichert, damit der Agent den vollständigen Text bei Bedarf abrufen kann.',
+  'settings.tokenUsage.ccrEnabled': 'Originale zur Wiederherstellung behalten',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'Das Original auslagern und eine Abrufmarkierung hinzufügen, damit nichts verloren geht.',
+  'settings.tokenUsage.ccrMinTokens': 'Mindestgröße zum Zwischenspeichern',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'Nur Ergebnisse zwischenspeichern und verlustbehaftet komprimieren, die auf diese Anzahl an Tokens oder mehr geschätzt werden.',
+  'settings.tokenUsage.tokensUnit': 'Tokens',
+  'settings.tokenUsage.ccrDisk': 'Cache auf Datenträger speichern',
+  'settings.tokenUsage.ccrDiskDesc': 'Wiederherstellbare Originale über Neustarts hinweg behalten.',
   'settings.dataSync.title': 'Datensynchronisierung',
   'settings.dataSync.menuDesc':
     'Was dein Assistent synchronisiert — Quellen, Aktualität und Status',

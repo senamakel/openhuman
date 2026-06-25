@@ -286,6 +286,48 @@ const messages: TranslationMap = {
     'Analiza grafu pamięci — diagram, centralność, spójność, powiązania, świeżość, oś czasu, ścieżki i przestrzenie nazw',
   'settings.buildInfo.title': 'Informacje o kompilacji/wersji',
   'settings.buildInfo.menuDesc': 'Kompilacja aplikacji, wersja i szczegóły połączenia z rdzeniem',
+  'settings.tokenUsage.title': 'Tokeny i koszt',
+  'settings.tokenUsage.menuDesc': 'Ustawienia kompresji oraz ile tokenów i dolarów zaoszczędziły',
+  'settings.tokenUsage.saving': 'Zapisywanie…',
+  'settings.tokenUsage.saved': 'Zapisano',
+  'settings.tokenUsage.savingsTitle': 'Oszczędności',
+  'settings.tokenUsage.attributedTo': 'Koszt wyceniony dla {model}',
+  'settings.tokenUsage.tokensSaved': 'Zaoszczędzone tokeny',
+  'settings.tokenUsage.costSaved': 'Zaoszczędzony koszt',
+  'settings.tokenUsage.cacheOccupancy': 'Oryginały w pamięci podręcznej',
+  'settings.tokenUsage.compactions': 'Kompaktowania',
+  'settings.tokenUsage.overEvents': 'w ciągu {count} kompaktowań',
+  'settings.tokenUsage.byCompressor': 'Według kompresora',
+  'settings.tokenUsage.refresh': 'Odśwież',
+  'settings.tokenUsage.reset': 'Resetuj statystyki',
+  'settings.tokenUsage.compressionTitle': 'Kompresja',
+  'settings.tokenUsage.compressionDesc':
+    'Kompaktowanie dużych wyników narzędzi z uwzględnieniem treści, zanim trafią do kontekstu modelu.',
+  'settings.tokenUsage.routerEnabled': 'Włącz kompresję',
+  'settings.tokenUsage.routerEnabledDesc': 'Główny przełącznik routera treści.',
+  'settings.tokenUsage.search': 'Wyniki wyszukiwania',
+  'settings.tokenUsage.searchDesc':
+    'Sortuj wynik grep/wyszukiwania według trafności, zachowując najlepsze dopasowania.',
+  'settings.tokenUsage.code': 'Kod źródłowy',
+  'settings.tokenUsage.codeDesc': 'Zachowaj sygnatury, zwiń ciała funkcji.',
+  'settings.tokenUsage.html': 'HTML',
+  'settings.tokenUsage.htmlDesc': 'Usuń znaczniki, aby uzyskać czytelny tekst.',
+  'settings.tokenUsage.ml': 'Kompresor tekstu ML',
+  'settings.tokenUsage.mlDesc':
+    'Lokalny model ModernBERT dla zwykłego tekstu (wymaga środowiska uruchomieniowego Python).',
+  'settings.tokenUsage.ccrTitle': 'Pamięć podręczna i odzyskiwanie (CCR)',
+  'settings.tokenUsage.ccrDesc':
+    'Skompaktowane oryginały są przechowywane w pamięci podręcznej, aby agent mógł pobrać pełny tekst na żądanie.',
+  'settings.tokenUsage.ccrEnabled': 'Zachowaj oryginały do odzyskania',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'Przenieś oryginał i dodaj znacznik pobierania, aby nic nie zostało utracone.',
+  'settings.tokenUsage.ccrMinTokens': 'Minimalny rozmiar do zapisania w pamięci podręcznej',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'Zapisuj w pamięci podręcznej i stratnie kompaktuj tylko wyniki szacowane na tę liczbę tokenów lub więcej.',
+  'settings.tokenUsage.tokensUnit': 'tokeny',
+  'settings.tokenUsage.ccrDisk': 'Zachowaj pamięć podręczną na dysku',
+  'settings.tokenUsage.ccrDiskDesc':
+    'Zachowuj możliwe do odzyskania oryginały między ponownymi uruchomieniami.',
   'settings.dataSync.title': 'Synchronizacja danych',
   'settings.dataSync.menuDesc': 'Co synchronizuje Twój asystent — źródła, świeżość i status',
   'settings.dataSync.description':

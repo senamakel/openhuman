@@ -16,7 +16,7 @@ fn spec(name: &str) -> ToolSpec {
 
 #[test]
 fn recovery_tool_joins_a_named_allowlist() {
-    use crate::openhuman::agent::harness::compaction::RECOVERY_TOOL_NAME;
+    use crate::openhuman::tokenjuice::RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
     use std::collections::HashSet;
 
     // A curated Named-scope allowlist gains retrieve_tool_output as a *real*

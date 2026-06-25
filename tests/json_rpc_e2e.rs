@@ -982,6 +982,120 @@ fn ensure_test_rpc_auth() {
 }
 
 #[tokio::test]
+async fn json_rpc_tokenjuice_detect_and_cache_stats() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // detect: a JSON array of objects classifies as `json`.
+    let detect = post_json_rpc(
+        &rpc_base,
+        1860_1,
+        "openhuman.tokenjuice_detect",
+        json!({ "content": r#"[{"a":1,"b":2},{"a":3,"b":4}]"# }),
+    )
+    .await;
+    let detect_result = assert_no_jsonrpc_error(&detect, "tokenjuice_detect");
+    assert_eq!(
+        detect_result.get("kind").and_then(Value::as_str),
+        Some("json")
+    );
+
+    // cache_stats: returns numeric occupancy fields.
+    let stats = post_json_rpc(
+        &rpc_base,
+        1860_2,
+        "openhuman.tokenjuice_cache_stats",
+        json!({}),
+    )
+    .await;
+    let stats_result = assert_no_jsonrpc_error(&stats, "tokenjuice_cache_stats");
+    assert!(stats_result
+        .get("entries")
+        .and_then(Value::as_u64)
+        .is_some());
+    assert!(stats_result.get("bytes").and_then(Value::as_u64).is_some());
+
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_tokenjuice_settings_and_savings() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // settings_get: returns the [tokenjuice] block with the configurable
+    // CCR token threshold (default 500) and the router master switch.
+    let get = post_json_rpc(
+        &rpc_base,
+        1861_1,
+        "openhuman.tokenjuice_settings_get",
+        json!({}),
+    )
+    .await;
+    let get_result = assert_no_jsonrpc_error(&get, "tokenjuice_settings_get");
+    let settings = get_result
+        .get("settings")
+        .expect("settings_get returns a settings object");
+    assert!(settings
+        .get("router_enabled")
+        .and_then(Value::as_bool)
+        .is_some());
+    assert!(settings
+        .get("ccr_min_tokens")
+        .and_then(Value::as_u64)
+        .is_some());
+
+    // settings_update: flip the CCR token threshold and confirm it round-trips.
+    let updated = post_json_rpc(
+        &rpc_base,
+        1861_2,
+        "openhuman.tokenjuice_settings_update",
+        json!({ "patch": { "ccr_min_tokens": 750 } }),
+    )
+    .await;
+    let updated_result = assert_no_jsonrpc_error(&updated, "tokenjuice_settings_update");
+    assert_eq!(
+        updated_result
+            .get("settings")
+            .and_then(|s| s.get("ccr_min_tokens"))
+            .and_then(Value::as_u64),
+        Some(750)
+    );
+
+    // savings_stats: returns the aggregate shape (total + attribution model + cache).
+    let savings = post_json_rpc(
+        &rpc_base,
+        1861_3,
+        "openhuman.tokenjuice_savings_stats",
+        json!({}),
+    )
+    .await;
+    let savings_result = assert_no_jsonrpc_error(&savings, "tokenjuice_savings_stats");
+    assert!(savings_result.get("attributionModel").is_some());
+    assert!(savings_result
+        .get("total")
+        .and_then(|t| t.get("tokensSaved"))
+        .and_then(Value::as_u64)
+        .is_some());
+    assert!(savings_result.get("cache").is_some());
+
+    // savings_reset: zeroes the totals.
+    let reset = post_json_rpc(
+        &rpc_base,
+        1861_4,
+        "openhuman.tokenjuice_savings_reset",
+        json!({}),
+    )
+    .await;
+    let reset_result = assert_no_jsonrpc_error(&reset, "tokenjuice_savings_reset");
+    assert_eq!(reset_result.get("ok").and_then(Value::as_bool), Some(true));
+
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_tool_registry_lists_and_gets_entries() {
     let _env_lock = json_rpc_e2e_env_lock();
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;

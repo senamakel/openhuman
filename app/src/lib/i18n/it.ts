@@ -289,6 +289,49 @@ const messages: TranslationMap = {
     'Analisi del grafo di memoria — diagramma, centralità, coesione, associazioni, freschezza, cronologia, percorsi e namespace',
   'settings.buildInfo.title': 'Info build/versione',
   'settings.buildInfo.menuDesc': 'Build dell’app, versione e dettagli di connessione del core',
+  'settings.tokenUsage.title': 'Token e costo',
+  'settings.tokenUsage.menuDesc':
+    'Impostazioni di compressione e quanti token e dollari hanno fatto risparmiare',
+  'settings.tokenUsage.saving': 'Salvataggio…',
+  'settings.tokenUsage.saved': 'Salvato',
+  'settings.tokenUsage.savingsTitle': 'Risparmi',
+  'settings.tokenUsage.attributedTo': 'Costo calcolato per {model}',
+  'settings.tokenUsage.tokensSaved': 'Token risparmiati',
+  'settings.tokenUsage.costSaved': 'Costo risparmiato',
+  'settings.tokenUsage.cacheOccupancy': 'Originali memorizzati nella cache',
+  'settings.tokenUsage.compactions': 'Compattazioni',
+  'settings.tokenUsage.overEvents': 'su {count} compattazioni',
+  'settings.tokenUsage.byCompressor': 'Per compressore',
+  'settings.tokenUsage.refresh': 'Aggiorna',
+  'settings.tokenUsage.reset': 'Reimposta statistiche',
+  'settings.tokenUsage.compressionTitle': 'Compressione',
+  'settings.tokenUsage.compressionDesc':
+    'Compattazione consapevole del contenuto dei grandi output degli strumenti prima che entrino nel contesto del modello.',
+  'settings.tokenUsage.routerEnabled': 'Abilita compressione',
+  'settings.tokenUsage.routerEnabledDesc': 'Interruttore principale del router dei contenuti.',
+  'settings.tokenUsage.search': 'Risultati di ricerca',
+  'settings.tokenUsage.searchDesc':
+    'Ordina l’output di grep/ricerca per pertinenza, mantenendo le corrispondenze migliori.',
+  'settings.tokenUsage.code': 'Codice sorgente',
+  'settings.tokenUsage.codeDesc': 'Mantieni le firme, comprimi i corpi delle funzioni.',
+  'settings.tokenUsage.html': 'HTML',
+  'settings.tokenUsage.htmlDesc': 'Rimuovi il markup per ottenere testo leggibile.',
+  'settings.tokenUsage.ml': 'Compressore di testo ML',
+  'settings.tokenUsage.mlDesc':
+    'Modello ModernBERT locale per testo semplice (richiede l’ambiente di esecuzione Python).',
+  'settings.tokenUsage.ccrTitle': 'Cache e recupero (CCR)',
+  'settings.tokenUsage.ccrDesc':
+    'Gli originali compattati vengono memorizzati nella cache così l’agente può recuperare il testo completo su richiesta.',
+  'settings.tokenUsage.ccrEnabled': 'Conserva gli originali per il recupero',
+  'settings.tokenUsage.ccrEnabledDesc':
+    'Sposta l’originale e aggiungi un indicatore di recupero così non si perde nulla.',
+  'settings.tokenUsage.ccrMinTokens': 'Dimensione minima da memorizzare nella cache',
+  'settings.tokenUsage.ccrMinTokensDesc':
+    'Memorizza nella cache e compatta con perdita solo i risultati stimati a questo numero di token o più.',
+  'settings.tokenUsage.tokensUnit': 'token',
+  'settings.tokenUsage.ccrDisk': 'Mantieni la cache su disco',
+  'settings.tokenUsage.ccrDiskDesc':
+    'Conserva gli originali recuperabili tra un riavvio e l’altro.',
   'settings.dataSync.title': 'Sincronizzazione dati',
   'settings.dataSync.menuDesc': 'Ciò che il tuo assistente sincronizza — fonti, freschezza e stato',
   'settings.dataSync.description':

@@ -4026,6 +4026,10 @@ async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
 
 #[tokio::test]
 async fn memory_ops_public_handlers_cover_document_file_kv_graph_and_envelopes() {
+    Box::pin(memory_ops_public_handlers_cover_document_file_kv_graph_and_envelopes_body()).await;
+}
+
+async fn memory_ops_public_handlers_cover_document_file_kv_graph_and_envelopes_body() {
     let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());

@@ -204,4 +204,70 @@ describe('Command palette', () => {
       });
     }
   });
+
+  it('opens the keyboard-shortcuts help via mod+/ and lists grouped shortcuts', async () => {
+    // `mod+/` is allowed even while an input is focused, so it reliably opens
+    // the help directory regardless of where focus currently sits.
+    let list = await browser.$('[data-testid="keyboard-shortcuts-list"]');
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await dispatchKey('/', MOD_KEY);
+      list = await browser.$('[data-testid="keyboard-shortcuts-list"]');
+      try {
+        await list.waitForExist({ timeout: 3000 });
+        break;
+      } catch {
+        if (attempt === 2) throw new Error('Shortcuts help did not open after 3 mod+/ attempts');
+      }
+    }
+
+    // The directory renders live from the command registry — assert a couple of
+    // the new global actions and a group heading are present.
+    for (const label of ['New Chat', 'Toggle Sidebar', 'Navigation']) {
+      const found = await browser.execute((lbl: string) => {
+        const root = document.querySelector('[data-testid="keyboard-shortcuts-list"]');
+        return !!root && (root.textContent ?? '').includes(lbl);
+      }, label);
+      expect(found).toBe(true);
+    }
+
+    // Esc closes the overlay (ModalShell's useEscapeKey).
+    try {
+      await browser.keys('Escape');
+    } catch {
+      await dispatchKey('Escape');
+    }
+    await browser.waitUntil(async () => !(await list.isExisting()), {
+      timeout: 3000,
+      timeoutMsg: 'shortcuts help did not close on Escape',
+    });
+  });
+
+  it('opens the keyboard-shortcuts help via the ? key', async () => {
+    // `?` must NOT fire while a text field is focused (so users can still type
+    // a literal "?"), so blur first to emulate pressing it from app chrome.
+    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur?.());
+
+    let list = await browser.$('[data-testid="keyboard-shortcuts-list"]');
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await dispatchKey('?');
+      list = await browser.$('[data-testid="keyboard-shortcuts-list"]');
+      try {
+        await list.waitForExist({ timeout: 3000 });
+        break;
+      } catch {
+        if (attempt === 2) throw new Error('Shortcuts help did not open after 3 ? attempts');
+      }
+    }
+    expect(await list.isExisting()).toBe(true);
+
+    try {
+      await browser.keys('Escape');
+    } catch {
+      await dispatchKey('Escape');
+    }
+    await browser.waitUntil(async () => !(await list.isExisting()), {
+      timeout: 3000,
+      timeoutMsg: 'shortcuts help did not close',
+    });
+  });
 });

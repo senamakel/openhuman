@@ -93,7 +93,7 @@ describe('<ComposerTokenStats />', () => {
     expect(screen.queryByTestId('composer-token-breakdown')).not.toBeInTheDocument();
   });
 
-  it('breaks down spend per sub-agent in the popover', () => {
+  it('breaks down spend per agent: orchestrator (derived) + sub-agents', () => {
     renderWithUsage([
       {
         inputTokens: 500,
@@ -104,17 +104,21 @@ describe('<ComposerTokenStats />', () => {
     ]);
     fireEvent.click(screen.getByRole('button'));
     const bd = screen.getByTestId('composer-token-breakdown');
+    // Orchestrator = totals − sub-agents: tokens 600−240=360, cost 0.01−0.004=0.006.
+    expect(within(bd).getByText('token.orchestrator')).toBeInTheDocument();
+    expect(within(bd).getByText(/360/)).toBeInTheDocument();
+    expect(within(bd).getByText(/\$0\.006/)).toBeInTheDocument();
+    // Sub-agent row: 200 + 40 = 240 combined tokens, its own cost.
     expect(within(bd).getByText('researcher')).toBeInTheDocument();
-    // 200 + 40 = 240 combined tokens · cost · single run.
     expect(within(bd).getByText(/240/)).toBeInTheDocument();
     expect(within(bd).getByText(/\$0\.004/)).toBeInTheDocument();
-    expect(within(bd).getByText(/1×/)).toBeInTheDocument();
   });
 
-  it('shows a no-sub-agents note when none ran', () => {
+  it('shows the orchestrator row and a no-sub-agents note when none ran', () => {
     renderWithUsage([{ inputTokens: 100, outputTokens: 20, costUsd: 0.001 }]);
     fireEvent.click(screen.getByRole('button'));
     const bd = screen.getByTestId('composer-token-breakdown');
+    expect(within(bd).getByText('token.orchestrator')).toBeInTheDocument();
     expect(within(bd).getByText('token.noSubAgents')).toBeInTheDocument();
   });
 });

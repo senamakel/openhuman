@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { SubAgentUsage } from '../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../store/hooks';
+import Tooltip from '../ui/Tooltip';
 
 /** Fallback context window when the core hasn't reported a real one yet. */
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -44,6 +45,30 @@ function UsageRow({ label, tip, value }: { label: string; tip: string; value: st
       </dt>
       <dd className="font-mono text-stone-700 dark:text-neutral-200">{value}</dd>
     </div>
+  );
+}
+
+/** One agent's line in the per-agent breakdown: combined tokens · cost · runs. */
+function AgentLine({
+  name,
+  tokens,
+  costUsd,
+  runs,
+}: {
+  name: string;
+  tokens: number;
+  costUsd: number;
+  runs: number;
+}) {
+  return (
+    <li className="flex items-center justify-between gap-3">
+      <span className="truncate text-stone-600 dark:text-neutral-300" title={name}>
+        {name}
+      </span>
+      <span className="whitespace-nowrap font-mono text-stone-700 dark:text-neutral-200">
+        {fmt(tokens)} · {fmtUsd(costUsd)} · {runs}×
+      </span>
+    </li>
   );
 }
 
@@ -94,6 +119,18 @@ export default function ComposerTokenStats({ model }: ComposerTokenStatsProps = 
   const showIo = ok(inTok) || ok(outTok);
   const showCost = ok(costUsd);
 
+  // Orchestrator (the parent/main agent) spend = session totals minus everything
+  // attributed to sub-agents. Derived here so no extra backend data is needed.
+  const subTotals = subAgents.reduce(
+    (acc, s) => ({
+      tokens: acc.tokens + s.inputTokens + s.outputTokens,
+      cost: acc.cost + s.costUsd,
+    }),
+    { tokens: 0, cost: 0 }
+  );
+  const orchestratorTokens = Math.max(0, inTok + outTok - subTotals.tokens);
+  const orchestratorCost = Math.max(0, costUsd - subTotals.cost);
+
   const parts: React.ReactNode[] = [];
 
   // Inline footer: context usage · in/out tokens · cost. The context counter is
@@ -130,19 +167,23 @@ export default function ComposerTokenStats({ model }: ComposerTokenStatsProps = 
 
   return (
     <div ref={rootRef} className="relative flex min-w-0 items-center">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        aria-label={t('token.sessionUsageTitle')}
-        className="flex min-w-0 cursor-pointer flex-wrap items-center gap-2.5 border-0 bg-transparent p-0 text-[10px] font-mono text-stone-400 dark:text-neutral-500 select-none">
-        {parts.map((part, i) => (
-          <span key={i} className="contents">
-            {i > 0 && dot()}
-            {part}
-          </span>
-        ))}
-      </button>
+      {/* Hover hint that the compact row is interactive; click opens the full
+          breakdown. The hint is suppressed while the popover is already open. */}
+      <Tooltip label={open ? '' : t('token.clickForDetails')} side="top">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          aria-expanded={open}
+          aria-label={t('token.sessionUsageTitle')}
+          className="flex min-w-0 cursor-pointer flex-wrap items-center gap-2.5 border-0 bg-transparent p-0 text-[10px] font-mono text-stone-400 dark:text-neutral-500 select-none">
+          {parts.map((part, i) => (
+            <span key={i} className="contents">
+              {i > 0 && dot()}
+              {part}
+            </span>
+          ))}
+        </button>
+      </Tooltip>
       {open && (
         <div
           data-testid="composer-token-breakdown"
@@ -182,26 +223,30 @@ export default function ComposerTokenStats({ model }: ComposerTokenStatsProps = 
           </dl>
           <div className="mt-2 border-t border-stone-100 pt-1.5 dark:border-neutral-700">
             <div className="mb-1 font-semibold text-stone-700 dark:text-neutral-200">
-              {t('token.subAgentsHeading')}
+              {t('token.byAgentHeading')}
             </div>
-            {subAgents.length === 0 ? (
-              <div className="text-stone-400 dark:text-neutral-500">{t('token.noSubAgents')}</div>
-            ) : (
-              <ul className="space-y-0.5 font-mono text-stone-500 dark:text-neutral-400">
-                {subAgents.map(sub => (
-                  <li key={sub.agentId} className="flex items-center justify-between gap-3">
-                    <span
-                      className="truncate text-stone-600 dark:text-neutral-300"
-                      title={sub.agentId}>
-                      {sub.agentId}
-                    </span>
-                    <span className="whitespace-nowrap text-stone-700 dark:text-neutral-200">
-                      {fmt(sub.inputTokens + sub.outputTokens)} · {fmtUsd(sub.costUsd)} · {sub.runs}
-                      ×
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            <ul className="space-y-0.5 text-stone-500 dark:text-neutral-400">
+              {/* Orchestrator first, then each sub-agent archetype. */}
+              <AgentLine
+                name={t('token.orchestrator')}
+                tokens={orchestratorTokens}
+                costUsd={orchestratorCost}
+                runs={turns}
+              />
+              {subAgents.map(sub => (
+                <AgentLine
+                  key={sub.agentId}
+                  name={sub.agentId}
+                  tokens={sub.inputTokens + sub.outputTokens}
+                  costUsd={sub.costUsd}
+                  runs={sub.runs}
+                />
+              ))}
+            </ul>
+            {subAgents.length === 0 && (
+              <div className="mt-0.5 text-stone-400 dark:text-neutral-500">
+                {t('token.noSubAgents')}
+              </div>
             )}
           </div>
         </div>

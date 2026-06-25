@@ -16,7 +16,7 @@
 
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock, RwLock};
 use std::time::{Duration, Instant};
 
@@ -183,6 +183,8 @@ pub fn offload_checked(content: &str) -> (String, bool) {
 
     // Mirror to the disk tier when enabled (best-effort). A successful disk
     // write keeps the original recoverable even when it was too big for memory.
+    // Rewriting an existing hash intentionally refreshes the file mtime, which
+    // is the TTL clock for disk-backed CCR entries.
     let mut disk_retained = false;
     if let Some(root) = disk_root()
         .read()
@@ -190,13 +192,9 @@ pub fn offload_checked(content: &str) -> (String, bool) {
         .clone()
     {
         let path = root.join(&hash);
-        if path.exists() {
-            disk_retained = true;
-        } else {
-            match std::fs::write(&path, content) {
-                Ok(()) => disk_retained = true,
-                Err(e) => log::debug!("[tokenjuice][ccr] disk write failed for {hash}: {e}"),
-            }
+        match std::fs::write(&path, content) {
+            Ok(()) => disk_retained = true,
+            Err(e) => log::debug!("[tokenjuice][ccr] disk write failed for {hash}: {e}"),
         }
     }
     (hash, mem_retained || disk_retained)
@@ -212,7 +210,7 @@ fn is_valid_token(hash: &str) -> bool {
 }
 
 /// Retrieve a previously-offloaded original by hash, if still available
-/// (memory first, then the disk tier). Honours the TTL on the in-memory entry.
+/// (memory first, then the disk tier). Honours the TTL for both tiers.
 pub fn retrieve(hash: &str) -> Option<String> {
     // Reject anything that isn't the generated token shape up front — guards the
     // disk-tier `root.join(hash)` below against path traversal.
@@ -237,7 +235,26 @@ pub fn retrieve(hash: &str) -> Option<String> {
         .read()
         .unwrap_or_else(|p| p.into_inner())
         .clone()?;
-    std::fs::read_to_string(root.join(hash)).ok()
+    let path = root.join(hash);
+    if disk_entry_expired(&path, ttl) {
+        log::debug!("[tokenjuice][ccr] disk entry expired for {hash}");
+        let _ = std::fs::remove_file(&path);
+        return None;
+    }
+    std::fs::read_to_string(path).ok()
+}
+
+fn disk_entry_expired(path: &Path, ttl: Option<Duration>) -> bool {
+    let Some(ttl) = ttl else {
+        return false;
+    };
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+    let Ok(modified) = metadata.modified() else {
+        return false;
+    };
+    modified.elapsed().is_ok_and(|elapsed| elapsed >= ttl)
 }
 
 /// The span/unit for a ranged retrieval.
@@ -437,6 +454,21 @@ mod tests {
         );
         // Disable the tier for other tests and clean up.
         *disk_root().write().unwrap() = None;
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn disk_entry_ttl_uses_file_mtime() {
+        let dir = std::env::temp_dir().join(format!("tj-ccr-ttl-{}", short_hash("disk-ttl")));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        std::fs::write(&path, "disk ttl payload").unwrap();
+
+        assert!(!disk_entry_expired(&path, None));
+        assert!(!disk_entry_expired(&path, Some(Duration::from_secs(60))));
+        assert!(disk_entry_expired(&path, Some(Duration::ZERO)));
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

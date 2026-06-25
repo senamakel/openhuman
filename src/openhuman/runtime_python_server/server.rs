@@ -99,6 +99,7 @@ fn drain_server_stderr(stderr: ChildStderr) {
 pub struct RuntimePythonServer {
     launch: ServerLaunch,
     inner: Mutex<Option<ServerInner>>,
+    last_used: Mutex<Instant>,
 }
 
 impl RuntimePythonServer {
@@ -107,6 +108,7 @@ impl RuntimePythonServer {
         Ok(Self {
             launch,
             inner: Mutex::new(None),
+            last_used: Mutex::new(Instant::now()),
         })
     }
 
@@ -125,13 +127,18 @@ impl RuntimePythonServer {
         T: DeserializeOwned,
     {
         match self.request_once(method, params.clone()).await {
-            Ok(value) => Ok(value),
+            Ok(value) => {
+                self.mark_used().await;
+                Ok(value)
+            }
             Err(err) => {
                 log::warn!(
                     "[runtime_python_server] request failed; restarting server before retry: {err:#}"
                 );
                 self.reset().await;
-                self.request_once(method, params).await
+                let value = self.request_once(method, params).await?;
+                self.mark_used().await;
+                Ok(value)
             }
         }
     }
@@ -213,7 +220,22 @@ impl RuntimePythonServer {
 
     async fn reset(&self) {
         let mut guard = self.inner.lock().await;
-        *guard = None;
+        if let Some(mut inner) = guard.take() {
+            if let Err(error) = inner._child.start_kill() {
+                log::debug!("[runtime_python_server] failed to signal child shutdown: {error}");
+            }
+        }
+    }
+
+    async fn mark_used(&self) {
+        *self.last_used.lock().await = Instant::now();
+    }
+
+    async fn kompress_idle_expired(&self, timeout: Duration) -> bool {
+        self.launch
+            .backends
+            .contains(&RuntimePythonBackend::Kompress)
+            && idle_timeout_expired(*self.last_used.lock().await, timeout)
     }
 
     fn status_from_inner(&self, inner: Option<&ServerInner>) -> RuntimePythonServerStatus {
@@ -256,14 +278,30 @@ pub async fn ensure_started(config: &Config) -> Result<Arc<RuntimePythonServer>>
     // toggled on after a spaCy-only launch), the cached process can't serve the
     // new backend — it was never provisioned/launched for it. Rebuild instead of
     // reusing a stale launch.
-    if let ServerCache::Ready(existing) = &*guard {
-        if existing.backends() != enabled_backends(config).as_slice() {
+    let requested_backends = enabled_backends(config);
+    let cached = match &*guard {
+        ServerCache::Ready(existing) => Some(existing.clone()),
+        ServerCache::Empty | ServerCache::Failed { .. } => None,
+    };
+    if let Some(existing) = cached {
+        if existing.backends() != requested_backends.as_slice() {
             log::info!(
                 "[runtime_python_server] backend set changed ({:?} -> {:?}); rebuilding server",
                 existing.backends(),
-                enabled_backends(config)
+                requested_backends
             );
+            existing.reset().await;
             *guard = ServerCache::Empty;
+        } else {
+            let idle_timeout = Duration::from_secs(config.tokenjuice.ml_sidecar_idle_timeout_secs);
+            if existing.kompress_idle_expired(idle_timeout).await {
+                log::info!(
+                    "[runtime_python_server] kompress backend idle for >= {:?}; rebuilding server",
+                    idle_timeout
+                );
+                existing.reset().await;
+                *guard = ServerCache::Empty;
+            }
         }
     }
     match &*guard {
@@ -309,6 +347,10 @@ pub async fn ensure_started(config: &Config) -> Result<Arc<RuntimePythonServer>>
             bail!("runtime python server unavailable: {message}");
         }
     }
+}
+
+fn idle_timeout_expired(last_used: Instant, timeout: Duration) -> bool {
+    last_used.elapsed() >= timeout
 }
 
 async fn start_new_server(config: &Config) -> Result<Arc<RuntimePythonServer>> {
@@ -540,5 +582,17 @@ mod tests {
         config.runtime_python.enabled = false;
         let err = prepare_launch(&config).await.unwrap_err().to_string();
         assert!(err.contains("no runtime python server backends enabled"));
+    }
+
+    #[test]
+    fn idle_timeout_expiry_uses_last_used_instant() {
+        assert!(idle_timeout_expired(
+            Instant::now() - Duration::from_secs(10),
+            Duration::from_secs(5),
+        ));
+        assert!(!idle_timeout_expired(
+            Instant::now(),
+            Duration::from_secs(5),
+        ));
     }
 }

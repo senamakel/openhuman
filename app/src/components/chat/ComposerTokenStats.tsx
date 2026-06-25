@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import type { SubAgentUsage } from '../../store/chatRuntimeSlice';
+import { emptySessionTokenUsage, type SubAgentUsage } from '../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../store/hooks';
 import Tooltip from '../ui/Tooltip';
 
@@ -75,11 +75,23 @@ function AgentLine({
 interface ComposerTokenStatsProps {
   /** Resolved model id, surfaced inside the breakdown popover. */
   model?: string | null;
+  /**
+   * Active thread id. When set, the footer shows that thread's usage bucket
+   * (seeded from persisted transcripts + live turns); otherwise it falls back
+   * to the global app-session aggregate.
+   */
+  threadId?: string | null;
 }
 
-export default function ComposerTokenStats({ model }: ComposerTokenStatsProps = {}) {
+const EMPTY_USAGE = emptySessionTokenUsage();
+
+export default function ComposerTokenStats({ model, threadId }: ComposerTokenStatsProps = {}) {
   const { t } = useT();
-  const usage = useAppSelector(state => state.chatRuntime.sessionTokenUsage);
+  const usage = useAppSelector(state =>
+    threadId
+      ? (state.chatRuntime.usageByThread[threadId] ?? EMPTY_USAGE)
+      : state.chatRuntime.sessionTokenUsage
+  );
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 

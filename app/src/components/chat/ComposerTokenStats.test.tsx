@@ -10,7 +10,7 @@ vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => 
 
 function renderWithUsage(
   payloads: Array<Parameters<typeof recordChatTurnUsage>[0]>,
-  props?: { model?: string | null }
+  props?: { model?: string | null; threadId?: string | null }
 ) {
   const store = configureStore({ reducer: { chatRuntime: chatRuntimeReducer } });
   for (const p of payloads) store.dispatch(recordChatTurnUsage(p));
@@ -118,6 +118,22 @@ describe('<ComposerTokenStats />', () => {
     expect(within(bd).getByText('researcher')).toBeInTheDocument();
     expect(within(bd).getByText(/240/)).toBeInTheDocument();
     expect(within(bd).getByText(/\$0\.004/)).toBeInTheDocument();
+  });
+
+  it('reads the active thread bucket when a threadId is provided', () => {
+    // Two threads with different usage; the footer must reflect the selected one.
+    renderWithUsage(
+      [
+        { inputTokens: 999, outputTokens: 999, costUsd: 0.5, threadId: 'thr-other' },
+        { inputTokens: 1200, outputTokens: 300, costUsd: 0.0123, threadId: 'thr-active' },
+      ],
+      { threadId: 'thr-active' }
+    );
+    fireEvent.click(screen.getByRole('button'));
+    const bd = screen.getByTestId('composer-token-breakdown');
+    // Active thread's input tokens (1.2K), not the other thread's 999.
+    expect(within(bd).getByText('1.2K')).toBeInTheDocument();
+    expect(within(bd).queryByText('999')).not.toBeInTheDocument();
   });
 
   it('shows the orchestrator row and a no-sub-agents note when none ran', () => {

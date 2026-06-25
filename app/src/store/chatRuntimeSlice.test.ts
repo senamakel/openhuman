@@ -9,6 +9,7 @@ import chatRuntimeReducer, {
   clearRuntimeForThread,
   hydrateRuntimeFromRunLedger,
   hydrateRuntimeFromSnapshot,
+  hydrateThreadUsage,
   type QueueStatus,
   recordChatTurnUsage,
   resetSessionTokenUsage,
@@ -150,6 +151,53 @@ describe('chatRuntimeSlice recordChatTurnUsage', () => {
     expect(usage.costUsd).toBe(0);
     expect(usage.turns).toBe(0);
     expect(usage.subAgents).toEqual({});
+  });
+
+  it('routes a turn with a threadId into that thread bucket (and the global)', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: 100, outputTokens: 20, costUsd: 0.01, threadId: 'thr-a' })
+    );
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: 50, outputTokens: 10, costUsd: 0.005, threadId: 'thr-b' })
+    );
+    const { usageByThread, sessionTokenUsage } = store.getState().chatRuntime;
+    expect(usageByThread['thr-a'].inputTokens).toBe(100);
+    expect(usageByThread['thr-a'].costUsd).toBeCloseTo(0.01, 6);
+    expect(usageByThread['thr-b'].inputTokens).toBe(50);
+    // Global aggregate still sums both threads.
+    expect(sessionTokenUsage.inputTokens).toBe(150);
+  });
+
+  it('hydrateThreadUsage seeds a thread bucket and live turns accumulate on top', () => {
+    const store = makeStore();
+    store.dispatch(
+      hydrateThreadUsage({
+        threadId: 'thr-a',
+        inputTokens: 1000,
+        outputTokens: 300,
+        cachedTokens: 40,
+        costUsd: 0.02,
+        turns: 3,
+        contextWindow: 1_000_000,
+        lastTurnInputTokens: 400,
+        lastTurnOutputTokens: 120,
+      })
+    );
+    let bucket = store.getState().chatRuntime.usageByThread['thr-a'];
+    expect(bucket.inputTokens).toBe(1000);
+    expect(bucket.turns).toBe(3);
+    expect(bucket.contextWindow).toBe(1_000_000);
+    expect(bucket.lastTurnContextUsed).toBe(520);
+
+    // A live turn for the same thread adds on top of the seeded base.
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: 200, outputTokens: 50, costUsd: 0.004, threadId: 'thr-a' })
+    );
+    bucket = store.getState().chatRuntime.usageByThread['thr-a'];
+    expect(bucket.inputTokens).toBe(1200);
+    expect(bucket.turns).toBe(4);
+    expect(bucket.costUsd).toBeCloseTo(0.024, 6);
   });
 });
 

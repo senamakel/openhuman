@@ -36,6 +36,7 @@ import { trackEvent } from '../services/analytics';
 import { applyOpenRouterFreeModels } from '../services/api/openrouterFreeModels';
 import { subagentApi } from '../services/api/subagentApi';
 import { threadApi } from '../services/api/threadApi';
+import { fetchThreadTokenUsage } from '../services/api/threadUsageApi';
 import { chatCancel, chatClearQueue, chatSend, useRustChat } from '../services/chatService';
 import { callCoreRpc } from '../services/coreRpcClient';
 import {
@@ -50,6 +51,7 @@ import {
   clearRuntimeForThread,
   enqueueFollowup,
   fetchAndHydrateTurnState,
+  hydrateThreadUsage,
   markSubagentCancelled,
   type QueuedFollowup,
   registerParallelRequest,
@@ -534,6 +536,38 @@ const Conversations = ({
       debug('agent profile select failed: %o', error);
     }
   };
+
+  // Seed the composer footer with the selected thread's persisted token/cost
+  // usage (read back from its session transcripts) so the totals reflect prior
+  // turns instead of starting at zero. Best-effort; live turns accumulate on top
+  // via recordChatTurnUsage and a brand-new thread (hasUsage=false) is left as-is.
+  useEffect(() => {
+    if (!selectedThreadId) return;
+    let cancelled = false;
+    void fetchThreadTokenUsage(selectedThreadId)
+      .then(u => {
+        if (cancelled || !u.hasUsage) return;
+        dispatch(
+          hydrateThreadUsage({
+            threadId: u.threadId,
+            inputTokens: u.inputTokens,
+            outputTokens: u.outputTokens,
+            cachedTokens: u.cachedInputTokens,
+            costUsd: u.costUsd,
+            turns: u.turnCount,
+            contextWindow: u.contextWindow,
+            lastTurnInputTokens: u.lastTurnInputTokens,
+            lastTurnOutputTokens: u.lastTurnOutputTokens,
+          })
+        );
+      })
+      .catch(() => {
+        /* best-effort seed; the footer still fills from live turns */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedThreadId, dispatch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2858,7 +2892,7 @@ const Conversations = ({
           className="mt-2 flex items-center justify-between gap-2"
           data-walkthrough="chat-agent-panel">
           <div className="flex min-w-0 items-center gap-2">
-            <ComposerTokenStats model={resolvedModel} />
+            <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
             {/* Set/show the thread goal; click opens the editor above the composer. */}
             <ThreadGoalFooterTrigger ctl={threadGoal} />
           </div>

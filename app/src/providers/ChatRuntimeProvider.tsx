@@ -211,6 +211,7 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
   cachedTokens?: number;
   costUsd?: number;
   contextWindow?: number;
+  threadId?: string;
   subAgents?: Array<{
     agentId: string;
     inputTokens: number;
@@ -226,6 +227,7 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
       cachedTokens: u.cached_input_tokens,
       costUsd: u.cost_usd,
       contextWindow: u.context_window,
+      threadId: event.thread_id,
       subAgents: (u.subagents ?? []).map(s => ({
         agentId: s.agent_id,
         inputTokens: s.input_tokens,
@@ -237,6 +239,7 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
   return {
     inputTokens: event.total_input_tokens ?? 0,
     outputTokens: event.total_output_tokens ?? 0,
+    threadId: event.thread_id,
   };
 }
 

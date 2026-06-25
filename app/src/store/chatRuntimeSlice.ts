@@ -251,6 +251,77 @@ export interface SessionTokenUsage {
   subAgents: Record<string, SubAgentUsage>;
 }
 
+/** A zeroed [SessionTokenUsage] bucket. */
+export function emptySessionTokenUsage(): SessionTokenUsage {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    turns: 0,
+    lastUpdated: 0,
+    lastTurnInputTokens: 0,
+    lastTurnOutputTokens: 0,
+    cachedTokens: 0,
+    costUsd: 0,
+    contextWindow: 0,
+    lastTurnContextUsed: 0,
+    subAgents: {},
+  };
+}
+
+/** Payload accepted by `recordChatTurnUsage` (and applied per turn). */
+export interface ChatTurnUsagePayload {
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens?: number;
+  costUsd?: number;
+  contextWindow?: number;
+  /** Thread the turn belongs to; routes the delta to that thread's bucket. */
+  threadId?: string;
+  subAgents?: Array<{
+    agentId: string;
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+  }>;
+}
+
+const nonNeg = (n: number | undefined): number =>
+  typeof n === 'number' && Number.isFinite(n) ? Math.max(0, n) : 0;
+
+/** Fold one turn's usage delta into a bucket (mutates in place). */
+function applyTurnUsage(usage: SessionTokenUsage, payload: ChatTurnUsagePayload): void {
+  const inTok = nonNeg(payload.inputTokens);
+  const outTok = nonNeg(payload.outputTokens);
+  usage.inputTokens += inTok;
+  usage.outputTokens += outTok;
+  usage.cachedTokens += nonNeg(payload.cachedTokens);
+  usage.costUsd += nonNeg(payload.costUsd);
+  usage.turns += 1;
+  usage.lastUpdated = Date.now();
+  usage.lastTurnInputTokens = inTok;
+  usage.lastTurnOutputTokens = outTok;
+  usage.lastTurnContextUsed = inTok + outTok;
+  // Only overwrite the known context window when the turn reported a real value
+  // (>0); an unknown-window turn leaves the prior value intact.
+  const ctxWindow = nonNeg(payload.contextWindow);
+  if (ctxWindow > 0) usage.contextWindow = ctxWindow;
+  for (const sub of payload.subAgents ?? []) {
+    if (!sub || typeof sub.agentId !== 'string' || sub.agentId.length === 0) continue;
+    const existing = usage.subAgents[sub.agentId] ?? {
+      agentId: sub.agentId,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      runs: 0,
+    };
+    existing.inputTokens += nonNeg(sub.inputTokens);
+    existing.outputTokens += nonNeg(sub.outputTokens);
+    existing.costUsd += nonNeg(sub.costUsd);
+    existing.runs += 1;
+    usage.subAgents[sub.agentId] = existing;
+  }
+}
+
 /**
  * A `Prompt`-class tool call parked on the ApprovalGate, awaiting the user's
  * decision. Surfaced from the `approval_request` socket event; cleared when the
@@ -376,7 +447,15 @@ interface ChatRuntimeState {
    * download / retry affordances (#2779).
    */
   artifactsByThread: Record<string, ArtifactSnapshot[]>;
+  /** Global, app-session-wide token usage (legacy aggregate). */
   sessionTokenUsage: SessionTokenUsage;
+  /**
+   * Per-thread token usage, keyed by thread id. Seeded from persisted
+   * transcripts via `hydrateThreadUsage` when a thread is opened, then kept live
+   * by `recordChatTurnUsage`. The composer footer reads the active thread's
+   * bucket so its totals reflect the selected thread, not the whole app session.
+   */
+  usageByThread: Record<string, SessionTokenUsage>;
   queueStatusByThread: Record<string, QueueStatus>;
   /**
    * Follow-up messages the user submitted while a turn was still streaming
@@ -426,19 +505,8 @@ const initialState: ChatRuntimeState = {
   pendingApprovalByThread: {},
   pendingPlanReviewByThread: {},
   artifactsByThread: {},
-  sessionTokenUsage: {
-    inputTokens: 0,
-    outputTokens: 0,
-    turns: 0,
-    lastUpdated: 0,
-    lastTurnInputTokens: 0,
-    lastTurnOutputTokens: 0,
-    cachedTokens: 0,
-    costUsd: 0,
-    contextWindow: 0,
-    lastTurnContextUsed: 0,
-    subAgents: {},
-  },
+  sessionTokenUsage: emptySessionTokenUsage(),
+  usageByThread: {},
   queueStatusByThread: {},
   queuedFollowupsByThread: {},
 };
@@ -1121,73 +1189,57 @@ const chatRuntimeSlice = createSlice({
       state.queueStatusByThread = {};
       state.queuedFollowupsByThread = {};
     },
-    recordChatTurnUsage: (
-      state,
-      action: PayloadAction<{
-        inputTokens: number;
-        outputTokens: number;
-        cachedTokens?: number;
-        costUsd?: number;
-        contextWindow?: number;
-        subAgents?: Array<{
-          agentId: string;
-          inputTokens: number;
-          outputTokens: number;
-          costUsd: number;
-        }>;
-      }>
-    ) => {
-      const nonNeg = (n: number | undefined): number =>
-        typeof n === 'number' && Number.isFinite(n) ? Math.max(0, n) : 0;
-      const inTok = nonNeg(action.payload.inputTokens);
-      const outTok = nonNeg(action.payload.outputTokens);
-      const cachedTok = nonNeg(action.payload.cachedTokens);
-      const cost = nonNeg(action.payload.costUsd);
-      const usage = state.sessionTokenUsage;
-      usage.inputTokens += inTok;
-      usage.outputTokens += outTok;
-      usage.cachedTokens += cachedTok;
-      usage.costUsd += cost;
-      usage.turns += 1;
-      usage.lastUpdated = Date.now();
-      usage.lastTurnInputTokens = inTok;
-      usage.lastTurnOutputTokens = outTok;
-      usage.lastTurnContextUsed = inTok + outTok;
-      // Only overwrite the known context window when the turn reported a real
-      // value (>0); an unknown-window turn leaves the prior value intact.
-      const ctxWindow = nonNeg(action.payload.contextWindow);
-      if (ctxWindow > 0) usage.contextWindow = ctxWindow;
-      // Accumulate per-archetype sub-agent spend for the hover breakdown.
-      for (const sub of action.payload.subAgents ?? []) {
-        if (!sub || typeof sub.agentId !== 'string' || sub.agentId.length === 0) continue;
-        const existing = usage.subAgents[sub.agentId] ?? {
-          agentId: sub.agentId,
-          inputTokens: 0,
-          outputTokens: 0,
-          costUsd: 0,
-          runs: 0,
-        };
-        existing.inputTokens += nonNeg(sub.inputTokens);
-        existing.outputTokens += nonNeg(sub.outputTokens);
-        existing.costUsd += nonNeg(sub.costUsd);
-        existing.runs += 1;
-        usage.subAgents[sub.agentId] = existing;
+    recordChatTurnUsage: (state, action: PayloadAction<ChatTurnUsagePayload>) => {
+      // Fold into the global aggregate and, when the turn names a thread, into
+      // that thread's bucket (what the composer footer reads).
+      applyTurnUsage(state.sessionTokenUsage, action.payload);
+      const threadId = action.payload.threadId;
+      if (threadId) {
+        const bucket = state.usageByThread[threadId] ?? emptySessionTokenUsage();
+        applyTurnUsage(bucket, action.payload);
+        state.usageByThread[threadId] = bucket;
       }
     },
-    resetSessionTokenUsage: state => {
-      state.sessionTokenUsage = {
-        inputTokens: 0,
-        outputTokens: 0,
-        turns: 0,
-        lastUpdated: 0,
-        lastTurnInputTokens: 0,
-        lastTurnOutputTokens: 0,
-        cachedTokens: 0,
-        costUsd: 0,
-        contextWindow: 0,
-        lastTurnContextUsed: 0,
+    /**
+     * Seed a thread's usage bucket from persisted transcript totals (the
+     * `openhuman.threads_token_usage` RPC). Replaces the bucket so re-opening a
+     * thread reflects its on-disk history rather than starting at zero. Live
+     * turns then accumulate on top via `recordChatTurnUsage`.
+     */
+    hydrateThreadUsage: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        inputTokens: number;
+        outputTokens: number;
+        cachedTokens: number;
+        costUsd: number;
+        turns: number;
+        contextWindow: number;
+        lastTurnInputTokens: number;
+        lastTurnOutputTokens: number;
+      }>
+    ) => {
+      const p = action.payload;
+      if (!p.threadId) return;
+      state.usageByThread[p.threadId] = {
+        inputTokens: nonNeg(p.inputTokens),
+        outputTokens: nonNeg(p.outputTokens),
+        cachedTokens: nonNeg(p.cachedTokens),
+        costUsd: nonNeg(p.costUsd),
+        turns: nonNeg(p.turns),
+        lastUpdated: Date.now(),
+        lastTurnInputTokens: nonNeg(p.lastTurnInputTokens),
+        lastTurnOutputTokens: nonNeg(p.lastTurnOutputTokens),
+        contextWindow: nonNeg(p.contextWindow),
+        lastTurnContextUsed: nonNeg(p.lastTurnInputTokens) + nonNeg(p.lastTurnOutputTokens),
+        // Sub-agent split isn't persisted; it repopulates from live turns.
         subAgents: {},
       };
+    },
+    resetSessionTokenUsage: state => {
+      state.sessionTokenUsage = emptySessionTokenUsage();
+      state.usageByThread = {};
     },
     /**
      * Apply a persisted [TurnState] snapshot from the Rust core to the
@@ -1331,6 +1383,7 @@ export const {
   clearRuntimeForThread,
   clearAllChatRuntime,
   recordChatTurnUsage,
+  hydrateThreadUsage,
   resetSessionTokenUsage,
   hydrateRuntimeFromSnapshot,
   hydrateRuntimeFromRunLedger,

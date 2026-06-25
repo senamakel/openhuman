@@ -98,7 +98,7 @@ const LocalAIStep = ({ onNext, onBack: _onBack, onDownloadError }: LocalAIStepPr
               </span>
             </p>
           </div>
-          <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+          <div className="rounded-xl border border-line bg-surface-muted px-3 py-2">
             <p className="text-xs text-content-secondary">
               <span className="font-semibold">{t('common.download')}</span>
               <span className="text-content-secondary">
@@ -164,7 +164,7 @@ const LocalAIStep = ({ onNext, onBack: _onBack, onDownloadError }: LocalAIStepPr
             </span>
           </p>
         </div>
-        <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+        <div className="rounded-xl border border-line bg-surface-muted px-3 py-2">
           <p className="text-xs text-content-secondary">
             <span className="font-semibold">{t('onboarding.localAI')}</span>
             <span className="text-content-secondary">
@@ -172,7 +172,7 @@ const LocalAIStep = ({ onNext, onBack: _onBack, onDownloadError }: LocalAIStepPr
             </span>
           </p>
         </div>
-        <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+        <div className="rounded-xl border border-line bg-surface-muted px-3 py-2">
           <p className="text-xs text-content-secondary">
             <span className="font-semibold">{t('common.refresh')}</span>
             <span className="text-content-secondary">

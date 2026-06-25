@@ -341,7 +341,7 @@ export default function IntelligenceTeamsTab() {
             <button
               type="button"
               onClick={() => selectTeam(team.id)}
-              className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+              className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-surface-hover">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-content">
                   {team.summary?.trim() || team.leadAgentId}

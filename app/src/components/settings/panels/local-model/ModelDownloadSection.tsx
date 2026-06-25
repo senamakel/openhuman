@@ -192,7 +192,7 @@ const ModelDownloadSection = ({
             </Button>
           </div>
           {summaryOutput && (
-            <pre className="whitespace-pre-wrap rounded-md bg-neutral-50 dark:bg-neutral-800/60 border border-line p-3 text-xs text-content-secondary">
+            <pre className="whitespace-pre-wrap rounded-md bg-surface-muted border border-line p-3 text-xs text-content-secondary">
               {summaryOutput}
             </pre>
           )}
@@ -237,7 +237,7 @@ const ModelDownloadSection = ({
           )}
           {promptError && <SettingsStatusLine saving={false} error={promptError} savingLabel="" />}
           {promptOutput && (
-            <pre className="whitespace-pre-wrap rounded-md bg-neutral-50 dark:bg-neutral-800/60 border border-line p-3 text-xs text-content-secondary max-h-64 overflow-auto">
+            <pre className="whitespace-pre-wrap rounded-md bg-surface-muted border border-line p-3 text-xs text-content-secondary max-h-64 overflow-auto">
               {promptOutput}
             </pre>
           )}
@@ -276,7 +276,7 @@ const ModelDownloadSection = ({
               : t('settings.localModel.download.runVisionTest')}
           </Button>
           {visionOutput && (
-            <pre className="whitespace-pre-wrap rounded-md bg-neutral-50 dark:bg-neutral-800/60 border border-line p-3 text-xs text-content-secondary">
+            <pre className="whitespace-pre-wrap rounded-md bg-surface-muted border border-line p-3 text-xs text-content-secondary">
               {visionOutput}
             </pre>
           )}
@@ -303,7 +303,7 @@ const ModelDownloadSection = ({
               : t('settings.localModel.download.runEmbeddingTest')}
           </Button>
           {embeddingOutput && (
-            <div className="rounded-md bg-neutral-50 dark:bg-neutral-800/60 border border-line p-3 text-xs text-content-secondary space-y-1">
+            <div className="rounded-md bg-surface-muted border border-line p-3 text-xs text-content-secondary space-y-1">
               <div>
                 {t('settings.localModel.download.embeddingModel').replace(
                   '{modelId}',
@@ -346,7 +346,7 @@ const ModelDownloadSection = ({
               : t('settings.localModel.download.runTranscriptionTest')}
           </Button>
           {transcribeOutput && (
-            <div className="rounded-md bg-neutral-50 dark:bg-neutral-800/60 border border-line p-3 text-xs text-content-secondary space-y-2">
+            <div className="rounded-md bg-surface-muted border border-line p-3 text-xs text-content-secondary space-y-2">
               <div>
                 {t('settings.localModel.download.embeddingModel').replace(
                   '{modelId}',
@@ -390,7 +390,7 @@ const ModelDownloadSection = ({
               : t('settings.localModel.download.runTtsTest')}
           </Button>
           {ttsOutput && (
-            <div className="rounded-md bg-neutral-50 dark:bg-neutral-800/60 border border-line p-3 text-xs text-content-secondary space-y-1">
+            <div className="rounded-md bg-surface-muted border border-line p-3 text-xs text-content-secondary space-y-1">
               <div>
                 {t('settings.localModel.download.ttsVoice').replace(
                   '{voiceId}',

@@ -23,7 +23,7 @@ const ChartTooltip = ({ title, rows, footer }: ChartTooltipProps) => (
   <div
     role="tooltip"
     data-testid="chart-tooltip"
-    className="rounded-lg border border-line bg-white/95 dark:bg-neutral-900/95 backdrop-blur-sm shadow-soft px-3 py-2 text-xs text-content">
+    className="rounded-lg border border-line bg-surface/95 backdrop-blur-sm shadow-soft px-3 py-2 text-xs text-content">
     <div className="font-medium mb-1 text-content-secondary">{title}</div>
     <ul className="space-y-0.5">
       {rows.map(row => (

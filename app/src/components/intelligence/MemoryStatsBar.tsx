@@ -102,7 +102,7 @@ export function MemoryStatsBar(props: MemoryStatsBarProps) {
       {stats.map(stat => (
         <div
           key={stat.label}
-          className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-3 transition-colors hover:bg-surface-hover dark:bg-neutral-800">
+          className="rounded-xl border border-line bg-surface-muted p-3 transition-colors hover:bg-surface-hover dark:bg-neutral-800">
           <div className="text-[11px] uppercase tracking-wide text-content-muted mb-1">
             {stat.label}
           </div>

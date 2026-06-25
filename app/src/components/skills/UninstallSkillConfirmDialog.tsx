@@ -115,7 +115,7 @@ export default function UninstallSkillConfirmDialog({ skill, onClose, onUninstal
           {t('skills.uninstall.description')}
         </p>
         {skill.location && (
-          <p className="mt-3 break-all rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 font-mono text-[11px] text-content-secondary">
+          <p className="mt-3 break-all rounded-lg bg-surface-muted px-3 py-2 font-mono text-[11px] text-content-secondary">
             {skill.location.replace(/\/(WORKFLOW|SKILL)\.md$/i, '')}
           </p>
         )}

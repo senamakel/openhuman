@@ -59,7 +59,7 @@ interface SetupSettingRowProps {
 
 export function SetupSettingRow({ label, value, mono = false }: SetupSettingRowProps) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-2.5">
+    <div className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2.5">
       <span className="text-sm text-content-secondary">{label}</span>
       <span className={`text-xs text-content-muted ${mono ? 'font-mono' : ''}`}>
         {value}
@@ -108,7 +108,7 @@ export function SetupSuccess({
         <button
           type="button"
           onClick={onFinish}
-          className="w-full rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 px-4 py-2.5 text-sm font-medium text-content-secondary hover:bg-surface-hover dark:bg-neutral-800 transition-colors">
+          className="w-full rounded-xl border border-line bg-surface-muted px-4 py-2.5 text-sm font-medium text-content-secondary hover:bg-surface-hover dark:bg-neutral-800 transition-colors">
           {finishLabel}
         </button>
       </div>

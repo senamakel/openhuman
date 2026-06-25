@@ -203,7 +203,7 @@ export default function X402ConfirmDialog({
       onClose={busy ? () => undefined : onCancel}
       maxWidthClassName="max-w-sm">
       <div className="space-y-4">
-        <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-4 space-y-3">
+        <div className="rounded-lg border border-line bg-surface-muted p-4 space-y-3">
           <Row label={t('agentWorld.trading.amountLabel', 'Amount')}>
             <span
               className="font-semibold text-content"

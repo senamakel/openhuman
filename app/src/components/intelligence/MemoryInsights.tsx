@@ -192,7 +192,7 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-5">
+      <div className="rounded-xl border border-line bg-surface-muted p-5">
         <h3 className="text-sm font-semibold text-content mb-4">
           {t('insights.title')}
         </h3>
@@ -210,7 +210,7 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
 
   if (groups.length === 0) {
     return (
-      <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-5">
+      <div className="rounded-xl border border-line bg-surface-muted p-5">
         <h3 className="text-sm font-semibold text-content mb-2">
           {t('insights.title')}
         </h3>
@@ -220,7 +220,7 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
   }
 
   return (
-    <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-5">
+    <div className="rounded-xl border border-line bg-surface-muted p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-semibold text-content">

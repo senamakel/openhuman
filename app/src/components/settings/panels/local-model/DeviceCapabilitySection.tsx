@@ -83,7 +83,7 @@ const DeviceCapabilitySection = ({
       </h3>
 
       {presetsLoading && !presetsData && (
-        <div className="bg-stone-50 dark:bg-neutral-800/60 rounded-lg border border-line p-4 text-sm text-content-muted animate-pulse">
+        <div className="bg-surface-muted rounded-lg border border-line p-4 text-sm text-content-muted animate-pulse">
           {t('settings.localModel.deviceCapability.loadingDeviceInfo')}
         </div>
       )}
@@ -94,7 +94,7 @@ const DeviceCapabilitySection = ({
       )}
 
       {presetsData?.device && (
-        <div className="bg-stone-50 dark:bg-neutral-800/60 rounded-lg border border-line p-3">
+        <div className="bg-surface-muted rounded-lg border border-line p-3">
           <div className="grid grid-cols-3 gap-3 text-xs">
             <div>
               <div className="text-content-muted uppercase tracking-wide">
@@ -228,7 +228,7 @@ const DeviceCapabilitySection = ({
             className={`w-full text-left rounded-lg border p-3 transition-colors ${
               isDisabledActive
                 ? 'border-primary-400 bg-primary-50 dark:bg-primary-500/10'
-                : 'border-line bg-stone-50 dark:bg-neutral-800/60 hover:bg-surface-hover dark:bg-neutral-800'
+                : 'border-line bg-surface-muted hover:bg-surface-hover dark:bg-neutral-800'
             } ${applying !== null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -269,10 +269,10 @@ const DeviceCapabilitySection = ({
                 className={`w-full text-left rounded-lg border p-3 transition-colors ${
                   isCurrent
                     ? 'border-primary-400 bg-primary-50 dark:bg-primary-500/10'
-                    : 'border-line bg-stone-50 dark:bg-neutral-800/60 hover:bg-surface-hover dark:bg-neutral-800'
+                    : 'border-line bg-surface-muted hover:bg-surface-hover dark:bg-neutral-800'
                 } ${
                   locked
-                    ? 'opacity-50 cursor-not-allowed hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60'
+                    ? 'opacity-50 cursor-not-allowed hover:bg-surface-hover dark:bg-neutral-800/60'
                     : applying !== null && !isApplying
                       ? 'opacity-60 cursor-not-allowed'
                       : 'cursor-pointer'

@@ -34,7 +34,7 @@ export default function ComposeioTriggerHistory({ entries }: ComposeioTriggerHis
         <h3 className="text-lg font-semibold text-content">
           {t('webhooks.composioHistory.title')}
         </h3>
-        <p className="rounded-xl border border-dashed border-line bg-stone-50 dark:bg-neutral-800/60 px-4 py-6 text-center text-sm text-content-muted">
+        <p className="rounded-xl border border-dashed border-line bg-surface-muted px-4 py-6 text-center text-sm text-content-muted">
           {t('webhooks.composioHistory.empty')}
         </p>
       </div>

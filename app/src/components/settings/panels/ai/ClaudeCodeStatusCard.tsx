@@ -388,7 +388,7 @@ function ClaudeCodeModal({
               className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-50 ${
                 fullAccess
                   ? 'bg-emerald-500 dark:bg-emerald-500'
-                  : 'bg-stone-300 dark:bg-neutral-700'
+                  : 'bg-surface-strong'
               }`}>
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${

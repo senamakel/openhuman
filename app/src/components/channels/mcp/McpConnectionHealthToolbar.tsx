@@ -194,7 +194,7 @@ const McpConnectionHealthToolbar = ({
         )}
         <span className="inline-flex items-center gap-1">
           <span
-            className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-neutral-600"
+            className="w-1.5 h-1.5 rounded-full bg-surface-strong"
             aria-hidden="true"
           />
           <span>

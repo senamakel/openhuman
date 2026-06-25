@@ -619,7 +619,7 @@ export default function ComposioConnectModal({
               <p className="text-sm text-content-secondary">
                 {`${t('composio.connect.idleDescription')} ${toolkit.name} ${t('composio.connect.idleDescriptionSuffix')}`}
               </p>
-              <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-3">
+              <div className="rounded-xl border border-line bg-surface-muted p-3">
                 <p className="mt-1 text-xs leading-relaxed text-content-secondary">
                   {toolkit.name} {t('composio.connect.permissionsNote')}{' '}
                   <span className="font-medium">{toolkit.permissionLabel}</span>.{' '}
@@ -771,7 +771,7 @@ export default function ComposioConnectModal({
                   {activeConnections.map(conn => (
                     <div
                       key={conn.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+                      className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface-muted px-3 py-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-2 h-2 rounded-full bg-sage-500 shrink-0" />
                         <span className="text-sm text-content truncate">
@@ -827,7 +827,7 @@ export default function ComposioConnectModal({
                 className="w-full">
                 {t('composio.connect.addAnotherAccount')}
               </Button>
-              <label className="flex items-start gap-2 rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+              <label className="flex items-start gap-2 rounded-lg border border-line bg-surface-muted px-3 py-2">
                 <input
                   type="checkbox"
                   checked={clearMemoryOnDisconnect}
@@ -947,7 +947,7 @@ function ScopeToggles({ scopes, savingScope, onToggle, error }: ScopeTogglesProp
           return (
             <li
               key={row.key}
-              className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+              className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-surface-hover">
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium text-content">
                   {rowLabel}

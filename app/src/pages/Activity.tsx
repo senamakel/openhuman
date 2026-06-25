@@ -114,7 +114,7 @@ export default function Activity() {
               <span className="inline-flex items-center gap-1.5">
                 <span>{tab.label}</span>
                 {tab.comingSoon && (
-                  <span className="rounded-full border border-line bg-stone-50 dark:bg-neutral-800/60 px-1.5 py-0.5 text-[10px] text-content-muted">
+                  <span className="rounded-full border border-line bg-surface-muted px-1.5 py-0.5 text-[10px] text-content-muted">
                     {t('misc.beta')}
                   </span>
                 )}

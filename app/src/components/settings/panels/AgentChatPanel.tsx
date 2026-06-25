@@ -117,7 +117,7 @@ const AgentChatPanel = () => {
       <SettingsSection title={t('chat.conversation')}>
         <div className="px-4 py-3 space-y-3">
           <SettingsStatusLine saving={false} error={error || null} savingLabel="" />
-          <div className="rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-4 space-y-3 min-h-[6rem]">
+          <div className="rounded-xl border border-line bg-surface-muted p-4 space-y-3 min-h-[6rem]">
             {messages.length === 0 ? (
               <SettingsEmptyState label={t('chat.startAgentConversation')} />
             ) : (

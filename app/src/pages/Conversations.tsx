@@ -1839,7 +1839,7 @@ const Conversations = ({
               className={`w-full text-left px-3 py-1.5 border-b border-stone-100/60 dark:border-neutral-800/60 transition-colors group cursor-pointer ${
                 selectedThreadId === thread.id
                   ? 'bg-primary-50 dark:bg-primary-900/30 border-l-2 border-l-primary-500'
-                  : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+                  : 'hover:bg-surface-hover'
               }`}>
               <div className="flex items-center justify-between">
                 {editingThreadId === thread.id ? (

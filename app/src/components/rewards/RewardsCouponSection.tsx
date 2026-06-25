@@ -152,7 +152,7 @@ const RewardsCouponSection = () => {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-4">
+          <div className="rounded-xl border border-line bg-surface-muted p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-content-faint">
               {t('rewards.coupon.promoCredits')}
             </div>
@@ -160,7 +160,7 @@ const RewardsCouponSection = () => {
               {creditBalance ? formatUsd(creditBalance.promotionBalanceUsd) : loading ? '…' : '—'}
             </div>
           </div>
-          <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-4">
+          <div className="rounded-xl border border-line bg-surface-muted p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-content-faint">
               {t('rewards.coupon.redeemedCodes')}
             </div>
@@ -250,7 +250,7 @@ const RewardsCouponSection = () => {
           ) : redeemedCoupons.length > 0 ? (
             <div className="overflow-x-auto rounded-xl border border-line">
               <table className="min-w-full text-sm text-left">
-                <thead className="bg-stone-50 dark:bg-neutral-800/60 text-xs uppercase tracking-wide text-content-muted">
+                <thead className="bg-surface-muted text-xs uppercase tracking-wide text-content-muted">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t('rewards.coupon.colCode')}</th>
                     <th className="px-3 py-2 font-medium">{t('rewards.coupon.colReward')}</th>

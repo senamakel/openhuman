@@ -1060,7 +1060,7 @@ const MetricTile = ({
   value: string;
   detail?: string;
 }) => (
-  <div className="min-w-0 overflow-hidden rounded-md bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+  <div className="min-w-0 overflow-hidden rounded-md bg-surface-muted px-3 py-2">
     <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-content-faint">
       {label}
     </div>
@@ -1341,7 +1341,7 @@ export const BackgroundLoopControls = ({
       <section className={`grid gap-3 ${gridCols}`}>
         {showHeartbeat && (
           <div className="space-y-3">
-            <div className="rounded-lg border border-line bg-neutral-50 dark:bg-neutral-800/60 p-3">
+            <div className="rounded-lg border border-line bg-surface-muted p-3">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-content">
@@ -1534,7 +1534,7 @@ export const BackgroundLoopControls = ({
               )}
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-line bg-neutral-50 dark:bg-neutral-800/60">
+            <div className="overflow-hidden rounded-lg border border-line bg-surface-muted">
               <div className="border-b border-line px-3 py-2 text-xs font-semibold uppercase tracking-wide text-content-faint">
                 {t('settings.ai.loopMap')}
               </div>
@@ -1622,7 +1622,7 @@ export const BackgroundLoopControls = ({
               />
             </div>
 
-            <div className="mt-3 rounded-lg border border-line bg-neutral-50 dark:bg-neutral-800/60 p-3">
+            <div className="mt-3 rounded-lg border border-line bg-surface-muted p-3">
               <div className="text-[10px] font-semibold uppercase tracking-wide text-content-faint">
                 {t('settings.ai.budgetMath')}
               </div>
@@ -1685,7 +1685,7 @@ export const BackgroundLoopControls = ({
               </div>
             </div>
 
-            <div className="mt-3 rounded-lg border border-line bg-neutral-50 dark:bg-neutral-800/60 p-3">
+            <div className="mt-3 rounded-lg border border-line bg-surface-muted p-3">
               <div className="text-[10px] font-semibold uppercase tracking-wide text-content-faint">
                 {t('settings.ai.loopCallBudget')}
               </div>
@@ -1737,7 +1737,7 @@ export const BackgroundLoopControls = ({
             </div>
 
             {latestSpend && (
-              <div className="mt-3 rounded-md border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-content-secondary">
+              <div className="mt-3 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-content-secondary">
                 {t('settings.ai.latestSpend')
                   .replace('{amount}', formatUsd(spendAmount(latestSpend)))
                   .replace('{time}', new Date(latestSpend.createdAt).toLocaleString())
@@ -2566,7 +2566,7 @@ const SaveBar = ({
   const { t } = useT();
   return (
     <div className="pointer-events-none sticky bottom-3 z-20 flex justify-center px-4">
-      <div className="pointer-events-auto flex w-full items-center gap-2 rounded-lg border border-line bg-white/95 dark:bg-neutral-900/95 px-3 py-2 shadow-float backdrop-blur-md animate-fade-up">
+      <div className="pointer-events-auto flex w-full items-center gap-2 rounded-lg border border-line bg-surface/95 px-3 py-2 shadow-float backdrop-blur-md animate-fade-up">
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300">
           <LuCircleAlert className="h-3.5 w-3.5" />
         </div>
@@ -2870,7 +2870,7 @@ const GlobalOwnModelSelector = ({
             </label>
           )}
 
-          <div className="rounded-lg bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-content-muted">
+          <div className="rounded-lg bg-surface-muted px-3 py-2 text-xs text-content-muted">
             {t('settings.ai.globalModel.appliesToAll')}
           </div>
 
@@ -3519,7 +3519,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="overflow-hidden rounded-lg border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3">
+                  <div className="overflow-hidden rounded-lg border border-line bg-surface-muted px-3">
                     <div className="border-b border-line py-3">
                       <div className="text-sm font-semibold text-content">
                         {t('settings.ai.routing.chatAndConversations')}
@@ -3541,7 +3541,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                     </div>
                   </div>
 
-                  <div className="overflow-hidden rounded-lg border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3">
+                  <div className="overflow-hidden rounded-lg border border-line bg-surface-muted px-3">
                     <div className="border-b border-line py-3">
                       <div className="text-sm font-semibold text-content">
                         {t('settings.ai.routing.backgroundTasks')}

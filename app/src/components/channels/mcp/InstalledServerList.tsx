@@ -28,7 +28,7 @@ interface InstalledServerListProps {
 const STATUS_DOT: Record<ServerStatus, string> = {
   connected: 'bg-sage-500',
   connecting: 'bg-amber-400',
-  disconnected: 'bg-stone-300 dark:bg-neutral-600',
+  disconnected: 'bg-surface-strong',
   unauthorized: 'bg-amber-500',
   error: 'bg-coral-500',
   disabled: 'bg-surface-strong',
@@ -146,7 +146,7 @@ const InstalledServerList = ({
                       className={`w-full flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${
                         isSelected
                           ? 'bg-primary-50 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-500/30'
-                          : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60 border border-transparent'
+                          : 'hover:bg-surface-hover border border-transparent'
                       }`}>
                       <span
                         className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`}

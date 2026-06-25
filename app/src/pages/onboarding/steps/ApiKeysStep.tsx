@@ -144,7 +144,7 @@ const ApiKeysStep = ({ onNext, onSkip }: ApiKeysStepProps) => {
       </div>
 
       <div className="mt-6 flex flex-col gap-4">
-        <div className="flex flex-col gap-2 rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/40 p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface-muted p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-medium text-content-secondary">
               {t('onboarding.apiKeys.openaiLabel')}

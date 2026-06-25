@@ -46,7 +46,7 @@ const ConnectionPathPanel = ({
           {[0, 1, 2].map(i => (
             <div
               key={i}
-              className="animate-pulse rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 h-10"
+              className="animate-pulse rounded-lg border border-line bg-surface-muted h-10"
             />
           ))}
         </div>

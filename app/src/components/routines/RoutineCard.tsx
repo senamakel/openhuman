@@ -105,7 +105,7 @@ const RoutineCard = ({ job, runs, busyKeys, onToggle, onRunNow, onLoadRuns }: Ro
                 ? 'bg-sage-500'
                 : isError
                   ? 'bg-coral-500'
-                  : 'bg-stone-300 dark:bg-neutral-600'
+                  : 'bg-surface-strong'
             }`}
           />
           <span

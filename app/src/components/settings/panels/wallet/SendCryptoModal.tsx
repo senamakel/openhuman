@@ -134,7 +134,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
 
       {step === 'form' && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-xs">
+          <div className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-xs">
             <span className="text-content-muted">
               {t('walletSend.available')}
             </span>
@@ -281,7 +281,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
           <p className="text-sm font-medium text-content">
             {t('walletSend.sent')}
           </p>
-          <div className="w-full rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+          <div className="w-full rounded-xl border border-line bg-surface-muted px-3 py-2">
             <span className="block text-[11px] text-content-muted mb-0.5">
               {t('walletSend.txHash')}
             </span>

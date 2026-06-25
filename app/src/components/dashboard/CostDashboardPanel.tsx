@@ -117,7 +117,7 @@ const CostDashboardPanel = ({ embedded = false }: CostDashboardPanelProps) => {
           />
           <section
             data-testid="cost-dashboard-cost-chart"
-            className="rounded-2xl border border-line p-4 bg-white/40 dark:bg-neutral-900/40">
+            className="rounded-2xl border border-line p-4 bg-surface/40">
             <header className="mb-2 flex items-baseline justify-between">
               <h2 className="text-sm font-semibold text-content">
                 {t('settings.costDashboard.sevenDayCost')}
@@ -136,7 +136,7 @@ const CostDashboardPanel = ({ embedded = false }: CostDashboardPanelProps) => {
           </section>
           <section
             data-testid="cost-dashboard-token-chart"
-            className="rounded-2xl border border-line p-4 bg-white/40 dark:bg-neutral-900/40">
+            className="rounded-2xl border border-line p-4 bg-surface/40">
             <header className="mb-2 flex items-baseline justify-between">
               <h2 className="text-sm font-semibold text-content">
                 {t('settings.costDashboard.sevenDayTokens')}
@@ -149,7 +149,7 @@ const CostDashboardPanel = ({ embedded = false }: CostDashboardPanelProps) => {
           </section>
           <section
             data-testid="cost-dashboard-model-table"
-            className="rounded-2xl border border-line p-4 bg-white/40 dark:bg-neutral-900/40">
+            className="rounded-2xl border border-line p-4 bg-surface/40">
             <header className="mb-2">
               <h2 className="text-sm font-semibold text-content">
                 {t('settings.costDashboard.modelBreakdown')}
@@ -162,7 +162,7 @@ const CostDashboardPanel = ({ embedded = false }: CostDashboardPanelProps) => {
           </section>
           <section
             data-testid="cost-dashboard-category-distribution"
-            className="rounded-2xl border border-line p-4 bg-white/40 dark:bg-neutral-900/40">
+            className="rounded-2xl border border-line p-4 bg-surface/40">
             <header className="mb-3">
               <h2 className="text-sm font-semibold text-content">
                 {t('settings.costDashboard.categoryDistribution')}
@@ -184,7 +184,7 @@ const CostDashboardPanel = ({ embedded = false }: CostDashboardPanelProps) => {
           </section>
           <section
             data-testid="cost-dashboard-usage-log"
-            className="rounded-2xl border border-line p-4 bg-white/40 dark:bg-neutral-900/40">
+            className="rounded-2xl border border-line p-4 bg-surface/40">
             <header className="mb-3 flex items-baseline justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-content">

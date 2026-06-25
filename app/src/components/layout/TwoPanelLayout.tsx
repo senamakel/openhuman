@@ -316,7 +316,7 @@ export default function TwoPanelLayout({
           onClick={() => dispatch(setSidebarVisible({ id, visible: true }))}
           title={t('layout.showSidebar')}
           aria-label={t('layout.showSidebar')}
-          className="flex-shrink-0 w-6 self-stretch flex items-center justify-center text-content-faint hover:text-primary-500 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors">
+          className="flex-shrink-0 w-6 self-stretch flex items-center justify-center text-content-faint hover:text-primary-500 hover:bg-surface-hover transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

@@ -414,8 +414,8 @@ export default function IntelligenceOrchestrationTab() {
                     type="button"
                     data-testid={`orchestration-run-${run.id}`}
                     onClick={() => openRun(run)}
-                    className={`flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-stone-50 dark:hover:bg-neutral-800/60 ${
-                      run.id === selectedRunId ? 'bg-stone-50 dark:bg-neutral-800/60' : ''
+                    className={`flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-surface-hover ${
+                      run.id === selectedRunId ? 'bg-surface-muted' : ''
                     }`}>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-content">

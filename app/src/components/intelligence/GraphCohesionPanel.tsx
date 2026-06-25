@@ -46,14 +46,14 @@ const GraphCohesionPanel = ({ result, loading, error, onRetry }: GraphCohesionPa
             {[0, 1, 2].map(i => (
               <div
                 key={i}
-                className="animate-pulse rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 h-16"
+                className="animate-pulse rounded-lg border border-line bg-surface-muted h-16"
               />
             ))}
           </div>
           {[0, 1, 2, 3].map(i => (
             <div
               key={i}
-              className="animate-pulse rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 h-8"
+              className="animate-pulse rounded-lg border border-line bg-surface-muted h-8"
             />
           ))}
         </div>

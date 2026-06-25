@@ -33,7 +33,7 @@ type FilterChip = 'all' | 'installed' | 'registry';
 const STATUS_DOT: Record<ServerStatus, string> = {
   connected: 'bg-sage-500',
   connecting: 'bg-amber-400',
-  disconnected: 'bg-stone-300 dark:bg-neutral-600',
+  disconnected: 'bg-surface-strong',
   unauthorized: 'bg-amber-500',
   error: 'bg-coral-500',
   disabled: 'bg-surface-strong',

@@ -107,7 +107,7 @@ const PayAsYouGoCard = ({
           ))}
         </div>
 
-        <div className="mt-4 rounded-2xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-4">
+        <div className="mt-4 rounded-2xl border border-line bg-surface-muted p-4">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
             <div>
               <label

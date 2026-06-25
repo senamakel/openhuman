@@ -610,7 +610,7 @@ const LogsFolderRow = () => {
   if (!isTauri()) return null;
 
   return (
-    <div className="px-4 py-3 rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60">
+    <div className="px-4 py-3 rounded-xl border border-line bg-surface-muted">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-content">

@@ -165,7 +165,7 @@ const AppearancePanel = () => {
                 } ${
                   selected
                     ? 'bg-primary-50 dark:bg-primary-500/10'
-                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                    : 'hover:bg-surface-hover'
                 }`}>
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg ${
@@ -230,7 +230,7 @@ const AppearancePanel = () => {
                 } ${
                   selected
                     ? 'bg-primary-50 dark:bg-primary-500/10'
-                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                    : 'hover:bg-surface-hover'
                 }`}>
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg ${

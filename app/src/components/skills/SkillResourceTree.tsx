@@ -100,8 +100,8 @@ export default function SkillResourceTree({ resources, selectedPath, onSelect }:
       {groups.map(group => (
         <div
           key={group.key}
-          className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5">
+          className="rounded-xl border border-line bg-surface-muted overflow-hidden">
+          <div className="flex items-center justify-between border-b border-line bg-surface-muted px-3 py-1.5">
             <h4 className="text-[11px] font-semibold uppercase tracking-wide text-content-secondary">
               {t(GROUP_LABEL_KEYS[group.key] ?? group.key)}
             </h4>

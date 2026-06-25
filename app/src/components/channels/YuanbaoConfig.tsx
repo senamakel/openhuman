@@ -217,7 +217,7 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 p-3">
+      <div className="rounded-lg border border-line bg-surface-muted p-3">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-content">

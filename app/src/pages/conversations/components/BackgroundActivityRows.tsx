@@ -62,7 +62,7 @@ export function CronJobRow({ job }: { job: CoreCronJob }) {
       ? 'bg-red-500'
       : job.last_status === 'ok'
         ? 'bg-sage-500'
-        : 'bg-stone-300 dark:bg-neutral-600';
+        : 'bg-surface-strong';
 
   const lastLabel = job.last_run
     ? t('conversations.backgroundTasks.cronLast').replace(
@@ -118,7 +118,7 @@ export function SubconsciousRow({ summary }: { summary: SubconsciousSummary }) {
   let pill: string;
   let pillClass: string;
   if (off) {
-    dot = 'bg-stone-300 dark:bg-neutral-600';
+    dot = 'bg-surface-strong';
     pill = t('conversations.backgroundTasks.subOff');
     pillClass = 'text-content-faint';
   } else if (summary.working) {
@@ -194,7 +194,7 @@ function providerFreshnessLabel(
     };
   }
   return {
-    dot: 'bg-stone-300 dark:bg-neutral-600',
+    dot: 'bg-surface-strong',
     label: t('conversations.backgroundTasks.memProviderIdle'),
     pillClass: 'text-content-faint',
   };

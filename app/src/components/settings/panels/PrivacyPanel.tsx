@@ -196,7 +196,7 @@ const PrivacyPanel = () => {
         </SettingsSection>
 
         {/* Info Box */}
-        <div className="p-4 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-line">
+        <div className="p-4 bg-surface-muted rounded-xl border border-line">
           <div className="flex items-start space-x-3">
             <svg
               className="w-5 h-5 text-content-faint mt-0.5 flex-shrink-0"

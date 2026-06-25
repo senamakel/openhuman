@@ -621,7 +621,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                           setPendingKeyValue('');
                         }
                       }}
-                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-600'}`}>
+                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-surface-strong'}`}>
                       <span
                         aria-hidden
                         className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
@@ -660,7 +660,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                           setPendingKeyValue('');
                         }
                       }}
-                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-600'}`}>
+                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-surface-strong'}`}>
                       <span
                         aria-hidden
                         className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
@@ -719,7 +719,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                           setPendingKeyValue('');
                         }
                       }}
-                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-600'}`}>
+                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-surface-strong'}`}>
                       <span
                         aria-hidden
                         className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}

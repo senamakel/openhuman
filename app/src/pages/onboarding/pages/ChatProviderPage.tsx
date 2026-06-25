@@ -42,7 +42,7 @@ const ChatProviderPage = () => {
         </p>
       </div>
 
-      <div className="rounded-xl border border-dashed border-line bg-stone-50 dark:bg-neutral-800/60 p-6 mb-5 text-center text-sm text-content-muted">
+      <div className="rounded-xl border border-dashed border-line bg-surface-muted p-6 mb-5 text-center text-sm text-content-muted">
         {t('misc.beta')}
       </div>
 

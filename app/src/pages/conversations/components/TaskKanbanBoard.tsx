@@ -231,7 +231,7 @@ export function TaskKanbanBoard({
           return (
             <section
               key={column.status}
-              className={`min-w-0 rounded-lg bg-stone-50 dark:bg-neutral-800/60 p-2 ${accentClass} ${
+              className={`min-w-0 rounded-lg bg-surface-muted p-2 ${accentClass} ${
                 isDragTarget ? 'ring-2 ring-ocean-400 bg-ocean-50/30 dark:bg-ocean-500/5' : ''
               }`}
               onDragOver={canMoveCards ? e => handleDragOver(e, column.status) : undefined}

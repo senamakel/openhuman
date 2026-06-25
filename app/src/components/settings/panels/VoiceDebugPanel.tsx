@@ -130,7 +130,7 @@ const VoiceDebugPanel = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-md border border-line bg-neutral-50 dark:bg-neutral-800/60 p-3">
+                <div className="rounded-md border border-line bg-surface-muted p-3">
                   <div className="text-[10px] uppercase tracking-wide text-content-muted">
                     {t('voice.debug.server')}
                   </div>
@@ -142,7 +142,7 @@ const VoiceDebugPanel = () => {
                         : t('voice.debug.unavailable')}
                   </div>
                 </div>
-                <div className="rounded-md border border-line bg-neutral-50 dark:bg-neutral-800/60 p-3">
+                <div className="rounded-md border border-line bg-surface-muted p-3">
                   <div className="text-[10px] uppercase tracking-wide text-content-muted">
                     STT
                   </div>

@@ -63,7 +63,7 @@ const ChoiceCard = ({
       className={`flex h-full w-full flex-col rounded-2xl border-2 p-5 text-left transition-colors focus:outline-none ${
         selected
           ? accentClasses.selected
-          : '!border-stone-200 dark:!border-neutral-700 bg-surface hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+          : '!border-stone-200 dark:!border-neutral-700 bg-surface hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-surface-hover'
       }`}>
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-base font-semibold text-content">{title}</h3>

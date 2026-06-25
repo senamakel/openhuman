@@ -71,7 +71,7 @@ export function UnifiedSkillCard({
   return (
     <div
       data-testid={testId}
-      className="flex items-center gap-3 rounded-xl border border-line-subtle bg-surface p-3 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+      className="flex items-center gap-3 rounded-xl border border-line-subtle bg-surface p-3 transition-colors hover:bg-surface-hover">
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-content-secondary">
         {icon}
       </div>
@@ -156,7 +156,7 @@ export function UnifiedSkillCard({
                       setMenuOpen(false);
                       action.onClick();
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-40">
+                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-surface-hover disabled:opacity-40">
                     {action.icon}
                     {action.label}
                   </button>

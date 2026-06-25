@@ -249,7 +249,7 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
       {isTimeout ? (
         <div
           data-testid={`webview-timeout-${accountId}`}
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-stone-50 dark:bg-neutral-800/60 px-6 text-center"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-surface-muted px-6 text-center"
           role="status"
           aria-live="polite"
           aria-label={t('accounts.webviewHost.loadTimeout')}>

@@ -270,7 +270,7 @@ const NotificationsBody = ({ close }: { close: () => void }) => {
         </div>
       )}
       {(permissionState === 'prompt' || permissionState === 'unknown') && (
-        <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-3 text-xs text-content-secondary">
+        <div className="rounded-xl border border-line bg-surface-muted p-3 text-xs text-content-secondary">
           {t('app.openhumanLink.notifications.promptHint')}
         </div>
       )}
@@ -300,7 +300,7 @@ const BillingBody = ({ close }: { close: () => void }) => {
   const { t } = useT();
   return (
     <div className="space-y-4 text-sm text-content-secondary">
-      <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-4">
+      <div className="rounded-xl border border-line bg-surface-muted p-4">
         <p className="text-xs uppercase tracking-wide text-content-muted">
           {t('app.openhumanLink.billing.trialCredit')}
         </p>

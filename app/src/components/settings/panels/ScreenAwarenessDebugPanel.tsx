@@ -120,7 +120,7 @@ const ScreenAwarenessDebugPanel = () => {
         {/* Advanced policy settings */}
         <SettingsSection title={t('screenAwareness.debug.policyTitle')}>
           <div className="px-4 py-3 space-y-3">
-            <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+            <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
               <span className="text-sm text-content">
                 {t('screenAwareness.debug.baselineFps')}
               </span>

@@ -299,7 +299,7 @@ const AutoRechargeSection = ({
             ))}
           </div>
         ) : cards.length === 0 ? (
-          <div className="flex items-center gap-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-line p-2.5">
+          <div className="flex items-center gap-2 rounded-lg bg-surface-muted border border-line p-2.5">
             <svg
               className="w-4 h-4 text-content-muted flex-shrink-0"
               fill="none"
@@ -326,7 +326,7 @@ const AutoRechargeSection = ({
               return (
                 <div
                   key={card.id}
-                  className="flex items-center gap-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-line px-2.5 py-2">
+                  className="flex items-center gap-2 rounded-lg bg-surface-muted border border-line px-2.5 py-2">
                   {/* Card icon */}
                   <svg
                     className="w-4 h-4 text-content-faint flex-shrink-0"

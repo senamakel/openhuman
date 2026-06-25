@@ -217,7 +217,7 @@ const MigrationPanel = ({ embedded = false }: MigrationPanelProps = {}) => {
           data-testid={
             appliedReport != null ? 'migration-report-applied' : 'migration-report-preview'
           }
-          className="bg-white dark:bg-neutral-900/40 rounded-lg border border-line p-4 space-y-3">
+          className="bg-surface rounded-lg border border-line p-4 space-y-3">
           <h3 className="text-sm font-semibold text-content">
             {appliedReport != null
               ? t('migration.reportTitleApplied')

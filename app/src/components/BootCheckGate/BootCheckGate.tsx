@@ -248,7 +248,7 @@ function ModePicker({ onConfirm }: PickerProps) {
 
       {!isDesktop && (
         <div
-          className="mt-4 rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-3 text-xs text-content-secondary"
+          className="mt-4 rounded-xl border border-line bg-surface-muted p-3 text-xs text-content-secondary"
           data-testid="web-download-cta">
           {t('bootCheck.preferDesktop')}{' '}
           <a
@@ -272,7 +272,7 @@ function ModePicker({ onConfirm }: PickerProps) {
             className={`rounded-xl border-2 p-5 text-left transition-colors focus:outline-none ${
               selected === 'local'
                 ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-content shadow-sm'
-                : '!border-stone-200 dark:!border-neutral-700 bg-surface text-content-secondary hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+                : '!border-stone-200 dark:!border-neutral-700 bg-surface text-content-secondary hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-surface-hover'
             }`}>
             <div className="font-medium">{t('bootCheck.localRecommended')}</div>
             <div className="mt-0.5 text-xs text-content-muted">
@@ -290,7 +290,7 @@ function ModePicker({ onConfirm }: PickerProps) {
             className={`rounded-xl border-2 p-5 text-left transition-colors focus:outline-none ${
               selected === 'cloud'
                 ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-content shadow-sm'
-                : '!border-stone-200 dark:!border-neutral-700 bg-surface text-content-secondary hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+                : '!border-stone-200 dark:!border-neutral-700 bg-surface text-content-secondary hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-surface-hover'
             }`}>
             <div className="font-medium">{t('bootCheck.cloudMode')}</div>
             <div className="mt-0.5 text-xs text-content-muted">

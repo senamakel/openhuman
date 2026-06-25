@@ -62,7 +62,7 @@ const CompletionStyleSection = ({
         <h3 className="text-sm font-semibold text-content">
           {t('autocomplete.settings')}
         </h3>
-        <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+        <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
           <span className="text-sm text-content">
             {t('settings.autocomplete.completionStyle.enabled')}
           </span>
@@ -72,7 +72,7 @@ const CompletionStyleSection = ({
             onChange={event => onSetEnabled(event.target.checked)}
           />
         </label>
-        <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+        <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
           <span className="text-sm text-content">
             {t('autocomplete.acceptWithTab')}
           </span>
@@ -82,7 +82,7 @@ const CompletionStyleSection = ({
             onChange={event => onSetAcceptWithTab(event.target.checked)}
           />
         </label>
-        <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+        <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
           <span className="text-sm text-content">
             {t('settings.autocomplete.completionStyle.debounce')}
           </span>
@@ -96,7 +96,7 @@ const CompletionStyleSection = ({
             className="w-28 rounded border border-line-strong bg-surface px-2 py-1 text-xs text-content"
           />
         </label>
-        <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+        <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
           <span className="text-sm text-content">
             {t('settings.autocomplete.completionStyle.maxChars')}
           </span>
@@ -110,7 +110,7 @@ const CompletionStyleSection = ({
             className="w-28 rounded border border-line-strong bg-surface px-2 py-1 text-xs text-content"
           />
         </label>
-        <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+        <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
           <span className="text-sm text-content">
             {t('settings.autocomplete.completionStyle.overlayTtl')}
           </span>
@@ -124,7 +124,7 @@ const CompletionStyleSection = ({
             className="w-28 rounded border border-line-strong bg-surface px-2 py-1 text-xs text-content"
           />
         </label>
-        <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+        <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
           <span className="text-sm text-content">
             {t('autocomplete.stylePreset')}
           </span>
@@ -147,7 +147,7 @@ const CompletionStyleSection = ({
             value={styleInstructions}
             onChange={event => onSetStyleInstructions(event.target.value)}
             rows={3}
-            className="w-full rounded border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-content"
+            className="w-full rounded border border-line bg-surface-muted p-2 text-xs text-content"
           />
         </div>
         <div className="space-y-1">
@@ -158,7 +158,7 @@ const CompletionStyleSection = ({
             value={styleExamplesText}
             onChange={event => onSetStyleExamplesText(event.target.value)}
             rows={3}
-            className="w-full rounded border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-content"
+            className="w-full rounded border border-line bg-surface-muted p-2 text-xs text-content"
           />
         </div>
         <div className="space-y-1">
@@ -169,7 +169,7 @@ const CompletionStyleSection = ({
             value={disabledAppsText}
             onChange={event => onSetDisabledAppsText(event.target.value)}
             rows={3}
-            className="w-full rounded border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-content"
+            className="w-full rounded border border-line bg-surface-muted p-2 text-xs text-content"
           />
         </div>
         <Button variant="primary" size="sm" onClick={onSaveConfig} disabled={isSaving}>
@@ -204,7 +204,7 @@ const CompletionStyleSection = ({
                 ).replace('{count}', String(historyEntries.length))}
         </p>
         {historyEntries.length > 0 && (
-          <div className="max-h-48 overflow-y-auto rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 space-y-1">
+          <div className="max-h-48 overflow-y-auto rounded-xl border border-line bg-surface-muted p-2 space-y-1">
             {historyEntries.map((entry, idx) => (
               <div
                 key={`${String(entry.timestamp_ms)}-${String(idx)}`}

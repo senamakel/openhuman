@@ -173,8 +173,8 @@ export default function WalletAddressChip() {
   if (state.status === 'loading') {
     return (
       <div data-testid="wallet-address-chip" className="flex items-center gap-1.5 animate-pulse">
-        <div className="h-3.5 w-3.5 rounded bg-stone-300 dark:bg-neutral-600 shrink-0" />
-        <div className="h-3 w-24 rounded bg-stone-300 dark:bg-neutral-600" />
+        <div className="h-3.5 w-3.5 rounded bg-surface-strong shrink-0" />
+        <div className="h-3 w-24 rounded bg-surface-strong" />
       </div>
     );
   }

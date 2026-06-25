@@ -197,7 +197,7 @@ const ReferralRewardsSection = () => {
         {stats ? (
           <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-4">
+              <div className="rounded-xl border border-line bg-surface-muted p-4">
                 <div className="text-xs font-medium uppercase tracking-wide text-content-faint">
                   {t('rewards.referralSection.yourCode')}
                 </div>
@@ -205,7 +205,7 @@ const ReferralRewardsSection = () => {
                   {stats.referralCode || '—'}
                 </div>
               </div>
-              <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-4">
+              <div className="rounded-xl border border-line bg-surface-muted p-4">
                 <div className="text-xs font-medium uppercase tracking-wide text-content-faint">
                   {t('rewards.referralSection.totalEarned')}
                 </div>
@@ -213,7 +213,7 @@ const ReferralRewardsSection = () => {
                   {formatUsd(stats.totals.totalRewardUsd)}
                 </div>
               </div>
-              <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-4">
+              <div className="rounded-xl border border-line bg-surface-muted p-4">
                 <div className="text-xs font-medium uppercase tracking-wide text-content-faint">
                   {t('rewards.referralSection.pendingReferrals')}
                 </div>
@@ -221,7 +221,7 @@ const ReferralRewardsSection = () => {
                   {stats.totals.pendingCount}
                 </div>
               </div>
-              <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-4">
+              <div className="rounded-xl border border-line bg-surface-muted p-4">
                 <div className="text-xs font-medium uppercase tracking-wide text-content-faint">
                   {t('rewards.referralSection.completed')}
                 </div>
@@ -243,7 +243,7 @@ const ReferralRewardsSection = () => {
                 type="button"
                 onClick={() => void handleShare()}
                 disabled={!referralCodeToCopy}
-                className="inline-flex items-center justify-center rounded-xl border border-line bg-surface px-4 py-3 text-sm font-medium text-content-secondary transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:opacity-50">
+                className="inline-flex items-center justify-center rounded-xl border border-line bg-surface px-4 py-3 text-sm font-medium text-content-secondary transition-colors hover:bg-surface-hover dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:opacity-50">
                 {t('rewards.referralSection.share')}
               </button>
               {copyHint ? (
@@ -314,7 +314,7 @@ const ReferralRewardsSection = () => {
             ) : (
               <div className="overflow-x-auto rounded-xl border border-line">
                 <table className="min-w-full text-sm text-left">
-                  <thead className="bg-stone-50 dark:bg-neutral-800/60 text-xs uppercase tracking-wide text-content-muted">
+                  <thead className="bg-surface-muted text-xs uppercase tracking-wide text-content-muted">
                     <tr>
                       <th className="px-3 py-2 font-medium">
                         {t('rewards.referralSection.colReferredUser')}

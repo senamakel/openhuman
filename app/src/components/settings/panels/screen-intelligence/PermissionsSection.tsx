@@ -134,7 +134,7 @@ const PermissionsSection = ({
           type="button"
           onClick={() => void refreshStatus()}
           disabled={isLoading || isRestartingCore}
-          className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-sm text-content-secondary disabled:opacity-50">
+          className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-content-secondary disabled:opacity-50">
           {isLoading
             ? t('settings.screenIntel.permissions.refreshing')
             : t('settings.screenIntel.permissions.refreshStatus')}

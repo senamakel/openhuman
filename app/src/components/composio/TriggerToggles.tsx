@@ -219,7 +219,7 @@ export default function TriggerToggles({
             <li
               key={sig}
               data-testid={`trigger-row-${sig}`}
-              className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+              className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-surface-hover">
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium text-content break-all">
                   {label}
@@ -238,7 +238,7 @@ export default function TriggerToggles({
                 disabled={disabled}
                 onClick={() => void handleToggle(entry)}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${
-                  enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-700'
+                  enabled ? 'bg-primary-500' : 'bg-surface-strong'
                 }`}>
                 <span
                   className={`inline-block h-3.5 w-3.5 transform rounded-full bg-surface shadow transition-transform ${

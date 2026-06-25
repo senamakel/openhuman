@@ -348,7 +348,7 @@ export function SubagentDrawer({
                   return (
                     <ItemWrapper key={`th-${idx}`} divider={turnDivider}>
                       <div
-                        className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2"
+                        className="rounded-lg bg-surface-muted px-3 py-2"
                         data-testid="subagent-transcript-thinking">
                         <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-content-muted">
                           <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />

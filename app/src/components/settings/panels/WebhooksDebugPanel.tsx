@@ -215,7 +215,7 @@ const WebhooksDebugPanel = () => {
               {registrations.map(registration => (
                 <div
                   key={registration.tunnel_uuid}
-                  className="rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-3">
+                  className="rounded-xl border border-line bg-surface-muted p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-content">
                       {registration.tunnel_name || registration.tunnel_uuid}
@@ -252,7 +252,7 @@ const WebhooksDebugPanel = () => {
                   className={`w-full rounded-xl border p-3 text-left transition-colors ${
                     selectedLog?.correlation_id === entry.correlation_id
                       ? 'border-primary-300 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/10'
-                      : 'border-line bg-neutral-50 dark:bg-neutral-800/60 hover:bg-surface-hover'
+                      : 'border-line bg-surface-muted hover:bg-surface-hover'
                   }`}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-content">
@@ -271,7 +271,7 @@ const WebhooksDebugPanel = () => {
               ))}
 
               {selectedLog && (
-                <div className="rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-3 space-y-3">
+                <div className="rounded-xl border border-line bg-surface-muted p-3 space-y-3">
                   <div>
                     <div className="text-xs font-semibold text-content">
                       {selectedLog.method} {selectedLog.path}

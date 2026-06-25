@@ -59,8 +59,38 @@ export const PAIRS = [
   ['border-stone-300', 'dark:border-neutral-700', 'border-line-strong'],
   ['border-neutral-300', 'dark:border-neutral-700', 'border-line-strong'],
 
+  // ── Opacity-suffixed surface pairs (pass 2) ─────────────────────────────
+  // The dark half carries an opacity suffix, so the boundary-based matcher skips
+  // them unless the full literal (incl. /NN) is listed. Light stays opaque; dark
+  // collapses to the opaque themed surface (the translucency was a dark-mode
+  // aesthetic that read as grey under custom dark themes like Midnight).
+  ['bg-stone-50', 'dark:bg-neutral-800/60', 'bg-surface-muted'],
+  ['bg-neutral-50', 'dark:bg-neutral-800/60', 'bg-surface-muted'],
+  ['bg-stone-50', 'dark:bg-neutral-800/40', 'bg-surface-muted'],
+  ['bg-stone-50', 'dark:bg-neutral-900/50', 'bg-surface-muted'],
+  ['bg-stone-50', 'dark:bg-neutral-900/40', 'bg-surface-muted'],
+  ['bg-stone-100', 'dark:bg-neutral-800/60', 'bg-surface-subtle'],
+  ['bg-neutral-100', 'dark:bg-neutral-800/60', 'bg-surface-subtle'],
+  ['bg-stone-200', 'dark:bg-neutral-700', 'bg-surface-strong'],
+  ['bg-stone-300', 'dark:bg-neutral-600', 'bg-surface-strong'],
+  ['bg-stone-300', 'dark:bg-neutral-700', 'bg-surface-strong'],
+  ['bg-neutral-300', 'dark:bg-neutral-600', 'bg-surface-strong'],
+  ['bg-white', 'dark:bg-neutral-900/40', 'bg-surface'],
+  ['bg-white', 'dark:bg-neutral-900/30', 'bg-surface'],
+
+  // Translucent panels — opacity intended in BOTH modes (sticky headers, glass).
+  // Preserve the opacity on the themed surface so they stay translucent.
+  ['bg-white/95', 'dark:bg-neutral-900/95', 'bg-surface/95'],
+  ['bg-white/90', 'dark:bg-neutral-900/90', 'bg-surface/90'],
+  ['bg-white/80', 'dark:bg-neutral-900/80', 'bg-surface/80'],
+  ['bg-white/70', 'dark:bg-neutral-950/40', 'bg-surface/70'],
+  ['bg-white/40', 'dark:bg-neutral-900/40', 'bg-surface/40'],
+
   // ── Hover / interaction states ──────────────────────────────────────────
   ['hover:bg-stone-50', 'dark:hover:bg-neutral-800', 'hover:bg-surface-hover'],
+  ['hover:bg-stone-50', 'dark:hover:bg-neutral-800/60', 'hover:bg-surface-hover'],
+  ['hover:bg-stone-100', 'dark:hover:bg-neutral-800/60', 'hover:bg-surface-hover'],
+  ['hover:bg-neutral-50', 'dark:hover:bg-neutral-800/60', 'hover:bg-surface-hover'],
   ['hover:bg-stone-100', 'dark:hover:bg-neutral-800', 'hover:bg-surface-hover'],
   ['hover:bg-neutral-50', 'dark:hover:bg-neutral-800', 'hover:bg-surface-hover'],
   ['hover:bg-neutral-100', 'dark:hover:bg-neutral-800', 'hover:bg-surface-hover'],

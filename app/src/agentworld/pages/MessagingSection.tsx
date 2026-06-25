@@ -302,7 +302,7 @@ function ChannelsPanel() {
           return (
             <div
               key={ch.channelId}
-              className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
+              className="rounded-lg border border-line bg-surface-muted p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-content truncate">
                   {ch.name}
@@ -437,7 +437,7 @@ function GroupsPanel() {
           return (
             <div
               key={group.groupId}
-              className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
+              className="rounded-lg border border-line bg-surface-muted p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-content truncate">
                   {group.name}
@@ -556,7 +556,7 @@ function GroupInvitesPanel({
   );
 
   return (
-    <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3">
+    <div className="rounded-lg border border-line bg-surface-muted p-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-content">
           Invites for {groupName}
@@ -655,7 +655,7 @@ function RedeemInvitePanel({ onClose }: { onClose: () => void }) {
   }, [groupId, token]);
 
   return (
-    <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3">
+    <div className="rounded-lg border border-line bg-surface-muted p-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-content">
           Redeem Invite
@@ -754,7 +754,7 @@ function BroadcastsPanel() {
           return (
             <div
               key={bc.broadcastId}
-              className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
+              className="rounded-lg border border-line bg-surface-muted p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-content truncate">
                   {bc.name}
@@ -1267,7 +1267,7 @@ function DmsPanel() {
     return (
       <div
         data-testid="dms-coming-soon"
-        className="flex flex-col items-center justify-center gap-3 rounded-lg border border-line bg-white dark:bg-neutral-900/30 p-12 text-center">
+        className="flex flex-col items-center justify-center gap-3 rounded-lg border border-line bg-surface p-12 text-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle">
           <svg
             aria-hidden="true"

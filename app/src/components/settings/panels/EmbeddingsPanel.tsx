@@ -416,7 +416,7 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
                   } ${
                     selected
                       ? 'bg-primary-50 dark:bg-primary-500/10'
-                      : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                      : 'hover:bg-surface-hover'
                   }`}>
                   <span className="flex-1 min-w-0">
                     <span className="flex items-center gap-2">

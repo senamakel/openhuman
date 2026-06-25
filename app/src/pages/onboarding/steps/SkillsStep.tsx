@@ -124,7 +124,7 @@ const SkillsStep = ({ onNext, onBack: _onBack }: SkillsStepProps) => {
             type="button"
             onClick={() => setActiveToolkit(gmailMeta)}
             data-testid="onboarding-skills-gmail-button"
-            className="w-full flex items-center gap-3 rounded-xl border border-line-subtle bg-surface p-3 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 text-left">
+            className="w-full flex items-center gap-3 rounded-xl border border-line-subtle bg-surface p-3 transition-colors hover:bg-surface-hover text-left">
             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-lg">
               {gmailMeta.icon}
             </div>
@@ -169,7 +169,7 @@ const SkillsStep = ({ onNext, onBack: _onBack }: SkillsStepProps) => {
           </button>
         )}
 
-        <div className="rounded-xl border border-line-subtle bg-stone-50 dark:bg-neutral-800/60 px-3 py-2.5 text-center">
+        <div className="rounded-xl border border-line-subtle bg-surface-muted px-3 py-2.5 text-center">
           <p className="text-xs text-content-faint">{t('skills.available')}</p>
         </div>
       </div>

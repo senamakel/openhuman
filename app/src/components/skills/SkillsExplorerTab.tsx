@@ -175,7 +175,7 @@ function SkillTile({ skill, onUninstall, onClick }: SkillTileProps) {
           onClick();
         }
       }}
-      className="group flex flex-col justify-between rounded-2xl border border-line bg-surface p-3 transition-colors cursor-pointer hover:bg-stone-50 dark:hover:bg-neutral-800/60">
+      className="group flex flex-col justify-between rounded-2xl border border-line bg-surface p-3 transition-colors cursor-pointer hover:bg-surface-hover">
       <div className="min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-surface-subtle">
@@ -283,7 +283,7 @@ function CatalogTile({ entry, installed, installing, onInstall, onClick }: Catal
       className={`group flex flex-col justify-between rounded-2xl border p-3 transition-colors cursor-pointer ${
         installed
           ? 'border-sage-300 bg-sage-50/60 dark:border-sage-500/30 dark:bg-sage-500/10'
-          : 'border-line bg-surface hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+          : 'border-line bg-surface hover:bg-surface-hover'
       }`}>
       <div className="min-w-0">
         <div className="flex items-start justify-between gap-2">

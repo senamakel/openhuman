@@ -187,7 +187,7 @@ const TeamPanel = () => {
         className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
           isActive
             ? 'border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10'
-            : 'border-line bg-surface hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+            : 'border-line bg-surface hover:bg-surface-hover'
         }`}>
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="w-9 h-9 rounded-lg bg-surface-subtle flex items-center justify-center flex-shrink-0">

@@ -33,7 +33,7 @@ const WalkthroughTooltip = ({
       className="w-80 font-sans animate-in fade-in slide-in-from-bottom-2 duration-300"
       style={{ animation: 'tooltipEnter 0.3s ease-out' }}>
       {/* Frosted card */}
-      <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-2xl shadow-xl border border-stone-200/60 dark:border-neutral-800 overflow-hidden">
+      <div className="bg-surface/95 backdrop-blur-md rounded-2xl shadow-xl border border-stone-200/60 dark:border-neutral-800 overflow-hidden">
         {/* Progress bar — thin, smooth fill */}
         <div className="h-1 bg-surface-subtle">
           <div
@@ -73,7 +73,7 @@ const WalkthroughTooltip = ({
             {!isLastStep && (
               <button
                 {...skipProps}
-                className="text-[11px] text-content-faint hover:text-content-secondary transition-colors px-2 py-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800/60">
+                className="text-[11px] text-content-faint hover:text-content-secondary transition-colors px-2 py-1.5 rounded-lg hover:bg-surface-hover">
                 {t('walkthrough.tooltip.skip')}
               </button>
             )}

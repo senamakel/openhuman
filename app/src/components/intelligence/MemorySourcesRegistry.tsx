@@ -868,7 +868,7 @@ function SourceRow({
             onClick={() => onToggle(source)}
             title={source.enabled ? t('memorySources.disable') : t('memorySources.enable')}
             className={`relative h-5 w-9 rounded-full transition-colors ${
-              source.enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-600'
+              source.enabled ? 'bg-primary-500' : 'bg-surface-strong'
             }`}>
             <span
               className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${

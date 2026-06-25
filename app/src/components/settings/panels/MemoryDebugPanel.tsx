@@ -233,7 +233,7 @@ const MemoryDebugPanel = () => {
                 {documents.map(doc => (
                   <div
                     key={`${doc.namespace}:${doc.documentId}`}
-                    className="flex items-start justify-between gap-2 rounded-lg border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2">
+                    className="flex items-start justify-between gap-2 rounded-lg border border-line bg-surface-muted p-2">
                     <div className="min-w-0">
                       <div className="text-xs font-medium text-content break-all">
                         {doc.documentId}
@@ -368,7 +368,7 @@ const MemoryDebugPanel = () => {
                     <MemoryTextWithEntities
                       text={queryResult.text ?? ''}
                       entities={queryResult.entities}
-                      className="rounded-lg border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-[11px] leading-5 min-h-12 whitespace-pre-wrap"
+                      className="rounded-lg border border-line bg-surface-muted p-2 text-[11px] leading-5 min-h-12 whitespace-pre-wrap"
                     />
                   </div>
                 )}
@@ -380,7 +380,7 @@ const MemoryDebugPanel = () => {
                     <MemoryTextWithEntities
                       text={recallResult.text ?? ''}
                       entities={recallResult.entities}
-                      className="rounded-lg border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-[11px] leading-5 min-h-12 whitespace-pre-wrap"
+                      className="rounded-lg border border-line bg-surface-muted p-2 text-[11px] leading-5 min-h-12 whitespace-pre-wrap"
                     />
                   </div>
                 )}

@@ -337,7 +337,7 @@ function normalizeToolBody(value?: string): string | undefined {
  * panels — the row's *status* is conveyed by the agent name (see
  * {@link agentNameTone}), so the body stays visually quiet.
  */
-const BODY_SURFACE = 'bg-stone-50 dark:bg-neutral-800/60';
+const BODY_SURFACE = 'bg-surface-muted';
 
 /**
  * The agent-run timeline rendered above an assistant answer — the

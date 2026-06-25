@@ -583,7 +583,7 @@ const AutocompleteDebugPanel = () => {
             </Button>
           </div>
           {focusDebug && (
-            <pre className="max-h-48 overflow-auto rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-content">
+            <pre className="max-h-48 overflow-auto rounded-xl border border-line bg-surface-muted p-2 text-xs text-content">
               {focusDebug}
             </pre>
           )}
@@ -601,7 +601,7 @@ const AutocompleteDebugPanel = () => {
             </Button>
           </div>
           {/* Bespoke log-stream display — kept intact */}
-          <pre className="max-h-56 overflow-auto rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-content">
+          <pre className="max-h-56 overflow-auto rounded-xl border border-line bg-surface-muted p-2 text-xs text-content">
             {logs.length > 0 ? logs.join('\n') : t('settings.autocomplete.appFilter.noLogs')}
           </pre>
         </div>
@@ -612,7 +612,7 @@ const AutocompleteDebugPanel = () => {
       {/* ------------------------------------------------------------------ */}
       <SettingsSection title={t('autocomplete.advancedSettings')}>
         <div className="px-4 py-3 space-y-3">
-          <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+          <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
             <span className="text-sm text-content">
               {t('settings.autocomplete.completionStyle.debounce')}
             </span>
@@ -628,7 +628,7 @@ const AutocompleteDebugPanel = () => {
               aria-label={t('settings.autocomplete.completionStyle.debounce')}
             />
           </label>
-          <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+          <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
             <span className="text-sm text-content">
               {t('settings.autocomplete.completionStyle.maxChars')}
             </span>
@@ -644,7 +644,7 @@ const AutocompleteDebugPanel = () => {
               aria-label={t('settings.autocomplete.completionStyle.maxChars')}
             />
           </label>
-          <label className="flex items-center justify-between rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
+          <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
             <span className="text-sm text-content">
               {t('settings.autocomplete.completionStyle.overlayTtl')}
             </span>
@@ -723,7 +723,7 @@ const AutocompleteDebugPanel = () => {
           </p>
           {/* Bespoke history list — kept intact */}
           {historyEntries.length > 0 && (
-            <div className="max-h-48 overflow-y-auto rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 space-y-1">
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-line bg-surface-muted p-2 space-y-1">
               {historyEntries.map((entry, idx) => (
                 <div
                   key={`${String(entry.timestamp_ms)}-${String(idx)}`}

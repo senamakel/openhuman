@@ -358,7 +358,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                     className={`flex flex-col items-center gap-2 rounded-lg p-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                       selected
                         ? 'bg-surface-subtle'
-                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                        : 'hover:bg-surface-hover'
                     }`}>
                     <span
                       className={`w-10 h-10 rounded-full border-2 transition-shadow ${
@@ -622,7 +622,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             </p>
           )}
           {customMascotGifUrl && (
-            <div className="flex justify-center rounded-lg border border-line-subtle bg-neutral-50 dark:bg-neutral-800/60 p-3">
+            <div className="flex justify-center rounded-lg border border-line-subtle bg-surface-muted p-3">
               <div style={{ width: 128, height: 128 }}>
                 <CustomGifMascot src={customMascotGifUrl} />
               </div>
@@ -654,9 +654,9 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                   type="button"
                   onClick={() => handleSelectBackend(null)}
                   aria-pressed={selectedMascotId == null && customMascotGifUrl == null}
-                  className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/60 ${
+                  className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-surface-hover ${
                     selectedMascotId == null && customMascotGifUrl == null
-                      ? 'bg-neutral-50 dark:bg-neutral-800/60 font-medium'
+                      ? 'bg-surface-muted font-medium'
                       : ''
                   }`}>
                   <span>{t('settings.mascot.localDefault')}</span>
@@ -676,8 +676,8 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                       onClick={() => handleSelectBackend(summary.id)}
                       aria-pressed={active}
                       data-testid={`backend-mascot-${summary.id}`}
-                      className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/60 ${
-                        active ? 'bg-neutral-50 dark:bg-neutral-800/60 font-medium' : ''
+                      className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-surface-hover ${
+                        active ? 'bg-surface-muted font-medium' : ''
                       }`}>
                       <span className="flex flex-col">
                         <span>{summary.name}</span>
@@ -701,7 +701,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
         </div>
 
         {visibleActiveDetail && (
-          <div className="mt-3 rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-4">
+          <div className="mt-3 rounded-xl border border-line bg-surface-muted p-4">
             <p className="text-[11px] font-medium uppercase tracking-wide text-content-muted mb-2">
               {t('settings.mascot.characterPreview')} · {visibleActiveDetail.name}
             </p>

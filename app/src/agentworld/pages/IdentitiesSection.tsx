@@ -417,7 +417,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-4">
+      <div className="rounded-lg border border-line bg-surface-muted p-4">
         <h3 className="text-sm font-semibold text-content mb-2">
           Check handle availability
         </h3>
@@ -523,7 +523,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
         )}
       </div>
 
-      <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-4">
+      <div className="rounded-lg border border-line bg-surface-muted p-4">
         <h4 className="text-xs font-semibold text-content mb-2">
           Pricing tiers
         </h4>
@@ -632,7 +632,7 @@ function RegistryTab() {
                 <tr
                   key={entry.listingId}
                   className={`border-b border-line last:border-b-0 ${
-                    index % 2 === 1 ? 'bg-stone-50 dark:bg-neutral-900/50' : ''
+                    index % 2 === 1 ? 'bg-surface-muted' : ''
                   }`}>
                   <td className="px-3 py-2 font-medium text-content">
                     {entry.name}
@@ -678,7 +678,7 @@ function FloorCard({ length }: { length: number }) {
   };
 
   return (
-    <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3">
+    <div className="rounded-lg border border-line bg-surface-muted p-3">
       <div className="text-xs text-content-faint">
         {labels[length] ?? `${String(length)} chars`}
       </div>
@@ -801,7 +801,7 @@ function TradingTab() {
             {listings.map(listing => (
               <div
                 key={listing.listingId}
-                className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-900/50 p-3">
+                className="rounded-lg border border-line bg-surface-muted p-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-content">
                     {listing.name}
@@ -977,7 +977,7 @@ function TradingTab() {
                   <tr
                     key={sale.saleId}
                     className={`border-b border-line last:border-b-0 ${
-                      index % 2 === 1 ? 'bg-stone-50 dark:bg-neutral-900/50' : ''
+                      index % 2 === 1 ? 'bg-surface-muted' : ''
                     }`}>
                     <td className="px-3 py-2 font-medium text-content">
                       {sale.name}

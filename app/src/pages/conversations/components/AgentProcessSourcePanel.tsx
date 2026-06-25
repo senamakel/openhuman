@@ -41,7 +41,7 @@ function AgentSourceRow({ source }: { source: AgentSource }) {
         href={source.url}
         target="_blank"
         rel="noreferrer noopener"
-        className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1 text-[11px] hover:bg-stone-50 dark:hover:bg-neutral-800/60"
+        className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1 text-[11px] hover:bg-surface-hover"
         data-testid="agent-source-row">
         <span className="flex min-w-0 items-center gap-1.5">
           <GlobeIcon className="shrink-0 text-content-faint" />

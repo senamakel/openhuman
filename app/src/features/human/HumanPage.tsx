@@ -66,7 +66,7 @@ const HumanPage = () => {
         </div>
       </div>
 
-      <label className="absolute top-4 left-4 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm border border-line-strong text-xs text-content-secondary shadow-soft cursor-pointer select-none">
+      <label className="absolute top-4 left-4 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface/80 backdrop-blur-sm border border-line-strong text-xs text-content-secondary shadow-soft cursor-pointer select-none">
         <input
           type="checkbox"
           checked={speakReplies}

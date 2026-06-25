@@ -416,7 +416,7 @@ const RecoveryPhrasePanel = () => {
 
           {/* Wallet metadata */}
           {walletStatus && (
-            <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 border border-line space-y-3">
+            <div className="bg-surface-muted rounded-2xl p-4 border border-line space-y-3">
               {walletStatus.source && (
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-content-muted">
@@ -489,7 +489,7 @@ const RecoveryPhrasePanel = () => {
                   {t('mnemonic.cannotRecover')}
                 </p>
               </div>
-              <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 border border-line relative">
+              <div className="bg-surface-muted rounded-2xl p-4 border border-line relative">
                 <div
                   className="grid grid-cols-3 gap-2 transition-all duration-300"
                   style={{
@@ -716,7 +716,7 @@ const RecoveryPhrasePanel = () => {
         </div>
       </div>
 
-      <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 mb-4 border border-line relative">
+      <div className="bg-surface-muted rounded-2xl p-4 mb-4 border border-line relative">
         <div
           className="grid grid-cols-3 gap-2 transition-all duration-300"
           style={{
@@ -844,7 +844,7 @@ const RecoveryPhrasePanel = () => {
         ))}
       </div>
 
-      <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 mb-4 border border-line">
+      <div className="bg-surface-muted rounded-2xl p-4 mb-4 border border-line">
         <div className="grid grid-cols-3 gap-2">
           {importWords.map((word, index) => (
             <div key={index} className="flex items-center gap-1.5">

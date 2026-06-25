@@ -382,7 +382,7 @@ export function MemoryTreeStatusPanel({ onToast }: MemoryTreeStatusPanelProps) {
   const checked = !(status?.is_paused ?? false);
 
   const tileClass =
-    'rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-3 transition-colors hover:bg-surface-hover';
+    'rounded-xl border border-line bg-surface-muted p-3 transition-colors hover:bg-surface-hover';
   const labelClass =
     'text-[11px] uppercase tracking-wide text-content-muted mb-1';
   const valueClass = 'text-xl font-semibold text-content';
@@ -547,7 +547,7 @@ export function MemoryTreeStatusPanel({ onToast }: MemoryTreeStatusPanelProps) {
           }}
           data-testid="memory-tree-status-toggle"
           className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${
-            checked ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-700'
+            checked ? 'bg-primary-500' : 'bg-surface-strong'
           }`}>
           <span
             aria-hidden

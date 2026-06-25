@@ -128,7 +128,7 @@ export function MemoryHeatmap({ timestamps, loading }: MemoryHeatmapProps) {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-5">
+      <div className="rounded-xl border border-line bg-surface-muted p-5">
         <h3 className="text-sm font-semibold text-content mb-3">
           {t('memory.ingestionActivity')}
         </h3>
@@ -138,7 +138,7 @@ export function MemoryHeatmap({ timestamps, loading }: MemoryHeatmapProps) {
   }
 
   return (
-    <div className="rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 p-5">
+    <div className="rounded-xl border border-line bg-surface-muted p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-sm font-semibold text-content">

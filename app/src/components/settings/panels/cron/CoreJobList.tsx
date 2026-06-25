@@ -181,7 +181,7 @@ const CoreJobList = ({
               {runs.length > 0 && (
                 <div
                   data-testid={`cron-job-runs-${job.id}`}
-                  className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 p-3 space-y-1">
+                  className="rounded-lg border border-line bg-surface-muted p-3 space-y-1">
                   <div className="text-[11px] uppercase tracking-wide text-content-faint">
                     {t('settings.cron.jobs.recentRuns')}
                   </div>

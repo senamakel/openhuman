@@ -200,7 +200,7 @@ const Notifications = () => {
                       handleClick(item);
                     }
                   }}
-                  className={`w-full text-left px-4 py-3 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors ${
+                  className={`w-full text-left px-4 py-3 hover:bg-surface-hover transition-colors ${
                     item.read
                       ? 'bg-surface'
                       : 'bg-primary-50/30 dark:bg-primary-900/20'

@@ -267,7 +267,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
 
         {/* Connections info */}
         {detail.connections.length > 0 && (
-          <div className="rounded-lg border border-stone-150 dark:border-neutral-700/60 bg-stone-50 dark:bg-neutral-800/40 p-3">
+          <div className="rounded-lg border border-stone-150 dark:border-neutral-700/60 bg-surface-muted p-3">
             <p className="text-xs font-medium text-content-muted mb-2">
               {t('mcp.install.connections')}
             </p>
@@ -277,7 +277,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
                   key={i}
                   className="flex items-center gap-2 text-xs text-content-secondary">
                   <span
-                    className={`w-2 h-2 rounded-full shrink-0 ${conn.published ? 'bg-sage-500' : 'bg-stone-300 dark:bg-neutral-600'}`}
+                    className={`w-2 h-2 rounded-full shrink-0 ${conn.published ? 'bg-sage-500' : 'bg-surface-strong'}`}
                   />
                   <span className="font-mono">{conn.type}</span>
                   {conn.published && (

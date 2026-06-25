@@ -65,7 +65,7 @@ const ReceiveModal = ({ balance, onClose }: ReceiveModalProps) => {
           <span className="block text-[11px] font-medium text-content-muted mb-1">
             {t('walletReceive.addressLabel').replace('{network}', networkLabel)}
           </span>
-          <div className="flex items-center gap-2 rounded-xl border border-line bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-3 py-2">
             <span
               className="font-mono text-xs text-content-secondary break-all"
               data-testid="receive-address">

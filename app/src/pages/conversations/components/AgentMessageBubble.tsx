@@ -192,7 +192,7 @@ export function AgentMessageBubble({
     return (
       <AgentMarkdownTable
         table={table}
-        className={`w-full max-w-full overflow-hidden border border-line bg-white/90 dark:bg-neutral-900/90 shadow-sm ${bubbleChrome}`}
+        className={`w-full max-w-full overflow-hidden border border-line bg-surface/90 shadow-sm ${bubbleChrome}`}
       />
     );
   }

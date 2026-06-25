@@ -91,7 +91,7 @@ const FaceModePanel = () => {
       </div>
 
       {/* TTS / speak-replies toggle */}
-      <label className="inline-flex cursor-pointer select-none items-center gap-2 rounded-full border border-line-strong bg-white/80 dark:bg-neutral-900/80 px-3 py-1.5 text-xs text-content-secondary shadow-soft backdrop-blur-sm">
+      <label className="inline-flex cursor-pointer select-none items-center gap-2 rounded-full border border-line-strong bg-surface/80 px-3 py-1.5 text-xs text-content-secondary shadow-soft backdrop-blur-sm">
         <input
           type="checkbox"
           checked={speakReplies}

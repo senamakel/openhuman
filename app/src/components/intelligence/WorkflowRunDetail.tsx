@@ -63,7 +63,7 @@ const PHASE_STATUS_KEY: Record<WorkflowPhaseStatus, string> = {
 
 /** Glyph per phase status — color comes from the surrounding classes. */
 const PHASE_STATUS_DOT: Record<WorkflowPhaseStatus, string> = {
-  pending: 'bg-stone-300 dark:bg-neutral-600',
+  pending: 'bg-surface-strong',
   running: 'bg-ocean-500 animate-pulse',
   completed: 'bg-sage-500',
   failed: 'bg-coral-500',

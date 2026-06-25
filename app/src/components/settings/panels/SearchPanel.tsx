@@ -237,7 +237,7 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
         </p>
 
         {isLocalSession && (
-          <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 px-4 py-3 text-sm text-content-secondary">
+          <div className="rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-content-secondary">
             {t('settings.search.localManagedUnavailable')}
           </div>
         )}
@@ -271,7 +271,7 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
                     } ${
                       selected
                         ? 'bg-primary-50 dark:bg-primary-500/10'
-                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                        : 'hover:bg-surface-hover'
                     }`}>
                     <span className="flex-1 min-w-0">
                       <span className="flex items-center gap-2">
@@ -409,7 +409,7 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
                       } ${
                         selected
                           ? 'bg-primary-500 text-white'
-                          : 'bg-surface text-content-secondary hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+                          : 'bg-surface text-content-secondary hover:bg-surface-hover'
                       }`}>
                       {t(labelKey)}
                     </button>

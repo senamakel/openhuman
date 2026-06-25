@@ -60,7 +60,7 @@ export function ChannelAuthModeCard({
   lastError,
 }: ChannelAuthModeCardProps) {
   return (
-    <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 p-3">
+    <div className="rounded-lg border border-line bg-surface-muted p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           {title ? (

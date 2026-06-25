@@ -118,7 +118,7 @@ const AppFilterSection = ({
             value={contextOverride}
             onChange={event => onSetContextOverride(event.target.value)}
             rows={3}
-            className="w-full rounded border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-content"
+            className="w-full rounded border border-line bg-surface-muted p-2 text-xs text-content"
           />
         </div>
         <div className="flex gap-2">
@@ -139,7 +139,7 @@ const AppFilterSection = ({
           </button>
         </div>
         {focusDebug && (
-          <pre className="max-h-48 overflow-auto rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-content">
+          <pre className="max-h-48 overflow-auto rounded-xl border border-line bg-surface-muted p-2 text-xs text-content">
             {focusDebug}
           </pre>
         )}
@@ -154,7 +154,7 @@ const AppFilterSection = ({
             {t('common.clear')}
           </Button>
         </div>
-        <pre className="max-h-56 overflow-auto rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-content">
+        <pre className="max-h-56 overflow-auto rounded-xl border border-line bg-surface-muted p-2 text-xs text-content">
           {logs.length > 0 ? logs.join('\n') : t('settings.autocomplete.appFilter.noLogs')}
         </pre>
       </section>

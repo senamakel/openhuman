@@ -71,7 +71,7 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
 
   return (
     <div
-      className={`w-full p-3 border-b border-line-subtle hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors duration-150 ${
+      className={`w-full p-3 border-b border-line-subtle hover:bg-surface-hover transition-colors duration-150 ${
         isUnread ? 'bg-primary-50/30' : 'bg-surface'
       }`}>
       <div className="flex items-start gap-3">

@@ -291,7 +291,7 @@ const EventLogPanel = () => {
             return (
               <div
                 key={entry.id}
-                className="rounded-xl border border-line bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2 flex items-start gap-2">
+                className="rounded-xl border border-line bg-surface-muted px-3 py-2 flex items-start gap-2">
                 <span className="text-[10px] text-content-muted font-mono shrink-0 pt-0.5">
                   {entry.timestamp}
                 </span>

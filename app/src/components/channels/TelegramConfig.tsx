@@ -335,7 +335,7 @@ const TelegramConfig = ({ definition }: TelegramConfigProps) => {
       {error && <ChannelConfigError message={error} />}
 
       {isLocalSession && visibleAuthModes.length !== definition.auth_modes.length && (
-        <div className="rounded-lg border border-line bg-stone-50 dark:bg-neutral-800/60 px-4 py-3 text-sm text-content-secondary">
+        <div className="rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-content-secondary">
           {t('channels.localManagedUnavailable')}
         </div>
       )}

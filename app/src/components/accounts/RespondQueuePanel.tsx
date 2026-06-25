@@ -57,7 +57,7 @@ export default function RespondQueuePanel({
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {status === 'loading' && items.length === 0 ? (
-          <p className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-content-muted">
+          <p className="rounded-lg bg-surface-muted px-3 py-2 text-xs text-content-muted">
             {t('accounts.respondQueue.loading')}
           </p>
         ) : null}
@@ -69,7 +69,7 @@ export default function RespondQueuePanel({
         ) : null}
 
         {items.length === 0 && status !== 'loading' ? (
-          <p className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-content-muted">
+          <p className="rounded-lg bg-surface-muted px-3 py-2 text-xs text-content-muted">
             {t('accounts.respondQueue.empty')}
           </p>
         ) : null}
@@ -85,7 +85,7 @@ export default function RespondQueuePanel({
                   void openUrl(item.deepLink);
                 }
               }}
-              className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:cursor-default"
+              className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-hover disabled:cursor-default"
               disabled={!item.deepLink}>
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-xs font-medium text-content">

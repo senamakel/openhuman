@@ -1194,7 +1194,7 @@ export default function Skills() {
                                 key={i}
                                 data-testid="composio-skeleton-tile"
                                 aria-hidden="true"
-                                className="animate-pulse rounded-xl border border-line bg-stone-100 dark:bg-neutral-800/60"
+                                className="animate-pulse rounded-xl border border-line bg-surface-subtle"
                               />
                             ))}
                           </div>

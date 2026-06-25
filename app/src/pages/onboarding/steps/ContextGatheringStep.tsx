@@ -465,7 +465,7 @@ const ContextGatheringStep = ({
                   ? 'bg-emerald-500'
                   : aliveState === 'unreachable'
                     ? 'bg-red-500'
-                    : 'bg-stone-300 dark:bg-neutral-600 animate-pulse'
+                    : 'bg-surface-strong animate-pulse'
               }`}
               aria-hidden="true"
             />

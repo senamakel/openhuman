@@ -6,7 +6,7 @@
  * two surfaces can never disagree.
  */
 import { useT } from '../../../lib/i18n/I18nContext';
-import { ShortcutsList } from '../../commands/shortcutsView';
+import { ShortcutsList } from '../../shortcuts/shortcutsView';
 import SettingsPanel from '../layout/SettingsPanel';
 
 const KeyboardShortcutsPanel = () => {

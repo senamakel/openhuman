@@ -1,6 +1,6 @@
 import { useT } from '../../lib/i18n/I18nContext';
+import Kbd from '../commands/Kbd';
 import { ModalShell } from '../ui/ModalShell';
-import Kbd from './Kbd';
 import { ShortcutsList } from './shortcutsView';
 
 interface Props {

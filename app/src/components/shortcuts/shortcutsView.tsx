@@ -4,7 +4,7 @@ import { hotkeyManager } from '../../lib/commands/hotkeyManager';
 import { registry } from '../../lib/commands/registry';
 import type { RegisteredAction } from '../../lib/commands/types';
 import { useT } from '../../lib/i18n/I18nContext';
-import Kbd from './Kbd';
+import Kbd from '../commands/Kbd';
 
 // Display order for the grouped shortcut list. Mirrors the command palette's
 // ordering and appends Help. Unknown groups sort alphabetically after these.

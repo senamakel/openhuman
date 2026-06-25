@@ -9,8 +9,8 @@ import { useAppDispatch } from '../../store/hooks';
 import { toggleSidebar } from '../../store/layoutSlice';
 import { APP_SHELL_LAYOUT_ID } from '../layout/shell/RootShellLayout';
 import { useHomeNav } from '../layout/shell/useHomeNav';
+import KeyboardShortcutsModal from '../shortcuts/KeyboardShortcutsModal';
 import CommandPalette from './CommandPalette';
-import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 
 let instanceCount = 0;
 

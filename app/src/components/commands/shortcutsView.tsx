@@ -8,7 +8,7 @@ import Kbd from './Kbd';
 
 // Display order for the grouped shortcut list. Mirrors the command palette's
 // ordering and appends Help. Unknown groups sort alphabetically after these.
-const DISPLAY_ORDER = ['Navigation', 'Chat', 'View', 'General', 'Help'];
+const DISPLAY_ORDER = ['Navigation', 'Profiles', 'Chat', 'View', 'General', 'Help'];
 
 export interface ShortcutGroup {
   group: string;

@@ -1,10 +1,29 @@
 import { hotkeyManager } from './hotkeyManager';
 import { registry } from './registry';
+import { isMac } from './shortcut';
 
 // Group headings shown (in this order) by the command palette and the
 // keyboard-shortcuts help directory. Kept in sync with the `group` values
 // assigned to each action below.
-export const GROUP_ORDER = ['Navigation', 'Chat', 'View', 'General'] as const;
+export const GROUP_ORDER = ['Navigation', 'Profiles', 'Chat', 'View', 'General'] as const;
+
+/**
+ * Navigation tabs are bound to the **Control** key, Hermes-style.
+ *
+ * On macOS `ctrl+N` is the physical Control key (distinct from ⌘), which is
+ * exactly what we want so ⌘+N can later mean "switch profile". On Windows/Linux
+ * there is no ⌘ and our matcher treats a bare `ctrl+N` as unreachable (mod *is*
+ * Ctrl there), so nav folds to `mod+N` — i.e. Ctrl+N physically on every OS.
+ */
+const NAV_MOD = isMac() ? 'ctrl' : 'mod';
+
+/**
+ * Profile-switch shortcuts (⌘1–⌘4 on macOS) are wired but inert: profiles don't
+ * exist yet. While this is false the actions stay bound-but-disabled and hidden
+ * from the palette/help directory; flip it true (and supply a real handler) when
+ * the profiles feature lands.
+ */
+const PROFILES_ENABLED = false;
 
 /**
  * Side-effecting handlers the global command layer drives. The owning
@@ -36,6 +55,13 @@ interface GlobalActionDef {
   allowInInput?: boolean;
   /** Extra key combos bound to the same handler (not shown separately). */
   aliases?: BindCombo[];
+  /** Gate for both the binding (won't fire) and palette/help visibility. */
+  enabled?: () => boolean;
+  /**
+   * When false the combo is still bound (so it's "wired") but NOT surfaced in
+   * the palette / help directory. Used for placeholder shortcuts. Default true.
+   */
+  register?: boolean;
   handler: () => void;
   keywords?: string[];
 }
@@ -51,13 +77,32 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
     h.navigate(path);
   };
 
+  // Placeholder until the profiles feature exists; the index is captured so the
+  // real switch can drop straight in here later.
+  const switchProfile = (index: number) => () => {
+    void index;
+  };
+
+  const profileActions: GlobalActionDef[] = [1, 2, 3, 4].map(n => ({
+    id: `profile.switch-${n}`,
+    label: `Switch to Profile ${n}`,
+    group: 'Profiles' as const,
+    // ⌘N on macOS (mod === ⌘); Ctrl+N on Windows/Linux. Distinct from the
+    // Control-based nav row on macOS; harmlessly inert elsewhere while disabled.
+    shortcut: `mod+${n}`,
+    enabled: () => PROFILES_ENABLED,
+    register: PROFILES_ENABLED,
+    handler: switchProfile(n),
+    keywords: ['profile', 'switch', 'persona', `profile ${n}`],
+  }));
+
   return [
-    // ── Navigation ──────────────────────────────────────────────────────
+    // ── Navigation (Control-based, Hermes-style) ────────────────────────
     {
       id: 'nav.home',
       label: 'Go Home',
       group: 'Navigation',
-      shortcut: 'mod+1',
+      shortcut: `${NAV_MOD}+1`,
       handler: nav('/home'),
       keywords: ['dashboard'],
     },
@@ -65,7 +110,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
       id: 'nav.chat',
       label: 'Go to Chat',
       group: 'Navigation',
-      shortcut: 'mod+2',
+      shortcut: `${NAV_MOD}+2`,
       handler: nav('/chat'),
       keywords: ['conversations', 'messages', 'inbox'],
     },
@@ -73,7 +118,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
       id: 'nav.intelligence',
       label: 'Go to Knowledge & Memory',
       group: 'Navigation',
-      shortcut: 'mod+3',
+      shortcut: `${NAV_MOD}+3`,
       handler: nav('/settings/intelligence'),
       keywords: ['memory', 'knowledge', 'intelligence'],
     },
@@ -81,7 +126,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
       id: 'nav.skills',
       label: 'Go to Connections',
       group: 'Navigation',
-      shortcut: 'mod+4',
+      shortcut: `${NAV_MOD}+4`,
       handler: nav('/connections'),
       keywords: ['plugins', 'tools', 'connections', 'apps', 'skills'],
     },
@@ -89,7 +134,7 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
       id: 'nav.activity',
       label: 'Go to Activity',
       group: 'Navigation',
-      shortcut: 'mod+5',
+      shortcut: `${NAV_MOD}+5`,
       handler: nav('/activity'),
       keywords: ['tasks', 'automations', 'alerts', 'background'],
     },
@@ -97,10 +142,14 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
       id: 'nav.settings',
       label: 'Open Settings',
       group: 'Navigation',
+      // Settings keeps the conventional ⌘, (mod) — it isn't a numbered tab.
       shortcut: 'mod+,',
       handler: nav('/settings'),
       keywords: ['preferences', 'config'],
     },
+
+    // ── Profiles (wired, hidden until the feature exists) ───────────────
+    ...profileActions,
 
     // ── Chat ────────────────────────────────────────────────────────────
     {
@@ -161,18 +210,24 @@ export function registerGlobalActions(
 
   const disposers: Array<() => void> = [];
   for (const a of actions) {
-    const disposeRegistry = registry.registerAction(
-      {
-        id: a.id,
-        label: a.label,
-        group: a.group,
-        shortcut: a.shortcut,
-        handler: a.handler,
-        keywords: a.keywords,
-        allowInInput: a.allowInInput,
-      },
-      globalScopeSymbol
-    );
+    // `register: false` actions are still bound (wired) but stay out of the
+    // palette / help directory.
+    const disposeRegistry =
+      a.register === false
+        ? () => {}
+        : registry.registerAction(
+            {
+              id: a.id,
+              label: a.label,
+              group: a.group,
+              shortcut: a.shortcut,
+              handler: a.handler,
+              keywords: a.keywords,
+              allowInInput: a.allowInInput,
+              enabled: a.enabled,
+            },
+            globalScopeSymbol
+          );
 
     const combos: BindCombo[] = [
       { combo: a.shortcut, allowInInput: a.allowInInput },
@@ -185,6 +240,7 @@ export function registerGlobalActions(
           shortcut: combo,
           handler: a.handler,
           allowInInput,
+          enabled: a.enabled,
           id: `${a.id}:${combo}`,
         })
       );

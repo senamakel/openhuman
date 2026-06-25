@@ -102,6 +102,17 @@ describe('registerGlobalActions', () => {
   });
 
   it('exports GROUP_ORDER', () => {
-    expect(GROUP_ORDER).toEqual(['Navigation', 'Chat', 'View', 'General']);
+    expect(GROUP_ORDER).toEqual(['Navigation', 'Profiles', 'Chat', 'View', 'General']);
+  });
+
+  it('wires profile-switch shortcuts but keeps them hidden (disabled) until profiles exist', () => {
+    const frame = hotkeyManager.pushFrame('global', 'root');
+    registerGlobalActions(makeHandlers(), frame);
+    registry.setActiveStack([frame]);
+    // Hidden: not surfaced in the active (registry) action list…
+    expect(registry.getAction('profile.switch-1')).toBeUndefined();
+    // …and inert: the binding exists but is disabled, so running it is a no-op
+    // that never throws.
+    expect(() => registry.runAction('profile.switch-1')).not.toThrow();
   });
 });

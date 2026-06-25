@@ -74,7 +74,6 @@ export default function CommandProvider({ children }: Props) {
       instanceCount -= 1;
     };
     // Mount-once: handlers are reached via `handlersRef`, not deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

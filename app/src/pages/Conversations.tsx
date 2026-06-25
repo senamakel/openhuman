@@ -2510,33 +2510,30 @@ const Conversations = ({
             />
           </div>
         ) : inputMode === 'text' ? (
-          <>
-            <ChatComposer
-              inputValue={inputValue}
-              setInputValue={setInputValue}
-              onSend={handleSendMessage}
-              textInputRef={textInputRef}
-              fileInputRef={fileInputRef}
-              composerInteractionBlocked={composerInteractionBlocked}
-              isSending={isSending}
-              allowParallelSend={selectedThreadActive}
-              attachments={attachments}
-              onAttachFiles={handleAttachFiles}
-              onRemoveAttachment={id => setAttachments(prev => prev.filter(a => a.id !== id))}
-              attachError={attachError}
-              onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
-              handleInputKeyDown={handleInputKeyDown}
-              inlineCompletionSuffix={inlineCompletionSuffix}
-              isComposingTextRef={isComposingTextRef}
-              maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
-              // Empty → no native `accept` filter (it greys valid files on
-              // macOS/CEF). Type enforcement happens in handleAttachFiles via
-              // validateAndReadFile, which honors modelSupportsVision.
-              allowedMimeTypes={[]}
-              attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
-            />
-            <SuperContextToggle />
-          </>
+          <ChatComposer
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            onSend={handleSendMessage}
+            textInputRef={textInputRef}
+            fileInputRef={fileInputRef}
+            composerInteractionBlocked={composerInteractionBlocked}
+            isSending={isSending}
+            allowParallelSend={selectedThreadActive}
+            attachments={attachments}
+            onAttachFiles={handleAttachFiles}
+            onRemoveAttachment={id => setAttachments(prev => prev.filter(a => a.id !== id))}
+            attachError={attachError}
+            onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
+            handleInputKeyDown={handleInputKeyDown}
+            inlineCompletionSuffix={inlineCompletionSuffix}
+            isComposingTextRef={isComposingTextRef}
+            maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
+            // Empty → no native `accept` filter (it greys valid files on
+            // macOS/CEF). Type enforcement happens in handleAttachFiles via
+            // validateAndReadFile, which honors modelSupportsVision.
+            allowedMimeTypes={[]}
+            attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
+          />
         ) : (
           <div className="flex items-center gap-2">
             <button
@@ -2643,6 +2640,7 @@ const Conversations = ({
                   {t('chat.agentProfile.reasoning')}
                 </button>
               </div>
+              <SuperContextToggle />
               {selectedThreadId && (
                 <button
                   type="button"

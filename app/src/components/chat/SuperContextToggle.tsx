@@ -8,6 +8,7 @@ import {
   openhumanSetSuperContextEnabled,
 } from '../../utils/tauriCommands/config';
 import SettingsSwitch from '../settings/controls/SettingsSwitch';
+import Tooltip from '../ui/Tooltip';
 
 const log = debugFactory('chat:super-context-toggle');
 
@@ -82,7 +83,7 @@ const SuperContextToggle = () => {
   );
 
   return (
-    <div className="flex items-center gap-2 px-1 pt-1.5 text-xs text-stone-500 dark:text-neutral-400">
+    <div className="flex h-7 flex-shrink-0 items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400">
       <SettingsSwitch
         id="super-context-toggle"
         checked={enabled}
@@ -94,9 +95,27 @@ const SuperContextToggle = () => {
       <span className="font-medium text-stone-600 dark:text-neutral-300">
         {t('chat.superContext.label')}
       </span>
-      <span className="text-stone-400 dark:text-neutral-500 truncate">
-        {t('chat.superContext.hint')}
-      </span>
+      <Tooltip label={t('chat.superContext.hint')} side="top">
+        <button
+          type="button"
+          aria-label={t('chat.superContext.hint')}
+          data-testid="super-context-info"
+          className="flex h-4 w-4 items-center justify-center rounded-full text-stone-400 transition-colors hover:text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-neutral-500 dark:hover:text-neutral-300">
+          <svg
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.8}
+              d="M12 16v-4m0-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </button>
+      </Tooltip>
     </div>
   );
 };

@@ -10,6 +10,8 @@ import chatRuntimeReducer, {
   hydrateRuntimeFromRunLedger,
   hydrateRuntimeFromSnapshot,
   type QueueStatus,
+  recordChatTurnUsage,
+  resetSessionTokenUsage,
   setQueueStatusForThread,
   setToolTimelineForThread,
 } from './chatRuntimeSlice';
@@ -47,6 +49,111 @@ function makeInterruptedSnapshot(
 function makeStore() {
   return configureStore({ reducer: { chatRuntime: chatRuntimeReducer } });
 }
+
+describe('chatRuntimeSlice recordChatTurnUsage', () => {
+  it('accumulates tokens, cost, and context window across turns', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 1000,
+        outputTokens: 200,
+        cachedTokens: 50,
+        costUsd: 0.012,
+        contextWindow: 200_000,
+      })
+    );
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 500,
+        outputTokens: 100,
+        cachedTokens: 10,
+        costUsd: 0.008,
+        contextWindow: 200_000,
+      })
+    );
+    const usage = store.getState().chatRuntime.sessionTokenUsage;
+    expect(usage.inputTokens).toBe(1500);
+    expect(usage.outputTokens).toBe(300);
+    expect(usage.cachedTokens).toBe(60);
+    expect(usage.costUsd).toBeCloseTo(0.02, 6);
+    expect(usage.turns).toBe(2);
+    expect(usage.contextWindow).toBe(200_000);
+    // Context gauge tracks the latest turn's input+output, not the running sum.
+    expect(usage.lastTurnContextUsed).toBe(600);
+  });
+
+  it('rolls sub-agent spend into a per-archetype breakdown keyed by agentId', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 100,
+        outputTokens: 20,
+        subAgents: [
+          { agentId: 'researcher', inputTokens: 40, outputTokens: 10, costUsd: 0.001 },
+          { agentId: 'coder', inputTokens: 80, outputTokens: 30, costUsd: 0.003 },
+        ],
+      })
+    );
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 50,
+        outputTokens: 10,
+        subAgents: [{ agentId: 'researcher', inputTokens: 60, outputTokens: 5, costUsd: 0.002 }],
+      })
+    );
+    const subs = store.getState().chatRuntime.sessionTokenUsage.subAgents;
+    expect(subs.researcher).toEqual({
+      agentId: 'researcher',
+      inputTokens: 100,
+      outputTokens: 15,
+      costUsd: 0.003,
+      runs: 2,
+    });
+    expect(subs.coder.runs).toBe(1);
+    expect(subs.coder.inputTokens).toBe(80);
+  });
+
+  it('keeps the prior context window when a turn reports an unknown (0) window', () => {
+    const store = makeStore();
+    store.dispatch(recordChatTurnUsage({ inputTokens: 10, outputTokens: 5, contextWindow: 128_000 }));
+    store.dispatch(recordChatTurnUsage({ inputTokens: 10, outputTokens: 5, contextWindow: 0 }));
+    expect(store.getState().chatRuntime.sessionTokenUsage.contextWindow).toBe(128_000);
+  });
+
+  it('coerces non-finite / negative inputs to zero', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: Number.NaN,
+        outputTokens: -50,
+        costUsd: -1,
+      })
+    );
+    const usage = store.getState().chatRuntime.sessionTokenUsage;
+    expect(usage.inputTokens).toBe(0);
+    expect(usage.outputTokens).toBe(0);
+    expect(usage.costUsd).toBe(0);
+    expect(usage.turns).toBe(1);
+  });
+
+  it('resetSessionTokenUsage clears all accumulated usage', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 100,
+        outputTokens: 20,
+        costUsd: 0.01,
+        subAgents: [{ agentId: 'researcher', inputTokens: 1, outputTokens: 1, costUsd: 0.001 }],
+      })
+    );
+    store.dispatch(resetSessionTokenUsage());
+    const usage = store.getState().chatRuntime.sessionTokenUsage;
+    expect(usage.inputTokens).toBe(0);
+    expect(usage.costUsd).toBe(0);
+    expect(usage.turns).toBe(0);
+    expect(usage.subAgents).toEqual({});
+  });
+});
 
 describe('chatRuntimeSlice queue status', () => {
   it('sets queue status for a thread', () => {

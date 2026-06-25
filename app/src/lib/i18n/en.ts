@@ -2681,6 +2681,12 @@ const en: TranslationMap = {
   'token.turns': 'turns',
   'token.ctxLabel': 'CTX',
   'token.contextWindow': 'Context window usage (last turn)',
+  'token.cachedLabel': 'Cached',
+  'token.costLabel': 'Cost',
+  'token.costTitle': 'Estimated cost this session (USD)',
+  'token.sessionUsageTitle': 'Session usage',
+  'token.subAgentsHeading': 'Sub-agent usage',
+  'token.noSubAgents': 'No sub-agent usage yet',
 
   // Catalog
   'catalog.noCapabilityBinding': 'No capability binding',

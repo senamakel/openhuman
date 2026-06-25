@@ -70,6 +70,10 @@ dirs = "5"
 sha2 = "0.10"
 # Line-level text diffs for the memory_diff module (modified-item unified diffs).
 similar = "2"
+# Git-backed change ledger for the memory_diff module: snapshots are commits,
+# checkpoints are tags, read markers are refs, diffs are git tree diffs.
+# Vendored libgit2 (no system git dependency on end-user machines).
+git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
 # Legacy SHA-1 only used for Tencent COS HMAC-SHA1 signing (yuanbao
 # channel media upload). Not used for any new security-sensitive work.
 sha1 = "0.10"

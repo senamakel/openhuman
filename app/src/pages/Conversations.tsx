@@ -99,6 +99,7 @@ import {
   selectBackgroundProcesses,
 } from './conversations/components/BackgroundProcessesPanel';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
+import { PlanReviewCard } from './conversations/components/PlanReviewCard';
 import { SubagentDrawer } from './conversations/components/SubagentDrawer';
 import { ThreadTodoStrip } from './conversations/components/ThreadTodoStrip';
 import { ToolTimelineBlock } from './conversations/components/ToolTimelineBlock';
@@ -108,7 +109,7 @@ import {
   handleComposerSlashCommand,
 } from './conversations/composerSendDecision';
 import { useMemorySyncActive } from './conversations/hooks/useBackgroundActivity';
-import { runDecidePlan } from './conversations/taskPlanActions';
+import { runDecidePlanAll, runRevisePlan } from './conversations/taskPlanActions';
 import {
   type AgentBubblePosition,
   buildAcceptedInlineCompletion,
@@ -1478,6 +1479,12 @@ const Conversations = ({
     : undefined;
   const selectedTaskBoard = selectedThreadId ? (taskBoardByThread[selectedThreadId] ?? null) : null;
   const hasTaskBoard = Boolean(selectedTaskBoard?.cards.length);
+  // Cards the agent parked for plan-mode review (interactive turn). When any
+  // exist, the PlanReviewCard owns the Approve/Reject/feedback decision and the
+  // todo strip below stays read-only progress.
+  const awaitingPlanCards = (selectedTaskBoard?.cards ?? []).filter(
+    c => c.status === 'awaiting_approval'
+  );
   const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
   const hasVisibleMessages = visibleMessages.length > 0;
   const latestVisibleMessage = visibleMessages[visibleMessages.length - 1] ?? null;
@@ -2598,20 +2605,52 @@ const Conversations = ({
             pinned above the composer. Distinct from the Intelligence-tab kanban
             (global `user-tasks`). Renders nothing when the thread has no active
             cards. */}
+        {/* Plan-mode review: when the agent parks a thread-scoped plan for an
+            interactive turn, surface the whole plan for the user to Approve /
+            Reject / send feedback on — once — before anything executes. Owns the
+            plan decisions, so the strip below stays read-only progress. */}
+        {selectedThreadId && awaitingPlanCards.length > 0 && (
+          <PlanReviewCard
+            cards={awaitingPlanCards}
+            disabled={!selectedThreadId}
+            onApprove={() =>
+              void runDecidePlanAll({
+                threadId: selectedThreadId,
+                cards: awaitingPlanCards,
+                approve: true,
+                dispatch,
+                notify: setSendAdvisory,
+                t,
+              })
+            }
+            onReject={() =>
+              void runDecidePlanAll({
+                threadId: selectedThreadId,
+                cards: awaitingPlanCards,
+                approve: false,
+                dispatch,
+                notify: setSendAdvisory,
+                t,
+              })
+            }
+            onSendFeedback={feedback =>
+              void runRevisePlan({
+                threadId: selectedThreadId,
+                feedback,
+                sendMessage: text =>
+                  selectedThreadActive ? handleSendFollowup(text) : handleSendMessage(text),
+                dispatch,
+                notify: setSendAdvisory,
+                t,
+              })
+            }
+          />
+        )}
+
         {selectedThreadId && (
           <ThreadTodoStrip
             board={selectedTaskBoard}
             disabled={!selectedThreadId}
-            onDecidePlan={(card, approve) => {
-              void runDecidePlan({
-                threadId: selectedThreadId,
-                card,
-                approve,
-                dispatch,
-                notify: setSendAdvisory,
-                t,
-              });
-            }}
             onViewSession={card => {
               if (!card.sessionThreadId) return;
               // Navigation only — do NOT mark the thread active. activeThreadId

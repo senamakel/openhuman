@@ -1,17 +1,13 @@
 import { ReactNode, useCallback, useEffect, useRef } from 'react';
 
-import {
-  DARK_THEME_ID,
-  LIGHT_THEME_ID,
-  findPreset,
-} from '../lib/theme/presets';
+import { DARK_THEME_ID, findPreset, LIGHT_THEME_ID } from '../lib/theme/presets';
 import type { Theme } from '../lib/theme/types';
 import { useAppSelector } from '../store/hooks';
 import {
   FONT_SIZE_PX,
-  SYSTEM_THEME_ID,
   selectActiveThemeId,
   selectEffectiveTheme,
+  SYSTEM_THEME_ID,
 } from '../store/themeSlice';
 
 /**
@@ -30,7 +26,7 @@ import {
  *   utilities scale off this), unchanged from before.
  */
 const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const fontSize = useAppSelector((state) => state.theme.fontSize);
+  const fontSize = useAppSelector(state => state.theme.fontSize);
   const activeThemeId = useAppSelector(selectActiveThemeId);
   const effectiveTheme = useAppSelector(selectEffectiveTheme);
 
@@ -69,10 +65,7 @@ const ThemeProvider = ({ children }: { children: ReactNode }) => {
       root.style.removeProperty('--app-gradient');
     }
 
-    appliedRef.current = {
-      colors: Object.keys(theme.colors),
-      fonts: Object.keys(theme.fonts),
-    };
+    appliedRef.current = { colors: Object.keys(theme.colors), fonts: Object.keys(theme.fonts) };
     console.debug('[theme] applied', {
       id: theme.id,
       isDark: theme.isDark,

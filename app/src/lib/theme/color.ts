@@ -15,7 +15,10 @@ function byte(n: number): number {
 
 /** `"47 110 244"` → `"#2f6ef4"`. Returns `#000000` for malformed input. */
 export function channelsToHex(channels: string): string {
-  const parts = channels.trim().split(/\s+/).map((p) => Number(p));
+  const parts = channels
+    .trim()
+    .split(/\s+/)
+    .map(p => Number(p));
   if (parts.length < 3) return '#000000';
   const [r, g, b] = parts;
   const hex = (v: number) => byte(v).toString(16).padStart(2, '0');
@@ -28,7 +31,7 @@ export function hexToChannels(hex: string): string {
   if (h.length === 3) {
     h = h
       .split('')
-      .map((c) => c + c)
+      .map(c => c + c)
       .join('');
   }
   if (!/^[0-9a-fA-F]{6}$/.test(h)) return '0 0 0';
@@ -43,7 +46,7 @@ export function isChannelTriple(value: string): boolean {
   const parts = value.trim().split(/\s+/);
   return (
     parts.length === 3 &&
-    parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) >= 0 && Number(p) <= 255)
+    parts.every(p => /^\d{1,3}$/.test(p) && Number(p) >= 0 && Number(p) <= 255)
   );
 }
 
@@ -52,8 +55,11 @@ export function isChannelTriple(value: string): boolean {
  * Used to warn when a custom theme risks unreadable contrast.
  */
 export function channelLuminance(channels: string): number {
-  const parts = channels.trim().split(/\s+/).map((p) => Number(p) / 255);
+  const parts = channels
+    .trim()
+    .split(/\s+/)
+    .map(p => Number(p) / 255);
   if (parts.length < 3) return 0;
-  const lin = parts.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const lin = parts.map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
   return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
 }

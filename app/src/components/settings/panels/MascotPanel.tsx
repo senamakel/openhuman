@@ -334,9 +334,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
         </h3>
         <div className="bg-surface rounded-xl border border-line overflow-hidden">
           {available.length === 0 ? (
-            <p className="p-4 text-sm text-content-muted">
-              {t('settings.mascot.noColorVariants')}
-            </p>
+            <p className="p-4 text-sm text-content-muted">{t('settings.mascot.noColorVariants')}</p>
           ) : (
             <div
               className="grid grid-cols-5 gap-3 p-4"
@@ -356,15 +354,11 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                     onClick={() => handleSelect(opt.id)}
                     data-testid={`mascot-color-${opt.id}`}
                     className={`flex flex-col items-center gap-2 rounded-lg p-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
-                      selected
-                        ? 'bg-surface-subtle'
-                        : 'hover:bg-surface-hover'
+                      selected ? 'bg-surface-subtle' : 'hover:bg-surface-hover'
                     }`}>
                     <span
                       className={`w-10 h-10 rounded-full border-2 transition-shadow ${
-                        selected
-                          ? 'border-primary-500 shadow-soft'
-                          : 'border-line'
+                        selected ? 'border-primary-500 shadow-soft' : 'border-line'
                       }`}
                       style={
                         opt.id === 'custom'
@@ -638,14 +632,10 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             </p>
           )}
           {!backendListError && backendList === null && (
-            <p className="p-4 text-sm text-content-muted">
-              {t('settings.mascot.loadingLibrary')}
-            </p>
+            <p className="p-4 text-sm text-content-muted">{t('settings.mascot.loadingLibrary')}</p>
           )}
           {backendList && backendList.length === 0 && !backendListError && (
-            <p className="p-4 text-sm text-content-muted">
-              {t('settings.mascot.noCharacters')}
-            </p>
+            <p className="p-4 text-sm text-content-muted">{t('settings.mascot.noCharacters')}</p>
           )}
           {backendList && backendList.length > 0 && (
             <ul className="divide-y divide-line-subtle dark:divide-neutral-800">

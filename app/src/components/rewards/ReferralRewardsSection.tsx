@@ -177,9 +177,7 @@ const ReferralRewardsSection = () => {
         </div>
 
         {loading && !stats ? (
-          <p className="text-sm text-content-muted">
-            {t('rewards.referralSection.loading')}
-          </p>
+          <p className="text-sm text-content-muted">{t('rewards.referralSection.loading')}</p>
         ) : null}
         {loadError ? (
           <div className="rounded-xl border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-sm text-coral-800 dark:text-coral-200">
@@ -332,9 +330,7 @@ const ReferralRewardsSection = () => {
                   </thead>
                   <tbody className="divide-y divide-line-subtle dark:divide-neutral-800">
                     {stats.referrals.map((row, idx) => (
-                      <tr
-                        key={row.id ?? row.referredUserId ?? idx}
-                        className="bg-surface">
+                      <tr key={row.id ?? row.referredUserId ?? idx} className="bg-surface">
                         <td className="px-3 py-2 font-mono text-content">
                           {row.referredUserMasked || row.referredDisplayName || '—'}
                         </td>

@@ -206,9 +206,7 @@ export function BackgroundProcessesPanel({
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium text-content">
-                        {p.name}
-                      </span>
+                      <span className="truncate text-sm font-medium text-content">{p.name}</span>
                       <span className={`shrink-0 text-[11px] font-medium ${s.pill}`}>
                         {t(s.labelKey)}
                       </span>

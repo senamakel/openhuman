@@ -246,9 +246,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
           <h3 className="text-base font-semibold text-content">
             {t('mcp.connectAuth.title').replace('{name}', server.display_name)}
           </h3>
-          <p className="text-xs text-content-muted mt-1">
-            {t('mcp.connectAuth.hint')}
-          </p>
+          <p className="text-xs text-content-muted mt-1">{t('mcp.connectAuth.hint')}</p>
           <button
             type="button"
             onClick={() => setShowConfigHelp(true)}
@@ -266,15 +264,11 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
         {/* Browser OAuth — shown when detection says this server needs a sign-in. */}
         {authKind === 'oauth' && (
           <div className="space-y-2 rounded-lg border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 p-3">
-            <p className="text-xs text-content-secondary">
-              {t('mcp.connectAuth.oauthHint')}
-            </p>
+            <p className="text-xs text-content-secondary">{t('mcp.connectAuth.oauthHint')}</p>
             <Button variant="primary" size="sm" onClick={handleOAuth} disabled={busy}>
               {oauthWaiting ? t('mcp.connectAuth.oauthWaiting') : t('mcp.connectAuth.signIn')}
             </Button>
-            <p className="text-[11px] text-content-faint">
-              {t('mcp.connectAuth.oauthOrToken')}
-            </p>
+            <p className="text-[11px] text-content-faint">{t('mcp.connectAuth.oauthOrToken')}</p>
           </div>
         )}
 
@@ -355,9 +349,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
             </p>
           )}
           {customHeaders.map(h => (
-            <div
-              key={h.id}
-              className="space-y-1.5 rounded-lg border border-line p-2">
+            <div key={h.id} className="space-y-1.5 rounded-lg border border-line p-2">
               {/* Row 1: header name + scheme + remove */}
               <div className="flex gap-2">
                 <input

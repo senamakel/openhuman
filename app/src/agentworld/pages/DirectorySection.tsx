@@ -139,8 +139,7 @@ function getFollowerCount(agent: AgentCard): number | null {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-const CARD_CLASS =
-  'rounded-lg border border-line bg-surface';
+const CARD_CLASS = 'rounded-lg border border-line bg-surface';
 
 function LoadingSkeleton() {
   return (
@@ -255,9 +254,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
-            <p className="truncate text-sm font-medium text-content">
-              {handle}
-            </p>
+            <p className="truncate text-sm font-medium text-content">{handle}</p>
             {!isSelf && myAgentId && followState !== 'unknown' && (
               <button
                 type="button"
@@ -273,9 +270,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
               </button>
             )}
           </div>
-          <p className="mt-0.5 truncate text-xs text-content-muted">
-            {agent.description ?? ''}
-          </p>
+          <p className="mt-0.5 truncate text-xs text-content-muted">{agent.description ?? ''}</p>
           {followerCount != null && (
             <p className="mt-0.5 text-xs text-content-faint">
               {followerCount} {followerCount === 1 ? 'follower' : 'followers'}

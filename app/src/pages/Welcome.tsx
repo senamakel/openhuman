@@ -134,9 +134,7 @@ const Welcome = () => {
             />
           </div>
 
-          <h1 className="text-2xl font-bold text-content text-center mb-2">
-            {t('welcome.title')}
-          </h1>
+          <h1 className="text-2xl font-bold text-content text-center mb-2">{t('welcome.title')}</h1>
 
           <p className="text-sm text-content-muted text-center mb-6 leading-relaxed">
             {t('welcome.subtitle')}
@@ -183,9 +181,7 @@ const Welcome = () => {
               aria-atomic="true"
               className="mb-5 flex flex-col items-center justify-center gap-3 py-2">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-line-strong border-t-primary-500" />
-              <p className="text-sm font-medium text-content-secondary">
-                {t('welcome.signingIn')}
-              </p>
+              <p className="text-sm font-medium text-content-secondary">{t('welcome.signingIn')}</p>
             </div>
           ) : (
             <>

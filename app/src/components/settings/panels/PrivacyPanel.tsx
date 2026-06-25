@@ -105,21 +105,15 @@ const PrivacyPanel = () => {
         {/* What leaves my computer */}
         <SettingsSection title={t('privacy.whatLeavesComputer')}>
           {loadState === 'loading' && (
-            <p className="p-4 text-xs text-content-muted">
-              {t('privacy.loading')}
-            </p>
+            <p className="p-4 text-xs text-content-muted">{t('privacy.loading')}</p>
           )}
           {loadState === 'error' && (
-            <p
-              className="p-4 text-xs text-content-muted"
-              data-testid="privacy-load-error">
+            <p className="p-4 text-xs text-content-muted" data-testid="privacy-load-error">
               {t('privacy.loadError')}
             </p>
           )}
           {loadState === 'ready' && capabilities.length === 0 && (
-            <p className="p-4 text-xs text-content-muted">
-              {t('privacy.noCapabilities')}
-            </p>
+            <p className="p-4 text-xs text-content-muted">{t('privacy.noCapabilities')}</p>
           )}
           {loadState === 'ready' && capabilities.length > 0 && (
             <ul data-testid="privacy-capability-list">
@@ -127,9 +121,7 @@ const PrivacyPanel = () => {
                 <li key={cap.id} className="p-4" data-testid={`privacy-row-${cap.id}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-content">
-                        {cap.name}
-                      </p>
+                      <p className="text-sm font-medium text-content">{cap.name}</p>
                       <p className="text-xs text-content-muted mt-1 leading-relaxed">
                         {cap.description}
                       </p>

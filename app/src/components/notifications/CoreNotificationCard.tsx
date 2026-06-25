@@ -114,9 +114,7 @@ const CoreNotificationCard = ({ notification: n }: Props) => {
 
           {/* Body */}
           {n.body && (
-            <p
-              data-testid="core-notification-body"
-              className="text-xs text-content-muted mt-0.5">
+            <p data-testid="core-notification-body" className="text-xs text-content-muted mt-0.5">
               <NotificationBody body={n.body} />
             </p>
           )}

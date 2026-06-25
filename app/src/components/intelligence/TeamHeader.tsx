@@ -58,9 +58,7 @@ export function TeamHeader({
     <div className="rounded-lg border border-line bg-surface px-3 py-2.5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="break-words text-sm font-semibold text-content">
-            {title}
-          </div>
+          <div className="break-words text-sm font-semibold text-content">{title}</div>
           <div className="mt-0.5 text-[11px] text-content-muted">
             {t('intelligence.teams.header.lead')}{' '}
             <span className="font-mono text-ocean-600 dark:text-ocean-300">{team.leadAgentId}</span>

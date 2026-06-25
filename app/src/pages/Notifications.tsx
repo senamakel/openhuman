@@ -115,9 +115,7 @@ const Notifications = () => {
         className="max-w-2xl mx-auto bg-surface rounded-2xl shadow-soft border border-line overflow-hidden">
         <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
           <div>
-            <h1 className="text-lg font-semibold text-content">
-              {t('alerts.title')}
-            </h1>
+            <h1 className="text-lg font-semibold text-content">{t('alerts.title')}</h1>
             <p className="text-xs text-content-muted">
               {unread > 0 ? `${unread} ${t('alerts.unread')}` : t('alerts.empty')}
             </p>
@@ -201,9 +199,7 @@ const Notifications = () => {
                     }
                   }}
                   className={`w-full text-left px-4 py-3 hover:bg-surface-hover transition-colors ${
-                    item.read
-                      ? 'bg-surface'
-                      : 'bg-primary-50/30 dark:bg-primary-900/20'
+                    item.read ? 'bg-surface' : 'bg-primary-50/30 dark:bg-primary-900/20'
                   }`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">

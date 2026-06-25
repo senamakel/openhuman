@@ -217,9 +217,7 @@ const McpServersTab = () => {
 
   if (loading) {
     return (
-      <div className="py-10 text-center text-sm text-content-faint">
-        {t('mcp.tab.loading')}
-      </div>
+      <div className="py-10 text-center text-sm text-content-faint">{t('mcp.tab.loading')}</div>
     );
   }
 
@@ -492,9 +490,7 @@ const McpServersTab = () => {
 
         {/* Loading / load more */}
         {catalogLoading && (
-          <div className="py-4 text-center text-xs text-content-faint">
-            {t('common.loading')}
-          </div>
+          <div className="py-4 text-center text-xs text-content-faint">{t('common.loading')}</div>
         )}
         {!catalogLoading &&
           catalogPage < catalogTotalPages &&

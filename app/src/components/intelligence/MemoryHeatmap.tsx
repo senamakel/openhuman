@@ -129,9 +129,7 @@ export function MemoryHeatmap({ timestamps, loading }: MemoryHeatmapProps) {
   if (loading) {
     return (
       <div className="rounded-xl border border-line bg-surface-muted p-5">
-        <h3 className="text-sm font-semibold text-content mb-3">
-          {t('memory.ingestionActivity')}
-        </h3>
+        <h3 className="text-sm font-semibold text-content mb-3">{t('memory.ingestionActivity')}</h3>
         <div className="h-28 rounded-lg bg-surface-strong animate-pulse" />
       </div>
     );
@@ -141,9 +139,7 @@ export function MemoryHeatmap({ timestamps, loading }: MemoryHeatmapProps) {
     <div className="rounded-xl border border-line bg-surface-muted p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-content">
-            {t('memory.ingestionActivity')}
-          </h3>
+          <h3 className="text-sm font-semibold text-content">{t('memory.ingestionActivity')}</h3>
           <p className="text-xs text-content-muted mt-0.5">
             {totalEvents} {totalEvents !== 1 ? t('memory.events') : t('memory.event')}{' '}
             {t('memory.overTheLast')} {MONTHS} {t('memory.months')}

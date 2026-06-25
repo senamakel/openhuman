@@ -32,8 +32,7 @@ export interface WorktreeActionsProps {
 
 const btnBase =
   'rounded-md border px-2 py-0.5 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50';
-const btnNeutral =
-  'border-line text-content-secondary hover:bg-surface-hover';
+const btnNeutral = 'border-line text-content-secondary hover:bg-surface-hover';
 const btnDanger =
   'border-coral-200 text-coral-600 hover:bg-coral-50 dark:border-coral-500/40 dark:text-coral-300 dark:hover:bg-coral-500/10';
 

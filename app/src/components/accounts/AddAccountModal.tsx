@@ -43,9 +43,7 @@ const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccou
         className="w-[420px] max-w-[90vw] rounded-2xl bg-surface p-6 shadow-strong"
         onClick={e => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2
-            id="add-account-modal-title"
-            className="text-lg font-semibold text-content">
+          <h2 id="add-account-modal-title" className="text-lg font-semibold text-content">
             {t('accounts.addModal.title')}
           </h2>
           <Button
@@ -75,9 +73,7 @@ const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccou
                 onClick={() => onPick(p)}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-surface-hover dark:bg-surface-muted dark:hover:bg-surface-muted/60">
                 <ProviderIcon provider={p.id} className="h-5 w-5 flex-none" />
-                <span className="text-sm font-medium text-content">
-                  {p.label}
-                </span>
+                <span className="text-sm font-medium text-content">{p.label}</span>
               </button>
             ))
           )}

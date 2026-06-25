@@ -4681,17 +4681,21 @@ const messages: TranslationMap = {
   'settings.theme.backdropDots': 'পটভূমির বিন্দু দেখান',
   'settings.theme.backdropHint':
     'মেশ অ্যানিমেটেড গ্রেডিয়েন্ট দেখায়; একরঙা একটি সমতল পটভূমি ব্যবহার করে; ছবি আপনার নিজের পটভূমি আঁকে।',
-  'settings.theme.autoForkHint': 'কোনো প্রিসেট সম্পাদনা করলে আপনার পরিবর্তনগুলি স্বয়ংক্রিয়ভাবে একটি নতুন কাস্টম থিম হিসেবে সংরক্ষিত হয়।',
+  'settings.theme.autoForkHint':
+    'কোনো প্রিসেট সম্পাদনা করলে আপনার পরিবর্তনগুলি স্বয়ংক্রিয়ভাবে একটি নতুন কাস্টম থিম হিসেবে সংরক্ষিত হয়।',
   'settings.theme.title': 'থিম স্টুডিও',
-  'settings.theme.menuDesc': 'রং এবং ফন্ট সম্পূর্ণরূপে কাস্টমাইজ করুন, অথবা একটি প্রিসেট থিম বেছে নিন।',
+  'settings.theme.menuDesc':
+    'রং এবং ফন্ট সম্পূর্ণরূপে কাস্টমাইজ করুন, অথবা একটি প্রিসেট থিম বেছে নিন।',
   'settings.theme.presetsHeading': 'থিম',
   'settings.theme.builtInBadge': 'প্রিসেট',
   'settings.theme.customBadge': 'কাস্টম',
-  'settings.theme.customizeHint': 'অন্তর্নির্মিত প্রিসেটগুলো শুধুমাত্র পড়ার জন্য। এই থিমের রং এবং ফন্ট সম্পাদনা করতে এটি অনুলিপি করুন।',
+  'settings.theme.customizeHint':
+    'অন্তর্নির্মিত প্রিসেটগুলো শুধুমাত্র পড়ার জন্য। এই থিমের রং এবং ফন্ট সম্পাদনা করতে এটি অনুলিপি করুন।',
   'settings.theme.duplicate': 'অনুলিপি ও কাস্টমাইজ করুন',
   'settings.theme.copyName': '{name} (কাস্টম)',
   'settings.theme.importedName': 'আমদানিকৃত থিম',
-  'settings.theme.contrastWarn': 'টেক্সট এবং পটভূমির মধ্যে কম বৈসাদৃশ্য — এই থিমটি পড়া কঠিন হতে পারে।',
+  'settings.theme.contrastWarn':
+    'টেক্সট এবং পটভূমির মধ্যে কম বৈসাদৃশ্য — এই থিমটি পড়া কঠিন হতে পারে।',
   'settings.theme.group.surfaces': 'পৃষ্ঠতল',
   'settings.theme.group.text': 'টেক্সট',
   'settings.theme.group.borders': 'সীমানা',

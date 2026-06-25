@@ -4694,17 +4694,20 @@ const messages: TranslationMap = {
   'settings.theme.backdropDots': 'Tampilkan titik latar belakang',
   'settings.theme.backdropHint':
     'Jaring menampilkan gradien beranimasi; Solid menggunakan latar belakang polos; Gambar menampilkan milik Anda sendiri.',
-  'settings.theme.autoForkHint': 'Mengedit preset secara otomatis menyimpan perubahan Anda sebagai tema kustom baru.',
+  'settings.theme.autoForkHint':
+    'Mengedit preset secara otomatis menyimpan perubahan Anda sebagai tema kustom baru.',
   'settings.theme.title': 'Studio Tema',
   'settings.theme.menuDesc': 'Sesuaikan warna dan font sepenuhnya, atau pilih tema bawaan.',
   'settings.theme.presetsHeading': 'Tema',
   'settings.theme.builtInBadge': 'Bawaan',
   'settings.theme.customBadge': 'Khusus',
-  'settings.theme.customizeHint': 'Tema bawaan hanya dapat dibaca. Duplikasi tema ini untuk mengubah warna dan fontnya.',
+  'settings.theme.customizeHint':
+    'Tema bawaan hanya dapat dibaca. Duplikasi tema ini untuk mengubah warna dan fontnya.',
   'settings.theme.duplicate': 'Duplikasi & sesuaikan',
   'settings.theme.copyName': '{name} (khusus)',
   'settings.theme.importedName': 'Tema yang diimpor',
-  'settings.theme.contrastWarn': 'Kontras rendah antara teks dan latar belakang — tema ini mungkin sulit dibaca.',
+  'settings.theme.contrastWarn':
+    'Kontras rendah antara teks dan latar belakang — tema ini mungkin sulit dibaca.',
   'settings.theme.group.surfaces': 'Permukaan',
   'settings.theme.group.text': 'Teks',
   'settings.theme.group.borders': 'Batas',
@@ -4724,7 +4727,8 @@ const messages: TranslationMap = {
   'settings.theme.export': 'Salin JSON',
   'settings.theme.copied': 'Tersalin!',
   'settings.theme.import': 'Impor tema',
-  'settings.theme.importHint': 'Tempel JSON tema yang diekspor untuk menambahkannya sebagai tema khusus.',
+  'settings.theme.importHint':
+    'Tempel JSON tema yang diekspor untuk menambahkannya sebagai tema khusus.',
   'settings.theme.importApply': 'Impor',
   'settings.theme.importError': 'Tidak dapat mengurai JSON tema tersebut.',
   'settings.appearance.title': 'Tampilan',

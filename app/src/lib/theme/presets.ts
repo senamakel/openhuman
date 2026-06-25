@@ -85,13 +85,13 @@ const OCEAN_LIGHT: Theme = {
   builtIn: true,
   colors: {
     'surface-canvas': '233 242 252',
-    'surface': '255 255 255',
+    surface: '255 255 255',
     'surface-muted': '224 236 248',
     'surface-subtle': '230 240 250',
     'surface-hover': '214 230 248',
-    'line': '203 222 242',
+    line: '203 222 242',
     'line-subtle': '224 236 248',
-    'content': '15 36 56',
+    content: '15 36 56',
     'content-secondary': '45 70 96',
     'primary-500': '74 131 221',
     'primary-600': '53 110 200',
@@ -107,16 +107,16 @@ const OCEAN_DARK: Theme = {
   builtIn: true,
   colors: {
     'surface-canvas': '7 12 24',
-    'surface': '22 30 52',
+    surface: '22 30 52',
     'surface-muted': '30 40 66',
     'surface-subtle': '27 36 60',
     'surface-strong': '40 52 84',
     'surface-hover': '40 52 84',
     'surface-overlay': '0 0 0',
-    'line': '48 62 98',
+    line: '48 62 98',
     'line-strong': '70 88 130',
     'line-subtle': '36 48 76',
-    'content': '224 232 244',
+    content: '224 232 244',
     'content-secondary': '182 196 220',
     'content-muted': '140 156 188',
     'content-faint': '104 118 150',
@@ -135,15 +135,15 @@ const SEPIA_LIGHT: Theme = {
   builtIn: true,
   colors: {
     'surface-canvas': '244 236 222',
-    'surface': '250 244 233',
+    surface: '250 244 233',
     'surface-muted': '238 228 210',
     'surface-subtle': '240 231 215',
     'surface-strong': '232 220 198',
     'surface-hover': '232 220 198',
-    'line': '222 209 186',
+    line: '222 209 186',
     'line-strong': '206 190 162',
     'line-subtle': '234 224 206',
-    'content': '60 50 38',
+    content: '60 50 38',
     'content-secondary': '90 76 58',
     'content-muted': '120 104 82',
     'content-faint': '160 144 120',
@@ -158,16 +158,16 @@ const SEPIA_DARK: Theme = {
   builtIn: true,
   colors: {
     'surface-canvas': '26 22 17',
-    'surface': '40 34 26',
+    surface: '40 34 26',
     'surface-muted': '48 41 31',
     'surface-subtle': '44 37 28',
     'surface-strong': '58 49 37',
     'surface-hover': '56 47 35',
     'surface-overlay': '0 0 0',
-    'line': '64 54 41',
+    line: '64 54 41',
     'line-strong': '90 76 58',
     'line-subtle': '48 40 30',
-    'content': '236 228 214',
+    content: '236 228 214',
     'content-secondary': '198 184 162',
     'content-muted': '156 142 120',
     'content-faint': '120 106 86',
@@ -186,16 +186,16 @@ const MATRIX_DARK: Theme = {
   builtIn: true,
   colors: {
     'surface-canvas': '2 8 4',
-    'surface': '6 18 10',
+    surface: '6 18 10',
     'surface-muted': '10 26 14',
     'surface-subtle': '8 22 12',
     'surface-strong': '14 36 20',
     'surface-hover': '16 42 24',
     'surface-overlay': '0 0 0',
-    'line': '22 64 34',
+    line: '22 64 34',
     'line-strong': '36 104 54',
     'line-subtle': '14 44 24',
-    'content': '134 255 168',
+    content: '134 255 168',
     'content-secondary': '78 210 122',
     'content-muted': '58 158 92',
     'content-faint': '44 112 68',
@@ -212,14 +212,14 @@ const MATRIX_LIGHT: Theme = {
   builtIn: true,
   colors: {
     'surface-canvas': '234 245 237',
-    'surface': '246 252 248',
+    surface: '246 252 248',
     'surface-muted': '224 240 229',
     'surface-subtle': '230 244 234',
     'surface-hover': '214 236 222',
-    'line': '198 226 206',
+    line: '198 226 206',
     'line-strong': '170 206 180',
     'line-subtle': '224 240 229',
-    'content': '10 60 28',
+    content: '10 60 28',
     'content-secondary': '30 92 50',
     'content-muted': '60 122 80',
     'content-faint': '110 160 124',
@@ -238,16 +238,16 @@ const HAL_DARK: Theme = {
   builtIn: true,
   colors: {
     'surface-canvas': '8 4 4',
-    'surface': '20 12 12',
+    surface: '20 12 12',
     'surface-muted': '28 16 16',
     'surface-subtle': '24 14 14',
     'surface-strong': '38 20 20',
     'surface-hover': '40 22 22',
     'surface-overlay': '0 0 0',
-    'line': '60 28 28',
+    line: '60 28 28',
     'line-strong': '96 40 40',
     'line-subtle': '40 20 20',
-    'content': '240 224 224',
+    content: '240 224 224',
     'content-secondary': '210 180 180',
     'content-muted': '170 130 130',
     'content-faint': '130 96 96',
@@ -263,14 +263,14 @@ const HAL_LIGHT: Theme = {
   builtIn: true,
   colors: {
     'surface-canvas': '245 238 238',
-    'surface': '252 247 247',
+    surface: '252 247 247',
     'surface-muted': '240 228 228',
     'surface-subtle': '244 234 234',
     'surface-hover': '236 222 222',
-    'line': '226 200 200',
+    line: '226 200 200',
     'line-strong': '206 174 174',
     'line-subtle': '240 228 228',
-    'content': '60 24 24',
+    content: '60 24 24',
     'content-secondary': '100 50 50',
     'content-muted': '140 90 90',
     'content-faint': '170 130 130',
@@ -282,7 +282,13 @@ const HAL_LIGHT: Theme = {
 };
 
 export const THEME_FAMILIES: ThemeFamily[] = [
-  { id: 'classic', name: 'Classic', defaultVariant: 'light', light: CLASSIC_LIGHT, dark: CLASSIC_DARK },
+  {
+    id: 'classic',
+    name: 'Classic',
+    defaultVariant: 'light',
+    light: CLASSIC_LIGHT,
+    dark: CLASSIC_DARK,
+  },
   { id: 'ocean', name: 'Ocean', defaultVariant: 'light', light: OCEAN_LIGHT, dark: OCEAN_DARK },
   { id: 'sepia', name: 'Sepia', defaultVariant: 'light', light: SEPIA_LIGHT, dark: SEPIA_DARK },
   { id: 'matrix', name: 'Matrix', defaultVariant: 'dark', light: MATRIX_LIGHT, dark: MATRIX_DARK },
@@ -290,31 +296,28 @@ export const THEME_FAMILIES: ThemeFamily[] = [
 ];
 
 /** Flat list of every concrete variant — for id lookup and back-compat. */
-export const PRESET_THEMES: Theme[] = THEME_FAMILIES.flatMap((f) =>
-  [f.light, f.dark].filter((t): t is Theme => Boolean(t)),
+export const PRESET_THEMES: Theme[] = THEME_FAMILIES.flatMap(f =>
+  [f.light, f.dark].filter((t): t is Theme => Boolean(t))
 );
 
 export function findPreset(id: string): Theme | undefined {
-  return PRESET_THEMES.find((t) => t.id === id);
+  return PRESET_THEMES.find(t => t.id === id);
 }
 
 export function findFamily(id: string): ThemeFamily | undefined {
-  return THEME_FAMILIES.find((f) => f.id === id);
+  return THEME_FAMILIES.find(f => f.id === id);
 }
 
 /** The family that owns a given variant theme id (e.g. `ocean-dark` → ocean). */
 export function familyForThemeId(id: string): ThemeFamily | undefined {
-  return THEME_FAMILIES.find((f) => f.light?.id === id || f.dark?.id === id);
+  return THEME_FAMILIES.find(f => f.light?.id === id || f.dark?.id === id);
 }
 
 /**
  * Resolve a family + desired variant to a concrete Theme. Falls back to the
  * family's available variant when the requested one is missing.
  */
-export function resolveFamilyVariant(
-  family: ThemeFamily,
-  variant: 'light' | 'dark',
-): Theme {
+export function resolveFamilyVariant(family: ThemeFamily, variant: 'light' | 'dark'): Theme {
   const chosen = variant === 'dark' ? family.dark : family.light;
   return chosen ?? family.dark ?? family.light ?? CLASSIC_LIGHT;
 }

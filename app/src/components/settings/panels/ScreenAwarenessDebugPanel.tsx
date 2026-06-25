@@ -121,9 +121,7 @@ const ScreenAwarenessDebugPanel = () => {
         <SettingsSection title={t('screenAwareness.debug.policyTitle')}>
           <div className="px-4 py-3 space-y-3">
             <label className="flex items-center justify-between rounded-xl border border-line bg-surface-muted px-3 py-2">
-              <span className="text-sm text-content">
-                {t('screenAwareness.debug.baselineFps')}
-              </span>
+              <span className="text-sm text-content">{t('screenAwareness.debug.baselineFps')}</span>
               <Input
                 type="number"
                 inputSize="sm"
@@ -252,9 +250,7 @@ const ScreenAwarenessDebugPanel = () => {
                       {summary.app_name ?? t('screenAwareness.debug.unknownApp')}
                       {summary.window_title ? ` · ${summary.window_title}` : ''}
                     </div>
-                    <div className="mt-1 text-content">
-                      {summary.actionable_notes}
-                    </div>
+                    <div className="mt-1 text-content">{summary.actionable_notes}</div>
                   </div>
                 ))}
               </div>

@@ -221,9 +221,7 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-semibold text-content">
-              {detail.display_name}
-            </h3>
+            <h3 className="text-lg font-semibold text-content">{detail.display_name}</h3>
             {author && (
               <p className="text-sm text-content-muted mt-0.5">
                 {t('mcp.install.by')} {author}
@@ -273,22 +271,16 @@ const InstallDialog = ({ qualifiedName, prefillEnv, onSuccess, onCancel }: Insta
             </p>
             <div className="space-y-1.5">
               {detail.connections.map((conn, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 text-xs text-content-secondary">
+                <div key={i} className="flex items-center gap-2 text-xs text-content-secondary">
                   <span
                     className={`w-2 h-2 rounded-full shrink-0 ${conn.published ? 'bg-sage-500' : 'bg-surface-strong'}`}
                   />
                   <span className="font-mono">{conn.type}</span>
                   {conn.published && (
-                    <span className="text-content-faint">
-                      ({t('mcp.install.published')})
-                    </span>
+                    <span className="text-content-faint">({t('mcp.install.published')})</span>
                   )}
                   {conn.deployment_url && (
-                    <span className="text-content-faint truncate">
-                      {conn.deployment_url}
-                    </span>
+                    <span className="text-content-faint truncate">{conn.deployment_url}</span>
                   )}
                 </div>
               ))}

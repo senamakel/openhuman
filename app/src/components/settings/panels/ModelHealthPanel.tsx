@@ -241,9 +241,7 @@ const ModelHealthPanel = () => {
                       key={m.id}
                       className={`border-b border-line-subtle dark:border-line/50 ${isReplace ? 'bg-red-500/5' : ''}`}>
                       <td className="py-2 px-2">
-                        <div className="font-semibold text-content">
-                          {m.id}
-                        </div>
+                        <div className="font-semibold text-content">{m.id}</div>
                         <div className="text-[10px] text-content-faint">{m.provider}</div>
                       </td>
                       <td className="py-2 px-2 text-amber-400">{qualityStars(m.quality_score)}</td>

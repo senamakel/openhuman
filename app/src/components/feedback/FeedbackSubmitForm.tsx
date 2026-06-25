@@ -80,9 +80,7 @@ export default function FeedbackSubmitForm({ onAccepted }: FeedbackSubmitFormPro
       <h2 className="font-title text-base font-semibold text-content">
         {t('feedback.submit.heading')}
       </h2>
-      <p className="mb-4 mt-0.5 text-xs text-content-muted">
-        {t('feedback.submit.subheading')}
-      </p>
+      <p className="mb-4 mt-0.5 text-xs text-content-muted">{t('feedback.submit.subheading')}</p>
 
       <div className="mb-4 grid grid-cols-2 gap-2.5">
         <button

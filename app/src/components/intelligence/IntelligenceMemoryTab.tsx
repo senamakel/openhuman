@@ -75,9 +75,7 @@ export default function IntelligenceMemoryTab({
           <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-500/10">
             <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
           </div>
-          <h2 className="text-lg font-semibold text-content mb-2">
-            {t('memory.loading')}
-          </h2>
+          <h2 className="text-lg font-semibold text-content mb-2">{t('memory.loading')}</h2>
           <p className="text-content-faint text-sm">{t('memory.fetching')}</p>
         </div>
       ) : isRunning && items.length === 0 ? (
@@ -85,12 +83,8 @@ export default function IntelligenceMemoryTab({
           <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-500/10">
             <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
           </div>
-          <h2 className="text-lg font-semibold text-content mb-2">
-            {t('memory.analyzing')}
-          </h2>
-          <p className="text-content-faint text-sm">
-            {t('memory.analyzingHint')}
-          </p>
+          <h2 className="text-lg font-semibold text-content mb-2">{t('memory.analyzing')}</h2>
+          <p className="text-content-faint text-sm">{t('memory.analyzingHint')}</p>
         </div>
       ) : timeGroups.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center animate-fade-up">
@@ -110,30 +104,18 @@ export default function IntelligenceMemoryTab({
           </div>
           {searchFilter || sourceFilter !== 'all' ? (
             <>
-              <h2 className="text-lg font-semibold text-content mb-2">
-                {t('memory.noMatches')}
-              </h2>
-              <p className="text-content-faint text-sm">
-                {t('memory.noMatchesHint')}
-              </p>
+              <h2 className="text-lg font-semibold text-content mb-2">{t('memory.noMatches')}</h2>
+              <p className="text-content-faint text-sm">{t('memory.noMatchesHint')}</p>
             </>
           ) : usingMemoryData ? (
             <>
-              <h2 className="text-lg font-semibold text-content mb-2">
-                {t('memory.allCaughtUp')}
-              </h2>
-              <p className="text-content-faint text-sm">
-                {t('memory.allCaughtUpHint')}
-              </p>
+              <h2 className="text-lg font-semibold text-content mb-2">{t('memory.allCaughtUp')}</h2>
+              <p className="text-content-faint text-sm">{t('memory.allCaughtUpHint')}</p>
             </>
           ) : (
             <>
-              <h2 className="text-lg font-semibold text-content mb-2">
-                {t('memory.noAnalysis')}
-              </h2>
-              <p className="text-content-faint text-sm mb-4">
-                {t('memory.noAnalysisHint')}
-              </p>
+              <h2 className="text-lg font-semibold text-content mb-2">{t('memory.noAnalysis')}</h2>
+              <p className="text-content-faint text-sm mb-4">{t('memory.noAnalysisHint')}</p>
               <Button
                 variant="primary"
                 size="md"
@@ -158,9 +140,7 @@ export default function IntelligenceMemoryTab({
               className="animate-fade-up"
               style={{ animationDelay: `${groupIndex * 50}ms` }}>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-content opacity-80">
-                  {group.label}
-                </h2>
+                <h2 className="text-sm font-semibold text-content opacity-80">{group.label}</h2>
                 <div className="text-xs bg-surface-subtle text-content px-2 py-1 rounded-full">
                   {group.count}
                 </div>

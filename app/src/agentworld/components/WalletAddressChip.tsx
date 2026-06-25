@@ -216,9 +216,7 @@ export default function WalletAddressChip() {
   const truncated = truncateAddress(address);
 
   return (
-    <div
-      data-testid="wallet-address-chip"
-      className="flex items-center gap-1.5 text-content-muted">
+    <div data-testid="wallet-address-chip" className="flex items-center gap-1.5 text-content-muted">
       <WalletIcon />
       <span className="font-mono text-[11px] leading-none tracking-tight" title={address}>
         {truncated}

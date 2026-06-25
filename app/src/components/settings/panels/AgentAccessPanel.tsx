@@ -291,9 +291,7 @@ const AgentAccessPanel = () => {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-content-muted">
-          {t('settings.agentAccess.loading')}
-        </p>
+        <p className="text-sm text-content-muted">{t('settings.agentAccess.loading')}</p>
       ) : (
         <>
           {/* Workspace confinement + task plan approval */}

@@ -8,8 +8,7 @@ import {
 } from '../../utils/tauriCommands/subconscious';
 import Button from '../ui/Button';
 
-const cardClass =
-  'rounded-lg border border-line bg-surface p-4';
+const cardClass = 'rounded-lg border border-line bg-surface p-4';
 
 /**
  * Debug / manage panel for the event-driven subconscious trigger pipeline.
@@ -71,12 +70,8 @@ export default function SubconsciousTriggersPanel() {
     <div className={cardClass} data-testid="subconscious-triggers-panel">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-content">
-            {t('subconsciousTriggers.title')}
-          </h3>
-          <p className="text-xs text-content-muted">
-            {t('subconsciousTriggers.subtitle')}
-          </p>
+          <h3 className="text-sm font-semibold text-content">{t('subconsciousTriggers.title')}</h3>
+          <p className="text-xs text-content-muted">{t('subconsciousTriggers.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           {status && (
@@ -102,9 +97,7 @@ export default function SubconsciousTriggersPanel() {
       </div>
 
       {loading && !status ? (
-        <p
-          className="text-xs text-content-muted"
-          data-testid="subconscious-triggers-loading">
+        <p className="text-xs text-content-muted" data-testid="subconscious-triggers-loading">
           {t('common.loading')}
         </p>
       ) : error ? (

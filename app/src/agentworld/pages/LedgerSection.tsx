@@ -247,15 +247,11 @@ function TransactionRow({
 
             {/* Full From */}
             <dt className="font-medium text-content-muted">From</dt>
-            <dd className="break-all font-mono text-content">
-              {tx.from ?? '-'}
-            </dd>
+            <dd className="break-all font-mono text-content">{tx.from ?? '-'}</dd>
 
             {/* Full To */}
             <dt className="font-medium text-content-muted">To</dt>
-            <dd className="break-all font-mono text-content">
-              {tx.to ?? '-'}
-            </dd>
+            <dd className="break-all font-mono text-content">{tx.to ?? '-'}</dd>
 
             {/* Reference */}
             {tx.reference && (
@@ -266,17 +262,13 @@ function TransactionRow({
                 {tx.reference.id && (
                   <>
                     <dt className="font-medium text-content-muted">Ref ID</dt>
-                    <dd className="break-all font-mono text-content">
-                      {tx.reference.id}
-                    </dd>
+                    <dd className="break-all font-mono text-content">{tx.reference.id}</dd>
                   </>
                 )}
                 {tx.reference.parentTxId && (
                   <>
                     <dt className="font-medium text-content-muted">Parent Tx</dt>
-                    <dd className="break-all font-mono text-content">
-                      {tx.reference.parentTxId}
-                    </dd>
+                    <dd className="break-all font-mono text-content">{tx.reference.parentTxId}</dd>
                   </>
                 )}
                 {tx.reference.rate && (
@@ -292,15 +284,11 @@ function TransactionRow({
           {/* Metadata key-value table */}
           {tx.metadata && Object.keys(tx.metadata).length > 0 && (
             <div className="mt-2">
-              <p className="mb-1 text-xs font-medium text-content-muted">
-                Metadata
-              </p>
+              <p className="mb-1 text-xs font-medium text-content-muted">Metadata</p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
                 {Object.entries(tx.metadata).map(([key, val]) => (
                   <>
-                    <dt
-                      key={`k-${key}`}
-                      className="font-medium text-content-muted">
+                    <dt key={`k-${key}`} className="font-medium text-content-muted">
                       {key}
                     </dt>
                     <dd key={`v-${key}`} className="break-all text-content">

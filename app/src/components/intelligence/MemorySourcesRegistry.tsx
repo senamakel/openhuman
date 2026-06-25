@@ -492,13 +492,9 @@ export function MemorySourcesRegistry({
   };
 
   return (
-    <section
-      className="rounded-lg border border-line bg-surface p-4"
-      data-testid="memory-sources">
+    <section className="rounded-lg border border-line bg-surface p-4" data-testid="memory-sources">
       <header className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-content-secondary">
-          {t('memorySources.title')}
-        </h3>
+        <h3 className="text-sm font-semibold text-content-secondary">{t('memorySources.title')}</h3>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -740,9 +736,7 @@ function SourceRow({
             <span className="text-base">{icon}</span>
             <span
               className={`truncate text-sm font-medium ${
-                source.enabled
-                  ? 'text-content'
-                  : 'text-content-faint line-through'
+                source.enabled ? 'text-content' : 'text-content-faint line-through'
               }`}>
               {source.label}
             </span>
@@ -751,11 +745,7 @@ function SourceRow({
             </span>
             {status && status.chunks_synced > 0 && <FreshnessPill freshness={status.freshness} />}
           </div>
-          {detail && (
-            <p className="mt-0.5 truncate pl-7 text-xs text-content-faint">
-              {detail}
-            </p>
-          )}
+          {detail && <p className="mt-0.5 truncate pl-7 text-xs text-content-faint">{detail}</p>}
           {progress && (
             <div className="mt-2 pl-7">
               <div className="flex items-center gap-2 text-xs text-content-muted">
@@ -766,9 +756,7 @@ function SourceRow({
                   </span>
                 )}
                 {progress.detail && (
-                  <span className="truncate text-content-faint">
-                    {progress.detail}
-                  </span>
+                  <span className="truncate text-content-faint">{progress.detail}</span>
                 )}
               </div>
               <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-strong">

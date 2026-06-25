@@ -108,9 +108,7 @@ export default function AgentInsightsPreview() {
     <div className="h-full overflow-y-auto bg-surface p-8">
       <div className="mx-auto max-w-2xl space-y-6">
         <header>
-          <h1 className="text-lg font-bold text-content">
-            Agentic task insights — preview
-          </h1>
+          <h1 className="text-lg font-bold text-content">Agentic task insights — preview</h1>
           <p className="text-xs text-content-muted">
             Dev-only harness (#/dev/agent-insights). Sample data — not a live run.
           </p>

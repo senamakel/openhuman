@@ -242,9 +242,7 @@ export default function Intelligence({ tabParamKey = 'tab' }: IntelligenceProps 
                   {activeTabDef?.label ?? t('memory.title')}
                 </h2>
                 {activeTabDef?.description && (
-                  <p className="mt-1 text-sm text-content-muted">
-                    {activeTabDef.description}
-                  </p>
+                  <p className="mt-1 text-sm text-content-muted">{activeTabDef.description}</p>
                 )}
                 {/* Header count badge was sourced from `stats.total` which
                     in turn came from the legacy actionable-items pipeline

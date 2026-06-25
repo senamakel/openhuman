@@ -213,10 +213,7 @@ export function ThreadGoalFooterTrigger({
         className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusClasses(ctl.goal.status)}`}>
         {t(`conversations.threadGoal.status.${ctl.goal.status}`)}
       </span>
-      <MarqueeText
-        text={ctl.goal.objective}
-        className="max-w-[18rem] text-content-secondary"
-      />
+      <MarqueeText text={ctl.goal.objective} className="max-w-[18rem] text-content-secondary" />
     </button>
   );
 }

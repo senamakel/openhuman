@@ -249,9 +249,7 @@ const AgentEditorPage = () => {
                 label={t('settings.agents.editor.name')}
                 control={
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-content">
-                      {name}
-                    </span>
+                    <span className="text-sm font-semibold text-content">{name}</span>
                     <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-medium text-content-muted">
                       {isCustom
                         ? t('settings.agents.sourceCustom')
@@ -285,11 +283,7 @@ const AgentEditorPage = () => {
             ) : (
               <SettingsRow
                 label={t('settings.agents.editor.id')}
-                control={
-                  <code className="font-mono text-xs text-content-muted">
-                    {agentId}
-                  </code>
-                }
+                control={<code className="font-mono text-xs text-content-muted">{agentId}</code>}
               />
             )}
           </SettingsSection>

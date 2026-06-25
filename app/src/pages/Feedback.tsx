@@ -235,9 +235,7 @@ const Feedback = () => {
                   />
                 </svg>
               </div>
-              <p className="text-sm text-content-muted">
-                {t('feedback.empty')}
-              </p>
+              <p className="text-sm text-content-muted">{t('feedback.empty')}</p>
             </div>
           )}
 

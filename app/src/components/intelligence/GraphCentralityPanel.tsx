@@ -102,9 +102,7 @@ const GraphCentralityPanel = ({ result, loading, error, onRetry }: GraphCentrali
           <h3 className="text-sm font-semibold text-content-secondary">
             {t('graphCentrality.empty')}
           </h3>
-          <p className="mt-1 text-xs text-content-muted">
-            {t('graphCentrality.emptyHint')}
-          </p>
+          <p className="mt-1 text-xs text-content-muted">{t('graphCentrality.emptyHint')}</p>
         </div>
       </div>
     );
@@ -124,15 +122,11 @@ const GraphCentralityPanel = ({ result, loading, error, onRetry }: GraphCentrali
           { label: t('graphCentrality.metricConnections'), value: result.edgeCount },
           { label: t('graphCentrality.metricClusters'), value: result.componentCount },
         ].map(tile => (
-          <div
-            key={tile.label}
-            className="rounded-lg border border-line p-3">
+          <div key={tile.label} className="rounded-lg border border-line p-3">
             <div className="text-[10px] uppercase tracking-wider text-content-faint">
               {tile.label}
             </div>
-            <div className="text-lg font-semibold tabular-nums text-content">
-              {tile.value}
-            </div>
+            <div className="text-lg font-semibold tabular-nums text-content">{tile.value}</div>
           </div>
         ))}
       </div>

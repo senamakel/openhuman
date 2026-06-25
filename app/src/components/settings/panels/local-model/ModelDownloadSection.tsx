@@ -127,9 +127,7 @@ const ModelDownloadSection = ({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             {capabilityCards.map(([labelKey, key, item]) => (
-              <div
-                key={key}
-                className="rounded-md border border-line p-2">
+              <div key={key} className="rounded-md border border-line p-2">
                 <div className="text-content-muted text-xs uppercase tracking-wide">
                   {t(labelKey)}
                 </div>
@@ -140,9 +138,7 @@ const ModelDownloadSection = ({
                   {statusLabel(item?.state ?? 'idle')}
                 </div>
                 {item?.path && (
-                  <div className="text-[10px] text-content-muted mt-1 break-all">
-                    {item.path}
-                  </div>
+                  <div className="text-[10px] text-content-muted mt-1 break-all">{item.path}</div>
                 )}
                 {item?.provider === 'ollama' || item?.provider === 'lm_studio' ? (
                   <div className="mt-2 text-[10px] text-content-muted">

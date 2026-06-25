@@ -130,9 +130,7 @@ export default function AmountCommitDialog({
       maxWidthClassName="max-w-sm">
       <div className="space-y-4">
         <div>
-          <label
-            className="mb-1 block text-xs text-content-faint"
-            htmlFor="x402-commit-amount">
+          <label className="mb-1 block text-xs text-content-faint" htmlFor="x402-commit-amount">
             {t('agentWorld.trading.amountLabel', 'Amount')} ({asset})
           </label>
           <input

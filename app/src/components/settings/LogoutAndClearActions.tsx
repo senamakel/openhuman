@@ -118,9 +118,7 @@ const LogoutAndClearActions = () => {
                 </svg>
               </div>
               <div>
-                <h3
-                  id={modalTitleId}
-                  className="text-lg font-semibold text-content">
+                <h3 id={modalTitleId} className="text-lg font-semibold text-content">
                   {t('clearData.title')}
                 </h3>
               </div>

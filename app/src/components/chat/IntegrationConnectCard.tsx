@@ -291,9 +291,7 @@ export const IntegrationConnectCard: React.FC<Props> = ({ threadId, approval }) 
           {showFields && (
             <div className="mt-2.5 flex flex-col gap-2.5">
               {requiredFields.map(field => (
-                <label
-                  key={field.key}
-                  className="block text-xs text-content-secondary">
+                <label key={field.key} className="block text-xs text-content-secondary">
                   <span className="font-medium">{t(field.labelKey)}</span>
                   <span className="mt-1 flex items-center gap-1.5">
                     <input
@@ -306,15 +304,11 @@ export const IntegrationConnectCard: React.FC<Props> = ({ threadId, approval }) 
                       className="min-w-0 flex-1 rounded-lg border border-line-strong bg-neutral-0 px-2.5 py-1.5 text-ink outline-none transition focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:bg-surface dark:text-content"
                     />
                     {field.suffix && (
-                      <span className="shrink-0 text-content-faint">
-                        {field.suffix}
-                      </span>
+                      <span className="shrink-0 text-content-faint">{field.suffix}</span>
                     )}
                   </span>
                   {field.hintKey && (
-                    <span className="mt-1 block text-content-muted">
-                      {t(field.hintKey)}
-                    </span>
+                    <span className="mt-1 block text-content-muted">{t(field.hintKey)}</span>
                   )}
                   {fieldErrors[field.key] && (
                     <span className="mt-1 block text-coral-600 dark:text-coral-400">
@@ -335,9 +329,7 @@ export const IntegrationConnectCard: React.FC<Props> = ({ threadId, approval }) 
 
           <p className="mt-1.5 text-xs text-content-faint">
             {t('chat.approval.tool')}{' '}
-            <span className="font-mono text-content-muted">
-              {approval.toolName}
-            </span>
+            <span className="font-mono text-content-muted">{approval.toolName}</span>
           </p>
 
           {errorMsg && (

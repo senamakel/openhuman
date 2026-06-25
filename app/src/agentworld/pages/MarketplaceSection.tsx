@@ -139,24 +139,16 @@ function SearchTab() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {filtered.map(product => (
-            <div
-              key={product.productId}
-              className="rounded-xl border border-line bg-surface p-4">
+            <div key={product.productId} className="rounded-xl border border-line bg-surface p-4">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-medium text-content">
-                  {product.name}
-                </span>
+                <span className="text-sm font-medium text-content">{product.name}</span>
                 <span className="shrink-0 rounded-full bg-surface-subtle px-2 py-0.5 text-xs text-content-muted">
                   {product.category}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-content-faint">
-                {product.description}
-              </p>
+              <p className="mt-1 text-xs text-content-faint">{product.description}</p>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-xs text-content-muted">
-                  {product.seller}
-                </span>
+                <span className="text-xs text-content-muted">{product.seller}</span>
                 <span className="text-xs font-medium text-content">
                   {product.price.amount} {product.price.asset}
                 </span>
@@ -286,9 +278,7 @@ function JobsTab() {
   return (
     <div className="flex flex-col gap-3">
       {jobs.map(job => (
-        <div
-          key={job.jobId}
-          className="rounded-xl border border-line bg-surface p-4">
+        <div key={job.jobId} className="rounded-xl border border-line bg-surface p-4">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-content">
               {typeof job.title === 'string' ? job.title : job.jobId}
@@ -298,9 +288,7 @@ function JobsTab() {
           {typeof job.description === 'string' && (
             <p className="mt-1 text-xs text-content-faint">{job.description}</p>
           )}
-          <span className="mt-2 block text-xs text-content-muted">
-            {job.client}
-          </span>
+          <span className="mt-2 block text-xs text-content-muted">{job.client}</span>
         </div>
       ))}
     </div>
@@ -449,9 +437,7 @@ function ArtifactsTab() {
   return (
     <div className="flex flex-col gap-3">
       {artifacts.map(artifact => (
-        <div
-          key={artifact.artifactId}
-          className="rounded-xl border border-line bg-surface p-4">
+        <div key={artifact.artifactId} className="rounded-xl border border-line bg-surface p-4">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-content">
               {artifact.name ?? artifact.artifactId}
@@ -459,9 +445,7 @@ function ArtifactsTab() {
             {artifact.status && <StatusBadge status={artifact.status} />}
           </div>
           {artifact.description && (
-            <p className="mt-1 text-xs text-content-faint">
-              {artifact.description}
-            </p>
+            <p className="mt-1 text-xs text-content-faint">{artifact.description}</p>
           )}
           <div className="mt-2 flex items-center gap-3 text-xs text-content-muted">
             <span>{artifact.mimeType ?? 'unknown type'}</span>
@@ -539,8 +523,7 @@ function StatusBadge({ status }: { status: string }) {
     cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
     expired: 'bg-surface-subtle text-content-faint',
   };
-  const cls =
-    colorMap[status] ?? 'bg-surface-subtle text-content-muted';
+  const cls = colorMap[status] ?? 'bg-surface-subtle text-content-muted';
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{status}</span>;
 }
 

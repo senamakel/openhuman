@@ -88,9 +88,7 @@ export default function FeedbackComments({ feedbackId, onCommentAdded }: Feedbac
       ) : loadError ? (
         <p className="text-xs text-coral-600 dark:text-coral-400">{loadError}</p>
       ) : comments.length === 0 ? (
-        <p className="text-xs text-content-muted">
-          {t('feedback.comments.empty')}
-        </p>
+        <p className="text-xs text-content-muted">{t('feedback.comments.empty')}</p>
       ) : (
         <ul className="space-y-2">
           {comments.map(comment => {

@@ -397,9 +397,7 @@ function CheckingScreen() {
     <Panel>
       <div className="flex flex-col items-center gap-4 py-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-line-strong border-t-primary-500" />
-        <p className="text-sm text-content-secondary">
-          {t('bootCheck.checkingCore')}
-        </p>
+        <p className="text-sm text-content-secondary">{t('bootCheck.checkingCore')}</p>
       </div>
     </Panel>
   );
@@ -452,9 +450,7 @@ function ResultScreen({
             : result.reason || t('bootCheck.cannotReachDesc')}
         </p>
         {isPortConflict && foreignOwner && (
-          <p className="mt-2 text-xs text-content-muted">
-            {t('bootCheck.portConflictGuidance')}
-          </p>
+          <p className="mt-2 text-xs text-content-muted">{t('bootCheck.portConflictGuidance')}</p>
         )}
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3 flex-wrap">
@@ -497,12 +493,8 @@ function ResultScreen({
   if (result.kind === 'daemonDetected') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-content">
-          {t('bootCheck.legacyDetected')}
-        </h2>
-        <p className="mt-2 text-sm text-content-secondary">
-          {t('bootCheck.legacyDescription')}
-        </p>
+        <h2 className="text-xl font-semibold text-content">{t('bootCheck.legacyDetected')}</h2>
+        <p className="mt-2 text-sm text-content-secondary">{t('bootCheck.legacyDescription')}</p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
           <Button tone="danger" onClick={onAction} disabled={actionBusy}>
@@ -519,9 +511,7 @@ function ResultScreen({
   if (result.kind === 'outdatedLocal') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-content">
-          {t('bootCheck.localNeedsRestart')}
-        </h2>
+        <h2 className="text-xl font-semibold text-content">{t('bootCheck.localNeedsRestart')}</h2>
         <p className="mt-2 text-sm text-content-secondary">
           {t('bootCheck.localNeedsRestartDesc')}
         </p>
@@ -541,12 +531,8 @@ function ResultScreen({
   if (result.kind === 'outdatedCloud') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-content">
-          {t('bootCheck.cloudNeedsUpdate')}
-        </h2>
-        <p className="mt-2 text-sm text-content-secondary">
-          {t('bootCheck.cloudNeedsUpdateDesc')}
-        </p>
+        <h2 className="text-xl font-semibold text-content">{t('bootCheck.cloudNeedsUpdate')}</h2>
+        <p className="mt-2 text-sm text-content-secondary">{t('bootCheck.cloudNeedsUpdateDesc')}</p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
           <Button onClick={onAction} disabled={actionBusy}>
@@ -563,12 +549,8 @@ function ResultScreen({
   // noVersionMethod — treat like outdated, user picks which flavor of action
   return (
     <Panel>
-      <h2 className="text-xl font-semibold text-content">
-        {t('bootCheck.versionCheckFailed')}
-      </h2>
-      <p className="mt-2 text-sm text-content-secondary">
-        {t('bootCheck.versionCheckFailedDesc')}
-      </p>
+      <h2 className="text-xl font-semibold text-content">{t('bootCheck.versionCheckFailed')}</h2>
+      <p className="mt-2 text-sm text-content-secondary">{t('bootCheck.versionCheckFailedDesc')}</p>
       {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
       <div className="mt-5 flex gap-3">
         <Button onClick={onAction} disabled={actionBusy}>

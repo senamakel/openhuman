@@ -73,9 +73,7 @@ export function SyncAuditPanel() {
 
   if (loading) {
     return (
-      <div className="text-xs text-content-faint py-2">
-        {t('common.loading', 'Loading...')}
-      </div>
+      <div className="text-xs text-content-faint py-2">{t('common.loading', 'Loading...')}</div>
     );
   }
 

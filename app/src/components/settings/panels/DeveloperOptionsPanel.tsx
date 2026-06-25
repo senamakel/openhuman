@@ -613,16 +613,10 @@ const LogsFolderRow = () => {
     <div className="px-4 py-3 rounded-xl border border-line bg-surface-muted">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-content">
-            {t('devOptions.appLogs')}
-          </div>
-          <div className="text-xs text-content-secondary mt-0.5">
-            {t('devOptions.appLogsDesc')}
-          </div>
+          <div className="text-sm font-semibold text-content">{t('devOptions.appLogs')}</div>
+          <div className="text-xs text-content-secondary mt-0.5">{t('devOptions.appLogsDesc')}</div>
           {path && (
-            <div className="text-[11px] text-content-muted mt-1 font-mono truncate">
-              {path}
-            </div>
+            <div className="text-[11px] text-content-muted mt-1 font-mono truncate">{path}</div>
           )}
         </div>
         <button

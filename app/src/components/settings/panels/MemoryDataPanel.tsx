@@ -56,9 +56,7 @@ const MemoryDataPanel = ({ embedded = false }: MemoryDataPanelProps = {}) => {
       leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
       <div className={embedded ? 'space-y-4' : 'p-4 space-y-4'}>
         <section className="rounded-xl border border-line bg-surface p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-content">
-            {t('memoryData.howItWorks')}
-          </h3>
+          <h3 className="text-sm font-semibold text-content">{t('memoryData.howItWorks')}</h3>
           <dl className="space-y-2.5">
             <div>
               <dt className="text-xs font-semibold text-content">

@@ -81,9 +81,7 @@ const LocalAIStep = ({ onNext, onBack: _onBack, onDownloadError }: LocalAIStepPr
               />
             </svg>
           </div>
-          <h1 className="text-xl font-bold mb-2 text-content">
-            {t('onboarding.localAI')}
-          </h1>
+          <h1 className="text-xl font-bold mb-2 text-content">{t('onboarding.localAI')}</h1>
           <p className="text-content-secondary text-sm text-center">
             {t('onboarding.localAIDesc')}
           </p>
@@ -93,25 +91,19 @@ const LocalAIStep = ({ onNext, onBack: _onBack, onDownloadError }: LocalAIStepPr
           <div className="rounded-xl border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/15 px-3 py-2">
             <p className="text-xs text-content-secondary">
               <span className="font-semibold">{t('onboarding.localAI')}</span>
-              <span className="text-content-secondary">
-                &nbsp;— {t('onboarding.localAIDesc')}
-              </span>
+              <span className="text-content-secondary">&nbsp;— {t('onboarding.localAIDesc')}</span>
             </p>
           </div>
           <div className="rounded-xl border border-line bg-surface-muted px-3 py-2">
             <p className="text-xs text-content-secondary">
               <span className="font-semibold">{t('common.download')}</span>
-              <span className="text-content-secondary">
-                &nbsp;— {t('misc.downloading')}
-              </span>
+              <span className="text-content-secondary">&nbsp;— {t('misc.downloading')}</span>
             </p>
           </div>
           <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2">
             <p className="text-xs text-content-secondary">
               <span className="font-semibold">{t('welcome.connect')}</span>
-              <span className="text-content-secondary">
-                &nbsp;— {t('onboarding.localAIDesc')}
-              </span>
+              <span className="text-content-secondary">&nbsp;— {t('onboarding.localAIDesc')}</span>
             </p>
           </div>
         </div>
@@ -147,37 +139,27 @@ const LocalAIStep = ({ onNext, onBack: _onBack, onDownloadError }: LocalAIStepPr
             />
           </svg>
         </div>
-        <h1 className="text-xl font-bold mb-2 text-content">
-          {t('onboarding.localAI')}
-        </h1>
-        <p className="text-content-secondary text-sm text-center">
-          {t('onboarding.localAIDesc')}
-        </p>
+        <h1 className="text-xl font-bold mb-2 text-content">{t('onboarding.localAI')}</h1>
+        <p className="text-content-secondary text-sm text-center">{t('onboarding.localAIDesc')}</p>
       </div>
 
       <div className="space-y-2 mb-5">
         <div className="rounded-xl border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/15 px-3 py-2">
           <p className="text-xs text-content-secondary">
             <span className="font-semibold">{t('onboarding.localAI')}</span>
-            <span className="text-content-secondary">
-              &nbsp;— {t('onboarding.localAIDesc')}
-            </span>
+            <span className="text-content-secondary">&nbsp;— {t('onboarding.localAIDesc')}</span>
           </p>
         </div>
         <div className="rounded-xl border border-line bg-surface-muted px-3 py-2">
           <p className="text-xs text-content-secondary">
             <span className="font-semibold">{t('onboarding.localAI')}</span>
-            <span className="text-content-secondary">
-              &nbsp;— {t('onboarding.localAIDesc')}
-            </span>
+            <span className="text-content-secondary">&nbsp;— {t('onboarding.localAIDesc')}</span>
           </p>
         </div>
         <div className="rounded-xl border border-line bg-surface-muted px-3 py-2">
           <p className="text-xs text-content-secondary">
             <span className="font-semibold">{t('common.refresh')}</span>
-            <span className="text-content-secondary">
-              &nbsp;— {t('onboarding.localAIDesc')}
-            </span>
+            <span className="text-content-secondary">&nbsp;— {t('onboarding.localAIDesc')}</span>
           </p>
         </div>
       </div>

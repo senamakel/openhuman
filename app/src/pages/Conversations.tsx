@@ -1807,9 +1807,7 @@ const Conversations = ({
       </button>
       <div className="flex-1 overflow-y-auto">
         {visibleThreads.length === 0 ? (
-          <p className="px-4 py-6 text-xs text-content-faint text-center">
-            {t('chat.noThreads')}
-          </p>
+          <p className="px-4 py-6 text-xs text-content-faint text-center">{t('chat.noThreads')}</p>
         ) : (
           visibleThreads.map(thread => (
             <div
@@ -2001,12 +1999,8 @@ const Conversations = ({
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <p className="text-sm text-content-faint mb-1">
-              {t('chat.failedToLoadMessages')}
-            </p>
-            <p className="text-xs text-content-secondary mb-3 text-center">
-              {messagesError}
-            </p>
+            <p className="text-sm text-content-faint mb-1">{t('chat.failedToLoadMessages')}</p>
+            <p className="text-xs text-content-secondary mb-3 text-center">{messagesError}</p>
             <button
               type="button"
               data-analytics-id="chat-messages-reload"

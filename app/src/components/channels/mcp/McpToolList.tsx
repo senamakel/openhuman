@@ -25,9 +25,7 @@ const McpToolList = ({ tools, onTryTool }: McpToolListProps) => {
   const safeTools = tools ?? [];
 
   if (safeTools.length === 0) {
-    return (
-      <p className="text-xs text-content-faint">{t('mcp.toolList.noTools')}</p>
-    );
+    return <p className="text-xs text-content-faint">{t('mcp.toolList.noTools')}</p>;
   }
 
   return (
@@ -63,9 +61,7 @@ const McpToolList = ({ tools, onTryTool }: McpToolListProps) => {
                 )}
               </div>
               {tool.description && (
-                <p className="text-[11px] text-content-muted">
-                  {tool.description}
-                </p>
+                <p className="text-[11px] text-content-muted">{tool.description}</p>
               )}
             </li>
           ))}

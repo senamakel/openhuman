@@ -298,9 +298,7 @@ const ModelPickerDialog = ({
               className="text-sm font-semibold text-content">
               {picker.title}
             </h3>
-            <p className="mt-1 text-xs text-content-muted">
-              {t('modelCouncil.modelPickerHelp')}
-            </p>
+            <p className="mt-1 text-xs text-content-muted">{t('modelCouncil.modelPickerHelp')}</p>
           </div>
           <Button variant="tertiary" size="xs" onClick={onClose}>
             {t('modelCouncil.closeModelPicker')}
@@ -327,9 +325,7 @@ const ModelPickerDialog = ({
                     : 'border-line text-content-secondary hover:bg-surface-muted dark:hover:bg-surface'
                 }`}>
                 {t(hint.labelKey)}
-                <span className="block font-mono text-[11px] text-content-muted">
-                  {hint.value}
-                </span>
+                <span className="block font-mono text-[11px] text-content-muted">{hint.value}</span>
               </button>
             ))}
           </div>
@@ -378,9 +374,7 @@ const ModelPickerDialog = ({
             </select>
           </div>
           {(providersLoading || modelsLoading) && (
-            <p className="text-[11px] text-content-muted">
-              {t('skills.resource.preview.loading')}
-            </p>
+            <p className="text-[11px] text-content-muted">{t('skills.resource.preview.loading')}</p>
           )}
           {(providersError || modelsError) && (
             <p role="alert" className="text-[11px] text-coral-700 dark:text-coral-300">
@@ -1035,9 +1029,7 @@ const ModelCouncilTab = () => {
       <div className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-content">
-              {t('modelCouncil.listTitle')}
-            </h2>
+            <h2 className="text-lg font-semibold text-content">{t('modelCouncil.listTitle')}</h2>
             <p className="mt-1 max-w-3xl text-sm text-content-secondary">
               {t('modelCouncil.listIntro')}
             </p>
@@ -1072,9 +1064,7 @@ const ModelCouncilTab = () => {
                 className="rounded-lg border border-line bg-surface p-4 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:hover:border-primary-500/50">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-semibold text-content">
-                      {council.name}
-                    </h3>
+                    <h3 className="truncate text-sm font-semibold text-content">{council.name}</h3>
                     <p className="mt-1 line-clamp-2 text-xs text-content-muted">
                       {council.description || t('modelCouncil.noCouncilDescription')}
                     </p>
@@ -1110,17 +1100,11 @@ const ModelCouncilTab = () => {
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-md bg-surface-muted px-2 py-1.5">
-                    <dt className="text-content-muted">
-                      {t('modelCouncil.juryCountLabel')}
-                    </dt>
-                    <dd className="font-mono font-semibold text-content">
-                      {council.jury_count}
-                    </dd>
+                    <dt className="text-content-muted">{t('modelCouncil.juryCountLabel')}</dt>
+                    <dd className="font-mono font-semibold text-content">{council.jury_count}</dd>
                   </div>
                   <div className="rounded-md bg-surface-muted px-2 py-1.5">
-                    <dt className="text-content-muted">
-                      {t('modelCouncil.debateRoundsLabel')}
-                    </dt>
+                    <dt className="text-content-muted">{t('modelCouncil.debateRoundsLabel')}</dt>
                     <dd className="font-mono font-semibold text-content">
                       {council.debate_rounds}
                     </dd>
@@ -1421,14 +1405,10 @@ const ModelCouncilTab = () => {
         <section aria-labelledby="model-council-roster-heading" className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
-              <h3
-                id="model-council-roster-heading"
-                className="text-sm font-semibold text-content">
+              <h3 id="model-council-roster-heading" className="text-sm font-semibold text-content">
                 {t('modelCouncil.rosterHeading')}
               </h3>
-              <p className="text-xs text-content-muted">
-                {t('modelCouncil.rosterHelp')}
-              </p>
+              <p className="text-xs text-content-muted">{t('modelCouncil.rosterHelp')}</p>
             </div>
             {profileStatus === 'loading' && (
               <span className="text-xs text-content-muted">
@@ -1577,9 +1557,7 @@ const ModelCouncilTab = () => {
                 className="text-sm font-semibold text-content">
                 {t('modelCouncil.deliberationHeading')}
               </h3>
-              <p className="text-xs text-content-secondary">
-                {t('modelCouncil.deliberationHelp')}
-              </p>
+              <p className="text-xs text-content-secondary">{t('modelCouncil.deliberationHelp')}</p>
             </div>
             <span
               role="status"
@@ -1628,9 +1606,7 @@ const ModelCouncilTab = () => {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-content">
-                          {seat.label}
-                        </p>
+                        <p className="truncate text-sm font-semibold text-content">{seat.label}</p>
                         <span
                           className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${
                             failed
@@ -1722,9 +1698,7 @@ const ModelCouncilTab = () => {
                 <h4 className="font-mono text-sm font-semibold text-content">
                   {SHARED_REASONING_FILE}
                 </h4>
-                <p className="text-xs text-content-muted">
-                  {t('modelCouncil.liveScratchpadHelp')}
-                </p>
+                <p className="text-xs text-content-muted">{t('modelCouncil.liveScratchpadHelp')}</p>
               </div>
               <span className="rounded bg-primary-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-primary-700 dark:bg-primary-500/20 dark:text-primary-200">
                 {t('modelCouncil.liveScratchpadBadge')}
@@ -1743,10 +1717,7 @@ const ModelCouncilTab = () => {
             {running ? t('modelCouncil.running') : t('modelCouncil.run')}
           </Button>
           {running && (
-            <span
-              role="status"
-              aria-live="polite"
-              className="text-xs text-content-muted">
+            <span role="status" aria-live="polite" className="text-xs text-content-muted">
               {t('modelCouncil.runningHint')}
             </span>
           )}
@@ -1761,9 +1732,7 @@ const ModelCouncilTab = () => {
 
       {view === 'run' && result && (
         <section aria-labelledby="model-council-results-heading" className="space-y-3 pt-1">
-          <h3
-            id="model-council-results-heading"
-            className="text-sm font-semibold text-content">
+          <h3 id="model-council-results-heading" className="text-sm font-semibold text-content">
             {t('modelCouncil.resultsHeading')}
           </h3>
 

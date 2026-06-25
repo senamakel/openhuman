@@ -179,9 +179,7 @@ const Routines = () => {
             </svg>
           </Button>
           <div>
-            <h1 className="text-lg font-bold text-content">
-              {t('routines.title')}
-            </h1>
+            <h1 className="text-lg font-bold text-content">{t('routines.title')}</h1>
             <p className="text-xs text-content-muted">{t('routines.subtitle')}</p>
           </div>
         </div>
@@ -196,9 +194,7 @@ const Routines = () => {
         {/* Loading */}
         {loading && (
           <div className="flex justify-center py-12">
-            <div className="text-sm text-content-faint">
-              {t('routines.loading')}
-            </div>
+            <div className="text-sm text-content-faint">{t('routines.loading')}</div>
           </div>
         )}
 
@@ -220,12 +216,8 @@ const Routines = () => {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-content-secondary">
-                {t('routines.empty')}
-              </p>
-              <p className="text-xs text-content-faint mt-1">
-                {t('routines.emptyHint')}
-              </p>
+              <p className="text-sm font-medium text-content-secondary">{t('routines.empty')}</p>
+              <p className="text-xs text-content-faint mt-1">{t('routines.emptyHint')}</p>
             </div>
           </div>
         )}

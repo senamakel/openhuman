@@ -84,9 +84,7 @@ const SecurityPanel = () => {
               </span>
             </div>
             {keyringStatus.failureReason && (
-              <p className="text-xs text-content-muted ml-4">
-                {keyringStatus.failureReason}
-              </p>
+              <p className="text-xs text-content-muted ml-4">{keyringStatus.failureReason}</p>
             )}
             <Button
               type="button"

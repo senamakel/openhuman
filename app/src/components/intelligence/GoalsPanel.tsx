@@ -14,8 +14,7 @@ import { type GoalItem, goalsApi } from '../../services/api/goalsApi';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
-const cardClass =
-  'rounded-lg border border-line bg-surface p-4';
+const cardClass = 'rounded-lg border border-line bg-surface p-4';
 
 export default function GoalsPanel() {
   const { t } = useT();
@@ -159,12 +158,8 @@ export default function GoalsPanel() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-content">
-              {t('brain.goals.title')}
-            </h2>
-            <p className="mt-0.5 text-xs text-content-muted">
-              {t('brain.goals.description')}
-            </p>
+            <h2 className="text-sm font-semibold text-content">{t('brain.goals.title')}</h2>
+            <p className="mt-0.5 text-xs text-content-muted">{t('brain.goals.description')}</p>
           </div>
           <Button
             type="button"
@@ -225,9 +220,7 @@ export default function GoalsPanel() {
               {error}
             </div>
           ) : goals.length === 0 ? (
-            <p className="py-6 text-center text-sm text-content-faint">
-              {t('brain.goals.empty')}
-            </p>
+            <p className="py-6 text-center text-sm text-content-faint">{t('brain.goals.empty')}</p>
           ) : (
             <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line dark:divide-neutral-800">
               {goals.map(goal => (

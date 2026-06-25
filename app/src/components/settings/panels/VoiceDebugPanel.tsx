@@ -143,9 +143,7 @@ const VoiceDebugPanel = () => {
                   </div>
                 </div>
                 <div className="rounded-md border border-line bg-surface-muted p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-content-muted">
-                    STT
-                  </div>
+                  <div className="text-[10px] uppercase tracking-wide text-content-muted">STT</div>
                   <div className="mt-1 font-medium text-content">
                     {voiceStatus?.stt_available
                       ? t('voice.debug.ready')

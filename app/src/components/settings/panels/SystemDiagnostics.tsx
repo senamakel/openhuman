@@ -44,16 +44,10 @@ const LogsFolderRow = () => {
     <div className="rounded-xl border border-line bg-surface-muted px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-content">
-            {t('devOptions.appLogs')}
-          </div>
-          <div className="mt-0.5 text-xs text-content-secondary">
-            {t('devOptions.appLogsDesc')}
-          </div>
+          <div className="text-sm font-semibold text-content">{t('devOptions.appLogs')}</div>
+          <div className="mt-0.5 text-xs text-content-secondary">{t('devOptions.appLogsDesc')}</div>
           {path && (
-            <div className="mt-1 truncate font-mono text-[11px] text-content-muted">
-              {path}
-            </div>
+            <div className="mt-1 truncate font-mono text-[11px] text-content-muted">{path}</div>
           )}
         </div>
         <button
@@ -146,9 +140,7 @@ const RestartTourRow = () => {
     <div className="rounded-xl border border-line bg-surface-muted px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-content">
-            {t('settings.restartTour')}
-          </div>
+          <div className="text-sm font-semibold text-content">{t('settings.restartTour')}</div>
           <div className="mt-0.5 text-xs text-content-secondary">
             {t('settings.restartTourDesc')}
           </div>

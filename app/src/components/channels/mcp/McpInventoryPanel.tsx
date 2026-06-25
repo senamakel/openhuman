@@ -68,14 +68,10 @@ const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPa
       <div className="bg-surface rounded-xl shadow-xl max-w-3xl w-full p-5 max-h-full overflow-y-auto">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <h2
-              id="mcp-inventory-panel-title"
-              className="text-base font-semibold text-content">
+            <h2 id="mcp-inventory-panel-title" className="text-base font-semibold text-content">
               {t('mcp.inventory.title')}
             </h2>
-            <p className="text-xs text-content-muted mt-1">
-              {t('mcp.inventory.subtitle')}
-            </p>
+            <p className="text-xs text-content-muted mt-1">{t('mcp.inventory.subtitle')}</p>
           </div>
           <Button
             iconOnly

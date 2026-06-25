@@ -143,9 +143,7 @@ export default function Activity() {
                     {activeTabDef?.label ?? t('nav.activity')}
                   </h1>
                   {activeTabDef?.description && (
-                    <p className="mt-1 text-sm text-content-muted">
-                      {activeTabDef.description}
-                    </p>
+                    <p className="mt-1 text-sm text-content-muted">{activeTabDef.description}</p>
                   )}
                 </div>
               </div>

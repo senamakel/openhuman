@@ -324,9 +324,7 @@ const TelegramConfig = ({ definition }: TelegramConfigProps) => {
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-primary-200 dark:border-primary-500/30 bg-primary-50/80 dark:bg-primary-500/10 px-4 py-3 text-sm text-content-secondary">
-        <p className="font-medium text-content">
-          {t('channels.telegram.remoteControlTitle')}
-        </p>
+        <p className="font-medium text-content">{t('channels.telegram.remoteControlTitle')}</p>
         <p className="mt-1 text-xs text-content-secondary">
           {t('channels.telegram.remoteControlBody')}
         </p>

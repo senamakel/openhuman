@@ -135,9 +135,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
       {step === 'form' && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-xs">
-            <span className="text-content-muted">
-              {t('walletSend.available')}
-            </span>
+            <span className="text-content-muted">{t('walletSend.available')}</span>
             <span className="font-mono font-medium text-content">
               {balance.formatted} {balance.assetSymbol}
             </span>
@@ -201,14 +199,10 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
             </div>
             <div className="flex items-center justify-between px-3 py-2">
               <dt className="text-content-muted">{t('walletSend.recipient')}</dt>
-              <dd className="font-mono text-content">
-                {truncate(prepared.toAddress)}
-              </dd>
+              <dd className="font-mono text-content">{truncate(prepared.toAddress)}</dd>
             </div>
             <div className="flex items-center justify-between px-3 py-2">
-              <dt className="text-content-muted">
-                {t('walletSend.estimatedFee')}
-              </dt>
+              <dt className="text-content-muted">{t('walletSend.estimatedFee')}</dt>
               <dd className="font-mono text-content" data-testid="send-fee">
                 {feeFormatted} {balance.assetSymbol}
               </dd>
@@ -278,9 +272,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-content">
-            {t('walletSend.sent')}
-          </p>
+          <p className="text-sm font-medium text-content">{t('walletSend.sent')}</p>
           <div className="w-full rounded-xl border border-line bg-surface-muted px-3 py-2">
             <span className="block text-[11px] text-content-muted mb-0.5">
               {t('walletSend.txHash')}

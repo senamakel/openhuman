@@ -49,9 +49,7 @@ export default function SyncBudgetDialog({ source, onClose, onSaved }: SyncBudge
       <div
         className="bg-surface rounded-xl shadow-xl border border-line w-full max-w-md mx-4 p-5"
         onClick={e => e.stopPropagation()}>
-        <h3 className="text-base font-semibold text-content mb-1">
-          {t('syncBudget.title')}
-        </h3>
+        <h3 className="text-base font-semibold text-content mb-1">{t('syncBudget.title')}</h3>
         <p className="text-xs text-content-muted mb-4">{source.label}</p>
 
         <div className="flex flex-col gap-4">
@@ -82,9 +80,7 @@ export default function SyncBudgetDialog({ source, onClose, onSaved }: SyncBudge
               className="block text-sm font-medium text-content-secondary">
               {t('syncBudget.maxCost')}
             </label>
-            <p className="text-xs text-content-muted mt-0.5 mb-1">
-              {t('syncBudget.maxCostHelp')}
-            </p>
+            <p className="text-xs text-content-muted mt-0.5 mb-1">{t('syncBudget.maxCostHelp')}</p>
             <input
               id="budget-cost"
               type="number"

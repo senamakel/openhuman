@@ -27,16 +27,8 @@ const AccountPanel = () => {
             {(name ?? username ?? '?').replace('@', '').slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0">
-            {name && (
-              <div className="truncate text-sm font-medium text-content">
-                {name}
-              </div>
-            )}
-            {username && (
-              <div className="truncate text-xs text-content-muted">
-                {username}
-              </div>
-            )}
+            {name && <div className="truncate text-sm font-medium text-content">{name}</div>}
+            {username && <div className="truncate text-xs text-content-muted">{username}</div>}
           </div>
         </div>
       )}

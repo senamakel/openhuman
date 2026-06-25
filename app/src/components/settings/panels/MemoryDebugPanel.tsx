@@ -242,9 +242,7 @@ const MemoryDebugPanel = () => {
                         {doc.namespace}
                       </div>
                       {doc.title && (
-                        <div className="text-[11px] text-content-muted">
-                          {doc.title}
-                        </div>
+                        <div className="text-[11px] text-content-muted">{doc.title}</div>
                       )}
                     </div>
                     <Button
@@ -326,9 +324,7 @@ const MemoryDebugPanel = () => {
                 aria-label={t('memory.maxChunks')}
                 inputSize="sm"
               />
-              <span className="text-[11px] text-content-muted">
-                {t('memory.maxChunks')}
-              </span>
+              <span className="text-[11px] text-content-muted">{t('memory.maxChunks')}</span>
               <div className="flex-1" />
               <Button
                 type="button"

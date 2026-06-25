@@ -225,11 +225,7 @@ const ProfileEditorPage = () => {
             ) : (
               <SettingsRow
                 label={t('settings.profiles.editor.id')}
-                control={
-                  <code className="font-mono text-xs text-content-muted">
-                    {profileId}
-                  </code>
-                }
+                control={<code className="font-mono text-xs text-content-muted">{profileId}</code>}
               />
             )}
             <SettingsRow
@@ -447,9 +443,7 @@ function AllowlistField({
               type="button"
               onClick={() => onChange(null)}
               className={`px-3 py-1 font-medium transition-colors ${
-                !restricted
-                  ? 'bg-ocean-500 text-white'
-                  : 'bg-surface text-content-secondary'
+                !restricted ? 'bg-ocean-500 text-white' : 'bg-surface text-content-secondary'
               }`}>
               {t('settings.profiles.editor.all')}
             </button>
@@ -457,9 +451,7 @@ function AllowlistField({
               type="button"
               onClick={() => onChange(value ?? [])}
               className={`px-3 py-1 font-medium transition-colors ${
-                restricted
-                  ? 'bg-ocean-500 text-white'
-                  : 'bg-surface text-content-secondary'
+                restricted ? 'bg-ocean-500 text-white' : 'bg-surface text-content-secondary'
               }`}>
               {t('settings.profiles.editor.selected')}
             </button>

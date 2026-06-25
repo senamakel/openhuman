@@ -80,18 +80,14 @@ export default function ChannelSetupModal({ definition, onClose }: ChannelSetupM
             <div className="flex-1 min-w-0 pr-2">
               <div className="flex items-center gap-2">
                 {renderChannelIcon(definition.icon)}
-                <h2
-                  id="channel-setup-title"
-                  className="text-base font-semibold text-content">
+                <h2 id="channel-setup-title" className="text-base font-semibold text-content">
                   {definition.display_name}
                 </h2>
                 <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-md bg-primary-500/15 text-primary-600 dark:text-primary-300">
                   {t('channels.channel')}
                 </span>
               </div>
-              <p className="text-xs text-content-muted mt-1.5">
-                {definition.description}
-              </p>
+              <p className="text-xs text-content-muted mt-1.5">{definition.description}</p>
             </div>
             <Button
               iconOnly

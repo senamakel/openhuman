@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Theme } from '../lib/theme/types';
 import themeReducer, {
+  deleteCustomTheme,
   FONT_SIZE_PX,
   type FontSize,
-  deleteCustomTheme,
   resetActiveTheme,
   selectEffectiveTheme,
   selectHideAgentInsights,
@@ -17,7 +18,6 @@ import themeReducer, {
   setThemeToken,
   upsertCustomTheme,
 } from './themeSlice';
-import type { Theme } from '../lib/theme/types';
 
 const customTheme = (overrides: Partial<Theme> = {}): Theme => ({
   id: 'custom-1',

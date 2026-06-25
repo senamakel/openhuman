@@ -4,10 +4,7 @@ export interface SettingsEmptyStateProps {
 }
 
 const SettingsEmptyState = ({ label, className }: SettingsEmptyStateProps) => {
-  const classes = [
-    'px-4 py-4 text-xs text-content-faint italic',
-    className ?? '',
-  ]
+  const classes = ['px-4 py-4 text-xs text-content-faint italic', className ?? '']
     .filter(Boolean)
     .join(' ');
 

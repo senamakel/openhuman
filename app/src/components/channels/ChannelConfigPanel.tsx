@@ -21,12 +21,8 @@ const ChannelConfigPanel = ({ selectedChannel, definitions }: ChannelConfigPanel
       <div className="space-y-4">
         <section className="rounded-xl border border-line bg-surface p-4 space-y-3">
           <div>
-            <h3 className="text-base font-semibold text-content">
-              {t('channels.mcp.title')}
-            </h3>
-            <p className="text-xs text-content-muted mt-1">
-              {t('channels.mcp.description')}
-            </p>
+            <h3 className="text-base font-semibold text-content">{t('channels.mcp.title')}</h3>
+            <p className="text-xs text-content-muted mt-1">{t('channels.mcp.description')}</p>
           </div>
           <McpServersTab />
         </section>

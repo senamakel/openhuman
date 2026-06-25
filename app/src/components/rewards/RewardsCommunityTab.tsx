@@ -319,9 +319,7 @@ export default function RewardsCommunityTab({
                   className="text-primary-600 dark:text-primary-300 transition-all duration-300"
                 />
               </svg>
-              <span className="absolute text-sm font-bold text-content">
-                {progressPercent}%
-              </span>
+              <span className="absolute text-sm font-bold text-content">{progressPercent}%</span>
             </div>
           </div>
 
@@ -424,9 +422,7 @@ export default function RewardsCommunityTab({
                         </svg>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-content">
-                          {role.title}
-                        </h3>
+                        <h3 className="text-base font-bold text-content">{role.title}</h3>
                         <p className="mt-1 text-xs leading-relaxed text-content-secondary">
                           {role.description}
                         </p>
@@ -493,9 +489,7 @@ export default function RewardsCommunityTab({
           {discordLinked && discordUsername ? (
             <div className="mt-3 flex items-center justify-between gap-3">
               <span>{t('rewards.community.discordAccount')}</span>
-              <span
-                data-testid="rewards-discord-username"
-                className="font-semibold text-content">
+              <span data-testid="rewards-discord-username" className="font-semibold text-content">
                 {discordUsername}
               </span>
             </div>
@@ -503,9 +497,7 @@ export default function RewardsCommunityTab({
           {discordLinked && membershipStatus === 'member' ? (
             <div className="mt-3 flex items-center justify-between gap-3">
               <span>{t('rewards.community.rolesAndRewards')}</span>
-              <span
-                data-testid="rewards-roles-assigned"
-                className="font-semibold text-content">
+              <span data-testid="rewards-roles-assigned" className="font-semibold text-content">
                 {t('rewards.community.roleAssignmentCount')
                   .replace('{assigned}', String(assignedRoleCount))
                   .replace('{unlocked}', String(unlocked))}

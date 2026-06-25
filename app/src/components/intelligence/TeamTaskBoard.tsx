@@ -114,9 +114,7 @@ export function TeamTaskBoard({ tasks, members }: TeamTaskBoardProps) {
               <h5 className="truncate text-[11px] font-medium text-content-secondary">
                 {t(column.labelKey)}
               </h5>
-              <span className="text-[10px] text-content-faint">
-                {cards.length}
-              </span>
+              <span className="text-[10px] text-content-faint">{cards.length}</span>
             </div>
             <div className="space-y-2">
               {cards.length === 0 ? (
@@ -164,9 +162,7 @@ function TeamTaskCard({
     <article
       style={borderStyle}
       className="rounded-lg border border-line bg-surface px-2.5 py-2 shadow-sm">
-      <p className="break-words text-xs font-medium leading-snug text-content">
-        {task.title}
-      </p>
+      <p className="break-words text-xs font-medium leading-snug text-content">{task.title}</p>
 
       {showClaimer && (
         <p className="mt-0.5 text-[10px] text-content-muted">
@@ -224,9 +220,7 @@ function GateBadge({ gateStatus, gateReason }: { gateStatus: string; gateReason?
   const { t } = useT();
   // Defensive mapping: an unseen gate string must render as a neutral chip
   // showing its raw value, never crash or vanish.
-  const style =
-    GATE_STYLE[gateStatus] ??
-    'bg-surface-subtle text-content-secondary';
+  const style = GATE_STYLE[gateStatus] ?? 'bg-surface-subtle text-content-secondary';
   const label = GATE_LABEL_KEY[gateStatus]
     ? t(GATE_LABEL_KEY[gateStatus])
     : t('intelligence.teams.gate.label').replace('{status}', gateStatus);

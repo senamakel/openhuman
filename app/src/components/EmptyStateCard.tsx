@@ -26,9 +26,7 @@ const EmptyStateCard = ({
         {icon}
       </div>
       <h3 className="text-base font-semibold text-content">{title}</h3>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-content-muted">
-        {description}
-      </p>
+      <p className="mt-2 max-w-md text-sm leading-relaxed text-content-muted">{description}</p>
       {actionLabel && onAction ? (
         <button
           type="button"

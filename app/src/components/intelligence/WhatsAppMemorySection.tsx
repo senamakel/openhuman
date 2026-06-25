@@ -53,9 +53,7 @@ export function WhatsAppMemorySection({ pollIntervalMs = 30000 }: WhatsAppMemory
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <WhatsAppIcon />
-          <span className="text-sm font-semibold text-content">
-            {t('whatsapp.title')}
-          </span>
+          <span className="text-sm font-semibold text-content">{t('whatsapp.title')}</span>
           <span className="text-xs text-content-muted">
             {chatCount.toLocaleString()}{' '}
             {chatCount !== 1 ? t('whatsapp.chatsSynced') : t('whatsapp.chatSynced')}

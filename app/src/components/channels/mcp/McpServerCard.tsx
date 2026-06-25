@@ -35,13 +35,9 @@ const McpServerCard = ({ server, onSelect }: McpServerCardProps) => {
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-content truncate">
-          {server.display_name}
-        </p>
+        <p className="text-sm font-medium text-content truncate">{server.display_name}</p>
         {server.description && (
-          <p className="text-xs text-content-muted line-clamp-4 mt-0.5">
-            {server.description}
-          </p>
+          <p className="text-xs text-content-muted line-clamp-4 mt-0.5">{server.description}</p>
         )}
       </div>
     </button>

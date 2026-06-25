@@ -20,12 +20,7 @@ const PADDINGS: Record<CardPadding, string> = { none: '', sm: 'p-3', md: 'p-4', 
 
 const Card = forwardRef<HTMLDivElement, CardProps>((props, ref) => {
   const { variant = 'surface', padding = 'md', className, children, ...rest } = props;
-  const classes = [
-    'rounded-xl text-content',
-    VARIANTS[variant],
-    PADDINGS[padding],
-    className ?? '',
-  ]
+  const classes = ['rounded-xl text-content', VARIANTS[variant], PADDINGS[padding], className ?? '']
     .filter(Boolean)
     .join(' ');
   return (

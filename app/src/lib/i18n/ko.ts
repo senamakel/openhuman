@@ -4636,17 +4636,20 @@ const messages: TranslationMap = {
   'settings.theme.backdropDots': '배경 점 표시',
   'settings.theme.backdropHint':
     '메시는 애니메이션 그라데이션을 표시하고, 단색은 평면 배경을 사용하며, 이미지는 직접 지정한 배경을 사용합니다.',
-  'settings.theme.autoForkHint': '프리셋을 편집하면 변경 사항이 자동으로 새 사용자 지정 테마로 저장됩니다.',
+  'settings.theme.autoForkHint':
+    '프리셋을 편집하면 변경 사항이 자동으로 새 사용자 지정 테마로 저장됩니다.',
   'settings.theme.title': '테마 스튜디오',
   'settings.theme.menuDesc': '색상과 글꼴을 완전히 사용자 지정하거나 사전 설정 테마를 선택하세요.',
   'settings.theme.presetsHeading': '테마',
   'settings.theme.builtInBadge': '사전 설정',
   'settings.theme.customBadge': '사용자 지정',
-  'settings.theme.customizeHint': '기본 제공 사전 설정은 읽기 전용입니다. 색상과 글꼴을 편집하려면 이 테마를 복제하세요.',
+  'settings.theme.customizeHint':
+    '기본 제공 사전 설정은 읽기 전용입니다. 색상과 글꼴을 편집하려면 이 테마를 복제하세요.',
   'settings.theme.duplicate': '복제 후 사용자 지정',
   'settings.theme.copyName': '{name} (사용자 지정)',
   'settings.theme.importedName': '가져온 테마',
-  'settings.theme.contrastWarn': '텍스트와 배경 사이의 대비가 낮습니다 — 이 테마는 읽기 어려울 수 있습니다.',
+  'settings.theme.contrastWarn':
+    '텍스트와 배경 사이의 대비가 낮습니다 — 이 테마는 읽기 어려울 수 있습니다.',
   'settings.theme.group.surfaces': '표면',
   'settings.theme.group.text': '텍스트',
   'settings.theme.group.borders': '테두리',

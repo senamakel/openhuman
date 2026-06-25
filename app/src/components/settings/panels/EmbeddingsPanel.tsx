@@ -414,15 +414,11 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
                   className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                     idx !== 0 ? 'border-t border-line-subtle' : ''
                   } ${
-                    selected
-                      ? 'bg-primary-50 dark:bg-primary-500/10'
-                      : 'hover:bg-surface-hover'
+                    selected ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-surface-hover'
                   }`}>
                   <span className="flex-1 min-w-0">
                     <span className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-content">
-                        {entry.label}
-                      </span>
+                      <span className="text-sm font-medium text-content">{entry.label}</span>
                       {entry.requires_api_key && (
                         <SettingsBadge variant={entry.has_api_key ? 'success' : 'warning'}>
                           {entry.has_api_key
@@ -650,9 +646,7 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
             ) : (
               /* Standard API key form */
               <div className="space-y-3">
-                <p className="text-xs text-content-muted">
-                  {setupProvider.description}
-                </p>
+                <p className="text-xs text-content-muted">{setupProvider.description}</p>
                 <div>
                   <label className="block text-[11px] font-medium text-content-secondary mb-1">
                     {t('settings.embeddings.apiKeyLabel').replace(

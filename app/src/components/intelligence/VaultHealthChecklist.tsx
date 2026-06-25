@@ -139,9 +139,7 @@ export function VaultHealthChecklist({ onToast, title }: VaultHealthChecklistPro
       data-testid="vault-health-checklist">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-content">
-            {resolvedTitle}
-          </h3>
+          <h3 className="text-sm font-semibold text-content">{resolvedTitle}</h3>
           <p className="mt-1 text-xs text-content-secondary">
             {t('vaultHealth.workspaceVault')} <code className="font-mono">memory_tree/content</code>
           </p>
@@ -217,9 +215,7 @@ export function VaultHealthChecklist({ onToast, title }: VaultHealthChecklistPro
               {!item.ok ? <p className="mt-1 leading-relaxed">{item.recovery}</p> : null}
             </div>
           ))}
-          <p
-            className="text-[11px] text-content-secondary"
-            data-testid="vault-health-last-sync">
+          <p className="text-[11px] text-content-secondary" data-testid="vault-health-last-sync">
             {t('vaultHealth.lastSync')} {formatRelativeTime(health?.last_sync_ms ?? 0, t)}
           </p>
         </div>

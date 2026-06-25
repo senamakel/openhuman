@@ -95,9 +95,7 @@ const MemoryFreshnessPanel = ({ report, loading, error, onRetry }: MemoryFreshne
           <h3 className="text-sm font-semibold text-content-secondary">
             {t('memoryFreshness.empty')}
           </h3>
-          <p className="mt-1 text-xs text-content-muted">
-            {t('memoryFreshness.emptyHint')}
-          </p>
+          <p className="mt-1 text-xs text-content-muted">{t('memoryFreshness.emptyHint')}</p>
         </div>
       </div>
     );
@@ -116,15 +114,11 @@ const MemoryFreshnessPanel = ({ report, loading, error, onRetry }: MemoryFreshne
           { label: t('memoryFreshness.metricFading'), value: report.fadingCount },
           { label: t('memoryFreshness.metricStale'), value: report.staleCount },
         ].map(tile => (
-          <div
-            key={tile.label}
-            className="rounded-lg border border-line p-3">
+          <div key={tile.label} className="rounded-lg border border-line p-3">
             <div className="text-[10px] uppercase tracking-wider text-content-faint">
               {tile.label}
             </div>
-            <div className="text-lg font-semibold tabular-nums text-content">
-              {tile.value}
-            </div>
+            <div className="text-lg font-semibold tabular-nums text-content">{tile.value}</div>
           </div>
         ))}
       </div>
@@ -142,9 +136,7 @@ const MemoryFreshnessPanel = ({ report, loading, error, onRetry }: MemoryFreshne
           {t('memoryFreshness.queueHeading')}
         </h3>
         {queue.length === 0 ? (
-          <p className="text-xs text-content-muted">
-            {t('memoryFreshness.allFresh')}
-          </p>
+          <p className="text-xs text-content-muted">{t('memoryFreshness.allFresh')}</p>
         ) : (
           <ul className="space-y-1.5">
             {queue.map(fact => (

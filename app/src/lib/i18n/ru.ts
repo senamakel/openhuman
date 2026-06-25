@@ -4723,17 +4723,20 @@ const messages: TranslationMap = {
   'settings.theme.backdropDots': 'Показывать точки фона',
   'settings.theme.backdropHint':
     'Сетка показывает анимированный градиент; Сплошной использует ровный фон; Изображение задаёт ваш собственный.',
-  'settings.theme.autoForkHint': 'При редактировании пресета изменения автоматически сохраняются как новая пользовательская тема.',
+  'settings.theme.autoForkHint':
+    'При редактировании пресета изменения автоматически сохраняются как новая пользовательская тема.',
   'settings.theme.title': 'Студия тем',
   'settings.theme.menuDesc': 'Полностью настройте цвета и шрифты или выберите готовую тему.',
   'settings.theme.presetsHeading': 'Темы',
   'settings.theme.builtInBadge': 'Готовая',
   'settings.theme.customBadge': 'Своя',
-  'settings.theme.customizeHint': 'Встроенные готовые темы доступны только для чтения. Создайте копию этой темы, чтобы изменить её цвета и шрифты.',
+  'settings.theme.customizeHint':
+    'Встроенные готовые темы доступны только для чтения. Создайте копию этой темы, чтобы изменить её цвета и шрифты.',
   'settings.theme.duplicate': 'Дублировать и настроить',
   'settings.theme.copyName': '{name} (своя)',
   'settings.theme.importedName': 'Импортированная тема',
-  'settings.theme.contrastWarn': 'Низкая контрастность между текстом и фоном — эту тему может быть трудно читать.',
+  'settings.theme.contrastWarn':
+    'Низкая контрастность между текстом и фоном — эту тему может быть трудно читать.',
   'settings.theme.group.surfaces': 'Поверхности',
   'settings.theme.group.text': 'Текст',
   'settings.theme.group.borders': 'Границы',
@@ -4753,7 +4756,8 @@ const messages: TranslationMap = {
   'settings.theme.export': 'Копировать JSON',
   'settings.theme.copied': 'Скопировано!',
   'settings.theme.import': 'Импортировать тему',
-  'settings.theme.importHint': 'Вставьте экспортированный JSON темы, чтобы добавить её как свою тему.',
+  'settings.theme.importHint':
+    'Вставьте экспортированный JSON темы, чтобы добавить её как свою тему.',
   'settings.theme.importApply': 'Импортировать',
   'settings.theme.importError': 'Не удалось разобрать этот JSON темы.',
   'settings.appearance.title': 'Внешний вид',

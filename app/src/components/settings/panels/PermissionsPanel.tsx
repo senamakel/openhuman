@@ -196,9 +196,7 @@ const PermissionsPanel = () => {
         )}
 
         {isLoading ? (
-          <p className="text-sm text-content-muted">
-            {t('settings.agentAccess.loading')}
-          </p>
+          <p className="text-sm text-content-muted">{t('settings.agentAccess.loading')}</p>
         ) : (
           <>
             {/* Access mode presets — intentional bespoke card UI; kept as-is. */}
@@ -229,18 +227,14 @@ const PermissionsPanel = () => {
                             : 'border-line-strong'
                         }`}
                       />
-                      <span className="font-medium text-content">
-                        {p.title}
-                      </span>
+                      <span className="font-medium text-content">{p.title}</span>
                       {p.id === 'supervised' && (
                         <span className="text-xs text-content-muted">
                           {t('settings.agentAccess.defaultTag')}
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-content-muted">
-                      {p.description}
-                    </p>
+                    <p className="mt-1 text-xs text-content-muted">{p.description}</p>
                   </button>
                 ))}
                 {level === 'full' && (
@@ -256,9 +250,7 @@ const PermissionsPanel = () => {
               <h2 className="text-sm font-semibold text-content">
                 {t('settings.permissions.folders')}
               </h2>
-              <p className="text-xs text-content-muted">
-                {t('settings.permissions.foldersDesc')}
-              </p>
+              <p className="text-xs text-content-muted">{t('settings.permissions.foldersDesc')}</p>
               <div className="rounded-lg border border-line px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-2 h-2 rounded-full bg-sage-500" />

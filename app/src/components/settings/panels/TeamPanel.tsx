@@ -197,17 +197,13 @@ const TeamPanel = () => {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-content truncate">
-                {team.name}
-              </span>
+              <span className="text-sm font-medium text-content truncate">{team.name}</span>
               {roleBadge(role, team.createdBy)}
               {planBadge(team.subscription.plan)}
               {isActive && <SettingsBadge variant="success">{t('team.active')}</SettingsBadge>}
             </div>
             {team.isPersonal && (
-              <p className="text-xs text-content-muted mt-0.5">
-                {t('team.personalTeam')}
-              </p>
+              <p className="text-xs text-content-muted mt-0.5">{t('team.personalTeam')}</p>
             )}
           </div>
         </div>
@@ -312,9 +308,7 @@ const TeamPanel = () => {
       {teamToLeave && (
         <div className="fixed inset-0 bg-neutral-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-surface rounded-2xl p-6 w-full max-w-md border border-line">
-            <h3 className="text-sm font-semibold text-content mb-4">
-              {t('team.leaveTeam')}
-            </h3>
+            <h3 className="text-sm font-semibold text-content mb-4">{t('team.leaveTeam')}</h3>
 
             {error && (
               <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">
@@ -326,10 +320,7 @@ const TeamPanel = () => {
               <div className="text-sm text-content-muted">
                 <p>
                   {t('team.confirmLeave')}{' '}
-                  <strong className="text-content">
-                    {teamToLeave.team.name}
-                  </strong>
-                  ?
+                  <strong className="text-content">{teamToLeave.team.name}</strong>?
                 </p>
                 <p className="mt-2 text-amber-400">{t('team.leaveWarning')}</p>
               </div>

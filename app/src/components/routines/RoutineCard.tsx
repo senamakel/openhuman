@@ -101,11 +101,7 @@ const RoutineCard = ({ job, runs, busyKeys, onToggle, onRunNow, onLoadRuns }: Ro
         <div className="flex items-center gap-2 text-xs">
           <span
             className={`w-2 h-2 rounded-full flex-shrink-0 ${
-              isSuccess
-                ? 'bg-sage-500'
-                : isError
-                  ? 'bg-coral-500'
-                  : 'bg-surface-strong'
+              isSuccess ? 'bg-sage-500' : isError ? 'bg-coral-500' : 'bg-surface-strong'
             }`}
           />
           <span

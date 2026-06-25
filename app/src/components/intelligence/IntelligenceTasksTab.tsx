@@ -546,9 +546,7 @@ export default function IntelligenceTasksTab() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-content-faint">
-          {t('intelligence.tasks.subtitle')}
-        </p>
+        <p className="text-xs text-content-faint">{t('intelligence.tasks.subtitle')}</p>
         <button
           type="button"
           onClick={() => setComposerOpen(true)}

@@ -62,14 +62,10 @@ export function ModalShell({
               </div>
             ) : null}
             <div className="min-w-0">
-              <h2
-                id={titleId}
-                className="text-sm font-semibold text-content">
+              <h2 id={titleId} className="text-sm font-semibold text-content">
                 {title}
               </h2>
-              {subtitle ? (
-                <p className="text-xs text-content-muted">{subtitle}</p>
-              ) : null}
+              {subtitle ? <p className="text-xs text-content-muted">{subtitle}</p> : null}
             </div>
           </div>
           <Button

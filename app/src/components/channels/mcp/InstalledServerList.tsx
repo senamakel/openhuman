@@ -113,10 +113,7 @@ const InstalledServerList = ({
       ) : (
         <>
           {isFiltering && (
-            <p
-              role="status"
-              aria-live="polite"
-              className="mb-2 text-[11px] text-content-muted">
+            <p role="status" aria-live="polite" className="mb-2 text-[11px] text-content-muted">
               {t('mcp.installed.search.countMatches')
                 .replace('{shown}', String(filteredServers.length))
                 .replace('{total}', String(servers.length))}

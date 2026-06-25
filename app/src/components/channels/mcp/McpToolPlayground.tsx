@@ -257,9 +257,7 @@ const McpToolPlayground = ({ serverId, tool, onClose }: McpToolPlaygroundProps) 
               {t('mcp.playground.title').replace('{name}', tool.name)}
             </h2>
             {tool.description && (
-              <p className="text-xs text-content-muted mt-1">
-                {tool.description}
-              </p>
+              <p className="text-xs text-content-muted mt-1">{tool.description}</p>
             )}
           </div>
           <Button
@@ -337,9 +335,7 @@ const McpToolPlayground = ({ serverId, tool, onClose }: McpToolPlaygroundProps) 
             aria-describedby="mcp-playground-args-help"
             className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs font-mono text-content focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-primary-400 resize-y"
           />
-          <p
-            id="mcp-playground-args-help"
-            className="mt-1 text-[10px] text-content-faint">
+          <p id="mcp-playground-args-help" className="mt-1 text-[10px] text-content-faint">
             {t('mcp.playground.argsHelp')}
           </p>
           {parseError && (
@@ -404,9 +400,7 @@ const McpToolPlayground = ({ serverId, tool, onClose }: McpToolPlaygroundProps) 
           {showHistory && (
             <div className="mt-1.5">
               {history.length === 0 ? (
-                <p className="text-[11px] text-content-faint">
-                  {t('mcp.playground.historyEmpty')}
-                </p>
+                <p className="text-[11px] text-content-faint">{t('mcp.playground.historyEmpty')}</p>
               ) : (
                 <ul className="space-y-1">
                   {history.map((record, idx) => (

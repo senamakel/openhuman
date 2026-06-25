@@ -104,9 +104,7 @@ const McpCatalogBrowser = ({ onSelectInstall }: McpCatalogBrowserProps) => {
       )}
 
       {loading && servers.length === 0 ? (
-        <div className="text-sm text-content-faint py-6 text-center">
-          {t('common.loading')}
-        </div>
+        <div className="text-sm text-content-faint py-6 text-center">{t('common.loading')}</div>
       ) : servers.length === 0 ? (
         <div className="text-sm text-content-faint py-6 text-center">
           {query

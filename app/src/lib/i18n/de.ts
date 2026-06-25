@@ -4799,17 +4799,21 @@ const messages: TranslationMap = {
   'settings.theme.backdropDots': 'Hintergrundpunkte anzeigen',
   'settings.theme.backdropHint':
     'Netz zeigt den animierten Farbverlauf; Einfarbig nutzt einen flachen Hintergrund; Bild verwendet dein eigenes.',
-  'settings.theme.autoForkHint': 'Beim Bearbeiten einer Vorlage werden deine Änderungen automatisch als neues benutzerdefiniertes Theme gespeichert.',
+  'settings.theme.autoForkHint':
+    'Beim Bearbeiten einer Vorlage werden deine Änderungen automatisch als neues benutzerdefiniertes Theme gespeichert.',
   'settings.theme.title': 'Theme-Studio',
-  'settings.theme.menuDesc': 'Passe Farben und Schriftarten vollständig an oder wähle ein voreingestelltes Theme.',
+  'settings.theme.menuDesc':
+    'Passe Farben und Schriftarten vollständig an oder wähle ein voreingestelltes Theme.',
   'settings.theme.presetsHeading': 'Themes',
   'settings.theme.builtInBadge': 'Voreinstellung',
   'settings.theme.customBadge': 'Benutzerdefiniert',
-  'settings.theme.customizeHint': 'Integrierte Voreinstellungen sind schreibgeschützt. Dupliziere dieses Theme, um seine Farben und Schriftarten zu bearbeiten.',
+  'settings.theme.customizeHint':
+    'Integrierte Voreinstellungen sind schreibgeschützt. Dupliziere dieses Theme, um seine Farben und Schriftarten zu bearbeiten.',
   'settings.theme.duplicate': 'Duplizieren & anpassen',
   'settings.theme.copyName': '{name} (benutzerdefiniert)',
   'settings.theme.importedName': 'Importiertes Theme',
-  'settings.theme.contrastWarn': 'Geringer Kontrast zwischen Text und Hintergrund — dieses Theme ist möglicherweise schwer zu lesen.',
+  'settings.theme.contrastWarn':
+    'Geringer Kontrast zwischen Text und Hintergrund — dieses Theme ist möglicherweise schwer zu lesen.',
   'settings.theme.group.surfaces': 'Oberflächen',
   'settings.theme.group.text': 'Text',
   'settings.theme.group.borders': 'Ränder',
@@ -4829,7 +4833,8 @@ const messages: TranslationMap = {
   'settings.theme.export': 'JSON kopieren',
   'settings.theme.copied': 'Kopiert!',
   'settings.theme.import': 'Theme importieren',
-  'settings.theme.importHint': 'Füge exportiertes Theme-JSON ein, um es als benutzerdefiniertes Theme hinzuzufügen.',
+  'settings.theme.importHint':
+    'Füge exportiertes Theme-JSON ein, um es als benutzerdefiniertes Theme hinzuzufügen.',
   'settings.theme.importApply': 'Importieren',
   'settings.theme.importError': 'Dieses Theme-JSON konnte nicht verarbeitet werden.',
   'settings.appearance.title': 'Aussehen',

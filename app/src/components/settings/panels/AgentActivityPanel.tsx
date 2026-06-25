@@ -98,11 +98,7 @@ export default function AgentActivityPanel() {
   }, []);
 
   if (status === 'loading' && !settings) {
-    return (
-      <div className="p-4 text-sm text-content-muted">
-        {t('common.loading')}
-      </div>
-    );
+    return <div className="p-4 text-sm text-content-muted">{t('common.loading')}</div>;
   }
 
   return (

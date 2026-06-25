@@ -246,9 +246,7 @@ const DesktopAgentPanel = () => {
         className="rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
         {t('settings.desktopAgent.beta')}
       </div>
-      <p className="text-sm text-content-secondary">
-        {t('settings.desktopAgent.description')}
-      </p>
+      <p className="text-sm text-content-secondary">{t('settings.desktopAgent.description')}</p>
 
       <SettingsSection title={t('settings.screenIntel.permissions.title')}>
         {PERMISSIONS.map(({ kind, labelKey }) => {
@@ -303,9 +301,7 @@ const DesktopAgentPanel = () => {
           }
         />
       </SettingsSection>
-      <p className="text-xs text-content-muted -mt-2">
-        {t('settings.desktopAgent.seamless.note')}
-      </p>
+      <p className="text-xs text-content-muted -mt-2">{t('settings.desktopAgent.seamless.note')}</p>
 
       <SettingsSection title={t('voice.debug.alwaysOn')}>
         <SettingsRow

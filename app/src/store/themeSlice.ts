@@ -1,14 +1,14 @@
 import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
+import {
+  familyForThemeId,
+  findFamily,
+  PRESET_THEMES,
+  resolveFamilyVariant,
+  THEME_FAMILIES,
+} from '../lib/theme/presets';
 import type { FontRole } from '../lib/theme/tokens';
 import type { Theme, ThemeFamily } from '../lib/theme/types';
-import {
-  PRESET_THEMES,
-  THEME_FAMILIES,
-  findFamily,
-  familyForThemeId,
-  resolveFamilyVariant,
-} from '../lib/theme/presets';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 /** Theme variant preference: explicit light/dark, or follow the OS. */
@@ -118,14 +118,14 @@ const themeSlice = createSlice({
     /** Insert or replace a custom theme (by id) and make it active. */
     upsertCustomTheme(state, action: PayloadAction<Theme>) {
       const theme = action.payload;
-      const idx = state.customThemes.findIndex((t) => t.id === theme.id);
+      const idx = state.customThemes.findIndex(t => t.id === theme.id);
       if (idx >= 0) state.customThemes[idx] = theme;
       else state.customThemes.push(theme);
       state.activeThemeId = theme.id;
     },
     /** Remove a custom theme; fall back to the default family if it was active. */
     deleteCustomTheme(state, action: PayloadAction<string>) {
-      state.customThemes = state.customThemes.filter((t) => t.id !== action.payload);
+      state.customThemes = state.customThemes.filter(t => t.id !== action.payload);
       if (state.activeThemeId === action.payload) {
         state.activeThemeId = DEFAULT_FAMILY_ID;
       }
@@ -143,7 +143,11 @@ const themeSlice = createSlice({
     /** Patch the backdrop (mesh/solid/image, dots); auto-forks a preset. */
     setThemeBackdrop(
       state,
-      action: PayloadAction<{ kind?: 'mesh' | 'solid' | 'image'; imageUrl?: string; dots?: boolean }>,
+      action: PayloadAction<{
+        kind?: 'mesh' | 'solid' | 'image';
+        imageUrl?: string;
+        dots?: boolean;
+      }>
     ) {
       const theme = ensureEditableCustom(state);
       const prev = theme.backdrop ?? { kind: 'mesh' as const };
@@ -151,7 +155,7 @@ const themeSlice = createSlice({
     },
     /** Clear all overrides on the active custom theme (back to its base). */
     resetActiveTheme(state) {
-      const theme = state.customThemes.find((t) => t.id === state.activeThemeId);
+      const theme = state.customThemes.find(t => t.id === state.activeThemeId);
       if (!theme) return;
       theme.colors = {};
       theme.fonts = {};
@@ -202,7 +206,7 @@ export const selectThemeFamilies = (): ThemeFamily[] => THEME_FAMILIES;
  */
 export const selectAllThemes = createSelector(
   (state: { theme: ThemeState }) => state.theme.customThemes,
-  (customThemes): Theme[] => [...PRESET_THEMES, ...(customThemes ?? [])],
+  (customThemes): Theme[] => [...PRESET_THEMES, ...(customThemes ?? [])]
 );
 
 export const selectActiveThemeId = (state: { theme?: ThemeState }): string =>
@@ -227,7 +231,7 @@ function resolveSelection(ts: ThemeState): {
   const sel = ts.activeThemeId ?? DEFAULT_FAMILY_ID;
   const variantPref = ts.themeVariant ?? 'system';
 
-  const custom = ts.customThemes?.find((t) => t.id === sel);
+  const custom = ts.customThemes?.find(t => t.id === sel);
   if (custom) return { custom, variant: variantPref };
 
   // Current family-id selection.
@@ -258,12 +262,12 @@ export function selectActiveFamilyId(state: { theme?: ThemeState }): string {
  * `custom-<sourceId>`), so rapid edits don't spawn duplicates.
  */
 function ensureEditableCustom(ts: ThemeState): Theme {
-  const existingActive = ts.customThemes.find((t) => t.id === ts.activeThemeId);
+  const existingActive = ts.customThemes.find(t => t.id === ts.activeThemeId);
   if (existingActive) return existingActive;
 
   const base = effectiveThemeFromState(ts);
   const id = `custom-${base.id}`;
-  let theme = ts.customThemes.find((t) => t.id === id);
+  let theme = ts.customThemes.find(t => t.id === id);
   if (!theme) {
     theme = {
       id,

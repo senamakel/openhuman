@@ -60,14 +60,10 @@ export default function SyncConfirmDialog({
       <div
         className="bg-surface rounded-xl shadow-xl border border-line w-full max-w-sm mx-4 p-5"
         onClick={e => e.stopPropagation()}>
-        <h3 className="text-base font-semibold text-content mb-3">
-          {t('syncConfirm.title')}
-        </h3>
+        <h3 className="text-base font-semibold text-content mb-3">{t('syncConfirm.title')}</h3>
 
         {!estimate && !error && (
-          <p className="text-sm text-content-muted">
-            {t('syncConfirm.estimating')}
-          </p>
+          <p className="text-sm text-content-muted">{t('syncConfirm.estimating')}</p>
         )}
 
         {error && <p className="text-sm text-coral-600">{error}</p>}

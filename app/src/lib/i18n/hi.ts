@@ -4685,17 +4685,20 @@ const messages: TranslationMap = {
   'settings.theme.backdropDots': 'पृष्ठभूमि बिंदु दिखाएं',
   'settings.theme.backdropHint':
     'मेश एनिमेटेड ग्रेडिएंट दिखाता है; ठोस एक सपाट पृष्ठभूमि का उपयोग करता है; छवि आपकी अपनी पृष्ठभूमि बनाती है।',
-  'settings.theme.autoForkHint': 'किसी प्रीसेट को संपादित करने पर आपके बदलाव स्वचालित रूप से एक नई कस्टम थीम के रूप में सहेजे जाते हैं।',
+  'settings.theme.autoForkHint':
+    'किसी प्रीसेट को संपादित करने पर आपके बदलाव स्वचालित रूप से एक नई कस्टम थीम के रूप में सहेजे जाते हैं।',
   'settings.theme.title': 'थीम स्टूडियो',
   'settings.theme.menuDesc': 'रंगों और फ़ॉन्ट को पूरी तरह अनुकूलित करें, या कोई प्रीसेट थीम चुनें।',
   'settings.theme.presetsHeading': 'थीम',
   'settings.theme.builtInBadge': 'प्रीसेट',
   'settings.theme.customBadge': 'कस्टम',
-  'settings.theme.customizeHint': 'अंतर्निहित प्रीसेट केवल पढ़ने के लिए हैं। इसके रंग और फ़ॉन्ट संपादित करने के लिए इस थीम की प्रतिलिपि बनाएँ।',
+  'settings.theme.customizeHint':
+    'अंतर्निहित प्रीसेट केवल पढ़ने के लिए हैं। इसके रंग और फ़ॉन्ट संपादित करने के लिए इस थीम की प्रतिलिपि बनाएँ।',
   'settings.theme.duplicate': 'प्रतिलिपि बनाएँ और अनुकूलित करें',
   'settings.theme.copyName': '{name} (कस्टम)',
   'settings.theme.importedName': 'आयातित थीम',
-  'settings.theme.contrastWarn': 'पाठ और पृष्ठभूमि के बीच कम कंट्रास्ट — इस थीम को पढ़ना कठिन हो सकता है।',
+  'settings.theme.contrastWarn':
+    'पाठ और पृष्ठभूमि के बीच कम कंट्रास्ट — इस थीम को पढ़ना कठिन हो सकता है।',
   'settings.theme.group.surfaces': 'सतहें',
   'settings.theme.group.text': 'पाठ',
   'settings.theme.group.borders': 'किनारे',
@@ -4715,7 +4718,8 @@ const messages: TranslationMap = {
   'settings.theme.export': 'JSON कॉपी करें',
   'settings.theme.copied': 'कॉपी हो गया!',
   'settings.theme.import': 'थीम आयात करें',
-  'settings.theme.importHint': 'इसे कस्टम थीम के रूप में जोड़ने के लिए निर्यात की गई थीम JSON पेस्ट करें।',
+  'settings.theme.importHint':
+    'इसे कस्टम थीम के रूप में जोड़ने के लिए निर्यात की गई थीम JSON पेस्ट करें।',
   'settings.theme.importApply': 'आयात करें',
   'settings.theme.importError': 'उस थीम JSON को पार्स नहीं किया जा सका।',
   'settings.appearance.title': 'दिखावट',

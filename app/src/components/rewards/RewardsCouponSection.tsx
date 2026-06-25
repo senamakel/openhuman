@@ -143,12 +143,8 @@ const RewardsCouponSection = () => {
     <>
       <section className="bg-surface rounded-2xl shadow-soft border border-line p-6 space-y-5">
         <div className="space-y-2">
-          <h2 className="text-2xl font-semibold text-content">
-            {t('rewards.coupon.title')}
-          </h2>
-          <p className="max-w-2xl text-sm text-content-secondary">
-            {t('rewards.coupon.subtitle')}
-          </p>
+          <h2 className="text-2xl font-semibold text-content">{t('rewards.coupon.title')}</h2>
+          <p className="max-w-2xl text-sm text-content-secondary">{t('rewards.coupon.subtitle')}</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -164,9 +160,7 @@ const RewardsCouponSection = () => {
             <div className="text-xs font-medium uppercase tracking-wide text-content-faint">
               {t('rewards.coupon.redeemedCodes')}
             </div>
-            <div className="mt-2 text-2xl font-semibold text-content">
-              {redeemedCoupons.length}
-            </div>
+            <div className="mt-2 text-2xl font-semibold text-content">{redeemedCoupons.length}</div>
           </div>
         </div>
 
@@ -238,9 +232,7 @@ const RewardsCouponSection = () => {
           </div>
 
           {loading && redeemedCoupons.length === 0 ? (
-            <p className="text-sm text-content-muted">
-              {t('rewards.coupon.loadingHistory')}
-            </p>
+            <p className="text-sm text-content-muted">{t('rewards.coupon.loadingHistory')}</p>
           ) : null}
 
           {redeemedCoupons.length === 0 && !loading && !loadError ? (
@@ -263,9 +255,7 @@ const RewardsCouponSection = () => {
                     <tr
                       key={`${coupon.code}-${coupon.redeemedAt ?? coupon.activationType}`}
                       className="bg-surface">
-                      <td className="px-3 py-2 font-mono text-content">
-                        {coupon.code}
-                      </td>
+                      <td className="px-3 py-2 font-mono text-content">{coupon.code}</td>
                       <td className="px-3 py-2 text-content-secondary">
                         {formatUsd(coupon.amountUsd)}
                       </td>

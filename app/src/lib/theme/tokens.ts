@@ -40,12 +40,12 @@ export const ACCENT_FAMILIES = ['primary', 'sage', 'amber', 'coral'] as const;
 export const ACCENT_SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 950] as const;
 
 /** All accent token keys, e.g. `primary-500`. */
-export const ACCENT_KEYS = ACCENT_FAMILIES.flatMap((fam) =>
-  ACCENT_SHADES.map((shade) => `${fam}-${shade}` as const),
+export const ACCENT_KEYS = ACCENT_FAMILIES.flatMap(fam =>
+  ACCENT_SHADES.map(shade => `${fam}-${shade}` as const)
 );
 
 /** The `-500` base key of each accent family (what the editor shows by default). */
-export const ACCENT_BASE_KEYS = ACCENT_FAMILIES.map((fam) => `${fam}-500`);
+export const ACCENT_BASE_KEYS = ACCENT_FAMILIES.map(fam => `${fam}-500`);
 
 /** Every colour token key the theme system knows about. */
 export const ALL_COLOR_KEYS: string[] = [
@@ -95,7 +95,11 @@ const MONO_FALLBACK = `'SF Mono', Consolas, 'Liberation Mono', Courier, monospac
 
 export const FONT_CHOICES: FontChoice[] = [
   { id: 'inter', label: 'Inter', stack: `'Inter', ${SANS_FALLBACK}` },
-  { id: 'cabinet', label: 'Cabinet Grotesk', stack: `'Cabinet Grotesk', 'Inter', ${SANS_FALLBACK}` },
+  {
+    id: 'cabinet',
+    label: 'Cabinet Grotesk',
+    stack: `'Cabinet Grotesk', 'Inter', ${SANS_FALLBACK}`,
+  },
   { id: 'system', label: 'System UI', stack: `system-ui, ${SANS_FALLBACK}` },
   { id: 'newsreader', label: 'Newsreader (serif)', stack: `'Newsreader', ${SERIF_FALLBACK}` },
   { id: 'georgia', label: 'Georgia (serif)', stack: SERIF_FALLBACK },
@@ -105,5 +109,5 @@ export const FONT_CHOICES: FontChoice[] = [
 /** Find a {@link FontChoice} whose stack matches a stored value (best-effort). */
 export function fontChoiceForStack(stack: string | undefined): FontChoice | undefined {
   if (!stack) return undefined;
-  return FONT_CHOICES.find((c) => c.stack === stack);
+  return FONT_CHOICES.find(c => c.stack === stack);
 }

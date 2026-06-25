@@ -113,11 +113,7 @@ export function MemoryStatsBar(props: MemoryStatsBarProps) {
               stat.value
             )}
           </div>
-          {stat.sub && (
-            <div className="text-[11px] text-content-muted mt-0.5">
-              {stat.sub}
-            </div>
-          )}
+          {stat.sub && <div className="text-[11px] text-content-muted mt-0.5">{stat.sub}</div>}
         </div>
       ))}
     </div>

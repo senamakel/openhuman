@@ -40,9 +40,7 @@ export default function RespondQueuePanel({
     <aside className="flex w-80 flex-none flex-col border-l border-line bg-surface">
       <div className="flex flex-none items-center justify-between border-b border-line-subtle px-4 py-3">
         <div>
-          <h3 className="text-sm font-semibold text-content">
-            {t('accounts.respondQueue.title')}
-          </h3>
+          <h3 className="text-sm font-semibold text-content">{t('accounts.respondQueue.title')}</h3>
           <p className="text-xs text-content-muted">
             {count} {t('accounts.respondQueue.pending')}
           </p>
@@ -88,17 +86,13 @@ export default function RespondQueuePanel({
               className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-hover disabled:cursor-default"
               disabled={!item.deepLink}>
               <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-xs font-medium text-content">
-                  {queueTitle(item)}
-                </p>
+                <p className="truncate text-xs font-medium text-content">{queueTitle(item)}</p>
                 <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] uppercase text-content-secondary">
                   {item.provider}
                 </span>
               </div>
               {item.snippet ? (
-                <p className="mt-1 line-clamp-2 text-xs text-content-secondary">
-                  {item.snippet}
-                </p>
+                <p className="mt-1 line-clamp-2 text-xs text-content-secondary">{item.snippet}</p>
               ) : null}
               <div className="mt-1 flex items-center justify-between text-[10px] text-content-muted">
                 <span>{item.senderName ?? item.senderHandle ?? item.accountId}</span>

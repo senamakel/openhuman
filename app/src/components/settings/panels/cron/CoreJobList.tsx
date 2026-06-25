@@ -51,24 +51,16 @@ const CoreJobList = ({
   return (
     <section className="rounded-xl border border-line bg-surface">
       <div className="p-4 border-b border-line">
-        <h3 className="text-sm font-semibold text-content">
-          {t('settings.cron.jobs.title')}
-        </h3>
-        <p className="text-xs text-content-muted mt-1">
-          {t('settings.cron.jobs.desc')}
-        </p>
+        <h3 className="text-sm font-semibold text-content">{t('settings.cron.jobs.title')}</h3>
+        <p className="text-xs text-content-muted mt-1">{t('settings.cron.jobs.desc')}</p>
       </div>
 
       {loading && (
-        <div className="p-4 text-sm text-content-faint">
-          {t('settings.cron.jobs.loading')}
-        </div>
+        <div className="p-4 text-sm text-content-faint">{t('settings.cron.jobs.loading')}</div>
       )}
 
       {!loading && coreJobs.length === 0 && (
-        <div className="p-4 text-sm text-content-faint">
-          {t('settings.cron.jobs.empty')}
-        </div>
+        <div className="p-4 text-sm text-content-faint">{t('settings.cron.jobs.empty')}</div>
       )}
 
       {!loading &&
@@ -81,9 +73,7 @@ const CoreJobList = ({
               className={`p-4 ${index === 0 ? '' : 'border-t border-line'} space-y-3`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold text-content">
-                    {job.name || job.id}
-                  </div>
+                  <div className="text-sm font-semibold text-content">{job.name || job.id}</div>
                   <div className="text-[11px] text-content-faint">{job.id}</div>
                 </div>
                 <span
@@ -116,9 +106,7 @@ const CoreJobList = ({
                 {job.last_status && (
                   <div>
                     {t('settings.cron.jobs.lastStatus')}{' '}
-                    <span className="font-medium text-content-secondary">
-                      {job.last_status}
-                    </span>
+                    <span className="font-medium text-content-secondary">{job.last_status}</span>
                   </div>
                 )}
               </div>
@@ -187,10 +175,8 @@ const CoreJobList = ({
                   </div>
                   {runs.map(run => (
                     <div key={run.id} className="text-xs text-content-secondary">
-                      <span className="font-medium text-content-secondary">
-                        {run.status}
-                      </span>{' '}
-                      at {new Date(run.finished_at).toLocaleString()}
+                      <span className="font-medium text-content-secondary">{run.status}</span> at{' '}
+                      {new Date(run.finished_at).toLocaleString()}
                     </div>
                   ))}
                 </div>

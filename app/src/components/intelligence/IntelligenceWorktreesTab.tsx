@@ -79,9 +79,7 @@ export default function IntelligenceWorktreesTab() {
   if (!data || data.worktrees.length === 0) {
     return (
       <div className="space-y-4">
-        <p className="text-xs text-content-faint">
-          {t('worktree.panel.subtitle')}
-        </p>
+        <p className="text-xs text-content-faint">{t('worktree.panel.subtitle')}</p>
         <div className="rounded-xl border border-dashed border-line py-10 text-center text-sm text-content-faint">
           {t('worktree.panel.empty')}
         </div>
@@ -116,9 +114,7 @@ export default function IntelligenceWorktreesTab() {
         {data.worktrees.map(wt => (
           <li key={wt.path} className="space-y-2 p-3" data-testid="worktree-row">
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="truncate text-sm font-medium text-content"
-                title={wt.path}>
+              <span className="truncate text-sm font-medium text-content" title={wt.path}>
                 {basename(wt.path)}
               </span>
               {wt.branch ? (
@@ -153,9 +149,7 @@ export default function IntelligenceWorktreesTab() {
                   </li>
                 ))}
                 {wt.changedFiles.length > 8 ? (
-                  <li className="text-content-faint">
-                    +{wt.changedFiles.length - 8}
-                  </li>
+                  <li className="text-content-faint">+{wt.changedFiles.length - 8}</li>
                 ) : null}
               </ul>
             ) : null}

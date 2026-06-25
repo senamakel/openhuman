@@ -42,9 +42,7 @@ const RoutineRunHistory = ({ runs, loading, onLoadRuns }: RoutineRunHistoryProps
       {expanded && (
         <div className="mt-2 space-y-1.5">
           {runs.length === 0 && !loading && (
-            <div className="text-xs text-content-faint pl-4">
-              {t('routines.noHistory')}
-            </div>
+            <div className="text-xs text-content-faint pl-4">{t('routines.noHistory')}</div>
           )}
           {runs.map(run => {
             const isSuccess = run.status === 'ok' || run.status === 'success';
@@ -62,13 +60,9 @@ const RoutineRunHistory = ({ runs, loading, onLoadRuns }: RoutineRunHistoryProps
                   <span className="text-content-secondary">
                     {isSuccess ? t('routines.statusSuccess') : t('routines.statusError')}
                   </span>
-                  <span className="text-content-faint">
-                    {formatTimeAgo(run.finished_at)}
-                  </span>
+                  <span className="text-content-faint">{formatTimeAgo(run.finished_at)}</span>
                   {run.duration_ms != null && (
-                    <span className="text-content-faint">
-                      ({formatDuration(run.duration_ms)})
-                    </span>
+                    <span className="text-content-faint">({formatDuration(run.duration_ms)})</span>
                   )}
                   {hasOutput && (
                     <button

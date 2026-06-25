@@ -19,9 +19,7 @@ export default function CycleUsagePill() {
       {teamUsage ? (
         <LimitPill label={t('chat.cycle')} usedPct={usagePct} />
       ) : (
-        <span className="text-[10px] text-content-faint animate-pulse">
-          {t('common.loading')}
-        </span>
+        <span className="text-[10px] text-content-faint animate-pulse">{t('common.loading')}</span>
       )}
       {teamUsage && (
         <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">

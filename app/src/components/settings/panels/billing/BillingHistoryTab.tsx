@@ -20,9 +20,7 @@ export default function BillingHistoryTab({
         <h3 className="font-headline text-2xl font-bold tracking-tight text-stone-950 dark:text-content">
           {t('settings.billing.history.title')}
         </h3>
-        <p className="mt-1 text-sm text-content-muted">
-          {t('settings.billing.history.desc')}
-        </p>
+        <p className="mt-1 text-sm text-content-muted">{t('settings.billing.history.desc')}</p>
         <div className="flex items-center justify-between gap-3">
           {hasActive && (
             <Button

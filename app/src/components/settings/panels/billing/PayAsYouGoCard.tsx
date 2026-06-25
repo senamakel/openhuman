@@ -70,10 +70,7 @@ const PayAsYouGoCard = ({
         ) : isLoadingCredits ? (
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[0, 1, 2].map(index => (
-              <div
-                key={index}
-                className="h-24 rounded-2xl bg-surface-subtle animate-pulse"
-              />
+              <div key={index} className="h-24 rounded-2xl bg-surface-subtle animate-pulse" />
             ))}
           </div>
         ) : (

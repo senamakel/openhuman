@@ -205,16 +205,12 @@ export default function X402ConfirmDialog({
       <div className="space-y-4">
         <div className="rounded-lg border border-line bg-surface-muted p-4 space-y-3">
           <Row label={t('agentWorld.trading.amountLabel', 'Amount')}>
-            <span
-              className="font-semibold text-content"
-              data-testid="x402-amount">
+            <span className="font-semibold text-content" data-testid="x402-amount">
               {amountDisplay} {assetSymbol}
             </span>
           </Row>
           <Row label={t('agentWorld.trading.networkLabel', 'Network')}>
-            <span className="text-xs text-content-muted">
-              {friendlyNetwork(network)}
-            </span>
+            <span className="text-xs text-content-muted">{friendlyNetwork(network)}</span>
           </Row>
           <Row label={t('agentWorld.trading.balanceLabel', 'Your balance')}>
             <span

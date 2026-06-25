@@ -158,9 +158,7 @@ export default function ChatNewWindowHero() {
 
         {/* Description — copy mirrors the active blocking state (incl. the
             "device connected" get-started line in the normal case). */}
-        <p className="text-center text-sm leading-relaxed text-content-muted">
-          {statusCopy}
-        </p>
+        <p className="text-center text-sm leading-relaxed text-content-muted">{statusCopy}</p>
 
         {/* Recovery: only when the local core is the broken link. */}
         {blocking === 'core-unreachable' && (

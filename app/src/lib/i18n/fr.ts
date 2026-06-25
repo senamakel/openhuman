@@ -4780,21 +4780,25 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.mesh': 'Maillage',
   'settings.theme.backdrop.solid': 'Uni',
   'settings.theme.backdrop.image': 'Image',
-  'settings.theme.backdropImageUrl': 'URL de l\'image d\'arrière-plan',
-  'settings.theme.backdropDots': 'Afficher les points d\'arrière-plan',
+  'settings.theme.backdropImageUrl': "URL de l'image d'arrière-plan",
+  'settings.theme.backdropDots': "Afficher les points d'arrière-plan",
   'settings.theme.backdropHint':
     'Le maillage affiche le dégradé animé ; Uni utilise un fond plat ; Image affiche le vôtre.',
-  'settings.theme.autoForkHint': 'Modifier un préréglage enregistre automatiquement vos changements comme un nouveau thème personnalisé.',
+  'settings.theme.autoForkHint':
+    'Modifier un préréglage enregistre automatiquement vos changements comme un nouveau thème personnalisé.',
   'settings.theme.title': 'Studio de thèmes',
-  'settings.theme.menuDesc': 'Personnalisez entièrement les couleurs et les polices, ou choisissez un thème prédéfini.',
+  'settings.theme.menuDesc':
+    'Personnalisez entièrement les couleurs et les polices, ou choisissez un thème prédéfini.',
   'settings.theme.presetsHeading': 'Thèmes',
   'settings.theme.builtInBadge': 'Prédéfini',
   'settings.theme.customBadge': 'Personnalisé',
-  'settings.theme.customizeHint': "Les thèmes prédéfinis sont en lecture seule. Dupliquez ce thème pour modifier ses couleurs et ses polices.",
+  'settings.theme.customizeHint':
+    'Les thèmes prédéfinis sont en lecture seule. Dupliquez ce thème pour modifier ses couleurs et ses polices.',
   'settings.theme.duplicate': 'Dupliquer et personnaliser',
   'settings.theme.copyName': '{name} (personnalisé)',
   'settings.theme.importedName': 'Thème importé',
-  'settings.theme.contrastWarn': "Contraste faible entre le texte et l'arrière-plan — ce thème peut être difficile à lire.",
+  'settings.theme.contrastWarn':
+    "Contraste faible entre le texte et l'arrière-plan — ce thème peut être difficile à lire.",
   'settings.theme.group.surfaces': 'Surfaces',
   'settings.theme.group.text': 'Texte',
   'settings.theme.group.borders': 'Bordures',
@@ -4814,7 +4818,8 @@ const messages: TranslationMap = {
   'settings.theme.export': 'Copier le JSON',
   'settings.theme.copied': 'Copié !',
   'settings.theme.import': 'Importer un thème',
-  'settings.theme.importHint': 'Collez le JSON de thème exporté pour l\'ajouter comme thème personnalisé.',
+  'settings.theme.importHint':
+    "Collez le JSON de thème exporté pour l'ajouter comme thème personnalisé.",
   'settings.theme.importApply': 'Importer',
   'settings.theme.importError': "Impossible d'analyser ce JSON de thème.",
   'settings.appearance.title': 'Apparence',

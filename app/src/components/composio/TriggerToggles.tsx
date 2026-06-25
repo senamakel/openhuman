@@ -156,9 +156,7 @@ export default function TriggerToggles({
         <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wide">
           {t('composio.triggers.heading')}
         </h3>
-        <p className="mt-1 text-[11px] text-content-faint">
-          {t('composio.triggers.loading')}
-        </p>
+        <p className="mt-1 text-[11px] text-content-faint">{t('composio.triggers.loading')}</p>
       </div>
     );
   }
@@ -177,9 +175,7 @@ export default function TriggerToggles({
   }
 
   return (
-    <div
-      className="border-t border-line-subtle pt-3 mt-1 space-y-2"
-      data-testid="trigger-toggles">
+    <div className="border-t border-line-subtle pt-3 mt-1 space-y-2" data-testid="trigger-toggles">
       <div className="flex items-baseline justify-between">
         <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wide">
           {t('composio.triggers.heading')}
@@ -221,14 +217,8 @@ export default function TriggerToggles({
               data-testid={`trigger-row-${sig}`}
               className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-surface-hover">
               <div className="min-w-0 flex-1">
-                <span className="text-sm font-medium text-content break-all">
-                  {label}
-                </span>
-                {sub && (
-                  <p className="text-[11px] text-content-faint leading-snug">
-                    {sub}
-                  </p>
-                )}
+                <span className="text-sm font-medium text-content break-all">{label}</span>
+                {sub && <p className="text-[11px] text-content-faint leading-snug">{sub}</p>}
               </div>
               <button
                 type="button"

@@ -602,10 +602,7 @@ function formatI18n(template: string, vars: Record<string, string | number>): st
 }
 
 function slugTone(slug: string): string {
-  return (
-    BUILTIN_PROVIDER_META[slug]?.tone ??
-    'bg-surface-subtle ring-neutral-300 text-content'
-  );
+  return BUILTIN_PROVIDER_META[slug]?.tone ?? 'bg-surface-subtle ring-neutral-300 text-content';
 }
 
 const ProviderToggleChip = ({
@@ -1064,26 +1061,16 @@ const MetricTile = ({
     <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-content-faint">
       {label}
     </div>
-    <div className="mt-1 truncate text-sm font-semibold text-content">
-      {value}
-    </div>
-    {detail ? (
-      <div className="mt-0.5 truncate text-[11px] text-content-muted">
-        {detail}
-      </div>
-    ) : null}
+    <div className="mt-1 truncate text-sm font-semibold text-content">{value}</div>
+    {detail ? <div className="mt-0.5 truncate text-[11px] text-content-muted">{detail}</div> : null}
   </div>
 );
 
 const FormulaRow = ({ label, value, detail }: { label: string; value: string; detail: string }) => (
   <div className="min-w-0 overflow-hidden rounded-md border border-line bg-surface px-3 py-2">
     <div className="flex items-center justify-between gap-3">
-      <span className="min-w-0 truncate text-xs font-medium text-content">
-        {label}
-      </span>
-      <span className="shrink-0 font-mono text-xs text-content-secondary">
-        {value}
-      </span>
+      <span className="min-w-0 truncate text-xs font-medium text-content">{label}</span>
+      <span className="shrink-0 font-mono text-xs text-content-secondary">{value}</span>
     </div>
     <div className="mt-1 truncate text-[11px] text-content-muted">{detail}</div>
   </div>
@@ -1542,9 +1529,7 @@ export const BackgroundLoopControls = ({
                 {loops.map(loop => (
                   <div key={loop.name} className="grid gap-2 px-3 py-3 md:grid-cols-[150px_1fr]">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-content">
-                        {loop.name}
-                      </div>
+                      <div className="truncate text-sm font-medium text-content">{loop.name}</div>
                       <div className="mt-0.5 flex flex-wrap gap-1 text-[11px] text-content-muted">
                         <span>{loop.enabled ? t('settings.ai.on') : t('settings.ai.off')}</span>
                         <span>{loop.cadence}</span>
@@ -1763,9 +1748,7 @@ export const BackgroundLoopControls = ({
                       </div>
                     ))
                   ) : (
-                    <div className="text-xs text-content-muted">
-                      {t('settings.ai.noSpendRows')}
-                    </div>
+                    <div className="text-xs text-content-muted">{t('settings.ai.noSpendRows')}</div>
                   )}
                 </div>
               </div>
@@ -1781,9 +1764,7 @@ export const BackgroundLoopControls = ({
                         key={hour}
                         className="flex items-center justify-between gap-2 text-xs text-content-secondary">
                         <span>{hour}</span>
-                        <span className="font-mono text-content-muted">
-                          {formatUsd(total)}
-                        </span>
+                        <span className="font-mono text-content-muted">{formatUsd(total)}</span>
                       </div>
                     ))
                   ) : (
@@ -1837,12 +1818,8 @@ const WorkloadRow = ({
   return (
     <div className="flex items-center justify-between gap-3 py-3 transition-colors">
       <div className="min-w-0 flex-1 space-y-1">
-        <div className="text-sm font-medium text-content">
-          {t(workload.labelKey)}
-        </div>
-        <div className="text-xs leading-5 text-content-muted">
-          {t(workload.descriptionKey)}
-        </div>
+        <div className="text-sm font-medium text-content">{t(workload.labelKey)}</div>
+        <div className="text-xs leading-5 text-content-muted">{t(workload.descriptionKey)}</div>
         <div className="text-[11px] leading-5 text-content-muted">
           {t(WORKLOAD_MODEL_HINT_KEYS[workload.id])}
         </div>
@@ -1854,9 +1831,7 @@ const WorkloadRow = ({
             {resolved}
           </div>
         ) : (
-          <div className="text-[11px] text-content-faint">
-            {t('settings.ai.workload.noModel')}
-          </div>
+          <div className="text-[11px] text-content-faint">{t('settings.ai.workload.noModel')}</div>
         )}
       </div>
       <Button
@@ -2203,9 +2178,7 @@ const CustomRoutingDialog = ({
             <h3 className="text-base font-semibold text-content">
               {t('settings.ai.customRouting')}
             </h3>
-            <p className="mt-0.5 text-xs text-content-muted">
-              {t(workload.labelKey)}
-            </p>
+            <p className="mt-0.5 text-xs text-content-muted">{t(workload.labelKey)}</p>
             <p className="mt-2 max-w-md text-xs leading-5 text-content-muted">
               {t(WORKLOAD_MODEL_HINT_KEYS[workload.id])}
             </p>
@@ -2461,9 +2434,7 @@ const CustomRoutingDialog = ({
                   />
                   {t('settings.ai.modelVision')}
                 </label>
-                <p className="text-[11px] text-content-faint">
-                  {t('settings.ai.modelVisionDesc')}
-                </p>
+                <p className="text-[11px] text-content-faint">{t('settings.ai.modelVisionDesc')}</p>
               </div>
             )}
 
@@ -2753,9 +2724,7 @@ const GlobalOwnModelSelector = ({
   return (
     <div className="space-y-4 rounded-xl border border-line bg-surface p-4">
       <div className="space-y-1">
-        <div className="text-sm font-medium text-content">
-          {t('settings.ai.globalModel.title')}
-        </div>
+        <div className="text-sm font-medium text-content">{t('settings.ai.globalModel.title')}</div>
         <p className="text-xs text-amber-700 dark:text-amber-200">
           {t('settings.ai.globalModel.desc')}
         </p>
@@ -3183,9 +3152,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             <h2 className="text-base font-semibold text-content">
               {t('settings.ai.llmProviders')}
             </h2>
-            <p className="text-xs text-content-muted mt-0.5">
-              {t('settings.ai.llmProvidersDesc')}
-            </p>
+            <p className="text-xs text-content-muted mt-0.5">{t('settings.ai.llmProvidersDesc')}</p>
           </div>
 
           {/* ─── Rejected-key notices ─────────────────────────────────────────
@@ -3202,11 +3169,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
 
           {/* ─── Provider chip-toggle list ────────────────────────────────── */}
           <section className="space-y-3">
-            {loading && (
-              <div className="text-xs text-content-muted">
-                {t('common.loading')}
-              </div>
-            )}
+            {loading && <div className="text-xs text-content-muted">{t('common.loading')}</div>}
             {error && (
               <SettingsStatusLine saving={false} error={error} savedNote={null} savingLabel="" />
             )}
@@ -3342,9 +3305,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             {/* #3760: Managed is always-on and can't be turned off; point users
                 who want a local model at the Routing card below instead of
                 letting them fight the (now badge, formerly locked) Managed chip. */}
-            <p className="text-xs text-content-muted">
-              {t('settings.ai.routing.managedHint')}
-            </p>
+            <p className="text-xs text-content-muted">{t('settings.ai.routing.managedHint')}</p>
 
             <div className="flex flex-col gap-2 pt-1">
               {/* Codex — imports the existing Codex CLI login as an OpenAI credential. */}
@@ -3413,12 +3374,8 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             ═══════════════════════════════════════════════════════════════ */}
         <div className="space-y-4">
           <div className="border-b border-line pb-2">
-            <h2 className="text-base font-semibold text-content">
-              {t('settings.ai.routing')}
-            </h2>
-            <p className="text-xs text-content-muted mt-0.5">
-              {t('settings.ai.routingDesc')}
-            </p>
+            <h2 className="text-base font-semibold text-content">{t('settings.ai.routing')}</h2>
+            <p className="text-xs text-content-muted mt-0.5">{t('settings.ai.routingDesc')}</p>
           </div>
 
           <section className="space-y-3">

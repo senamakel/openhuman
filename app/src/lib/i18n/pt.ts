@@ -4759,17 +4759,21 @@ const messages: TranslationMap = {
   'settings.theme.backdropDots': 'Mostrar pontos de fundo',
   'settings.theme.backdropHint':
     'A malha mostra o gradiente animado; Sólido usa um fundo plano; Imagem exibe o seu próprio.',
-  'settings.theme.autoForkHint': 'Editar uma predefinição salva automaticamente suas alterações como um novo tema personalizado.',
+  'settings.theme.autoForkHint':
+    'Editar uma predefinição salva automaticamente suas alterações como um novo tema personalizado.',
   'settings.theme.title': 'Estúdio de Temas',
-  'settings.theme.menuDesc': 'Personalize totalmente as cores e fontes, ou escolha um tema predefinido.',
+  'settings.theme.menuDesc':
+    'Personalize totalmente as cores e fontes, ou escolha um tema predefinido.',
   'settings.theme.presetsHeading': 'Temas',
   'settings.theme.builtInBadge': 'Predefinido',
   'settings.theme.customBadge': 'Personalizado',
-  'settings.theme.customizeHint': 'As predefinições integradas são somente leitura. Duplique este tema para editar as suas cores e fontes.',
+  'settings.theme.customizeHint':
+    'As predefinições integradas são somente leitura. Duplique este tema para editar as suas cores e fontes.',
   'settings.theme.duplicate': 'Duplicar e personalizar',
   'settings.theme.copyName': '{name} (personalizado)',
   'settings.theme.importedName': 'Tema importado',
-  'settings.theme.contrastWarn': 'Baixo contraste entre o texto e o fundo — este tema pode ser difícil de ler.',
+  'settings.theme.contrastWarn':
+    'Baixo contraste entre o texto e o fundo — este tema pode ser difícil de ler.',
   'settings.theme.group.surfaces': 'Superfícies',
   'settings.theme.group.text': 'Texto',
   'settings.theme.group.borders': 'Bordas',
@@ -4789,7 +4793,8 @@ const messages: TranslationMap = {
   'settings.theme.export': 'Copiar JSON',
   'settings.theme.copied': 'Copiado!',
   'settings.theme.import': 'Importar tema',
-  'settings.theme.importHint': 'Cole o JSON do tema exportado para adicioná-lo como um tema personalizado.',
+  'settings.theme.importHint':
+    'Cole o JSON do tema exportado para adicioná-lo como um tema personalizado.',
   'settings.theme.importApply': 'Importar',
   'settings.theme.importError': 'Não foi possível analisar esse JSON de tema.',
   'settings.appearance.title': 'Aparência',

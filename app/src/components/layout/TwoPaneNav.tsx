@@ -65,9 +65,7 @@ export default function TwoPaneNav({
                       }`}>
                       <span
                         className={`shrink-0 ${
-                          active
-                            ? 'text-primary-600 dark:text-primary-400'
-                            : 'text-content-faint'
+                          active ? 'text-primary-600 dark:text-primary-400' : 'text-content-faint'
                         }`}>
                         {item.icon ?? null}
                       </span>

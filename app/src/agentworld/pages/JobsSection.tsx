@@ -257,9 +257,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
         }}
         className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Title *
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Title *</label>
           <input
             type="text"
             required
@@ -282,9 +280,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Category
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Category</label>
           <input
             type="text"
             value={category}
@@ -294,9 +290,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Skills
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Skills</label>
           <input
             type="text"
             value={skillsCsv}
@@ -320,9 +314,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             />
           </div>
           <div className="w-28">
-            <label className="mb-1 block text-xs font-medium text-content-secondary">
-              Asset
-            </label>
+            <label className="mb-1 block text-xs font-medium text-content-secondary">Asset</label>
             <input
               type="text"
               value={budgetAsset}
@@ -534,9 +526,7 @@ function DisputeModal({
         }}
         className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Reason *
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Reason *</label>
           <textarea
             rows={4}
             required
@@ -622,9 +612,7 @@ function JobRow({
         <div className="min-w-0 flex-1">
           {/* Line 1: title + status */}
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-semibold text-content">
-              {job.title}
-            </span>
+            <span className="truncate text-sm font-semibold text-content">{job.title}</span>
             <span className="shrink-0">
               <JobStatusBadge status={job.status} />
             </span>
@@ -681,9 +669,7 @@ function JobRow({
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
             {/* Job ID */}
             <dt className="font-medium text-content-muted">Job ID</dt>
-            <dd className="break-all font-mono text-content">
-              {job.jobId}
-            </dd>
+            <dd className="break-all font-mono text-content">{job.jobId}</dd>
 
             {/* Category */}
             {job.category && (
@@ -716,9 +702,7 @@ function JobRow({
             {/* Proposal deadline */}
             {job.proposalDeadline && (
               <>
-                <dt className="font-medium text-content-muted">
-                  Proposal Deadline
-                </dt>
+                <dt className="font-medium text-content-muted">Proposal Deadline</dt>
                 <dd className="text-content">{job.proposalDeadline}</dd>
               </>
             )}
@@ -727,21 +711,15 @@ function JobRow({
             {job.contractEscrowId && (
               <>
                 <dt className="font-medium text-content-muted">Escrow ID</dt>
-                <dd className="break-all font-mono text-content">
-                  {job.contractEscrowId}
-                </dd>
+                <dd className="break-all font-mono text-content">{job.contractEscrowId}</dd>
               </>
             )}
 
             {/* Selected candidate */}
             {job.selectedCandidate && (
               <>
-                <dt className="font-medium text-content-muted">
-                  Selected Candidate
-                </dt>
-                <dd className="break-all font-mono text-content">
-                  {job.selectedCandidate}
-                </dd>
+                <dt className="font-medium text-content-muted">Selected Candidate</dt>
+                <dd className="break-all font-mono text-content">{job.selectedCandidate}</dd>
               </>
             )}
 
@@ -749,9 +727,7 @@ function JobRow({
             {job.groupId && (
               <>
                 <dt className="font-medium text-content-muted">Group ID</dt>
-                <dd className="break-all font-mono text-content">
-                  {job.groupId}
-                </dd>
+                <dd className="break-all font-mono text-content">{job.groupId}</dd>
               </>
             )}
 
@@ -772,9 +748,7 @@ function JobRow({
                 <dd className="text-content">{job.dispute.reason}</dd>
 
                 <dt className="font-medium text-content-muted">Opened By</dt>
-                <dd className="break-all font-mono text-content">
-                  {job.dispute.openedBy}
-                </dd>
+                <dd className="break-all font-mono text-content">{job.dispute.openedBy}</dd>
 
                 <dt className="font-medium text-content-muted">Opened At</dt>
                 <dd className="text-content">{job.dispute.openedAt}</dd>
@@ -798,41 +772,29 @@ function JobRow({
 
                 {job.dispute.judgeModel && (
                   <>
-                    <dt className="font-medium text-content-muted">
-                      Judge Model
-                    </dt>
-                    <dd className="text-content">
-                      {job.dispute.judgeModel}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Judge Model</dt>
+                    <dd className="text-content">{job.dispute.judgeModel}</dd>
                   </>
                 )}
 
                 {job.dispute.presided != null && (
                   <>
                     <dt className="font-medium text-content-muted">Presided</dt>
-                    <dd className="text-content">
-                      {job.dispute.presided ? 'Yes' : 'No'}
-                    </dd>
+                    <dd className="text-content">{job.dispute.presided ? 'Yes' : 'No'}</dd>
                   </>
                 )}
 
                 {job.dispute.reasoning && (
                   <>
                     <dt className="font-medium text-content-muted">Reasoning</dt>
-                    <dd className="text-content">
-                      {job.dispute.reasoning}
-                    </dd>
+                    <dd className="text-content">{job.dispute.reasoning}</dd>
                   </>
                 )}
 
                 {job.dispute.resolvedAt && (
                   <>
-                    <dt className="font-medium text-content-muted">
-                      Resolved At
-                    </dt>
-                    <dd className="text-content">
-                      {job.dispute.resolvedAt}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Resolved At</dt>
+                    <dd className="text-content">{job.dispute.resolvedAt}</dd>
                   </>
                 )}
               </dl>
@@ -840,19 +802,13 @@ function JobRow({
               {/* Jury votes table */}
               {job.dispute.jury && job.dispute.jury.length > 0 && (
                 <div className="mt-2">
-                  <p className="mb-1 text-xs font-medium text-content-muted">
-                    Jury Votes
-                  </p>
+                  <p className="mb-1 text-xs font-medium text-content-muted">Jury Votes</p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-line">
-                          <th className="pb-1 text-left font-medium text-content-muted">
-                            Model
-                          </th>
-                          <th className="pb-1 text-left font-medium text-content-muted">
-                            Outcome
-                          </th>
+                          <th className="pb-1 text-left font-medium text-content-muted">Model</th>
+                          <th className="pb-1 text-left font-medium text-content-muted">Outcome</th>
                           <th className="pb-1 text-left font-medium text-content-muted">
                             Split bps
                           </th>
@@ -863,21 +819,11 @@ function JobRow({
                       </thead>
                       <tbody>
                         {job.dispute.jury.map((vote, i) => (
-                          <tr
-                            key={i}
-                            className="border-b border-line-subtle last:border-0">
-                            <td className="py-0.5 font-mono text-content">
-                              {vote.model}
-                            </td>
-                            <td className="py-0.5 text-content">
-                              {vote.outcome}
-                            </td>
-                            <td className="py-0.5 text-content">
-                              {vote.splitBps}
-                            </td>
-                            <td className="py-0.5 text-content">
-                              {vote.reasoning ?? '-'}
-                            </td>
+                          <tr key={i} className="border-b border-line-subtle last:border-0">
+                            <td className="py-0.5 font-mono text-content">{vote.model}</td>
+                            <td className="py-0.5 text-content">{vote.outcome}</td>
+                            <td className="py-0.5 text-content">{vote.splitBps}</td>
+                            <td className="py-0.5 text-content">{vote.reasoning ?? '-'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -891,27 +837,19 @@ function JobRow({
           {/* On-chain section */}
           {job.onChain && (
             <div className="mt-3">
-              <p className="mb-1 text-xs font-semibold text-content-muted">
-                On-chain
-              </p>
+              <p className="mb-1 text-xs font-semibold text-content-muted">On-chain</p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
                 {job.onChain.vault && (
                   <>
                     <dt className="font-medium text-content-muted">Vault</dt>
-                    <dd className="break-all font-mono text-content">
-                      {job.onChain.vault}
-                    </dd>
+                    <dd className="break-all font-mono text-content">{job.onChain.vault}</dd>
                   </>
                 )}
 
                 {job.onChain.jobPdaCommit && (
                   <>
-                    <dt className="font-medium text-content-muted">
-                      Job PDA Commit
-                    </dt>
-                    <dd className="break-all font-mono text-content">
-                      {job.onChain.jobPdaCommit}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Job PDA Commit</dt>
+                    <dd className="break-all font-mono text-content">{job.onChain.jobPdaCommit}</dd>
                   </>
                 )}
 
@@ -987,13 +925,9 @@ function JobRow({
           {/* Inline proposals panel */}
           {showingProposals && (
             <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold text-content-secondary">
-                Proposals
-              </p>
+              <p className="mb-2 text-xs font-semibold text-content-secondary">Proposals</p>
               {proposalsLoading ? (
-                <p className="text-xs text-content-faint animate-pulse">
-                  Loading proposals…
-                </p>
+                <p className="text-xs text-content-faint animate-pulse">Loading proposals…</p>
               ) : proposals.length === 0 ? (
                 <p className="text-xs text-content-faint">No proposals yet.</p>
               ) : (
@@ -1006,17 +940,15 @@ function JobRow({
                         <span className="font-mono text-content-secondary">
                           {p.candidate.slice(0, 8)}…
                         </span>
-                        <span className="text-content-muted dark:text-content-faint">{p.status}</span>
+                        <span className="text-content-muted dark:text-content-faint">
+                          {p.status}
+                        </span>
                         {p.bidAmount && (
-                          <span className="font-medium text-content">
-                            {p.bidAmount}
-                          </span>
+                          <span className="font-medium text-content">{p.bidAmount}</span>
                         )}
                       </div>
                       {p.coverLetter && (
-                        <p className="mb-1 text-content-secondary line-clamp-2">
-                          {p.coverLetter}
-                        </p>
+                        <p className="mb-1 text-content-secondary line-clamp-2">{p.coverLetter}</p>
                       )}
                       <div className="flex gap-1">
                         <Button

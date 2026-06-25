@@ -138,8 +138,7 @@ export default function Brain() {
     };
   }, [mode, refreshKey]);
 
-  const cardClass =
-    'rounded-lg border border-line bg-surface p-4';
+  const cardClass = 'rounded-lg border border-line bg-surface p-4';
 
   return (
     <div className="h-full">
@@ -225,11 +224,7 @@ export default function Brain() {
                 ],
               },
             ]}
-            header={
-              <p className="min-w-0 text-[11px] text-content-muted">
-                {t('brain.subtitle')}
-              </p>
-            }
+            header={<p className="min-w-0 text-[11px] text-content-muted">{t('brain.subtitle')}</p>}
           />
         </div>
       </SidebarContent>

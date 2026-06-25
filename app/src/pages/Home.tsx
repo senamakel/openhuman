@@ -174,9 +174,7 @@ const Home = () => {
               stays visually centered. */}
           <div className="flex items-center justify-between mb-4">
             <div className="w-9" aria-hidden="true" />
-            <span className="text-xs text-center text-content-faint">
-              v{APP_VERSION}
-            </span>
+            <span className="text-xs text-center text-content-faint">v{APP_VERSION}</span>
             <Button
               iconOnly
               variant="tertiary"

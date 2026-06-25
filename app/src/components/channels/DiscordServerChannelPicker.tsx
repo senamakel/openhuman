@@ -170,9 +170,7 @@ const DiscordServerChannelPicker = ({
 
       {/* Guild selector */}
       <div>
-        <label
-          htmlFor="discord-guild-select"
-          className="block text-xs text-content-muted mb-1">
+        <label htmlFor="discord-guild-select" className="block text-xs text-content-muted mb-1">
           {t('channels.discord.picker.server')}
         </label>
         <select
@@ -204,9 +202,7 @@ const DiscordServerChannelPicker = ({
       {/* Channel selector */}
       {selectedGuildId && (
         <div>
-          <label
-            htmlFor="discord-channel-select"
-            className="block text-xs text-content-muted mb-1">
+          <label htmlFor="discord-channel-select" className="block text-xs text-content-muted mb-1">
             {t('channels.discord.picker.channel')}
           </label>
           <select

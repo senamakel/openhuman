@@ -109,9 +109,7 @@ export default function IntelligenceSubconsciousTab({
     <div className="space-y-5 animate-fade-up">
       {/* Mode selector */}
       <div>
-        <h3 className="text-sm font-semibold text-content mb-2">
-          {t('subconscious.mode.label')}
-        </h3>
+        <h3 className="text-sm font-semibold text-content mb-2">{t('subconscious.mode.label')}</h3>
         <div className="grid grid-cols-3 gap-2">
           {MODE_OPTIONS.map(opt => (
             <button
@@ -131,12 +129,8 @@ export default function IntelligenceSubconsciousTab({
                     : 'border-line-strong dark:border-neutral-600'
                 }`}
               />
-              <span className="text-sm font-medium text-content">
-                {t(opt.titleKey)}
-              </span>
-              <p className="mt-1 text-[11px] leading-tight text-content-muted">
-                {t(opt.descKey)}
-              </p>
+              <span className="text-sm font-medium text-content">{t(opt.titleKey)}</span>
+              <p className="mt-1 text-[11px] leading-tight text-content-muted">{t(opt.descKey)}</p>
             </button>
           ))}
         </div>

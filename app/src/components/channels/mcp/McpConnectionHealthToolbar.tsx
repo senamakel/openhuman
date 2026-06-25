@@ -193,10 +193,7 @@ const McpConnectionHealthToolbar = ({
           </span>
         )}
         <span className="inline-flex items-center gap-1">
-          <span
-            className="w-1.5 h-1.5 rounded-full bg-surface-strong"
-            aria-hidden="true"
-          />
+          <span className="w-1.5 h-1.5 rounded-full bg-surface-strong" aria-hidden="true" />
           <span>
             {t('mcp.health.disconnectedCount').replace('{count}', String(counts.disconnectedCount))}
           </span>
@@ -219,14 +216,10 @@ const McpConnectionHealthToolbar = ({
           aria-describedby="mcp-disconnect-all-body"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="bg-surface rounded-xl shadow-xl max-w-sm w-full p-4">
-            <h2
-              id="mcp-disconnect-all-title"
-              className="text-sm font-semibold text-content mb-2">
+            <h2 id="mcp-disconnect-all-title" className="text-sm font-semibold text-content mb-2">
               {t('mcp.health.disconnectConfirm.title')}
             </h2>
-            <p
-              id="mcp-disconnect-all-body"
-              className="text-xs text-content-secondary mb-4">
+            <p id="mcp-disconnect-all-body" className="text-xs text-content-secondary mb-4">
               {t('mcp.health.disconnectConfirm.body').replace(
                 '{count}',
                 String(counts.connectedCount)

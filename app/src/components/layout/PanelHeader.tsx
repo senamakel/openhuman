@@ -56,18 +56,14 @@ export default function PanelHeader({
           <div className="flex min-w-0 items-center gap-2">
             {leading}
             {title != null && (
-              <h2 className="truncate text-base font-semibold text-content">
-                {title}
-              </h2>
+              <h2 className="truncate text-base font-semibold text-content">{title}</h2>
             )}
           </div>
           {action != null && <div className="flex-shrink-0">{action}</div>}
         </div>
       )}
 
-      {description != null && (
-        <p className="mt-0.5 text-sm text-content-muted">{description}</p>
-      )}
+      {description != null && <p className="mt-0.5 text-sm text-content-muted">{description}</p>}
 
       {children}
     </div>

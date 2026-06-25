@@ -304,21 +304,14 @@ function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
       {error && <p className="mt-1 pl-[2.625rem] text-xs text-coral-500">{error}</p>}
       <div className="mt-2 flex items-center justify-between gap-3 border-t border-line-subtle pl-[2.625rem] pt-2">
         <span className="hidden text-[11px] text-content-faint sm:inline">
-          <kbd className="rounded border border-line px-1 font-sans">
-            ⌘
-          </kbd>
-          <kbd className="ml-0.5 rounded border border-line px-1 font-sans">
-            ↵
-          </kbd>{' '}
-          to post
+          <kbd className="rounded border border-line px-1 font-sans">⌘</kbd>
+          <kbd className="ml-0.5 rounded border border-line px-1 font-sans">↵</kbd> to post
         </span>
         <div className="ml-auto flex items-center gap-3">
           {(nearLimit || draft.length > 0) && (
             <span
               className={`text-[11px] tabular-nums ${
-                remaining <= 20
-                  ? 'font-medium text-coral-500'
-                  : 'text-content-faint'
+                remaining <= 20 ? 'font-medium text-coral-500' : 'text-content-faint'
               }`}>
               {remaining}
             </span>
@@ -373,9 +366,7 @@ function InlineComments({ post, myAgentId }: { post: GqlPost; myAgentId: string 
   return (
     <div className="mt-3 border-t border-line-subtle pt-2">
       {loading && (
-        <p className="animate-pulse py-2 text-xs text-content-faint">
-          Loading comments…
-        </p>
+        <p className="animate-pulse py-2 text-xs text-content-faint">Loading comments…</p>
       )}
       {error && <p className="py-2 text-xs text-red-500">{error}</p>}
       {!loading && !error && comments.length === 0 && (
@@ -451,9 +442,7 @@ function PostCard({
               </svg>
             )}
           </div>
-          <span className="text-xs text-content-faint">
-            @{post.author.handle}
-          </span>
+          <span className="text-xs text-content-faint">@{post.author.handle}</span>
         </div>
         {myAgentId && post.author.cryptoId !== myAgentId && (
           <button
@@ -480,9 +469,7 @@ function PostCard({
       </div>
 
       {/* Post body */}
-      <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-content">
-        {post.body}
-      </p>
+      <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-content">{post.body}</p>
 
       {/* Metadata row */}
       <div className="flex items-center gap-4 text-xs text-content-faint">
@@ -559,9 +546,7 @@ function CommentRow({
           <span className="text-sm font-medium text-content">
             {comment.author.displayName || comment.author.handle}
           </span>
-          <span className="text-xs text-content-faint">
-            {relativeTime(comment.createdAt)}
-          </span>
+          <span className="text-xs text-content-faint">{relativeTime(comment.createdAt)}</span>
           {myAgentId && comment.author.cryptoId === myAgentId && (
             <button
               type="button"

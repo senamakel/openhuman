@@ -131,9 +131,7 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
           </div>
 
           {/* Title */}
-          <p className="text-sm font-medium text-content truncate">
-            {n.title}
-          </p>
+          <p className="text-sm font-medium text-content truncate">{n.title}</p>
 
           {/* Body preview — `<openhuman-link>` tags render as pills */}
           {n.body && (

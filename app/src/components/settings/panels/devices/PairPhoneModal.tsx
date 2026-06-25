@@ -187,9 +187,7 @@ const PairPhoneModal = ({ onClose, onPaired }: PairPhoneModalProps) => {
       <div className="bg-surface rounded-2xl max-w-sm w-full border border-line shadow-large overflow-hidden">
         {/* Header — keep modal structure intact */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-line-subtle">
-          <h3 className="text-base font-semibold text-content">
-            {t('devices.pairModal.title')}
-          </h3>
+          <h3 className="text-base font-semibold text-content">{t('devices.pairModal.title')}</h3>
           <Button
             type="button"
             variant="tertiary"
@@ -279,9 +277,7 @@ function LoadingBody() {
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
         />
       </svg>
-      <p className="text-sm text-content-muted">
-        {t('devices.pairModal.loading')}
-      </p>
+      <p className="text-sm text-content-muted">{t('devices.pairModal.loading')}</p>
     </div>
   );
 }
@@ -385,9 +381,7 @@ function ExpiredBody({ onRegenerate }: { onRegenerate: () => void }) {
       <p className="text-sm font-medium text-content-secondary">
         {t('devices.pairModal.expiredTitle')}
       </p>
-      <p className="text-xs text-content-muted text-center">
-        {t('devices.pairModal.expiredBody')}
-      </p>
+      <p className="text-xs text-content-muted text-center">{t('devices.pairModal.expiredBody')}</p>
       <Button type="button" variant="primary" size="md" onClick={onRegenerate}>
         {t('devices.pairModal.generateNewCode')}
       </Button>
@@ -409,17 +403,13 @@ function SuccessBody({ label, channelId }: { label: string; channelId: string })
         </svg>
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium text-content">
-          {t('devices.pairModal.successTitle')}
-        </p>
+        <p className="text-sm font-medium text-content">{t('devices.pairModal.successTitle')}</p>
         <p className="text-xs text-content-muted mt-1">{label}</p>
         <p className="text-xs font-mono text-content-faint mt-0.5">
           {channelId.slice(0, 8)}…{channelId.slice(-6)}
         </p>
       </div>
-      <p className="text-xs text-content-faint">
-        {t('devices.pairModal.autoClose')}
-      </p>
+      <p className="text-xs text-content-faint">{t('devices.pairModal.autoClose')}</p>
     </div>
   );
 }
@@ -445,9 +435,7 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
       <p className="text-sm font-medium text-content-secondary">
         {t('devices.pairModal.errorTitle')}
       </p>
-      <p className="text-xs text-content-muted text-center break-all">
-        {message}
-      </p>
+      <p className="text-xs text-content-muted text-center break-all">{message}</p>
       <Button type="button" variant="primary" size="md" onClick={onRetry}>
         {t('common.retry')}
       </Button>

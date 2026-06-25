@@ -162,11 +162,7 @@ const AppearancePanel = () => {
                 onClick={() => dispatch(setThemeMode(opt.id))}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
                   idx !== 0 ? 'border-t border-line-subtle' : ''
-                } ${
-                  selected
-                    ? 'bg-primary-50 dark:bg-primary-500/10'
-                    : 'hover:bg-surface-hover'
-                }`}>
+                } ${selected ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-surface-hover'}`}>
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg ${
                     selected
@@ -176,12 +172,8 @@ const AppearancePanel = () => {
                   {opt.icon}
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium text-content">
-                    {opt.label}
-                  </span>
-                  <span className="block text-xs text-content-muted">
-                    {opt.description}
-                  </span>
+                  <span className="block text-sm font-medium text-content">{opt.label}</span>
+                  <span className="block text-xs text-content-muted">{opt.description}</span>
                 </span>
                 {selected && (
                   <svg
@@ -227,11 +219,7 @@ const AppearancePanel = () => {
                 onClick={() => dispatch(setFontSize(opt.id))}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
                   idx !== 0 ? 'border-t border-line-subtle' : ''
-                } ${
-                  selected
-                    ? 'bg-primary-50 dark:bg-primary-500/10'
-                    : 'hover:bg-surface-hover'
-                }`}>
+                } ${selected ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-surface-hover'}`}>
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg ${
                     selected
@@ -243,12 +231,8 @@ const AppearancePanel = () => {
                   </span>
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium text-content">
-                    {opt.label}
-                  </span>
-                  <span className="block text-xs text-content-muted">
-                    {opt.description}
-                  </span>
+                  <span className="block text-sm font-medium text-content">{opt.label}</span>
+                  <span className="block text-xs text-content-muted">{opt.description}</span>
                 </span>
                 {selected && (
                   <svg

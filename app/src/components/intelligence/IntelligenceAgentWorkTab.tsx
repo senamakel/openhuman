@@ -51,8 +51,7 @@ const BUCKET_ACCENT: Record<AgentWorkBucket, string> = {
     'border-sage-200 bg-sage-50 text-sage-700 dark:border-sage-500/30 dark:bg-sage-500/10 dark:text-sage-300',
   failed:
     'border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300',
-  stopped:
-    'border-line bg-surface-muted text-content-secondary',
+  stopped: 'border-line bg-surface-muted text-content-secondary',
 };
 
 /** i18n key for each bucket's localized label. */
@@ -184,9 +183,7 @@ export default function IntelligenceAgentWorkTab() {
   if (!data || data.total === 0) {
     return (
       <div className="space-y-4">
-        <p className="text-xs text-content-faint">
-          {t('intelligence.agentWork.subtitle')}
-        </p>
+        <p className="text-xs text-content-faint">{t('intelligence.agentWork.subtitle')}</p>
         <div className="rounded-xl border border-dashed border-line py-10 text-center text-sm text-content-faint">
           {t('intelligence.agentWork.empty')}
         </div>
@@ -198,9 +195,7 @@ export default function IntelligenceAgentWorkTab() {
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-content-faint">
-        {t('intelligence.agentWork.subtitle')}
-      </p>
+      <p className="text-xs text-content-faint">{t('intelligence.agentWork.subtitle')}</p>
 
       {BUCKET_ORDER.map(bucket => {
         const group = groupByBucket.get(bucket);
@@ -216,9 +211,7 @@ export default function IntelligenceAgentWorkTab() {
                 )}
                 {t(BUCKET_LABEL_KEY[bucket])}
               </span>
-              <span className="text-xs text-content-faint">
-                {group?.count ?? rows.length}
-              </span>
+              <span className="text-xs text-content-faint">{group?.count ?? rows.length}</span>
             </div>
 
             <ul className="divide-y divide-line-subtle overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">

@@ -244,9 +244,7 @@ const ModelStatusSection = ({
                 {urlValidation.error ?? t('localModel.ollamaServer.validationError')}
               </p>
             )}
-            <p className="text-xs text-content-muted">
-              {t('localModel.ollamaServer.helperText')}
-            </p>
+            <p className="text-xs text-content-muted">{t('localModel.ollamaServer.helperText')}</p>
           </div>
 
           {connectionTestResult !== null && (
@@ -328,9 +326,7 @@ const ModelStatusSection = ({
                   ? t('settings.localModel.status.downloadingUnknown')
                   : `${Math.round(progress * 100)}%`}
             </span>
-            {downloadedText && (
-              <span className="text-content-secondary">{downloadedText}</span>
-            )}
+            {downloadedText && <span className="text-content-secondary">{downloadedText}</span>}
             {speedText && (
               <span className="text-primary-600 dark:text-primary-300">{speedText}</span>
             )}
@@ -365,9 +361,7 @@ const ModelStatusSection = ({
               <div className="text-content-muted text-xs uppercase tracking-wide">
                 {t('settings.localModel.status.backend')}
               </div>
-              <div className="text-content mt-1">
-                {status?.active_backend ?? 'cpu'}
-              </div>
+              <div className="text-content mt-1">{status?.active_backend ?? 'cpu'}</div>
             </div>
             <div className="rounded-md border border-line p-2">
               <div className="text-content-muted text-xs uppercase tracking-wide">
@@ -548,9 +542,7 @@ const ModelStatusSection = ({
                           }`}>
                           <span
                             className={`min-w-0 truncate font-medium ${
-                              rejected
-                                ? 'text-red-700 dark:text-red-300'
-                                : 'text-content'
+                              rejected ? 'text-red-700 dark:text-red-300' : 'text-content'
                             }`}
                             title={m.name}>
                             {m.name}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { channelLuminance } from '../../../lib/theme/color';
-import type { BackdropKind, Theme } from '../../../lib/theme/types';
+import { resolveFamilyVariant } from '../../../lib/theme/presets';
 import {
   ACCENT_FAMILIES,
   ACCENT_SHADES,
@@ -12,7 +12,7 @@ import {
   fontChoiceForStack,
   type FontRole,
 } from '../../../lib/theme/tokens';
-import { resolveFamilyVariant } from '../../../lib/theme/presets';
+import type { BackdropKind, Theme } from '../../../lib/theme/types';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import {
   deleteCustomTheme,
@@ -62,7 +62,10 @@ function readToken(key: string): string {
 
 function readFontRole(role: FontRole): string {
   if (typeof document === 'undefined') return '';
-  return window.getComputedStyle(document.documentElement).getPropertyValue(`--font-${role}`).trim();
+  return window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue(`--font-${role}`)
+    .trim();
 }
 
 /** "surface-canvas" → "Surface canvas". */
@@ -94,7 +97,7 @@ const ThemeStudioPanel = () => {
   const variant = useAppSelector(selectThemeVariant);
   const effectiveTheme = useAppSelector(selectEffectiveTheme);
 
-  const isActiveCustom = customThemes.some((th) => th.id === activeThemeId);
+  const isActiveCustom = customThemes.some(th => th.id === activeThemeId);
   // Which variant to render in family preview tiles (Auto → resolved OS variant).
   const previewVariant: 'light' | 'dark' = variant === 'system' ? resolveTheme('system') : variant;
 
@@ -109,7 +112,7 @@ const ThemeStudioPanel = () => {
   const [copied, setCopied] = useState(false);
 
   const handleExport = async () => {
-    const active = customThemes.find((th) => th.id === activeThemeId) ?? effectiveTheme;
+    const active = customThemes.find(th => th.id === activeThemeId) ?? effectiveTheme;
     const json = JSON.stringify(active, null, 2);
     try {
       await navigator.clipboard?.writeText(json);
@@ -129,7 +132,9 @@ const ThemeStudioPanel = () => {
       }
       const theme: Theme = {
         id: `custom-${Date.now()}`,
-        name: parsed.name ? String(parsed.name) : t('settings.theme.importedName', 'Imported theme'),
+        name: parsed.name
+          ? String(parsed.name)
+          : t('settings.theme.importedName', 'Imported theme'),
         isDark: Boolean(parsed.isDark),
         builtIn: false,
         colors: { ...(parsed.colors as Record<string, string>) },
@@ -142,14 +147,15 @@ const ThemeStudioPanel = () => {
     }
   };
 
-  const activeMeta = customThemes.find((th) => th.id === activeThemeId);
+  const activeMeta = customThemes.find(th => th.id === activeThemeId);
   const exportJson = JSON.stringify(activeMeta ?? effectiveTheme, null, 2);
 
   // Contrast guard: warn if the editable theme's primary text on its canvas is low-contrast.
   const contrastRisk =
     isActiveCustom &&
-    Math.abs(channelLuminance(readToken('content')) - channelLuminance(readToken('surface-canvas'))) <
-      0.2;
+    Math.abs(
+      channelLuminance(readToken('content')) - channelLuminance(readToken('surface-canvas'))
+    ) < 0.2;
 
   return (
     <SettingsPanel description={t('settings.theme.menuDesc', 'Customize colours and fonts.')}>
@@ -163,7 +169,7 @@ const ThemeStudioPanel = () => {
             className="inline-flex overflow-hidden rounded-lg border border-line"
             role="radiogroup"
             aria-label={t('settings.theme.variantAria', 'Theme variant')}>
-            {VARIANT_OPTIONS.map((opt) => {
+            {VARIANT_OPTIONS.map(opt => {
               const sel = opt.id === variant;
               return (
                 <button
@@ -184,7 +190,7 @@ const ThemeStudioPanel = () => {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {families.map((fam) => {
+          {families.map(fam => {
             const preview = resolveFamilyVariant(fam, previewVariant);
             const selected = !isActiveCustom && fam.id === activeFamilyId;
             return (
@@ -218,7 +224,7 @@ const ThemeStudioPanel = () => {
               </button>
             );
           })}
-          {customThemes.map((th) => {
+          {customThemes.map(th => {
             const selected = th.id === activeThemeId;
             return (
               <button
@@ -264,7 +270,7 @@ const ThemeStudioPanel = () => {
         <p className="px-1 text-xs text-content-muted">
           {t(
             'settings.theme.autoForkHint',
-            'Editing a preset automatically saves your changes as a new custom theme.',
+            'Editing a preset automatically saves your changes as a new custom theme.'
           )}
         </p>
       )}
@@ -273,24 +279,24 @@ const ThemeStudioPanel = () => {
           <p className="text-xs text-amber-700 dark:text-amber-300">
             {t(
               'settings.theme.contrastWarn',
-              'Low contrast between text and background — this theme may be hard to read.',
+              'Low contrast between text and background — this theme may be hard to read.'
             )}
           </p>
         </div>
       )}
 
       {/* ── Colour editor ──────────────────────────────────────────── */}
-      {COLOR_GROUPS.map((group) => (
+      {COLOR_GROUPS.map(group => (
         <SettingsSection key={group.id} title={t(group.i18nKey, humanize(group.id))}>
           <div className="px-1">
-            {group.keys.map((key) => (
+            {group.keys.map(key => (
               <ColorTokenField
                 key={key}
                 tokenKey={key}
                 label={humanize(key)}
                 value={readToken(key)}
                 disabled={false}
-                onChange={(channels) => dispatch(setThemeToken({ key, value: channels }))}
+                onChange={channels => dispatch(setThemeToken({ key, value: channels }))}
               />
             ))}
           </div>
@@ -301,17 +307,17 @@ const ThemeStudioPanel = () => {
       <div>
         <button
           type="button"
-          onClick={() => setShowAdvanced((v) => !v)}
+          onClick={() => setShowAdvanced(v => !v)}
           className="text-xs font-medium text-primary-600 hover:underline dark:text-primary-300">
           {showAdvanced
             ? t('settings.theme.hideShades', 'Hide all accent shades')
             : t('settings.theme.showShades', 'Show all accent shades')}
         </button>
         {showAdvanced &&
-          ACCENT_FAMILIES.map((fam) => (
+          ACCENT_FAMILIES.map(fam => (
             <SettingsSection key={fam} title={humanize(fam)}>
               <div className="px-1">
-                {ACCENT_SHADES.map((shade) => {
+                {ACCENT_SHADES.map(shade => {
                   const key = `${fam}-${shade}`;
                   return (
                     <ColorTokenField
@@ -320,7 +326,7 @@ const ThemeStudioPanel = () => {
                       label={`${humanize(fam)} ${shade}`}
                       value={readToken(key)}
                       disabled={false}
-                      onChange={(channels) => dispatch(setThemeToken({ key, value: channels }))}
+                      onChange={channels => dispatch(setThemeToken({ key, value: channels }))}
                     />
                   );
                 })}
@@ -332,7 +338,7 @@ const ThemeStudioPanel = () => {
       {/* ── Fonts ──────────────────────────────────────────────────── */}
       <SettingsSection title={t('settings.theme.fontsHeading', 'Fonts')}>
         <div className="space-y-2 px-1">
-          {FONT_ROLES.map((role) => {
+          {FONT_ROLES.map(role => {
             const current = fontChoiceForStack(readFontRole(role));
             return (
               <div key={role} className="flex items-center justify-between gap-3">
@@ -344,8 +350,8 @@ const ThemeStudioPanel = () => {
                   value={current?.id ?? '__current__'}
                   disabled={false}
                   aria-label={t(`settings.theme.fontRole.${role}`, humanize(role))}
-                  onChange={(e) => {
-                    const choice = FONT_CHOICES.find((c) => c.id === e.target.value);
+                  onChange={e => {
+                    const choice = FONT_CHOICES.find(c => c.id === e.target.value);
                     if (choice) dispatch(setFontRole({ role, stack: choice.stack }));
                   }}>
                   {!current && (
@@ -353,7 +359,7 @@ const ThemeStudioPanel = () => {
                       {t('settings.theme.fontCurrent', 'Current')}
                     </option>
                   )}
-                  {FONT_CHOICES.map((c) => (
+                  {FONT_CHOICES.map(c => (
                     <option key={c.id} value={c.id}>
                       {c.label}
                     </option>
@@ -372,7 +378,7 @@ const ThemeStudioPanel = () => {
             className="inline-flex overflow-hidden rounded-lg border border-line"
             role="radiogroup"
             aria-label={t('settings.theme.backdropHeading', 'Background')}>
-            {(['mesh', 'solid', 'image'] as BackdropKind[]).map((kind) => {
+            {(['mesh', 'solid', 'image'] as BackdropKind[]).map(kind => {
               const current = effectiveTheme.backdrop?.kind ?? 'mesh';
               const sel = current === kind;
               return (
@@ -384,7 +390,7 @@ const ThemeStudioPanel = () => {
                   disabled={false}
                   onClick={() =>
                     dispatch(
-                      setThemeBackdrop({ kind, imageUrl: effectiveTheme.backdrop?.imageUrl }),
+                      setThemeBackdrop({ kind, imageUrl: effectiveTheme.backdrop?.imageUrl })
                     )
                   }
                   className={`px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
@@ -404,7 +410,7 @@ const ThemeStudioPanel = () => {
               value={effectiveTheme.backdrop?.imageUrl ?? ''}
               placeholder="https://…/background.jpg"
               aria-label={t('settings.theme.backdropImageUrl', 'Background image URL')}
-              onChange={(e) =>
+              onChange={e =>
                 dispatch(setThemeBackdrop({ kind: 'image', imageUrl: e.target.value }))
               }
               className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-content"
@@ -414,7 +420,7 @@ const ThemeStudioPanel = () => {
             <input
               type="checkbox"
               checked={effectiveTheme.backdrop?.dots !== false}
-              onChange={(e) => dispatch(setThemeBackdrop({ dots: e.target.checked }))}
+              onChange={e => dispatch(setThemeBackdrop({ dots: e.target.checked }))}
               className="h-3.5 w-3.5 accent-primary-500"
             />
             {t('settings.theme.backdropDots', 'Show background dots')}
@@ -422,7 +428,7 @@ const ThemeStudioPanel = () => {
           <p className="text-[11px] text-content-faint">
             {t(
               'settings.theme.backdropHint',
-              'Mesh shows the animated gradient; Solid uses a flat background; Image paints your own.',
+              'Mesh shows the animated gradient; Solid uses a flat background; Image paints your own.'
             )}
           </p>
         </div>
@@ -448,7 +454,9 @@ const ThemeStudioPanel = () => {
               type="button"
               onClick={handleExport}
               className="rounded-lg border border-line px-3 py-1.5 text-sm text-content-secondary hover:bg-surface-hover">
-              {copied ? t('settings.theme.copied', 'Copied!') : t('settings.theme.export', 'Copy JSON')}
+              {copied
+                ? t('settings.theme.copied', 'Copied!')
+                : t('settings.theme.export', 'Copy JSON')}
             </button>
           </div>
           <div className="px-1 pt-2">
@@ -466,17 +474,22 @@ const ThemeStudioPanel = () => {
       {/* ── Import (always available) ──────────────────────────────── */}
       <SettingsSection
         title={t('settings.theme.import', 'Import theme')}
-        description={t('settings.theme.importHint', 'Paste exported theme JSON to add it as a custom theme.')}>
+        description={t(
+          'settings.theme.importHint',
+          'Paste exported theme JSON to add it as a custom theme.'
+        )}>
         <div className="space-y-2 px-1">
           <textarea
             value={importText}
-            onChange={(e) => setImportText(e.target.value)}
+            onChange={e => setImportText(e.target.value)}
             rows={4}
             placeholder='{ "name": "...", "isDark": false, "colors": { ... } }'
             aria-label={t('settings.theme.import', 'Import theme')}
             className="w-full resize-none rounded-lg border border-line bg-surface p-2 font-mono text-[11px] text-content"
           />
-          {importError && <p className="text-xs text-coral-600 dark:text-coral-300">{importError}</p>}
+          {importError && (
+            <p className="text-xs text-coral-600 dark:text-coral-300">{importError}</p>
+          )}
           <button
             type="button"
             onClick={handleImport}

@@ -233,9 +233,7 @@ export function AgentMessageText({ content }: { content: string }) {
   const table = parseMarkdownTable(textContent);
 
   return (
-    <div
-      className="w-full min-w-0 px-1 py-1 text-content"
-      data-testid="agent-message-text">
+    <div className="w-full min-w-0 px-1 py-1 text-content" data-testid="agent-message-text">
       {table ? (
         <AgentMarkdownTable table={table} className="w-full max-w-full overflow-hidden" />
       ) : (

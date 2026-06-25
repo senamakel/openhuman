@@ -184,10 +184,7 @@ const WebhooksDebugPanel = () => {
         <span className="text-xs text-content-muted">
           {registrations.length} {t('webhooks.registered')} &middot; {logs.length}{' '}
           {t('webhooks.captured')} &middot;{' '}
-          <span
-            className={
-              isLive ? 'text-sage-600 dark:text-sage-300' : 'text-content-muted'
-            }>
+          <span className={isLive ? 'text-sage-600 dark:text-sage-300' : 'text-content-muted'}>
             {isLive ? t('webhooks.live') : t('webhooks.disconnected')}
           </span>
         </span>
@@ -198,9 +195,7 @@ const WebhooksDebugPanel = () => {
       {lastEvent && (
         <div className="text-xs text-content-muted">
           {t('webhooks.lastEvent')}:{' '}
-          <span className="font-medium text-content">
-            {lastEvent.event_type}
-          </span>{' '}
+          <span className="font-medium text-content">{lastEvent.event_type}</span>{' '}
           {t('webhooks.at')} {formatDateTime(lastEvent.timestamp)}
         </div>
       )}

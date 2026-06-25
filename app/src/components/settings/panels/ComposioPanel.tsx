@@ -214,9 +214,7 @@ const ComposioPanel = ({ embedded = false, managedAuthEnabled }: ComposioPanelPr
     return (
       <PanelPage contentClassName="" description={composioDescription} leading={composioLeading}>
         <div className={embedded ? '' : 'p-4'}>
-          <p className="text-sm text-content-muted">
-            {t('settings.composio.loading')}
-          </p>
+          <p className="text-sm text-content-muted">{t('settings.composio.loading')}</p>
         </div>
       </PanelPage>
     );
@@ -229,9 +227,7 @@ const ComposioPanel = ({ embedded = false, managedAuthEnabled }: ComposioPanelPr
       description={composioDescription}
       leading={composioLeading}>
       <div className={embedded ? 'space-y-5' : 'p-4 pt-2 space-y-5'}>
-        <p className="text-sm text-content-muted">
-          {t('settings.composio.intro')}
-        </p>
+        <p className="text-sm text-content-muted">{t('settings.composio.intro')}</p>
 
         {allowManagedAuth ? (
           <SettingsSection>

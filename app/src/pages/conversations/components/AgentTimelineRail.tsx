@@ -95,9 +95,7 @@ export function AgentTimelineRail({
           />
         ) : null}
         <span className="relative z-10 mt-0.5 flex h-3 w-3 items-center justify-center bg-[#f6f6f6] dark:bg-surface-canvas">
-          {icon ?? (
-            <AgentSparkIcon className={iconClassName ?? 'text-content-faint'} />
-          )}
+          {icon ?? <AgentSparkIcon className={iconClassName ?? 'text-content-faint'} />}
         </span>
       </div>
       <div className="min-w-0 flex-1 pb-2">{children}</div>

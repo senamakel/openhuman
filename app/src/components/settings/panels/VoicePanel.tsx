@@ -880,9 +880,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                       {t('voice.modal.title')}{' '}
                       {BUILTIN_VOICE_PROVIDER_META[pendingKeySlug]?.label ?? pendingKeySlug}
                     </h3>
-                    <p className="text-xs text-content-muted mt-1">
-                      {t('voice.modal.desc')}
-                    </p>
+                    <p className="text-xs text-content-muted mt-1">{t('voice.modal.desc')}</p>
                   </div>
 
                   <label className="block space-y-1">

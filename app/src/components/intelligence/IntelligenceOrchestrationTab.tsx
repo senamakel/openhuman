@@ -277,9 +277,7 @@ export default function IntelligenceOrchestrationTab() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-medium text-content">
-                          {def.name}
-                        </span>
+                        <span className="text-sm font-medium text-content">{def.name}</span>
                         <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
                           {t(SAFETY_TIER_KEY[def.safetyTier])}
                         </span>
@@ -291,9 +289,7 @@ export default function IntelligenceOrchestrationTab() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 text-xs text-content-muted">
-                        {def.description}
-                      </p>
+                      <p className="mt-1 text-xs text-content-muted">{def.description}</p>
                     </div>
                     {!isStarting && (
                       <Button
@@ -421,9 +417,7 @@ export default function IntelligenceOrchestrationTab() {
                       <span className="block truncate text-sm font-medium text-content">
                         {def?.name ?? run.definitionId}
                       </span>
-                      <span className="font-mono text-[10px] text-content-faint">
-                        {run.id}
-                      </span>
+                      <span className="font-mono text-[10px] text-content-faint">{run.id}</span>
                     </span>
                     <span className="flex-none text-[11px] text-content-faint">
                       {t(`orchestration.runStatus.${run.status}`)}

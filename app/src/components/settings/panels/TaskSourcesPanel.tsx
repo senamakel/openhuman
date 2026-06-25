@@ -332,12 +332,8 @@ const TaskSourcesPanel = ({ embedded = false }: TaskSourcesPanelProps) => {
   const body = (
     <>
       <div className="space-y-1">
-        <p className="text-xs text-content-muted">
-          {t('settings.taskSources.description')}
-        </p>
-        <p className="text-xs text-content-faint">
-          {t('settings.taskSources.connectHint')}
-        </p>
+        <p className="text-xs text-content-muted">{t('settings.taskSources.description')}</p>
+        <p className="text-xs text-content-faint">{t('settings.taskSources.connectHint')}</p>
       </div>
 
       {status && !status.enabled && (

@@ -96,9 +96,7 @@ const SuperContextToggle = () => {
         aria-label={t('chat.superContext.label')}
         data-testid="super-context-toggle"
       />
-      <span className="font-medium text-content-secondary">
-        {t('chat.superContext.label')}
-      </span>
+      <span className="font-medium text-content-secondary">{t('chat.superContext.label')}</span>
       {/* Self-contained wrapping tooltip (the shared <Tooltip> is single-line
           nowrap and can't fit this paragraph). Anchored bottom-full + right-0
           so it grows up-and-left into the app interior — the toggle only shows

@@ -24,12 +24,8 @@ const SettingsMenuItem = ({
   rightElement,
 }: SettingsMenuItemProps) => {
   // Color variations for dangerous items (like logout/delete)
-  const titleColor = dangerous
-    ? 'text-amber-600 dark:text-amber-300'
-    : 'text-content';
-  const iconColor = dangerous
-    ? 'text-amber-600 dark:text-amber-300'
-    : 'text-content';
+  const titleColor = dangerous ? 'text-amber-600 dark:text-amber-300' : 'text-content';
+  const iconColor = dangerous ? 'text-amber-600 dark:text-amber-300' : 'text-content';
   const borderColor = 'border-line';
 
   // Border classes for first/last items

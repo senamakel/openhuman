@@ -70,12 +70,8 @@ const AboutPanel = () => {
       {/* Version */}
       <SettingsSection>
         <div className="px-4 py-4">
-          <div className="text-xs text-content-muted">
-            {t('settings.about.version')}
-          </div>
-          <div className="mt-1 text-lg font-semibold text-content">
-            v{APP_VERSION}
-          </div>
+          <div className="text-xs text-content-muted">{t('settings.about.version')}</div>
+          <div className="mt-1 text-lg font-semibold text-content">v{APP_VERSION}</div>
           {info?.available && info.available_version && (
             <div className="mt-1 text-xs text-primary-500">
               v{info.available_version} {t('settings.about.updateAvailable')}
@@ -143,9 +139,7 @@ const AboutPanel = () => {
       {/* Releases */}
       <SettingsSection>
         <div className="px-4 py-4 space-y-2">
-          <div className="text-sm font-medium text-content">
-            {t('settings.about.releases')}
-          </div>
+          <div className="text-sm font-medium text-content">{t('settings.about.releases')}</div>
           <p className="text-xs text-content-muted leading-relaxed">
             {t('settings.about.releasesDesc')}
           </p>

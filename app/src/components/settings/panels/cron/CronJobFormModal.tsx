@@ -469,9 +469,7 @@ const CronJobFormModal = ({
 
               {/* Live preview */}
               {cronExpr && (
-                <p
-                  data-testid="cron-form-cron-preview"
-                  className="text-xs text-content-muted">
+                <p data-testid="cron-form-cron-preview" className="text-xs text-content-muted">
                   {t('settings.cron.jobs.formCronPreview').replace(
                     '{preview}',
                     cronToHuman(cronExpr)

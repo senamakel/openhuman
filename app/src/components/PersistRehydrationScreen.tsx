@@ -57,9 +57,7 @@ function PersistRehydrationScreen() {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-canvas-50 dark:bg-surface-canvas p-6">
       <div className="max-w-sm w-full space-y-4 rounded-xl border border-line bg-surface p-6 shadow-soft text-center">
-        <p className="text-sm font-medium text-content">
-          {t('app.persistRehydration.heading')}
-        </p>
+        <p className="text-sm font-medium text-content">{t('app.persistRehydration.heading')}</p>
         <p className="text-xs text-content-muted leading-relaxed">
           {t('app.persistRehydration.body')}
         </p>

@@ -187,9 +187,7 @@ function BountyRow({
         className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-sm font-medium text-content">
-              {bounty.title}
-            </span>
+            <span className="truncate text-sm font-medium text-content">{bounty.title}</span>
             <BountyStatusBadge status={bounty.status} />
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-content-muted">
@@ -222,9 +220,7 @@ function BountyRow({
       {expanded && (
         <div className="border-t border-line-subtle bg-surface-muted/50 px-4 pb-4 pt-3 dark:bg-surface/50">
           {detailLoading && (
-            <p className="animate-pulse text-xs text-content-faint">
-              Loading details…
-            </p>
+            <p className="animate-pulse text-xs text-content-faint">Loading details…</p>
           )}
 
           {/* Description */}
@@ -246,25 +242,19 @@ function BountyRow({
             {bounty.deadline && (
               <div>
                 <span className="font-medium text-content-secondary">Deadline: </span>
-                <span className="text-content">
-                  {new Date(bounty.deadline).toLocaleString()}
-                </span>
+                <span className="text-content">{new Date(bounty.deadline).toLocaleString()}</span>
               </div>
             )}
             <div>
               <span className="font-medium text-content-secondary">Created: </span>
-              <span className="text-content">
-                {new Date(bounty.createdAt).toLocaleString()}
-              </span>
+              <span className="text-content">{new Date(bounty.createdAt).toLocaleString()}</span>
             </div>
           </div>
 
           {/* Council section */}
           {bounty.council && (
             <div className="mb-3 rounded border border-line bg-surface p-3">
-              <p className="mb-1 text-xs font-semibold text-content-secondary">
-                Council
-              </p>
+              <p className="mb-1 text-xs font-semibold text-content-secondary">Council</p>
               <div className="flex flex-wrap gap-3 text-xs">
                 <span className="text-content-secondary">
                   Status: <span className="font-medium">{bounty.council.status}</span>
@@ -283,9 +273,7 @@ function BountyRow({
               )}
               {bounty.council.votes && bounty.council.votes.length > 0 && (
                 <div className="mt-2">
-                  <p className="mb-1 text-xs font-medium text-content-muted">
-                    Votes
-                  </p>
+                  <p className="mb-1 text-xs font-medium text-content-muted">Votes</p>
                   <div className="space-y-1">
                     {bounty.council.votes.map((vote, i) => (
                       <div
@@ -327,13 +315,11 @@ function BountyRow({
                       <span className="font-mono text-content-secondary">
                         {abbrev(sub.submitter)}
                       </span>
-                      <span className="text-content-muted dark:text-content-faint">{sub.status}</span>
+                      <span className="text-content-muted dark:text-content-faint">
+                        {sub.status}
+                      </span>
                     </div>
-                    {sub.title && (
-                      <p className="mt-0.5 font-medium text-content">
-                        {sub.title}
-                      </p>
-                    )}
+                    {sub.title && <p className="mt-0.5 font-medium text-content">{sub.title}</p>}
                     <a
                       href={sub.url}
                       target="_blank"
@@ -364,12 +350,8 @@ function BountyRow({
                     key={c.commentId}
                     className="rounded border border-line bg-surface p-2 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-content-secondary">
-                        {abbrev(c.author)}
-                      </span>
-                      <span className="text-content-faint">
-                        {relativeTime(c.createdAt)}
-                      </span>
+                      <span className="font-mono text-content-secondary">{abbrev(c.author)}</span>
+                      <span className="text-content-faint">{relativeTime(c.createdAt)}</span>
                     </div>
                     <p className="mt-0.5 text-content-secondary">{c.body}</p>
                   </div>
@@ -596,9 +578,7 @@ function CreateBountyModal({
         }}
         className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Title *
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Title *</label>
           <input
             type="text"
             value={title}
@@ -635,9 +615,7 @@ function CreateBountyModal({
             />
           </div>
           <div className="w-28">
-            <label className="mb-1 block text-xs font-medium text-content-secondary">
-              Asset
-            </label>
+            <label className="mb-1 block text-xs font-medium text-content-secondary">Asset</label>
             <input
               type="text"
               value={asset}
@@ -735,9 +713,7 @@ function SubmitWorkModal({
         }}
         className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            URL *
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">URL *</label>
           <input
             type="text"
             value={url}
@@ -825,9 +801,7 @@ function CommentModal({
         }}
         className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Comment *
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Comment *</label>
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}

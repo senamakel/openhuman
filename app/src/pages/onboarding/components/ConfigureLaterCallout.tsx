@@ -18,9 +18,7 @@ const ConfigureLaterCallout = ({ settingsHref }: ConfigureLaterCalloutProps) => 
       <p className="text-xs text-content-secondary leading-relaxed">
         {t('onboarding.custom.configureLater')}
       </p>
-      <p
-        className="text-[11px] text-content-muted"
-        data-testid="configure-later-hint">
+      <p className="text-[11px] text-content-muted" data-testid="configure-later-hint">
         {t('onboarding.custom.openSettings')}:{' '}
         <code className="text-content-secondary">{settingsHref}</code>
       </p>

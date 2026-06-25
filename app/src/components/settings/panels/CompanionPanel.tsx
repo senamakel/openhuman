@@ -172,19 +172,11 @@ const CompanionPanel = () => {
           />
           <SettingsRow
             label={t('settings.companion.activationMode')}
-            control={
-              <span className="text-xs text-content-muted">
-                {config.activation_mode}
-              </span>
-            }
+            control={<span className="text-xs text-content-muted">{config.activation_mode}</span>}
           />
           <SettingsRow
             label={t('settings.companion.sessionTtl')}
-            control={
-              <span className="text-xs text-content-muted">
-                {config.ttl_secs}s
-              </span>
-            }
+            control={<span className="text-xs text-content-muted">{config.ttl_secs}s</span>}
           />
           <SettingsRow
             label={t('settings.companion.screenCapture')}

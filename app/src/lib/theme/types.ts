@@ -25,9 +25,7 @@ export interface Theme {
    * applied to the app background (behind all surfaces); omit for a flat
    * canvas. Applied via the `--app-gradient` variable by ThemeProvider.
    */
-  gradient?: {
-    canvas?: string;
-  };
+  gradient?: { canvas?: string };
   /**
    * App backdrop layer. `mesh` (default) renders the animated WebGL mesh
    * gradient; `solid` shows just the flat/gradient canvas; `image` paints

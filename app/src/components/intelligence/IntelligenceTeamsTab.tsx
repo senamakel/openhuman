@@ -261,17 +261,11 @@ export default function IntelligenceTeamsTab() {
   if (teams.length === 0) {
     return (
       <div className="space-y-4">
-        <p className="text-xs text-content-faint">
-          {t('intelligence.teams.subtitle')}
-        </p>
+        <p className="text-xs text-content-faint">{t('intelligence.teams.subtitle')}</p>
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line py-12 text-center">
           <LuUsers className="h-6 w-6 text-content-faint dark:text-neutral-600" />
-          <p className="text-sm text-content-muted">
-            {t('intelligence.teams.empty')}
-          </p>
-          <p className="max-w-sm text-xs text-content-faint">
-            {t('intelligence.teams.emptyHint')}
-          </p>
+          <p className="text-sm text-content-muted">{t('intelligence.teams.empty')}</p>
+          <p className="max-w-sm text-xs text-content-faint">{t('intelligence.teams.emptyHint')}</p>
         </div>
       </div>
     );
@@ -330,9 +324,7 @@ export default function IntelligenceTeamsTab() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-content-faint">
-          {t('intelligence.teams.subtitle')}
-        </p>
+        <p className="text-xs text-content-faint">{t('intelligence.teams.subtitle')}</p>
         <RefreshButton refreshing={refreshing} onClick={() => void refresh()} t={t} />
       </div>
       <ul className="divide-y divide-line-subtle overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">

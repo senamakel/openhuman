@@ -1,6 +1,6 @@
-import MeshGradient from './MeshGradient';
 import { useAppSelector } from '../store/hooks';
 import { selectEffectiveTheme } from '../store/themeSlice';
+import MeshGradient from './MeshGradient';
 
 interface AppBackgroundProps {
   className?: string;

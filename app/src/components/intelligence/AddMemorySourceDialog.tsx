@@ -199,15 +199,11 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-xl border border-line bg-surface p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-content">
-          {t('memorySources.addSource')}
-        </h2>
+        <h2 className="text-lg font-semibold text-content">{t('memorySources.addSource')}</h2>
 
         {!kind ? (
           <>
-            <p className="mt-2 text-sm text-content-muted">
-              {t('memorySources.pickKind')}
-            </p>
+            <p className="mt-2 text-sm text-content-muted">{t('memorySources.pickKind')}</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               {ALL_KINDS.map(k => (
                 <button
@@ -655,11 +651,7 @@ function ComposioPicker({
   }, [open]);
 
   if (loadingConnections) {
-    return (
-      <p className="text-xs text-content-muted">
-        {t('memorySources.loadingConnections')}
-      </p>
-    );
+    return <p className="text-xs text-content-muted">{t('memorySources.loadingConnections')}</p>;
   }
 
   if (connections.length === 0) {

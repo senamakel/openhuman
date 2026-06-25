@@ -109,7 +109,9 @@ export default function ErrorFallbackScreen({
           <p className="text-sm text-content-faint text-center mb-6">
             {t('app.errorFallback.subheading')}
           </p>
-          <p className="text-xs text-content-muted text-center mb-6">{t('app.errorFallback.hint')}</p>
+          <p className="text-xs text-content-muted text-center mb-6">
+            {t('app.errorFallback.hint')}
+          </p>
 
           {/* Sentry Event ID — copyable; hidden when analytics produced no id */}
           {hasEventId && (

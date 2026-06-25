@@ -225,10 +225,7 @@ const McpInventoryImportTab = ({
             className="text-xs font-semibold text-content-secondary">
             {t('mcp.inventory.import.previewHeading')}
           </h3>
-          <div
-            role="status"
-            aria-live="polite"
-            className="text-[11px] text-content-muted">
+          <div role="status" aria-live="polite" className="text-[11px] text-content-muted">
             {t('mcp.inventory.import.previewCounts')
               .replace('{total}', String(stats.total))
               .replace('{newly}', String(stats.newly))
@@ -239,9 +236,7 @@ const McpInventoryImportTab = ({
             {t('mcp.inventory.import.exportedAt').replace('{when}', manifest.exported_at)}
           </div>
           {classified.length === 0 ? (
-            <p className="text-xs text-content-muted">
-              {t('mcp.inventory.import.previewEmpty')}
-            </p>
+            <p className="text-xs text-content-muted">{t('mcp.inventory.import.previewEmpty')}</p>
           ) : (
             <ul className="space-y-1">
               {classified.map(({ entry, status }) => (

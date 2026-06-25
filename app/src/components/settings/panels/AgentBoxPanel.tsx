@@ -64,11 +64,7 @@ const AgentBoxPanel = () => {
 
   const body = useMemo(() => {
     if (state.kind === 'loading') {
-      return (
-        <div className="px-4 py-3 text-sm text-content-muted">
-          {t('common.loading')}
-        </div>
-      );
+      return <div className="px-4 py-3 text-sm text-content-muted">{t('common.loading')}</div>;
     }
     if (state.kind === 'error') {
       return (

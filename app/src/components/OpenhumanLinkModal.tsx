@@ -90,9 +90,7 @@ const OpenhumanLinkModal = () => {
         className="w-full max-w-md rounded-2xl bg-surface shadow-xl overflow-hidden"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line-subtle px-5 py-3">
-          <h2 className="text-sm font-semibold text-content">
-            {titleForPath(activePath, t)}
-          </h2>
+          <h2 className="text-sm font-semibold text-content">{titleForPath(activePath, t)}</h2>
           <Button
             iconOnly
             variant="tertiary"
@@ -526,9 +524,7 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
               className="flex items-center gap-3 rounded-xl border border-line-subtle bg-surface p-3">
               <ProviderIcon provider={p.id} className="h-5 w-5 flex-none" />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-content">
-                  {p.label}
-                </div>
+                <div className="text-sm font-medium text-content">{p.label}</div>
                 {on && status ? (
                   <div className="flex items-center gap-1.5">
                     <span
@@ -539,9 +535,7 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
                     </span>
                   </div>
                 ) : (
-                  <p className="line-clamp-1 text-xs text-content-muted">
-                    {p.description}
-                  </p>
+                  <p className="line-clamp-1 text-xs text-content-muted">{p.description}</p>
                 )}
               </div>
               <button
@@ -563,9 +557,7 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
           );
         })}
       </div>
-      <p className="text-xs text-content-faint">
-        {t('app.openhumanLink.accounts.webviewNote')}
-      </p>
+      <p className="text-xs text-content-faint">{t('app.openhumanLink.accounts.webviewNote')}</p>
       <DoneFooter close={close} onDone={handleDone} doneLabel={doneLabel} />
     </div>
   );

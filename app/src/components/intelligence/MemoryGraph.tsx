@@ -752,9 +752,7 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
           ) : (
             <>
               <span className="font-medium">{hovered.label || 'chunk'}</span>
-              <span className="ml-3 text-content-faint">
-                {t('graph.document')}
-              </span>
+              <span className="ml-3 text-content-faint">{t('graph.document')}</span>
             </>
           )}
         </div>

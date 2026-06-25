@@ -37,7 +37,7 @@ const ColorTokenField = ({ tokenKey, label, value, disabled, onChange }: ColorTo
         type="color"
         value={hex}
         disabled={disabled}
-        onChange={(e) => onChange(hexToChannels(e.target.value))}
+        onChange={e => onChange(hexToChannels(e.target.value))}
         aria-label={label}
         className="h-8 w-12 shrink-0 cursor-pointer rounded-md border border-line bg-surface disabled:cursor-not-allowed disabled:opacity-50"
       />

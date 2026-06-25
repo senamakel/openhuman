@@ -279,9 +279,7 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
                   {t('common.save')}
                 </button>
               </div>
-              <p className="text-xs text-content-muted">
-                {t('workspace.obsidianConfigDirHint')}
-              </p>
+              <p className="text-xs text-content-muted">{t('workspace.obsidianConfigDirHint')}</p>
             </div>
           )}
         </div>

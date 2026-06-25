@@ -81,9 +81,7 @@ const MemoryTimelinePanel = ({ report, loading, error, onRetry }: MemoryTimeline
           <h3 className="text-sm font-semibold text-content-secondary">
             {t('memoryTimeline.empty')}
           </h3>
-          <p className="mt-1 text-xs text-content-muted">
-            {t('memoryTimeline.emptyHint')}
-          </p>
+          <p className="mt-1 text-xs text-content-muted">{t('memoryTimeline.emptyHint')}</p>
         </div>
       </div>
     );
@@ -104,15 +102,11 @@ const MemoryTimelinePanel = ({ report, loading, error, onRetry }: MemoryTimeline
           { label: t('memoryTimeline.metricMonths'), value: report.buckets.length },
           { label: t('memoryTimeline.metricRecent'), value: report.recentCount },
         ].map(tile => (
-          <div
-            key={tile.label}
-            className="rounded-lg border border-line p-3">
+          <div key={tile.label} className="rounded-lg border border-line p-3">
             <div className="text-[10px] uppercase tracking-wider text-content-faint">
               {tile.label}
             </div>
-            <div className="text-lg font-semibold tabular-nums text-content">
-              {tile.value}
-            </div>
+            <div className="text-lg font-semibold tabular-nums text-content">{tile.value}</div>
           </div>
         ))}
       </div>
@@ -136,18 +130,14 @@ const MemoryTimelinePanel = ({ report, loading, error, onRetry }: MemoryTimeline
           <ul className="space-y-1">
             {shown.map(bucket => (
               <li key={bucket.period} className="flex items-center gap-2 text-[11px] tabular-nums">
-                <span className="w-16 shrink-0 text-content-faint">
-                  {bucket.period}
-                </span>
+                <span className="w-16 shrink-0 text-content-faint">{bucket.period}</span>
                 <div className="flex-1 h-3 rounded bg-surface-subtle overflow-hidden">
                   <div
                     className="h-full bg-primary-400/70"
                     style={{ width: `${(bucket.count / maxCount) * 100}%` }}
                   />
                 </div>
-                <span className="w-8 shrink-0 text-right text-content-muted">
-                  {bucket.count}
-                </span>
+                <span className="w-8 shrink-0 text-right text-content-muted">{bucket.count}</span>
               </li>
             ))}
           </ul>

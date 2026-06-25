@@ -34,9 +34,7 @@ const MemorySyncPanel = () => {
 
   return (
     <SettingsPanel description={t('settings.dataSync.menuDesc')}>
-      <p className="text-sm text-content-muted">
-        {t('settings.dataSync.description')}
-      </p>
+      <p className="text-sm text-content-muted">{t('settings.dataSync.description')}</p>
       <MemorySourcesRegistry onToast={addToast} />
       <div className="rounded-lg border border-line bg-surface p-4">
         <h3 className="mb-2 text-sm font-semibold text-content">

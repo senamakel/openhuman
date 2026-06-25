@@ -118,9 +118,7 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
               { label: t('notifications.routing.unscored'), value: stats.unscored },
             ].map(({ label, value }) => (
               <div key={label} className="px-4 py-3 text-center">
-                <p className="text-lg font-semibold text-content">
-                  {value}
-                </p>
+                <p className="text-lg font-semibold text-content">{value}</p>
                 <p className="text-xs text-content-muted">{label}</p>
               </div>
             ))}
@@ -202,9 +200,7 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
           return (
             <div key={provider} className="px-4 py-3 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-content capitalize">
-                  {provider}
-                </p>
+                <p className="text-sm font-medium text-content capitalize">{provider}</p>
                 <div className="flex items-center gap-2">
                   <label
                     htmlFor={`notification-enabled-${provider}`}

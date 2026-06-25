@@ -30,9 +30,7 @@ const ModelCostTable = ({ models, currency }: ModelCostTableProps) => {
   const { t } = useT();
   if (models.length === 0) {
     return (
-      <div
-        data-testid="model-cost-table-empty"
-        className="text-xs text-content-muted italic py-2">
+      <div data-testid="model-cost-table-empty" className="text-xs text-content-muted italic py-2">
         {t('settings.costDashboard.noModels')}
       </div>
     );
@@ -81,9 +79,7 @@ const ModelCostTable = ({ models, currency }: ModelCostTableProps) => {
                   </span>
                 </Td>
                 <Td align="right">
-                  <span className="tabular-nums text-content-secondary">
-                    {row.request_count}
-                  </span>
+                  <span className="tabular-nums text-content-secondary">{row.request_count}</span>
                 </Td>
                 <Td align="right">
                   <span className="tabular-nums font-medium text-content">

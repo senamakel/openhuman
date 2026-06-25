@@ -163,7 +163,9 @@ const UsageBreakdown = ({
       </div>
       <div className="grid grid-cols-2 gap-2 text-[11px]">
         <div>
-          <div className="text-content-muted">{t('settings.billing.inferenceBudget.inference')}</div>
+          <div className="text-content-muted">
+            {t('settings.billing.inferenceBudget.inference')}
+          </div>
           <div className="text-content font-medium">{fmtUsd(inferenceUsd)}</div>
           <div className="text-content-faint">
             {t('settings.billing.inferenceBudget.calls').replace(
@@ -173,7 +175,9 @@ const UsageBreakdown = ({
           </div>
         </div>
         <div>
-          <div className="text-content-muted">{t('settings.billing.inferenceBudget.integrations')}</div>
+          <div className="text-content-muted">
+            {t('settings.billing.inferenceBudget.integrations')}
+          </div>
           <div className="text-content font-medium">{fmtUsd(integrationsUsd)}</div>
           <div className="text-content-faint">
             {t('settings.billing.inferenceBudget.calls').replace(

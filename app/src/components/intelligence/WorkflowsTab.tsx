@@ -144,12 +144,8 @@ export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabPr
       {/* Empty state */}
       {isEmpty ? (
         <div className="rounded-2xl border border-line bg-surface p-10 text-center shadow-soft animate-fade-up">
-          <h2 className="text-sm font-semibold text-content">
-            {t('workflows.empty.title')}
-          </h2>
-          <p className="mt-1 text-xs text-content-muted">
-            {t('workflows.empty.body')}
-          </p>
+          <h2 className="text-sm font-semibold text-content">{t('workflows.empty.title')}</h2>
+          <p className="mt-1 text-xs text-content-muted">{t('workflows.empty.body')}</p>
           <Button
             variant="primary"
             size="md"
@@ -287,9 +283,7 @@ export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabPr
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 text-xs text-content-muted">
-          {t('workflows.subtitle')}
-        </p>
+        <p className="min-w-0 text-xs text-content-muted">{t('workflows.subtitle')}</p>
         <div className="flex flex-shrink-0 items-center gap-2">{newWorkflowButton}</div>
       </div>
       {body}

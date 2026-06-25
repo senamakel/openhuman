@@ -63,12 +63,8 @@ export function ChannelAuthModeCard({
     <div className="rounded-lg border border-line bg-surface-muted p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          {title ? (
-            <p className="text-sm font-medium text-content">{title}</p>
-          ) : null}
-          <p className={`text-xs text-content-muted ${title ? 'mt-1' : ''}`}>
-            {description}
-          </p>
+          {title ? <p className="text-sm font-medium text-content">{title}</p> : null}
+          <p className={`text-xs text-content-muted ${title ? 'mt-1' : ''}`}>{description}</p>
           {lastError ? <p className="text-xs text-coral-600 mt-1">{lastError}</p> : null}
         </div>
         <ChannelStatusBadge status={status} />

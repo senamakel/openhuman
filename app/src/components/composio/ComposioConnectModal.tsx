@@ -583,9 +583,7 @@ export default function ComposioConnectModal({
             <div className="flex-1 min-w-0 pr-2">
               <div className="flex items-center gap-2">
                 {toolkit.icon}
-                <h2
-                  id="composio-setup-title"
-                  className="text-base font-semibold text-content">
+                <h2 id="composio-setup-title" className="text-base font-semibold text-content">
                   {headerTitle}
                 </h2>
               </div>
@@ -697,9 +695,7 @@ export default function ComposioConnectModal({
           )}
 
           {phase === 'authorizing' && (
-            <p className="text-sm text-content-muted">
-              {t('composio.connect.requestingUrl')}
-            </p>
+            <p className="text-sm text-content-muted">{t('composio.connect.requestingUrl')}</p>
           )}
 
           {phase === 'waiting' && (
@@ -717,9 +713,7 @@ export default function ComposioConnectModal({
                   {t('composio.connect.reopenBrowser')}
                 </Button>
               )}
-              <p className="text-xs text-content-faint">
-                {t('composio.connect.waitingHint')}
-              </p>
+              <p className="text-xs text-content-faint">{t('composio.connect.waitingHint')}</p>
             </>
           )}
 
@@ -860,9 +854,7 @@ export default function ComposioConnectModal({
           )}
 
           {phase === 'disconnecting' && (
-            <p className="text-sm text-content-muted">
-              {t('composio.connect.disconnecting')}
-            </p>
+            <p className="text-sm text-content-muted">{t('composio.connect.disconnecting')}</p>
           )}
 
           {phase === 'error' && (
@@ -934,9 +926,7 @@ function ScopeToggles({ scopes, savingScope, onToggle, error }: ScopeTogglesProp
         <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wide">
           {t('composio.connect.permissions')}
         </h3>
-        <p className="text-[10px] text-content-faint">
-          {t('composio.connect.permissionsDefault')}
-        </p>
+        <p className="text-[10px] text-content-faint">{t('composio.connect.permissionsDefault')}</p>
       </div>
       <ul className="space-y-1.5">
         {SCOPE_ROWS.map(row => {
@@ -949,12 +939,8 @@ function ScopeToggles({ scopes, savingScope, onToggle, error }: ScopeTogglesProp
               key={row.key}
               className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-surface-hover">
               <div className="min-w-0 flex-1">
-                <span className="text-sm font-medium text-content">
-                  {rowLabel}
-                </span>
-                <p className="text-[11px] text-content-faint leading-snug">
-                  {rowHint}
-                </p>
+                <span className="text-sm font-medium text-content">{rowLabel}</span>
+                <p className="text-[11px] text-content-faint leading-snug">{rowHint}</p>
               </div>
               <button
                 type="button"
@@ -1019,9 +1005,7 @@ function RequiredFieldsForm({
         const errorText = errorKey ? t(errorKey) : null;
         return (
           <div key={field.key} className="space-y-1.5">
-            <label
-              htmlFor={inputId}
-              className="block text-xs font-medium text-content-secondary">
+            <label htmlFor={inputId} className="block text-xs font-medium text-content-secondary">
               {t(field.labelKey)}
               <span className="ml-1 text-coral-500">*</span>
             </label>
@@ -1052,9 +1036,7 @@ function RequiredFieldsForm({
               </p>
             ) : (
               field.hintKey && (
-                <p
-                  id={hintId}
-                  className="text-[11px] leading-relaxed text-content-faint">
+                <p id={hintId} className="text-[11px] leading-relaxed text-content-faint">
                   {t(field.hintKey)}
                 </p>
               )

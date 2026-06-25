@@ -740,9 +740,7 @@ const AutocompleteDebugPanel = () => {
                   </div>
                   <div className="flex items-baseline gap-1 text-content truncate">
                     <span className="shrink-0 text-content-muted">…</span>
-                    <span className="truncate text-content-muted">
-                      {entry.context.slice(-40)}
-                    </span>
+                    <span className="truncate text-content-muted">{entry.context.slice(-40)}</span>
                     <span className="shrink-0 text-content-muted">→</span>
                     <span className="font-medium text-primary-500 truncate">
                       {entry.suggestion}

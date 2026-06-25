@@ -87,9 +87,7 @@ const NamespaceOverviewPanel = ({
           <h3 className="text-sm font-semibold text-content-secondary">
             {t('namespaceOverview.empty')}
           </h3>
-          <p className="mt-1 text-xs text-content-muted">
-            {t('namespaceOverview.emptyHint')}
-          </p>
+          <p className="mt-1 text-xs text-content-muted">{t('namespaceOverview.emptyHint')}</p>
         </div>
       </div>
     );
@@ -110,15 +108,11 @@ const NamespaceOverviewPanel = ({
           { label: t('namespaceOverview.metricFacts'), value: report.totalFacts },
           { label: t('namespaceOverview.metricEntities'), value: report.totalEntities },
         ].map(tile => (
-          <div
-            key={tile.label}
-            className="rounded-lg border border-line p-3">
+          <div key={tile.label} className="rounded-lg border border-line p-3">
             <div className="text-[10px] uppercase tracking-wider text-content-faint">
               {tile.label}
             </div>
-            <div className="text-lg font-semibold tabular-nums text-content">
-              {tile.value}
-            </div>
+            <div className="text-lg font-semibold tabular-nums text-content">{tile.value}</div>
           </div>
         ))}
       </div>
@@ -137,9 +131,7 @@ const NamespaceOverviewPanel = ({
               className="flex items-center gap-2 text-[11px] tabular-nums">
               <span
                 className={`w-28 shrink-0 truncate ${
-                  stat.namespace === null
-                    ? 'italic text-content-faint'
-                    : 'text-content-secondary'
+                  stat.namespace === null ? 'italic text-content-faint' : 'text-content-secondary'
                 }`}
                 title={stat.namespace ?? t('namespaceOverview.unnamespaced')}>
                 {stat.namespace ?? t('namespaceOverview.unnamespaced')}

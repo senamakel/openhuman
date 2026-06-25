@@ -35,8 +35,7 @@ const CHAIN_BADGE_CLASS: Record<string, string> = {
 };
 
 const badgeClassFor = (chain: WalletChain): string =>
-  CHAIN_BADGE_CLASS[chain] ??
-  'bg-surface-subtle text-content-secondary';
+  CHAIN_BADGE_CLASS[chain] ?? 'bg-surface-subtle text-content-secondary';
 
 // The rows rendered as placeholders before the wallet is set up, mirroring the
 // configured layout (one EVM row per displayed network + BTC/Solana/Tron) so
@@ -171,9 +170,7 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
             className="text-sm font-medium text-content font-mono">
             {balance.formatted}
           </span>
-          <span className="ml-1 text-xs text-content-muted">
-            {balance.assetSymbol}
-          </span>
+          <span className="ml-1 text-xs text-content-muted">{balance.assetSymbol}</span>
         </div>
       </div>
 
@@ -237,9 +234,7 @@ const ChainPlaceholderRow = ({
       <div className="flex-1" />
       <div className="text-right shrink-0">
         {/* Em dash placeholder — punctuation, not translatable copy. */}
-        <span className="text-sm font-medium text-content-faint font-mono">
-          —
-        </span>
+        <span className="text-sm font-medium text-content-faint font-mono">—</span>
         <span className="ml-1 text-xs text-content-faint">{symbol}</span>
       </div>
     </div>

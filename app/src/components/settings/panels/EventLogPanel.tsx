@@ -242,10 +242,7 @@ const EventLogPanel = () => {
         </Button>
         <span className="text-xs text-content-muted">
           {filteredEntries.length} {t('settings.developerMenu.eventLog.events')} &middot;{' '}
-          <span
-            className={
-              isLive ? 'text-sage-600 dark:text-sage-300' : 'text-content-muted'
-            }>
+          <span className={isLive ? 'text-sage-600 dark:text-sage-300' : 'text-content-muted'}>
             {isLive
               ? t('settings.developerMenu.eventLog.live')
               : t('settings.developerMenu.eventLog.disconnected')}
@@ -306,9 +303,7 @@ const EventLogPanel = () => {
                     {entry.agent}
                   </span>
                 )}
-                <span className="text-xs text-content truncate">
-                  {entry.event}
-                </span>
+                <span className="text-xs text-content truncate">{entry.event}</span>
               </div>
             );
           })}

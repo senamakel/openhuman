@@ -87,9 +87,7 @@ const GraphCohesionPanel = ({ result, loading, error, onRetry }: GraphCohesionPa
           <h3 className="text-sm font-semibold text-content-secondary">
             {t('graphCohesion.empty')}
           </h3>
-          <p className="mt-1 text-xs text-content-muted">
-            {t('graphCohesion.emptyHint')}
-          </p>
+          <p className="mt-1 text-xs text-content-muted">{t('graphCohesion.emptyHint')}</p>
         </div>
       </div>
     );
@@ -106,15 +104,11 @@ const GraphCohesionPanel = ({ result, loading, error, onRetry }: GraphCohesionPa
           { label: t('graphCohesion.metricConnections'), value: result.edgeCount },
           { label: t('graphCohesion.metricTriangles'), value: result.triangleCount },
         ].map(tile => (
-          <div
-            key={tile.label}
-            className="rounded-lg border border-line p-3">
+          <div key={tile.label} className="rounded-lg border border-line p-3">
             <div className="text-[10px] uppercase tracking-wider text-content-faint">
               {tile.label}
             </div>
-            <div className="text-lg font-semibold tabular-nums text-content">
-              {tile.value}
-            </div>
+            <div className="text-lg font-semibold tabular-nums text-content">{tile.value}</div>
           </div>
         ))}
       </div>
@@ -180,9 +174,7 @@ const GraphCohesionPanel = ({ result, loading, error, onRetry }: GraphCohesionPa
                       </span>
                     </div>
                   </td>
-                  <td className="py-1 text-right text-content-muted">
-                    {node.degree}
-                  </td>
+                  <td className="py-1 text-right text-content-muted">{node.degree}</td>
                 </tr>
               ))}
             </tbody>

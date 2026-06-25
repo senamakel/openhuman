@@ -80,9 +80,7 @@ const ConnectionPathPanel = ({
           <h3 className="text-sm font-semibold text-content-secondary">
             {t('connectionPath.empty')}
           </h3>
-          <p className="mt-1 text-xs text-content-muted">
-            {t('connectionPath.emptyHint')}
-          </p>
+          <p className="mt-1 text-xs text-content-muted">{t('connectionPath.emptyHint')}</p>
         </div>
       </div>
     );
@@ -92,9 +90,7 @@ const ConnectionPathPanel = ({
     return (
       <div className="space-y-4">
         {intro}
-        <p className="py-6 text-center text-xs text-content-muted">
-          {t('connectionPath.prompt')}
-        </p>
+        <p className="py-6 text-center text-xs text-content-muted">{t('connectionPath.prompt')}</p>
       </div>
     );
   }

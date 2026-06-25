@@ -4750,17 +4750,20 @@ const messages: TranslationMap = {
   'settings.theme.backdropDots': 'Pokaż kropki tła',
   'settings.theme.backdropHint':
     'Siatka pokazuje animowany gradient; Jednolity używa płaskiego tła; Obraz wyświetla Twój własny.',
-  'settings.theme.autoForkHint': 'Edycja gotowego motywu automatycznie zapisuje zmiany jako nowy motyw niestandardowy.',
+  'settings.theme.autoForkHint':
+    'Edycja gotowego motywu automatycznie zapisuje zmiany jako nowy motyw niestandardowy.',
   'settings.theme.title': 'Studio motywów',
   'settings.theme.menuDesc': 'W pełni dostosuj kolory i czcionki lub wybierz gotowy motyw.',
   'settings.theme.presetsHeading': 'Motywy',
   'settings.theme.builtInBadge': 'Gotowy',
   'settings.theme.customBadge': 'Własny',
-  'settings.theme.customizeHint': 'Wbudowane motywy są tylko do odczytu. Zduplikuj ten motyw, aby edytować jego kolory i czcionki.',
+  'settings.theme.customizeHint':
+    'Wbudowane motywy są tylko do odczytu. Zduplikuj ten motyw, aby edytować jego kolory i czcionki.',
   'settings.theme.duplicate': 'Zduplikuj i dostosuj',
   'settings.theme.copyName': '{name} (własny)',
   'settings.theme.importedName': 'Zaimportowany motyw',
-  'settings.theme.contrastWarn': 'Niski kontrast między tekstem a tłem — ten motyw może być trudny do odczytania.',
+  'settings.theme.contrastWarn':
+    'Niski kontrast między tekstem a tłem — ten motyw może być trudny do odczytania.',
   'settings.theme.group.surfaces': 'Powierzchnie',
   'settings.theme.group.text': 'Tekst',
   'settings.theme.group.borders': 'Obramowania',

@@ -74,12 +74,8 @@ const ReferralApplyStep = ({ onNext, onApplied }: ReferralApplyStepProps) => {
   return (
     <div className="rounded-2xl border border-line bg-surface p-8 shadow-soft animate-fade-up">
       <div className="text-center mb-6">
-        <h1 className="text-xl font-bold mb-2 text-content">
-          {t('onboarding.referral')}
-        </h1>
-        <p className="text-content-secondary text-sm">
-          {t('onboarding.referralDesc')}
-        </p>
+        <h1 className="text-xl font-bold mb-2 text-content">{t('onboarding.referral')}</h1>
+        <p className="text-content-secondary text-sm">{t('onboarding.referralDesc')}</p>
       </div>
 
       {success ? (

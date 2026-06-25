@@ -35,7 +35,9 @@ export default function WebhookActivity({ activity }: WebhookActivityProps) {
     return (
       <div className="space-y-3">
         <h3 className="text-lg font-semibold text-content">{t('webhooks.activity.title')}</h3>
-        <p className="text-sm text-content-muted text-center py-6">{t('webhooks.activity.empty')}</p>
+        <p className="text-sm text-content-muted text-center py-6">
+          {t('webhooks.activity.empty')}
+        </p>
       </div>
     );
   }

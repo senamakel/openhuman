@@ -4593,7 +4593,8 @@ const messages: TranslationMap = {
   'settings.theme.presetsHeading': 'السمات',
   'settings.theme.builtInBadge': 'جاهزة',
   'settings.theme.customBadge': 'مخصّصة',
-  'settings.theme.customizeHint': 'السمات الجاهزة للقراءة فقط. انسخ هذه السمة لتعديل ألوانها وخطوطها.',
+  'settings.theme.customizeHint':
+    'السمات الجاهزة للقراءة فقط. انسخ هذه السمة لتعديل ألوانها وخطوطها.',
   'settings.theme.duplicate': 'نسخ وتخصيص',
   'settings.theme.copyName': '{name} (مخصّصة)',
   'settings.theme.importedName': 'سمة مستوردة',

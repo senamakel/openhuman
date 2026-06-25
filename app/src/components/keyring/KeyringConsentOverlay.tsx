@@ -101,7 +101,9 @@ const KeyringConsentOverlay = () => {
 
         {showDetails && (
           <div className="mt-2 rounded-lg bg-stone-800/60 p-3 text-xs text-content-faint leading-relaxed">
-            <p className="font-medium text-content-faint mb-1">{t('keyring.consent.tradeoffTitle')}</p>
+            <p className="font-medium text-content-faint mb-1">
+              {t('keyring.consent.tradeoffTitle')}
+            </p>
             <p>{t('keyring.consent.tradeoffBody')}</p>
           </div>
         )}

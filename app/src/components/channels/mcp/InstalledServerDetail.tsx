@@ -230,19 +230,13 @@ const InstalledServerDetail = ({
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base font-semibold text-content">
-              {server.display_name}
-            </h3>
+            <h3 className="text-base font-semibold text-content">{server.display_name}</h3>
             <McpStatusBadge status={status} />
           </div>
           {server.description && (
-            <p className="text-xs text-content-muted mt-0.5">
-              {server.description}
-            </p>
+            <p className="text-xs text-content-muted mt-0.5">{server.description}</p>
           )}
-          <p className="text-[11px] text-content-faint mt-1 font-mono">
-            {server.qualified_name}
-          </p>
+          <p className="text-[11px] text-content-faint mt-1 font-mono">{server.qualified_name}</p>
         </div>
       </div>
 
@@ -352,9 +346,7 @@ const InstalledServerDetail = ({
       {visibleEnvKeys.length > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-content-secondary">
-              {t('mcp.detail.envVars')}
-            </p>
+            <p className="text-xs font-medium text-content-secondary">{t('mcp.detail.envVars')}</p>
             <button
               type="button"
               disabled={busy}
@@ -376,9 +368,7 @@ const InstalledServerDetail = ({
           )}
           {reconfigOpen && (
             <div className="space-y-2 rounded-lg border border-line p-3">
-              <p className="text-[11px] text-content-muted">
-                {t('mcp.detail.reconfigureHint')}
-              </p>
+              <p className="text-[11px] text-content-muted">{t('mcp.detail.reconfigureHint')}</p>
               {visibleEnvKeys.map(key => (
                 <div key={key} className="space-y-1">
                   <label
@@ -421,9 +411,7 @@ const InstalledServerDetail = ({
           When connected, each tool gets a "Try" button via `onTryTool`
           that opens the Tool Execution Playground modal below. */}
       <div className="space-y-1">
-        <p className="text-xs font-medium text-content-secondary">
-          {t('mcp.detail.tools')}
-        </p>
+        <p className="text-xs font-medium text-content-secondary">{t('mcp.detail.tools')}</p>
         <McpToolList
           tools={status === 'connected' ? tools : []}
           onTryTool={status === 'connected' ? setPlaygroundTool : undefined}

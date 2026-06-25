@@ -162,9 +162,7 @@ function AgentRow({
     <li className={`bg-surface px-4 py-3 ${agent.enabled ? '' : 'opacity-70'}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-semibold text-content">
-            {agent.name}
-          </h3>
+          <h3 className="truncate text-sm font-semibold text-content">{agent.name}</h3>
           <SettingsBadge variant={isCustom ? 'primary' : 'neutral'}>
             {isCustom ? t('settings.agents.sourceCustom') : t('settings.agents.sourceDefault')}
           </SettingsBadge>

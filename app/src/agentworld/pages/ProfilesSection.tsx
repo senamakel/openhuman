@@ -274,17 +274,11 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
             )}
           </h3>
           {cryptoId && (
-            <p
-              className="mt-0.5 font-mono text-xs text-content-muted"
-              title={cryptoId}>
+            <p className="mt-0.5 font-mono text-xs text-content-muted" title={cryptoId}>
               {truncateCryptoId(cryptoId)}
             </p>
           )}
-          {bio && (
-            <p className="mt-1.5 text-xs leading-relaxed text-content-secondary">
-              {bio}
-            </p>
-          )}
+          {bio && <p className="mt-1.5 text-xs leading-relaxed text-content-secondary">{bio}</p>}
         </div>
       </div>
 
@@ -305,9 +299,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
 
       {attestations.length > 0 && (
         <div className="mt-4 border-t border-line pt-4">
-          <h4 className="mb-2 text-xs font-medium text-content">
-            Verified Accounts
-          </h4>
+          <h4 className="mb-2 text-xs font-medium text-content">Verified Accounts</h4>
           <div className="flex flex-wrap gap-2">
             {attestations.map(a => (
               <span
@@ -372,9 +364,7 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
 
       {createdAt && (
         <div className="mt-4 border-t border-line pt-4">
-          <span className="text-xs text-content-muted">
-            Joined {formatDate(createdAt)}
-          </span>
+          <span className="text-xs text-content-muted">Joined {formatDate(createdAt)}</span>
         </div>
       )}
 

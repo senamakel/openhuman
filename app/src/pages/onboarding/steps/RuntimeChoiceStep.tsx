@@ -77,9 +77,7 @@ const ChoiceCard = ({
       <p className="mt-1 text-xs text-content-muted">{tagline}</p>
       <ul className="mt-3 flex flex-1 flex-col gap-1.5">
         {features.map(f => (
-          <li
-            key={f}
-            className="flex items-start gap-2 text-xs text-content-secondary">
+          <li key={f} className="flex items-start gap-2 text-xs text-content-secondary">
             <span
               aria-hidden
               className={`mt-1 inline-block h-1.5 w-1.5 flex-none rounded-full ${accentClasses.dot}`}

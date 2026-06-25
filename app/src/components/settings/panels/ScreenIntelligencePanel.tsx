@@ -132,9 +132,7 @@ const ScreenIntelligencePanel = () => {
         <SettingsSection title={t('settings.features.screenAwareness')}>
           {/* Enabled toggle */}
           <label className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm text-content-secondary">
-              {t('common.enabled')}
-            </span>
+            <span className="text-sm text-content-secondary">{t('common.enabled')}</span>
             <input
               type="checkbox"
               checked={enabled}

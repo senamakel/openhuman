@@ -102,10 +102,7 @@ const ScreenIntelligenceDebugPanelContent = ({
         <div className="space-y-1 text-xs text-content-faint dark:text-neutral-600">
           <div className="flex justify-between">
             <span>{t('intelligence.screenDebug.active')}</span>
-            <span
-              className={
-                session?.active ? 'text-green-400' : 'text-content-muted'
-              }>
+            <span className={session?.active ? 'text-green-400' : 'text-content-muted'}>
               {session?.active ? t('common.yes') : t('common.no')}
             </span>
           </div>

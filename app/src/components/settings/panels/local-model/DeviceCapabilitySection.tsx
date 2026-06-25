@@ -279,9 +279,7 @@ const DeviceCapabilitySection = ({
                 }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-content">
-                      {preset.label}
-                    </span>
+                    <span className="text-sm font-semibold text-content">{preset.label}</span>
                     {isCurrent && (
                       <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-300 uppercase tracking-wide">
                         {t('settings.localModel.deviceCapability.active')}
@@ -302,9 +300,7 @@ const DeviceCapabilitySection = ({
                     ~{Number(preset.approx_download_gb).toFixed(1)} GB
                   </span>
                 </div>
-                <div className="text-xs text-content-faint mt-1">
-                  {preset.description}
-                </div>
+                <div className="text-xs text-content-faint mt-1">{preset.description}</div>
                 <div className="text-[10px] text-content-muted mt-1">
                   {t('settings.localModel.deviceCapability.presetDetails')
                     .replace('{chatModel}', preset.chat_model_id)

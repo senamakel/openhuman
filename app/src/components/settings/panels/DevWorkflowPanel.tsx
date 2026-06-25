@@ -559,17 +559,13 @@ const DevWorkflowPanel = () => {
                   ? t(SCHEDULE_PRESETS.find(p => p.value === existingJob.expression)!.labelKey)
                   : existingJob.expression}
               </dd>
-              <dt className="text-content-muted">
-                {t('settings.devWorkflow.nextRun')}
-              </dt>
+              <dt className="text-content-muted">{t('settings.devWorkflow.nextRun')}</dt>
               <dd className="text-content">
                 {existingJob.next_run ? new Date(existingJob.next_run).toLocaleString() : '—'}
               </dd>
               {existingJob.last_run && (
                 <>
-                  <dt className="text-content-muted">
-                    {t('settings.devWorkflow.lastRun')}
-                  </dt>
+                  <dt className="text-content-muted">{t('settings.devWorkflow.lastRun')}</dt>
                   <dd className="text-content">
                     {new Date(existingJob.last_run).toLocaleString()}
                     {existingJob.last_status && (

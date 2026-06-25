@@ -25,9 +25,7 @@ const ChannelFieldInput = ({ field, value, onChange, disabled }: ChannelFieldInp
             {field.required && <span className="text-coral-500 ml-0.5">*</span>}
           </span>
           {field.placeholder && (
-            <span className="block text-[11px] text-content-muted">
-              {field.placeholder}
-            </span>
+            <span className="block text-[11px] text-content-muted">{field.placeholder}</span>
           )}
         </span>
       </label>

@@ -41,9 +41,7 @@ export default function Webhooks({ embedded = false }: WebhooksProps) {
         <div className="h-full flex items-center justify-center p-4 pt-6">
           <div className="flex flex-col items-center gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-line-strong border-t-primary-500" />
-            <span className="text-sm text-content-muted">
-              {t('common.loading')}
-            </span>
+            <span className="text-sm text-content-muted">{t('common.loading')}</span>
           </div>
         </div>
       </div>
@@ -55,9 +53,7 @@ export default function Webhooks({ embedded = false }: WebhooksProps) {
       {/* Bespoke connection status badge — keep intentional visual */}
       <span
         className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${
-          coreConnected
-            ? 'bg-sage-100 text-sage-700'
-            : 'bg-surface-subtle text-content-muted'
+          coreConnected ? 'bg-sage-100 text-sage-700' : 'bg-surface-subtle text-content-muted'
         }`}>
         <span
           className={`w-1.5 h-1.5 rounded-full ${

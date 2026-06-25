@@ -31,16 +31,14 @@ const log = debug('intelligence:workflow-detail');
 
 /** Accent classes per run status (semantic palette from tailwind.config.js). */
 const RUN_STATUS_ACCENT: Record<WorkflowRunStatus, string> = {
-  pending:
-    'border-line bg-surface-muted text-content-secondary',
+  pending: 'border-line bg-surface-muted text-content-secondary',
   running:
     'border-ocean-200 bg-ocean-50 text-ocean-700 dark:border-ocean-500/30 dark:bg-ocean-500/10 dark:text-ocean-300',
   completed:
     'border-sage-200 bg-sage-50 text-sage-700 dark:border-sage-500/30 dark:bg-sage-500/10 dark:text-sage-300',
   failed:
     'border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300',
-  cancelled:
-    'border-line bg-surface-muted text-content-secondary',
+  cancelled: 'border-line bg-surface-muted text-content-secondary',
   interrupted:
     'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
 };
@@ -116,9 +114,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
             )}
             {t(RUN_STATUS_KEY[run.status])}
           </span>
-          <span className="font-mono text-[11px] text-content-faint">
-            {run.id}
-          </span>
+          <span className="font-mono text-[11px] text-content-faint">{run.id}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -195,9 +191,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
               </button>
 
               {phaseDef?.description && (
-                <p className="px-3 pb-1 text-xs text-content-muted">
-                  {phaseDef.description}
-                </p>
+                <p className="px-3 pb-1 text-xs text-content-muted">{phaseDef.description}</p>
               )}
 
               {state.status === 'failed' && state.reason && (
@@ -237,9 +231,7 @@ export const WorkflowRunDetail: React.FC<Props> = ({
 
       {/* Child agent refs summary (full run-level list) */}
       {run.childRunIds.length > 0 && (
-        <div
-          className="text-[11px] text-content-faint"
-          data-testid="workflow-child-refs">
+        <div className="text-[11px] text-content-faint" data-testid="workflow-child-refs">
           {t('orchestration.detail.childRefs')}: {run.childRunIds.length}
         </div>
       )}

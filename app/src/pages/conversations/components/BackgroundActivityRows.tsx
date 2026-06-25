@@ -11,9 +11,7 @@ export function SectionHeader({ title, hint }: { title: string; hint?: string })
       <span className="text-[11px] font-semibold uppercase tracking-wide text-content-faint">
         {title}
       </span>
-      {hint ? (
-        <span className="text-[11px] text-content-faint">{hint}</span>
-      ) : null}
+      {hint ? <span className="text-[11px] text-content-faint">{hint}</span> : null}
     </div>
   );
 }
@@ -80,9 +78,7 @@ export function CronJobRow({ job }: { job: CoreCronJob }) {
       <Dot className={lastDot} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium text-content">
-            {name}
-          </span>
+          <span className="truncate text-sm font-medium text-content">{name}</span>
           {job.enabled ? (
             <span className="shrink-0 text-[11px] text-content-faint">
               {job.next_run
@@ -101,9 +97,7 @@ export function CronJobRow({ job }: { job: CoreCronJob }) {
         <span className="mt-0.5 block truncate text-[12px] text-content-muted">
           {scheduleLabel(job.schedule, t)}
         </span>
-        <span className="mt-0.5 block text-[11px] text-content-faint">
-          {lastLabel}
-        </span>
+        <span className="mt-0.5 block text-[11px] text-content-faint">{lastLabel}</span>
       </div>
     </div>
   );
@@ -160,9 +154,7 @@ export function SubconsciousRow({ summary }: { summary: SubconsciousSummary }) {
           </span>
           <span className={`shrink-0 text-[11px] font-medium ${pillClass}`}>{pill}</span>
         </div>
-        <span className="mt-0.5 block text-[11px] text-content-faint">
-          {meta.join(' · ')}
-        </span>
+        <span className="mt-0.5 block text-[11px] text-content-faint">{meta.join(' · ')}</span>
       </div>
     </div>
   );
@@ -264,9 +256,7 @@ export function MemorySection({ memory }: { memory: MemorySyncSummary }) {
                 <span className={`shrink-0 text-[11px] font-medium ${f.pillClass}`}>{f.label}</span>
               </div>
               {backlog ? (
-                <span className="mt-0.5 block text-[11px] text-content-faint">
-                  {backlog}
-                </span>
+                <span className="mt-0.5 block text-[11px] text-content-faint">{backlog}</span>
               ) : null}
             </div>
           </div>

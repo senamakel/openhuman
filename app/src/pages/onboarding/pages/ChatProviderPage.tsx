@@ -34,9 +34,7 @@ const ChatProviderPage = () => {
       data-testid="onboarding-chat-provider-step"
       className="rounded-2xl border border-line bg-surface p-8 shadow-soft animate-fade-up">
       <div className="text-center mb-5">
-        <h1 className="text-xl font-bold mb-2 text-content">
-          {t('onboarding.chatProvider')}
-        </h1>
+        <h1 className="text-xl font-bold mb-2 text-content">{t('onboarding.chatProvider')}</h1>
         <p className="text-content-muted text-sm leading-relaxed max-w-sm mx-auto">
           {t('onboarding.chatProviderDesc')}
         </p>

@@ -177,9 +177,7 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
           title={t('settings.mcpServer.toolsSectionTitle')}
           description={t('settings.mcpServer.toolsSectionDesc')}>
           {MCP_TOOLS.map(tool => (
-            <div
-              key={tool.name}
-              className="flex items-start gap-3 px-4 py-2.5 bg-surface">
+            <div key={tool.name} className="flex items-start gap-3 px-4 py-2.5 bg-surface">
               <span className="font-mono text-xs text-primary-700 dark:text-primary-400 mt-0.5 shrink-0">
                 {tool.name}
               </span>
@@ -221,9 +219,7 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
             <span className="text-xs text-content-muted shrink-0">
               {t('settings.mcpServer.configFilePath')}:
             </span>
-            <span className="text-xs font-mono text-content-secondary truncate">
-              {configPath}
-            </span>
+            <span className="text-xs font-mono text-content-secondary truncate">{configPath}</span>
           </div>
 
           {/* JSON snippet */}

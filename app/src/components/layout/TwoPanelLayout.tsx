@@ -103,8 +103,7 @@ export interface TwoPanelLayoutProps {
 }
 
 /** Default card look shared by both panes. */
-export const DEFAULT_PANE_CLASS =
-  'bg-surface rounded-2xl shadow-soft border border-line';
+export const DEFAULT_PANE_CLASS = 'bg-surface rounded-2xl shadow-soft border border-line';
 
 const DEFAULT_MIN_WIDTH = 180;
 const DEFAULT_MAX_WIDTH = 480;

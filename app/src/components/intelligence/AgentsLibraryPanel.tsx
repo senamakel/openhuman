@@ -121,9 +121,7 @@ export default function AgentsLibraryPanel({
             <LuBot className="h-4 w-4 text-ocean-500" />
             {t('intelligence.agents.title')}
           </h3>
-          <p className="mt-1 text-xs text-content-faint">
-            {t('intelligence.agents.subtitle')}
-          </p>
+          <p className="mt-1 text-xs text-content-faint">{t('intelligence.agents.subtitle')}</p>
         </div>
         <Button
           variant="secondary"
@@ -173,9 +171,7 @@ export default function AgentsLibraryPanel({
                         {modelLabel(agent, t)}
                       </span>
                     </div>
-                    <p className="text-xs leading-5 text-content-muted">
-                      {agent.when_to_use}
-                    </p>
+                    <p className="text-xs leading-5 text-content-muted">{agent.when_to_use}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {capabilityChips(agent, t).map(chip => (
                         <span

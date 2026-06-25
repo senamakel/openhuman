@@ -418,9 +418,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-line bg-surface-muted p-4">
-        <h3 className="text-sm font-semibold text-content mb-2">
-          Check handle availability
-        </h3>
+        <h3 className="text-sm font-semibold text-content mb-2">Check handle availability</h3>
         <form className="flex gap-2" onSubmit={handleSubmit}>
           <input
             className="flex-1 rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-content-faint outline-none focus:border-primary-500"
@@ -437,9 +435,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
         </form>
 
         {availState.status === 'loading' && (
-          <p className="mt-2 text-xs text-content-muted animate-pulse">
-            Checking…
-          </p>
+          <p className="mt-2 text-xs text-content-muted animate-pulse">Checking…</p>
         )}
         {availState.status === 'payment_required' && (
           <p className="mt-2 text-xs text-amber-400">Payment required to check availability.</p>
@@ -524,9 +520,7 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
       </div>
 
       <div className="rounded-lg border border-line bg-surface-muted p-4">
-        <h4 className="text-xs font-semibold text-content mb-2">
-          Pricing tiers
-        </h4>
+        <h4 className="text-xs font-semibold text-content mb-2">Pricing tiers</h4>
         <div className="space-y-1">
           {[
             { label: '3 chars', example: '@abc', fee: '$250/yr' },
@@ -588,16 +582,12 @@ function RegistryTab() {
     <div className="space-y-3">
       <div className="overflow-hidden rounded-lg border border-line">
         <div className="flex items-center justify-between border-b border-line px-3 py-2">
-          <span className="text-xs font-medium text-content">
-            Directory identities
-          </span>
+          <span className="text-xs font-medium text-content">Directory identities</span>
           <span className="text-xs text-content-faint">Live from staging</span>
         </div>
 
         {directoryState.status === 'loading' && (
-          <p className="px-3 py-4 text-xs text-content-muted animate-pulse">
-            Loading identities…
-          </p>
+          <p className="px-3 py-4 text-xs text-content-muted animate-pulse">Loading identities…</p>
         )}
         {directoryState.status === 'payment_required' && <PaymentRequiredBanner />}
         {directoryState.status === 'error' && <ErrorBanner message={directoryState.message} />}
@@ -610,21 +600,11 @@ function RegistryTab() {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-line">
-                <th className="px-3 py-2 font-medium text-content-faint">
-                  Handle
-                </th>
-                <th className="px-3 py-2 font-medium text-content-faint">
-                  Seller
-                </th>
-                <th className="px-3 py-2 font-medium text-content-faint">
-                  Updated
-                </th>
-                <th className="px-3 py-2 font-medium text-content-faint">
-                  Status
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-content-faint">
-                  Price
-                </th>
+                <th className="px-3 py-2 font-medium text-content-faint">Handle</th>
+                <th className="px-3 py-2 font-medium text-content-faint">Seller</th>
+                <th className="px-3 py-2 font-medium text-content-faint">Updated</th>
+                <th className="px-3 py-2 font-medium text-content-faint">Status</th>
+                <th className="px-3 py-2 text-right font-medium text-content-faint">Price</th>
               </tr>
             </thead>
             <tbody>
@@ -634,15 +614,9 @@ function RegistryTab() {
                   className={`border-b border-line last:border-b-0 ${
                     index % 2 === 1 ? 'bg-surface-muted' : ''
                   }`}>
-                  <td className="px-3 py-2 font-medium text-content">
-                    {entry.name}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-content-faint">
-                    {entry.seller ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-content-faint">
-                    {formatDate(entry.updatedAt)}
-                  </td>
+                  <td className="px-3 py-2 font-medium text-content">{entry.name}</td>
+                  <td className="px-3 py-2 font-mono text-content-faint">{entry.seller ?? '—'}</td>
+                  <td className="px-3 py-2 text-content-faint">{formatDate(entry.updatedAt)}</td>
                   <td className="px-3 py-2">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -691,9 +665,7 @@ function FloorCard({ length }: { length: number }) {
           : state.status === 'ok'
             ? 'No floor'
             : null}
-        {state.status === 'error' && (
-          <span className="text-content-faint">Unavailable</span>
-        )}
+        {state.status === 'error' && <span className="text-content-faint">Unavailable</span>}
       </div>
       <div className="mt-1 text-xs text-content-faint">
         {descriptions[length] ?? 'Handle identities'}
@@ -785,16 +757,12 @@ function TradingTab() {
           Listed for Sale
         </h3>
         {marketState.status === 'loading' && (
-          <p className="text-xs text-content-muted animate-pulse">
-            Loading listings…
-          </p>
+          <p className="text-xs text-content-muted animate-pulse">Loading listings…</p>
         )}
         {marketState.status === 'payment_required' && <PaymentRequiredBanner />}
         {marketState.status === 'error' && <ErrorBanner message={marketState.message} />}
         {marketState.status === 'ok' && listings.length === 0 && (
-          <p className="text-xs text-content-muted">
-            No identities listed for sale
-          </p>
+          <p className="text-xs text-content-muted">No identities listed for sale</p>
         )}
         {listings.length > 0 && (
           <div className="grid grid-cols-2 gap-2">
@@ -803,9 +771,7 @@ function TradingTab() {
                 key={listing.listingId}
                 className="rounded-lg border border-line bg-surface-muted p-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-content">
-                    {listing.name}
-                  </span>
+                  <span className="text-sm font-medium text-content">{listing.name}</span>
                   {listing.listingType === 'auction' && (
                     <span className="rounded-full bg-orange-600/20 px-2 py-0.5 text-xs font-medium text-orange-500">
                       Auction
@@ -816,9 +782,7 @@ function TradingTab() {
                   {formatPrice(listing.price.amount, listing.price.asset)}
                 </div>
                 {listing.seller && (
-                  <div className="mt-0.5 text-xs text-content-faint">
-                    by {listing.seller}
-                  </div>
+                  <div className="mt-0.5 text-xs text-content-faint">by {listing.seller}</div>
                 )}
                 <div className="mt-2 flex gap-1">
                   {listing.listingType !== 'auction' && (
@@ -868,9 +832,7 @@ function TradingTab() {
             className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3"
             data-testid="commit-error">
             <p className="text-xs font-medium text-red-500">Commitment failed.</p>
-            <p className="mt-1 text-xs text-content-muted">
-              {commitState.message}
-            </p>
+            <p className="mt-1 text-xs text-content-muted">{commitState.message}</p>
           </div>
         )}
 
@@ -944,9 +906,7 @@ function TradingTab() {
         </h3>
         <div className="overflow-hidden rounded-lg border border-line">
           {salesState.status === 'loading' && (
-            <p className="p-3 text-xs text-content-muted animate-pulse">
-              Loading sales…
-            </p>
+            <p className="p-3 text-xs text-content-muted animate-pulse">Loading sales…</p>
           )}
           {salesState.status === 'error' && (
             <p className="p-3 text-xs text-red-400">Failed to load sales</p>
@@ -958,18 +918,10 @@ function TradingTab() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-line">
-                  <th className="px-3 py-2 font-medium text-content-faint">
-                    Handle
-                  </th>
-                  <th className="px-3 py-2 font-medium text-content-faint">
-                    Price
-                  </th>
-                  <th className="px-3 py-2 font-medium text-content-faint">
-                    Buyer
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-content-faint">
-                    Date
-                  </th>
+                  <th className="px-3 py-2 font-medium text-content-faint">Handle</th>
+                  <th className="px-3 py-2 font-medium text-content-faint">Price</th>
+                  <th className="px-3 py-2 font-medium text-content-faint">Buyer</th>
+                  <th className="px-3 py-2 text-right font-medium text-content-faint">Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -979,9 +931,7 @@ function TradingTab() {
                     className={`border-b border-line last:border-b-0 ${
                       index % 2 === 1 ? 'bg-surface-muted' : ''
                     }`}>
-                    <td className="px-3 py-2 font-medium text-content">
-                      {sale.name}
-                    </td>
+                    <td className="px-3 py-2 font-medium text-content">{sale.name}</td>
                     <td className="px-3 py-2 text-content">
                       {formatPrice(sale.price.amount, sale.price.asset)}
                     </td>

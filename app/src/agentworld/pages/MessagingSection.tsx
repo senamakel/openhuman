@@ -231,9 +231,7 @@ function SignalKeyStatusCard() {
     <div className="mx-4 mb-3 rounded-lg border border-line bg-surface-muted p-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-content">
-            Encrypted messaging
-          </p>
+          <p className="text-sm font-medium text-content">Encrypted messaging</p>
           <p className="mt-0.5 text-xs text-content-muted">
             {!keysReady
               ? 'Set up encryption keys to enable direct messages'
@@ -304,17 +302,13 @@ function ChannelsPanel() {
               key={ch.channelId}
               className="rounded-lg border border-line bg-surface-muted p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-content truncate">
-                  {ch.name}
-                </span>
+                <span className="font-medium text-content truncate">{ch.name}</span>
                 <span className="shrink-0 text-xs text-content-faint">
                   {ch.memberCount} members
                 </span>
               </div>
               {ch.description ? (
-                <p className="mt-1 text-xs text-content-muted truncate">
-                  {ch.description}
-                </p>
+                <p className="mt-1 text-xs text-content-muted truncate">{ch.description}</p>
               ) : null}
               {ch.tags && ch.tags.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1">
@@ -439,17 +433,13 @@ function GroupsPanel() {
               key={group.groupId}
               className="rounded-lg border border-line bg-surface-muted p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-content truncate">
-                  {group.name}
-                </span>
+                <span className="font-medium text-content truncate">{group.name}</span>
                 <span className="shrink-0 rounded-full bg-green-500/10 px-1.5 py-0.5 text-[8px] text-green-500">
                   Encrypted
                 </span>
               </div>
               {group.description ? (
-                <p className="mt-1 text-xs text-content-muted truncate">
-                  {group.description}
-                </p>
+                <p className="mt-1 text-xs text-content-muted truncate">{group.description}</p>
               ) : null}
               <div className="mt-2 flex items-center gap-3 text-[10px] text-content-faint">
                 <span>{group.memberCount} members</span>
@@ -558,9 +548,7 @@ function GroupInvitesPanel({
   return (
     <div className="rounded-lg border border-line bg-surface-muted p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-content">
-          Invites for {groupName}
-        </span>
+        <span className="text-sm font-medium text-content">Invites for {groupName}</span>
         <Button variant="tertiary" size="xs" onClick={onClose}>
           Close
         </Button>
@@ -657,9 +645,7 @@ function RedeemInvitePanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="rounded-lg border border-line bg-surface-muted p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-content">
-          Redeem Invite
-        </span>
+        <span className="text-sm font-medium text-content">Redeem Invite</span>
         <Button variant="tertiary" size="xs" onClick={onClose}>
           Close
         </Button>
@@ -756,21 +742,15 @@ function BroadcastsPanel() {
               key={bc.broadcastId}
               className="rounded-lg border border-line bg-surface-muted p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-content truncate">
-                  {bc.name}
-                </span>
+                <span className="font-medium text-content truncate">{bc.name}</span>
                 <span className="shrink-0 text-xs text-content-faint">
                   {bc.subscriberCount} subs
                 </span>
               </div>
               {bc.description ? (
-                <p className="mt-1 text-xs text-content-muted truncate">
-                  {bc.description}
-                </p>
+                <p className="mt-1 text-xs text-content-muted truncate">{bc.description}</p>
               ) : null}
-              <p className="mt-1 text-[10px] text-content-faint truncate">
-                by {bc.owner}
-              </p>
+              <p className="mt-1 text-[10px] text-content-faint truncate">by {bc.owner}</p>
               <div className="mt-2 flex gap-1">
                 <RowAction
                   label="Subscribe"
@@ -973,17 +953,11 @@ function InboxPanel() {
                   className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT_COLORS[item.type] ?? 'bg-stone-400 dark:bg-neutral-500'}`}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-content">
-                    {item.subject}
-                  </p>
+                  <p className="text-xs font-medium text-content">{item.subject}</p>
                   {item.summary ? (
-                    <p className="text-[10px] text-content-muted">
-                      {item.summary}
-                    </p>
+                    <p className="text-[10px] text-content-muted">{item.summary}</p>
                   ) : null}
-                  <p className="mt-1 text-[10px] text-content-faint">
-                    {formatTs(item.timestamp)}
-                  </p>
+                  <p className="mt-1 text-[10px] text-content-faint">{formatTs(item.timestamp)}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   {item.status === 'unread' ? (
@@ -1172,9 +1146,7 @@ function ActiveDmView({
         <Button variant="tertiary" size="xs" onClick={onBack}>
           Back
         </Button>
-        <span className="text-sm font-medium text-content truncate">
-          {peerId}
-        </span>
+        <span className="text-sm font-medium text-content truncate">{peerId}</span>
         <span className="ml-auto flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
           <svg
             className="h-3 w-3"
@@ -1202,9 +1174,7 @@ function ActiveDmView({
           <div
             data-testid="dm-empty-state"
             className="flex h-full flex-col items-center justify-center gap-1 text-center">
-            <p className="text-sm font-medium text-content-muted">
-              No messages yet
-            </p>
+            <p className="text-sm font-medium text-content-muted">No messages yet</p>
             <p className="text-xs text-content-faint">
               Send the first end-to-end encrypted message below to start the conversation.
             </p>
@@ -1284,9 +1254,7 @@ function DmsPanel() {
           </svg>
         </div>
         <div>
-          <p className="text-sm font-medium text-content">
-            Secure direct messages — coming soon
-          </p>
+          <p className="text-sm font-medium text-content">Secure direct messages — coming soon</p>
           <p className="mt-1 text-xs text-content-faint">
             End-to-end encrypted DMs use the Signal protocol. Full support is in progress.
           </p>

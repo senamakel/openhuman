@@ -269,15 +269,11 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
                     className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
                       idx !== 0 ? 'border-t border-line-subtle' : ''
                     } ${
-                      selected
-                        ? 'bg-primary-50 dark:bg-primary-500/10'
-                        : 'hover:bg-surface-hover'
+                      selected ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-surface-hover'
                     }`}>
                     <span className="flex-1 min-w-0">
                       <span className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-content">
-                          {opt.label}
-                        </span>
+                        <span className="text-sm font-medium text-content">{opt.label}</span>
                         {opt.requiresKey && (
                           <span
                             className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${

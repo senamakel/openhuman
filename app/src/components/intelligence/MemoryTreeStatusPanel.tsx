@@ -297,9 +297,7 @@ function IntegrationHealthStrip({
                   <span aria-hidden className="text-base leading-none">
                     {providerIconChar(row.provider)}
                   </span>
-                  <span className="truncate text-sm font-medium text-content">
-                    {row.provider}
-                  </span>
+                  <span className="truncate text-sm font-medium text-content">{row.provider}</span>
                 </div>
                 <div className="flex shrink-0 items-center gap-3 text-xs text-content-muted">
                   <span>
@@ -383,17 +381,14 @@ export function MemoryTreeStatusPanel({ onToast }: MemoryTreeStatusPanelProps) {
 
   const tileClass =
     'rounded-xl border border-line bg-surface-muted p-3 transition-colors hover:bg-surface-hover';
-  const labelClass =
-    'text-[11px] uppercase tracking-wide text-content-muted mb-1';
+  const labelClass = 'text-[11px] uppercase tracking-wide text-content-muted mb-1';
   const valueClass = 'text-xl font-semibold text-content';
   const skeletonClass = 'h-7 w-16 rounded bg-surface-strong animate-pulse';
 
   return (
     <div className="space-y-3" data-testid="memory-tree-status-panel">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-content">
-          {t('memoryTree.status.title')}
-        </h2>
+        <h2 className="text-sm font-semibold text-content">{t('memoryTree.status.title')}</h2>
       </div>
 
       {error && !loading ? (
@@ -463,9 +458,7 @@ export function MemoryTreeStatusPanel({ onToast }: MemoryTreeStatusPanelProps) {
                 </span>
               </div>
               {status.reason ? (
-                <div className="mt-0.5 text-[11px] text-content-muted">
-                  {status.reason}
-                </div>
+                <div className="mt-0.5 text-[11px] text-content-muted">{status.reason}</div>
               ) : null}
             </>
           )}
@@ -512,9 +505,7 @@ export function MemoryTreeStatusPanel({ onToast }: MemoryTreeStatusPanelProps) {
           exist; near-0% with chunks present means the wiki is built but has no
           structure (the extraction model is failing). */}
       {!loading && status && status.total_chunks > 0 && status.extraction_coverage != null ? (
-        <div
-          className="text-xs text-content-muted"
-          data-testid="memory-tree-extraction-coverage">
+        <div className="text-xs text-content-muted" data-testid="memory-tree-extraction-coverage">
           {t('memoryTree.status.extractionCoverage').replace(
             '{pct}',
             String(Math.round((status.extraction_coverage ?? 0) * 100))

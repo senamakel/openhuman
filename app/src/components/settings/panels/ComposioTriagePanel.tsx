@@ -82,9 +82,7 @@ const ComposioTriagePanel = () => {
   if (loading) {
     return (
       <SettingsPanel description={t('settings.developerMenu.composio.desc')}>
-        <p className="text-sm text-content-muted">
-          {t('settings.composio.loading')}
-        </p>
+        <p className="text-sm text-content-muted">{t('settings.composio.loading')}</p>
       </SettingsPanel>
     );
   }

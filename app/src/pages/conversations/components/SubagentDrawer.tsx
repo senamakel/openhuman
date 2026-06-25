@@ -241,9 +241,7 @@ export function SubagentDrawer({
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="truncate font-semibold text-content">
-                {subagent.agentId}
-              </span>
+              <span className="truncate font-semibold text-content">{subagent.agentId}</span>
               <span className={`h-2 w-2 shrink-0 rounded-full ${tone.dot}`} />
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-content-muted">
@@ -457,8 +455,7 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
   const detailPre =
     'max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-surface px-2 py-1.5 ' +
     'font-mono text-[11px] leading-relaxed text-content-secondary dark:bg-surface';
-  const detailLabel =
-    'mb-1 text-[10px] font-semibold uppercase tracking-wide text-content-faint';
+  const detailLabel = 'mb-1 text-[10px] font-semibold uppercase tracking-wide text-content-faint';
 
   return (
     <div
@@ -472,9 +469,7 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
         data-testid="subagent-tool-call-toggle"
         className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left disabled:cursor-default">
         {expandable ? (
-          <span className="shrink-0 text-[9px] text-content-faint">
-            {expanded ? '▾' : '▸'}
-          </span>
+          <span className="shrink-0 text-[9px] text-content-faint">{expanded ? '▾' : '▸'}</span>
         ) : (
           <span className="w-[9px] shrink-0" aria-hidden />
         )}
@@ -482,9 +477,7 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
         <span className="font-mono text-content-secondary">{item.toolName}</span>
         <span className={`ml-auto ${callTone}`}>{statusLabel}</span>
         {item.elapsedMs != null && item.status !== 'running' ? (
-          <span className="text-[10px] text-content-faint">
-            {formatElapsed(item.elapsedMs)}
-          </span>
+          <span className="text-[10px] text-content-faint">{formatElapsed(item.elapsedMs)}</span>
         ) : null}
       </button>
       {expandable && expanded ? (

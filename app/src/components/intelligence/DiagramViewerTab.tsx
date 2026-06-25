@@ -92,14 +92,10 @@ export default function DiagramViewerTab() {
     <section className="space-y-5" aria-labelledby="diagram-viewer-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2
-            id="diagram-viewer-title"
-            className="text-lg font-semibold text-content">
+          <h2 id="diagram-viewer-title" className="text-lg font-semibold text-content">
             {t('intelligence.diagram.title')}
           </h2>
-          <p className="mt-1 text-sm text-content-muted">
-            {t('intelligence.diagram.description')}
-          </p>
+          <p className="mt-1 text-sm text-content-muted">{t('intelligence.diagram.description')}</p>
         </div>
         <Button
           variant="secondary"

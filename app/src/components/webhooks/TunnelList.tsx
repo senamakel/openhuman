@@ -221,7 +221,9 @@ function TunnelCard({
             <h4 className="text-sm font-medium text-content truncate">{tunnel.name}</h4>
             <span
               className={`inline-flex items-center px-1.5 py-0.5 text-xs rounded-full ${
-                tunnel.isActive ? 'bg-sage-100 text-sage-700' : 'bg-surface-subtle text-content-muted'
+                tunnel.isActive
+                  ? 'bg-sage-100 text-sage-700'
+                  : 'bg-surface-subtle text-content-muted'
               }`}>
               {tunnel.isActive ? t('webhooks.tunnels.active') : t('webhooks.tunnels.inactive')}
             </span>

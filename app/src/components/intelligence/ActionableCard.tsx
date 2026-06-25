@@ -274,9 +274,7 @@ export function ActionableCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-medium text-content leading-snug">
-                  {item.title}
-                </h3>
+                <h3 className="text-sm font-medium text-content leading-snug">{item.title}</h3>
                 {item.description && (
                   <p className="text-xs text-content-faint mt-1 leading-relaxed">
                     {item.description}

@@ -86,9 +86,7 @@ const EntityAssociationsPanel = ({
           <h3 className="text-sm font-semibold text-content-secondary">
             {t('entityAssociations.empty')}
           </h3>
-          <p className="mt-1 text-xs text-content-muted">
-            {t('entityAssociations.emptyHint')}
-          </p>
+          <p className="mt-1 text-xs text-content-muted">{t('entityAssociations.emptyHint')}</p>
         </div>
       </div>
     );
@@ -104,15 +102,11 @@ const EntityAssociationsPanel = ({
           { label: t('entityAssociations.metricEntities'), value: report.entityCount },
           { label: t('entityAssociations.metricPairs'), value: report.pairCount },
         ].map(tile => (
-          <div
-            key={tile.label}
-            className="rounded-lg border border-line p-3">
+          <div key={tile.label} className="rounded-lg border border-line p-3">
             <div className="text-[10px] uppercase tracking-wider text-content-faint">
               {tile.label}
             </div>
-            <div className="text-lg font-semibold tabular-nums text-content">
-              {tile.value}
-            </div>
+            <div className="text-lg font-semibold tabular-nums text-content">{tile.value}</div>
           </div>
         ))}
       </div>

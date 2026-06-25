@@ -214,9 +214,7 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
         <div
           data-testid={`webview-placeholder-${accountId}`}
           className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 ${
-            isLoading
-              ? 'text-content-muted'
-              : 'text-content-faint'
+            isLoading ? 'text-content-muted' : 'text-content-faint'
           }`}
           role={isLoading ? 'status' : undefined}
           aria-live={isLoading ? 'polite' : undefined}

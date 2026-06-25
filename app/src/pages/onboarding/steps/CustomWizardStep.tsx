@@ -42,9 +42,7 @@ const ChoiceCard = ({
           : '!border-stone-200 dark:!border-neutral-700 bg-surface hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-surface-hover'
       }`}>
       <h3 className="text-base font-semibold text-content">{title}</h3>
-      <p className="mt-1 text-xs text-content-secondary leading-relaxed">
-        {description}
-      </p>
+      <p className="mt-1 text-xs text-content-secondary leading-relaxed">{description}</p>
     </button>
   );
 };
@@ -126,12 +124,8 @@ const CustomWizardStep = ({
       className="rounded-2xl bg-surface p-10 shadow-soft animate-fade-up">
       <WizardStepper labels={stepperLabels} activeIndex={stepIndex} />
 
-      <h1 className="mt-8 text-2xl font-title text-content leading-tight">
-        {title}
-      </h1>
-      <p className="mt-2 text-sm text-content-muted leading-relaxed">
-        {subtitle}
-      </p>
+      <h1 className="mt-8 text-2xl font-title text-content leading-tight">{title}</h1>
+      <p className="mt-2 text-sm text-content-muted leading-relaxed">{subtitle}</p>
 
       {!hideChoiceCards ? (
         <>

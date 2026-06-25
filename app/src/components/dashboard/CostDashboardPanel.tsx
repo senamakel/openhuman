@@ -271,9 +271,7 @@ const CategoryDistribution = ({
 
   return (
     <div className="space-y-3">
-      <div
-        aria-hidden
-        className="flex h-3 w-full overflow-hidden rounded-full bg-surface-strong">
+      <div aria-hidden className="flex h-3 w-full overflow-hidden rounded-full bg-surface-strong">
         {categories.map((category, index) => (
           <div
             key={category.category}
@@ -284,9 +282,7 @@ const CategoryDistribution = ({
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {categories.map((category, index) => (
-          <div
-            key={category.category}
-            className="rounded-lg border border-line px-3 py-2">
+          <div key={category.category} className="rounded-lg border border-line px-3 py-2">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <span

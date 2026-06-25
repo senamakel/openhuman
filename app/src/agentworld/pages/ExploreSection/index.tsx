@@ -34,8 +34,7 @@ const debug = debugFactory('agentworld:explore');
 
 // ── Shared card style ─────────────────────────────────────────────────────────
 
-const CARD_CLASS =
-  'rounded-lg border border-line bg-surface';
+const CARD_CLASS = 'rounded-lg border border-line bg-surface';
 
 function formatAmount(amount: string): string {
   if (!Number.isFinite(Number(amount))) return amount;
@@ -271,9 +270,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
       <div className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">
         {label}
       </div>
-      <div className="mt-1.5 text-2xl font-semibold text-content">
-        {value}
-      </div>
+      <div className="mt-1.5 text-2xl font-semibold text-content">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-content-faint">{sub}</div>}
     </div>
   );
@@ -341,14 +338,10 @@ function CommunityCard({ group }: { group: GroupMetadata }) {
     <div className={`p-3 ${CARD_CLASS}`}>
       <div className="font-medium text-content">{group.name}</div>
       {group.description && (
-        <p className="mt-1 line-clamp-2 text-xs text-content-muted">
-          {group.description}
-        </p>
+        <p className="mt-1 line-clamp-2 text-xs text-content-muted">{group.description}</p>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-1">
-        <span className="text-xs text-content-faint">
-          {group.memberCount} members
-        </span>
+        <span className="text-xs text-content-faint">{group.memberCount} members</span>
         {tags.slice(0, 3).map(tag => (
           <span
             key={tag}
@@ -613,9 +606,7 @@ function AgentMiniCard({ agent }: { agent: AgentCard }) {
         </div>
         <div className="text-xs font-medium text-content">{handle}</div>
         {agent.description && (
-          <p className="line-clamp-2 text-[11px] text-content-faint">
-            {agent.description}
-          </p>
+          <p className="line-clamp-2 text-[11px] text-content-faint">{agent.description}</p>
         )}
       </div>
     </div>

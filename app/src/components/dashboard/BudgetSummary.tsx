@@ -88,9 +88,7 @@ const BudgetSummary = ({
               {`${utilizationPct}%`}
             </span>
           </div>
-          <div
-            aria-hidden
-            className="h-2 w-full rounded-full bg-surface-strong overflow-hidden">
+          <div aria-hidden className="h-2 w-full rounded-full bg-surface-strong overflow-hidden">
             <div
               data-testid="utilization-fill"
               className={`h-full rounded-full transition-all duration-300 ${STATUS_BG[status]}`}
@@ -141,9 +139,7 @@ const SmallMetric = ({ icon, label, value, hint, testId }: SmallMetricProps) => 
       {icon}
       <span>{label}</span>
     </div>
-    <span className="text-lg font-semibold tabular-nums text-content">
-      {value}
-    </span>
+    <span className="text-lg font-semibold tabular-nums text-content">{value}</span>
   </div>
 );
 

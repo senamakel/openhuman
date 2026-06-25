@@ -171,9 +171,7 @@ const MigrationPanel = ({ embedded = false }: MigrationPanelProps = {}) => {
               inputSize="sm"
               className="w-full"
             />
-            <p className="text-[11px] text-content-muted">
-              {t('migration.sourceHint')}
-            </p>
+            <p className="text-[11px] text-content-muted">{t('migration.sourceHint')}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -198,9 +196,7 @@ const MigrationPanel = ({ embedded = false }: MigrationPanelProps = {}) => {
             </Button>
           </div>
 
-          <p className="text-[11px] text-content-muted">
-            {t('migration.applyDisclaimer')}
-          </p>
+          <p className="text-[11px] text-content-muted">{t('migration.applyDisclaimer')}</p>
         </div>
       </SettingsSection>
 
@@ -224,54 +220,26 @@ const MigrationPanel = ({ embedded = false }: MigrationPanelProps = {}) => {
               : t('migration.reportTitlePreview')}
           </h3>
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
-            <dt className="text-content-muted">
-              {t('migration.report.source')}
-            </dt>
-            <dd
-              className="text-content break-all"
-              data-testid="migration-report-source">
+            <dt className="text-content-muted">{t('migration.report.source')}</dt>
+            <dd className="text-content break-all" data-testid="migration-report-source">
               {reportToRender.source_workspace}
             </dd>
-            <dt className="text-content-muted">
-              {t('migration.report.target')}
-            </dt>
-            <dd
-              className="text-content break-all"
-              data-testid="migration-report-target">
+            <dt className="text-content-muted">{t('migration.report.target')}</dt>
+            <dd className="text-content break-all" data-testid="migration-report-target">
               {reportToRender.target_workspace}
             </dd>
-            <dt className="text-content-muted">
-              {t('migration.report.fromSqlite')}
-            </dt>
-            <dd className="text-content">
-              {reportToRender.stats.from_sqlite}
-            </dd>
-            <dt className="text-content-muted">
-              {t('migration.report.fromMarkdown')}
-            </dt>
-            <dd className="text-content">
-              {reportToRender.stats.from_markdown}
-            </dd>
-            <dt className="text-content-muted">
-              {t('migration.report.imported')}
-            </dt>
-            <dd
-              className="text-content"
-              data-testid="migration-report-imported">
+            <dt className="text-content-muted">{t('migration.report.fromSqlite')}</dt>
+            <dd className="text-content">{reportToRender.stats.from_sqlite}</dd>
+            <dt className="text-content-muted">{t('migration.report.fromMarkdown')}</dt>
+            <dd className="text-content">{reportToRender.stats.from_markdown}</dd>
+            <dt className="text-content-muted">{t('migration.report.imported')}</dt>
+            <dd className="text-content" data-testid="migration-report-imported">
               {reportToRender.stats.imported}
             </dd>
-            <dt className="text-content-muted">
-              {t('migration.report.skippedUnchanged')}
-            </dt>
-            <dd className="text-content">
-              {reportToRender.stats.skipped_unchanged}
-            </dd>
-            <dt className="text-content-muted">
-              {t('migration.report.renamedConflicts')}
-            </dt>
-            <dd className="text-content">
-              {reportToRender.stats.renamed_conflicts}
-            </dd>
+            <dt className="text-content-muted">{t('migration.report.skippedUnchanged')}</dt>
+            <dd className="text-content">{reportToRender.stats.skipped_unchanged}</dd>
+            <dt className="text-content-muted">{t('migration.report.renamedConflicts')}</dt>
+            <dd className="text-content">{reportToRender.stats.renamed_conflicts}</dd>
           </dl>
 
           {reportToRender.warnings.length > 0 && (

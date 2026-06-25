@@ -193,15 +193,10 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
   if (loading) {
     return (
       <div className="rounded-xl border border-line bg-surface-muted p-5">
-        <h3 className="text-sm font-semibold text-content mb-4">
-          {t('insights.title')}
-        </h3>
+        <h3 className="text-sm font-semibold text-content mb-4">{t('insights.title')}</h3>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2, 3].map(i => (
-            <div
-              key={i}
-              className="h-28 rounded-lg bg-surface-strong animate-pulse"
-            />
+            <div key={i} className="h-28 rounded-lg bg-surface-strong animate-pulse" />
           ))}
         </div>
       </div>
@@ -211,9 +206,7 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
   if (groups.length === 0) {
     return (
       <div className="rounded-xl border border-line bg-surface-muted p-5">
-        <h3 className="text-sm font-semibold text-content mb-2">
-          {t('insights.title')}
-        </h3>
+        <h3 className="text-sm font-semibold text-content mb-2">{t('insights.title')}</h3>
         <p className="text-sm text-content-secondary">{t('insights.empty')}</p>
       </div>
     );
@@ -223,9 +216,7 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
     <div className="rounded-xl border border-line bg-surface-muted p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-content">
-            {t('insights.title')}
-          </h3>
+          <h3 className="text-sm font-semibold text-content">{t('insights.title')}</h3>
           <p className="text-xs text-content-muted mt-0.5">
             {t('insights.description').replace('{count}', String(relations.length))}
           </p>
@@ -292,12 +283,8 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
                       {item.subject}
                       {item.subjectType && <EntityTypeBadge type={item.subjectType} />}
                     </span>
-                    <span className="text-content-muted shrink-0 italic">
-                      {item.predicate}
-                    </span>
-                    <span
-                      className="text-content-secondary truncate"
-                      title={item.object}>
+                    <span className="text-content-muted shrink-0 italic">{item.predicate}</span>
+                    <span className="text-content-secondary truncate" title={item.object}>
                       {item.object}
                       {item.objectType && <EntityTypeBadge type={item.objectType} />}
                     </span>

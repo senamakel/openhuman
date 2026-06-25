@@ -369,9 +369,7 @@ const RecoveryPhrasePanel = () => {
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
         />
       </svg>
-      <p className="text-sm text-content-muted">
-        {t('mnemonic.loadingWalletStatus')}
-      </p>
+      <p className="text-sm text-content-muted">{t('mnemonic.loadingWalletStatus')}</p>
     </div>
   );
 
@@ -419,9 +417,7 @@ const RecoveryPhrasePanel = () => {
             <div className="bg-surface-muted rounded-2xl p-4 border border-line space-y-3">
               {walletStatus.source && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-content-muted">
-                    {t('mnemonic.walletSource')}
-                  </span>
+                  <span className="text-xs text-content-muted">{t('mnemonic.walletSource')}</span>
                   <span className="text-xs font-medium text-content-secondary capitalize">
                     {walletStatus.source}
                   </span>
@@ -810,9 +806,7 @@ const RecoveryPhrasePanel = () => {
           checked={confirmed}
           onCheckedChange={setConfirmed}
         />
-        <span className="text-sm text-content-secondary">
-          {t('mnemonic.consentSaved')}
-        </span>
+        <span className="text-sm text-content-secondary">{t('mnemonic.consentSaved')}</span>
       </label>
     </>
   );
@@ -826,9 +820,7 @@ const RecoveryPhrasePanel = () => {
       </div>
 
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs text-content-muted">
-          {t('mnemonic.words')}:
-        </span>
+        <span className="text-xs text-content-muted">{t('mnemonic.words')}:</span>
         {BIP39_IMPORT_LENGTHS.map(len => (
           <button
             key={len}
@@ -914,9 +906,7 @@ const RecoveryPhrasePanel = () => {
             </svg>
           </div>
           <p className="text-sm font-medium text-sage-500">{t('mnemonic.phraseSaved')}</p>
-          <p className="text-xs text-content-muted">
-            {t('mnemonic.walletReady')}
-          </p>
+          <p className="text-xs text-content-muted">{t('mnemonic.walletReady')}</p>
         </div>
       ) : (
         <>

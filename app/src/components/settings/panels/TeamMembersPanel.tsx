@@ -170,9 +170,7 @@ const TeamMembersPanel = () => {
                           {displayName(member)}
                         </span>
                         {isCurrentUser(member) && (
-                          <span className="text-[10px] text-content-muted">
-                            {t('team.you')}
-                          </span>
+                          <span className="text-[10px] text-content-muted">{t('team.you')}</span>
                         )}
                       </div>
                       {member.user.username && (
@@ -242,9 +240,7 @@ const TeamMembersPanel = () => {
       {memberToRemove && (
         <div className="fixed inset-0 bg-neutral-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-surface rounded-2xl p-6 w-full max-w-md border border-line">
-            <h3 className="text-sm font-semibold text-content mb-4">
-              {t('team.removeTitle')}
-            </h3>
+            <h3 className="text-sm font-semibold text-content mb-4">{t('team.removeTitle')}</h3>
 
             {error && (
               <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">
@@ -256,9 +252,7 @@ const TeamMembersPanel = () => {
               <div className="text-sm text-content-muted">
                 <p>
                   {t('team.removePromptPrefix')}{' '}
-                  <strong className="text-content">
-                    {displayName(memberToRemove)}
-                  </strong>{' '}
+                  <strong className="text-content">{displayName(memberToRemove)}</strong>{' '}
                   {t('team.removePromptSuffix')}
                 </p>
                 <p className="mt-2 text-coral-400">{t('team.removeWarning')}</p>
@@ -294,9 +288,7 @@ const TeamMembersPanel = () => {
       {roleChangeConfirmation && (
         <div className="fixed inset-0 bg-neutral-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-surface rounded-2xl p-6 w-full max-w-md border border-line">
-            <h3 className="text-sm font-semibold text-content mb-4">
-              {t('team.changeRoleTitle')}
-            </h3>
+            <h3 className="text-sm font-semibold text-content mb-4">{t('team.changeRoleTitle')}</h3>
 
             {error && (
               <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">

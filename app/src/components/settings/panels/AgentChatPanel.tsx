@@ -84,9 +84,7 @@ const AgentChatPanel = () => {
       <SettingsSection title={t('chat.overrides')} description={t('chat.agentChatDesc')}>
         <div className="px-4 py-3 grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
-            <label
-              htmlFor="agent-chat-model"
-              className="text-xs text-content-muted">
+            <label htmlFor="agent-chat-model" className="text-xs text-content-muted">
               {t('chat.model')}
             </label>
             <SettingsTextField
@@ -98,9 +96,7 @@ const AgentChatPanel = () => {
             />
           </div>
           <div className="space-y-1">
-            <label
-              htmlFor="agent-chat-temperature"
-              className="text-xs text-content-muted">
+            <label htmlFor="agent-chat-temperature" className="text-xs text-content-muted">
               {t('chat.temperature')}
             </label>
             <SettingsTextField

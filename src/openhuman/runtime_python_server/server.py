@@ -73,6 +73,12 @@ def _handle(req):
 
 
 def main():
+    try:
+        _load_spacy()
+    except Exception as exc:
+        _emit({"ready": False, "error": f"{type(exc).__name__}: {exc}"})
+        return 1
+
     _emit({"ready": True, "protocol": PROTOCOL, "backends": ["spacy"]})
     for line in sys.stdin:
         line = line.strip()

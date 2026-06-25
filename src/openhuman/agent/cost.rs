@@ -111,12 +111,26 @@ pub const PRICING_TABLE: &[ModelPricing] = &[
 
 /// Look up pricing for a model name, falling back to [`FALLBACK_PRICING`].
 ///
-/// Matching is exact on the canonical tier name and case-insensitive on
-/// concrete vendor names (so `"claude-opus"` still hits the
-/// reasoning-tier row when callers pass an underlying model string).
+/// Resolution order:
+/// 1. Exact match on a canonical OpenHuman tier name (`agentic-v1`, …).
+/// 2. The concrete-vendor-model pricing catalog
+///    ([`crate::openhuman::cost::catalog`]) — accurate per-model rates for
+///    `claude-*`, `gpt-*`, `gemini-*`, `deepseek-*`, `kimi-*`, `qwen-*`,
+///    `mistral-*`, including OpenRouter-style `vendor/model` ids.
+/// 3. Coarse case-insensitive vendor-name heuristics (so an unrecognised
+///    `"…opus…"` string still maps to the reasoning tier).
+/// 4. [`FALLBACK_PRICING`].
 pub fn lookup_pricing(model: &str) -> ModelPricing {
     if let Some(row) = PRICING_TABLE.iter().find(|row| row.model == model) {
         return *row;
+    }
+    if let Some(price) = crate::openhuman::cost::catalog::lookup(model) {
+        return ModelPricing {
+            model: price.model_id,
+            input_per_mtok_usd: price.input_per_mtok_usd,
+            cached_input_per_mtok_usd: price.cached_input_per_mtok_usd,
+            output_per_mtok_usd: price.output_per_mtok_usd,
+        };
     }
     let lower = model.to_ascii_lowercase();
     let by_tier = |tier: &str| {

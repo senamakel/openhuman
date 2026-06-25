@@ -1,28 +1,59 @@
 import { useEffect, useRef } from 'react';
 
 import { Gradient } from '../lib/meshGradient';
+import { channelsToHex } from '../lib/theme/color';
+import { useAppSelector } from '../store/hooks';
+import { selectActiveThemeId, selectThemeVariant } from '../store/themeSlice';
 
 /**
- * Animated WebGL mesh gradient background (Stripe-style).
- * Renders behind the dotted-canvas overlay so dots remain visible on top.
- * Catches WebGL errors gracefully so the app still works when the GPU context
- * is unavailable or lost (e.g. Tauri WebView on some platforms).
+ * Animated WebGL mesh gradient background (Stripe-style), tinted by the active
+ * theme. The four gradient stops are derived from the theme's primary ramp +
+ * surface token (read as hex from the resolved CSS variables), so the backdrop
+ * follows Matrix green / HAL red / Ocean blue / etc. It re-initialises whenever
+ * the active theme or its light/dark variant changes.
+ *
+ * Renders behind the dotted-canvas overlay so dots remain visible on top, and
+ * catches WebGL errors gracefully (Tauri WebView can lack a GPU context).
  */
 export default function MeshGradient() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Re-init the gradient when the effective theme changes.
+  const themeId = useAppSelector(selectActiveThemeId);
+  const variant = useAppSelector(selectThemeVariant);
 
   useEffect(() => {
     let gradient: InstanceType<typeof Gradient> | null = null;
+    let raf = 0;
 
-    try {
-      gradient = new Gradient();
-      gradient.initGradient('#mesh-gradient');
-    } catch (err) {
-      console.warn('[MeshGradient] WebGL init failed, gradient disabled:', err);
-      gradient = null;
-    }
+    const start = () => {
+      const root = document.documentElement;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const hex = (token: string, fallback: string) => {
+        const v = getComputedStyle(root).getPropertyValue(`--${token}`).trim();
+        return v ? channelsToHex(v) : fallback;
+      };
+      // Accent-led stops + the surface base, so the mesh reads on any theme.
+      canvas.style.setProperty('--gradient-color-1', hex('primary-700', '#0019d9'));
+      canvas.style.setProperty('--gradient-color-2', hex('primary-300', '#b5d5ff'));
+      canvas.style.setProperty('--gradient-color-3', hex('surface', '#ffffff'));
+      canvas.style.setProperty('--gradient-color-4', hex('primary-500', '#4fa4ff'));
+
+      try {
+        gradient = new Gradient();
+        gradient.initGradient('#mesh-gradient');
+      } catch (err) {
+        console.warn('[MeshGradient] WebGL init failed, gradient disabled:', err);
+        gradient = null;
+      }
+    };
+
+    // Defer one frame so ThemeProvider (an ancestor) has applied the theme's
+    // CSS variables before we read them — child effects run before parents.
+    raf = requestAnimationFrame(start);
 
     return () => {
+      cancelAnimationFrame(raf);
       try {
         if (gradient) {
           gradient.disconnect();
@@ -32,7 +63,7 @@ export default function MeshGradient() {
         // Cleanup is best-effort.
       }
     };
-  }, []);
+  }, [themeId, variant]);
 
   return (
     <canvas
@@ -40,14 +71,6 @@ export default function MeshGradient() {
       id="mesh-gradient"
       data-transition-in
       className="absolute inset-0 w-full h-full opacity-10"
-      style={
-        {
-          '--gradient-color-1': '#0019d9',
-          '--gradient-color-2': '#b5d5ff', // primary-50
-          '--gradient-color-3': '#ffffff', // primary-100
-          '--gradient-color-4': '#4fa4ff', // primary-200
-        } as React.CSSProperties
-      }
     />
   );
 }

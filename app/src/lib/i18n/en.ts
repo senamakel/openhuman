@@ -5314,6 +5314,13 @@ const en: TranslationMap = {
   'settings.theme.variantDark': 'Dark',
   'settings.theme.variantAuto': 'Auto',
   'settings.theme.variantAria': 'Theme variant',
+  'settings.theme.backdropHeading': 'Background',
+  'settings.theme.backdrop.mesh': 'Mesh',
+  'settings.theme.backdrop.solid': 'Solid',
+  'settings.theme.backdrop.image': 'Image',
+  'settings.theme.backdropImageUrl': 'Background image URL',
+  'settings.theme.backdropHint':
+    'Mesh shows the animated gradient; Solid uses a flat background; Image paints your own.',
   'settings.theme.builtInBadge': 'Preset',
   'settings.theme.customBadge': 'Custom',
   'settings.theme.customizeHint':

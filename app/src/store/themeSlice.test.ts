@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import themeReducer, {
   FONT_SIZE_PX,
   type FontSize,
-  SYSTEM_THEME_ID,
   deleteCustomTheme,
   resetActiveTheme,
   selectEffectiveTheme,

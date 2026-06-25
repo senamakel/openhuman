@@ -142,6 +142,15 @@ const themeSlice = createSlice({
       if (!theme) return;
       theme.fonts[action.payload.role] = action.payload.stack;
     },
+    /** Set the backdrop (mesh/solid/image) on the active custom theme. */
+    setThemeBackdrop(
+      state,
+      action: PayloadAction<{ kind: 'mesh' | 'solid' | 'image'; imageUrl?: string }>,
+    ) {
+      const theme = state.customThemes.find((t) => t.id === state.activeThemeId);
+      if (!theme) return;
+      theme.backdrop = { kind: action.payload.kind, imageUrl: action.payload.imageUrl };
+    },
     /** Clear all overrides on the active custom theme (back to its base). */
     resetActiveTheme(state) {
       const theme = state.customThemes.find((t) => t.id === state.activeThemeId);
@@ -181,6 +190,7 @@ export const {
   deleteCustomTheme,
   setThemeToken,
   setFontRole,
+  setThemeBackdrop,
   resetActiveTheme,
 } = themeSlice.actions;
 export default themeSlice.reducer;

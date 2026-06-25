@@ -27,11 +27,13 @@ import {
   setActiveFamily,
   setActiveTheme,
   setFontRole,
+  setThemeBackdrop,
   setThemeToken,
   setThemeVariant,
   type ThemeVariant,
   upsertCustomTheme,
 } from '../../../store/themeSlice';
+import type { BackdropKind } from '../../../lib/theme/types';
 import { SettingsSection, SettingsSelect } from '../controls';
 import SettingsPanel from '../layout/SettingsPanel';
 import ColorTokenField from './theme/ColorTokenField';
@@ -384,6 +386,60 @@ const ThemeStudioPanel = () => {
               </div>
             );
           })}
+        </div>
+      </SettingsSection>
+
+      {/* ── Backdrop (mesh / solid / image) ────────────────────────── */}
+      <SettingsSection title={t('settings.theme.backdropHeading', 'Background')}>
+        <div className="space-y-2 px-1">
+          <div
+            className="inline-flex overflow-hidden rounded-lg border border-line"
+            role="radiogroup"
+            aria-label={t('settings.theme.backdropHeading', 'Background')}>
+            {(['mesh', 'solid', 'image'] as BackdropKind[]).map((kind) => {
+              const current = effectiveTheme.backdrop?.kind ?? 'mesh';
+              const sel = current === kind;
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  role="radio"
+                  aria-checked={sel}
+                  disabled={!isActiveCustom}
+                  onClick={() =>
+                    dispatch(
+                      setThemeBackdrop({ kind, imageUrl: effectiveTheme.backdrop?.imageUrl }),
+                    )
+                  }
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                    sel
+                      ? 'bg-primary-500 text-content-inverted'
+                      : 'text-content-secondary hover:bg-surface-hover'
+                  }`}>
+                  {t(`settings.theme.backdrop.${kind}`, kind)}
+                </button>
+              );
+            })}
+          </div>
+          {effectiveTheme.backdrop?.kind === 'image' && (
+            <input
+              type="url"
+              disabled={!isActiveCustom}
+              value={effectiveTheme.backdrop?.imageUrl ?? ''}
+              placeholder="https://…/background.jpg"
+              aria-label={t('settings.theme.backdropImageUrl', 'Background image URL')}
+              onChange={(e) =>
+                dispatch(setThemeBackdrop({ kind: 'image', imageUrl: e.target.value }))
+              }
+              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-content"
+            />
+          )}
+          <p className="text-[11px] text-content-faint">
+            {t(
+              'settings.theme.backdropHint',
+              'Mesh shows the animated gradient; Solid uses a flat background; Image paints your own.',
+            )}
+          </p>
         </div>
       </SettingsSection>
 

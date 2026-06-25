@@ -210,17 +210,15 @@
 
   .app-dotted-canvas {
     background-color: transparent;
-    background-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.3) 1px, transparent 1px);
-    background-size: 18px 18px;
-    background-position: 0 0;
-  }
-
-  :root.dark .app-dotted-canvas {
+    /* Dots follow the theme's content colour at low alpha (dark dots on light
+       themes, light dots on dark themes, accent-tinted on custom themes). */
     background-image: radial-gradient(
       circle at center,
-      rgba(255, 255, 255, 0.08) 1px,
+      rgb(var(--content) / 0.1) 1px,
       transparent 1px
     );
+    background-size: 18px 18px;
+    background-position: 0 0;
   }
 
   /* Input components with consistent styling */

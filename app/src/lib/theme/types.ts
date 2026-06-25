@@ -28,7 +28,18 @@ export interface Theme {
   gradient?: {
     canvas?: string;
   };
+  /**
+   * App backdrop layer. `mesh` (default) renders the animated WebGL mesh
+   * gradient; `solid` shows just the flat/gradient canvas; `image` paints
+   * `imageUrl` (cover). Controlled in the Theme Studio.
+   */
+  backdrop?: {
+    kind: 'mesh' | 'solid' | 'image';
+    imageUrl?: string;
+  };
 }
+
+export type BackdropKind = 'mesh' | 'solid' | 'image';
 
 /**
  * A theme family groups light and dark variants under one name so the picker can

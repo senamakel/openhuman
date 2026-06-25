@@ -1069,6 +1069,67 @@ fn make_openhuman_backend_translates_summarization_hint() {
 }
 
 #[test]
+fn managed_backend_pins_subconscious_role_to_chat_tier() {
+    // Subconscious is pinned to chat-v1 on the managed backend via
+    // `managed_tier_for_role`, *independent of* `default_model`. The cloud tick
+    // routes through this role with `default_model` overwritten to the
+    // "hint:subconscious" marker, so it must NOT inherit `default_model` (which
+    // would forward the raw marker to the backend → HTTP 400).
+    let mut config = Config::default();
+    config.default_model = Some("hint:subconscious".to_string());
+    let (_, model) =
+        make_openhuman_backend("subconscious", &config).expect("factory should succeed");
+    assert_eq!(model, crate::openhuman::config::MODEL_CHAT_V1);
+
+    // Even with a heavy `default_model`, the subconscious role stays on chat-v1.
+    config.default_model = Some("reasoning-v1".to_string());
+    let (_, model) =
+        make_openhuman_backend("subconscious", &config).expect("factory should succeed");
+    assert_eq!(model, crate::openhuman::config::MODEL_CHAT_V1);
+}
+
+#[test]
+fn create_chat_provider_subconscious_managed_resolves_chat_v1() {
+    // End-to-end of the managed tick path: provider role `subconscious` with the
+    // hint default_model, no BYOK subconscious_provider → managed backend, model
+    // pinned to chat-v1 (no regression vs the pre-change chat-role behaviour).
+    let mut config = Config::default();
+    config.default_model = Some("hint:subconscious".to_string());
+    let (_, model) =
+        create_chat_provider("subconscious", &config).expect("create_chat_provider must succeed");
+    assert_eq!(model, crate::openhuman::config::MODEL_CHAT_V1);
+}
+
+#[test]
+fn create_chat_provider_subconscious_honours_byok_route() {
+    // When the user pins a concrete cloud provider for the subconscious workload
+    // in Settings → AI → Advanced, the factory builds that provider and returns
+    // its exact model id.
+    let mut config = Config::default();
+    config.cloud_providers.push(openai_entry("p_oai", "openai"));
+    config.subconscious_provider = Some("openai:gpt-4o-mini".to_string());
+    let (_, model) =
+        create_chat_provider("subconscious", &config).expect("create_chat_provider must succeed");
+    assert_eq!(model, "gpt-4o-mini");
+}
+
+#[test]
+fn provider_for_role_subconscious_override_respected() {
+    let mut config = Config::default();
+    config.subconscious_provider = Some("ollama:llama3.2:3b".to_string());
+    assert_eq!(
+        provider_for_role("subconscious", &config),
+        "ollama:llama3.2:3b"
+    );
+    // Unset → managed backend (background workloads never inherit BYOK).
+    let default_config = Config::default();
+    assert_eq!(
+        provider_for_role("subconscious", &default_config),
+        "openhuman"
+    );
+}
+
+#[test]
 fn make_openhuman_backend_reports_vision_capability() {
     let config = Config::default();
     let (provider, _) = make_openhuman_backend("chat", &config).expect("factory should succeed");
@@ -2197,6 +2258,40 @@ fn resolve_model_for_hint_handles_unknown_hint_passthrough() {
     let config = Config::default();
     let result = resolve_model_for_hint("hint:unknown_tier", &config);
     assert_eq!(result, "hint:unknown_tier");
+}
+
+#[test]
+fn resolve_model_for_hint_subconscious_managed_is_chat_v1() {
+    // Managed (no BYOK subconscious_provider) resolves to the chat tier model so
+    // the RPC `inference.resolve_model` reports the model the tick actually runs.
+    let config = Config::default();
+    assert_eq!(
+        resolve_model_for_hint("hint:subconscious", &config),
+        "chat-v1"
+    );
+
+    // An explicit managed sentinel still resolves to the tier, not the raw hint.
+    let mut config = Config::default();
+    config.subconscious_provider = Some("openhuman".to_string());
+    assert_eq!(
+        resolve_model_for_hint("hint:subconscious", &config),
+        "chat-v1"
+    );
+}
+
+#[test]
+fn resolve_model_for_hint_subconscious_reads_subconscious_provider() {
+    // The `subconscious` hint must read `subconscious_provider` — NOT the
+    // chat-tier provider it shares a model with — so a BYOK subconscious route
+    // surfaces its own model id.
+    let mut config = Config::default();
+    config.subconscious_provider = Some("openai:gpt-4o-mini".to_string());
+    // A different chat_provider must not leak into the subconscious resolution.
+    config.chat_provider = Some("anthropic:claude-sonnet-4-20250514".to_string());
+    assert_eq!(
+        resolve_model_for_hint("hint:subconscious", &config),
+        "gpt-4o-mini"
+    );
 }
 
 #[test]

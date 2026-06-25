@@ -113,6 +113,10 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
         ("coding", crate::openhuman::config::MODEL_CODING_V1),
         ("vision", crate::openhuman::config::MODEL_VISION_V1),
         ("summarization", "summarization-v1"),
+        // Background subconscious workload rides the lightweight chat tier on the
+        // managed backend; its `subconscious` *role* (handled below) still selects
+        // the provider via `subconscious_provider`.
+        ("subconscious", crate::openhuman::config::MODEL_CHAT_V1),
     ];
     let tier_to_role: &[(&str, &str)] = &[
         (crate::openhuman::config::MODEL_REASONING_V1, "reasoning"),
@@ -130,11 +134,17 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
             .find(|(k, _)| *k == hint_key)
             .map(|(_, v)| *v)
             .unwrap_or(hint_or_tier);
-        let role = tier_to_role
-            .iter()
-            .find(|(k, _)| *k == tier)
-            .map(|(_, v)| *v)
-            .unwrap_or(hint_key);
+        // Background workloads map to a tier *model* but must keep their own
+        // role so `provider_for_role` reads their dedicated `*_provider` field
+        // rather than the chat-tier provider their model happens to share.
+        let role = match hint_key {
+            "subconscious" => "subconscious",
+            _ => tier_to_role
+                .iter()
+                .find(|(k, _)| *k == tier)
+                .map(|(_, v)| *v)
+                .unwrap_or(hint_key),
+        };
         (tier, role)
     } else {
         let role = tier_to_role
@@ -828,10 +838,11 @@ pub(crate) fn create_local_chat_provider_from_string(
 /// be mapped explicitly.
 ///
 /// Returns `Some(tier)` for the specialised roles that map 1:1 to a managed
-/// tier (`reasoning`, `agentic`, `coding`, `vision`). Returns `None` for:
+/// tier (`reasoning`, `agentic`, `coding`, `vision`, `subconscious`). Returns
+/// `None` for:
 ///
-/// - the generic `chat` role (and any background/unknown role), which keeps
-///   inheriting `default_model`: the front-line chat turn and legacy
+/// - the generic `chat` role (and any other background/unknown role), which
+///   keeps inheriting `default_model`: the front-line chat turn and legacy
 ///   `default_model = "reasoning-v1"` installs deliberately fall through to the
 ///   `chat` role (see the session builder) and rely on `default_model` driving
 ///   the model — pinning `chat` here would regress them.
@@ -841,19 +852,31 @@ pub(crate) fn create_local_chat_provider_from_string(
 ///   user-configurable `memory_tree.cloud_llm_model`. Pinning `summarization`
 ///   to a fixed tier would silently ignore that override.
 ///
+/// `subconscious` IS pinned (to the lightweight `chat-v1` tier) even though it
+/// is a background workload: the cloud subconscious tick builds via the session
+/// builder with `default_model = "hint:subconscious"` (a role-routing marker, not
+/// a real tier), so "inherit `default_model`" would forward that marker to the
+/// backend. Pinning here resolves the managed model declaratively to `chat-v1` —
+/// the cheap monitoring tier the workload wants — independent of `default_model`,
+/// while [`provider_for_role`] still lets `subconscious_provider` choose the
+/// provider (managed / BYOK / local).
+///
 /// For `vision` the default-inheritance mismatch is not just suboptimal but
 /// fatal: an unset `vision_provider` would resolve to `chat-v1`,
 /// `model_supports_vision` would report `false`, and the turn engine would strip
 /// every attached image — leaving the managed vision sub-agent blind.
 fn managed_tier_for_role(role: &str) -> Option<&'static str> {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
+        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
     };
     match role {
         "reasoning" => Some(MODEL_REASONING_V1),
         "agentic" => Some(MODEL_AGENTIC_V1),
         "coding" => Some(MODEL_CODING_V1),
         "vision" => Some(MODEL_VISION_V1),
+        // Background subconscious tick/triage: pinned to the lightweight chat
+        // tier (see the doc above for why it is pinned despite being background).
+        "subconscious" => Some(MODEL_CHAT_V1),
         _ => None,
     }
 }

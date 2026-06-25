@@ -352,6 +352,17 @@ impl SubconsciousEngine {
 
         let mut effective = config.clone();
         effective.agent.agent_timeout_secs = TOOL_CALL_TIMEOUT_SECS;
+        // Route the tick build through the `subconscious` background workload so
+        // Settings → AI → Advanced "Subconscious" actually governs the cloud
+        // tick provider, instead of riding the `chat` role (the default-model
+        // fall-through in the session builder). The session builder maps
+        // `hint:subconscious` → the `subconscious` provider role; on the managed
+        // backend the model still resolves to `chat-v1` (no regression).
+        effective.default_model = Some("hint:subconscious".to_string());
+        debug!(
+            "[subconscious] tick provider routed via hint:subconscious (subconscious_provider={:?})",
+            effective.subconscious_provider
+        );
         match self.mode {
             SubconsciousMode::Simple => {
                 effective.autonomy.level = crate::openhuman::security::AutonomyLevel::ReadOnly;

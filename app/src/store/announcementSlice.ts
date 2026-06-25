@@ -9,9 +9,7 @@ export interface AnnouncementState {
   shownIds: string[];
 }
 
-const initialState: AnnouncementState = {
-  shownIds: [],
-};
+const initialState: AnnouncementState = { shownIds: [] };
 
 const MAX_TRACKED = 200;
 

@@ -212,10 +212,7 @@ const persistedChatRuntimeReducer = persistReducer(chatRuntimePersistConfig, cha
 // Persist the set of announcement ids this user has already seen so the
 // harness-init banner shows each announcement exactly once (user-scoped).
 const announcementPersistConfig = { key: 'announcement', storage, whitelist: ['shownIds'] };
-const persistedAnnouncementReducer = persistReducer(
-  announcementPersistConfig,
-  announcementReducer
-);
+const persistedAnnouncementReducer = persistReducer(announcementPersistConfig, announcementReducer);
 
 export const store = configureStore({
   reducer: {

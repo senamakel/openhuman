@@ -2,10 +2,7 @@ import debugFactory from 'debug';
 import { useEffect, useRef, useState } from 'react';
 
 import { useCoreState } from '../../providers/CoreStateProvider';
-import {
-  type Announcement,
-  fetchLatestAnnouncement,
-} from '../../services/announcementService';
+import { type Announcement, fetchLatestAnnouncement } from '../../services/announcementService';
 import { markAnnouncementShown } from '../../store/announcementSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import AnnouncementModal from './AnnouncementModal';

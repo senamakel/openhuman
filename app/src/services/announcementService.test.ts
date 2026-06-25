@@ -1,12 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { fetchLatestAnnouncement, parseAnnouncement } from './announcementService';
-
-vi.mock('./coreRpcClient', () => ({
-  callCoreRpc: vi.fn(),
-}));
-
 import { callCoreRpc } from './coreRpcClient';
+
+vi.mock('./coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
 describe('parseAnnouncement', () => {
   const valid = {
@@ -44,7 +41,7 @@ describe('parseAnnouncement', () => {
     expect(parseAnnouncement({})).toBeNull();
   });
 
-  it.each([null, undefined, 'nope', 42])('returns null for non-object %p', (raw) => {
+  it.each([null, undefined, 'nope', 42])('returns null for non-object %p', raw => {
     expect(parseAnnouncement(raw)).toBeNull();
   });
 

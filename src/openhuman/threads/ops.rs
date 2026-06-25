@@ -664,6 +664,90 @@ pub async fn turn_state_clear(
     Ok(envelope(ClearTurnStateResponse { cleared }, None, None))
 }
 
+/// Request for [`token_usage`]: the thread whose persisted usage to total.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ThreadTokenUsageRequest {
+    pub thread_id: String,
+}
+
+/// Aggregated token/cost usage for one thread, read back from its persisted
+/// session transcripts. Seeds the UI footer when the user selects a thread so
+/// the totals reflect prior turns instead of starting at zero.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ThreadTokenUsageResponse {
+    pub thread_id: String,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub cost_usd: f64,
+    pub turn_count: usize,
+    /// Tokens of the most recent turn — numerator for the context-window gauge.
+    pub last_turn_input_tokens: u64,
+    pub last_turn_output_tokens: u64,
+    /// Context window (tokens) inferred from the last model; `0` when unknown.
+    pub context_window: u64,
+    pub model: Option<String>,
+    pub updated: Option<String>,
+    /// `false` when the thread has no persisted turns yet (all zeros).
+    pub has_usage: bool,
+}
+
+/// Total a thread's persisted token/cost usage across its root transcripts.
+pub async fn token_usage(
+    request: ThreadTokenUsageRequest,
+) -> Result<RpcOutcome<ApiEnvelope<ThreadTokenUsageResponse>>, String> {
+    let dir = workspace_dir().await?;
+    let summary = crate::openhuman::agent::harness::session::transcript::read_thread_usage_summary(
+        &dir,
+        &request.thread_id,
+    );
+
+    let response = match summary {
+        Some(s) => {
+            let context_window = s
+                .model
+                .as_deref()
+                .and_then(crate::openhuman::inference::model_context::context_window_for_model)
+                .unwrap_or(0);
+            ThreadTokenUsageResponse {
+                thread_id: request.thread_id.clone(),
+                input_tokens: s.input_tokens,
+                output_tokens: s.output_tokens,
+                cached_input_tokens: s.cached_input_tokens,
+                cost_usd: s.cost_usd,
+                turn_count: s.turn_count,
+                last_turn_input_tokens: s.last_turn_input_tokens,
+                last_turn_output_tokens: s.last_turn_output_tokens,
+                context_window,
+                model: s.model,
+                updated: Some(s.updated),
+                has_usage: true,
+            }
+        }
+        None => ThreadTokenUsageResponse {
+            thread_id: request.thread_id.clone(),
+            input_tokens: 0,
+            output_tokens: 0,
+            cached_input_tokens: 0,
+            cost_usd: 0.0,
+            turn_count: 0,
+            last_turn_input_tokens: 0,
+            last_turn_output_tokens: 0,
+            context_window: 0,
+            model: None,
+            updated: None,
+            has_usage: false,
+        },
+    };
+
+    let has_usage = response.has_usage;
+    Ok(envelope(
+        response,
+        Some(counts([("has_usage", usize::from(has_usage))])),
+        None,
+    ))
+}
+
 #[cfg(test)]
 #[path = "ops_tests.rs"]
 mod tests;

@@ -441,6 +441,145 @@ pub fn find_root_transcript_for_thread(workspace_dir: &Path, thread_id: &str) ->
     matches.pop()
 }
 
+/// Aggregated token/cost usage for a chat thread, summed across **all** of the
+/// thread's root session transcripts (a thread reopened across days/restarts
+/// produces several files). `last_turn_*`, `model`, and `updated` come from the
+/// newest transcript so the UI can render a context-window gauge for the most
+/// recent turn. Returns `None` when no transcript exists yet (a brand-new
+/// thread with no completed turns).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ThreadUsageSummary {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub cost_usd: f64,
+    pub turn_count: usize,
+    /// Input/output tokens of the most recent assistant turn (context gauge).
+    pub last_turn_input_tokens: u64,
+    pub last_turn_output_tokens: u64,
+    /// Model that served the most recent turn, if recorded.
+    pub model: Option<String>,
+    /// RFC-3339 `updated` of the newest transcript.
+    pub updated: String,
+}
+
+/// Parse just the `_meta` header of a root transcript JSONL (cheap — stops at
+/// the first non-empty line).
+fn read_transcript_meta_only(path: &Path) -> Option<TranscriptMeta> {
+    let raw = fs::read_to_string(path).ok()?;
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let ml: MetaLine = serde_json::from_str(line).ok()?;
+        let mp = ml.meta;
+        return Some(TranscriptMeta {
+            agent_name: mp.agent,
+            dispatcher: mp.dispatcher,
+            created: mp.created,
+            updated: mp.updated,
+            turn_count: mp.turn_count,
+            input_tokens: mp.input_tokens,
+            output_tokens: mp.output_tokens,
+            cached_input_tokens: mp.cached_input_tokens,
+            charged_amount_usd: mp.charged_amount_usd,
+            thread_id: mp.thread_id,
+        });
+    }
+    None
+}
+
+/// Extract the last assistant message's usage + model from a transcript JSONL.
+/// Only the final assistant message of a turn carries these (see the JSONL
+/// format docs at the top of this module).
+fn read_last_assistant_usage(path: &Path) -> Option<(MessageUsage, Option<String>)> {
+    let raw = fs::read_to_string(path).ok()?;
+    let mut result = None;
+    let mut seen_meta = false;
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if !seen_meta {
+            seen_meta = true; // first non-empty line is the `_meta` header
+            continue;
+        }
+        if let Ok(ml) = serde_json::from_str::<MessageLine>(line) {
+            if ml.role == "assistant" {
+                if let Some(usage) = ml.usage {
+                    result = Some((usage, ml.model));
+                }
+            }
+        }
+    }
+    result
+}
+
+/// Summed token/cost usage for `thread_id` across its root transcripts, or
+/// `None` when the thread has no persisted turns yet.
+pub fn read_thread_usage_summary(
+    workspace_dir: &Path,
+    thread_id: &str,
+) -> Option<ThreadUsageSummary> {
+    let thread_id = thread_id.trim();
+    if thread_id.is_empty() {
+        return None;
+    }
+
+    let raw_dir = raw_session_dir(workspace_dir);
+    let entries = fs::read_dir(&raw_dir).ok()?;
+    let mut matches: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.extension().and_then(|s| s.to_str()) == Some("jsonl")
+                && path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|stem| !stem.contains("__"))
+        })
+        .filter(|path| {
+            read_transcript_meta_only(path)
+                .map(|m| m.thread_id.as_deref() == Some(thread_id))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    if matches.is_empty() {
+        return None;
+    }
+    matches.sort();
+
+    let mut summary = ThreadUsageSummary::default();
+    for path in &matches {
+        if let Some(meta) = read_transcript_meta_only(path) {
+            summary.input_tokens = summary.input_tokens.saturating_add(meta.input_tokens);
+            summary.output_tokens = summary.output_tokens.saturating_add(meta.output_tokens);
+            summary.cached_input_tokens = summary
+                .cached_input_tokens
+                .saturating_add(meta.cached_input_tokens);
+            summary.cost_usd += meta.charged_amount_usd;
+            summary.turn_count = summary.turn_count.saturating_add(meta.turn_count);
+        }
+    }
+
+    // Newest transcript drives the last-turn gauge + model + updated stamp.
+    if let Some(newest) = matches.last() {
+        if let Some(meta) = read_transcript_meta_only(newest) {
+            summary.updated = meta.updated;
+        }
+        if let Some((usage, model)) = read_last_assistant_usage(newest) {
+            summary.last_turn_input_tokens = usage.input;
+            summary.last_turn_output_tokens = usage.output;
+            summary.model = model;
+        }
+    }
+
+    Some(summary)
+}
+
 // ── Path resolution ──────────────────────────────────────────────────
 
 /// Resolve a transcript path under `session_raw/{stem}.jsonl` — a

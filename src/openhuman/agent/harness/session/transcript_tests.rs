@@ -738,3 +738,80 @@ fn find_root_transcript_for_thread_excludes_subagent_files() {
         found.display()
     );
 }
+
+#[test]
+fn read_thread_usage_summary_totals_last_turn_and_model() {
+    let ws = TempDir::new().unwrap();
+    let raw = raw_session_dir(ws.path());
+    std::fs::create_dir_all(&raw).unwrap();
+
+    let mut meta = sample_meta();
+    meta.thread_id = Some("thr-xyz".into());
+    meta.input_tokens = 5000;
+    meta.output_tokens = 1200;
+    meta.cached_input_tokens = 800;
+    meta.charged_amount_usd = 0.0045;
+    meta.turn_count = 3;
+
+    let tu = TurnUsage {
+        model: "reasoning-v1".into(),
+        usage: MessageUsage {
+            input: 400,
+            output: 120,
+            cached_input: 50,
+            cost_usd: 0.0009,
+        },
+        ts: "2026-04-11T14:35:22Z".into(),
+    };
+    let path = raw.join("1700000000_main.jsonl");
+    write_transcript(&path, &sample_messages(), &meta, Some(&tu)).unwrap();
+
+    let summary = read_thread_usage_summary(ws.path(), "thr-xyz").expect("summary present");
+    assert_eq!(summary.input_tokens, 5000);
+    assert_eq!(summary.output_tokens, 1200);
+    assert_eq!(summary.cached_input_tokens, 800);
+    assert!((summary.cost_usd - 0.0045).abs() < 1e-9);
+    assert_eq!(summary.turn_count, 3);
+    assert_eq!(summary.last_turn_input_tokens, 400);
+    assert_eq!(summary.last_turn_output_tokens, 120);
+    assert_eq!(summary.model.as_deref(), Some("reasoning-v1"));
+}
+
+#[test]
+fn read_thread_usage_summary_sums_multiple_transcripts() {
+    let ws = TempDir::new().unwrap();
+    let raw = raw_session_dir(ws.path());
+    std::fs::create_dir_all(&raw).unwrap();
+
+    let mut mk = |stem: &str, input: u64, cost: f64| {
+        let mut meta = sample_meta();
+        meta.thread_id = Some("thr-multi".into());
+        meta.input_tokens = input;
+        meta.output_tokens = 0;
+        meta.cached_input_tokens = 0;
+        meta.charged_amount_usd = cost;
+        meta.turn_count = 1;
+        write_transcript(
+            &raw.join(format!("{stem}.jsonl")),
+            &sample_messages(),
+            &meta,
+            None,
+        )
+        .unwrap();
+    };
+    mk("1700000000_main", 100, 0.01);
+    mk("1700000100_main", 250, 0.02);
+
+    let s = read_thread_usage_summary(ws.path(), "thr-multi").expect("summary present");
+    assert_eq!(s.input_tokens, 350);
+    assert!((s.cost_usd - 0.03).abs() < 1e-9);
+    assert_eq!(s.turn_count, 2);
+}
+
+#[test]
+fn read_thread_usage_summary_none_for_unknown_thread() {
+    let ws = TempDir::new().unwrap();
+    assert!(read_thread_usage_summary(ws.path(), "no-such-thread").is_none());
+    // Empty thread id is rejected too.
+    assert!(read_thread_usage_summary(ws.path(), "   ").is_none());
+}

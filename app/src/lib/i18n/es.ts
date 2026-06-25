@@ -5857,6 +5857,8 @@ const messages: TranslationMap = {
   'memory.tab.cohesion': 'Cohesion',
 
   'harnessInit.title': 'Preparando todo',
+
+  'announcement.gotIt': 'Entendido',
   'harnessInit.subtitle':
     'OpenHuman está preparando los componentes que necesita en el primer inicio.',
   'harnessInit.stepPython': 'Entorno de ejecución de Python',

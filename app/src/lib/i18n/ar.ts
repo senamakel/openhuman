@@ -5630,6 +5630,8 @@ const messages: TranslationMap = {
   'memory.tab.cohesion': 'Cohesion',
 
   'harnessInit.title': 'جارٍ الإعداد',
+
+  'announcement.gotIt': 'حسناً',
   'harnessInit.subtitle': 'يقوم OpenHuman بتجهيز المكونات التي يحتاجها عند التشغيل الأول.',
   'harnessInit.stepPython': 'بيئة تشغيل Python',
   'harnessInit.stepSpacy': 'النموذج اللغوي',

@@ -15,6 +15,7 @@ import AppBackground from './components/AppBackground';
 import AppUpdatePrompt from './components/AppUpdatePrompt';
 import BootCheckGate from './components/BootCheckGate/BootCheckGate';
 import CommandProvider from './components/commands/CommandProvider';
+import AnnouncementGate from './components/Announcement/AnnouncementGate';
 import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
@@ -156,6 +157,7 @@ function App() {
                             {!onMobile && <AppUpdatePrompt />}
                             <KeyringConsentOverlay />
                             <HarnessInitOverlay />
+                            <AnnouncementGate />
                             <SecretPromptDialog />
                           </ServiceBlockingGate>
                         </CommandProvider>

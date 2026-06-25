@@ -5747,6 +5747,7 @@ const messages: TranslationMap = {
 
   // Keyring consent & security
   'harnessInit.title': 'সেটআপ করা হচ্ছে',
+  'announcement.gotIt': 'বুঝেছি',
   'harnessInit.subtitle': 'প্রথম চালুর সময় OpenHuman প্রয়োজনীয় উপাদানগুলো প্রস্তুত করছে।',
   'harnessInit.stepPython': 'Python রানটাইম',
   'harnessInit.stepSpacy': 'ভাষা মডেল',

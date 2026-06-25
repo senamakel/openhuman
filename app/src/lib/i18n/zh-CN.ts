@@ -5458,6 +5458,8 @@ const messages: TranslationMap = {
   'memory.tab.cohesion': 'Cohesion',
 
   'harnessInit.title': '正在进行设置',
+
+  'announcement.gotIt': '知道了',
   'harnessInit.subtitle': 'OpenHuman 正在准备首次启动所需的组件。',
   'harnessInit.stepPython': 'Python 运行时',
   'harnessInit.stepSpacy': '语言模型',

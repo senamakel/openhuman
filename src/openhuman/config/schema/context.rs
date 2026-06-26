@@ -124,10 +124,9 @@ pub struct ContextConfig {
     /// sub-agent, the same one behind the `agent_prepare_context` tool)
     /// on the **first turn** of a new thread, *before* the orchestrator
     /// LLM runs, and folds the resulting `[context_bundle]` into the user
-    /// message. Unlike the `agent_prepare_context` tool — which the LLM
-    /// chooses to call — this pass is driven by the harness regardless of
-    /// the model's decision. The `agent_prepare_context` tool stays
-    /// exposed so the LLM can still scout again mid-turn.
+    /// message. This pass is driven by the harness regardless of the
+    /// model's decision, so the orchestrator does not expose the
+    /// `agent_prepare_context` tool for the same first-turn work.
     ///
     /// Read once at session/thread construction, so toggling it only
     /// affects threads started afterwards (the value is baked into the

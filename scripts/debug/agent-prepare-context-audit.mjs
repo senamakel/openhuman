@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Live audit for the `agent_prepare_context` tool + `context_scout` subagent.
+// Live audit for harness-driven prepared context + the `context_scout` subagent.
 //
-// Drives real agent turns through JSON-RPC against an authenticated core, forces
-// the orchestrator to call `agent_prepare_context`, then reads the resulting
-// session transcripts to surface — per query — the returned [context_bundle]
+// Drives real first-turn orchestrator sessions through JSON-RPC against an
+// authenticated core, then reads the resulting session transcripts to surface —
+// per query — the harness-collected [context_bundle]
 // (including the new `recommended_skills` block), the scout's step-by-step turns
 // ("thoughts"), which curated gathering tools it exercised, and tokens/cost.
 //
@@ -60,7 +60,7 @@ const DEFAULT_CASES = [
 function usage() {
   return `Usage: node scripts/debug/agent-prepare-context-audit.mjs [options]
 
-Audits the agent_prepare_context tool live: forces it per query, then prints the
+Audits harness-driven prepared context live: starts a fresh thread per query, then prints the
 returned context bundle, the scout's turns, and tokens/cache/cost.
 
 Options:
@@ -510,10 +510,9 @@ async function seedTranscript(opts) {
 
 // ── Prompt shaping ──────────────────────────────────────────────────────────
 
-function forcedPrompt(query) {
-  return `Call the \`agent_prepare_context\` tool now, passing \`question\` set to the user request below. \
-Do not answer the request yourself first — scout context first. After the tool returns, reply with the \
-returned context bundle verbatim, then one short line on how you'd proceed.
+function auditPrompt(query) {
+  return `Answer the user request below. If the harness provided a prepared-context bundle, use it first. \
+Reply with the prepared context bundle verbatim if it is visible, then one short line on how you'd proceed.
 
 User request: ${query}`;
 }
@@ -666,7 +665,7 @@ function printCase(opts, caseInfo, scout, root, ms) {
       "  ⚠ no context_scout transcript found — tool was not invoked.",
     );
     console.log(
-      "    (Is the core built from this branch? Is agent_prepare_context allowlisted?)",
+      "    (Is the core built from this branch? Is super context enabled?)",
     );
     return;
   }
@@ -825,7 +824,7 @@ async function main() {
     }
   }
 
-  console.log("[apc-audit] starting live agent_prepare_context audit");
+  console.log("[apc-audit] starting live prepared-context audit");
   console.log(`  rpc:        ${opts.coreUrl}`);
   console.log(`  workspace:  ${opts.workspace}`);
   console.log(
@@ -843,7 +842,7 @@ async function main() {
       const threadId = `${opts.threadPrefix}-${i}`;
       const before = await snapshot(opts.workspace);
       const params = {
-        message: opts.raw ? c.query : forcedPrompt(c.query),
+        message: opts.raw ? c.query : auditPrompt(c.query),
         thread_id: threadId,
       };
       if (opts.model) params.model_override = opts.model;
@@ -982,7 +981,7 @@ async function main() {
   const everInvoked = agg.invoked > 0;
   if (!everInvoked) {
     console.error(
-      "\n[apc-audit] FAIL: agent_prepare_context was never invoked (no context_scout transcript).",
+      "\n[apc-audit] FAIL: prepared context was never invoked (no context_scout transcript).",
     );
     process.exit(1);
   }

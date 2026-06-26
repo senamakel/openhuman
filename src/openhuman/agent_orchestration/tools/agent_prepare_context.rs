@@ -1,12 +1,12 @@
 //! Tool: `agent_prepare_context` — "plan mode as a subagent".
 //!
-//! Before answering or delegating a non-trivial request, the parent agent
-//! (orchestrator / planner) calls `agent_prepare_context`. This runs the
-//! read-only `context_scout` sub-agent inline (blocking), which gathers
-//! context from memory, the user's goals/profile, connected integrations, and
-//! the web, then returns a tight `[context_bundle]` envelope: whether there's
-//! enough context to act, a compact context summary, and an ordered set of
-//! recommended next tool calls drawn from the *parent's own* tool catalogue.
+//! When a parent agent explicitly needs an ad hoc context pass, it can call
+//! `agent_prepare_context`. This runs the read-only `context_scout` sub-agent
+//! inline (blocking), which gathers context from memory, the user's
+//! goals/profile, connected integrations, and the web, then returns a tight
+//! `[context_bundle]` envelope: whether there's enough context to act, a
+//! compact context summary, and an ordered set of recommended next tool calls
+//! drawn from the *parent's own* tool catalogue.
 //!
 //! The scout's output is bounded by `context_scout`'s `max_result_chars`
 //! (≈1000 tokens) so the parent's context only grows by a bounded amount.
@@ -528,10 +528,11 @@ impl Tool for AgentPrepareContextTool {
          (transcripts), your goals/profile, installed/registry skills, connected \
          integrations, and the web, then returns whether there's enough context \
          to answer, a compact context summary, an ordered list of recommended \
-         next tool calls (your own tools, by exact name, with args), and any \
-         skills worth running. Use at the start of non-trivial turns unless the \
-         current prompt says agent context has already been prepared; in that \
-         case, use the prepared context and do not call this tool again."
+         next tool calls (parent tools, by exact name, with args), and any \
+         skills worth running. Use only when a caller explicitly needs an \
+         ad hoc scout pass. If the current prompt says agent context has \
+         already been prepared, use the prepared context and do not call this \
+         tool again."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -554,10 +555,9 @@ impl Tool for AgentPrepareContextTool {
     fn permission_level(&self) -> PermissionLevel {
         // ReadOnly, not Execute: this tool only ever runs the read-only
         // `context_scout` (read_only sandbox, no write/exec tools). Marking it
-        // Execute would make `ToolPolicyEngine` strip it from the provider-
-        // visible set on a `ReadOnly`-capped channel, which would hide the
-        // orchestrator's mandatory first-turn context-prep call and either
-        // skip the pass or surface an unavailable-tool error.
+        // Execute would make `ToolPolicyEngine` strip it from any
+        // provider-visible set on a `ReadOnly`-capped channel, which would hide
+        // the scout from callers that still expose it explicitly.
         PermissionLevel::ReadOnly
     }
 

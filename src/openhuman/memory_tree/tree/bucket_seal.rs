@@ -51,7 +51,7 @@ use crate::openhuman::memory_store::content::{
     SummaryComposeInput,
 };
 use crate::openhuman::memory_store::trees::types::{
-    Buffer, SummaryNode, Tree, TreeKind, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET, SUMMARY_FANOUT,
+    Buffer, SummaryNode, Tree, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET, SUMMARY_FANOUT,
 };
 use crate::openhuman::memory_tree::score::embed::build_write_embedder;
 use crate::openhuman::memory_tree::score::extract::EntityExtractor;
@@ -738,7 +738,6 @@ pub(crate) async fn seal_one_level(
     let summary_id_for_closure = summary_id.clone();
     let target_level_for_closure = target_level;
     let tree_id = tree.id.clone();
-    let tree_kind = tree.kind;
     with_connection(config, move |conn| {
         let tx = conn.unchecked_transaction()?;
 

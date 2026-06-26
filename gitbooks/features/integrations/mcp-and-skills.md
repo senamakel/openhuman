@@ -25,7 +25,7 @@ Once connected, an MCP server's tools are available to the agent exactly like na
 
 ### OpenHuman as an MCP server
 
-OpenHuman can run the other way around, too. `openhuman-core mcp` exposes OpenHuman over stdio as an MCP server, offering read-only tools — memory search / recall, Memory Tree browsing, and optional web search — to clients like Claude Desktop. See [MCP Server](../developing/mcp-server.md) for setup.
+OpenHuman can run the other way around, too. `openhuman-core mcp` exposes OpenHuman over stdio as an MCP server, offering read-only tools — memory search / recall, Memory Tree browsing, and optional web search — to clients like Claude Desktop. See [MCP Server](../../developing/mcp-server.md) for setup.
 
 ***
 
@@ -42,5 +42,5 @@ OpenHuman can run the other way around, too. `openhuman-core mcp` exposes OpenHu
 ## See also
 
 * [Third-party Integrations](README.md) — the curated 100+ OAuth connectors.
-* [MCP Server](../developing/mcp-server.md) — running OpenHuman as an MCP server.
+* [MCP Server](../../developing/mcp-server.md) — running OpenHuman as an MCP server.
 * [Available Tools](../native-tools/README.md) — the native tools that ship by default.

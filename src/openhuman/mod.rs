@@ -81,6 +81,7 @@ pub mod memory_store;
 pub mod memory_sync;
 pub mod memory_tools;
 pub mod memory_tree;
+pub mod media_generation;
 pub mod migration;
 pub mod migrations;
 pub mod model_council;

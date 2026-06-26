@@ -630,12 +630,26 @@ impl Agent {
                         "[agent_loop] super_context scout returned an error — proceeding without bundle: {}",
                         result.output()
                     );
+                    // The harness still *ran* a context-preparation pass this
+                    // turn; it just produced no usable bundle. Record the marker
+                    // anyway so the dedup task-local + status note hold — without
+                    // it a later `agent_prepare_context` call (any path that
+                    // still exposes the tool) would redundantly re-run the same
+                    // scout. See `with_agent_context_prepared_sources` below.
+                    agent_context_prepared_sources.push(harness::AgentContextPreparedSource {
+                        source: "super context preparation (no bundle)".to_string(),
+                        has_enough_context: None,
+                    });
                     enriched
                 }
                 Err(err) => {
                     log::warn!(
                         "[agent_loop] super_context collection failed — proceeding without bundle: {err}"
                     );
+                    agent_context_prepared_sources.push(harness::AgentContextPreparedSource {
+                        source: "super context preparation (no bundle)".to_string(),
+                        has_enough_context: None,
+                    });
                     enriched
                 }
             }

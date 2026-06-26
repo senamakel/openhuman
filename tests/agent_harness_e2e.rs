@@ -833,6 +833,81 @@ fn super_context_happy_path() {
     run_on_agent_stack("super_context_happy_path", super_context_happy_path_inner);
 }
 
+/// Regression for the "scout runs, bundle missing" failure: the fast chat-tier
+/// `context_scout` wraps its `[context_bundle]` envelope in a preamble and a
+/// closing line. The harness must extract just the envelope and inject it (not
+/// drop the whole thing, and not leak the surrounding prose into the
+/// orchestrator's context).
+#[test]
+fn super_context_extracts_prose_wrapped_bundle() {
+    run_on_agent_stack(
+        "super_context_extracts_prose_wrapped_bundle",
+        super_context_extracts_prose_wrapped_bundle_inner,
+    );
+}
+
+async fn super_context_extracts_prose_wrapped_bundle_inner() {
+    let _lock = env_lock();
+    // The envelope is wrapped in prose on BOTH sides — exactly what the strict
+    // whole-output validator used to reject.
+    let prose_wrapped = "Sure! Here's what I found for you:\n\n\
+         [context_bundle]\n\
+         has_enough_context: true\n\
+         summary: CTX_CANARY_9 — the user wants the marker phrase (memory).\n\
+         recommended_tool_calls:\n\
+         [/context_bundle]\n\n\
+         Hope that helps — let me know if you want me to dig deeper!";
+    reset_script(vec![
+        // request[0]: harness-driven context_scout returns a prose-wrapped bundle.
+        text_completion(prose_wrapped),
+        // request[1]: orchestrator reads the *extracted* bundle and synthesizes.
+        text_completion("Prepared. CTX_CANARY_9 noted."),
+    ]);
+    let stack = boot_stack_with_super_context(true).await;
+
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-prepctx-prose",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        400,
+        "harness-prepctx-prose",
+        "thread-prepctx-prose",
+        "prepare context for the marker",
+    )
+    .await;
+
+    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "expected chat_done for prose-wrapped super_context: {done}"
+    );
+
+    let requests = with_captured(|c| c.clone());
+    let last_messages = serde_json::to_string(
+        requests
+            .last()
+            .and_then(|r| r.pointer("/body/messages"))
+            .unwrap_or(&Value::Null),
+    )
+    .unwrap_or_default();
+    // The extracted envelope (with its canary) must reach the orchestrator …
+    assert!(
+        last_messages.contains("[context_bundle]") && last_messages.contains("CTX_CANARY_9"),
+        "extracted bundle missing from synthesis request; messages: {last_messages}"
+    );
+    // … but the wrapping prose must NOT — we inject only the envelope.
+    assert!(
+        !last_messages.contains("Here's what I found")
+            && !last_messages.contains("Hope that helps"),
+        "scout's wrapping prose leaked into the orchestrator context; messages: {last_messages}"
+    );
+
+    stack.shutdown();
+}
+
 async fn super_context_happy_path_inner() {
     let _lock = env_lock();
     let scout_bundle = "[context_bundle]\n\

@@ -830,10 +830,7 @@ async fn subagent_delegation_happy_path_inner() {
 /// exposing `agent_prepare_context` to the orchestrator.
 #[test]
 fn super_context_happy_path() {
-    run_on_agent_stack(
-        "super_context_happy_path",
-        super_context_happy_path_inner,
-    );
+    run_on_agent_stack("super_context_happy_path", super_context_happy_path_inner);
 }
 
 async fn super_context_happy_path_inner() {

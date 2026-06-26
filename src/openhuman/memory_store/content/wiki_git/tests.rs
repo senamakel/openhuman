@@ -78,6 +78,87 @@ fn commit_summary_prunes_existing_non_summary_tracked_entries() {
 }
 
 #[test]
+fn commit_summary_opens_only_the_nested_wiki_repo() {
+    let dir = TempDir::new().unwrap();
+    let wiki = dir.path().join("wiki");
+    let summary = wiki.join("summaries/source/L1/summary-1.md");
+    std::fs::create_dir_all(summary.parent().unwrap()).unwrap();
+    std::fs::write(&summary, "summary").unwrap();
+
+    let parent_repo = Repository::init(dir.path()).unwrap();
+
+    commit_summaries(
+        dir.path(),
+        &batch(
+            "queued_seal",
+            vec![entry("summary-1", "wiki/summaries/source/L1/summary-1.md")],
+        ),
+    )
+    .unwrap();
+
+    let repo = Repository::open(&wiki).unwrap();
+    let tree = repo
+        .head()
+        .unwrap()
+        .peel_to_commit()
+        .unwrap()
+        .tree()
+        .unwrap();
+    assert!(tree
+        .get_path(Path::new("summaries/source/L1/summary-1.md"))
+        .is_ok());
+    assert!(
+        parent_repo.head().is_err(),
+        "summary history should not mutate the parent repo"
+    );
+}
+
+#[test]
+fn commit_summary_drops_deleted_summary_entries_from_the_index() {
+    let dir = TempDir::new().unwrap();
+    let wiki = dir.path().join("wiki");
+    let old_summary = wiki.join("summaries/source/L1/old.md");
+    let new_summary = wiki.join("summaries/source/L1/new.md");
+    std::fs::create_dir_all(old_summary.parent().unwrap()).unwrap();
+    std::fs::write(&old_summary, "old summary").unwrap();
+
+    commit_summaries(
+        dir.path(),
+        &batch(
+            "queued_seal",
+            vec![entry("old", "wiki/summaries/source/L1/old.md")],
+        ),
+    )
+    .unwrap();
+
+    std::fs::remove_file(&old_summary).unwrap();
+    std::fs::write(&new_summary, "new summary").unwrap();
+    commit_summaries(
+        dir.path(),
+        &batch(
+            "queued_seal",
+            vec![entry("new", "wiki/summaries/source/L1/new.md")],
+        ),
+    )
+    .unwrap();
+
+    let repo = Repository::open(&wiki).unwrap();
+    let tree = repo
+        .head()
+        .unwrap()
+        .peel_to_commit()
+        .unwrap()
+        .tree()
+        .unwrap();
+    assert!(tree
+        .get_path(Path::new("summaries/source/L1/new.md"))
+        .is_ok());
+    assert!(tree
+        .get_path(Path::new("summaries/source/L1/old.md"))
+        .is_err());
+}
+
+#[test]
 fn commit_summary_rejects_non_summary_paths() {
     let dir = TempDir::new().unwrap();
     let err = commit_summaries(

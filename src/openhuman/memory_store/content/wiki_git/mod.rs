@@ -10,7 +10,7 @@ use std::sync::Mutex;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use git2::{ErrorCode, Oid, Repository, Signature};
+use git2::{ErrorCode, Oid, Repository, RepositoryOpenFlags, Signature};
 
 use super::paths::WIKI_PREFIX;
 
@@ -56,9 +56,10 @@ pub fn commit_summaries(content_root: &Path, batch: &SummaryCommitBatch) -> Resu
     let _guard = WIKI_GIT_LOCK.lock().expect("memory wiki git lock poisoned");
 
     let repo = open_prepared_repo(content_root)?;
+    let wiki_root = content_root.join(WIKI_PREFIX);
 
     let mut index = repo.index().context("open wiki git index")?;
-    prune_non_summary_entries(&mut index)?;
+    prune_stale_or_non_summary_entries(&mut index, repo.workdir().unwrap_or(&wiki_root))?;
     index
         .add_path(Path::new(".gitignore"))
         .context("stage wiki .gitignore")?;
@@ -118,7 +119,7 @@ pub fn set_read_pointer_tag(
 pub fn get_read_pointer_tag(content_root: &Path, pointer_id: &str) -> Result<Option<String>> {
     let _guard = WIKI_GIT_LOCK.lock().expect("memory wiki git lock poisoned");
     let wiki_root = content_root.join(WIKI_PREFIX);
-    let repo = match Repository::open(&wiki_root) {
+    let repo = match open_existing_repo(&wiki_root) {
         Ok(repo) => repo,
         Err(err) if err.code() == ErrorCode::NotFound => return Ok(None),
         Err(err) => return Err(err).context("open wiki git repo for read pointer"),
@@ -143,7 +144,7 @@ fn open_prepared_repo(content_root: &Path) -> Result<Repository> {
 }
 
 fn open_or_init_repo(wiki_root: &Path) -> Result<Repository> {
-    match Repository::open(wiki_root) {
+    match open_existing_repo(wiki_root) {
         Ok(repo) => Ok(repo),
         Err(err) if err.code() == ErrorCode::NotFound => {
             log::debug!(
@@ -157,6 +158,14 @@ fn open_or_init_repo(wiki_root: &Path) -> Result<Repository> {
             Err(err).with_context(|| format!("open wiki git repo: {}", wiki_root.display()))
         }
     }
+}
+
+fn open_existing_repo(wiki_root: &Path) -> Result<Repository, git2::Error> {
+    Repository::open_ext(
+        wiki_root,
+        RepositoryOpenFlags::NO_SEARCH,
+        &[] as &[&std::ffi::OsStr],
+    )
 }
 
 fn ensure_gitignore(wiki_root: &Path) -> Result<()> {
@@ -175,12 +184,12 @@ fn ensure_gitignore(wiki_root: &Path) -> Result<()> {
     }
 }
 
-fn prune_non_summary_entries(index: &mut git2::Index) -> Result<()> {
+fn prune_stale_or_non_summary_entries(index: &mut git2::Index, wiki_root: &Path) -> Result<()> {
     let to_remove: Vec<PathBuf> = index
         .iter()
         .filter_map(|entry| {
             let path = std::str::from_utf8(&entry.path).ok()?;
-            if is_tracked_wiki_path(path) {
+            if should_keep_index_entry(wiki_root, path) {
                 None
             } else {
                 Some(PathBuf::from(path))
@@ -194,6 +203,13 @@ fn prune_non_summary_entries(index: &mut git2::Index) -> Result<()> {
             .with_context(|| format!("remove non-summary wiki git entry: {}", path.display()))?;
     }
     Ok(())
+}
+
+fn should_keep_index_entry(wiki_root: &Path, path: &str) -> bool {
+    if !is_tracked_wiki_path(path) {
+        return false;
+    }
+    path == ".gitignore" || wiki_root.join(path).exists()
 }
 
 fn is_tracked_wiki_path(path: &str) -> bool {

@@ -19,7 +19,7 @@ It began as a port of [vincentkoc/tokenjuice](https://github.com/vincentkoc/toke
 
 Every blob that flows through `compact_tool_output(...)` takes the same path (`src/openhuman/tokenjuice/compress.rs`):
 
-```
+```text
 raw tool result
         │
         ▼
@@ -104,7 +104,7 @@ So the agent gets the cheap compacted view by default, and can transparently "zo
 
 Every compression is metered (`src/openhuman/tokenjuice/savings.rs`). TokenJuice tracks events, original vs. compacted tokens, tokens saved, and **estimated cost saved in USD** (using per-model input pricing) — aggregated `total`, `by_model`, and `by_compressor`. Stats persist to `<workspace>/state/tokenjuice_savings.json` and survive restarts.
 
-Read them over RPC with `tokenjuice.savings_stats`; clear them with `tokenjuice.savings_reset`.
+Read them over RPC with `openhuman.tokenjuice_savings_stats`; clear them with `openhuman.tokenjuice_savings_reset`.
 
 ***
 
@@ -130,7 +130,7 @@ Everything lives under the `[tokenjuice]` config block (`src/openhuman/config/sc
 * **Thresholds:** `min_bytes_to_compress`, `ccr_min_tokens`.
 * **CCR:** `ccr_enabled`, `ccr_disk_enabled`, `max_cache_entries`, `max_cache_bytes`, `ccr_ttl_secs`.
 * **Per-kind:** `search_enabled`, `code_enabled`, `html_enabled`, plus the `ml_*` keys.
-* **RPC** (`tokenjuice.*`): `detect`, `compress` (dry-run the pipeline), `settings_get` / `settings_update` (live partial patch), `cache_stats`, `retrieve`, `savings_stats`, `savings_reset`.
+* **RPC** (`openhuman.tokenjuice_*`): `detect`, `compress` (dry-run the pipeline), `settings_get` / `settings_update` (live partial patch), `cache_stats`, `retrieve`, `savings_stats`, `savings_reset`.
 * **Agent tool:** `tokenjuice_retrieve` (read-only) recovers offloaded originals.
 * **Debugging:** start the core with `RUST_LOG=openhuman_core::openhuman::tokenjuice=debug` to watch detection, matching, and how much each blob is trimmed.
 

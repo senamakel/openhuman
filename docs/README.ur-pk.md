@@ -1,7 +1,7 @@
 <div dir="rtl" lang="ur">
 
 <p align="center">
-  🇺🇸 <a href="./README.md">انگریزی</a> | 🇨🇳 <a href="./README.zh-CN.md">چینی (آسان)</a> | 🇯🇵 <a href="./README.ja-JP.md">جاپانی</a> | 🇰🇷 <a href="./README.ko.md">کورین</a> | 🇩🇪 <a href="./README.de.md">جرمن</a> | 🇵🇰 <a href="./README.ur-pk.md">اردو</a>
+  🇺🇸 <a href="../README.md">انگریزی</a> | 🇨🇳 <a href="./README.zh-CN.md">چینی (آسان)</a> | 🇯🇵 <a href="./README.ja-JP.md">جاپانی</a> | 🇰🇷 <a href="./README.ko.md">کورین</a> | 🇩🇪 <a href="./README.de.md">جرمن</a> | 🇵🇰 <a href="./README.ur-pk.md">اردو</a>
 </p>
 
 </div>
@@ -11,7 +11,7 @@
 <h1 align="center">OpenHuman</h1>
 
 <p align="center">
- <img src="./gitbooks/.gitbook/assets/demo.png" alt="The Tet" />
+ <img src="../gitbooks/.gitbook/assets/demo.png" alt="The Tet" />
 </p>
 
 <p align="center" style="display: inline-block">
@@ -48,8 +48,8 @@
  <img src="https://img.shields.io/badge/status-early%20beta-orange" alt="ابتدائی آزمائشی نسخہ" />
  <a href="https://github.com/tinyhumansai/openhuman/releases/latest"><img src="https://img.shields.io/github/v/release/tinyhumansai/openhuman?label=latest" alt="تازہ ترین نسخہ" /></a>
  <a href="https://github.com/tinyhumansai/openhuman/stargazers"><img src="https://img.shields.io/github/stars/tinyhumansai/openhuman?style=flat" alt="ستارے" /></a>
- <a href="./LICENSE"><img src="https://img.shields.io/github/license/tinyhumansai/openhuman" alt="لائسنس" /></a>
- <a href="./README.md"><img src="https://img.shields.io/badge/lang-English-blue" alt="English" /></a>
+ <a href="../LICENSE"><img src="https://img.shields.io/github/license/tinyhumansai/openhuman" alt="لائسنس" /></a>
+ <a href="../README.md"><img src="https://img.shields.io/badge/lang-English-blue" alt="English" /></a>
  <a href="./README.ja-JP.md"><img src="https://img.shields.io/badge/lang-日本語-blue" alt="日本語" /></a>
  <a href="./README.ko.md"><img src="https://img.shields.io/badge/lang-한국어-blue" alt="한국어" /></a>
  <a href="./README.de.md"><img src="https://img.shields.io/badge/lang-Deutsch-blue" alt="Deutsch" /></a>
@@ -108,7 +108,7 @@ sudo apt-get install -y openhuman
 
 <div dir="rtl" lang="ur">
 
-**لینکس (آرچ — اے یو آر):** ریپو میں [`openhuman-bin` AUR recipe](./packages/arch/openhuman-bin/) موجود ہے۔ شائع ہونے کے بعد، آرچ صارفین `yay -S openhuman-bin` سے انسٹال کر سکتے ہیں۔
+**لینکس (آرچ — اے یو آر):** ریپو میں [`openhuman-bin` AUR recipe](../packages/arch/openhuman-bin/) موجود ہے۔ شائع ہونے کے بعد، آرچ صارفین `yay -S openhuman-bin` سے انسٹال کر سکتے ہیں۔
 
 **ونڈوز:** [تازہ ترین ریلیز](https://github.com/tinyhumansai/openhuman/releases/latest) سے سائنڈ `.msi` ڈاؤن لوڈ کریں اور چلائیں۔
 
@@ -160,13 +160,13 @@ OpenHuman ایک اوپن سورس ایجنٹک اسسٹنٹ ہے جو آپ کی
 
 ## سورس سے تعاون
 
-نیا تعاون کنندہ؟ fork/PR ورک فلو اور مقامی تصدیقی کمانڈز کے لیے [`CONTRIBUTING.md`](./CONTRIBUTING.md) سے شروع کریں۔ مختصر راستہ:
+نیا تعاون کنندہ؟ fork/PR ورک فلو اور مقامی تصدیقی کمانڈز کے لیے [`CONTRIBUTING.md`](../CONTRIBUTING.md) سے شروع کریں۔ مختصر راستہ:
 
 1. Git، Node.js 24+، pnpm 10.10.0، Rust 1.93.0 (`rustfmt` + `clippy`)، CMake، Ninja، ripgrep، اور پلیٹ فارم ڈیسک ٹاپ بلڈ کی ضروریات انسٹال کریں۔
 2. ریپو کو fork اور کلون کریں، پھر `pnpm install` سے پہلے `git submodule update --init --recursive` چلائیں تاکہ وینڈرڈ Tauri/CEF سورس موجود ہوں۔
 3. ویب صرف UI کام کے لیے `pnpm dev`، ڈیسک ٹاپ شیل کے لیے `pnpm --filter openhuman-app dev:app`، اور PR کھولنے سے پہلے فوکسڈ چیکس جیسے `pnpm typecheck`، `pnpm format:check`، اور `cargo check -p openhuman --lib` استعمال کریں۔
 
-مزید دستاویزات: [آرکیٹیکچر](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [سیٹ اپ](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [کلاؤڈ ڈیپلائے](./gitbooks/features/cloud-deploy.md)۔
+مزید دستاویزات: [آرکیٹیکچر](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [سیٹ اپ](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [کلاؤڈ ڈیپلائے](../gitbooks/features/cloud-deploy.md)۔
 
 ## منٹوں میں سیاق و سباق، ہفتوں میں نہیں
 
@@ -177,7 +177,7 @@ OpenHuman پہلا ایجنٹ ہارنس ہے جو منٹوں میں آپ کو �
 <div dir="ltr">
 
 <p align="center">
- <img src="./gitbooks/.gitbook/assets/image (1).png" alt="OpenHuman سیاق و سباق بنانے کا خاکہ" />
+ <img src="../gitbooks/.gitbook/assets/image (1).png" alt="OpenHuman سیاق و سباق بنانے کا خاکہ" />
 </p>
 
 </div>
